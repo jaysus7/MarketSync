@@ -3,11 +3,21 @@ const API = 'https://vehicle-marketplace-s0e4.onrender.com'
 // ── Helpers ──────────────────────────────────────
 const $ = id => document.getElementById(id)
 
-async function apiGet(path, token) {
-  const r = await fetch(`${API}${path}`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  return r.json()
+async function apiGet(path, token, timeout = 60000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeout)
+  try {
+    const r = await fetch(`${API}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal
+    })
+    clearTimeout(timer)
+    return r.json()
+  } catch (e) {
+    clearTimeout(timer)
+    if (e.name === 'AbortError') throw new Error('Server waking up — please click Refresh in a moment')
+    throw e
+  }
 }
 
 async function apiPost(path, body, token) {
@@ -106,11 +116,12 @@ async function loadInventory(token) {
   $('vehicle-list').innerHTML = '<div class="loading">Loading inventory...</div>'
 
   try {
-    const [inventory, listings] = await Promise.all([
+    const [inventory, listingsRes] = await Promise.all([
       apiGet('/inventory', token),
       apiGet('/listings', token)
     ])
 
+    const listings = Array.isArray(listingsRes) ? listingsRes : []
     const postedVinSet = new Set(listings.map(l => l.inventory?.vin).filter(Boolean))
 
     $('stat-total').textContent = inventory.length
@@ -158,7 +169,7 @@ async function loadInventory(token) {
     })
 
   } catch (e) {
-    $('vehicle-list').innerHTML = '<div class="loading">Error loading inventory.</div>'
+    $('vehicle-list').innerHTML = `<div class="loading">⚠️ ${e.message || 'Error loading inventory.'}<br><br>Click Refresh to try again.</div>`
   }
 }
 

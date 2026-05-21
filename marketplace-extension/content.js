@@ -1,276 +1,201 @@
 // content.js
-// Runs on facebook.com — fills out the Marketplace vehicle listing form
-
-const DELAY = 400 // ms between actions — simulates human speed
-
-// ── Utilities ─────────────────────────────────────
-
+const DELAY = 600
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
-// Find an element by aria-label (most stable FB selector)
-function byLabel(label) {
-  return document.querySelector(`[aria-label="${label}"]`)
-}
-
-// Find an element by placeholder text
-function byPlaceholder(text) {
-  return document.querySelector(`[placeholder="${text}"]`)
-}
-
-// Find a span/div containing exact text
-function byText(text) {
-  return [...document.querySelectorAll('span, div, label')]
-    .find(el => el.textContent.trim() === text)
-}
-
-// Simulate human typing into a React-controlled input
-async function typeInto(el, value) {
-  if (!el) return false
-  el.focus()
-  await sleep(200)
-
-  // Use clipboard paste approach — fastest and most reliable with React
-  const nativeInputSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
-  const nativeTextareaSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set
-
-  const setter = el.tagName === 'TEXTAREA' ? nativeTextareaSetter : nativeInputSetter
-  if (setter) {
-    setter.call(el, value)
-  } else {
-    el.value = value
-  }
-
-  // Fire all events React listens to
-  el.dispatchEvent(new Event('input', { bubbles: true }))
-  el.dispatchEvent(new Event('change', { bubbles: true }))
-  el.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }))
-  el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }))
-  await sleep(200)
-  return true
-}
-
-// Click a dropdown option by its visible text
-async function selectOption(optionText) {
-  await sleep(400)
-  const option = [...document.querySelectorAll('[role="option"]')]
-    .find(el => el.textContent.trim().toLowerCase().includes(optionText.toLowerCase()))
-  if (option) {
-    option.click()
-    await sleep(500)
-    return true
-  }
-  return false
-}
-
-// Wait for an element to appear in the DOM
-async function waitFor(selectorFn, timeout = 8000) {
+async function waitFor(fn, timeout = 10000) {
   const start = Date.now()
   while (Date.now() - start < timeout) {
-    const el = selectorFn()
+    const el = fn()
     if (el) return el
     await sleep(300)
   }
   return null
 }
 
-// ── Image Upload ──────────────────────────────────
+// Get all visible text inputs and textareas
+function getFormFields() {
+  return [...document.querySelectorAll('input[type="text"], input[type="number"], textarea')]
+    .filter(el => !el.closest('[aria-hidden="true"]'))
+}
+
+// Type into a field using React-compatible setter
+async function typeInto(el, value) {
+  if (!el) return false
+  el.click()
+  el.focus()
+  await sleep(200)
+
+  const nativeInputSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+  const nativeTextareaSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set
+  const setter = el.tagName === 'TEXTAREA' ? nativeTextareaSetter : nativeInputSetter
+
+  if (setter) setter.call(el, value)
+  else el.value = value
+
+  el.dispatchEvent(new Event('input', { bubbles: true }))
+  el.dispatchEvent(new Event('change', { bubbles: true }))
+  el.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }))
+  el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }))
+  await sleep(300)
+  return true
+}
+
+// Find a field by its nearby label text
+function fieldByLabel(labelText) {
+  const labels = [...document.querySelectorAll('label, div, span')]
+  for (const label of labels) {
+    if (label.textContent.trim() === labelText) {
+      // Look for an input inside or immediately after
+      const input = label.querySelector('input, textarea') ||
+        label.nextElementSibling?.querySelector('input, textarea') ||
+        label.closest('div')?.querySelector('input, textarea')
+      if (input) return input
+    }
+  }
+  return null
+}
+
+// Click a dropdown (div with role button or select-like behavior)
+async function pickDropdown(labelText, value) {
+  // Find the dropdown trigger by nearby label
+  const allDivs = [...document.querySelectorAll('div[role="button"], div[role="combobox"]')]
+  const trigger = allDivs.find(el => {
+    const parent = el.closest('label, [class]')
+    return parent?.textContent?.includes(labelText)
+  }) || [...document.querySelectorAll('div, span')]
+    .find(el => el.textContent.trim() === labelText)
+
+  if (!trigger) {
+    console.warn('Dropdown trigger not found:', labelText)
+    return false
+  }
+
+  trigger.click()
+  await sleep(800)
+
+  const option = await waitFor(() =>
+    [...document.querySelectorAll('[role="option"]')]
+      .find(el => el.textContent.trim().toLowerCase().includes(value.toString().toLowerCase()))
+  , 5000)
+
+  if (option) {
+    option.click()
+    await sleep(500)
+    return true
+  }
+
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  await sleep(300)
+  return false
+}
 
 async function uploadImages(imageUrls) {
   if (!imageUrls?.length) return
-
-  // Find the photo upload area
-  const uploadArea = await waitFor(() =>
-    byLabel('Add photos') ||
-    document.querySelector('input[type="file"][accept*="image"]') ||
-    byLabel('Upload photos')
-  )
-
-  if (!uploadArea) {
-    console.warn('Could not find image upload area')
-    return
-  }
-
-  // Download each image and create File objects
   const files = []
-  for (const url of imageUrls.slice(0, 20)) { // FB max 20 images
+  for (const url of imageUrls.slice(0, 20)) {
     try {
       const res = await fetch(url)
       const blob = await res.blob()
       const filename = url.split('/').pop().split('?')[0] || 'vehicle.jpg'
       files.push(new File([blob], filename, { type: blob.type || 'image/jpeg' }))
     } catch (e) {
-      console.warn('Failed to fetch image:', url)
+      console.warn('Image fetch failed:', url)
     }
   }
-
   if (!files.length) return
-
-  // Use DataTransfer API to inject files
   const dt = new DataTransfer()
   files.forEach(f => dt.items.add(f))
-
-  // Find the actual file input
   const fileInput = document.querySelector('input[type="file"][accept*="image"]')
   if (fileInput) {
     Object.defineProperty(fileInput, 'files', { value: dt.files, writable: false })
     fileInput.dispatchEvent(new Event('change', { bubbles: true }))
-    await sleep(2000) // wait for upload to process
+    await sleep(2000)
   }
 }
-
-// ── Click a radio/checkbox option ────────────────
-
-async function clickOption(labelText) {
-  await sleep(300)
-  const el = byText(labelText) || byLabel(labelText)
-  if (el) {
-    el.click()
-    await sleep(400)
-    return true
-  }
-  return false
-}
-
-// ── Main Form Filler ──────────────────────────────
 
 async function fillListingForm(vehicle) {
-  console.log('🚗 Starting to fill listing for:', vehicle.year, vehicle.make, vehicle.model)
-
+  console.log('🚗 Starting:', vehicle.year, vehicle.make, vehicle.model)
   showStatus('Starting... please don\'t click anything')
-  await sleep(2000) // wait for FB page to fully render
+  await sleep(2500)
 
-  // ── PRICE ──
-  showStatus('Filling price...')
-  const priceEl = await waitFor(() =>
-    byLabel('Price') ||
-    byPlaceholder('Price')
-  )
-  await typeInto(priceEl, String(Math.round(vehicle.price)))
-  await sleep(DELAY)
-
-  // ── VEHICLE TYPE (Cars/Trucks) ──
+  // VEHICLE TYPE — dropdown (no input, click-based)
   showStatus('Selecting vehicle type...')
-  const typeEl = await waitFor(() =>
-    byLabel('Vehicle type') ||
-    byLabel('Type')
-  )
-  if (typeEl) {
-    typeEl.click()
-    await sleep(500)
-    // Try to select appropriate type
-    if (['truck', 'pickup'].some(t => vehicle.model?.toLowerCase().includes(t))) {
-      await selectOption('Truck')
-    } else if (['suv', 'crossover'].some(t => vehicle.model?.toLowerCase().includes(t))) {
-      await selectOption('SUV')
-    } else {
-      await selectOption('Sedan')
-    }
-  }
+  const modelLower = vehicle.model?.toLowerCase() || ''
+  let vehicleType = 'Sedan'
+  if (['silverado','sierra','ram','f-150','f150','tundra','ranger','colorado','canyon','tacoma','titan','frontier'].some(t => modelLower.includes(t))) vehicleType = 'Truck'
+  else if (['equinox','traverse','tahoe','suburban','blazer','trax','trailblazer','terrain','enclave','acadia','yukon','expedition','explorer','escape','edge','pilot'].some(t => modelLower.includes(t))) vehicleType = 'SUV'
+  else if (['express','transit','odyssey','sienna','caravan'].some(t => modelLower.includes(t))) vehicleType = 'Minivan'
+  await pickDropdown('Vehicle type', vehicleType)
   await sleep(DELAY)
 
-  // ── YEAR ──
-  showStatus('Filling year...')
-  const yearEl = await waitFor(() =>
-    byLabel('Year') ||
-    byPlaceholder('Year')
-  )
-  if (yearEl) {
-    yearEl.click()
-    await sleep(400)
-    await typeInto(yearEl, String(vehicle.year))
-    await sleep(400)
-    await selectOption(String(vehicle.year))
-  }
+  // YEAR — dropdown
+  showStatus('Selecting year...')
+  await pickDropdown('Year', String(vehicle.year))
   await sleep(DELAY)
 
-  // ── MAKE ──
+  // MAKE — index 6 (text input, label = "Make")
   showStatus('Filling make...')
-  const makeEl = await waitFor(() =>
-    byLabel('Make') ||
-    byPlaceholder('Make')
-  )
+  await waitFor(() => {
+    const fields = getFormFields()
+    return fields.find(f => f.closest('label, div')?.textContent?.includes('Make'))
+  })
+  const makeEl = getFormFields().find(f => f.closest('label, div')?.textContent?.includes('Make'))
+    || fieldByLabel('Make')
   if (makeEl) {
-    makeEl.click()
-    await sleep(400)
     await typeInto(makeEl, vehicle.make)
-    await sleep(600)
-    await selectOption(vehicle.make)
+    await sleep(500)
+    // Accept suggestion if appears
+    const opt = document.querySelector('[role="option"]')
+    if (opt) { opt.click(); await sleep(400) }
   }
   await sleep(DELAY)
 
-  // ── MODEL ──
+  // MODEL — index 7
   showStatus('Filling model...')
-  const modelEl = await waitFor(() =>
-    byLabel('Model') ||
-    byPlaceholder('Model')
-  )
+  const modelEl = getFormFields().find(f => f.closest('label, div')?.textContent?.includes('Model'))
+    || fieldByLabel('Model')
   if (modelEl) {
-    modelEl.click()
-    await sleep(400)
     await typeInto(modelEl, vehicle.model)
-    await sleep(600)
-    await selectOption(vehicle.model)
+    await sleep(500)
+    const opt = document.querySelector('[role="option"]')
+    if (opt) { opt.click(); await sleep(400) }
   }
   await sleep(DELAY)
 
-  // ── MILEAGE ──
+  // PRICE — index 8
+  showStatus('Filling price...')
+  const priceEl = getFormFields().find(f => f.closest('label, div')?.textContent?.includes('Price'))
+    || fieldByLabel('Price')
+  if (priceEl) await typeInto(priceEl, String(Math.round(vehicle.price)))
+  await sleep(DELAY)
+
+  // MILEAGE — if present
   showStatus('Filling mileage...')
-  const mileageEl = await waitFor(() =>
-    byLabel('Mileage') ||
-    byPlaceholder('Mileage') ||
-    byLabel('Kilometers')
+  const mileageEl = getFormFields().find(f =>
+    f.closest('label, div')?.textContent?.includes('Mileage') ||
+    f.closest('label, div')?.textContent?.includes('Kilometers')
   )
-  if (mileageEl) {
-    await typeInto(mileageEl, String(vehicle.mileage || 0))
-  }
+  if (mileageEl) await typeInto(mileageEl, String(vehicle.mileage || 0))
   await sleep(DELAY)
 
-  // ── EXTERIOR COLOR ──
+  // EXTERIOR COLOR
   showStatus('Selecting color...')
-  const colorEl = await waitFor(() =>
-    byLabel('Exterior color') ||
-    byLabel('Color')
-  )
-  if (colorEl) {
-    colorEl.click()
-    await sleep(500)
-    await selectOption(vehicle.exterior_color || 'Black')
-  }
+  await pickDropdown('Exterior color', vehicle.exterior_color || 'Black')
   await sleep(DELAY)
 
-  // ── TRANSMISSION ──
+  // TRANSMISSION
   showStatus('Selecting transmission...')
-  const transEl = await waitFor(() =>
-    byLabel('Transmission') ||
-    byLabel('Transmission type')
-  )
-  if (transEl) {
-    transEl.click()
-    await sleep(500)
-    await selectOption(vehicle.transmission || 'Automatic')
-  }
+  await pickDropdown('Transmission', vehicle.transmission || 'Automatic')
   await sleep(DELAY)
 
-  // ── FUEL TYPE ──
+  // FUEL TYPE
   showStatus('Selecting fuel type...')
-  const fuelEl = await waitFor(() =>
-    byLabel('Fuel type') ||
-    byLabel('Fuel')
-  )
-  if (fuelEl) {
-    fuelEl.click()
-    await sleep(500)
-    await selectOption(vehicle.fuel_type || 'Gasoline')
-  }
+  await pickDropdown('Fuel type', vehicle.fuel_type || 'Gasoline')
   await sleep(DELAY)
 
-  // ── DESCRIPTION ──
+  // DESCRIPTION — textarea (index 9)
   showStatus('Writing description...')
-  const descEl = await waitFor(() =>
-    byLabel('Description') ||
-    byPlaceholder('Description') ||
-    document.querySelector('textarea')
-  )
+  const descEl = await waitFor(() => document.querySelector('textarea'))
   if (descEl) {
     const desc = vehicle.ai_description || vehicle.description ||
       `${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim || ''}. ` +
@@ -282,15 +207,13 @@ async function fillListingForm(vehicle) {
   }
   await sleep(DELAY)
 
-  // ── IMAGES ──
+  // IMAGES
   showStatus('Uploading photos...')
   await uploadImages(vehicle.image_urls)
 
-  // ── DONE ──
   showStatus('✅ Form filled! Review and click Publish.', 'success')
-  console.log('✅ Form fill complete')
+  console.log('✅ Done')
 
-  // Notify background to record the listing
   chrome.runtime.sendMessage({
     type: 'LISTING_POSTED',
     inventory_id: vehicle.id,
@@ -298,53 +221,32 @@ async function fillListingForm(vehicle) {
   })
 }
 
-// ── Status Overlay ────────────────────────────────
-
 function showStatus(message, type = 'info') {
   let overlay = document.getElementById('wc-status')
   if (!overlay) {
     overlay = document.createElement('div')
     overlay.id = 'wc-status'
     overlay.style.cssText = `
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: #1a1a1a;
-      color: #fff;
-      padding: 12px 18px;
-      border-radius: 10px;
-      font-size: 13px;
-      font-family: -apple-system, sans-serif;
-      z-index: 999999;
-      border: 1px solid #333;
-      max-width: 280px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      position:fixed;bottom:20px;right:20px;background:#1a1a1a;
+      color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;
+      font-family:-apple-system,sans-serif;z-index:999999;
+      border:1px solid #333;max-width:280px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.4);
     `
     document.body.appendChild(overlay)
   }
-
   overlay.style.borderColor = type === 'success' ? '#22c55e' : '#3b82f6'
   overlay.innerHTML = `
-    <div style="font-weight:600;margin-bottom:4px">
-      ${type === 'success' ? '✅' : '⚙️'} Marketplace Lister
-    </div>
+    <div style="font-weight:600;margin-bottom:4px">${type === 'success' ? '✅' : '⚙️'} Marketplace Lister</div>
     <div style="color:#aaa">${message}</div>
   `
 }
 
-// ── Boot ─────────────────────────────────────────
-
-// Only run on the create vehicle listing page
 if (window.location.href.includes('/marketplace/create/vehicle') ||
     window.location.href.includes('/marketplace/create/')) {
-
   chrome.storage.local.get(['pendingPost'], ({ pendingPost }) => {
     if (!pendingPost?.vehicle) return
-
-    // Clear the pending post so it doesn't re-trigger
     chrome.storage.local.remove(['pendingPost'])
-
-    // Wait a moment for FB to render, then fill the form
     setTimeout(() => fillListingForm(pendingPost.vehicle), 2500)
   })
 }

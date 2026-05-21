@@ -122,3 +122,10 @@ app.post('/admin/users/invite', requireAuth, async (req, res) => {
 })
 
 app.listen(3000, () => console.log('API running on port 3000'))
+app.get('/debug', requireAuth, async (req, res) => {
+  res.json({
+    user_id: req.user.id,
+    profile: req.profile,
+    dealership_id: req.profile?.dealership_id
+  })
+})
