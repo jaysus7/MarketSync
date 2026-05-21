@@ -18,18 +18,27 @@ const supabase = createClient(
 async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'No token provided' })
+
   const { data: { user }, error } = await supabase.auth.getUser(token)
-  if (error || !user) return res.status(401).json({ error: 'Invalid token' })
+  
+  console.log('Auth attempt:', { 
+    tokenStart: token.slice(0, 20),
+    user: user?.id, 
+    error: error?.message 
+  })
+
+  if (error || !user) return res.status(401).json({ error: 'Invalid token', detail: error?.message })
+
   const { data: profile } = await supabase
     .from('profiles')
     .select('*, dealerships(*)')
     .eq('id', user.id)
     .single()
+
   req.user = user
   req.profile = profile
   next()
 }
-
 app.post('/auth/login', async (req, res) => {
   const { email, password } = req.body
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
