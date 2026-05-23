@@ -102,11 +102,10 @@ function showStatus(message, type = 'info') {
   `
 }
 
-function showPhotoStrip(imageUrls) {
+function showPhotoStrip(imageUrls, vehicleId) {
   if (!imageUrls?.length) return
   document.getElementById('wc-photo-strip')?.remove()
 
-  // Highlight upload zone
   const uploadZone = document.querySelector('[aria-label="Add photos"]') ||
     [...document.querySelectorAll('div')].find(el => el.textContent.trim() === 'Add photos')
   if (uploadZone) {
@@ -128,7 +127,7 @@ function showPhotoStrip(imageUrls) {
 
   const label = document.createElement('div')
   label.style.cssText = 'color:#fff;font-size:12px;font-weight:700;white-space:nowrap;min-width:110px;line-height:1.6;'
-  label.innerHTML = `📸 ${imageUrls.length} Photo${imageUrls.length > 1 ? 's' : ''}<br><span style="color:#22c55e;font-size:11px;font-weight:400;">Downloaded to Downloads folder</span><br><span style="color:#888;font-size:10px;">Click "Add photos" → select all</span>`
+  label.innerHTML = `📸 ${imageUrls.length} Photo${imageUrls.length > 1 ? 's' : ''}<br><span style="color:#22c55e;font-size:11px;font-weight:400;">Click photo to copy</span><br><span style="color:#888;font-size:10px;">or click "Add photos" → select all</span>`
   strip.appendChild(label)
 
   const row = document.createElement('div')
@@ -141,43 +140,12 @@ function showPhotoStrip(imageUrls) {
 
     const img = document.createElement('img')
     img.src = proxySrc
-    img.draggable = true
-    img.title = `Drag photo ${i + 1} to the upload zone`
     img.style.cssText = `
       height:80px;width:110px;object-fit:cover;
-      border-radius:8px;cursor:grab;
+      border-radius:8px;cursor:pointer;
       border:2px solid #2a2a2a;display:block;
       transition:border-color 0.2s;
     `
-
-    img.addEventListener('mouseenter', () => img.style.borderColor = '#3b82f6')
-    img.addEventListener('mouseleave', () => img.style.borderColor = '#2a2a2a')
-    img.addEventListener('click', async () => {
-      try {
-        // Fetch image through proxy as blob
-        const res = await fetch(`${API}/proxy-image?url=${encodeURIComponent(url)}`)
-        const blob = await res.blob()
-
-        // Copy to clipboard as image
-        await navigator.clipboard.write([
-          new ClipboardItem({ [blob.type]: blob })
-        ])
-
-        // Flash the image to show it's copied
-        img.style.borderColor = '#22c55e'
-        num.textContent = '📋'
-        setTimeout(() => {
-          img.style.borderColor = '#2a2a2a'
-          num.textContent = i + 1
-        }, 1500)
-
-        // Show instruction
-        showStatus('Photo copied! Click the upload zone and press Cmd+V to paste.', 'info')
-      } catch(e) {
-        console.warn('Clipboard copy failed:', e)
-        showStatus('Click "Add photos" and select manually.', 'info')
-      }
-    })
 
     const num = document.createElement('div')
     num.style.cssText = `
@@ -186,6 +154,22 @@ function showPhotoStrip(imageUrls) {
     `
     num.textContent = i + 1
 
+    img.addEventListener('mouseenter', () => img.style.borderColor = '#3b82f6')
+    img.addEventListener('mouseleave', () => img.style.borderColor = '#2a2a2a')
+    img.addEventListener('click', async () => {
+      try {
+        const res = await fetch(proxySrc)
+        const blob = await res.blob()
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })])
+        img.style.borderColor = '#22c55e'
+        num.textContent = '📋'
+        setTimeout(() => { img.style.borderColor = '#2a2a2a'; num.textContent = i + 1 }, 1500)
+        showStatus('Photo copied! Click upload zone and press Cmd+V.', 'info')
+      } catch(e) {
+        showStatus('Click "Add photos" and select manually.', 'info')
+      }
+    })
+
     wrapper.appendChild(img)
     wrapper.appendChild(num)
     row.appendChild(wrapper)
@@ -193,18 +177,6 @@ function showPhotoStrip(imageUrls) {
 
   strip.appendChild(row)
 
-  const close = document.createElement('button')
-  close.textContent = '✕ Close'
-  close.style.cssText = `
-    background:#1a1a1a;border:1px solid #333;color:#888;
-    padding:8px 12px;border-radius:8px;font-size:12px;
-    cursor:pointer;white-space:nowrap;flex-shrink:0;
-  `
-  close.addEventListener('click', () => {
-    strip.remove()
-    document.getElementById('wc-status')?.remove()
-    if (uploadZone) uploadZone.style.outline = ''
-  })
   const markPosted = document.createElement('button')
   markPosted.textContent = '✅ Mark Posted'
   markPosted.style.cssText = `
@@ -215,7 +187,7 @@ function showPhotoStrip(imageUrls) {
   markPosted.addEventListener('click', () => {
     chrome.runtime.sendMessage({
       type: 'LISTING_POSTED',
-      inventory_id: vehicle.id,
+      inventory_id: vehicleId,
       fb_listing_url: window.location.href
     })
     markPosted.textContent = '✅ Posted!'
@@ -223,7 +195,23 @@ function showPhotoStrip(imageUrls) {
     markPosted.style.background = '#166534'
     markPosted.style.color = '#4ade80'
   })
-  strip.insertBefore(markPosted, close)
+  strip.appendChild(markPosted)
+
+  const close = document.createElement('button')
+  close.textContent = '✕'
+  close.style.cssText = `
+    background:#1a1a1a;border:1px solid #333;color:#888;
+    padding:8px 12px;border-radius:8px;font-size:12px;
+    cursor:pointer;white-space:nowrap;flex-shrink:0;
+  `
+  close.addEventListener('click', () => {
+    strip.remove()
+    document.getElementById('wc-status')?.remove()
+    if (uploadZone) uploadZone.style.outline = ''
+  })
+  strip.appendChild(close)
+
+  document.body.appendChild(strip) // ← THIS was missing before
 }
 
 async function fillListingForm(vehicle) {
@@ -329,10 +317,9 @@ async function fillListingForm(vehicle) {
   }
   await sleep(DELAY)
 
-  showStatus('✅ Form filled! Drag photos then click Next.', 'success')
-  showPhotoStrip(vehicle.image_urls || [])
+  showStatus('✅ Form filled! Add photos then click Next.', 'success')
+  showPhotoStrip(vehicle.image_urls || [], vehicle.id)
   console.log('✅ Done')
-  // Note: listing is recorded when user clicks Next/Publish on Facebook
 }
 
 if (window.location.href.includes('/marketplace/create/vehicle') ||
