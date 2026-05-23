@@ -230,8 +230,13 @@ async function fillListingForm(vehicle) {
   await sleep(DELAY)
 
   showStatus('Selecting make...')
+  await waitFor(() =>
+    [...document.querySelectorAll('[role="combobox"]')]
+      .find(el => el.textContent.trim().toLowerCase().includes('make'))
+  )
+  await sleep(500)
   await pickDropdown('Make', vehicle.make)
-  await sleep(1500)
+  await sleep(2000) // longer wait for model to load after make
 
   showStatus('Selecting model...')
   await waitFor(() =>
