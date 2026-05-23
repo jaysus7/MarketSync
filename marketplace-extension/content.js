@@ -221,40 +221,41 @@ function showPhotoStrip(imageUrls, vehicleId) {
     uploadBtn.disabled = true
     uploadBtn.style.background = '#1e3a5f'
 
-    // Download all photos using chrome.downloads directly
-    const downloadIds = []
-    for (let i = 0; i < imageUrls.length; i++) {
-      const url = `${API}/proxy-image?url=${encodeURIComponent(imageUrls[i])}`
-      const filename = `WellandChev_Temp/photo_${i + 1}.jpg`
-      await new Promise(resolve => {
-        chrome.downloads.download({ url, filename, saveAs: false }, id => {
-          if (id) downloadIds.push(id)
-          resolve()
-        })
-      })
-      await sleep(200)
-    }
+    // Send to background script which has chrome.downloads access
+    chrome.runtime.sendMessage({
+      type: 'DOWNLOAD_PHOTOS',
+      imageUrls,
+      count: imageUrls.length
+    }, response => {
+      if (response?.success) {
+        uploadBtn.textContent = `✅ ${imageUrls.length} photos in Downloads/WellandChev_Temp`
+        uploadBtn.style.background = '#22c55e'
+        uploadBtn.style.color = '#000'
 
-    uploadBtn.textContent = `✅ ${downloadIds.length} photos in Downloads/WellandChev_Temp`
-    uploadBtn.style.background = '#22c55e'
-    uploadBtn.style.color = '#000'
+        // Auto-click Facebook's Add Photos button
+        setTimeout(() => {
+          const addPhotosBtn = document.querySelector('[aria-label="Add photos"]') ||
+            [...document.querySelectorAll('div[role="button"]')]
+              .find(el => el.textContent.trim() === 'Add photos')
+          if (addPhotosBtn) addPhotosBtn.click()
+        }, 500)
 
-    // Auto-click Facebook's Add Photos button
-    await sleep(500)
-    const addPhotosBtn = document.querySelector('[aria-label="Add photos"]') ||
-      [...document.querySelectorAll('div[role="button"]')]
-        .find(el => el.textContent.trim() === 'Add photos')
-    if (addPhotosBtn) addPhotosBtn.click()
-
-    // Auto-delete after 2 minutes
-    setTimeout(() => {
-      downloadIds.forEach(id => {
-        chrome.downloads.removeFile(id, () => chrome.downloads.erase({ id }))
-      })
-      uploadBtn.textContent = '🗑 Temp photos deleted'
-      uploadBtn.style.background = '#1a1a1a'
-      uploadBtn.style.color = '#666'
-    }, 120000)
+        // Auto-delete after 2 minutes
+        setTimeout(() => {
+          chrome.runtime.sendMessage({
+            type: 'DELETE_TEMP_PHOTOS',
+            downloadIds: response.downloadIds
+          })
+          uploadBtn.textContent = '🗑 Temp photos deleted'
+          uploadBtn.style.background = '#1a1a1a'
+          uploadBtn.style.color = '#666'
+        }, 120000)
+      } else {
+        uploadBtn.textContent = '❌ Download failed'
+        uploadBtn.style.background = '#ef4444'
+        uploadBtn.disabled = false
+      }
+    })
   })
 
   strip.appendChild(uploadBtn)
