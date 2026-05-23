@@ -29,29 +29,36 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'DOWNLOAD_PHOTOS') {
     const { imageUrls } = msg
     const downloadIds = []
-    let completed = 0
+
+    if (!chrome.downloads) {
+      console.error('chrome.downloads not available')
+      sendResponse({ success: false, error: 'Downloads API not available' })
+      return true
+    }
 
     const doDownloads = async () => {
       for (let i = 0; i < imageUrls.length; i++) {
         const url = `${API}/proxy-image?url=${encodeURIComponent(imageUrls[i])}`
-        const filename = `WellandChev_Temp/photo_${i + 1}.jpg`
+        const filename = `WellandChev_Temp/photo_${String(i + 1).padStart(2, '0')}.jpg`
         await new Promise(resolve => {
           chrome.downloads.download(
             { url, filename, saveAs: false, conflictAction: 'overwrite' },
             id => {
-              if (id) downloadIds.push(id)
-              else console.warn('Download failed for:', url, chrome.runtime.lastError)
+              const err = chrome.runtime.lastError
+              if (err) console.warn(`Download ${i+1} failed:`, err.message)
+              else if (id) downloadIds.push(id)
               resolve()
             }
           )
         })
-        await new Promise(r => setTimeout(r, 300))
+        await new Promise(r => setTimeout(r, 400))
       }
+      console.log(`✅ Downloaded ${downloadIds.length}/${imageUrls.length} photos`)
       sendResponse({ success: true, downloadIds })
     }
 
     doDownloads()
-    return true // keep channel open for async response
+    return true
   }
 
   // Delete temp photos after upload
