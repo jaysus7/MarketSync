@@ -40,14 +40,27 @@ async function pickDropdown(labelText, value) {
   const trigger = [...document.querySelectorAll('[role="combobox"]')]
     .find(el => el.textContent.trim().toLowerCase().includes(labelText.toLowerCase()))
   if (!trigger) { console.warn('Dropdown not found:', labelText); return false }
+
   trigger.click()
   await sleep(800)
+
+  // If there's a search input inside the dropdown, type to filter
+  const searchInput = document.querySelector('[role="listbox"] input, [role="combobox"] input:not([type="hidden"])')
+  if (searchInput) {
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+    if (nativeSetter) nativeSetter.call(searchInput, value)
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }))
+    searchInput.dispatchEvent(new Event('change', { bubbles: true }))
+    await sleep(600)
+  }
+
   const option = await waitFor(() =>
     [...document.querySelectorAll('[role="option"]')]
       .find(el => el.textContent.trim().toLowerCase() === value.toString().toLowerCase()) ||
     [...document.querySelectorAll('[role="option"]')]
       .find(el => el.textContent.trim().toLowerCase().includes(value.toString().toLowerCase()))
   , 5000)
+
   if (option) { option.click(); await sleep(600); return true }
   console.warn('Option not found:', labelText, value)
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
@@ -234,17 +247,17 @@ async function fillListingForm(vehicle) {
     [...document.querySelectorAll('[role="combobox"]')]
       .find(el => el.textContent.trim().toLowerCase().includes('make'))
   )
-  await sleep(500)
+  await sleep(800)
   await pickDropdown('Make', vehicle.make)
-  await sleep(2000) // longer wait for model to load after make
+  await sleep(2000)
 
   showStatus('Selecting model...')
   await waitFor(() =>
     [...document.querySelectorAll('[role="combobox"]')]
       .find(el => el.textContent.trim().toLowerCase().includes('model')) ||
     getFormFields().find(f => f.closest('label, div')?.textContent?.includes('Model'))
-  )
-  await sleep(500)
+  , 8000)
+  await sleep(800)
   const modelCombo = [...document.querySelectorAll('[role="combobox"]')]
     .find(el => el.textContent.trim().toLowerCase().includes('model'))
   if (modelCombo) {
