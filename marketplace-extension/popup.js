@@ -151,12 +151,14 @@ async function loadInventory(token) {
     ])
 
     const listings = Array.isArray(listingsRes) ? listingsRes : []
-    const postedVinSet = new Set(listings.map(l => l.inventory?.vin).filter(Boolean))
+    
+    // ── FIXED: Track explicit internal inventory IDs to decouple from VIN availability ──
+    const postedIdSet = new Set(listings.map(l => l.inventory_id).filter(Boolean))
 
-    // Populate Counter Elements
+    // Populate Counter Elements using robust identifier sets
     $('stat-total').textContent = inventory.length
-    $('stat-posted').textContent = postedVinSet.size
-    $('stat-remaining').textContent = inventory.length - postedVinSet.size
+    $('stat-posted').textContent = postedIdSet.size
+    $('stat-remaining').textContent = inventory.length - postedIdSet.size
 
     if (!inventory.length) {
       $('vehicle-list').innerHTML = `
@@ -169,7 +171,8 @@ async function loadInventory(token) {
 
     // Mapping layer updates arrays straight to DOM layout nodes
     $('vehicle-list').innerHTML = inventory.map(v => {
-      const isPosted = postedVinSet.has(v.vin)
+      // ── FIXED: Check intersection list using relational ID keys ──
+      const isPosted = postedIdSet.has(v.id)
       const img = v.image_urls?.[0]
       const thumb = img
         ? `<img class="vehicle-thumb" src="${img}" onerror="this.style.display='none'">`
