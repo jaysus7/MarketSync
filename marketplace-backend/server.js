@@ -12,7 +12,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 app.use(cors());
 
-// ── 1. STRIPE WEBHOOK LAYER (Must be parsed as raw raw bytes) ─────
+// ── 1. STRIPE WEBHOOK LAYER (Must execute before express.json() parsing) ──
 app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
@@ -58,7 +58,7 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
   res.json({ received: true });
 });
 
-// Standard JSON body parsing middleware for all normal application endpoints below
+// JSON Body Middleware applied strictly to standard application routes below
 app.use(express.json());
 
 // ── 2. FORTIFIED AUTH & SUBSCRIPTION GATE MIDDLEWARE ──────────────
@@ -101,12 +101,34 @@ async function requireAuth(req, res, next) {
   }
 }
 
-// ── 3. CORE SECURE DATA ROUTE SYSTEM ─────────────────────────────
+// ── 3. AUTHENTICATION ENDPOINTS ───────────────────────────────────
+
+// POST /auth/login (Added back to allow direct extension user authentication)
+app.post('/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Missing email or password' });
+  }
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return res.status(400).json({ error: error.message });
+
+    res.json({
+      access_token: data.session.access_token,
+      user: data.user
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server login error' });
+  }
+});
 
 // Auth context route
 app.get('/auth/me', requireAuth, (req, res) => {
   res.json(req.profile);
 });
+
+// ── 4. CORE SECURE DATA ROUTE SYSTEM ─────────────────────────────
 
 // Fetch complete fleet inventory
 app.get('/inventory', requireAuth, async (req, res) => {
@@ -142,10 +164,9 @@ app.get('/inventory/:id', requireAuth, async (req, res) => {
   }
 });
 
-// ── FIXED: GET /listings ─────────────────────────────────────────
+// GET /listings (Optimized using a flat relational inner join lookup)
 app.get('/listings', requireAuth, async (req, res) => {
   try {
-    // We inner join the inventory table to filter rows belonging to the active dealership
     const { data, error } = await supabase
       .from('listings')
       .select('id, inventory_id, fb_listing_id, fb_listing_url, posted_by, status, inventory!inner(dealership_id)')
@@ -159,7 +180,7 @@ app.get('/listings', requireAuth, async (req, res) => {
   }
 });
 
-// ── FIXED: POST /listings ────────────────────────────────────────
+// POST /listings
 app.post('/listings', requireAuth, async (req, res) => {
   const { inventory_id, fb_listing_id, fb_listing_url } = req.body;
 
@@ -176,7 +197,7 @@ app.post('/listings', requireAuth, async (req, res) => {
           fb_listing_id,
           fb_listing_url,
           posted_by: req.user.id,
-          status: 'ACTIVE' // Setting a default status string matching your schema
+          status: 'ACTIVE'
         }
       ])
       .select();
@@ -189,7 +210,7 @@ app.post('/listings', requireAuth, async (req, res) => {
   }
 });
 
-// ── 4. SUBSCRIPTION BILLING MANAGMENT LINKS ──────────────────────
+// ── 5. SUBSCRIPTION BILLING MANAGEMENT LINKS ──────────────────────
 
 // Open checkout link
 app.post('/billing/checkout', requireAuth, async (req, res) => {
@@ -229,7 +250,7 @@ app.post('/billing/portal', requireAuth, async (req, res) => {
   }
 });
 
-// ── 5. BROWSER DOWNLOAD PHOTO PROXY LAYER (Unprotected public route) ──
+// ── 6. BROWSER DOWNLOAD PHOTO PROXY LAYER (Unprotected public route) ──
 app.get('/proxy-image', async (req, res) => {
   const imageUrl = req.query.url;
   if (!imageUrl) return res.status(400).send('Missing url parameter');
@@ -248,5 +269,5 @@ app.get('/proxy-image', async (req, res) => {
   }
 });
 
-// ── 6. INSTANCE RUNTIME INITIALIZATION ────────────────────────────
+// ── 7. INSTANCE RUNTIME INITIALIZATION ────────────────────────────
 app.listen(PORT, () => console.log(`🚀 Production ecosystem server live on port ${PORT}`));
