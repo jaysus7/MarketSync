@@ -142,22 +142,24 @@ app.get('/inventory/:id', requireAuth, async (req, res) => {
   }
 });
 
-// GET /listings
+// ── FIXED: GET /listings ─────────────────────────────────────────
 app.get('/listings', requireAuth, async (req, res) => {
   try {
+    // We inner join the inventory table to filter rows belonging to the active dealership
     const { data, error } = await supabase
       .from('listings')
-      .select('id, dealership_id, inventory_id, fb_listing_id, fb_listing_url') // Clean, unjoined selection
-      .eq('dealership_id', req.dealershipId);
+      .select('id, inventory_id, fb_listing_id, fb_listing_url, posted_by, status, inventory!inner(dealership_id)')
+      .eq('inventory.dealership_id', req.dealershipId);
 
     if (error) throw error;
     res.json(data || []);
   } catch (err) {
+    console.error('Error fetching listings:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /listings
+// ── FIXED: POST /listings ────────────────────────────────────────
 app.post('/listings', requireAuth, async (req, res) => {
   const { inventory_id, fb_listing_id, fb_listing_url } = req.body;
 
@@ -170,11 +172,11 @@ app.post('/listings', requireAuth, async (req, res) => {
       .from('listings')
       .insert([
         {
-          dealership_id: req.dealershipId, // Ensure this matches your database column name exactly
           inventory_id,
           fb_listing_id,
           fb_listing_url,
-          posted_by: req.user.id
+          posted_by: req.user.id,
+          status: 'ACTIVE' // Setting a default status string matching your schema
         }
       ])
       .select();
@@ -182,6 +184,7 @@ app.post('/listings', requireAuth, async (req, res) => {
     if (error) throw error;
     res.status(201).json(data[0]);
   } catch (err) {
+    console.error('Error creating listing:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
