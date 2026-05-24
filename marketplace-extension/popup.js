@@ -21,6 +21,14 @@ async function apiGet(path, token, timeout = 60000) {
     if (r.status === 402) {
       throw new Error('SUBSCRIPTION_REQUIRED')
     }
+
+    // ── HARDENED CONTENT-TYPE VALIDATION OVERHEAD ──
+    const contentType = r.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      const textFallback = await r.text()
+      console.error('Non-JSON response intercept context:', textFallback)
+      throw new Error(`Server status [${r.status}]. Service winding up — click Refresh again in a moment.`)
+    }
     
     return r.json()
   } catch (e) {
@@ -159,7 +167,7 @@ async function loadInventory(token) {
       return
     }
 
-    // FIX: Re-injected the mapping logic to parse arrays straight to DOM rows
+    // Mapping layer updates arrays straight to DOM layout nodes
     $('vehicle-list').innerHTML = inventory.map(v => {
       const isPosted = postedVinSet.has(v.vin)
       const img = v.image_urls?.[0]
@@ -186,7 +194,7 @@ async function loadInventory(token) {
         </div>`
     }).join('')
 
-    // Reattach post listeners to fresh nodes
+    // Reattach structural interaction listeners
     document.querySelectorAll('.post-btn:not(.posted)').forEach(btn => {
       btn.addEventListener('click', () => postVehicle(btn.dataset.id, token))
     })
