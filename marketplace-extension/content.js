@@ -395,50 +395,72 @@ async function fillListingForm(vehicle) {
   }
   await sleep(1500); // Extended delay for contingent model payload updates
 
-  // MODEL
-  showStatus('Selecting model...');
+  // MODEL (Hardened React State Sync Block)
+  showStatus('Selecting model (waiting for sync)...');
+  await sleep(1500); // Give Facebook's React state time to clear background requests
+
   const modelTrigger = await waitFor(() =>
     [...document.querySelectorAll('[role="combobox"]')]
-      .find(el => el.textContent.trim().toLowerCase() === 'model' ||
-                  el.textContent.trim().toLowerCase().startsWith('model'))
-  , 8000);
+      .find(el => {
+        const txt = el.textContent.trim().toLowerCase();
+        return txt === 'model' || txt.startsWith('model');
+      })
+  , 10000);
 
   if (modelTrigger) {
     modelTrigger.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    await sleep(500);
+    await sleep(600);
     modelTrigger.click();
-    await sleep(1200);
+    await sleep(1500); // Explicitly wait for dropdown DOM insertion
+
+    // Query active text input inside the unhidden container
     const searchInput2 = [...document.querySelectorAll('input')]
       .find(el => el.offsetParent !== null && el.type !== 'hidden' && !el.closest('[aria-hidden="true"]'));
+    
     if (searchInput2) {
+      searchInput2.click();
+      searchInput2.focus();
+      
       const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-      if (nativeSetter) nativeSetter.call(searchInput2, model);
+      if (nativeSetter) {
+        nativeSetter.call(searchInput2, model);
+      } else {
+        searchInput2.value = model;
+      }
+      
+      // Dispatch explicit input chain to kick React lifecycle methods
       searchInput2.dispatchEvent(new Event('input', { bubbles: true }));
-      await sleep(1000);
+      searchInput2.dispatchEvent(new Event('change', { bubbles: true }));
+      await sleep(1200); // Critical delay: let filtering happen
     }
-    const modelOption = await waitFor(() =>
-      [...document.querySelectorAll('[role="option"]')]
-        .find(el => el.textContent.trim().toLowerCase() === model.toLowerCase()) ||
-      [...document.querySelectorAll('[role="option"]')]
-        .find(el => el.textContent.trim().toLowerCase().includes(model.toLowerCase()))
-    , 5000);
+
+    // Attempt option resolution
+    let modelOption = await waitFor(() => {
+      const targets = [...document.querySelectorAll('[role="option"]')];
+      return targets.find(el => el.textContent.trim().toLowerCase() === model.toLowerCase()) ||
+             targets.find(el => el.textContent.trim().toLowerCase().includes(model.toLowerCase()));
+    }, 6000);
+
     if (modelOption) {
       modelOption.click();
-      await sleep(800);
-      console.log('✓ Model set:', model);
+      await sleep(1000);
+      console.log('✓ Model successfully updated:', model);
     } else {
-      const modelTextField = getFormFields()
-        .find(f => f.closest('label, div')?.textContent?.includes('Model'));
+      // Emergency fallback: If list options fail to filter, look for a standard text box replacement
+      console.warn('Dropdown option missed. Attempting text field extraction fallback.');
+      const modelTextField = getFormFields().find(f => f.closest('label, div')?.textContent?.includes('Model'));
       if (modelTextField) {
         await typeInto(modelTextField, model);
-        await sleep(500);
+        await sleep(600);
         const opt = document.querySelector('[role="option"]');
-        if (opt) { opt.click(); await sleep(400); }
+        if (opt) { opt.click(); await sleep(500); }
       }
     }
+  } else {
+    console.error('Fatal: Model dropdown trigger element could not be recovered from DOM.');
   }
   await sleep(1000);
-
+  
   // BODY STYLE (Dynamically determined)
   showStatus(`Selecting body style (${bodyStyle})...`);
   await pickDropdown('Body style', bodyStyle);
