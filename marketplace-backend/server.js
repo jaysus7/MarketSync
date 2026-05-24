@@ -11,6 +11,52 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
+app.post('/billing/portal', requireAuth, async (req, res) => {
+  try {
+    const dealership = req.profile.dealerships;
+    
+    if (!dealership?.stripe_customer_id) {
+      return res.status(400).json({ error: 'No billing history found for this account.' });
+    }
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: dealership.stripe_customer_id,
+      return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard`,
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Portal Error:', err);
+    res.status(500).json({ error: 'Failed to create billing portal session.' });
+  }
+});
+
+// POST /billing/portal - Generate self-service billing management link
+app.post('/billing/portal', requireAuth, async (req, res) => {
+  try {
+    const dealership = req.profile.dealerships;
+    
+    // Check if the tenant actually has a Stripe customer footprint yet
+    if (!dealership || !dealership.stripe_customer_id) {
+      return res.status(400).json({ 
+        error: 'Bad Request', 
+        detail: 'No active billing profile found for this dealership.' 
+      });
+    }
+
+    // Generate the short-lived portal session url
+    const session = await stripe.billingPortal.sessions.create({
+      customer: dealership.stripe_customer_id,
+      return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard`,
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Stripe Portal Session Generation Failure:', err);
+    res.status(500).json({ error: 'Internal Server Error', detail: err.message });
+  }
+});
+
 // Initialize Supabase Client
 const supabase = createClient(
   process.env.SUPABASE_URL,
