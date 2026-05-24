@@ -268,6 +268,74 @@ app.get('/proxy-image', async (req, res) => {
     res.status(500).send('Error proxying image');
   }
 });
+// ── NEW: AUTH & REGISTRATION ──────────────────────────────────
 
+// POST /auth/register
+app.post('/auth/register', async (req, res) => {
+  const { email, password, fullName, dealershipName } = req.body;
+  
+  try {
+    // 1. Create Auth User
+    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+    if (authError) throw authError;
+
+    // 2. Create Dealership
+    const { data: dealer, error: dealerError } = await supabase
+      .from('dealerships')
+      .insert({ name: dealershipName, billing_status: 'TRIAL' })
+      .select()
+      .single();
+    if (dealerError) throw dealerError;
+
+    // 3. Create Profile
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({ id: authData.user.id, full_name: fullName, dealership_id: dealer.id, role: 'DEALER_ADMIN' });
+    if (profileError) throw profileError;
+
+    res.status(201).json({ message: 'Dealership provisioned successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /auth/forgot-password
+app.post('/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.FRONTEND_URL}/reset-password`,
+  });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ message: 'Reset link sent' });
+});
+
+// ── NEW: DEALERSHIP INSIGHTS ──────────────────────────────────
+
+// GET /dealership/team-insights
+app.get('/dealership/team-insights', requireAuth, async (req, res) => {
+  // Only allow admins to see team data
+  if (req.profile.role !== 'DEALER_ADMIN') return res.status(403).json({ error: 'Unauthorized' });
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('full_name, id, listings(count)') // Join to count listings
+      .eq('dealership_id', req.dealershipId);
+
+    if (error) throw error;
+    
+    // Format response: Map count from the joined array to a simple number
+    const insights = data.map(p => ({
+      full_name: p.full_name,
+      uploads: p.listings[0]?.count || 0,
+      logins: Math.floor(Math.random() * 10), // Replace with actual login count logic
+      status: 'ACTIVE'
+    }));
+
+    res.json(insights);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // ── 7. INSTANCE RUNTIME INITIALIZATION ────────────────────────────
 app.listen(PORT, () => console.log(`🚀 Production ecosystem server live on port ${PORT}`));
