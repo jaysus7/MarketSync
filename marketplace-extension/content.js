@@ -1,9 +1,9 @@
-// content.js — Welland Chev Marketplace Lister
+// content.js — Vehicle Marketplace
 const API = 'https://vehicle-marketplace-s0e4.onrender.com'
 const DELAY = 600
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
-// ── Make/Model normalization ──────────────────
+// ── Normalization maps ────────────────────────
 const MAKE_MAP = {
   'chev': 'Chevrolet', 'chevy': 'Chevrolet', 'gmc': 'GMC',
   'buick': 'Buick', 'cadillac': 'Cadillac', 'ford': 'Ford',
@@ -15,54 +15,97 @@ const MAKE_MAP = {
   'audi': 'Audi', 'lexus': 'Lexus', 'acura': 'Acura',
   'infiniti': 'Infiniti', 'lincoln': 'Lincoln', 'mazda': 'Mazda',
   'mitsubishi': 'Mitsubishi', 'subaru': 'Subaru', 'volvo': 'Volvo',
-  'tesla': 'Tesla', 'pontiac': 'Pontiac', 'saturn': 'Saturn',
-  'oldsmobile': 'Oldsmobile'
+  'tesla': 'Tesla', 'pontiac': 'Pontiac', 'saturn': 'Saturn'
 }
 
 const MODEL_MAP = {
-  // Chevrolet
-  'silverado 1500': 'Silverado 1500', 'silverado 2500': 'Silverado 2500HD',
-  'silverado 2500hd': 'Silverado 2500HD', 'silverado 3500': 'Silverado 3500HD',
-  'silverado 3500hd': 'Silverado 3500HD', 'silverado': 'Silverado 1500',
-  'equinox': 'Equinox', 'equinox ev': 'Equinox EV',
-  'traverse': 'Traverse', 'tahoe': 'Tahoe', 'suburban': 'Suburban',
-  'blazer': 'Blazer', 'blazer ev': 'Blazer EV',
-  'trax': 'Trax', 'trailblazer': 'Trailblazer',
-  'colorado': 'Colorado', 'express': 'Express',
-  'camaro': 'Camaro', 'corvette': 'Corvette',
-  'malibu': 'Malibu', 'spark': 'Spark', 'sonic': 'Sonic',
-  'bolt ev': 'Bolt EV', 'bolt euv': 'Bolt EUV', 'bolt': 'Bolt EV',
-  'impala': 'Impala', 'cruze': 'Cruze',
-  'orlando': 'Orlando', 'captiva': 'Captiva',
-  // GMC
-  'sierra 1500': 'Sierra 1500', 'sierra 2500': 'Sierra 2500HD',
-  'sierra 2500hd': 'Sierra 2500HD', 'sierra 3500': 'Sierra 3500HD',
-  'sierra 3500hd': 'Sierra 3500HD', 'sierra': 'Sierra 1500',
-  'terrain': 'Terrain', 'acadia': 'Acadia',
-  'yukon': 'Yukon', 'yukon xl': 'Yukon XL',
-  'canyon': 'Canyon', 'envoy': 'Envoy', 'savana': 'Savana',
+  // Chevrolet trucks
+  'silverado 1500': 'Silverado 1500',
+  'silverado 2500hd': 'Silverado 2500HD',
+  'silverado 2500': 'Silverado 2500HD',
+  'silverado 3500hd': 'Silverado 3500HD',
+  'silverado 3500': 'Silverado 3500HD',
+  'silverado': 'Silverado 1500',
+  'colorado': 'Colorado',
+  // Chevrolet SUVs
+  'equinox ev': 'Equinox EV',
+  'equinox': 'Equinox',
+  'traverse': 'Traverse',
+  'tahoe': 'Tahoe',
+  'suburban': 'Suburban',
+  'blazer ev': 'Blazer EV',
+  'blazer': 'Blazer',
+  'trailblazer': 'Trailblazer',
+  'trax': 'Trax',
+  // Chevrolet cars/vans
+  'bolt euv': 'Bolt EUV',
+  'bolt ev': 'Bolt EV',
+  'bolt': 'Bolt EV',
+  'camaro': 'Camaro',
+  'corvette': 'Corvette',
+  'malibu': 'Malibu',
+  'spark': 'Spark',
+  'sonic': 'Sonic',
+  'cruze': 'Cruze',
+  'impala': 'Impala',
+  'express': 'Express',
+  // GMC trucks
+  'sierra 1500': 'Sierra 1500',
+  'sierra 2500hd': 'Sierra 2500HD',
+  'sierra 2500': 'Sierra 2500HD',
+  'sierra 3500hd': 'Sierra 3500HD',
+  'sierra 3500': 'Sierra 3500HD',
+  'sierra': 'Sierra 1500',
+  'canyon': 'Canyon',
+  'savana': 'Savana',
+  // GMC SUVs
+  'terrain': 'Terrain',
+  'acadia': 'Acadia',
+  'yukon xl': 'Yukon XL',
+  'yukon': 'Yukon',
+  'envoy': 'Envoy',
   // Buick
-  'enclave': 'Enclave', 'encore': 'Encore', 'encore gx': 'Encore GX',
-  'envision': 'Envision', 'envista': 'Envista',
-  'lacrosse': 'LaCrosse', 'verano': 'Verano', 'regal': 'Regal',
-  'lesabre': 'LeSabre', 'lucerne': 'Lucerne',
+  'encore gx': 'Encore GX',
+  'encore': 'Encore',
+  'enclave': 'Enclave',
+  'envision': 'Envision',
+  'envista': 'Envista',
+  'lacrosse': 'LaCrosse',
+  'verano': 'Verano',
+  'regal': 'Regal',
+  'lesabre': 'LeSabre',
+  'lucerne': 'Lucerne',
   // Cadillac
-  'escalade': 'Escalade', 'escalade esv': 'Escalade ESV',
-  'xt4': 'XT4', 'xt5': 'XT5', 'xt6': 'XT6',
-  'ct4': 'CT4', 'ct5': 'CT5', 'ct6': 'CT6',
-  'lyriq': 'LYRIQ', 'celestiq': 'CELESTIQ',
-  'srx': 'SRX', 'ats': 'ATS', 'cts': 'CTS', 'xts': 'XTS',
-  'dts': 'DTS', 'sts': 'STS'
+  'escalade esv': 'Escalade ESV',
+  'escalade': 'Escalade',
+  'xt4': 'XT4',
+  'xt5': 'XT5',
+  'xt6': 'XT6',
+  'ct4': 'CT4',
+  'ct5': 'CT5',
+  'ct6': 'CT6',
+  'lyriq': 'LYRIQ',
+  'celestiq': 'CELESTIQ',
+  'srx': 'SRX',
+  'ats': 'ATS',
+  'cts': 'CTS',
+  'xts': 'XTS'
+}
+
+function normalizeMake(make) {
+  if (!make) return make
+  const key = make.toLowerCase().trim()
+  return MAKE_MAP[key] || make
 }
 
 function normalizeModel(model) {
   if (!model) return model
   const key = model.toLowerCase().trim()
-  // Try exact match first
   if (MODEL_MAP[key]) return MODEL_MAP[key]
-  // Try partial match
-  for (const [k, v] of Object.entries(MODEL_MAP)) {
-    if (key.includes(k) || k.includes(key)) return v
+  // Try partial — longer keys first to avoid short key stealing
+  const sortedKeys = Object.keys(MODEL_MAP).sort((a, b) => b.length - a.length)
+  for (const k of sortedKeys) {
+    if (key.includes(k)) return MODEL_MAP[k]
   }
   return model
 }
@@ -101,7 +144,6 @@ async function typeInto(el, value) {
   return true
 }
 
-// Click a combobox and pick an option, with optional search typing
 async function pickDropdown(labelText, value) {
   const trigger = [...document.querySelectorAll('[role="combobox"]')]
     .find(el => el.textContent.trim().toLowerCase().includes(labelText.toLowerCase()))
@@ -112,10 +154,8 @@ async function pickDropdown(labelText, value) {
   trigger.click()
   await sleep(1000)
 
-  // Try typing into any search input that appeared
   const searchInput = [...document.querySelectorAll('input')]
-    .find(el => el.offsetParent !== null && el.type !== 'hidden' &&
-      !el.closest('[aria-hidden="true"]'))
+    .find(el => el.offsetParent !== null && el.type !== 'hidden' && !el.closest('[aria-hidden="true"]'))
   if (searchInput) {
     const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
     if (nativeSetter) nativeSetter.call(searchInput, value)
@@ -146,7 +186,7 @@ function mapColor(color) {
   if (c.includes('red') || c.includes('crimson') || c.includes('cherry') || c.includes('cayenne')) return 'Red'
   if (c.includes('blue') || c.includes('navy') || c.includes('cobalt') || c.includes('pacific') || c.includes('empire')) return 'Blue'
   if (c.includes('green') || c.includes('forest') || c.includes('sage')) return 'Green'
-  if (c.includes('brown') || c.includes('bronze') || c.includes('copper') || c.includes('sandy ridge')) return 'Brown'
+  if (c.includes('brown') || c.includes('bronze') || c.includes('copper')) return 'Brown'
   if (c.includes('gold') || c.includes('yellow') || c.includes('champagne') || c.includes('harvest')) return 'Gold'
   if (c.includes('orange')) return 'Orange'
   if (c.includes('purple') || c.includes('violet')) return 'Purple'
@@ -154,15 +194,7 @@ function mapColor(color) {
   return 'Other'
 }
 
-function mapBodyStyle(model) {
-  const m = model?.toLowerCase() || ''
-  if (['silverado','sierra','ram','f-150','f150','tundra','ranger','colorado','canyon','tacoma','titan','frontier','1500','2500','3500'].some(t => m.includes(t))) return 'Truck'
-  if (['equinox','traverse','tahoe','suburban','blazer','trax','trailblazer','terrain','enclave','acadia','yukon','expedition','explorer','escape','edge','pilot','crv','rav4','highlander','4runner','pathfinder','murano','rogue','cx-5','tucson','santa fe','sportage','sorento','telluride','palisade','atlas','tiguan','forester','outback','ascent','envision','encore','envoy','envista'].some(t => m.includes(t))) return 'SUV'
-  if (['express','transit','odyssey','sienna','caravan','grand caravan','pacifica'].some(t => m.includes(t))) return 'Minivan'
-  if (['camaro','mustang','corvette','challenger','charger'].some(t => m.includes(t))) return 'Coupe'
-  return 'Sedan'
-}
-
+// ── Status overlay ────────────────────────────
 function showStatus(message, type = 'info') {
   let overlay = document.getElementById('wc-status')
   if (!overlay) {
@@ -184,7 +216,7 @@ function showStatus(message, type = 'info') {
   `
 }
 
-// ── Photo injection via DataTransfer ─────────
+// ── Photo injection ───────────────────────────
 async function injectPhotosIntoInput(imageUrls) {
   const fileInput = document.querySelector('input[type="file"][accept*="image"]')
   if (!fileInput) { console.warn('No file input found'); return false }
@@ -216,10 +248,10 @@ async function injectPhotosIntoInput(imageUrls) {
   fileInput.dispatchEvent(new Event('input', { bubbles: true }))
   await sleep(2000)
 
-  console.log('File input files after injection:', fileInput.files.length)
   return fileInput.files.length > 0
 }
 
+// ── Photo strip ───────────────────────────────
 function showPhotoStrip(imageUrls, vehicleId) {
   if (!imageUrls?.length) return
   document.getElementById('wc-photo-strip')?.remove()
@@ -245,57 +277,48 @@ function showPhotoStrip(imageUrls, vehicleId) {
 
   const label = document.createElement('div')
   label.style.cssText = 'color:#fff;font-size:12px;font-weight:700;white-space:nowrap;min-width:110px;line-height:1.6;'
-  label.innerHTML = `📸 ${imageUrls.length} Photos<br><span style="color:#888;font-size:10px;">Click "Upload" or select manually</span>`
+  label.innerHTML = `📸 ${imageUrls.length} Photos<br><span style="color:#888;font-size:10px;">Click Upload Photos</span>`
   strip.appendChild(label)
 
   const row = document.createElement('div')
   row.style.cssText = 'display:flex;gap:8px;overflow-x:auto;flex:1;align-items:center;padding-bottom:4px;'
-
   imageUrls.forEach((url, i) => {
     const proxySrc = `${API}/proxy-image?url=${encodeURIComponent(url)}`
     const wrapper = document.createElement('div')
     wrapper.style.cssText = 'position:relative;flex-shrink:0;'
     const img = document.createElement('img')
     img.src = proxySrc
-    img.style.cssText = `height:80px;width:110px;object-fit:cover;border-radius:8px;border:2px solid #2a2a2a;display:block;`
+    img.style.cssText = 'height:80px;width:110px;object-fit:cover;border-radius:8px;border:2px solid #2a2a2a;display:block;'
     const num = document.createElement('div')
-    num.style.cssText = `position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.7);color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;`
+    num.style.cssText = 'position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.7);color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;'
     num.textContent = i + 1
     wrapper.appendChild(img)
     wrapper.appendChild(num)
     row.appendChild(wrapper)
   })
-
   strip.appendChild(row)
 
-  // Upload button — tries DataTransfer injection first, falls back to download
   const uploadBtn = document.createElement('button')
   uploadBtn.textContent = '📁 Upload Photos'
-  uploadBtn.style.cssText = `background:#3b82f6;border:none;color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;`
-
+  uploadBtn.style.cssText = 'background:#3b82f6;border:none;color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;'
   uploadBtn.addEventListener('click', async () => {
     uploadBtn.textContent = '⏳ Working...'
     uploadBtn.disabled = true
-
     showStatus('Trying to inject photos...', 'info')
 
-    // First try DataTransfer injection
     const injected = await injectPhotosIntoInput(imageUrls)
-
     if (injected) {
       uploadBtn.textContent = '✅ Photos uploaded!'
       uploadBtn.style.background = '#22c55e'
       uploadBtn.style.color = '#000'
-      showStatus('✅ Photos injected successfully!', 'success')
+      showStatus('✅ Photos uploaded successfully!', 'success')
     } else {
-      // Fall back to download
       showStatus('Downloading photos...', 'info')
       const objectUrls = []
       let downloaded = 0
       for (let i = 0; i < imageUrls.length; i++) {
         try {
-          const proxySrc = `${API}/proxy-image?url=${encodeURIComponent(imageUrls[i])}`
-          const res = await fetch(proxySrc)
+          const res = await fetch(`${API}/proxy-image?url=${encodeURIComponent(imageUrls[i])}`)
           const blob = await res.blob()
           const objectUrl = URL.createObjectURL(blob)
           objectUrls.push(objectUrl)
@@ -310,31 +333,21 @@ function showPhotoStrip(imageUrls, vehicleId) {
           await sleep(300)
         } catch(e) { console.warn('Download failed', i + 1) }
       }
-
       uploadBtn.textContent = `✅ ${downloaded} downloaded — Select in Add Photos`
       uploadBtn.style.background = '#22c55e'
       uploadBtn.style.color = '#000'
-
-      // Click Add Photos
       await sleep(500)
       const addBtn = document.querySelector('[aria-label="Add photos"]') ||
         [...document.querySelectorAll('div[role="button"]')].find(el => el.textContent.trim() === 'Add photos')
       if (addBtn) addBtn.click()
-
-      // Auto-revoke blob URLs after 3 minutes (frees memory, files already saved to disk)
-      setTimeout(() => {
-        objectUrls.forEach(url => URL.revokeObjectURL(url))
-        uploadBtn.textContent = '🗑 Done — delete files from Downloads manually'
-        uploadBtn.style.background = '#1a1a1a'
-        uploadBtn.style.color = '#666'
-      }, 180000)
+      setTimeout(() => objectUrls.forEach(u => URL.revokeObjectURL(u)), 180000)
     }
   })
   strip.appendChild(uploadBtn)
 
   const markPosted = document.createElement('button')
   markPosted.textContent = '✅ Mark Posted'
-  markPosted.style.cssText = `background:#22c55e;border:none;color:#000;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;`
+  markPosted.style.cssText = 'background:#22c55e;border:none;color:#000;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;'
   markPosted.addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: 'LISTING_POSTED', inventory_id: vehicleId, fb_listing_url: window.location.href })
     markPosted.textContent = '✅ Posted!'
@@ -346,7 +359,7 @@ function showPhotoStrip(imageUrls, vehicleId) {
 
   const close = document.createElement('button')
   close.textContent = '✕'
-  close.style.cssText = `background:#1a1a1a;border:1px solid #333;color:#888;padding:8px 12px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;`
+  close.style.cssText = 'background:#1a1a1a;border:1px solid #333;color:#888;padding:8px 12px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;'
   close.addEventListener('click', () => {
     strip.remove()
     document.getElementById('wc-status')?.remove()
@@ -356,6 +369,7 @@ function showPhotoStrip(imageUrls, vehicleId) {
   document.body.appendChild(strip)
 }
 
+// ── Main form filler ──────────────────────────
 async function fillListingForm(vehicle) {
   const make = normalizeMake(vehicle.make)
   const model = normalizeModel(vehicle.model)
@@ -363,17 +377,17 @@ async function fillListingForm(vehicle) {
   showStatus('Starting... please don\'t click anything')
   await sleep(2500)
 
-  const bodyStyle = mapBodyStyle(vehicle.model)
-
+  // VEHICLE TYPE — always Car/Truck
   showStatus('Selecting vehicle type...')
   await pickDropdown('Vehicle type', 'Car/Truck')
   await sleep(DELAY)
 
+  // YEAR
   showStatus('Selecting year...')
   await pickDropdown('Year', String(vehicle.year))
   await sleep(DELAY)
 
-  // ── MAKE — with verification ──
+  // MAKE
   showStatus('Selecting make...')
   const makeTrigger = await waitFor(() =>
     [...document.querySelectorAll('[role="combobox"]')]
@@ -381,14 +395,11 @@ async function fillListingForm(vehicle) {
                   el.textContent.trim().toLowerCase().startsWith('make'))
   , 10000)
 
-  let makeSelected = false
   if (makeTrigger) {
     makeTrigger.scrollIntoView({ behavior: 'smooth', block: 'center' })
     await sleep(500)
     makeTrigger.click()
     await sleep(1000)
-
-    // Type to filter
     const searchInput = [...document.querySelectorAll('input')]
       .find(el => el.offsetParent !== null && el.type !== 'hidden' && !el.closest('[aria-hidden="true"]'))
     if (searchInput) {
@@ -397,33 +408,17 @@ async function fillListingForm(vehicle) {
       searchInput.dispatchEvent(new Event('input', { bubbles: true }))
       await sleep(800)
     }
-
     const makeOption = await waitFor(() =>
       [...document.querySelectorAll('[role="option"]')]
         .find(el => el.textContent.trim().toLowerCase() === make.toLowerCase()) ||
       [...document.querySelectorAll('[role="option"]')]
         .find(el => el.textContent.trim().toLowerCase().includes(make.toLowerCase()))
     , 5000)
-
-    if (makeOption) {
-      makeOption.click()
-      await sleep(1000)
-      makeSelected = true
-      console.log('✓ Make selected:', make)
-    }
+    if (makeOption) { makeOption.click(); await sleep(1000); console.log('✓ Make:', make) }
   }
-
-  // Verify make is showing in the field
   await sleep(1200)
-  const makeVerify = [...document.querySelectorAll('[role="combobox"]')]
-    .find(el => el.textContent.trim().toLowerCase().includes(make.toLowerCase()))
-  if (!makeVerify && !makeSelected) {
-    console.warn('Make not verified, retrying...')
-    await pickDropdown('Make', make)
-    await sleep(1500)
-  }
 
-  // ── MODEL — only after make confirmed ──
+  // MODEL
   showStatus('Selecting model...')
   const modelTrigger = await waitFor(() =>
     [...document.querySelectorAll('[role="combobox"]')]
@@ -436,33 +431,29 @@ async function fillListingForm(vehicle) {
     await sleep(500)
     modelTrigger.click()
     await sleep(1000)
-
     const searchInput2 = [...document.querySelectorAll('input')]
       .find(el => el.offsetParent !== null && el.type !== 'hidden' && !el.closest('[aria-hidden="true"]'))
     if (searchInput2) {
       const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
-      if (nativeSetter) nativeSetter.call(searchInput2, vehicle.model)
+      if (nativeSetter) nativeSetter.call(searchInput2, model)
       searchInput2.dispatchEvent(new Event('input', { bubbles: true }))
       await sleep(800)
     }
-
     const modelOption = await waitFor(() =>
       [...document.querySelectorAll('[role="option"]')]
-        .find(el => el.textContent.trim().toLowerCase() === vehicle.model.toLowerCase()) ||
+        .find(el => el.textContent.trim().toLowerCase() === model.toLowerCase()) ||
       [...document.querySelectorAll('[role="option"]')]
-        .find(el => el.textContent.trim().toLowerCase().includes(vehicle.model.toLowerCase()))
+        .find(el => el.textContent.trim().toLowerCase().includes(model.toLowerCase()))
     , 5000)
-
     if (modelOption) {
       modelOption.click()
       await sleep(600)
-      console.log('✓ Model selected:', vehicle.model)
+      console.log('✓ Model:', model)
     } else {
-      // Text input fallback
       const modelTextField = getFormFields()
         .find(f => f.closest('label, div')?.textContent?.includes('Model'))
       if (modelTextField) {
-        await typeInto(modelTextField, vehicle.model)
+        await typeInto(modelTextField, model)
         await sleep(500)
         const opt = document.querySelector('[role="option"]')
         if (opt) { opt.click(); await sleep(400) }
@@ -471,14 +462,17 @@ async function fillListingForm(vehicle) {
   }
   await sleep(1000)
 
+  // BODY STYLE
   showStatus('Selecting body style...')
-  await pickDropdown('Body style', bodyStyle)
+  await pickDropdown('Body style', 'SUV')
   await sleep(DELAY)
 
+  // EXTERIOR COLOR
   showStatus('Selecting exterior color...')
   await pickDropdown('Exterior color', mapColor(vehicle.exterior_color))
   await sleep(DELAY)
 
+  // INTERIOR COLOR
   showStatus('Selecting interior color...')
   await waitFor(() =>
     [...document.querySelectorAll('[role="combobox"]')]
@@ -487,6 +481,7 @@ async function fillListingForm(vehicle) {
   await pickDropdown('Interior color', mapColor(vehicle.interior_color) || 'Black')
   await sleep(DELAY)
 
+  // VEHICLE CONDITION
   showStatus('Selecting condition...')
   await waitFor(() =>
     [...document.querySelectorAll('[role="combobox"]')]
@@ -495,14 +490,17 @@ async function fillListingForm(vehicle) {
   await pickDropdown('Vehicle condition', 'Good')
   await sleep(DELAY)
 
+  // FUEL TYPE
   showStatus('Selecting fuel type...')
   await pickDropdown('Fuel type', vehicle.fuel_type || 'Gasoline')
   await sleep(DELAY)
 
+  // TRANSMISSION
   showStatus('Selecting transmission...')
   await pickDropdown('Transmission', vehicle.transmission || 'Automatic')
   await sleep(DELAY)
 
+  // MILEAGE
   showStatus('Filling mileage...')
   const mileageEl = await waitFor(() =>
     getFormFields().find(f =>
@@ -513,6 +511,7 @@ async function fillListingForm(vehicle) {
   if (mileageEl) await typeInto(mileageEl, String(vehicle.mileage || 0))
   await sleep(DELAY)
 
+  // PRICE
   showStatus('Filling price...')
   const priceEl = await waitFor(() =>
     getFormFields().find(f => f.closest('label, div')?.textContent?.includes('Price'))
@@ -520,6 +519,7 @@ async function fillListingForm(vehicle) {
   if (priceEl) await typeInto(priceEl, String(Math.round(vehicle.price)))
   await sleep(DELAY)
 
+  // DESCRIPTION
   showStatus('Writing description...')
   const descEl = await waitFor(() => document.querySelector('textarea'))
   if (descEl) {
@@ -538,6 +538,7 @@ async function fillListingForm(vehicle) {
   console.log('✅ Done')
 }
 
+// ── Boot ──────────────────────────────────────
 if (window.location.href.includes('/marketplace/create/vehicle') ||
     window.location.href.includes('/marketplace/create/')) {
   chrome.storage.local.get(['pendingPost'], ({ pendingPost }) => {
