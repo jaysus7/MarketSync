@@ -99,10 +99,19 @@ function showLoginScreen() {
       $('login-btn').textContent = 'Sign In'
     }
   })
-
-  $('password').addEventListener('keydown', e => {
-    if (e.key === 'Enter') $('login-btn').click()
-  })
+  
+  // Robust parsing layer to handle both raw arrays and nested database payloads
+    const listings = Array.isArray(listingsRes) 
+      ? listingsRes 
+      : (listingsRes && Array.isArray(listingsRes.data) ? listingsRes.data : [])
+    
+    // Defensive extraction fallback for 'inventory_id', 'vehicle_id', or nested objects
+    const postedIdSet = new Set(
+      listings.map(l => {
+        if (!l) return null;
+        return l.inventory_id || l.vehicle_id || (l.inventory && l.inventory.id);
+      }).filter(Boolean)
+    )
 }
 
 // ── Inventory Screen ──────────────────────────────
