@@ -3,6 +3,7 @@ const API = 'https://vehicle-marketplace-x0e4.onrender.com';
 const DELAY = 800; // Increased to mitigate UI render bottlenecks
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+
 // ── Normalization maps ────────────────────────
 const MAKE_MAP = {
   'chev': 'Chevrolet', 'chevy': 'Chevrolet', 'gmc': 'GMC',

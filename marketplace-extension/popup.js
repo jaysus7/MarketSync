@@ -2,6 +2,7 @@ const API = 'https://vehicle-marketplace-x0e4.onrender.com'
 const SUPABASE_URL = 'https://omyuqzveegzspeojrqkd.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9teXVxenZlZWd6c3Blb2pycWtkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMzY4NzksImV4cCI6MjA5NDgxMjg3OX0.VOouUhEL9LBebjbb_J7YwPTC0jQf826nsKvUMXxbfX4';
 
+
 // Only initialize if it doesn't already exist
 if (!window.supabase) {
   window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);

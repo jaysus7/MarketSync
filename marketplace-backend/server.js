@@ -110,6 +110,84 @@ app.post('/auth/login', async (req, res) => {
   })
 })
 
+app.post('/auth/register', async (req, res) => {
+  const { accountRole, fullName, email, password, dealershipName, websiteUrl, feeds } = req.body
+
+  if (!email || !password || !fullName || !accountRole) {
+    return res.status(400).json({ error: 'Missing required registration fields' })
+  }
+  if (accountRole === 'dealer_admin' && !dealershipName) {
+    return res.status(400).json({ error: 'Dealership name required for admin accounts' })
+  }
+
+  let createdUserId = null
+  let createdDealershipId = null
+
+  try {
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true
+    })
+    if (authError) throw authError
+    createdUserId = authData.user.id
+
+    if (accountRole === 'dealer_admin') {
+      const { data: dealership, error: dealerError } = await supabaseAdmin
+        .from('dealerships')
+        .insert({
+          name: dealershipName,
+          website_url: websiteUrl || null,
+          billing_status: 'INACTIVE'
+        })
+        .select()
+        .single()
+      if (dealerError) throw dealerError
+      createdDealershipId = dealership.id
+
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: createdUserId,
+          dealership_id: createdDealershipId,
+          full_name: fullName,
+          role: 'DEALER_ADMIN'
+        })
+      if (profileError) throw profileError
+
+      if (Array.isArray(feeds) && feeds.length > 0) {
+        const feedRows = feeds
+          .filter(f => f && f.url)
+          .map(f => ({ dealership_id: createdDealershipId, feed_url: f.url }))
+        if (feedRows.length > 0) {
+          const { error: feedError } = await supabaseAdmin.from('inventory_feeds').insert(feedRows)
+          if (feedError) throw feedError
+        }
+      }
+    } else {
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: createdUserId,
+          dealership_id: null,
+          full_name: fullName,
+          role: 'SALES_REP'
+        })
+      if (profileError) throw profileError
+    }
+
+    res.json({ success: true, user_id: createdUserId })
+  } catch (err) {
+    if (createdDealershipId) {
+      await supabaseAdmin.from('dealerships').delete().eq('id', createdDealershipId)
+    }
+    if (createdUserId) {
+      await supabaseAdmin.auth.admin.deleteUser(createdUserId)
+    }
+    res.status(400).json({ error: err.message || 'Registration failed' })
+  }
+})
+
 app.post('/auth/logout', requireAuth, async (req, res) => {
   await supabase.auth.signOut()
   res.json({ success: true })

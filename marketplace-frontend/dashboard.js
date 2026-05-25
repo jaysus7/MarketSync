@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupActionListeners();
 });
 
+
 async function initializeDashboardEcosystem() {
   try {
     // Fetch unified server profile context
