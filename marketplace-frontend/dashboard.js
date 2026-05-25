@@ -5,8 +5,8 @@ const token = localStorage.getItem('token');
 const userRaw = localStorage.getItem('user');
 
 if (!token || !userRaw) {
-  localStorage.clear();
-  window.location.href = 'login.html';
+  document.body.innerHTML = '<pre style="color:#fff;background:#000;padding:20px;font-family:monospace">DEBUG: No token or user in localStorage.\ntoken=' + token + '\nuser=' + userRaw + '</pre>';
+  throw new Error('No session');
 }
 
 const user = JSON.parse(userRaw);
@@ -63,8 +63,15 @@ async function initializeDashboardEcosystem() {
       alert('Subscription required to access system. Redirecting to billing...');
       launchStripeLifecycle();
     } else {
-      localStorage.clear();
-      window.location.href = 'login.html';
+      // DEBUG MODE — show the error instead of redirecting
+      let bodyText = '';
+      try {
+        const debugRes = await fetch(`${API}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+        bodyText = `\nStatus: ${debugRes.status}\nResponse: ${await debugRes.text()}`;
+      } catch (fetchErr) {
+        bodyText = `\nFetch error: ${fetchErr.message}`;
+      }
+      document.body.innerHTML = `<pre style="color:#fff;background:#000;padding:20px;font-family:monospace;white-space:pre-wrap">DEBUG MODE — bounce-to-login disabled.\n\nCaught error: ${err.message}\nStack: ${err.stack}\n\nToken (first 40 chars): ${token?.slice(0, 40)}...\nUser: ${userRaw}\n${bodyText}</pre>`;
     }
   }
 }
@@ -155,7 +162,7 @@ function setupActionListeners() {
   });
 
   // Launch Dedicated Stripe Gateway Session
-  document.getElementById('stripe-portal-btn').addEventListener('click', launchStripeLifecycle);
+  document.getElementById('launch-portal-btn')?.addEventListener('click', launchStripeLifecycle);
 
   // Global Session Exits
   document.getElementById('logout-btn').addEventListener('click', () => {
@@ -165,16 +172,18 @@ function setupActionListeners() {
 }
 
 async function launchStripeLifecycle() {
-  const btn = document.getElementById('stripe-portal-btn');
-  btn.disabled = true;
-  btn.textContent = "Connecting to financial node...";
+  const btn = document.getElementById('launch-portal-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Connecting to financial node...";
+  }
 
   try {
     let res = await fetch(`${API}/billing/portal`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    
+
     if (res.status === 400 || !res.ok) {
       res = await fetch(`${API}/billing/checkout`, {
         method: 'POST',
@@ -189,8 +198,10 @@ async function launchStripeLifecycle() {
       throw new Error();
     }
   } catch {
-    btn.textContent = "Connection Failure";
-    btn.disabled = false;
+    if (btn) {
+      btn.textContent = "Connection Failure";
+      btn.disabled = false;
+    }
   }
 }
 async function fetchInsights() {
