@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import 'dotenv/config'; 
 import express from 'express';
 import cors from 'cors';
 import Stripe from 'stripe';
@@ -10,45 +10,9 @@ const PORT = process.env.PORT || 10000;
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
-app.use(express.json());
+app.use(cors());
 
-// ── MIDDLEWARE: AUTH & SUBSCRIPTION GATE ──
-async function requireAuth(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Missing token' });
-
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) return res.status(401).json({ error: 'Invalid token' });
-
-  const { data: profile, error: pErr } = await supabase
-    .from('profiles')
-    .select('*, dealerships(*)')
-    .eq('id', user.id)
-    .single();
-
-  if (pErr || !profile) return res.status(401).json({ error: 'Profile not found' });
-
-  req.user = user;
-  req.profile = profile;
-  req.dealershipId = profile.dealership_id;
-  next();
-}
-
-async function checkAccess(req, res, next) {
-  const { data: dealership } = await supabase
-    .from('dealerships')
-    .select('billing_status')
-    .eq('id', req.dealershipId)
-    .single();
-
-  if (dealership?.billing_status !== 'ACTIVE') {
-    return res.status(402).json({ error: 'SUBSCRIPTION_REQUIRED' });
-  }
-  next();
-}
-
-// ── 1. STRIPE WEBHOOK ──
+// ── 1. STRIPE WEBHOOK LAYER ──
 app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
@@ -58,48 +22,103 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const sub = await stripe.subscriptions.retrieve(session.subscription);
-    await supabase.from('dealerships').update({
-      stripe_customer_id: session.customer,
-      subscription_id: session.subscription,
-      stripe_price_id: sub.items.data[0].price.id,
-      billing_status: 'ACTIVE'
-    }).eq('id', session.client_reference_id);
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object;
+      const sub = await stripe.subscriptions.retrieve(session.subscription);
+      await supabase.from('dealerships').update({
+        stripe_customer_id: session.customer,
+        subscription_id: session.subscription,
+        stripe_price_id: sub.items.data[0].price.id,
+        billing_status: 'ACTIVE'
+      }).eq('id', session.client_reference_id);
+      break;
+    }
+    case 'customer.subscription.deleted': {
+      const subscription = event.data.object;
+      await supabase.from('dealerships').update({ billing_status: 'INACTIVE' }).eq('subscription_id', subscription.id);
+      break;
+    }
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object;
+      if (invoice.subscription) {
+        await supabase.from('dealerships').update({ billing_status: 'PAST_DUE' }).eq('stripe_customer_id', invoice.customer);
+      }
+      break;
+    }
   }
   res.json({ received: true });
 });
 
-// ── 2. AUTH & REGISTRATION ──
-app.post('/auth/register', async (req, res) => {
-  const { email, password, fullName, dealershipName } = req.body;
+app.use(express.json());
+
+// ── 2. AUTH & SUBSCRIPTION GATE ──────────────
+async function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing token' });
+  const token = authHeader.split(' ')[1];
+
   try {
-    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
-    if (authError) throw authError;
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) return res.status(401).json({ error: 'Invalid token' });
 
-    const { data: dealer, error: dealerError } = await supabase
-      .from('dealerships')
-      .insert({ name: dealershipName, billing_status: 'TRIAL' })
-      .select().single();
-    if (dealerError) throw dealerError;
+    const { data: profile, error: pErr } = await supabase.from('profiles').select('*, dealerships(*)').eq('id', user.id).single();
+    if (pErr || !profile) return res.status(401).json({ error: 'Profile not found' });
 
-    await supabase.from('profiles').insert({ 
-      id: authData.user.id, full_name: fullName, dealership_id: dealer.id, role: 'DEALER_ADMIN' 
-    });
+    if (profile.dealerships?.billing_status === 'INACTIVE' || profile.dealerships?.billing_status === 'PAST_DUE') {
+      return res.status(402).json({ error: 'SUBSCRIPTION_REQUIRED' });
+    }
 
-    res.status(201).json({ message: 'Success', dealer });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+    req.user = user;
+    req.profile = profile;
+    req.dealershipId = profile.dealership_id;
+    next();
+  } catch (err) { return res.status(500).json({ error: 'Internal auth error' }); }
+}
+
+// ── 3. AUTHENTICATION & REGISTRATION ENDPOINTS ───────────────────
+app.post('/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ access_token: data.session.access_token, user: data.user });
 });
 
-// ── 3. BILLING ENDPOINTS ──
-app.post('/billing/checkout', requireAuth, async (req, res) => {
-  const { priceId } = req.body;
-  const validPrices = [process.env.STRIPE_DEALER_PRICE_ID, process.env.STRIPE_SOLO_PRICE_ID];
-  if (!validPrices.includes(priceId)) return res.status(400).json({ error: 'Invalid plan' });
+app.post('/auth/register', async (req, res) => {
+  const { email, password, fullName, dealershipName, websiteUrl } = req.body;
+  const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+  if (authError) return res.status(400).json({ error: authError.message });
 
+  const { data: dealer, error: dErr } = await supabase.from('dealerships')
+    .insert({ name: dealershipName, website_url: websiteUrl, billing_status: 'TRIAL' }).select().single();
+  if (dErr) return res.status(500).json({ error: dErr.message });
+
+  await supabase.from('profiles').insert({ id: authData.user.id, full_name: fullName, dealership_id: dealer.id, role: 'DEALER_ADMIN' });
+  res.status(201).json({ message: 'Success', dealer });
+});
+
+app.put('/profile/update', requireAuth, async (req, res) => {
+  const { websiteUrl, fullName } = req.body;
+  if (websiteUrl) await supabase.from('dealerships').update({ website_url: websiteUrl }).eq('id', req.dealershipId);
+  if (fullName) await supabase.from('profiles').update({ full_name: fullName }).eq('id', req.user.id);
+  res.json({ message: 'Updated' });
+});
+
+// ── 4. CORE DATA ROUTES ─────────────────────────────
+app.get('/inventory', requireAuth, async (req, res) => {
+  const { data, error } = await supabase.from('inventory').select('*').eq('dealership_id', req.dealershipId).order('created_at', { ascending: false });
+  res.json(data || []);
+});
+
+app.post('/listings', requireAuth, async (req, res) => {
+  const { inventory_id, fb_listing_id, fb_listing_url } = req.body;
+  const { data, error } = await supabase.from('listings').insert([{ inventory_id, fb_listing_id, fb_listing_url, posted_by: req.user.id, status: 'ACTIVE' }]).select();
+  res.status(201).json(data[0]);
+});
+
+// ── 5. BILLING MANAGEMENT ──────────────────────
+app.post('/billing/checkout', requireAuth, async (req, res) => {
+  const { priceId } = req.body; // Frontend now sends either STRIPE_DEALER_PRICE_ID or STRIPE_SOLO_PRICE_ID
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: [{ price: priceId, quantity: 1 }],
@@ -111,18 +130,16 @@ app.post('/billing/checkout', requireAuth, async (req, res) => {
   res.json({ url: session.url });
 });
 
-// ── 4. SECURE ROUTES ──
-app.get('/dealership/team-insights', requireAuth, checkAccess, async (req, res) => {
+// ── 6. PROXY & INSIGHTS ──
+app.get('/proxy-image', async (req, res) => {
+  const response = await fetch(req.query.url);
+  res.send(Buffer.from(await response.arrayBuffer()));
+});
+
+app.get('/dealership/team-insights', requireAuth, async (req, res) => {
   if (req.profile.role !== 'DEALER_ADMIN') return res.status(403).json({ error: 'Unauthorized' });
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('full_name, id, listings(count)')
-    .eq('dealership_id', req.dealershipId);
-
-  if (error) return res.status(500).json({ error: error.message });
+  const { data } = await supabase.from('profiles').select('full_name, id, listings(count)').eq('dealership_id', req.dealershipId);
   res.json(data);
 });
 
-// ── 5. RUNTIME ──
 app.listen(PORT, () => console.log(`🚀 Production server live on port ${PORT}`));
