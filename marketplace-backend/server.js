@@ -27,7 +27,7 @@ const supabaseAdmin = createClient(
 
 app.use(cors({ origin: '*' }))
 
-// ── 1. STRIPE WEBHOOK (Must be evaluated before express.json() parser parsing) ──
+// ── 1. STRIPE WEBHOOK ──
 app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature']
   let event
@@ -113,25 +113,25 @@ app.post('/auth/login', async (req, res) => {
   })
 })
 
-// REFACTORED WORKFLOW WITH METHOD A INCORPORATED
 app.post('/auth/register', async (req, res) => {
   const { accountRole, fullName, email, password, dealershipName, websiteUrl, feeds } = req.body
 
   try {
-    // Step 1: Initialize account inside Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
     if (authError) return res.status(400).json({ error: authError.message })
     const userId = authData.user?.id
 
     let assignedDealershipId = null
+    // Grab the first URL string from your form's multi-feed collection array to maintain fallback schema integrity
+    const legacyFeedUrl = feeds && feeds.length > 0 ? feeds[0].url : null
 
-    // Step 2: Provision company structural row using elevated admin context
     if (accountRole === 'dealer_admin') {
       const { data: dealer, error: dErr } = await supabaseAdmin
         .from('dealerships')
         .insert({ 
           name: dealershipName, 
           website_url: websiteUrl || null, 
+          feed_url: legacyFeedUrl,
           billing_status: 'TRIAL' 
         })
         .select().single()
@@ -140,7 +140,6 @@ app.post('/auth/register', async (req, res) => {
       assignedDealershipId = dealer.id
     }
 
-    // Step 3: Populate dynamic split-inventory multi-feed data models
     if (feeds && feeds.length > 0) {
       const feedRows = feeds.map(f => ({
         dealership_id: assignedDealershipId,
@@ -156,12 +155,12 @@ app.post('/auth/register', async (req, res) => {
       if (feedError) return res.status(500).json({ error: feedError.message })
     }
 
-    // Step 4: Write profile tracking payload using the admin token
+    // Matches 'role' instead of 'account_role' based on your schema profile
     await supabaseAdmin.from('profiles').upsert({
       id: userId,
       full_name: fullName,
       dealership_id: assignedDealershipId,
-      account_role: accountRole
+      role: accountRole === 'dealer_admin' ? 'DEALER_ADMIN' : 'SALES_REP'
     })
 
     res.status(201).json({ message: 'Registration successful' })
@@ -175,7 +174,7 @@ app.get('/auth/me', requireAuth, async (req, res) => {
     id: req.user.id,
     email: req.user.email,
     full_name: req.profile.full_name,
-    role: req.profile.account_role,
+    role: req.profile.role,
     dealership: req.profile.dealerships
   })
 })
@@ -194,8 +193,8 @@ app.put('/profile/update', requireAuth, async (req, res) => {
 
 // ── 4. TEAM MANAGEMENT SYSTEM ──
 app.post('/admin/users/invite', requireAuth, async (req, res) => {
-  if (req.profile.account_role !== 'dealer_admin') return res.status(403).json({ error: 'Admins only' })
-  const { email, full_name, role = 'sales_rep' } = req.body
+  if (req.profile.role !== 'DEALER_ADMIN') return res.status(403).json({ error: 'Admins only' })
+  const { email, full_name, role = 'SALES_REP' } = req.body
   const { data: newUser, error: authError } = await supabase.auth.admin.createUser({
     email,
     password: Math.random().toString(36).slice(-10),
@@ -206,7 +205,7 @@ app.post('/admin/users/invite', requireAuth, async (req, res) => {
     id: newUser.user.id,
     dealership_id: req.dealershipId,
     full_name,
-    account_role: role
+    role
   })
   res.json({ success: true, user_id: newUser.user.id })
 })
@@ -287,7 +286,7 @@ app.post('/billing/checkout', requireAuth, async (req, res) => {
 })
 
 app.get('/dealership/team-insights', requireAuth, async (req, res) => {
-  if (req.profile.account_role !== 'dealer_admin') return res.status(403).json({ error: 'Admins only' })
+  if (req.profile.role !== 'DEALER_ADMIN') return res.status(403).json({ error: 'Admins only' })
   const { data } = await supabaseAdmin
     .from('profiles')
     .select('full_name, id')
@@ -363,7 +362,6 @@ app.get('/sync', async (req, res) => {
     const { data: currentDealer } = await supabaseAdmin.from('dealerships').select('id').eq('id', targetDealershipId).single()
     if (!currentDealer) return res.status(404).json({ error: 'Target business identity not found.' })
 
-    // Find all feeds linked to this account
     const { data: feeds } = await supabaseAdmin.from('inventory_feeds').select('feed_url').eq('dealership_id', targetDealershipId)
     if (!feeds || feeds.length === 0) return res.status(404).json({ error: 'No inventory data feeds found for this account.' })
 
