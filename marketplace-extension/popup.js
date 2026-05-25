@@ -1,10 +1,4 @@
 const API = 'https://vehicle-marketplace-s0e4.onrender.com'
-const SUPABASE_URL = 'https://omyuqzveegzspeojrqkd.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9teXVxenZlZWd6c3Blb2pycWtkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMzY4NzksImV4cCI6MjA5NDgxMjg3OX0.VOouUhEL9LBebjbb_J7YwPTC0jQf826nsKvUMXxbfX4'
-
-if (!window.supabase) {
-  window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-}
 
 const $ = (id) => document.getElementById(id)
 
@@ -288,25 +282,29 @@ function initRegisterScreen() {
     btn.disabled = true
     btn.textContent = 'Registering...'
 
+    const feedUrl = $('reg-feed').value.trim()
+    const payload = {
+      accountRole: 'dealer_admin',
+      fullName: $('reg-fullname').value.trim(),
+      email: $('reg-email').value.trim(),
+      password: $('reg-password').value,
+      dealershipName: $('reg-dealername').value.trim(),
+      websiteUrl: $('reg-website').value.trim(),
+      feeds: feedUrl ? [{ type: 'all', url: feedUrl }] : []
+    }
+
     try {
-      const { error } = await supabase.auth.signUp({
-        email: $('reg-email').value.trim(),
-        password: $('reg-password').value,
-        options: {
-          data: {
-            fullName: $('reg-fullname').value.trim(),
-            accountRole: 'DEALER_ADMIN',
-            dealershipName: $('reg-dealername').value.trim(),
-            websiteUrl: $('reg-website').value.trim(),
-            feedUrl: $('reg-feed').value.trim()
-          }
-        }
+      const r = await fetch(`${API}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Registration failed')
 
-      if (error) throw error
-
-      successEl.textContent = 'Verification email sent! Please check your inbox.'
+      successEl.textContent = 'Account created. Sign in to continue.'
       btn.textContent = 'Success!'
+      setTimeout(() => setScreen('login'), 1200)
     } catch (err) {
       errorEl.textContent = err.message
       btn.disabled = false
