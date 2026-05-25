@@ -96,6 +96,33 @@
         </div>
       </div>
 
+      <div id="feeds-panel" class="hidden bg-slate-900 border border-slate-800 rounded-lg p-6">
+        <div class="flex justify-between items-start mb-4 gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-white">Inventory Feeds</h2>
+            <p class="text-slate-400 text-xs">Manage data feed sources and pull the latest inventory.</p>
+          </div>
+          <button id="sync-now-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
+            Sync Now
+          </button>
+        </div>
+        <div id="sync-status" class="hidden mb-3 p-2 text-xs rounded"></div>
+        <div id="feeds-list" class="space-y-2 mb-4">
+          <div class="text-xs text-slate-500 italic">Loading feeds...</div>
+        </div>
+        <form id="add-feed-form" class="flex flex-wrap gap-2 items-center pt-3 border-t border-slate-800">
+          <select id="add-feed-type" class="bg-slate-950 border border-slate-700 rounded px-2 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            <option value="all">All Inventory</option>
+            <option value="new">New</option>
+            <option value="used">Used</option>
+            <option value="demo">Demo</option>
+            <option value="fleet">Fleet</option>
+          </select>
+          <input type="url" id="add-feed-url" placeholder="https://.../inventory.json" required class="flex-1 min-w-[200px] bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+          <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-3 py-2 rounded border border-slate-700 transition">Add Feed</button>
+        </form>
+      </div>
+
       <div id="dealer-view-panel" class="hidden bg-slate-900 border border-slate-800 rounded-lg p-6">
         <div class="flex justify-between items-center mb-4">
           <div>

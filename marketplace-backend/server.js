@@ -376,10 +376,66 @@ async function fetchVehiclePhotos(stocknumber) {
   }
 }
 
+async function runInventorySync(dealershipId) {
+  const { data: feeds } = await supabaseAdmin.from('inventory_feeds').select('feed_url').eq('dealership_id', dealershipId)
+  if (!feeds || feeds.length === 0) return { success: false, error: 'No inventory feeds configured for this dealership.' }
+
+  let totalInserted = 0, totalSkipped = 0, totalVehiclesFound = 0
+  const feedVins = []
+
+  for (const feed of feeds) {
+    try {
+      const feedRes = await fetch(`${feed.feed_url}?v=${Date.now()}`)
+      const data = await feedRes.json()
+      const vehicles = data.vehicles || []
+      totalVehiclesFound += vehicles.length
+
+      for (const v of vehicles) {
+        if (!v.onweb || v.nonvehicle) { totalSkipped++; continue }
+        if (v.vin) feedVins.push(v.vin)
+
+        await sleep(200)
+        const imageUrls = await fetchVehiclePhotos(v.stocknumber)
+        const record = {
+          dealership_id: dealershipId,
+          vin: v.vin,
+          year: parseInt(v.year),
+          make: v.make,
+          model: v.model,
+          trim: v.trim || null,
+          price: v.saleprice || v.price || 0,
+          mileage: v.mileage || 0,
+          exterior_color: v.exteriorcolor || null,
+          interior_color: null,
+          transmission: v.transmission || null,
+          fuel_type: mapFuel(v.fueltype),
+          description: buildDescription(v),
+          image_urls: imageUrls,
+          source_url: `${feed.feed_url.split('/wp-content')[0]}/inventory/${v.stocknumber}`,
+          status: v.salepending ? 'pending' : 'available',
+          last_synced_at: new Date().toISOString()
+        }
+        const { error } = await supabaseAdmin.from('inventory').upsert(record, { onConflict: 'vin' })
+        if (error) totalSkipped++
+        else totalInserted++
+      }
+    } catch (feedErr) {
+      console.error(feedErr.message)
+    }
+  }
+
+  if (feedVins.length > 0) {
+    await supabaseAdmin.from('inventory').update({ status: 'sold' }).eq('dealership_id', dealershipId).eq('status', 'available').not('vin', 'in', `(${feedVins.map(v => `"${v}"`).join(',')})`)
+  }
+
+  return { success: true, total_in_feeds: totalVehiclesFound, processed: totalInserted, skipped: totalSkipped, synced_at: new Date().toISOString() }
+}
+
+// Secret-protected sync (for cron / external triggers)
 app.get('/sync', async (req, res) => {
   const secret = req.query.secret
   if (secret !== process.env.SYNC_SECRET && process.env.SYNC_SECRET) return res.status(401).json({ error: 'Unauthorized' })
-  
+
   const targetDealershipId = req.query.dealership_id
   if (!targetDealershipId) return res.status(400).json({ error: 'Missing target dealership parameter' })
 
@@ -387,58 +443,59 @@ app.get('/sync', async (req, res) => {
     const { data: currentDealer } = await supabaseAdmin.from('dealerships').select('id').eq('id', targetDealershipId).single()
     if (!currentDealer) return res.status(404).json({ error: 'Target business identity not found.' })
 
-    const { data: feeds } = await supabaseAdmin.from('inventory_feeds').select('feed_url').eq('dealership_id', targetDealershipId)
-    if (!feeds || feeds.length === 0) return res.status(404).json({ error: 'No inventory data feeds found for this account.' })
+    const result = await runInventorySync(targetDealershipId)
+    if (!result.success) return res.status(404).json(result)
+    res.json(result)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
 
-    let totalInserted = 0, totalSkipped = 0, totalVehiclesFound = 0
-    const feedVins = []
+// User-facing inventory feed management
+app.get('/inventory-feeds', requireAuth, async (req, res) => {
+  if (!req.dealershipId) return res.json([])
+  const { data, error } = await supabaseAdmin
+    .from('inventory_feeds')
+    .select('id, feed_url, feed_type, created_at')
+    .eq('dealership_id', req.dealershipId)
+    .order('created_at', { ascending: false })
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data)
+})
 
-    for (const feed of feeds) {
-      try {
-        const feedRes = await fetch(`${feed.feed_url}?v=${Date.now()}`)
-        const data = await feedRes.json()
-        const vehicles = data.vehicles || []
-        totalVehiclesFound += vehicles.length
+app.post('/inventory-feeds', requireAuth, async (req, res) => {
+  if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this account' })
+  const { feed_url, feed_type } = req.body || {}
+  if (!feed_url) return res.status(400).json({ error: 'feed_url is required' })
+  const { data, error } = await supabaseAdmin
+    .from('inventory_feeds')
+    .insert({ dealership_id: req.dealershipId, user_id: req.user.id, feed_url, feed_type: feed_type || 'all' })
+    .select()
+    .single()
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data)
+})
 
-        for (const v of vehicles) {
-          if (!v.onweb || v.nonvehicle) { totalSkipped++; continue }
-          if (v.vin) feedVins.push(v.vin)
-          
-          await sleep(200)
-          const imageUrls = await fetchVehiclePhotos(v.stocknumber)
-          const record = {
-            dealership_id: targetDealershipId,
-            vin: v.vin,
-            year: parseInt(v.year),
-            make: v.make,
-            model: v.model,
-            trim: v.trim || null,
-            price: v.saleprice || v.price || 0,
-            mileage: v.mileage || 0,
-            exterior_color: v.exteriorcolor || null,
-            interior_color: null,
-            transmission: v.transmission || null,
-            fuel_type: mapFuel(v.fueltype),
-            description: buildDescription(v),
-            image_urls: imageUrls,
-            source_url: `${feed.feed_url.split('/wp-content')[0]}/inventory/${v.stocknumber}`,
-            status: v.salepending ? 'pending' : 'available',
-            last_synced_at: new Date().toISOString()
-          }
-          const { error } = await supabaseAdmin.from('inventory').upsert(record, { onConflict: 'vin' })
-          if (error) totalSkipped++
-          else totalInserted++
-        }
-      } catch (feedErr) {
-        console.error(feedErr.message)
-      }
-    }
+app.delete('/inventory-feeds/:id', requireAuth, async (req, res) => {
+  const { data: feed } = await supabaseAdmin
+    .from('inventory_feeds')
+    .select('id, dealership_id')
+    .eq('id', req.params.id)
+    .single()
+  if (!feed || feed.dealership_id !== req.dealershipId) {
+    return res.status(404).json({ error: 'Feed not found' })
+  }
+  const { error } = await supabaseAdmin.from('inventory_feeds').delete().eq('id', req.params.id)
+  if (error) return res.status(500).json({ error: error.message })
+  res.json({ success: true })
+})
 
-    if (feedVins.length > 0) {
-      await supabaseAdmin.from('inventory').update({ status: 'sold' }).eq('dealership_id', targetDealershipId).eq('status', 'available').not('vin', 'in', `(${feedVins.map(v => `"${v}"`).join(',')})`)
-    }
-
-    res.json({ success: true, total_in_feeds: totalVehiclesFound, processed: totalInserted, skipped: totalSkipped, synced_at: new Date().toISOString() })
+app.post('/inventory/sync', requireAuth, async (req, res) => {
+  if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this account' })
+  try {
+    const result = await runInventorySync(req.dealershipId)
+    if (!result.success) return res.status(400).json(result)
+    res.json(result)
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

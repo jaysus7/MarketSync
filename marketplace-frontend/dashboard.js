@@ -60,7 +60,9 @@ async function initializeDashboardEcosystem() {
     calculateGeneralMetrics(fleet, totalListings);
 
     if (role === 'DEALER_ADMIN' || role === 'OWNER') {
+      document.getElementById('feeds-panel').classList.remove('hidden');
       document.getElementById('dealer-view-panel').classList.remove('hidden');
+      loadInventoryFeeds();
       loadDealerManagementMatrix();
     } else {
       document.getElementById('rep-view-panel').classList.remove('hidden');
@@ -134,7 +136,105 @@ async function loadDealerManagementMatrix() {
 function loadRepPipelineMatrix(listings) {
   const personalPosts = listings.filter(l => l.posted_by === user.id).length;
   document.getElementById('rep-count-text').textContent = personalPosts;
-  document.getElementById('rep-login-text').textContent = Math.floor(Math.random() * 3) + 2; 
+  document.getElementById('rep-login-text').textContent = Math.floor(Math.random() * 3) + 2;
+}
+
+// INVENTORY FEEDS: list, add, remove, manual sync
+async function loadInventoryFeeds() {
+  const list = document.getElementById('feeds-list');
+  list.innerHTML = '<div class="text-xs text-slate-500 italic">Loading feeds...</div>';
+  try {
+    const res = await fetch(`${API}/inventory-feeds`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const feeds = res.ok ? await res.json() : [];
+    if (!feeds.length) {
+      list.innerHTML = '<div class="text-xs text-slate-500 italic">No feeds yet — add one below to start syncing inventory.</div>';
+      return;
+    }
+    list.innerHTML = feeds.map(f => `
+      <div class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded p-3 gap-3">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <span class="text-[10px] uppercase font-bold bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">${f.feed_type || 'all'}</span>
+          <span class="text-xs text-slate-300 truncate" title="${f.feed_url}">${f.feed_url}</span>
+        </div>
+        <button data-feed-id="${f.id}" class="feed-delete-btn text-red-400 hover:text-red-300 text-xs font-bold">Remove</button>
+      </div>
+    `).join('');
+    document.querySelectorAll('.feed-delete-btn').forEach(btn => {
+      btn.addEventListener('click', () => deleteFeed(btn.dataset.feedId));
+    });
+  } catch (err) {
+    list.innerHTML = `<div class="text-xs text-red-400">Failed to load feeds: ${err.message}</div>`;
+  }
+}
+
+async function deleteFeed(id) {
+  if (!confirm('Remove this inventory feed?')) return;
+  try {
+    const res = await fetch(`${API}/inventory-feeds/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Delete failed');
+    }
+    loadInventoryFeeds();
+  } catch (err) {
+    showSyncStatus(err.message, 'err');
+  }
+}
+
+async function addFeed(feedUrl, feedType) {
+  try {
+    const res = await fetch(`${API}/inventory-feeds`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ feed_url: feedUrl, feed_type: feedType })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Add failed');
+    loadInventoryFeeds();
+    document.getElementById('add-feed-url').value = '';
+  } catch (err) {
+    showSyncStatus(err.message, 'err');
+  }
+}
+
+async function syncNow() {
+  const btn = document.getElementById('sync-now-btn');
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Syncing...';
+  showSyncStatus('Sync running — this can take a minute depending on inventory size.', 'info');
+  try {
+    const res = await fetch(`${API}/inventory/sync`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sync failed');
+    showSyncStatus(`Synced ${data.processed} of ${data.total_in_feeds} vehicles (${data.skipped} skipped).`, 'ok');
+    // Refresh top metrics
+    fetchMetrics('/inventory').then(fleet => {
+      fetchMetrics('/listings').then(listings => calculateGeneralMetrics(fleet, listings));
+    });
+  } catch (err) {
+    showSyncStatus(err.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+function showSyncStatus(text, kind) {
+  const el = document.getElementById('sync-status');
+  el.textContent = text;
+  el.className = kind === 'ok'
+    ? 'mb-3 p-2 text-xs rounded bg-emerald-900/50 border border-emerald-700 text-emerald-200'
+    : kind === 'err'
+      ? 'mb-3 p-2 text-xs rounded bg-red-900/50 border border-red-700 text-red-200'
+      : 'mb-3 p-2 text-xs rounded bg-slate-800 border border-slate-700 text-slate-300';
+  el.classList.remove('hidden');
 }
 
 function setupActionListeners() {
@@ -187,6 +287,17 @@ function setupActionListeners() {
       showMsg(err.message || 'Failed to update profile.', 'err');
     }
   });
+
+  // Inventory feed add form
+  document.getElementById('add-feed-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const url = document.getElementById('add-feed-url').value.trim();
+    const type = document.getElementById('add-feed-type').value;
+    if (url) addFeed(url, type);
+  });
+
+  // Manual sync trigger
+  document.getElementById('sync-now-btn')?.addEventListener('click', syncNow);
 
   // Launch Dedicated Stripe Gateway Session
   document.getElementById('launch-portal-btn')?.addEventListener('click', launchStripeLifecycle);
