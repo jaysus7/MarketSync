@@ -37,13 +37,37 @@
         </form>
       </div>
 
-      <div class="bg-slate-900 border border-slate-800 rounded-lg p-5">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Billing & Infrastructure</h3>
-        <p class="text-slate-400 text-xs mb-4 leading-relaxed">Modify credit profiles, pull invoices, or adjust payment frequencies straight via the Stripe interface gateway.</p>
-        <button id="stripe-portal-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded shadow transition flex items-center justify-center space-x-1">
-          <span>💳 Launch Stripe Portal</span>
-        </button>
-      </div>
+      <div class="card">
+  <h3>BILLING & INFRASTRUCTURE</h3>
+  <p>Modify accounts, download invoices, or adjust tier configurations straight via the interface gateway.</p>
+  <button id="launch-portal-btn" class="btn-portal">💳 Access Billing Options</button>
+</div>
+
+<div class="card">
+  <h3>UPDATE PROFILE & SETTINGS</h3>
+  <div class="form-group">
+    <label>Full Name</label>
+    <input type="text" id="profile-fullname" placeholder="John Doe">
+  </div>
+  <div class="form-group">
+    <label>Email Address</label>
+    <input type="email" id="profile-email" placeholder="name@dealership.com">
+  </div>
+  <div class="form-group">
+    <label>New Password</label>
+    <input type="password" id="profile-password" placeholder="Leave blank to keep current">
+  </div>
+  <div class="form-group">
+    <label>Dealership Name</label>
+    <input type="text" id="profile-dealername" placeholder="Welland Chev">
+  </div>
+  <div class="form-group">
+    <label>Website URL</label>
+    <input type="url" id="profile-website" placeholder="https://www.dealership.com">
+  </div>
+  <button id="update-profile-btn" class="btn-primary">Update Identity & Workspace</button>
+  <div id="profile-status-msg" style="margin-top: 10px; font-size: 12px;"></div>
+</div>
     </section>
 
     <section class="md:col-span-3 space-y-6">

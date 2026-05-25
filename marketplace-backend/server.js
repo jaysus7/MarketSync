@@ -90,7 +90,7 @@ async function requireAuth(req, res, next) {
 
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token)
-    if (error || !user) return res.status(401).json({ error: 'Invalid token' })
+    if (error || !user) return res.status(401).json({ error: 'AUTH_EXPIRED — please sign in again' })
 
     const { data: profile } = await supabaseAdmin
       .from('profiles')
@@ -138,19 +138,16 @@ app.post('/auth/register', async (req, res) => {
   } = req.body
 
   try {
-    // Standardize selected registration roles cleanly
     const incomingRole = (accountRole || role || '').toLowerCase()
     const isDealerAdmin = incomingRole.includes('admin') || incomingRole === 'dealer_admin'
     const targetRole = isDealerAdmin ? 'DEALER_ADMIN' : 'SALES_REP'
 
-    // Step 1: Initialize User Account in Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
     if (authError) return res.status(400).json({ error: authError.message })
     const userId = authData.user?.id
 
     let assignedDealershipId = null
 
-    // Step 2: Handle workspace creation if Admin
     if (isDealerAdmin) {
       const { data: dealer, error: dErr } = await supabaseAdmin
         .from('dealerships')
@@ -166,17 +163,15 @@ app.post('/auth/register', async (req, res) => {
       assignedDealershipId = dealer.id
     }
 
-    // Step 3: Populate inventory feeds mapping row if URL provided
     if (feedUrl) {
       await supabaseAdmin.from('inventory_feeds').insert({
         dealership_id: assignedDealershipId,
         user_id: userId,
         feed_url: feedUrl,
         feed_type: 'All Inventory'
-      }).catch(() => null) // Resilient fallback
+      }).catch(() => null)
     }
 
-    // Step 4: Write profile using your database schema 'role' column format
     await supabaseAdmin.from('profiles').upsert({
       id: userId,
       full_name: fullName || 'Workspace Member',
@@ -205,11 +200,51 @@ app.post('/auth/logout', requireAuth, async (req, res) => {
   res.json({ success: true })
 })
 
+// FULL COMPLETE SYSTEM IDENTITY UPDATES (Handles Email, Passwords, Names, URLs & Dealerships)
 app.put('/profile/update', requireAuth, async (req, res) => {
-  const { websiteUrl, fullName } = req.body
-  if (websiteUrl) await supabaseAdmin.from('dealerships').update({ website_url: websiteUrl }).eq('id', req.dealershipId)
-  if (fullName) await supabaseAdmin.from('profiles').update({ full_name: fullName }).eq('id', req.user.id)
-  res.json({ message: 'Updated' })
+  const { fullName, email, password, dealershipName, websiteUrl } = req.body
+
+  try {
+    // 1. Process Core Supabase Authentication Identity alterations if requested
+    const authUpdates = {}
+    if (email) authUpdates.email = email
+    if (password) authUpdates.password = password
+
+    if (Object.keys(authUpdates).length > 0) {
+      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+        req.user.id,
+        authUpdates
+      )
+      if (authError) throw authError
+    }
+
+    // 2. Process App Profiles Table Row Metadata
+    if (fullName) {
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update({ full_name: fullName })
+        .eq('id', req.user.id)
+      if (profileError) throw profileError
+    }
+
+    // 3. Process Live Dealership Structural Workspace Properties
+    if (req.dealershipId && (dealershipName || websiteUrl)) {
+      const dealerUpdates = {}
+      if (dealershipName) dealerUpdates.name = dealershipName
+      if (websiteUrl) dealerUpdates.website_url = websiteUrl
+
+      const { error: dealerError } = await supabaseAdmin
+        .from('dealerships')
+        .update(dealerUpdates)
+        .eq('id', req.dealershipId)
+      if (dealerError) throw dealerError
+    }
+
+    res.json({ message: 'Workspace identity updated successfully' })
+  } catch (err) {
+    console.error('Transactional error modifying user details:', err.message)
+    res.status(400).json({ error: err.message })
+  }
 })
 
 // ── 4. TEAM MANAGEMENT SYSTEM ──
@@ -290,7 +325,6 @@ app.post('/billing/checkout', requireAuth, async (req, res) => {
   const priceId = req.body.priceId || process.env.STRIPE_DEALER_PRICE_ID;
   
   try {
-    // If user already has a customer ID, attempt to send them straight to a configuration portal
     if (req.profile.dealerships?.stripe_customer_id) {
       try {
         const portalSession = await stripe.billingPortal.sessions.create({
@@ -299,18 +333,17 @@ app.post('/billing/checkout', requireAuth, async (req, res) => {
         });
         return res.json({ url: portalSession.url });
       } catch (portalErr) {
-        console.warn('Portal initialization bypassed, falling back to fresh checkout instance:', portalErr.message);
+        console.warn('Portal initialization bypassed, falling back to checkout session:', portalErr.message);
       }
     }
 
-    // Fallback: Establish standard checkout path workflow
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
       client_reference_id: req.dealershipId,
       success_url: `${process.env.FRONTEND_URL}/dashboard`,
-      cancel_url: `${process.env.FRONTEND_URL}/upgrade`,
+      cancel_url: `${process.env.FRONTEND_URL}/dashboard`,
     });
     res.json({ url: session.url });
   } catch (err) {
@@ -318,7 +351,7 @@ app.post('/billing/checkout', requireAuth, async (req, res) => {
   }
 });
 
-// Alias the route explicitly so your extension's initial fetch to /billing/portal cleanly resolves
+// Clean unified Billing interface routing aliases
 app.post('/billing/portal', requireAuth, async (req, res) => {
   res.redirect(307, '/billing/checkout');
 });
@@ -459,4 +492,4 @@ app.get('/debug', requireAuth, async (req, res) => {
   res.json({ user_id: req.user.id, profile: req.profile, dealership_id: req.dealershipId })
 })
 
-app.listen(PORT, () => console.log(`🚀 Automated marketplace sync ecosystem operational on port ${PORT}`))
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Automated marketplace sync ecosystem operational on port ${PORT}`))
