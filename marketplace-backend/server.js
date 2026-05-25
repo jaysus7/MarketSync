@@ -10,7 +10,16 @@ const PORT = process.env.PORT || 10000
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+// Standard Public Client (Used for standard user auth validations)
 const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY,
+  { realtime: { transport: ws } }
+)
+
+// Method A: Elevated Admin Client (Used exclusively on registration to bypass RLS)
+const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
   { realtime: { transport: ws } }
@@ -32,7 +41,7 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
     case 'checkout.session.completed': {
       const session = event.data.object
       const sub = await stripe.subscriptions.retrieve(session.subscription)
-      await supabase.from('dealerships').update({
+      await supabaseAdmin.from('dealerships').update({
         stripe_customer_id: session.customer,
         subscription_id: session.subscription,
         stripe_price_id: sub.items.data[0].price.id,
@@ -41,7 +50,7 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
       break;
     }
     case 'customer.subscription.deleted': {
-      await supabase.from('dealerships')
+      await supabaseAdmin.from('dealerships')
         .update({ billing_status: 'INACTIVE' })
         .eq('subscription_id', event.data.object.id)
       break;
@@ -49,7 +58,7 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
     case 'invoice.payment_failed': {
       const invoice = event.data.object
       if (invoice.subscription) {
-        await supabase.from('dealerships')
+        await supabaseAdmin.from('dealerships')
           .update({ billing_status: 'PAST_DUE' })
           .eq('stripe_customer_id', invoice.customer)
       }
@@ -71,7 +80,7 @@ async function requireAuth(req, res, next) {
     const { data: { user }, error } = await supabase.auth.getUser(token)
     if (error || !user) return res.status(401).json({ error: 'Invalid token' })
 
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('*, dealerships(*)')
       .eq('id', user.id)
@@ -104,33 +113,58 @@ app.post('/auth/login', async (req, res) => {
   })
 })
 
+// REFACTORED WORKFLOW WITH METHOD A INCORPORATED
 app.post('/auth/register', async (req, res) => {
-  const { email, password, fullName, dealershipName, websiteUrl, feedUrl } = req.body
+  const { accountRole, fullName, email, password, dealershipName, websiteUrl, feeds } = req.body
 
   try {
+    // Step 1: Initialize account inside Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
     if (authError) return res.status(400).json({ error: authError.message })
+    const userId = authData.user?.id
 
-    const { data: dealer, error: dErr } = await supabase
-      .from('dealerships')
-      .insert({ 
-        name: dealershipName, 
-        website_url: websiteUrl || null, 
-        feed_url: feedUrl || null, 
-        billing_status: 'TRIAL' 
-      })
-      .select().single()
-      
-    if (dErr) return res.status(500).json({ error: dErr.message })
+    let assignedDealershipId = null
 
-    await supabase.from('profiles').upsert({
-      id: authData.user.id,
+    // Step 2: Provision company structural row using elevated admin context
+    if (accountRole === 'dealer_admin') {
+      const { data: dealer, error: dErr } = await supabaseAdmin
+        .from('dealerships')
+        .insert({ 
+          name: dealershipName, 
+          website_url: websiteUrl || null, 
+          billing_status: 'TRIAL' 
+        })
+        .select().single()
+        
+      if (dErr) return res.status(500).json({ error: dErr.message })
+      assignedDealershipId = dealer.id
+    }
+
+    // Step 3: Populate dynamic split-inventory multi-feed data models
+    if (feeds && feeds.length > 0) {
+      const feedRows = feeds.map(f => ({
+        dealership_id: assignedDealershipId,
+        user_id: userId,
+        feed_url: f.url,
+        feed_type: f.type
+      }))
+
+      const { error: feedError } = await supabaseAdmin
+        .from('inventory_feeds')
+        .insert(feedRows)
+
+      if (feedError) return res.status(500).json({ error: feedError.message })
+    }
+
+    // Step 4: Write profile tracking payload using the admin token
+    await supabaseAdmin.from('profiles').upsert({
+      id: userId,
       full_name: fullName,
-      dealership_id: dealer.id,
-      role: 'DEALER_ADMIN'
+      dealership_id: assignedDealershipId,
+      account_role: accountRole
     })
 
-    res.status(201).json({ message: 'Registration successful', dealer })
+    res.status(201).json({ message: 'Registration successful' })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -141,7 +175,7 @@ app.get('/auth/me', requireAuth, async (req, res) => {
     id: req.user.id,
     email: req.user.email,
     full_name: req.profile.full_name,
-    role: req.profile.role,
+    role: req.profile.account_role,
     dealership: req.profile.dealerships
   })
 })
@@ -153,33 +187,33 @@ app.post('/auth/logout', requireAuth, async (req, res) => {
 
 app.put('/profile/update', requireAuth, async (req, res) => {
   const { websiteUrl, fullName } = req.body
-  if (websiteUrl) await supabase.from('dealerships').update({ website_url: websiteUrl }).eq('id', req.dealershipId)
-  if (fullName) await supabase.from('profiles').update({ full_name: fullName }).eq('id', req.user.id)
+  if (websiteUrl) await supabaseAdmin.from('dealerships').update({ website_url: websiteUrl }).eq('id', req.dealershipId)
+  if (fullName) await supabaseAdmin.from('profiles').update({ full_name: fullName }).eq('id', req.user.id)
   res.json({ message: 'Updated' })
 })
 
 // ── 4. TEAM MANAGEMENT SYSTEM ──
 app.post('/admin/users/invite', requireAuth, async (req, res) => {
-  if (req.profile.role !== 'DEALER_ADMIN') return res.status(403).json({ error: 'Admins only' })
-  const { email, full_name, role = 'user' } = req.body
+  if (req.profile.account_role !== 'dealer_admin') return res.status(403).json({ error: 'Admins only' })
+  const { email, full_name, role = 'sales_rep' } = req.body
   const { data: newUser, error: authError } = await supabase.auth.admin.createUser({
     email,
     password: Math.random().toString(36).slice(-10),
     email_confirm: true
   })
   if (authError) return res.status(500).json({ error: authError.message })
-  await supabase.from('profiles').upsert({
+  await supabaseAdmin.from('profiles').upsert({
     id: newUser.user.id,
     dealership_id: req.dealershipId,
     full_name,
-    role
+    account_role: role
   })
   res.json({ success: true, user_id: newUser.user.id })
 })
 
 // ── 5. CORE INVENTORY SECURE LOOKUPS ──
 app.get('/inventory', requireAuth, async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('inventory')
     .select('*')
     .eq('dealership_id', req.dealershipId)
@@ -190,7 +224,7 @@ app.get('/inventory', requireAuth, async (req, res) => {
 })
 
 app.get('/inventory/:id', requireAuth, async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('inventory')
     .select('*')
     .eq('id', req.params.id)
@@ -203,7 +237,7 @@ app.get('/inventory/:id', requireAuth, async (req, res) => {
 // ── 6. MARKETING ASSET SYNC LOGIC ──
 app.post('/listings', requireAuth, async (req, res) => {
   const { inventory_id, fb_listing_id, fb_listing_url } = req.body
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('listings')
     .insert({ inventory_id, posted_by: req.user.id, fb_listing_id, fb_listing_url, status: 'posted', posted_at: new Date().toISOString() })
     .select().single()
@@ -212,7 +246,7 @@ app.post('/listings', requireAuth, async (req, res) => {
 })
 
 app.get('/listings', requireAuth, async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('listings')
     .select('*, inventory!inner(*)')
     .eq('inventory.dealership_id', req.dealershipId)
@@ -223,7 +257,7 @@ app.get('/listings', requireAuth, async (req, res) => {
 })
 
 app.patch('/listings/:id/delete', requireAuth, async (req, res) => {
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('listings')
     .update({ status: 'deleted', deleted_at: new Date().toISOString() })
     .eq('id', req.params.id)
@@ -253,8 +287,8 @@ app.post('/billing/checkout', requireAuth, async (req, res) => {
 })
 
 app.get('/dealership/team-insights', requireAuth, async (req, res) => {
-  if (req.profile.role !== 'DEALER_ADMIN') return res.status(403).json({ error: 'Admins only' })
-  const { data } = await supabase
+  if (req.profile.account_role !== 'dealer_admin') return res.status(403).json({ error: 'Admins only' })
+  const { data } = await supabaseAdmin
     .from('profiles')
     .select('full_name, id')
     .eq('dealership_id', req.dealershipId)
@@ -326,55 +360,67 @@ app.get('/sync', async (req, res) => {
   if (!targetDealershipId) return res.status(400).json({ error: 'Missing target dealership parameter' })
 
   try {
-    const { data: currentDealer } = await supabase.from('dealerships').select('feed_url').eq('id', targetDealershipId).single()
-    const activeFeedUrl = currentDealer?.feed_url
-    if (!activeFeedUrl) return res.status(404).json({ error: 'No inventory feed url configured for this business identity.' })
+    const { data: currentDealer } = await supabaseAdmin.from('dealerships').select('id').eq('id', targetDealershipId).single()
+    if (!currentDealer) return res.status(404).json({ error: 'Target business identity not found.' })
 
-    console.log(`🔄 Starting inventory sync for instance ID: ${targetDealershipId}`)
-    const feedRes = await fetch(`${activeFeedUrl}?v=${Date.now()}`)
-    const data = await feedRes.json()
-    const vehicles = data.vehicles || []
-    console.log(`📦 Found ${vehicles.length} vehicles in target feed`)
+    // Find all feeds linked to this account
+    const { data: feeds } = await supabaseAdmin.from('inventory_feeds').select('feed_url').eq('dealership_id', targetDealershipId)
+    if (!feeds || feeds.length === 0) return res.status(404).json({ error: 'No inventory data feeds found for this account.' })
 
-    let inserted = 0, skipped = 0
+    let totalInserted = 0, totalSkipped = 0, totalVehiclesFound = 0
+    const feedVins = []
 
-    for (const v of vehicles) {
-      if (!v.onweb || v.nonvehicle) { skipped++; continue }
-      await sleep(200)
-      const imageUrls = await fetchVehiclePhotos(v.stocknumber)
-      const record = {
-        dealership_id: targetDealershipId,
-        vin: v.vin,
-        year: parseInt(v.year),
-        make: v.make,
-        model: v.model,
-        trim: v.trim || null,
-        price: v.saleprice || v.price || 0,
-        mileage: v.mileage || 0,
-        exterior_color: v.exteriorcolor || null,
-        interior_color: null,
-        transmission: v.transmission || null,
-        fuel_type: mapFuel(v.fueltype),
-        description: buildDescription(v),
-        image_urls: imageUrls,
-        source_url: `${activeFeedUrl.split('/wp-content')[0]}/inventory/${v.stocknumber}`,
-        status: v.salepending ? 'pending' : 'available',
-        last_synced_at: new Date().toISOString()
+    console.log(`🔄 Starting inventory batch feed sync for instance ID: ${targetDealershipId}`)
+
+    for (const feed of feeds) {
+      try {
+        const feedRes = await fetch(`${feed.feed_url}?v=${Date.now()}`)
+        const data = await feedRes.json()
+        const vehicles = data.vehicles || []
+        totalVehiclesFound += vehicles.length
+
+        for (const v of vehicles) {
+          if (!v.onweb || v.nonvehicle) { totalSkipped++; continue }
+          if (v.vin) feedVins.push(v.vin)
+          
+          await sleep(200)
+          const imageUrls = await fetchVehiclePhotos(v.stocknumber)
+          const record = {
+            dealership_id: targetDealershipId,
+            vin: v.vin,
+            year: parseInt(v.year),
+            make: v.make,
+            model: v.model,
+            trim: v.trim || null,
+            price: v.saleprice || v.price || 0,
+            mileage: v.mileage || 0,
+            exterior_color: v.exteriorcolor || null,
+            interior_color: null,
+            transmission: v.transmission || null,
+            fuel_type: mapFuel(v.fueltype),
+            description: buildDescription(v),
+            image_urls: imageUrls,
+            source_url: `${feed.feed_url.split('/wp-content')[0]}/inventory/${v.stocknumber}`,
+            status: v.salepending ? 'pending' : 'available',
+            last_synced_at: new Date().toISOString()
+          }
+          const { error } = await supabaseAdmin.from('inventory').upsert(record, { onConflict: 'vin' })
+          if (error) { console.error('Upsert error for VIN', v.vin, error.message); totalSkipped++ }
+          else totalInserted++
+        }
+      } catch (feedErr) {
+        console.error(`Error processing feed ${feed.feed_url}:`, feedErr.message)
       }
-      const { error } = await supabase.from('inventory').upsert(record, { onConflict: 'vin' }).select('id')
-      if (error) { console.error('Upsert error for VIN', v.vin, error.message); skipped++ }
-      else inserted++
     }
 
-    const feedVins = vehicles.map(v => v.vin).filter(Boolean)
     if (feedVins.length > 0) {
-      await supabase.from('inventory').update({ status: 'sold' })
+      await supabaseAdmin.from('inventory').update({ status: 'sold' })
         .eq('dealership_id', targetDealershipId)
         .eq('status', 'available')
         .not('vin', 'in', `(${feedVins.map(v => `"${v}"`).join(',')})`)
     }
 
-    res.json({ success: true, total_in_feed: vehicles.length, processed: inserted, skipped, synced_at: new Date().toISOString() })
+    res.json({ success: true, total_in_feeds: totalVehiclesFound, processed: totalInserted, skipped: totalSkipped, synced_at: new Date().toISOString() })
   } catch (e) {
     console.error('Sync execution crashed:', e.message)
     res.status(500).json({ error: e.message })
@@ -385,18 +431,5 @@ app.get('/sync', async (req, res) => {
 app.get('/debug', requireAuth, async (req, res) => {
   res.json({ user_id: req.user.id, profile: req.profile, dealership_id: req.dealershipId })
 })
-
-import { createClient } from '@supabase/supabase-js'
-
-// Use the SERVICE_ROLE key on your isolated server to bypass RLS restrictions
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL, 
-  process.env.SUPABASE_SERVICE_ROLE_KEY // <-- Not the anon key!
-)
-
-// When processing /auth/register, use this admin client to write to dealerships
-const { data, error } = await supabaseAdmin
-  .from('dealerships')
-  .insert([{ name: payload.dealershipName, website: payload.websiteUrl }])
 
 app.listen(PORT, () => console.log(`🚀 Automated marketplace sync ecosystem operational on port ${PORT}`))
