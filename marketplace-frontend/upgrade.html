@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <h1>Choose Your Plan</h1>
+  <div id="plans">
+    <button onclick="handleUpgrade('DEALER')">Dealer Pro - $199/mo</button>
+    <button onclick="handleUpgrade('SOLO')">Solo Sales - $49/mo</button>
+  </div>
+
+  <script>
+    const API = 'https://your-backend-api.onrender.com';
+
+    async function handleUpgrade(type) {
+      const priceId = type === 'DEALER' ? '{{STRIPE_DEALER_PRICE_ID}}' : '{{STRIPE_SOLO_PRICE_ID}}';
+      
+      const res = await fetch(`${API}/billing/checkout`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ priceId: type === 'DEALER' ? 'price_dealer_id_here' : 'price_solo_id_here' })
+      });
+      
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    }
+  </script>
+</body>
+</html>

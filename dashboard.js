@@ -192,3 +192,17 @@ async function launchStripeLifecycle() {
     btn.disabled = false;
   }
 }
+async function fetchInsights() {
+  const response = await fetch(`${API}/dealership/team-insights`, {
+    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+  });
+
+  if (response.status === 402) {
+    // Automatically redirect to upgrade page if subscription is inactive
+    window.location.href = '/upgrade.html';
+    return;
+  }
+  
+  const data = await response.json();
+  // ... render your data
+}
