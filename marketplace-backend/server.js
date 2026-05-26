@@ -796,8 +796,8 @@ async function runInventorySync(dealershipId) {
   if (!feeds || feeds.length === 0) return { success: false, error: 'No inventory feeds configured for this dealership.' }
 
   let totalAttempts = 0, totalSkipped = 0, totalVehiclesFound = 0
-  const feedVins = []
-  const uniqueVins = new Set()  // distinct VINs we actually upserted
+  const uniqueVins = new Set()        // distinct VINs we successfully upserted
+  const allRawVins = new Set()        // EVERY VIN seen across all raw feed JSONs (no filter) — used for auto-mark-sold
 
   // Dedupe by URL — if the dealer has multiple feeds (new/used/demo) pointing at the same JSON,
   // we only need to fetch the JSON once and apply each filter against the cached vehicles list.
@@ -816,10 +816,16 @@ async function runInventorySync(dealershipId) {
       }
       totalVehiclesFound += vehicles.length
 
+      // Capture every VIN from the raw feed — independent of feed_type filter — for auto-sold.
+      // A vehicle still on the dealer's site should never get auto-marked sold, even if it
+      // doesn't match the current feed's filter category.
+      for (const v of vehicles) {
+        if (v.vin) allRawVins.add(v.vin)
+      }
+
       for (const v of vehicles) {
         if (!matchesFeedType(v, feed.feed_type)) { totalSkipped++; continue }
         if (!v.onweb || v.nonvehicle) { totalSkipped++; continue }
-        if (v.vin) feedVins.push(v.vin)
 
         await sleep(200)
         const imageUrls = await fetchVehiclePhotos(v.stocknumber)
@@ -855,8 +861,21 @@ async function runInventorySync(dealershipId) {
     }
   }
 
-  if (feedVins.length > 0) {
-    await supabaseAdmin.from('inventory').update({ status: 'sold' }).eq('dealership_id', dealershipId).eq('status', 'available').not('vin', 'in', `(${feedVins.map(v => `"${v}"`).join(',')})`)
+  if (allRawVins.size > 0) {
+    const vinList = [...allRawVins]
+    // 1. Mark as sold: anything available in DB whose VIN is NOT in any raw feed
+    await supabaseAdmin.from('inventory')
+      .update({ status: 'sold' })
+      .eq('dealership_id', dealershipId)
+      .eq('status', 'available')
+      .not('vin', 'in', `(${vinList.map(v => `"${v}"`).join(',')})`)
+    // 2. Restore: anything previously marked sold but now back in the feed → available
+    //    (covers our wrongly-sold rows from the previous narrower-filter bug)
+    await supabaseAdmin.from('inventory')
+      .update({ status: 'available' })
+      .eq('dealership_id', dealershipId)
+      .eq('status', 'sold')
+      .in('vin', vinList)
   }
 
   // Count current available inventory after sync so the dashboard sees the truth
