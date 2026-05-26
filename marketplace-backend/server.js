@@ -269,6 +269,16 @@ app.get('/inventory', requireAuth, async (req, res) => {
   res.json(data)
 })
 
+app.get('/inventory/all', requireAuth, async (req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('inventory')
+    .select('id, vin, year, make, model, trim, price, mileage, exterior_color, status, image_urls, last_synced_at')
+    .eq('dealership_id', req.dealershipId)
+    .order('created_at', { ascending: false })
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data)
+})
+
 app.get('/inventory/:id', requireAuth, async (req, res) => {
   const { data, error } = await supabaseAdmin.from('inventory').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).single()
   if (error) return res.status(404).json({ error: 'Not found' })
@@ -352,17 +362,36 @@ function mapFuel(fuel) {
 }
 
 function buildDescription(vehicle) {
-  const features = vehicle.searchablesarray?.slice(0, 8).join(', ') || ''
-  return [
-    `${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim || ''}`.trim(),
+  const features = vehicle.searchablesarray?.slice(0, 15).join(' • ') || ''
+
+  const tags = []
+  if (vehicle.condition) tags.push(vehicle.condition.toUpperCase())
+  if (vehicle.certified) tags.push('CERTIFIED PRE-OWNED')
+  if (vehicle.demo) tags.push('DEMO')
+  if (vehicle.salepending) tags.push('SALE PENDING')
+
+  const headline = `${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim || ''}`.trim()
+  const tagLine = tags.length ? `${tags.join(' • ')}` : null
+
+  const specs = [
     vehicle.mileage ? `${Number(vehicle.mileage).toLocaleString()} km` : null,
     vehicle.exteriorcolor ? `${vehicle.exteriorcolor} exterior` : null,
-    vehicle.transmission ? `${vehicle.transmission} transmission` : null,
+    vehicle.interiorcolor ? `${vehicle.interiorcolor} interior` : null,
+    vehicle.bodystyle || null,
+    vehicle.engine || null,
     vehicle.drivetrain || null,
-    features ? `Features: ${features}` : null,
-    `Stock #${vehicle.stocknumber}`,
-    'Contact Dealership for tracking availability.'
-  ].filter(Boolean).join('. ')
+    vehicle.transmission ? `${vehicle.transmission} transmission` : null,
+    vehicle.fueltype ? `${vehicle.fueltype} fuel` : null
+  ].filter(Boolean)
+
+  const sections = [
+    tagLine ? `${tagLine}\n${headline}` : headline,
+    specs.length ? specs.join(' • ') : null,
+    features ? `FEATURES:\n${features}` : null,
+    `Stock #${vehicle.stocknumber}`
+  ].filter(Boolean)
+
+  return sections.join('\n\n')
 }
 
 async function fetchVehiclePhotos(stocknumber) {

@@ -123,6 +123,27 @@
         </form>
       </div>
 
+      <div id="catalog-panel" class="hidden bg-slate-900 border border-slate-800 rounded-lg p-6">
+        <div class="flex justify-between items-center mb-4 gap-4 flex-wrap">
+          <div>
+            <h2 class="text-lg font-bold text-white">Inventory Catalog</h2>
+            <p class="text-slate-400 text-xs">Browse every vehicle synced from your feeds.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="catalog-search" placeholder="Search make, model, VIN, stock..." class="bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 w-64">
+            <select id="catalog-status" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <option value="all">All statuses</option>
+              <option value="available">Available</option>
+              <option value="pending">Sale Pending</option>
+              <option value="sold">Sold</option>
+            </select>
+          </div>
+        </div>
+        <div id="catalog-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-1">
+          <div class="text-xs text-slate-500 italic col-span-full">Loading catalog...</div>
+        </div>
+      </div>
+
       <div id="dealer-view-panel" class="hidden bg-slate-900 border border-slate-800 rounded-lg p-6">
         <div class="flex justify-between items-center mb-4">
           <div>

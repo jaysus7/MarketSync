@@ -523,12 +523,30 @@ async function fillListingForm(vehicle) {
   showStatus('Writing description...');
   const descEl = await waitFor(() => document.querySelector('textarea'));
   if (descEl) {
-    const desc = vehicle.ai_description || vehicle.description ||
+    const baseDesc = vehicle.ai_description || vehicle.description ||
       `${vehicle.year} ${make} ${model} ${vehicle.trim || ''}. ` +
       `${vehicle.mileage ? vehicle.mileage.toLocaleString() + ' km. ' : ''}` +
       `${vehicle.exterior_color ? vehicle.exterior_color + ' exterior. ' : ''}` +
-      `${vehicle.transmission || 'Automatic'} transmission. ` +
-      `Contact Welland Chev for more info!`;
+      `${vehicle.transmission || 'Automatic'} transmission.`;
+
+    // Append rep + dealership contact block (poster comes from popup.js pendingPost)
+    const dealershipName = vehicle.poster?.dealership?.name || '';
+    const repName = vehicle.poster?.full_name || '';
+    const repEmail = vehicle.poster?.email || '';
+    const repPhone = vehicle.poster?.phone || '';
+    const dealerPhone = vehicle.poster?.dealership?.phone || '';
+    const dealerWebsite = vehicle.poster?.dealership?.website_url || '';
+
+    const contactLines = [
+      '',
+      '─── CONTACT ───',
+      repName ? `${repName}${dealershipName ? ` — ${dealershipName}` : ''}` : dealershipName,
+      repPhone ? `📞 ${repPhone}` : (dealerPhone ? `📞 ${dealerPhone}` : null),
+      repEmail ? `✉️ ${repEmail}` : null,
+      dealerWebsite ? `🌐 ${dealerWebsite}` : null
+    ].filter(Boolean);
+
+    const desc = baseDesc + '\n\n' + contactLines.join('\n');
     await typeInto(descEl, desc);
   }
   await sleep(DELAY);
@@ -544,6 +562,8 @@ if (window.location.href.includes('/marketplace/create/vehicle') ||
   chrome.storage.local.get(['pendingPost'], ({ pendingPost }) => {
     if (!pendingPost?.vehicle) return;
     chrome.storage.local.remove(['pendingPost']);
-    setTimeout(() => fillListingForm(pendingPost.vehicle), 2500);
+    // Attach poster profile so fillListingForm can stamp rep contact info
+    const vehicleWithPoster = { ...pendingPost.vehicle, poster: pendingPost.poster || null };
+    setTimeout(() => fillListingForm(vehicleWithPoster), 2500);
   });
 }

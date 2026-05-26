@@ -200,6 +200,9 @@ async function postVehicle(inventoryId, token) {
 
   try {
     const vehicle = await apiGet(`/inventory/${inventoryId}`, token)
+    // Pull the rep's profile so we can stamp contact info on the FB description
+    let poster = null
+    try { poster = await apiGet('/auth/me', token) } catch {}
 
     if (vehicle.image_urls?.length) {
       vehicle.image_urls.forEach((url, i) => {
@@ -214,7 +217,7 @@ async function postVehicle(inventoryId, token) {
       })
     }
 
-    chrome.storage.local.set({ pendingPost: { vehicle, token } }, () => {
+    chrome.storage.local.set({ pendingPost: { vehicle, token, poster } }, () => {
       chrome.tabs.create({ url: 'https://www.facebook.com/marketplace/create/vehicle' })
       window.close()
     })

@@ -61,8 +61,10 @@ async function initializeDashboardEcosystem() {
 
     if (role === 'DEALER_ADMIN' || role === 'OWNER') {
       document.getElementById('feeds-panel').classList.remove('hidden');
+      document.getElementById('catalog-panel').classList.remove('hidden');
       document.getElementById('dealer-view-panel').classList.remove('hidden');
       loadInventoryFeeds();
+      loadInventoryCatalog();
       loadDealerManagementMatrix();
     } else {
       document.getElementById('rep-view-panel').classList.remove('hidden');
@@ -214,10 +216,11 @@ async function syncNow() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Sync failed');
     showSyncStatus(`Synced ${data.processed} of ${data.total_in_feeds} vehicles (${data.skipped} skipped).`, 'ok');
-    // Refresh top metrics
+    // Refresh top metrics + catalog
     fetchMetrics('/inventory').then(fleet => {
       fetchMetrics('/listings').then(listings => calculateGeneralMetrics(fleet, listings));
     });
+    loadInventoryCatalog();
   } catch (err) {
     showSyncStatus(err.message, 'err');
   } finally {
@@ -235,6 +238,73 @@ function showSyncStatus(text, kind) {
       ? 'mb-3 p-2 text-xs rounded bg-red-900/50 border border-red-700 text-red-200'
       : 'mb-3 p-2 text-xs rounded bg-slate-800 border border-slate-700 text-slate-300';
   el.classList.remove('hidden');
+}
+
+// INVENTORY CATALOG: full vehicle browser
+let __catalogCache = [];
+
+async function loadInventoryCatalog() {
+  const list = document.getElementById('catalog-list');
+  list.innerHTML = '<div class="text-xs text-slate-500 italic col-span-full">Loading catalog...</div>';
+  try {
+    const res = await fetch(`${API}/inventory/all`, { headers: { 'Authorization': `Bearer ${token}` } });
+    __catalogCache = res.ok ? await res.json() : [];
+    renderCatalog();
+  } catch (err) {
+    list.innerHTML = `<div class="text-xs text-red-400 col-span-full">Failed to load catalog: ${err.message}</div>`;
+  }
+}
+
+function renderCatalog() {
+  const list = document.getElementById('catalog-list');
+  const q = document.getElementById('catalog-search').value.trim().toLowerCase();
+  const statusFilter = document.getElementById('catalog-status').value;
+
+  let filtered = __catalogCache;
+  if (statusFilter !== 'all') filtered = filtered.filter(v => v.status === statusFilter);
+  if (q) {
+    filtered = filtered.filter(v =>
+      `${v.year} ${v.make} ${v.model} ${v.trim || ''} ${v.vin || ''} ${v.exterior_color || ''}`
+        .toLowerCase()
+        .includes(q)
+    );
+  }
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="text-xs text-slate-500 italic col-span-full">No vehicles match.</div>';
+    return;
+  }
+
+  const statusBadge = (s) => {
+    const map = {
+      available: 'bg-emerald-900/40 border-emerald-700 text-emerald-300',
+      pending: 'bg-amber-900/40 border-amber-700 text-amber-300',
+      sold: 'bg-slate-800 border-slate-700 text-slate-400'
+    };
+    return `<span class="text-[9px] uppercase font-bold border px-1.5 py-0.5 rounded ${map[s] || map.sold}">${s || 'unknown'}</span>`;
+  };
+
+  list.innerHTML = filtered.map(v => {
+    const img = v.image_urls?.[0]
+      ? `<img src="${API}/proxy-image?url=${encodeURIComponent(v.image_urls[0])}" loading="lazy" class="w-full h-32 object-cover rounded bg-slate-950">`
+      : `<div class="w-full h-32 rounded bg-slate-950 flex items-center justify-center text-slate-700 text-2xl">⌀</div>`;
+    const price = v.price ? `$${Number(v.price).toLocaleString()}` : '—';
+    const mileage = v.mileage ? `${Number(v.mileage).toLocaleString()} km` : 'New';
+    return `
+      <div class="bg-slate-950 border border-slate-800 rounded p-3 flex flex-col gap-2">
+        ${img}
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-xs font-bold text-white truncate flex-1" title="${v.year} ${v.make} ${v.model} ${v.trim || ''}">${v.year} ${v.make} ${v.model}</span>
+          ${statusBadge(v.status)}
+        </div>
+        <div class="text-[11px] text-slate-400 truncate">${v.trim || ''} ${v.exterior_color ? '· ' + v.exterior_color : ''}</div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-bold text-indigo-400">${price}</span>
+          <span class="text-slate-500">${mileage}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function setupActionListeners() {
@@ -298,6 +368,10 @@ function setupActionListeners() {
 
   // Manual sync trigger
   document.getElementById('sync-now-btn')?.addEventListener('click', syncNow);
+
+  // Catalog search + status filter
+  document.getElementById('catalog-search')?.addEventListener('input', renderCatalog);
+  document.getElementById('catalog-status')?.addEventListener('change', renderCatalog);
 
   // Launch Dedicated Stripe Gateway Session
   document.getElementById('launch-portal-btn')?.addEventListener('click', launchStripeLifecycle);
