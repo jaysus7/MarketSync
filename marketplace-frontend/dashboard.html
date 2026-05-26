@@ -79,20 +79,24 @@
       
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="metrics-strip">
         <div class="bg-slate-900 border border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Fleet In Stock</div>
-          <div class="text-2xl font-black text-white mt-1" id="metric-stock">0</div>
+          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Inventory Synced</div>
+          <div class="text-2xl font-black text-white mt-1" id="metric-synced">—</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">total vehicles</div>
         </div>
         <div class="bg-slate-900 border border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Marketplace Listed</div>
-          <div class="text-2xl font-black text-indigo-400 mt-1" id="metric-posted">0</div>
+          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Listings Posted</div>
+          <div class="text-2xl font-black text-indigo-400 mt-1" id="metric-listings">—</div>
+          <div class="text-[10px] text-slate-500 mt-0.5" id="metric-listings-scope">lifetime</div>
         </div>
         <div class="bg-slate-900 border border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Daily Handshakes</div>
-          <div class="text-2xl font-black text-emerald-400 mt-1" id="metric-logins">0</div>
+          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sold via Marketplace</div>
+          <div class="text-2xl font-black text-emerald-400 mt-1" id="metric-sold">—</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">last 30 days</div>
         </div>
         <div class="bg-slate-900 border border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sync Efficiency</div>
-          <div class="text-2xl font-black text-amber-400 mt-1" id="metric-efficiency">0%</div>
+          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Active Days</div>
+          <div class="text-2xl font-black text-amber-400 mt-1" id="metric-active-days">—</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">this week</div>
         </div>
       </div>
 
@@ -177,6 +181,7 @@
                 <th class="py-3 px-4">Email</th>
                 <th class="py-3 px-4">Role</th>
                 <th class="py-3 px-4">Listings</th>
+                <th class="py-3 px-4">Logins (30d)</th>
                 <th class="py-3 px-4 text-right">Action</th>
               </tr>
             </thead>

@@ -51,13 +51,13 @@ async function initializeDashboardEcosystem() {
       document.querySelectorAll('[data-dealer-only]').forEach(el => el.classList.add('hidden'));
     }
 
-    // Load transactional data
+    // Load transactional data + insights
     const [fleet, totalListings] = await Promise.all([
       fetchMetrics('/inventory'),
       fetchMetrics('/listings')
     ]);
 
-    calculateGeneralMetrics(fleet, totalListings);
+    loadInsights();
 
     const isAdmin = role === 'DEALER_ADMIN' || role === 'OWNER';
     const inDealership = !!profileContext.dealership?.id;
@@ -99,25 +99,26 @@ async function fetchMetrics(path) {
   return r.ok ? r.json() : [];
 }
 
-function calculateGeneralMetrics(fleet, listings) {
-  const stockCount = fleet.length || 0;
-  const postedCount = listings.length || 0;
-  
-  document.getElementById('metric-stock').textContent = stockCount;
-  document.getElementById('metric-posted').textContent = postedCount;
-  
-  // Calculate efficiency percentages safely
-  const efficiency = stockCount > 0 ? Math.round((postedCount / stockCount) * 100) : 0;
-  document.getElementById('metric-efficiency').textContent = `${efficiency}%`;
-  
-  // Simulate transactional authentication loop frequencies across current endpoints
-  document.getElementById('metric-logins').textContent = Math.floor(Math.random() * 8) + 4;
+async function loadInsights() {
+  try {
+    const res = await fetch(`${API}/dashboard/insights`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('metric-synced').textContent = data.inventory_synced;
+    document.getElementById('metric-listings').textContent = data.listings_posted;
+    document.getElementById('metric-sold').textContent = data.sold_this_month;
+    document.getElementById('metric-active-days').textContent = `${data.active_days_this_week}/7`;
+    document.getElementById('metric-listings-scope').textContent =
+      data.scope === 'dealership' ? 'team total · lifetime' : 'your posts · lifetime';
+  } catch (e) {
+    // Leave the "—" placeholders if insights fail
+  }
 }
 
 // DEALER DOMAIN: Real team roster from /dealership/team
 async function loadDealerManagementMatrix() {
   const tableBody = document.getElementById('dealer-team-table-body');
-  tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-slate-500 italic">Loading team...</td></tr>`;
+  tableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-slate-500 italic">Loading team...</td></tr>`;
 
   try {
     const res = await fetch(`${API}/dealership/team`, {
@@ -130,7 +131,7 @@ async function loadDealerManagementMatrix() {
     const team = await res.json();
 
     if (!team.length) {
-      tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-slate-500 italic">No team members yet. Click "Invite Rep" to add one.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-slate-500 italic">No team members yet. Click "Invite Rep" to add one.</td></tr>`;
       return;
     }
 
@@ -152,6 +153,7 @@ async function loadDealerManagementMatrix() {
           <td class="py-3 px-4 text-slate-300">${m.email || '—'}</td>
           <td class="py-3 px-4">${roleBadge}</td>
           <td class="py-3 px-4 text-indigo-400 font-mono">${m.listings_posted}</td>
+          <td class="py-3 px-4 text-emerald-400 font-mono">${m.logins_30d ?? 0}</td>
           <td class="py-3 px-4 text-right">${action}</td>
         </tr>
       `;
@@ -371,10 +373,8 @@ async function syncNow() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Sync failed');
     showSyncStatus(`Synced ${data.processed} of ${data.total_in_feeds} vehicles (${data.skipped} skipped).`, 'ok');
-    // Refresh top metrics + catalog
-    fetchMetrics('/inventory').then(fleet => {
-      fetchMetrics('/listings').then(listings => calculateGeneralMetrics(fleet, listings));
-    });
+    // Refresh insights + catalog after a sync
+    loadInsights();
     loadInventoryCatalog();
   } catch (err) {
     showSyncStatus(err.message, 'err');

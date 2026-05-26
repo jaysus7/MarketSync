@@ -107,6 +107,10 @@ app.post('/auth/login', async (req, res) => {
   const { email, password } = req.body
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return res.status(401).json({ error: error.message })
+  // Record the login event (fire-and-forget; do not block the response if it fails)
+  supabaseAdmin.from('logins').insert({ user_id: data.user.id }).then(({ error: logErr }) => {
+    if (logErr) console.warn('Failed to log login event:', logErr.message)
+  })
   res.json({
     access_token: data.session.access_token,
     user: { id: data.user.id, email: data.user.email }
@@ -262,21 +266,24 @@ app.get('/dealership/team', requireAuth, async (req, res) => {
     .order('created_at', { ascending: true })
   if (error) return res.status(500).json({ error: error.message })
 
-  // Stitch in auth emails + listing counts
+  // Stitch in auth emails, listing counts, and recent login activity
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const enriched = await Promise.all(members.map(async (m) => {
     const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(m.id).catch(() => ({ data: null }))
-    const { count } = await supabaseAdmin
-      .from('listings')
-      .select('id', { count: 'exact', head: true })
-      .eq('posted_by', m.id)
-      .eq('status', 'posted')
+    const { count: listingsCount } = await supabaseAdmin
+      .from('listings').select('id', { count: 'exact', head: true })
+      .eq('posted_by', m.id).eq('status', 'posted')
+    const { count: loginsCount } = await supabaseAdmin
+      .from('logins').select('id', { count: 'exact', head: true })
+      .eq('user_id', m.id).gte('created_at', thirtyDaysAgo)
     return {
       id: m.id,
       full_name: m.full_name,
       role: m.role,
       account_role: m.account_role,
       email: authUser?.user?.email || null,
-      listings_posted: count || 0,
+      listings_posted: listingsCount || 0,
+      logins_30d: loginsCount || 0,
       created_at: m.created_at
     }
   }))
@@ -324,6 +331,66 @@ app.post('/admin/users/invite', requireAuth, async (req, res) => {
 app.get('/me/stats', requireAuth, async (req, res) => {
   const stats = await buildUserStats(req.user.id)
   res.json(stats)
+})
+
+// Top-of-dashboard insights — scoped by role
+app.get('/dashboard/insights', requireAuth, async (req, res) => {
+  const isAdmin = req.profile.role === 'DEALER_ADMIN' || req.profile.role === 'OWNER'
+  const now = new Date()
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  // Start of this week (Monday 00:00 local UTC)
+  const day = now.getUTCDay() || 7   // Sun=0 -> 7 so Monday=1
+  const startOfWeek = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1))).toISOString()
+
+  try {
+    // Inventory synced — dealership-wide, any status (the actual "synced" count)
+    let inventorySynced = 0
+    if (req.dealershipId) {
+      const { count } = await supabaseAdmin
+        .from('inventory')
+        .select('id', { count: 'exact', head: true })
+        .eq('dealership_id', req.dealershipId)
+      inventorySynced = count || 0
+    }
+
+    // Listings posted — admin sees dealership-wide, rep sees personal
+    let listingsPosted = 0
+    let soldThisMonth = 0
+    if (isAdmin && req.dealershipId) {
+      const { data: allListings } = await supabaseAdmin
+        .from('listings')
+        .select('id, status, deleted_at, inventory!inner(dealership_id)')
+        .eq('inventory.dealership_id', req.dealershipId)
+      listingsPosted = allListings?.length || 0
+      soldThisMonth = (allListings || []).filter(l => l.status === 'sold' && l.deleted_at && l.deleted_at >= thirtyDaysAgo).length
+    } else {
+      const { count: total } = await supabaseAdmin
+        .from('listings').select('id', { count: 'exact', head: true }).eq('posted_by', req.user.id)
+      const { count: sold } = await supabaseAdmin
+        .from('listings').select('id', { count: 'exact', head: true })
+        .eq('posted_by', req.user.id).eq('status', 'sold').gte('deleted_at', thirtyDaysAgo)
+      listingsPosted = total || 0
+      soldThisMonth = sold || 0
+    }
+
+    // Personal activity — distinct days logged in this week
+    const { data: weekLogins } = await supabaseAdmin
+      .from('logins')
+      .select('created_at')
+      .eq('user_id', req.user.id)
+      .gte('created_at', startOfWeek)
+    const distinctDays = new Set((weekLogins || []).map(l => l.created_at.slice(0, 10)))
+
+    res.json({
+      inventory_synced: inventorySynced,
+      listings_posted: listingsPosted,
+      sold_this_month: soldThisMonth,
+      active_days_this_week: distinctDays.size,
+      scope: isAdmin ? 'dealership' : 'personal'
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
 })
 
 // Admin drill-down — stats for a specific rep in this dealership
