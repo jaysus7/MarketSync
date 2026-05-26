@@ -580,21 +580,60 @@ async function fetchVehiclePhotos(stocknumber) {
   }
 }
 
+// Resolve any dealer-provided URL (public page or direct JSON) into a fetchable JSON feed URL
+// and infer the inventory subset from path keywords.
+function normalizeFeedUrl(input) {
+  if (!input) return null
+  let url
+  try { url = new URL(input.trim()) } catch { return null }
+
+  const path = url.pathname.toLowerCase()
+  let detectedType = null
+  if (path.includes('/new-inventory')) detectedType = 'new'
+  else if (path.includes('/used-inventory')) detectedType = 'used'
+  else if (path.includes('/demo-inventory')) detectedType = 'demo'
+  else if (path.includes('/fleet')) detectedType = 'fleet'
+
+  if (path.endsWith('.json')) return { jsonUrl: url.toString(), detectedType }
+
+  // LeadBox convention — every LBX dealer site exposes the full inventory here
+  return { jsonUrl: `${url.origin}/wp-content/uploads/data/inventory.json`, detectedType }
+}
+
+function matchesFeedType(v, feedType) {
+  if (!feedType || feedType === 'all' || feedType === 'fleet') return true
+  if (feedType === 'new') return v.condition === 'New' && !v.demo
+  if (feedType === 'used') return v.condition === 'Used'
+  if (feedType === 'demo') return v.demo === true
+  return true
+}
+
 async function runInventorySync(dealershipId) {
-  const { data: feeds } = await supabaseAdmin.from('inventory_feeds').select('feed_url').eq('dealership_id', dealershipId)
+  const { data: feeds } = await supabaseAdmin.from('inventory_feeds').select('feed_url, feed_type').eq('dealership_id', dealershipId)
   if (!feeds || feeds.length === 0) return { success: false, error: 'No inventory feeds configured for this dealership.' }
 
   let totalInserted = 0, totalSkipped = 0, totalVehiclesFound = 0
   const feedVins = []
 
+  // Dedupe by URL — if the dealer has multiple feeds (new/used/demo) pointing at the same JSON,
+  // we only need to fetch the JSON once and apply each filter against the cached vehicles list.
+  const jsonCache = new Map()
+
   for (const feed of feeds) {
     try {
-      const feedRes = await fetch(`${feed.feed_url}?v=${Date.now()}`)
-      const data = await feedRes.json()
-      const vehicles = data.vehicles || []
+      let vehicles
+      if (jsonCache.has(feed.feed_url)) {
+        vehicles = jsonCache.get(feed.feed_url)
+      } else {
+        const feedRes = await fetch(`${feed.feed_url}?v=${Date.now()}`)
+        const data = await feedRes.json()
+        vehicles = data.vehicles || []
+        jsonCache.set(feed.feed_url, vehicles)
+      }
       totalVehiclesFound += vehicles.length
 
       for (const v of vehicles) {
+        if (!matchesFeedType(v, feed.feed_type)) { totalSkipped++; continue }
         if (!v.onweb || v.nonvehicle) { totalSkipped++; continue }
         if (v.vin) feedVins.push(v.vin)
 
@@ -670,11 +709,39 @@ app.get('/inventory-feeds', requireAuth, async (req, res) => {
 app.post('/inventory-feeds', requireAuth, async (req, res) => {
   if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') return res.status(403).json({ error: 'Admins only' })
   if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this account' })
-  const { feed_url, feed_type } = req.body || {}
-  if (!feed_url) return res.status(400).json({ error: 'feed_url is required' })
+
+  const { feed_url: rawUrl, feed_type: requestedType } = req.body || {}
+  if (!rawUrl) return res.status(400).json({ error: 'feed_url is required' })
+
+  const normalized = normalizeFeedUrl(rawUrl)
+  if (!normalized) return res.status(400).json({ error: 'Invalid URL' })
+
+  // Probe the resolved JSON URL so we fail fast on a bad URL
+  try {
+    const probe = await fetch(normalized.jsonUrl, { method: 'GET' })
+    if (!probe.ok) {
+      return res.status(400).json({
+        error: `Could not find an inventory feed at ${normalized.jsonUrl}. If your dealer doesn't use LeadBox, paste the direct JSON feed URL instead.`
+      })
+    }
+    const probeData = await probe.json().catch(() => null)
+    if (!probeData || !Array.isArray(probeData.vehicles)) {
+      return res.status(400).json({ error: `URL responded but didn't contain a "vehicles" array. Resolved URL: ${normalized.jsonUrl}` })
+    }
+  } catch (e) {
+    return res.status(400).json({ error: `Could not reach ${normalized.jsonUrl}: ${e.message}` })
+  }
+
+  const feedType = requestedType && requestedType !== 'all' ? requestedType : (normalized.detectedType || 'all')
+
   const { data, error } = await supabaseAdmin
     .from('inventory_feeds')
-    .insert({ dealership_id: req.dealershipId, user_id: req.user.id, feed_url, feed_type: feed_type || 'all' })
+    .insert({
+      dealership_id: req.dealershipId,
+      user_id: req.user.id,
+      feed_url: normalized.jsonUrl,
+      feed_type: feedType
+    })
     .select()
     .single()
   if (error) return res.status(500).json({ error: error.message })
