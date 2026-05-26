@@ -155,7 +155,8 @@ app.post('/auth/register', async (req, res) => {
           dealership_id: createdDealershipId,
           full_name: fullName,
           role: 'DEALER_ADMIN',
-          account_role: accountRole
+          account_role: accountRole,
+          price_tier: 'DEALER'
         })
       if (profileError) throw profileError
 
@@ -181,7 +182,8 @@ app.post('/auth/register', async (req, res) => {
           dealership_id: null,
           full_name: fullName,
           role: 'SALES_REP',
-          account_role: accountRole
+          account_role: accountRole,
+          price_tier: 'SOLO_INDIVIDUAL'
         })
       if (profileError) throw profileError
     }
@@ -249,17 +251,95 @@ app.put('/profile/update', requireAuth, async (req, res) => {
 })
 
 // ── 5. TEAM MANAGEMENT SYSTEM ──
+app.get('/dealership/team', requireAuth, async (req, res) => {
+  if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') return res.status(403).json({ error: 'Admins only' })
+  if (!req.dealershipId) return res.json([])
+
+  const { data: members, error } = await supabaseAdmin
+    .from('profiles')
+    .select('id, full_name, role, account_role, created_at')
+    .eq('dealership_id', req.dealershipId)
+    .order('created_at', { ascending: true })
+  if (error) return res.status(500).json({ error: error.message })
+
+  // Stitch in auth emails + listing counts
+  const enriched = await Promise.all(members.map(async (m) => {
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(m.id).catch(() => ({ data: null }))
+    const { count } = await supabaseAdmin
+      .from('listings')
+      .select('id', { count: 'exact', head: true })
+      .eq('posted_by', m.id)
+      .eq('status', 'posted')
+    return {
+      id: m.id,
+      full_name: m.full_name,
+      role: m.role,
+      account_role: m.account_role,
+      email: authUser?.user?.email || null,
+      listings_posted: count || 0,
+      created_at: m.created_at
+    }
+  }))
+
+  res.json(enriched)
+})
+
 app.post('/admin/users/invite', requireAuth, async (req, res) => {
-  if (req.profile.role !== 'DEALER_ADMIN') return res.status(403).json({ error: 'Admins only' })
-  const { email, full_name, role = 'SALES_REP' } = req.body
+  if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') return res.status(403).json({ error: 'Admins only' })
+  if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this admin account' })
+
+  const { email, full_name, password } = req.body || {}
+  if (!email || !full_name) return res.status(400).json({ error: 'email and full_name required' })
+
+  const tempPassword = password || Math.random().toString(36).slice(-12)
+
   const { data: newUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
-    password: Math.random().toString(36).slice(-10),
+    password: tempPassword,
     email_confirm: true
   })
   if (authError) return res.status(500).json({ error: authError.message })
-  await supabaseAdmin.from('profiles').upsert({ id: newUser.user.id, dealership_id: req.dealershipId, full_name, role })
-  res.json({ success: true, user_id: newUser.user.id })
+
+  const { error: profileError } = await supabaseAdmin.from('profiles').insert({
+    id: newUser.user.id,
+    dealership_id: req.dealershipId,
+    full_name,
+    role: 'SALES_REP',
+    account_role: 'sales_rep'
+  })
+  if (profileError) {
+    await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+    return res.status(500).json({ error: profileError.message })
+  }
+
+  res.json({
+    success: true,
+    user_id: newUser.user.id,
+    email,
+    temp_password: tempPassword
+  })
+})
+
+app.delete('/admin/users/:id', requireAuth, async (req, res) => {
+  if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') return res.status(403).json({ error: 'Admins only' })
+  if (req.params.id === req.user.id) return res.status(400).json({ error: 'Cannot remove yourself' })
+
+  // Verify the target belongs to the same dealership
+  const { data: target } = await supabaseAdmin
+    .from('profiles')
+    .select('id, dealership_id, role')
+    .eq('id', req.params.id)
+    .single()
+  if (!target || target.dealership_id !== req.dealershipId) {
+    return res.status(404).json({ error: 'User not found in your dealership' })
+  }
+  if (target.role === 'DEALER_ADMIN' || target.role === 'OWNER') {
+    return res.status(403).json({ error: 'Cannot remove an admin/owner from the dashboard' })
+  }
+
+  await supabaseAdmin.from('profiles').delete().eq('id', req.params.id)
+  await supabaseAdmin.auth.admin.deleteUser(req.params.id)
+  res.json({ success: true })
 })
 
 // ── 6. CORE INVENTORY SECURE LOOKUPS ──

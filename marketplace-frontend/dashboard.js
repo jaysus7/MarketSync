@@ -102,36 +102,88 @@ function calculateGeneralMetrics(fleet, listings) {
   document.getElementById('metric-logins').textContent = Math.floor(Math.random() * 8) + 4;
 }
 
-// DEALER DOMAIN: Map internal rosters out across management views
+// DEALER DOMAIN: Real team roster from /dealership/team
 async function loadDealerManagementMatrix() {
   const tableBody = document.getElementById('dealer-team-table-body');
-  tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-slate-500">Querying security infrastructure...</td></tr>`;
+  tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-slate-500 italic">Loading team...</td></tr>`;
 
   try {
-    const res = await fetch(`${API}/dealership/team-insights`, {
+    const res = await fetch(`${API}/dealership/team`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    
-    // Mock structural safety layer used if your backend route hasn't been migrated yet
-    const teamData = res.ok ? await res.json() : [
-      { id: '1', full_name: 'Jason Massie', uploads: 7, logins: 14, status: 'ACTIVE' },
-      { id: '2', full_name: 'Marcus Vance', uploads: 0, logins: 2, status: 'INACTIVE' }
-    ];
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to load team');
+    }
+    const team = await res.json();
 
-    tableBody.innerHTML = teamData.map(rep => `
-      <tr class="border-b border-slate-800/40 hover:bg-slate-900/40 transition">
-        <td class="py-3 px-4 font-bold text-white">${rep.full_name}</td>
-        <td class="py-3 px-4 text-indigo-400 font-mono font-semibold">${rep.uploads} units</td>
-        <td class="py-3 px-4 text-emerald-400 font-mono">${rep.logins} / day</td>
-        <td class="py-3 px-4">
-          <span class="px-2 py-0.5 rounded text-[10px] font-bold ${rep.status === 'ACTIVE' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'}">${rep.status}</span>
-        </td>
-      </tr>
-    `).join('');
+    if (!team.length) {
+      tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-slate-500 italic">No team members yet. Click "Invite Rep" to add one.</td></tr>`;
+      return;
+    }
 
+    tableBody.innerHTML = team.map(m => {
+      const isSelf = m.id === user.id;
+      const isAdmin = m.role === 'DEALER_ADMIN' || m.role === 'OWNER';
+      const roleBadge = isAdmin
+        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">${m.role}</span>`
+        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">${m.role}</span>`;
+      const action = (isSelf || isAdmin)
+        ? `<span class="text-[10px] text-slate-600">—</span>`
+        : `<button class="rep-remove-btn text-red-400 hover:text-red-300 text-xs font-bold" data-rep-id="${m.id}" data-rep-name="${m.full_name || m.email || 'this rep'}">Remove</button>`;
+      return `
+        <tr class="border-b border-slate-800/40 hover:bg-slate-900/40 transition">
+          <td class="py-3 px-4 font-bold text-white">${m.full_name || '(no name)'}</td>
+          <td class="py-3 px-4 text-slate-300">${m.email || '—'}</td>
+          <td class="py-3 px-4">${roleBadge}</td>
+          <td class="py-3 px-4 text-indigo-400 font-mono">${m.listings_posted}</td>
+          <td class="py-3 px-4 text-right">${action}</td>
+        </tr>
+      `;
+    }).join('');
+
+    document.querySelectorAll('.rep-remove-btn').forEach(btn => {
+      btn.addEventListener('click', () => removeRep(btn.dataset.repId, btn.dataset.repName));
+    });
   } catch (e) {
-    tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-red-400">Failed to aggregate internal insights.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-red-400">${e.message}</td></tr>`;
   }
+}
+
+async function removeRep(id, name) {
+  if (!confirm(`Remove ${name} from your dealership? Their account will be deleted.`)) return;
+  try {
+    const res = await fetch(`${API}/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Remove failed');
+    showInviteResult(`Removed ${name}.`, 'ok');
+    loadDealerManagementMatrix();
+  } catch (err) {
+    showInviteResult(err.message, 'err');
+  }
+}
+
+async function inviteRep(payload) {
+  const res = await fetch(`${API}/admin/users/invite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Invite failed');
+  return data;
+}
+
+function showInviteResult(text, kind) {
+  const el = document.getElementById('invite-result');
+  el.innerHTML = text;
+  el.className = kind === 'ok'
+    ? 'mb-3 p-2 text-xs rounded bg-emerald-900/50 border border-emerald-700 text-emerald-200'
+    : 'mb-3 p-2 text-xs rounded bg-red-900/50 border border-red-700 text-red-200';
+  el.classList.remove('hidden');
 }
 
 // SALES DOMAIN: Focus rendering paths down to clean target profiles
@@ -372,6 +424,36 @@ function setupActionListeners() {
   // Catalog search + status filter
   document.getElementById('catalog-search')?.addEventListener('input', renderCatalog);
   document.getElementById('catalog-status')?.addEventListener('change', renderCatalog);
+
+  // Team invite toggle + form
+  const inviteForm = document.getElementById('invite-rep-form');
+  document.getElementById('invite-rep-btn')?.addEventListener('click', () => {
+    inviteForm.classList.toggle('hidden');
+    document.getElementById('invite-result').classList.add('hidden');
+  });
+  document.getElementById('invite-cancel-btn')?.addEventListener('click', () => {
+    inviteForm.classList.add('hidden');
+  });
+  inviteForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = {
+      full_name: document.getElementById('invite-name').value.trim(),
+      email: document.getElementById('invite-email').value.trim(),
+      password: document.getElementById('invite-password').value || undefined
+    };
+    try {
+      const data = await inviteRep(payload);
+      showInviteResult(
+        `Created <b>${data.email}</b>. Temporary password: <code class="bg-slate-800 px-1 py-0.5 rounded">${data.temp_password}</code> — share securely.`,
+        'ok'
+      );
+      inviteForm.reset();
+      inviteForm.classList.add('hidden');
+      loadDealerManagementMatrix();
+    } catch (err) {
+      showInviteResult(err.message, 'err');
+    }
+  });
 
   // Launch Dedicated Stripe Gateway Session
   document.getElementById('launch-portal-btn')?.addEventListener('click', launchStripeLifecycle);

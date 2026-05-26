@@ -145,24 +145,44 @@
       </div>
 
       <div id="dealer-view-panel" class="hidden bg-slate-900 border border-slate-800 rounded-lg p-6">
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex justify-between items-start mb-4 gap-4 flex-wrap">
           <div>
-            <h2 class="text-lg font-bold text-white">Dealership Sales Operations</h2>
-            <p class="text-slate-400 text-xs">Real-time organizational transparency across flooring teams</p>
+            <h2 class="text-lg font-bold text-white">Sales Team</h2>
+            <p class="text-slate-400 text-xs">Add or remove sales reps for your dealership.</p>
           </div>
+          <button id="invite-rep-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
+            + Invite Rep
+          </button>
         </div>
+
+        <form id="invite-rep-form" class="hidden mb-4 p-3 bg-slate-950 border border-slate-700 rounded space-y-2">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input type="text" id="invite-name" required placeholder="Full name" class="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            <input type="email" id="invite-email" required placeholder="rep@dealership.com" class="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <input type="password" id="invite-password" placeholder="Temporary password (leave blank to auto-generate)" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+          <div class="flex gap-2 justify-end">
+            <button type="button" id="invite-cancel-btn" class="text-xs text-slate-400 hover:text-slate-200 px-3 py-2">Cancel</button>
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition">Create Rep</button>
+          </div>
+        </form>
+
+        <div id="invite-result" class="hidden mb-3 p-2 text-xs rounded"></div>
+
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs border-collapse">
             <thead>
-              <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider font-bold">
-                <th class="py-3 px-4">Sales Representative</th>
-                <th class="py-3 px-4">Active Listings Stamped</th>
-                <th class="py-3 px-4">Authentication Hits / Day</th>
-                <th class="py-3 px-4">Operational Status Status</th>
+              <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider font-bold text-[10px]">
+                <th class="py-3 px-4">Name</th>
+                <th class="py-3 px-4">Email</th>
+                <th class="py-3 px-4">Role</th>
+                <th class="py-3 px-4">Listings</th>
+                <th class="py-3 px-4 text-right">Action</th>
               </tr>
             </thead>
             <tbody id="dealer-team-table-body" class="divide-y divide-slate-800/60 text-slate-200">
-              </tbody>
+              <tr><td colspan="5" class="p-4 text-slate-500 italic">Loading team...</td></tr>
+            </tbody>
           </table>
         </div>
       </div>
