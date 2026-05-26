@@ -5,9 +5,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Record a listing as posted
   if (msg.type === 'LISTING_POSTED') {
     chrome.storage.local.get(['token'], async ({ token }) => {
-      if (!token) return
+      if (!token) {
+        sendResponse({ success: false, error: 'Not signed in' })
+        return
+      }
       try {
-        await fetch(`${API}/listings`, {
+        const r = await fetch(`${API}/listings`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -16,8 +19,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             fb_listing_url: msg.fb_listing_url || null
           })
         })
+        if (!r.ok) {
+          const body = await r.text().catch(() => '')
+          console.error(`POST /listings failed: ${r.status}`, body)
+          sendResponse({ success: false, status: r.status, error: body || `HTTP ${r.status}` })
+          return
+        }
         sendResponse({ success: true })
       } catch (e) {
+        console.error('POST /listings threw:', e)
         sendResponse({ success: false, error: e.message })
       }
     })

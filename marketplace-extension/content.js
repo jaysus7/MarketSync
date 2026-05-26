@@ -325,11 +325,27 @@ function showPhotoStrip(imageUrls, vehicleId) {
   markPosted.textContent = '✅ Mark Posted';
   markPosted.style.cssText = 'background:#22c55e;border:none;color:#000;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;';
   markPosted.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ type: 'LISTING_POSTED', inventory_id: vehicleId, fb_listing_url: window.location.href });
-    markPosted.textContent = '✅ Posted!';
+    markPosted.textContent = 'Saving...';
     markPosted.disabled = true;
-    markPosted.style.background = '#166534';
-    markPosted.style.color = '#4ade80';
+    chrome.runtime.sendMessage(
+      { type: 'LISTING_POSTED', inventory_id: vehicleId, fb_listing_url: window.location.href },
+      (response) => {
+        if (response?.success) {
+          markPosted.textContent = '✅ Posted!';
+          markPosted.style.background = '#166534';
+          markPosted.style.color = '#4ade80';
+          showStatus('✅ Listing saved to your dashboard.', 'success');
+        } else {
+          markPosted.textContent = '⚠️ Save failed — retry';
+          markPosted.disabled = false;
+          markPosted.style.background = '#ef4444';
+          markPosted.style.color = '#fff';
+          const err = response?.error || 'unknown error';
+          console.error('Mark Posted failed:', response);
+          showStatus(`⚠️ Could not save listing: ${err}`, 'info');
+        }
+      }
+    );
   });
   strip.appendChild(markPosted);
 
