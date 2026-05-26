@@ -112,18 +112,30 @@ async function loadInventory(token) {
       ? listingsRes
       : (listingsRes && Array.isArray(listingsRes.data) ? listingsRes.data : [])
 
-    // Map inventory_id -> listing_id so we can target the listing when marking sold
+    // Map inventory_id -> { listingId, vehicle } so posted vehicles stay visible
+    // even after their inventory status changes (e.g. dealer feed dropped them).
     const postedMap = new Map()
     for (const l of listings) {
-      const invId = l?.inventory_id || l?.vehicle_id || l?.inventory?.id
-      if (invId && l?.id) postedMap.set(invId, l.id)
+      const invId = l?.inventory_id || l?.inventory?.id
+      if (invId && l?.id) postedMap.set(invId, { listingId: l.id, vehicle: l.inventory || null })
     }
 
+    // Merged display list: all currently-available inventory + any posted vehicles
+    // that have fallen out of available inventory (so user can still Mark Sold).
+    const seenIds = new Set(inventory.map(v => v.id))
+    const displayList = [...inventory]
+    for (const [invId, entry] of postedMap) {
+      if (!seenIds.has(invId) && entry.vehicle) {
+        displayList.push({ ...entry.vehicle, _outOfStock: true })
+      }
+    }
+
+    const postedInStock = inventory.filter(v => postedMap.has(v.id)).length
     $('stat-total').textContent = inventory.length
     $('stat-posted').textContent = postedMap.size
-    $('stat-remaining').textContent = inventory.length - postedMap.size
+    $('stat-remaining').textContent = Math.max(0, inventory.length - postedInStock)
 
-    if (!inventory.length) {
+    if (!displayList.length) {
       $('vehicle-list').innerHTML = `
         <div class="empty-state" style="padding: 24px 12px; text-align:center;">
           <div class="icon">🚗</div>
@@ -132,8 +144,9 @@ async function loadInventory(token) {
       return
     }
 
-    $('vehicle-list').innerHTML = inventory.map(v => {
-      const listingId = postedMap.get(v.id)
+    $('vehicle-list').innerHTML = displayList.map(v => {
+      const entry = postedMap.get(v.id)
+      const listingId = entry?.listingId
       const isPosted = !!listingId
       const img = v.image_urls?.[0]
       const thumb = img
@@ -145,8 +158,11 @@ async function loadInventory(token) {
         ? `<button class="sold-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#3a1a1a;border:1px solid #ef4444;color:#ef4444;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;">Mark Sold</button>`
         : `<button class="post-btn" data-id="${v.id}">Post</button>`
 
-      const postedTag = isPosted
-        ? `<div style="font-size:10px;color:#22c55e;font-weight:600;margin-bottom:3px;text-align:right;">✓ POSTED</div>`
+      const tagBits = []
+      if (isPosted) tagBits.push('<span style="color:#22c55e;font-weight:600;">✓ POSTED</span>')
+      if (v._outOfStock) tagBits.push('<span style="color:#fbbf24;font-weight:600;">OUT OF STOCK</span>')
+      const tagLine = tagBits.length
+        ? `<div style="font-size:10px;margin-bottom:3px;text-align:right;">${tagBits.join(' · ')}</div>`
         : ''
 
       return `
@@ -157,7 +173,7 @@ async function loadInventory(token) {
             <div class="vehicle-sub">${v.trim || ''} · ${v.mileage ? v.mileage.toLocaleString() + ' km' : 'N/A'}</div>
           </div>
           <div>
-            ${postedTag}
+            ${tagLine}
             <div class="vehicle-price">${formatPrice(v.price)}</div>
             ${actionBtn}
           </div>
