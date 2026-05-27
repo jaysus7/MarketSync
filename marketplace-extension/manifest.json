@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Welland Chev Marketplace Lister",
+  "name": "| MarketSync",
   "version": "1.0",
   "description": "Post dealership inventory to Facebook Marketplace",
   "permissions": [
