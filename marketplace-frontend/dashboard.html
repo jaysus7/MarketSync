@@ -279,23 +279,39 @@
       <!-- ───────── TEAM INSIGHTS PAGE ───────── -->
       <div data-page-content="team-insights" class="page-content hidden space-y-6">
 
-      <div id="team-insights-panel" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-6">
-        <div class="mb-4">
-          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Team Insights</h2>
-          <p class="text-slate-500 dark:text-slate-400 text-xs">Posting velocity and per-rep contribution.</p>
+      <div id="team-insights-panel" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-6 space-y-6">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">📊 Team Insights</h2>
+          <p class="text-slate-500 dark:text-slate-400 text-xs">Per-rep contribution, tier progress, and team-wide trends.</p>
         </div>
 
-        <div class="grid md:grid-cols-2 gap-4">
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Listings posted (last 30 days)</div>
-            <div class="relative h-48">
-              <canvas id="chart-listings-daily"></canvas>
-            </div>
+        <!-- Per-rep cards -->
+        <div>
+          <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Players</div>
+          <div id="ti-rep-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div class="text-xs text-slate-500 italic col-span-full">Loading players...</div>
           </div>
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Listings by rep (lifetime)</div>
-            <div class="relative h-48">
-              <canvas id="chart-listings-by-rep"></canvas>
+        </div>
+
+        <!-- 2x2 charts grid -->
+        <div>
+          <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Trends</div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+              <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">📈 Listings posted (last 30 days)</div>
+              <div class="relative h-48"><canvas id="chart-listings-daily"></canvas></div>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+              <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">🚗 Listings by rep (lifetime)</div>
+              <div class="relative h-48"><canvas id="chart-listings-by-rep"></canvas></div>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+              <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">🏆 Sold by rep (lifetime)</div>
+              <div class="relative h-48"><canvas id="chart-sold-by-rep"></canvas></div>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+              <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">📅 Active days by rep (last 14 days)</div>
+              <div class="relative h-48"><canvas id="chart-active-by-rep"></canvas></div>
             </div>
           </div>
         </div>

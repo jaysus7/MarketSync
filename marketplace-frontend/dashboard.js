@@ -574,7 +574,7 @@ function timeAgo(date) {
   return date.toLocaleDateString();
 }
 
-// CHARTS: listings over time + listings by rep (Chart.js)
+// CHARTS: listings over time + by rep + sold by rep + active days by rep + rep cards
 async function loadCharts() {
   try {
     const res = await fetch(`${API}/dealership/charts`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -582,6 +582,9 @@ async function loadCharts() {
     const data = await res.json();
     renderDailyChart(data.daily || []);
     renderByRepChart(data.by_rep || []);
+    renderSoldByRepChart(data.sold_by_rep || []);
+    renderActiveByRepChart(data.active_days_by_rep || []);
+    renderRepCards(data.by_rep || [], data.sold_by_rep || [], data.active_days_by_rep || []);
   } catch (e) {
     console.warn('Charts failed:', e.message);
   }
@@ -589,6 +592,8 @@ async function loadCharts() {
 
 let __dailyChart = null;
 let __byRepChart = null;
+let __soldByRepChart = null;
+let __activeByRepChart = null;
 
 function renderDailyChart(daily) {
   const ctx = document.getElementById('chart-listings-daily');
@@ -624,12 +629,121 @@ function renderByRepChart(byRep) {
       datasets: [{
         label: 'Listings',
         data: byRep.map(r => r.count),
+        backgroundColor: '#6366f1',
+        borderRadius: 4
+      }]
+    },
+    options: chartCommonOptions()
+  });
+}
+
+function renderSoldByRepChart(soldByRep) {
+  const ctx = document.getElementById('chart-sold-by-rep');
+  if (!ctx || typeof Chart === 'undefined') return;
+  if (__soldByRepChart) __soldByRepChart.destroy();
+  __soldByRepChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: soldByRep.map(r => r.name),
+      datasets: [{
+        label: 'Sold',
+        data: soldByRep.map(r => r.count),
         backgroundColor: '#10b981',
         borderRadius: 4
       }]
     },
     options: chartCommonOptions()
   });
+}
+
+function renderActiveByRepChart(activeByRep) {
+  const ctx = document.getElementById('chart-active-by-rep');
+  if (!ctx || typeof Chart === 'undefined') return;
+  if (__activeByRepChart) __activeByRepChart.destroy();
+  __activeByRepChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: activeByRep.map(r => r.name),
+      datasets: [{
+        label: 'Active days / 14',
+        data: activeByRep.map(r => r.count),
+        backgroundColor: '#f59e0b',
+        borderRadius: 4
+      }]
+    },
+    options: { ...chartCommonOptions(), scales: { ...chartCommonOptions().scales, y: { ...chartCommonOptions().scales.y, max: 14 } } }
+  });
+}
+
+// Per-rep cards on the Team Insights page — gamified profile per individual
+function renderRepCards(byRep, soldByRep, activeByRep) {
+  const el = document.getElementById('ti-rep-cards');
+  if (!el) return;
+  if (!byRep?.length) {
+    el.innerHTML = '<div class="text-xs text-slate-500 italic col-span-full">No team members yet.</div>';
+    return;
+  }
+
+  // Build lookup maps by name (charts data uses name as identifier)
+  const soldMap = new Map(soldByRep.map(s => [s.name, s.count]));
+  const activeMap = new Map(activeByRep.map(a => [a.name, a.count]));
+
+  el.innerHTML = byRep.map(r => {
+    const listings = r.count;
+    const sold = soldMap.get(r.name) || 0;
+    const activeDays = activeMap.get(r.name) || 0;
+    const points = listings * 100 + sold * 500;
+    const tier = tierFor(points);
+    const next = nextTierFor(points);
+    const progressed = points - tier.min;
+    const span = next ? (next.min - tier.min) : 1;
+    const pct = next ? Math.min(100, Math.round((progressed / span) * 100)) : 100;
+    const conv = listings > 0 ? Math.round((sold / listings) * 100) : 0;
+    const initial = (r.name || '?').trim().charAt(0).toUpperCase();
+
+    return `
+      <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-4 flex flex-col gap-3">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 flex items-center justify-center font-black text-sm flex-shrink-0">${initial}</div>
+            <div class="min-w-0">
+              <div class="text-sm font-bold text-slate-900 dark:text-white truncate">${r.name}</div>
+              <div class="text-[10px] text-slate-500 font-mono">${points.toLocaleString()} pts</div>
+            </div>
+          </div>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${tier.cls} flex-shrink-0">
+            <span>${tier.icon}</span><span>${tier.name}</span>
+          </span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-2">
+            <div class="text-[9px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Listings</div>
+            <div class="text-base font-black text-indigo-600 dark:text-indigo-400">${listings}</div>
+          </div>
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-2">
+            <div class="text-[9px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold</div>
+            <div class="text-base font-black text-emerald-600 dark:text-emerald-400">${sold}</div>
+          </div>
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-2">
+            <div class="text-[9px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Conv</div>
+            <div class="text-base font-black text-amber-600 dark:text-amber-400">${conv}%</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex justify-between text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            <span>${tier.icon} ${tier.name}</span>
+            <span>${activeDays}d / 14d active</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-700" style="width:${pct}%"></div>
+          </div>
+          <div class="text-[10px] text-slate-500 mt-1">${next ? `${(next.min - points).toLocaleString()} pts to ${next.icon} ${next.name}` : 'Top tier'}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function chartCommonOptions() {

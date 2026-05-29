@@ -545,17 +545,40 @@ app.get('/dealership/charts', requireAuth, async (req, res) => {
     if (dayBuckets.has(key)) dayBuckets.set(key, dayBuckets.get(key) + 1)
   }
 
-  // Per-rep all-time
+  // Per-rep all-time listings + sold
   const { data: allListings } = await supabaseAdmin
-    .from('listings').select('posted_by').in('posted_by', memberIds)
-  const repTotals = new Map(members.map(m => [m.id, { name: m.full_name, count: 0 }]))
+    .from('listings').select('posted_by, status').in('posted_by', memberIds)
+  const repTotals = new Map(members.map(m => [m.id, { id: m.id, name: m.full_name, count: 0, sold: 0 }]))
   for (const l of allListings || []) {
-    if (repTotals.has(l.posted_by)) repTotals.get(l.posted_by).count++
+    const entry = repTotals.get(l.posted_by)
+    if (!entry) continue
+    entry.count++
+    if (l.status === 'sold') entry.sold++
   }
+
+  // Active days per rep — distinct days each rep logged in over the last 14 days
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+  const { data: logins14 } = await supabaseAdmin
+    .from('logins').select('user_id, created_at')
+    .in('user_id', memberIds).gte('created_at', fourteenDaysAgo)
+  const activeDaysByRep = new Map(members.map(m => [m.id, new Set()]))
+  for (const l of logins14 || []) {
+    const day = (l.created_at || '').slice(0, 10)
+    if (day && activeDaysByRep.has(l.user_id)) activeDaysByRep.get(l.user_id).add(day)
+  }
+
+  const by_rep = [...repTotals.values()].sort((a, b) => b.count - a.count)
+  const sold_by_rep = [...repTotals.values()].map(r => ({ name: r.name, count: r.sold })).sort((a, b) => b.count - a.count)
+  const active_days_by_rep = [...repTotals.values()].map(r => ({
+    name: r.name,
+    count: activeDaysByRep.get(r.id)?.size || 0
+  })).sort((a, b) => b.count - a.count)
 
   res.json({
     daily: [...dayBuckets.entries()].map(([date, count]) => ({ date, count })),
-    by_rep: [...repTotals.values()].sort((a, b) => b.count - a.count)
+    by_rep,
+    sold_by_rep,
+    active_days_by_rep
   })
 })
 
