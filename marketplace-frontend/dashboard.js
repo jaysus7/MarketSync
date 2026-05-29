@@ -377,7 +377,24 @@ async function loadMyStats() {
   }
 }
 
-// LEADERBOARD: PGA-style ranked table of everyone in the dealership
+// LEADERBOARD: gamified tier system + podium + activity feed
+const LB_TIERS = [
+  { name: 'Bronze',   min: 0,     icon: '🥉', cls: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700' },
+  { name: 'Silver',   min: 500,   icon: '🥈', cls: 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600' },
+  { name: 'Gold',     min: 2500,  icon: '🥇', cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700' },
+  { name: 'Platinum', min: 7500,  icon: '💎', cls: 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-700' },
+  { name: 'Diamond',  min: 15000, icon: '💠', cls: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700' },
+  { name: 'Legend',   min: 30000, icon: '🔥', cls: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700' }
+];
+
+const calcPoints = (m) => (m.total_listings || 0) * 100 + (m.sold_listings || 0) * 500;
+const tierFor = (points) => {
+  let current = LB_TIERS[0];
+  for (const t of LB_TIERS) if (points >= t.min) current = t;
+  return current;
+};
+const nextTierFor = (points) => LB_TIERS.find(t => t.min > points) || null;
+
 async function loadLeaderboard() {
   const body = document.getElementById('leaderboard-body');
   if (!body) return;
@@ -392,39 +409,169 @@ async function loadLeaderboard() {
     setText('lb-team-sold', data.team_total_sold ?? 0);
     setText('lb-team-total', data.team_total_listings ?? 0);
 
-    if (!data.ranking?.length) {
-      body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">No team members yet.</td></tr>`;
-      return;
-    }
+    const ranking = (data.ranking || []).map(r => {
+      const points = calcPoints(r);
+      return { ...r, points, tier: tierFor(points) };
+    });
 
-    const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
-    body.innerHTML = data.ranking.map(r => {
-      const isMe = r.id === user.id;
-      const rowBg = isMe ? 'bg-indigo-50 dark:bg-indigo-950/30' : '';
-      const roleBadge = (r.role === 'DEALER_ADMIN' || r.role === 'OWNER')
-        ? '<span class="text-[9px] uppercase font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.5 rounded">Admin</span>'
-        : '<span class="text-[9px] uppercase font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded">Sales rep</span>';
-      const rankCell = medals[r.rank]
-        ? `<span class="text-base">${medals[r.rank]}</span>`
-        : `<span class="text-slate-500 dark:text-slate-400 font-mono">${r.rank}</span>`;
-      return `
-        <tr class="${rowBg} hover:bg-slate-50 dark:hover:bg-slate-900/60 transition">
-          <td class="py-3 px-3">${rankCell}</td>
-          <td class="py-3 px-3 font-semibold text-slate-900 dark:text-white">
-            ${r.name}${isMe ? ' <span class="text-[10px] font-normal text-indigo-600 dark:text-indigo-400">(you)</span>' : ''}
-          </td>
-          <td class="py-3 px-3">${roleBadge}</td>
-          <td class="py-3 px-3 text-right font-mono text-indigo-600 dark:text-indigo-400">${r.total_listings}</td>
-          <td class="py-3 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">${r.sold_listings}</td>
-          <td class="py-3 px-3 text-right font-mono text-amber-600 dark:text-amber-400">${r.conversion_rate}%</td>
-          <td class="py-3 px-3 text-right font-mono text-slate-600 dark:text-slate-300">${r.recent_logins}</td>
-        </tr>
-      `;
-    }).join('');
+    renderPodium(ranking);
+    renderYourPosition(ranking);
+    renderRankingTable(ranking);
+    loadActivity();
   } catch (e) {
     console.warn('Leaderboard failed:', e.message);
     body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 italic">Failed to load leaderboard.</td></tr>`;
   }
+}
+
+function renderPodium(ranking) {
+  const el = document.getElementById('lb-podium');
+  if (!el) return;
+  if (!ranking.length) {
+    el.innerHTML = '<div class="text-center text-xs text-slate-500 italic col-span-3 py-6">No team members yet.</div>';
+    return;
+  }
+
+  // Visual order: 2nd · 1st · 3rd (1st is centered and tallest).
+  // Always render all 3 slots — empty slots become placeholders.
+  const positions = [
+    { m: ranking[1], rankNum: 2, height: 'h-24', bar: 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500', crown: '🥈' },
+    { m: ranking[0], rankNum: 1, height: 'h-32', bar: 'from-amber-300 to-amber-500',                                       crown: '👑' },
+    { m: ranking[2], rankNum: 3, height: 'h-20', bar: 'from-orange-300 to-orange-500',                                     crown: '🥉' }
+  ];
+
+  el.innerHTML = positions.map(p => {
+    if (!p.m) {
+      return `
+        <div class="flex flex-col items-center text-center opacity-40">
+          <div class="text-3xl mb-1 grayscale">${p.crown}</div>
+          <div class="font-bold text-sm text-slate-400 italic w-full">Open</div>
+          <div class="text-[10px] text-slate-400 mt-1 mb-2">—</div>
+          <div class="w-full mt-2 rounded-t-lg bg-slate-200 dark:bg-slate-800 ${p.height} flex items-start justify-center pt-2 text-slate-400 font-black text-xl">${p.rankNum}</div>
+        </div>
+      `;
+    }
+    const isMe = p.m.id === user.id;
+    return `
+      <div class="flex flex-col items-center text-center">
+        <div class="text-3xl mb-1">${p.crown}</div>
+        <div class="font-bold text-sm text-slate-900 dark:text-white truncate w-full">${p.m.name}${isMe ? ' <span class="text-[10px] text-indigo-600 dark:text-indigo-400">(you)</span>' : ''}</div>
+        <div class="inline-flex items-center gap-1 mt-1 mb-2 px-2 py-0.5 rounded-full text-[10px] font-bold border ${p.m.tier.cls}">
+          <span>${p.m.tier.icon}</span><span>${p.m.tier.name}</span>
+        </div>
+        <div class="text-xs font-mono text-slate-600 dark:text-slate-300">${p.m.points.toLocaleString()} pts</div>
+        <div class="w-full mt-2 rounded-t-lg bg-gradient-to-b ${p.bar} ${p.height} flex items-start justify-center pt-2 text-white font-black text-xl shadow-inner">
+          ${p.rankNum}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderYourPosition(ranking) {
+  const me = ranking.find(r => r.id === user.id);
+  const card = document.getElementById('lb-you');
+  if (!me || !card) return;
+  card.classList.remove('hidden');
+
+  const next = nextTierFor(me.points);
+  const span = next ? (next.min - me.tier.min) : 1;
+  const progressed = me.points - me.tier.min;
+  const pct = next ? Math.min(100, Math.round((progressed / span) * 100)) : 100;
+  const toNext = next ? next.min - me.points : 0;
+
+  document.getElementById('lb-you-rank').textContent = me.rank;
+  document.getElementById('lb-you-total').textContent = ranking.length;
+  document.getElementById('lb-you-points').textContent = me.points.toLocaleString();
+  document.getElementById('lb-you-current-tier').textContent = `${me.tier.icon} ${me.tier.name}`;
+  document.getElementById('lb-you-next-tier').textContent = next ? `${next.icon} ${next.name}` : 'Max tier';
+  document.getElementById('lb-you-progress-pct').textContent = pct;
+  document.getElementById('lb-you-progress-bar').style.width = pct + '%';
+  document.getElementById('lb-you-points-to-next').textContent = next ? toNext.toLocaleString() : 'You\'re at the top tier';
+
+  const badge = document.getElementById('lb-you-tier-badge');
+  badge.className = `inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${me.tier.cls}`;
+  badge.innerHTML = `<span>${me.tier.icon}</span><span>${me.tier.name}</span>`;
+}
+
+function renderRankingTable(ranking) {
+  const body = document.getElementById('leaderboard-body');
+  if (!body) return;
+  if (!ranking.length) {
+    body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">No team members yet.</td></tr>`;
+    return;
+  }
+  const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
+  body.innerHTML = ranking.map(r => {
+    const isMe = r.id === user.id;
+    const rowBg = isMe ? 'bg-indigo-50 dark:bg-indigo-950/30' : '';
+    const rankCell = medals[r.rank]
+      ? `<span class="text-base">${medals[r.rank]}</span>`
+      : `<span class="text-slate-500 dark:text-slate-400 font-mono">${r.rank}</span>`;
+    return `
+      <tr class="${rowBg} hover:bg-slate-50 dark:hover:bg-slate-900/60 transition">
+        <td class="py-3 px-3">${rankCell}</td>
+        <td class="py-3 px-3 font-semibold text-slate-900 dark:text-white">
+          ${r.name}${isMe ? ' <span class="text-[10px] font-normal text-indigo-600 dark:text-indigo-400">(you)</span>' : ''}
+        </td>
+        <td class="py-3 px-3">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${r.tier.cls}">
+            <span>${r.tier.icon}</span><span>${r.tier.name}</span>
+          </span>
+        </td>
+        <td class="py-3 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">${r.points.toLocaleString()}</td>
+        <td class="py-3 px-3 text-right font-mono text-indigo-600 dark:text-indigo-400">${r.total_listings}</td>
+        <td class="py-3 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">${r.sold_listings}</td>
+        <td class="py-3 px-3 text-right font-mono text-amber-600 dark:text-amber-400">${r.conversion_rate}%</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function loadActivity() {
+  const el = document.getElementById('lb-activity');
+  if (!el) return;
+  try {
+    const res = await fetch(`${API}/dealership/activity`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Activity failed');
+    const data = await res.json();
+    if (!data.events?.length) {
+      el.innerHTML = '<div class="text-xs text-slate-500 italic">No activity yet — start posting to fill this up.</div>';
+      return;
+    }
+    el.innerHTML = data.events.map(e => {
+      const isSold = e.type === 'sold';
+      const icon = isSold ? '🏆' : '🚗';
+      const verb = isSold ? 'sold' : 'posted';
+      const accent = isSold ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400';
+      const when = e.timestamp ? timeAgo(new Date(e.timestamp)) : '';
+      return `
+        <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2">
+          <div class="text-lg">${icon}</div>
+          <div class="flex-1 min-w-0 text-sm">
+            <span class="font-semibold text-slate-900 dark:text-white">${e.user_name}</span>
+            <span class="text-slate-600 dark:text-slate-400">${verb}</span>
+            <span class="text-slate-900 dark:text-white">${e.vehicle}</span>
+          </div>
+          <div class="text-right">
+            <div class="text-xs font-bold ${accent}">+${e.points} pts</div>
+            <div class="text-[10px] text-slate-500">${when}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = `<div class="text-xs text-red-500">Failed to load activity.</div>`;
+  }
+}
+
+function timeAgo(date) {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  return date.toLocaleDateString();
 }
 
 // CHARTS: listings over time + listings by rep (Chart.js)

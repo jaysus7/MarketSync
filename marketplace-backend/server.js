@@ -483,6 +483,40 @@ app.get('/dealership/leaderboard', requireAuth, async (req, res) => {
   })
 })
 
+// Recent team activity (for the gamified leaderboard's activity feed)
+app.get('/dealership/activity', requireAuth, async (req, res) => {
+  if (!req.dealershipId) return res.json({ events: [] })
+  if (req.profile.dealerships?.is_personal === true) return res.json({ events: [] })
+
+  const { data: members } = await supabaseAdmin
+    .from('profiles').select('id, full_name').eq('dealership_id', req.dealershipId)
+  if (!members?.length) return res.json({ events: [] })
+
+  const memberMap = new Map(members.map(m => [m.id, m.full_name]))
+  const memberIds = members.map(m => m.id)
+
+  const { data: listings } = await supabaseAdmin
+    .from('listings')
+    .select('id, status, posted_at, deleted_at, posted_by, inventory!inner(year, make, model)')
+    .in('posted_by', memberIds)
+    .order('posted_at', { ascending: false })
+    .limit(50)
+
+  const events = []
+  for (const l of listings || []) {
+    const vehicle = `${l.inventory?.year || ''} ${l.inventory?.make || ''} ${l.inventory?.model || ''}`.trim()
+    const userName = memberMap.get(l.posted_by) || 'Unknown'
+    if (l.posted_at) {
+      events.push({ type: 'posted', user_name: userName, vehicle, timestamp: l.posted_at, points: 100 })
+    }
+    if (l.status === 'sold' && l.deleted_at) {
+      events.push({ type: 'sold', user_name: userName, vehicle, timestamp: l.deleted_at, points: 500 })
+    }
+  }
+  events.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''))
+  res.json({ events: events.slice(0, 25) })
+})
+
 // Time-series data for charts — dealer admin only
 app.get('/dealership/charts', requireAuth, async (req, res) => {
   if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') return res.status(403).json({ error: 'Admins only' })
