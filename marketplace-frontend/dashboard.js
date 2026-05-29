@@ -84,11 +84,21 @@ async function initializeDashboardEcosystem() {
       document.querySelectorAll('[data-admin-only]').forEach(el => el.classList.add('hidden'));
     }
 
-    // Billing card: only for users who actually have their own subscription.
-    // Dealer reps are covered by the dealer's plan, so hide it for them.
+    // Billing section: lives inside the Profile card now. Dealer reps don't pay (covered by dealer).
     if (isDealerRep) {
-      document.getElementById('billing-card')?.classList.add('hidden');
+      document.getElementById('billing-section')?.classList.add('hidden');
     }
+
+    // Hide admin-only nav items for non-admins
+    if (!isAdmin) {
+      document.querySelectorAll('[data-admin-nav]').forEach(el => el.classList.add('hidden'));
+    }
+
+    // Wire up the sidebar nav
+    document.querySelectorAll('#dashboard-nav .nav-item').forEach(btn => {
+      btn.addEventListener('click', () => switchPage(btn.dataset.page));
+    });
+    switchPage('insights');
 
     if (isAdmin) {
       document.getElementById('leaderboard-panel').classList.remove('hidden');
@@ -110,6 +120,22 @@ async function initializeDashboardEcosystem() {
       window.location.href = 'login.html';
     }
   }
+}
+
+// Sidebar nav page switcher — toggles which data-page-content section is visible
+function switchPage(pageId) {
+  document.querySelectorAll('[data-page-content]').forEach(el => {
+    el.classList.toggle('hidden', el.dataset.pageContent !== pageId);
+  });
+  document.querySelectorAll('#dashboard-nav .nav-item').forEach(btn => {
+    const active = btn.dataset.page === pageId;
+    btn.classList.toggle('bg-indigo-100', active);
+    btn.classList.toggle('dark:bg-indigo-950/50', active);
+    btn.classList.toggle('text-indigo-700', active);
+    btn.classList.toggle('dark:text-indigo-300', active);
+    btn.classList.toggle('text-slate-700', !active);
+    btn.classList.toggle('dark:text-slate-300', !active);
+  });
 }
 
 async function fetchMetrics(path) {
@@ -171,22 +197,22 @@ async function loadDealerManagementMatrix() {
       const isAdmin = m.role === 'DEALER_ADMIN' || m.role === 'OWNER';
       const roleBadge = isAdmin
         ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">${m.role}</span>`
-        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">${m.role}</span>`;
+        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700">${m.role}</span>`;
       const action = (isSelf || isAdmin)
         ? `<span class="text-[10px] text-slate-600">—</span>`
         : `<button class="rep-remove-btn text-red-400 hover:text-red-300 text-xs font-bold" data-rep-id="${m.id}" data-rep-name="${m.full_name || m.email || 'this rep'}">Remove</button>`;
       const nameCell = isAdmin && isSelf
-        ? `<span class="font-bold text-white">${m.full_name || '(no name)'}</span><span class="text-[10px] text-slate-500 ml-1">(you)</span>`
-        : `<button class="rep-detail-btn text-left font-bold text-white hover:text-indigo-300" data-rep-id="${m.id}">${m.full_name || '(no name)'}</button>`;
+        ? `<span class="font-bold text-slate-900 dark:text-white">${m.full_name || '(no name)'}</span><span class="text-[10px] text-slate-500 ml-1">(you)</span>`
+        : `<button class="rep-detail-btn text-left font-bold text-slate-900 dark:text-white hover:text-indigo-300" data-rep-id="${m.id}">${m.full_name || '(no name)'}</button>`;
       return `
-        <tr class="border-b border-slate-800/40 hover:bg-slate-900/40 transition">
+        <tr class="border-b border-slate-200/60 dark:border-slate-800/40 hover:bg-white/60 dark:bg-slate-900/40 transition">
           <td class="py-3 px-4">${nameCell}</td>
-          <td class="py-3 px-4 text-slate-300">${m.email || '—'}</td>
+          <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${m.email || '—'}</td>
           <td class="py-3 px-4">${roleBadge}</td>
-          <td class="py-3 px-4 text-indigo-400 font-mono">${m.listings_posted}</td>
-          <td class="py-3 px-4 text-emerald-400 font-mono">${m.listings_sold ?? 0}</td>
-          <td class="py-3 px-4 text-amber-400 font-mono">${m.conversion_rate ?? 0}%</td>
-          <td class="py-3 px-4 text-slate-300 font-mono">${m.logins_30d ?? 0}</td>
+          <td class="py-3 px-4 text-indigo-600 dark:text-indigo-400 font-mono">${m.listings_posted}</td>
+          <td class="py-3 px-4 text-emerald-600 dark:text-emerald-400 font-mono">${m.listings_sold ?? 0}</td>
+          <td class="py-3 px-4 text-amber-600 dark:text-amber-400 font-mono">${m.conversion_rate ?? 0}%</td>
+          <td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono">${m.logins_30d ?? 0}</td>
           <td class="py-3 px-4 text-right">${action}</td>
         </tr>
       `;
@@ -273,8 +299,8 @@ function showInviteResult(text, kind) {
   const el = document.getElementById('invite-result');
   el.innerHTML = text;
   el.className = kind === 'ok'
-    ? 'mb-3 p-2 text-xs rounded bg-emerald-900/50 border border-emerald-700 text-emerald-200'
-    : 'mb-3 p-2 text-xs rounded bg-red-900/50 border border-red-700 text-red-200';
+    ? 'mb-3 p-2 text-xs rounded bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-200'
+    : 'mb-3 p-2 text-xs rounded bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200';
   el.classList.remove('hidden');
 }
 
@@ -301,13 +327,14 @@ async function loadLeaderboard() {
     if (!res.ok) return;
     const data = await res.json();
     const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-    setText('lb-top-name', data.top_lister?.name || '—');
-    setText('lb-top-count', data.top_lister ? `${data.top_lister.total_listings} listings` : '— listings');
-    setText('lb-active-name', data.most_active?.name || '—');
-    setText('lb-active-count', data.most_active ? `${data.most_active.recent_logins} logins / 14d` : '— logins');
-    setText('lb-avg', data.avg_listings_per_user ?? '—');
-    setText('lb-inactive', data.inactive_count ?? '—');
-    setText('lb-conv', data.team_conversion_rate ?? '—');
+    const hasReps = (data.total_reps ?? 0) > 0;
+    setText('lb-top-name', hasReps ? (data.top_lister?.name || '—') : 'No reps yet');
+    setText('lb-top-count', hasReps && data.top_lister ? `${data.top_lister.total_listings} listings` : '—');
+    setText('lb-active-name', hasReps ? (data.most_active?.name || '—') : 'No reps yet');
+    setText('lb-active-count', hasReps && data.most_active ? `${data.most_active.recent_logins} logins / 14d` : '—');
+    setText('lb-avg', hasReps ? (data.avg_listings_per_user ?? '—') : '—');
+    setText('lb-inactive', hasReps ? (data.inactive_count ?? '—') : '—');
+    setText('lb-conv', hasReps ? (data.team_conversion_rate ?? '—') : '—');
   } catch (e) {
     console.warn('Leaderboard failed:', e.message);
   }
@@ -372,15 +399,25 @@ function renderByRepChart(byRep) {
 }
 
 function chartCommonOptions() {
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const tickColor = isDark ? '#94a3b8' : '#64748b';
+  const gridColor = isDark ? 'rgba(148,163,184,0.08)' : 'rgba(100,116,139,0.12)';
   return {
     responsive: true,
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: {
-      x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(148,163,184,0.08)' } },
-      y: { ticks: { color: '#94a3b8', font: { size: 10 }, precision: 0 }, grid: { color: 'rgba(148,163,184,0.08)' }, beginAtZero: true }
+      x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { color: gridColor } },
+      y: { ticks: { color: tickColor, font: { size: 10 }, precision: 0 }, grid: { color: gridColor }, beginAtZero: true }
     }
   };
+}
+
+// Re-render charts when the system color preference changes (e.g., macOS auto switch at sunset)
+if (typeof window !== 'undefined' && window.matchMedia) {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (typeof loadCharts === 'function') loadCharts();
+  });
 }
 
 function renderRecentListings(containerId, items) {
@@ -393,25 +430,25 @@ function renderRecentListings(containerId, items) {
     const map = {
       posted: 'bg-emerald-900/40 border-emerald-700 text-emerald-300',
       sold: 'bg-indigo-900/40 border-indigo-700 text-indigo-300',
-      deleted: 'bg-slate-800 border-slate-700 text-slate-400'
+      deleted: 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
     };
     return `<span class="text-[9px] uppercase font-bold border px-1.5 py-0.5 rounded ${map[s] || map.deleted}">${s}</span>`;
   };
   el.innerHTML = items.map(l => {
     const v = l.vehicle || {};
     const thumb = v.image_urls?.[0]
-      ? `<img src="${API}/proxy-image?url=${encodeURIComponent(v.image_urls[0])}" class="w-16 h-12 rounded object-cover bg-slate-950" loading="lazy">`
-      : `<div class="w-16 h-12 rounded bg-slate-950 flex items-center justify-center text-slate-700">⌀</div>`;
+      ? `<img src="${API}/proxy-image?url=${encodeURIComponent(v.image_urls[0])}" class="w-16 h-12 rounded object-cover bg-slate-50 dark:bg-slate-950" loading="lazy">`
+      : `<div class="w-16 h-12 rounded bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-700">⌀</div>`;
     const when = l.posted_at ? new Date(l.posted_at).toLocaleDateString() : '—';
     const fbLink = l.fb_listing_url
-      ? `<a href="${l.fb_listing_url}" target="_blank" class="text-[10px] text-indigo-400 hover:underline">View on FB ↗</a>`
+      ? `<a href="${l.fb_listing_url}" target="_blank" class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline">View on FB ↗</a>`
       : '';
     return `
-      <div class="flex items-center gap-3 bg-slate-950 border border-slate-800 rounded p-2">
+      <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2">
         ${thumb}
         <div class="flex-1 min-w-0">
-          <div class="text-xs font-bold text-white truncate">${v.year || ''} ${v.make || ''} ${v.model || ''} ${v.trim || ''}</div>
-          <div class="text-[10px] text-slate-400">Posted ${when} ${fbLink ? '· ' + fbLink : ''}</div>
+          <div class="text-xs font-bold text-slate-900 dark:text-white truncate">${v.year || ''} ${v.make || ''} ${v.model || ''} ${v.trim || ''}</div>
+          <div class="text-[10px] text-slate-500 dark:text-slate-400">Posted ${when} ${fbLink ? '· ' + fbLink : ''}</div>
         </div>
         ${badge(l.status)}
       </div>
@@ -432,10 +469,10 @@ async function loadInventoryFeeds() {
     }
     const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
     list.innerHTML = feeds.map(f => `
-      <div class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded p-3 gap-3">
+      <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3 gap-3">
         <div class="flex items-center gap-2 min-w-0 flex-1">
-          <span class="text-[10px] uppercase font-bold bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">${f.feed_type || 'all'}</span>
-          <span class="text-xs text-slate-300 truncate" title="${f.feed_url}">${f.feed_url}</span>
+          <span class="text-[10px] uppercase font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded">${f.feed_type || 'all'}</span>
+          <span class="text-xs text-slate-600 dark:text-slate-300 truncate" title="${f.feed_url}">${f.feed_url}</span>
         </div>
         ${isAdmin ? `<button data-feed-id="${f.id}" class="feed-delete-btn text-red-400 hover:text-red-300 text-xs font-bold">Remove</button>` : ''}
       </div>
@@ -515,10 +552,10 @@ function showSyncStatus(text, kind) {
   const el = document.getElementById('sync-status');
   el.textContent = text;
   el.className = kind === 'ok'
-    ? 'mb-3 p-2 text-xs rounded bg-emerald-900/50 border border-emerald-700 text-emerald-200'
+    ? 'mb-3 p-2 text-xs rounded bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-200'
     : kind === 'err'
-      ? 'mb-3 p-2 text-xs rounded bg-red-900/50 border border-red-700 text-red-200'
-      : 'mb-3 p-2 text-xs rounded bg-slate-800 border border-slate-700 text-slate-300';
+      ? 'mb-3 p-2 text-xs rounded bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200'
+      : 'mb-3 p-2 text-xs rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300';
   el.classList.remove('hidden');
 }
 
@@ -561,27 +598,27 @@ function renderCatalog() {
     const map = {
       available: 'bg-emerald-900/40 border-emerald-700 text-emerald-300',
       pending: 'bg-amber-900/40 border-amber-700 text-amber-300',
-      sold: 'bg-slate-800 border-slate-700 text-slate-400'
+      sold: 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
     };
     return `<span class="text-[9px] uppercase font-bold border px-1.5 py-0.5 rounded ${map[s] || map.sold}">${s || 'unknown'}</span>`;
   };
 
   list.innerHTML = filtered.map(v => {
     const img = v.image_urls?.[0]
-      ? `<img src="${API}/proxy-image?url=${encodeURIComponent(v.image_urls[0])}" loading="lazy" class="w-full h-32 object-cover rounded bg-slate-950">`
-      : `<div class="w-full h-32 rounded bg-slate-950 flex items-center justify-center text-slate-700 text-2xl">⌀</div>`;
+      ? `<img src="${API}/proxy-image?url=${encodeURIComponent(v.image_urls[0])}" loading="lazy" class="w-full h-32 object-cover rounded bg-slate-50 dark:bg-slate-950">`
+      : `<div class="w-full h-32 rounded bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-700 text-2xl">⌀</div>`;
     const price = v.price ? `$${Number(v.price).toLocaleString()}` : '—';
     const mileage = v.mileage ? `${Number(v.mileage).toLocaleString()} km` : 'New';
     return `
-      <div class="bg-slate-950 border border-slate-800 rounded p-3 flex flex-col gap-2">
+      <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3 flex flex-col gap-2">
         ${img}
         <div class="flex items-center justify-between gap-2">
-          <span class="text-xs font-bold text-white truncate flex-1" title="${v.year} ${v.make} ${v.model} ${v.trim || ''}">${v.year} ${v.make} ${v.model}</span>
+          <span class="text-xs font-bold text-slate-900 dark:text-white truncate flex-1" title="${v.year} ${v.make} ${v.model} ${v.trim || ''}">${v.year} ${v.make} ${v.model}</span>
           ${statusBadge(v.status)}
         </div>
-        <div class="text-[11px] text-slate-400 truncate">${v.trim || ''} ${v.exterior_color ? '· ' + v.exterior_color : ''}</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">${v.trim || ''} ${v.exterior_color ? '· ' + v.exterior_color : ''}</div>
         <div class="flex items-center justify-between text-xs">
-          <span class="font-bold text-indigo-400">${price}</span>
+          <span class="font-bold text-indigo-600 dark:text-indigo-400">${price}</span>
           <span class="text-slate-500">${mileage}</span>
         </div>
       </div>
@@ -617,8 +654,8 @@ function setupActionListeners() {
     const showMsg = (text, kind) => {
       msg.textContent = text;
       msg.className = kind === 'ok'
-        ? 'mb-3 p-2 bg-emerald-900/50 border border-emerald-700 text-emerald-200 text-xs rounded'
-        : 'mb-3 p-2 bg-red-900/50 border border-red-700 text-red-200 text-xs rounded';
+        ? 'mb-3 p-2 bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-200 text-xs rounded'
+        : 'mb-3 p-2 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200 text-xs rounded';
       msg.classList.remove('hidden');
     };
 
@@ -680,7 +717,7 @@ function setupActionListeners() {
     try {
       const data = await inviteRep(payload);
       showInviteResult(
-        `Created <b>${data.email}</b>. Temporary password: <code class="bg-slate-800 px-1 py-0.5 rounded">${data.temp_password}</code> — share securely.`,
+        `Created <b>${data.email}</b>. Temporary password: <code class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">${data.temp_password}</code> — share securely.`,
         'ok'
       );
       inviteForm.reset();

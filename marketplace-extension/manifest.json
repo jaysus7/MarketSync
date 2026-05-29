@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "| MarketSync",
+  "name": "MarketSync",
   "version": "1.0",
-  "description": "Post dealership inventory to Facebook Marketplace",
+  "description": "Post dealership inventory to Facebook Marketplace in seconds. Auto-sync, auto-fill, auto-track.",
   "permissions": [
     "storage",
     "activeTab",
@@ -16,8 +16,14 @@
     "https://cardealerstg.blob.core.windows.net/*",
     "https://vehicleimages.leadboxhq.com/*"
   ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "action": {
     "default_popup": "popup.html",
+    "default_title": "MarketSync",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

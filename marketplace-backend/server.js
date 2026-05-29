@@ -407,7 +407,9 @@ app.post('/admin/users/invite', requireAuth, async (req, res) => {
   })
 })
 
-// Team leaderboard + aggregate insights — dealer admin only
+// Team leaderboard + aggregate insights — dealer admin only.
+// Leaderboard metrics (Top Lister / Most Active / Avg / Inactive) reflect SALES REPS only —
+// admins/owners manage the team and aren't ranked alongside it.
 app.get('/dealership/leaderboard', requireAuth, async (req, res) => {
   if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') return res.status(403).json({ error: 'Admins only' })
   if (!req.dealershipId) return res.json({ members: [] })
@@ -443,18 +445,23 @@ app.get('/dealership/leaderboard', requireAuth, async (req, res) => {
     }
   }))
 
-  const totalListings = rows.reduce((s, r) => s + r.total_listings, 0)
-  const totalSold = rows.reduce((s, r) => s + r.sold_listings, 0)
-  const topLister = [...rows].sort((a, b) => b.total_listings - a.total_listings)[0] || null
-  const mostActive = [...rows].sort((a, b) => b.recent_logins - a.recent_logins)[0] || null
-  const inactiveCount = rows.filter(r => r.recent_logins === 0).length
+  // Leaderboard metrics are SALES_REP only
+  const reps = rows.filter(r => r.role === 'SALES_REP')
+
+  const totalListings = reps.reduce((s, r) => s + r.total_listings, 0)
+  const totalSold = reps.reduce((s, r) => s + r.sold_listings, 0)
+  const topLister = [...reps].sort((a, b) => b.total_listings - a.total_listings)[0] || null
+  const mostActive = [...reps].sort((a, b) => b.recent_logins - a.recent_logins)[0] || null
+  const inactiveCount = reps.filter(r => r.recent_logins === 0).length
 
   res.json({
-    members: rows,
+    members: rows,        // full team (for the Sales Team table)
+    reps,                 // sales reps only
     top_lister: topLister,
     most_active: mostActive,
-    avg_listings_per_user: members.length ? Math.round((totalListings / members.length) * 10) / 10 : 0,
+    avg_listings_per_user: reps.length ? Math.round((totalListings / reps.length) * 10) / 10 : 0,
     inactive_count: inactiveCount,
+    total_reps: reps.length,
     total_members: members.length,
     team_conversion_rate: totalListings > 0 ? Math.round((totalSold / totalListings) * 100) : 0
   })

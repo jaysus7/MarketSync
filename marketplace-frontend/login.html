@@ -3,36 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <title>Sign In · MarketSync</title>
+  <script>tailwind = { config: { darkMode: 'media' } }</script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="color-scheme" content="light dark">
 </head>
-<body class="bg-slate-950 text-slate-100 h-screen flex items-center justify-center font-sans">
-  <div class="bg-slate-900 p-8 rounded-lg border border-slate-800 shadow-xl w-full max-w-md mx-4">
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 h-screen flex items-center justify-center font-sans">
+  <div class="bg-white dark:bg-slate-900 p-8 rounded-lg border border-slate-200 dark:border-slate-800 shadow-xl w-full max-w-md mx-4">
     <div class="text-center mb-8">
       <a href="index.html" class="inline-flex items-center gap-2.5">
         <span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>
-        <span class="text-2xl font-black tracking-tight text-white">Market<span class="text-indigo-400">Sync</span></span>
+        <span class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
       </a>
-      <p class="text-slate-400 text-xs mt-2">Sign in to access your dashboard</p>
+      <p class="text-slate-500 dark:text-slate-400 text-xs mt-2">Sign in to access your dashboard</p>
     </div>
-    
-    <div id="error-box" class="hidden mb-4 p-3 bg-red-900/50 border border-red-700 text-red-200 text-xs rounded"></div>
+
+    <div id="error-box" class="hidden mb-4 p-3 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200 text-xs rounded"></div>
 
     <form id="login-form" class="space-y-4">
       <div>
-        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Professional Email</label>
-        <input type="email" id="email" required class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Professional Email</label>
+        <input type="email" id="email" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
       </div>
       <div>
         <div class="flex justify-between items-center mb-1">
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Password</label>
-          <a href="forgot-password.html" class="text-xs text-indigo-400 hover:underline">Forgot?</a>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Password</label>
+          <a href="forgot-password.html" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">Forgot?</a>
         </div>
-        <input type="password" id="password" required class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+        <input type="password" id="password" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
       </div>
-      <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 font-bold py-2.5 rounded text-sm shadow transition">Sign In to Dashboard</button>
+      <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded text-sm shadow transition">Sign In to Dashboard</button>
     </form>
-    
-    <p class="text-center text-xs text-slate-400 mt-6">New location? <a href="register.html" class="text-indigo-400 hover:underline">Register Dealership</a></p>
+
+    <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-6">New location? <a href="register.html" class="text-indigo-600 dark:text-indigo-400 hover:underline">Register Dealership</a></p>
   </div>
 
   <script>
@@ -56,7 +58,6 @@
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || 'Identity rejection');
 
-        // Seed session profiles cleanly
         localStorage.setItem('token', data.access_token);
         localStorage.setItem('user', JSON.stringify(data.user));
         window.location.href = 'dashboard.html';
