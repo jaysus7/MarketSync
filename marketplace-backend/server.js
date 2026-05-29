@@ -252,6 +252,21 @@ app.post('/auth/logout', requireAuth, async (req, res) => {
   res.json({ success: true })
 })
 
+app.post('/support', async (req, res) => {
+  const { name, email, subject, message } = req.body || {}
+  if (!name || !email || !message) return res.status(400).json({ error: 'name, email, and message are required' })
+
+  const { error } = await supabaseAdmin
+    .from('support_requests')
+    .insert({ name, email, subject: subject || null, message })
+  if (error) {
+    console.error('Support insert failed:', error.message)
+    return res.status(500).json({ error: 'Could not submit your request. Please try again.' })
+  }
+  console.log('📩 Support request:', { name, email, subject })
+  res.json({ success: true })
+})
+
 app.post('/auth/forgot-password', async (req, res) => {
   const { email } = req.body || {}
   if (!email) return res.status(400).json({ error: 'email required' })
@@ -841,7 +856,7 @@ app.post('/billing/checkout', requireAuth, async (req, res) => {
   try {
     if (existingCustomerId) {
       try {
-        const portalSession = await stripe.billingPortal.sessions.create({ customer: existingCustomerId, return_url: `${process.env.FRONTEND_URL}/dashboard` })
+        const portalSession = await stripe.billingPortal.sessions.create({ customer: existingCustomerId, return_url: `${process.env.FRONTEND_URL}/dashboard.html` })
         return res.json({ url: portalSession.url })
       } catch (portalErr) {
         console.warn('Portal initialization bypassed:', portalErr.message)
@@ -854,8 +869,8 @@ app.post('/billing/checkout', requireAuth, async (req, res) => {
       client_reference_id: clientRefId,
       metadata,
       subscription_data: { metadata, trial_period_days: 7 },
-      success_url: `${process.env.FRONTEND_URL}/dashboard`,
-      cancel_url: `${process.env.FRONTEND_URL}/dashboard`
+      success_url: `${process.env.FRONTEND_URL}/dashboard.html`,
+      cancel_url: `${process.env.FRONTEND_URL}/dashboard.html`
     })
     res.json({ url: session.url })
   } catch (err) {

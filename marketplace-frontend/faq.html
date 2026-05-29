@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="logo.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAQ · MarketSync</title>
+  <script>tailwind = { config: { darkMode: 'media' } }</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="color-scheme" content="light dark">
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased">
+
+  <nav class="border-b border-slate-200 dark:border-slate-800/80 backdrop-blur-sm sticky top-0 bg-slate-50/80 dark:bg-slate-950/80 z-50">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-2.5">
+        <span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>
+        <span class="text-xl font-black tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
+      </a>
+      <a href="index.html" class="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">← Back to home</a>
+    </div>
+  </nav>
+
+  <header class="max-w-3xl mx-auto px-6 pt-16 pb-10">
+    <p class="text-xs uppercase font-bold tracking-widest text-indigo-600 dark:text-indigo-400 mb-3">FAQ</p>
+    <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4">Frequently asked questions</h1>
+    <p class="text-base text-slate-600 dark:text-slate-400">Quick answers to what we hear most. Still stuck? <a href="support.html" class="text-indigo-600 dark:text-indigo-400 hover:underline">Contact support</a>.</p>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-6 pb-24 space-y-3">
+
+    <details class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+      <summary class="cursor-pointer list-none px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+        How does MarketSync actually post to Facebook Marketplace?
+        <svg class="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+        Facebook doesn't allow third-party sites to post listings via API. Our Chrome extension opens FB Marketplace's standard "Create Listing" page and fills in the year, make, model, color, price, mileage, photos, and description for you. You review and click Publish like normal — it's just way faster than typing it all manually.
+      </div>
+    </details>
+
+    <details class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+      <summary class="cursor-pointer list-none px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+        Will Facebook ban my account for using this?
+        <svg class="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+        MarketSync doesn't bypass any of Facebook's controls — it fills in the same form a human would, and you still click Publish yourself. We deliberately built it that way to stay within reasonable use. Common-sense limits still apply: don't post the same vehicle hundreds of times, and don't post non-existent inventory.
+      </div>
+    </details>
+
+    <details class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+      <summary class="cursor-pointer list-none px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+        What inventory feeds do you support?
+        <svg class="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+        Today we auto-resolve LeadBox-style feeds (any dealership site at <code class="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">/new-inventory/</code>, <code class="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">/used-inventory/</code>, etc.) into a working JSON URL. If your dealer site uses a different platform, paste the direct JSON inventory feed URL and we'll handle it. Talk to support if you're not sure where to find yours.
+      </div>
+    </details>
+
+    <details class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+      <summary class="cursor-pointer list-none px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+        How does the 7-day free trial work?
+        <svg class="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+        You get 7 days of full access on either plan. Card info is collected at signup so the trial converts smoothly to paid, but nothing charges for the first 7 days. Cancel any time during the trial from the Profile section of your dashboard — you won't be billed.
+      </div>
+    </details>
+
+    <details class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+      <summary class="cursor-pointer list-none px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+        Do my sales reps need to pay separately?
+        <svg class="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+        No. On the Dealer Pro plan, every sales rep on your team is included in your subscription — invite as many as you need from the Sales Team page. Solo reps not affiliated with a dealer have their own Solo plan.
+      </div>
+    </details>
+
+    <details class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+      <summary class="cursor-pointer list-none px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+        What insights does the dealer admin see?
+        <svg class="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+        Total inventory synced, listings posted (overall + per-rep), sold conversion rate, active days, daily posting velocity, leaderboard ranking everyone in the dealership, and a drill-down view per rep. Plus full team management from one panel.
+      </div>
+    </details>
+
+    <details class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+      <summary class="cursor-pointer list-none px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+        What happens to my dealership data?
+        <svg class="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+        Inventory data is pulled from your own public dealer feed and stored only so we can show it to your team in the extension. We don't sell, share, or use your data for advertising. See our <a href="privacy-policy.html" class="text-indigo-600 dark:text-indigo-400 hover:underline">Privacy Policy</a> for the full breakdown.
+      </div>
+    </details>
+
+    <details class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+      <summary class="cursor-pointer list-none px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+        Can I see a demo before I sign up?
+        <svg class="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+        Absolutely. <a href="https://calendly.com/marketsync-demo/15min" target="_blank" rel="noopener" class="text-indigo-600 dark:text-indigo-400 hover:underline">Book a 15-minute call</a> and we'll walk you through it live with your actual inventory.
+      </div>
+    </details>
+
+    <details class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+      <summary class="cursor-pointer list-none px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+        What if Facebook changes their UI?
+        <svg class="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+        We maintain the extension actively — when FB shifts their layout, we ship an update. Active subscribers automatically get the new version through Chrome's auto-update.
+      </div>
+    </details>
+
+  </main>
+
+  <footer class="border-t border-slate-200 dark:border-slate-800/60 py-8">
+    <div class="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-2.5">
+        <span class="w-1.5 h-5 bg-indigo-500 rounded-sm"></span>
+        <span class="text-sm font-bold tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
+      </div>
+      <div class="text-xs text-slate-500">&copy; 2026 MarketSync · Not affiliated with Meta or Facebook</div>
+    </div>
+  </footer>
+
+</body>
+</html>
