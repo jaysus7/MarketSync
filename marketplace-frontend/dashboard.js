@@ -93,6 +93,15 @@ async function initializeDashboardEcosystem() {
     if (!isAdmin) {
       document.querySelectorAll('[data-admin-nav]').forEach(el => el.classList.add('hidden'));
     }
+    // Hide team-only nav items (Leaderboard) for solo reps — nothing to rank
+    if (isSolo || !inDealership) {
+      document.querySelectorAll('[data-team-nav]').forEach(el => el.classList.add('hidden'));
+    }
+
+    // Leaderboard is visible to all team members (admin + reps), not just admin
+    if (inDealership && !isPersonal) {
+      loadLeaderboard();
+    }
 
     // Wire up the sidebar nav
     document.querySelectorAll('#dashboard-nav .nav-item').forEach(btn => {
@@ -101,9 +110,8 @@ async function initializeDashboardEcosystem() {
     switchPage('insights');
 
     if (isAdmin) {
-      document.getElementById('leaderboard-panel').classList.remove('hidden');
-      document.getElementById('dealer-view-panel').classList.remove('hidden');
-      loadLeaderboard();
+      document.getElementById('leaderboard-panel')?.classList.remove('hidden');
+      document.getElementById('dealer-view-panel')?.classList.remove('hidden');
       loadCharts();
       loadDealerManagementMatrix();
     } else {
@@ -320,23 +328,53 @@ async function loadMyStats() {
   }
 }
 
-// LEADERBOARD: top lister / most active / averages / inactive count
+// LEADERBOARD: PGA-style ranked table of everyone in the dealership
 async function loadLeaderboard() {
+  const body = document.getElementById('leaderboard-body');
+  if (!body) return;
+  body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">Loading leaderboard...</td></tr>`;
   try {
     const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
-    if (!res.ok) return;
+    if (!res.ok) throw new Error('Leaderboard failed');
     const data = await res.json();
+
     const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-    const hasReps = (data.total_reps ?? 0) > 0;
-    setText('lb-top-name', hasReps ? (data.top_lister?.name || '—') : 'No reps yet');
-    setText('lb-top-count', hasReps && data.top_lister ? `${data.top_lister.total_listings} listings` : '—');
-    setText('lb-active-name', hasReps ? (data.most_active?.name || '—') : 'No reps yet');
-    setText('lb-active-count', hasReps && data.most_active ? `${data.most_active.recent_logins} logins / 14d` : '—');
-    setText('lb-avg', hasReps ? (data.avg_listings_per_user ?? '—') : '—');
-    setText('lb-inactive', hasReps ? (data.inactive_count ?? '—') : '—');
-    setText('lb-conv', hasReps ? (data.team_conversion_rate ?? '—') : '—');
+    setText('lb-conv', data.team_conversion_rate ?? 0);
+    setText('lb-team-sold', data.team_total_sold ?? 0);
+    setText('lb-team-total', data.team_total_listings ?? 0);
+
+    if (!data.ranking?.length) {
+      body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">No team members yet.</td></tr>`;
+      return;
+    }
+
+    const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
+    body.innerHTML = data.ranking.map(r => {
+      const isMe = r.id === user.id;
+      const rowBg = isMe ? 'bg-indigo-50 dark:bg-indigo-950/30' : '';
+      const roleBadge = (r.role === 'DEALER_ADMIN' || r.role === 'OWNER')
+        ? '<span class="text-[9px] uppercase font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.5 rounded">Admin</span>'
+        : '<span class="text-[9px] uppercase font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded">Sales rep</span>';
+      const rankCell = medals[r.rank]
+        ? `<span class="text-base">${medals[r.rank]}</span>`
+        : `<span class="text-slate-500 dark:text-slate-400 font-mono">${r.rank}</span>`;
+      return `
+        <tr class="${rowBg} hover:bg-slate-50 dark:hover:bg-slate-900/60 transition">
+          <td class="py-3 px-3">${rankCell}</td>
+          <td class="py-3 px-3 font-semibold text-slate-900 dark:text-white">
+            ${r.name}${isMe ? ' <span class="text-[10px] font-normal text-indigo-600 dark:text-indigo-400">(you)</span>' : ''}
+          </td>
+          <td class="py-3 px-3">${roleBadge}</td>
+          <td class="py-3 px-3 text-right font-mono text-indigo-600 dark:text-indigo-400">${r.total_listings}</td>
+          <td class="py-3 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">${r.sold_listings}</td>
+          <td class="py-3 px-3 text-right font-mono text-amber-600 dark:text-amber-400">${r.conversion_rate}%</td>
+          <td class="py-3 px-3 text-right font-mono text-slate-600 dark:text-slate-300">${r.recent_logins}</td>
+        </tr>
+      `;
+    }).join('');
   } catch (e) {
     console.warn('Leaderboard failed:', e.message);
+    body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 italic">Failed to load leaderboard.</td></tr>`;
   }
 }
 

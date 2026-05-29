@@ -407,18 +407,17 @@ app.post('/admin/users/invite', requireAuth, async (req, res) => {
   })
 })
 
-// Team leaderboard + aggregate insights — dealer admin only.
-// Leaderboard metrics (Top Lister / Most Active / Avg / Inactive) reflect SALES REPS only —
-// admins/owners manage the team and aren't ranked alongside it.
+// Team leaderboard — PGA-style ranked table for the whole dealership (admin + reps).
+// Visible to anyone in a team dealership (solo reps don't get a leaderboard).
 app.get('/dealership/leaderboard', requireAuth, async (req, res) => {
-  if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') return res.status(403).json({ error: 'Admins only' })
-  if (!req.dealershipId) return res.json({ members: [] })
+  if (!req.dealershipId) return res.json({ ranking: [], total_members: 0 })
+  if (req.profile.dealerships?.is_personal === true) return res.json({ ranking: [], total_members: 0 })
 
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
   const { data: members } = await supabaseAdmin
     .from('profiles').select('id, full_name, role').eq('dealership_id', req.dealershipId)
-  if (!members?.length) return res.json({ members: [] })
+  if (!members?.length) return res.json({ ranking: [], total_members: 0 })
 
   const rows = await Promise.all(members.map(async (m) => {
     const { count: posted } = await supabaseAdmin
@@ -445,24 +444,26 @@ app.get('/dealership/leaderboard', requireAuth, async (req, res) => {
     }
   }))
 
-  // Leaderboard metrics are SALES_REP only
-  const reps = rows.filter(r => r.role === 'SALES_REP')
+  // Rank by: most listings first, then most sold, then most active (recent logins).
+  // Stable ordering by name for fully-tied rows.
+  const ranking = rows
+    .slice()
+    .sort((a, b) =>
+      b.total_listings - a.total_listings
+      || b.sold_listings - a.sold_listings
+      || b.recent_logins - a.recent_logins
+      || a.name.localeCompare(b.name)
+    )
+    .map((r, i) => ({ ...r, rank: i + 1 }))
 
-  const totalListings = reps.reduce((s, r) => s + r.total_listings, 0)
-  const totalSold = reps.reduce((s, r) => s + r.sold_listings, 0)
-  const topLister = [...reps].sort((a, b) => b.total_listings - a.total_listings)[0] || null
-  const mostActive = [...reps].sort((a, b) => b.recent_logins - a.recent_logins)[0] || null
-  const inactiveCount = reps.filter(r => r.recent_logins === 0).length
+  const totalListings = rows.reduce((s, r) => s + r.total_listings, 0)
+  const totalSold = rows.reduce((s, r) => s + r.sold_listings, 0)
 
   res.json({
-    members: rows,        // full team (for the Sales Team table)
-    reps,                 // sales reps only
-    top_lister: topLister,
-    most_active: mostActive,
-    avg_listings_per_user: reps.length ? Math.round((totalListings / reps.length) * 10) / 10 : 0,
-    inactive_count: inactiveCount,
-    total_reps: reps.length,
+    ranking,                                    // ordered, with rank attached
     total_members: members.length,
+    team_total_listings: totalListings,
+    team_total_sold: totalSold,
     team_conversion_rate: totalListings > 0 ? Math.round((totalSold / totalListings) * 100) : 0
   })
 })
