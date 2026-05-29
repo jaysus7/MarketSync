@@ -38,11 +38,23 @@ async function initializeDashboardEcosystem() {
     profileContext = await res.json();
 
     // Render Shared Header Components
-    document.getElementById('ui-profile-name').textContent = profileContext.full_name || user.email;
+    // For dealer admins: lead with the DEALERSHIP NAME (so it visually distinguishes the
+    // dealer admin view from rep views). Person's name moves to the subtitle line.
+    // For reps / solo: lead with the person's name (their own dashboard, not the team's).
+    const personName = profileContext.full_name || user.email;
     const isPersonalDealership = profileContext.dealership?.is_personal === true;
-    document.getElementById('ui-dealership-name').textContent = isPersonalDealership
+    const dealershipName = isPersonalDealership
       ? 'Independent'
       : (profileContext.dealership?.name || 'Independent');
+    const isAdminHeader = profileContext.role === 'DEALER_ADMIN' || profileContext.role === 'OWNER';
+
+    if (isAdminHeader && !isPersonalDealership) {
+      document.getElementById('ui-profile-name').textContent = dealershipName;
+      document.getElementById('ui-dealership-name').textContent = `${personName} · Admin`;
+    } else {
+      document.getElementById('ui-profile-name').textContent = personName;
+      document.getElementById('ui-dealership-name').textContent = dealershipName;
+    }
 
     // Pre-fill profile form
     document.getElementById('prof-name').value = profileContext.full_name || '';
