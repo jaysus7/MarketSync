@@ -710,19 +710,30 @@ if (window.location.href.includes('/marketplace/item/')) {
 }
 
 function detectFbSoldBadge() {
-  // Strategy 1: explicit "Sold" pill near the title area
+  const isVisible = (el) => {
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && !el.closest('[aria-hidden="true"]');
+  };
+
+  // PRIMARY signal: the "Mark as available" button.
+  // Facebook only renders this on listings you own that are currently marked sold.
+  // If we see it, we know definitively the listing is sold.
+  const actionables = [...document.querySelectorAll('div[role="button"], button, span, a')];
+  for (const el of actionables) {
+    const text = el.textContent.trim().toLowerCase();
+    if (text === 'mark as available' && isVisible(el)) return true;
+  }
+
+  // SECONDARY signal: a "Sold" badge/pill near the title (red/orange text node).
+  // Matches the "Sold · 2020 Honda CRV" header in the listing modal.
   const main = document.querySelector('[role="main"]') || document.body;
   const candidates = [...main.querySelectorAll('span, div')];
   for (const el of candidates) {
     const text = el.textContent.trim();
-    // Must be exactly "Sold" and have no children (a leaf span/div is the badge)
-    if (text === 'Sold' && el.children.length === 0) {
-      // Make sure it's visible (not in an aria-hidden tree, not zero-size)
-      const rect = el.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0 && !el.closest('[aria-hidden="true"]')) {
-        return true;
-      }
-    }
+    // Leaf node with exactly "Sold"
+    if (text === 'Sold' && el.children.length === 0 && isVisible(el)) return true;
   }
+
   return false;
 }
