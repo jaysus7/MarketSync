@@ -12,28 +12,28 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen flex flex-col">
 
-  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-wrap justify-between items-center gap-4">
-    <div class="flex items-center space-x-3">
-      <div class="flex items-center gap-2.5">
+  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-2 sm:gap-4">
+    <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+      <div class="flex items-center gap-2 flex-shrink-0">
         <span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>
-        <span class="text-xl font-black tracking-tight text-slate-900 dark:text-white">Marketplace<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
+        <span class="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
       </div>
-      <span class="text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded" id="ui-role-pill">Loading...</span>
+      <span class="hidden sm:inline-block text-[10px] sm:text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded" id="ui-role-pill">Loading...</span>
     </div>
-    <div class="flex items-center space-x-4">
-      <div class="text-right">
-        <div class="text-sm font-bold text-slate-900 dark:text-white" id="ui-profile-name">---</div>
-        <div class="text-xs text-slate-500 dark:text-slate-400" id="ui-dealership-name">---</div>
+    <div class="flex items-center gap-2 sm:gap-4 min-w-0">
+      <div class="text-right min-w-0">
+        <div class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[120px] sm:max-w-none" id="ui-profile-name">---</div>
+        <div class="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate max-w-[120px] sm:max-w-none" id="ui-dealership-name">---</div>
       </div>
-      <button id="logout-btn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded text-xs font-medium border border-slate-300 dark:border-slate-700 transition">Sign Out</button>
+      <button id="logout-btn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-2.5 sm:px-3 py-1.5 rounded text-[11px] sm:text-xs font-medium border border-slate-300 dark:border-slate-700 transition whitespace-nowrap">Sign Out</button>
     </div>
   </header>
 
-  <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid md:grid-cols-4 gap-6">
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid md:grid-cols-4 gap-4 sm:gap-6">
 
-    <section class="space-y-6 md:col-span-1">
+    <section class="flex flex-col gap-4 sm:gap-6 md:col-span-1">
 
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden order-2 md:order-1">
         <button id="profile-toggle" type="button" class="w-full px-5 py-4 flex justify-between items-center hover:bg-slate-100/60 dark:bg-slate-800/40 transition focus:outline-none">
           <div class="text-left">
             <div class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Profile &amp; Workspace</div>
@@ -77,13 +77,13 @@
         </div>
       </div>
 
-      <!-- Sidebar navigation -->
-      <nav id="dashboard-nav" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2 space-y-0.5 text-sm">
-        <button type="button" data-page="insights" class="nav-item w-full text-left px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Insights</button>
-        <button type="button" data-page="inventory" class="nav-item w-full text-left px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Inventory</button>
-        <button type="button" data-page="leaderboard" data-team-nav class="nav-item w-full text-left px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Leaderboard</button>
-        <button type="button" data-page="team-insights" data-admin-nav class="nav-item w-full text-left px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Team Insights</button>
-        <button type="button" data-page="sales-team" data-admin-nav class="nav-item w-full text-left px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Sales Team</button>
+      <!-- Sidebar navigation — horizontal scrollable pills on mobile, stacked sidebar on desktop -->
+      <nav id="dashboard-nav" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-sm order-1 md:order-2 flex md:flex-col gap-1 md:gap-0 md:space-y-0.5 overflow-x-auto md:overflow-visible scrollbar-thin sticky top-[57px] md:top-auto z-10">
+        <button type="button" data-page="insights" class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Insights</button>
+        <button type="button" data-page="inventory" class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Inventory</button>
+        <button type="button" data-page="leaderboard" data-team-nav class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Leaderboard</button>
+        <button type="button" data-page="team-insights" data-admin-nav class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Team Insights</button>
+        <button type="button" data-page="sales-team" data-admin-nav class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Sales Team</button>
       </nav>
 
     </section>
@@ -212,7 +212,7 @@
         </div>
 
         <!-- Podium for top 3 -->
-        <div id="lb-podium" class="grid grid-cols-3 gap-3 items-end max-w-2xl mx-auto">
+        <div id="lb-podium" class="grid grid-cols-3 gap-2 sm:gap-3 items-end max-w-2xl mx-auto">
           <div class="text-center text-xs text-slate-500 italic col-span-3 py-6">Loading podium...</div>
         </div>
 
