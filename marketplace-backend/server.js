@@ -1357,6 +1357,32 @@ async function probeUrlHtml(url, timeoutMs = 12000) {
   }
 }
 
+// Extract per-vehicle image galleries from EDealer-style inventory HTML.
+// EDealer renders one `w_400` thumbnail per vehicle followed by N `w_1920` full-res
+// images of that vehicle, then the next thumbnail marks the next vehicle.
+function extractEDealerImageGroups(html) {
+  const thumbRe = /https:\/\/media\.edealer\.ca\/w_400[^"'\s]*\/inventory\/[A-Z0-9]+\.webp/g
+  const fullRe = /https:\/\/media\.edealer\.ca\/w_1920[^"'\s]*\/inventory\/[A-Z0-9]+\.webp/g
+  const thumbs = []
+  let m
+  while ((m = thumbRe.exec(html)) !== null) thumbs.push({ pos: m.index, url: m[0] })
+  const fulls = []
+  while ((m = fullRe.exec(html)) !== null) fulls.push({ pos: m.index, url: m[0] })
+  if (!thumbs.length) return []
+  return thumbs.map((t, i) => {
+    const end = i + 1 < thumbs.length ? thumbs[i + 1].pos : html.length
+    const seen = new Set()
+    const gallery = []
+    for (const f of fulls) {
+      if (f.pos > t.pos && f.pos < end && !seen.has(f.url)) {
+        seen.add(f.url)
+        gallery.push(f.url)
+      }
+    }
+    return gallery
+  })
+}
+
 // Walk JSON-LD nodes and pull every Car / Vehicle item.
 // Robust against arbitrary nesting — handles ItemList, double-nested arrays
 // (some dealer platforms emit `itemListElement: [[{...}]]`), @graph wrappers, etc.
@@ -1586,9 +1612,12 @@ async function runInventorySync(dealershipId) {
           }
           blocks.forEach(walk)
           const cars = extractCarsFromJsonLd(flat)
+          // Extract per-vehicle photo galleries from the HTML (JSON-LD's `image` field
+          // is usually a placeholder; real photos live in <img> tags grouped by vehicle).
+          const imageGroups = extractEDealerImageGroups(html)
           // Normalize Schema.org Car shape into a flatter LeadBox-compatible object so the
-          // rest of this loop can read it uniformly.
-          vehicles = cars.map(c => ({
+          // rest of this loop can read it uniformly. Index into imageGroups by position.
+          vehicles = cars.map((c, i) => ({
             vin: c.vehicleIdentificationNumber,
             year: c.vehicleModelDate,
             make: c.brand?.name || c.manufacturer?.name || c.brand,
@@ -1611,6 +1640,9 @@ async function runInventorySync(dealershipId) {
             onweb: true,
             salepending: false,
             image_urls: (() => {
+              // Prefer EDealer per-vehicle gallery extracted from HTML
+              if (imageGroups[i]?.length) return imageGroups[i]
+              // Fall back to JSON-LD image, filtering out the "coming soon" placeholder
               const img = Array.isArray(c.image) ? c.image[0] : c.image
               if (!img || (typeof img === 'string' && img.includes('coming.png'))) return []
               return [img]
