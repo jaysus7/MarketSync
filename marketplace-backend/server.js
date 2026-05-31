@@ -1357,25 +1357,31 @@ async function probeUrlHtml(url, timeoutMs = 12000) {
   }
 }
 
-// Walk JSON-LD nodes and pull every Car / Vehicle item (handles ItemList wrappers, nested arrays).
+// Walk JSON-LD nodes and pull every Car / Vehicle item.
+// Robust against arbitrary nesting — handles ItemList, double-nested arrays
+// (some dealer platforms emit `itemListElement: [[{...}]]`), @graph wrappers, etc.
 function extractCarsFromJsonLd(nodes) {
   const cars = []
-  const visit = (node) => {
-    if (!node || typeof node !== 'object') return
-    if (Array.isArray(node)) { node.forEach(visit); return }
-    const type = node['@type']
-    const isCarType = type === 'Car' || type === 'Vehicle' || type === 'MotorVehicle'
-      || (Array.isArray(type) && type.some(t => ['Car', 'Vehicle', 'MotorVehicle'].includes(t)))
-    if (isCarType) { cars.push(node); return }
-    // ItemList → recurse into itemListElement
-    if (Array.isArray(node.itemListElement)) {
-      for (const li of node.itemListElement) {
-        if (li?.item) visit(li.item)
-        else visit(li)
-      }
-    }
+  const seen = new WeakSet()
+  const isCar = (node) => {
+    const type = node?.['@type']
+    if (!type) return false
+    const types = Array.isArray(type) ? type : [type]
+    return types.some(t => t === 'Car' || t === 'Vehicle' || t === 'MotorVehicle')
   }
-  nodes.forEach(visit)
+  const visit = (node) => {
+    if (!node) return
+    if (Array.isArray(node)) { node.forEach(visit); return }
+    if (typeof node !== 'object') return
+    if (seen.has(node)) return
+    seen.add(node)
+    if (isCar(node)) { cars.push(node); return }
+    // Follow common wrappers — each may itself be an array, object, or array-of-array
+    if (node['@graph']) visit(node['@graph'])
+    if (node.itemListElement) visit(node.itemListElement)
+    if (node.item) visit(node.item)
+  }
+  visit(nodes)
   return cars
 }
 
