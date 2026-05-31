@@ -1268,9 +1268,117 @@ const PLATFORM_PROBES = [
       exteriorcolor: v.color,
     })
   },
+
+  // ── Schema.org JSON-LD (universal fallback) ────────────────────────────────
+  // Any dealer site that publishes Vehicle / Car Schema.org structured data in
+  // its inventory page HTML works. Tried LAST after every platform-specific JSON
+  // path fails. Covers EDealer, plus any future platform that adds JSON-LD.
+  {
+    platform: 'schema_jsonld',
+    label: 'Schema.org JSON-LD',
+    htmlProbe: true,
+    buildUrls: () => [],   // unused — detectFeedPlatform uses the page URL directly
+    validate: (data) => {
+      if (!data?.jsonLd) return false
+      return extractCarsFromJsonLd(data.jsonLd).length > 0
+    },
+    extract: (data) => extractCarsFromJsonLd(data.jsonLd),
+    mapVehicle: (v) => {
+      // Schema.org URL-encoded condition → New / Used
+      const cond = v.itemCondition || ''
+      const condition = cond.includes('NewCondition') ? 'New'
+        : cond.includes('UsedCondition') ? 'Used'
+        : cond.includes('Refurbished') ? 'Certified'
+        : null
+      // Drive wheel config URL → readable
+      const drive = (v.driveWheelConfiguration || '').match(/\/(\w+)WheelDriveConfiguration/)?.[1]
+      // Trim heuristic: vehicleConfiguration often = "AWD 4dr Avenir SUV" — last token is body, rest is trim.
+      let trim = null
+      if (typeof v.vehicleConfiguration === 'string') {
+        const parts = v.vehicleConfiguration.split(' ')
+        trim = parts.slice(0, -1).join(' ') || null
+      }
+      const image = Array.isArray(v.image) ? v.image[0] : v.image
+      return {
+        vin: v.vehicleIdentificationNumber,
+        year: v.vehicleModelDate,
+        make: v.brand?.name || v.manufacturer?.name || v.brand,
+        model: v.model,
+        trim,
+        price: v.offers?.price ?? null,
+        mileage: v.mileageFromOdometer?.value ?? null,
+        condition,
+        stocknumber: v.sku || v.productID,
+        exteriorcolor: v.color,
+        interiorcolor: v.vehicleInteriorColor,
+        bodystyle: v.bodyType,
+        fueltype: v.vehicleEngine?.fuelType,
+        transmission: v.vehicleTransmission,
+        drivetrain: drive,
+        image_urls: image && image !== 'https://static.edealer.ca/V4/assets/images/new_vehicles_images_coming.png' ? [image] : []
+      }
+    }
+  },
 ]
 
 // ── Helper: probe a single URL with a timeout ─────────────────────────────
+// Fetch an HTML page and pull every <script type="application/ld+json"> block.
+// Returns a flat array of Schema.org nodes (with @graph unwrapped).
+async function probeUrlHtml(url, timeoutMs = 12000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 MarketSync-FeedProbe/1.0' }
+    })
+    clearTimeout(timer)
+    if (!res.ok) return { ok: false, status: res.status }
+    const html = await res.text()
+    const blocks = []
+    const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+    let m
+    while ((m = re.exec(html)) !== null) {
+      try { blocks.push(JSON.parse(m[1])) } catch {}
+    }
+    // Flatten @graph arrays
+    const flat = []
+    const walk = (node) => {
+      if (!node) return
+      if (Array.isArray(node)) { node.forEach(walk); return }
+      if (Array.isArray(node['@graph'])) { node['@graph'].forEach(walk); return }
+      flat.push(node)
+    }
+    blocks.forEach(walk)
+    return { ok: true, jsonLd: flat }
+  } catch (e) {
+    clearTimeout(timer)
+    return { ok: false, reason: e.name === 'AbortError' ? 'timeout' : e.message }
+  }
+}
+
+// Walk JSON-LD nodes and pull every Car / Vehicle item (handles ItemList wrappers, nested arrays).
+function extractCarsFromJsonLd(nodes) {
+  const cars = []
+  const visit = (node) => {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) { node.forEach(visit); return }
+    const type = node['@type']
+    const isCarType = type === 'Car' || type === 'Vehicle' || type === 'MotorVehicle'
+      || (Array.isArray(type) && type.some(t => ['Car', 'Vehicle', 'MotorVehicle'].includes(t)))
+    if (isCarType) { cars.push(node); return }
+    // ItemList → recurse into itemListElement
+    if (Array.isArray(node.itemListElement)) {
+      for (const li of node.itemListElement) {
+        if (li?.item) visit(li.item)
+        else visit(li)
+      }
+    }
+  }
+  nodes.forEach(visit)
+  return cars
+}
+
 async function probeUrl(url, timeoutMs = 8000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -1303,13 +1411,19 @@ async function detectFeedPlatform(dealerUrl) {
   const attempts = []
 
   for (const platform of PLATFORM_PROBES) {
-    const urls = platform.buildUrls(origin)
+    const urls = platform.htmlProbe
+      ? [dealerUrl]                  // HTML-probe platforms (Schema.org JSON-LD) use the page URL as-is
+      : platform.buildUrls(origin)
     for (const url of urls) {
-      const result = await probeUrl(url)
-      attempts.push({ platform: platform.platform, label: platform.label, url, ...result })
+      const result = platform.htmlProbe ? await probeUrlHtml(url) : await probeUrl(url)
+      const probeData = platform.htmlProbe ? result : result.data
+      attempts.push({
+        platform: platform.platform, label: platform.label, url,
+        ok: result.ok, status: result.status, reason: result.reason
+      })
 
-      if (result.ok && platform.validate(result.data)) {
-        const vehicles = platform.extract(result.data)
+      if (result.ok && platform.validate(probeData)) {
+        const vehicles = platform.extract(probeData)
         const sample = vehicles.slice(0, 3).map(platform.mapVehicle)
         return {
           success: true,
@@ -1440,9 +1554,63 @@ async function runInventorySync(dealershipId) {
       if (jsonCache.has(feed.feed_url)) {
         vehicles = jsonCache.get(feed.feed_url)
       } else {
-        const feedRes = await fetch(`${feed.feed_url}?v=${Date.now()}`)
-        const data = await feedRes.json()
-        vehicles = data.vehicles || []
+        // Try JSON first; if the saved feed_url points at an HTML page (Schema.org case), fall back to JSON-LD extraction
+        const feedRes = await fetch(`${feed.feed_url}?v=${Date.now()}`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 MarketSync-Sync/1.0' }
+        })
+        const ct = feedRes.headers.get('content-type') || ''
+        if (ct.includes('json')) {
+          const data = await feedRes.json()
+          vehicles = data.vehicles || data.inventory || data.data || data.items || (Array.isArray(data) ? data : [])
+        } else {
+          // HTML response → extract Schema.org JSON-LD
+          const html = await feedRes.text()
+          const blocks = []
+          const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+          let m
+          while ((m = re.exec(html)) !== null) {
+            try { blocks.push(JSON.parse(m[1])) } catch {}
+          }
+          const flat = []
+          const walk = (n) => {
+            if (!n) return
+            if (Array.isArray(n)) { n.forEach(walk); return }
+            if (Array.isArray(n['@graph'])) { n['@graph'].forEach(walk); return }
+            flat.push(n)
+          }
+          blocks.forEach(walk)
+          const cars = extractCarsFromJsonLd(flat)
+          // Normalize Schema.org Car shape into a flatter LeadBox-compatible object so the
+          // rest of this loop can read it uniformly.
+          vehicles = cars.map(c => ({
+            vin: c.vehicleIdentificationNumber,
+            year: c.vehicleModelDate,
+            make: c.brand?.name || c.manufacturer?.name || c.brand,
+            model: c.model,
+            trim: (() => {
+              const cfg = typeof c.vehicleConfiguration === 'string' ? c.vehicleConfiguration : ''
+              const parts = cfg.split(' ')
+              return parts.length > 1 ? parts.slice(0, -1).join(' ') : null
+            })(),
+            price: c.offers?.price,
+            mileage: c.mileageFromOdometer?.value,
+            exteriorcolor: c.color,
+            interiorcolor: c.vehicleInteriorColor,
+            transmission: c.vehicleTransmission,
+            fueltype: c.vehicleEngine?.fuelType,
+            bodystyle: c.bodyType,
+            condition: (c.itemCondition || '').includes('NewCondition') ? 'New' :
+                       (c.itemCondition || '').includes('UsedCondition') ? 'Used' : null,
+            stocknumber: c.sku || c.productID,
+            onweb: true,
+            salepending: false,
+            image_urls: (() => {
+              const img = Array.isArray(c.image) ? c.image[0] : c.image
+              if (!img || (typeof img === 'string' && img.includes('coming.png'))) return []
+              return [img]
+            })()
+          }))
+        }
         jsonCache.set(feed.feed_url, vehicles)
       }
       totalVehiclesFound += vehicles.length
@@ -1456,10 +1624,15 @@ async function runInventorySync(dealershipId) {
 
       for (const v of vehicles) {
         if (!matchesFeedType(v, feed.feed_type)) { totalSkipped++; continue }
-        if (!v.onweb || v.nonvehicle) { totalSkipped++; continue }
+        if (v.onweb === false || v.nonvehicle) { totalSkipped++; continue }
+        if (!v.vin) { totalSkipped++; continue }
 
         await sleep(200)
-        const imageUrls = await fetchVehiclePhotos(v.stocknumber)
+        // Prefer embedded image URLs; fall back to LeadBox-style photo lookup
+        let imageUrls = Array.isArray(v.image_urls) && v.image_urls.length ? v.image_urls : []
+        if (!imageUrls.length && v.stocknumber) {
+          imageUrls = await fetchVehiclePhotos(v.stocknumber)
+        }
         const record = {
           dealership_id: dealershipId,
           vin: v.vin,
@@ -1470,12 +1643,14 @@ async function runInventorySync(dealershipId) {
           price: v.saleprice || v.price || 0,
           mileage: v.mileage || 0,
           exterior_color: v.exteriorcolor || null,
-          interior_color: null,
+          interior_color: v.interiorcolor || null,
           transmission: v.transmission || null,
           fuel_type: mapFuel(v.fueltype),
           description: buildDescription(v),
           image_urls: imageUrls,
-          source_url: `${feed.feed_url.split('/wp-content')[0]}/inventory/${v.stocknumber}`,
+          source_url: feed.feed_url.includes('/wp-content')
+            ? `${feed.feed_url.split('/wp-content')[0]}/inventory/${v.stocknumber || ''}`
+            : feed.feed_url,
           status: v.salepending ? 'pending' : 'available',
           last_synced_at: new Date().toISOString()
         }
@@ -1571,26 +1746,28 @@ app.post('/inventory-feeds', requireAuth, async (req, res) => {
   const { feed_url: rawUrl, feed_type: requestedType } = req.body || {}
   if (!rawUrl) return res.status(400).json({ error: 'feed_url is required' })
 
-  // Allow inventory-type detection from the original URL (e.g. /vehicles/new/, /used-inventory/)
+  // Pull inventory-type hint (new/used/demo) from the original URL path
   const typeHint = normalizeFeedUrl(rawUrl)
   if (!typeHint) return res.status(400).json({ error: 'Invalid URL' })
 
-  // If the user pasted a direct .json URL, trust it. Otherwise probe every known platform.
   let workingUrl = null
   let detectedPlatform = null
   let attempts = []
 
-  if (typeHint.jsonUrl && typeHint.jsonUrl.toLowerCase().includes('.json')) {
-    // Direct JSON URL — single probe
+  // Only single-probe when the USER pasted a real .json URL.
+  // For dealer landing pages (like /inventory/new/), always run the full multi-platform probe.
+  const userPastedJson = (() => {
+    try { return new URL(rawUrl.trim()).pathname.toLowerCase().endsWith('.json') }
+    catch { return false }
+  })()
+
+  if (userPastedJson) {
     try {
-      const r = await fetch(typeHint.jsonUrl)
-      const text = await r.text()
-      const data = JSON.parse(text)
-      // Accept ANY plausible shape (will be parsed at sync time)
-      if (r.ok) workingUrl = typeHint.jsonUrl
-      attempts.push({ url: typeHint.jsonUrl, status: r.status, ok: r.ok })
+      const r = await fetch(rawUrl)
+      attempts.push({ url: rawUrl, status: r.status, ok: r.ok })
+      if (r.ok) workingUrl = rawUrl
     } catch (e) {
-      attempts.push({ url: typeHint.jsonUrl, error: e.message })
+      attempts.push({ url: rawUrl, error: e.message })
     }
   } else {
     // Public dealer URL — try every known platform via the central probe
