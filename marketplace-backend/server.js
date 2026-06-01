@@ -1410,60 +1410,38 @@ function parseEDealerDetailPage(html, url) {
 // Returns full inventory regardless of pagination — solves the infinite-scroll limitation.
 async function fetchEDealerInventoryFromSitemap(origin) {
   try {
-    // EDealer splits new and used into separate sitemaps
-    const SITEMAP_CANDIDATES = [
-      `${origin}/new-inventory-sitemap.xml`,
-      `${origin}/used-inventory-sitemap.xml`,
-      `${origin}/certified-inventory-sitemap.xml`,
-      `${origin}/demo-inventory-sitemap.xml`,
-      `${origin}/inventory-listing-sitemap.xml`,  // legacy fallback
-    ]
+    // Resolve the real origin after any www/non-www redirects
+    // fetch() follows redirects by default but the origin variable still holds
+    // the pre-redirect value — we need the final URL's origin instead.
+    const sitemapUrl = `${origin}/inventory-listing-sitemap.xml`
+    const r = await fetch(sitemapUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 MarketSync-Sync/1.0' },
+      redirect: 'follow'
+    })
+    if (!r.ok) return null
 
-    let allUrls = []
+    // Use the final URL's origin (post-redirect) for all subsequent requests
+    const resolvedOrigin = new URL(r.url).origin
 
-    for (const sitemapUrl of SITEMAP_CANDIDATES) {
-      try {
-        const r = await fetch(sitemapUrl, { headers: { 'User-Agent': 'MarketSync-Sync/1.0' } })
-        if (!r.ok) continue
-        const xml = await r.text()
+    const xml = await r.text()
+    const urls = [...xml.matchAll(/<loc>([^<]+vdp\/?)<\/loc>/g)].map(m => m[1])
+    if (!urls.length) return null
 
-        // Check if this is a sitemap INDEX pointing to child sitemaps
-        const childSitemaps = [...xml.matchAll(/<loc>([^<]+sitemap[^<]*\.xml)<\/loc>/gi)].map(m => m[1])
-        if (childSitemaps.length > 0) {
-          for (const childUrl of childSitemaps) {
-            try {
-              const cr = await fetch(childUrl, { headers: { 'User-Agent': 'MarketSync-Sync/1.0' } })
-              if (!cr.ok) continue
-              const cxml = await cr.text()
-              const urls = [...cxml.matchAll(/<loc>([^<]+vdp\/?)<\/loc>/g)].map(m => m[1])
-              allUrls.push(...urls)
-            } catch { continue }
-          }
-        } else {
-          // Direct sitemap — grab all VDP URLs
-          const urls = [...xml.matchAll(/<loc>([^<]+vdp\/?)<\/loc>/g)].map(m => m[1])
-          allUrls.push(...urls)
-        }
-      } catch { continue }
-    }
-
-    // Dedupe in case any URL appears in multiple sitemaps
-    allUrls = [...new Set(allUrls)]
-
-    if (!allUrls.length) return null
-    console.log(`[sync] EDealer sitemap: ${allUrls.length} detail URLs to fetch`)
+    console.log(`[sync] EDealer sitemap: ${urls.length} detail URLs to fetch`)
 
     const vehicles = []
     const CONCURRENCY = 3
-    for (let i = 0; i < allUrls.length; i += CONCURRENCY) {
-      const batch = allUrls.slice(i, i + CONCURRENCY)
+    for (let i = 0; i < urls.length; i += CONCURRENCY) {
+      const batch = urls.slice(i, i + CONCURRENCY)
       const results = await Promise.all(batch.map(async (url) => {
         try {
-          const res = await fetch(url, { headers: { 'User-Agent': 'MarketSync-Sync/1.0' } })
+          const res = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 MarketSync-Sync/1.0' },
+            redirect: 'follow'
+          })
           if (!res.ok) return null
           const html = await res.text()
-          const parsed = parseEDealerDetailPage(html, url)
-          return parsed
+          return parseEDealerDetailPage(html, url)
         } catch { return null }
       }))
       vehicles.push(...results.filter(Boolean))
@@ -1475,16 +1453,6 @@ async function fetchEDealerInventoryFromSitemap(origin) {
     console.warn('[sync] EDealer sitemap fetch failed:', e.message)
     return null
   }
-}
-
-// Extract ALL unique full-res inventory image URLs from a single page of HTML.
-// Used for detail pages which contain ~10-30 photos of one vehicle.
-function extractEDealerImagesFromPage(html) {
-  const re = /https:\/\/media\.edealer\.ca\/w_1920[^"'\s]*\/inventory\/[A-Z0-9]+\.webp/g
-  const seen = new Set()
-  let m
-  while ((m = re.exec(html)) !== null) seen.add(m[0])
-  return [...seen]
 }
 
 // Find vehicle detail-page anchors in EDealer listing HTML (one per vehicle, in document order)
