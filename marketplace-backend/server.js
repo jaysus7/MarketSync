@@ -1410,28 +1410,67 @@ function parseEDealerDetailPage(html, url) {
 // Returns full inventory regardless of pagination — solves the infinite-scroll limitation.
 async function fetchEDealerInventoryFromSitemap(origin) {
   try {
-    const r = await fetch(`${origin}/inventory-listing-sitemap.xml`, { headers: { 'User-Agent': 'MarketSync-Sync/1.0' } })
-    if (!r.ok) return null
-    const xml = await r.text()
-    const urls = [...xml.matchAll(/<loc>([^<]+\/inventory\/[^<]+vdp\/?)<\/loc>/g)].map(m => m[1])
-    if (!urls.length) return null
-    console.log(`[sync] EDealer sitemap: ${urls.length} detail URLs to fetch`)
+    // EDealer splits new and used into separate sitemaps
+    const SITEMAP_CANDIDATES = [
+      `${origin}/new-inventory-sitemap.xml`,
+      `${origin}/used-inventory-sitemap.xml`,
+      `${origin}/certified-inventory-sitemap.xml`,
+      `${origin}/demo-inventory-sitemap.xml`,
+      `${origin}/inventory-listing-sitemap.xml`,  // legacy fallback
+    ]
+
+    let allUrls = []
+
+    for (const sitemapUrl of SITEMAP_CANDIDATES) {
+      try {
+        const r = await fetch(sitemapUrl, { headers: { 'User-Agent': 'MarketSync-Sync/1.0' } })
+        if (!r.ok) continue
+        const xml = await r.text()
+
+        // Check if this is a sitemap INDEX pointing to child sitemaps
+        const childSitemaps = [...xml.matchAll(/<loc>([^<]+sitemap[^<]*\.xml)<\/loc>/gi)].map(m => m[1])
+        if (childSitemaps.length > 0) {
+          for (const childUrl of childSitemaps) {
+            try {
+              const cr = await fetch(childUrl, { headers: { 'User-Agent': 'MarketSync-Sync/1.0' } })
+              if (!cr.ok) continue
+              const cxml = await cr.text()
+              const urls = [...cxml.matchAll(/<loc>([^<]+vdp\/?)<\/loc>/g)].map(m => m[1])
+              allUrls.push(...urls)
+            } catch { continue }
+          }
+        } else {
+          // Direct sitemap — grab all VDP URLs
+          const urls = [...xml.matchAll(/<loc>([^<]+vdp\/?)<\/loc>/g)].map(m => m[1])
+          allUrls.push(...urls)
+        }
+      } catch { continue }
+    }
+
+    // Dedupe in case any URL appears in multiple sitemaps
+    allUrls = [...new Set(allUrls)]
+
+    if (!allUrls.length) return null
+    console.log(`[sync] EDealer sitemap: ${allUrls.length} detail URLs to fetch`)
 
     const vehicles = []
-    const CONCURRENCY = 6
-    for (let i = 0; i < urls.length; i += CONCURRENCY) {
-      const batch = urls.slice(i, i + CONCURRENCY)
+    const CONCURRENCY = 3
+    for (let i = 0; i < allUrls.length; i += CONCURRENCY) {
+      const batch = allUrls.slice(i, i + CONCURRENCY)
       const results = await Promise.all(batch.map(async (url) => {
         try {
           const res = await fetch(url, { headers: { 'User-Agent': 'MarketSync-Sync/1.0' } })
           if (!res.ok) return null
-          return parseEDealerDetailPage(await res.text(), url)
+          const html = await res.text()
+          const parsed = parseEDealerDetailPage(html, url)
+          return parsed
         } catch { return null }
       }))
       vehicles.push(...results.filter(Boolean))
     }
+
     console.log(`[sync] EDealer sitemap: extracted ${vehicles.length} valid vehicles`)
-    return vehicles
+    return vehicles.length > 0 ? vehicles : null
   } catch (e) {
     console.warn('[sync] EDealer sitemap fetch failed:', e.message)
     return null
