@@ -815,14 +815,18 @@ async function loadInventoryFeeds() {
       list.innerHTML = '<div class="text-xs text-slate-500 italic">No feeds yet — add one below to start syncing inventory.</div>';
       return;
     }
+    // Anyone who can manage feeds (dealer admins + solo reps with a personal dealership)
+    // should see the Remove button. Backend permission is enforced server-side too.
     const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
+    const isSoloOwner = profileContext?.dealership?.is_personal === true;
+    const canManage = isAdmin || isSoloOwner;
     list.innerHTML = feeds.map(f => `
       <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3 gap-3 overflow-hidden">
         <div class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
           <span class="text-[10px] uppercase font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded flex-shrink-0">${f.feed_type || 'all'}</span>
           <span class="text-xs text-slate-600 dark:text-slate-300 truncate block min-w-0 flex-1" title="${f.feed_url}">${f.feed_url}</span>
         </div>
-        ${isAdmin ? `<button data-feed-id="${f.id}" class="feed-delete-btn text-red-400 hover:text-red-300 text-xs font-bold flex-shrink-0">Remove</button>` : ''}
+        ${canManage ? `<button data-feed-id="${f.id}" class="feed-delete-btn text-red-400 hover:text-red-300 text-xs font-bold flex-shrink-0">Remove</button>` : ''}
       </div>
     `).join('');
     document.querySelectorAll('.feed-delete-btn').forEach(btn => {
