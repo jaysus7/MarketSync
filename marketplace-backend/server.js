@@ -2123,3 +2123,19 @@ app.use((err, req, res, next) => {
 })
 
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Secure Marketplace engine live on port ${PORT}`))
+async function fetchEDealerWithPuppeteer(origin) {
+  const puppeteer = await import('puppeteer')
+  const browser = await puppeteer.launch({ args: ['--no-sandbox'] })
+  const page = await browser.newPage()
+  await page.goto(`${origin}/inventory/`, { waitUntil: 'networkidle2' })
+  const cars = await page.evaluate(() => {
+    const scripts = [...document.querySelectorAll('script[type="application/ld+json"]')]
+    return scripts.flatMap(s => {
+      try { return JSON.parse(s.textContent)['@graph'] || [JSON.parse(s.textContent)] }
+      catch { return [] }
+    }).filter(n => n['@type'] === 'Car')
+  })
+  await browser.close()
+  return cars
+}
+
