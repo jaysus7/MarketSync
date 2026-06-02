@@ -1409,88 +1409,89 @@ function parseEDealerDetailPage(html, url) {
 // Fetch + parse all vehicles via the EDealer inventory sitemap (works on all EDealer dealer sites).
 // Returns full inventory regardless of pagination — solves the infinite-scroll limitation.
 async function fetchEDealerInventoryFromSitemap(origin) {
+  let browser
   try {
+    const puppeteer = (await import('puppeteer')).default
+    browser = await puppeteer.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      headless: true
+    })
+    const page = await browser.newPage()
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
+
     const vehicles = []
-    let page = 1
-    let consecutiveEmpty = 0
+    let pageNum = 1
+    let lastCount = -1
 
-    while (consecutiveEmpty < 2) {
-      const url = `${origin}/inventory/?page=${page}`
-      const r = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 MarketSync-Sync/1.0' },
-        redirect: 'follow'
-      })
-      if (!r.ok) break
-      const html = await r.text()
+    while (true) {
+      const url = `${origin}/inventory/?page=${pageNum}`
+      console.log(`[sync] EDealer Puppeteer: fetching page ${pageNum}`)
 
-      // Extract JSON-LD Car nodes from this listing page
-      const blocks = []
-      const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
-      let m
-      while ((m = re.exec(html)) !== null) {
-        try { blocks.push(JSON.parse(m[1])) } catch {}
-      }
-      const flat = []
-      const walk = (n) => {
-        if (!n) return
-        if (Array.isArray(n)) { n.forEach(walk); return }
-        if (Array.isArray(n['@graph'])) { n['@graph'].forEach(walk); return }
-        flat.push(n)
-      }
-      blocks.forEach(walk)
-      const cars = extractCarsFromJsonLd(flat)
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
 
-      if (cars.length === 0) {
-        consecutiveEmpty++
-      } else {
-        consecutiveEmpty = 0
-        // Also extract detail URLs for photo enrichment
-        const detailUrls = extractEDealerDetailUrls(html, new URL(r.url).origin)
-        const imageGroups = cars.length === detailUrls.length && detailUrls.length > 0
-          ? await fetchEDealerDetailImageGroups(detailUrls, 3)
-          : extractEDealerImageGroups(html)
-
-        for (let i = 0; i < cars.length; i++) {
-          const c = cars[i]
-          const img = Array.isArray(c.image) ? c.image[0] : c.image
-          vehicles.push({
-            vin: c.vehicleIdentificationNumber,
-            year: c.vehicleModelDate,
-            make: c.brand?.name || c.manufacturer?.name || c.brand,
-            model: c.model,
-            trim: (() => {
-              const cfg = typeof c.vehicleConfiguration === 'string' ? c.vehicleConfiguration : ''
-              const parts = cfg.split(' ')
-              return parts.length > 1 ? parts.slice(0, -1).join(' ') : null
-            })(),
-            price: c.offers?.price,
-            mileage: c.mileageFromOdometer?.value,
-            exteriorcolor: c.color,
-            interiorcolor: c.vehicleInteriorColor,
-            transmission: c.vehicleTransmission,
-            fueltype: c.vehicleEngine?.fuelType,
-            bodystyle: c.bodyType,
-            condition: (c.itemCondition || '').includes('NewCondition') ? 'New'
-                     : (c.itemCondition || '').includes('UsedCondition') ? 'Used' : null,
-            stocknumber: c.sku || c.productID,
-            onweb: true,
-            salepending: false,
-            image_urls: imageGroups[i]?.length ? imageGroups[i]
-              : (img && !img.includes('coming.png') ? [img] : []),
-            _detail_url: detailUrls[i] || url
-          })
+      const cars = await page.evaluate(() => {
+        const scripts = [...document.querySelectorAll('script[type="application/ld+json"]')]
+        const results = []
+        for (const s of scripts) {
+          try {
+            const parsed = JSON.parse(s.textContent)
+            const nodes = parsed['@graph'] || (Array.isArray(parsed) ? parsed : [parsed])
+            for (const node of nodes) {
+              if (node['@type'] === 'Car' || node['@type'] === 'Vehicle') {
+                results.push(node)
+              }
+            }
+          } catch {}
         }
-        console.log(`[sync] EDealer page ${page}: ${cars.length} vehicles`)
+        return results
+      })
+
+      console.log(`[sync] EDealer Puppeteer page ${pageNum}: ${cars.length} cars`)
+
+      // Stop if we get same count as last page (infinite pagination) or zero
+      if (cars.length === 0 || cars.length === lastCount) break
+      lastCount = cars.length
+
+      for (const c of cars) {
+        const img = Array.isArray(c.image) ? c.image[0] : c.image
+        vehicles.push({
+          vin: c.vehicleIdentificationNumber,
+          year: c.vehicleModelDate,
+          make: c.brand?.name || c.manufacturer?.name || c.brand,
+          model: c.model,
+          trim: (() => {
+            const cfg = typeof c.vehicleConfiguration === 'string' ? c.vehicleConfiguration : ''
+            const parts = cfg.split(' ')
+            return parts.length > 1 ? parts.slice(0, -1).join(' ') : null
+          })(),
+          price: c.offers?.price,
+          mileage: c.mileageFromOdometer?.value,
+          exteriorcolor: c.color,
+          interiorcolor: c.vehicleInteriorColor,
+          transmission: c.vehicleTransmission,
+          fueltype: c.vehicleEngine?.fuelType,
+          bodystyle: c.bodyType,
+          condition: (c.itemCondition || '').includes('NewCondition') ? 'New'
+                   : (c.itemCondition || '').includes('UsedCondition') ? 'Used' : null,
+          stocknumber: c.sku || c.productID,
+          onweb: true,
+          salepending: false,
+          image_urls: img && !img.includes('coming.png') ? [img] : [],
+          _detail_url: c.url || `${origin}/inventory/`
+        })
       }
-      page++
-      await sleep(500) // be polite between pages
+
+      pageNum++
+      await sleep(1000) // be polite between pages
     }
 
-    console.log(`[sync] EDealer sitemap: extracted ${vehicles.length} valid vehicles`)
+    console.log(`[sync] EDealer Puppeteer: ${vehicles.length} total vehicles`)
     return vehicles.length > 0 ? vehicles : null
   } catch (e) {
-    console.warn('[sync] EDealer sitemap fetch failed:', e.message)
+    console.warn('[sync] EDealer Puppeteer failed:', e.message)
     return null
+  } finally {
+    if (browser) await browser.close()
   }
 }
 // Find vehicle detail-page anchors in EDealer listing HTML (one per vehicle, in document order)
