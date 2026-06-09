@@ -1653,6 +1653,17 @@ function matchesFeedType(v, feedType) {
 // ── Helper: build condition-based source URL for LeadBox sites ──
 function buildLeadBoxSourceUrl(feedUrl, vehicle) {
   const origin = feedUrl.split('/wp-content')[0]
+
+  // 1. Prefer an explicit per-vehicle URL if the feed provides one
+  const explicit = vehicle.url || vehicle.permalink || vehicle.detailUrl || vehicle.detail_url
+  if (typeof explicit === 'string' && explicit.startsWith('http')) return explicit
+
+  // 2. Build a per-vehicle detail URL from the stock number. LeadBox dealer sites
+  //    consistently expose individual vehicles at /inventory/{stocknumber}/ —
+  //    this gives a real link to the specific car instead of the category page.
+  if (vehicle.stocknumber) return `${origin}/inventory/${vehicle.stocknumber}/`
+
+  // 3. Last resort — the category listing page (better than nothing)
   if (vehicle.condition === 'New') return `${origin}/new-vehicles/`
   if (vehicle.condition === 'Used') return `${origin}/used-vehicles/`
   if (vehicle.demo) return `${origin}/demo-inventory/`
