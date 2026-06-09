@@ -1988,9 +1988,10 @@ app.post('/inventory-feeds', requireAuth, async (req, res) => {
     })
   }
 
-  const feedType = requestedType && requestedType !== 'all'
-    ? requestedType
-    : (typeHint.detectedType || 'all')
+  // Respect the user's explicit dropdown choice — including "all" — over URL-path detection.
+  // (Old behavior treated "all" as "auto-detect", which silently overrode the user's
+  // selection to "new" when the URL contained /new/, defeating the point of the dropdown.)
+  const feedType = requestedType || typeHint.detectedType || 'all'
 
   const { data, error } = await supabaseAdmin
     .from('inventory_feeds')
