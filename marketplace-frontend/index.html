@@ -16,12 +16,14 @@
     <meta property="og:title" content="MarketSync — Post Dealer Inventory to Facebook Marketplace in 60 Seconds">
     <meta property="og:description" content="The fastest way for car dealerships to list every vehicle on Facebook Marketplace. Free 7-day trial. No credit card required.">
     <meta property="og:url" content="https://marketsync.link/">
+    <!-- Add an og-image.png (1200x630) at marketplace-frontend/og-image.png and uncomment:
     <meta property="og:image" content="https://marketsync.link/og-image.png">
+    <meta name="twitter:image" content="https://marketsync.link/og-image.png">
+    -->
 
-    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="MarketSync — Sell More Cars on Facebook Marketplace">
     <meta name="twitter:description" content="Auto-post your whole inventory to Facebook Marketplace. Track who sold what. Free 7-day trial — no credit card.">
-    <meta name="twitter:image" content="https://marketsync.link/og-image.png">
 
     <link rel="icon" type="image/x-icon" href="https://marketsync.link/favicon.ico">
 
@@ -268,37 +270,44 @@
                 </div>
             </div>
 
-            <div class="bg-slate-900 dark:bg-gray-950 rounded-2xl p-6 shadow-2xl border border-slate-800">
-                <div class="flex items-center gap-2 mb-4 pb-3 border-b border-gray-800">
-                    <div class="w-8 h-8 rounded bg-indigo-600 flex items-center justify-center text-white font-black text-xs">|S</div>
-                    <span class="text-white font-bold text-sm">MarketSync</span>
-                    <span class="ml-auto text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">CONNECTED</span>
+            <div>
+                <!-- Real extension popup screenshot: save your file at marketplace-frontend/extension-screenshot.png -->
+                <img src="extension-screenshot.png" alt="MarketSync Chrome extension popup showing today's vehicle queue" loading="lazy"
+                     onerror="this.parentElement.querySelector('.fallback-extension-mock').classList.remove('hidden'); this.remove();"
+                     class="w-full rounded-2xl shadow-2xl border border-slate-200 dark:border-gray-800">
+                <!-- Fallback ASCII mock — hidden when the screenshot loads -->
+                <div class="fallback-extension-mock hidden bg-slate-900 dark:bg-gray-950 rounded-2xl p-6 shadow-2xl border border-slate-800">
+                    <div class="flex items-center gap-2 mb-4 pb-3 border-b border-gray-800">
+                        <div class="w-8 h-8 rounded bg-indigo-600 flex items-center justify-center text-white font-black text-xs">|S</div>
+                        <span class="text-white font-bold text-sm">MarketSync</span>
+                        <span class="ml-auto text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">CONNECTED</span>
+                    </div>
+                    <div class="text-xs text-gray-300 mb-3 font-semibold">Today's queue · 24 vehicles</div>
+                    <div class="space-y-2 mock-screen">
+                        <div class="flex items-center justify-between bg-gray-800 rounded-lg p-3 border border-gray-700">
+                            <div>
+                                <div class="text-white text-sm font-semibold">2024 Ford F-150 XLT</div>
+                                <div class="text-gray-500 text-[11px]">$47,995 · 12,400 km</div>
+                            </div>
+                            <button class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-3 py-1.5 rounded">FILL FORM</button>
+                        </div>
+                        <div class="flex items-center justify-between bg-gray-800 rounded-lg p-3 border border-gray-700">
+                            <div>
+                                <div class="text-white text-sm font-semibold">2023 Honda Civic Sport</div>
+                                <div class="text-gray-500 text-[11px]">$29,500 · 18,900 km</div>
+                            </div>
+                            <button class="bg-emerald-600 text-white text-[10px] font-bold px-3 py-1.5 rounded">I SOLD IT</button>
+                        </div>
+                        <div class="flex items-center justify-between bg-gray-800/60 rounded-lg p-3 border border-gray-700 opacity-60">
+                            <div>
+                                <div class="text-gray-300 text-sm font-semibold line-through">2022 Toyota RAV4</div>
+                                <div class="text-gray-500 text-[11px]">Sold · +500 pts</div>
+                            </div>
+                            <i class="fa-solid fa-check text-emerald-400"></i>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-4 text-center italic">Example view of the extension popup.</p>
                 </div>
-                <div class="text-xs text-gray-300 mb-3 font-semibold">Today's queue · 24 vehicles</div>
-                <div class="space-y-2 mock-screen">
-                    <div class="flex items-center justify-between bg-gray-800 rounded-lg p-3 border border-gray-700">
-                        <div>
-                            <div class="text-white text-sm font-semibold">2024 Ford F-150 XLT</div>
-                            <div class="text-gray-500 text-[11px]">$47,995 · 12,400 km</div>
-                        </div>
-                        <button class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-3 py-1.5 rounded">FILL FORM</button>
-                    </div>
-                    <div class="flex items-center justify-between bg-gray-800 rounded-lg p-3 border border-gray-700">
-                        <div>
-                            <div class="text-white text-sm font-semibold">2023 Honda Civic Sport</div>
-                            <div class="text-gray-500 text-[11px]">$29,500 · 18,900 km</div>
-                        </div>
-                        <button class="bg-emerald-600 text-white text-[10px] font-bold px-3 py-1.5 rounded">I SOLD IT</button>
-                    </div>
-                    <div class="flex items-center justify-between bg-gray-800/60 rounded-lg p-3 border border-gray-700 opacity-60">
-                        <div>
-                            <div class="text-gray-300 text-sm font-semibold line-through">2022 Toyota RAV4</div>
-                            <div class="text-gray-500 text-[11px]">Sold · +500 pts</div>
-                        </div>
-                        <i class="fa-solid fa-check text-emerald-400"></i>
-                    </div>
-                </div>
-                <p class="text-[10px] text-gray-500 mt-4 text-center italic">Example view of the extension popup.</p>
             </div>
         </div>
     </section>
@@ -310,7 +319,12 @@
             <p class="text-slate-500 dark:text-gray-400 max-w-2xl mx-auto">The dashboard is the website where you, the dealer or sales rep, see everything happening with your inventory.</p>
         </div>
 
-        <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 shadow-xl shadow-slate-200/30 dark:shadow-none">
+        <!-- Real dashboard screenshot: save your file at marketplace-frontend/dashboard-screenshot.png -->
+        <img src="dashboard-screenshot.png" alt="MarketSync dashboard Insights page showing inventory, listings posted, sold counts, and team stats" loading="lazy"
+             onerror="this.parentElement.querySelector('.fallback-dashboard-mock').classList.remove('hidden'); this.remove();"
+             class="w-full rounded-2xl shadow-xl border border-slate-200 dark:border-gray-800">
+        <!-- Fallback mockup — hidden when the screenshot loads -->
+        <div class="fallback-dashboard-mock hidden bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 shadow-xl shadow-slate-200/30 dark:shadow-none">
             <div class="grid sm:grid-cols-4 gap-3 mb-6">
                 <div class="bg-slate-100 dark:bg-gray-800 rounded-lg p-4">
                     <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-gray-500 font-semibold">Available</div>
@@ -657,7 +671,7 @@
 
         const videoModal = document.getElementById('videoModal');
         const videoPlayer = document.getElementById('videoPlayer');
-        const videoEmbedUrl = "https://www.youtube.com/embed/YOUR_YOUTUBE_VIDEO_ID?autoplay=1&rel=0";
+        const videoEmbedUrl = "https://www.youtube.com/embed/yaf5BsK2iI0?autoplay=1&rel=0";
 
         function openVideoModal() {
             videoPlayer.src = videoEmbedUrl;
