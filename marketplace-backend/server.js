@@ -4,6 +4,7 @@ import cors from 'cors'
 import ws from 'ws'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
+import { renderAndCaptureInventory, genericMapVehicle } from './puppeteerRenderer.js'
 
 const missingEnvVars = [];
 if (!process.env.SUPABASE_URL) missingEnvVars.push('SUPABASE_URL');
@@ -45,7 +46,8 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
         stripe_customer_id: session.customer,
         subscription_id: session.subscription,
         stripe_price_id: sub.items.data[0].price.id,
-        billing_status: 'ACTIVE'
+        billing_status: 'ACTIVE',
+        trial_ends_at: null
       }
       if (meta.type === 'solo_rep' && meta.user_id) {
         await supabaseAdmin.from('profiles').update(billing).eq('id', meta.user_id)
@@ -106,8 +108,16 @@ async function requireAuth(req, res, next) {
       const status = useProfileBilling
         ? profile.billing_status
         : profile.dealerships?.billing_status
+      const trialEndsAt = useProfileBilling
+        ? profile.trial_ends_at
+        : profile.dealerships?.trial_ends_at
 
-      if (status === 'INACTIVE' || status === 'PAST_DUE') {
+      if (status === 'TRIALING') {
+        // Self-managed trial — no card required upfront. Block once it expires.
+        if (!trialEndsAt || new Date(trialEndsAt) < new Date()) {
+          return res.status(402).json({ error: 'TRIAL_EXPIRED' })
+        }
+      } else if (status === 'INACTIVE' || status === 'PAST_DUE') {
         return res.status(402).json({ error: 'SUBSCRIPTION_REQUIRED' })
       }
     }
@@ -157,13 +167,16 @@ app.post('/auth/register', async (req, res) => {
     if (authError) throw authError
     createdUserId = authData.user.id
 
+    const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+
     if (accountRole === 'dealer_admin') {
       const { data: dealership, error: dealerError } = await supabaseAdmin
         .from('dealerships')
         .insert({
           name: dealershipName,
           website_url: websiteUrl || null,
-          billing_status: 'INACTIVE'
+          billing_status: 'TRIALING',
+          trial_ends_at: trialEndsAt
         })
         .select()
         .single()
@@ -218,7 +231,9 @@ app.post('/auth/register', async (req, res) => {
           full_name: fullName,
           role: 'SALES_REP',
           account_role: accountRole,
-          price_tier: 'SOLO_INDIVIDUAL'
+          price_tier: 'SOLO_INDIVIDUAL',
+          billing_status: 'TRIALING',
+          trial_ends_at: trialEndsAt
         })
       if (profileError) throw profileError
     }
@@ -1013,13 +1028,16 @@ app.post('/billing/checkout', requireAuth, async (req, res) => {
         console.warn('Portal initialization bypassed:', portalErr.message)
       }
     }
+    // No Stripe-side trial — we self-manage the 7-day no-card trial via billing_status='TRIALING'.
+    // By the time the user hits checkout, their trial has either ended or they chose to upgrade early;
+    // either way Stripe charges immediately.
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
       client_reference_id: clientRefId,
       metadata,
-      subscription_data: { metadata, trial_period_days: 7 },
+      subscription_data: { metadata },
       success_url: `${process.env.FRONTEND_URL}/dashboard.html`,
       cancel_url: `${process.env.FRONTEND_URL}/dashboard.html`
     })
@@ -1031,6 +1049,31 @@ app.post('/billing/checkout', requireAuth, async (req, res) => {
 
 app.post('/billing/portal', requireAuth, async (req, res) => {
   res.redirect(307, '/billing/checkout')
+})
+
+app.get('/billing/trial-status', requireAuth, async (req, res) => {
+  const isPersonal = req.profile.dealerships?.is_personal === true
+  const useProfileBilling = !req.profile.dealership_id || isPersonal
+  const status = useProfileBilling
+    ? req.profile.billing_status
+    : req.profile.dealerships?.billing_status
+  const trialEndsAt = useProfileBilling
+    ? req.profile.trial_ends_at
+    : req.profile.dealerships?.trial_ends_at
+
+  let daysRemaining = null
+  if (status === 'TRIALING' && trialEndsAt) {
+    const ms = new Date(trialEndsAt).getTime() - Date.now()
+    daysRemaining = Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)))
+  }
+
+  res.json({
+    status: status || null,
+    trial_ends_at: trialEndsAt || null,
+    days_remaining: daysRemaining,
+    is_active: status === 'ACTIVE',
+    is_trialing: status === 'TRIALING' && daysRemaining !== null && daysRemaining > 0
+  })
 })
 
 // ── 9. IMAGE PROXY ──
@@ -1600,6 +1643,28 @@ async function detectFeedPlatform(dealerUrl) {
     }
   }
 
+  // Fallback: render the SPA in a headless browser and watch for the inventory XHR.
+  // Catches UX Auto, pure DealerInspire SPAs, and most other JS-rendered dealer sites.
+  console.log(`[probe] No static probe matched — rendering ${dealerUrl} with headless Chromium`)
+  try {
+    const rendered = await renderAndCaptureInventory(dealerUrl)
+    if (rendered.success && rendered.vehicles?.length > 0) {
+      console.log(`[probe] Headless capture: ${rendered.vehicles.length} vehicles from ${rendered.source_url}`)
+      return {
+        success: true,
+        platform: 'spa_render',
+        platform_label: 'SPA (headless render)',
+        feed_url: rendered.source_url,
+        vehicle_count: rendered.vehicles.length,
+        sample_vehicles: rendered.sample.map(genericMapVehicle),
+        attempts: [...attempts, ...(rendered.attempts || [])]
+      }
+    }
+    attempts.push({ platform: 'spa_render', label: 'SPA (headless render)', ok: false, reason: rendered.error })
+  } catch (e) {
+    attempts.push({ platform: 'spa_render', label: 'SPA (headless render)', ok: false, reason: e.message })
+  }
+
   return {
     success: false,
     error: 'No known inventory feed found for this dealer URL. Try pasting the direct JSON feed URL instead.',
@@ -1733,6 +1798,20 @@ async function runInventorySync(dealershipId) {
 
       if (jsonCache.has(feed.feed_url)) {
         vehicles = jsonCache.get(feed.feed_url)
+      } else if (feed.platform === 'spa_render') {
+        // SPA dealer — re-render in headless Chromium to capture the inventory XHR.
+        // The stored feed_url is the API URL we captured at probe time, but auth tokens
+        // may have rotated, so we render the dealer's listing page fresh.
+        const dealerSite = new URL(feed.feed_url).origin
+        const rendered = await renderAndCaptureInventory(dealerSite)
+        if (rendered.success && rendered.vehicles?.length > 0) {
+          vehicles = rendered.vehicles.map(genericMapVehicle)
+        } else {
+          console.warn(`[sync] SPA render returned no vehicles for ${dealerSite}: ${rendered.error}`)
+          vehicles = []
+        }
+        jsonCache.set(feed.feed_url, vehicles)
+        totalVehiclesFound += vehicles.length
       } else if (feed.platform === 'ux_auto') {
         // UX Auto splits inventory across /NEW, /USED, /DEMO endpoints — fetch all three
         const base = feed.feed_url.replace(/\/(NEW|USED|DEMO|new|used|demo)\/?$/, '')

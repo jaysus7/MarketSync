@@ -32,7 +32,11 @@ async function initializeDashboardEcosystem() {
     });
     
     if (res.status === 401 || res.status === 402) {
-      throw new Error(res.status === 402 ? 'SUBSCRIPTION_REQUIRED' : 'SESSION_EXPIRED');
+      if (res.status === 402) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error === 'TRIAL_EXPIRED' ? 'TRIAL_EXPIRED' : 'SUBSCRIPTION_REQUIRED')
+      }
+      throw new Error('SESSION_EXPIRED')
     }
     
     profileContext = await res.json();
@@ -142,6 +146,11 @@ async function initializeDashboardEcosystem() {
     }
 
   } catch (err) {
+    if (err.message === 'TRIAL_EXPIRED') {
+      alert('Your 7-day free trial has ended. Add a payment method to keep using MarketSync.');
+      window.location.href = '/upgrade.html?reason=trial_ended';
+      return;
+    }
     if (err.message === 'SUBSCRIPTION_REQUIRED') {
       alert('Subscription required to access system. Redirecting to billing...');
       launchStripeLifecycle();
