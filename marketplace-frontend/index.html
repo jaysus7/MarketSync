@@ -3,272 +3,645 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MarketSync | Dealership Inventory Automation & Sales Floor Gamification</title>
-    
+    <title>MarketSync — Post Car Dealer Inventory to Facebook Marketplace in 60 Seconds</title>
+
+    <meta name="description" content="MarketSync helps car dealerships and sales reps post their whole inventory to Facebook Marketplace fast. Auto-sync feeds, one-click listings, sold tracking, and a sales leaderboard. Free 7-day trial — no credit card required.">
+    <meta name="keywords" content="facebook marketplace for car dealers, dealership inventory automation, auto post vehicles to facebook, car sales leaderboard, dealership chrome extension, vehicle marketplace tool, sold tracking for dealers">
+    <meta name="author" content="MarketSync Technologies Inc.">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://marketsync.link/">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="MarketSync">
+    <meta property="og:title" content="MarketSync — Post Dealer Inventory to Facebook Marketplace in 60 Seconds">
+    <meta property="og:description" content="The fastest way for car dealerships to list every vehicle on Facebook Marketplace. Free 7-day trial. No credit card required.">
+    <meta property="og:url" content="https://marketsync.link/">
+    <meta property="og:image" content="https://marketsync.link/og-image.png">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="MarketSync — Sell More Cars on Facebook Marketplace">
+    <meta name="twitter:description" content="Auto-post your whole inventory to Facebook Marketplace. Track who sold what. Free 7-day trial — no credit card.">
+    <meta name="twitter:image" content="https://marketsync.link/og-image.png">
+
     <link rel="icon" type="image/x-icon" href="https://marketsync.link/favicon.ico">
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = {
-            darkMode: 'class',
-        }
+        tailwind.config = { darkMode: 'class' }
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        /* Specific logo color override - Sync in Purple, | Market in White */
         .sync-color { color: #6366F1; }
-        
         .gradient-text { background: linear-gradient(135deg, #A78BFA 0%, #6366F1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .glass-panel { backdrop-filter: blur(12px); }
         .glow-btn { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); transition: all 0.3s ease; }
         .glow-btn:hover { box-shadow: 0 0 30px rgba(99, 102, 241, 0.6); transform: translateY(-1px); }
+        .mock-screen { font-family: ui-monospace, SFMono-Regular, monospace; }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
     </style>
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "MarketSync",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web, Chrome",
+        "description": "MarketSync is a SaaS tool for car dealerships and independent sales reps. It auto-syncs vehicle inventory from dealer websites and posts listings to Facebook Marketplace in seconds. It also includes a gamified leaderboard, sold-vehicle tracking, and team performance insights.",
+        "url": "https://marketsync.link/",
+        "offers": [
+            {
+                "@type": "Offer",
+                "name": "Dealer Plan",
+                "price": "199",
+                "priceCurrency": "USD",
+                "priceSpecification": { "@type": "RecurringPaymentFrequency", "billingPeriod": "P1M" }
+            },
+            {
+                "@type": "Offer",
+                "name": "Individual Sales Rep Plan",
+                "price": "49",
+                "priceCurrency": "USD",
+                "priceSpecification": { "@type": "RecurringPaymentFrequency", "billingPeriod": "P1M" }
+            }
+        ],
+        "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.9", "ratingCount": "31" },
+        "publisher": { "@type": "Organization", "name": "MarketSync Technologies Inc.", "url": "https://marketsync.link/" }
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What is MarketSync?",
+                "acceptedAnswer": { "@type": "Answer", "text": "MarketSync is a tool for car dealerships. It takes your dealership inventory and posts each vehicle to Facebook Marketplace in seconds. It also tracks which sales rep sold which vehicle, so dealers can see who is doing the best work." }
+            },
+            {
+                "@type": "Question",
+                "name": "Do I need a credit card to start the free trial?",
+                "acceptedAnswer": { "@type": "Answer", "text": "No. You can use MarketSync free for 7 days without giving any credit card. After the 7 days, you can choose to add a card and keep going, or stop." }
+            },
+            {
+                "@type": "Question",
+                "name": "How does MarketSync post to Facebook Marketplace?",
+                "acceptedAnswer": { "@type": "Answer", "text": "You install the MarketSync Chrome Extension. When you open Facebook Marketplace, the extension fills in every box for you — title, price, photos, description — using the vehicle data from your dealer website. You just click Post." }
+            },
+            {
+                "@type": "Question",
+                "name": "Which dealer website platforms does MarketSync work with?",
+                "acceptedAnswer": { "@type": "Answer", "text": "MarketSync works with LeadBox, EDealer, Dealer.com, Sincro, DealerOn, CDK Global, Strathcom, Vicimus, SM360, DealerFire, Dealer Inspire, UX Auto, and any other dealer site that uses Schema.org structured data. For sites we have not seen before, MarketSync uses a smart detector that finds the inventory data automatically." }
+            },
+            {
+                "@type": "Question",
+                "name": "What is the leaderboard?",
+                "acceptedAnswer": { "@type": "Answer", "text": "The leaderboard is a fun ranking inside the dashboard. Every time a sales rep posts a vehicle or sells one, they earn points. The reps with the most points climb up tiers like Bronze, Silver, Gold, Platinum, Diamond, and Legend. It is just like a video game, but for selling cars." }
+            },
+            {
+                "@type": "Question",
+                "name": "How much does MarketSync cost?",
+                "acceptedAnswer": { "@type": "Answer", "text": "MarketSync has two plans. The Dealer Plan is for a whole dealership and the Individual Sales Rep Plan is for one person who works alone. Pricing is shown on the Pricing section. Every new account starts with a 7-day free trial — no credit card required." }
+            }
+        ]
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "How to post your dealership inventory to Facebook Marketplace with MarketSync",
+        "totalTime": "PT60S",
+        "tool": [{ "@type": "HowToTool", "name": "MarketSync Chrome Extension" }],
+        "step": [
+            { "@type": "HowToStep", "position": 1, "name": "Sign up free", "text": "Create your MarketSync account. No credit card needed for the 7-day free trial." },
+            { "@type": "HowToStep", "position": 2, "name": "Connect your dealer website", "text": "Paste your dealer website URL. MarketSync finds your inventory feed automatically." },
+            { "@type": "HowToStep", "position": 3, "name": "Install the Chrome Extension", "text": "Add the free MarketSync Chrome Extension from the Chrome Web Store." },
+            { "@type": "HowToStep", "position": 4, "name": "Click Post", "text": "Open Facebook Marketplace, click the extension, pick a car, and post. Title, price, photos, and description fill in for you." }
+        ]
+    }
+    </script>
 </head>
-<body class="antialiased selection:bg-indigo-500 selection:text-white transition-colors duration-300 bg-slate-50 text-slate-900 dark:bg-[#0B0F19] dark:text-f3f4f6">
+<body class="antialiased selection:bg-indigo-500 selection:text-white transition-colors duration-300 bg-slate-50 text-slate-900 dark:bg-[#0B0F19] dark:text-gray-100">
 
     <div class="w-full bg-indigo-600/10 border-b border-indigo-500/20 py-2 text-center text-sm font-medium text-indigo-600 dark:text-indigo-400">
-        ⚡ Ingestion engine fully optimized for LeadBox & eDealer Feeds.
+        🎉 7-day free trial · No credit card required
     </div>
 
     <header class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
-        <div class="flex items-center space-x-3">
+        <a href="/" class="flex items-center space-x-3">
             <span class="text-3xl font-normal text-slate-900 dark:text-white">|</span>
-            <span class="text-xl font-bold tracking-tight text-slate-900 dark:text-white logo-word-space">
+            <span class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Market<span class="sync-color">Sync</span>
             </span>
-        </div>
-        
+        </a>
+
         <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-600 dark:text-gray-400">
-            <a href="#features" class="hover:text-indigo-600 dark:hover:text-white transition">Features</a>
-            <a href="#dashboard" class="hover:text-indigo-600 dark:hover:text-white transition">The Dashboard</a>
+            <a href="#what-is-it" class="hover:text-indigo-600 dark:hover:text-white transition">What is it?</a>
+            <a href="#how-it-works" class="hover:text-indigo-600 dark:hover:text-white transition">How it works</a>
+            <a href="#dashboard" class="hover:text-indigo-600 dark:hover:text-white transition">Dashboard</a>
+            <a href="#leaderboard" class="hover:text-indigo-600 dark:hover:text-white transition">Leaderboard</a>
             <a href="#pricing" class="hover:text-indigo-600 dark:hover:text-white transition">Pricing</a>
-            <a href="https://marketsync.link/faq.html" class="hover:text-indigo-600 dark:hover:text-white transition">FAQ</a>
-            <a href="https://marketsync.link/support.html" class="hover:text-indigo-600 dark:hover:text-white transition">Support</a>
+            <a href="#faq" class="hover:text-indigo-600 dark:hover:text-white transition">FAQ</a>
         </nav>
-        <div class="flex items-center space-x-4">
-            <a href="https://calendly.com/noreply-marketsync/30min" class="hidden sm:inline-flex bg-slate-200 hover:bg-slate-300 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-900 dark:text-white text-sm font-semibold px-4 py-2 rounded-lg border border-slate-300 dark:border-gray-700 transition">Book 30-Min Demo</a>
-            <a href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">Install Extension</a>
+
+        <div class="flex items-center space-x-3">
+            <a href="https://marketsync.link/login.html" class="hidden sm:inline-flex text-sm font-semibold text-slate-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-white px-3 py-2 transition">Log in</a>
+            <a href="https://marketsync.link/register.html" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">Sign up free</a>
         </div>
     </header>
 
-    <section class="max-w-5xl mx-auto px-6 pt-16 pb-24 text-center">
-        <h1 class="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] mb-6 text-slate-900 dark:text-white">
-            Turn Facebook Marketplace Into A <br><span class="gradient-text">Tracked, Accountability-Driven</span> Sales Channel
-        </h1>
-        <p class="text-slate-600 dark:text-gray-400 text-lg sm:text-xl max-w-3xl mx-auto mb-10 leading-relaxed">
-            Auto-fill vehicle marketplace listings directly from your eDealer or LeadBox inventory feed in <span class="text-slate-900 dark:text-white font-semibold">under 60 seconds</span>. Gamify your showroom floor, track individual representative conversion metrics, and verify every organic closed unit.
-        </p>
-        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-            <a href="https://marketsync.link/register" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl glow-btn transition text-center">
-                Get Started Risk-Free <i class="fa-solid fa-arrow-right ml-2 text-sm"></i>
-            </a>
-            <span class="text-xs sm:text-sm text-slate-500 dark:text-gray-500 font-medium">No deployment fees • Individual or Store-Wide Options</span>
+    <section class="max-w-5xl mx-auto px-6 pt-16 pb-20 text-center">
+        <div class="inline-flex items-center gap-2 bg-indigo-100 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
+            <i class="fa-solid fa-bolt text-[10px]"></i>
+            Built for car dealers and sales reps
         </div>
+
+        <h1 class="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] mb-6 text-slate-900 dark:text-white">
+            Post Every Car You Sell to <br>
+            <span class="gradient-text">Facebook Marketplace</span> in 60 Seconds
+        </h1>
+
+        <p class="text-slate-600 dark:text-gray-400 text-lg sm:text-xl max-w-3xl mx-auto mb-10 leading-relaxed">
+            MarketSync grabs your dealership inventory from your website, then helps you post each vehicle to Facebook Marketplace with one click. Track sales, score points, climb the leaderboard.
+        </p>
+
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
+            <a href="https://marketsync.link/register.html" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl glow-btn transition text-center">
+                Start 7-Day Free Trial <i class="fa-solid fa-arrow-right ml-2 text-sm"></i>
+            </a>
+            <a href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="w-full sm:w-auto px-8 py-4 bg-slate-200 hover:bg-slate-300 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-900 dark:text-white font-bold rounded-xl transition text-center">
+                <i class="fa-brands fa-chrome mr-2"></i> Install Extension
+            </a>
+        </div>
+        <p class="text-xs text-slate-500 dark:text-gray-500 font-medium mb-12">No credit card needed · Cancel anytime · Works in any browser</p>
 
         <div onclick="openVideoModal()" class="w-full aspect-video glass-panel bg-slate-200/50 dark:bg-gray-100/5 rounded-2xl border border-slate-300 dark:border-gray-800 flex flex-col items-center justify-center p-8 relative overflow-hidden shadow-2xl shadow-indigo-950/10 cursor-pointer group">
             <div class="absolute inset-0 bg-gradient-to-t from-slate-300/40 dark:from-gray-950/80 via-transparent to-transparent z-10"></div>
             <div class="w-16 h-16 bg-indigo-600 hover:bg-indigo-500 rounded-full flex items-center justify-center z-20 shadow-lg transition-transform group-hover:scale-105">
-                <i class="fa-solid fa-play text-white text-xl ml-1 group-hover:scale-110 transition-transform"></i>
+                <i class="fa-solid fa-play text-white text-xl ml-1"></i>
             </div>
-            <span class="mt-4 font-bold text-sm tracking-wide text-slate-700 dark:text-gray-300 z-20">WATCH THE 60-SECOND WORKFLOW DEMO</span>
-            <p class="text-xs text-slate-500 dark:text-gray-500 max-w-sm mt-1 z-20">See how raw dealer feeds translate directly to pre-populated Marketplace fields in real time without human data entry errors.</p>
+            <span class="mt-4 font-bold text-sm tracking-wide text-slate-700 dark:text-gray-300 z-20">WATCH THE 60-SECOND DEMO</span>
+            <p class="text-xs text-slate-500 dark:text-gray-500 max-w-sm mt-1 z-20">See a real car go from inventory to a finished Facebook Marketplace post in under a minute.</p>
         </div>
     </section>
 
-    <div id="videoModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4 backdrop-blur-md">
-        <div class="w-full max-w-4xl bg-black rounded-2xl overflow-hidden shadow-2xl relative border border-gray-800">
-            <button onclick="closeVideoModal()" class="absolute top-4 right-4 text-white hover:text-indigo-400 text-xl font-bold z-50 bg-black/40 w-10 h-10 rounded-full flex items-center justify-center border border-white/10 transition">✕</button>
-            <div class="w-full aspect-video">
-                <iframe id="videoPlayer" class="w-full h-full" src="" title="MarketSync Demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-            </div>
+    <section id="what-is-it" class="max-w-5xl mx-auto px-6 py-20">
+        <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white text-center mb-4">What is MarketSync?</h2>
+        <p class="text-center text-slate-500 dark:text-gray-400 max-w-2xl mx-auto mb-12">Here is the simple version.</p>
+
+        <div class="bg-white dark:bg-gray-900/50 border border-slate-200 dark:border-gray-800 rounded-2xl p-8 sm:p-10 leading-relaxed text-slate-700 dark:text-gray-300 space-y-5">
+            <p>Car dealerships have a website. The website shows every car they have for sale. There can be 50 cars. There can be 500. Each car has a price, photos, and a list of what makes it special.</p>
+            <p>Facebook Marketplace is one of the biggest places people look when they want to buy a car. But posting a car to Facebook takes a long time. You have to type the year, the make, the model, the price. You have to upload all the photos. You have to write a description. For 100 cars, that is many hours of work.</p>
+            <p><span class="font-semibold text-slate-900 dark:text-white">MarketSync does the boring part for you.</span> It looks at your dealership website, grabs every car, and helps you post each one to Facebook Marketplace in under a minute. It also keeps score so you can see which sales rep is posting and selling the most cars.</p>
+            <p class="text-sm text-slate-500 dark:text-gray-400 italic border-l-4 border-indigo-500 pl-4">Think of it like a remote control for Facebook Marketplace, made just for car dealers.</p>
         </div>
-    </div>
+    </section>
 
-    <section id="dashboard" class="w-full bg-slate-100 dark:bg-gray-950/40 border-y border-slate-200 dark:border-gray-900 py-24 px-6">
-        <div class="max-w-7xl mx-auto">
-            <div class="text-center max-w-3xl mx-auto mb-16">
-                <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full">Dealership Control Center</span>
-                <h2 class="text-3xl sm:text-4xl font-bold mt-4 tracking-tight text-slate-900 dark:text-white">Stop Guessing If Your Reps Are Posting</h2>
-                <p class="text-slate-600 dark:text-gray-400 mt-2">Every dealership deployment receives an enterprise-grade tracking suite to hold your floor reps accountable for organic listing loops.</p>
+    <section id="how-it-works" class="max-w-6xl mx-auto px-6 py-20">
+        <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white text-center mb-4">How It Works in 4 Steps</h2>
+        <p class="text-center text-slate-500 dark:text-gray-400 max-w-2xl mx-auto mb-14">From signup to your first posted car in less than 10 minutes.</p>
+
+        <div class="grid md:grid-cols-2 gap-6">
+            <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-2xl p-8">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-600 text-white font-black flex items-center justify-center">1</div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">Sign up free</h3>
+                </div>
+                <p class="text-slate-600 dark:text-gray-400 leading-relaxed">Click <strong>Sign up free</strong>. Fill in your name, email, and a password. That is it. No credit card. You get 7 days of full access to try everything.</p>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-                <div class="glass-panel bg-white/80 dark:bg-gray-900/70 p-6 rounded-xl border border-slate-200 dark:border-white/5">
-                    <span class="text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider block">Available Inventory Feed</span>
-                    <div class="flex items-baseline space-x-2 mt-2">
-                        <span class="text-4xl font-black text-slate-900 dark:text-white">142</span>
-                        <span class="text-xs text-slate-400 dark:text-gray-500">210 synced</span>
-                    </div>
+            <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-2xl p-8">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-600 text-white font-black flex items-center justify-center">2</div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">Connect your dealer website</h3>
                 </div>
-                <div class="glass-panel bg-white/80 dark:bg-gray-900/70 p-6 rounded-xl border border-slate-200 border-white/5">
-                    <span class="text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider block">Showroom Listings Posted</span>
-                    <div class="flex items-baseline space-x-2 mt-2">
-                        <span class="text-4xl font-black text-indigo-600 dark:text-indigo-400">34</span>
-                        <span class="text-xs text-slate-400 dark:text-gray-500">Lifetime total</span>
-                    </div>
-                </div>
-                <div class="glass-panel bg-white/80 dark:bg-gray-900/70 p-6 rounded-xl border border-slate-200 border-white/5">
-                    <span class="text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider block">Verified Sold via Marketplace</span>
-                    <div class="flex items-baseline space-x-2 mt-2">
-                        <span class="text-4xl font-black text-emerald-600 dark:text-emerald-400">18</span>
-                        <span class="text-xs text-slate-400 dark:text-gray-500">Gross tracked units</span>
-                    </div>
-                </div>
-                <div class="glass-panel bg-white/80 dark:bg-gray-900/70 p-6 rounded-xl border border-slate-200 border-white/5">
-                    <span class="text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider block">Dealership Conversion Velocity</span>
-                    <div class="flex items-baseline space-x-2 mt-2">
-                        <span class="text-4xl font-black text-slate-900 dark:text-white">52.9%</span>
-                        <span class="text-xs text-slate-400 dark:text-gray-500">Lead to delivery</span>
-                    </div>
-                </div>
+                <p class="text-slate-600 dark:text-gray-400 leading-relaxed">Paste your dealership website link (like <code class="text-xs bg-slate-100 dark:bg-gray-800 px-2 py-0.5 rounded">https://yourdealer.com</code>) into the dashboard. MarketSync finds your inventory automatically. No setup. No code.</p>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 glass-panel bg-white/80 dark:bg-gray-900/70 p-6 rounded-xl border border-slate-200 dark:border-white/5 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between mb-6">
-                            <h3 class="font-bold text-lg flex items-center gap-2 text-slate-900 dark:text-white">
-                                <i class="fa-solid fa-trophy text-amber-500"></i> Showroom Leaderboard
-                            </h3>
-                            <span class="text-xs text-slate-500 dark:text-gray-400">Points system: 100 pt / list • 500 pt / unit sold</span>
-                        </div>
-                        
-                        <div class="space-y-3">
-                            <div class="w-full flex items-center justify-between bg-slate-50 dark:bg-gray-900/40 border border-slate-200 dark:border-gray-800 px-4 py-3 rounded-lg">
-                                <div class="flex items-center space-x-4">
-                                    <span class="text-amber-500 font-black w-4">#1</span>
-                                    <div>
-                                        <div class="font-semibold text-sm text-slate-900 dark:text-white">Sarah Jenkins <span class="text-xs text-indigo-600 dark:text-indigo-400">(Top Performer)</span></div>
-                                        <span class="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold rounded-full border border-amber-500/20">Gold Tier</span>
-                                    </div>
-                                </div>
-                                <div class="flex items-center space-x-8 text-right">
-                                    <div><span class="text-xs text-slate-400 dark:text-gray-500 block">Listings</span><span class="text-sm font-bold text-slate-900 dark:text-white">18</span></div>
-                                    <div><span class="text-xs text-slate-400 dark:text-gray-500 block">Sold</span><span class="text-sm font-bold text-emerald-600 dark:text-emerald-400">12</span></div>
-                                    <div><span class="text-xs text-slate-400 dark:text-gray-500 block">Score</span><span class="text-sm font-black text-indigo-600 dark:text-indigo-400">7,800 pts</span></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-6 pt-4 border-t border-slate-200 dark:border-gray-900 flex items-center justify-between text-xs text-slate-400 dark:text-gray-500">
-                        <span>Recent Activity Log: 🌟 Sarah Jenkins tracked 2024 SUV delivery 2 hours ago.</span>
-                    </div>
+            <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-2xl p-8">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-600 text-white font-black flex items-center justify-center">3</div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">Install the Chrome Extension</h3>
                 </div>
+                <p class="text-slate-600 dark:text-gray-400 leading-relaxed">Click <strong>Install Extension</strong>. It is a small free app that lives inside the Chrome browser. It only wakes up when you visit Facebook Marketplace.</p>
+            </div>
 
-                <div class="glass-panel bg-white/80 dark:bg-gray-900/70 p-6 rounded-xl border border-slate-200 dark:border-white/5 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <h3 class="font-bold text-lg flex items-center gap-2 text-slate-900 dark:text-white">
-                                <i class="fa-solid fa-database text-indigo-600 dark:text-indigo-400"></i> Local Inventory Catalog
-                            </h3>
-                        </div>
-                        <p class="text-xs text-slate-500 dark:text-gray-400 mb-4">Standardized structural layout generated via ingested JSON endpoint mapping.</p>
-                        
-                        <div class="grid grid-cols-1 gap-3">
-                            <div class="bg-slate-50 dark:bg-gray-900/60 p-3 rounded-lg border border-slate-200 dark:border-gray-800 flex items-center space-x-3">
-                                <div class="w-12 h-12 bg-slate-200 dark:bg-gray-800 rounded flex flex-col items-center justify-center text-slate-400 dark:text-gray-600 border border-slate-300 dark:border-gray-700">
-                                    <i class="fa-solid fa-car text-lg text-slate-500 dark:text-gray-500"></i>
-                                    <span class="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 uppercase">FEED</span>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="text-xs font-bold text-slate-900 dark:text-white truncate">2025 Apex SUV SE</div>
-                                    <div class="text-[11px] text-slate-500 dark:text-gray-400">All-Wheel Drive • 12,400 km</div>
-                                    <div class="text-xs font-semibold text-indigo-600 dark:text-indigo-300 mt-0.5">$39,995</div>
-                                </div>
-                                <span class="text-[10px] font-bold px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">Available</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mt-6 pt-4 border-t border-slate-200 dark:border-gray-900">
-                        <div class="text-xs font-mono text-slate-500 dark:text-gray-500 bg-slate-50 dark:bg-gray-900/90 px-3 py-2 rounded border border-slate-200 dark:border-gray-800 select-all truncate">
-                            https://dealerfeed.com/data/inventory.json
-                        </div>
-                    </div>
+            <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-2xl p-8">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-600 text-white font-black flex items-center justify-center">4</div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">Click Post</h3>
                 </div>
+                <p class="text-slate-600 dark:text-gray-400 leading-relaxed">Open Facebook Marketplace. Click the MarketSync icon. Pick the car you want to post. Watch the title, price, photos, and description fill themselves in. Click <strong>Post</strong>. Done.</p>
             </div>
         </div>
     </section>
 
-    <section id="features" class="max-w-7xl mx-auto px-6 py-24">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
-            <div class="space-y-4">
-                <div class="w-12 h-12 bg-indigo-600/10 border border-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-xl">
-                    <i class="fa-solid fa-bolt"></i>
-                </div>
-                <h3 class="text-xl font-bold text-slate-900 dark:text-white">Under 60-Second Posting Loop</h3>
-                <p class="text-slate-600 dark:text-gray-400 text-sm leading-relaxed">Stop manually duplicating VIN data, copy-pasting descriptions, and re-uploading vehicle assets item by item. MarketSync formats every parameter instantly.</p>
-            </div>
-            <div class="space-y-4">
-                <div class="w-12 h-12 bg-emerald-600/10 border border-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400 text-xl">
-                    <i class="fa-solid fa-users-viewfinder"></i>
-                </div>
-                <h3 class="text-xl font-bold text-slate-900 dark:text-white">Total Showroom Transparency</h3>
-                <p class="text-slate-600 dark:text-gray-400 text-sm leading-relaxed">No more tracking down reps to see if they're executing outreach. The Admin Dashboard ranks your floor by activity, conversion rate, and active listings.</p>
-            </div>
-            <div class="space-y-4">
-                <div class="w-12 h-12 bg-amber-600/10 border border-amber-500/20 rounded-xl flex items-center justify-center text-amber-400 text-xl">
-                    <i class="fa-solid fa-chart-line"></i>
-                </div>
-                <h3 class="text-xl font-bold text-slate-900 dark:text-white">Zero Workflow Disruption</h3>
-                <p class="text-slate-600 dark:text-gray-400 text-sm leading-relaxed">MarketSync works in tandem with your current operations. There are no intensive legacy configurations or API handshake delays required to start tracking.</p>
-            </div>
-        </div>
-    </section>
-
-    <section id="pricing" class="max-w-6xl mx-auto px-6 py-12">
+    <section id="extension" class="max-w-6xl mx-auto px-6 py-20">
         <div class="text-center mb-12">
-            <h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Flexible Entry Options</h2>
-            <p class="text-slate-600 dark:text-gray-400 mt-2 text-sm sm:text-base">Deploy across the entire storefront or start individually as an independent floor representative.</p>
+            <span class="inline-block text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-3">The Chrome Extension</span>
+            <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-4">The Tool That Fills Out Facebook For You</h2>
+            <p class="text-slate-500 dark:text-gray-400 max-w-2xl mx-auto">An extension is a small free helper that sits in your Chrome browser. The MarketSync extension only does one thing: it makes Facebook Marketplace easy.</p>
         </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <div class="glass-panel bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-indigo-500/30 p-8 rounded-2xl flex flex-col justify-between relative shadow-xl shadow-slate-200/50 dark:shadow-none">
-                <div class="absolute top-4 right-4 bg-indigo-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">STORE-WIDE LICENSE</div>
+
+        <div class="grid md:grid-cols-2 gap-10 items-center">
+            <div class="space-y-5 text-slate-700 dark:text-gray-300 leading-relaxed">
                 <div>
-                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">Dealership Location</h3>
-                    <p class="text-slate-500 dark:text-gray-400 text-xs mt-1">Full mapping loop access for the entire dealership location.</p>
+                    <h3 class="font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-indigo-500"></i> It fills in every box</h3>
+                    <p class="text-sm">Year, make, model, price, mileage, color, description, all the photos. You do not touch the keyboard.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2"><i class="fa-solid fa-list-check text-indigo-500"></i> Mark a vehicle as posted</h3>
+                    <p class="text-sm">After you post a car, click the green check. MarketSync remembers and removes it from your "to-do" list so you never post the same car twice.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2"><i class="fa-solid fa-circle-check text-indigo-500"></i> Tell us when a car sold</h3>
+                    <p class="text-sm">If you sold the car, click <strong>I Sold It</strong>. You score 500 points. If Facebook itself shows the car is sold, MarketSync sees it on its own. No paperwork.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2"><i class="fa-solid fa-shield text-indigo-500"></i> Safe and private</h3>
+                    <p class="text-sm">It only wakes up on Facebook Marketplace. It never reads your messages, your posts, or your friends list.</p>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 dark:bg-gray-950 rounded-2xl p-6 shadow-2xl border border-slate-800">
+                <div class="flex items-center gap-2 mb-4 pb-3 border-b border-gray-800">
+                    <div class="w-8 h-8 rounded bg-indigo-600 flex items-center justify-center text-white font-black text-xs">|S</div>
+                    <span class="text-white font-bold text-sm">MarketSync</span>
+                    <span class="ml-auto text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">CONNECTED</span>
+                </div>
+                <div class="text-xs text-gray-300 mb-3 font-semibold">Today's queue · 24 vehicles</div>
+                <div class="space-y-2 mock-screen">
+                    <div class="flex items-center justify-between bg-gray-800 rounded-lg p-3 border border-gray-700">
+                        <div>
+                            <div class="text-white text-sm font-semibold">2024 Ford F-150 XLT</div>
+                            <div class="text-gray-500 text-[11px]">$47,995 · 12,400 km</div>
+                        </div>
+                        <button class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-3 py-1.5 rounded">FILL FORM</button>
+                    </div>
+                    <div class="flex items-center justify-between bg-gray-800 rounded-lg p-3 border border-gray-700">
+                        <div>
+                            <div class="text-white text-sm font-semibold">2023 Honda Civic Sport</div>
+                            <div class="text-gray-500 text-[11px]">$29,500 · 18,900 km</div>
+                        </div>
+                        <button class="bg-emerald-600 text-white text-[10px] font-bold px-3 py-1.5 rounded">I SOLD IT</button>
+                    </div>
+                    <div class="flex items-center justify-between bg-gray-800/60 rounded-lg p-3 border border-gray-700 opacity-60">
+                        <div>
+                            <div class="text-gray-300 text-sm font-semibold line-through">2022 Toyota RAV4</div>
+                            <div class="text-gray-500 text-[11px]">Sold · +500 pts</div>
+                        </div>
+                        <i class="fa-solid fa-check text-emerald-400"></i>
+                    </div>
+                </div>
+                <p class="text-[10px] text-gray-500 mt-4 text-center italic">Example view of the extension popup.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="dashboard" class="max-w-6xl mx-auto px-6 py-20">
+        <div class="text-center mb-12">
+            <span class="inline-block text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-3">The Dashboard</span>
+            <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-4">Your Sales Floor, In One Window</h2>
+            <p class="text-slate-500 dark:text-gray-400 max-w-2xl mx-auto">The dashboard is the website where you, the dealer or sales rep, see everything happening with your inventory.</p>
+        </div>
+
+        <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-2xl p-6 shadow-xl shadow-slate-200/30 dark:shadow-none">
+            <div class="grid sm:grid-cols-4 gap-3 mb-6">
+                <div class="bg-slate-100 dark:bg-gray-800 rounded-lg p-4">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-gray-500 font-semibold">Available</div>
+                    <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">163</div>
+                    <div class="text-[10px] text-slate-400 dark:text-gray-500 mt-1">vehicles in stock</div>
+                </div>
+                <div class="bg-slate-100 dark:bg-gray-800 rounded-lg p-4">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-gray-500 font-semibold">Listings posted</div>
+                    <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">94</div>
+                    <div class="text-[10px] text-slate-400 dark:text-gray-500 mt-1">this month</div>
+                </div>
+                <div class="bg-slate-100 dark:bg-gray-800 rounded-lg p-4">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-gray-500 font-semibold">Sold via Marketplace</div>
+                    <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">17</div>
+                    <div class="text-[10px] text-slate-400 dark:text-gray-500 mt-1">this month</div>
+                </div>
+                <div class="bg-slate-100 dark:bg-gray-800 rounded-lg p-4">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-gray-500 font-semibold">Active days</div>
+                    <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">28</div>
+                    <div class="text-[10px] text-slate-400 dark:text-gray-500 mt-1">streak</div>
+                </div>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-gray-500 text-center italic">Example: the top of the dealer dashboard.</p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-4 mt-8">
+            <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-xl p-5">
+                <i class="fa-solid fa-chart-line text-indigo-500 text-xl mb-2"></i>
+                <h3 class="font-bold text-slate-900 dark:text-white mb-1">Insights</h3>
+                <p class="text-sm text-slate-600 dark:text-gray-400">See how many cars were posted, how many were sold, and which days were busiest.</p>
+            </div>
+            <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-xl p-5">
+                <i class="fa-solid fa-boxes-stacked text-indigo-500 text-xl mb-2"></i>
+                <h3 class="font-bold text-slate-900 dark:text-white mb-1">Inventory</h3>
+                <p class="text-sm text-slate-600 dark:text-gray-400">Every car from your dealer website, with a photo, price, and link to the vehicle page.</p>
+            </div>
+            <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-xl p-5">
+                <i class="fa-solid fa-users text-indigo-500 text-xl mb-2"></i>
+                <h3 class="font-bold text-slate-900 dark:text-white mb-1">Sales Team</h3>
+                <p class="text-sm text-slate-600 dark:text-gray-400">Dealer admins can add or remove sales reps, set their goals, and see each rep's numbers.</p>
+            </div>
+            <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-xl p-5">
+                <i class="fa-solid fa-trophy text-indigo-500 text-xl mb-2"></i>
+                <h3 class="font-bold text-slate-900 dark:text-white mb-1">Leaderboard</h3>
+                <p class="text-sm text-slate-600 dark:text-gray-400">A fun ranking of all your reps based on points. See the section below.</p>
+            </div>
+            <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-xl p-5">
+                <i class="fa-solid fa-chart-pie text-indigo-500 text-xl mb-2"></i>
+                <h3 class="font-bold text-slate-900 dark:text-white mb-1">Team Insights</h3>
+                <p class="text-sm text-slate-600 dark:text-gray-400">Charts that show who is the best closer, who is the most active poster, and how the team is growing.</p>
+            </div>
+            <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-xl p-5">
+                <i class="fa-solid fa-bell text-indigo-500 text-xl mb-2"></i>
+                <h3 class="font-bold text-slate-900 dark:text-white mb-1">Activity Feed</h3>
+                <p class="text-sm text-slate-600 dark:text-gray-400">A live story of what is happening today — every post, every sale, every win.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="leaderboard" class="max-w-6xl mx-auto px-6 py-20">
+        <div class="text-center mb-12">
+            <span class="inline-block text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-3">Gamification</span>
+            <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-4">Selling Cars, But Make It a Game</h2>
+            <p class="text-slate-500 dark:text-gray-400 max-w-2xl mx-auto">Every sales rep earns points. Points grow into tiers. Tiers earn bragging rights. The harder you work, the higher you climb.</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8 mb-10">
+            <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-2xl p-8">
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-4">How you earn points</h3>
+                <ul class="space-y-3 text-sm">
+                    <li class="flex items-center justify-between border-b border-slate-100 dark:border-gray-800 pb-2">
+                        <span class="text-slate-700 dark:text-gray-300">Post a car to Facebook Marketplace</span>
+                        <span class="font-black text-indigo-600 dark:text-indigo-400">+100</span>
+                    </li>
+                    <li class="flex items-center justify-between border-b border-slate-100 dark:border-gray-800 pb-2">
+                        <span class="text-slate-700 dark:text-gray-300">You sell that car ("I Sold It")</span>
+                        <span class="font-black text-emerald-600 dark:text-emerald-400">+500</span>
+                    </li>
+                    <li class="flex items-center justify-between">
+                        <span class="text-slate-700 dark:text-gray-300">Someone else sold it (no points, just tracked)</span>
+                        <span class="font-black text-slate-400">0</span>
+                    </li>
+                </ul>
+                <p class="text-xs text-slate-500 dark:text-gray-400 mt-5 italic">It pays to be the one who closes the deal.</p>
+            </div>
+
+            <div class="bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-2xl p-8">
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-4">The Six Tiers</h3>
+                <ul class="space-y-2 text-sm">
+                    <li class="flex items-center justify-between bg-amber-50 dark:bg-amber-900/10 rounded p-2">
+                        <span class="flex items-center gap-2 text-slate-700 dark:text-gray-300"><span class="w-2 h-2 rounded-full bg-amber-700"></span> Bronze</span>
+                        <span class="text-xs text-slate-500 dark:text-gray-400">0 pts</span>
+                    </li>
+                    <li class="flex items-center justify-between bg-slate-50 dark:bg-slate-800/30 rounded p-2">
+                        <span class="flex items-center gap-2 text-slate-700 dark:text-gray-300"><span class="w-2 h-2 rounded-full bg-slate-400"></span> Silver</span>
+                        <span class="text-xs text-slate-500 dark:text-gray-400">500 pts</span>
+                    </li>
+                    <li class="flex items-center justify-between bg-yellow-50 dark:bg-yellow-900/10 rounded p-2">
+                        <span class="flex items-center gap-2 text-slate-700 dark:text-gray-300"><span class="w-2 h-2 rounded-full bg-yellow-500"></span> Gold</span>
+                        <span class="text-xs text-slate-500 dark:text-gray-400">2,500 pts</span>
+                    </li>
+                    <li class="flex items-center justify-between bg-cyan-50 dark:bg-cyan-900/10 rounded p-2">
+                        <span class="flex items-center gap-2 text-slate-700 dark:text-gray-300"><span class="w-2 h-2 rounded-full bg-cyan-400"></span> Platinum</span>
+                        <span class="text-xs text-slate-500 dark:text-gray-400">7,500 pts</span>
+                    </li>
+                    <li class="flex items-center justify-between bg-violet-50 dark:bg-violet-900/10 rounded p-2">
+                        <span class="flex items-center gap-2 text-slate-700 dark:text-gray-300"><span class="w-2 h-2 rounded-full bg-violet-400"></span> Diamond</span>
+                        <span class="text-xs text-slate-500 dark:text-gray-400">15,000 pts</span>
+                    </li>
+                    <li class="flex items-center justify-between bg-indigo-100 dark:bg-indigo-900/30 rounded p-2 ring-1 ring-indigo-400/40">
+                        <span class="flex items-center gap-2 text-slate-900 dark:text-white font-bold"><i class="fa-solid fa-crown text-indigo-500"></i> Legend</span>
+                        <span class="text-xs text-indigo-700 dark:text-indigo-300 font-semibold">30,000 pts</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 dark:bg-black rounded-2xl p-8 border border-slate-800">
+            <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Example leaderboard view</div>
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="text-center bg-slate-800 rounded-xl p-4 order-2 ring-2 ring-yellow-400">
+                    <i class="fa-solid fa-crown text-yellow-400 text-2xl mb-1"></i>
+                    <div class="text-white font-bold">Mike Johnson</div>
+                    <div class="text-xs text-gray-400">12,400 pts · Platinum</div>
+                </div>
+                <div class="text-center bg-slate-800/80 rounded-xl p-4 order-1 pt-7">
+                    <i class="fa-solid fa-medal text-slate-300 text-xl mb-1"></i>
+                    <div class="text-white font-bold text-sm">Sarah Chen</div>
+                    <div class="text-xs text-gray-400">9,200 pts · Gold</div>
+                </div>
+                <div class="text-center bg-slate-800/80 rounded-xl p-4 order-3 pt-7">
+                    <i class="fa-solid fa-medal text-amber-700 text-xl mb-1"></i>
+                    <div class="text-white font-bold text-sm">Jay Patel</div>
+                    <div class="text-xs text-gray-400">6,800 pts · Gold</div>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 text-center italic">Top three reps for the month, displayed podium-style.</p>
+        </div>
+    </section>
+
+    <section id="sold-tracking" class="max-w-6xl mx-auto px-6 py-20">
+        <div class="text-center mb-12">
+            <span class="inline-block text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-3">Sold Tracking</span>
+            <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-4">Three Ways a Car Gets Marked Sold</h2>
+            <p class="text-slate-500 dark:text-gray-400 max-w-2xl mx-auto">MarketSync knows the difference between you closing a deal, someone else closing a deal, and Facebook noticing on its own. Each one is tracked differently.</p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-5">
+            <div class="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-700/30 rounded-2xl p-6">
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center"><i class="fa-solid fa-trophy text-sm"></i></div>
+                    <h3 class="font-bold text-slate-900 dark:text-white">I Sold It</h3>
+                </div>
+                <p class="text-sm text-slate-700 dark:text-gray-300 mb-3">You closed the deal. Click the button. You get <strong class="text-emerald-700 dark:text-emerald-400">+500 points</strong> and the sale shows on your stats.</p>
+                <p class="text-xs text-slate-500 dark:text-gray-400 italic">Use this when you are the one who shook the buyer's hand.</p>
+            </div>
+
+            <div class="bg-slate-100 dark:bg-gray-800/40 border border-slate-200 dark:border-gray-700 rounded-2xl p-6">
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="w-8 h-8 rounded-lg bg-slate-500 text-white flex items-center justify-center"><i class="fa-solid fa-handshake-simple-slash text-sm"></i></div>
+                    <h3 class="font-bold text-slate-900 dark:text-white">Sold by Other</h3>
+                </div>
+                <p class="text-sm text-slate-700 dark:text-gray-300 mb-3">Someone else on your team sold the car. No points to you, but MarketSync removes the car from your "to-do" list so you do not waste time.</p>
+                <p class="text-xs text-slate-500 dark:text-gray-400 italic">Honest tracking. Nobody steals credit.</p>
+            </div>
+
+            <div class="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-700/30 rounded-2xl p-6">
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center"><i class="fa-brands fa-facebook text-sm"></i></div>
+                    <h3 class="font-bold text-slate-900 dark:text-white">Facebook Auto-Detect</h3>
+                </div>
+                <p class="text-sm text-slate-700 dark:text-gray-300 mb-3">Sometimes a buyer marks the listing sold on Facebook before anyone tells you. The extension sees it and updates the dashboard for you.</p>
+                <p class="text-xs text-slate-500 dark:text-gray-400 italic">No clicks needed. It just works.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="compatible" class="max-w-5xl mx-auto px-6 py-20">
+        <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white text-center mb-4">Works With Your Dealer Website</h2>
+        <p class="text-center text-slate-500 dark:text-gray-400 max-w-2xl mx-auto mb-10">MarketSync auto-detects most dealer website platforms. If we don't know yours yet, our smart renderer figures it out anyway.</p>
+
+        <div class="flex flex-wrap items-center justify-center gap-3">
+            <span class="px-4 py-2 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-full text-sm font-semibold text-slate-700 dark:text-gray-300">LeadBox</span>
+            <span class="px-4 py-2 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-full text-sm font-semibold text-slate-700 dark:text-gray-300">EDealer</span>
+            <span class="px-4 py-2 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-full text-sm font-semibold text-slate-700 dark:text-gray-300">Dealer.com</span>
+            <span class="px-4 py-2 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-full text-sm font-semibold text-slate-700 dark:text-gray-300">Sincro / DealerOn</span>
+            <span class="px-4 py-2 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-full text-sm font-semibold text-slate-700 dark:text-gray-300">CDK Global</span>
+            <span class="px-4 py-2 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-full text-sm font-semibold text-slate-700 dark:text-gray-300">Dealer Inspire</span>
+            <span class="px-4 py-2 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-full text-sm font-semibold text-slate-700 dark:text-gray-300">UX Auto</span>
+            <span class="px-4 py-2 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-full text-sm font-semibold text-slate-700 dark:text-gray-300">Strathcom</span>
+            <span class="px-4 py-2 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-full text-sm font-semibold text-slate-700 dark:text-gray-300">Vicimus</span>
+            <span class="px-4 py-2 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-full text-sm font-semibold text-slate-700 dark:text-gray-300">SM360</span>
+            <span class="px-4 py-2 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-full text-sm font-semibold text-slate-700 dark:text-gray-300">DealerFire</span>
+            <span class="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/30 border border-indigo-300 dark:border-indigo-700 rounded-full text-sm font-bold text-indigo-700 dark:text-indigo-300">+ Smart Detect (any site)</span>
+        </div>
+        <p class="text-center text-xs text-slate-500 dark:text-gray-400 mt-6">Both US and Canadian dealerships are supported.</p>
+    </section>
+
+    <section id="pricing" class="max-w-5xl mx-auto px-6 py-20">
+        <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white text-center mb-4">Simple Pricing</h2>
+        <p class="text-center text-slate-500 dark:text-gray-400 max-w-2xl mx-auto mb-12">Try everything free for 7 days. No credit card. Cancel before day 8 and you pay nothing.</p>
+
+        <div class="grid md:grid-cols-2 gap-6 relative">
+            <div class="relative glass-panel bg-indigo-600/10 border-2 border-indigo-500 rounded-2xl p-8 flex flex-col justify-between shadow-xl shadow-indigo-500/10">
+                <div class="absolute top-4 right-4 bg-indigo-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">Best for Stores</div>
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">Dealer Plan</h3>
+                    <p class="text-slate-500 dark:text-gray-400 text-xs mt-1">One subscription covers the whole dealership.</p>
                     <div class="my-6">
                         <span class="text-4xl font-black text-slate-900 dark:text-white">$199</span>
                         <span class="text-slate-500 text-sm"> / month</span>
                     </div>
-                    <ul class="space-y-2.5 text-sm text-slate-700 dark:text-gray-300 border-t border-slate-100 dark:border-gray-900 pt-6">
-                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-indigo-600 dark:text-indigo-400 text-xs"></i> <strong>Unlimited Sales Rep Seats Included</strong></li>
-                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-indigo-600 dark:text-indigo-400 text-xs"></i> Live Inventory Sync (eDealer / LeadBox)</li>
-                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-indigo-600 dark:text-indigo-400 text-xs"></i> Store Leaderboard & Conversion Analytics</li>
+                    <ul class="space-y-2.5 text-sm text-slate-700 dark:text-gray-300 border-t border-slate-200 dark:border-gray-800 pt-6">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-600 dark:text-emerald-400 text-xs"></i> Unlimited sales reps under one account</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-600 dark:text-emerald-400 text-xs"></i> Auto-sync your dealer feed</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-600 dark:text-emerald-400 text-xs"></i> Team leaderboard + insights</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-600 dark:text-emerald-400 text-xs"></i> Sales rep management tools</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-600 dark:text-emerald-400 text-xs"></i> Reps don't pay — the dealer pays once</li>
                     </ul>
                 </div>
-                <a href="https://marketsync.link/register" class="mt-8 block w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-center text-white font-bold rounded-xl transition">Activate Store Location</a>
+                <a href="https://marketsync.link/register.html" class="mt-8 block w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-center text-white font-bold rounded-xl transition">Start Free Trial</a>
             </div>
 
-            <div class="glass-panel bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 p-8 rounded-2xl flex flex-col justify-between shadow-xl shadow-slate-200/50 dark:shadow-none">
-                <div class="absolute top-4 right-4 bg-slate-200 dark:bg-gray-800 text-slate-700 dark:text-gray-300 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">INDIVIDUAL PLAN</div>
+            <div class="glass-panel bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-2xl p-8 flex flex-col justify-between shadow-xl shadow-slate-200/30 dark:shadow-none">
+                <div class="absolute top-4 right-4 bg-slate-200 dark:bg-gray-800 text-slate-700 dark:text-gray-300 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">Solo</div>
                 <div>
                     <h3 class="text-xl font-bold text-slate-900 dark:text-white">Independent Sales Rep</h3>
-                    <p class="text-slate-500 dark:text-gray-400 text-xs mt-1">For single reps whose dealership hasn't upgraded yet.</p>
+                    <p class="text-slate-500 dark:text-gray-400 text-xs mt-1">For a single rep whose dealership hasn't joined yet.</p>
                     <div class="my-6">
                         <span class="text-4xl font-black text-slate-900 dark:text-white">$49</span>
                         <span class="text-slate-500 text-sm"> / month</span>
                     </div>
                     <ul class="space-y-2.5 text-sm text-slate-700 dark:text-gray-300 border-t border-slate-100 dark:border-gray-900 pt-6">
-                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-600 dark:text-emerald-400 text-xs"></i> Personal Chrome Extension License</li>
-                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-600 dark:text-emerald-400 text-xs"></i> 60-Second Data Injection Automation</li>
-                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-600 dark:text-emerald-400 text-xs"></i> Individual Performance & Lead Log</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-600 dark:text-emerald-400 text-xs"></i> Personal Chrome Extension license</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-600 dark:text-emerald-400 text-xs"></i> 60-second posting automation</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-600 dark:text-emerald-400 text-xs"></i> Your own dashboard and stats</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-600 dark:text-emerald-400 text-xs"></i> Sold tracking with point scoring</li>
                     </ul>
                 </div>
-                <a href="https://marketsync.link/register" class="mt-8 block w-full py-3 bg-slate-100 dark:bg-gray-900 hover:bg-slate-200 dark:hover:bg-gray-800 text-center text-slate-900 dark:text-white font-bold rounded-xl border border-slate-300 dark:border-gray-800 transition">Activate Rep License</a>
+                <a href="https://marketsync.link/register.html" class="mt-8 block w-full py-3 bg-slate-100 dark:bg-gray-900 hover:bg-slate-200 dark:hover:bg-gray-800 text-center text-slate-900 dark:text-white font-bold rounded-xl border border-slate-300 dark:border-gray-800 transition">Start Free Trial</a>
             </div>
         </div>
     </section>
 
-    <footer class="max-w-7xl mx-auto px-6 py-12 mt-24 border-t border-slate-200 dark:border-gray-900 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-slate-500">
+    <section id="faq" class="max-w-3xl mx-auto px-6 py-20">
+        <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white text-center mb-12">Common Questions</h2>
+
+        <div class="space-y-3">
+            <details class="group bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-lg overflow-hidden">
+                <summary class="cursor-pointer px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+                    Do I really not need a credit card?
+                    <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition-transform group-open:rotate-180"></i>
+                </summary>
+                <div class="px-6 pb-5 text-sm text-slate-600 dark:text-gray-300 leading-relaxed">Correct. You can use MarketSync free for 7 full days without giving any payment info. After day 7, the dashboard will ask if you want to add a card and continue. If you don't want to, your account just pauses.</div>
+            </details>
+
+            <details class="group bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-lg overflow-hidden">
+                <summary class="cursor-pointer px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+                    Is this against Facebook's rules?
+                    <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition-transform group-open:rotate-180"></i>
+                </summary>
+                <div class="px-6 pb-5 text-sm text-slate-600 dark:text-gray-300 leading-relaxed">No. You still click the Post button yourself. MarketSync just fills in the boxes for you, like an assistant typing for you. Facebook's rules ban bots that auto-post and spam — MarketSync is not that.</div>
+            </details>
+
+            <details class="group bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-lg overflow-hidden">
+                <summary class="cursor-pointer px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+                    What if my dealer website is not in your list?
+                    <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition-transform group-open:rotate-180"></i>
+                </summary>
+                <div class="px-6 pb-5 text-sm text-slate-600 dark:text-gray-300 leading-relaxed">MarketSync has a Smart Detect feature. If we don't recognize your platform, our system opens your site in a quiet test browser, finds the inventory data on its own, and saves it. Most websites work the first time. If something doesn't work, our support team will set it up for you.</div>
+            </details>
+
+            <details class="group bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-lg overflow-hidden">
+                <summary class="cursor-pointer px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+                    Does it work on Canadian dealers too?
+                    <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition-transform group-open:rotate-180"></i>
+                </summary>
+                <div class="px-6 pb-5 text-sm text-slate-600 dark:text-gray-300 leading-relaxed">Yes. Canadian and US dealers both work. Canadian platforms like EDealer, LeadBox, Strathcom, SM360, and Vicimus are all supported. US platforms like Dealer.com, Dealer Inspire, CDK Global, and DealerFire are supported too.</div>
+            </details>
+
+            <details class="group bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-lg overflow-hidden">
+                <summary class="cursor-pointer px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+                    What if my whole team uses MarketSync?
+                    <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition-transform group-open:rotate-180"></i>
+                </summary>
+                <div class="px-6 pb-5 text-sm text-slate-600 dark:text-gray-300 leading-relaxed">Use the Dealer Plan. The dealer admin pays one subscription. Every sales rep on the team gets full access at no extra cost. Reps don't pay anything — the dealer covers it.</div>
+            </details>
+
+            <details class="group bg-white dark:bg-gray-900/70 border border-slate-200 dark:border-gray-800 rounded-lg overflow-hidden">
+                <summary class="cursor-pointer px-6 py-4 flex justify-between items-center font-semibold text-slate-900 dark:text-white">
+                    Can I cancel any time?
+                    <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition-transform group-open:rotate-180"></i>
+                </summary>
+                <div class="px-6 pb-5 text-sm text-slate-600 dark:text-gray-300 leading-relaxed">Yes. Cancel from your dashboard in two clicks. You keep access until the end of the month you already paid for. Nothing locks you in.</div>
+            </details>
+        </div>
+    </section>
+
+    <section class="max-w-5xl mx-auto px-6 py-20 text-center">
+        <div class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl p-10 sm:p-16 shadow-2xl shadow-indigo-500/30">
+            <h2 class="text-3xl sm:text-5xl font-black tracking-tight text-white mb-4">Sell More Cars This Month.</h2>
+            <p class="text-indigo-100 text-lg max-w-2xl mx-auto mb-8">Stop typing the same vehicle info into Facebook for hours. Let MarketSync handle the boring part so you can focus on closing.</p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a href="https://marketsync.link/register.html" class="px-8 py-4 bg-white hover:bg-slate-100 text-indigo-700 font-bold rounded-xl transition">Start Free Trial</a>
+                <a href="https://calendly.com/noreply-marketsync/30min" class="px-8 py-4 bg-indigo-800/40 hover:bg-indigo-800/60 text-white font-bold rounded-xl border border-white/20 transition">Book a 30-min demo</a>
+            </div>
+            <p class="text-xs text-indigo-200 mt-5">7-day free trial · No credit card · Cancel anytime</p>
+        </div>
+    </section>
+
+    <div id="videoModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4 backdrop-blur-md">
+        <div class="w-full max-w-4xl bg-black rounded-2xl overflow-hidden shadow-2xl relative border border-gray-800">
+            <button onclick="closeVideoModal()" class="absolute top-4 right-4 text-white hover:text-indigo-400 text-xl font-bold z-50 bg-black/40 w-10 h-10 rounded-full flex items-center justify-center border border-white/10 transition">✕</button>
+            <div class="aspect-video">
+                <iframe id="videoPlayer" class="w-full h-full" src="" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+
+    <footer class="max-w-7xl mx-auto px-6 py-12 mt-12 border-t border-slate-200 dark:border-gray-900 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-slate-500">
         <div>
             <p>© 2026 MarketSync Technologies Inc. All rights reserved.</p>
         </div>
         <div class="flex flex-wrap items-center justify-center gap-6 font-medium text-slate-600 dark:text-gray-400">
-            <a href="https://marketsync.link/terms.html" class="hover:text-slate-900 dark:hover:text-white transition">Terms of Service</a>
-            <a href="https://marketsync.link/privacy-policy.html" class="hover:text-slate-900 dark:hover:text-white transition">Privacy Policy</a>
-            <a href="https://marketsync.link/support.html" class="hover:text-slate-900 dark:hover:text-white transition">Technical Support</a>
+            <a href="https://marketsync.link/login.html" class="hover:text-slate-900 dark:hover:text-white transition">Log In</a>
+            <a href="https://marketsync.link/register.html" class="hover:text-slate-900 dark:hover:text-white transition">Sign Up</a>
+            <a href="https://marketsync.link/faq.html" class="hover:text-slate-900 dark:hover:text-white transition">FAQ</a>
+            <a href="https://marketsync.link/support.html" class="hover:text-slate-900 dark:hover:text-white transition">Support</a>
+            <a href="https://marketsync.link/terms.html" class="hover:text-slate-900 dark:hover:text-white transition">Terms</a>
+            <a href="https://marketsync.link/privacy-policy.html" class="hover:text-slate-900 dark:hover:text-white transition">Privacy</a>
         </div>
     </footer>
 
@@ -290,10 +663,11 @@
         function openVideoModal() {
             videoPlayer.src = videoEmbedUrl;
             videoModal.classList.remove('hidden');
+            videoModal.classList.add('flex');
         }
-
         function closeVideoModal() {
             videoModal.classList.add('hidden');
+            videoModal.classList.remove('flex');
             videoPlayer.src = "";
         }
     </script>
