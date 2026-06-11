@@ -1977,6 +1977,36 @@ async function runInventorySync(dealershipId) {
       // Match this feed to its probe definition so we can apply the right field mapper
       const probe = PLATFORM_PROBES.find(p => p.platform === feed.platform)
 
+      // First sync after deploy — backfill url_map for LeadBox feeds added before harvest existed.
+      // This is what makes existing feeds get per-vehicle URLs without delete/re-add.
+      const needsBackfill = feed.platform === 'leadbox'
+        && (!feed.url_map || Object.keys(feed.url_map).length === 0)
+      if (needsBackfill) {
+        try {
+          console.log(`[sync] Backfilling url_map for LeadBox feed ${feed.id}...`)
+          const feedRes = await fetch(feed.feed_url)
+          const feedJson = await feedRes.json().catch(() => null)
+          const stockNumbers = (feedJson?.vehicles || [])
+            .map(v => v.stocknumber || v.stock_id || v.stock).filter(Boolean)
+          if (stockNumbers.length) {
+            const dealerOrigin = feed.feed_url.split('/wp-content')[0]
+            const harvest = await harvestVehicleUrls(dealerOrigin, stockNumbers)
+            if (harvest.success) {
+              feed.url_map = harvest.map
+              await supabaseAdmin
+                .from('inventory_feeds')
+                .update({ url_map: harvest.map })
+                .eq('id', feed.id)
+              console.log(`[sync] Backfilled ${harvest.matched}/${harvest.total} URLs for feed ${feed.id}`)
+            } else {
+              console.warn(`[sync] Backfill harvest yielded no matches: ${harvest.error || 'no anchors'}`)
+            }
+          }
+        } catch (e) {
+          console.warn(`[sync] url_map backfill failed (non-fatal): ${e.message}`)
+        }
+      }
+
       if (jsonCache.has(feed.feed_url)) {
         vehicles = jsonCache.get(feed.feed_url)
       } else if (feed.platform === 'spa_render') {

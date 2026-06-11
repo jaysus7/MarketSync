@@ -1106,16 +1106,26 @@ function renderCatalog() {
       : `<div class="w-full h-32 rounded bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-700 text-2xl">⌀</div>`;
     const price = v.price ? `$${Number(v.price).toLocaleString()}` : '—';
     const mileage = v.mileage ? `${Number(v.mileage).toLocaleString()} km` : 'New';
-    // Card is a clickable link to the vehicle's page on the dealer site (when we have one)
-    const tag = v.source_url ? 'a' : 'div';
-    const linkAttrs = v.source_url
-      ? `href="${v.source_url}" target="_blank" rel="noopener" title="Open on dealer site ↗"`
+    // Every card is clickable. Prefer the vehicle's source_url (harvested or per-feed),
+    // fall back to a stock-number search on the dealer's site so the click still does
+    // something useful even when we don't have a direct URL.
+    const fallbackUrl = (() => {
+      try {
+        const base = v.source_url ? new URL(v.source_url).origin : null;
+        if (base && v.stocknumber) return `${base}/?s=${encodeURIComponent(v.stocknumber)}`;
+        return null;
+      } catch { return null; }
+    })();
+    const href = v.source_url || fallbackUrl;
+    const tag = href ? 'a' : 'div';
+    const linkAttrs = href
+      ? `href="${href}" target="_blank" rel="noopener" title="Open on dealer site ↗"`
       : '';
-    const externalIcon = v.source_url
+    const externalIcon = href
       ? `<svg class="w-3 h-3 text-slate-400 dark:text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>`
       : '';
     return `
-      <${tag} ${linkAttrs} class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3 flex flex-col gap-2 ${v.source_url ? 'hover:border-indigo-400 dark:hover:border-indigo-500 transition no-underline' : ''}">
+      <${tag} ${linkAttrs} class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3 flex flex-col gap-2 ${href ? 'hover:border-indigo-400 dark:hover:border-indigo-500 transition no-underline' : ''}">
         ${img}
         <div class="flex items-center justify-between gap-2">
           <span class="text-xs font-bold text-slate-900 dark:text-white truncate flex-1" title="${v.year} ${v.make} ${v.model} ${v.trim || ''}">${v.year} ${v.make} ${v.model}</span>
