@@ -1956,10 +1956,31 @@ function buildLeadBoxSourceUrl(feedUrl, vehicle) {
 }
 
 async function runInventorySync(dealershipId) {
-  const { data: feeds } = await supabaseAdmin
-    .from('inventory_feeds')
-    .select('id, feed_url, feed_type, platform, source_dealer_url, url_map')
-    .eq('dealership_id', dealershipId)
+  // Defensive: ask for the new columns first; if any is missing (migration not yet run),
+  // retry with the legacy column set so sync still works. Surfaces a clear warning instead
+  // of silently flipping to "No inventory feeds configured".
+  let feeds = null
+  let selectError = null
+  {
+    const { data, error } = await supabaseAdmin
+      .from('inventory_feeds')
+      .select('id, feed_url, feed_type, platform, source_dealer_url, url_map')
+      .eq('dealership_id', dealershipId)
+    if (!error) { feeds = data }
+    else selectError = error
+  }
+  if (!feeds) {
+    console.warn(`[sync] full column select failed (${selectError?.message}) — falling back to legacy columns`)
+    const { data, error } = await supabaseAdmin
+      .from('inventory_feeds')
+      .select('id, feed_url, feed_type')
+      .eq('dealership_id', dealershipId)
+    if (error) {
+      console.error('[sync] legacy column select also failed:', error.message)
+      return { success: false, error: `Could not read inventory feeds: ${error.message}` }
+    }
+    feeds = data
+  }
   if (!feeds || feeds.length === 0) {
     return { success: false, error: 'No inventory feeds configured for this dealership.' }
   }
