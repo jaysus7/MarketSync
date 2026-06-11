@@ -1777,7 +1777,7 @@ function buildLeadBoxSourceUrl(feedUrl, vehicle) {
 async function runInventorySync(dealershipId) {
   const { data: feeds } = await supabaseAdmin
     .from('inventory_feeds')
-    .select('feed_url, feed_type, platform')
+    .select('id, feed_url, feed_type, platform, source_dealer_url')
     .eq('dealership_id', dealershipId)
   if (!feeds || feeds.length === 0) {
     return { success: false, error: 'No inventory feeds configured for this dealership.' }
@@ -1799,17 +1799,57 @@ async function runInventorySync(dealershipId) {
       if (jsonCache.has(feed.feed_url)) {
         vehicles = jsonCache.get(feed.feed_url)
       } else if (feed.platform === 'spa_render') {
-        // SPA dealer — re-render in headless Chromium to capture the inventory XHR.
-        // The stored feed_url is the API URL we captured at probe time, but auth tokens
-        // may have rotated, so we render the dealer's listing page fresh.
-        const dealerSite = new URL(feed.feed_url).origin
-        const rendered = await renderAndCaptureInventory(dealerSite)
-        if (rendered.success && rendered.vehicles?.length > 0) {
-          vehicles = rendered.vehicles.map(genericMapVehicle)
-        } else {
-          console.warn(`[sync] SPA render returned no vehicles for ${dealerSite}: ${rendered.error}`)
-          vehicles = []
+        // SPA dealer. The captured XHR URL almost always works for plain HTTP fetches —
+        // try that first (fast). Re-render the dealer site only if direct fetch fails
+        // (XHR URL broken, auth rotated, dealer moved). When re-render finds a new URL,
+        // update the stored feed_url so future syncs use it.
+        vehicles = []
+        let usedFreshUrl = null
+
+        try {
+          const r = await fetch(`${feed.feed_url}?v=${Date.now()}`, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+              'Accept': 'application/json',
+              'Origin': feed.source_dealer_url ? new URL(feed.source_dealer_url).origin : '',
+              'Referer': feed.source_dealer_url || ''
+            }
+          })
+          const ct = r.headers.get('content-type') || ''
+          if (r.ok && ct.includes('json')) {
+            const data = await r.json()
+            const raw = data.records || data.vehicles || data.data || data.inventory || (Array.isArray(data) ? data : [])
+            if (raw.length > 0) {
+              vehicles = raw.map(genericMapVehicle)
+              console.log(`[sync] SPA direct fetch: ${vehicles.length} vehicles from ${feed.feed_url}`)
+            }
+          }
+        } catch (e) {
+          console.warn(`[sync] SPA direct fetch failed for ${feed.feed_url}: ${e.message}`)
         }
+
+        // Direct fetch returned nothing → re-render the dealer's listing page
+        if (vehicles.length === 0 && feed.source_dealer_url) {
+          console.log(`[sync] SPA direct fetch returned 0 — re-rendering ${feed.source_dealer_url}`)
+          const rendered = await renderAndCaptureInventory(feed.source_dealer_url)
+          if (rendered.success && rendered.vehicles?.length > 0) {
+            vehicles = rendered.vehicles.map(genericMapVehicle)
+            usedFreshUrl = rendered.source_url
+            console.log(`[sync] SPA re-render: ${vehicles.length} vehicles from ${rendered.source_url}`)
+          } else {
+            console.warn(`[sync] SPA re-render also failed: ${rendered.error}`)
+          }
+        }
+
+        // Persist the new XHR URL if re-render found a different one
+        if (usedFreshUrl && usedFreshUrl !== feed.feed_url) {
+          await supabaseAdmin
+            .from('inventory_feeds')
+            .update({ feed_url: usedFreshUrl })
+            .eq('id', feed.id)
+          console.log(`[sync] Updated feed_url for feed ${feed.id} → ${usedFreshUrl}`)
+        }
+
         jsonCache.set(feed.feed_url, vehicles)
         totalVehiclesFound += vehicles.length
       } else if (feed.platform === 'ux_auto') {
@@ -2129,6 +2169,10 @@ app.post('/inventory-feeds', requireAuth, async (req, res) => {
   // selection to "new" when the URL contained /new/, defeating the point of the dropdown.)
   const feedType = requestedType || typeHint.detectedType || 'all'
 
+  // For SPA-rendered dealers, keep the user's original URL — we need it to re-render
+  // the site if the captured XHR URL stops working (e.g. auth tokens rotate).
+  const sourceDealerUrl = detectedPlatformSlug === 'spa_render' ? rawUrl : null
+
   const { data, error } = await supabaseAdmin
     .from('inventory_feeds')
     .insert({
@@ -2136,7 +2180,8 @@ app.post('/inventory-feeds', requireAuth, async (req, res) => {
       user_id: req.user.id,
       feed_url: workingUrl,
       feed_type: feedType,
-      platform: detectedPlatformSlug
+      platform: detectedPlatformSlug,
+      source_dealer_url: sourceDealerUrl
     })
     .select()
     .single()
