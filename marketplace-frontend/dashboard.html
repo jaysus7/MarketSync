@@ -93,6 +93,18 @@
       <!-- ───────── INSIGHTS PAGE ───────── -->
       <div data-page-content="insights" class="page-content space-y-6">
 
+      <!-- Time range toggle for all insights on this page -->
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Insights · <span id="range-label" class="font-normal text-slate-500 text-sm">lifetime</span></h2>
+        <div class="inline-flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold" id="range-pills">
+          <button type="button" data-range="7" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">7d</button>
+          <button type="button" data-range="30" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">30d</button>
+          <button type="button" data-range="90" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">90d</button>
+          <button type="button" data-range="365" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">1y</button>
+          <button type="button" data-range="lifetime" class="range-pill px-3 py-1.5 rounded bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition">Lifetime</button>
+        </div>
+      </div>
+
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="metrics-strip">
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg">
           <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Available Inventory</div>
@@ -123,6 +135,35 @@
           <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Active Days</div>
           <div class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1" id="metric-active-days">—</div>
           <div class="text-[10px] text-slate-500 mt-0.5">this week</div>
+        </div>
+      </div>
+
+      <!-- Second row: derived insights -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg" title="Average number of days between when a vehicle was posted to Marketplace and when it sold.">
+          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Avg Time to Sell</div>
+          <div class="text-2xl font-black text-slate-900 dark:text-white mt-1"><span id="metric-time-to-sell">—</span><span class="text-sm font-normal text-slate-500 ml-1">days</span></div>
+          <div class="text-[10px] text-slate-500 mt-0.5">posted → sold</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg" title="Average listings posted per day in this range.">
+          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Posts / Day</div>
+          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="metric-posts-per-day">—</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">average rate</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg" title="Of vehicles you posted to Marketplace, how many sold? Higher is better.">
+          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sell-Through</div>
+          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1"><span id="metric-sell-through">—</span><span class="text-sm font-normal text-slate-500 ml-0.5">%</span></div>
+          <div class="text-[10px] text-slate-500 mt-0.5">sold ÷ posted</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg" title="Available cars that have sat on your lot longer than 60 days.">
+          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Aged Inventory</div>
+          <div class="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1" id="metric-aged">—</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">on lot &gt; 60 days</div>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg" title="Buyers who clicked through from your Facebook Marketplace listings to view inventory.">
+          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">FB Click-Throughs</div>
+          <div class="text-2xl font-black text-violet-600 dark:text-violet-400 mt-1" id="metric-clicks">—</div>
+          <div class="text-[10px] text-slate-500 mt-0.5" id="metric-clicks-help">requires tracked link</div>
         </div>
       </div>
 

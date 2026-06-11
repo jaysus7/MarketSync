@@ -603,6 +603,16 @@ app.get('/me/stats', requireAuth, async (req, res) => {
 app.get('/dashboard/insights', requireAuth, async (req, res) => {
   const isAdmin = req.profile.role === 'DEALER_ADMIN' || req.profile.role === 'OWNER'
   const now = new Date()
+
+  // Time range filter: lifetime | 365 | 90 | 30 | 7 (days). Defaults to lifetime.
+  // Returns ISO `start` so we can re-apply it to .gte() consistently across queries.
+  const rangeParam = String(req.query.range || 'lifetime').toLowerCase()
+  const rangeDays = ({ '7': 7, '30': 30, '90': 90, '365': 365, '1y': 365 }[rangeParam]) || null
+  const rangeStart = rangeDays
+    ? new Date(now.getTime() - rangeDays * 24 * 60 * 60 * 1000).toISOString()
+    : null
+  const rangeLabel = rangeDays ? `last ${rangeDays} days` : 'lifetime'
+
   const day = now.getUTCDay() || 7
   const startOfWeek = new Date(Date.UTC(
     now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1)
@@ -610,7 +620,12 @@ app.get('/dashboard/insights', requireAuth, async (req, res) => {
 
   let inventorySynced = 0, inventoryAvailable = 0, listingsPosted = 0
   let soldThisMonth = 0, activeDaysThisWeek = 0, listingsByAdmin = 0, listingsByReps = 0
+  let avgTimeToSellDays = null, postsPerDay = 0, sellThroughRate = 0
+  let inventoryAged60d = 0, linkClicks = 0
   const warnings = {}
+
+  // Helper: apply rangeStart filter to a supabase query builder
+  const withRange = (q, col = 'created_at') => rangeStart ? q.gte(col, rangeStart) : q
 
   try {
     if (req.dealershipId) {
@@ -626,6 +641,16 @@ app.get('/dashboard/insights', requireAuth, async (req, res) => {
         .eq('status', 'available')
       if (availErr) warnings.inventory_available = availErr.message
       else inventoryAvailable = avail || 0
+
+      // Aged inventory: available cars on the lot more than 60 days
+      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString()
+      const { count: aged, error: agedErr } = await supabaseAdmin
+        .from('inventory').select('id', { count: 'exact', head: true })
+        .eq('dealership_id', req.dealershipId)
+        .eq('status', 'available')
+        .lt('created_at', sixtyDaysAgo)
+      if (agedErr) warnings.inventory_aged = agedErr.message
+      else inventoryAged60d = aged || 0
     }
   } catch (e) { warnings.inventory = e.message }
 
@@ -645,43 +670,111 @@ app.get('/dashboard/insights', requireAuth, async (req, res) => {
           .map(m => m.id)
 
         if (memberIds.length) {
-          const { count: total } = await supabaseAdmin
-            .from('listings').select('id', { count: 'exact', head: true })
-            .in('posted_by', memberIds)
+          const { count: total } = await withRange(
+            supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
+              .in('posted_by', memberIds)
+          )
           listingsPosted = total || 0
 
-          const { count: sold } = await supabaseAdmin
-            .from('listings').select('id', { count: 'exact', head: true })
-            .in('posted_by', memberIds).eq('status', 'sold')
+          const { count: sold } = await withRange(
+            supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
+              .in('posted_by', memberIds).eq('status', 'sold')
+          , 'sold_at')
           soldThisMonth = sold || 0
+
+          // Avg time-to-sell: pull sold rows in range, compute (sold_at - created_at) avg in days
+          const soldQuery = supabaseAdmin
+            .from('listings').select('created_at, sold_at')
+            .in('posted_by', memberIds).eq('status', 'sold')
+            .not('sold_at', 'is', null)
+          const { data: soldRows } = await withRange(soldQuery, 'sold_at')
+          if (soldRows && soldRows.length) {
+            const totalMs = soldRows.reduce((acc, r) => {
+              const diff = new Date(r.sold_at).getTime() - new Date(r.created_at).getTime()
+              return acc + Math.max(0, diff)
+            }, 0)
+            avgTimeToSellDays = Math.round(totalMs / soldRows.length / (1000 * 60 * 60 * 24) * 10) / 10
+          }
         }
         if (adminIds.length) {
-          const { count } = await supabaseAdmin
-            .from('listings').select('id', { count: 'exact', head: true })
-            .in('posted_by', adminIds)
+          const { count } = await withRange(
+            supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
+              .in('posted_by', adminIds)
+          )
           listingsByAdmin = count || 0
         }
         if (repIds.length) {
-          const { count } = await supabaseAdmin
-            .from('listings').select('id', { count: 'exact', head: true })
-            .in('posted_by', repIds)
+          const { count } = await withRange(
+            supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
+              .in('posted_by', repIds)
+          )
           listingsByReps = count || 0
         }
       }
     } else {
-      const { count: total, error: totalErr } = await supabaseAdmin
-        .from('listings').select('id', { count: 'exact', head: true })
-        .eq('posted_by', req.user.id)
+      const { count: total, error: totalErr } = await withRange(
+        supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
+          .eq('posted_by', req.user.id)
+      )
       if (totalErr) warnings.listings = totalErr.message
       else listingsPosted = total || 0
 
-      const { count: sold, error: soldErr } = await supabaseAdmin
-        .from('listings').select('id', { count: 'exact', head: true })
-        .eq('posted_by', req.user.id).eq('status', 'sold')
+      const { count: sold, error: soldErr } = await withRange(
+        supabaseAdmin.from('listings').select('id', { count: 'exact', head: true })
+          .eq('posted_by', req.user.id).eq('status', 'sold')
+      , 'sold_at')
       if (soldErr) warnings.sold = soldErr.message
       else soldThisMonth = sold || 0
+
+      const { data: soldRows } = await withRange(
+        supabaseAdmin.from('listings').select('created_at, sold_at')
+          .eq('posted_by', req.user.id).eq('status', 'sold')
+          .not('sold_at', 'is', null)
+      , 'sold_at')
+      if (soldRows && soldRows.length) {
+        const totalMs = soldRows.reduce((acc, r) =>
+          acc + Math.max(0, new Date(r.sold_at).getTime() - new Date(r.created_at).getTime()), 0)
+        avgTimeToSellDays = Math.round(totalMs / soldRows.length / (1000 * 60 * 60 * 24) * 10) / 10
+      }
     }
   } catch (e) { warnings.listings = e.message }
+
+  // Derived metrics
+  if (listingsPosted > 0 && rangeDays) {
+    postsPerDay = Math.round((listingsPosted / rangeDays) * 10) / 10
+  }
+  if (listingsPosted > 0) {
+    sellThroughRate = Math.round((soldThisMonth / listingsPosted) * 1000) / 10  // e.g. 23.4 (%)
+  }
+
+  // Link clicks (FB Marketplace listing → MarketSync redirect → dealer site).
+  // Counts rows in listing_clicks scoped to this user/dealership, within the range.
+  try {
+    let clickIds = null
+    if (isAdmin && req.dealershipId) {
+      const { data: members } = await supabaseAdmin
+        .from('profiles').select('id').eq('dealership_id', req.dealershipId)
+      clickIds = (members || []).map(m => m.id)
+    } else {
+      clickIds = [req.user.id]
+    }
+    if (clickIds && clickIds.length) {
+      // Click attribution flows through listings.posted_by
+      const { data: listingRows } = await supabaseAdmin
+        .from('listings').select('id').in('posted_by', clickIds)
+      const listingIds = (listingRows || []).map(l => l.id)
+      if (listingIds.length) {
+        const { count } = await withRange(
+          supabaseAdmin.from('listing_clicks').select('id', { count: 'exact', head: true })
+            .in('listing_id', listingIds)
+        , 'clicked_at')
+        linkClicks = count || 0
+      }
+    }
+  } catch (e) {
+    // listing_clicks table may not exist yet — that's fine, just leave linkClicks at 0
+    if (!e.message?.includes('does not exist')) warnings.clicks = e.message
+  }
 
   try {
     const { data, error } = await supabaseAdmin
@@ -701,12 +794,19 @@ app.get('/dashboard/insights', requireAuth, async (req, res) => {
   }
 
   res.json({
+    range: rangeDays ? String(rangeDays) : 'lifetime',
+    range_label: rangeLabel,
     inventory_available: inventoryAvailable,
     inventory_synced: inventorySynced,
+    inventory_aged_60d: inventoryAged60d,
     listings_posted: listingsPosted,
     listings_by_admin: listingsByAdmin,
     listings_by_reps: listingsByReps,
     sold_this_month: soldThisMonth,
+    avg_time_to_sell_days: avgTimeToSellDays,
+    posts_per_day: postsPerDay,
+    sell_through_rate: sellThroughRate,
+    link_clicks: linkClicks,
     active_days_this_week: activeDaysThisWeek,
     scope: isAdmin ? 'dealership' : 'personal',
     warnings: Object.keys(warnings).length ? warnings : undefined
@@ -1074,6 +1174,43 @@ app.get('/billing/trial-status', requireAuth, async (req, res) => {
     is_active: status === 'ACTIVE',
     is_trialing: status === 'TRIALING' && daysRemaining !== null && daysRemaining > 0
   })
+})
+
+// ── CLICK REDIRECT (Facebook Marketplace attribution) ──
+// Buyer clicks the dealer link in a Marketplace listing description → hits this
+// endpoint → we log the click and 302 to the actual dealer URL. Public — no auth
+// required (Facebook strips referrer auth headers, and the link must work for
+// anonymous buyers). The listing_id alone is enough since each listing row stores
+// the dealer source_url via its linked inventory row.
+app.get('/r/:listingId', async (req, res) => {
+  const { listingId } = req.params
+
+  // Look up the destination URL: prefer the inventory row's source_url, fall back
+  // to a stored snapshot if inventory has been deleted (sold/dropped).
+  let destination = null
+  try {
+    const { data: listing } = await supabaseAdmin
+      .from('listings')
+      .select('inventory_id, inventory!listings_inventory_id_fkey(source_url)')
+      .eq('id', listingId)
+      .maybeSingle()
+    destination = listing?.inventory?.source_url || null
+  } catch {}
+
+  // Log the click (don't block redirect on logging errors)
+  supabaseAdmin
+    .from('listing_clicks')
+    .insert({
+      listing_id: listingId,
+      source: req.query.s || 'fb_marketplace',
+      user_agent: (req.headers['user-agent'] || '').slice(0, 500),
+      referrer: (req.headers.referer || req.headers.referrer || '').slice(0, 500)
+    })
+    .then(({ error }) => { if (error) console.warn('listing_click insert failed:', error.message) })
+
+  if (destination) return res.redirect(302, destination)
+  // Fall back to the homepage rather than 404 — buyer should land somewhere usable
+  res.redirect(302, process.env.FRONTEND_URL || 'https://marketsync.link/')
 })
 
 // ── 9. IMAGE PROXY ──
