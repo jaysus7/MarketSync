@@ -2449,24 +2449,58 @@ function buildSourceUrl(feed, vehicle) {
                 || vehicle.vdpurl || vehicle.thirdpartyvdpurl || vehicle.vdp_url
   if (typeof explicit === 'string' && explicit.startsWith('http')) return explicit
 
-  // 3. Per-feed harvested URL map (populated at feed-add for LeadBox dealers)
+  // 3. Per-feed harvested URL map (populated by puppeteer at feed-add for some platforms)
   if (feed.url_map && vehicle.stocknumber) {
     const fromMap = feed.url_map[String(vehicle.stocknumber)]
     if (typeof fromMap === 'string' && fromMap.startsWith('http')) return fromMap
   }
 
-  // 4. LeadBox-specific category fallback (when stock# wasn't in the harvested map)
+  // 4. Deterministic URL builders — patterns confirmed by real dealer examples.
+  //    These work WITHOUT puppeteer, are instant, and survive auth-token rotation.
+
+  // 4a. UX Auto SPAs (Mike Knapp Ford, Welland Chev's UX-Auto subdomain, etc.)
+  //     Pattern: {dealer_site}/inventory/list/{condition}?stockID={stock_id}
+  //     Conditions: NEW→new, USED→used, DEMO→demos (note plural for demos)
+  if (feed.platform === 'spa_render' && feed.source_dealer_url && vehicle.stocknumber) {
+    const origin = (() => { try { return new URL(feed.source_dealer_url).origin } catch { return null } })()
+    if (origin) {
+      const rawCond = String(vehicle.condition || '').toUpperCase()
+      const pathCond = rawCond === 'NEW' ? 'new'
+                     : rawCond === 'USED' ? 'used'
+                     : rawCond === 'DEMO' ? 'demos'
+                     : 'new'  // default — covers feed entries with missing condition
+      return `${origin}/inventory/list/${pathCond}?stockID=${encodeURIComponent(vehicle.stocknumber)}`
+    }
+  }
+
+  // 4b. LeadBox slug pattern (Welland Chev and similar dealers using /view/ detail pages)
+  //     Pattern: {origin}/view/{condition}-{year}-{make}-{model}-{stocknumber}/
+  //     Example: /view/used-2024-chevrolet-trailblazer-1744998/
+  if (feed.platform === 'leadbox' && vehicle.stocknumber && vehicle.year && vehicle.make && vehicle.model) {
+    const origin = feed.feed_url.split('/wp-content')[0]
+    const cond = String(vehicle.condition || '').toLowerCase()
+    const pathCond = cond.includes('new') ? 'new' : cond.includes('used') ? 'used' : cond.includes('demo') ? 'demo' : 'used'
+    const slugify = (s) => String(s).toLowerCase().trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+    const makeSlug = slugify(vehicle.make)
+    const modelSlug = slugify(vehicle.model)
+    if (makeSlug && modelSlug) {
+      return `${origin}/view/${pathCond}-${vehicle.year}-${makeSlug}-${modelSlug}-${vehicle.stocknumber}/`
+    }
+  }
+
+  // 5. LeadBox-specific category fallback (when no stocknumber / can't build a slug)
   if (feed.feed_url && feed.feed_url.includes('/wp-content')) {
     return buildLeadBoxSourceUrl(feed.feed_url, vehicle)
   }
 
-  // 4. If the saved feed_url is a viewable HTML page (not raw JSON), use it as-is —
-  //    that's the dealer's inventory listing page, where visitors can find the car
+  // 6. If the saved feed_url is a viewable HTML page (not raw JSON), use it as-is
   if (feed.feed_url && !feed.feed_url.toLowerCase().endsWith('.json')) {
     return feed.feed_url
   }
 
-  // 5. Last resort: dealer's homepage (origin only) — never 404s
+  // 7. Last resort: dealer's homepage (origin only) — never 404s
   try { return new URL(feed.feed_url).origin } catch { return feed.feed_url || null }
 }
 
