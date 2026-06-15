@@ -4,7 +4,8 @@ import cors from 'cors'
 import ws from 'ws'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
-import { renderAndCaptureInventory, genericMapVehicle, harvestVehicleUrls } from './puppeteerRenderer.js'
+import { renderAndCaptureInventory, genericMapVehicle, harvestVehicleUrls,
+         inferUrlTemplate, renderUrlTemplate } from './puppeteerRenderer.js'
 import { validatePassword, rateLimit, securityHeaders, corsOriginCheck, getClientIp,
          generateRecoveryCodes, hashRecoveryCode } from './security.js'
 import { maybeAlertSuspiciousLogin } from './securityAlerts.js'
@@ -2449,48 +2450,20 @@ function buildSourceUrl(feed, vehicle) {
                 || vehicle.vdpurl || vehicle.thirdpartyvdpurl || vehicle.vdp_url
   if (typeof explicit === 'string' && explicit.startsWith('http')) return explicit
 
-  // 3. Per-feed harvested URL map (populated by puppeteer at feed-add for some platforms)
+  // 3. UNIVERSAL: inferred url_template — applies to ANY dealer site. Set once
+  //    per feed by inferUrlTemplate() during the first sync after feed-add.
+  if (feed.url_template) {
+    const rendered = renderUrlTemplate(feed.url_template, vehicle)
+    if (rendered && rendered.startsWith('http')) return rendered
+  }
+
+  // 4. Per-feed harvested URL map (fallback for platforms that haven't inferred a template)
   if (feed.url_map && vehicle.stocknumber) {
     const fromMap = feed.url_map[String(vehicle.stocknumber)]
     if (typeof fromMap === 'string' && fromMap.startsWith('http')) return fromMap
   }
 
-  // 4. Deterministic URL builders — patterns confirmed by real dealer examples.
-  //    These work WITHOUT puppeteer, are instant, and survive auth-token rotation.
-
-  // 4a. UX Auto SPAs (Mike Knapp Ford, Welland Chev's UX-Auto subdomain, etc.)
-  //     Pattern: {dealer_site}/inventory/list/{condition}?stockID={stock_id}
-  //     Conditions: NEW→new, USED→used, DEMO→demos (note plural for demos)
-  if (feed.platform === 'spa_render' && feed.source_dealer_url && vehicle.stocknumber) {
-    const origin = (() => { try { return new URL(feed.source_dealer_url).origin } catch { return null } })()
-    if (origin) {
-      const rawCond = String(vehicle.condition || '').toUpperCase()
-      const pathCond = rawCond === 'NEW' ? 'new'
-                     : rawCond === 'USED' ? 'used'
-                     : rawCond === 'DEMO' ? 'demos'
-                     : 'new'  // default — covers feed entries with missing condition
-      return `${origin}/inventory/list/${pathCond}?stockID=${encodeURIComponent(vehicle.stocknumber)}`
-    }
-  }
-
-  // 4b. LeadBox slug pattern (Welland Chev and similar dealers using /view/ detail pages)
-  //     Pattern: {origin}/view/{condition}-{year}-{make}-{model}-{stocknumber}/
-  //     Example: /view/used-2024-chevrolet-trailblazer-1744998/
-  if (feed.platform === 'leadbox' && vehicle.stocknumber && vehicle.year && vehicle.make && vehicle.model) {
-    const origin = feed.feed_url.split('/wp-content')[0]
-    const cond = String(vehicle.condition || '').toLowerCase()
-    const pathCond = cond.includes('new') ? 'new' : cond.includes('used') ? 'used' : cond.includes('demo') ? 'demo' : 'used'
-    const slugify = (s) => String(s).toLowerCase().trim()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-    const makeSlug = slugify(vehicle.make)
-    const modelSlug = slugify(vehicle.model)
-    if (makeSlug && modelSlug) {
-      return `${origin}/view/${pathCond}-${vehicle.year}-${makeSlug}-${modelSlug}-${vehicle.stocknumber}/`
-    }
-  }
-
-  // 5. LeadBox-specific category fallback (when no stocknumber / can't build a slug)
+  // 5. LeadBox-specific category fallback (last-resort, guaranteed not to 404)
   if (feed.feed_url && feed.feed_url.includes('/wp-content')) {
     return buildLeadBoxSourceUrl(feed.feed_url, vehicle)
   }
@@ -2534,7 +2507,7 @@ async function runInventorySync(dealershipId) {
   {
     const { data, error } = await supabaseAdmin
       .from('inventory_feeds')
-      .select('id, feed_url, feed_type, platform, source_dealer_url, url_map')
+      .select('id, feed_url, feed_type, platform, source_dealer_url, url_map, url_template')
       .eq('dealership_id', dealershipId)
     if (!error) { feeds = data }
     else selectError = error
@@ -2568,12 +2541,57 @@ async function runInventorySync(dealershipId) {
       // Match this feed to its probe definition so we can apply the right field mapper
       const probe = PLATFORM_PROBES.find(p => p.platform === feed.platform)
 
+      // ── UNIVERSAL URL-TEMPLATE INFERENCE ────────────────────────────────────
+      // For ANY feed missing a url_template, render the dealer's listing page in
+      // a headless browser, find a real per-vehicle anchor, and reverse-engineer
+      // the URL pattern. Saves the template once — every future sync just plugs
+      // in vehicle data. No platform-specific code needed for new dealer sites.
+      if (!feed.url_template) {
+        try {
+          console.log(`[sync] Inferring url_template for feed ${feed.id} (${feed.platform || 'unknown'})...`)
+          // Fetch a few sample vehicles to anchor the inference
+          const dealerSite = feed.source_dealer_url
+            || (feed.feed_url?.includes('/wp-content') ? feed.feed_url.split('/wp-content')[0] : null)
+            || (() => { try { return new URL(feed.feed_url).origin } catch { return null } })()
+          if (dealerSite) {
+            let feedJson = null
+            try {
+              const feedRes = await fetch(feed.feed_url, {
+                headers: {
+                  'Accept': 'application/json',
+                  'Origin': feed.source_dealer_url ? new URL(feed.source_dealer_url).origin : '',
+                  'Referer': feed.source_dealer_url || ''
+                }
+              })
+              feedJson = await feedRes.json().catch(() => null)
+            } catch {}
+            const samples = feedJson?.vehicles || feedJson?.records || (Array.isArray(feedJson) ? feedJson : [])
+            if (samples.length) {
+              const inferred = await inferUrlTemplate(dealerSite, samples)
+              if (inferred.ok && inferred.template) {
+                await supabaseAdmin
+                  .from('inventory_feeds')
+                  .update({ url_template: inferred.template })
+                  .eq('id', feed.id)
+                feed.url_template = inferred.template
+                console.log(`[sync] ✓ Inferred template (via ${inferred.matched_by}): ${inferred.template}`)
+              } else {
+                console.warn(`[sync] Template inference failed: ${inferred.error}`)
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`[sync] url_template inference failed (non-fatal): ${e.message}`)
+        }
+      }
+
       // First sync after deploy — backfill url_map for ANY platform where per-vehicle
       // URLs aren't included in the feed (LeadBox JSON, UX Auto SPA, etc.). This is what
       // makes existing feeds get per-vehicle URLs without delete/re-add.
       const PLATFORMS_NEEDING_HARVEST = ['leadbox', 'spa_render']
       const needsBackfill = PLATFORMS_NEEDING_HARVEST.includes(feed.platform)
         && (!feed.url_map || Object.keys(feed.url_map).length === 0)
+        && !feed.url_template  // template inference already covers this case
       if (needsBackfill) {
         try {
           console.log(`[sync] Backfilling url_map for ${feed.platform} feed ${feed.id}...`)

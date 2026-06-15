@@ -282,6 +282,187 @@ export async function harvestVehicleUrls(dealerOriginOrUrl, vehicles, opts = {})
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// UNIVERSAL URL TEMPLATE INFERRER
+// ──────────────────────────────────────────────────────────────────────────────
+// Runs ONCE per feed (at feed-add or first sync if missing). Renders the dealer's
+// listing page, finds an anchor that links to a vehicle whose stock/VIN we already
+// know, then reverse-engineers a TEMPLATE — e.g.
+//   "/view/{condition_lower}-{year}-{make_slug}-{model_slug}-{stock}/"
+// The template is saved on the feed row. At sync time we just plug in each
+// vehicle's data — instant, no re-rendering, works for any dealer platform.
+
+const slugify = (s) => String(s || '').toLowerCase().trim()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+// Extract canonical field values from a feed vehicle in a platform-agnostic way
+function readVehicleFields(v) {
+  return {
+    stock: v.stocknumber || v.stock_id || v.stock || v.stockNumber || v.StockNumber || null,
+    vin: v.vin || v.VIN || v.Vin || null,
+    year: v.year || v.Year || v.modelYear || null,
+    make: v.make || v.Make || null,
+    model: v.model || v.Model || null,
+    condition: v.condition || v.Condition || v.type || v.newOrUsed || null
+  }
+}
+
+// Given the dealer's site + a few sample vehicles from the feed, find an anchor
+// that links to one of them and derive a template.
+export async function inferUrlTemplate(dealerSite, sampleVehicles, opts = {}) {
+  const timeoutMs = opts.timeoutMs ?? 45000
+  const scrollMs = opts.scrollMs ?? 6000
+
+  const origin = (() => { try { return new URL(dealerSite).origin } catch { return null } })()
+  if (!origin) return { ok: false, error: 'invalid dealer URL' }
+
+  const samples = (sampleVehicles || []).slice(0, 5).map(readVehicleFields).filter(v => v.stock || v.vin)
+  if (!samples.length) return { ok: false, error: 'no sample vehicles with stock/VIN' }
+
+  // Try the same broad list of listing paths the harvester uses
+  const listingPaths = [
+    '/used-vehicles/', '/new-vehicles/', '/demo-inventory/',
+    '/used-inventory/', '/new-inventory/', '/pre-owned/',
+    '/inventory/list/new', '/inventory/list/used', '/inventory/list/demos',
+    '/new/', '/used/', '/new-cars/', '/used-cars/',
+    '/inventory/', '/vehicles/', '/cars/', '/showroom/', '/all-inventory/'
+  ]
+
+  let page
+  try {
+    const browser = await getBrowser()
+    page = await browser.newPage()
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36')
+
+    for (const path of listingPaths) {
+      const listingUrl = `${origin}${path}`
+      try {
+        const res = await page.goto(listingUrl, { waitUntil: 'networkidle2', timeout: timeoutMs }).catch(() => null)
+        if (!res || res.status() >= 400) continue
+
+        // Scroll to trigger lazy loads
+        await page.evaluate(async (totalMs) => {
+          const start = performance.now()
+          while (performance.now() - start < totalMs) {
+            window.scrollBy(0, 400)
+            await new Promise(r => setTimeout(r, 200))
+          }
+          window.scrollTo(0, 0)
+        }, scrollMs).catch(() => {})
+
+        const anchors = await page.evaluate(() =>
+          [...document.querySelectorAll('a[href]')]
+            .map(a => a.href)
+            .filter(h => h && !h.startsWith('javascript:') && !h.startsWith('mailto:') && !h.startsWith('tel:'))
+        )
+
+        // Find first anchor that matches ANY sample's stock or VIN
+        for (const sample of samples) {
+          for (const href of anchors) {
+            const lowerHref = href.toLowerCase()
+            const matchedBy = sample.stock && lowerHref.includes(String(sample.stock).toLowerCase()) ? 'stock'
+                            : sample.vin && lowerHref.includes(String(sample.vin).toLowerCase()) ? 'vin'
+                            : null
+            if (!matchedBy) continue
+
+            // Found a real per-vehicle URL — derive the template by reverse-substituting
+            const template = deriveTemplate(href, sample)
+            await page.close().catch(() => {})
+            return { ok: true, template, source_url: href, matched_by: matchedBy, listing_page: listingUrl }
+          }
+        }
+      } catch (e) {
+        console.warn(`[inferTemplate] error on ${listingUrl}: ${e.message}`)
+      }
+    }
+
+    return { ok: false, error: 'No matching anchor found on any listing page' }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  } finally {
+    if (page) { try { await page.close() } catch {} }
+  }
+}
+
+// Replace a sample vehicle's known values in the URL with template placeholders.
+// Replaces longest strings first to avoid partial-match accidents.
+// Tries multiple variants per field: raw, lowercase, slugified.
+function deriveTemplate(url, fields) {
+  let template = url
+  const replacements = []  // [{ pattern, placeholder, length }] — sort and apply
+
+  const push = (rawValue, placeholder) => {
+    if (rawValue == null) return
+    const str = String(rawValue)
+    if (str.length < 2) return  // skip 1-char values — too many false positives
+    replacements.push({ pattern: escapeRe(str), placeholder, length: str.length })
+  }
+
+  // Stock + VIN (highest priority — most unique)
+  push(fields.stock, '{stock}')
+  push(fields.vin, '{vin}')
+  push(fields.year, '{year}')
+
+  // Make + model: try raw, lower, slug
+  if (fields.make) {
+    push(fields.make, '{make}')
+    push(String(fields.make).toLowerCase(), '{make}')
+    push(slugify(fields.make), '{make_slug}')
+  }
+  if (fields.model) {
+    push(fields.model, '{model}')
+    push(String(fields.model).toLowerCase(), '{model}')
+    push(slugify(fields.model), '{model_slug}')
+  }
+
+  // Condition: raw + lowercase variants
+  if (fields.condition) {
+    push(fields.condition, '{condition}')
+    push(String(fields.condition).toLowerCase(), '{condition_lower}')
+  }
+
+  // Apply longest first to avoid partial replacements (e.g. "Trail" matching inside "Trailblazer")
+  replacements.sort((a, b) => b.length - a.length)
+  for (const { pattern, placeholder } of replacements) {
+    // Word-boundary-style replacement to avoid eating substrings inside other tokens
+    template = template.replace(new RegExp(pattern, 'g'), placeholder)
+  }
+  return template
+}
+
+// Apply a saved template to a fresh vehicle. Returns the full URL or null if any
+// required placeholder can't be filled.
+export function renderUrlTemplate(template, vehicle) {
+  if (!template || typeof template !== 'string') return null
+  const fields = readVehicleFields(vehicle)
+  if (!fields.stock && !fields.vin) return null  // can't disambiguate
+
+  const sub = {
+    '{stock}': fields.stock || '',
+    '{vin}': fields.vin || '',
+    '{year}': fields.year || '',
+    '{make}': fields.make || '',
+    '{make_slug}': slugify(fields.make),
+    '{model}': fields.model || '',
+    '{model_slug}': slugify(fields.model),
+    '{condition}': fields.condition || '',
+    '{condition_lower}': String(fields.condition || '').toLowerCase()
+  }
+
+  let url = template
+  for (const [ph, value] of Object.entries(sub)) {
+    url = url.split(ph).join(encodeURIComponent(value))
+    // For non-encoded slots (slugs, lowercased) the value is already URL-safe,
+    // but encodeURIComponent on already-safe strings is a no-op. Keep it.
+  }
+
+  // If any placeholders remain unfilled, the template can't render → return null
+  if (url.includes('{')) return null
+  return url
+}
+
 // Map a raw vehicle from any platform to the canonical shape the sync engine expects.
 // Field-name heuristics — covers UX Auto (sale_price/stock_id/ext_color), Dealer.com
 // (modelYear/finalPrice/stockNumber), generic camelCase, and snake_case.
