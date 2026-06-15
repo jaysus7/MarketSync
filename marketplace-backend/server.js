@@ -2534,26 +2534,50 @@ async function runInventorySync(dealershipId) {
       // Match this feed to its probe definition so we can apply the right field mapper
       const probe = PLATFORM_PROBES.find(p => p.platform === feed.platform)
 
-      // First sync after deploy — backfill url_map for LeadBox feeds added before harvest existed.
-      // This is what makes existing feeds get per-vehicle URLs without delete/re-add.
-      const needsBackfill = feed.platform === 'leadbox'
+      // First sync after deploy — backfill url_map for ANY platform where per-vehicle
+      // URLs aren't included in the feed (LeadBox JSON, UX Auto SPA, etc.). This is what
+      // makes existing feeds get per-vehicle URLs without delete/re-add.
+      const PLATFORMS_NEEDING_HARVEST = ['leadbox', 'spa_render']
+      const needsBackfill = PLATFORMS_NEEDING_HARVEST.includes(feed.platform)
         && (!feed.url_map || Object.keys(feed.url_map).length === 0)
       if (needsBackfill) {
         try {
-          console.log(`[sync] Backfilling url_map for LeadBox feed ${feed.id}...`)
-          const feedRes = await fetch(feed.feed_url)
-          const feedJson = await feedRes.json().catch(() => null)
-          // Pass {stock, vin} so the harvester can match either when the dealer's
-          // detail URL slug uses VIN instead of stock (Dealer.com, some EDealer configs).
-          const vehicleKeys = (feedJson?.vehicles || [])
+          console.log(`[sync] Backfilling url_map for ${feed.platform} feed ${feed.id}...`)
+
+          // Pull the list of stock/VIN pairs we need to map URLs for. The fetch URL
+          // differs by platform — LeadBox feed_url returns JSON, spa_render feed_url
+          // IS the captured XHR (which also returns JSON).
+          let feedJson = null
+          try {
+            const feedRes = await fetch(feed.feed_url, {
+              headers: {
+                'Accept': 'application/json',
+                'Origin': feed.source_dealer_url ? new URL(feed.source_dealer_url).origin : '',
+                'Referer': feed.source_dealer_url || ''
+              }
+            })
+            feedJson = await feedRes.json().catch(() => null)
+          } catch (e) {
+            console.warn(`[sync] Could not fetch feed JSON for harvest: ${e.message}`)
+          }
+
+          const vehicleArray = feedJson?.vehicles || feedJson?.records
+            || (Array.isArray(feedJson) ? feedJson : [])
+          const vehicleKeys = vehicleArray
             .map(v => ({
               stock: v.stocknumber || v.stock_id || v.stock || null,
               vin: v.vin || v.VIN || null
             }))
             .filter(v => v.stock || v.vin)
+
           if (vehicleKeys.length) {
-            const dealerOrigin = feed.feed_url.split('/wp-content')[0]
-            const harvest = await harvestVehicleUrls(dealerOrigin, vehicleKeys)
+            // Harvest against the actual dealer site — for LeadBox we strip /wp-content,
+            // for spa_render we use the original source_dealer_url the user pasted.
+            const dealerSite = feed.platform === 'spa_render' && feed.source_dealer_url
+              ? feed.source_dealer_url
+              : feed.feed_url.split('/wp-content')[0]
+
+            const harvest = await harvestVehicleUrls(dealerSite, vehicleKeys)
             if (harvest.success) {
               feed.url_map = harvest.map
               await supabaseAdmin
@@ -2563,7 +2587,12 @@ async function runInventorySync(dealershipId) {
               console.log(`[sync] Backfilled ${harvest.matched}/${harvest.total} URLs for feed ${feed.id}`)
             } else {
               console.warn(`[sync] Backfill harvest yielded no matches: ${harvest.error || 'no anchors'}`)
+              if (harvest.pages_visited?.length) {
+                console.warn(`[sync]   Pages visited: ${harvest.pages_visited.join(', ')}`)
+              }
             }
+          } else {
+            console.warn(`[sync] No stock numbers in feed payload — skipping harvest`)
           }
         } catch (e) {
           console.warn(`[sync] url_map backfill failed (non-fatal): ${e.message}`)

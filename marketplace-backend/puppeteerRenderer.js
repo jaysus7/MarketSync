@@ -176,11 +176,18 @@ export async function harvestVehicleUrls(dealerOriginOrUrl, vehicles, opts = {})
   })()
   if (!origin) return { success: false, error: 'invalid dealer URL', map: {} }
 
-  // Listing pages we try (priority order, broadest possible coverage across dealer CMSes)
+  // Listing pages we try (priority order, broadest possible coverage across dealer CMSes).
+  // LeadBox conventions first; UX Auto (Angular SPA) variants next; then generic catch-alls.
   const listingPaths = [
+    // LeadBox / WordPress-style
     '/new-vehicles/', '/used-vehicles/', '/demo-inventory/',
     '/new-inventory/', '/used-inventory/', '/pre-owned/',
+    // UX Auto SPAs (Mike Knapp Ford etc.) — uppercase + lowercase + plural "demos"
+    '/inventory/list/new', '/inventory/list/used', '/inventory/list/demos',
+    '/inventory/list/NEW', '/inventory/list/USED', '/inventory/list/DEMO',
+    // Short-path conventions
     '/new/', '/used/', '/new-cars/', '/used-cars/',
+    // Generic catch-alls
     '/inventory/', '/vehicles/', '/cars/', '/showroom/',
     '/all-inventory/', '/view/'
   ]
