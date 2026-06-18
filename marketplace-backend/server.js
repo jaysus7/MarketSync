@@ -2297,19 +2297,26 @@ function extractCarsFromJsonLd(nodes) {
     const types = Array.isArray(type) ? type : [type]
     return types.some(t => t === 'Car' || t === 'Vehicle' || t === 'MotorVehicle')
   }
-  // Fully recursive walker — descends into ANY object/array value, not just the
-  // schema.org "navigation" keys. EDealer + Yoast-SEO graphs nest cars under
-  // mainEntity/offers/subjectOf/etc, which the older walker missed entirely.
-  const visit = (node) => {
-    if (!node) return
-    if (Array.isArray(node)) { node.forEach(visit); return }
-    if (typeof node !== 'object') return
-    if (seen.has(node)) return
+  // ITERATIVE walker (no recursion). Yoast SEO + EDealer graphs can produce
+  // deeply nested structures (50+ levels) — a recursive version blew Node's
+  // stack on production and triggered SIGABRT (exit 134). This version uses
+  // an explicit work-queue so it can handle ANY depth in O(nodes) memory.
+  const queue = [nodes]
+  while (queue.length > 0) {
+    const node = queue.pop()
+    if (!node) continue
+    if (Array.isArray(node)) {
+      for (const item of node) queue.push(item)
+      continue
+    }
+    if (typeof node !== 'object') continue
+    if (seen.has(node)) continue
     seen.add(node)
-    if (isCar(node)) { cars.push(node); return }  // matched — don't double-count its inner refs
-    for (const v of Object.values(node)) visit(v)
+    if (isCar(node)) { cars.push(node); continue }
+    for (const v of Object.values(node)) {
+      if (v && typeof v === 'object') queue.push(v)
+    }
   }
-  visit(nodes)
   return cars
 }
 
@@ -2700,14 +2707,16 @@ async function runInventorySync(dealershipId) {
           while ((m = re.exec(html)) !== null) {
             try { blocks.push(JSON.parse(m[1])) } catch {}
           }
+          // Iterative flattener — same stack-safety reason as extractCarsFromJsonLd
           const flat = []
-          const walk = (n) => {
-            if (!n) return
-            if (Array.isArray(n)) { n.forEach(walk); return }
-            if (Array.isArray(n['@graph'])) { n['@graph'].forEach(walk); return }
+          const walkQueue = [...blocks]
+          while (walkQueue.length > 0) {
+            const n = walkQueue.pop()
+            if (!n) continue
+            if (Array.isArray(n)) { for (const x of n) walkQueue.push(x); continue }
+            if (Array.isArray(n['@graph'])) { for (const x of n['@graph']) walkQueue.push(x); continue }
             flat.push(n)
           }
-          blocks.forEach(walk)
           const cars = extractCarsFromJsonLd(flat)
           const origin = new URL(feed.feed_url).origin
 
