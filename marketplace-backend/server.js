@@ -2208,7 +2208,11 @@ async function fetchEDealerInventoryFromSitemap(origin) {
 
     const vehicles = []
     let fetched = 0, failed = 0
-    const CONCURRENCY = 6
+    // Reduced from 6 → 3 to keep peak heap usage lower on Render's 512MB free tier.
+    // 3 parallel detail-page fetches × ~500KB each = 1.5MB peak versus the previous
+    // 3MB peak — combined with the per-dealership sync lock this prevents the OOM
+    // we hit when boot sync + auto-sync + manual sync overlapped.
+    const CONCURRENCY = 3
     for (let i = 0; i < urls.length; i += CONCURRENCY) {
       const batch = urls.slice(i, i + CONCURRENCY)
       const results = await Promise.all(batch.map(async (url) => {
@@ -2249,7 +2253,7 @@ function extractEDealerImagesFromPage(html) {
   return [...seen]
 }
 
-async function fetchEDealerDetailImageGroups(detailUrls, concurrency = 4) {
+async function fetchEDealerDetailImageGroups(detailUrls, concurrency = 2) {
   const results = new Array(detailUrls.length).fill([])
   for (let i = 0; i < detailUrls.length; i += concurrency) {
     const batch = detailUrls.slice(i, i + concurrency)
@@ -2519,7 +2523,24 @@ function buildLeadBoxSourceUrl(feedUrl, vehicle) {
   return `${origin}/vehicles/`
 }
 
+// Per-dealership in-flight sync tracking. Prevents the boot sync, the post-add
+// auto-sync, and a manual Sync Now click from all running for the same dealership
+// at the same time — that overlap was the cause of "Exited with status 134" (OOM
+// from multiple large feed parses overlapping in memory).
+const _syncsInFlight = new Map()  // dealershipId → Promise<result>
+
 async function runInventorySync(dealershipId) {
+  if (_syncsInFlight.has(dealershipId)) {
+    console.log(`[sync] piggy-backing on in-flight sync for ${dealershipId}`)
+    return _syncsInFlight.get(dealershipId)
+  }
+  const promise = _runInventorySyncInner(dealershipId)
+  _syncsInFlight.set(dealershipId, promise)
+  try { return await promise }
+  finally { _syncsInFlight.delete(dealershipId) }
+}
+
+async function _runInventorySyncInner(dealershipId) {
   // Defensive: ask for the new columns first; if any is missing (migration not yet run),
   // retry with the legacy column set so sync still works. Surfaces a clear warning instead
   // of silently flipping to "No inventory feeds configured".
