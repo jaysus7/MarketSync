@@ -2199,19 +2199,31 @@ async function fetchEDealerInventoryFromSitemap(origin) {
     }
     const xml = await smRes.text()
     // Match every <loc>...vdp/</loc> entry — vdp = vehicle detail page
-    const urls = [...xml.matchAll(/<loc>([^<]+\/inventory\/[^<]+vdp\/?)<\/loc>/g)].map(m => m[1])
+    let urls = [...xml.matchAll(/<loc>([^<]+\/inventory\/[^<]+vdp\/?)<\/loc>/g)].map(m => m[1])
     if (!urls.length) {
       console.warn(`[sync] EDealer sitemap parsed but contained 0 detail URLs`)
       return null
     }
-    console.log(`[sync] EDealer sitemap: ${urls.length} detail URLs to fetch`)
+
+    // Memory cap: walking too many detail pages on Render's 512MB free tier blows
+    // the heap (each page is ~300KB-1MB HTML, decoded to UTF-16 = 2x in V8). For
+    // dealers with more inventory than this cap, we sync only the most recent N and
+    // log how many were skipped. Configurable via env so upgrades unlock everything.
+    const MAX_DETAIL_URLS = parseInt(process.env.MAX_SITEMAP_URLS) || 150
+    const totalUrls = urls.length
+    if (totalUrls > MAX_DETAIL_URLS) {
+      urls = urls.slice(0, MAX_DETAIL_URLS)
+      console.warn(`[sync] EDealer sitemap: capping walk at ${MAX_DETAIL_URLS}/${totalUrls} URLs (set MAX_SITEMAP_URLS env to raise)`)
+    } else {
+      console.log(`[sync] EDealer sitemap: ${urls.length} detail URLs to fetch`)
+    }
+
+    // Per-response size limit — a single misbehaving page (e.g. inline base64 photos)
+    // could blow heap by itself. Cap reads at 3MB and skip oversized pages.
+    const MAX_BYTES = 3 * 1024 * 1024
 
     const vehicles = []
-    let fetched = 0, failed = 0
-    // Reduced from 6 → 3 to keep peak heap usage lower on Render's 512MB free tier.
-    // 3 parallel detail-page fetches × ~500KB each = 1.5MB peak versus the previous
-    // 3MB peak — combined with the per-dealership sync lock this prevents the OOM
-    // we hit when boot sync + auto-sync + manual sync overlapped.
+    let fetched = 0, failed = 0, oversized = 0
     const CONCURRENCY = 3
     for (let i = 0; i < urls.length; i += CONCURRENCY) {
       const batch = urls.slice(i, i + CONCURRENCY)
@@ -2219,13 +2231,23 @@ async function fetchEDealerInventoryFromSitemap(origin) {
         try {
           const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 MarketSync-Sync/1.0' } })
           if (!r.ok) { failed++; return null }
+          // Skip oversized responses without decoding the whole body to a string
+          const lenHeader = parseInt(r.headers.get('content-length') || '0')
+          if (lenHeader > MAX_BYTES) { oversized++; return null }
+          let html = await r.text()
+          if (html.length > MAX_BYTES) { html = null; oversized++; return null }
+          const parsed = parseEDealerDetailPage(html, url)
+          html = null  // explicit drop so GC reclaims the 1MB+ string before next batch
           fetched++
-          return parseEDealerDetailPage(await r.text(), url)
+          return parsed
         } catch { failed++; return null }
       }))
       vehicles.push(...results.filter(Boolean))
+      // Tiny pause between batches lets V8 schedule a young-gen GC pass —
+      // measurably reduces peak heap on long walks
+      if (i + CONCURRENCY < urls.length) await sleep(50)
     }
-    console.log(`[sync] EDealer sitemap walker: ${vehicles.length} valid · ${fetched} fetched · ${failed} failed`)
+    console.log(`[sync] EDealer sitemap walker: ${vehicles.length} valid · ${fetched} fetched · ${failed} failed · ${oversized} oversized`)
     return vehicles.length > 0 ? vehicles : null
   } catch (e) {
     console.warn('[sync] EDealer sitemap walker failed:', e.message)
