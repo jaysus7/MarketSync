@@ -2529,6 +2529,10 @@ async function runInventorySync(dealershipId) {
   }
 
   let totalAttempts = 0, totalSkipped = 0, totalVehiclesFound = 0
+  // Aggregate skip reasons across all feeds for this dealership — surfaced in the API
+  // response so the dashboard can show exactly WHY vehicles got rejected. Beats reading
+  // Render logs to debug a sync.
+  const skipReasons = { feed_type: 0, offline: 0, no_identifier: 0, upsert_error: 0 }
   const uniqueVins = new Set()  // VINs successfully upserted this run
   const allRawVins = new Set()  // every VIN from raw feed data (no filter) — for auto-sold
 
@@ -2808,16 +2812,22 @@ async function runInventorySync(dealershipId) {
           .upsert(record, { onConflict: 'vin' })
         if (error) {
           totalSkipped++
+          skipReasons.upsert_error++
+          if (skipReasons.upsert_error <= 3) console.warn(`[sync] upsert error: ${error.message}`)
         } else {
           totalAttempts++
           uniqueVins.add(effectiveVin)
         }
       }
 
-      // Verbose per-feed skip diagnostics — exposed in sync logs so we can tell exactly
-      // WHY vehicles were skipped instead of guessing "sale-pending / offline".
+      // Aggregate this feed's skip counts into the dealership-wide totals
+      skipReasons.feed_type += skippedFeedType
+      skipReasons.offline += skippedOnweb
+      skipReasons.no_identifier += skippedNoIdentifier
+
+      // Verbose per-feed skip diagnostics — also kept in Render logs for deeper digs
       if (totalSkipped > 0) {
-        console.log(`[sync] feed ${feed.id} skip breakdown: feed_type=${skippedFeedType}, offline=${skippedOnweb}, no_identifier=${skippedNoIdentifier}`)
+        console.log(`[sync] feed ${feed.id} skip breakdown: feed_type=${skippedFeedType}, offline=${skippedOnweb}, no_identifier=${skippedNoIdentifier}, upsert_error=${skipReasons.upsert_error}`)
       }
     } catch (feedErr) {
       console.error('[sync] Feed error:', feedErr.message)
@@ -2888,6 +2898,7 @@ async function runInventorySync(dealershipId) {
     attempts: totalAttempts,
     duplicates_merged: Math.max(0, totalAttempts - uniqueVins.size),
     skipped: totalSkipped,
+    skip_breakdown: skipReasons,
     synced_at: new Date().toISOString()
   }
 }

@@ -1030,7 +1030,19 @@ async function syncNow() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Sync failed');
     const dupNote = data.duplicates_merged > 0 ? ` · ${data.duplicates_merged} duplicate VINs merged` : '';
-    const skipNote = data.skipped > 0 ? ` · ${data.skipped} skipped (sale-pending / offline)` : '';
+    // Build a real skip reason from the breakdown — replaces the misleading "sale-pending / offline" generic
+    let skipNote = '';
+    if (data.skipped > 0) {
+      const b = data.skip_breakdown || {};
+      const reasons = [];
+      if (b.feed_type > 0) reasons.push(`${b.feed_type} wrong condition`);
+      if (b.offline > 0) reasons.push(`${b.offline} offline`);
+      if (b.no_identifier > 0) reasons.push(`${b.no_identifier} no VIN/stock #`);
+      if (b.upsert_error > 0) reasons.push(`${b.upsert_error} DB errors`);
+      skipNote = reasons.length
+        ? ` · ${data.skipped} skipped (${reasons.join(', ')})`
+        : ` · ${data.skipped} skipped`;
+    }
     showSyncStatus(
       `Synced ${data.unique_vehicles} unique vehicles (${data.available_after_sync} available)${dupNote}${skipNote}.`,
       'ok'
