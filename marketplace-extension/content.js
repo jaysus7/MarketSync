@@ -272,37 +272,67 @@ function showStatus(message, type = 'info') {
 }
 
 // ── Photo injection ───────────────────────────
+// Locate Facebook's hidden file input. Tries multiple selectors because FB has
+// shipped at least three variants over the past year and we can't assume which
+// build a given user lands on. Returns null if none mount within the timeout.
+function findFileInput() {
+  // Most specific first → most permissive last
+  const selectors = [
+    'input[type="file"][accept*="image"]',
+    'input[type="file"][accept*="jpeg"]',
+    'input[type="file"][accept*="png"]',
+    'input[type="file"][multiple]',
+    'input[type="file"]'
+  ]
+  for (const sel of selectors) {
+    const inputs = [...document.querySelectorAll(sel)]
+    // Prefer inputs that are inside a labelled "photos"/"media" region
+    const inPhotoRegion = inputs.find(input => {
+      const region = input.closest('[role="dialog"], [data-pagelet*="photo" i], [aria-label*="photo" i]')
+      return !!region
+    })
+    if (inPhotoRegion) return inPhotoRegion
+    if (inputs.length) return inputs[0]
+  }
+  return null
+}
+
 // Inject photos directly into Facebook's hidden file input. The input only mounts
-// AFTER the user clicks "Add photos", so we surface it first if missing — this was
-// the cause of "stuck on Downloading photos" (the fallback path that downloaded
-// every photo to the user's Mac was firing because injection silently failed).
+// AFTER the user clicks "Add photos", so we surface it first if missing.
 async function injectPhotosIntoInput(imageUrls) {
-  let fileInput = document.querySelector('input[type="file"][accept*="image"]');
+  console.log('[MarketSync] injectPhotosIntoInput start with', imageUrls.length, 'URLs')
+
+  let fileInput = findFileInput()
+  console.log('[MarketSync] initial file input found:', !!fileInput)
 
   // Input not in DOM yet — click "Add photos" to mount it
   if (!fileInput) {
     const addBtn = document.querySelector('[aria-label="Add photos"]')
       || [...document.querySelectorAll('div[role="button"], button')].find(el =>
            el.textContent?.trim() === 'Add photos');
+    console.log('[MarketSync] Add photos button found:', !!addBtn)
     if (addBtn) {
       addBtn.click();
-      // Wait up to 5s for the file input to mount
       for (let i = 0; i < 10; i++) {
         await sleep(500);
-        fileInput = document.querySelector('input[type="file"][accept*="image"]');
-        if (fileInput) break;
+        fileInput = findFileInput()
+        if (fileInput) { console.log('[MarketSync] file input mounted after', (i + 1) * 500, 'ms'); break; }
       }
-      // Dismiss any modal that opened over the photo input area
+      // Dismiss any modal that may have popped up
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await sleep(300);
-      fileInput = document.querySelector('input[type="file"][accept*="image"]');
+      if (!fileInput) fileInput = findFileInput()
     }
   }
 
   if (!fileInput) {
-    console.warn('Could not find file input even after clicking Add photos');
+    console.warn('[MarketSync] No file input found. Available inputs:',
+      [...document.querySelectorAll('input[type="file"]')].map(i => ({
+        accept: i.accept, multiple: i.multiple, name: i.name
+      })))
     return false;
   }
+  console.log('[MarketSync] using file input:', { accept: fileInput.accept, multiple: fileInput.multiple })
 
   // FB Marketplace allows up to 30 photos per listing
   const files = [];
@@ -312,20 +342,18 @@ async function injectPhotosIntoInput(imageUrls) {
       const res = await fetch(`${API}/proxy-image?url=${encodeURIComponent(imageUrls[i])}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
-      if (blob.size < 1000) throw new Error('blob too small');  // probably an error page
+      if (blob.size < 1000) throw new Error(`blob too small (${blob.size}B — probably an error page)`);
       files.push(new File([blob], `photo_${i + 1}.jpg`, { type: 'image/jpeg' }));
     } catch (e) {
-      console.warn(`Failed to fetch photo ${i + 1}: ${e.message}`);
+      console.warn(`[MarketSync] photo ${i + 1} fetch failed: ${e.message}`);
       fetchFailures++;
     }
   }
+  console.log(`[MarketSync] fetched ${files.length}/${imageUrls.length} photos (${fetchFailures} failed)`)
 
   if (!files.length) {
-    console.warn('No photos could be downloaded from proxy');
+    console.warn('[MarketSync] No photos could be downloaded from proxy — check backend /proxy-image endpoint')
     return false;
-  }
-  if (fetchFailures > 0) {
-    console.warn(`${fetchFailures}/${imageUrls.length} photos failed to download — uploading the rest`);
   }
 
   const dt = new DataTransfer();
@@ -340,9 +368,15 @@ async function injectPhotosIntoInput(imageUrls) {
 
   fileInput.dispatchEvent(new Event('change', { bubbles: true }));
   fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-  await sleep(2000);
+  await sleep(2500);
 
-  return fileInput.files.length > 0;
+  // Don't trust fileInput.files.length === 0 as failure: FB sometimes clears the
+  // input after consuming it. Look for ANY image previews appearing on the page
+  // as a more reliable success signal.
+  const previewCount = document.querySelectorAll('img[src^="blob:"]').length
+  console.log(`[MarketSync] post-inject: input.files=${fileInput.files.length}, blob previews=${previewCount}`)
+  if (previewCount > 0 || fileInput.files.length > 0) return true
+  return false
 }
 
 // ── Photo strip ───────────────────────────────
