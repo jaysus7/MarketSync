@@ -622,17 +622,28 @@ async function fillListingForm(vehicle) {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await sleep(400);
       console.log('✓ Model selected:', model);
+    // ── REPLACE this block in content.js (the "free-text fallback" inside the
+//    main Model selection, right after the modelOption search) ──
+// Old version: `document.querySelector('[role="option"]')` — grabs ANY
+// option visible anywhere on the page. New version scopes the search to
+// the overlay the text field actually opened.
+
+} else {
+  console.warn('Model dropdown opened but no matching option found. Trying free-text fallback.');
+  const modelTextField = getFormFields().find(f => f.closest('label, div')?.textContent?.includes('Model'));
+  if (modelTextField) {
+    await typeInto(modelTextField, model);
+    await sleep(800);
+    const overlay = modelTextField.closest('[role="dialog"], [role="listbox"], [role="menu"]') || document;
+    const opt = overlay.querySelector('[role="option"]');
+    if (opt && opt.textContent.trim().toLowerCase().includes(model.toLowerCase())) {
+      opt.click();
+      await sleep(500);
     } else {
-      console.warn('Model dropdown opened but no matching option found. Trying free-text fallback.');
-      const modelTextField = getFormFields().find(f => f.closest('label, div')?.textContent?.includes('Model'));
-      if (modelTextField) {
-        await typeInto(modelTextField, model);
-        await sleep(600);
-        const opt = document.querySelector('[role="option"]');
-        if (opt) { opt.click(); await sleep(500); }
-      }
+      console.warn('Free-text fallback: no matching option found in scoped overlay. Leaving for manual fill.');
     }
   }
+}
   // Wait longer for the Model commit so the next combobox lookup doesn't grab the
   // Model field by mistake. 2500ms beats the visual confirmation we observed.
   await sleep(2500);
