@@ -1508,13 +1508,12 @@ app.get('/inventory', requireAuth, async (req, res) => {
 app.get('/inventory/all', requireAuth, async (req, res) => {
   const { data, error } = await supabaseAdmin
     .from('inventory')
-    .select('id, vin, year, make, model, trim, price, mileage, exterior_color, status, image_urls, source_url, last_synced_at')
+    .select('id, vin, year, make, model, trim, price, mileage, condition, exterior_color, status, image_urls, source_url, description, last_synced_at')
     .eq('dealership_id', req.dealershipId)
     .order('created_at', { ascending: false })
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)
 })
-
 app.get('/inventory/:id', requireAuth, async (req, res) => {
   const { data, error } = await supabaseAdmin
     .from('inventory')
@@ -2862,24 +2861,25 @@ async function _runInventorySyncInner(dealershipId) {
         const effectiveVin = v.vin || `STK-${dealershipId.slice(0, 8)}-${v.stocknumber}`
 
         const record = {
-          dealership_id: dealershipId,
-          vin: effectiveVin,
-          year: parseInt(v.year),
-          make: v.make,
-          model: v.model,
-          trim: v.trim || null,
-          price: v.saleprice || v.price || 0,
-          mileage: v.mileage || 0,
-          exterior_color: v.exteriorcolor || null,
-          interior_color: v.interiorcolor || null,
-          transmission: v.transmission || null,
-          fuel_type: mapFuel(v.fueltype),
-          description: buildDescription(v),
-          image_urls: imageUrls,
-          source_url: sourceUrl,
-          status: v.salepending ? 'pending' : 'available',
-          last_synced_at: new Date().toISOString()
-        }
+  dealership_id: dealershipId,
+  vin: effectiveVin,
+  year: parseInt(v.year),
+  make: v.make,
+  model: v.model,
+  trim: v.trim || null,
+  price: v.saleprice || v.price || 0,
+  mileage: v.mileage || 0,
+  condition: v.condition || null,          // ← ADD THIS LINE
+  exterior_color: v.exteriorcolor || null,
+  interior_color: v.interiorcolor || null,
+  transmission: v.transmission || null,
+  fuel_type: mapFuel(v.fueltype),
+  description: buildDescription(v),
+  image_urls: imageUrls,
+  source_url: sourceUrl,
+  status: v.salepending ? 'pending' : 'available',
+  last_synced_at: new Date().toISOString()
+}
 
         const { error } = await supabaseAdmin
           .from('inventory')
