@@ -1,16 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-80X981D9FP"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-80X981D9FP');
-</script>
-<script id="cookieyes" type="text/javascript" src="https://cdn-cookieyes.com/client_data/4313ff69152b93899edaa7a8/script.js"></script>
+  <!-- Removed Google Tag Manager + CookieYes — both violate Chrome extension CSP
+       (which forbids external + inline scripts in popups). Those analytics belong
+       on the public website only, not in the extension popup. -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MarketSync</title>
@@ -305,9 +298,13 @@
     </div>
   </div>
 
-  <!-- Header bar (logged-in users) — name, dealership, sign-out. Was accidentally
-       removed in a recent edit, which left the popup.js handler `$('logout-btn')`
-       returning null and silently failing. -->
+  <!-- Logged-in view — everything below only shows AFTER setScreen('inventory').
+       Earlier this wasn't wrapped in a view-screen, which meant the toolbar/stats/
+       header all rendered on top of the login form AND popup.js crashed trying to
+       toggle a #inventory-screen div that didn't exist. -->
+  <div id="inventory-screen" class="view-screen">
+
+  <!-- Header bar — name, dealership, sign-out -->
   <div class="header">
     <div>
       <h1 id="header-name">—</h1>
@@ -361,7 +358,7 @@
     <div class="vehicle-list" id="vehicle-list">
       <div class="loading">Loading inventory...</div>
     </div>
-  </div>
+  </div><!-- /#inventory-screen -->
 
   <script src="popup.js"></script>
 </body>
