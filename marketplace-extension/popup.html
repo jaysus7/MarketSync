@@ -40,6 +40,26 @@
     }
     .logout-btn:hover { border-color: #555; color: #fff; }
 
+    /* ── Category filter pills (All / New / Used / Demo) ── */
+    .category-filter { display: flex; gap: 6px; flex-wrap: wrap; }
+    .cat-btn {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      color: #888;
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cat-btn:hover { border-color: #555; color: #fff; }
+    .cat-btn.active {
+      background: #3b82f6;
+      border-color: #3b82f6;
+      color: #fff;
+    }
+
     /* ── View Controller ── */
     .view-screen { display: none; }
     .view-screen.active { display: block; }

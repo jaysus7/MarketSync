@@ -139,11 +139,27 @@ async function loadInventory(token) {
     $('stat-posted').textContent = postedMap.size
     $('stat-remaining').textContent = Math.max(0, inventory.length - postedInStock)
 
-    if (!displayList.length) {
+    // Cache the fully-merged dataset so the category-filter buttons can re-render
+    // instantly without re-fetching from the API. The active category lives in
+    // window.__msActiveCat and the renderer reads it on every paint.
+    window.__msInvCache = { inventory, displayList, postedMap, token }
+
+    // Apply the active category filter to the display list before rendering.
+    // Category values come from the .cat-btn data-cat attribute: 'all'|'New'|'Used'|'Demo'.
+    const activeCat = window.__msActiveCat || 'all'
+    const filtered = activeCat === 'all'
+      ? displayList
+      : displayList.filter(v => {
+          // Loose match — feed conditions vary ("New" / "NEW" / "new").
+          const c = String(v.condition || '').toLowerCase()
+          return c === activeCat.toLowerCase()
+        })
+
+    if (!filtered.length) {
       $('vehicle-list').innerHTML = `
         <div class="empty-state" style="padding: 24px 12px; text-align:center;">
           <div class="icon">🚗</div>
-          <p>No inventory found.<br>Add vehicles in your dashboard.</p>
+          <p>No <strong>${activeCat === 'all' ? '' : activeCat + ' '}</strong>vehicles found.<br>${activeCat === 'all' ? 'Add vehicles in your dashboard.' : 'Try another category.'}</p>
         </div>`
       return
     }
@@ -166,7 +182,7 @@ async function loadInventory(token) {
         </div>`
     }
 
-    $('vehicle-list').innerHTML = cleanupBanner + displayList.map(v => {
+    $('vehicle-list').innerHTML = cleanupBanner + filtered.map(v => {
       const entry = postedMap.get(v.id)
       const listingId = entry?.listingId
       const isPosted = !!listingId
@@ -277,6 +293,20 @@ async function showInventoryScreen(token, user) {
 
   const refreshBtn = $('refresh-btn')
   if (refreshBtn) refreshBtn.onclick = () => loadInventory(token)
+
+  // Category filter (All / New / Used / Demo) — re-renders the cached inventory
+  // without re-fetching. Highlights the active button.
+  document.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cat = btn.dataset.cat || 'all'
+      window.__msActiveCat = cat
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('active', b === btn))
+      // Re-render from cache. If the cache exists, just call loadInventory; it
+      // will use the cached postedMap and re-paint quickly. If no cache yet,
+      // loadInventory will fetch fresh.
+      loadInventory(token)
+    })
+  })
 
   // Premium Sync — extension-side dealer site capture. Shown only when a feed
   // is flagged needs_extension_capture (e.g. Cloudflare blocked us server-side).
