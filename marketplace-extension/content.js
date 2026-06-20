@@ -1,4 +1,5 @@
 // content.js — | MarketSync
+console.log('[MarketSync] content.js loaded on', window.location.href);
 const API = 'https://vehicle-marketplace-s0e4.onrender.com';
 const DELAY = 800; // Increased to mitigate UI render bottlenecks
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -359,10 +360,12 @@ async function injectPhotosIntoInput(imageUrls) {
   }
   console.log('[MarketSync] using file input:', { accept: fileInput.accept, multiple: fileInput.multiple })
 
-  // FB Marketplace allows up to 30 photos per listing
+  // FB Marketplace vehicle listings allow up to 50 photos. Earlier cap was 30
+  // but real listings often have 25-40 photos and we were truncating them.
+  const MAX_PHOTOS = 50
   const files = [];
   let fetchFailures = 0;
-  for (let i = 0; i < Math.min(imageUrls.length, 30); i++) {
+  for (let i = 0; i < Math.min(imageUrls.length, MAX_PHOTOS); i++) {
     try {
       const res = await fetch(`${API}/proxy-image?url=${encodeURIComponent(imageUrls[i])}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -586,14 +589,20 @@ async function fillListingForm(vehicle) {
     modelTrigger.click();
     await sleep(2000); // Wait for FB to mount the dropdown overlay
 
-    // Wait for the search input INSIDE the overlay (only matches empty inputs)
-    const searchInput2 = await waitFor(() =>
-      [...document.querySelectorAll('input')]
-        .find(el => el.offsetParent !== null
-                  && el.type !== 'hidden'
-                  && !el.closest('[aria-hidden="true"]')
-                  && !el.value)
-    , 5000);
+    // Wait for the search input INSIDE the model overlay specifically. Earlier
+    // we did a document-wide hunt for "any empty input" — that's how Envision /
+    // RAV4 / Forester / Equinox ended up typed into the Body Style overlay's
+    // search box when FB hadn't fully closed its previous overlay. Scoping to
+    // [role="dialog"] / [role="listbox"] makes us only see the model dropdown.
+    const searchInput2 = await waitFor(() => {
+      const containers = [...document.querySelectorAll('[role="dialog"], [role="listbox"], [role="menu"]')]
+      for (const c of containers) {
+        if (c.closest('[aria-hidden="true"]')) continue
+        const input = c.querySelector('input:not([type="hidden"])')
+        if (input && !input.value && input.offsetParent !== null) return input
+      }
+      return null
+    }, 5000);
 
     if (searchInput2) {
       searchInput2.click();
@@ -609,10 +618,27 @@ async function fillListingForm(vehicle) {
       console.warn('Model: no search input found in dropdown overlay');
     }
 
+    // Scope option search to the SAME overlay the search input is in — prevents
+    // grabbing a stray option from an unrelated panel (e.g., Body Style).
+    const modelOverlay = searchInput2?.closest('[role="dialog"], [role="listbox"], [role="menu"]') || document;
+    const modelLower = model.toLowerCase();
     const modelOption = await waitFor(() => {
-      const targets = [...document.querySelectorAll('[role="option"]')];
-      return targets.find(el => el.textContent.trim().toLowerCase() === model.toLowerCase())
-          || targets.find(el => el.textContent.trim().toLowerCase().includes(model.toLowerCase()));
+      const targets = [...modelOverlay.querySelectorAll('[role="option"]')];
+      // EXACT match first
+      const exact = targets.find(el => el.textContent.trim().toLowerCase() === modelLower);
+      if (exact) return exact;
+      // Then "starts with" (handles "Envision Avenir" matching "envision")
+      const startsWith = targets.find(el => el.textContent.trim().toLowerCase().startsWith(modelLower));
+      if (startsWith) return startsWith;
+      // Then "contains" — BUT only if the option text is short enough that
+      // it can't be a body-style category accidentally containing the model
+      // name. Cap at 40 chars so something like "Compact SUVs (5 vehicles)"
+      // can't be matched while real model names get through.
+      const looseContains = targets.find(el => {
+        const t = el.textContent.trim().toLowerCase();
+        return t.length < 40 && t.includes(modelLower);
+      });
+      return looseContains;
     }, 6000);
 
     if (modelOption) {
@@ -629,21 +655,16 @@ async function fillListingForm(vehicle) {
 // the overlay the text field actually opened.
 
 } else {
-  console.warn('Model dropdown opened but no matching option found. Trying free-text fallback.');
-  const modelTextField = getFormFields().find(f => f.closest('label, div')?.textContent?.includes('Model'));
-  if (modelTextField) {
-    await typeInto(modelTextField, model);
-    await sleep(800);
-    const overlay = modelTextField.closest('[role="dialog"], [role="listbox"], [role="menu"]') || document;
-    const opt = overlay.querySelector('[role="option"]');
-    if (opt && opt.textContent.trim().toLowerCase().includes(model.toLowerCase())) {
-      opt.click();
-      await sleep(500);
-    } else {
-      console.warn('Free-text fallback: no matching option found in scoped overlay. Leaving for manual fill.');
-    }
-  }
+  // No matching option in the model overlay. Don't fall back to a generic
+  // free-text input — that's how SUV / Truck got dumped into Model. Just
+  // log + close the overlay; the verification step below will retry with
+  // the same scoped logic, and the user can finish manually if needed.
+  console.warn(`❌ No "${model}" option in FB's Model list. Closing overlay; user can fill manually.`);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await sleep(400);
+  showStatus(`"${model}" wasn't in Facebook's Model list — please type it manually.`, 'info');
 }
+  }
   // Wait longer for the Model commit so the next combobox lookup doesn't grab the
   // Model field by mistake. 2500ms beats the visual confirmation we observed.
   await sleep(2500);
@@ -825,17 +846,18 @@ if (modelComboboxNow && (
 }
 
 // ── Boot ──────────────────────────────────────
-if (window.location.href.includes('/marketplace/create/vehicle') ||
-    window.location.href.includes('/marketplace/create/')) {
+const isCreatePage = /\/marketplace\/create(\/|\?|$)/i.test(window.location.href);
+console.log('[MarketSync] is marketplace create page?', isCreatePage);
+
+if (isCreatePage) {
   chrome.storage.local.get(['pendingPost'], ({ pendingPost }) => {
+    console.log('[MarketSync] pendingPost found:', !!pendingPost?.vehicle);
     if (!pendingPost?.vehicle) return;
     chrome.storage.local.remove(['pendingPost']);
-    // Attach poster profile so fillListingForm can stamp rep contact info
+    console.log('[MarketSync] ✓ filling form for', pendingPost.vehicle.year, pendingPost.vehicle.make, pendingPost.vehicle.model);
     const vehicleWithPoster = { ...pendingPost.vehicle, poster: pendingPost.poster || null };
     setTimeout(() => fillListingForm(vehicleWithPoster), 2500);
 
-    // Watch for the URL to change to /marketplace/item/... — that means FB published the listing
-    // and we can auto-mark posted without the user needing to click anything.
     let autoMarkFired = false;
     const startUrl = window.location.href;
     const watcher = setInterval(() => {
@@ -854,7 +876,6 @@ if (window.location.href.includes('/marketplace/create/vehicle') ||
         );
       }
     }, 1000);
-    // Stop watching after 15 min (user probably gave up or closed tab)
     setTimeout(() => clearInterval(watcher), 15 * 60 * 1000);
   });
 }
