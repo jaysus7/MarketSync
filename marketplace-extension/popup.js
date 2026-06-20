@@ -265,11 +265,18 @@ async function showInventoryScreen(token, user) {
       if (err.message === 'SUBSCRIPTION_REQUIRED') handleSubscriptionGate(token)
     })
 
-  $('logout-btn').onclick = () => {
-    chrome.storage.local.remove(['token', 'user'], () => location.reload())
+  // Defensive: never crash popup init if a button is missing from the HTML
+  const logoutBtn = $('logout-btn')
+  if (logoutBtn) {
+    logoutBtn.onclick = () => {
+      chrome.storage.local.remove(['token', 'user'], () => location.reload())
+    }
+  } else {
+    console.warn('logout-btn missing from popup.html — sign out unavailable')
   }
 
-  $('refresh-btn').onclick = () => loadInventory(token)
+  const refreshBtn = $('refresh-btn')
+  if (refreshBtn) refreshBtn.onclick = () => loadInventory(token)
 }
 
 // kind = 'sold-by-me' (this rep closed the deal → 500 pts) | 'sold-by-other' (no points)

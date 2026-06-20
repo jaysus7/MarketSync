@@ -305,6 +305,17 @@
     </div>
   </div>
 
+  <!-- Header bar (logged-in users) — name, dealership, sign-out. Was accidentally
+       removed in a recent edit, which left the popup.js handler `$('logout-btn')`
+       returning null and silently failing. -->
+  <div class="header">
+    <div>
+      <h1 id="header-name">—</h1>
+      <div class="dealer" id="header-dealer"></div>
+    </div>
+    <button type="button" class="logout-btn" id="logout-btn">Sign Out</button>
+  </div>
+
   <div class="toolbar">
   <div class="category-filter" id="category-filter">
     <button class="cat-btn active" data-cat="all">All</button>
