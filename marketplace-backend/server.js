@@ -2597,6 +2597,121 @@ function extractCarsFromJsonLd(nodes) {
   return cars
 }
 
+// ── Convertus / motocommerce (VMS) ───────────────────────────────────────────
+// Convertus dealer sites (WordPress "achilles" theme) expose none of the standard
+// feed paths. Their SRP bundle loads inventory through a SAME-ORIGIN PHP proxy that
+// forwards to the VMS API:
+//   {origin}/wp-content/plugins/convertus-vms/include/php/ajax-vehicles.php
+//       ?endpoint=<url-encoded VMS url>&action=vms_data
+// VMS url: https://vms.prod.convertus.rocks/api/filtering/?cp=<inventoryId>&pg=N&pc=100&sc=<class>...
+// cp = the dealer's inventoryId, embedded in every page as "inventoryId":"NNNN".
+// Hitting the VMS host directly 403s (WAF); going through the dealer's own proxy works.
+const CONVERTUS_VMS_FILTERING = 'https://vms.prod.convertus.rocks/api/filtering/'
+
+function extractConvertusInventoryId(html) {
+  const m = html.match(/"inventoryId"\s*:\s*"?(\d{1,8})"?/i)
+  return m ? m[1] : null
+}
+
+function buildConvertusProxyUrl(origin, inventoryId, { page = 1, perPage = 100, saleClass = '' } = {}) {
+  const endpoint = `${CONVERTUS_VMS_FILTERING}?cp=${inventoryId}&ln=en&pg=${page}&pc=${perPage}`
+    + `&dc=true&sc=${encodeURIComponent(saleClass)}&ai=true&in_stock=true&on_order=true&in_transit=true`
+  return `${origin}/wp-content/plugins/convertus-vms/include/php/ajax-vehicles.php`
+    + `?endpoint=${encodeURIComponent(endpoint)}&action=vms_data`
+}
+
+function mapConvertusVehicle(v) {
+  const price = (v.sale_price && v.sale_price > 0 ? v.sale_price : 0)
+    || v.internet_price || v.asking_price || v.retail_price || v.msrp || 0
+  const image_urls = Array.isArray(v.image)
+    ? v.image.map(im => im?.image_original || im?.image_lg || im?.image_md).filter(Boolean)
+    : []
+  const sc = String(v.sale_class || '').toLowerCase()
+  const condition = sc.startsWith('new') ? 'New' : sc.startsWith('used') ? 'Used' : (v.sale_class || null)
+  return {
+    vin: v.vin || null,
+    year: v.year || null,
+    make: v.make || null,
+    model: v.model || null,
+    trim: v.trim || v.search_trim || null,
+    stocknumber: v.stock_number || null,
+    price,
+    saleprice: price,
+    mileage: Number(v.odometer) || 0,
+    condition,
+    demo: v.demo === 1 || v.demo === true,
+    exteriorcolor: v.exterior_color || v.manu_exterior_color || null,
+    interiorcolor: v.interior_color || null,
+    transmission: v.transmission || null,
+    fueltype: v.fuel_type || null,
+    bodystyle: v.body_style || null,
+    image_urls,
+    vdp_url: v.vdp_url || null,
+    onweb: true,
+    salepending: false
+  }
+}
+
+// Paginate the same-origin proxy for the full inventory. feedType maps to the VMS
+// `sc` (sale class) param so "new"/"used" feeds fetch only that subset.
+async function fetchConvertusInventory(origin, inventoryId, feedType = 'all') {
+  const saleClass = feedType === 'new' ? 'New' : feedType === 'used' ? 'Used' : ''
+  const perPage = 100
+  const all = []
+  let page = 1, total = Infinity
+  try {
+    while (all.length < total && page <= 50) {
+      const url = buildConvertusProxyUrl(origin, inventoryId, { page, perPage, saleClass })
+      const r = await browserFetch(url, { headers: { 'Accept': 'application/json, text/plain, */*' } })
+      if (!r.ok) { console.warn(`[sync] Convertus page ${page} HTTP ${r.status}`); break }
+      let data
+      try { data = JSON.parse(await r.text()) } catch { console.warn('[sync] Convertus page not JSON'); break }
+      total = Number(data?.summary?.total_vehicles) || all.length
+      const results = Array.isArray(data?.results) ? data.results : []
+      if (!results.length) break
+      all.push(...results.map(mapConvertusVehicle))
+      page++
+    }
+    console.log(`[sync] Convertus: ${all.length}/${total} vehicles (inventoryId=${inventoryId}, sc='${saleClass}')`)
+    return all
+  } catch (e) {
+    console.warn('[sync] Convertus fetch failed:', e.message)
+    return all
+  }
+}
+
+// Detection: fetch the dealer page, pull inventoryId, confirm the proxy returns vehicles.
+async function detectConvertus(dealerUrl) {
+  try {
+    const origin = new URL(dealerUrl).origin
+    const pageRes = await browserFetch(dealerUrl)
+    if (!pageRes.ok) return null
+    const html = await pageRes.text()
+    if (!/convertus|achilles/i.test(html)) return null
+    const inventoryId = extractConvertusInventoryId(html)
+    if (!inventoryId) return null
+    const url = buildConvertusProxyUrl(origin, inventoryId, { page: 1, perPage: 100, saleClass: '' })
+    const r = await browserFetch(url, { headers: { 'Accept': 'application/json, text/plain, */*' } })
+    if (!r.ok) return null
+    let data
+    try { data = JSON.parse(await r.text()) } catch { return null }
+    const results = Array.isArray(data?.results) ? data.results : []
+    if (!results.length) return null
+    return {
+      success: true,
+      platform: 'convertus',
+      platform_label: 'Convertus (VMS)',
+      feed_url: url,
+      source_dealer_url: origin,
+      vehicle_count: Number(data?.summary?.total_vehicles) || results.length,
+      sample_vehicles: results.slice(0, 3).map(mapConvertusVehicle)
+    }
+  } catch (e) {
+    console.warn('[probe] Convertus detection failed:', e.message)
+    return null
+  }
+}
+
 async function probeUrl(url, timeoutMs = 8000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -2690,6 +2805,14 @@ async function detectFeedPlatform(dealerUrl) {
     }
   }
 
+  // Convertus / motocommerce (VMS) sites hide inventory behind a same-origin proxy;
+  // none of the static paths match. Detect via the listing page's inventoryId.
+  const convertus = await detectConvertus(dealerUrl)
+  if (convertus) {
+    console.log(`[probe] Convertus detected: ${convertus.vehicle_count} vehicles`)
+    return { ...convertus, attempts }
+  }
+
   // Fallback: render the SPA in a headless browser and watch for the inventory XHR.
   // Catches UX Auto, pure DealerInspire SPAs, and most other JS-rendered dealer sites.
   console.log(`[probe] No static probe matched — rendering ${dealerUrl} with headless Chromium`)
@@ -2712,9 +2835,19 @@ async function detectFeedPlatform(dealerUrl) {
     attempts.push({ platform: 'spa_render', label: 'SPA (headless render)', ok: false, reason: e.message })
   }
 
+  // If most probes were blocked (403/503) by a WAF and every fallback also failed,
+  // this is almost certainly a Cloudflare IP-reputation block: server-side access —
+  // INCLUDING our headless Chrome on Render — can't get through, because the block is
+  // on the datacenter IP/ASN, not a solvable JS challenge. The user must use the
+  // MarketSync Chrome extension, which captures from their own (residential) browser.
+  const blockedCount = attempts.filter(a => a.status === 403 || a.status === 503).length
+  const cloudflareBlocked = blockedCount >= 3
   return {
     success: false,
-    error: 'No known inventory feed found for this dealer URL. Try pasting the direct JSON feed URL instead.',
+    cloudflare_blocked: cloudflareBlocked,
+    error: cloudflareBlocked
+      ? "This dealer site is protected by Cloudflare and blocks server-side access (the block is on the server's IP, so it can't be bypassed from our end). Use the MarketSync Chrome extension on the dealer's inventory page to capture vehicles directly from your browser."
+      : 'No known inventory feed found for this dealer URL. Try pasting the direct JSON feed URL instead.',
     attempts
   }
 }
@@ -3082,6 +3215,20 @@ async function _runInventorySyncInner(dealershipId) {
 
         jsonCache.set(feed.feed_url, vehicles)
         totalVehiclesFound += vehicles.length
+      } else if (feed.platform === 'convertus') {
+        // Convertus/VMS — re-derive origin + inventoryId from the stored proxy feed_url
+        // and paginate the same-origin proxy for the full inventory.
+        const origin = (() => { try { return new URL(feed.feed_url).origin } catch { return null } })()
+        const cpMatch = decodeURIComponent(feed.feed_url).match(/[?&]cp=(\d+)/)
+        const inventoryId = cpMatch ? cpMatch[1] : null
+        if (origin && inventoryId) {
+          vehicles = await fetchConvertusInventory(origin, inventoryId, feed.feed_type)
+        } else {
+          console.warn(`[sync] Convertus feed ${feed.id} missing origin/inventoryId in feed_url`)
+          vehicles = []
+        }
+        jsonCache.set(feed.feed_url, vehicles)
+        totalVehiclesFound += vehicles.length
       } else if (feed.platform === 'ux_auto') {
         // UX Auto splits inventory across /NEW, /USED, /DEMO endpoints — fetch all three
         const base = feed.feed_url.replace(/\/(NEW|USED|DEMO|new|used|demo)\/?$/, '')
@@ -3415,6 +3562,7 @@ app.post('/inventory-feeds', requireAuth, async (req, res) => {
   let detectedPlatform = null
   let detectedPlatformSlug = null
   let attempts = []
+  let cloudflareBlocked = false
 
   const userPastedJson = (() => {
     try { return new URL(rawUrl.trim()).pathname.toLowerCase().endsWith('.json') }
@@ -3432,6 +3580,7 @@ app.post('/inventory-feeds', requireAuth, async (req, res) => {
         const br = await fetchViaBrowser(rawUrl)
         attempts.push({ url: rawUrl, status: br.status, ok: br.ok, via: 'headless-chrome' })
         if (br.ok) workingUrl = rawUrl
+        else cloudflareBlocked = true
       }
     } catch (e) {
       attempts.push({ url: rawUrl, error: e.message })
@@ -3439,6 +3588,7 @@ app.post('/inventory-feeds', requireAuth, async (req, res) => {
   } else {
     const detection = await detectFeedPlatform(rawUrl)
     attempts = detection.attempts || []
+    cloudflareBlocked = !!detection.cloudflare_blocked
     if (detection.success) {
       workingUrl = detection.feed_url
       detectedPlatform = detection.platform_label
@@ -3448,7 +3598,10 @@ app.post('/inventory-feeds', requireAuth, async (req, res) => {
 
   if (!workingUrl) {
     return res.status(400).json({
-      error: `Could not find a working inventory feed at this dealer site. We tried ${attempts.length} known platform paths. If your dealer uses a different system, paste the direct JSON feed URL instead.`,
+      cloudflare_blocked: cloudflareBlocked,
+      error: cloudflareBlocked
+        ? "This dealer site is protected by Cloudflare and blocks server-side access — the block is on our server's IP, so it can't be bypassed from the backend. Open the dealer's inventory page in Chrome with the MarketSync extension installed to capture vehicles directly from your browser."
+        : `Could not find a working inventory feed at this dealer site. We tried ${attempts.length} known platform paths. If your dealer uses a different system, paste the direct JSON feed URL instead.`,
       attempted: attempts.slice(0, 8).map(a => `${a.url} → ${a.status || a.error || 'no data'}`)
     })
   }
@@ -3460,7 +3613,7 @@ app.post('/inventory-feeds', requireAuth, async (req, res) => {
 
   // For SPA-rendered dealers, keep the user's original URL — we need it to re-render
   // the site if the captured XHR URL stops working (e.g. auth tokens rotate).
-  const sourceDealerUrl = detectedPlatformSlug === 'spa_render' ? rawUrl : null
+  const sourceDealerUrl = ['spa_render', 'convertus'].includes(detectedPlatformSlug) ? rawUrl : null
 
   // For LeadBox feeds, harvest per-vehicle URLs from the dealer's listing pages now
   // (their JSON feed doesn't include vehicle detail URLs). Saves a stock→URL map onto

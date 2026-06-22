@@ -106,6 +106,52 @@
     if (result) break
   }
 
+  // Convertus / motocommerce (VMS): standard paths 404 here. Inventory loads via a
+  // same-origin proxy, and the dealer's inventoryId is embedded in the page. Paginate
+  // the proxy from the user's browser (their session + residential IP clear any gate).
+  if (!result) {
+    try {
+      const html = document.documentElement.innerHTML
+      const idMatch = html.match(/"inventoryId"\s*:\s*"?(\d{1,8})"?/i)
+      if (idMatch && /convertus|achilles/i.test(html)) {
+        const inventoryId = idMatch[1]
+        const buildUrl = (page) => {
+          const ep = `https://vms.prod.convertus.rocks/api/filtering/?cp=${inventoryId}&ln=en&pg=${page}&pc=100&dc=true&sc=&ai=true&in_stock=true&on_order=true&in_transit=true`
+          return `${origin}/wp-content/plugins/convertus-vms/include/php/ajax-vehicles.php?endpoint=${encodeURIComponent(ep)}&action=vms_data`
+        }
+        const mapV = (v) => {
+          const price = (v.sale_price && v.sale_price > 0 ? v.sale_price : 0) || v.internet_price || v.asking_price || v.msrp || 0
+          const imgs = Array.isArray(v.image) ? v.image.map(i => i?.image_original || i?.image_lg).filter(Boolean) : []
+          const sc = String(v.sale_class || '').toLowerCase()
+          return {
+            vin: v.vin || null, year: v.year || null, make: v.make || null, model: v.model || null,
+            trim: v.trim || v.search_trim || null, stocknumber: v.stock_number || null,
+            price, saleprice: price, mileage: Number(v.odometer) || 0,
+            condition: sc.startsWith('new') ? 'New' : sc.startsWith('used') ? 'Used' : (v.sale_class || null),
+            demo: v.demo === 1, exteriorcolor: v.exterior_color || null, interiorcolor: v.interior_color || null,
+            transmission: v.transmission || null, fueltype: v.fuel_type || null, bodystyle: v.body_style || null,
+            image_urls: imgs, vdp_url: v.vdp_url || null, onweb: true, salepending: false
+          }
+        }
+        const all = []; let pg = 1, total = Infinity
+        while (all.length < total && pg <= 50) {
+          const r = await fetch(buildUrl(pg), { credentials: 'include', headers: { 'Accept': 'application/json, text/plain, */*' } })
+          if (!r.ok) break
+          const d = await r.json().catch(() => null)
+          if (!d) break
+          total = Number(d?.summary?.total_vehicles) || all.length
+          const res = Array.isArray(d?.results) ? d.results : []
+          if (!res.length) break
+          all.push(...res.map(mapV)); pg++
+        }
+        if (all.length) {
+          result = { platform: 'convertus', source_url: buildUrl(1), vehicles: all }
+          log(`✓ matched convertus — ${all.length} vehicles`)
+        }
+      }
+    } catch (e) { log('convertus probe failed:', e.message) }
+  }
+
   // Fallback: Schema.org JSON-LD baked into the current page HTML.
   // Works on any dealer site that exposes structured data even if no JSON
   // endpoint exists. Re-uses the recursive walker pattern from the backend.
