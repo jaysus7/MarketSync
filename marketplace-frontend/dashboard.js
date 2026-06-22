@@ -944,33 +944,142 @@ async function loadInventoryFeeds() {
     const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
     const isSoloOwner = profileContext?.dealership?.is_personal === true;
     const canManage = isAdmin || isSoloOwner;
+
+    setupExtensionBridge();  // start listening for the extension + announce we're here
+    const esc = (s) => String(s == null ? '' : s).replace(/"/g, '&quot;');
+
     list.innerHTML = feeds.map(f => {
       const needsExt = f.platform === 'needs_extension_capture'
         || (f.platform === 'extension_capture' && !f.last_extension_sync_at);
-      const extNote = needsExt ? `
-        <div class="mt-2 text-[11px] leading-snug rounded bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 px-2 py-1.5">
-          🔒 This dealer is Cloudflare-protected — our servers can't reach it, so <b>Sync Now won't work</b>.
-          Open the <b>MarketSync browser extension</b> (puzzle-piece icon in Chrome's toolbar → MarketSync),
-          then click <b>“Connect dealer site”</b> to pull inventory from your own browser session.
+
+      // Cloudflare-protected feed: render a working Pull Inventory button that drives
+      // the extension (via the dashboard bridge), with inline instructions + progress.
+      const extBlock = needsExt ? `
+        <div class="ms-ext-capture mt-2" data-feed-id="${esc(f.id)}" data-feed-url="${esc(f.feed_url)}">
+          <div class="text-[11px] leading-snug rounded bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 px-2 py-1.5">
+            🔒 <b>Cloudflare-protected</b> — our servers can't reach it, so it's pulled through your browser:
+            <div class="mt-1">1. Click <b>Pull Inventory</b>. &nbsp;2. A dealer tab opens, scans, and closes itself — don't close it. &nbsp;3. Wait ~1–2 min. &nbsp;4. This list and your catalog refresh automatically when done.</div>
+          </div>
+          <div class="flex items-center gap-2 mt-2">
+            <button class="ms-pull-btn bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded disabled:opacity-60">Pull Inventory</button>
+            <span class="ms-pull-status text-[11px] text-slate-500 dark:text-slate-400"></span>
+          </div>
+          <div class="ms-pull-track mt-2 h-1.5 bg-slate-200 dark:bg-slate-800 rounded overflow-hidden" style="display:none"><div class="ms-pull-fill h-full bg-indigo-500" style="width:0%;transition:width .3s"></div></div>
         </div>` : '';
+
       return `
       <div class="bg-slate-50 dark:bg-slate-950 border ${needsExt ? 'border-amber-300 dark:border-amber-700' : 'border-slate-200 dark:border-slate-800'} rounded p-3 overflow-hidden">
         <div class="flex items-center justify-between gap-3 overflow-hidden">
           <div class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
             <span class="text-[10px] uppercase font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded flex-shrink-0">${f.feed_type || 'all'}</span>
             ${needsExt ? '<span class="text-[10px] uppercase font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-100 px-1.5 py-0.5 rounded flex-shrink-0">Extension</span>' : ''}
-            <span class="text-xs text-slate-600 dark:text-slate-300 truncate block min-w-0 flex-1" title="${f.feed_url}">${f.feed_url}</span>
+            <span class="text-xs text-slate-600 dark:text-slate-300 truncate block min-w-0 flex-1" title="${esc(f.feed_url)}">${f.feed_url}</span>
           </div>
-          ${canManage ? `<button data-feed-id="${f.id}" class="feed-delete-btn text-red-400 hover:text-red-300 text-xs font-bold flex-shrink-0">Remove</button>` : ''}
+          ${canManage ? `<button data-feed-id="${esc(f.id)}" class="feed-delete-btn text-red-400 hover:text-red-300 text-xs font-bold flex-shrink-0">Remove</button>` : ''}
         </div>
-        ${extNote}
+        ${extBlock}
       </div>`;
     }).join('');
+
     document.querySelectorAll('.feed-delete-btn').forEach(btn => {
       btn.addEventListener('click', () => deleteFeed(btn.dataset.feedId));
     });
+
+    // Wire Pull Inventory buttons + reflect extension presence / any running capture.
+    document.querySelectorAll('.ms-ext-capture').forEach(wrap => {
+      const btn = wrap.querySelector('.ms-pull-btn');
+      const st = wrap.querySelector('.ms-pull-status');
+      if (!window.__msExtPresent) {
+        if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); }
+        if (st) st.textContent = 'Install/enable the MarketSync extension to pull this.';
+      }
+      btn?.addEventListener('click', () => pullViaExtension(wrap.dataset.feedId, wrap.dataset.feedUrl));
+    });
+    if (window.__msLastCaptureState) applyCaptureState(window.__msLastCaptureState);
   } catch (err) {
     list.innerHTML = `<div class="text-xs text-red-400">Failed to load feeds: ${err.message}</div>`;
+  }
+}
+
+// ── Extension bridge: lets the dashboard drive the browser-capture for Cloudflare
+// dealers via the MarketSync extension's content script (dashboard-bridge.js). ──
+function setupExtensionBridge() {
+  if (window.__msBridgeReady) return;
+  window.__msBridgeReady = true;
+  window.addEventListener('message', (e) => {
+    if (e.source !== window) return;
+    const d = e.data;
+    if (!d || d.__marketsync !== true || d.dir !== 'from-ext') return;
+    if (d.type === 'EXT_PRESENT') {
+      const was = window.__msExtPresent;
+      window.__msExtPresent = true;
+      if (!was && typeof loadInventoryFeeds === 'function') loadInventoryFeeds(); // re-render → enable buttons
+    } else if (d.type === 'CAPTURE_STATE') {
+      window.__msLastCaptureState = d.state;
+      applyCaptureState(d.state);
+    } else if (d.type === 'PULL_STARTED') {
+      handlePullStarted(d);
+    }
+  });
+  // Ask the extension to announce itself (covers the case where its EXT_PRESENT
+  // fired before this listener was attached).
+  window.postMessage({ __marketsync: true, dir: 'from-page', type: 'PING' }, '*');
+}
+
+function pullViaExtension(feedId, feedUrl) {
+  const wrap = document.querySelector(`.ms-ext-capture[data-feed-id="${feedId}"]`);
+  if (!window.__msExtPresent) {
+    setPullUI(wrap, { status: 'Extension not detected — install/enable MarketSync, then reload.', disabled: false });
+    return;
+  }
+  setPullUI(wrap, { status: 'Starting…', disabled: true });
+  window.postMessage({ __marketsync: true, dir: 'from-page', type: 'PULL_INVENTORY', feedUrl, feedId }, '*');
+}
+
+function handlePullStarted(d) {
+  const wrap = document.querySelector(`.ms-ext-capture[data-feed-id="${d.feedId}"]`) || document.querySelector('.ms-ext-capture');
+  if (d.ok) { setPullUI(wrap, { status: 'Opening dealer site…', disabled: true }); return; }
+  if (d.needsEnable) {
+    setPullUI(wrap, { status: 'One-time setup: open the MarketSync extension → "Enable one-click capture", then click Pull Inventory again.', disabled: false });
+  } else {
+    setPullUI(wrap, { status: d.error || 'Could not start capture.', disabled: false });
+  }
+}
+
+function applyCaptureState(state) {
+  if (!state) return;
+  const wrap = state.feedId
+    ? document.querySelector(`.ms-ext-capture[data-feed-id="${state.feedId}"]`)
+    : document.querySelector('.ms-ext-capture');
+  if (!wrap) return;
+  if (state.status === 'pulling') {
+    const label = state.total ? `Pulling… ${state.current || 0}/${state.total}` : 'Pulling inventory…';
+    setPullUI(wrap, { status: label, pct: (state.pct != null ? state.pct : null), disabled: true });
+  } else if (state.status === 'done') {
+    setPullUI(wrap, { status: `✓ Pulled ${state.count != null ? state.count + ' ' : ''}vehicles. Refreshing…`, pct: 100, disabled: false });
+    loadInventoryCatalog?.();
+    loadInsights?.();
+    setTimeout(() => loadInventoryFeeds?.(), 1500);  // platform/flag may have changed
+  } else if (state.status === 'error') {
+    setPullUI(wrap, { status: state.error || 'Capture failed — try again.', pct: null, disabled: false });
+  }
+}
+
+function setPullUI(wrap, { status, pct, disabled } = {}) {
+  if (!wrap) return;
+  const btn = wrap.querySelector('.ms-pull-btn');
+  const st = wrap.querySelector('.ms-pull-status');
+  const track = wrap.querySelector('.ms-pull-track');
+  const fill = wrap.querySelector('.ms-pull-fill');
+  if (btn && disabled != null) {
+    btn.disabled = disabled;
+    btn.textContent = disabled ? 'Pulling…' : 'Pull Inventory';
+    btn.classList.toggle('opacity-60', disabled);
+  }
+  if (st && status != null) st.textContent = status;
+  if (track && fill) {
+    if (pct == null) { track.style.display = 'none'; }
+    else { track.style.display = 'block'; fill.style.width = `${Math.max(0, Math.min(100, pct))}%`; }
   }
 }
 

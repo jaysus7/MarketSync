@@ -341,6 +341,40 @@ async function checkExtensionSyncNeeded(token) {
     const fill = $('ext-sync-progress-fill')
     if (steps) steps.style.display = 'block'  // always show the how-to while a capture feed exists
 
+    // One-time "Enable one-click capture" — grants broad host access so the dashboard's
+    // Pull Inventory button can drive capture for ANY dealer without a per-site prompt.
+    const enableBtn = $('enable-oneclick-btn')
+    const enableNote = $('enable-oneclick-note')
+    if (enableBtn) {
+      const broad = { origins: ['https://*/*'] }
+      chrome.permissions.contains(broad, (has) => {
+        if (has) {
+          enableBtn.style.display = 'none'
+          if (enableNote) enableNote.style.display = 'block'
+        } else {
+          enableBtn.style.display = 'block'
+          if (enableNote) enableNote.style.display = 'none'
+          enableBtn.onclick = async () => {
+            enableBtn.disabled = true
+            enableBtn.textContent = 'Requesting…'
+            try {
+              const granted = await chrome.permissions.request(broad)
+              if (granted) {
+                enableBtn.style.display = 'none'
+                if (enableNote) enableNote.style.display = 'block'
+              } else {
+                enableBtn.disabled = false
+                enableBtn.textContent = '⚡ Enable one-click capture from dashboard'
+              }
+            } catch {
+              enableBtn.disabled = false
+              enableBtn.textContent = '⚡ Enable one-click capture from dashboard'
+            }
+          }
+        }
+      })
+    }
+
     const setProgress = (pct) => {
       if (!track || !fill) return
       if (pct == null) { track.style.display = 'none'; return }

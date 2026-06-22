@@ -9,6 +9,7 @@ import { renderAndCaptureInventory, genericMapVehicle, harvestVehicleUrls,
 import { validatePassword, rateLimit, securityHeaders, corsOriginCheck, getClientIp,
          generateRecoveryCodes, hashRecoveryCode } from './security.js'
 import { maybeAlertSuspiciousLogin } from './securityAlerts.js'
+import { runDripCampaign, verifyUnsubToken } from './drip.js'
 import {
   beginPasskeyRegistration, finishPasskeyRegistration,
   beginPasskeyLogin, finishPasskeyLogin,
@@ -36,6 +37,15 @@ const EMAIL_FROM = process.env.EMAIL_FROM || 'MarketSync <noreply@marketsync.lin
 const CANONICAL_FRONTEND = 'https://marketsync.link'
 const FRONTEND_URL = (process.env.FRONTEND_URL || CANONICAL_FRONTEND)
   .replace(/\/$/, '')  // strip trailing slash to avoid `//path` URLs
+
+// Chrome Web Store listing — linked from the onboarding drip ("get the extension").
+const EXTENSION_URL = process.env.CHROME_EXTENSION_URL ||
+  'https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada'
+
+// This backend's own public URL — used for the drip unsubscribe link, which is
+// served by routes on THIS server (the static frontend has no such route).
+const BACKEND_URL = (process.env.API_URL || process.env.RENDER_EXTERNAL_URL ||
+  'https://vehicle-marketplace-s0e4.onrender.com').replace(/\/$/, '')
 
 const missingEnvVars = [];
 if (!process.env.SUPABASE_URL) missingEnvVars.push('SUPABASE_URL');
@@ -3990,6 +4000,76 @@ if (SYNC_INTERVAL_HOURS > 0) {
   setTimeout(() => syncAllDealerships('boot'), 60 * 1000)
   setInterval(() => syncAllDealerships('interval'), SYNC_INTERVAL_HOURS * 60 * 60 * 1000)
   console.log(`📅 Scheduled inventory sync every ${SYNC_INTERVAL_HOURS}h (set SYNC_INTERVAL_HOURS=0 to disable)`)
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Onboarding drip campaign — 7-email trial sequence (see drip.js)
+// ──────────────────────────────────────────────────────────────────────────────
+
+function runDrip(trigger) {
+  return runDripCampaign({
+    supabaseAdmin,
+    resend,
+    emailFrom: EMAIL_FROM,
+    frontendUrl: FRONTEND_URL,
+    extensionUrl: EXTENSION_URL,
+    unsubBaseUrl: BACKEND_URL,
+    unsubSecret: process.env.SYNC_SECRET || '',
+    trigger
+  })
+}
+
+// Manual trigger — same X-Cron-Secret auth as /cron/sync-all.
+app.post('/cron/drip', async (req, res) => {
+  const secret = req.headers['x-cron-secret'] || req.query.secret
+  if (secret !== process.env.SYNC_SECRET) return res.status(401).json({ error: 'Unauthorized' })
+  const result = await runDrip('manual')
+  res.json(result)
+})
+
+// One-click unsubscribe from the onboarding tips. Public (no login) — the token
+// proves ownership. GET serves the link a human clicks in the footer; POST handles
+// the RFC 8058 one-click unsubscribe that Gmail/Outlook fire from the
+// List-Unsubscribe header. Both just flip drip_unsubscribed_at.
+async function applyDripUnsubscribe(req) {
+  const userId = String((req.query.u || req.body?.u) || '')
+  const token = String((req.query.t || req.body?.t) || '')
+  if (!verifyUnsubToken(userId, token, process.env.SYNC_SECRET || '')) return false
+  try {
+    await supabaseAdmin
+      .from('profiles')
+      .update({ drip_unsubscribed_at: new Date().toISOString() })
+      .eq('id', userId)
+  } catch (e) {
+    console.warn('[unsubscribe] update failed:', e.message)
+  }
+  return true
+}
+
+app.get('/unsubscribe', async (req, res) => {
+  const ok = await applyDripUnsubscribe(req)
+  if (!ok) {
+    return res.status(400).type('html').send('<p>This unsubscribe link is invalid or expired.</p>')
+  }
+  res.type('html').send(
+    '<div style="font-family:-apple-system,sans-serif;max-width:480px;margin:64px auto;text-align:center;color:#0f172a;">' +
+    '<h1 style="font-size:20px;">You\'re unsubscribed</h1>' +
+    '<p style="color:#475569;">You won\'t get any more MarketSync onboarding tips. ' +
+    'Account and security emails (like password resets) will still come through.</p>' +
+    '<p><a href="https://marketsync.link/" style="color:#6366f1;">Back to MarketSync</a></p></div>'
+  )
+})
+
+app.post('/unsubscribe', async (req, res) => {
+  const ok = await applyDripUnsubscribe(req)
+  res.status(ok ? 200 : 400).json({ success: ok })
+})
+
+const DRIP_INTERVAL_HOURS = Number(process.env.DRIP_INTERVAL_HOURS || 24)
+if (DRIP_INTERVAL_HOURS > 0) {
+  setTimeout(() => runDrip('boot'), 2 * 60 * 1000)
+  setInterval(() => runDrip('interval'), DRIP_INTERVAL_HOURS * 60 * 60 * 1000)
+  console.log(`📧 Scheduled onboarding drip every ${DRIP_INTERVAL_HOURS}h (set DRIP_INTERVAL_HOURS=0 to disable)`)
 }
 
 app.use((err, req, res, next) => {

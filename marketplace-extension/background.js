@@ -101,7 +101,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // silently fails, which is what made the button look stuck.
         const has = await chrome.permissions.contains({ origins: [origin] })
         if (!has) {
-          sendResponse({ success: false, error: 'Site access not granted — click Pull Inventory and choose Allow.' })
+          // needsEnable tells the dashboard to prompt the one-time "Enable one-click
+          // capture" grant in the extension (web pages / service workers can't request
+          // host permissions themselves — only an extension UI with a user gesture can).
+          sendResponse({ success: false, needsEnable: true, error: 'Site access not granted. Open the MarketSync extension and click "Enable one-click capture", then try again.' })
           return
         }
         // Persist an in-progress marker so the (ephemeral) popup can show the true
