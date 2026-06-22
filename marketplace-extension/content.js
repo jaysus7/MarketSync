@@ -812,19 +812,26 @@ if (modelComboboxNow && (
   showStatus('Writing description...');
   const descEl = await waitFor(() => document.querySelector('textarea'));
   if (descEl) {
-    const baseDesc = vehicle.ai_description || vehicle.description ||
-      `${vehicle.year} ${make} ${model} ${vehicle.trim || ''}. ` +
-      `${vehicle.mileage ? vehicle.mileage.toLocaleString() + ' km. ' : ''}` +
-      `${vehicle.exterior_color ? vehicle.exterior_color + ' exterior. ' : ''}` +
-      `${vehicle.transmission || 'Automatic'} transmission.`;
-
-    // Append rep + dealership contact block (poster comes from popup.js pendingPost)
+    // Pull dealership/rep info from the poster profile that popup.js attached.
     const dealershipName = vehicle.poster?.dealership?.name || '';
     const repName = vehicle.poster?.full_name || '';
     const repEmail = vehicle.poster?.email || '';
     const repPhone = vehicle.poster?.phone || '';
     const dealerPhone = vehicle.poster?.dealership?.phone || '';
     const dealerWebsite = vehicle.poster?.dealership?.website_url || '';
+
+    // Marketing headline at the very top — auto-filled from the user's
+    // dealership profile so nothing has to be typed manually.
+    // Example: "Welland Chev Vehicles | Plus HST and Licensing | HOT DEAL!"
+    const headline = dealershipName
+      ? `🔥 ${dealershipName} Vehicles | Plus HST and Licensing | HOT DEAL! 🔥`
+      : null;
+
+    const baseDesc = vehicle.ai_description || vehicle.description ||
+      `${vehicle.year} ${make} ${model} ${vehicle.trim || ''}. ` +
+      `${vehicle.mileage ? vehicle.mileage.toLocaleString() + ' km. ' : ''}` +
+      `${vehicle.exterior_color ? vehicle.exterior_color + ' exterior. ' : ''}` +
+      `${vehicle.transmission || 'Automatic'} transmission.`;
 
     const contactLines = [
       '',
@@ -835,7 +842,13 @@ if (modelComboboxNow && (
       dealerWebsite ? `🌐 ${dealerWebsite}` : null
     ].filter(Boolean);
 
-    const desc = baseDesc + '\n\n' + contactLines.join('\n');
+    const desc = [
+      headline,
+      headline ? '' : null,  // blank line separator when headline is present
+      baseDesc,
+      contactLines.join('\n')
+    ].filter(s => s !== null).join('\n');
+
     await typeInto(descEl, desc);
   }
   await sleep(DELAY);
