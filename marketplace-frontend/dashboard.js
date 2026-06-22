@@ -139,6 +139,8 @@ async function initializeDashboardEcosystem() {
     if (isAdmin) {
       document.getElementById('leaderboard-panel')?.classList.remove('hidden');
       document.getElementById('dealer-view-panel')?.classList.remove('hidden');
+      // Team players + trend charts now live on the Insights page (admin only)
+      document.getElementById('insights-team-section')?.classList.remove('hidden');
       loadCharts();
       loadDealerManagementMatrix();
     } else {
@@ -264,21 +266,6 @@ async function loadInsights() {
     // Hide the "Posts/Day" tile in Lifetime mode since the rate isn't meaningful there
     const ppdCard = document.getElementById('metric-posts-per-day')?.closest('.bg-white, .dark\\:bg-slate-900');
     if (ppdCard) ppdCard.style.opacity = (data.range === 'lifetime') ? '0.5' : '1';
-
-    // Mirror the headline metrics into Team Insights' top strip (cheap — same payload)
-    const tiSynced = document.getElementById('ti-metric-synced');
-    if (tiSynced) {
-      tiSynced.textContent = data.inventory_available ?? data.inventory_synced;
-      document.getElementById('ti-metric-synced-total').textContent = data.inventory_synced;
-      document.getElementById('ti-metric-listings').textContent = data.listings_posted;
-      document.getElementById('ti-metric-sold').textContent = data.sold_this_month;
-      document.getElementById('ti-metric-active-days').textContent = `${data.active_days_this_week}/7`;
-      document.getElementById('ti-metric-time-to-sell').textContent = data.avg_time_to_sell_days ?? '—';
-      document.getElementById('ti-metric-posts-per-day').textContent = data.posts_per_day || '—';
-      document.getElementById('ti-metric-sell-through').textContent = data.sell_through_rate || 0;
-      document.getElementById('ti-metric-aged').textContent = data.inventory_aged_60d ?? 0;
-      document.getElementById('ti-metric-clicks').textContent = data.link_clicks ?? 0;
-    }
   } catch (e) {
     console.error('Insights load threw:', e);
   }
@@ -912,7 +899,9 @@ function renderRecentListings(containerId, items) {
       ? `<img src="${API}/proxy-image?url=${encodeURIComponent(v.image_urls[0])}" class="w-16 h-12 rounded object-cover bg-slate-50 dark:bg-slate-950" loading="lazy">`
       : `<div class="w-16 h-12 rounded bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-700">⌀</div>`;
     const when = l.posted_at ? new Date(l.posted_at).toLocaleDateString() : '—';
-    const fbLink = l.fb_listing_url
+    // Only link out if we captured the real posted-item permalink — never the
+    // create-form URL (older listings may have it saved from before the fix).
+    const fbLink = (l.fb_listing_url && l.fb_listing_url.includes('/marketplace/item/'))
       ? `<a href="${l.fb_listing_url}" target="_blank" class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline">View on FB ↗</a>`
       : '';
     return `
@@ -1532,8 +1521,14 @@ async function initSecurityPanel() {
         document.getElementById('mfa-enroll-panel').classList.remove('hidden');
         document.getElementById('mfa-secret-text').textContent = data.secret;
         const canvas = document.getElementById('mfa-qr-canvas');
-        if (window.QRCode && data.qr_code_uri) {
-          QRCode.toCanvas(canvas, data.qr_code_uri, { width: 180, margin: 1 });
+        if (data.qr_code_uri && window.QRCode) {
+          QRCode.toCanvas(canvas, data.qr_code_uri, { width: 180, margin: 1 }, (qrErr) => {
+            if (qrErr) console.error('QR render failed:', qrErr);
+          });
+        } else if (data.qr_code_uri) {
+          // QR library failed to load — keep enrollment usable via the typed code.
+          const note = document.getElementById('mfa-qr-container');
+          if (note) note.innerHTML = '<p class="text-[10px] text-slate-600 p-4">Can\'t show the picture right now — use the code below to add it by hand.</p>';
         }
         btn.textContent = 'Cancel';
       } catch (err) {

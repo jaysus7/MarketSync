@@ -1262,29 +1262,7 @@ app.get('/dealership/charts', requireAuth, async (req, res) => {
     if (dayBuckets.has(key)) dayBuckets.set(key, dayBuckets.get(key) + 1)
   }
 
-  // Per-rep stats — count, sold, time-to-sell ms
-  let listingsQuery = supabaseAdmin
-    .from('listings').select('posted_by, status, created_at, sold_at, posted_at')
-    .in('posted_by', memberIds)
-  if (rangeStart) listingsQuery = listingsQuery.gte('created_at', rangeStart)
-  const { data: allListings } = await listingsQuery
-
-  const repTotals = new Map(members.map(m => [m.id, {
-    id: m.id, name: m.full_name, count: 0, sold: 0, timeToSellMs: 0, soldWithDates: 0
-  }]))
-  for (const l of allListings || []) {
-    const entry = repTotals.get(l.posted_by)
-    if (!entry) continue
-    entry.count++
-    if (l.status === 'sold') {
-      entry.sold++
-      if (l.sold_at && l.created_at) {
-        entry.timeToSellMs += Math.max(0, new Date(l.sold_at).getTime() - new Date(l.created_at).getTime())
-        entry.soldWithDates++
-      }
-    }
-  }
-
+  // Active days per rep (from logins, last 14 days) — independent of listings
   const { data: logins14 } = await supabaseAdmin
     .from('logins').select('user_id, created_at')
     .in('user_id', memberIds).gte('created_at', fourteenDaysAgo)
@@ -1294,25 +1272,59 @@ app.get('/dealership/charts', requireAuth, async (req, res) => {
     if (day && activeDaysByRep.has(l.user_id)) activeDaysByRep.get(l.user_id).add(day)
   }
 
-  const by_rep = [...repTotals.values()]
+  // Per-rep stats — counted the SAME way as /dealership/leaderboard (count by
+  // posted_by) so the Players cards and charts always match the leaderboard's
+  // points. Range is applied on posted_at (and sold_at for sold counts); lifetime
+  // means no date filter. Using reliable COUNT queries per rep instead of a single
+  // multi-column row fetch avoids the bucketing bug that zeroed everyone out.
+  const repStats = await Promise.all(members.map(async (m) => {
+    let listingsQ = supabaseAdmin.from('listings')
+      .select('id', { count: 'exact', head: true }).eq('posted_by', m.id)
+    if (rangeStart) listingsQ = listingsQ.gte('posted_at', rangeStart)
+    const { count: listingsCount } = await listingsQ
+
+    let soldQ = supabaseAdmin.from('listings')
+      .select('id', { count: 'exact', head: true }).eq('posted_by', m.id).eq('status', 'sold')
+    if (rangeStart) soldQ = soldQ.gte('sold_at', rangeStart)
+    const { count: soldCount } = await soldQ
+
+    // Avg time-to-sell (days) across this rep's sold listings in range
+    let ttsQ = supabaseAdmin.from('listings')
+      .select('created_at, sold_at').eq('posted_by', m.id).eq('status', 'sold')
+      .not('sold_at', 'is', null)
+    if (rangeStart) ttsQ = ttsQ.gte('sold_at', rangeStart)
+    const { data: soldRows } = await ttsQ
+    let avgDays = 0
+    if (soldRows?.length) {
+      const totalMs = soldRows.reduce((acc, r) =>
+        acc + Math.max(0, new Date(r.sold_at).getTime() - new Date(r.created_at).getTime()), 0)
+      avgDays = Math.round(totalMs / soldRows.length / (1000 * 60 * 60 * 24) * 10) / 10
+    }
+
+    return {
+      id: m.id,
+      name: m.full_name,
+      count: listingsCount || 0,
+      sold: soldCount || 0,
+      activeDays: activeDaysByRep.get(m.id)?.size || 0,
+      avgDays
+    }
+  }))
+
+  const by_rep = repStats
     .map(r => ({ id: r.id, name: r.name, count: r.count }))
     .sort((a, b) => b.count - a.count)
-  const sold_by_rep = [...repTotals.values()]
+  const sold_by_rep = repStats
     .map(r => ({ name: r.name, count: r.sold }))
     .sort((a, b) => b.count - a.count)
-  const active_days_by_rep = [...repTotals.values()]
-    .map(r => ({ name: r.name, count: activeDaysByRep.get(r.id)?.size || 0 }))
+  const active_days_by_rep = repStats
+    .map(r => ({ name: r.name, count: r.activeDays }))
     .sort((a, b) => b.count - a.count)
-  const sell_through_by_rep = [...repTotals.values()]
+  const sell_through_by_rep = repStats
     .map(r => ({ name: r.name, percent: r.count > 0 ? Math.round((r.sold / r.count) * 1000) / 10 : 0 }))
     .sort((a, b) => b.percent - a.percent)
-  const time_to_sell_by_rep = [...repTotals.values()]
-    .map(r => ({
-      name: r.name,
-      days: r.soldWithDates > 0
-        ? Math.round((r.timeToSellMs / r.soldWithDates / (1000 * 60 * 60 * 24)) * 10) / 10
-        : 0
-    }))
+  const time_to_sell_by_rep = repStats
+    .map(r => ({ name: r.name, days: r.avgDays }))
     .sort((a, b) => a.days - b.days)  // ascending — faster sellers first
 
   res.json({
@@ -1774,13 +1786,43 @@ app.get('/inventory/:id', requireAuth, async (req, res) => {
 
 // ── 7. LISTINGS ──
 app.post('/listings', requireAuth, async (req, res) => {
-  const { inventory_id, fb_listing_id, fb_listing_url } = req.body
+  const { inventory_id, fb_listing_id } = req.body
+
+  // Only store a Facebook URL if it's a real posted-item permalink
+  // (.../marketplace/item/<id>). The extension's manual "Mark Posted" button can
+  // fire while still on the create page, which would otherwise save the generic
+  // .../marketplace/create/vehicle URL and make "View on FB" link to a blank form.
+  const rawUrl = req.body.fb_listing_url
+  const fb_listing_url = (typeof rawUrl === 'string' && rawUrl.includes('/marketplace/item/'))
+    ? rawUrl
+    : null
+
+  // Dedupe: the manual button and the auto-detector can both fire for the same
+  // vehicle. Reuse an existing 'posted' listing and backfill its URL/id instead of
+  // inserting a duplicate (manual marks it posted first, auto-detect fills the URL).
+  const { data: existingRows } = await supabaseAdmin
+    .from('listings').select('id, fb_listing_url, fb_listing_id')
+    .eq('inventory_id', inventory_id).eq('posted_by', req.user.id).eq('status', 'posted')
+    .order('posted_at', { ascending: false }).limit(1)
+  const existing = existingRows?.[0]
+
+  if (existing) {
+    const patch = {}
+    if (fb_listing_url && !existing.fb_listing_url) patch.fb_listing_url = fb_listing_url
+    if (fb_listing_id && !existing.fb_listing_id) patch.fb_listing_id = fb_listing_id
+    if (!Object.keys(patch).length) return res.json(existing)
+    const { data, error } = await supabaseAdmin
+      .from('listings').update(patch).eq('id', existing.id).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    return res.json(data)
+  }
+
   const { data, error } = await supabaseAdmin
     .from('listings')
     .insert({
       inventory_id,
       posted_by: req.user.id,
-      fb_listing_id,
+      fb_listing_id: fb_listing_id || null,
       fb_listing_url,
       status: 'posted',
       posted_at: new Date().toISOString()
@@ -2031,6 +2073,45 @@ app.get('/r/:listingId', async (req, res) => {
 
   if (destination) return res.redirect(302, destination)
   // Fall back to the homepage rather than 404 — buyer should land somewhere usable
+  res.redirect(302, FRONTEND_URL)
+})
+
+// Tracked redirect keyed by INVENTORY id. The extension embeds this link in the FB
+// Marketplace description, where the listing row doesn't exist yet at fill time. At
+// click time the post is live, so we resolve the dealer URL from inventory and
+// attribute the click to the most recent posted listing for that vehicle.
+app.get('/r/v/:inventoryId', async (req, res) => {
+  const { inventoryId } = req.params
+
+  let destination = null
+  let listingId = null
+  try {
+    const { data: inv } = await supabaseAdmin
+      .from('inventory').select('source_url').eq('id', inventoryId).maybeSingle()
+    destination = inv?.source_url || null
+
+    const { data: rows } = await supabaseAdmin
+      .from('listings').select('id')
+      .eq('inventory_id', inventoryId).eq('status', 'posted')
+      .order('posted_at', { ascending: false }).limit(1)
+    listingId = rows?.[0]?.id || null
+  } catch {}
+
+  // Only log when we can attribute the click to a real listing — the insights metric
+  // counts clicks via listings.posted_by, so an unattributed click wouldn't be counted.
+  if (listingId) {
+    supabaseAdmin
+      .from('listing_clicks')
+      .insert({
+        listing_id: listingId,
+        source: req.query.s || 'fb_marketplace',
+        user_agent: (req.headers['user-agent'] || '').slice(0, 500),
+        referrer: (req.headers.referer || req.headers.referrer || '').slice(0, 500)
+      })
+      .then(({ error }) => { if (error) console.warn('listing_click insert failed:', error.message) })
+  }
+
+  if (destination) return res.redirect(302, destination)
   res.redirect(302, FRONTEND_URL)
 })
 

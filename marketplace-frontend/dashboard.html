@@ -20,7 +20,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="color-scheme" content="light dark">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@11/dist/bundle/index.umd.min.js"></script>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen flex flex-col overflow-x-hidden">
@@ -165,7 +165,6 @@
         <button type="button" data-page="insights" class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Insights</button>
         <button type="button" data-page="inventory" class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Inventory</button>
         <button type="button" data-page="leaderboard" data-team-nav class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Leaderboard</button>
-        <button type="button" data-page="team-insights" data-admin-nav class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Team Insights</button>
         <button type="button" data-page="sales-team" data-admin-nav class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Sales Team</button>
       </nav>
 
@@ -243,11 +242,55 @@
           <div class="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1" id="metric-aged">—</div>
           <div class="text-[10px] text-slate-500 mt-0.5">on lot &gt; 60 days</div>
         </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg" title="Buyers who clicked through from your Facebook Marketplace listings to view inventory.">
-          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">FB Click-Throughs</div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg" title="Buyers who tapped the tracked link in your Facebook Marketplace listings to view the vehicle. This is MarketSync's own count, not Facebook's listing-view number.">
+          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Tracked Link Clicks</div>
           <div class="text-2xl font-black text-violet-600 dark:text-violet-400 mt-1" id="metric-clicks">—</div>
-          <div class="text-[10px] text-slate-500 mt-0.5" id="metric-clicks-help">requires tracked link</div>
+          <div class="text-[10px] text-slate-500 mt-0.5" id="metric-clicks-help">via your MarketSync links</div>
         </div>
+      </div>
+
+      <!-- ───────── TEAM SECTION (admin only) — per-rep players + trend charts ───────── -->
+      <div id="insights-team-section" class="hidden space-y-6">
+
+      <!-- Per-rep player cards (one per sales rep with tier + stats) -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+        <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-3">Players · per-rep contribution &amp; tier progress</div>
+        <div id="ti-rep-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div class="text-xs text-slate-500 italic col-span-full">Loading players...</div>
+        </div>
+      </div>
+
+      <!-- Charts grid — 3x2 = 6 charts -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+        <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-3">Trends</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">📈 Listings posted (daily)</div>
+            <div class="relative h-48"><canvas id="chart-listings-daily"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">🚗 Listings by rep</div>
+            <div class="relative h-48"><canvas id="chart-listings-by-rep"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">🏆 Sold by rep</div>
+            <div class="relative h-48"><canvas id="chart-sold-by-rep"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">📅 Active days by rep</div>
+            <div class="relative h-48"><canvas id="chart-active-by-rep"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">📊 Sell-through % by rep</div>
+            <div class="relative h-48"><canvas id="chart-sell-through-by-rep"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">⏱ Avg time to sell by rep (days)</div>
+            <div class="relative h-48"><canvas id="chart-time-to-sell-by-rep"></canvas></div>
+          </div>
+        </div>
+      </div>
+
       </div>
 
       </div>
@@ -395,117 +438,6 @@
           <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Recent activity</div>
           <div id="lb-activity" class="space-y-2 max-h-72 overflow-y-auto pr-1">
             <div class="text-xs text-slate-500 italic">Loading activity...</div>
-          </div>
-        </div>
-      </div>
-
-      </div>
-      <!-- ───────── TEAM INSIGHTS PAGE ───────── -->
-      <div data-page-content="team-insights" class="page-content hidden space-y-6">
-
-      <!-- Shared range toggle (same markup as Insights page) -->
-      <div class="range-toggle flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 class="text-lg font-bold text-slate-900 dark:text-white">📊 Team Insights · <span class="range-label font-normal text-slate-500 text-sm">lifetime</span></h2>
-          <p class="text-slate-500 dark:text-slate-400 text-xs">Per-rep contribution, tier progress, and team-wide trends.</p>
-        </div>
-        <div class="inline-flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold">
-          <button type="button" data-range="7" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">7d</button>
-          <button type="button" data-range="30" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">30d</button>
-          <button type="button" data-range="90" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">90d</button>
-          <button type="button" data-range="365" class="range-pill px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition">1y</button>
-          <button type="button" data-range="lifetime" class="range-pill px-3 py-1.5 rounded bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition">Lifetime</button>
-        </div>
-      </div>
-
-      <!-- Top metric row — same shape as Insights page so layouts line up -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Available Inventory</div>
-          <div class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="ti-metric-synced">—</div>
-          <div class="text-[10px] text-slate-500 mt-0.5"><span id="ti-metric-synced-total">—</span> total synced</div>
-        </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Listings Posted</div>
-          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="ti-metric-listings">—</div>
-          <div class="text-[10px] text-slate-500 mt-0.5">team total</div>
-        </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold via Marketplace</div>
-          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1" id="ti-metric-sold">—</div>
-          <div class="text-[10px] text-slate-500 mt-0.5">team total</div>
-        </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Active Days</div>
-          <div class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1" id="ti-metric-active-days">—</div>
-          <div class="text-[10px] text-slate-500 mt-0.5">this week</div>
-        </div>
-      </div>
-
-      <!-- Second metric row — derived insights, mirrors Insights page -->
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Avg Time to Sell</div>
-          <div class="text-2xl font-black text-slate-900 dark:text-white mt-1"><span id="ti-metric-time-to-sell">—</span><span class="text-sm font-normal text-slate-500 ml-1">days</span></div>
-          <div class="text-[10px] text-slate-500 mt-0.5">posted → sold</div>
-        </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Posts / Day</div>
-          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="ti-metric-posts-per-day">—</div>
-          <div class="text-[10px] text-slate-500 mt-0.5">team average</div>
-        </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sell-Through</div>
-          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1"><span id="ti-metric-sell-through">—</span><span class="text-sm font-normal text-slate-500 ml-0.5">%</span></div>
-          <div class="text-[10px] text-slate-500 mt-0.5">sold ÷ posted</div>
-        </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Aged Inventory</div>
-          <div class="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1" id="ti-metric-aged">—</div>
-          <div class="text-[10px] text-slate-500 mt-0.5">on lot &gt; 60 days</div>
-        </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg">
-          <div class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">FB Click-Throughs</div>
-          <div class="text-2xl font-black text-violet-600 dark:text-violet-400 mt-1" id="ti-metric-clicks">—</div>
-          <div class="text-[10px] text-slate-500 mt-0.5">tracked link clicks</div>
-        </div>
-      </div>
-
-      <!-- Per-rep player cards (one per sales rep with tier + stats) -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
-        <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-3">Players</div>
-        <div id="ti-rep-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <div class="text-xs text-slate-500 italic col-span-full">Loading players...</div>
-        </div>
-      </div>
-
-      <!-- Charts grid — 3x2 = 6 charts -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
-        <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-3">Trends</div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">📈 Listings posted (daily)</div>
-            <div class="relative h-48"><canvas id="chart-listings-daily"></canvas></div>
-          </div>
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">🚗 Listings by rep</div>
-            <div class="relative h-48"><canvas id="chart-listings-by-rep"></canvas></div>
-          </div>
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">🏆 Sold by rep</div>
-            <div class="relative h-48"><canvas id="chart-sold-by-rep"></canvas></div>
-          </div>
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">📅 Active days by rep</div>
-            <div class="relative h-48"><canvas id="chart-active-by-rep"></canvas></div>
-          </div>
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">📊 Sell-through % by rep</div>
-            <div class="relative h-48"><canvas id="chart-sell-through-by-rep"></canvas></div>
-          </div>
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">⏱ Avg time to sell by rep (days)</div>
-            <div class="relative h-48"><canvas id="chart-time-to-sell-by-rep"></canvas></div>
           </div>
         </div>
       </div>

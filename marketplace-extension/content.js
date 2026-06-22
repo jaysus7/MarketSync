@@ -491,8 +491,13 @@ function showPhotoStrip(allImageUrls, vehicleId) {
     // URL watcher in the create-page bootstrap. This button is a manual backup.
     markPosted.textContent = 'Saving...';
     markPosted.disabled = true;
+    // Only attach the URL if we're actually on the published item page. On the create
+    // page this would be .../marketplace/create/vehicle — a useless link. When null,
+    // the listing is still marked posted and the auto-detector backfills the real URL.
+    const here = window.location.href;
+    const fbUrl = here.includes('/marketplace/item/') ? here : null;
     chrome.runtime.sendMessage(
-      { type: 'LISTING_POSTED', inventory_id: vehicleId, fb_listing_url: window.location.href },
+      { type: 'LISTING_POSTED', inventory_id: vehicleId, fb_listing_url: fbUrl },
       (response) => {
         if (response?.success) {
           markPosted.textContent = '✅ Posted!';
@@ -949,13 +954,20 @@ if (modelComboboxNow && (
       ? displayDealership
       : (repName ? (displayDealership ? `${repName} — ${displayDealership}` : repName) : displayDealership);
 
+    // Tracked deep link → logs the click (powers the FB CLICK-THROUGHS metric) then
+    // 302s the buyer to this vehicle's detail page on the dealer site. Keyed by the
+    // inventory id because the listing row isn't created until after the post goes
+    // live. Falls back to the plain website if we somehow lack an id.
+    const trackedLink = vehicle.id ? `${API}/r/v/${vehicle.id}?s=fb` : null;
+
     const contactLines = [
       '',
       '─── CONTACT ───',
       contactName || null,
       repPhone ? `📞 ${repPhone}` : (dealerPhone ? `📞 ${dealerPhone}` : null),
-      repEmail ? `✉️ ${repEmail}` : null,
-      dealerWebsite ? `🌐 ${dealerWebsite}` : null
+      repEmail ? `✉️ ${repEmail.replace('@', ' [at] ')}` : null,
+      trackedLink ? `🌐 Full details & photos: ${trackedLink}`
+                  : (dealerWebsite ? `🌐 ${dealerWebsite}` : null)
     ].filter(Boolean);
 
     const desc = [
