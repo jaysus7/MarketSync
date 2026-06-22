@@ -23,6 +23,13 @@ import { Resend } from 'resend'
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 const EMAIL_FROM = process.env.EMAIL_FROM || 'MarketSync <noreply@marketsync.link>'
 
+// Frontend host used for password reset links, email verification, Stripe redirects,
+// etc. Render's env var has been variously named FRONTEND_URL or API_URL over the
+// life of this project — fall through to either, then to a hardcoded default so the
+// app never emits `undefined/reset-password.html` URLs.
+const FRONTEND_URL = (process.env.FRONTEND_URL || process.env.API_URL || 'https://marketsync.link')
+  .replace(/\/$/, '')  // strip trailing slash to avoid `//path` URLs
+
 const missingEnvVars = [];
 if (!process.env.SUPABASE_URL) missingEnvVars.push('SUPABASE_URL');
 if (!process.env.SUPABASE_ANON_KEY) missingEnvVars.push('SUPABASE_ANON_KEY');
@@ -354,7 +361,7 @@ app.post('/auth/resend-verification', rateLimit('resend-verify', 3, 60 * 60 * 10
     await supabase.auth.resend({
       type: 'signup',
       email,
-      options: { emailRedirectTo: `${process.env.FRONTEND_URL}/login.html?verified=1` }
+      options: { emailRedirectTo: `${FRONTEND_URL}/login.html?verified=1` }
     })
   } catch (e) {
     console.warn('resend verification failed:', e.message)
@@ -525,7 +532,7 @@ app.post('/auth/passkey/login/finish', rateLimit('passkey-login', 10, 15 * 60 * 
     const { data: link, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: user.email,
-      options: { redirectTo: `${process.env.FRONTEND_URL}/dashboard.html` }
+      options: { redirectTo: `${FRONTEND_URL}/dashboard.html` }
     })
     if (linkErr) return res.status(500).json({ error: 'Could not mint session: ' + linkErr.message })
 
@@ -747,7 +754,7 @@ app.post('/auth/forgot-password', rateLimit('forgot', 5, 60 * 60 * 1000), async 
         })
 
       if (!insErr) {
-        const resetUrl = `${process.env.FRONTEND_URL}/reset-password.html?token=${rawToken}`
+        const resetUrl = `${FRONTEND_URL}/reset-password.html?token=${rawToken}`
         const html = buildResetEmailHtml({ resetUrl, ip: getClientIp(req) })
         const plain = buildResetEmailText({ resetUrl, ip: getClientIp(req) })
 
@@ -1872,7 +1879,7 @@ app.post('/billing/checkout', requireAuth, async (req, res) => {
       try {
         const portalSession = await stripe.billingPortal.sessions.create({
           customer: existingCustomerId,
-          return_url: `${process.env.FRONTEND_URL}/dashboard.html`
+          return_url: `${FRONTEND_URL}/dashboard.html`
         })
         return res.json({ url: portalSession.url })
       } catch (portalErr) {
@@ -1889,8 +1896,8 @@ app.post('/billing/checkout', requireAuth, async (req, res) => {
       client_reference_id: clientRefId,
       metadata,
       subscription_data: { metadata },
-      success_url: `${process.env.FRONTEND_URL}/dashboard.html`,
-      cancel_url: `${process.env.FRONTEND_URL}/dashboard.html`
+      success_url: `${FRONTEND_URL}/dashboard.html`,
+      cancel_url: `${FRONTEND_URL}/dashboard.html`
     })
     res.json({ url: session.url })
   } catch (err) {
@@ -1961,7 +1968,7 @@ app.get('/r/:listingId', async (req, res) => {
 
   if (destination) return res.redirect(302, destination)
   // Fall back to the homepage rather than 404 — buyer should land somewhere usable
-  res.redirect(302, process.env.FRONTEND_URL || 'https://marketsync.link/')
+  res.redirect(302, FRONTEND_URL)
 })
 
 // ── 9. IMAGE PROXY ──
