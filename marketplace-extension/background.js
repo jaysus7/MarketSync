@@ -96,9 +96,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     (async () => {
       try {
         const origin = new URL(msg.url).origin + '/*'
-        const granted = await chrome.permissions.request({ origins: [origin] })
-        if (!granted) {
-          sendResponse({ success: false, error: 'Permission denied — needed to scan the dealer site.' })
+        // The popup already requested this permission (it has the user gesture MV3
+        // needs). Here we only verify it's present — requesting from a service worker
+        // silently fails, which is what made the button look stuck.
+        const has = await chrome.permissions.contains({ origins: [origin] })
+        if (!has) {
+          sendResponse({ success: false, error: 'Site access not granted — click Pull Inventory and choose Allow.' })
           return
         }
         // Persist an in-progress marker so the (ephemeral) popup can show the true
@@ -132,6 +135,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
     })()
     return true
+  }
+
+  // Progress pings from the dealer-extract content script while it paginates the
+  // dealer's inventory. We mirror them into captureState so the popup shows a %.
+  if (msg.type === 'CAPTURE_PROGRESS') {
+    const total = Number(msg.total) || 0
+    const current = Number(msg.current) || 0
+    const pct = total > 0 ? Math.min(95, Math.round((current / total) * 100)) : null
+    chrome.storage.local.set({
+      captureState: {
+        feedId: msg.feed_id || null, status: 'pulling', phase: msg.phase || 'scanning',
+        current, total, pct, startedAt: Date.now()
+      }
+    })
+    return false  // no response needed
   }
 
   // Step 2: content script (dealer-extract.js) posts the scraped vehicles

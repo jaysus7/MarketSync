@@ -143,6 +143,13 @@
           const res = Array.isArray(d?.results) ? d.results : []
           if (!res.length) break
           all.push(...res.map(mapV)); pg++
+          // Report pagination progress so the popup can show a live percentage.
+          try {
+            chrome.runtime.sendMessage({
+              type: 'CAPTURE_PROGRESS', feed_id: window.__marketsyncFeedId || null,
+              phase: 'scanning', current: all.length, total: Number.isFinite(total) ? total : all.length
+            })
+          } catch {}
         }
         if (all.length) {
           result = { platform: 'convertus', source_url: buildUrl(1), vehicles: all }
@@ -200,6 +207,14 @@
     })
     return
   }
+
+  // Signal the upload phase so the popup's progress reflects "almost done".
+  try {
+    chrome.runtime.sendMessage({
+      type: 'CAPTURE_PROGRESS', feed_id: window.__marketsyncFeedId || null,
+      phase: 'uploading', current: result.vehicles.length, total: result.vehicles.length
+    })
+  } catch {}
 
   // Send the captured vehicles to the background script, which forwards to
   // the MarketSync backend. The background script will auto-close this tab

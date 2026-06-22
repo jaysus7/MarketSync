@@ -916,19 +916,21 @@ if (modelComboboxNow && (
   const descEl = await waitFor(() => document.querySelector('textarea'));
   if (descEl) {
     // Pull dealership/rep info from the poster profile that popup.js attached.
-    const dealershipName = vehicle.poster?.dealership?.name || '';
+    const rawDealership = vehicle.poster?.dealership?.name || '';
     const repName = vehicle.poster?.full_name || '';
     const repEmail = vehicle.poster?.email || '';
     const repPhone = vehicle.poster?.phone || '';
     const dealerPhone = vehicle.poster?.dealership?.phone || '';
     const dealerWebsite = vehicle.poster?.dealership?.website_url || '';
 
-    // Marketing headline at the very top — auto-filled from the user's
-    // dealership profile so nothing has to be typed manually.
-    // Example: "Welland Chev Vehicles | Plus HST and Licensing | HOT DEAL!"
-    const headline = dealershipName
-      ? `🔥 ${dealershipName} Vehicles | Plus HST and Licensing | HOT DEAL! 🔥`
-      : null;
+    // Personal accounts are auto-named "{Name} — Personal". Show "Dealer" instead
+    // (for every account), and always produce a headline — even with no dealership.
+    const displayDealership = rawDealership.replace(/\bPersonal\b/gi, 'Dealer');
+    const brandName = displayDealership || (repName ? `${repName} — Dealer` : 'Dealer');
+
+    // Marketing headline at the very top — auto-filled from the user's profile so
+    // nothing has to be typed manually.
+    const headline = `🔥 ${brandName} | Plus HST & Licensing | HOT DEAL! 🔥`;
 
     const baseDesc = vehicle.ai_description || vehicle.description ||
       `${vehicle.year} ${make} ${model} ${vehicle.trim || ''}. ` +
@@ -936,10 +938,21 @@ if (modelComboboxNow && (
       `${vehicle.exterior_color ? vehicle.exterior_color + ' exterior. ' : ''}` +
       `${vehicle.transmission || 'Automatic'} transmission.`;
 
+    // Pricing disclaimer in the body (separate from the headline) so it's explicit.
+    const pricingLine = '💲 Price plus applicable tax & licensing.';
+
+    // Contact name: avoid the "Jane Doe — Jane Doe — Dealer" duplication that happens
+    // when a personal account's dealership name already starts with the rep's name.
+    const isPersonalDealer = displayDealership && repName &&
+      displayDealership.toLowerCase().startsWith(repName.toLowerCase());
+    const contactName = isPersonalDealer
+      ? displayDealership
+      : (repName ? (displayDealership ? `${repName} — ${displayDealership}` : repName) : displayDealership);
+
     const contactLines = [
       '',
       '─── CONTACT ───',
-      repName ? `${repName}${dealershipName ? ` — ${dealershipName}` : ''}` : dealershipName,
+      contactName || null,
       repPhone ? `📞 ${repPhone}` : (dealerPhone ? `📞 ${dealerPhone}` : null),
       repEmail ? `✉️ ${repEmail}` : null,
       dealerWebsite ? `🌐 ${dealerWebsite}` : null
@@ -947,8 +960,10 @@ if (modelComboboxNow && (
 
     const desc = [
       headline,
-      headline ? '' : null,  // blank line separator when headline is present
+      '',
       baseDesc,
+      '',
+      pricingLine,
       contactLines.join('\n')
     ].filter(s => s !== null).join('\n');
 

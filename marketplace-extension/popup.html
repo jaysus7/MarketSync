@@ -353,6 +353,18 @@
       Pull Inventory
     </button>
   </div>
+  <!-- Progress bar (shown while pulling) -->
+  <div id="ext-sync-progress-track" style="display:none;margin-top:8px;height:6px;background:#21262d;border-radius:3px;overflow:hidden">
+    <div id="ext-sync-progress-fill" style="height:100%;width:0%;background:#4f46e5;transition:width .3s"></div>
+  </div>
+  <!-- Step-by-step instructions for Cloudflare-protected dealers -->
+  <div id="ext-sync-steps" style="margin-top:8px;font-size:10px;color:#9aa4b2;line-height:1.6;display:none">
+    <b style="color:#c9d1d9">This dealer is Cloudflare-protected — pull it through your browser:</b>
+    <div style="margin-top:3px">1. Click <b>Pull Inventory</b> above, then choose <b>Allow</b> on the permission prompt.</div>
+    <div>2. A dealer tab opens, scans the inventory, and closes by itself — don't close it manually.</div>
+    <div>3. Wait ~1–2 minutes; progress shows above. You can close this popup, it keeps running.</div>
+    <div>4. Refresh your MarketSync dashboard to see the pulled vehicles.</div>
+  </div>
 </div>
 
     <div class="stats-bar">

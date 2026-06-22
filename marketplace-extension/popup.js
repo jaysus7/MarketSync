@@ -336,6 +336,17 @@ async function checkExtensionSyncNeeded(token) {
     bar.style.display = 'block'
     const feed = candidates[0]
     const host = (() => { try { return new URL(feed.feed_url).host } catch { return feed.feed_url } })()
+    const steps = $('ext-sync-steps')
+    const track = $('ext-sync-progress-track')
+    const fill = $('ext-sync-progress-fill')
+    if (steps) steps.style.display = 'block'  // always show the how-to while a capture feed exists
+
+    const setProgress = (pct) => {
+      if (!track || !fill) return
+      if (pct == null) { track.style.display = 'none'; return }
+      track.style.display = 'block'
+      fill.style.width = `${Math.max(0, Math.min(100, pct))}%`
+    }
 
     // The capture runs in the BACKGROUND (separate tab + service worker) and keeps
     // going after this popup closes. The popup is a fresh document each time it
@@ -347,20 +358,27 @@ async function checkExtensionSyncNeeded(token) {
       const pulling = relevant && state.status === 'pulling' && (Date.now() - (state.startedAt || 0) < STALE_MS)
       if (pulling) {
         btn.disabled = true
-        btn.textContent = '⏳ Pulling…'
-        status.textContent = 'Pulling inventory in the background — you can close this popup, it keeps running. Refresh your dashboard when it finishes.'
+        const pctStr = (state.pct != null) ? ` ${state.pct}%` : ''
+        btn.textContent = `⏳ Pulling…${pctStr}`
+        status.textContent = state.total
+          ? `Reading inventory… ${state.current || 0}/${state.total} vehicles. You can close this — it keeps running.`
+          : 'Pulling inventory in the background — you can close this popup, it keeps running.'
+        setProgress(state.pct != null ? state.pct : null)
       } else if (relevant && state.status === 'done') {
         btn.disabled = false
         btn.textContent = 'Pull again'
         status.textContent = `✓ Pulled ${state.count ?? 0} vehicles from ${host}. Refresh your dashboard to see them.`
+        setProgress(100)
       } else if (relevant && state.status === 'error') {
         btn.disabled = false
         btn.textContent = 'Try again'
         status.textContent = state.error || 'Capture failed — try again.'
+        setProgress(null)
       } else {
         btn.disabled = false
-        btn.textContent = 'Connect dealer site'
+        btn.textContent = 'Pull Inventory'
         status.textContent = `Pull inventory from ${host} using your browser session.`
+        setProgress(null)
       }
     }
 
@@ -373,8 +391,28 @@ async function checkExtensionSyncNeeded(token) {
       if (area === 'local' && changes.captureState) renderState(changes.captureState.newValue)
     })
 
-    btn.onclick = () => {
+    btn.onclick = async () => {
       btn.disabled = true
+      // Request host permission HERE — the popup has the user gesture that MV3
+      // requires. Requesting it from the background service worker silently fails,
+      // which is why the button looked like it "never connected" for a new dealer
+      // origin (each dealer domain needs its own grant).
+      try {
+        btn.textContent = 'Requesting access…'
+        const origin = new URL(feed.feed_url).origin + '/*'
+        const granted = await chrome.permissions.request({ origins: [origin] })
+        if (!granted) {
+          btn.disabled = false
+          btn.textContent = 'Try again'
+          status.textContent = 'Access is required to read the dealer site. Click Pull Inventory and choose Allow.'
+          return
+        }
+      } catch (e) {
+        btn.disabled = false
+        btn.textContent = 'Try again'
+        status.textContent = e.message || 'Could not request site access.'
+        return
+      }
       btn.textContent = 'Opening dealer site…'
       chrome.runtime.sendMessage({
         type: 'CONNECT_DEALER_SITE',
@@ -386,7 +424,7 @@ async function checkExtensionSyncNeeded(token) {
           status.textContent = 'Pulling inventory in the background — you can close this popup, it keeps running.'
         } else {
           btn.disabled = false
-          btn.textContent = 'Try Again'
+          btn.textContent = 'Try again'
           status.textContent = resp?.error || 'Could not connect.'
         }
       })

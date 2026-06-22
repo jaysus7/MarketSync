@@ -2054,15 +2054,27 @@ function mapFuel(fuel) {
 }
 
 function buildDescription(vehicle) {
-  const features = vehicle.searchablesarray?.slice(0, 15).join(' • ') || ''
+  // Feature list: prefer the feed's explicit searchables, fall back to upgrades/options.
+  // Entries may be plain strings or { name } objects depending on the platform.
+  const featureSrc = (Array.isArray(vehicle.searchablesarray) && vehicle.searchablesarray.length)
+    ? vehicle.searchablesarray
+    : (Array.isArray(vehicle.upgrades) ? vehicle.upgrades
+      : (Array.isArray(vehicle.options) ? vehicle.options : []))
+  const features = featureSrc
+    .map(f => (typeof f === 'string' ? f : (f?.name || f?.label || '')))
+    .map(s => String(s).trim())
+    .filter(Boolean)
+    .slice(0, 18)
+    .join(' • ')
 
   const tags = []
-  if (vehicle.condition) tags.push(vehicle.condition.toUpperCase())
+  if (vehicle.condition) tags.push(String(vehicle.condition).toUpperCase())
   if (vehicle.certified) tags.push('CERTIFIED PRE-OWNED')
   if (vehicle.demo) tags.push('DEMO')
   if (vehicle.salepending) tags.push('SALE PENDING')
 
-  const headline = `${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim || ''}`.trim()
+  const headline = `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''} ${vehicle.trim || ''}`
+    .replace(/\s+/g, ' ').trim()
   const tagLine = tags.length ? tags.join(' • ') : null
 
   const specs = [
@@ -2070,17 +2082,24 @@ function buildDescription(vehicle) {
     vehicle.exteriorcolor ? `${vehicle.exteriorcolor} exterior` : null,
     vehicle.interiorcolor ? `${vehicle.interiorcolor} interior` : null,
     vehicle.bodystyle || null,
-    vehicle.engine || null,
     vehicle.drivetrain || null,
+    vehicle.engine || null,
     vehicle.transmission ? `${vehicle.transmission} transmission` : null,
-    vehicle.fueltype ? `${vehicle.fueltype} fuel` : null
+    vehicle.fueltype ? `${vehicle.fueltype} fuel` : null,
+    vehicle.seats ? `${vehicle.seats} seats` : null
   ].filter(Boolean)
+
+  // A short trim/marketing blurb when the feed ships one.
+  const blurb = [vehicle.trimdescription, vehicle.description]
+    .map(s => (typeof s === 'string' ? s.trim() : ''))
+    .find(s => s && s.length > 20 && s.length < 600) || null
 
   const sections = [
     tagLine ? `${tagLine}\n${headline}` : headline,
     specs.length ? specs.join(' • ') : null,
+    blurb,
     features ? `FEATURES:\n${features}` : null,
-    `Stock #${vehicle.stocknumber}`
+    vehicle.stocknumber ? `Stock #${vehicle.stocknumber}` : null
   ].filter(Boolean)
 
   return sections.join('\n\n')
@@ -3005,10 +3024,22 @@ function buildSourceUrl(feed, vehicle) {
     return vehicle._detail_url
   }
 
-  // 2. Some feeds include the vehicle's own detail URL inline
+  // 2. Some feeds include the vehicle's own detail URL inline. Check a wide set of
+  //    field names — LeadBox/others vary (vdpUrl, vehicle_url, link, href, etc.).
   const explicit = vehicle.url || vehicle.permalink || vehicle.detailUrl || vehicle.detail_url
-                || vehicle.vdpurl || vehicle.thirdpartyvdpurl || vehicle.vdp_url
+                || vehicle.vdpurl || vehicle.vdpUrl || vehicle.vdp_url || vehicle.thirdpartyvdpurl
+                || vehicle.vehicleUrl || vehicle.vehicle_url || vehicle.vehicleURL
+                || vehicle.link || vehicle.href || vehicle.detailURL || vehicle.detailsUrl
   if (typeof explicit === 'string' && explicit.startsWith('http')) return explicit
+
+  // 2b. LeadBox: build the deterministic, verified VDP URL up front. LeadBox ships
+  //     no inline per-vehicle URL, and the harvested url_map / category fallback were
+  //     producing 404s — so prefer this exact pattern over those when we can build a
+  //     complete slug. (Falls through to url_map/category only if a field is missing.)
+  if (isLeadBoxFeed(feed)) {
+    const lb = buildLeadBoxVdpUrl(feed.feed_url, vehicle)
+    if (lb) return lb
+  }
 
   // 3. UNIVERSAL: inferred url_template — applies to ANY dealer site. Set once
   //    per feed by inferUrlTemplate() during the first sync after feed-add.
@@ -3046,16 +3077,40 @@ function buildSourceUrl(feed, vehicle) {
 function buildLeadBoxSourceUrl(feedUrl, vehicle) {
   const origin = feedUrl.split('/wp-content')[0]
 
-  // Prefer an explicit per-vehicle URL if the feed provides one
+  // Prefer the deterministic per-vehicle VDP, then any explicit inline URL.
+  const vdp = buildLeadBoxVdpUrl(feedUrl, vehicle)
+  if (vdp) return vdp
   const explicit = vehicle.url || vehicle.permalink || vehicle.detailUrl || vehicle.detail_url
                 || vehicle.vdpurl || vehicle.thirdpartyvdpurl
   if (typeof explicit === 'string' && explicit.startsWith('http')) return explicit
 
-  // Category listing — guaranteed not to 404 across LeadBox dealers
+  // Category listing — last resort when we can't build a per-vehicle slug
   if (vehicle.condition === 'New') return `${origin}/new-vehicles/`
   if (vehicle.condition === 'Used') return `${origin}/used-vehicles/`
   if (vehicle.demo) return `${origin}/demo-inventory/`
   return `${origin}/vehicles/`
+}
+
+function isLeadBoxFeed(feed) {
+  return feed?.platform === 'leadbox'
+    || (typeof feed?.feed_url === 'string' && feed.feed_url.includes('/wp-content/uploads/data/inventory.json'))
+}
+
+// Build LeadBox's verified VDP URL: {origin}/view/{condition}-{year}-{make}-{model}-{id}/
+// (lowercased, non-alphanumeric runs → single hyphen). The trailing id is LeadBox's
+// internal vehicle `id` field — NOT the stock number. Returns null if any slug part
+// is missing so callers can fall back. Verified against live wellandchev.com listings.
+function buildLeadBoxVdpUrl(feedUrl, vehicle) {
+  const origin = typeof feedUrl === 'string' && feedUrl.includes('/wp-content')
+    ? feedUrl.split('/wp-content')[0]
+    : (() => { try { return new URL(feedUrl).origin } catch { return null } })()
+  if (!origin) return null
+  const id = vehicle.id || vehicle.vehicle_id || vehicle.leadbox_id
+  const condition = vehicle.condition || (vehicle.demo ? 'Demo' : null)
+  if (!id || !vehicle.year || !vehicle.make || !vehicle.model || !condition) return null
+  const slug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  const path = `${slug(condition)}-${vehicle.year}-${slug(vehicle.make)}-${slug(vehicle.model)}-${id}`
+  return `${origin}/view/${path}/`
 }
 
 // Per-dealership in-flight sync tracking. Prevents the boot sync, the post-add
