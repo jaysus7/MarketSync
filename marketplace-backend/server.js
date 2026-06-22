@@ -2354,6 +2354,28 @@ async function probeUrlHtml(url, timeoutMs = 12000) {
   }
 }
 
+// Extract the VIN from an EDealer detail page. The old approach —
+// `html.match(/[A-HJ-NPR-Z0-9]{17}/)` — grabbed the FIRST 17-char uppercase-alnum
+// run anywhere in the HTML, with no label and no boundaries. On EDealer's shared
+// template that first run is often a constant token (asset hash, analytics/build
+// ID), so EVERY vehicle page returned the SAME "VIN" and the whole inventory
+// collapsed to one row ("1 unique · N duplicate VINs merged"). We now prefer an
+// explicitly-labeled VIN and only fall back to a properly-bounded standalone token.
+function extractEDealerVin(html) {
+  const labeled =
+       html.match(/"vehicleIdentificationNumber"\s*:\s*"([A-HJ-NPR-Z0-9]{17})"/i)
+    || html.match(/data-vin\s*=\s*["']([A-HJ-NPR-Z0-9]{17})["']/i)
+    || html.match(/"vin"\s*:\s*"([A-HJ-NPR-Z0-9]{17})"/i)
+    || html.match(/\bVIN\b[\s:#>"'\/]*([A-HJ-NPR-Z0-9]{17})\b/i)
+  if (labeled) return labeled[1].toUpperCase()
+
+  // Fallback: a standalone 17-char VIN-shaped token bounded by non-alphanumerics
+  // on BOTH sides — so we never slice 17 chars out of a longer hash/minified token
+  // that repeats on every page.
+  const m = html.match(/(?<![A-Za-z0-9])([A-HJ-NPR-Z0-9]{17})(?![A-Za-z0-9])/)
+  return m ? m[1].toUpperCase() : null
+}
+
 function parseEDealerDetailPage(html, url) {
   const titleMatch = html.match(/<title>([^<]+)<\/title>/i)
   const title = titleMatch ? titleMatch[1].trim() : ''
@@ -2369,8 +2391,7 @@ function parseEDealerDetailPage(html, url) {
   const stocknumber = stockMatch ? stockMatch[1] : null
   const priceMatch = metaDesc.match(/\$([\d,]+)/)
   const price = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : 0
-  const vinMatch = html.match(/[A-HJ-NPR-Z0-9]{17}/)
-  const vin = vinMatch ? vinMatch[0] : null
+  const vin = extractEDealerVin(html)
   const mileageMatch = html.match(/(\d{1,3}(?:,\d{3})*)\s*km\b/i)
   const mileage = mileageMatch ? parseInt(mileageMatch[1].replace(/,/g, '')) : 0
   const imageRe = /https:\/\/media\.edealer\.ca\/w_1920[^"'\s]*\/inventory\/[A-Z0-9]+\.webp/g
@@ -2380,7 +2401,9 @@ function parseEDealerDetailPage(html, url) {
   while ((m = imageRe.exec(html)) !== null) {
     if (!seen.has(m[0])) { seen.add(m[0]); image_urls.push(m[0]) }
   }
-  if (!vin || !year || !make) return null
+  // Need year+make plus at least one identifier (VIN or stock#). Downstream dedup
+  // falls back to stock# when VIN is absent, so a missing VIN no longer drops the car.
+  if (!year || !make || (!vin && !stocknumber)) return null
   return { vin, year, make, model, price, mileage, stocknumber, condition, onweb: true, salepending: false, image_urls, _detail_url: url }
 }
 
