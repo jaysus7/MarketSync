@@ -70,6 +70,61 @@ async function getBrowser() {
   }
 }
 
+// Fetch one or more URLs through real Chrome to get past Cloudflare / bot
+// protection that 403s plain `fetch` (UA sniffing or JS challenges). We navigate
+// the origin ONCE so any Cloudflare interstitial ("Just a moment…") runs its JS
+// and sets the cf_clearance cookie, then issue same-origin in-page fetches for
+// each target URL — those carry the clearance cookie and return the raw body.
+// Returns [{ url, ok, status, body, contentType, error? }] in input order.
+export async function fetchUrlsViaBrowser(urls, opts = {}) {
+  const { timeoutMs = 30000 } = opts
+  if (!Array.isArray(urls) || urls.length === 0) return []
+  const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+  let page
+  try {
+    const origin = new URL(urls[0]).origin
+    const browser = await getBrowser()
+    page = await browser.newPage()
+    await page.setUserAgent(UA)
+    await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' })
+
+    // Warm the origin so a Cloudflare JS challenge (if any) clears once.
+    await page.goto(origin, { waitUntil: 'domcontentloaded', timeout: timeoutMs }).catch(() => {})
+    const title = await page.title().catch(() => '')
+    if (/just a moment|attention required|checking your browser|verify you are human/i.test(title)) {
+      // Wait for the challenge to solve and redirect to real content.
+      await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }).catch(() => {})
+    }
+
+    const out = []
+    for (const u of urls) {
+      const res = await page.evaluate(async (target) => {
+        try {
+          const r = await fetch(target, {
+            headers: { Accept: 'application/json, text/plain, */*' },
+            credentials: 'include'
+          })
+          return { status: r.status, body: await r.text(), contentType: r.headers.get('content-type') || '' }
+        } catch (e) {
+          return { status: 0, body: '', contentType: '', error: String(e) }
+        }
+      }, u)
+      out.push({ url: u, ok: res.status >= 200 && res.status < 300 && !!res.body, ...res })
+    }
+    return out
+  } catch (e) {
+    return urls.map(u => ({ url: u, ok: false, status: 0, body: '', contentType: '', error: e.message }))
+  } finally {
+    if (page) await page.close().catch(() => {})
+  }
+}
+
+// Convenience wrapper for a single URL.
+export async function fetchViaBrowser(targetUrl, opts = {}) {
+  const [r] = await fetchUrlsViaBrowser([targetUrl], opts)
+  return r || { ok: false, status: 0, body: '', contentType: '' }
+}
+
 // Heuristics for "this XHR is the inventory list"
 function looksLikeInventoryUrl(url) {
   const u = url.toLowerCase()

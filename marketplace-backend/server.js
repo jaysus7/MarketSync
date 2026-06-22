@@ -5,7 +5,7 @@ import ws from 'ws'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { renderAndCaptureInventory, genericMapVehicle, harvestVehicleUrls,
-         inferUrlTemplate, renderUrlTemplate } from './puppeteerRenderer.js'
+         inferUrlTemplate, renderUrlTemplate, fetchUrlsViaBrowser, fetchViaBrowser } from './puppeteerRenderer.js'
 import { validatePassword, rateLimit, securityHeaders, corsOriginCheck, getClientIp,
          generateRecoveryCodes, hashRecoveryCode } from './security.js'
 import { maybeAlertSuspiciousLogin } from './securityAlerts.js'
@@ -46,6 +46,38 @@ if (missingEnvVars.length > 0) {
   console.error('❌ CRITICAL CONFIGURATION ERROR: Missing Render Environment Keys:');
   console.error(JSON.stringify(missingEnvVars, null, 2));
   process.exit(1);
+}
+
+// Realistic browser headers. Many dealer sites (Performance Auto Group, etc.) sit
+// behind Cloudflare / WAF rules that 403 any request whose User-Agent isn't a real
+// browser. Sending a full Chrome header set clears the common "Bot Fight Mode" and
+// managed-challenge rules that only inspect headers. Sites running a full JS
+// challenge still need the Puppeteer fallback (fetchViaBrowser / fetchUrlsViaBrowser).
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Sec-Ch-Ua': '"Chromium";v="131", "Not_A Brand";v="24", "Google Chrome";v="131"',
+  'Sec-Ch-Ua-Mobile': '?0',
+  'Sec-Ch-Ua-Platform': '"macOS"',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Upgrade-Insecure-Requests': '1'
+}
+
+// fetch() wrapper that sends browser-like headers plus a same-origin Referer/Origin.
+// Caller headers in init.headers win (e.g. JSON Accept / Sec-Fetch overrides).
+function browserFetch(url, init = {}) {
+  let extra = {}
+  try {
+    const origin = new URL(url).origin
+    extra = { Referer: origin + '/', Origin: origin }
+  } catch {}
+  return fetch(url, {
+    ...init,
+    headers: { ...BROWSER_HEADERS, ...extra, ...(init.headers || {}) }
+  })
 }
 
 const app = express()
@@ -2326,11 +2358,9 @@ async function probeUrlHtml(url, timeoutMs = 12000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 MarketSync-FeedProbe/1.0' }
-    })
+    const res = await browserFetch(url, { signal: controller.signal })
     clearTimeout(timer)
+    if (res.status === 403 || res.status === 503) return { ok: false, status: res.status, blocked: true }
     if (!res.ok) return { ok: false, status: res.status }
     const html = await res.text()
     const blocks = []
@@ -2413,9 +2443,7 @@ function parseEDealerDetailPage(html, url) {
 // For 200-300 vehicles this finishes in ~30-60 seconds with concurrency=6.
 async function fetchEDealerInventoryFromSitemap(origin) {
   try {
-    const smRes = await fetch(`${origin}/inventory-listing-sitemap.xml`, {
-      headers: { 'User-Agent': 'Mozilla/5.0 MarketSync-Sync/1.0' }
-    })
+    const smRes = await browserFetch(`${origin}/inventory-listing-sitemap.xml`)
     if (!smRes.ok) {
       console.warn(`[sync] EDealer sitemap missing at ${origin} (HTTP ${smRes.status})`)
       return null
@@ -2452,7 +2480,7 @@ async function fetchEDealerInventoryFromSitemap(origin) {
       const batch = urls.slice(i, i + CONCURRENCY)
       const results = await Promise.all(batch.map(async (url) => {
         try {
-          const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 MarketSync-Sync/1.0' } })
+          const r = await browserFetch(url)
           if (!r.ok) { failed++; return null }
           // Skip oversized responses without decoding the whole body to a string
           const lenHeader = parseInt(r.headers.get('content-length') || '0')
@@ -2504,7 +2532,7 @@ async function fetchEDealerDetailImageGroups(detailUrls, concurrency = 2) {
     const batch = detailUrls.slice(i, i + concurrency)
     const batchResults = await Promise.all(batch.map(async (url) => {
       try {
-        const r = await fetch(url, { headers: { 'User-Agent': 'MarketSync-Sync/1.0' } })
+        const r = await browserFetch(url)
         if (!r.ok) return []
         return extractEDealerImagesFromPage(await r.text())
       } catch { return [] }
@@ -2573,11 +2601,13 @@ async function probeUrl(url, timeoutMs = 8000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const res = await fetch(url, {
+    const res = await browserFetch(url, {
       signal: controller.signal,
-      headers: { 'Accept': 'application/json', 'User-Agent': 'MarketSync-FeedProbe/1.0' }
+      headers: { 'Accept': 'application/json, text/plain, */*', 'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin' }
     })
     clearTimeout(timer)
+    // Cloudflare/WAF block — signal to the caller that a real-browser retry may help.
+    if (res.status === 403 || res.status === 503) return { ok: false, status: res.status, blocked: true }
     if (!res.ok) return { ok: false, status: res.status }
     const contentType = res.headers.get('content-type') || ''
     if (!contentType.includes('json')) return { ok: false, status: res.status, reason: 'non-json response' }
@@ -2598,6 +2628,7 @@ async function detectFeedPlatform(dealerUrl) {
   }
 
   const attempts = []
+  const blockedJsonProbes = []  // { platform, url } for JSON probes that 403/503'd (likely Cloudflare)
 
   for (const platform of PLATFORM_PROBES) {
     const urls = platform.htmlProbe ? [dealerUrl] : platform.buildUrls(origin)
@@ -2608,6 +2639,7 @@ async function detectFeedPlatform(dealerUrl) {
         platform: platform.platform, label: platform.label, url,
         ok: result.ok, status: result.status, reason: result.reason
       })
+      if (result.blocked && !platform.htmlProbe) blockedJsonProbes.push({ platform: platform.platform, url })
 
       if (result.ok && platform.validate(probeData)) {
         const vehicles = platform.extract(probeData)
@@ -2622,6 +2654,39 @@ async function detectFeedPlatform(dealerUrl) {
           attempts
         }
       }
+    }
+  }
+
+  // Cloudflare / WAF escalation: if static probes were BLOCKED (403/503) rather than
+  // simply absent, the JSON feed likely exists but is gated behind bot protection.
+  // Retry the blocked JSON endpoints through real Chrome (one warmed session that
+  // clears any JS challenge), then validate/extract exactly as the static path would.
+  if (blockedJsonProbes.length) {
+    console.log(`[probe] ${blockedJsonProbes.length} probe(s) blocked (403/503) — retrying via headless Chrome`)
+    try {
+      const results = await fetchUrlsViaBrowser(blockedJsonProbes.map(p => p.url))
+      for (const r of results) {
+        if (!r.ok || !r.body) continue
+        let data
+        try { data = JSON.parse(r.body) } catch { continue }
+        const ref = blockedJsonProbes.find(p => p.url === r.url)
+        const platform = ref && PLATFORM_PROBES.find(pp => pp.platform === ref.platform)
+        if (!platform || !platform.validate(data)) continue
+        const vehicles = platform.extract(data)
+        console.log(`[probe] Cloudflare-bypassed feed via Chrome: ${vehicles.length} vehicles from ${r.url}`)
+        return {
+          success: true,
+          platform: platform.platform,
+          platform_label: platform.label,
+          feed_url: r.url,
+          vehicle_count: vehicles.length,
+          sample_vehicles: vehicles.slice(0, 3).map(platform.mapVehicle),
+          cloudflare_bypassed: true,
+          attempts
+        }
+      }
+    } catch (e) {
+      console.warn(`[probe] headless Cloudflare retry failed: ${e.message}`)
     }
   }
 
@@ -3024,8 +3089,8 @@ async function _runInventorySyncInner(dealershipId) {
         const all = []
         for (const cond of conditions) {
           try {
-            const r = await fetch(`${base}/${cond}?v=${Date.now()}`, {
-              headers: { 'User-Agent': 'Mozilla/5.0 MarketSync-Sync/1.0' }
+            const r = await browserFetch(`${base}/${cond}?v=${Date.now()}`, {
+              headers: { 'Accept': 'application/json' }
             })
             if (!r.ok) continue
             const d = await r.json()
@@ -3036,19 +3101,33 @@ async function _runInventorySyncInner(dealershipId) {
         jsonCache.set(feed.feed_url, vehicles)
         totalVehiclesFound += vehicles.length
       } else {
-        const feedRes = await fetch(`${feed.feed_url}?v=${Date.now()}`, {
-          headers: { 'User-Agent': 'Mozilla/5.0 MarketSync-Sync/1.0' }
+        const feedRes = await browserFetch(`${feed.feed_url}?v=${Date.now()}`, {
+          headers: { 'Accept': 'application/json, text/plain, */*', 'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin' }
         })
-        const ct = feedRes.headers.get('content-type') || ''
+        let ct = feedRes.headers.get('content-type') || ''
 
-        if (ct.includes('json')) {
-          const data = await feedRes.json()
-          vehicles = data.vehicles || data.inventory || data.data || data.items || data.records || (Array.isArray(data) ? data : [])
+        // Read the body once. On a Cloudflare/WAF block (403/503), refetch through
+        // real Chrome so the JS challenge clears and we get the actual feed body.
+        let bodyText
+        if (feedRes.status === 403 || feedRes.status === 503) {
+          console.log(`[sync] feed ${feed.feed_url} blocked (HTTP ${feedRes.status}) — retrying via headless Chrome`)
+          const br = await fetchViaBrowser(`${feed.feed_url}?v=${Date.now()}`)
+          bodyText = br.ok ? br.body : ''
+          if (br.contentType) ct = br.contentType
+        } else {
+          bodyText = await feedRes.text()
+        }
+
+        const looksJson = ct.includes('json') || /^\s*[\[{]/.test(bodyText || '')
+        if (looksJson) {
+          let data = null
+          try { data = JSON.parse(bodyText) } catch {}
+          vehicles = data ? (data.vehicles || data.inventory || data.data || data.items || data.records || (Array.isArray(data) ? data : [])) : []
           jsonCache.set(feed.feed_url, vehicles)
           totalVehiclesFound += vehicles.length
         } else {
           // HTML response — extract Schema.org JSON-LD, then try Puppeteer
-          const html = await feedRes.text()
+          const html = bodyText
           const blocks = []
           const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
           let m
@@ -3344,9 +3423,16 @@ app.post('/inventory-feeds', requireAuth, async (req, res) => {
 
   if (userPastedJson) {
     try {
-      const r = await fetch(rawUrl)
+      const r = await browserFetch(rawUrl, { headers: { 'Accept': 'application/json, text/plain, */*', 'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin' } })
       attempts.push({ url: rawUrl, status: r.status, ok: r.ok })
-      if (r.ok) workingUrl = rawUrl
+      if (r.ok) {
+        workingUrl = rawUrl
+      } else if (r.status === 403 || r.status === 503) {
+        // Cloudflare/WAF — confirm reachability through real Chrome before giving up.
+        const br = await fetchViaBrowser(rawUrl)
+        attempts.push({ url: rawUrl, status: br.status, ok: br.ok, via: 'headless-chrome' })
+        if (br.ok) workingUrl = rawUrl
+      }
     } catch (e) {
       attempts.push({ url: rawUrl, error: e.message })
     }
