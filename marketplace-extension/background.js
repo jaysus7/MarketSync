@@ -101,6 +101,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           sendResponse({ success: false, error: 'Permission denied — needed to scan the dealer site.' })
           return
         }
+        // Persist an in-progress marker so the (ephemeral) popup can show the true
+        // status when it reopens — the capture runs in the background and outlives
+        // the popup, so without this it looks like it "reset" to idle.
+        await chrome.storage.local.set({
+          captureState: { feedId: msg.feed_id || null, status: 'pulling', startedAt: Date.now() }
+        })
         // Open the dealer site in a new tab. Once it loads, we inject the
         // extractor with msg.feed_id stashed on window so the content script
         // can include it when it phones home.
@@ -132,8 +138,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // back to us. We forward to MarketSync's /feeds/:id/extension-capture.
   if (msg.type === 'DEALER_INVENTORY_CAPTURED') {
     chrome.storage.local.get(['token'], async ({ token }) => {
+      const setState = (s) => chrome.storage.local.set({
+        captureState: { feedId: msg.feed_id || null, finishedAt: Date.now(), ...s }
+      })
       if (!token) {
+        await setState({ status: 'error', error: 'Not signed in to MarketSync' })
         sendResponse({ success: false, error: 'Not signed in to MarketSync' })
+        return
+      }
+      // The extractor found nothing — surface that instead of a silent 0-vehicle upload.
+      if (!Array.isArray(msg.vehicles) || msg.vehicles.length === 0) {
+        await setState({ status: 'error', error: msg.error || 'No inventory detected on that page.' })
+        sendResponse({ success: false, error: msg.error || 'No inventory detected on that page.' })
         return
       }
       try {
@@ -152,9 +168,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const body = await r.json().catch(() => ({}))
         if (!r.ok) {
           console.error('extension-capture upload failed:', r.status, body)
+          await setState({ status: 'error', error: body.error || `Upload failed (HTTP ${r.status})` })
           sendResponse({ success: false, status: r.status, error: body.error || `HTTP ${r.status}` })
           return
         }
+        await setState({ status: 'done', count: body.upserted ?? msg.vehicles.length })
         sendResponse({ success: true, ...body })
         // Auto-close the tab we opened (only if it's not the user's active tab)
         if (sender.tab?.id) {
@@ -164,6 +182,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
       } catch (e) {
         console.error('extension-capture threw:', e)
+        await setState({ status: 'error', error: e.message })
         sendResponse({ success: false, error: e.message })
       }
     })

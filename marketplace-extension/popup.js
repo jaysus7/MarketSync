@@ -336,19 +336,54 @@ async function checkExtensionSyncNeeded(token) {
     bar.style.display = 'block'
     const feed = candidates[0]
     const host = (() => { try { return new URL(feed.feed_url).host } catch { return feed.feed_url } })()
-    status.textContent = `Pull inventory from ${host} using your browser session.`
+
+    // The capture runs in the BACKGROUND (separate tab + service worker) and keeps
+    // going after this popup closes. The popup is a fresh document each time it
+    // opens, so without mirroring the persisted captureState it resets to idle and
+    // looks like the pull stopped. Reflect the real status here instead.
+    const STALE_MS = 10 * 60 * 1000
+    const renderState = (state) => {
+      const relevant = state && (state.feedId == null || state.feedId === feed.id)
+      const pulling = relevant && state.status === 'pulling' && (Date.now() - (state.startedAt || 0) < STALE_MS)
+      if (pulling) {
+        btn.disabled = true
+        btn.textContent = '⏳ Pulling…'
+        status.textContent = 'Pulling inventory in the background — you can close this popup, it keeps running. Refresh your dashboard when it finishes.'
+      } else if (relevant && state.status === 'done') {
+        btn.disabled = false
+        btn.textContent = 'Pull again'
+        status.textContent = `✓ Pulled ${state.count ?? 0} vehicles from ${host}. Refresh your dashboard to see them.`
+      } else if (relevant && state.status === 'error') {
+        btn.disabled = false
+        btn.textContent = 'Try again'
+        status.textContent = state.error || 'Capture failed — try again.'
+      } else {
+        btn.disabled = false
+        btn.textContent = 'Connect dealer site'
+        status.textContent = `Pull inventory from ${host} using your browser session.`
+      }
+    }
+
+    const { captureState } = await chrome.storage.local.get(['captureState'])
+    renderState(captureState)
+
+    // Live-update while the popup stays open (background writes captureState as it
+    // progresses), so the user sees pulling → done without reopening.
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.captureState) renderState(changes.captureState.newValue)
+    })
 
     btn.onclick = () => {
       btn.disabled = true
-      btn.textContent = 'Opening dealer site...'
+      btn.textContent = 'Opening dealer site…'
       chrome.runtime.sendMessage({
         type: 'CONNECT_DEALER_SITE',
         url: feed.feed_url,
         feed_id: feed.id
       }, (resp) => {
         if (resp?.success) {
-          btn.textContent = '✓ Pulling...'
-          status.textContent = 'Inventory is being pulled — close this when done.'
+          btn.textContent = '⏳ Pulling…'
+          status.textContent = 'Pulling inventory in the background — you can close this popup, it keeps running.'
         } else {
           btn.disabled = false
           btn.textContent = 'Try Again'
