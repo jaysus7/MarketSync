@@ -23,11 +23,18 @@ import { Resend } from 'resend'
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 const EMAIL_FROM = process.env.EMAIL_FROM || 'MarketSync <noreply@marketsync.link>'
 
-// Frontend host used for password reset links, email verification, Stripe redirects,
-// etc. Render's env var has been variously named FRONTEND_URL or API_URL over the
-// life of this project — fall through to either, then to a hardcoded default so the
-// app never emits `undefined/reset-password.html` URLs.
-const FRONTEND_URL = (process.env.FRONTEND_URL || process.env.API_URL || 'https://marketsync.link')
+// Public frontend host used for password reset links, email verification, Stripe
+// redirects, etc. This MUST be the static-site domain (marketsync.link) — NOT this
+// backend's own URL.
+//
+// We intentionally do NOT fall back to API_URL anymore: on Render, API_URL holds
+// the backend's own *.onrender.com URL, so using it produced reset links that
+// pointed at this Express server — which doesn't serve the static HTML. That's
+// what caused "Cannot GET /reset-password.html" and Chrome's "Dangerous site"
+// warning (a password page + token on a generic *.onrender.com host trips Safe
+// Browsing). Set FRONTEND_URL=https://marketsync.link on Render.
+const CANONICAL_FRONTEND = 'https://marketsync.link'
+const FRONTEND_URL = (process.env.FRONTEND_URL || CANONICAL_FRONTEND)
   .replace(/\/$/, '')  // strip trailing slash to avoid `//path` URLs
 
 const missingEnvVars = [];
@@ -58,6 +65,16 @@ app.use(securityHeaders)
 // CORS — allowlist only. See security.js for the full list (marketsync.link,
 // chrome-extension://*, plus localhost in non-production).
 app.use(cors({ origin: corsOriginCheck, credentials: true }))
+
+// Safety net: this is the API backend and does NOT serve the static frontend
+// (login.html, reset-password.html, dashboard.html, …). If any link ever points
+// here by mistake — e.g. a stale/misconfigured FRONTEND_URL — bounce *.html GETs
+// to the canonical frontend, preserving the query string, so password-reset and
+// verification links keep working instead of returning "Cannot GET". Redirecting
+// to CANONICAL_FRONTEND (a different host than this backend) means no loop.
+app.get(/\.html$/, (req, res) => {
+  res.redirect(302, `${CANONICAL_FRONTEND}${req.originalUrl}`)
+})
 
 // ── 1. STRIPE WEBHOOK ──
 app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
