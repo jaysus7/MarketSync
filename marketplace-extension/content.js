@@ -497,6 +497,11 @@ function showPhotoStrip(imageUrls, vehicleId) {
           markPosted.style.background = '#166534';
           markPosted.style.color = '#4ade80';
           showStatus('✅ Listing saved to your dashboard.', 'success');
+          // Auto-close any open photo lightbox / dialog after a successful post,
+          // plus the MarketSync photo strip itself, so the user gets back to a
+          // clean view ready for the next listing.
+          closePhotoLightboxes()
+          setTimeout(() => document.getElementById('wc-photo-strip')?.remove(), 1200)
         } else {
           markPosted.textContent = '⚠️ Save failed — retry';
           markPosted.disabled = false;
@@ -521,6 +526,33 @@ function showPhotoStrip(imageUrls, vehicleId) {
   });
   strip.appendChild(close);
   document.body.appendChild(strip);
+}
+
+// Close any open photo lightbox / modal on Facebook. Tries three strategies in
+// order — Escape key (the cleanest), then "Close" button by aria-label, then
+// click outside the dialog area. Safe to call when nothing is open.
+function closePhotoLightboxes() {
+  // 1. Escape key — most modals listen for this
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }))
+  document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }))
+
+  // 2. Find any visible Close button inside an open dialog
+  setTimeout(() => {
+    const dialogs = [...document.querySelectorAll('[role="dialog"]')].filter(d =>
+      d.offsetParent !== null && !d.closest('[aria-hidden="true"]')
+    )
+    for (const dlg of dialogs) {
+      const closeBtn = dlg.querySelector('[aria-label="Close" i], [aria-label*="close" i]')
+      if (closeBtn) { closeBtn.click(); continue }
+      // Some FB modals use just an X icon — search for a button with text "×" or "Close"
+      const buttons = [...dlg.querySelectorAll('div[role="button"], button')]
+      const xBtn = buttons.find(b => {
+        const t = b.textContent.trim()
+        return t === '×' || t === 'Close' || t === '✕'
+      })
+      if (xBtn) xBtn.click()
+    }
+  }, 200)
 }
 
 // ── Main form filler ──────────────────────────
@@ -554,28 +586,64 @@ async function fillListingForm(vehicle) {
   await sleep(2500); // Longer wait — Make must finish committing before Model becomes interactive
 
   const findModelTrigger = () => {
-    // 1. Explicit aria-label (most reliable when present)
-    const byAria = document.querySelector('[role="combobox"][aria-label="Model" i], [role="combobox"][aria-label="Vehicle model" i]');
+    // Strategy 1: Explicit aria-label (most reliable when present)
+    const byAria = document.querySelector(
+      '[role="combobox"][aria-label="Model" i], ' +
+      '[role="combobox"][aria-label="Vehicle model" i], ' +
+      '[role="combobox"][aria-label*="model" i]'
+    );
     if (byAria) return byAria;
 
-    // 2. Label-element pattern: a <label>/<span> with text "Model" near the combobox
-    const labels = [...document.querySelectorAll('label, span')];
+    // Strategy 2: text input with placeholder/label containing "model"
+    const inputByPh = [...document.querySelectorAll('input[type="text"], input:not([type])')]
+      .find(el => {
+        if (el.offsetParent === null) return false
+        const ph = (el.placeholder || '').toLowerCase()
+        const al = (el.getAttribute('aria-label') || '').toLowerCase()
+        return ph.includes('model') || al.includes('model')
+      })
+    if (inputByPh) return inputByPh
+
+    // Strategy 3: Label-element pattern. Match labels that contain "model" but
+    // NOT "make and model" combined (which is a different field).
+    const labels = [...document.querySelectorAll('label, span, div')];
     for (const lbl of labels) {
       const text = lbl.textContent.trim().toLowerCase();
-      if (text === 'model' || text === 'vehicle model') {
-        const combo = lbl.querySelector('[role="combobox"]')
-          || lbl.parentElement?.querySelector('[role="combobox"]')
-          || lbl.closest('label')?.querySelector('[role="combobox"]');
-        if (combo) return combo;
+      const isModel = (text === 'model' || text === 'vehicle model')
+                   || (text.endsWith(' model') && !text.includes('make'))
+      if (!isModel) continue
+      // Walk up to find the nearest combobox or text input
+      let node = lbl
+      for (let i = 0; i < 5 && node; i++) {
+        const combo = node.querySelector?.('[role="combobox"], input[type="text"]:not([readonly])')
+        if (combo && combo.offsetParent !== null) return combo
+        node = node.parentElement
       }
     }
 
-    // 3. Combobox whose own text equals "Model" (placeholder state). Use strict equality only —
-    //    Make combobox now shows its value, so it won't match.
-    return [...document.querySelectorAll('[role="combobox"]')].find(el => {
+    // Strategy 4: any role=combobox whose visible text equals or starts with "model"
+    const placeholderMatch = [...document.querySelectorAll('[role="combobox"]')].find(el => {
       const txt = el.textContent.trim().toLowerCase();
-      return txt === 'model' || txt === 'vehicle model';
+      return txt === 'model' || txt === 'vehicle model' || txt.startsWith('model ')
     });
+    if (placeholderMatch) return placeholderMatch
+
+    // Strategy 5 (last resort): the combobox that appears AFTER the Make combobox
+    // in the DOM. Make has just been selected so it shows the make name now.
+    const allCombos = [...document.querySelectorAll('[role="combobox"]')]
+    const makeIdx = allCombos.findIndex(el => {
+      const txt = el.textContent.trim().toLowerCase()
+      return txt === (make || '').toLowerCase()
+    })
+    if (makeIdx >= 0 && allCombos[makeIdx + 1]) {
+      const next = allCombos[makeIdx + 1]
+      const nextTxt = next.textContent.trim().toLowerCase()
+      // Skip if next combobox is clearly something else (Body Style, etc.)
+      const knownOthers = ['body style', 'vehicle type', 'transmission', 'fuel type', 'condition', 'exterior color', 'interior color']
+      if (!knownOthers.some(k => nextTxt.includes(k))) return next
+    }
+
+    return null
   };
 
   const modelTrigger = await waitFor(findModelTrigger, 15000);
@@ -772,7 +840,18 @@ if (modelComboboxNow && (
     [...document.querySelectorAll('[role="combobox"]')]
       .find(el => el.textContent.trim().toLowerCase().includes('condition'))
   );
-  await pickDropdown('Vehicle condition', vehicle.condition || 'Good');
+  // FB Marketplace's vehicle condition uses 5-point labels ("Excellent","Very Good",
+  // "Good","Fair","Poor"), NOT "New"/"Used". Map our condition values to FB's vocab.
+  // Defaults: "New" → Excellent, "Used" → Good, "Demo" → Very Good, "Certified" → Very Good.
+  const fbCondition = (() => {
+    const raw = String(vehicle.condition || '').toLowerCase()
+    if (raw === 'new') return 'Excellent'
+    if (raw === 'demo' || raw === 'certified' || raw === 'certified pre-owned') return 'Very Good'
+    if (raw === 'used' || raw === 'pre-owned') return 'Good'
+    if (['excellent','very good','good','fair','poor'].includes(raw)) return vehicle.condition
+    return 'Good'  // safe default
+  })()
+  await pickDropdown('Vehicle condition', fbCondition);
   await sleep(DELAY);
 
   // FUEL TYPE
