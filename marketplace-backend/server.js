@@ -2594,7 +2594,7 @@ function parseEDealerDetailPage(html, url) {
   const vin = extractEDealerVin(html)
   const mileageMatch = html.match(/(\d{1,3}(?:,\d{3})*)\s*km\b/i)
   const mileage = mileageMatch ? parseInt(mileageMatch[1].replace(/,/g, '')) : 0
-  const imageRe = /https:\/\/media\.edealer\.ca\/w_1920[^"'\s]*\/inventory\/[A-Z0-9]+\.webp/g
+  const imageRe = /https:\/\/media\.edealer\.ca\/w_1920[^"'\s]*?\.webp/g
   const seen = new Set()
   const image_urls = []
   let m
@@ -2689,7 +2689,7 @@ function extractEDealerDetailUrls(html, origin) {
 }
 
 function extractEDealerImagesFromPage(html) {
-  const re = /https:\/\/media\.edealer\.ca\/w_1920[^"'\s]*\/inventory\/[A-Z0-9]+\.webp/g
+  const re = /https:\/\/media\.edealer\.ca\/w_1920[^"'\s]*?\.webp/g
   const seen = new Set()
   let m
   while ((m = re.exec(html)) !== null) seen.add(m[0])
@@ -2713,8 +2713,8 @@ async function fetchEDealerDetailImageGroups(detailUrls, concurrency = 2) {
 }
 
 function extractEDealerImageGroups(html) {
-  const thumbRe = /https:\/\/media\.edealer\.ca\/w_400[^"'\s]*\/inventory\/[A-Z0-9]+\.webp/g
-  const fullRe = /https:\/\/media\.edealer\.ca\/w_1920[^"'\s]*\/inventory\/[A-Z0-9]+\.webp/g
+  const thumbRe = /https:\/\/media\.edealer\.ca\/w_400[^"'\s]*?\.webp/g
+  const fullRe = /https:\/\/media\.edealer\.ca\/w_1920[^"'\s]*?\.webp/g
   const thumbs = []
   let m
   while ((m = thumbRe.exec(html)) !== null) thumbs.push({ pos: m.index, url: m[0] })
@@ -2882,6 +2882,109 @@ async function detectConvertus(dealerUrl) {
   }
 }
 
+// ── DealerPage (dealerpage.ca) — server-rendered WordPress dealer theme ─────────
+// These sites expose NO JSON feed and fire NO inventory XHR (the listing HTML is
+// server-rendered), so neither the static path probes nor the headless SPA-render
+// fallback catch them — every probe just hits the WordPress soft-404 (HTTP 200 +
+// homepage HTML). We parse the /vehicles/ listing page directly: each card is an
+// <a itemprop="url"> wrapper containing a CarGurus VIN/price span, labelled text
+// (Mileage / Stock #), and a lazy-loaded image whose real URL sits in data-lazy-src.
+function decodeHtmlEntities(s) {
+  return String(s || '')
+    .replace(/&#0?38;|&amp;/g, '&')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x2f;|&#47;/gi, '/')
+}
+
+function parseDealerPageHtml(html) {
+  const anchorRe = /<a\b[^>]*\bitemprop="url"[^>]*>/gi
+  const starts = []
+  let m
+  while ((m = anchorRe.exec(html)) !== null) starts.push(m.index)
+
+  const vehicles = []
+  for (let k = 0; k < starts.length; k++) {
+    const chunk = html.slice(starts[k], k + 1 < starts.length ? starts[k + 1] : starts[k] + 9000)
+    const href = (chunk.match(/<a\b[^>]*>/)?.[0].match(/href="([^"]+)"/) || [])[1] || null
+    const img = (chunk.match(/data-lazy-src="([^"]+)"/) || chunk.match(/itemprop="image"[^>]+src="(https?:\/\/[^"]+)"/) || [])[1] || null
+    const alt = (chunk.match(/alt="([^"]*)"/) || [])[1] || ''
+    const text = chunk.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+    // Prefer the CarGurus widget data attrs, but fall back to the visible text so
+    // dealers WITHOUT the CarGurus integration still get VIN + price.
+    const vin = (chunk.match(/data-cg-vin="([^"]*)"/) || [])[1]
+      || (text.match(/\bVIN[:\s#]*([A-HJ-NPR-Z0-9]{11,17})\b/i) || [])[1] || null
+    const priceRaw = (chunk.match(/data-cg-price="([^"]*)"/) || [])[1]
+      || (text.match(/(?:Dealer Price|Sale Price|Our Price|Price)[:\s]*\$\s*([\d,]+(?:\.\d+)?)/i) || [])[1]?.replace(/,/g, '') || null
+    // Accept KM (Canada) or Miles (US).
+    const mileage = (text.match(/(?:Mileage|Odometer)[:\s]*([\d,]+)\s*(?:KM|Miles|mi)\b/i) || [])[1]?.replace(/,/g, '') || null
+    const stock = (text.match(/Stock\s*#?\s*:?\s*([A-Za-z0-9-]+)/i) || [])[1] || null
+    const trans = (text.match(/Transmission\s+(.+?)\s+(?:Dealer Price|Price|Details|Get|Book|Apply)/i) || [])[1] || null
+    const condition = (/\bUsed\b/i.test(text)) ? 'Used' : (/\bNew\b/i.test(text) ? 'New' : null)
+
+    const toks = decodeHtmlEntities(alt).trim().split(/\s+/)
+    const year = /^(19|20)\d{2}$/.test(toks[0] || '') ? toks[0] : null
+    if (!vin && !year) continue   // not a real card
+
+    vehicles.push({
+      vin,
+      year,
+      make: toks[1] || null,
+      model: toks[2] || null,
+      trim: toks.slice(3).join(' ') || null,
+      price: priceRaw ? Number(priceRaw) : null,
+      mileage: mileage ? Number(mileage) : null,
+      stock_number: stock,
+      transmission: trans ? trans.trim() : null,
+      condition,
+      vdp_url: href,
+      images: img ? [decodeHtmlEntities(img)] : []
+    })
+  }
+  return vehicles
+}
+
+// Fetch + parse a DealerPage listing page into canonical vehicle records.
+async function fetchDealerPageInventory(pageUrl) {
+  const r = await browserFetch(`${pageUrl}${pageUrl.includes('?') ? '&' : '?'}v=${Date.now()}`, {
+    headers: { 'Accept': 'text/html,application/xhtml+xml' }
+  })
+  if (!r.ok) return []
+  const html = await r.text()
+  return parseDealerPageHtml(html).map(v => ({ ...genericMapVehicle(v), vdp_url: v.vdp_url, _detail_url: v.vdp_url }))
+}
+
+async function detectDealerPage(dealerUrl) {
+  try {
+    const origin = new URL(dealerUrl).origin
+    // Listing page candidates, most-likely first. DealerPage uses /vehicles/.
+    const candidates = [...new Set([dealerUrl, `${origin}/vehicles/`, `${origin}/inventory/`])]
+    for (const url of candidates) {
+      const r = await browserFetch(url)
+      if (!r.ok) continue
+      const html = await r.text()
+      const isDealerPage = /dealerpage\.ca|dealersite-inventory/i.test(html)
+        || (/data-cg-vin=/.test(html) && /itemprop="url"/.test(html))
+      if (!isDealerPage) continue
+      const raw = parseDealerPageHtml(html)
+      if (!raw.length) continue
+      return {
+        success: true,
+        platform: 'dealerpage',
+        platform_label: 'DealerPage',
+        feed_url: url,
+        source_dealer_url: origin,
+        vehicle_count: raw.length,
+        sample_vehicles: raw.slice(0, 3).map(genericMapVehicle)
+      }
+    }
+    return null
+  } catch (e) {
+    console.warn('[probe] DealerPage detection failed:', e.message)
+    return null
+  }
+}
+
 async function probeUrl(url, timeoutMs = 8000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -2981,6 +3084,13 @@ async function detectFeedPlatform(dealerUrl) {
   if (convertus) {
     console.log(`[probe] Convertus detected: ${convertus.vehicle_count} vehicles`)
     return { ...convertus, attempts }
+  }
+
+  // DealerPage (dealerpage.ca) — server-rendered HTML, no JSON feed / no XHR.
+  const dealerpage = await detectDealerPage(dealerUrl)
+  if (dealerpage) {
+    console.log(`[probe] DealerPage detected: ${dealerpage.vehicle_count} vehicles`)
+    return { ...dealerpage, attempts }
   }
 
   // Fallback: render the SPA in a headless browser and watch for the inventory XHR.
@@ -3492,6 +3602,12 @@ async function _runInventorySyncInner(dealershipId) {
         }
         jsonCache.set(feed.feed_url, vehicles)
         totalVehiclesFound += vehicles.length
+      } else if (feed.platform === 'dealerpage') {
+        // DealerPage — re-fetch & re-parse the listing HTML each sync (real photo
+        // URLs are in the page, so no detail-page enrichment is needed).
+        vehicles = await fetchDealerPageInventory(feed.feed_url)
+        jsonCache.set(feed.feed_url, vehicles)
+        totalVehiclesFound += vehicles.length
       } else if (feed.platform === 'ux_auto') {
         // UX Auto splits inventory across /NEW, /USED, /DEMO endpoints — fetch all three
         const base = feed.feed_url.replace(/\/(NEW|USED|DEMO|new|used|demo)\/?$/, '')
@@ -3905,7 +4021,7 @@ app.post('/inventory-feeds', requireAuth, async (req, res) => {
 
   // For SPA-rendered dealers, keep the user's original URL — we need it to re-render
   // the site if the captured XHR URL stops working (e.g. auth tokens rotate).
-  const sourceDealerUrl = ['spa_render', 'convertus', 'needs_extension_capture'].includes(detectedPlatformSlug) ? rawUrl : null
+  const sourceDealerUrl = ['spa_render', 'convertus', 'needs_extension_capture', 'dealerpage'].includes(detectedPlatformSlug) ? rawUrl : null
 
   // For LeadBox feeds, harvest per-vehicle URLs from the dealer's listing pages now
   // (their JSON feed doesn't include vehicle detail URLs). Saves a stock→URL map onto

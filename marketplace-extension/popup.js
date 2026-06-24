@@ -363,8 +363,23 @@ async function showInventoryScreen(token, user) {
   }
 
   // Premium Sync — extension-side dealer site capture. Shown only when a feed
-  // is flagged needs_extension_capture (e.g. Cloudflare blocked us server-side).
+  // is flagged needs_extension_capture (e.g. Cloudflare blocked us server-side)
+  // AND hasn't been captured yet.
   checkExtensionSyncNeeded(token)
+
+  // When a capture finishes (triggered here or from the dashboard), re-check so the
+  // bar disappears live — keeps the popup and dashboard in sync across the bridge.
+  if (!window.__msCaptureWatch) {
+    window.__msCaptureWatch = true
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local' || !changes.captureState) return
+      const s = changes.captureState.newValue
+      if (s?.status === 'done') {
+        checkExtensionSyncNeeded(token)
+        loadInventory(token)   // pull the freshly-captured vehicles into the list
+      }
+    })
+  }
 }
 
 async function checkExtensionSyncNeeded(token) {
@@ -374,15 +389,17 @@ async function checkExtensionSyncNeeded(token) {
     })
     if (!r.ok) return
     const feeds = await r.json()
-    // Any feed that's never been captured OR was flagged as needing extension help
-    const candidates = (feeds || []).filter(f =>
-      f.platform === 'extension_capture'
-      || f.platform === 'needs_extension_capture'
-      || (f.feed_url && f.last_extension_sync_at === null && !f.platform)
-    )
-    if (!candidates.length) return
-
     const bar = $('premium-sync-bar')
+    // Only feeds flagged for browser capture that haven't been captured yet. Once
+    // last_extension_sync_at is stamped, the dealer's inventory is in — hide the bar.
+    const candidates = (feeds || []).filter(f => {
+      const flagged = f.platform === 'extension_capture'
+        || f.platform === 'needs_extension_capture'
+        || (f.feed_url && !f.platform)
+      return flagged && !f.last_extension_sync_at
+    })
+    if (!candidates.length) { if (bar) bar.style.display = 'none'; return }
+
     if (!bar) return
     bar.style.display = 'block'
 

@@ -938,30 +938,46 @@ async function loadInventoryFeeds() {
     const esc = (s) => String(s == null ? '' : s).replace(/"/g, '&quot;');
 
     list.innerHTML = feeds.map(f => {
-      const needsExt = f.platform === 'needs_extension_capture'
-        || (f.platform === 'extension_capture' && !f.last_extension_sync_at);
+      // Cloudflare-protected feeds are pulled through the browser. Show the full
+      // step-by-step box ONLY until the first successful capture; after that
+      // (last_extension_sync_at stamped) collapse to a compact confirmation with a
+      // small "Pull again" for when inventory changes.
+      const flaggedExt = f.platform === 'needs_extension_capture' || f.platform === 'extension_capture';
+      const captured = flaggedExt && !!f.last_extension_sync_at;
+      const needsExt = flaggedExt && !f.last_extension_sync_at;
 
-      // Cloudflare-protected feed: render a working Pull Inventory button that drives
-      // the extension (via the dashboard bridge), with inline instructions + progress.
-      const extBlock = needsExt ? `
+      const orangeSteps = `
+        <div class="text-[11px] leading-snug rounded bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 px-2 py-1.5">
+          🔒 <b>Cloudflare-protected</b> — our servers can't reach it, so it's pulled through your browser:
+          <div class="mt-1">1. Click <b>Pull Inventory</b>. &nbsp;2. A dealer tab opens, scans, and closes itself — don't close it. &nbsp;3. Wait ~1–2 min. &nbsp;4. This list and your catalog refresh automatically when done.</div>
+        </div>`;
+      // After a successful capture we drop the whole instructional box and leave only
+      // a discreet "Pull again" button (the "Synced" pill in the header shows status).
+      const extBlock = flaggedExt ? `
         <div class="ms-ext-capture mt-2" data-feed-id="${esc(f.id)}" data-feed-url="${esc(f.feed_url)}">
-          <div class="text-[11px] leading-snug rounded bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 px-2 py-1.5">
-            🔒 <b>Cloudflare-protected</b> — our servers can't reach it, so it's pulled through your browser:
-            <div class="mt-1">1. Click <b>Pull Inventory</b>. &nbsp;2. A dealer tab opens, scans, and closes itself — don't close it. &nbsp;3. Wait ~1–2 min. &nbsp;4. This list and your catalog refresh automatically when done.</div>
-          </div>
+          ${needsExt ? orangeSteps : ''}
           <div class="flex items-center gap-2 mt-2">
-            <button class="ms-pull-btn bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded disabled:opacity-60">Pull Inventory</button>
+            <button class="ms-pull-btn ${needsExt ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'} text-xs font-semibold px-3 py-1.5 rounded disabled:opacity-60">${needsExt ? 'Pull Inventory' : '↻ Pull again'}</button>
             <span class="ms-pull-status text-[11px] text-slate-500 dark:text-slate-400"></span>
           </div>
           <div class="ms-pull-track mt-2 h-1.5 bg-slate-200 dark:bg-slate-800 rounded overflow-hidden" style="display:none"><div class="ms-pull-fill h-full bg-indigo-500" style="width:0%;transition:width .3s"></div></div>
         </div>` : '';
 
+      const borderCls = needsExt ? 'border-amber-300 dark:border-amber-700'
+        : captured ? 'border-emerald-300 dark:border-emerald-800'
+        : 'border-slate-200 dark:border-slate-800';
+      const pill = needsExt
+        ? '<span class="text-[10px] uppercase font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-100 px-1.5 py-0.5 rounded flex-shrink-0">Extension</span>'
+        : captured
+        ? '<span class="text-[10px] uppercase font-bold bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-100 px-1.5 py-0.5 rounded flex-shrink-0">Synced</span>'
+        : '';
+
       return `
-      <div class="bg-slate-50 dark:bg-slate-950 border ${needsExt ? 'border-amber-300 dark:border-amber-700' : 'border-slate-200 dark:border-slate-800'} rounded p-3 overflow-hidden">
+      <div class="bg-slate-50 dark:bg-slate-950 border ${borderCls} rounded p-3 overflow-hidden">
         <div class="flex items-center justify-between gap-3 overflow-hidden">
           <div class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
             <span class="text-[10px] uppercase font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded flex-shrink-0">${f.feed_type || 'all'}</span>
-            ${needsExt ? '<span class="text-[10px] uppercase font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-100 px-1.5 py-0.5 rounded flex-shrink-0">Extension</span>' : ''}
+            ${pill}
             <span class="text-xs text-slate-600 dark:text-slate-300 truncate block min-w-0 flex-1" title="${esc(f.feed_url)}">${f.feed_url}</span>
           </div>
           ${canManage ? `<button data-feed-id="${esc(f.id)}" class="feed-delete-btn text-red-400 hover:text-red-300 text-xs font-bold flex-shrink-0">Remove</button>` : ''}
@@ -984,7 +1000,10 @@ async function loadInventoryFeeds() {
       }
       btn?.addEventListener('click', () => pullViaExtension(wrap.dataset.feedId, wrap.dataset.feedUrl));
     });
-    if (window.__msLastCaptureState) applyCaptureState(window.__msLastCaptureState);
+    // Reflect any in-flight/last capture state on the freshly-rendered wrap, but
+    // DON'T re-trigger catalog/feed reloads here (that belongs to a real state
+    // change via the bridge) — otherwise a persisted 'done' state loops reloads.
+    if (window.__msLastCaptureState) applyCaptureState(window.__msLastCaptureState, false);
   } catch (err) {
     list.innerHTML = `<div class="text-xs text-red-400">Failed to load feeds: ${err.message}</div>`;
   }
@@ -1004,8 +1023,13 @@ function setupExtensionBridge() {
       window.__msExtPresent = true;
       if (!was && typeof loadInventoryFeeds === 'function') loadInventoryFeeds(); // re-render → enable buttons
     } else if (d.type === 'CAPTURE_STATE') {
+      // Only react (reload catalog/feeds) when this is a NEW state, not a replay of
+      // the same persisted one — guards against a 'done' state looping reloads.
+      const key = d.state ? `${d.state.feedId || ''}:${d.state.status}:${d.state.count ?? ''}:${d.state.finishedAt ?? ''}` : '';
+      const isNew = key !== window.__msLastCaptureKey;
+      window.__msLastCaptureKey = key;
       window.__msLastCaptureState = d.state;
-      applyCaptureState(d.state);
+      applyCaptureState(d.state, isNew);
     } else if (d.type === 'PULL_STARTED') {
       handlePullStarted(d);
     }
@@ -1035,7 +1059,7 @@ function handlePullStarted(d) {
   }
 }
 
-function applyCaptureState(state) {
+function applyCaptureState(state, reactToDone = true) {
   if (!state) return;
   const wrap = state.feedId
     ? document.querySelector(`.ms-ext-capture[data-feed-id="${state.feedId}"]`)
@@ -1045,10 +1069,14 @@ function applyCaptureState(state) {
     const label = state.total ? `Pulling… ${state.current || 0}/${state.total}` : 'Pulling inventory…';
     setPullUI(wrap, { status: label, pct: (state.pct != null ? state.pct : null), disabled: true });
   } else if (state.status === 'done') {
-    setPullUI(wrap, { status: `✓ Pulled ${state.count != null ? state.count + ' ' : ''}vehicles. Refreshing…`, pct: 100, disabled: false });
-    loadInventoryCatalog?.();
-    loadInsights?.();
-    setTimeout(() => loadInventoryFeeds?.(), 1500);  // platform/flag may have changed
+    setPullUI(wrap, { status: `✓ Pulled ${state.count != null ? state.count + ' ' : ''}vehicles.`, pct: 100, disabled: false });
+    // Only refresh the catalog/feeds when this 'done' is a fresh event — re-rendering
+    // re-applies the persisted state with reactToDone=false, so no reload loop.
+    if (reactToDone) {
+      loadInventoryCatalog?.();
+      loadInsights?.();
+      setTimeout(() => loadInventoryFeeds?.(), 1500);  // platform/flag changed → collapse the box
+    }
   } else if (state.status === 'error') {
     setPullUI(wrap, { status: state.error || 'Capture failed — try again.', pct: null, disabled: false });
   }
