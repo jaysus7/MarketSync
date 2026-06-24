@@ -25,10 +25,10 @@
       body: `Switch between <b>Insights</b>, <b>Inventory</b>, your <b>Leaderboard</b>, and <b>Sales Team</b> from here.`
     },
     {
-      target: '#add-feed-form',
+      target: '#feeds-panel',
       before: () => goPage('inventory'),
       title: '1. Connect your dealer website',
-      body: `Paste your dealership inventory URL here. MarketSync auto-syncs every vehicle — year, make, model, price, mileage and photos — so you never re-type a listing.`
+      body: `Add your dealership inventory URL here. MarketSync auto-syncs every vehicle — year, make, model, price, mileage and photos — so you never re-type a listing.`
     },
     {
       target: '#catalog-panel',
@@ -37,19 +37,21 @@
       body: `Every vehicle we pull in shows up here, ready to post. Use the search box to find a specific car fast.`
     },
     {
-      target: null,
-      title: '3. Install the Chrome extension',
-      body: `Add the <b>MarketSync</b> Chrome extension, then sign in once. Open it on Facebook, pick a vehicle, and click <b>Post</b> — it fills out the entire Marketplace listing for you. There's now a <b>search bar</b> right beside the New / Used / Demo filters to jump to any car.`
+      target: '#catalog-panel',
+      before: () => goPage('inventory'),
+      title: '3. Post with the Chrome extension',
+      body: `Install the <b>MarketSync</b> Chrome extension and sign in once. From any car here, open the extension on Facebook and click <b>Post</b> — it fills out the entire Marketplace listing for you. The extension also has a <b>search bar</b> beside the New / Used / Demo filters.`
     },
     {
-      target: null,
+      target: '#catalog-panel',
+      before: () => goPage('inventory'),
       title: '4. Sold? It clears Facebook for you ✨',
-      body: `When you mark a car <b>Sold</b> in MarketSync, the extension automatically marks that listing <b>Sold on Facebook</b>. And if you <b>delete</b> a vehicle, it's <b>removed from Facebook Marketplace</b> too — no more stale listings. (Runs while Chrome is open and you're signed into Facebook.)`
+      body: `When you mark a car <b>Sold</b>, the extension automatically marks that listing <b>Sold on Facebook</b>. <b>Delete</b> a vehicle and it's <b>removed from Facebook Marketplace</b> too — no more stale listings. (Runs while Chrome is open and you're signed into Facebook.)`
     },
     {
-      target: null,
+      target: '#logout-btn',
       title: '5. One login, everywhere',
-      body: `Sign in once and the dashboard and the extension stay logged in together. Log out of one and you're logged out of both.`
+      body: `Sign in once and the dashboard and the extension stay logged in together. Sign out here and you're signed out of both.`
     },
     {
       target: '#dashboard-nav [data-page="leaderboard"]',
@@ -67,6 +69,7 @@
   let idx = 0;
   let els = null;
   let reposition = null;   // active scroll/resize handler for the current step
+  let trackTimer = null;   // re-measures the target while async content shifts layout
   let renderToken = 0;     // guards against a stale async render repositioning
 
   function buildUI() {
@@ -167,6 +170,7 @@
       window.removeEventListener('resize', reposition);
       reposition = null;
     }
+    if (trackTimer) { clearInterval(trackTimer); trackTimer = null; }
   }
 
   async function render() {
@@ -197,11 +201,20 @@
       reposition = () => positionTo(target);
       window.addEventListener('scroll', reposition, true);
       window.addEventListener('resize', reposition);
+      // Async panels (e.g. the catalog) keep loading and shifting layout after we
+      // first position — re-measure for ~1.6s so the spotlight tracks the element.
+      let ticks = 0;
+      trackTimer = setInterval(() => {
+        if (token !== renderToken || ++ticks > 13) { clearInterval(trackTimer); trackTimer = null; return; }
+        positionTo(target);
+      }, 120);
     } else {
       hole.style.opacity = '0';
       hole.style.width = hole.style.height = '0px';
       centerCard();
     }
+
+    if (idx === STEPS.length - 1) fireConfetti();
   }
 
   function positionTo(target) {
@@ -230,6 +243,50 @@
     card.style.top = '50%';
     card.style.left = '50%';
     card.style.transform = 'translate(-50%,-50%)';
+  }
+
+  // Lightweight self-contained confetti burst for the final step. No dependency.
+  function fireConfetti() {
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:99999;pointer-events:none;';
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    const colors = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899', '#fff'];
+    const N = 160;
+    const parts = Array.from({ length: N }, () => ({
+      x: canvas.width / 2 + (Math.random() - 0.5) * 200,
+      y: canvas.height / 2,
+      vx: (Math.random() - 0.5) * 14,
+      vy: Math.random() * -16 - 4,
+      w: 6 + Math.random() * 6,
+      h: 8 + Math.random() * 8,
+      rot: Math.random() * Math.PI,
+      vrot: (Math.random() - 0.5) * 0.4,
+      color: colors[(Math.random() * colors.length) | 0]
+    }));
+    const start = Date.now();
+    (function frame() {
+      const t = Date.now() - start;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      parts.forEach(p => {
+        p.vy += 0.4;          // gravity
+        p.vx *= 0.99;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.vrot;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.globalAlpha = Math.max(0, 1 - t / 2600);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      });
+      if (t < 2600) requestAnimationFrame(frame);
+      else canvas.remove();
+    })();
   }
 
   function start() {
