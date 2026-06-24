@@ -87,9 +87,11 @@
       .ms-tour-card p{margin:0 0 18px;font-size:16px;line-height:1.6;color:#cbd5e1;}
       .ms-tour-card b{color:#fff;}
       .ms-tour-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-      .ms-tour-dots{display:flex;gap:6px;}
+      .ms-tour-dots{display:flex;gap:6px;margin-bottom:14px;}
       .ms-tour-dot{width:7px;height:7px;border-radius:99px;background:#334155;}
       .ms-tour-dot.on{background:#6366f1;}
+      .ms-tour-dontshow{display:flex;align-items:center;gap:6px;font-size:13px;color:#94a3b8;cursor:pointer;user-select:none;}
+      .ms-tour-dontshow input{accent-color:#6366f1;width:15px;height:15px;cursor:pointer;margin:0;}
       .ms-tour-btns{display:flex;gap:8px;}
       .ms-tour-btn{border:none;cursor:pointer;font-size:15px;font-weight:700;padding:9px 18px;border-radius:9px;}
       .ms-tour-next{background:#6366f1;color:#fff;}
@@ -110,8 +112,9 @@
     card.innerHTML = `
       <button class="ms-tour-skip" aria-label="Close tour">×</button>
       <h3></h3><p></p>
+      <div class="ms-tour-dots"></div>
       <div class="ms-tour-foot">
-        <div class="ms-tour-dots"></div>
+        <label class="ms-tour-dontshow"><input type="checkbox" class="ms-tour-dontshow-cb" checked> Don't show again</label>
         <div class="ms-tour-btns">
           <button class="ms-tour-btn ms-tour-back">Back</button>
           <button class="ms-tour-btn ms-tour-next">Next</button>
@@ -126,7 +129,7 @@
     card.querySelector('.ms-tour-back').onclick = () => { if (idx > 0) { idx--; render(); } };
     card.querySelector('.ms-tour-next').onclick = () => { idx < STEPS.length - 1 ? (idx++, render()) : end(); };
 
-    els = { backdrop, hole, card };
+    els = { backdrop, hole, card, dontShow: card.querySelector('.ms-tour-dontshow-cb') };
     return els;
   }
 
@@ -314,7 +317,13 @@
     renderToken++;
     detachReposition();
     if (els) els.backdrop.style.display = els.hole.style.display = els.card.style.display = 'none';
-    try { localStorage.setItem(DONE_KEY, '1'); } catch {}
+    // "Don't show again" (checked by default) controls whether the tour auto-runs
+    // on future visits. Unchecking it re-enables the auto-tour. The ❓ Tour button
+    // always replays it regardless.
+    try {
+      if (!els || els.dontShow?.checked) localStorage.setItem(DONE_KEY, '1');
+      else localStorage.removeItem(DONE_KEY);
+    } catch {}
   }
 
   // Public entry point (used by the Tour button).
@@ -323,15 +332,16 @@
   // Wire the replay button + auto-run for first-time users once the dashboard
   // has rendered its nav.
   function init() {
-    const nav = document.getElementById('dashboard-nav');
-    if (nav && !document.getElementById('ms-tour-btn')) {
+    // Place a "Tour" button in the header, just to the left of Sign Out.
+    const logout = document.getElementById('logout-btn');
+    if (logout && !document.getElementById('ms-tour-btn')) {
       const btn = document.createElement('button');
       btn.id = 'ms-tour-btn';
       btn.type = 'button';
-      btn.textContent = '❓ Tour';
-      btn.className = 'nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-indigo-600 dark:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition';
+      btn.textContent = 'Tour';
+      btn.className = 'bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-2.5 sm:px-3 py-1.5 rounded text-[11px] sm:text-xs font-medium border border-indigo-200 dark:border-indigo-800 transition whitespace-nowrap';
       btn.onclick = start;
-      nav.appendChild(btn);
+      logout.parentNode.insertBefore(btn, logout);
     }
     let done = false;
     try { done = localStorage.getItem(DONE_KEY) === '1'; } catch {}
