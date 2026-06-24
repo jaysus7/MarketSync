@@ -349,13 +349,13 @@ async function loadDealerManagementMatrix() {
       const isSelf = m.id === user.id;
       const isAdmin = m.role === 'DEALER_ADMIN' || m.role === 'OWNER';
       const roleBadge = isAdmin
-        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">${m.role}</span>`
-        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700">${m.role}</span>`;
+        ? `<span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">${m.role}</span>`
+        : `<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700">${m.role}</span>`;
       const action = (isSelf || isAdmin)
-        ? `<span class="text-[10px] text-slate-600">—</span>`
+        ? `<span class="text-xs text-slate-600">—</span>`
         : `<button class="rep-remove-btn text-red-400 hover:text-red-300 text-xs font-bold" data-rep-id="${m.id}" data-rep-name="${m.full_name || m.email || 'this rep'}">Remove</button>`;
       const nameCell = isAdmin && isSelf
-        ? `<span class="font-bold text-slate-900 dark:text-white">${m.full_name || '(no name)'}</span><span class="text-[10px] text-slate-500 ml-1">(you)</span>`
+        ? `<span class="font-bold text-slate-900 dark:text-white">${m.full_name || '(no name)'}</span><span class="text-xs text-slate-500 ml-1">(you)</span>`
         : `<button class="rep-detail-btn text-left font-bold text-slate-900 dark:text-white hover:text-indigo-300" data-rep-id="${m.id}">${m.full_name || '(no name)'}</button>`;
       return `
         <tr class="border-b border-slate-200/60 dark:border-slate-800/40 hover:bg-white/60 dark:bg-slate-900/40 transition">
@@ -630,7 +630,7 @@ function renderPodium(ranking) {
         <div class="flex flex-col items-center text-center opacity-40">
           <div class="text-3xl mb-1 grayscale">${p.crown}</div>
           <div class="font-bold text-sm text-slate-400 italic w-full">Open</div>
-          <div class="text-[10px] text-slate-400 mt-1 mb-2">—</div>
+          <div class="text-xs text-slate-400 mt-1 mb-2">—</div>
           <div class="w-full mt-2 rounded-t-lg bg-slate-200 dark:bg-slate-800 ${p.height} flex items-start justify-center pt-2 text-slate-400 font-black text-xl">${p.rankNum}</div>
         </div>
       `;
@@ -639,8 +639,8 @@ function renderPodium(ranking) {
     return `
       <div class="flex flex-col items-center text-center">
         <div class="text-3xl mb-1">${p.crown}</div>
-        <div class="font-bold text-sm text-slate-900 dark:text-white truncate w-full">${p.m.name}${isMe ? ' <span class="text-[10px] text-indigo-600 dark:text-indigo-400">(you)</span>' : ''}</div>
-        <div class="inline-flex items-center gap-1 mt-1 mb-2 px-2 py-0.5 rounded-full text-[10px] font-bold border ${p.m.tier.cls}">
+        <div class="font-bold text-sm text-slate-900 dark:text-white truncate w-full">${p.m.name}${isMe ? ' <span class="text-xs text-indigo-600 dark:text-indigo-400">(you)</span>' : ''}</div>
+        <div class="inline-flex items-center gap-1 mt-1 mb-2 px-2 py-0.5 rounded-full text-xs font-bold border ${p.m.tier.cls}">
           <span>${p.m.tier.icon}</span><span>${p.m.tier.name}</span>
         </div>
         <div class="text-xs font-mono text-slate-600 dark:text-slate-300">${p.m.points.toLocaleString()} pts</div>
@@ -696,10 +696,10 @@ function renderRankingTable(ranking) {
       <tr class="${rowBg} hover:bg-slate-50 dark:hover:bg-slate-900/60 transition">
         <td class="py-3 px-3">${rankCell}</td>
         <td class="py-3 px-3 font-semibold text-slate-900 dark:text-white">
-          ${r.name}${isMe ? ' <span class="text-[10px] font-normal text-indigo-600 dark:text-indigo-400">(you)</span>' : ''}
+          ${r.name}${isMe ? ' <span class="text-xs font-normal text-indigo-600 dark:text-indigo-400">(you)</span>' : ''}
         </td>
         <td class="py-3 px-3">
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${r.tier.cls}">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${r.tier.cls}">
             <span>${r.tier.icon}</span><span>${r.tier.name}</span>
           </span>
         </td>
@@ -739,7 +739,7 @@ async function loadActivity() {
           </div>
           <div class="text-right">
             <div class="text-xs font-bold ${accent}">+${e.points} pts</div>
-            <div class="text-[10px] text-slate-500">${when}</div>
+            <div class="text-xs text-slate-500">${when}</div>
           </div>
         </div>
       `;
@@ -945,38 +945,38 @@ function renderRepCards(byRep, soldByRep, activeByRep) {
             <div class="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 flex items-center justify-center font-black text-sm flex-shrink-0">${initial}</div>
             <div class="min-w-0">
               <div class="text-sm font-bold text-slate-900 dark:text-white truncate">${r.name}</div>
-              <div class="text-[10px] text-slate-500 font-mono">${points.toLocaleString()} pts</div>
+              <div class="text-xs text-slate-500 font-mono">${points.toLocaleString()} pts</div>
             </div>
           </div>
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${tier.cls} flex-shrink-0">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${tier.cls} flex-shrink-0">
             <span>${tier.icon}</span><span>${tier.name}</span>
           </span>
         </div>
 
         <div class="grid grid-cols-3 gap-2 text-center">
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-2">
-            <div class="text-[9px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Listings</div>
+            <div class="text-sm uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Listings</div>
             <div class="text-base font-black text-indigo-600 dark:text-indigo-400">${listings}</div>
           </div>
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-2">
-            <div class="text-[9px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold</div>
+            <div class="text-sm uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold</div>
             <div class="text-base font-black text-emerald-600 dark:text-emerald-400">${sold}</div>
           </div>
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-2">
-            <div class="text-[9px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Conv</div>
+            <div class="text-sm uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Conv</div>
             <div class="text-base font-black text-amber-600 dark:text-amber-400">${conv}%</div>
           </div>
         </div>
 
         <div>
-          <div class="flex justify-between text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+          <div class="flex justify-between text-sm font-bold uppercase tracking-wider text-slate-500 mb-1">
             <span>${tier.icon} ${tier.name}</span>
             <span>${activeDays}d / 14d active</span>
           </div>
           <div class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
             <div class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-700" style="width:${pct}%"></div>
           </div>
-          <div class="text-[10px] text-slate-500 mt-1">${next ? `${(next.min - points).toLocaleString()} pts to ${next.icon} ${next.name}` : 'Top tier'}</div>
+          <div class="text-xs text-slate-500 mt-1">${next ? `${(next.min - points).toLocaleString()} pts to ${next.icon} ${next.name}` : 'Top tier'}</div>
         </div>
       </div>
     `;
@@ -1017,7 +1017,7 @@ function renderRecentListings(containerId, items) {
       sold: 'bg-indigo-900/40 border-indigo-700 text-indigo-300',
       deleted: 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
     };
-    return `<span class="text-[9px] uppercase font-bold border px-1.5 py-0.5 rounded ${map[s] || map.deleted}">${s}</span>`;
+    return `<span class="text-sm uppercase font-bold border px-1.5 py-0.5 rounded ${map[s] || map.deleted}">${s}</span>`;
   };
   el.innerHTML = items.map(l => {
     const v = l.vehicle || {};
@@ -1028,14 +1028,14 @@ function renderRecentListings(containerId, items) {
     // Only link out if we captured the real posted-item permalink — never the
     // create-form URL (older listings may have it saved from before the fix).
     const fbLink = (l.fb_listing_url && l.fb_listing_url.includes('/marketplace/item/'))
-      ? `<a href="${l.fb_listing_url}" target="_blank" class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline">View on FB ↗</a>`
+      ? `<a href="${l.fb_listing_url}" target="_blank" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">View on FB ↗</a>`
       : '';
     return `
       <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2">
         ${thumb}
         <div class="flex-1 min-w-0">
           <div class="text-xs font-bold text-slate-900 dark:text-white truncate">${v.year || ''} ${v.make || ''} ${v.model || ''} ${v.trim || ''}</div>
-          <div class="text-[10px] text-slate-500 dark:text-slate-400">Posted ${when} ${fbLink ? '· ' + fbLink : ''}</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">Posted ${when} ${fbLink ? '· ' + fbLink : ''}</div>
         </div>
         ${badge(l.status)}
       </div>
@@ -1073,7 +1073,7 @@ async function loadInventoryFeeds() {
       const needsExt = flaggedExt && !f.last_extension_sync_at;
 
       const orangeSteps = `
-        <div class="text-[11px] leading-snug rounded bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 px-2 py-1.5">
+        <div class="text-sm leading-snug rounded bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 px-2 py-1.5">
           🔒 <b>Cloudflare-protected</b> — our servers can't reach it, so it's pulled through your browser:
           <div class="mt-1">1. Click <b>Pull Inventory</b>. &nbsp;2. A dealer tab opens, scans, and closes itself — don't close it. &nbsp;3. Wait ~1–2 min. &nbsp;4. This list and your catalog refresh automatically when done.</div>
         </div>`;
@@ -1084,7 +1084,7 @@ async function loadInventoryFeeds() {
           ${needsExt ? orangeSteps : ''}
           <div class="flex items-center gap-2 mt-2">
             <button class="ms-pull-btn ${needsExt ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'} text-xs font-semibold px-3 py-1.5 rounded disabled:opacity-60">${needsExt ? 'Pull Inventory' : '↻ Pull again'}</button>
-            <span class="ms-pull-status text-[11px] text-slate-500 dark:text-slate-400"></span>
+            <span class="ms-pull-status text-sm text-slate-500 dark:text-slate-400"></span>
           </div>
           <div class="ms-pull-track mt-2 h-1.5 bg-slate-200 dark:bg-slate-800 rounded overflow-hidden" style="display:none"><div class="ms-pull-fill h-full bg-indigo-500" style="width:0%;transition:width .3s"></div></div>
         </div>` : '';
@@ -1093,16 +1093,16 @@ async function loadInventoryFeeds() {
         : captured ? 'border-emerald-300 dark:border-emerald-800'
         : 'border-slate-200 dark:border-slate-800';
       const pill = needsExt
-        ? '<span class="text-[10px] uppercase font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-100 px-1.5 py-0.5 rounded flex-shrink-0">Extension</span>'
+        ? '<span class="text-xs uppercase font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-100 px-1.5 py-0.5 rounded flex-shrink-0">Extension</span>'
         : captured
-        ? '<span class="text-[10px] uppercase font-bold bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-100 px-1.5 py-0.5 rounded flex-shrink-0">Synced</span>'
+        ? '<span class="text-xs uppercase font-bold bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-100 px-1.5 py-0.5 rounded flex-shrink-0">Synced</span>'
         : '';
 
       return `
       <div class="bg-slate-50 dark:bg-slate-950 border ${borderCls} rounded p-3 overflow-hidden">
         <div class="flex items-center justify-between gap-3 overflow-hidden">
           <div class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
-            <span class="text-[10px] uppercase font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded flex-shrink-0">${f.feed_type || 'all'}</span>
+            <span class="text-xs uppercase font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded flex-shrink-0">${f.feed_type || 'all'}</span>
             ${pill}
             <span class="text-xs text-slate-600 dark:text-slate-300 truncate block min-w-0 flex-1" title="${esc(f.feed_url)}">${f.feed_url}</span>
           </div>
@@ -1290,7 +1290,7 @@ function renderGlobalLeaderboard() {
     const rank = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank;
     return `<tr class="${hl}">
       <td class="py-2.5 px-3 text-left">${rank}</td>
-      <td class="py-2.5 px-3 text-left text-slate-900 dark:text-white">${r.name}${r.isYou ? ' <span class="text-[10px] text-indigo-500">(you)</span>' : ''}</td>
+      <td class="py-2.5 px-3 text-left text-slate-900 dark:text-white">${r.name}${r.isYou ? ' <span class="text-xs text-indigo-500">(you)</span>' : ''}</td>
       <td class="py-2.5 px-3 text-right font-mono">${(r.points || 0).toLocaleString()}</td>
       <td class="py-2.5 px-3 text-right font-mono text-slate-500 dark:text-slate-400">${r.posted}</td>
       <td class="py-2.5 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">${r.sold}</td>
@@ -1509,7 +1509,7 @@ function renderCatalog() {
       pending: 'bg-amber-900/40 border-amber-700 text-amber-300',
       sold: 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
     };
-    return `<span class="text-[9px] uppercase font-bold border px-1.5 py-0.5 rounded ${map[s] || map.sold}">${s || 'unknown'}</span>`;
+    return `<span class="text-sm uppercase font-bold border px-1.5 py-0.5 rounded ${map[s] || map.sold}">${s || 'unknown'}</span>`;
   };
 
   list.innerHTML = filtered.map(v => {
@@ -1543,7 +1543,7 @@ function renderCatalog() {
           <span class="text-xs font-bold text-slate-900 dark:text-white truncate flex-1" title="${v.year} ${v.make} ${v.model} ${v.trim || ''}">${v.year} ${v.make} ${v.model}</span>
           ${statusBadge(v.status)}
         </div>
-        <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
+        <div class="text-sm text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
           <span class="truncate">${v.trim || ''} ${v.exterior_color ? '· ' + v.exterior_color : ''}</span>
           ${externalIcon}
         </div>
@@ -1751,7 +1751,7 @@ async function initSecurityPanel() {
         } else if (data.qr_code_uri) {
           // QR library failed to load — keep enrollment usable via the typed code.
           const note = document.getElementById('mfa-qr-container');
-          if (note) note.innerHTML = '<p class="text-[10px] text-slate-600 p-4">Can\'t show the picture right now — use the code below to add it by hand.</p>';
+          if (note) note.innerHTML = '<p class="text-xs text-slate-600 p-4">Can\'t show the picture right now — use the code below to add it by hand.</p>';
         }
         btn.textContent = 'Cancel';
       } catch (err) {
@@ -1917,7 +1917,7 @@ async function loadPasskeys() {
     const data = await res.json();
     const items = data.passkeys || [];
     if (!items.length) {
-      listEl.innerHTML = '<p class="text-[10px] text-slate-500 italic">No passkeys yet. Tap "+ Add" to set up your first one.</p>';
+      listEl.innerHTML = '<p class="text-xs text-slate-500 italic">No passkeys yet. Tap "+ Add" to set up your first one.</p>';
       return;
     }
     listEl.innerHTML = items.map(p => {
@@ -1927,9 +1927,9 @@ async function loadPasskeys() {
         <div class="flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5">
           <div class="min-w-0">
             <div class="text-xs font-semibold text-slate-900 dark:text-white truncate">${p.device_name || 'My passkey'}</div>
-            <div class="text-[9px] text-slate-500">Added ${when} · Last used ${lastUsed}</div>
+            <div class="text-sm text-slate-500">Added ${when} · Last used ${lastUsed}</div>
           </div>
-          <button data-passkey-id="${p.id}" class="passkey-remove text-[10px] text-rose-600 dark:text-rose-400 hover:underline whitespace-nowrap">Remove</button>
+          <button data-passkey-id="${p.id}" class="passkey-remove text-xs text-rose-600 dark:text-rose-400 hover:underline whitespace-nowrap">Remove</button>
         </div>
       `;
     }).join('');
@@ -1937,7 +1937,7 @@ async function loadPasskeys() {
       btn.addEventListener('click', () => removePasskey(btn.dataset.passkeyId));
     });
   } catch (err) {
-    listEl.innerHTML = '<p class="text-[10px] text-red-500">Could not load passkeys.</p>';
+    listEl.innerHTML = '<p class="text-xs text-red-500">Could not load passkeys.</p>';
   }
 }
 
