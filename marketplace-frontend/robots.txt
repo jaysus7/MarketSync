@@ -1,12 +1,23 @@
 User-agent: *
 Allow: /
 
-# Authenticated pages — no value to search crawlers
+# Explicitly signal to major AI crawlers they are welcome
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+# Authenticated pages — keep these disallowed
 Disallow: /dashboard.html
 Disallow: /forgot-password.html
 Disallow: /reset-password.html
-
-# Tracking redirect — never index
 Disallow: /r/
 
 Sitemap: https://marketsync.link/sitemap.xml
