@@ -17,6 +17,8 @@ import {
 } from './passkeys.js'
 import { randomBytes, createHash } from 'crypto'
 import { Resend } from 'resend'
+import Stripe from 'stripe'
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 // Resend SMTP — we send transactional email (password resets etc.) directly
 // from this backend instead of going through Supabase Auth. Lower latency,
@@ -982,7 +984,84 @@ app.get('/auth/me', requireAuth, async (req, res) => {
     dealership: req.profile.dealerships
   })
 })
+// ============================================
+// STRIPE — BILLING PORTAL (cancel/manage)
+// ============================================
+app.post('/billing/portal', requireAuth, async (req, res) => {
+  try {
+    // Pull stripe_customer_id from the dealership record
+    const { data: dealership, error } = await supabase
+      .from('dealerships')
+      .select('stripe_customer_id')
+      .eq('id', req.profile.dealership_id)
+      .single()
 
+    if (error || !dealership?.stripe_customer_id) {
+      return res.status(400).json({ error: 'No billing account found for this dealership' })
+    }
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: dealership.stripe_customer_id,
+      return_url: 'https://marketsync.link/dashboard'
+    })
+
+    res.json({ url: session.url })
+  } catch (e) {
+    console.error('Portal session error:', e.message)
+    res.status(500).json({ error: 'Could not open billing portal' })
+  }
+})
+
+// ============================================
+// STRIPE — WEBHOOK (handle cancellations)
+// ============================================
+app.post('/billing/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature']
+  let event
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET)
+  } catch (e) {
+    console.error('Webhook signature failed:', e.message)
+    return res.status(400).json({ error: `Webhook error: ${e.message}` })
+  }
+
+  if (event.type === 'customer.subscription.deleted') {
+    // Subscription fully cancelled
+    const sub = event.data.object
+    await supabase
+      .from('dealerships')
+      .update({
+        subscription_status: 'cancelled',
+        subscription_expires_at: new Date(sub.current_period_end * 1000).toISOString()
+      })
+      .eq('stripe_customer_id', sub.customer)
+    console.log('🔴 Subscription cancelled for customer:', sub.customer)
+  }
+
+  if (event.type === 'customer.subscription.updated') {
+    // Catches cancel_at_period_end = true (scheduled cancel)
+    const sub = event.data.object
+    if (sub.cancel_at_period_end) {
+      await supabase
+        .from('dealerships')
+        .update({
+          subscription_status: 'cancelling',
+          subscription_expires_at: new Date(sub.cancel_at * 1000).toISOString()
+        })
+        .eq('stripe_customer_id', sub.customer)
+      console.log('🟡 Subscription scheduled to cancel for customer:', sub.customer)
+    } else {
+      // They reactivated
+      await supabase
+        .from('dealerships')
+        .update({ subscription_status: 'active', subscription_expires_at: null })
+        .eq('stripe_customer_id', sub.customer)
+    }
+  }
+
+  res.json({ received: true })
+})
 // ── 4. PROFILE ──
 app.put('/profile/update', requireAuth, rateLimit('profile-update', 10, 60 * 60 * 1000), async (req, res) => {
   const { fullName, email, password, dealershipName, websiteUrl } = req.body
