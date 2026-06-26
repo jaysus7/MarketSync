@@ -2039,3 +2039,57 @@ function friendlyAgo(date) {
   if (seconds < 604800) return Math.floor(seconds / 86400) + ' days ago';
   return date.toLocaleDateString();
 }
+document.addEventListener('DOMContentLoaded', () => {
+  const billingBtn = document.getElementById('launch-portal-btn');
+
+  if (billingBtn) {
+    billingBtn.addEventListener('click', openBillingPortal);
+  }
+});
+
+async function openBillingPortal() {
+  const billingBtn = document.getElementById('launch-portal-btn');
+  const originalText = billingBtn.textContent;
+  
+  // Extract token from your authentication layer (adjust key name if stored differently)
+  const token = localStorage.getItem('token'); 
+  
+  if (!token) {
+    console.error('Billing Portal Error: User session token not found.');
+    alert('Session expired. Please sign out and sign back in.');
+    return;
+  }
+
+  try {
+    // 1. Set UI loading state to block multi-clicks
+    billingBtn.disabled = true;
+    billingBtn.textContent = 'Connecting...';
+
+    // 2. Fetch the billing session from Render API
+    const res = await fetch('https://vehicle-marketplace-s0e4.onrender.com/billing/portal', {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!res.ok) throw new Error(`Server returned HTTP status ${res.status}`);
+
+    // 3. Destructure and open the Stripe portal redirect link
+    const { url } = await res.json();
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } else {
+      throw new Error('No redirect URL returned by the billing service.');
+    }
+
+  } catch (err) {
+    console.error('Billing Portal Error:', err);
+    alert('Could not open billing settings. Please contact support.');
+  } finally {
+    // 4. Restore UI state
+    billingBtn.disabled = false;
+    billingBtn.textContent = originalText;
+  }
+}
