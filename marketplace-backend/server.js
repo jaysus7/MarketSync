@@ -2142,6 +2142,7 @@ async function finalizeSold(listingId, inventoryId) {
         .from('listings')
         .update({ status: 'sold', deleted_at: now, sold_at: now, fb_sync_action: 'sold', fb_synced_at: null })
         .eq('id', listingId)
+    }
     // 2. Delete the inventory row — vehicle is gone from the dealer site / sold
     await supabaseAdmin.from('inventory').delete().eq('id', inventoryId)
   }
@@ -2166,6 +2167,10 @@ app.get('/listings', requireAuth, async (req, res) => {
   if (error) return res.status(500).json({ error: error.message })
   res.json(data || [])
 })
+
+app.post('/listings/sync-fb-sold', requireAuth, async (req, res) => {
+  const { fb_listing_url } = req.body || {}
+  if (!fb_listing_url) return res.status(400).json({ error: 'fb_listing_url required' })
 
   const normalizedUrl = fb_listing_url.split('?')[0].split('#')[0]
 
