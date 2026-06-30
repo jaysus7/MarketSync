@@ -1019,27 +1019,39 @@ function renderRecentListings(containerId, items) {
     };
     return `<span class="text-sm uppercase font-bold border px-1.5 py-0.5 rounded ${map[s] || map.deleted}">${s}</span>`;
   };
-  el.innerHTML = items.map(l => {
+el.innerHTML = items.map(l => {
     const v = l.vehicle || {};
     const thumb = v.image_urls?.[0]
       ? `<img src="${API}/proxy-image?url=${encodeURIComponent(v.image_urls[0])}" class="w-16 h-12 rounded object-cover bg-slate-50 dark:bg-slate-950" loading="lazy">`
       : `<div class="w-16 h-12 rounded bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-700">⌀</div>`;
     const when = l.posted_at ? new Date(l.posted_at).toLocaleDateString() : '—';
+
+    // Fallback label when the joined inventory row is gone (vehicle deleted from
+    // dealer feed / sold + cleaned up) but the listing record itself still exists.
+    const vehicleLabel = (v.year || v.make || v.model)
+      ? `${v.year || ''} ${v.make || ''} ${v.model || ''} ${v.trim || ''}`.trim()
+      : (l.vehicle_label || 'Vehicle no longer in inventory');
+
     // Only link out if we captured the real posted-item permalink — never the
     // create-form URL (older listings may have it saved from before the fix).
-    const fbLink = (l.fb_listing_url && l.fb_listing_url.includes('/marketplace/item/'))
-      ? `<a href="${l.fb_listing_url}" target="_blank" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">View on FB ↗</a>`
+    const hasFbLink = l.fb_listing_url && l.fb_listing_url.includes('/marketplace/item/');
+    const fbLink = hasFbLink
+      ? `<span class="text-xs text-indigo-600 dark:text-indigo-400">View on FB ↗</span>`
       : '';
-    return `
-      <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2">
+
+    const rowContent = `
         ${thumb}
         <div class="flex-1 min-w-0">
-          <div class="text-xs font-bold text-slate-900 dark:text-white truncate">${v.year || ''} ${v.make || ''} ${v.model || ''} ${v.trim || ''}</div>
+          <div class="text-xs font-bold text-slate-900 dark:text-white truncate">${vehicleLabel}</div>
           <div class="text-xs text-slate-500 dark:text-slate-400">Posted ${when} ${fbLink ? '· ' + fbLink : ''}</div>
         </div>
         ${badge(l.status)}
-      </div>
     `;
+
+    // Wrap the whole row in an <a> if we have a real FB link, otherwise a plain div.
+    return hasFbLink
+      ? `<a href="${l.fb_listing_url}" target="_blank" class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2 hover:border-indigo-400 dark:hover:border-indigo-600 transition-colors cursor-pointer">${rowContent}</a>`
+      : `<div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2">${rowContent}</div>`;
   }).join('');
 }
 
