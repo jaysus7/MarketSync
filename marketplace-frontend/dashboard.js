@@ -2131,12 +2131,19 @@ async function openBillingPortal() {
       }
     });
 
-    if (!res.ok) throw new Error(`Server returned HTTP status ${res.status}`);
+   if (!res.ok) throw new Error(`Server returned HTTP status ${res.status}`);
 
-    // 3. Destructure and open the Stripe portal redirect link
-    const { url } = await res.json();
-    if (url) {
-      window.open(url, '_blank', 'noopener,noreferrer');
+    const body = await res.json();
+
+    // Complimentary account — nothing to manage in Stripe. Show a friendly message
+    // instead of opening a brand-new checkout/subscribe page.
+    if (body.complimentary) {
+      alert("You're on a complimentary MarketSync plan — there's no billing to manage. Reach out if you have any questions.");
+      return;
+    }
+
+    if (body.url) {
+      window.open(body.url, '_blank', 'noopener,noreferrer');
     } else {
       throw new Error('No redirect URL returned by the billing service.');
     }
@@ -2145,6 +2152,7 @@ async function openBillingPortal() {
     console.error('Billing Portal Error:', err);
     alert('Could not open billing settings. Please contact support.');
   } finally {
+    
     // 4. Restore UI state
     billingBtn.disabled = false;
     billingBtn.textContent = originalText;
