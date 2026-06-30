@@ -57,18 +57,26 @@
       return
     }
 
-    if (ext?.token) {
+  if (ext?.token) {
       // Extension is logged in but the site isn't → log the site in automatically.
-      // Guard against a loop if the token is expired: we try exactly once; if the
-      // dashboard bounces us back here still tokenless, we treat the token as dead.
-      if (sessionStorage.getItem('ms_autologin_tried') === '1') {
-        sessionStorage.removeItem('ms_autologin_tried')
+      // Hard circuit breaker: count attempts across this tab's whole session, not
+      // just "tried once then reset" — that reset is what allowed an infinite loop
+      // when something else (a dashboard.js crash, a storage race) kept re-triggering
+      // syncAuth() before the guard could catch it.
+      const attempts = Number(sessionStorage.getItem('ms_autologin_attempts') || '0')
+      if (attempts >= 2) {
+        sessionStorage.removeItem('ms_autologin_attempts')
         chrome.storage.local.remove(['token', 'user'])
+        console.warn('[MarketSync] Autologin loop detected — clearing extension auth to break the cycle.')
         return
       }
-      sessionStorage.setItem('ms_autologin_tried', '1')
+      sessionStorage.setItem('ms_autologin_attempts', String(attempts + 1))
       setPageAuth(ext.token, ext.user)
-      location.replace(onLoginPage() ? 'dashboard.html' : location.href)
+      if (onLoginPage()) {
+        location.replace('dashboard.html')
+      }
+      // If we're already on a non-login page (e.g. dashboard.html itself), don't
+      // reload — just let the page's own script pick up the token we just set.
     }
   }
 
@@ -76,13 +84,20 @@
 
   // Keep them in sync after load: if the extension logs out (popup sign-out) while
   // the dashboard is open, clear the site too; if it logs in, adopt that token.
-  try {
+ try {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local' || !changes.token) return
       const newTok = changes.token.newValue
       if (!newTok) {
         if (getPageAuth()) { clearPageAuth(); location.replace('login.html') }
       } else if (getPageAuth()?.token !== newTok) {
+        // Cap reloads from this listener too — same loop risk as the autologin path.
+        const reloadAttempts = Number(sessionStorage.getItem('ms_storage_reload_attempts') || '0')
+        if (reloadAttempts >= 2) {
+          console.warn('[MarketSync] Storage-sync reload loop detected — stopping.')
+          return
+        }
+        sessionStorage.setItem('ms_storage_reload_attempts', String(reloadAttempts + 1))
         chrome.storage.local.get(['user'], ({ user }) => { setPageAuth(newTok, user); location.reload() })
       }
     })
