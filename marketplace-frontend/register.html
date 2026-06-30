@@ -36,84 +36,109 @@
       <p class="text-slate-600 dark:text-slate-300 text-sm mt-1">Start a 7-day free trial and post your dealership inventory to Facebook Marketplace in about 60 seconds per vehicle. No credit card required — cancel anytime.</p>
     </div>
 
+    <!-- Step progress indicator -->
+    <div id="step-progress" class="flex items-center justify-center gap-2 mb-6">
+      <div class="flex items-center gap-2 flex-1">
+        <div id="dot-1" class="step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-indigo-600 text-white">1</div>
+        <div id="bar-1-2" class="step-bar h-0.5 flex-1 bg-slate-200 dark:bg-slate-700"></div>
+        <div id="dot-2" class="step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400">2</div>
+        <div id="bar-2-3" class="step-bar h-0.5 flex-1 bg-slate-200 dark:bg-slate-700"></div>
+        <div id="dot-3" class="step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400">3</div>
+      </div>
+    </div>
+    <div class="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-5 px-1">
+      <span id="step-label-1" class="text-indigo-600 dark:text-indigo-400">Dealership</span>
+      <span id="step-label-2">Your Account</span>
+      <span id="step-label-3">Feed &amp; Finish</span>
+    </div>
+
     <div id="error-box" class="hidden mb-4 p-3 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200 text-xs rounded"></div>
 
-    <form id="register-form" class="space-y-4 block w-full">
-      
-      <div>
-        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Account Type</label>
-        <div class="grid grid-cols-2 gap-2 w-full">
-          <label id="label-admin" class="cursor-pointer border-2 border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 p-3 rounded-lg text-center block select-none">
-            <input type="radio" name="accountRole" value="dealer_admin" checked class="sr-only" onchange="toggleRoleFields(this.value)">
-            <span class="block text-xs font-bold text-slate-900 dark:text-white">Dealership Admin</span>
-            <span class="block text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Manage entire store feed</span>
-          </label>
-          <label id="label-rep" class="cursor-pointer border-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3 rounded-lg text-center block select-none">
-            <input type="radio" name="accountRole" value="sales_rep" class="sr-only" onchange="toggleRoleFields(this.value)">
-            <span class="block text-xs font-bold text-slate-900 dark:text-white">Independent Rep</span>
-            <span class="block text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Post personal inventory</span>
-          </label>
-        </div>
-      </div>
+    <form id="register-form" class="block w-full" novalidate>
 
-      <div>
-        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Your Full Name</label>
-        <input type="text" id="full-name" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3.5 py-3 text-base text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-      </div>
-      <div>
-        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Corporate Email Address</label>
-        <input type="email" id="email" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3.5 py-3 text-base text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-      </div>
-      <div>
-        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Account Password</label>
-        <input type="password" id="password" required minlength="12" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3.5 py-3 text-base text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-          At least 12 characters. We block common breached passwords. Long passphrases work great — for example, four random words you'll remember.
-        </p>
-      </div>
-
-      <div id="dealership-metadata-fields" class="space-y-4 pt-3 border-t border-slate-200 dark:border-slate-700/50 block w-full">
+      <!-- ───────────── STEP 1: Dealership Info ───────────── -->
+      <div id="step-1" class="step-panel space-y-4 block w-full">
         <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Dealership Business Name</label>
-          <input type="text" id="dealer-name" class="dealer-req w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3.5 py-3 text-base text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500" placeholder="e.g. Welland Chev">
-        </div>
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Dealership Website URL</label>
-          <input type="url" id="website-url" class="dealer-req w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3.5 py-3 text-base text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500" placeholder="https://www.dealership.com">
-        </div>
-      </div>
-
-      <div class="pt-3 border-t border-slate-200 dark:border-slate-700/50 block w-full">
-        <div class="flex justify-between items-center mb-1.5">
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Inventory Data Feeds</label>
-          <button type="button" onclick="addFeedRow()" class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-300 font-bold focus:outline-none">+ Add Feed Segment</button>
-        </div>
-        <div id="feed-rows-container" class="space-y-2 block w-full">
-          <div class="flex gap-2 w-full items-center feed-entry-row">
-            <select class="feed-type bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 h-[34px]">
-              <option value="all">All Inventory</option>
-              <option value="new">New</option>
-              <option value="used">Used</option>
-              <option value="demo">Demo</option>
-              <option value="fleet">Fleet</option>
-            </select>
-            <input type="url" class="feed-url flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 h-[34px]" placeholder="https://.../inventory.json" required>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Account Type</label>
+          <div class="grid grid-cols-2 gap-2 w-full">
+            <label id="label-admin" class="cursor-pointer border-2 border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 p-3 rounded-lg text-center block select-none">
+              <input type="radio" name="accountRole" value="dealer_admin" checked class="sr-only" onchange="toggleRoleFields(this.value)">
+              <span class="block text-xs font-bold text-slate-900 dark:text-white">Dealership Admin</span>
+              <span class="block text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Manage entire store feed</span>
+            </label>
+            <label id="label-rep" class="cursor-pointer border-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3 rounded-lg text-center block select-none">
+              <input type="radio" name="accountRole" value="sales_rep" class="sr-only" onchange="toggleRoleFields(this.value)">
+              <span class="block text-xs font-bold text-slate-900 dark:text-white">Independent Rep</span>
+              <span class="block text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Post personal inventory</span>
+            </label>
           </div>
         </div>
+
+        <div id="dealership-metadata-fields" class="space-y-4 block w-full">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Dealership Business Name</label>
+            <input type="text" id="dealer-name" class="dealer-req w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3.5 py-3 text-base text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500" placeholder="e.g. Welland Chev">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Dealership Website URL</label>
+            <input type="url" id="website-url" class="dealer-req w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3.5 py-3 text-base text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500" placeholder="https://www.dealership.com">
+          </div>
+        </div>
+
+        <button type="button" onclick="goToStep(2)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded text-sm shadow transition mt-2">Continue →</button>
       </div>
 
-      <label class="flex items-start gap-2 pt-3 border-t border-slate-200 dark:border-slate-700/50 cursor-pointer">
-        <input type="checkbox" id="newsletter-consent" class="mt-0.5 w-4 h-4 rounded border-slate-400 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500">
-        <span class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-          Send me MarketSync product updates, dealership tips, and occasional offers via email. You can unsubscribe any time. <span class="text-slate-500 dark:text-slate-500">(Optional.)</span>
-        </span>
-      </label>
+      <!-- ───────────── STEP 2: Your Account ───────────── -->
+      <div id="step-2" class="step-panel space-y-4 hidden w-full">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Your Full Name</label>
+          <input type="text" id="full-name" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3.5 py-3 text-base text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Corporate Email Address</label>
+          <input type="email" id="email" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3.5 py-3 text-base text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Account Password</label>
+          <input type="password" id="password" minlength="12" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3.5 py-3 text-base text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            At least 12 characters. We block common breached passwords. Long passphrases work great — for example, four random words you'll remember.
+          </p>
+        </div>
 
-      <p class="text-[10px] text-slate-500 dark:text-slate-500 leading-relaxed">
-        By signing up you agree to our <a href="terms.html" class="text-indigo-600 dark:text-indigo-400 hover:underline">Terms</a> and <a href="privacy-policy.html" class="text-indigo-600 dark:text-indigo-400 hover:underline">Privacy Policy</a>.
-      </p>
+        <div class="flex gap-2 mt-2">
+          <button type="button" onclick="goToStep(1)" class="w-1/3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded text-sm border border-slate-300 dark:border-slate-700 transition">← Back</button>
+          <button type="button" onclick="goToStep(3)" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded text-sm shadow transition">Continue →</button>
+        </div>
+      </div>
 
-      <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 font-bold py-2.5 rounded text-sm shadow transition mt-2">Provision New Dealership</button>
+      <!-- ───────────── STEP 3: Feed & Finish ───────────── -->
+      <div id="step-3" class="step-panel space-y-4 hidden w-full">
+        <div id="feed-field-wrap">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Inventory Data Feed URL</label>
+          <input type="url" id="feed-url" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3.5 py-3 text-base text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500" placeholder="https://.../inventory.json">
+          <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            Optional — you can add or change this anytime from your dashboard.
+          </p>
+        </div>
+
+        <label class="flex items-start gap-2 pt-3 border-t border-slate-200 dark:border-slate-700/50 cursor-pointer">
+          <input type="checkbox" id="newsletter-consent" class="mt-0.5 w-4 h-4 rounded border-slate-400 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500">
+          <span class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+            Send me MarketSync product updates, dealership tips, and occasional offers via email. You can unsubscribe any time. <span class="text-slate-500 dark:text-slate-500">(Optional.)</span>
+          </span>
+        </label>
+
+        <p class="text-[10px] text-slate-500 dark:text-slate-500 leading-relaxed">
+          By signing up you agree to our <a href="terms.html" class="text-indigo-600 dark:text-indigo-400 hover:underline">Terms</a> and <a href="privacy-policy.html" class="text-indigo-600 dark:text-indigo-400 hover:underline">Privacy Policy</a>.
+        </p>
+
+        <div class="flex gap-2 mt-2">
+          <button type="button" onclick="goToStep(2)" class="w-1/3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded text-sm border border-slate-300 dark:border-slate-700 transition">← Back</button>
+          <button type="submit" id="submit-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded text-sm shadow transition">Provision New Dealership</button>
+        </div>
+      </div>
+
     </form>
 
     <div id="verify-banner" class="hidden mt-5 p-4 rounded bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 text-sm leading-relaxed">
@@ -121,7 +146,7 @@
       <p class="text-xs">We sent a verification link to <span id="verify-email" class="font-mono"></span>. Click it to activate your account, then log in.</p>
       <button type="button" id="resend-btn" class="mt-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:underline">Didn't get it? Resend</button>
     </div>
-    
+
     <div class="text-center mt-5 pt-3 border-t border-slate-200 dark:border-slate-700/30">
       <a href="login.html" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">Already have a workspace? Sign in</a>
     </div>
@@ -129,70 +154,116 @@
 
   <script>
     const API = 'https://vehicle-marketplace-s0e4.onrender.com';
+    let currentStep = 1;
+    let isDealerAdmin = true; // mirrors the accountRole radio state
 
+    // ── Step navigation ──────────────────────────────────────────────────────
+    function goToStep(targetStep) {
+      // Validate the CURRENT step before allowing forward movement. Going
+      // backward never needs validation — user already filled those fields.
+      if (targetStep > currentStep && !validateStep(currentStep)) return;
+
+      document.getElementById(`step-${currentStep}`).classList.add('hidden');
+      document.getElementById(`step-${targetStep}`).classList.remove('hidden');
+      currentStep = targetStep;
+      updateProgressUI();
+      document.getElementById('error-box').classList.add('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateProgressUI() {
+      for (let i = 1; i <= 3; i++) {
+        const dot = document.getElementById(`dot-${i}`);
+        const label = document.getElementById(`step-label-${i}`);
+        if (i < currentStep) {
+          dot.className = 'step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-emerald-500 text-white';
+          dot.textContent = '✓';
+          label.className = 'text-emerald-600 dark:text-emerald-400';
+        } else if (i === currentStep) {
+          dot.className = 'step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-indigo-600 text-white';
+          dot.textContent = i;
+          label.className = 'text-indigo-600 dark:text-indigo-400';
+        } else {
+          dot.className = 'step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400';
+          dot.textContent = i;
+          label.className = 'text-slate-400 dark:text-slate-500';
+        }
+      }
+      // Bars: fill green once you've moved past them
+      document.getElementById('bar-1-2').className = `step-bar h-0.5 flex-1 ${currentStep > 1 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`;
+      document.getElementById('bar-2-3').className = `step-bar h-0.5 flex-1 ${currentStep > 2 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`;
+    }
+
+    function showStepError(msg) {
+      const errBox = document.getElementById('error-box');
+      errBox.textContent = msg;
+      errBox.classList.remove('hidden');
+    }
+
+    function validateStep(step) {
+      const errBox = document.getElementById('error-box');
+      errBox.classList.add('hidden');
+
+      if (step === 1) {
+        if (isDealerAdmin) {
+          const name = document.getElementById('dealer-name').value.trim();
+          const url = document.getElementById('website-url').value.trim();
+          if (!name) { showStepError('Please enter your dealership business name.'); return false; }
+          if (!url) { showStepError('Please enter your dealership website URL.'); return false; }
+        }
+        return true;
+      }
+
+      if (step === 2) {
+        const name = document.getElementById('full-name').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        if (!name) { showStepError('Please enter your full name.'); return false; }
+        if (!email || !email.includes('@')) { showStepError('Please enter a valid email address.'); return false; }
+        if (!password || password.length < 12) { showStepError('Password must be at least 12 characters.'); return false; }
+        return true;
+      }
+
+      return true;
+    }
+
+    // ── Account type toggle (Dealer Admin vs Solo Rep) ───────────────────────
     function toggleRoleFields(role) {
       const adminLabel = document.getElementById('label-admin');
       const repLabel = document.getElementById('label-rep');
       const dealerFields = document.getElementById('dealership-metadata-fields');
-      const dealerInputs = document.querySelectorAll('.dealer-req');
       const submitBtn = document.getElementById('submit-btn');
+      isDealerAdmin = role === 'dealer_admin';
 
-      if (role === 'dealer_admin') {
+      if (isDealerAdmin) {
         adminLabel.className = "cursor-pointer border-2 border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 p-3 rounded-lg text-center block select-none";
         repLabel.className = "cursor-pointer border-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3 rounded-lg text-center block select-none";
         dealerFields.style.display = 'block';
-        dealerInputs.forEach(i => i.required = true);
         submitBtn.textContent = 'Provision New Dealership';
       } else {
         adminLabel.className = "cursor-pointer border-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3 rounded-lg text-center block select-none";
         repLabel.className = "cursor-pointer border-2 border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 p-3 rounded-lg text-center block select-none";
         dealerFields.style.display = 'none';
-        dealerInputs.forEach(i => i.required = false);
         submitBtn.textContent = 'Create Sales Representative Account';
       }
     }
 
-    function addFeedRow() {
-      const container = document.getElementById('feed-rows-container');
-      const row = document.createElement('div');
-      row.className = 'flex gap-2 w-full items-center feed-entry-row';
-      row.innerHTML = `
-        <select class="feed-type bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 h-[34px]">
-          <option value="all">All Inventory</option>
-          <option value="new">New</option>
-          <option value="used">Used</option>
-          <option value="demo">Demo</option>
-          <option value="fleet">Fleet</option>
-        </select>
-        <input type="url" class="feed-url flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 h-[34px]" placeholder="https://.../inventory.json" required>
-        <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300 px-2 font-bold text-lg focus:outline-none">×</button>
-      `;
-      container.appendChild(row);
-    }
-
+    // ── Final submit (Step 3) ────────────────────────────────────────────────
     document.getElementById('register-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const errBox = document.getElementById('error-box');
       const btn = document.getElementById('submit-btn');
-      
+
       errBox.classList.add('hidden');
-      btn.disabled = true; 
+      btn.disabled = true;
+      const originalBtnText = btn.textContent;
       btn.textContent = 'Processing registration...';
 
       const accountRole = document.querySelector('input[name="accountRole"]:checked').value;
-      
-      // Fixed: Dependably maps feed rows using the universal wrapper class
-      const feeds = [];
-      document.querySelectorAll('.feed-entry-row').forEach(row => {
-        const urlInput = row.querySelector('.feed-url');
-        if (urlInput && urlInput.value.trim()) {
-          feeds.push({
-            type: row.querySelector('.feed-type').value,
-            url: urlInput.value.trim()
-          });
-        }
-      });
-      
+
+      const feedUrl = document.getElementById('feed-url').value.trim();
+      const feeds = feedUrl ? [{ type: 'all', url: feedUrl }] : [];
+
       const email = document.getElementById('email').value.trim();
       const payload = {
         accountRole,
@@ -217,6 +288,8 @@
 
         // Email verification required — show the inbox banner instead of redirecting
         document.getElementById('register-form').style.display = 'none';
+        document.getElementById('step-progress').style.display = 'none';
+        document.querySelector('.flex.justify-between.text-\\[10px\\]').style.display = 'none';
         document.getElementById('verify-email').textContent = email;
         document.getElementById('verify-banner').classList.remove('hidden');
 
@@ -234,7 +307,7 @@
         errBox.textContent = err.message;
         errBox.classList.remove('hidden');
         btn.disabled = false;
-        btn.textContent = accountRole === 'dealer_admin' ? 'Provision New Dealership' : 'Create Sales Representative Account';
+        btn.textContent = originalBtnText;
       }
     });
   </script>
