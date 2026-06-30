@@ -17,6 +17,7 @@ import {
 } from './passkeys.js'
 import { randomBytes, createHash } from 'crypto'
 import { Resend } from 'resend'
+import * as dnsLib from 'dns'
 
 // Resend SMTP — we send transactional email (password resets etc.) directly
 // from this backend instead of going through Supabase Auth. Lower latency,
@@ -2001,6 +2002,13 @@ app.get('/inventory/:id', requireAuth, async (req, res) => {
 app.post('/listings', requireAuth, async (req, res) => {
   const { inventory_id, fb_listing_id } = req.body
 
+  // Verify the inventory row belongs to the caller's own dealership before
+  // creating/matching a listing against it (prevents cross-tenant IDOR).
+  const { data: inv, error: invErr } = await supabaseAdmin
+    .from('inventory').select('id, dealership_id').eq('id', inventory_id).single()
+  if (invErr || !inv) return res.status(404).json({ error: 'Inventory item not found' })
+  if (inv.dealership_id !== req.dealershipId) return res.status(403).json({ error: 'Not your dealership' })
+
   // Only store a Facebook URL if it's a real posted-item permalink
   // (.../marketplace/item/<id>). The extension's manual "Mark Posted" button can
   // fire while still on the create page, which would otherwise save the generic
@@ -2046,14 +2054,23 @@ app.post('/listings', requireAuth, async (req, res) => {
   res.json(data)
 })
 
-// ── FIX: use explicit FK hint + JS-side dealership filter to avoid ambiguous join ──
+// status filter: ?status=posted (default), sold, all — explicit FK hint + scoped
+// to the caller's own posts via posted_by to avoid ambiguous join / cross-user leak.
 app.get('/listings', requireAuth, async (req, res) => {
-  const { data, error } = await supabaseAdmin
+  const statusParam = req.query.status || 'posted'
+  let query = supabaseAdmin
     .from('listings')
     .select('*, inventory!listings_inventory_id_fkey(*)')
-    .eq('status', 'posted')
-    .eq('posted_by', req.user.id)   // ← THIS is the fix
+    .eq('posted_by', req.user.id)
     .order('posted_at', { ascending: false })
+
+  if (statusParam === 'all') {
+    query = query.in('status', ['posted', 'sold'])
+  } else {
+    query = query.eq('status', statusParam)
+  }
+
+  const { data, error } = await query
   if (error) return res.status(500).json({ error: error.message })
   res.json(data || [])
 })
@@ -2061,6 +2078,11 @@ app.patch('/listings/:id/delete', requireAuth, async (req, res) => {
   // Queue the Facebook listing for DELETION (not "sold") — the extension will
   // remove it from Marketplace. We only queue it if there's an FB URL to act on;
   // fb_synced_at stays null so the extension's poller picks it up.
+  const { data: listing, error: lookupErr } = await supabaseAdmin
+    .from('listings').select('id, posted_by').eq('id', req.params.id).single()
+  if (lookupErr || !listing) return res.status(404).json({ error: 'Listing not found' })
+  if (listing.posted_by !== req.user.id) return res.status(403).json({ error: 'Not your listing' })
+
   const { error } = await supabaseAdmin
     .from('listings')
     .update({
@@ -2147,26 +2169,6 @@ async function finalizeSold(listingId, inventoryId) {
     await supabaseAdmin.from('inventory').delete().eq('id', inventoryId)
   }
 }
-
-app.get('/listings', requireAuth, async (req, res) => {
-  // status filter: ?status=posted (default), sold, all
-  const statusParam = req.query.status || 'posted'
-  let query = supabaseAdmin
-    .from('listings')
-    .select('*, inventory!listings_inventory_id_fkey(*)')
-    .eq('posted_by', req.user.id)
-    .order('posted_at', { ascending: false })
-
-  if (statusParam === 'all') {
-    query = query.in('status', ['posted', 'sold'])
-  } else {
-    query = query.eq('status', statusParam)
-  }
-
-  const { data, error } = await query
-  if (error) return res.status(500).json({ error: error.message })
-  res.json(data || [])
-})
 
 app.post('/listings/sync-fb-sold', requireAuth, async (req, res) => {
   const { fb_listing_url } = req.body || {}
@@ -2442,9 +2444,41 @@ app.get('/r/v/:inventoryId', async (req, res) => {
 })
 
 // ── 9. IMAGE PROXY ──
+// Only fetch http(s) URLs that resolve to a public IP — blocks SSRF against
+// internal services / cloud metadata endpoints (e.g. 169.254.169.254, localhost,
+// RFC1918 ranges) via a caller-supplied `url` query param.
+function isPrivateIp(ip) {
+  if (dnsLib.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number)
+    return (
+      a === 10 || a === 127 || a === 0 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168)
+    )
+  }
+  // Conservative: treat any non-IPv4 (incl. IPv6) as private/unsupported for this proxy.
+  return true
+}
+
+async function isSafeImageUrl(rawUrl) {
+  let parsed
+  try { parsed = new URL(rawUrl) } catch { return false }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+  if (parsed.hostname === 'localhost') return false
+  try {
+    const { address } = await dnsLib.promises.lookup(parsed.hostname)
+    if (isPrivateIp(address)) return false
+  } catch {
+    return false
+  }
+  return true
+}
+
 app.get('/proxy-image', async (req, res) => {
   const { url } = req.query
-  if (!url) return res.status(400).json({ error: 'No URL provided' })
+  if (!url || typeof url !== 'string') return res.status(400).json({ error: 'No URL provided' })
+  if (!(await isSafeImageUrl(url))) return res.status(400).json({ error: 'Invalid or disallowed URL' })
   try {
     const response = await fetch(url)
     const buffer = await response.arrayBuffer()
@@ -4224,8 +4258,10 @@ async function _runInventorySyncInner(dealershipId) {
 
 // ── SYNC ROUTES ──
 app.get('/sync', async (req, res) => {
-  const secret = req.query.secret
-  if (secret !== process.env.SYNC_SECRET && process.env.SYNC_SECRET) {
+  // Fail closed: if SYNC_SECRET isn't configured, this endpoint is disabled
+  // entirely rather than silently becoming unauthenticated.
+  if (!process.env.SYNC_SECRET) return res.status(503).json({ error: 'Sync endpoint not configured' })
+  if (req.query.secret !== process.env.SYNC_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
   const targetDealershipId = req.query.dealership_id
@@ -4552,6 +4588,7 @@ async function syncAllDealerships(triggerLabel = 'scheduled') {
 }
 
 app.post('/cron/sync-all', async (req, res) => {
+  if (!process.env.SYNC_SECRET) return res.status(503).json({ error: 'Cron endpoint not configured' })
   const secret = req.headers['x-cron-secret'] || req.query.secret
   if (secret !== process.env.SYNC_SECRET) return res.status(401).json({ error: 'Unauthorized' })
   const result = await syncAllDealerships('manual')
@@ -4616,6 +4653,7 @@ function runDrip(trigger) {
 
 // Manual trigger — same X-Cron-Secret auth as /cron/sync-all.
 app.post('/cron/drip', async (req, res) => {
+  if (!process.env.SYNC_SECRET) return res.status(503).json({ error: 'Cron endpoint not configured' })
   const secret = req.headers['x-cron-secret'] || req.query.secret
   if (secret !== process.env.SYNC_SECRET) return res.status(401).json({ error: 'Unauthorized' })
   const result = await runDrip('manual')
@@ -4675,7 +4713,7 @@ app.use((err, req, res, next) => {
     stack: err.stack
   })
   if (res.headersSent) return next(err)
-  res.status(500).json({ error: err.message, path: req.path, stack: err.stack })
+  res.status(500).json({ error: 'Internal server error' })
 })
 
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Secure Marketplace engine live on port ${PORT}`))
