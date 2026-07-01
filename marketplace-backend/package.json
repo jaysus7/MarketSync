@@ -13,6 +13,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.109.0",
     "@simplewebauthn/server": "^11.0.0",
     "@sparticuz/chromium": "^131.0.1",
     "@supabase/supabase-js": "^2.106.0",

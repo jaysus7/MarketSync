@@ -18,6 +18,11 @@ export function registerRoutes(app) {
         const session = event.data.object
         const sub = await stripe.subscriptions.retrieve(session.subscription)
         const meta = session.metadata || {}
+        // AI Boost add-on checkout
+        if (meta.type === 'ai_boost' && meta.dealership_id) {
+          await supabaseAdmin.from('dealerships').update({ ai_boost_active: true }).eq('id', meta.dealership_id)
+          break;
+        }
         const billing = {
           stripe_customer_id: session.customer,
           subscription_id: session.subscription,
@@ -32,19 +37,42 @@ export function registerRoutes(app) {
         }
         break;
       }
+      case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
-        const subId = event.data.object.id
-        const { data: prof } = await supabaseAdmin.from('profiles').select('id').eq('subscription_id', subId).maybeSingle()
-        if (prof) {
-          await supabaseAdmin.from('profiles').update({ billing_status: 'INACTIVE' }).eq('id', prof.id)
-        } else {
-          await supabaseAdmin.from('dealerships').update({ billing_status: 'INACTIVE' }).eq('subscription_id', subId)
+        const sub = event.data.object
+        const subId = sub.id
+        const aiBoostPriceId = process.env.STRIPE_AI_BOOST_PRICE_ID
+        // Check if this subscription contains the AI Boost price
+        const hasAiBoost = aiBoostPriceId && sub.items?.data?.some(item => item.price.id === aiBoostPriceId)
+        if (hasAiBoost) {
+          const isActive = sub.status === 'active'
+          await supabaseAdmin.from('dealerships').update({ ai_boost_active: isActive }).eq('stripe_customer_id', sub.customer)
+          break;
+        }
+        // Standard subscription cancel/update
+        if (event.type === 'customer.subscription.deleted') {
+          const { data: prof } = await supabaseAdmin.from('profiles').select('id').eq('subscription_id', subId).maybeSingle()
+          if (prof) {
+            await supabaseAdmin.from('profiles').update({ billing_status: 'INACTIVE' }).eq('id', prof.id)
+          } else {
+            await supabaseAdmin.from('dealerships').update({ billing_status: 'INACTIVE' }).eq('subscription_id', subId)
+          }
         }
         break;
       }
       case 'invoice.payment_failed': {
         const invoice = event.data.object
         if (invoice.subscription && invoice.customer) {
+          // Check if this is an AI Boost invoice — if so, deactivate ai_boost_active
+          const aiBoostPriceId = process.env.STRIPE_AI_BOOST_PRICE_ID
+          if (aiBoostPriceId) {
+            const sub = await stripe.subscriptions.retrieve(invoice.subscription)
+            const hasAiBoost = sub.items?.data?.some(item => item.price.id === aiBoostPriceId)
+            if (hasAiBoost) {
+              await supabaseAdmin.from('dealerships').update({ ai_boost_active: false }).eq('stripe_customer_id', invoice.customer)
+              break;
+            }
+          }
           const { data: prof } = await supabaseAdmin.from('profiles').select('id').eq('stripe_customer_id', invoice.customer).maybeSingle()
           if (prof) {
             await supabaseAdmin.from('profiles').update({ billing_status: 'PAST_DUE' }).eq('id', prof.id)
@@ -52,6 +80,10 @@ export function registerRoutes(app) {
             await supabaseAdmin.from('dealerships').update({ billing_status: 'PAST_DUE' }).eq('stripe_customer_id', invoice.customer)
           }
         }
+        break;
+      }
+      case 'checkout.session.completed_ai_boost': {
+        // Handled below via subscribe-ai-boost metadata check on checkout.session.completed
         break;
       }
     }
@@ -129,6 +161,37 @@ export function registerRoutes(app) {
     // in-process instead, so auth context carries through correctly.
     req.url = '/billing/checkout'
     app._router.handle(req, res)
+  })
+
+  // POST /billing/subscribe-ai-boost — create Stripe Checkout for the $199/month AI Boost add-on
+  app.post('/billing/subscribe-ai-boost', requireAuth, async (req, res) => {
+    if (req.profile?.role !== 'DEALER_ADMIN') {
+      return res.status(403).json({ error: 'DEALER_ADMIN role required' })
+    }
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+
+    const priceId = process.env.STRIPE_AI_BOOST_PRICE_ID
+    if (!priceId) return res.status(500).json({ error: 'AI Boost price not configured (STRIPE_AI_BOOST_PRICE_ID missing)' })
+
+    const existingCustomerId = req.profile.dealerships?.stripe_customer_id
+
+    try {
+      const sessionParams = {
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        metadata: { type: 'ai_boost', dealership_id: req.dealershipId },
+        subscription_data: { metadata: { type: 'ai_boost', dealership_id: req.dealershipId } },
+        success_url: `${FRONTEND_URL}/dashboard.html`,
+        cancel_url: `${FRONTEND_URL}/dashboard.html`
+      }
+      if (existingCustomerId) sessionParams.customer = existingCustomerId
+
+      const session = await stripe.checkout.sessions.create(sessionParams)
+      res.json({ url: session.url })
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
   })
 
   app.get('/billing/trial-status', requireAuth, async (req, res) => {
