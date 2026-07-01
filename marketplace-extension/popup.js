@@ -175,6 +175,26 @@ async function loadInventory(token) {
 
     window.__msInvCache = { inventory, displayList, postedMap, soldMap, token }
 
+    // Price-change detection: compare current prices against last-seen cache
+    const priceCache = await new Promise(resolve =>
+      chrome.storage.local.get('msPrice', d => resolve(d.msPrice || {}))
+    )
+    const newPriceCache = {}
+    for (const v of displayList) {
+      if (v.id && v.price != null) newPriceCache[v.id] = Number(v.price)
+    }
+    chrome.storage.local.set({ msPrice: newPriceCache })
+
+    // Personal posting stats (derived from listings already fetched)
+    const todayStr = new Date().toDateString()
+    const postedToday = listings.filter(l => l.posted_at && new Date(l.posted_at).toDateString() === todayStr).length
+    const statsEl = document.getElementById('my-stats-strip')
+    if (statsEl) {
+      statsEl.textContent = postedToday > 0
+        ? `⚡ You posted ${postedToday} listing${postedToday === 1 ? '' : 's'} today · ${postedMap.size} total active`
+        : `${postedMap.size} listing${postedMap.size === 1 ? '' : 's'} active on Facebook`
+    }
+
     // Apply status filter
     const activeStatus = window.__msStatusFilter || 'all'
     const activeCond = window.__msCondFilter || 'all'
@@ -272,15 +292,42 @@ async function loadInventory(token) {
       const status = String(v.status || 'available').toLowerCase()
       const available = status === 'available'
 
+      // Days on lot (from first-sync date — best available approximation)
+      const daysOnLot = v.created_at
+        ? Math.floor((Date.now() - new Date(v.created_at)) / 86400000)
+        : null
+      const daysLabel = daysOnLot !== null
+        ? (daysOnLot === 0 ? 'Today' : `${daysOnLot}d on lot`)
+        : ''
+
+      // Price change indicator vs last-seen price
+      const prevPrice = priceCache[v.id]
+      const currPrice = Number(v.price)
+      let priceChangeBadge = ''
+      if (prevPrice !== undefined && !isNaN(currPrice) && prevPrice !== currPrice) {
+        const diff = currPrice - prevPrice
+        const pct = Math.abs(Math.round((diff / prevPrice) * 100))
+        priceChangeBadge = diff < 0
+          ? `<span style="color:#22c55e;font-size:10px;font-weight:700;">↓ ${pct}%</span>`
+          : `<span style="color:#ef4444;font-size:10px;font-weight:700;">↑ ${pct}%</span>`
+      }
+
+      // "View on FB" button for posted vehicles that have a real listing URL
+      const isValidFbUrl = url => url && /facebook\.com\/marketplace\/item\//.test(url)
+      const viewFbBtn = isPosted && isValidFbUrl(fbUrl)
+        ? `<button class="open-fb-btn" data-fb-url="${fbUrl}" style="background:none;border:1px solid #3b82f6;color:#3b82f6;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;">View ↗</button>`
+        : ''
+
       const openFbBtn = (isPosted && v._outOfStock)
         ? `<button class="open-fb-btn" data-fb-url="${fbUrl}" style="background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-bottom:4px;">Open on FB</button>`
         : ''
 
       const pendingBadge = status === 'pending'
-        ? `<span style="background:#1c1400;border:1px solid #fbbf24;color:#fbbf24;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-align:center;margin-bottom:2px;">PENDING</span>`
+        ? `<span style="background:#1c1400;border:1px solid #fbbf24;color:#fbbf24;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-align:center;">PENDING</span>`
         : ''
       const soldBtns = `<div style="display:flex;flex-direction:column;gap:3px;align-items:stretch;">
         ${pendingBadge}
+        ${viewFbBtn}
         <button class="sold-by-me-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#14532d;border:1px solid #22c55e;color:#86efac;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">🤝 I Sold It</button>
         <button class="sold-on-fb-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#172554;border:1px solid #3b82f6;color:#93c5fd;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">📘 Sold on FB</button>
         <button class="sold-by-other-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#3a1a1a;border:1px solid #ef4444;color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;">🔄 Someone Else</button>
@@ -315,15 +362,20 @@ async function loadInventory(token) {
         lastRank = rank
       }
 
+      const subParts = [v.trim, v.mileage ? v.mileage.toLocaleString() + ' km' : null, daysLabel].filter(Boolean)
+
       return `${divider}
         <div class="vehicle-item" data-id="${v.id}">
           ${thumb}
           <div class="vehicle-info">
             <div class="vehicle-name">${vehName}${condBadge}</div>
-            <div class="vehicle-sub">${v.trim || ''} · ${v.mileage ? v.mileage.toLocaleString() + ' km' : 'N/A'}</div>
+            <div class="vehicle-sub">${subParts.join(' · ')}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
-            <div class="vehicle-price">${formatPrice(v.price)}</div>
+            <div style="display:flex;align-items:center;gap:5px;">
+              ${priceChangeBadge}
+              <div class="vehicle-price">${formatPrice(v.price)}</div>
+            </div>
             ${openFbBtn}
             ${actionBtn}
           </div>
