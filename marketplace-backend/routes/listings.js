@@ -110,6 +110,21 @@ export function registerRoutes(app) {
     res.json(data || [])
   })
 
+  app.patch('/listings/:id/fb-url', requireAuth, async (req, res) => {
+    const { fb_listing_url } = req.body || {}
+    if (!fb_listing_url || !/facebook\.com\/marketplace\/item\/\d+/i.test(fb_listing_url)) {
+      return res.status(400).json({ error: 'Must be a valid facebook.com/marketplace/item/<id> URL' })
+    }
+    const { data: listing, error: lookupErr } = await supabaseAdmin
+      .from('listings').select('id, posted_by').eq('id', req.params.id).single()
+    if (lookupErr || !listing) return res.status(404).json({ error: 'Listing not found' })
+    if (listing.posted_by !== req.user.id) return res.status(403).json({ error: 'Not your listing' })
+    const { error } = await supabaseAdmin
+      .from('listings').update({ fb_listing_url }).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ success: true, fb_listing_url })
+  })
+
   app.patch('/listings/:id/delete', requireAuth, async (req, res) => {
     // Queue the Facebook listing for DELETION (not "sold") — the extension will
     // remove it from Marketplace. We only queue it if there's an FB URL to act on;

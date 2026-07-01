@@ -561,7 +561,7 @@ async function loadMyListingsFiltered(status) {
     const res = await fetch(`${API}/listings?status=${status}`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error('Failed to load listings');
     const data = await res.json();
-    renderRecentListings('rep-recent-list', data);
+    renderRecentListings('rep-recent-list', data, { canEditUrl: true });
   } catch (e) {
     el.innerHTML = `<div class="text-xs text-red-400">${e.message}</div>`;
   }
@@ -575,7 +575,7 @@ async function loadMyStats() {
     document.getElementById('rep-stat-active').textContent = data.totals.active;
     document.getElementById('rep-stat-sold').textContent = data.totals.sold;
     document.getElementById('rep-stat-deleted').textContent = data.totals.deleted;
-    renderRecentListings('rep-recent-list', data.recent);
+    renderRecentListings('rep-recent-list', data.recent, { canEditUrl: true });
   } catch (e) {
     document.getElementById('rep-recent-list').innerHTML = `<div class="text-xs text-red-400">${e.message}</div>`;
   }
@@ -1130,7 +1130,7 @@ if (typeof window !== 'undefined' && window.matchMedia) {
   });
 }
 
-function renderRecentListings(containerId, items) {
+function renderRecentListings(containerId, items, { canEditUrl = false } = {}) {
   const el = document.getElementById(containerId);
   if (!items?.length) {
     el.innerHTML = '<div class="text-xs text-slate-500 italic">No listings yet.</div>';
@@ -1142,42 +1142,56 @@ function renderRecentListings(containerId, items) {
       sold: 'bg-indigo-900/40 border-indigo-700 text-indigo-300',
       deleted: 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
     };
-    return `<span class="text-sm uppercase font-bold border px-1.5 py-0.5 rounded ${map[s] || map.deleted}">${s}</span>`;
+    return `<span class="text-xs uppercase font-bold border px-1.5 py-0.5 rounded ${map[s] || map.deleted}">${s}</span>`;
   };
-el.innerHTML = items.map(l => {
+  el.innerHTML = items.map(l => {
     const v = l.inventory || l.vehicle || {};
     const thumb = v.image_urls?.[0]
       ? `<img src="${API}/proxy-image?url=${encodeURIComponent(v.image_urls[0])}" class="w-16 h-12 rounded object-cover bg-slate-50 dark:bg-slate-950" loading="lazy">`
       : `<div class="w-16 h-12 rounded bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-700">⌀</div>`;
     const when = l.posted_at ? new Date(l.posted_at).toLocaleDateString() : '—';
-
-    // Fallback label when the joined inventory row is gone (vehicle deleted from
-    // dealer feed / sold + cleaned up) but the listing record itself still exists.
     const vehicleLabel = (v.year || v.make || v.model)
       ? `${v.year || ''} ${v.make || ''} ${v.model || ''} ${v.trim || ''}`.trim()
       : (l.vehicle_label || 'Vehicle no longer in inventory');
-
-    // Only link out if we captured the real posted-item permalink — never the
-    // create-form URL (older listings may have it saved from before the fix).
-    const hasFbLink = l.fb_listing_url && l.fb_listing_url.includes('/marketplace/item/');
-    const fbLink = hasFbLink
-      ? `<span class="text-xs text-indigo-600 dark:text-indigo-400">View on FB ↗</span>`
+    const hasFbLink = l.fb_listing_url && /facebook\.com\/marketplace\/item\/\d+/i.test(l.fb_listing_url);
+    const addLinkBtn = (!hasFbLink && canEditUrl && l.id && l.status === 'posted')
+      ? `<button class="add-fb-url-btn text-xs text-amber-500 hover:text-amber-400 underline ml-1" data-listing-id="${l.id}">+ Add FB link</button>`
       : '';
-
+    const meta = `<div class="text-xs text-slate-500 dark:text-slate-400">Posted ${when}${hasFbLink ? ' · <a href="' + l.fb_listing_url + '" target="_blank" class="text-indigo-500 hover:underline">View on FB ↗</a>' : ''}${addLinkBtn}</div>`;
     const rowContent = `
         ${thumb}
         <div class="flex-1 min-w-0">
           <div class="text-xs font-bold text-slate-900 dark:text-white truncate">${vehicleLabel}</div>
-          <div class="text-xs text-slate-500 dark:text-slate-400">Posted ${when} ${fbLink ? '· ' + fbLink : ''}</div>
+          ${meta}
         </div>
         ${badge(l.status)}
     `;
-
-    // Wrap the whole row in an <a> if we have a real FB link, otherwise a plain div.
-    return hasFbLink
-      ? `<a href="${l.fb_listing_url}" target="_blank" class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2 hover:border-indigo-400 dark:hover:border-indigo-600 transition-colors cursor-pointer">${rowContent}</a>`
-      : `<div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2">${rowContent}</div>`;
+    return `<div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2">${rowContent}</div>`;
   }).join('');
+
+  // Wire up "Add FB link" buttons
+  el.querySelectorAll('.add-fb-url-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const url = prompt('Paste the Facebook Marketplace listing URL:\n(e.g. https://www.facebook.com/marketplace/item/1234567890)');
+      if (!url) return;
+      if (!/facebook\.com\/marketplace\/item\/\d+/i.test(url)) {
+        alert('That doesn\'t look like a valid Facebook Marketplace item URL. It should contain /marketplace/item/ followed by numbers.');
+        return;
+      }
+      try {
+        const r = await fetch(`${API}/listings/${btn.dataset.listingId}/fb-url`, {
+          method: 'PATCH',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fb_listing_url: url })
+        });
+        if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Failed'); }
+        // Update the listing in-place and re-render
+        const item = items.find(i => i.id === btn.dataset.listingId);
+        if (item) item.fb_listing_url = url;
+        renderRecentListings(containerId, items, { canEditUrl });
+      } catch (e) { alert('Could not save URL: ' + e.message); }
+    });
+  });
 }
 
 // INVENTORY FEEDS: list, add, remove, manual sync
