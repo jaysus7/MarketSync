@@ -2826,22 +2826,19 @@ function setupAIBoostListeners() {
       const total = data.queued || 0;
       if (statusText) statusText.textContent = `Scanning ${total} vehicles…`;
 
-      // Get baseline activity count before scan results start arriving
-      let baseline = 0;
-      try {
-        const baseRes = await fetch(`${API}/ai/activity`, { headers: { 'Authorization': `Bearer ${token}` } });
-        const baseData = baseRes.ok ? await baseRes.json() : {};
-        baseline = (baseData.activity || []).length;
-      } catch {}
-
       if (total === 0) { resetBtn(); return; }
 
-      // Poll every 3 seconds — compare new activity count against baseline
+      // Record timestamp just before scan results start arriving.
+      // Filter by created_at so progress is immune to pre-existing activity records
+      // and the endpoint's return limit.
+      const scanStartedAt = new Date();
+
+      // Poll every 3 seconds — count only activity items newer than scan start
       const pollInterval = setInterval(async () => {
         try {
-          const r = await fetch(`${API}/ai/activity`, { headers: { 'Authorization': `Bearer ${token}` } });
+          const r = await fetch(`${API}/ai/activity?limit=500`, { headers: { 'Authorization': `Bearer ${token}` } });
           const d = r.ok ? await r.json() : {};
-          const processed = Math.max(0, (d.activity || []).length - baseline);
+          const processed = (d.activity || []).filter(a => new Date(a.created_at) >= scanStartedAt).length;
           const pct = Math.min(100, Math.round((processed / total) * 100));
           if (progressBar) progressBar.style.width = pct + '%';
           if (progressLabel) progressLabel.textContent = `${processed} of ${total} checked (${pct}%)`;
