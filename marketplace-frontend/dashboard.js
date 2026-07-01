@@ -1002,7 +1002,7 @@ function renderRepCards(byRep, soldByRep, activeByRep) {
           <div class="flex items-center gap-2.5 min-w-0">
             <div class="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 flex items-center justify-center font-black text-sm flex-shrink-0">${initial}</div>
             <div class="min-w-0">
-              <div class="text-sm font-bold text-slate-900 dark:text-white leading-tight break-words">${r.name}</div>
+              <button class="rep-card-btn text-sm font-bold text-slate-900 dark:text-white leading-tight break-words hover:text-indigo-500 dark:hover:text-indigo-400 text-left" data-rep-id="${r.id}">${r.name}</button>
               <div class="text-xs text-slate-500 font-mono">${points.toLocaleString()} pts</div>
             </div>
           </div>
@@ -1013,15 +1013,15 @@ function renderRepCards(byRep, soldByRep, activeByRep) {
 
         <div class="grid grid-cols-3 gap-2 text-center">
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-2">
-            <div class="text-sm uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Listings</div>
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wide leading-tight">Listed</div>
             <div class="text-base font-black text-indigo-600 dark:text-indigo-400">${listings}</div>
           </div>
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-2">
-            <div class="text-sm uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold</div>
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wide leading-tight">Sold</div>
             <div class="text-base font-black text-emerald-600 dark:text-emerald-400">${sold}</div>
           </div>
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-2">
-            <div class="text-sm uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Conv</div>
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wide leading-tight">Conv</div>
             <div class="text-base font-black text-amber-600 dark:text-amber-400">${conv}%</div>
           </div>
         </div>
@@ -1039,6 +1039,10 @@ function renderRepCards(byRep, soldByRep, activeByRep) {
       </div>
     `;
   }).join('');
+
+  el.querySelectorAll('.rep-card-btn').forEach(btn => {
+    btn.addEventListener('click', () => openRepDetail(btn.dataset.repId));
+  });
 }
 
 function chartCommonOptions() {
