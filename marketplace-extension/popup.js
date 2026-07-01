@@ -122,11 +122,12 @@ async function loadInventory(token) {
   $('vehicle-list').innerHTML = '<div class="loading">Loading inventory...</div>'
 
   try {
-    const [inventory, listingsRes, soldListingsRes] = await Promise.all([
-      apiGet('/inventory/all', token),
+    const [inventoryRaw, listingsRes, soldListingsRes] = await Promise.all([
+      apiGet('/inventory/all', token).catch(() => []),
       apiGet('/listings', token).catch(() => []),
       apiGet('/listings?status=sold', token).catch(() => [])
     ])
+    const inventory = Array.isArray(inventoryRaw) ? inventoryRaw : []
 
     const listings = Array.isArray(listingsRes)
       ? listingsRes

@@ -1154,10 +1154,13 @@ function renderRecentListings(containerId, items, { canEditUrl = false } = {}) {
       ? `${v.year || ''} ${v.make || ''} ${v.model || ''} ${v.trim || ''}`.trim()
       : (l.vehicle_label || 'Vehicle no longer in inventory');
     const hasFbLink = l.fb_listing_url && /facebook\.com\/marketplace\/item\/\d+/i.test(l.fb_listing_url);
-    const addLinkBtn = (!hasFbLink && canEditUrl && l.id && l.status === 'posted')
-      ? `<button class="add-fb-url-btn text-xs text-amber-500 hover:text-amber-400 underline ml-1" data-listing-id="${l.id}">+ Add FB link</button>`
-      : '';
-    const meta = `<div class="text-xs text-slate-500 dark:text-slate-400">Posted ${when}${hasFbLink ? ' · <a href="' + l.fb_listing_url + '" target="_blank" class="text-indigo-500 hover:underline">View on FB ↗</a>' : ''}${addLinkBtn}</div>`;
+    const canAdd = canEditUrl && l.id && l.status === 'posted';
+    const subtext = hasFbLink
+      ? `Posted ${when} · <span class="text-indigo-500">View on FB ↗</span>`
+      : canAdd
+        ? `Posted ${when} · <span class="text-amber-500">+ Add FB link</span>`
+        : `Posted ${when}`;
+    const meta = `<div class="text-xs text-slate-500 dark:text-slate-400">${subtext}</div>`;
     const rowContent = `
         ${thumb}
         <div class="flex-1 min-w-0">
@@ -1166,31 +1169,37 @@ function renderRecentListings(containerId, items, { canEditUrl = false } = {}) {
         </div>
         ${badge(l.status)}
     `;
-    return `<div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2">${rowContent}</div>`;
+    const rowCls = (hasFbLink || canAdd) ? 'cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors' : '';
+    return `<div class="listing-row flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2 ${rowCls}" data-listing-id="${l.id || ''}" data-fb-url="${hasFbLink ? l.fb_listing_url : ''}" data-can-add="${canAdd ? '1' : ''}">${rowContent}</div>`;
   }).join('');
 
-  // Wire up "Add FB link" buttons
-  el.querySelectorAll('.add-fb-url-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const url = prompt('Paste the Facebook Marketplace listing URL:\n(e.g. https://www.facebook.com/marketplace/item/1234567890)');
-      if (!url) return;
-      if (!/facebook\.com\/marketplace\/item\/\d+/i.test(url)) {
-        alert('That doesn\'t look like a valid Facebook Marketplace item URL. It should contain /marketplace/item/ followed by numbers.');
-        return;
-      }
-      try {
-        const r = await fetch(`${API}/listings/${btn.dataset.listingId}/fb-url`, {
-          method: 'PATCH',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fb_listing_url: url })
-        });
-        if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Failed'); }
-        // Update the listing in-place and re-render
-        const item = items.find(i => i.id === btn.dataset.listingId);
-        if (item) item.fb_listing_url = url;
-        renderRecentListings(containerId, items, { canEditUrl });
-      } catch (e) { alert('Could not save URL: ' + e.message); }
-    });
+  // Row clicks: open FB URL, or prompt to add one
+  el.querySelectorAll('.listing-row').forEach(row => {
+    const fbUrl = row.dataset.fbUrl;
+    const canAdd = row.dataset.canAdd === '1';
+    if (fbUrl) {
+      row.addEventListener('click', () => window.open(fbUrl, '_blank', 'noopener'));
+    } else if (canAdd) {
+      row.addEventListener('click', async () => {
+        const url = prompt('Paste the Facebook Marketplace listing URL:\n(e.g. https://www.facebook.com/marketplace/item/1234567890)');
+        if (!url) return;
+        if (!/facebook\.com\/marketplace\/item\/\d+/i.test(url)) {
+          alert('That doesn\'t look like a valid Facebook Marketplace item URL.\nIt should look like: https://www.facebook.com/marketplace/item/1234567890');
+          return;
+        }
+        try {
+          const r = await fetch(`${API}/listings/${row.dataset.listingId}/fb-url`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fb_listing_url: url })
+          });
+          if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Failed'); }
+          const item = items.find(i => i.id === row.dataset.listingId);
+          if (item) item.fb_listing_url = url;
+          renderRecentListings(containerId, items, { canEditUrl });
+        } catch (e) { alert('Could not save URL: ' + e.message); }
+      });
+    }
   });
 }
 
