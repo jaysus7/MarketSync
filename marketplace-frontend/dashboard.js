@@ -2416,7 +2416,7 @@ function renderAIBoostSection(cfg) {
       navBtn.classList.remove('nav-item', 'text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
       if (navPill) navPill.classList.remove('hidden');
       delete navBtn.dataset.page;
-      navBtn.onclick = () => startAIBoostCheckout(navBtn, '✨ AI Boost');
+      navBtn.onclick = () => startAIBoostCheckout(navBtn, 'Try Free for 3 Days');
     }
   }
 
@@ -2468,7 +2468,7 @@ async function startAIBoostCheckout(btn, resetLabel) {
 
 function setupAIBoostListeners() {
   document.getElementById('ai-boost-upgrade-btn')?.addEventListener('click', (e) => {
-    startAIBoostCheckout(e.currentTarget, 'Upgrade to AI Boost — $199/month');
+    startAIBoostCheckout(e.currentTarget, 'Start 3-Day Free Trial — $199/month after');
   });
 
   document.getElementById('ai-boost-upsell-btn')?.addEventListener('click', (e) => {

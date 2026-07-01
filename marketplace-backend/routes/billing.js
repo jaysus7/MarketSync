@@ -181,7 +181,7 @@ export function registerRoutes(app) {
         line_items: [{ price: priceId, quantity: 1 }],
         mode: 'subscription',
         metadata: { type: 'ai_boost', dealership_id: req.dealershipId },
-        subscription_data: { metadata: { type: 'ai_boost', dealership_id: req.dealershipId } },
+        subscription_data: { trial_period_days: 3, metadata: { type: 'ai_boost', dealership_id: req.dealershipId } },
         success_url: `${FRONTEND_URL}/dashboard.html`,
         cancel_url: `${FRONTEND_URL}/dashboard.html`
       }
