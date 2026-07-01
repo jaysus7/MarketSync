@@ -1,6 +1,9 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { validatePassword, rateLimit } from '../security.js'
+import multer from 'multer'
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } })
 
 // ── OWNER-ONLY: NEWSLETTER SUBSCRIBER EXPORT ──
 // Gated to a single owner email (you). Returns CSV-ready data of everyone who
@@ -13,14 +16,30 @@ export function registerRoutes(app) {
       id: req.user.id,
       email: req.user.email,
       full_name: req.profile.full_name,
+      display_name: req.profile.display_name || null,
+      avatar_url: req.profile.avatar_url || null,
       role: req.profile.role,
       dealership: req.profile.dealerships
     })
   })
 
   // ── 4. PROFILE ──
+  // Avatar upload — stores in Supabase Storage bucket "avatars"
+  app.post('/profile/avatar', requireAuth, upload.single('avatar'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file' })
+    const ext = req.file.mimetype.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg'
+    const path = `${req.user.id}/avatar.${ext}`
+    const { error } = await supabaseAdmin.storage.from('avatars').upload(path, req.file.buffer, {
+      contentType: req.file.mimetype, upsert: true
+    })
+    if (error) return res.status(500).json({ error: error.message })
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('avatars').getPublicUrl(path)
+    await supabaseAdmin.from('profiles').update({ avatar_url: publicUrl }).eq('id', req.user.id)
+    res.json({ url: publicUrl })
+  })
+
   app.put('/profile/update', requireAuth, rateLimit('profile-update', 10, 60 * 60 * 1000), async (req, res) => {
-    const { fullName, email, password, dealershipName, websiteUrl } = req.body
+    const { fullName, displayName, email, password, dealershipName, websiteUrl, avatarUrl } = req.body
 
     try {
       const authUpdates = {}
@@ -37,10 +56,14 @@ export function registerRoutes(app) {
         if (authError) throw authError
       }
 
-      if (fullName) {
+      const profileUpdates = {}
+      if (fullName) profileUpdates.full_name = fullName
+      if (displayName !== undefined) profileUpdates.display_name = displayName || null
+      if (avatarUrl !== undefined) profileUpdates.avatar_url = avatarUrl || null
+      if (Object.keys(profileUpdates).length > 0) {
         const { error: profileError } = await supabaseAdmin
           .from('profiles')
-          .update({ full_name: fullName })
+          .update(profileUpdates)
           .eq('id', req.user.id)
         if (profileError) throw profileError
       }

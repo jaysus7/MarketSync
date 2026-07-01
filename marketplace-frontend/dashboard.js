@@ -86,6 +86,56 @@ async function initializeDashboardEcosystem() {
     document.getElementById('prof-email').value = profileContext.email || user.email || '';
     document.getElementById('prof-dealername').value = profileContext.dealership?.name || '';
     document.getElementById('prof-website').value = profileContext.dealership?.website_url || '';
+    document.getElementById('prof-display-name').value = profileContext.display_name || '';
+
+    // Avatar preview
+    const avatarImg = document.getElementById('prof-avatar-img');
+    const avatarInitial = document.getElementById('prof-avatar-initial');
+    const avatarRemove = document.getElementById('prof-avatar-remove');
+    const setAvatarPreview = (url) => {
+      if (url) {
+        avatarImg.src = url; avatarImg.classList.remove('hidden');
+        avatarInitial.classList.add('hidden'); avatarRemove.classList.remove('hidden');
+      } else {
+        avatarImg.classList.add('hidden'); avatarInitial.classList.remove('hidden');
+        avatarRemove.classList.add('hidden');
+        avatarInitial.textContent = (profileContext.full_name || '?').trim().charAt(0).toUpperCase();
+      }
+    };
+    setAvatarPreview(profileContext.avatar_url || null);
+
+    document.getElementById('prof-avatar-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) { alert('Image must be under 2 MB'); e.target.value = ''; return; }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        // Compress: resize to max 256px and convert to JPEG at 70% quality
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 256;
+          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.70);
+          setAvatarPreview(dataUrl);
+          // Replace file input with compressed blob for upload
+          canvas.toBlob(blob => {
+            const dt = new DataTransfer();
+            dt.items.add(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
+            document.getElementById('prof-avatar-file').files = dt.files;
+          }, 'image/jpeg', 0.70);
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+    avatarRemove.addEventListener('click', () => {
+      document.getElementById('prof-avatar-file').value = '';
+      setAvatarPreview(null);
+    });
 
     // Route Workspace Rendering Logic based on Account Role
     const role = profileContext.role || 'SALES_REP'; // Standard safe fallback role assignment
@@ -392,14 +442,14 @@ async function loadDealerManagementMatrix() {
       const nameCell = `<button class="rep-detail-btn text-left font-bold text-slate-900 dark:text-white hover:text-indigo-400 transition" data-rep-id="${m.id}">${m.full_name || '(no name)'}${youTag}</button>`;
       return `
         <tr class="border-b border-slate-200/60 dark:border-slate-800/40 hover:bg-white/60 dark:bg-slate-900/40 transition">
-          <td class="py-3 px-4">${nameCell}</td>
-          <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${m.email || '—'}</td>
-          <td class="py-3 px-4">${roleBadge}</td>
-          <td class="py-3 px-4 text-indigo-600 dark:text-indigo-400 font-mono">${m.listings_posted}</td>
-          <td class="py-3 px-4 text-emerald-600 dark:text-emerald-400 font-mono">${m.listings_sold ?? 0}</td>
-          <td class="py-3 px-4 text-amber-600 dark:text-amber-400 font-mono">${m.conversion_rate ?? 0}%</td>
-          <td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono">${m.logins_30d ?? 0}</td>
-          <td class="py-3 px-4 text-right">${action}</td>
+          <td class="py-3 px-3">${nameCell}</td>
+          <td class="py-3 px-3 text-slate-600 dark:text-slate-300 max-w-[160px] truncate">${m.email || '—'}</td>
+          <td class="py-3 px-3">${roleBadge}</td>
+          <td class="py-3 px-3 text-right text-indigo-600 dark:text-indigo-400 font-mono">${m.listings_posted}</td>
+          <td class="py-3 px-3 text-right text-emerald-600 dark:text-emerald-400 font-mono">${m.listings_sold ?? 0}</td>
+          <td class="py-3 px-3 text-right text-amber-600 dark:text-amber-400 font-mono">${m.conversion_rate ?? 0}%</td>
+          <td class="py-3 px-3 text-right text-slate-600 dark:text-slate-300 font-mono">${m.logins_30d ?? 0}</td>
+          <td class="py-3 px-3 text-right">${action}</td>
         </tr>
       `;
     }).join('');
@@ -1743,12 +1793,30 @@ function setupActionListeners() {
   document.getElementById('profile-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const msg = document.getElementById('profile-msg');
+    // Handle avatar upload if a new file was selected
+    let avatarUrl = profileContext.avatar_url || null;
+    const avatarFile = document.getElementById('prof-avatar-file').files[0];
+    if (avatarFile) {
+      try {
+        const fd = new FormData(); fd.append('avatar', avatarFile);
+        const upRes = await fetch(`${API}/profile/avatar`, {
+          method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd
+        });
+        const upData = await upRes.json();
+        if (upRes.ok) avatarUrl = upData.url;
+      } catch {}
+    } else if (!document.getElementById('prof-avatar-img').src && profileContext.avatar_url) {
+      avatarUrl = null; // user removed it
+    }
+
     const payload = {
       fullName: document.getElementById('prof-name').value.trim(),
+      displayName: document.getElementById('prof-display-name').value.trim(),
       email: document.getElementById('prof-email').value.trim(),
       password: document.getElementById('prof-password').value,
       dealershipName: document.getElementById('prof-dealername').value.trim(),
-      websiteUrl: document.getElementById('prof-website').value.trim()
+      websiteUrl: document.getElementById('prof-website').value.trim(),
+      avatarUrl,
     };
     // Strip empties so we only send fields the user actually changed
     Object.keys(payload).forEach(k => { if (!payload[k]) delete payload[k]; });

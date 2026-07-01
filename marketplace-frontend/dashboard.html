@@ -66,9 +66,32 @@
         <div id="profile-panel" class="p-5">
           <div id="profile-msg" class="hidden mb-3 p-2 text-xs rounded"></div>
           <form id="profile-form" class="space-y-3">
+            <!-- Avatar upload -->
+            <div class="flex items-center gap-4 pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div class="relative flex-shrink-0">
+                <div id="prof-avatar-preview" class="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-black text-2xl overflow-hidden">
+                  <span id="prof-avatar-initial">?</span>
+                  <img id="prof-avatar-img" class="hidden w-full h-full object-cover" alt="avatar">
+                </div>
+                <label for="prof-avatar-file" class="absolute -bottom-1 -right-1 w-6 h-6 bg-indigo-600 hover:bg-indigo-500 rounded-full flex items-center justify-center cursor-pointer shadow transition">
+                  <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                </label>
+                <input type="file" id="prof-avatar-file" accept="image/*" class="hidden">
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Profile Photo</div>
+                <div class="text-xs text-slate-500">JPG, PNG or GIF · max 2 MB</div>
+                <button type="button" id="prof-avatar-remove" class="hidden text-xs text-red-400 hover:text-red-300 mt-1 transition">Remove photo</button>
+              </div>
+            </div>
+
             <div>
               <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Full Name</label>
               <input type="text" id="prof-name" placeholder="John Doe" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Display Name <span class="normal-case font-normal text-slate-400">(shown on leaderboard instead of real name)</span></label>
+              <input type="text" id="prof-display-name" placeholder="e.g. J.Massie or SilverFox" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
             </div>
             <div>
               <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Email Address</label>
@@ -294,27 +317,27 @@
         <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-3">Trends</div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">📈 Listings posted (daily)</div>
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">📈 Listings posted (daily)</div>
             <div class="relative h-72"><canvas id="chart-listings-daily"></canvas></div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">🚗 Listings by rep</div>
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">🚗 Listings by rep</div>
             <div class="relative h-72"><canvas id="chart-listings-by-rep"></canvas></div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">🏆 Sold by rep</div>
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">🏆 Sold by rep</div>
             <div class="relative h-72"><canvas id="chart-sold-by-rep"></canvas></div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">📅 Active days by rep</div>
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">📅 Active days by rep</div>
             <div class="relative h-72"><canvas id="chart-active-by-rep"></canvas></div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">📊 Sell-through % by rep</div>
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">📊 Sell-through % by rep</div>
             <div class="relative h-72"><canvas id="chart-sell-through-by-rep"></canvas></div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">⏱ Avg time to sell by rep (days)</div>
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">⏱ Avg time to sell by rep (days)</div>
             <div class="relative h-72"><canvas id="chart-time-to-sell-by-rep"></canvas></div>
           </div>
         </div>
@@ -643,17 +666,17 @@
         <div id="invite-result" class="hidden mb-3 p-2 text-xs rounded"></div>
 
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
+          <table class="w-full text-left text-xs border-collapse min-w-[640px]">
             <thead>
               <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold text-xs">
-                <th class="py-3 px-4">Name</th>
-                <th class="py-3 px-4">Email</th>
-                <th class="py-3 px-4">Role</th>
-                <th class="py-3 px-4">Listings</th>
-                <th class="py-3 px-4">Sold</th>
-                <th class="py-3 px-4">Conv.</th>
-                <th class="py-3 px-4">Logins (30d)</th>
-                <th class="py-3 px-4 text-right">Action</th>
+                <th class="py-3 px-3">Name</th>
+                <th class="py-3 px-3 max-w-[160px]">Email</th>
+                <th class="py-3 px-3">Role</th>
+                <th class="py-3 px-3 text-right">Listed</th>
+                <th class="py-3 px-3 text-right">Sold</th>
+                <th class="py-3 px-3 text-right">Conv.</th>
+                <th class="py-3 px-3 text-right">Logins</th>
+                <th class="py-3 px-3 text-right">Action</th>
               </tr>
             </thead>
             <tbody id="dealer-team-table-body" class="divide-y divide-slate-800/60 text-slate-700 dark:text-slate-200">
