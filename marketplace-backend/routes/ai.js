@@ -118,7 +118,7 @@ export function registerAI(app) {
     // Current-year new vehicles sell at MSRP — skip comp flagging for them.
     let price_flag = null
     const _currentYear = new Date().getFullYear()
-    const _isCurrentYearNew = vehicle.condition === 'new' && Number(vehicle.year) >= _currentYear
+    const _isCurrentYearNew = Number(vehicle.year) >= _currentYear || vehicle.condition === 'new'
     if (!_isCurrentYearNew && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
       const yearMin = vehicle.year - 2
       const yearMax = vehicle.year + 2
@@ -308,7 +308,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
 
     const { data: vehicle, error: vErr } = await supabaseAdmin
       .from('inventory')
-      .select('id, year, make, model, trim, condition, price, mileage, stock_number, status')
+      .select('id, year, make, model, trim, condition, price, mileage, stocknumber, status')
       .eq('id', inventory_id)
       .eq('dealership_id', req.dealershipId)
       .single()
@@ -320,7 +320,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
 
     const { data: comps } = await supabaseAdmin
       .from('inventory')
-      .select('id, year, make, model, trim, condition, price, mileage, stock_number, status')
+      .select('id, year, make, model, trim, condition, price, mileage, stocknumber, status')
       .eq('dealership_id', req.dealershipId)
       .eq('make', vehicle.make)
       .eq('model', vehicle.model)

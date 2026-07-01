@@ -2554,7 +2554,7 @@ async function openPriceReport(inventoryId) {
 
     document.getElementById('pr-title').textContent = label;
     document.getElementById('pr-subtitle').textContent =
-      vehicle.stock_number ? `Stock #${vehicle.stock_number} · ${vehicle.condition || ''}` : (vehicle.condition || '');
+      vehicle.stocknumber ? `Stock #${vehicle.stocknumber} · ${vehicle.condition || ''}` : (vehicle.condition || '');
 
     document.getElementById('pr-your-price').textContent = fmt(vehicle.price);
     document.getElementById('pr-median').textContent = fmt(med);
