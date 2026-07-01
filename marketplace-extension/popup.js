@@ -276,7 +276,11 @@ async function loadInventory(token) {
         ? `<button class="open-fb-btn" data-fb-url="${fbUrl}" style="background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-bottom:4px;">Open on FB</button>`
         : ''
 
-      const soldBtns = `<div style="display:flex;flex-direction:column;gap:3px;">
+      const pendingBadge = status === 'pending'
+        ? `<span style="background:#1c1400;border:1px solid #fbbf24;color:#fbbf24;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-align:center;margin-bottom:2px;">PENDING</span>`
+        : ''
+      const soldBtns = `<div style="display:flex;flex-direction:column;gap:3px;align-items:stretch;">
+        ${pendingBadge}
         <button class="sold-by-me-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#14532d;border:1px solid #22c55e;color:#86efac;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">🤝 I Sold It</button>
         <button class="sold-on-fb-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#172554;border:1px solid #3b82f6;color:#93c5fd;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">📘 Sold on FB</button>
         <button class="sold-by-other-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#3a1a1a;border:1px solid #ef4444;color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;">🔄 Someone Else</button>
