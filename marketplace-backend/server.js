@@ -1532,8 +1532,106 @@ app.post('/blog', async (req, res) => {
   res.json({ success: true, slug: data.slug, url: `${FRONTEND_URL}/post.html?slug=${data.slug}`, post: data })
 })
 
+// Server-side rendered blog post — full HTML for crawlers that don't execute JavaScript.
+// Proxied under marketsync.link/blog/:slug via the frontend _redirects file.
+app.get('/ssr/blog/:slug', async (req, res) => {
+  const { data: p, error } = await supabaseAdmin
+    .from('blog_posts')
+    .select('*')
+    .eq('slug', req.params.slug)
+    .eq('status', 'published')
+    .single()
+  if (error || !p) return res.status(404).send('<!DOCTYPE html><html><head><title>Not found</title></head><body><p>Post not found.</p></body></html>')
+
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+  const url = `https://marketsync.link/blog/${esc(p.slug)}`
+  const desc = esc((p.excerpt || '').slice(0, 200))
+  const title = esc(p.title)
+  const pubDate = p.published_at ? new Date(p.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
+  const tags = (p.tags || []).map(t => esc(t)).join(' · ')
+  const cover = p.cover_image_url ? `<img src="${esc(p.cover_image_url)}" alt="${title}" style="width:100%;border-radius:12px;margin:1.5rem 0;max-height:480px;object-fit:cover;">` : ''
+
+  const ld = JSON.stringify({
+    '@context': 'https://schema.org', '@type': 'BlogPosting',
+    headline: p.title, description: p.excerpt || '',
+    image: p.cover_image_url || undefined,
+    datePublished: p.published_at, dateModified: p.updated_at || p.published_at,
+    author: { '@type': 'Organization', name: p.author || 'MarketSync' },
+    publisher: { '@type': 'Organization', name: 'MarketSync', logo: { '@type': 'ImageObject', url: 'https://marketsync.link/logo.png' } },
+    mainEntityOfPage: url
+  })
+
+  res.set('Content-Type', 'text/html; charset=utf-8')
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} — MarketSync</title>
+  <meta name="description" content="${desc}">
+  <link rel="canonical" href="${url}">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="${title}">
+  <meta property="og:description" content="${desc}">
+  <meta property="og:url" content="${url}">
+  ${p.cover_image_url ? `<meta property="og:image" content="${esc(p.cover_image_url)}">` : ''}
+  <meta property="og:site_name" content="MarketSync">
+  <meta name="twitter:card" content="${p.cover_image_url ? 'summary_large_image' : 'summary'}">
+  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:description" content="${desc}">
+  <meta name="robots" content="index, follow">
+  <script type="application/ld+json">${ld}</script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;color:#1e293b;font-size:17px;line-height:1.6}
+    nav{border-bottom:1px solid #e2e8f0;padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;background:#fff}
+    .logo{font-weight:900;font-size:1.2rem;text-decoration:none;color:#1e293b}
+    .logo span{color:#4f46e5}
+    .back{font-size:.875rem;color:#64748b;text-decoration:none}
+    main{max-width:720px;margin:3rem auto;padding:0 1.5rem 6rem}
+    .meta{font-size:.8rem;color:#94a3b8;margin-bottom:1.5rem}
+    h1{font-size:2.2rem;font-weight:800;line-height:1.2;margin-bottom:1rem;color:#0f172a}
+    .article h2{font-size:1.5rem;font-weight:700;margin:2rem 0 .75rem;color:#1e293b}
+    .article h3{font-size:1.2rem;font-weight:600;margin:1.5rem 0 .5rem;color:#1e293b}
+    .article p{margin:0 0 1.1rem;line-height:1.75}
+    .article ul,.article ol{margin:0 0 1.1rem 1.5rem;line-height:1.75}
+    .article ul{list-style:disc}.article ol{list-style:decimal}
+    .article li{margin:.35rem 0}
+    .article a{color:#4f46e5}
+    .article blockquote{border-left:3px solid #4f46e5;padding-left:1rem;margin:1.25rem 0;font-style:italic;color:#64748b}
+    .article pre{background:#f1f5f9;padding:1rem;border-radius:.5rem;overflow-x:auto;margin:0 0 1.1rem;font-size:.85rem}
+    .article code{background:#f1f5f9;padding:.15rem .4rem;border-radius:.3rem;font-size:.85em}
+    .cta{margin-top:3rem;padding-top:2rem;border-top:1px solid #e2e8f0;text-align:center}
+    .cta h3{font-size:1.2rem;font-weight:700;margin-bottom:.5rem}
+    .cta p{font-size:.875rem;color:#64748b;margin-bottom:1rem}
+    .cta a{display:inline-block;background:#4f46e5;color:#fff;font-weight:700;padding:.75rem 1.5rem;border-radius:.75rem;text-decoration:none}
+    footer{border-top:1px solid #e2e8f0;padding:2rem 1.5rem;text-align:center;font-size:.75rem;color:#94a3b8}
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="https://marketsync.link/" class="logo">Market<span>Sync</span></a>
+    <a href="https://marketsync.link/blog.html" class="back">← All posts</a>
+  </nav>
+  <main>
+    <div class="meta">${tags ? tags + ' · ' : ''}${pubDate}${p.author ? ' · ' + esc(p.author) : ''}</div>
+    <h1>${title}</h1>
+    ${cover}
+    <div class="article">${p.content_html || ''}</div>
+    <div class="cta">
+      <h3>Post your inventory to Facebook in seconds</h3>
+      <p>MarketSync auto-fills every Marketplace listing for you. Free 7-day trial.</p>
+      <a href="https://marketsync.link/register.html">Start free trial</a>
+    </div>
+  </main>
+  <footer>&copy; 2026 MarketSync &mdash; Not affiliated with Meta or Facebook</footer>
+</body>
+</html>`)
+})
+
 // Dynamic sitemap of all published posts — submit this URL in Google Search Console
 // so new n8n posts get crawled without touching the static sitemap.
+// Proxied under marketsync.link/blog-sitemap.xml via the frontend _redirects file.
 app.get('/blog-sitemap.xml', async (req, res) => {
   const { data } = await supabaseAdmin
     .from('blog_posts')
@@ -1544,7 +1642,7 @@ app.get('/blog-sitemap.xml', async (req, res) => {
   const base = 'https://marketsync.link'
   const urls = (data || []).map(p => {
     const lastmod = (p.updated_at || p.published_at || '').slice(0, 10)
-    return `  <url>\n    <loc>${base}/post.html?slug=${encodeURIComponent(p.slug)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n  </url>`
+    return `  <url>\n    <loc>${base}/blog/${encodeURIComponent(p.slug)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>`
   }).join('\n')
   res.set('Content-Type', 'application/xml')
   res.send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`)
