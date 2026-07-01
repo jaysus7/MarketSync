@@ -324,12 +324,14 @@ export function registerRoutes(app) {
     try {
       const [{ data: listings }, { data: profiles }] = await Promise.all([
         supabaseAdmin.from('listings').select('posted_by, status'),
-        supabaseAdmin.from('profiles').select('id, full_name, dealership_id, dealerships(name, is_personal)')
+        supabaseAdmin.from('profiles').select('id, full_name, display_name, dealership_id, dealerships(name, is_personal)')
       ])
       const profById = new Map((profiles || []).map(p => [p.id, p]))
 
-      // Tally listings + sold per rep.
+      // Tally listings + sold per rep (include current user even with 0 activity).
       const repTally = new Map()
+      // Seed the current user so they always appear on the reps board
+      if (!repTally.has(req.user.id)) repTally.set(req.user.id, { posted: 0, sold: 0 })
       for (const l of listings || []) {
         if (!l.posted_by) continue
         const t = repTally.get(l.posted_by) || { posted: 0, sold: 0 }
@@ -338,15 +340,23 @@ export function registerRoutes(app) {
         repTally.set(l.posted_by, t)
       }
       const pts = (t) => t.posted * 100 + t.sold * 500
+      const displayName = (p) => p?.display_name || p?.full_name || null
 
-      // Reps board — every rep with activity.
+      // Reps board — every rep with activity (+ current user seeded above).
       const reps = [...repTally.entries()].map(([uid, t]) => ({
         uid, points: pts(t), sold: t.sold, posted: t.posted,
-        name: profById.get(uid)?.full_name || 'Rep', isYou: uid === req.user.id
+        name: displayName(profById.get(uid)) || 'Rep', isYou: uid === req.user.id
       })).sort((a, b) => b.points - a.points || b.sold - a.sold)
 
       // Dealers board — roll reps up into their (non-personal) dealership.
       const dealerTally = new Map()
+      // Seed current dealership so admin always appears even with 0 rep activity
+      if (req.dealershipId) {
+        const myProf = profById.get(req.user.id)
+        if (myProf?.dealerships && !myProf.dealerships.is_personal) {
+          dealerTally.set(req.dealershipId, { points: 0, sold: 0, posted: 0, name: myProf.dealerships.name || 'Your Dealership' })
+        }
+      }
       for (const [uid, t] of repTally.entries()) {
         const p = profById.get(uid)
         if (!p?.dealership_id || p.dealerships?.is_personal) continue
@@ -360,7 +370,8 @@ export function registerRoutes(app) {
 
       const repsOut = reps.map((r, i) => ({
         rank: i + 1, points: r.points, sold: r.sold, posted: r.posted,
-        isYou: r.isYou, name: r.isYou ? (r.name || 'You') : `Rep #${i + 1}`
+        isYou: r.isYou, name: r.isYou ? (r.name || 'You') : `Rep #${i + 1}`,
+        displayName: r.isYou ? (r.name || 'You') : null
       }))
       const dealersOut = dealers.map((d, i) => ({
         rank: i + 1, points: d.points, sold: d.sold, posted: d.posted,
