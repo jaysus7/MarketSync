@@ -55,9 +55,9 @@
     </div>
   </header>
 
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 md:grid-cols-4 gap-6 sm:gap-8 items-start">
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col md:grid md:grid-cols-4 gap-4 md:gap-8 md:items-start">
 
-    <section class="flex flex-col gap-4 sm:gap-6 md:col-span-1 min-w-0">
+    <section class="flex flex-col md:col-span-1">
 
       <div id="profile-card" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
         <div class="px-5 pt-5">
@@ -274,7 +274,7 @@
 
     </section>
 
-    <section class="md:col-span-3 min-w-0">
+    <section class="w-full md:col-span-3 min-w-0">
 
       <!-- Extension CTA — sits at the top of the dashboard (all pages) until dismissed.
            Dismissal is remembered forever (localStorage), then a compact "Install
@@ -948,7 +948,7 @@
     </section>
   </main>
 
-  <script src="dashboard.js"></script>
+  <script src="dashboard.js?v=20260701"></script>
   <script src="tour.js"></script>
 </body>
 </html>

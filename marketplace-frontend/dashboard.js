@@ -45,6 +45,12 @@ let __canSeeSalesTeam = false;
 document.addEventListener('DOMContentLoaded', () => {
   initializeDashboardEcosystem();
   setupActionListeners();
+  // Fallback: if nothing rendered after 1.5s (e.g. auth cold-start on mobile), show insights
+  setTimeout(() => {
+    const anyVisible = [...document.querySelectorAll('[data-page-content]')]
+      .some(el => !el.classList.contains('hidden'));
+    if (!anyVisible) switchPage('insights');
+  }, 1500);
 });
 
 
