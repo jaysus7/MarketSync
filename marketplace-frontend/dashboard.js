@@ -1,5 +1,14 @@
 const API = 'https://vehicle-marketplace-s0e4.onrender.com';
 
+function showToast(message, type = 'info', duration = 4000) {
+  const el = document.createElement('div');
+  const colors = { success: 'bg-emerald-600', error: 'bg-red-600', info: 'bg-indigo-600' };
+  el.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-[99999] px-5 py-3 rounded-xl text-white text-sm font-semibold shadow-xl transition-opacity ${colors[type] || colors.info}`;
+  el.textContent = message;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, duration);
+}
+
 // If the extension passed a token in the URL hash (#tk=...), store it into
 // localStorage so the user is automatically logged in, then strip the hash.
 ;(function bootstrapExtensionToken() {
@@ -156,6 +165,14 @@ async function initializeDashboardEcosystem() {
 
     loadInsights();
     initSecurityPanel();
+
+    // If returning from Stripe checkout, verify payment then load AI config
+    const aiSessionId = new URLSearchParams(window.location.search).get('ai_boost_session');
+    if (aiSessionId) {
+      window.history.replaceState({}, '', window.location.pathname);
+      await verifyAIBoostSession(aiSessionId);
+    }
+
     loadAIBoostSection();
     setupAIBoostListeners();
 
@@ -2360,6 +2377,19 @@ async function loadSessions() {
 // ── AI BOOST ────────────────────────────────────────────────────────────────
 
 let __aiBoostActive = false;
+
+async function verifyAIBoostSession(sessionId) {
+  try {
+    const res = await fetch(`${API}/billing/ai-boost-verify?session_id=${encodeURIComponent(sessionId)}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) return; // webhook will still handle it; fail silently
+    showToast('🎉 AI Boost activated! Configure your settings below.', 'success', 6000);
+    // Navigate to profile/settings so the user sees the AI Boost panel
+    const profileNav = document.querySelector('#dashboard-nav [data-page="profile"]');
+    if (profileNav) profileNav.click();
+  } catch {}
+}
 
 async function loadAIBoostSection() {
   const section = document.getElementById('ai-boost-section');

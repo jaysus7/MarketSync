@@ -186,13 +186,40 @@ export function registerRoutes(app) {
         mode: 'subscription',
         metadata: { type: 'ai_boost', dealership_id: req.dealershipId },
         subscription_data: { trial_period_days: 3, metadata: { type: 'ai_boost', dealership_id: req.dealershipId } },
-        success_url: `${FRONTEND_URL}/dashboard.html`,
+        success_url: `${FRONTEND_URL}/dashboard.html?ai_boost_session={CHECKOUT_SESSION_ID}`,
         cancel_url: `${FRONTEND_URL}/dashboard.html`
       }
       if (existingCustomerId) sessionParams.customer = existingCustomerId
 
       const session = await stripe.checkout.sessions.create(sessionParams)
       res.json({ url: session.url })
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  // GET /billing/ai-boost-verify?session_id=xxx
+  // Called by the frontend on return from Stripe. Verifies the session is paid/trialing
+  // and activates AI Boost immediately without waiting for the webhook.
+  app.get('/billing/ai-boost-verify', requireAuth, async (req, res) => {
+    const { session_id } = req.query
+    if (!session_id) return res.status(400).json({ error: 'session_id required' })
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+
+    try {
+      const session = await stripe.checkout.sessions.retrieve(session_id)
+      const meta = session.metadata || {}
+      if (meta.type !== 'ai_boost' || meta.dealership_id !== req.dealershipId) {
+        return res.status(403).json({ error: 'Session does not belong to this dealership' })
+      }
+      // Accept completed sessions (covers both trialing and immediately active)
+      if (session.status !== 'complete') {
+        return res.status(400).json({ error: 'Session not complete', status: session.status })
+      }
+      const updates = { ai_boost_active: true }
+      if (session.customer) updates.stripe_customer_id = session.customer
+      await supabaseAdmin.from('dealerships').update(updates).eq('id', req.dealershipId)
+      res.json({ success: true })
     } catch (err) {
       res.status(500).json({ error: err.message })
     }
