@@ -367,13 +367,20 @@ export function registerRoutes(app) {
         isYou: d.isYou, name: d.isYou ? (d.name || 'Your dealership') : `Dealer #${i + 1}`
       }))
 
+      const avg = (arr, key) => arr.length ? Math.round(arr.reduce((s, r) => s + (r[key] || 0), 0) / arr.length) : 0
       res.json({
         total_reps: repsOut.length,
         total_dealers: dealersOut.length,
         reps: repsOut.slice(0, 100),
         dealers: dealersOut.slice(0, 100),
         you_rep: repsOut.find(r => r.isYou) || null,
-        you_dealer: dealersOut.find(d => d.isYou) || null
+        you_dealer: dealersOut.find(d => d.isYou) || null,
+        avg_rep_points: avg(repsOut, 'points'),
+        avg_rep_posted: avg(repsOut, 'posted'),
+        avg_rep_sold: avg(repsOut, 'sold'),
+        avg_dealer_points: avg(dealersOut, 'points'),
+        avg_dealer_posted: avg(dealersOut, 'posted'),
+        avg_dealer_sold: avg(dealersOut, 'sold'),
       })
     } catch (e) {
       console.error('[leaderboard/global] failed:', e.message)

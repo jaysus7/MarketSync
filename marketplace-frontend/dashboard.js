@@ -1398,6 +1398,15 @@ function renderGlobalLeaderboard() {
   const rows = __glTab === 'dealers' ? __glData.dealers : __glData.reps;
   const you = __glTab === 'dealers' ? __glData.you_dealer : __glData.you_rep;
   const total = __glTab === 'dealers' ? __glData.total_dealers : __glData.total_reps;
+  const avgPts = __glTab === 'dealers' ? __glData.avg_dealer_points : __glData.avg_rep_points;
+  const avgPosted = __glTab === 'dealers' ? __glData.avg_dealer_posted : __glData.avg_rep_posted;
+
+  // Update avg strip
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
+  set('gl-your-pts', you ? (you.points || 0).toLocaleString() : '—');
+  set('gl-avg-pts', avgPts != null ? avgPts.toLocaleString() : '—');
+  set('gl-your-posted', you ? (you.posted ?? '—') : '—');
+  set('gl-avg-posted', avgPosted != null ? avgPosted : '—');
 
   if (youEl) youEl.classList.add('hidden');
 
