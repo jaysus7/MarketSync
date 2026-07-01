@@ -1056,7 +1056,8 @@ function chartCommonOptions() {
           font: { size: 11 },
           maxRotation: 45,
           minRotation: 30,
-          autoSkip: false
+          autoSkip: true,
+          maxTicksLimit: 10
         },
         grid: { color: gridColor }
       },
