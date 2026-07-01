@@ -2380,20 +2380,43 @@ function renderAIBoostSection(cfg) {
   if (!badge || !inactive || !activePanel) return;
 
   const upsellBanner = document.getElementById('ai-boost-upsell-banner');
-  if (upsellBanner) upsellBanner.classList.toggle('hidden', !!cfg.ai_boost_active);
+  if (upsellBanner) {
+    const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
+    const dismissed = (() => { try { return localStorage.getItem('ms_ai_boost_banner_dismissed') === '1'; } catch { return false; } })();
+    const showBanner = isAdmin && !cfg.ai_boost_active && !dismissed;
+    upsellBanner.classList.toggle('hidden', !showBanner);
+    const closeBtn = document.getElementById('ai-boost-upsell-close');
+    if (closeBtn && !closeBtn._wired) {
+      closeBtn._wired = true;
+      closeBtn.addEventListener('click', () => {
+        upsellBanner.classList.add('hidden');
+        try { localStorage.setItem('ms_ai_boost_banner_dismissed', '1'); } catch {}
+      });
+    }
+  }
 
-  // Sidebar nav item
+  // Sidebar nav item — reps only see it when the dealer has purchased AI Boost
   const navBtn = document.getElementById('nav-ai-boost');
+  const navPill = document.getElementById('nav-ai-boost-pill');
   if (navBtn) {
+    const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
+    const showNav = cfg.ai_boost_active || isAdmin;
+    navBtn.classList.toggle('hidden', !showNav);
     if (cfg.ai_boost_active) {
-      navBtn.innerHTML = '✨ AI Boost';
-      navBtn.className = 'nav-item nav-ai-boost-btn flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-2';
+      navBtn.className = navBtn.className.replace(/\bhidden\b\s*/g, '');
+      navBtn.classList.remove('hidden');
+      navBtn.classList.add('nav-item', 'nav-ai-boost-btn', 'flex-shrink-0', 'md:w-full', 'text-left', 'whitespace-nowrap', 'px-3', 'py-2', 'rounded', 'font-medium', 'text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800', 'transition', 'flex', 'items-center', 'justify-between', 'gap-2');
+      navBtn.classList.remove('text-slate-400', 'dark:text-slate-600', 'hover:bg-indigo-50', 'dark:hover:bg-indigo-950/30', 'cursor-pointer');
+      if (navPill) navPill.classList.add('hidden');
       navBtn.dataset.page = 'profile';
       navBtn.onclick = null;
-    } else {
-      navBtn.innerHTML = '<span class="opacity-50">✨ AI Boost</span><span class="text-[9px] font-black uppercase tracking-wider bg-indigo-600 text-white px-1.5 py-0.5 rounded-full leading-none">Upgrade</span>';
-      navBtn.className = 'nav-ai-boost-btn flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-400 dark:text-slate-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition flex items-center justify-between gap-2 cursor-pointer';
-      navBtn.onclick = () => startAIBoostCheckout(navBtn, navBtn.innerHTML);
+    } else if (isAdmin) {
+      navBtn.classList.remove('hidden');
+      navBtn.classList.add('nav-ai-boost-btn', 'flex-shrink-0', 'md:w-full', 'text-left', 'whitespace-nowrap', 'px-3', 'py-2', 'rounded', 'font-medium', 'text-slate-400', 'dark:text-slate-600', 'hover:bg-indigo-50', 'dark:hover:bg-indigo-950/30', 'transition', 'flex', 'items-center', 'justify-between', 'gap-2', 'cursor-pointer');
+      navBtn.classList.remove('nav-item', 'text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
+      if (navPill) navPill.classList.remove('hidden');
+      delete navBtn.dataset.page;
+      navBtn.onclick = () => startAIBoostCheckout(navBtn, '✨ AI Boost');
     }
   }
 

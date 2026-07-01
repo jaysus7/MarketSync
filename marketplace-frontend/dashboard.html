@@ -265,8 +265,13 @@
         <button type="button" data-page="leaderboard" class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Leaderboard</button>
         <button type="button" data-page="sales-team" data-admin-nav class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Sales Team</button>
         <button type="button" data-page="profile" class="nav-item flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Profile &amp; Settings</button>
-        <!-- AI Boost nav item — greyed out with upgrade badge when inactive, active nav when subscribed -->
-        <button type="button" id="nav-ai-boost" data-admin-nav class="nav-ai-boost-btn flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium transition flex items-center justify-between gap-2"></button>
+        <!-- AI Boost nav item: hidden until AI config loads.
+             Admins see it always (greyed + Upgrade pill if not purchased, normal if purchased).
+             Reps only see it when the dealer has purchased AI Boost. -->
+        <button type="button" id="nav-ai-boost" class="hidden flex-shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded font-medium transition flex items-center justify-between gap-2">
+          <span id="nav-ai-boost-label" class="flex items-center gap-1.5">✨ AI Boost</span>
+          <span id="nav-ai-boost-pill" class="hidden text-[9px] font-black uppercase tracking-wider bg-indigo-600 text-white px-1.5 py-0.5 rounded-full leading-none flex-shrink-0">Upgrade</span>
+        </button>
       </nav>
 
     </section>
@@ -307,7 +312,10 @@
               <p class="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">Let AI write your listing copy, flag missing photos or price, and check if your vehicles are priced competitively — all before you post.</p>
             </div>
           </div>
-          <button id="ai-boost-upsell-btn" class="flex-shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Upgrade</button>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button id="ai-boost-upsell-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Upgrade</button>
+            <button id="ai-boost-upsell-close" aria-label="Dismiss" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none p-1 transition">×</button>
+          </div>
         </div>
       </div>
 
