@@ -571,23 +571,25 @@
               <button type="button" data-gl-tab="dealers" class="gl-tab px-3 py-1.5 rounded text-slate-600 dark:text-slate-300 transition">Dealers</button>
             </div>
           </div>
+          <!-- Global podium -->
+          <div id="gl-podium" class="grid grid-cols-3 gap-2 sm:gap-3 items-end max-w-2xl mx-auto mb-5"></div>
+
           <!-- Global avg comparison strip -->
-          <div id="gl-avg-strip" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div id="gl-avg-strip" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
             <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg px-4 py-3 text-center">
               <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Your Points</div>
               <div id="gl-your-pts" class="text-xl font-black text-indigo-600 dark:text-indigo-400">—</div>
-            </div>
-            <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg px-4 py-3 text-center">
-              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Avg Points</div>
-              <div id="gl-avg-pts" class="text-xl font-black text-slate-700 dark:text-slate-200">—</div>
+              <div class="text-xs text-slate-400 mt-0.5">Avg: <span id="gl-avg-pts">—</span></div>
             </div>
             <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg px-4 py-3 text-center">
               <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Your Listings</div>
               <div id="gl-your-posted" class="text-xl font-black text-indigo-600 dark:text-indigo-400">—</div>
+              <div class="text-xs text-slate-400 mt-0.5">Avg: <span id="gl-avg-posted">—</span></div>
             </div>
             <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg px-4 py-3 text-center">
-              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Avg Listings</div>
-              <div id="gl-avg-posted" class="text-xl font-black text-slate-700 dark:text-slate-200">—</div>
+              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Your Conv %</div>
+              <div id="gl-your-conv" class="text-xl font-black text-amber-600 dark:text-amber-400">—</div>
+              <div class="text-xs text-slate-400 mt-0.5">Avg: <span id="gl-avg-conv">—</span></div>
             </div>
           </div>
           <div id="gl-you" class="hidden text-xs rounded bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-800 dark:text-indigo-200 px-3 py-2 mb-3"></div>

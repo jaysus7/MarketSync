@@ -1404,13 +1404,40 @@ function renderGlobalLeaderboard() {
   const total = __glTab === 'dealers' ? __glData.total_dealers : __glData.total_reps;
   const avgPts = __glTab === 'dealers' ? __glData.avg_dealer_points : __glData.avg_rep_points;
   const avgPosted = __glTab === 'dealers' ? __glData.avg_dealer_posted : __glData.avg_rep_posted;
+  const avgConv = __glTab === 'dealers' ? __glData.avg_dealer_conv : __glData.avg_rep_conv;
 
   // Update avg strip
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
-  set('gl-your-pts', you ? (you.points || 0).toLocaleString() : '—');
+  const yourConv = you && you.posted > 0 ? Math.round((you.sold / you.posted) * 100) : (you ? 0 : null);
+  set('gl-your-pts', you != null ? (you.points || 0).toLocaleString() : '—');
   set('gl-avg-pts', avgPts != null ? avgPts.toLocaleString() : '—');
-  set('gl-your-posted', you ? (you.posted ?? '—') : '—');
+  set('gl-your-posted', you != null ? (you.posted ?? 0) : '—');
   set('gl-avg-posted', avgPosted != null ? avgPosted : '—');
+  set('gl-your-conv', yourConv != null ? yourConv + '%' : '—');
+  set('gl-avg-conv', avgConv != null ? avgConv + '%' : '—');
+
+  // Render global podium (top 3)
+  const podiumEl = document.getElementById('gl-podium');
+  if (podiumEl && rows && rows.length) {
+    const top3 = rows.slice(0, 3);
+    const order = [top3[1], top3[0], top3[2]].filter(Boolean); // 2nd, 1st, 3rd
+    const heights = ['h-20', 'h-28', 'h-16'];
+    const medals = ['🥈', '👑', '🥉'];
+    const gradients = ['from-slate-300 to-slate-400', 'from-yellow-300 to-amber-500', 'from-orange-300 to-orange-500'];
+    const nums = ['2', '1', '3'];
+    podiumEl.innerHTML = order.map((r, i) => {
+      const isFirst = nums[i] === '1';
+      return `
+        <div class="text-center flex flex-col items-center">
+          <div class="text-lg mb-0.5">${medals[i]}</div>
+          <div class="text-xs font-bold text-slate-900 dark:text-white mb-0.5 ${isFirst ? 'text-sm' : ''}">${r.name}</div>
+          <div class="text-xs text-slate-500 mb-1">${(r.points || 0).toLocaleString()} pts</div>
+          <div class="w-full ${heights[i]} rounded-t-md bg-gradient-to-b ${gradients[i]} flex items-center justify-center text-white font-black text-lg shadow">${nums[i]}</div>
+        </div>`;
+    }).join('');
+  } else if (podiumEl) {
+    podiumEl.innerHTML = '';
+  }
 
   if (youEl) youEl.classList.add('hidden');
 

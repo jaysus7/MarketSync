@@ -368,6 +368,10 @@ export function registerRoutes(app) {
       }))
 
       const avg = (arr, key) => arr.length ? Math.round(arr.reduce((s, r) => s + (r[key] || 0), 0) / arr.length) : 0
+      const avgConv = (arr) => {
+        const active = arr.filter(r => r.posted > 0)
+        return active.length ? Math.round(active.reduce((s, r) => s + (r.sold / r.posted) * 100, 0) / active.length) : 0
+      }
       res.json({
         total_reps: repsOut.length,
         total_dealers: dealersOut.length,
@@ -378,9 +382,11 @@ export function registerRoutes(app) {
         avg_rep_points: avg(repsOut, 'points'),
         avg_rep_posted: avg(repsOut, 'posted'),
         avg_rep_sold: avg(repsOut, 'sold'),
+        avg_rep_conv: avgConv(repsOut),
         avg_dealer_points: avg(dealersOut, 'points'),
         avg_dealer_posted: avg(dealersOut, 'posted'),
         avg_dealer_sold: avg(dealersOut, 'sold'),
+        avg_dealer_conv: avgConv(dealersOut),
       })
     } catch (e) {
       console.error('[leaderboard/global] failed:', e.message)
