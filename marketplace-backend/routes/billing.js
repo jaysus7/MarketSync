@@ -18,9 +18,11 @@ export function registerRoutes(app) {
         const session = event.data.object
         const sub = await stripe.subscriptions.retrieve(session.subscription)
         const meta = session.metadata || {}
-        // AI Boost add-on checkout
+        // AI Boost add-on checkout — activate immediately (covers both trialing and active)
         if (meta.type === 'ai_boost' && meta.dealership_id) {
-          await supabaseAdmin.from('dealerships').update({ ai_boost_active: true }).eq('id', meta.dealership_id)
+          const updates = { ai_boost_active: true }
+          if (session.customer) updates.stripe_customer_id = session.customer
+          await supabaseAdmin.from('dealerships').update(updates).eq('id', meta.dealership_id)
           break;
         }
         const billing = {
@@ -45,7 +47,8 @@ export function registerRoutes(app) {
         // Check if this subscription contains the AI Boost price
         const hasAiBoost = aiBoostPriceId && sub.items?.data?.some(item => item.price.id === aiBoostPriceId)
         if (hasAiBoost) {
-          const isActive = sub.status === 'active'
+          // Keep active during trial; deactivate on cancel, past_due, or unpaid
+          const isActive = sub.status === 'active' || sub.status === 'trialing'
           await supabaseAdmin.from('dealerships').update({ ai_boost_active: isActive }).eq('stripe_customer_id', sub.customer)
           break;
         }
@@ -178,6 +181,7 @@ export function registerRoutes(app) {
     try {
       const sessionParams = {
         payment_method_types: ['card'],
+        payment_method_collection: 'if_required',
         line_items: [{ price: priceId, quantity: 1 }],
         mode: 'subscription',
         metadata: { type: 'ai_boost', dealership_id: req.dealershipId },
