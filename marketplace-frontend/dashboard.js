@@ -1858,9 +1858,16 @@ function setupActionListeners() {
         const upRes = await fetch(`${API}/profile/avatar`, {
           method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd
         });
-        const upData = await upRes.json();
+        const upData = await upRes.json().catch(() => ({}));
         if (upRes.ok) avatarUrl = upData.url;
-      } catch {}
+        else {
+          showMsg(`Avatar upload failed: ${upData.error || upRes.status}`, 'err');
+          return;
+        }
+      } catch (e) {
+        showMsg(`Avatar upload error: ${e.message}`, 'err');
+        return;
+      }
     } else if (!document.getElementById('prof-avatar-img').src && profileContext.avatar_url) {
       avatarUrl = null; // user removed it
     }
