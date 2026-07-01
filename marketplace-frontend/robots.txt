@@ -14,10 +14,20 @@ Allow: /
 User-agent: Claude-SearchBot
 Allow: /
 
-# Authenticated pages — keep these disallowed
+User-agent: GPTBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: YouBot
+Allow: /
+
+# Authenticated and utility pages — keep these disallowed
 Disallow: /dashboard.html
 Disallow: /forgot-password.html
 Disallow: /reset-password.html
 Disallow: /r/
 
 Sitemap: https://marketsync.link/sitemap.xml
+Sitemap: https://marketsync.link/blog-sitemap.xml
