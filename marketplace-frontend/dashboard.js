@@ -2386,6 +2386,7 @@ async function loadSessions() {
 // ── AI BOOST ────────────────────────────────────────────────────────────────
 
 let __aiBoostActive = false;
+let __aiBoostConfigLoaded = false;
 
 async function loadAIActivity() {
   const loading = document.getElementById('ai-activity-loading');
@@ -2396,7 +2397,17 @@ async function loadAIActivity() {
   const upsell = document.getElementById('ai-boost-page-upsell');
   const activeContent = document.getElementById('ai-boost-active-content');
 
-  // Always show/hide the right section regardless of list presence
+  // Don't flip visibility until the /ai/config fetch has resolved.
+  // If the user lands here before config loads, show the activity loading
+  // spinner inside the activeContent and wait — loadAIBoostSection() will
+  // call loadAIActivity() again once it has the real value.
+  if (!__aiBoostConfigLoaded) {
+    if (upsell) upsell.classList.add('hidden');
+    if (activeContent) activeContent.classList.remove('hidden');
+    if (loading) loading.classList.remove('hidden');
+    return;
+  }
+
   const active = !!__aiBoostActive;
   if (upsell) upsell.classList.toggle('hidden', active);
   if (activeContent) activeContent.classList.toggle('hidden', !active);
@@ -2485,6 +2496,7 @@ async function loadAIBoostSection() {
     if (!res.ok) return;
     const cfg = await res.json();
     __aiBoostActive = !!cfg.ai_boost_active;
+    __aiBoostConfigLoaded = true;
     renderAIBoostSection(cfg);
     // If the user is already on the AI Boost page (navigated there before config loaded),
     // refresh the visible content now that __aiBoostActive is set correctly.
