@@ -1,4 +1,5 @@
 const API = 'https://vehicle-marketplace-s0e4.onrender.com'
+const DASHBOARD_URL = 'https://marketsync.link'
 
 const $ = (id) => document.getElementById(id)
 
@@ -16,31 +17,23 @@ function formatPrice(p) {
 async function apiGet(path, token, timeout = 60000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
-
   try {
     const r = await fetch(`${API}${path}`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal
     })
-
     clearTimeout(timer)
-
     if (r.status === 401) {
       chrome.storage.local.remove(['token', 'user'])
       throw new Error('AUTH_EXPIRED — please sign in again')
     }
-
-    if (r.status === 402) {
-      throw new Error('SUBSCRIPTION_REQUIRED')
-    }
-
+    if (r.status === 402) throw new Error('SUBSCRIPTION_REQUIRED')
     const contentType = r.headers.get('content-type')
     if (!contentType || !contentType.includes('application/json')) {
       const textFallback = await r.text()
       console.error('Non-JSON response:', textFallback)
       throw new Error(`Server status [${r.status}]. Please try again in a moment.`)
     }
-
     return await r.json()
   } catch (e) {
     clearTimeout(timer)
@@ -52,46 +45,33 @@ async function apiGet(path, token, timeout = 60000) {
 function handleSubscriptionGate(token) {
   $('stat-total').textContent = '0'
   $('stat-posted').textContent = 'Locked'
+  $('stat-pending').textContent = 'Locked'
   $('stat-remaining').textContent = 'Locked'
-
   $('vehicle-list').innerHTML = `
-    <div class="empty-state" style="padding: 24px 12px; text-align:center;">
-      <div style="color:#ff4d4d; font-size:24px; margin-bottom:8px;">💳</div>
-      <p style="font-weight:bold; margin:4px 0; color:#fff;">Subscription Inactive</p>
-      <p style="font-size:11px; color:#888; margin-bottom:14px; line-height:1.4;">Please activate your dealership plan to access sync features.</p>
-      <button id="ui-manage-billing-btn" style="background:#3b82f6; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:bold; width:85%; font-size:12px;">Manage Account & Billing</button>
+    <div class="empty-state" style="padding:24px 12px;text-align:center;">
+      <div style="color:#ff4d4d;font-size:24px;margin-bottom:8px;">💳</div>
+      <p style="font-weight:bold;margin:4px 0;color:#fff;">Subscription Inactive</p>
+      <p style="font-size:11px;color:#888;margin-bottom:14px;line-height:1.4;">Please activate your dealership plan to access sync features.</p>
+      <button id="ui-manage-billing-btn" style="background:#3b82f6;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;width:85%;font-size:12px;">Manage Account & Billing</button>
     </div>`
-
   $('ui-manage-billing-btn').addEventListener('click', async () => {
     const btn = $('ui-manage-billing-btn')
     btn.textContent = 'Connecting to Stripe...'
     btn.disabled = true
-
     try {
       let r = await fetch(`${API}/billing/portal`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
       })
-
       if (r.status === 400 || !r.ok) {
         r = await fetch(`${API}/billing/checkout`, {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
         })
       }
-
       const data = await r.json()
       if (data.url) chrome.tabs.create({ url: data.url })
-      else {
-        btn.textContent = 'Error loading gateway'
-        btn.disabled = false
-      }
+      else { btn.textContent = 'Error loading gateway'; btn.disabled = false }
     } catch {
       btn.textContent = 'Connection Error'
       btn.disabled = false
@@ -99,8 +79,19 @@ function handleSubscriptionGate(token) {
   })
 }
 
-// Text search over the already-rendered vehicle list (make/model/year/trim).
-// Works on top of the category filter — purely client-side, no refetch.
+// Returns a sort rank so list renders: New → Used/Demo → Posted → Pending → Sold
+function vehicleSortRank(v, postedMap, soldMap) {
+  const isPosted = postedMap.has(v.id)
+  const isSold = soldMap.has(v.id)
+  const status = String(v.status || 'available').toLowerCase()
+  const cond = String(v.condition || '').toLowerCase()
+  if (isSold || status === 'sold') return 40
+  if (status === 'pending') return 30
+  if (isPosted) return 20
+  if (cond === 'new') return 0
+  return 10 // used / demo / unknown
+}
+
 function applySearchFilter() {
   const q = (window.__msSearchQuery || '').trim().toLowerCase()
   const list = $('vehicle-list')
@@ -112,7 +103,6 @@ function applySearchFilter() {
     it.style.display = show ? '' : 'none'
     if (show) visible++
   })
-
   let note = document.getElementById('search-no-results')
   if (q && visible === 0 && items.length) {
     if (!note) {
@@ -121,7 +111,7 @@ function applySearchFilter() {
       note.style.cssText = 'padding:20px 12px;text-align:center;color:#888;font-size:12px;'
       list.appendChild(note)
     }
-    note.textContent = `No vehicles match “${window.__msSearchQuery.trim()}”.`
+    note.textContent = `No vehicles match "${window.__msSearchQuery.trim()}".`
     note.style.display = ''
   } else if (note) {
     note.style.display = 'none'
@@ -132,7 +122,7 @@ async function loadInventory(token) {
   $('vehicle-list').innerHTML = '<div class="loading">Loading inventory...</div>'
 
   try {
-   const [inventory, listingsRes, soldListingsRes] = await Promise.all([
+    const [inventory, listingsRes, soldListingsRes] = await Promise.all([
       apiGet('/inventory/all', token),
       apiGet('/listings', token).catch(() => []),
       apiGet('/listings?status=sold', token).catch(() => [])
@@ -146,34 +136,25 @@ async function loadInventory(token) {
       ? soldListingsRes
       : (soldListingsRes && Array.isArray(soldListingsRes.data) ? soldListingsRes.data : [])
 
-    // Map inventory_id -> { listingId, vehicle, fbUrl } for posted vehicles
     const postedMap = new Map()
     for (const l of listings) {
       const invId = l?.inventory_id || l?.inventory?.id
       if (invId && l?.id) postedMap.set(invId, {
-        listingId: l.id,
-        vehicle: l.inventory || null,
-        fbUrl: l.fb_listing_url || null
+        listingId: l.id, vehicle: l.inventory || null, fbUrl: l.fb_listing_url || null
       })
     }
 
-    // Map inventory_id -> listing for sold vehicles (to show SOLD badge + FB delete notice)
     const soldMap = new Map()
     for (const l of soldListings) {
       const invId = l?.inventory_id || l?.inventory?.id
       if (invId && l?.id) soldMap.set(invId, {
-        listingId: l.id,
-        vehicle: l.inventory || null,
-        fbUrl: l.fb_listing_url || null,
-        fbSyncAction: l.fb_sync_action || null,
-        fbSyncedAt: l.fb_synced_at || null,
-        soldAt: l.sold_at || null,
-        vehicleLabel: l.vehicle_label || null
+        listingId: l.id, vehicle: l.inventory || null, fbUrl: l.fb_listing_url || null,
+        fbSyncAction: l.fb_sync_action || null, fbSyncedAt: l.fb_synced_at || null,
+        soldAt: l.sold_at || null, vehicleLabel: l.vehicle_label || null
       })
     }
 
-    // Merged display list: all currently-available inventory + any posted vehicles
-    // that have fallen out of available inventory (so user can still Mark Sold).
+    // Merged display list
     const seenIds = new Set(inventory.map(v => v.id))
     const displayList = [...inventory]
     for (const [invId, entry] of postedMap) {
@@ -185,43 +166,52 @@ async function loadInventory(token) {
     const isAvail = (v) => String(v.status || 'available').toLowerCase() === 'available'
     const availableCount = inventory.filter(isAvail).length
     const postedInStock = inventory.filter(v => postedMap.has(v.id)).length
+    const pendingCount = inventory.filter(v => String(v.status || '').toLowerCase() === 'pending').length
+
     $('stat-total').textContent = availableCount
     $('stat-posted').textContent = postedMap.size
+    $('stat-pending').textContent = pendingCount
     $('stat-remaining').textContent = Math.max(0, availableCount - postedInStock)
 
-    // Cache the fully-merged dataset so the category-filter buttons can re-render
-    // instantly without re-fetching from the API. The active category lives in
-    // window.__msActiveCat and the renderer reads it on every paint.
-window.__msInvCache = { inventory, displayList, postedMap, soldMap, token }
-    
-    // Apply the active category filter to the display list before rendering.
-    // Category values come from the .cat-btn data-cat attribute: 'all'|'New'|'Used'|'Demo'.
-    const activeCat = window.__msActiveCat || 'all'
-    const filtered = activeCat === 'all'
-      ? displayList
-      : displayList.filter(v => {
-          // Loose match — feed conditions vary ("New" / "NEW" / "new").
-          const c = String(v.condition || '').toLowerCase()
-          return c === activeCat.toLowerCase()
-        })
+    window.__msInvCache = { inventory, displayList, postedMap, soldMap, token }
+
+    // Apply status filter
+    const activeStatus = window.__msStatusFilter || 'all'
+    const activeCond = window.__msCondFilter || 'all'
+
+    let filtered = displayList.filter(v => {
+      const isPosted = postedMap.has(v.id)
+      const isSold = soldMap.has(v.id)
+      const status = String(v.status || 'available').toLowerCase()
+      const cond = String(v.condition || '').toLowerCase()
+
+      // status filter
+      if (activeStatus === 'available' && (isPosted || isSold || status === 'sold' || status === 'pending')) return false
+      if (activeStatus === 'posted' && !isPosted) return false
+      if (activeStatus === 'pending' && status !== 'pending') return false
+      if (activeStatus === 'sold' && !isSold && status !== 'sold') return false
+
+      // condition filter
+      if (activeCond !== 'all' && cond !== activeCond) return false
+
+      return true
+    })
+
+    // Sort: New → Used/Demo → Posted → Pending → Sold
+    filtered.sort((a, b) => vehicleSortRank(a, postedMap, soldMap) - vehicleSortRank(b, postedMap, soldMap))
 
     if (!filtered.length) {
       $('vehicle-list').innerHTML = `
-        <div class="empty-state" style="padding: 24px 12px; text-align:center;">
-          <div class="icon">🚗</div>
-          <p>No <strong>${activeCat === 'all' ? '' : activeCat + ' '}</strong>vehicles found.<br>${activeCat === 'all' ? 'Add vehicles in your dashboard.' : 'Try another category.'}</p>
+        <div class="empty-state" style="padding:24px 12px;text-align:center;">
+          <div style="font-size:28px;margin-bottom:8px;">🚗</div>
+          <p style="color:#aaa;">No vehicles match the current filters.</p>
         </div>`
       return
     }
 
-   // "Needs FB cleanup" — vehicles posted on FB but no longer in stock here.
-    // Build the banner first so it appears above the list.
+    // Banners
     const cleanupNeeded = displayList.filter(v => v._outOfStock && postedMap.has(v.id))
-
-    // Sold listings that still need to be removed from Facebook
-    const soldNeedingFbDelete = soldListings.filter(l =>
-      l.fb_listing_url && !l.fb_synced_at
-    )
+    const soldNeedingFbDelete = soldListings.filter(l => l.fb_listing_url && !l.fb_synced_at)
 
     let soldBanner = ''
     if (soldMap.size > 0) {
@@ -260,32 +250,40 @@ window.__msInvCache = { inventory, displayList, postedMap, soldMap, token }
         </div>`
     }
 
-      $('vehicle-list').innerHTML = soldBanner + cleanupBanner + filtered.map(v => {      const entry = postedMap.get(v.id)
+    // Render vehicles grouped by rank section
+    let lastRank = -1
+    const groupLabels = { 0: 'New', 10: 'Used / Demo', 20: 'Posted on Facebook', 30: 'Pending', 40: 'Sold' }
+
+    const rows = filtered.map(v => {
+      const entry = postedMap.get(v.id)
       const soldEntry = soldMap.get(v.id)
       const listingId = entry?.listingId
       const isPosted = !!listingId
       const isSold = !!soldEntry && !isPosted
       const img = v.image_urls?.[0]
+      const rank = vehicleSortRank(v, postedMap, soldMap)
+
       const thumb = img
         ? `<img class="vehicle-thumb" src="${img}" onerror="this.style.display='none'">`
-        : `<div class="vehicle-thumb-placeholder" style="width:52px;height:38px;border-radius:6px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🚗</div>`
+        : `<div class="vehicle-thumb" style="display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#1a1a1a;font-size:18px;">🚗</div>`
 
-      const vehName = `${v.year} ${v.make} ${v.model}`
+      const vehName = `${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim()
       const fbUrl = entry?.fbUrl || ''
+      const status = String(v.status || 'available').toLowerCase()
+      const available = status === 'available'
+
       const openFbBtn = (isPosted && v._outOfStock)
         ? `<button class="open-fb-btn" data-fb-url="${fbUrl}" style="background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-bottom:4px;">Open on FB</button>`
         : ''
-      const status = String(v.status || 'available').toLowerCase()
-      const available = status === 'available'
-      // Posted → three sold actions. Available + not posted → Post. Sold/Pending → badge only.
+
       const soldBtns = `<div style="display:flex;flex-direction:column;gap:3px;">
-             <button class="sold-by-me-btn"    data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#14532d;border:1px solid #22c55e;color:#86efac;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">🤝 I Sold It</button>
-             <button class="sold-on-fb-btn"    data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#172554;border:1px solid #3b82f6;color:#93c5fd;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">📘 I Sold It on FB</button>
-             <button class="sold-by-other-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#3a1a1a;border:1px solid #ef4444;color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;">🔄 Someone Else Sold It</button>
-           </div>`
+        <button class="sold-by-me-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#14532d;border:1px solid #22c55e;color:#86efac;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">🤝 I Sold It</button>
+        <button class="sold-on-fb-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#172554;border:1px solid #3b82f6;color:#93c5fd;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">📘 Sold on FB</button>
+        <button class="sold-by-other-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#3a1a1a;border:1px solid #ef4444;color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;">🔄 Someone Else</button>
+      </div>`
+
       const statusBadge = `<span style="background:#1f2937;border:1px solid #374151;color:${status === 'sold' ? '#9ca3af' : '#fbbf24'};padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;white-space:nowrap;flex-shrink:0;">${status}</span>`
 
-                                                                                    // For sold vehicles: show FB delete notice if the listing is still live on FB
       const soldFbNotice = isSold && soldEntry?.fbUrl && !soldEntry?.fbSyncedAt
         ? `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
              <span style="background:#7f1d1d;color:#fca5a5;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">SOLD</span>
@@ -302,25 +300,25 @@ window.__msInvCache = { inventory, displayList, postedMap, soldMap, token }
         : available
         ? `<button class="post-btn" data-id="${v.id}">Post</button>`
         : statusBadge
-const tagBits = []
-      if (isPosted) tagBits.push('<span style="color:#22c55e;font-weight:600;">✓ POSTED</span>')
-      else if (isSold) tagBits.push('<span style="background:#7f1d1d;color:#fca5a5;padding:2px 6px;border-radius:4px;font-weight:700;">SOLD</span>')
-      else if (status === 'sold') tagBits.push('<span style="color:#9ca3af;font-weight:600;">SOLD</span>')
-      else if (status === 'pending') tagBits.push('<span style="color:#fbbf24;font-weight:600;">PENDING</span>')
-      if (v._outOfStock) tagBits.push('<span style="color:#fbbf24;font-weight:600;">OUT OF STOCK</span>')
-      const tagLine = tagBits.length
-        ? `<div style="font-size:10px;margin-bottom:3px;text-align:right;">${tagBits.join(' · ')}</div>`
-        : ''
 
-      return `
+      // Condition badge on vehicle name line
+      const condBadge = v.condition ? `<span style="font-size:9px;font-weight:700;text-transform:uppercase;color:#555;margin-left:4px;">${v.condition}</span>` : ''
+
+      // Group divider
+      let divider = ''
+      if (rank !== lastRank && groupLabels[rank]) {
+        divider = `<div class="group-divider">${groupLabels[rank]}</div>`
+        lastRank = rank
+      }
+
+      return `${divider}
         <div class="vehicle-item" data-id="${v.id}">
           ${thumb}
           <div class="vehicle-info">
-            <div class="vehicle-name">${vehName}</div>
+            <div class="vehicle-name">${vehName}${condBadge}</div>
             <div class="vehicle-sub">${v.trim || ''} · ${v.mileage ? v.mileage.toLocaleString() + ' km' : 'N/A'}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
-            ${tagLine}
             <div class="vehicle-price">${formatPrice(v.price)}</div>
             ${openFbBtn}
             ${actionBtn}
@@ -328,6 +326,9 @@ const tagBits = []
         </div>`
     }).join('')
 
+    $('vehicle-list').innerHTML = soldBanner + cleanupBanner + rows
+
+    // Wire up buttons
     document.querySelectorAll('.post-btn').forEach(btn => {
       btn.addEventListener('click', () => postVehicle(btn.dataset.id, token))
     })
@@ -341,44 +342,35 @@ const tagBits = []
       btn.addEventListener('click', () => markSold(btn.dataset.listingId, btn.dataset.vehicleName, token, 'sold-by-other'))
     })
     document.getElementById('cleanup-fb-open-all')?.addEventListener('click', () => {
-      // Open each affected FB listing — fall back to user's marketplace selling page if URL missing/invalid
-      const isValidListingUrl = url => url && /facebook\.com\/marketplace\/item\//.test(url)
+      const isValidUrl = url => url && /facebook\.com\/marketplace\/item\//.test(url)
       cleanupNeeded.forEach(v => {
         const entry = postedMap.get(v.id)
-        const url = isValidListingUrl(entry?.fbUrl) ? entry.fbUrl : 'https://www.facebook.com/marketplace/you/selling'
+        const url = isValidUrl(entry?.fbUrl) ? entry.fbUrl : 'https://www.facebook.com/marketplace/you/selling'
         chrome.tabs.create({ url, active: false })
       })
     })
-   document.querySelectorAll('.open-fb-btn').forEach(btn => {
+    document.querySelectorAll('.open-fb-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const url = btn.dataset.fbUrl && /facebook\.com\/marketplace\/item\//.test(btn.dataset.fbUrl)
-          ? btn.dataset.fbUrl
-          : 'https://www.facebook.com/marketplace/you/selling'
+          ? btn.dataset.fbUrl : 'https://www.facebook.com/marketplace/you/selling'
         chrome.tabs.create({ url })
       })
     })
-
-    // "Delete from FB" on individual sold cards — opens the FB listing so rep can delete it
     document.querySelectorAll('.delete-from-fb-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const url = btn.dataset.fbUrl && /facebook\.com\/marketplace\/item\//.test(btn.dataset.fbUrl)
-          ? btn.dataset.fbUrl
-          : 'https://www.facebook.com/marketplace/you/selling'
+          ? btn.dataset.fbUrl : 'https://www.facebook.com/marketplace/you/selling'
         chrome.tabs.create({ url })
       })
     })
-
-    // "Open sold listings on Facebook" banner button
     document.getElementById('open-sold-fb-listings')?.addEventListener('click', () => {
       soldNeedingFbDelete.forEach(l => {
         const url = l.fb_listing_url && /facebook\.com\/marketplace\/item\//.test(l.fb_listing_url)
-          ? l.fb_listing_url
-          : 'https://www.facebook.com/marketplace/you/selling'
+          ? l.fb_listing_url : 'https://www.facebook.com/marketplace/you/selling'
         chrome.tabs.create({ url, active: false })
       })
     })
 
-    // Re-apply any active text search on top of the freshly rendered list.
     applySearchFilter()
   } catch (e) {
     if (e.message === 'SUBSCRIPTION_REQUIRED') {
@@ -408,35 +400,34 @@ async function showInventoryScreen(token, user) {
       if (err.message === 'SUBSCRIPTION_REQUIRED') handleSubscriptionGate(token)
     })
 
-  // Defensive: never crash popup init if a button is missing from the HTML
-  const logoutBtn = $('logout-btn')
-  if (logoutBtn) {
-    logoutBtn.onclick = () => {
-      chrome.storage.local.remove(['token', 'user'], () => location.reload())
-    }
-  } else {
-    console.warn('logout-btn missing from popup.html — sign out unavailable')
-  }
+  $('logout-btn').onclick = () => chrome.storage.local.remove(['token', 'user'], () => location.reload())
+  $('refresh-btn').onclick = () => loadInventory(token)
 
-  const refreshBtn = $('refresh-btn')
-  if (refreshBtn) refreshBtn.onclick = () => loadInventory(token)
+  $('open-dashboard-btn').onclick = () => chrome.tabs.create({ url: DASHBOARD_URL })
 
-  // Category filter (All / New / Used / Demo) — re-renders the cached inventory
-  // without re-fetching. Highlights the active button.
-  document.querySelectorAll('.cat-btn').forEach(btn => {
+  // Status filter pills
+  document.querySelectorAll('[data-status]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const cat = btn.dataset.cat || 'all'
-      window.__msActiveCat = cat
-      document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('active', b === btn))
-      // Re-render from cache. If the cache exists, just call loadInventory; it
-      // will use the cached postedMap and re-paint quickly. If no cache yet,
-      // loadInventory will fetch fresh.
+      window.__msStatusFilter = btn.dataset.status
+      document.querySelectorAll('[data-status]').forEach(b => {
+        b.classList.toggle('active', b === btn)
+      })
       loadInventory(token)
     })
   })
 
-  // Search box — filters the rendered list live (no refetch). Sits beside the
-  // New / Used / Demo category buttons in the toolbar.
+  // Condition filter pills
+  document.querySelectorAll('[data-cond]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window.__msCondFilter = btn.dataset.cond
+      document.querySelectorAll('[data-cond]').forEach(b => {
+        b.classList.toggle('active', b === btn)
+      })
+      loadInventory(token)
+    })
+  })
+
+  // Search
   const searchInput = $('search-input')
   const searchWrap = $('search-wrap')
   const searchClear = $('search-clear')
@@ -457,13 +448,8 @@ async function showInventoryScreen(token, user) {
     })
   }
 
-  // Premium Sync — extension-side dealer site capture. Shown only when a feed
-  // is flagged needs_extension_capture (e.g. Cloudflare blocked us server-side)
-  // AND hasn't been captured yet.
   checkExtensionSyncNeeded(token)
 
-  // When a capture finishes (triggered here or from the dashboard), re-check so the
-  // bar disappears live — keeps the popup and dashboard in sync across the bridge.
   if (!window.__msCaptureWatch) {
     window.__msCaptureWatch = true
     chrome.storage.onChanged.addListener((changes, area) => {
@@ -471,7 +457,7 @@ async function showInventoryScreen(token, user) {
       const s = changes.captureState.newValue
       if (s?.status === 'done') {
         checkExtensionSyncNeeded(token)
-        loadInventory(token)   // pull the freshly-captured vehicles into the list
+        loadInventory(token)
       }
     })
   }
@@ -485,8 +471,6 @@ async function checkExtensionSyncNeeded(token) {
     if (!r.ok) return
     const feeds = await r.json()
     const bar = $('premium-sync-bar')
-    // Only feeds flagged for browser capture that haven't been captured yet. Once
-    // last_extension_sync_at is stamped, the dealer's inventory is in — hide the bar.
     const candidates = (feeds || []).filter(f => {
       const flagged = f.platform === 'extension_capture'
         || f.platform === 'needs_extension_capture'
@@ -494,14 +478,9 @@ async function checkExtensionSyncNeeded(token) {
       return flagged && !f.last_extension_sync_at
     })
     if (!candidates.length) { if (bar) bar.style.display = 'none'; return }
-
     if (!bar) return
     bar.style.display = 'block'
 
-    // The popup's ONLY job for Cloudflare dealers is the one-time "Enable one-click
-    // capture" grant (Chrome requires the host-permission request to come from an
-    // extension UI with a user gesture). The instructions, Pull Inventory button,
-    // and progress all live on the dashboard now.
     const enableBtn = $('enable-oneclick-btn')
     const enableNote = $('enable-oneclick-note')
     if (enableBtn) {
@@ -538,7 +517,6 @@ async function checkExtensionSyncNeeded(token) {
   }
 }
 
-// kind = 'sold-by-me' (this rep closed the deal → 500 pts) | 'sold-by-other' (no points)
 async function markSold(listingId, vehicleName, token, kind) {
   const msg = kind === 'sold-by-me'
     ? `You sold "${vehicleName}"? This credits you with the sale (500 pts).`
@@ -553,7 +531,6 @@ async function markSold(listingId, vehicleName, token, kind) {
     })
     const data = await r.json().catch(() => ({}))
     if (!r.ok) throw new Error(data.error || 'Failed to mark sold')
-    // Kick the background poller so the FB listing gets marked Sold right away.
     chrome.runtime.sendMessage({ type: 'FB_SYNC_NOW' })
     loadInventory(token)
   } catch (err) {
@@ -564,20 +541,13 @@ async function markSold(listingId, vehicleName, token, kind) {
 async function postVehicle(inventoryId, token) {
   const btn = document.querySelector(`.post-btn[data-id="${inventoryId}"]`)
   if (!btn) return
-
   btn.classList.add('posting')
   btn.textContent = 'Opening...'
   btn.disabled = true
-
   try {
     const vehicle = await apiGet(`/inventory/${inventoryId}`, token)
-    // Pull the rep's profile so we can stamp contact info on the FB description
     let poster = null
     try { poster = await apiGet('/auth/me', token) } catch {}
-
-    // Photos are injected on the FB page by content.js (with a download fallback if injection fails).
-    // No need to pre-download here.
-
     chrome.storage.local.set({ pendingPost: { vehicle, token, poster } }, () => {
       chrome.tabs.create({ url: 'https://www.facebook.com/marketplace/create/vehicle' })
       window.close()
@@ -595,27 +565,22 @@ function initLoginScreen() {
     const email = $('email').value.trim()
     const password = $('password').value
     if (!email || !password) return
-
     $('login-btn').disabled = true
     $('login-btn').textContent = 'Signing in...'
     $('login-error').textContent = ''
-
     try {
       const r = await fetch(`${API}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       })
-
       const data = await r.json()
-
       if (data.error) {
         $('login-error').textContent = data.error
         $('login-btn').disabled = false
         $('login-btn').textContent = 'Sign In'
         return
       }
-
       chrome.storage.local.set({ token: data.access_token, user: data.user }, () => {
         showInventoryScreen(data.access_token, data.user)
       })
@@ -625,27 +590,19 @@ function initLoginScreen() {
       $('login-btn').textContent = 'Sign In'
     }
   })
-
-  $('go-to-register-btn').addEventListener('click', () => {
-    setScreen('register')
-  })
+  $('go-to-register-btn').addEventListener('click', () => setScreen('register'))
 }
 
 function initRegisterScreen() {
-  $('go-to-login-btn').addEventListener('click', () => {
-    setScreen('login')
-  })
-
+  $('go-to-login-btn').addEventListener('click', () => setScreen('login'))
   $('submit-register-btn').addEventListener('click', async () => {
     const btn = $('submit-register-btn')
     const errorEl = $('reg-error')
     const successEl = $('reg-success')
-
     errorEl.textContent = ''
     successEl.textContent = ''
     btn.disabled = true
     btn.textContent = 'Registering...'
-
     const feedUrl = $('reg-feed').value.trim()
     const payload = {
       accountRole: 'dealer_admin',
@@ -656,7 +613,6 @@ function initRegisterScreen() {
       websiteUrl: $('reg-website').value.trim(),
       feeds: feedUrl ? [{ type: 'all', url: feedUrl }] : []
     }
-
     try {
       const r = await fetch(`${API}/auth/register`, {
         method: 'POST',
@@ -665,7 +621,6 @@ function initRegisterScreen() {
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Registration failed')
-
       successEl.textContent = 'Account created. Sign in to continue.'
       btn.textContent = 'Success!'
       setTimeout(() => setScreen('login'), 1200)
@@ -680,11 +635,9 @@ function initRegisterScreen() {
 document.addEventListener('DOMContentLoaded', () => {
   initLoginScreen()
   initRegisterScreen()
-
   chrome.storage.local.get(['token', 'user'], ({ token, user }) => {
     if (token && user) {
       showInventoryScreen(token, user)
-      // Opportunistically process any pending FB mark-sold / delete actions.
       chrome.runtime.sendMessage({ type: 'FB_SYNC_NOW' })
     } else {
       setScreen('login')

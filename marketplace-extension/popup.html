@@ -1,9 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Removed Google Tag Manager + CookieYes — both violate Chrome extension CSP
-       (which forbids external + inline scripts in popups). Those analytics belong
-       on the public website only, not in the extension popup. -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MarketSync</title>
@@ -21,14 +18,30 @@
     /* ── Header ── */
     .header {
       background: #1a1a1a;
-      padding: 14px 16px;
+      padding: 12px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid #2a2a2a;
     }
     .header h1 { font-size: 14px; font-weight: 600; color: #fff; }
-    .header .dealer { font-size: 11px; color: #888; margin-top: 2px; }
+    .header .dealer { font-size: 11px; color: #888; margin-top: 1px; }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .dashboard-link {
+      background: none;
+      border: 1px solid #3b82f6;
+      color: #3b82f6;
+      padding: 4px 9px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .dashboard-link:hover { background: #1e3a5f; }
     .logout-btn {
       background: none;
       border: 1px solid #333;
@@ -40,151 +53,58 @@
     }
     .logout-btn:hover { border-color: #555; color: #fff; }
 
-    /* ── Category filter pills (All / New / Used / Demo) ── */
-    .category-filter { display: flex; gap: 6px; flex-wrap: wrap; }
-    .cat-btn {
+    /* ── Filter pills ── */
+    .filter-bar {
+      padding: 8px 12px 0;
+      background: #111;
+      border-bottom: 1px solid #1e1e1e;
+    }
+    .filter-row {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-bottom: 7px;
+      align-items: center;
+    }
+    .filter-label {
+      font-size: 9px;
+      color: #444;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-right: 2px;
+      white-space: nowrap;
+    }
+    .pill {
       background: #1a1a1a;
       border: 1px solid #2a2a2a;
-      color: #888;
-      padding: 5px 11px;
+      color: #777;
+      padding: 4px 10px;
       border-radius: 999px;
       font-size: 11px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: all 0.12s;
+      white-space: nowrap;
     }
-    .cat-btn:hover { border-color: #555; color: #fff; }
-    .cat-btn.active {
-      background: #3b82f6;
-      border-color: #3b82f6;
-      color: #fff;
-    }
+    .pill:hover { border-color: #555; color: #ccc; }
+    .pill.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+    .pill.active.status-available { background: #16a34a; border-color: #16a34a; }
+    .pill.active.status-posted   { background: #059669; border-color: #059669; }
+    .pill.active.status-pending  { background: #b45309; border-color: #b45309; }
+    .pill.active.status-sold     { background: #6b21a8; border-color: #6b21a8; }
 
-    /* ── View Controller ── */
-    .view-screen { display: none; }
-    .view-screen.active { display: block; }
-
-    /* ── Login Screen ── */
-    #login-screen {
-      padding: 24px 20px;
-    }
-    #login-screen h2, #register-screen h2 {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-    #login-screen p, #register-screen p {
-      font-size: 12px;
-      color: #888;
-      margin-bottom: 20px;
-    }
-    .form-group { margin-bottom: 12px; }
-    .form-group label {
-      display: block;
-      font-size: 11px;
-      color: #888;
-      margin-bottom: 5px;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-    }
-    .form-group input {
-      width: 100%;
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 8px;
-      padding: 10px 12px;
-      color: #fff;
-      font-size: 13px;
-      outline: none;
-    }
-    .form-group input:focus { border-color: #3b82f6; }
-
-    .btn-primary {
-      width: 100%;
-      background: #3b82f6;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 11px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 4px;
-    }
-    .btn-primary:hover { background: #2563eb; }
-    .btn-primary:disabled { background: #1e3a5f; color: #555; cursor: not-allowed; }
-
-    .error-msg {
-      color: #ef4444;
-      font-size: 12px;
-      margin-top: 10px;
-      text-align: center;
-    }
-    .success-msg {
-      color: #22c55e;
-      font-size: 12px;
-      margin-top: 10px;
-      text-align: center;
-    }
-
-    /* ── Registration Footnote Section ── */
-    .register-container {
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 1px solid #1a1a1a;
-      text-align: center;
-    }
-    .register-text {
-      font-size: 11px;
-      color: #666;
-      margin-bottom: 6px;
-    }
-    .btn-secondary {
-      background: none;
-      border: 1px dashed #3a3a3a;
-      color: #a3a3a3;
-      font-size: 11px;
-      font-weight: 500;
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .btn-secondary:hover {
-      border-color: #3b82f6;
-      color: #3b82f6;
-      background: #0b1329;
-    }
-
-    /* ── Inventory Screen ── */
-    .stats-bar {
+    /* search row */
+    .search-row {
+      padding: 8px 12px;
       display: flex;
-      gap: 1px;
-      background: #2a2a2a;
-    }
-    .stat {
-      flex: 1;
-      background: #1a1a1a;
-      padding: 10px;
-      text-align: center;
-    }
-    .stat .num { font-size: 18px; font-weight: 700; color: #3b82f6; }
-    .stat .label { font-size: 10px; color: #666; margin-top: 2px; text-transform: uppercase; }
-
-    .toolbar {
-      padding: 10px 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
       gap: 8px;
+      align-items: center;
       border-bottom: 1px solid #1a1a1a;
+      background: #111;
     }
-    .toolbar span { font-size: 12px; color: #666; }
-    .search-wrap { position: relative; flex: 1 1 130px; min-width: 120px; }
+    .search-wrap { position: relative; flex: 1; }
     .search-input {
       width: 100%;
-      box-sizing: border-box;
       background: #1a1a1a;
       border: 1px solid #2a2a2a;
       color: #fff;
@@ -194,65 +114,86 @@
       outline: none;
     }
     .search-input:focus { border-color: #3b82f6; }
-    .search-input::placeholder { color: #666; }
-    .search-wrap .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #666; pointer-events: none; }
-    .search-wrap .search-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #666; font-size: 14px; cursor: pointer; line-height: 1; display: none; }
+    .search-input::placeholder { color: #555; }
+    .search-wrap .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #555; pointer-events: none; }
+    .search-wrap .search-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #555; font-size: 14px; cursor: pointer; line-height: 1; display: none; }
     .search-wrap.has-value .search-clear { display: block; }
     .refresh-btn {
       background: none;
       border: 1px solid #2a2a2a;
-      color: #888;
-      padding: 4px 10px;
+      color: #777;
+      padding: 5px 11px;
       border-radius: 6px;
       font-size: 11px;
       cursor: pointer;
+      white-space: nowrap;
     }
     .refresh-btn:hover { border-color: #444; color: #fff; }
 
+    /* ── View Controller ── */
+    .view-screen { display: none; }
+    .view-screen.active { display: block; }
+
+    /* ── Login Screen ── */
+    #login-screen { padding: 24px 20px; }
+    #login-screen h2, #register-screen h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    #login-screen p, #register-screen p { font-size: 12px; color: #888; margin-bottom: 20px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 11px; color: #888; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
+    .form-group input { width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 13px; outline: none; }
+    .form-group input:focus { border-color: #3b82f6; }
+    .btn-primary { width: 100%; background: #3b82f6; color: #fff; border: none; border-radius: 8px; padding: 11px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-primary:disabled { background: #1e3a5f; color: #555; cursor: not-allowed; }
+    .error-msg { color: #ef4444; font-size: 12px; margin-top: 10px; text-align: center; }
+    .success-msg { color: #22c55e; font-size: 12px; margin-top: 10px; text-align: center; }
+    .register-container { margin-top: 20px; padding-top: 16px; border-top: 1px solid #1a1a1a; text-align: center; }
+    .register-text { font-size: 11px; color: #666; margin-bottom: 6px; }
+    .btn-secondary { background: none; border: 1px dashed #3a3a3a; color: #a3a3a3; font-size: 11px; font-weight: 500; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; }
+    .btn-secondary:hover { border-color: #3b82f6; color: #3b82f6; background: #0b1329; }
+
+    /* ── Stats bar ── */
+    .stats-bar { display: flex; gap: 1px; background: #2a2a2a; }
+    .stat { flex: 1; background: #1a1a1a; padding: 10px; text-align: center; }
+    .stat .num { font-size: 18px; font-weight: 700; color: #3b82f6; }
+    .stat .label { font-size: 10px; color: #666; margin-top: 2px; text-transform: uppercase; }
+
+    /* ── Vehicle list ── */
     .vehicle-list {
-      max-height: 380px;
+      max-height: 460px;
       overflow-y: auto;
     }
     .vehicle-list::-webkit-scrollbar { width: 4px; }
     .vehicle-list::-webkit-scrollbar-track { background: #0f0f0f; }
     .vehicle-list::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
 
+    .group-divider {
+      padding: 5px 12px 3px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: #444;
+      background: #0d0d0d;
+      border-bottom: 1px solid #1a1a1a;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
     .vehicle-item {
-      padding: 12px;
+      padding: 10px 12px;
       border-bottom: 1px solid #1a1a1a;
       display: flex;
       align-items: center;
       gap: 10px;
     }
     .vehicle-item:hover { background: #141414; }
-
-    .vehicle-thumb {
-      width: 52px;
-      height: 38px;
-      border-radius: 6px;
-      object-fit: cover;
-      background: #1a1a1a;
-      flex-shrink: 0;
-    }
-
+    .vehicle-thumb { width: 52px; height: 38px; border-radius: 6px; object-fit: cover; background: #1a1a1a; flex-shrink: 0; }
     .vehicle-info { flex: 1; min-width: 0; }
-    .vehicle-name {
-      font-size: 12px;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .vehicle-sub {
-      font-size: 11px;
-      color: #666;
-      margin-top: 2px;
-    }
-    .vehicle-price {
-      font-size: 12px;
-      font-weight: 700;
-      color: #22c55e;
-    }
+    .vehicle-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vehicle-sub { font-size: 11px; color: #666; margin-top: 2px; }
+    .vehicle-price { font-size: 12px; font-weight: 700; color: #22c55e; }
 
     .post-btn {
       background: #1a3a1a;
@@ -268,12 +209,10 @@
     }
     .post-btn:hover { background: #22c55e; color: #000; }
 
-    .loading {
-      padding: 40px 20px;
-      text-align: center;
-      color: #444;
-      font-size: 13px;
-    }
+    .loading { padding: 40px 20px; text-align: center; color: #444; font-size: 13px; }
+
+    /* ── Premium Sync bar ── */
+    #premium-sync-bar { background:#0d1117; padding:12px 16px; border-top:1px solid #2a2a2a; display:none; }
   </style>
 </head>
 <body>
@@ -281,7 +220,6 @@
   <div id="login-screen" class="view-screen active">
     <h2>| MarketSync</h2>
     <p>Sign in with your dealership or personal account</p>
-
     <div class="form-group">
       <label>Email</label>
       <input type="email" id="email" placeholder="youname@yourdealership.com" />
@@ -292,7 +230,6 @@
     </div>
     <button class="btn-primary" id="login-btn">Sign In</button>
     <div class="error-msg" id="login-error"></div>
-
     <div class="register-container">
       <div class="register-text">Start Free for 7 Days?</div>
       <button type="button" class="btn-secondary" id="go-to-register-btn">Register You or your Dealership</button>
@@ -302,109 +239,90 @@
   <div id="register-screen" class="view-screen">
     <h2>Create Workspace</h2>
     <p>Configure automated inventory pipeline securely</p>
-
-    <div class="form-group">
-      <label>Full Name</label>
-      <input type="text" id="reg-fullname" placeholder="Jane Doe" />
-    </div>
-    <div class="form-group">
-      <label>Email</label>
-      <input type="email" id="reg-email" placeholder="youremail@yourdealership.com" />
-    </div>
-    <div class="form-group">
-      <label>Password</label>
-      <input type="password" id="reg-password" placeholder="••••••••" />
-    </div>
-    <div class="form-group">
-      <label>Dealership Name</label>
-      <input type="text" id="reg-dealername" placeholder="Your Dealership Name" />
-    </div>
-    <div class="form-group">
-      <label>Website URL</label>
-      <input type="url" id="reg-website" placeholder="https://www.yourdealership.com" />
-    </div>
-    <div class="form-group">
-      <label>Inventory Feed URL</label>
-      <input type="url" id="reg-feed" placeholder="https://yourdealershipname.com/feed" />
-    </div>
-    
+    <div class="form-group"><label>Full Name</label><input type="text" id="reg-fullname" placeholder="Jane Doe" /></div>
+    <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="youremail@yourdealership.com" /></div>
+    <div class="form-group"><label>Password</label><input type="password" id="reg-password" placeholder="••••••••" /></div>
+    <div class="form-group"><label>Dealership Name</label><input type="text" id="reg-dealername" placeholder="Your Dealership Name" /></div>
+    <div class="form-group"><label>Website URL</label><input type="url" id="reg-website" placeholder="https://www.yourdealership.com" /></div>
+    <div class="form-group"><label>Inventory Feed URL</label><input type="url" id="reg-feed" placeholder="https://yourdealershipname.com/feed" /></div>
     <button class="btn-primary" id="submit-register-btn">Submit & Verify Email</button>
     <div class="error-msg" id="reg-error"></div>
     <div class="success-msg" id="reg-success"></div>
-
     <div class="register-container">
       <button type="button" class="btn-secondary" id="go-to-login-btn">← Back to Sign In</button>
     </div>
   </div>
 
-  <!-- Logged-in view — everything below only shows AFTER setScreen('inventory').
-       Earlier this wasn't wrapped in a view-screen, which meant the toolbar/stats/
-       header all rendered on top of the login form AND popup.js crashed trying to
-       toggle a #inventory-screen div that didn't exist. -->
   <div id="inventory-screen" class="view-screen">
 
-  <!-- Header bar — name, dealership, sign-out -->
-  <div class="header">
-    <div>
-      <h1 id="header-name">—</h1>
-      <div class="dealer" id="header-dealer"></div>
+    <!-- Header -->
+    <div class="header">
+      <div>
+        <h1 id="header-name">—</h1>
+        <div class="dealer" id="header-dealer"></div>
+      </div>
+      <div class="header-right">
+        <button type="button" class="dashboard-link" id="open-dashboard-btn">⬡ Dashboard</button>
+        <button type="button" class="logout-btn" id="logout-btn">Sign Out</button>
+      </div>
     </div>
-    <button type="button" class="logout-btn" id="logout-btn">Sign Out</button>
-  </div>
 
-  <div class="toolbar">
-  <div class="category-filter" id="category-filter">
-    <button class="cat-btn active" data-cat="all">All</button>
-    <button class="cat-btn" data-cat="New">New</button>
-    <button class="cat-btn" data-cat="Used">Used</button>
-    <button class="cat-btn" data-cat="Demo">Demo</button>
-  </div>
-  <div class="search-wrap" id="search-wrap">
-    <span class="search-icon">🔍</span>
-    <input type="text" class="search-input" id="search-input" placeholder="Search make, model, year…" autocomplete="off">
-    <button type="button" class="search-clear" id="search-clear" title="Clear">×</button>
-  </div>
-  <button class="refresh-btn" id="refresh-btn">↻ Refresh</button>
-</div>
-
-<!-- Premium Sync: one-time enable for dashboard-driven Cloudflare capture. The
-     instructions, Pull Inventory button, and progress all live on the dashboard. -->
-<div id="premium-sync-bar" style="background:#0d1117;padding:12px 16px;border-top:1px solid #2a2a2a;display:none">
-  <div style="font-size:11px;color:#9aa4b2;line-height:1.5">
-    <b style="color:#c9d1d9">Cloudflare-protected dealer detected.</b><br>
-    Enable one-click capture once, then click <b>Pull Inventory</b> right on your MarketSync dashboard.
-  </div>
-  <button id="enable-oneclick-btn" style="display:none;margin-top:10px;width:100%;background:#1f6feb;border:none;color:#fff;padding:9px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">
-    ⚡ Enable one-click capture from dashboard
-  </button>
-  <div id="enable-oneclick-note" style="display:none;margin-top:6px;font-size:10px;color:#7ee787;line-height:1.5">
-    ✓ Enabled — head to your MarketSync dashboard and click <b>Pull Inventory</b> on the feed.
-  </div>
-</div>
-
+    <!-- Stats -->
     <div class="stats-bar">
-      <div class="stat">
-        <div class="num" id="stat-total">—</div>
-        <div class="label">In Stock</div>
+      <div class="stat"><div class="num" id="stat-total">—</div><div class="label">In Stock</div></div>
+      <div class="stat"><div class="num" id="stat-posted">—</div><div class="label">Posted</div></div>
+      <div class="stat"><div class="num" id="stat-pending">—</div><div class="label">Pending</div></div>
+      <div class="stat"><div class="num" id="stat-remaining">—</div><div class="label">Remaining</div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+      <div class="filter-row">
+        <span class="filter-label">Status</span>
+        <button class="pill active" data-status="all">All</button>
+        <button class="pill status-available" data-status="available">Available</button>
+        <button class="pill status-posted" data-status="posted">Posted</button>
+        <button class="pill status-pending" data-status="pending">Pending</button>
+        <button class="pill status-sold" data-status="sold">Sold</button>
       </div>
-      <div class="stat">
-        <div class="num" id="stat-posted">—</div>
-        <div class="label">Posted</div>
-      </div>
-      <div class="stat">
-        <div class="num" id="stat-remaining">—</div>
-        <div class="label">Remaining</div>
+      <div class="filter-row">
+        <span class="filter-label">Type</span>
+        <button class="pill active" data-cond="all">All</button>
+        <button class="pill" data-cond="new">New</button>
+        <button class="pill" data-cond="used">Used</button>
+        <button class="pill" data-cond="demo">Demo</button>
       </div>
     </div>
 
-    <div class="toolbar">
-      <span id="toolbar-label">Inventory</span>
+    <!-- Search + Refresh -->
+    <div class="search-row">
+      <div class="search-wrap" id="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input" id="search-input" placeholder="Search make, model, year…" autocomplete="off">
+        <button type="button" class="search-clear" id="search-clear" title="Clear">×</button>
+      </div>
       <button class="refresh-btn" id="refresh-btn">↻ Refresh</button>
     </div>
 
+    <!-- Premium Sync bar -->
+    <div id="premium-sync-bar">
+      <div style="font-size:11px;color:#9aa4b2;line-height:1.5">
+        <b style="color:#c9d1d9">Cloudflare-protected dealer detected.</b><br>
+        Enable one-click capture once, then click <b>Pull Inventory</b> on your MarketSync dashboard.
+      </div>
+      <button id="enable-oneclick-btn" style="display:none;margin-top:10px;width:100%;background:#1f6feb;border:none;color:#fff;padding:9px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">
+        ⚡ Enable one-click capture from dashboard
+      </button>
+      <div id="enable-oneclick-note" style="display:none;margin-top:6px;font-size:10px;color:#7ee787;line-height:1.5">
+        ✓ Enabled — head to your MarketSync dashboard and click <b>Pull Inventory</b> on the feed.
+      </div>
+    </div>
+
+    <!-- Vehicle list -->
     <div class="vehicle-list" id="vehicle-list">
       <div class="loading">Loading inventory...</div>
     </div>
+
   </div><!-- /#inventory-screen -->
 
   <script src="popup.js"></script>
