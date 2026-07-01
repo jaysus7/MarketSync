@@ -45,6 +45,9 @@ let __canSeeSalesTeam = false;
 document.addEventListener('DOMContentLoaded', () => {
   // Show insights immediately — mobile sees content before the auth fetch completes.
   // role-gated items (data-admin-nav etc.) stay hidden until ms-role-ready is set inside init.
+  // Wire AI Boost nav immediately — before the async /ai/config fetch completes —
+  // so clicking the sparkle always opens the page regardless of timing.
+  document.getElementById('nav-ai-boost')?.addEventListener('click', () => switchPage('ai-boost'));
   switchPage('insights');
   initializeDashboardEcosystem();
   setupActionListeners();
@@ -2533,8 +2536,8 @@ function renderAIBoostSection(cfg) {
       navBtn.classList.remove('hidden', 'text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
       navBtn.classList.add('text-slate-400', 'dark:text-slate-600', 'hover:bg-indigo-50', 'dark:hover:bg-indigo-950/30', 'cursor-pointer');
       if (navPill) navPill.classList.remove('hidden');
-      delete navBtn.dataset.page;
-      navBtn.onclick = () => startAIBoostCheckout(navBtn, 'Try Free for 3 Days');
+      navBtn.dataset.page = 'ai-boost';
+      navBtn.onclick = null; // early DOMContentLoaded listener handles the click
     }
   }
 
