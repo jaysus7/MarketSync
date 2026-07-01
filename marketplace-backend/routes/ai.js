@@ -290,7 +290,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
   // GET /ai/activity — recent AI enrichment log for the dealership
   app.get('/ai/activity', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const limit = Math.min(Number(req.query.limit) || 50, 200)
+    const limit = Math.min(Number(req.query.limit) || 200, 500)
     const { data, error } = await supabaseAdmin
       .from('ai_activity')
       .select('id, vehicle_label, warnings, price_flagged, price_pct_diff, price_median, copy_generated, created_at, inventory_id')
@@ -299,5 +299,42 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
       .limit(limit)
     if (error) return res.status(500).json({ error: error.message })
     res.json({ activity: data || [] })
+  })
+
+  // GET /ai/price-report/:inventory_id — full price comp detail for a flagged vehicle
+  app.get('/ai/price-report/:inventory_id', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const { inventory_id } = req.params
+
+    const { data: vehicle, error: vErr } = await supabaseAdmin
+      .from('inventory')
+      .select('id, year, make, model, trim, condition, price, mileage, stock_number, status')
+      .eq('id', inventory_id)
+      .eq('dealership_id', req.dealershipId)
+      .single()
+    if (vErr || !vehicle) return res.status(404).json({ error: 'Vehicle not found' })
+
+    if (!vehicle.price || !vehicle.make || !vehicle.model || !vehicle.year) {
+      return res.json({ vehicle, comps: [], median: null, pct_diff: null })
+    }
+
+    const { data: comps } = await supabaseAdmin
+      .from('inventory')
+      .select('id, year, make, model, trim, condition, price, mileage, stock_number, status')
+      .eq('dealership_id', req.dealershipId)
+      .eq('make', vehicle.make)
+      .eq('model', vehicle.model)
+      .eq('status', 'available')
+      .gte('year', vehicle.year - 2)
+      .lte('year', vehicle.year + 2)
+      .neq('id', inventory_id)
+      .not('price', 'is', null)
+
+    const validComps = (comps || []).filter(c => Number(c.price) > 0)
+    const prices = validComps.map(c => Number(c.price)).sort((a, b) => a - b)
+    const med = median(prices)
+    const pct_diff = med ? Math.round(((Number(vehicle.price) - med) / med) * 1000) / 10 : null
+
+    res.json({ vehicle, comps: validComps, median: med, pct_diff })
   })
 }
