@@ -1827,16 +1827,14 @@ function renderCatalog() {
           ${conditionBadge(v.condition)}
           ${statusBadge(v.status)}
         </div>
+        ${v.stocknumber ? `<div class="text-xs text-center text-slate-400 dark:text-slate-500 font-mono tracking-wide">#${v.stocknumber}</div>` : ''}
         <div class="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
           <span class="truncate">${v.trim || ''} ${v.exterior_color ? '· ' + v.exterior_color : ''}</span>
           ${externalIcon}
         </div>
         <div class="flex items-center justify-between text-xs mt-auto">
           <span class="font-bold text-indigo-600 dark:text-indigo-400">${price}</span>
-          <div class="flex items-center gap-2 text-slate-500">
-            ${v.stocknumber ? `<span class="font-mono text-slate-400">#${v.stocknumber}</span>` : ''}
-            <span>${mileage}</span>
-          </div>
+          <span class="text-slate-500">${mileage}</span>
         </div>
       </${tag}>
     `;
