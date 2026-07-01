@@ -167,9 +167,8 @@ async function initializeDashboardEcosystem() {
     });
     switchPage('insights');
 
-    // Global leaderboard — available to EVERYONE (solo reps included).
+    // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
     initGlobalLeaderboard();
-    loadGlobalLeaderboard();
 
     if (isAdmin) {
       document.getElementById('leaderboard-panel')?.classList.remove('hidden');
@@ -641,7 +640,6 @@ const nextTierFor = (points) => LB_TIERS.find(t => t.min > points) || null;
 async function loadLeaderboard() {
   const body = document.getElementById('leaderboard-body');
   if (!body) return;
-  ensureLeaderboardLegend('leaderboard-panel');
   body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">Loading leaderboard...</td></tr>`;
   try {
     const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -1316,9 +1314,50 @@ let __glData = null;
 let __glTab = 'reps';
 
 function initGlobalLeaderboard() {
-  ensureLeaderboardLegend('global-leaderboard-panel');
   if (window.__glWired) return;
   window.__glWired = true;
+
+  // Populate compact tier dots in #lb-legend-tiers
+  const tiersEl = document.getElementById('lb-legend-tiers');
+  if (tiersEl && !tiersEl.children.length) {
+    tiersEl.innerHTML = LB_TIERS.map(t => {
+      const isLegend = t.name === 'Legend';
+      const marker = isLegend
+        ? '<span class="text-indigo-500">👑</span>'
+        : `<span class="inline-block w-2 h-2 rounded-full" style="background:${TIER_DOT[t.name] || '#94a3b8'}"></span>`;
+      return `<span class="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">${marker}${t.name} <span class="text-slate-400">${t.min >= 1000 ? (t.min/1000)+'k' : t.min}pts</span></span>`;
+    }).join('');
+  }
+
+  // Carousel: My Team ↔ Global
+  let __glLoaded = false;
+  const tabTeam = document.getElementById('lb-tab-team');
+  const tabGlobal = document.getElementById('lb-tab-global');
+  const viewTeam = document.getElementById('lb-view-team');
+  const viewGlobal = document.getElementById('lb-view-global');
+  const convWrap = document.getElementById('lb-conv-wrap');
+
+  function setCarouselTab(tab) {
+    const onTeam = tab === 'team';
+    [tabTeam, tabGlobal].forEach(b => {
+      if (!b) return;
+      b.classList.toggle('bg-white', b.id === (onTeam ? 'lb-tab-team' : 'lb-tab-global'));
+      b.classList.toggle('dark:bg-slate-800', b.id === (onTeam ? 'lb-tab-team' : 'lb-tab-global'));
+      b.classList.toggle('text-indigo-600', b.id === (onTeam ? 'lb-tab-team' : 'lb-tab-global'));
+      b.classList.toggle('dark:text-indigo-400', b.id === (onTeam ? 'lb-tab-team' : 'lb-tab-global'));
+      b.classList.toggle('text-slate-600', b.id !== (onTeam ? 'lb-tab-team' : 'lb-tab-global'));
+      b.classList.toggle('dark:text-slate-300', b.id !== (onTeam ? 'lb-tab-team' : 'lb-tab-global'));
+    });
+    if (viewTeam) viewTeam.classList.toggle('hidden', !onTeam);
+    if (viewGlobal) viewGlobal.classList.toggle('hidden', onTeam);
+    if (convWrap) convWrap.classList.toggle('hidden', !onTeam);
+    if (!onTeam && !__glLoaded) { __glLoaded = true; loadGlobalLeaderboard(); }
+  }
+
+  if (tabTeam) tabTeam.addEventListener('click', () => setCarouselTab('team'));
+  if (tabGlobal) tabGlobal.addEventListener('click', () => setCarouselTab('global'));
+  setCarouselTab('team'); // default active
+
   document.querySelectorAll('.gl-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       __glTab = btn.dataset.glTab;
