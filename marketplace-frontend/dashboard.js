@@ -388,9 +388,8 @@ async function loadDealerManagementMatrix() {
       const action = (isSelf || isAdmin)
         ? `<span class="text-xs text-slate-600">—</span>`
         : `<button class="rep-remove-btn text-red-400 hover:text-red-300 text-xs font-bold" data-rep-id="${m.id}" data-rep-name="${m.full_name || m.email || 'this rep'}">Remove</button>`;
-      const nameCell = isAdmin && isSelf
-        ? `<span class="font-bold text-slate-900 dark:text-white">${m.full_name || '(no name)'}</span><span class="text-xs text-slate-500 ml-1">(you)</span>`
-        : `<button class="rep-detail-btn text-left font-bold text-slate-900 dark:text-white hover:text-indigo-300" data-rep-id="${m.id}">${m.full_name || '(no name)'}</button>`;
+      const youTag = isSelf ? ' <span class="text-xs text-slate-500 font-normal">(you)</span>' : '';
+      const nameCell = `<button class="rep-detail-btn text-left font-bold text-slate-900 dark:text-white hover:text-indigo-400 transition" data-rep-id="${m.id}">${m.full_name || '(no name)'}${youTag}</button>`;
       return `
         <tr class="border-b border-slate-200/60 dark:border-slate-800/40 hover:bg-white/60 dark:bg-slate-900/40 transition">
           <td class="py-3 px-4">${nameCell}</td>
