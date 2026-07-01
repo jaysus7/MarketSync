@@ -1,15 +1,30 @@
 const API = 'https://vehicle-marketplace-s0e4.onrender.com';
 
+// If the extension passed a token in the URL hash (#tk=...), store it into
+// localStorage so the user is automatically logged in, then strip the hash.
+;(function bootstrapExtensionToken() {
+  try {
+    const hash = window.location.hash
+    const match = hash.match(/[#&]tk=([^&]+)/)
+    if (match) {
+      const tk = decodeURIComponent(match[1])
+      localStorage.setItem('token', tk)
+      // Replace hash without reloading so the token isn't left in browser history
+      history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
+  } catch {}
+})()
+
 // Local Security Handshake Validations
 const token = localStorage.getItem('token');
 const userRaw = localStorage.getItem('user');
 
-if (!token || !userRaw) {
+if (!token) {
   localStorage.clear();
   window.location.href = 'login.html';
 }
 
-const user = JSON.parse(userRaw);
+const user = userRaw ? JSON.parse(userRaw) : {};
 let profileContext = null;
 
 // Page permission flags (set after profile loads, read by switchPage to mirror panels into Insights)

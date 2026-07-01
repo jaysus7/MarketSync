@@ -1,5 +1,5 @@
 const API = 'https://vehicle-marketplace-s0e4.onrender.com'
-const DASHBOARD_URL = 'https://marketsync.link'
+const DASHBOARD_BASE = 'https://marketsync.link/dashboard.html'
 
 const $ = (id) => document.getElementById(id)
 
@@ -465,7 +465,12 @@ async function showInventoryScreen(token, user) {
   $('logout-btn').onclick = () => chrome.storage.local.remove(['token', 'user'], () => location.reload())
   $('refresh-btn').onclick = () => loadInventory(token)
 
-  $('open-dashboard-btn').onclick = () => chrome.tabs.create({ url: DASHBOARD_URL })
+  $('open-dashboard-btn').onclick = () => {
+    chrome.storage.local.get(['token'], ({ token }) => {
+      const url = token ? `${DASHBOARD_BASE}#tk=${encodeURIComponent(token)}` : DASHBOARD_BASE
+      chrome.tabs.create({ url })
+    })
+  }
 
   // Status filter pills
   document.querySelectorAll('[data-status]').forEach(btn => {
