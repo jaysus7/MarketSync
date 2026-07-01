@@ -1498,18 +1498,16 @@ function renderGlobalLeaderboard() {
     const gradients = ['from-slate-300 to-slate-400', 'from-yellow-300 to-amber-500', 'from-orange-300 to-orange-500'];
     const nums = ['2', '1', '3'];
     podiumEl.innerHTML = order.map((r, i) => {
-      const isFirst = nums[i] === '1';
-      const avatarSize = isFirst ? 'w-12 h-12' : 'w-9 h-9';
       const avatarHtml = r.avatar_url
-        ? `<img src="${r.avatar_url}" class="${avatarSize} rounded-full object-cover border-2 border-white shadow mb-1" />`
-        : `<div class="${avatarSize} rounded-full bg-indigo-200 dark:bg-indigo-700 flex items-center justify-center text-indigo-700 dark:text-indigo-200 font-bold ${isFirst ? 'text-lg' : 'text-sm'} mb-1">${(r.name || '?')[0].toUpperCase()}</div>`;
+        ? `<img src="${r.avatar_url}" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow mb-1 mt-1" />`
+        : `<div class="w-10 h-10 rounded-full bg-indigo-200 dark:bg-indigo-700 flex items-center justify-center text-indigo-700 dark:text-indigo-200 font-bold text-base mb-1 mt-1">${(r.name || '?')[0].toUpperCase()}</div>`;
       return `
-        <div class="text-center flex flex-col items-center">
-          <div class="${isFirst ? 'text-2xl' : 'text-lg'} mb-0.5">${medals[i]}</div>
+        <div class="flex flex-col items-center text-center">
+          <div class="text-3xl mb-1">${medals[i]}</div>
           ${avatarHtml}
-          <div class="${isFirst ? 'text-sm' : 'text-xs'} font-bold text-slate-900 dark:text-white mb-0.5">${r.name}</div>
-          <div class="text-xs text-slate-500 mb-1">${(r.points || 0).toLocaleString()} pts</div>
-          <div class="w-full ${heights[i]} rounded-t-md bg-gradient-to-b ${gradients[i]} flex items-center justify-center text-white font-black text-xl shadow">${nums[i]}</div>
+          <div class="font-bold text-sm text-slate-900 dark:text-white truncate w-full">${r.name}${r.isYou ? ' <span class="text-xs text-indigo-500 font-normal">(you)</span>' : ''}</div>
+          <div class="text-xs font-mono text-slate-600 dark:text-slate-300 mt-1 mb-2">${(r.points || 0).toLocaleString()} pts</div>
+          <div class="w-full mt-2 rounded-t-lg bg-gradient-to-b ${gradients[i]} ${heights[i]} flex items-start justify-center pt-2 text-white font-black text-xl shadow-inner">${nums[i]}</div>
         </div>`;
     }).join('');
   } else if (podiumEl) {
