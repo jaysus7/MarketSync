@@ -1630,6 +1630,15 @@ function renderCatalog() {
   const q = document.getElementById('catalog-search').value.trim().toLowerCase();
   const statusFilter = document.getElementById('catalog-status').value;
 
+  const catalogSortRank = (v) => {
+    const s = v.status;
+    if (s === 'sold') return 40;
+    if (s === 'pending') return 30;
+    if (s === 'posted') return 20;
+    // available: New first, then used
+    return v.mileage && Number(v.mileage) > 0 ? 10 : 0;
+  };
+
   let filtered = __catalogCache;
   if (statusFilter !== 'all') filtered = filtered.filter(v => v.status === statusFilter);
   if (q) {
@@ -1639,6 +1648,7 @@ function renderCatalog() {
         .includes(q)
     );
   }
+  filtered = [...filtered].sort((a, b) => catalogSortRank(a) - catalogSortRank(b));
 
   if (!filtered.length) {
     list.innerHTML = '<div class="text-xs text-slate-500 italic col-span-full">No vehicles match.</div>';
