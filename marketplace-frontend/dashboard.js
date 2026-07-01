@@ -1739,6 +1739,16 @@ function renderCatalog() {
     };
     return `<span class="text-sm uppercase font-bold border px-1.5 py-0.5 rounded ${map[s] || map.sold}">${s || 'unknown'}</span>`;
   };
+  const conditionBadge = (c) => {
+    if (!c) return '';
+    const lc = c.toLowerCase();
+    const cls = lc === 'new'
+      ? 'bg-blue-900/40 border-blue-700 text-blue-300'
+      : lc === 'demo'
+        ? 'bg-purple-900/40 border-purple-700 text-purple-300'
+        : 'bg-orange-900/40 border-orange-700 text-orange-300';
+    return `<span class="text-xs uppercase font-bold border px-1.5 py-0.5 rounded ${cls}">${c}</span>`;
+  };
 
   list.innerHTML = filtered.map(v => {
     const img = v.image_urls?.[0]
@@ -1769,7 +1779,10 @@ function renderCatalog() {
         ${img}
         <div class="flex items-center justify-between gap-2">
           <span class="text-xs font-bold text-slate-900 dark:text-white truncate flex-1" title="${v.year} ${v.make} ${v.model} ${v.trim || ''}">${v.year} ${v.make} ${v.model}</span>
-          ${statusBadge(v.status)}
+          <div class="flex items-center gap-1 flex-shrink-0">
+            ${conditionBadge(v.condition)}
+            ${statusBadge(v.status)}
+          </div>
         </div>
         <div class="text-sm text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
           <span class="truncate">${v.trim || ''} ${v.exterior_color ? '· ' + v.exterior_color : ''}</span>
