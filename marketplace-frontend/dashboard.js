@@ -1331,28 +1331,32 @@ function renderGlobalLeaderboard() {
   const you = __glTab === 'dealers' ? __glData.you_dealer : __glData.you_rep;
   const total = __glTab === 'dealers' ? __glData.total_dealers : __glData.total_reps;
 
-  if (you && youEl) {
-    youEl.classList.remove('hidden');
-    youEl.innerHTML = `You're ranked <b>#${you.rank}</b> of ${total} ${__glTab} · <b>${(you.points || 0).toLocaleString()}</b> pts · ${you.sold} sold`;
-  } else if (youEl) {
-    youEl.classList.add('hidden');
-  }
+  if (youEl) youEl.classList.add('hidden');
 
   if (!rows || !rows.length) {
     body.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500 italic">No ${__glTab} on the board yet.</td></tr>`;
     return;
   }
-  body.innerHTML = rows.map(r => {
-    const hl = r.isYou ? 'bg-indigo-50 dark:bg-indigo-950/40 font-bold' : '';
-    const rank = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank;
-    return `<tr class="${hl}">
-      <td class="py-2.5 px-3 text-left">${rank}</td>
-      <td class="py-2.5 px-3 text-left text-slate-900 dark:text-white">${r.name}${r.isYou ? ' <span class="text-xs text-indigo-500">(you)</span>' : ''}</td>
+
+  const youInList = rows.some(r => r.isYou);
+  const makeRow = (r, pinned) => {
+    const hl = r.isYou ? 'bg-indigo-50 dark:bg-indigo-950/40 font-semibold' : '';
+    const rank = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : `#${r.rank}`;
+    const sep = pinned ? '<tr><td colspan="5" class="py-0"><div class="border-t-2 border-dashed border-indigo-300 dark:border-indigo-700"></div></td></tr>' : '';
+    return `${sep}<tr class="${hl}">
+      <td class="py-2.5 px-3 text-left tabular-nums">${rank}</td>
+      <td class="py-2.5 px-3 text-left text-slate-900 dark:text-white">${r.name}${r.isYou ? ' <span class="text-xs text-indigo-500 font-normal">(you)</span>' : ''}</td>
       <td class="py-2.5 px-3 text-right font-mono">${(r.points || 0).toLocaleString()}</td>
-      <td class="py-2.5 px-3 text-right font-mono text-slate-500 dark:text-slate-400">${r.posted}</td>
-      <td class="py-2.5 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">${r.sold}</td>
+      <td class="py-2.5 px-3 text-right font-mono text-slate-500 dark:text-slate-400">${r.posted ?? '—'}</td>
+      <td class="py-2.5 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">${r.sold ?? '—'}</td>
     </tr>`;
-  }).join('');
+  };
+
+  let html = rows.map(r => makeRow(r, false)).join('');
+  if (!youInList && you) {
+    html += makeRow({ ...you, isYou: true }, true);
+  }
+  body.innerHTML = html;
 }
 
 async function deleteFeed(id) {

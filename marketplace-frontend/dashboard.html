@@ -322,6 +322,91 @@
 
       </div>
 
+      <!-- rep-view-panel: My Performance (reps only) -->
+      <div id="rep-view-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-1">My Performance</h2>
+        <p class="text-slate-500 dark:text-slate-400 text-xs mb-4">Your personal listing activity.</p>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Total Posts</div>
+            <div class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="rep-stat-total">0</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Active</div>
+            <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1" id="rep-stat-active">0</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold</div>
+            <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="rep-stat-sold">0</div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Removed</div>
+            <div class="text-2xl font-black text-slate-500 mt-1" id="rep-stat-deleted">0</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-2">Listings &amp; sales over time</h3>
+            <div class="relative h-48"><canvas id="chart-my-trend"></canvas></div>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
+            <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-2">Listing status</h3>
+            <div class="relative h-48"><canvas id="chart-my-status"></canvas></div>
+          </div>
+        </div>
+
+       <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">Recent Listings</h3>
+          <div class="flex gap-1">
+            <button id="rep-listings-filter-posted" class="text-xs px-2 py-1 rounded border border-indigo-600 bg-indigo-600 text-white" onclick="loadMyListingsFiltered('posted')">Active</button>
+            <button id="rep-listings-filter-sold" class="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400" onclick="loadMyListingsFiltered('sold')">Sold</button>
+            <button id="rep-listings-filter-all" class="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400" onclick="loadMyListingsFiltered('all')">All</button>
+          </div>
+        </div>
+        <div id="rep-recent-list" class="space-y-2 max-h-[600px] overflow-y-auto">
+          <div class="text-xs text-slate-500 italic">Loading...</div>
+        </div>
+      </div>
+
+      <div id="rep-detail-modal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-start justify-center p-6 overflow-y-auto">
+        <div class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-6 max-w-3xl w-full mt-12">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-bold text-slate-900 dark:text-white" id="rep-detail-name">—</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400" id="rep-detail-email">—</p>
+              <p class="text-xs text-slate-500 mt-0.5" id="rep-detail-meta">—</p>
+            </div>
+            <button id="rep-detail-close" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:text-white text-xl px-2">×</button>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+              <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Total Posts</div>
+              <div class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="rep-detail-total">0</div>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+              <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Active</div>
+              <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1" id="rep-detail-active">0</div>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+              <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold</div>
+              <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="rep-detail-sold">0</div>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
+              <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Removed</div>
+              <div class="text-2xl font-black text-slate-500 mt-1" id="rep-detail-deleted">0</div>
+            </div>
+          </div>
+
+          <h4 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-2">Recent Listings</h4>
+          <div id="rep-detail-recent" class="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+            <div class="text-xs text-slate-500 italic">Loading...</div>
+          </div>
+        </div>
+      </div>
+
       </div>
       <!-- ───────── INVENTORY PAGE ───────── -->
       <div data-page-content="inventory" class="page-content hidden space-y-8">
@@ -538,93 +623,6 @@
         </div>
       </div>
 
-      </div>
-      <!-- rep-view-panel belongs on the Insights page (only visible for reps) -->
-      <div data-page-content="insights" class="page-content space-y-8">
-
-      <div id="rep-view-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
-        <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-1">My Performance</h2>
-        <p class="text-slate-500 dark:text-slate-400 text-xs mb-4">Your personal listing activity.</p>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
-            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Total Posts</div>
-            <div class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="rep-stat-total">0</div>
-          </div>
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
-            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Active</div>
-            <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1" id="rep-stat-active">0</div>
-          </div>
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
-            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold</div>
-            <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="rep-stat-sold">0</div>
-          </div>
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
-            <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Removed</div>
-            <div class="text-2xl font-black text-slate-500 mt-1" id="rep-stat-deleted">0</div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-2">Listings &amp; sales over time</h3>
-            <div class="relative h-48"><canvas id="chart-my-trend"></canvas></div>
-          </div>
-          <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3">
-            <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-2">Listing status</h3>
-            <div class="relative h-48"><canvas id="chart-my-status"></canvas></div>
-          </div>
-        </div>
-
-       <div class="flex items-center justify-between mb-2">
-          <h3 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">Recent Listings</h3>
-          <div class="flex gap-1">
-            <button id="rep-listings-filter-posted" class="text-xs px-2 py-1 rounded border border-indigo-600 bg-indigo-600 text-white" onclick="loadMyListingsFiltered('posted')">Active</button>
-            <button id="rep-listings-filter-sold" class="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400" onclick="loadMyListingsFiltered('sold')">Sold</button>
-            <button id="rep-listings-filter-all" class="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400" onclick="loadMyListingsFiltered('all')">All</button>
-          </div>
-        </div>
-        <div id="rep-recent-list" class="space-y-2 max-h-[600px] overflow-y-auto">
-          <div class="text-xs text-slate-500 italic">Loading...</div>
-        </div>
-      </div>
-
-      <div id="rep-detail-modal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-start justify-center p-6 overflow-y-auto">
-        <div class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-6 max-w-3xl w-full mt-12">
-          <div class="flex items-start justify-between mb-4">
-            <div>
-              <h3 class="text-lg font-bold text-slate-900 dark:text-white" id="rep-detail-name">—</h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400" id="rep-detail-email">—</p>
-              <p class="text-xs text-slate-500 mt-0.5" id="rep-detail-meta">—</p>
-            </div>
-            <button id="rep-detail-close" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:text-white text-xl px-2">×</button>
-          </div>
-
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
-              <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Total Posts</div>
-              <div class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="rep-detail-total">0</div>
-            </div>
-            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
-              <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Active</div>
-              <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1" id="rep-detail-active">0</div>
-            </div>
-            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
-              <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Sold</div>
-              <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="rep-detail-sold">0</div>
-            </div>
-            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded">
-              <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Removed</div>
-              <div class="text-2xl font-black text-slate-500 mt-1" id="rep-detail-deleted">0</div>
-            </div>
-          </div>
-
-          <h4 class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-2">Recent Listings</h4>
-          <div id="rep-detail-recent" class="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-            <div class="text-xs text-slate-500 italic">Loading...</div>
-          </div>
-        </div>
-      </div>
 
     </section>
   </main>

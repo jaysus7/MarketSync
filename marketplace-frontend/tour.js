@@ -114,7 +114,7 @@
       <h3></h3><p></p>
       <div class="ms-tour-dots"></div>
       <div class="ms-tour-foot">
-        <label class="ms-tour-dontshow"><input type="checkbox" class="ms-tour-dontshow-cb" checked> Don't show again</label>
+        <div></div>
         <div class="ms-tour-btns">
           <button class="ms-tour-btn ms-tour-back">Back</button>
           <button class="ms-tour-btn ms-tour-next">Next</button>
@@ -129,7 +129,7 @@
     card.querySelector('.ms-tour-back').onclick = () => { if (idx > 0) { idx--; render(); } };
     card.querySelector('.ms-tour-next').onclick = () => { idx < STEPS.length - 1 ? (idx++, render()) : end(); };
 
-    els = { backdrop, hole, card, dontShow: card.querySelector('.ms-tour-dontshow-cb') };
+    els = { backdrop, hole, card };
     return els;
   }
 
@@ -317,13 +317,7 @@
     renderToken++;
     detachReposition();
     if (els) els.backdrop.style.display = els.hole.style.display = els.card.style.display = 'none';
-    // "Don't show again" (checked by default) controls whether the tour auto-runs
-    // on future visits. Unchecking it re-enables the auto-tour. The ❓ Tour button
-    // always replays it regardless.
-    try {
-      if (!els || els.dontShow?.checked) localStorage.setItem(DONE_KEY, '1');
-      else localStorage.removeItem(DONE_KEY);
-    } catch {}
+    try { localStorage.setItem(DONE_KEY, '1'); } catch {}
   }
 
   // Public entry point (used by the Tour button).
