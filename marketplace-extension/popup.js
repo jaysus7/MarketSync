@@ -362,7 +362,13 @@ async function loadInventory(token) {
         lastRank = rank
       }
 
-      const subParts = [v.trim, v.mileage ? v.mileage.toLocaleString() + ' km' : null, daysLabel].filter(Boolean)
+      const stockNum = v.stock_number || v.stocknumber
+      const subParts = [
+        stockNum ? `#${stockNum}` : null,
+        v.trim,
+        v.mileage ? v.mileage.toLocaleString() + ' km' : null,
+        daysLabel
+      ].filter(Boolean)
 
       return `${divider}
         <div class="vehicle-item" data-id="${v.id}">

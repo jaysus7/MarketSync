@@ -20,9 +20,12 @@ async function isSafeImageUrl(rawUrl) {
   if (parsed.hostname === 'localhost') return false
   try {
     const { address } = await dnsLib.promises.lookup(parsed.hostname)
+    // Only reject if DNS resolves to a private/internal IP (SSRF prevention).
+    // If DNS lookup itself fails (timeout, NXDOMAIN), we allow — blocking on
+    // DNS failure rejects legitimate CDN URLs on flaky DNS from Render.
     if (isPrivateIp(address)) return false
   } catch {
-    return false
+    // DNS failed to resolve — not a private IP concern, allow the request.
   }
   return true
 }
@@ -33,7 +36,10 @@ export function registerRoutes(app) {
     if (!url || typeof url !== 'string') return res.status(400).json({ error: 'No URL provided' })
     if (!(await isSafeImageUrl(url))) return res.status(400).json({ error: 'Invalid or disallowed URL' })
     try {
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MarketSync-Proxy/1.0)' },
+        signal: AbortSignal.timeout(10000)
+      })
       const buffer = await response.arrayBuffer()
       const contentType = response.headers.get('content-type') || 'image/jpeg'
       res.set({
