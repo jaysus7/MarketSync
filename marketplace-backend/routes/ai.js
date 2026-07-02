@@ -322,22 +322,32 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
       return res.status(503).json({ error: 'AI features not configured' })
     }
 
-    // Fetch dealership province/city for market context
+    // Fetch dealership location and country for market context
     const { data: dealer } = await supabaseAdmin
       .from('dealerships')
-      .select('city, province')
+      .select('city, province, country')
       .eq('id', req.dealershipId)
       .single()
 
     const isNew = vehicle.condition === 'new' || Number(vehicle.year) >= new Date().getFullYear()
     const conditionLabel = isNew ? 'new' : 'used'
-    const location = [dealer?.city, dealer?.province].filter(Boolean).join(', ') || 'Canada'
-    const mileageText = vehicle.mileage ? `${Number(vehicle.mileage).toLocaleString()} km` : 'unknown mileage'
+
+    // Determine market (US vs Canada) based on dealership country field
+    const countryRaw = (dealer?.country || '').trim().toUpperCase()
+    const isUS = countryRaw === 'US' || countryRaw === 'USA' || countryRaw === 'UNITED STATES'
+    const currency = isUS ? 'USD' : 'CAD'
+    const marketLabel = isUS ? 'US' : 'Canadian'
+    const distanceUnit = isUS ? 'miles' : 'km'
+    const marketSources = isUS
+      ? ['AutoTrader.com', 'CarGurus.com', 'Cars.com']
+      : ['AutoTrader Canada', 'CarGurus Canada', 'Kijiji Autos']
+    const location = [dealer?.city, dealer?.province].filter(Boolean).join(', ') || (isUS ? 'United States' : 'Canada')
+    const mileageText = vehicle.mileage ? `${Number(vehicle.mileage).toLocaleString()} ${distanceUnit}` : 'unknown mileage'
     const trimText = vehicle.trim ? ` ${vehicle.trim}` : ''
 
-    const prompt = `You are an automotive market pricing expert specializing in the Canadian market. Your estimates are based on Canadian automotive marketplace pricing data including AutoTrader Canada, CarGurus Canada, and Kijiji Autos.
+    const prompt = `You are an automotive market pricing expert specializing in the ${marketLabel} market. Your estimates are based on ${marketLabel} automotive marketplace pricing data including ${marketSources.join(', ')}.
 
-Provide a realistic Canadian retail market price range for the following ${conditionLabel} vehicle near ${location}:
+Provide a realistic ${marketLabel} retail market price range for the following ${conditionLabel} vehicle near ${location}:
 
 ${vehicle.year} ${vehicle.make} ${vehicle.model}${trimText}
 Condition: ${conditionLabel}
@@ -347,19 +357,20 @@ ${vehicle.exterior_color ? `Colour: ${vehicle.exterior_color}` : ''}
 Rules:
 - For USED vehicles: compare only against used vehicles of the SAME year and SAME trim level in the ${location} region
 - For NEW vehicles: compare against new vehicles of the SAME year (trim flexible, as new units sell near MSRP)
-- Base estimates on Canadian market pricing (CAD), not US pricing
+- Base estimates on ${marketLabel} market pricing (${currency}), not ${isUS ? 'Canadian' : 'US'} pricing
 - Account for regional market conditions in ${location}
 - Be realistic and specific — not overly wide ranges
 - In your note, briefly mention which marketplace(s) typically show the most listings for this vehicle type
 
 Respond with ONLY valid JSON (no explanation, no markdown) in this exact format:
 {
-  "low": <integer CAD price, lower end of fair market range>,
-  "mid": <integer CAD price, typical market price>,
-  "high": <integer CAD price, upper end of fair market range>,
+  "low": <integer ${currency} price, lower end of fair market range>,
+  "mid": <integer ${currency} price, typical market price>,
+  "high": <integer ${currency} price, upper end of fair market range>,
+  "currency": "${currency}",
   "confidence": "high" | "medium" | "low",
-  "note": "<one or two sentences: market context for this vehicle, referencing relevant Canadian marketplace pricing trends>",
-  "sources": ["AutoTrader Canada", "CarGurus Canada", "Kijiji Autos"]
+  "note": "<one or two sentences: market context for this vehicle, referencing relevant ${marketLabel} marketplace pricing trends>",
+  "sources": ${JSON.stringify(marketSources)}
 }`
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })

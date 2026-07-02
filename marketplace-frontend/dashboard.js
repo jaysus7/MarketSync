@@ -2505,8 +2505,9 @@ function closePriceReport() {
 
 function exportPriceReportPDF() {
   if (!__prData) return;
-  const { vehicle, estimate, pct_diff, label } = __prData;
-  const fmt = n => n != null ? '$' + Number(n).toLocaleString() : '—';
+  const { vehicle, estimate, pct_diff, label, currency } = __prData;
+  const currencyLabel = currency === 'USD' ? 'USD' : 'CAD';
+  const fmt = n => n != null ? '$' + Number(n).toLocaleString() + ' ' + currencyLabel : '—';
   const over = pct_diff != null && pct_diff > 0;
   const diffColor = pct_diff == null ? '#94a3b8' : over ? '#ef4444' : '#f59e0b';
   const diffText = pct_diff != null ? (over ? '+' : '') + pct_diff + '%' : '—';
@@ -2603,9 +2604,11 @@ async function openPriceReport(inventoryId) {
     if (!res.ok) throw new Error('Could not load report');
     const { vehicle, estimate, pct_diff } = await res.json();
 
-    const fmt = n => n != null ? '$' + Number(n).toLocaleString() : '—';
+    const currency = estimate?.currency || 'CAD';
+    const currencyLabel = currency === 'USD' ? 'USD' : 'CAD';
+    const fmt = n => n != null ? '$' + Number(n).toLocaleString() + ' ' + currencyLabel : '—';
     const label = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ');
-    __prData = { vehicle, estimate, pct_diff, label };
+    __prData = { vehicle, estimate, pct_diff, label, currency };
 
     document.getElementById('pr-title').textContent = label;
     document.getElementById('pr-subtitle').textContent =
