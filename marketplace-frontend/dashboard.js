@@ -4466,13 +4466,33 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.disabled = true; btn.textContent = 'Scanning…';
     compPanel?.classList.add('hidden');
     try {
-      // Run scan + fetch our own lot stats in parallel
+      // Kick off background scan + fetch our own lot stats in parallel
+      // Scan now returns immediately with { status: 'scanning', total }
       const [scanRes, ourRes] = await Promise.all([
         fetch(`${API}/ai/competitors/scan`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API}/inventory/all`, { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       const scanData = await scanRes.json();
       if (!scanRes.ok) throw new Error(scanData.error || 'Scan failed');
+
+      // Poll GET /ai/competitors until all entries have a fresh last_scanned_at
+      const total = scanData.total || 1;
+      const scanStarted = Date.now();
+      let competitors = [];
+      btn.textContent = `Scanning 0/${total}…`;
+      for (let attempt = 0; attempt < 60; attempt++) {
+        await new Promise(r => setTimeout(r, 5000));
+        const pollRes = await fetch(`${API}/ai/competitors`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!pollRes.ok) break;
+        const pollData = await pollRes.json();
+        competitors = pollData.competitors || [];
+        const done = competitors.filter(c => c.last_scanned_at && new Date(c.last_scanned_at) > new Date(scanStarted)).length;
+        btn.textContent = `Scanning ${done}/${total}…`;
+        if (done >= total) break;
+      }
+
+      // Build comparison using freshly-scanned competitor data
+      const scanDataFinal = { results: competitors.map(c => ({ id: c.id, name: c.name, result: c.last_scan_result })) };
 
       // Build our lot stats from available inventory
       const ourVehicles = ourRes.ok ? (await ourRes.json()).filter(v => v.status === 'available' && v.price > 0) : [];
@@ -4482,7 +4502,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const ourMax = ourPrices[ourPrices.length - 1] || null;
       const ourCount = ourVehicles.length;
 
-      const results = (scanData.results || []).filter(r => r.result && !r.result.error);
+      const results = (scanDataFinal.results || []).filter(r => r.result && !r.result.error);
       if (results.length && compPanel) {
         const fmt = n => n != null ? `$${Number(n).toLocaleString()}` : '—';
         const pct = (a, b) => (a != null && b != null && b !== 0) ? Math.round(((a - b) / b) * 100) : null;
@@ -4575,7 +4595,7 @@ ${inner}
         });
       }
 
-      showToast(`Scanned ${scanData.scanned} competitor${scanData.scanned !== 1 ? 's' : ''}`, 'success');
+      showToast(`Scanned ${total} competitor${total !== 1 ? 's' : ''}`, 'success');
       loadCompetitors();
     } catch (e) { showToast(e.message, 'error'); }
     finally { btn.disabled = false; btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Scan All'; }

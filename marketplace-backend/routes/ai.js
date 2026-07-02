@@ -1251,37 +1251,39 @@ Units 60d+ on lot: ${stale}`
       }
     }
 
-    const results = []
-    for (const comp of (competitors || [])) {
-      if (!comp.autotrader_url) {
-        const result = { error: 'No URL configured', scanned_at: new Date().toISOString() }
-        results.push({ id: comp.id, name: comp.name, result })
-        continue
-      }
-      let scanResult
-      try {
-        scanResult = await scrapeInventoryUrl(comp.autotrader_url)
-      } catch (err) {
-        let msg
-        if (err.message === 'no_inventory_data') {
-          msg = 'No inventory data found at this URL. Try the dealership\'s inventory page or their AutoTrader dealer URL (autotrader.ca/dealers/…).'
-        } else if (/403|401|429|blocking/i.test(err.message)) {
-          msg = 'Site is blocking automated scans (WAF/bot protection). Try adding their AutoTrader URL instead.'
-        } else {
-          msg = `Scan failed: ${err.message}`
+    const compList = competitors || []
+    // Respond immediately — scan runs in background to avoid platform timeout
+    res.json({ status: 'scanning', total: compList.length })
+
+    ;(async () => {
+      for (const comp of compList) {
+        if (!comp.autotrader_url) {
+          await supabaseAdmin
+            .from('competitor_dealerships')
+            .update({ last_scan_result: { error: 'No URL configured', scanned_at: new Date().toISOString() }, last_scanned_at: new Date().toISOString() })
+            .eq('id', comp.id)
+          continue
         }
-        scanResult = { error: msg, scanned_at: new Date().toISOString() }
+        let scanResult
+        try {
+          scanResult = await scrapeInventoryUrl(comp.autotrader_url)
+        } catch (err) {
+          let msg
+          if (err.message === 'no_inventory_data') {
+            msg = 'No inventory data found at this URL. Try the dealership\'s inventory page or their AutoTrader dealer URL (autotrader.ca/dealers/…).'
+          } else if (/403|401|429|blocking/i.test(err.message)) {
+            msg = 'Site is blocking automated scans (WAF/bot protection). Try adding their AutoTrader URL instead.'
+          } else {
+            msg = `Scan failed: ${err.message}`
+          }
+          scanResult = { error: msg, scanned_at: new Date().toISOString() }
+        }
+        await supabaseAdmin
+          .from('competitor_dealerships')
+          .update({ last_scan_result: scanResult, last_scanned_at: new Date().toISOString() })
+          .eq('id', comp.id)
       }
-
-      await supabaseAdmin
-        .from('competitor_dealerships')
-        .update({ last_scan_result: scanResult, last_scanned_at: new Date().toISOString() })
-        .eq('id', comp.id)
-
-      results.push({ id: comp.id, name: comp.name, result: scanResult })
-    }
-
-    res.json({ scanned: results.length, results })
+    })().catch(e => console.error('[competitor scan background]', e.message))
   })
 
   // ── Weekly Lot Health Report ─────────────────────────────────────────────
