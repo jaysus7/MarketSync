@@ -4172,11 +4172,12 @@ async function loadCompetitors() {
       const hasData = sr.listing_count != null || sr.avg_price != null;
       const count = sr.listing_count != null ? `${sr.listing_count} listings` : '—';
       const priceRange = sr.min_price && sr.max_price ? `$${Number(sr.min_price).toLocaleString()} – $${Number(sr.max_price).toLocaleString()}` : '—';
+      const platformBadge = sr.platform ? `<span class="text-[10px] text-indigo-400 font-semibold ml-1">(${sr.platform})</span>` : '';
       const errorLine = sr.error ? `<div class="text-xs text-amber-500 mt-1 leading-snug">⚠ ${sr.error}</div>` : '';
       return `<div class="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5" data-competitor-id="${c.id}">
         <div class="min-w-0 flex-1">
           <div class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">${c.name}</div>
-          <div class="text-xs text-slate-400 mt-0.5">${scannedAt}${hasData ? ` · ${count} · ${priceRange}` : ''}</div>
+          <div class="text-xs text-slate-400 mt-0.5">${scannedAt}${hasData ? ` · ${count} · ${priceRange}` : ''}${platformBadge}</div>
           ${c.autotrader_url ? `<a href="${c.autotrader_url}" target="_blank" rel="noopener" class="text-xs text-indigo-500 hover:underline truncate block max-w-xs">${c.autotrader_url}</a>` : '<span class="text-xs text-slate-400">No URL</span>'}
           ${errorLine}
         </div>

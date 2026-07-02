@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { scrapeMarketData } from '../scraper.js'
+import { detectFeedPlatform } from '../sync/platforms.js'
 
 const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 
@@ -744,10 +745,32 @@ Return ONLY valid JSON array (no markdown):
       .select('*')
       .eq('dealership_id', req.dealershipId)
 
-    // Attempt to scrape inventory data from a URL.
-    // Works best with AutoTrader dealer inventory pages (server-rendered JSON).
-    // Dealer homepages rarely expose structured inventory data — we detect this and return a clear error.
+    // Attempt to extract inventory data from a competitor URL.
+    // Strategy 1: Use detectFeedPlatform — probes known DMS API endpoints
+    //   (EDealer, CDK, Dealer Inspire, Sincro, etc.) from the site's origin.
+    //   Works on any homepage URL, returns actual vehicle count and prices.
+    // Strategy 2: HTML scraping — AutoTrader embedded JSON or generic patterns.
     async function scrapeInventoryUrl(url) {
+      // Try DMS platform detection first (works on dealer homepages)
+      try {
+        const probe = await detectFeedPlatform(url)
+        if (probe.success) {
+          const vehicles = probe.sample_vehicles || []
+          const prices = vehicles.map(v => Number(v.price)).filter(p => p > 1000 && p < 500000)
+          const sorted = [...prices].sort((a, b) => a - b)
+          const avg_price = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null
+          return {
+            listing_count: probe.vehicle_count ?? null,
+            avg_price,
+            min_price: sorted[0] ?? null,
+            max_price: sorted[sorted.length - 1] ?? null,
+            platform: probe.platform_label ?? probe.platform,
+            scanned_at: new Date().toISOString()
+          }
+        }
+      } catch {}
+
+      // Fall back to HTML scraping (AutoTrader pages, generic embedded JSON)
       const res = await browserFetch(url, { signal: AbortSignal.timeout(12000) })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const html = await res.text()
@@ -760,14 +783,9 @@ Return ONLY valid JSON array (no markdown):
       if (atStateMatch) {
         try {
           const state = JSON.parse(atStateMatch[1])
-          // total count lives at different paths in different AT versions
-          const total = state?.searchResults?.totalCount
-            || state?.listing?.totalCount
-            || state?.resultList?.totalCount
+          const total = state?.searchResults?.totalCount || state?.listing?.totalCount || state?.resultList?.totalCount
           if (total) listing_count = total
-          const listings = state?.searchResults?.listings
-            || state?.resultList?.listings
-            || []
+          const listings = state?.searchResults?.listings || state?.resultList?.listings || []
           for (const l of listings) {
             const p = l?.price?.value || l?.pricingDetail?.price
             if (p && p > 1000 && p < 500000) prices.push(p)
@@ -775,30 +793,22 @@ Return ONLY valid JSON array (no markdown):
         } catch {}
       }
 
-      // AutoTrader / generic: JSON-LD arrays
       if (!listing_count) {
-        const countMatch = html.match(/"totalResults"\s*:\s*(\d+)/)
-          || html.match(/"totalCount"\s*:\s*(\d+)/)
-          || html.match(/"total"\s*:\s*(\d+)/)
+        const countMatch = html.match(/"totalResults"\s*:\s*(\d+)/) || html.match(/"totalCount"\s*:\s*(\d+)/) || html.match(/"total"\s*:\s*(\d+)/)
         if (countMatch) listing_count = parseInt(countMatch[1])
       }
 
-      // Generic: text pattern like "148 vehicles"
       if (!listing_count) {
         const textMatch = html.match(/\b(\d{1,4})\s+(?:new\s+&\s+used\s+)?(?:vehicles?|listings?|results?|cars?)\b/i)
         if (textMatch) listing_count = parseInt(textMatch[1])
       }
 
-      // Extract prices from any embedded JSON (works on many DMS-generated sites)
       if (!prices.length) {
         const priceMatches = [...html.matchAll(/"(?:price|sellingPrice|listPrice|salePrice)"\s*:\s*"?(\d{4,6})"?/g)]
         prices = priceMatches.map(m => parseInt(m[1])).filter(p => p > 1000 && p < 500000)
       }
 
-      // If we found nothing at all, this is probably a homepage — tell the user
-      if (!listing_count && !prices.length) {
-        throw new Error('no_inventory_data')
-      }
+      if (!listing_count && !prices.length) throw new Error('no_inventory_data')
 
       const sorted = [...prices].sort((a, b) => a - b)
       const avg_price = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null
