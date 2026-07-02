@@ -634,12 +634,20 @@ async function postVehicle(inventoryId, token) {
   const btn = document.querySelector(`.post-btn[data-id="${inventoryId}"]`)
   if (!btn) return
   btn.classList.add('posting')
-  btn.textContent = 'Opening...'
+  btn.textContent = 'Generating AI copy...'
   btn.disabled = true
   try {
-    const vehicle = await apiGet(`/inventory/${inventoryId}`, token)
-    let poster = null
-    try { poster = await apiGet('/auth/me', token) } catch {}
+    const [vehicle, enriched, poster] = await Promise.all([
+      apiGet(`/inventory/${inventoryId}`, token),
+      fetch(`${API}/ai/enrich-listing`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inventory_id: inventoryId })
+      }).then(r => r.ok ? r.json() : null).catch(() => null),
+      apiGet('/auth/me', token).catch(() => null)
+    ])
+    if (enriched?.copy) vehicle.ai_description = enriched.copy
+    btn.textContent = 'Opening Facebook...'
     chrome.storage.local.set({ pendingPost: { vehicle, token, poster } }, () => {
       chrome.tabs.create({ url: 'https://www.facebook.com/marketplace/create/vehicle' })
       window.close()

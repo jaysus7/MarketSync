@@ -1812,21 +1812,21 @@ function renderCatalog() {
 
   const statusBadge = (s) => {
     const map = {
-      available: 'bg-emerald-900/40 border-emerald-700 text-emerald-300',
-      pending: 'bg-amber-900/40 border-amber-700 text-amber-300',
-      sold: 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+      available: 'bg-emerald-600 text-white',
+      pending:   'bg-amber-500 text-white',
+      sold:      'bg-slate-500 text-white'
     };
-    return `<span class="text-xs uppercase font-bold border px-1.5 py-0.5 rounded ${map[s] || map.sold}">${s || 'unknown'}</span>`;
+    return `<span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${map[s] || map.sold}">${s || 'unknown'}</span>`;
   };
   const conditionBadge = (c) => {
     if (!c) return '';
     const lc = c.toLowerCase();
     const cls = lc === 'new'
-      ? 'bg-blue-900/40 border-blue-700 text-blue-300'
+      ? 'bg-blue-600 text-white'
       : lc === 'demo'
-        ? 'bg-purple-900/40 border-purple-700 text-purple-300'
-        : 'bg-orange-900/40 border-orange-700 text-orange-300';
-    return `<span class="text-xs uppercase font-bold border px-1.5 py-0.5 rounded ${cls}">${c}</span>`;
+        ? 'bg-purple-600 text-white'
+        : 'bg-orange-500 text-white';
+    return `<span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${cls}">${c}</span>`;
   };
 
   list.innerHTML = filtered.map(v => {
@@ -1870,7 +1870,7 @@ function renderCatalog() {
           ${v.stocknumber ? `<span class="font-mono text-slate-400 dark:text-slate-500">#${v.stocknumber}</span>` : ''}
           <span class="text-slate-500">${mileage}</span>
         </div>
-        ${__aiBoostActive ? `<button class="ai-enrich-btn mt-1 w-full text-xs bg-indigo-900/40 hover:bg-indigo-800/60 border border-indigo-700 text-indigo-300 rounded py-1 transition" data-id="${v.id}">AI Enrichment</button>` : ''}
+        ${__aiBoostActive ? `<button class="ai-enrich-btn mt-1 w-full text-xs bg-indigo-900/40 hover:bg-indigo-800/60 border border-indigo-700 text-indigo-300 rounded py-1 transition" data-id="${v.id}">Preview AI Copy</button>` : ''}
         ${__vinStickerActive ? `
         <div class="flex gap-1 mt-1">
           <button class="vin-decode-btn flex-1 text-xs bg-slate-800/60 hover:bg-slate-700/80 border border-slate-600 text-slate-300 rounded py-1 transition" data-id="${v.id}" data-vin="${v.vin || ''}">VIN Decode</button>
