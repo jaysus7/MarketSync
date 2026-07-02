@@ -850,6 +850,157 @@ Return ONLY valid JSON array (no markdown):
 
   // ── Weekly Lot Health Report ─────────────────────────────────────────────
 
+  async function buildReportData(dealershipId) {
+    const now = Date.now()
+    const ago7  = new Date(now - 7  * 86400000).toISOString()
+    const ago14 = new Date(now - 14 * 86400000).toISOString()
+
+    const [
+      { data: allVehicles },
+      { data: recentActivity },
+      { data: prevActivity },
+      { data: soldThisWeek },
+      { data: soldPrevWeek }
+    ] = await Promise.all([
+      supabaseAdmin.from('inventory')
+        .select('id, year, make, model, trim, price, condition, stocknumber, image_urls, last_synced_at, created_at, updated_at, status')
+        .eq('dealership_id', dealershipId)
+        .eq('status', 'available'),
+      supabaseAdmin.from('ai_activity')
+        .select('inventory_id, vehicle_label, warnings, price_flagged, price_pct_diff, created_at')
+        .eq('dealership_id', dealershipId)
+        .gte('created_at', ago7)
+        .order('created_at', { ascending: false })
+        .limit(500),
+      supabaseAdmin.from('ai_activity')
+        .select('inventory_id, price_flagged, price_pct_diff')
+        .eq('dealership_id', dealershipId)
+        .gte('created_at', ago14)
+        .lt('created_at', ago7)
+        .limit(500),
+      supabaseAdmin.from('inventory')
+        .select('id')
+        .eq('dealership_id', dealershipId)
+        .eq('status', 'sold')
+        .gte('updated_at', ago7),
+      supabaseAdmin.from('inventory')
+        .select('id')
+        .eq('dealership_id', dealershipId)
+        .eq('status', 'sold')
+        .gte('updated_at', ago14)
+        .lt('updated_at', ago7)
+    ])
+
+    const vehicles = allVehicles || []
+    const totalUnits = vehicles.length
+    const withPhotos = vehicles.filter(v => v.image_urls?.length > 0).length
+    const noPhotos = vehicles.filter(v => !v.image_urls?.length)
+    const prices = vehicles.filter(v => v.price > 0).map(v => Number(v.price)).sort((a, b) => a - b)
+    const avgPrice = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null
+    const medianPrice = prices.length ? prices[Math.floor(prices.length / 2)] : null
+
+    const withDays = vehicles.map(v => ({
+      ...v,
+      daysOnLot: Math.floor((now - new Date(v.last_synced_at || v.created_at).getTime()) / 86400000)
+    }))
+    const aging = withDays.filter(v => v.daysOnLot > 60).sort((a, b) => b.daysOnLot - a.daysOnLot)
+    const slowMovers30 = withDays.filter(v => v.daysOnLot > 30 && v.daysOnLot <= 60).sort((a, b) => b.daysOnLot - a.daysOnLot)
+    const avgDays = withDays.length ? Math.round(withDays.reduce((s, v) => s + v.daysOnLot, 0) / withDays.length) : 0
+
+    const vehicleById = {}
+    for (const v of vehicles) vehicleById[v.id] = v
+
+    const driftMap = {}
+    for (const a of (recentActivity || [])) {
+      if (!a.price_flagged) continue
+      const inv = vehicleById[a.inventory_id]
+      if (!inv) continue
+      if (inv.condition === 'new') continue
+      const key = a.inventory_id || a.vehicle_label
+      if (!driftMap[key] || Math.abs(a.price_pct_diff) > Math.abs(driftMap[key].price_pct_diff)) driftMap[key] = a
+    }
+    const priceDrift = Object.values(driftMap).sort((a, b) => Math.abs(b.price_pct_diff) - Math.abs(a.price_pct_diff))
+
+    const warnMap = {}
+    for (const a of (recentActivity || [])) {
+      const nonPhotoWarnings = (a.warnings || []).filter(w => !w.toLowerCase().includes('photo'))
+      if (!nonPhotoWarnings.length) continue
+      const key = a.inventory_id || a.vehicle_label
+      if (!warnMap[key]) warnMap[key] = { ...a, warnings: nonPhotoWarnings }
+    }
+    const missingInfo = Object.values(warnMap)
+
+    // Prev week price flags for delta comparison
+    const prevDriftMap = {}
+    for (const a of (prevActivity || [])) {
+      if (!a.price_flagged) continue
+      const inv = vehicleById[a.inventory_id]
+      if (!inv) continue
+      if (inv.condition === 'new') continue
+      const key = a.inventory_id || a.vehicle_label
+      prevDriftMap[key] = a
+    }
+    const prevPriceFlagCount = Object.keys(prevDriftMap).length
+
+    // New arrivals (created_at based on currently available inventory)
+    const newArrivalsThisWeek = vehicles.filter(v => v.created_at >= ago7).length
+    const newArrivalsPrevWeek = vehicles.filter(v => v.created_at >= ago14 && v.created_at < ago7).length
+    const soldThisWeekCount = (soldThisWeek || []).length
+    const soldPrevWeekCount = (soldPrevWeek || []).length
+
+    // Condition mix
+    const conditionCount = { new: 0, used: 0, demo: 0 }
+    for (const v of vehicles) {
+      const c = (v.condition || '').toLowerCase()
+      if (c === 'new') conditionCount.new++
+      else if (c === 'demo' || c === 'demonstrator') conditionCount.demo++
+      else conditionCount.used++
+    }
+
+    // Price brackets
+    const priceBrackets = [
+      { label: '< $20K',    min: 0,     max: 20000, count: 0 },
+      { label: '$20K–40K',  min: 20000, max: 40000, count: 0 },
+      { label: '$40K–60K',  min: 40000, max: 60000, count: 0 },
+      { label: '$60K–80K',  min: 60000, max: 80000, count: 0 },
+      { label: '$80K+',     min: 80000, max: Infinity, count: 0 },
+    ]
+    for (const v of vehicles) {
+      const p = Number(v.price) || 0
+      const b = priceBrackets.find(b => p >= b.min && p < b.max)
+      if (b) b.count++
+    }
+
+    // Days on lot distribution
+    const daysBrackets = [
+      { label: '0–30 days',  count: 0 },
+      { label: '31–60 days', count: 0 },
+      { label: '61–90 days', count: 0 },
+      { label: '90+ days',   count: 0 },
+    ]
+    for (const v of withDays) {
+      if (v.daysOnLot <= 30) daysBrackets[0].count++
+      else if (v.daysOnLot <= 60) daysBrackets[1].count++
+      else if (v.daysOnLot <= 90) daysBrackets[2].count++
+      else daysBrackets[3].count++
+    }
+
+    const makeCount = {}
+    for (const v of vehicles) { const k = v.make || 'Unknown'; makeCount[k] = (makeCount[k] || 0) + 1 }
+    const topMakes = Object.entries(makeCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
+
+    return {
+      vehicles, vehicleById,
+      totalUnits, withPhotos, noPhotos, prices, avgPrice, medianPrice,
+      withDays, aging, slowMovers30, avgDays,
+      priceDrift, missingInfo,
+      prevPriceFlagCount,
+      newArrivalsThisWeek, newArrivalsPrevWeek,
+      soldThisWeekCount, soldPrevWeekCount,
+      conditionCount, priceBrackets, daysBrackets, topMakes
+    }
+  }
+
   app.post('/ai/weekly-report', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
 
@@ -863,96 +1014,59 @@ Return ONLY valid JSON array (no markdown):
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
     if (!resend) return res.status(503).json({ error: 'Email not configured' })
 
-    const now = Date.now()
-    const ago60 = new Date(now - 60 * 86400000).toISOString()
-    const ago30 = new Date(now - 30 * 86400000).toISOString()
-    const ago7 = new Date(now - 7 * 86400000).toISOString()
-
-    const [{ data: allVehicles }, { data: recentActivity }] = await Promise.all([
-      supabaseAdmin
-        .from('inventory')
-        .select('id, year, make, model, trim, price, condition, stocknumber, image_urls, last_synced_at, created_at, status')
-        .eq('dealership_id', req.dealershipId)
-        .eq('status', 'available'),
-      supabaseAdmin
-        .from('ai_activity')
-        .select('inventory_id, vehicle_label, warnings, price_flagged, price_pct_diff, created_at')
-        .eq('dealership_id', req.dealershipId)
-        .gte('created_at', ago7)
-        .order('created_at', { ascending: false })
-        .limit(500)
-    ])
-
-    const vehicles = allVehicles || []
-    const totalUnits = vehicles.length
-    const withPhotos = vehicles.filter(v => v.image_urls?.length > 0).length
-    const noPhotos = vehicles.filter(v => !v.image_urls?.length)
-    const withPrice = vehicles.filter(v => v.price > 0)
-    const prices = withPrice.map(v => Number(v.price)).sort((a, b) => a - b)
-    const avgPrice = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null
-    const medianPrice = prices.length ? prices[Math.floor(prices.length / 2)] : null
-
-    const withDays = vehicles.map(v => ({
-      ...v,
-      daysOnLot: Math.floor((now - new Date(v.last_synced_at || v.created_at).getTime()) / 86400000)
-    }))
-    const aging = withDays.filter(v => v.daysOnLot > 60).sort((a, b) => b.daysOnLot - a.daysOnLot)
-    const slowMovers30 = withDays.filter(v => v.daysOnLot > 30 && v.daysOnLot <= 60).sort((a, b) => b.daysOnLot - a.daysOnLot)
-    const avgDays = withDays.length ? Math.round(withDays.reduce((s, v) => s + v.daysOnLot, 0) / withDays.length) : 0
-
-    // Build a lookup of vehicle condition by id for filtering
-    const vehicleById = {}
-    for (const v of vehicles) vehicleById[v.id] = v
-
-    // Deduplicate price drift by inventory_id, keep worst flag per vehicle.
-    // Skip condition='new' — MSRP pricing has no meaningful comparable.
-    // Also skip if vehicle not found in current available list (may be sold/archived with stale activity).
-    const driftMap = {}
-    for (const a of (recentActivity || [])) {
-      if (!a.price_flagged) continue
-      const inv = vehicleById[a.inventory_id]
-      if (!inv) continue                         // not in current available inventory — skip stale activity
-      if (inv.condition === 'new') continue      // new vehicles excluded from price comparison
-      const key = a.inventory_id || a.vehicle_label
-      if (!driftMap[key] || Math.abs(a.price_pct_diff) > Math.abs(driftMap[key].price_pct_diff)) {
-        driftMap[key] = a
-      }
-    }
-    const priceDrift = Object.values(driftMap).sort((a, b) => Math.abs(b.price_pct_diff) - Math.abs(a.price_pct_diff))
-
-    // Deduplicate missing info by inventory_id.
-    // Exclude "No photos" warnings — those are shown in the dedicated No Photos section.
-    const warnMap = {}
-    for (const a of (recentActivity || [])) {
-      const nonPhotoWarnings = (a.warnings || []).filter(w => !w.toLowerCase().includes('photo'))
-      if (!nonPhotoWarnings.length) continue
-      const key = a.inventory_id || a.vehicle_label
-      if (!warnMap[key]) warnMap[key] = { ...a, warnings: nonPhotoWarnings }
-    }
-    const missingInfo = Object.values(warnMap)
-
-    // Make/model mix for top-5 bar chart
-    const makeCount = {}
-    for (const v of vehicles) {
-      const k = v.make || 'Unknown'
-      makeCount[k] = (makeCount[k] || 0) + 1
-    }
-    const topMakes = Object.entries(makeCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
-    const maxMakeCount = topMakes[0]?.[1] || 1
+    const d = await buildReportData(req.dealershipId)
+    const {
+      vehicles, vehicleById,
+      totalUnits, withPhotos, noPhotos, avgPrice, medianPrice,
+      aging, slowMovers30, avgDays,
+      priceDrift, missingInfo,
+      prevPriceFlagCount,
+      newArrivalsThisWeek, newArrivalsPrevWeek,
+      soldThisWeekCount, soldPrevWeekCount,
+      conditionCount, priceBrackets, daysBrackets, topMakes
+    } = d
 
     const dealerName = dealer.name || 'Your Dealership'
     const primary = '#1a2e4a'
     const accent = '#6366f1'
+
+    const photosPct = totalUnits ? Math.round((withPhotos / totalUnits) * 100) : 0
+    const agingPct  = totalUnits ? Math.round((aging.length / totalUnits) * 100) : 0
+    const driftPct  = totalUnits ? Math.round((priceDrift.length / totalUnits) * 100) : 0
+
+    const wkDelta = (curr, prev, lowerBetter = false) => {
+      const diff = curr - prev
+      if (prev === 0 && diff === 0) return ''
+      if (diff === 0) return `<div style="font-size:10px;color:#94a3b8">— same as last wk</div>`
+      const up = diff > 0; const good = lowerBetter ? !up : up
+      return `<div style="font-size:10px;color:${good ? '#16a34a' : '#ef4444'}">${up ? '↑' : '↓'}${Math.abs(diff)} vs last wk</div>`
+    }
 
     const vLabel = v => {
       const name = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')
       return v.stocknumber ? `${name} <span style="color:#64748b;font-size:11px">#${v.stocknumber}</span>` : name
     }
     const aLabel = a => {
-      // Try to append stock number if we can find it from inventory
-      const inv = vehicles.find(v => v.id === a.inventory_id)
+      const inv = vehicleById[a.inventory_id]
       const sn = inv?.stocknumber
       return sn ? `${a.vehicle_label} <span style="color:#64748b;font-size:11px">#${sn}</span>` : a.vehicle_label
+    }
+
+    const statBox = (label, value, sub, color, delta = '') =>
+      `<td width="25%" style="padding:12px;text-align:center;border-right:1px solid #e2e8f0">
+        <div style="font-size:22px;font-weight:900;color:${color}">${value}</div>
+        <div style="font-size:11px;font-weight:700;color:#475569;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em">${label}</div>
+        ${sub ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${sub}</div>` : ''}
+        ${delta}
+      </td>`
+
+    const barRow = (label, count, max, total, color = accent) => {
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0
+      const barW = max > 0 ? Math.round((count / max) * 180) : 0
+      return `<tr>
+        <td style="padding:3px 10px;font-size:12px;color:#334155;width:110px;white-space:nowrap">${label}</td>
+        <td style="padding:3px 6px"><div style="background:#e2e8f0;border-radius:4px;height:13px;width:190px"><div style="background:${color};border-radius:4px;height:13px;width:${barW}px"></div></div></td>
+        <td style="padding:3px 6px;font-size:11px;color:#64748b;white-space:nowrap">${count} (${pct}%)</td></tr>`
     }
 
     const sectionHeader = (title, cols = 3) =>
@@ -969,17 +1083,14 @@ Return ONLY valid JSON array (no markdown):
       </tr>`
 
     const driftRow = a => {
-      const pct = a.price_pct_diff
-      const over = pct > 0
-      const color = over ? '#16a34a' : '#ef4444'
-      const direction = over ? 'overpriced' : 'underpriced'
+      const pct = a.price_pct_diff; const over = pct > 0
       const fix = over
-        ? `Consider reducing by $${Math.round(Math.abs(pct / 100) * (vehicles.find(v => v.id === a.inventory_id)?.price || 0)).toLocaleString()} to align with market`
+        ? `Consider reducing by $${Math.round(Math.abs(pct / 100) * (vehicleById[a.inventory_id]?.price || 0)).toLocaleString()} to align with market`
         : `May sell faster at current price — or raise to recapture margin`
       return `<tr>
         <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:13px">${aLabel(a)}</td>
-        <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:13px;color:${color};font-weight:700">${over ? '+' : ''}${pct}%</td>
-        <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b">${direction} vs similar units on your lot. ${fix}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:13px;color:${over ? '#16a34a' : '#ef4444'};font-weight:700">${over ? '+' : ''}${pct}%</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b">${over ? 'Overpriced' : 'Underpriced'} vs similar units on your lot. ${fix}</td>
       </tr>`
     }
 
@@ -989,30 +1100,11 @@ Return ONLY valid JSON array (no markdown):
         <td colspan="2" style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#b45309">${(a.warnings || []).join(' · ')}</td>
       </tr>`
 
-    const statBox = (label, value, sub, color = '#1a2e4a') =>
-      `<td width="25%" style="padding:12px;text-align:center;border-right:1px solid #e2e8f0">
-        <div style="font-size:22px;font-weight:900;color:${color}">${value}</div>
-        <div style="font-size:11px;font-weight:700;color:#475569;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em">${label}</div>
-        ${sub ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${sub}</div>` : ''}
-      </td>`
-
-    const barRow = (label, count, max, total) => {
-      const pct = Math.round((count / total) * 100)
-      const barW = Math.round((count / max) * 200)
-      return `<tr>
-        <td style="padding:4px 12px;font-size:12px;color:#334155;width:120px">${label}</td>
-        <td style="padding:4px 8px">
-          <div style="background:#e2e8f0;border-radius:4px;height:14px;width:220px">
-            <div style="background:${accent};border-radius:4px;height:14px;width:${barW}px"></div>
-          </div>
-        </td>
-        <td style="padding:4px 8px;font-size:12px;color:#64748b;white-space:nowrap">${count} units (${pct}%)</td>
-      </tr>`
-    }
-
-    const photosPct = totalUnits ? Math.round((withPhotos / totalUnits) * 100) : 0
-    const agingPct  = totalUnits ? Math.round((aging.length / totalUnits) * 100) : 0
-    const driftPct  = totalUnits ? Math.round((priceDrift.length / totalUnits) * 100) : 0
+    const maxCondition = Math.max(conditionCount.new, conditionCount.used, conditionCount.demo, 1)
+    const maxPriceBracket = Math.max(...priceBrackets.map(b => b.count), 1)
+    const maxDaysBracket = Math.max(...daysBrackets.map(b => b.count), 1)
+    const maxMakeCount = topMakes[0]?.[1] || 1
+    const dateStr = new Date().toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
     const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>body{margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif}</style>
@@ -1024,61 +1116,103 @@ Return ONLY valid JSON array (no markdown):
   <!-- Header -->
   <tr><td style="background:${primary};padding:22px 24px">
     <div style="color:#fff;font-size:22px;font-weight:900">${dealerName}</div>
-    <div style="color:#94a3b8;font-size:13px;margin-top:3px">Weekly Lot Health Report · ${new Date().toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+    <div style="color:#94a3b8;font-size:13px;margin-top:3px">Weekly Lot Health Report</div>
+    <div style="color:#e2e8f0;font-size:15px;font-weight:700;margin-top:6px">${dateStr}</div>
   </td></tr>
 
-  <!-- Summary stat row -->
+  <!-- Row 1: core stats -->
   <tr><td style="padding:0">
-    <table width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #e2e8f0">
-      <tr>
-        ${statBox('Total Units', totalUnits, 'available now', '#1a2e4a')}
-        ${statBox('Photos Coverage', `${photosPct}%`, `${withPhotos} of ${totalUnits} have photos`, photosPct < 80 ? '#ef4444' : '#16a34a')}
-        ${statBox('Avg Days on Lot', avgDays, agingPct > 0 ? `${agingPct}% aging 60d+` : 'healthy turnover', avgDays > 45 ? '#f59e0b' : '#16a34a')}
-        ${statBox('Price Flags', priceDrift.length, `${driftPct}% of lot`, priceDrift.length > 0 ? '#ef4444' : '#16a34a')}
-      </tr>
-    </table>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #e2e8f0"><tr>
+      ${statBox('Total Units', totalUnits, 'available now', '#1a2e4a')}
+      ${statBox('Photos', `${photosPct}%`, `${withPhotos} of ${totalUnits} have photos`, photosPct < 80 ? '#ef4444' : '#16a34a')}
+      ${statBox('Avg Days on Lot', avgDays, agingPct > 0 ? `${agingPct}% aging 60d+` : 'healthy turnover', avgDays > 45 ? '#f59e0b' : '#16a34a')}
+      ${statBox('Price Flags', priceDrift.length, `${driftPct}% of lot (used)`, priceDrift.length > 0 ? '#ef4444' : '#16a34a', wkDelta(priceDrift.length, prevPriceFlagCount, true))}
+    </tr></table>
   </td></tr>
 
-  <!-- Lot mix bar chart -->
-  <tr><td style="padding:16px 24px 8px">
-    <div style="font-size:13px;font-weight:700;color:${primary};margin-bottom:8px">📊 Inventory Mix by Make</div>
-    <table cellpadding="0" cellspacing="0">
-      ${topMakes.map(([make, cnt]) => barRow(make, cnt, maxMakeCount, totalUnits)).join('')}
-    </table>
-    <div style="font-size:11px;color:#94a3b8;margin-top:6px">Avg asking price: ${avgPrice ? '$' + avgPrice.toLocaleString() : '—'} · Median: ${medianPrice ? '$' + medianPrice.toLocaleString() : '—'}</div>
+  <!-- Row 2: weekly activity -->
+  <tr><td style="padding:0">
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #e2e8f0"><tr>
+      ${statBox('New Arrivals', newArrivalsThisWeek, 'added this week', '#6366f1', wkDelta(newArrivalsThisWeek, newArrivalsPrevWeek))}
+      ${statBox('Sold This Week', soldThisWeekCount, 'units sold last 7 days', soldThisWeekCount > 0 ? '#16a34a' : '#94a3b8', wkDelta(soldThisWeekCount, soldPrevWeekCount))}
+      ${statBox('60d+ Aging', aging.length, `${agingPct}% of lot`, aging.length > 0 ? '#f59e0b' : '#16a34a')}
+      ${statBox('No Photos', noPhotos.length, `${totalUnits - withPhotos} listings`, noPhotos.length > 0 ? '#ef4444' : '#16a34a')}
+    </tr></table>
+  </td></tr>
+
+  <!-- Charts row -->
+  <tr><td style="padding:14px 20px 8px">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr valign="top">
+
+      <!-- Inventory mix by make -->
+      <td width="50%" style="padding-right:12px">
+        <div style="font-size:12px;font-weight:700;color:${primary};margin-bottom:6px">Inventory by Make</div>
+        <table cellpadding="0" cellspacing="0">
+          ${topMakes.map(([make, cnt]) => barRow(make, cnt, maxMakeCount, totalUnits)).join('')}
+        </table>
+        <div style="font-size:10px;color:#94a3b8;margin-top:4px">Avg $${avgPrice?.toLocaleString() ?? '—'} · Median $${medianPrice?.toLocaleString() ?? '—'}</div>
+      </td>
+
+      <!-- Condition mix -->
+      <td width="50%" style="padding-left:12px;border-left:1px solid #e2e8f0">
+        <div style="font-size:12px;font-weight:700;color:${primary};margin-bottom:6px">Condition Mix</div>
+        <table cellpadding="0" cellspacing="0">
+          ${barRow('New', conditionCount.new, maxCondition, totalUnits, '#16a34a')}
+          ${barRow('Used', conditionCount.used, maxCondition, totalUnits, '#6366f1')}
+          ${barRow('Demo', conditionCount.demo, maxCondition, totalUnits, '#f59e0b')}
+        </table>
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <!-- Price & days brackets -->
+  <tr><td style="padding:8px 20px 14px;border-top:1px solid #f1f5f9">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr valign="top">
+
+      <!-- Price brackets -->
+      <td width="50%" style="padding-right:12px">
+        <div style="font-size:12px;font-weight:700;color:${primary};margin-bottom:6px">Price Distribution</div>
+        <table cellpadding="0" cellspacing="0">
+          ${priceBrackets.map(b => barRow(b.label, b.count, maxPriceBracket, totalUnits, '#0ea5e9')).join('')}
+        </table>
+      </td>
+
+      <!-- Days on lot -->
+      <td width="50%" style="padding-left:12px;border-left:1px solid #e2e8f0">
+        <div style="font-size:12px;font-weight:700;color:${primary};margin-bottom:6px">Days on Lot</div>
+        <table cellpadding="0" cellspacing="0">
+          ${daysBrackets.map((b, i) => barRow(b.label, b.count, maxDaysBracket, totalUnits, i === 0 ? '#16a34a' : i === 1 ? '#6366f1' : i === 2 ? '#f59e0b' : '#ef4444')).join('')}
+        </table>
+      </td>
+    </tr></table>
   </td></tr>
 
   <tr><td style="padding:0 24px 16px">
   <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px">
 
-    <!-- Price Drift -->
     ${priceDrift.length ? `
-      ${sectionHeader('💰 Price Drift Flags (' + priceDrift.length + ' vehicles)')}
-      ${subNote('Price drift = this vehicle\'s asking price vs. the median of similar make/model units on your own lot. Negative = you\'re priced below market (could sell fast or you\'re leaving money). Positive = you\'re above market (may slow down the sale). Review and adjust in your DMS or listing.', 3)}
+      ${sectionHeader('💰 Price Drift Flags — Used Vehicles Only (' + priceDrift.length + ')')}
+      ${subNote('Price drift = this vehicle\'s asking price vs. the median of similar make/model used units on your own lot. Negative = underpriced (selling cheap or leaving margin). Positive = overpriced (may slow the sale). New vehicles excluded — MSRP is not compared.', 3)}
       <tr style="background:#f8fafc"><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b">VEHICLE</td><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b;text-align:right">DRIFT</td><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b">RECOMMENDATION</td></tr>
       ${priceDrift.map(driftRow).join('')}` : ''}
 
-    <!-- Aging -->
     ${aging.length ? `
       ${sectionHeader('⏱ Aging Units — 60+ Days on Lot (' + aging.length + ')')}
       ${subNote('These units have been sitting for over 60 days. Consider a price reduction, trade-in push, or additional marketing. Units over 90 days are highlighted red.', 3)}
       <tr style="background:#f8fafc"><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b">VEHICLE</td><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b;text-align:right">PRICE</td><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b;text-align:right">DAYS</td></tr>
       ${aging.map(agingRow).join('')}` : ''}
 
-    <!-- Slow movers 30-60d -->
     ${slowMovers30.length ? `
       ${sectionHeader('🐢 Watch List — 30–60 Days on Lot (' + slowMovers30.length + ')')}
       ${subNote('These units are approaching the aging threshold. Monitor closely — a small price move now is better than a large one at 60+ days.', 3)}
       ${slowMovers30.map(agingRow).join('')}` : ''}
 
-    <!-- Missing photos — all, no cap -->
     ${noPhotos.length ? `
       ${sectionHeader('📷 No Photos (' + noPhotos.length + ' vehicles)')}
       ${subNote('Listings without photos get significantly fewer clicks. Upload photos through your DMS or directly in MarketSync.', 3)}
       <tr style="background:#f8fafc"><td colspan="3" style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b">VEHICLE</td></tr>
       ${noPhotos.map(v => `<tr><td colspan="3" style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:13px">${vLabel(v)}</td></tr>`).join('')}` : ''}
 
-    <!-- Other missing info -->
     ${missingInfo.length ? `
       ${sectionHeader('⚠ Other Missing Info (' + missingInfo.length + ' flags, last 7 days)')}
       ${missingInfo.map(warnRow).join('')}` : ''}
@@ -1090,7 +1224,6 @@ Return ONLY valid JSON array (no markdown):
   </table>
   </td></tr>
 
-  <!-- Footer -->
   <tr><td style="background:#f8fafc;padding:14px 24px;border-top:1px solid #e2e8f0">
     <p style="margin:0;font-size:11px;color:#94a3b8">Sent by MarketSync AI Boost · <a href="https://marketsync.link" style="color:${accent}">marketsync.link</a></p>
   </td></tr>
@@ -1124,67 +1257,17 @@ Return ONLY valid JSON array (no markdown):
     const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
 
-    const now = Date.now()
-    const ago7 = new Date(now - 7 * 86400000).toISOString()
-
-    const [{ data: allVehicles }, { data: recentActivity }] = await Promise.all([
-      supabaseAdmin
-        .from('inventory')
-        .select('id, year, make, model, trim, price, condition, stocknumber, image_urls, last_synced_at, created_at, status')
-        .eq('dealership_id', req.dealershipId)
-        .eq('status', 'available'),
-      supabaseAdmin
-        .from('ai_activity')
-        .select('inventory_id, vehicle_label, warnings, price_flagged, price_pct_diff, created_at')
-        .eq('dealership_id', req.dealershipId)
-        .gte('created_at', ago7)
-        .order('created_at', { ascending: false })
-        .limit(500)
-    ])
-
-    const vehicles = allVehicles || []
-    const totalUnits = vehicles.length
-    const withPhotos = vehicles.filter(v => v.image_urls?.length > 0).length
-    const noPhotos = vehicles.filter(v => !v.image_urls?.length)
-    const prices = vehicles.filter(v => v.price > 0).map(v => Number(v.price)).sort((a, b) => a - b)
-    const avgPrice = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null
-    const medianPrice = prices.length ? prices[Math.floor(prices.length / 2)] : null
-
-    const withDays = vehicles.map(v => ({
-      ...v,
-      daysOnLot: Math.floor((now - new Date(v.last_synced_at || v.created_at).getTime()) / 86400000)
-    }))
-    const aging = withDays.filter(v => v.daysOnLot > 60).sort((a, b) => b.daysOnLot - a.daysOnLot)
-    const slowMovers30 = withDays.filter(v => v.daysOnLot > 30 && v.daysOnLot <= 60).sort((a, b) => b.daysOnLot - a.daysOnLot)
-    const avgDays = withDays.length ? Math.round(withDays.reduce((s, v) => s + v.daysOnLot, 0) / withDays.length) : 0
-
-    const vehicleById = {}
-    for (const v of vehicles) vehicleById[v.id] = v
-
-    const driftMap = {}
-    for (const a of (recentActivity || [])) {
-      if (!a.price_flagged) continue
-      const inv = vehicleById[a.inventory_id]
-      if (!inv) continue                    // stale activity for sold/archived vehicle
-      if (inv.condition === 'new') continue // new vehicles excluded
-      const key = a.inventory_id || a.vehicle_label
-      if (!driftMap[key] || Math.abs(a.price_pct_diff) > Math.abs(driftMap[key].price_pct_diff)) driftMap[key] = a
-    }
-    const priceDrift = Object.values(driftMap).sort((a, b) => Math.abs(b.price_pct_diff) - Math.abs(a.price_pct_diff))
-
-    const warnMap = {}
-    for (const a of (recentActivity || [])) {
-      const nonPhotoWarnings = (a.warnings || []).filter(w => !w.toLowerCase().includes('photo'))
-      if (!nonPhotoWarnings.length) continue
-      const key = a.inventory_id || a.vehicle_label
-      if (!warnMap[key]) warnMap[key] = { ...a, warnings: nonPhotoWarnings }
-    }
-    const missingInfo = Object.values(warnMap)
-
-    const makeCount = {}
-    for (const v of vehicles) { const k = v.make || 'Unknown'; makeCount[k] = (makeCount[k] || 0) + 1 }
-    const topMakes = Object.entries(makeCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
-    const maxMakeCount = topMakes[0]?.[1] || 1
+    const d = await buildReportData(req.dealershipId)
+    const {
+      vehicles, vehicleById,
+      totalUnits, withPhotos, noPhotos, avgPrice, medianPrice,
+      aging, slowMovers30, avgDays,
+      priceDrift, missingInfo,
+      prevPriceFlagCount,
+      newArrivalsThisWeek, newArrivalsPrevWeek,
+      soldThisWeekCount, soldPrevWeekCount,
+      conditionCount, priceBrackets, daysBrackets, topMakes
+    } = d
 
     const dealerName = dealer.name || 'Your Dealership'
     const primary = '#1a2e4a'
@@ -1192,6 +1275,14 @@ Return ONLY valid JSON array (no markdown):
     const photosPct = totalUnits ? Math.round((withPhotos / totalUnits) * 100) : 0
     const agingPct  = totalUnits ? Math.round((aging.length / totalUnits) * 100) : 0
     const driftPct  = totalUnits ? Math.round((priceDrift.length / totalUnits) * 100) : 0
+
+    const wkDelta = (curr, prev, lowerBetter = false) => {
+      const diff = curr - prev
+      if (prev === 0 && diff === 0) return ''
+      if (diff === 0) return `<div style="font-size:10px;color:#94a3b8">— same as last wk</div>`
+      const up = diff > 0; const good = lowerBetter ? !up : up
+      return `<div style="font-size:10px;color:${good ? '#16a34a' : '#ef4444'}">${up ? '↑' : '↓'}${Math.abs(diff)} vs last wk</div>`
+    }
 
     const vLabel = v => {
       const name = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')
@@ -1226,20 +1317,27 @@ Return ONLY valid JSON array (no markdown):
       <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:13px">${aLabel(a)}</td>
       <td colspan="2" style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#b45309">${(a.warnings || []).join(' · ')}</td></tr>`
 
-    const statBox = (label, value, sub, color) => `<td width="25%" style="padding:14px;text-align:center;border-right:1px solid #e2e8f0">
-      <div style="font-size:24px;font-weight:900;color:${color}">${value}</div>
-      <div style="font-size:11px;font-weight:700;color:#475569;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em">${label}</div>
-      ${sub ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${sub}</div>` : ''}</td>`
+    const statBox = (label, value, sub, color, delta = '') =>
+      `<td width="25%" style="padding:14px;text-align:center;border-right:1px solid #e2e8f0">
+        <div style="font-size:24px;font-weight:900;color:${color}">${value}</div>
+        <div style="font-size:11px;font-weight:700;color:#475569;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em">${label}</div>
+        ${sub ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${sub}</div>` : ''}
+        ${delta}
+      </td>`
 
-    const barRow = (label, count, max, total) => {
-      const pct = Math.round((count / total) * 100)
-      const barW = Math.round((count / max) * 220)
+    const barRow = (label, count, max, total, color = accent) => {
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0
+      const barW = max > 0 ? Math.round((count / max) * 200) : 0
       return `<tr>
-        <td style="padding:4px 12px;font-size:12px;color:#334155;width:110px">${label}</td>
-        <td style="padding:4px 8px"><div style="background:#e2e8f0;border-radius:4px;height:14px;width:240px"><div style="background:${accent};border-radius:4px;height:14px;width:${barW}px"></div></div></td>
-        <td style="padding:4px 8px;font-size:12px;color:#64748b;white-space:nowrap">${count} units (${pct}%)</td></tr>`
+        <td style="padding:3px 10px;font-size:12px;color:#334155;width:110px;white-space:nowrap">${label}</td>
+        <td style="padding:3px 6px"><div style="background:#e2e8f0;border-radius:4px;height:13px;width:210px"><div style="background:${color};border-radius:4px;height:13px;width:${barW}px"></div></div></td>
+        <td style="padding:3px 6px;font-size:11px;color:#64748b;white-space:nowrap">${count} (${pct}%)</td></tr>`
     }
 
+    const maxCondition = Math.max(conditionCount.new, conditionCount.used, conditionCount.demo, 1)
+    const maxPriceBracket = Math.max(...priceBrackets.map(b => b.count), 1)
+    const maxDaysBracket = Math.max(...daysBrackets.map(b => b.count), 1)
+    const maxMakeCount = topMakes[0]?.[1] || 1
     const dateStr = new Date().toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
     const printHtml = `<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -1259,34 +1357,92 @@ Return ONLY valid JSON array (no markdown):
 </div>
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:24px 0">
 <tr><td align="center">
-<table width="720" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0">
+<table width="760" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0">
+
+  <!-- Header -->
   <tr><td style="background:${primary};padding:22px 28px">
     <div style="color:#fff;font-size:22px;font-weight:900">${dealerName}</div>
-    <div style="color:#94a3b8;font-size:13px;margin-top:3px">Weekly Lot Health Report · ${dateStr}</div>
+    <div style="color:#94a3b8;font-size:13px;margin-top:3px">Weekly Lot Health Report</div>
+    <div style="color:#e2e8f0;font-size:15px;font-weight:700;margin-top:6px">${dateStr}</div>
   </td></tr>
+
+  <!-- Row 1: core stats -->
   <tr><td style="padding:0">
     <table width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #e2e8f0"><tr>
       ${statBox('Total Units', totalUnits, 'available now', '#1a2e4a')}
-      ${statBox('Photos Coverage', `${photosPct}%`, `${withPhotos} of ${totalUnits} have photos`, photosPct < 80 ? '#ef4444' : '#16a34a')}
+      ${statBox('Photos', `${photosPct}%`, `${withPhotos} of ${totalUnits} have photos`, photosPct < 80 ? '#ef4444' : '#16a34a')}
       ${statBox('Avg Days on Lot', avgDays, agingPct > 0 ? `${agingPct}% aging 60d+` : 'healthy turnover', avgDays > 45 ? '#f59e0b' : '#16a34a')}
-      ${statBox('Price Flags', priceDrift.length, `${driftPct}% of lot (used only)`, priceDrift.length > 0 ? '#ef4444' : '#16a34a')}
+      ${statBox('Price Flags', priceDrift.length, `${driftPct}% of lot (used)`, priceDrift.length > 0 ? '#ef4444' : '#16a34a', wkDelta(priceDrift.length, prevPriceFlagCount, true))}
     </tr></table>
   </td></tr>
-  <tr><td style="padding:16px 28px 8px">
-    <div style="font-size:13px;font-weight:700;color:${primary};margin-bottom:8px">📊 Inventory Mix by Make</div>
-    <table cellpadding="0" cellspacing="0">${topMakes.map(([make, cnt]) => barRow(make, cnt, maxMakeCount, totalUnits)).join('')}</table>
-    <div style="font-size:11px;color:#94a3b8;margin-top:6px">Avg asking price: ${avgPrice ? '$' + avgPrice.toLocaleString() : '—'} · Median: ${medianPrice ? '$' + medianPrice.toLocaleString() : '—'}</div>
+
+  <!-- Row 2: weekly activity -->
+  <tr><td style="padding:0">
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #e2e8f0"><tr>
+      ${statBox('New Arrivals', newArrivalsThisWeek, 'added this week', '#6366f1', wkDelta(newArrivalsThisWeek, newArrivalsPrevWeek))}
+      ${statBox('Sold This Week', soldThisWeekCount, 'units sold last 7 days', soldThisWeekCount > 0 ? '#16a34a' : '#94a3b8', wkDelta(soldThisWeekCount, soldPrevWeekCount))}
+      ${statBox('60d+ Aging', aging.length, `${agingPct}% of lot`, aging.length > 0 ? '#f59e0b' : '#16a34a')}
+      ${statBox('No Photos', noPhotos.length, `${totalUnits - withPhotos} listings`, noPhotos.length > 0 ? '#ef4444' : '#16a34a')}
+    </tr></table>
   </td></tr>
+
+  <!-- Charts -->
+  <tr><td style="padding:16px 24px 8px">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr valign="top">
+
+      <!-- Inventory by make -->
+      <td width="50%" style="padding-right:14px">
+        <div style="font-size:12px;font-weight:700;color:${primary};margin-bottom:6px">Inventory by Make</div>
+        <table cellpadding="0" cellspacing="0">
+          ${topMakes.map(([make, cnt]) => barRow(make, cnt, maxMakeCount, totalUnits)).join('')}
+        </table>
+        <div style="font-size:10px;color:#94a3b8;margin-top:4px">Avg $${avgPrice?.toLocaleString() ?? '—'} · Median $${medianPrice?.toLocaleString() ?? '—'}</div>
+      </td>
+
+      <!-- Condition mix -->
+      <td width="50%" style="padding-left:14px;border-left:1px solid #e2e8f0">
+        <div style="font-size:12px;font-weight:700;color:${primary};margin-bottom:6px">Condition Mix</div>
+        <table cellpadding="0" cellspacing="0">
+          ${barRow('New', conditionCount.new, maxCondition, totalUnits, '#16a34a')}
+          ${barRow('Used', conditionCount.used, maxCondition, totalUnits, '#6366f1')}
+          ${barRow('Demo', conditionCount.demo, maxCondition, totalUnits, '#f59e0b')}
+        </table>
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <tr><td style="padding:8px 24px 16px;border-top:1px solid #f1f5f9">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr valign="top">
+
+      <!-- Price distribution -->
+      <td width="50%" style="padding-right:14px">
+        <div style="font-size:12px;font-weight:700;color:${primary};margin-bottom:6px">Price Distribution</div>
+        <table cellpadding="0" cellspacing="0">
+          ${priceBrackets.map(b => barRow(b.label, b.count, maxPriceBracket, totalUnits, '#0ea5e9')).join('')}
+        </table>
+      </td>
+
+      <!-- Days on lot -->
+      <td width="50%" style="padding-left:14px;border-left:1px solid #e2e8f0">
+        <div style="font-size:12px;font-weight:700;color:${primary};margin-bottom:6px">Days on Lot</div>
+        <table cellpadding="0" cellspacing="0">
+          ${daysBrackets.map((b, i) => barRow(b.label, b.count, maxDaysBracket, totalUnits, ['#16a34a','#6366f1','#f59e0b','#ef4444'][i])).join('')}
+        </table>
+      </td>
+    </tr></table>
+  </td></tr>
+
   <tr><td style="padding:0 28px 20px">
   <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px">
     ${priceDrift.length ? `
       ${sec('💰 Price Drift Flags — Used Vehicles Only (' + priceDrift.length + ')')}
-      ${note('Price drift = asking price vs. the median of similar make/model used units on your lot. Positive = overpriced vs your own inventory (may slow sale). Negative = underpriced (may leave margin). New vehicles are excluded — MSRP pricing is not compared.')}
+      ${note('Price drift = asking price vs. the median of similar make/model used units on your lot. Positive = overpriced vs your own inventory (may slow sale). Negative = underpriced (may leave margin). New vehicles are excluded.')}
       <tr style="background:#f8fafc"><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b">VEHICLE</td><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b;text-align:right">DRIFT</td><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b">RECOMMENDATION</td></tr>
       ${priceDrift.map(driftRow).join('')}` : ''}
     ${aging.length ? `
       ${sec('⏱ Aging Units — 60+ Days on Lot (' + aging.length + ')')}
       ${note('Over 60 days. Consider a price reduction, additional marketing, or trade-in push. 90d+ shown in red.')}
+      <tr style="background:#f8fafc"><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b">VEHICLE</td><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b;text-align:right">PRICE</td><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b;text-align:right">DAYS</td></tr>
       ${aging.map(agingRow).join('')}` : ''}
     ${slowMovers30.length ? `
       ${sec('🐢 Watch List — 30–60 Days on Lot (' + slowMovers30.length + ')')}
