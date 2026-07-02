@@ -811,63 +811,222 @@ Return ONLY valid JSON array (no markdown):
     const ago30 = new Date(now - 30 * 86400000).toISOString()
     const ago7 = new Date(now - 7 * 86400000).toISOString()
 
-    const { data: allVehicles } = await supabaseAdmin
-      .from('inventory')
-      .select('id, year, make, model, trim, price, last_synced_at, created_at, status')
-      .eq('dealership_id', req.dealershipId)
-      .eq('status', 'available')
+    const [{ data: allVehicles }, { data: recentActivity }] = await Promise.all([
+      supabaseAdmin
+        .from('inventory')
+        .select('id, year, make, model, trim, price, condition, stocknumber, image_urls, last_synced_at, created_at, status')
+        .eq('dealership_id', req.dealershipId)
+        .eq('status', 'available'),
+      supabaseAdmin
+        .from('ai_activity')
+        .select('inventory_id, vehicle_label, warnings, price_flagged, price_pct_diff, created_at')
+        .eq('dealership_id', req.dealershipId)
+        .gte('created_at', ago7)
+        .order('created_at', { ascending: false })
+        .limit(500)
+    ])
 
     const vehicles = allVehicles || []
+    const totalUnits = vehicles.length
+    const withPhotos = vehicles.filter(v => v.image_urls?.length > 0).length
+    const noPhotos = vehicles.filter(v => !v.image_urls?.length)
+    const withPrice = vehicles.filter(v => v.price > 0)
+    const prices = withPrice.map(v => Number(v.price)).sort((a, b) => a - b)
+    const avgPrice = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null
+    const medianPrice = prices.length ? prices[Math.floor(prices.length / 2)] : null
 
-    const aging = vehicles
-      .map(v => ({ ...v, daysOnLot: Math.floor((now - new Date(v.last_synced_at || v.created_at).getTime()) / 86400000) }))
-      .filter(v => v.daysOnLot > 60)
-      .sort((a, b) => b.daysOnLot - a.daysOnLot)
+    const withDays = vehicles.map(v => ({
+      ...v,
+      daysOnLot: Math.floor((now - new Date(v.last_synced_at || v.created_at).getTime()) / 86400000)
+    }))
+    const aging = withDays.filter(v => v.daysOnLot > 60).sort((a, b) => b.daysOnLot - a.daysOnLot)
+    const slowMovers30 = withDays.filter(v => v.daysOnLot > 30 && v.daysOnLot <= 60).sort((a, b) => b.daysOnLot - a.daysOnLot)
+    const avgDays = withDays.length ? Math.round(withDays.reduce((s, v) => s + v.daysOnLot, 0) / withDays.length) : 0
 
-    const slowMovers = vehicles
-      .map(v => ({ ...v, daysOnLot: Math.floor((now - new Date(v.last_synced_at || v.created_at).getTime()) / 86400000) }))
-      .filter(v => v.daysOnLot > 30)
+    // Deduplicate price drift by inventory_id, keep worst flag per vehicle
+    const driftMap = {}
+    for (const a of (recentActivity || [])) {
+      if (!a.price_flagged) continue
+      const key = a.inventory_id || a.vehicle_label
+      if (!driftMap[key] || Math.abs(a.price_pct_diff) > Math.abs(driftMap[key].price_pct_diff)) {
+        driftMap[key] = a
+      }
+    }
+    const priceDrift = Object.values(driftMap).sort((a, b) => Math.abs(b.price_pct_diff) - Math.abs(a.price_pct_diff))
 
-    const { data: recentActivity } = await supabaseAdmin
-      .from('ai_activity')
-      .select('vehicle_label, warnings, price_flagged, price_pct_diff, created_at')
-      .eq('dealership_id', req.dealershipId)
-      .gte('created_at', ago7)
-      .order('created_at', { ascending: false })
-      .limit(100)
+    // Deduplicate missing info by inventory_id
+    const warnMap = {}
+    for (const a of (recentActivity || [])) {
+      if (!a.warnings?.length) continue
+      const key = a.inventory_id || a.vehicle_label
+      if (!warnMap[key]) warnMap[key] = a
+    }
+    const missingInfo = Object.values(warnMap)
 
-    const priceDrift = (recentActivity || []).filter(a => a.price_flagged)
-    const missingInfo = (recentActivity || []).filter(a => a.warnings?.length > 0)
+    // Make/model mix for top-5 bar chart
+    const makeCount = {}
+    for (const v of vehicles) {
+      const k = v.make || 'Unknown'
+      makeCount[k] = (makeCount[k] || 0) + 1
+    }
+    const topMakes = Object.entries(makeCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
+    const maxMakeCount = topMakes[0]?.[1] || 1
 
     const dealerName = dealer.name || 'Your Dealership'
     const primary = '#1a2e4a'
+    const accent = '#6366f1'
 
-    const vehicleRow = v => `<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${[v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right">${v.price ? '$' + Number(v.price).toLocaleString() : '—'}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right">${v.daysOnLot} days</td></tr>`
+    const vLabel = v => {
+      const name = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')
+      return v.stocknumber ? `${name} <span style="color:#64748b;font-size:11px">#${v.stocknumber}</span>` : name
+    }
+    const aLabel = a => {
+      // Try to append stock number if we can find it from inventory
+      const inv = vehicles.find(v => v.id === a.inventory_id)
+      const sn = inv?.stocknumber
+      return sn ? `${a.vehicle_label} <span style="color:#64748b;font-size:11px">#${sn}</span>` : a.vehicle_label
+    }
 
-    const sectionHeader = title => `<tr><td colspan="3" style="background:${primary};color:#fff;font-weight:700;font-size:13px;padding:8px 10px">${title}</td></tr>`
+    const sectionHeader = (title, cols = 3) =>
+      `<tr><td colspan="${cols}" style="background:${primary};color:#fff;font-weight:700;font-size:13px;padding:9px 12px;letter-spacing:0.02em">${title}</td></tr>`
 
-    const activityRow = a => `<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${a.vehicle_label}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#ef4444;text-align:right">${a.price_pct_diff != null ? (a.price_pct_diff > 0 ? '+' : '') + a.price_pct_diff + '% vs median' : ''}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b">${new Date(a.created_at).toLocaleDateString()}</td></tr>`
+    const subNote = (text, cols = 3) =>
+      `<tr><td colspan="${cols}" style="background:#f1f5f9;color:#475569;font-size:11px;padding:7px 12px;border-bottom:1px solid #e2e8f0;font-style:italic">${text}</td></tr>`
 
-    const warnRow = a => `<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${a.vehicle_label}</td><td colspan="2" style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#b45309">${(a.warnings || []).join(', ')}</td></tr>`
+    const agingRow = v =>
+      `<tr>
+        <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:13px">${vLabel(v)}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:13px">${v.price ? '$' + Number(v.price).toLocaleString() : '—'}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:13px;color:${v.daysOnLot > 90 ? '#ef4444' : '#f59e0b'};font-weight:700">${v.daysOnLot}d</td>
+      </tr>`
 
-    const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif">
+    const driftRow = a => {
+      const pct = a.price_pct_diff
+      const over = pct > 0
+      const color = over ? '#16a34a' : '#ef4444'
+      const direction = over ? 'overpriced' : 'underpriced'
+      const fix = over
+        ? `Consider reducing by $${Math.round(Math.abs(pct / 100) * (vehicles.find(v => v.id === a.inventory_id)?.price || 0)).toLocaleString()} to align with market`
+        : `May sell faster at current price — or raise to recapture margin`
+      return `<tr>
+        <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:13px">${aLabel(a)}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:13px;color:${color};font-weight:700">${over ? '+' : ''}${pct}%</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b">${direction} vs similar units on your lot. ${fix}</td>
+      </tr>`
+    }
+
+    const warnRow = a =>
+      `<tr>
+        <td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:13px">${aLabel(a)}</td>
+        <td colspan="2" style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#b45309">${(a.warnings || []).join(' · ')}</td>
+      </tr>`
+
+    const statBox = (label, value, sub, color = '#1a2e4a') =>
+      `<td width="25%" style="padding:12px;text-align:center;border-right:1px solid #e2e8f0">
+        <div style="font-size:22px;font-weight:900;color:${color}">${value}</div>
+        <div style="font-size:11px;font-weight:700;color:#475569;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em">${label}</div>
+        ${sub ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${sub}</div>` : ''}
+      </td>`
+
+    const barRow = (label, count, max, total) => {
+      const pct = Math.round((count / total) * 100)
+      const barW = Math.round((count / max) * 200)
+      return `<tr>
+        <td style="padding:4px 12px;font-size:12px;color:#334155;width:120px">${label}</td>
+        <td style="padding:4px 8px">
+          <div style="background:#e2e8f0;border-radius:4px;height:14px;width:220px">
+            <div style="background:${accent};border-radius:4px;height:14px;width:${barW}px"></div>
+          </div>
+        </td>
+        <td style="padding:4px 8px;font-size:12px;color:#64748b;white-space:nowrap">${count} units (${pct}%)</td>
+      </tr>`
+    }
+
+    const photosPct = totalUnits ? Math.round((withPhotos / totalUnits) * 100) : 0
+    const agingPct  = totalUnits ? Math.round((aging.length / totalUnits) * 100) : 0
+    const driftPct  = totalUnits ? Math.round((priceDrift.length / totalUnits) * 100) : 0
+
+    const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>body{margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif}</style>
+</head><body>
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:24px 0">
 <tr><td align="center">
-<table width="640" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0">
-  <tr><td style="background:${primary};padding:20px 24px">
-    <div style="color:#fff;font-size:20px;font-weight:900">${dealerName}</div>
-    <div style="color:#94a3b8;font-size:13px;margin-top:2px">Weekly Lot Health Report · ${new Date().toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+<table width="660" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0">
+
+  <!-- Header -->
+  <tr><td style="background:${primary};padding:22px 24px">
+    <div style="color:#fff;font-size:22px;font-weight:900">${dealerName}</div>
+    <div style="color:#94a3b8;font-size:13px;margin-top:3px">Weekly Lot Health Report · ${new Date().toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
   </td></tr>
-  <tr><td style="padding:20px 24px">
-    <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px">
-      ${aging.length ? `${sectionHeader('⏱ Aging Units (60+ Days on Lot)')}${aging.slice(0, 10).map(vehicleRow).join('')}` : ''}
-      ${priceDrift.length ? `${sectionHeader('💰 Price Drift Flags (Last 7 Days)')}${priceDrift.slice(0, 10).map(activityRow).join('')}` : ''}
-      ${slowMovers.length ? `${sectionHeader('🐢 Slow Movers (30+ Days on Lot)')}${slowMovers.slice(0, 10).map(vehicleRow).join('')}` : ''}
-      ${missingInfo.length ? `${sectionHeader('⚠ Missing Info Alerts (Last 7 Days)')}${missingInfo.slice(0, 10).map(warnRow).join('')}` : ''}
-      ${!aging.length && !priceDrift.length && !slowMovers.length && !missingInfo.length ? '<tr><td colspan="3" style="padding:20px;text-align:center;color:#64748b">No issues found — your lot is in great shape!</td></tr>' : ''}
+
+  <!-- Summary stat row -->
+  <tr><td style="padding:0">
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #e2e8f0">
+      <tr>
+        ${statBox('Total Units', totalUnits, 'available now', '#1a2e4a')}
+        ${statBox('Photos Coverage', `${photosPct}%`, `${withPhotos} of ${totalUnits} have photos`, photosPct < 80 ? '#ef4444' : '#16a34a')}
+        ${statBox('Avg Days on Lot', avgDays, agingPct > 0 ? `${agingPct}% aging 60d+` : 'healthy turnover', avgDays > 45 ? '#f59e0b' : '#16a34a')}
+        ${statBox('Price Flags', priceDrift.length, `${driftPct}% of lot`, priceDrift.length > 0 ? '#ef4444' : '#16a34a')}
+      </tr>
     </table>
-    <p style="margin-top:20px;font-size:11px;color:#94a3b8">Sent by MarketSync AI Boost · <a href="https://marketsync.link" style="color:#6366f1">marketsync.link</a></p>
   </td></tr>
+
+  <!-- Lot mix bar chart -->
+  <tr><td style="padding:16px 24px 8px">
+    <div style="font-size:13px;font-weight:700;color:${primary};margin-bottom:8px">📊 Inventory Mix by Make</div>
+    <table cellpadding="0" cellspacing="0">
+      ${topMakes.map(([make, cnt]) => barRow(make, cnt, maxMakeCount, totalUnits)).join('')}
+    </table>
+    <div style="font-size:11px;color:#94a3b8;margin-top:6px">Avg asking price: ${avgPrice ? '$' + avgPrice.toLocaleString() : '—'} · Median: ${medianPrice ? '$' + medianPrice.toLocaleString() : '—'}</div>
+  </td></tr>
+
+  <tr><td style="padding:0 24px 16px">
+  <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px">
+
+    <!-- Price Drift -->
+    ${priceDrift.length ? `
+      ${sectionHeader('💰 Price Drift Flags (' + priceDrift.length + ' vehicles)')}
+      ${subNote('Price drift = this vehicle\'s asking price vs. the median of similar make/model units on your own lot. Negative = you\'re priced below market (could sell fast or you\'re leaving money). Positive = you\'re above market (may slow down the sale). Review and adjust in your DMS or listing.', 3)}
+      <tr style="background:#f8fafc"><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b">VEHICLE</td><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b;text-align:right">DRIFT</td><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b">RECOMMENDATION</td></tr>
+      ${priceDrift.map(driftRow).join('')}` : ''}
+
+    <!-- Aging -->
+    ${aging.length ? `
+      ${sectionHeader('⏱ Aging Units — 60+ Days on Lot (' + aging.length + ')')}
+      ${subNote('These units have been sitting for over 60 days. Consider a price reduction, trade-in push, or additional marketing. Units over 90 days are highlighted red.', 3)}
+      <tr style="background:#f8fafc"><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b">VEHICLE</td><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b;text-align:right">PRICE</td><td style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b;text-align:right">DAYS</td></tr>
+      ${aging.map(agingRow).join('')}` : ''}
+
+    <!-- Slow movers 30-60d -->
+    ${slowMovers30.length ? `
+      ${sectionHeader('🐢 Watch List — 30–60 Days on Lot (' + slowMovers30.length + ')')}
+      ${subNote('These units are approaching the aging threshold. Monitor closely — a small price move now is better than a large one at 60+ days.', 3)}
+      ${slowMovers30.map(agingRow).join('')}` : ''}
+
+    <!-- Missing photos — all, no cap -->
+    ${noPhotos.length ? `
+      ${sectionHeader('📷 No Photos (' + noPhotos.length + ' vehicles)')}
+      ${subNote('Listings without photos get significantly fewer clicks. Upload photos through your DMS or directly in MarketSync.', 3)}
+      <tr style="background:#f8fafc"><td colspan="3" style="padding:5px 12px;font-size:11px;font-weight:700;color:#64748b">VEHICLE</td></tr>
+      ${noPhotos.map(v => `<tr><td colspan="3" style="padding:7px 12px;border-bottom:1px solid #e2e8f0;font-size:13px">${vLabel(v)}</td></tr>`).join('')}` : ''}
+
+    <!-- Other missing info -->
+    ${missingInfo.length ? `
+      ${sectionHeader('⚠ Other Missing Info (' + missingInfo.length + ' flags, last 7 days)')}
+      ${missingInfo.map(warnRow).join('')}` : ''}
+
+    ${!aging.length && !priceDrift.length && !slowMovers30.length && !noPhotos.length && !missingInfo.length
+      ? '<tr><td colspan="3" style="padding:24px;text-align:center;color:#16a34a;font-weight:700">✓ No issues — your lot is in great shape!</td></tr>'
+      : ''}
+
+  </table>
+  </td></tr>
+
+  <!-- Footer -->
+  <tr><td style="background:#f8fafc;padding:14px 24px;border-top:1px solid #e2e8f0">
+    <p style="margin:0;font-size:11px;color:#94a3b8">Sent by MarketSync AI Boost · <a href="https://marketsync.link" style="color:${accent}">marketsync.link</a></p>
+  </td></tr>
+
 </table>
 </td></tr>
 </table>
