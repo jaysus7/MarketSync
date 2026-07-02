@@ -3002,6 +3002,19 @@ async function loadAIBoostSection() {
     __vinStickerActive = !!cfg.vin_sticker_active;
     __invIntelActive = !!cfg.inv_intel_active;
     __aiBoostConfigLoaded = true;
+    // Pre-fetch intel caches so hot/cold tags appear on inventory cards
+    // even if the user never visits the Inv. Intel page this session.
+    if (__invIntelActive) {
+      fetch(`${API}/ai/inventory-intelligence`, { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data) return;
+          __hotMakeModels = new Set((data.hot_segments || []).map(s => `${s.make} ${s.model}`.toLowerCase()));
+          __coldMakeModels = new Set((data.cold_segments || []).map(s => `${s.make} ${s.model}`.toLowerCase()));
+          __vehicleHealthScores = Object.fromEntries((data.vehicles || []).map(v => [v.id, v.score]));
+        })
+        .catch(() => {});
+    }
     renderAIBoostSection(cfg);
     initVinStickerPage();
     renderInvIntelSidebar(cfg);
