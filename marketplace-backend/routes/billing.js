@@ -25,6 +25,12 @@ export function registerRoutes(app) {
           await supabaseAdmin.from('dealerships').update(updates).eq('id', meta.dealership_id)
           break;
         }
+        if (meta.type === 'vin_sticker' && meta.dealership_id) {
+          const updates = { vin_sticker_active: true }
+          if (session.customer) updates.stripe_customer_id = session.customer
+          await supabaseAdmin.from('dealerships').update(updates).eq('id', meta.dealership_id)
+          break;
+        }
         const billing = {
           stripe_customer_id: session.customer,
           subscription_id: session.subscription,
@@ -47,9 +53,15 @@ export function registerRoutes(app) {
         // Check if this subscription contains the AI Boost price
         const hasAiBoost = aiBoostPriceId && sub.items?.data?.some(item => item.price.id === aiBoostPriceId)
         if (hasAiBoost) {
-          // Keep active during trial; deactivate on cancel, past_due, or unpaid
           const isActive = sub.status === 'active' || sub.status === 'trialing'
           await supabaseAdmin.from('dealerships').update({ ai_boost_active: isActive }).eq('stripe_customer_id', sub.customer)
+          break;
+        }
+        const vinStickerPriceId = process.env.STRIPE_VIN_STICKER_PRICE_ID
+        const hasVinSticker = vinStickerPriceId && sub.items?.data?.some(item => item.price.id === vinStickerPriceId)
+        if (hasVinSticker) {
+          const isActive = sub.status === 'active' || sub.status === 'trialing'
+          await supabaseAdmin.from('dealerships').update({ vin_sticker_active: isActive }).eq('stripe_customer_id', sub.customer)
           break;
         }
         // Standard subscription cancel/update
@@ -74,6 +86,14 @@ export function registerRoutes(app) {
             if (hasAiBoost) {
               await supabaseAdmin.from('dealerships').update({ ai_boost_active: false }).eq('stripe_customer_id', invoice.customer)
               break;
+            }
+            const vinStickerPriceId = process.env.STRIPE_VIN_STICKER_PRICE_ID
+            if (vinStickerPriceId) {
+              const hasVinSticker = sub.items?.data?.some(item => item.price.id === vinStickerPriceId)
+              if (hasVinSticker) {
+                await supabaseAdmin.from('dealerships').update({ vin_sticker_active: false }).eq('stripe_customer_id', invoice.customer)
+                break;
+              }
             }
           }
           const { data: prof } = await supabaseAdmin.from('profiles').select('id').eq('stripe_customer_id', invoice.customer).maybeSingle()
@@ -217,6 +237,53 @@ export function registerRoutes(app) {
         return res.status(400).json({ error: 'Session not complete', status: session.status })
       }
       const updates = { ai_boost_active: true }
+      if (session.customer) updates.stripe_customer_id = session.customer
+      await supabaseAdmin.from('dealerships').update(updates).eq('id', req.dealershipId)
+      res.json({ success: true })
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  // POST /billing/subscribe-vin-sticker — Stripe Checkout for the $79/month VIN Sticker & Brochure add-on
+  app.post('/billing/subscribe-vin-sticker', requireAuth, async (req, res) => {
+    if (req.profile?.role !== 'DEALER_ADMIN') return res.status(403).json({ error: 'DEALER_ADMIN role required' })
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const priceId = process.env.STRIPE_VIN_STICKER_PRICE_ID
+    if (!priceId) return res.status(500).json({ error: 'VIN Sticker price not configured (STRIPE_VIN_STICKER_PRICE_ID missing)' })
+    const existingCustomerId = req.profile.dealerships?.stripe_customer_id
+    try {
+      const sessionParams = {
+        payment_method_types: ['card'],
+        payment_method_collection: 'if_required',
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        metadata: { type: 'vin_sticker', dealership_id: req.dealershipId },
+        subscription_data: { trial_period_days: 3, metadata: { type: 'vin_sticker', dealership_id: req.dealershipId } },
+        success_url: `${FRONTEND_URL}/dashboard.html?vin_sticker_session={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${FRONTEND_URL}/dashboard.html`
+      }
+      if (existingCustomerId) sessionParams.customer = existingCustomerId
+      const session = await stripe.checkout.sessions.create(sessionParams)
+      res.json({ url: session.url })
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  // GET /billing/vin-sticker-verify?session_id=xxx
+  app.get('/billing/vin-sticker-verify', requireAuth, async (req, res) => {
+    const { session_id } = req.query
+    if (!session_id) return res.status(400).json({ error: 'session_id required' })
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    try {
+      const session = await stripe.checkout.sessions.retrieve(session_id)
+      const meta = session.metadata || {}
+      if (meta.type !== 'vin_sticker' || meta.dealership_id !== req.dealershipId) {
+        return res.status(403).json({ error: 'Session does not belong to this dealership' })
+      }
+      if (session.status !== 'complete') return res.status(400).json({ error: 'Session not complete' })
+      const updates = { vin_sticker_active: true }
       if (session.customer) updates.stripe_customer_id = session.customer
       await supabaseAdmin.from('dealerships').update(updates).eq('id', req.dealershipId)
       res.json({ success: true })

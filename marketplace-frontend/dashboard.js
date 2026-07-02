@@ -307,6 +307,7 @@ function switchPage(pageId) {
   });
 
   if (pageId === 'ai-boost') loadAIActivity();
+  if (pageId === 'vin-sticker') loadVinStickerPage();
 }
 
 // Idempotent restore: makes sure leaderboard / team-insights / sales-team panels live
@@ -2948,6 +2949,7 @@ async function loadAIBoostSection() {
     __vinStickerActive = !!cfg.vin_sticker_active;
     __aiBoostConfigLoaded = true;
     renderAIBoostSection(cfg);
+    initVinStickerPage();
     if (__vinStickerActive) loadBrandingSettings();
     // If the user is already on the AI Boost page (navigated there before config loaded),
     // refresh the visible content now that __aiBoostActive is set correctly.
@@ -3541,3 +3543,198 @@ function showBrandingMsg(text, ok) {
   el.classList.remove('hidden');
   setTimeout(() => el.classList.add('hidden'), 4000);
 }
+
+// ── VIN Sticker & Brochure page ───────────────────────────────────────────────
+
+function initVinStickerPage() {
+  renderVinStickerNav();
+  loadVinStickerPage();
+
+  document.getElementById('vin-page-decode-btn')?.addEventListener('click', runVinPageDecode);
+  document.getElementById('vin-page-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') runVinPageDecode();
+  });
+  document.getElementById('vin-sticker-page-upgrade-btn')?.addEventListener('click', startVinStickerTrial);
+}
+
+function renderVinStickerNav() {
+  const btn = document.getElementById('nav-vin-sticker');
+  const label = document.getElementById('nav-vin-sticker-label');
+  const pill = document.getElementById('nav-vin-sticker-pill');
+  if (!btn) return;
+
+  btn.classList.remove('hidden');
+
+  if (__vinStickerActive) {
+    btn.className = btn.className.replace(/text-slate-\w+/g, '').trim();
+    btn.classList.add('text-emerald-600', 'dark:text-emerald-400', 'bg-emerald-50', 'dark:bg-emerald-950/30');
+    pill.classList.add('hidden');
+  } else {
+    btn.classList.add('text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
+  }
+
+  btn.addEventListener('click', () => switchPage('vin-sticker'));
+}
+
+async function loadVinStickerPage() {
+  const upsell = document.getElementById('vin-sticker-page-upsell');
+  const active = document.getElementById('vin-sticker-active-content');
+  if (!upsell || !active) return;
+
+  if (__vinStickerActive) {
+    upsell.classList.add('hidden');
+    active.classList.remove('hidden');
+    loadVinStickerInventory();
+  } else {
+    upsell.classList.remove('hidden');
+    active.classList.add('hidden');
+  }
+}
+
+async function loadVinStickerInventory() {
+  const loading = document.getElementById('vin-sticker-inventory-loading');
+  const empty = document.getElementById('vin-sticker-inventory-empty');
+  const list = document.getElementById('vin-sticker-inventory-list');
+  const token = localStorage.getItem('ms_token');
+  try {
+    const res = await fetch(`${API}/inventory`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error();
+    const vehicles = await res.json();
+    loading.classList.add('hidden');
+    if (!vehicles.length) { empty.classList.remove('hidden'); return; }
+
+    list.innerHTML = vehicles.map(v => {
+      const label = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ');
+      const price = v.price ? `$${Number(v.price).toLocaleString()}` : 'No price';
+      const mileage = v.mileage ? `${Number(v.mileage).toLocaleString()} km` : '';
+      const recallBadge = v.recalls?.length
+        ? `<span class="text-xs font-bold text-red-600 dark:text-red-400">⚠ ${v.recalls.length} recall${v.recalls.length > 1 ? 's' : ''}</span>`
+        : (v.recalls_checked_at ? `<span class="text-xs text-emerald-600 dark:text-emerald-400">✓ No recalls</span>` : '');
+      const stickerIcon = v.window_sticker_url
+        ? `<span class="text-xs text-emerald-500 mr-1" title="Cached">●</span>` : '';
+      const brochureIcon = v.brochure_url
+        ? `<span class="text-xs text-emerald-500 mr-1" title="Cached">●</span>` : '';
+      return `<li class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-bold text-slate-900 dark:text-white truncate">${label}</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
+            <span>${price}</span>${mileage ? `<span>· ${mileage}</span>` : ''}
+            ${v.vin ? `<span class="font-mono text-slate-400">${v.vin}</span>` : ''}
+            ${recallBadge}
+          </div>
+        </div>
+        <div class="flex gap-2 flex-shrink-0">
+          <button class="vs-decode-btn text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg transition font-medium" data-id="${v.id}" data-vin="${v.vin || ''}">VIN Decode</button>
+          <button class="vs-sticker-btn text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}">${stickerIcon}Sticker</button>
+          <button class="vs-brochure-btn text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}">${brochureIcon}Brochure</button>
+        </div>
+      </li>`;
+    }).join('');
+    list.classList.remove('hidden');
+
+    list.querySelectorAll('.vs-decode-btn').forEach(btn => {
+      btn.addEventListener('click', () => openVinDecode(btn.dataset.id, btn.dataset.vin));
+    });
+    list.querySelectorAll('.vs-sticker-btn').forEach(btn => {
+      btn.addEventListener('click', () => generatePdf(btn.dataset.id, 'window-sticker', btn));
+    });
+    list.querySelectorAll('.vs-brochure-btn').forEach(btn => {
+      btn.addEventListener('click', () => generatePdf(btn.dataset.id, 'brochure', btn));
+    });
+  } catch {
+    loading.textContent = 'Failed to load inventory.';
+  }
+}
+
+async function runVinPageDecode() {
+  const vin = (document.getElementById('vin-page-input')?.value || '').trim().toUpperCase();
+  if (!vin || vin.length < 11) {
+    document.getElementById('vin-page-error').textContent = 'Enter a valid VIN (at least 11 characters).';
+    document.getElementById('vin-page-error').classList.remove('hidden');
+    return;
+  }
+  const token = localStorage.getItem('ms_token');
+  document.getElementById('vin-page-loading').classList.remove('hidden');
+  document.getElementById('vin-page-results').classList.add('hidden');
+  document.getElementById('vin-page-error').classList.add('hidden');
+  try {
+    const res = await fetch(`${API}/vin/decode/${encodeURIComponent(vin)}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Decode failed');
+    renderVinPageResults(data);
+  } catch (e) {
+    document.getElementById('vin-page-error').textContent = e.message;
+    document.getElementById('vin-page-error').classList.remove('hidden');
+  } finally {
+    document.getElementById('vin-page-loading').classList.add('hidden');
+  }
+}
+
+function renderVinPageResults({ decoded, recalls }) {
+  const grid = document.getElementById('vin-page-grid');
+  const fields = [
+    ['Year', decoded.year], ['Make', decoded.make], ['Model', decoded.model],
+    ['Trim', decoded.trim], ['Body Style', decoded.body_style], ['Fuel Type', decoded.fuel_type],
+    ['Drivetrain', decoded.drivetrain], ['Engine', decoded.engine],
+  ].filter(([, v]) => v);
+  grid.innerHTML = fields.map(([label, value]) => `
+    <div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
+      <div class="text-xs text-slate-400 uppercase tracking-wide">${label}</div>
+      <div class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">${value}</div>
+    </div>`).join('');
+
+  const recallEl = document.getElementById('vin-page-recalls');
+  if (recalls?.length) {
+    recallEl.innerHTML = `<div class="text-sm font-bold text-red-600 dark:text-red-400 mb-2">⚠ ${recalls.length} Open Recall${recalls.length > 1 ? 's' : ''}</div>` +
+      recalls.map(r => `<div class="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 text-xs mb-2">
+        <div class="font-bold text-red-700 dark:text-red-400">${r.Component || ''}</div>
+        <div class="text-slate-600 dark:text-slate-400 mt-1">${r.Summary || ''}</div>
+      </div>`).join('');
+    recallEl.classList.remove('hidden');
+  } else {
+    recallEl.innerHTML = `<div class="text-sm font-medium text-emerald-600 dark:text-emerald-400">✓ No open recalls found</div>`;
+    recallEl.classList.remove('hidden');
+  }
+  document.getElementById('vin-page-results').classList.remove('hidden');
+}
+
+async function startVinStickerTrial() {
+  const token = localStorage.getItem('ms_token');
+  const btn = document.getElementById('vin-sticker-page-upgrade-btn');
+  btn.disabled = true;
+  btn.textContent = 'Opening checkout…';
+  try {
+    const res = await fetch(`${API}/billing/subscribe-vin-sticker`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    window.location.href = data.url;
+  } catch (e) {
+    alert(e.message);
+    btn.disabled = false;
+    btn.textContent = 'Start 3-Day Free Trial';
+  }
+}
+
+// Handle return from Stripe Checkout for VIN Sticker
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const sessionId = params.get('vin_sticker_session');
+  if (!sessionId) return;
+  const token = localStorage.getItem('ms_token');
+  if (!token) return;
+  try {
+    const res = await fetch(`${API}/billing/vin-sticker-verify?session_id=${encodeURIComponent(sessionId)}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      __vinStickerActive = true;
+      history.replaceState({}, '', window.location.pathname);
+      switchPage('vin-sticker');
+    }
+  } catch {}
+})();
