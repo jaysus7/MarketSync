@@ -4693,7 +4693,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderIntel(data) {
-    const { summary, velocity, hot_segments, cold_segments, duplicate_vins, vehicles, narrative } = data
+    const { summary, velocity, hot_segments, cold_segments, duplicate_vins, vehicles } = data
 
     // Stats
     const sa = summary.avg_score
@@ -4704,15 +4704,8 @@ document.addEventListener('DOMContentLoaded', () => {
       statCard('Duplicate VINs', summary.duplicate_vins, duplicate_vins.length ? 'action required' : 'none found', duplicate_vins.length ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'),
     ].join('')
 
-    // AI Narrative
-    const narEl = document.getElementById('inv-intel-narrative')
-    const narList = document.getElementById('inv-intel-narrative-list')
-    if (narrative?.length) {
-      narList.innerHTML = narrative.map(b => `<li class="flex gap-2 text-sm text-slate-700 dark:text-slate-300"><span class="text-indigo-500 flex-shrink-0 mt-0.5">›</span>${b}</li>`).join('')
-      narEl.classList.remove('hidden')
-    } else {
-      narEl.classList.add('hidden')
-    }
+    // Narrative is loaded async by loadNarrative() — hide until it arrives
+    document.getElementById('inv-intel-narrative')?.classList.add('hidden')
 
     // Hot / Cold segments
     const hotEl = document.getElementById('inv-intel-hot')
@@ -4788,28 +4781,50 @@ document.addEventListener('DOMContentLoaded', () => {
     if (_intelLoaded && !force) return
     const loading = document.getElementById('inv-intel-loading')
     const content = document.getElementById('inv-intel-content')
-    const upsell  = document.getElementById('inv-intel-upsell')
     loading.classList.remove('hidden')
     content.classList.add('hidden')
-    upsell.classList.add('hidden')
     try {
       const data = await authFetch(`${API}/ai/inventory-intelligence`)
-      if (data.error?.includes('AI Boost')) {
-        upsell.classList.remove('hidden')
-        loading.classList.add('hidden')
-        return
-      }
       _intelData = data
       _intelLoaded = true
       renderIntel(data)
+      // Fire AI narrative separately so it doesn't block the page load
+      loadNarrative(data)
     } catch (err) {
-      if (err.message?.includes('403') || err.message?.includes('AI Boost')) {
-        upsell.classList.remove('hidden')
-      } else {
-        showToast('Could not load inventory intelligence: ' + err.message, 'error')
-      }
+      showToast('Could not load inventory intelligence: ' + err.message, 'error')
     } finally {
       loading.classList.add('hidden')
+    }
+  }
+
+  async function loadNarrative(data) {
+    const narEl = document.getElementById('inv-intel-narrative')
+    const narList = document.getElementById('inv-intel-narrative-list')
+    if (!narEl || !narList) return
+    const { summary, hot_segments, cold_segments, velocity, vehicles } = data
+    try {
+      const payload = {
+        total: summary.total,
+        avg_score: summary.avg_score,
+        needs_attention: summary.needs_attention,
+        duplicate_vins: summary.duplicate_vins,
+        hot: hot_segments.map(s => `${s.make} ${s.model} (${s.monthly_velocity}/mo, ${s.current_stock} in stock)`),
+        cold: cold_segments.map(s => `${s.make} ${s.model} (${s.current_stock} units, ${s.monthly_velocity}/mo)`),
+        top_movers: velocity.slice(0, 5).map(s => `${s.make} ${s.model}: ${s.sold_90d} sold`),
+        no_photos: vehicles.filter(v => v.photos === 0).length,
+        stale: vehicles.filter(v => v.days >= 60).length,
+      }
+      const result = await authFetch(`${API}/ai/inventory-narrative`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (result.narrative?.length) {
+        narList.innerHTML = result.narrative.map(b => `<li class="flex gap-2 text-sm text-slate-700 dark:text-slate-300"><span class="text-indigo-500 flex-shrink-0 mt-0.5">›</span>${b}</li>`).join('')
+        narEl.classList.remove('hidden')
+      }
+    } catch {
+      // narrative is optional — fail silently
     }
   }
 

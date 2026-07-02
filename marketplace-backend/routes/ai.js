@@ -849,33 +849,6 @@ Return ONLY valid JSON array (no markdown):
       : 0
     const needsAttention = scoredVehicles.filter(v => v.score < 50).length
 
-    // ── 5. AI narrative (optional — only if Anthropic key present) ─────────
-    let narrative = null
-    if (process.env.ANTHROPIC_API_KEY && velocity.length) {
-      try {
-        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-        const prompt = `You are an automotive inventory analyst for a Canadian dealership. Analyze this lot data and return exactly 5 bullet-point insights — each under 20 words, specific, actionable. Return ONLY a JSON array of strings (no markdown):
-
-Lot: ${vehicles.length} available | avg health score: ${avgScore}/100 | ${needsAttention} units need attention
-Hot segments (low stock, selling fast): ${hot.map(s => `${s.make} ${s.model} (${s.monthly_velocity}/mo, ${s.current_stock} in stock)`).join('; ') || 'none'}
-Cold segments (high stock, slow moving): ${cold.map(s => `${s.make} ${s.model} (${s.current_stock} units, ${s.monthly_velocity}/mo)`).join('; ') || 'none'}
-Top movers 90d: ${velocity.slice(0, 5).map(s => `${s.make} ${s.model}: ${s.sold_90d} sold`).join(', ')}
-Duplicate VINs: ${duplicateVins.length}
-Units without photos: ${scoredVehicles.filter(v => v.photos === 0).length}
-Units 60d+ on lot: ${scoredVehicles.filter(v => v.days >= 60).length}`
-
-        const msg = await anthropic.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 400,
-          messages: [{ role: 'user', content: prompt }]
-        })
-        const text = msg.content[0]?.text?.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '') || '[]'
-        narrative = JSON.parse(text)
-      } catch {
-        narrative = null
-      }
-    }
-
     res.json({
       summary: { total: vehicles.length, avg_score: avgScore, needs_attention: needsAttention, duplicate_vins: duplicateVins.length },
       velocity: velocity.slice(0, 30),
@@ -883,9 +856,45 @@ Units 60d+ on lot: ${scoredVehicles.filter(v => v.days >= 60).length}`
       cold_segments: cold,
       duplicate_vins: duplicateVins,
       vehicles: scoredVehicles,
-      narrative,
+      narrative: null,
       generated_at: new Date().toISOString(),
     })
+  })
+
+  // ── Inventory Narrative (separate — Anthropic call kept off the hot path) ─
+  app.post('/ai/inventory-narrative', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const { data: dealer } = await supabaseAdmin
+      .from('dealerships')
+      .select('inv_intel_active')
+      .eq('id', req.dealershipId)
+      .single()
+    if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence not active' })
+    if (!process.env.ANTHROPIC_API_KEY) return res.json({ narrative: null })
+
+    const { total, avg_score, needs_attention, duplicate_vins, hot, cold, top_movers, no_photos, stale } = req.body
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const prompt = `You are an automotive inventory analyst for a Canadian dealership. Analyze this lot data and return exactly 5 bullet-point insights — each under 20 words, specific, actionable. Return ONLY a JSON array of strings (no markdown):
+
+Lot: ${total} available | avg health score: ${avg_score}/100 | ${needs_attention} units need attention
+Hot segments (low stock, selling fast): ${(hot || []).join('; ') || 'none'}
+Cold segments (high stock, slow moving): ${(cold || []).join('; ') || 'none'}
+Top movers 90d: ${(top_movers || []).join(', ')}
+Duplicate VINs: ${duplicate_vins}
+Units without photos: ${no_photos}
+Units 60d+ on lot: ${stale}`
+      const msg = await anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }]
+      })
+      const text = msg.content[0]?.text?.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '') || '[]'
+      res.json({ narrative: JSON.parse(text) })
+    } catch {
+      res.json({ narrative: null })
+    }
   })
 
   // ── Competitor Monitoring ────────────────────────────────────────────────
