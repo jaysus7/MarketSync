@@ -44,92 +44,110 @@ function buildWindowStickerHtml(vehicle, dealer, branding, recalls, photoDataUri
 
   const logoSrc  = logoDataUri || branding.logo_url || null
   const logoHtml = logoSrc
-    ? `<img src="${logoSrc}" alt="${dealer.name || ''}" style="max-height:52px;max-width:180px;object-fit:contain;display:block;">`
-    : `<span style="font-size:16px;font-weight:900;color:#fff;">${dealer.name || 'Your Dealership'}</span>`
+    ? `<img src="${logoSrc}" alt="${dealer.name || ''}" style="max-height:48px;max-width:170px;object-fit:contain;display:block;">`
+    : `<span style="font-size:15px;font-weight:900;color:#fff;letter-spacing:-.3px;">${dealer.name || 'Your Dealership'}</span>`
 
-  const photoHtml = photoDataUri
-    ? `<img src="${photoDataUri}" style="width:100%;height:100%;object-fit:cover;" alt="Vehicle">`
-    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#dde3ec;color:#94a3b8;font-size:12px;">No Photo Available</div>`
-
-  const price   = vehicle.price   ? `$${Number(vehicle.price).toLocaleString()}` : 'Call for Price'
-  const mileage = vehicle.mileage ? `${Number(vehicle.mileage).toLocaleString()} km` : (vehicle.condition === 'new' ? 'New Vehicle' : '—')
-  const cap     = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '—'
+  const price     = vehicle.price   ? `$${Number(vehicle.price).toLocaleString()}` : 'Call for Price'
+  const mileage   = vehicle.mileage ? `${Number(vehicle.mileage).toLocaleString()} km` : (vehicle.condition === 'new' ? 'New Vehicle' : '—')
+  const cap       = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '—'
   const vehicleName = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ')
+  const basePrice = vehicle.price ? Number(vehicle.price) : null
 
-  // ── Pull extended VIN data ────────────────────────────────────────────────
+  // ── Extended VIN data ─────────────────────────────────────────────────────
   const vd = vehicle.vin_data || {}
   const plantStr = [vd.plant_city, vd.plant_state, vd.plant_country].filter(Boolean).join(', ') || null
 
-  // ── Categorised feature columns (mirroring GM Monroney layout) ──────────
+  // ── Feature columns — blend description keywords WITH NHTSA vin_data ──────
   const desc = (vehicle.description || '').toLowerCase()
   const has  = kw => desc.includes(kw)
+  // Helper: format NHTSA yes/no/standard values into human-readable
+  const nhtsa = (val, label) => {
+    if (!val) return null
+    const v = val.toString().toLowerCase()
+    if (v === 'not applicable' || v === 'none') return null
+    if (v === 'yes' || v === 'standard') return label
+    if (v === 'optional') return `${label} (Optional)`
+    return label
+  }
 
   const featureCols = [
     {
       title: 'Performance & Mechanical',
       items: [
-        vehicle.engine        && vehicle.engine,
-        vehicle.drivetrain    && `${vehicle.drivetrain} Drivetrain`,
-        vehicle.transmission  && `${vehicle.transmission} Transmission`,
-        vehicle.fuel_type     && `${vehicle.fuel_type}`,
-        has('tow')            && 'Towing Package',
-        has('trailer')        && 'Trailer Hitch',
-        has('sport')          && 'Sport Mode',
-        has('awd') || has('4wd') || has('four-wheel') ? 'All-Wheel / 4WD Capable' : null,
+        vehicle.engine                                   && vehicle.engine,
+        vehicle.drivetrain                               && `${vehicle.drivetrain} Drivetrain`,
+        vehicle.transmission                             && `${vehicle.transmission} Transmission`,
+        vd.transmission_speeds                           && `${vd.transmission_speeds}-Speed Transmission`,
+        vehicle.fuel_type                                && `${vehicle.fuel_type} Fuel`,
+        vd.fuel_injection                                && `${vd.fuel_injection} Fuel Injection`,
+        nhtsa(vd.turbo, 'Turbocharged'),
+        vd.horsepower                                    && `${vd.horsepower} Horsepower`,
+        vd.displacement_cc                               && `${vd.displacement_cc}cc Displacement`,
+        vd.gvwr                                          && `GVWR: ${vd.gvwr}`,
+        has('tow') || has('trailer')                     ? 'Towing Package' : null,
+        has('awd') || has('4wd') || has('four-wheel')    ? 'Four-Wheel / AWD Capable' : null,
       ].filter(Boolean),
     },
     {
       title: 'Comfort & Convenience',
       items: [
-        has('heated seat')    && 'Heated Front Seats',
-        has('ventilated')     && 'Ventilated Seats',
-        has('heated steering') && 'Heated Steering Wheel',
-        has('remote start')   && 'Remote Vehicle Start',
-        has('keyless')        && 'Keyless Entry / Push-Button Start',
-        has('sunroof') || has('moonroof') ? 'Power Sunroof / Moonroof' : null,
-        has('panoramic')      && 'Panoramic Roof',
-        has('power liftgate') && 'Power Liftgate',
-        has('leather')        && 'Leather-Appointed Seating',
-        has('third row') || has('3rd row') ? 'Third-Row Seating' : null,
-        has('wireless charg') && 'Wireless Charging Pad',
-        vehicle.interior_color && `${vehicle.interior_color} Interior`,
-        vehicle.exterior_color && `${vehicle.exterior_color} Exterior`,
+        has('heated seat')                               ? 'Heated Front Seats' : null,
+        has('ventilated')                                ? 'Ventilated Seats' : null,
+        has('heated steering')                           ? 'Heated Steering Wheel' : null,
+        has('remote start')                              ? 'Remote Vehicle Start' : null,
+        (has('keyless') || nhtsa(vd.keyless_ignition, 'x')) ? 'Keyless Entry / Push-Button Start' : null,
+        has('sunroof') || has('moonroof')                ? 'Power Sunroof / Moonroof' : null,
+        has('panoramic')                                 ? 'Panoramic Roof' : null,
+        has('power liftgate')                            ? 'Power Liftgate' : null,
+        has('leather')                                   ? 'Leather-Appointed Seating' : null,
+        has('third row') || has('3rd row')               ? 'Third-Row Seating' : null,
+        has('wireless charg')                            ? 'Wireless Charging Pad' : null,
+        vd.seat_rows                                     && `${vd.seat_rows} Row Seating`,
+        vd.seats                                         && `${vd.seats} Passenger Capacity`,
+        vehicle.interior_color                           && `${vehicle.interior_color} Interior`,
+        vehicle.exterior_color                           && `${vehicle.exterior_color} Exterior`,
       ].filter(Boolean),
     },
     {
       title: 'Safety & Security',
       items: [
         has('backup camera') || has('rear camera') || has('rearview') ? 'Rear-View Camera' : null,
-        has('blind spot')     && 'Blind Spot Monitoring',
-        has('lane departure') || has('lane keep') ? 'Lane Keep Assist' : null,
-        has('forward collision') || has('collision alert') ? 'Forward Collision Alert' : null,
-        has('automatic emergency') || has('aeb') ? 'Automatic Emergency Braking' : null,
-        has('adaptive cruise') && 'Adaptive Cruise Control',
-        has('parking sensor') || has('park assist') ? 'Parking Sensors / Assist' : null,
-        has('360') || has('surround') ? '360° Surround-View Camera' : null,
-        has('stability control') && 'Electronic Stability Control',
-        has('airbag')         && 'Advanced Airbag System',
-        recalls?.length ? `⚠ ${recalls.length} Open Recall — See Dealer` : '✓ No Open Recalls on Record',
+        nhtsa(vd.blind_spot_mon, 'Blind Spot Monitoring'),
+        nhtsa(vd.lane_departure, 'Lane Departure Warning'),
+        nhtsa(vd.lane_keep, 'Lane Keep Assist'),
+        nhtsa(vd.forward_collision, 'Forward Collision Warning'),
+        nhtsa(vd.auto_brake, 'Automatic Emergency Braking'),
+        nhtsa(vd.adaptive_cruise, 'Adaptive Cruise Control'),
+        nhtsa(vd.adaptive_headlights, 'Adaptive Headlights'),
+        nhtsa(vd.abs, 'Anti-Lock Brakes (ABS)'),
+        nhtsa(vd.esc, 'Electronic Stability Control'),
+        nhtsa(vd.tpms, 'Tire Pressure Monitoring (TPMS)'),
+        vd.airbag_front   && `Front Airbags: ${vd.airbag_front}`,
+        vd.airbag_side    && `Side Airbags: ${vd.airbag_side}`,
+        vd.airbag_curtain && `Curtain Airbags: ${vd.airbag_curtain}`,
+        vd.airbag_knee    && `Knee Airbags: ${vd.airbag_knee}`,
+        has('park assist') || has('parking sensor')      ? 'Parking Sensors / Assist' : null,
+        has('360') || has('surround')                    ? '360° Surround-View Camera' : null,
       ].filter(Boolean),
     },
     {
       title: 'Technology & Connectivity',
       items: [
-        has('apple carplay')  && 'Apple CarPlay®',
-        has('android auto')   && 'Android Auto™',
-        has('navigation') || has('nav system') ? 'Built-In Navigation' : null,
-        has('bluetooth')      && 'Bluetooth Connectivity',
-        has('wi-fi') || has('wifi') || has('hotspot') ? 'Built-In Wi-Fi Hotspot' : null,
-        has('onstar')         && 'OnStar Connected Services',
-        has('bose') || has('harman') || has('jbl') ? 'Premium Audio System' : null,
-        has('usb')            && 'USB Charging Ports',
-        has('digital cluster') || has('digital dash') ? 'Digital Instrument Cluster' : null,
-        has('heads-up') || has('hud') ? 'Heads-Up Display' : null,
+        has('apple carplay')                             ? 'Apple CarPlay®' : null,
+        has('android auto')                              ? 'Android Auto™' : null,
+        has('navigation') || has('nav system')           ? 'Built-In Navigation' : null,
+        has('bluetooth')                                 ? 'Bluetooth Connectivity' : null,
+        has('wi-fi') || has('wifi') || has('hotspot')    ? 'Built-In Wi-Fi Hotspot' : null,
+        has('onstar')                                    ? 'OnStar Connected Services' : null,
+        has('bose') || has('harman') || has('jbl')       ? 'Premium Audio System' : null,
+        has('usb')                                       ? 'USB Charging Ports' : null,
+        has('digital cluster') || has('digital dash')    ? 'Digital Instrument Cluster' : null,
+        has('heads-up') || has('hud')                    ? 'Heads-Up Display' : null,
+        vd.sae_automation                                && `SAE Automation Level: ${vd.sae_automation}`,
       ].filter(Boolean),
     },
   ]
 
-  // Ensure each column has at least one item
   featureCols.forEach(col => {
     if (!col.items.length) col.items.push('See dealer for full equipment details')
   })
@@ -140,237 +158,230 @@ function buildWindowStickerHtml(vehicle, dealer, branding, recalls, photoDataUri
       ${col.items.map(item => `<div class="fi">${item}</div>`).join('')}
     </div>`).join('')
 
-  // ── Price breakdown ───────────────────────────────────────────────────────
-  const basePrice = vehicle.price ? Number(vehicle.price) : null
+  // ── Build data grid (only if vin_data exists) ─────────────────────────────
+  const buildRows = [
+    ['Manufacturer',    vd.manufacturer],
+    ['Vehicle Type',    vd.vehicle_type],
+    ['Series',          vd.series],
+    ['Built In',        plantStr],
+    ['Plant',           vd.plant_company],
+    ['Engine Model',    vd.engine_model],
+    ['Engine Mfr',      vd.engine_manufacturer],
+    ['Engine Config',   vd.engine_config],
+    ['Valve Train',     vd.valve_train],
+    ['Displacement',    vd.displacement_l ? `${vd.displacement_l}L / ${vd.displacement_cc || '—'}cc` : null],
+    ['Cylinders',       vd.cylinders],
+    ['Horsepower',      vd.horsepower ? `${vd.horsepower} HP` : null],
+    ['Alt Fuel',        vd.fuel_type_secondary],
+    ['Electrification', vd.electrification],
+    ['Wheel Base',      vd.wheel_base],
+    ['Wheel Size (F)',  vd.wheel_size_front],
+    ['Wheel Size (R)',  vd.wheel_size_rear],
+    ['Wheels',          vd.wheels],
+    ['Axles',           vd.axles],
+    ['Windows',         vd.windows],
+    ['Curb Weight',     vd.curb_weight_lb ? `${vd.curb_weight_lb} lbs` : null],
+    ['Brakes',          vd.brake_system],
+    ['Steering',        vd.steering_location],
+  ].filter(([, v]) => v)
+
+  const buildDataHtml = buildRows.length ? `
+    <div class="build-section">
+      <div class="build-hdr">Vehicle Build Data (NHTSA)</div>
+      <div class="build-grid">
+        ${buildRows.map(([l, v]) => `
+          <div class="build-cell">
+            <div class="bc-label">${l}</div>
+            <div class="bc-val">${v}</div>
+          </div>`).join('')}
+      </div>
+    </div>` : ''
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8">
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
-  body{font-family:'Arial',Helvetica,sans-serif;width:1056px;min-height:816px;background:#fff;color:#111;font-size:11px;}
+  body{font-family:'Arial',Helvetica,sans-serif;width:1056px;height:816px;background:#fff;color:#111;display:flex;flex-direction:column;overflow:hidden;}
 
-  /* ── TOP HEADER BAR ── */
-  .top-hdr{background:${primary};display:flex;align-items:center;gap:0;height:64px;}
-  .top-hdr .logo-cell{padding:0 20px;display:flex;align-items:center;min-width:200px;}
-  .top-hdr .veh-name-cell{flex:1;padding:0 18px;display:flex;flex-direction:column;justify-content:center;border-left:1px solid rgba(255,255,255,.25);border-right:1px solid rgba(255,255,255,.25);}
-  .top-hdr .veh-label{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.65);}
-  .top-hdr .veh-name{font-size:19px;font-weight:900;color:#fff;line-height:1.15;letter-spacing:-.3px;}
-  .top-hdr .color-cell{padding:0 16px;display:flex;flex-direction:column;justify-content:center;gap:3px;border-right:1px solid rgba(255,255,255,.25);}
-  .top-hdr .color-row{font-size:9px;color:rgba(255,255,255,.75);display:flex;gap:4px;}
-  .top-hdr .color-row b{color:#fff;}
-  .top-hdr .eng-cell{padding:0 16px;display:flex;flex-direction:column;justify-content:center;gap:3px;}
-  .top-hdr .eng-row{font-size:9px;color:rgba(255,255,255,.75);display:flex;gap:4px;}
-  .top-hdr .eng-row b{color:#fff;}
+  /* ── HEADER ── */
+  .top-hdr{background:${primary};display:flex;align-items:stretch;height:60px;flex-shrink:0;}
+  .logo-cell{padding:0 18px;display:flex;align-items:center;min-width:190px;border-right:1px solid rgba(255,255,255,.2);}
+  .name-cell{flex:1;padding:0 16px;display:flex;flex-direction:column;justify-content:center;border-right:1px solid rgba(255,255,255,.2);}
+  .name-label{font-size:7.5px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:3px;}
+  .name-val{font-size:20px;font-weight:900;color:#fff;line-height:1;letter-spacing:-.4px;}
+  .meta-cell{padding:0 14px;display:flex;flex-direction:column;justify-content:center;gap:2px;border-right:1px solid rgba(255,255,255,.2);min-width:200px;}
+  .meta-row{font-size:8.5px;color:rgba(255,255,255,.7);display:flex;gap:4px;align-items:baseline;}
+  .meta-row b{color:#fff;font-size:9px;}
+  .eng-cell{padding:0 14px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:220px;}
+  .eng-row{font-size:8.5px;color:rgba(255,255,255,.7);display:flex;gap:4px;align-items:baseline;}
+  .eng-row b{color:#fff;font-size:9px;}
 
-  /* ── SECONDARY STRIPE ── */
-  .sec-stripe{background:${secondary};height:6px;}
+  .accent-bar{background:${secondary};height:5px;flex-shrink:0;}
 
-  /* ── BODY ── */
-  .body-wrap{display:flex;min-height:calc(816px - 64px - 6px - 38px);}
+  /* ── MAIN LAYOUT ── */
+  .main{display:flex;flex:1;min-height:0;}
 
-  /* LEFT: photo + 4 feature columns */
-  .left-panel{flex:1;display:flex;flex-direction:column;border-right:2px solid ${primary};}
+  /* LEFT = photo + ribbon + columns + build data */
+  .left{flex:1;display:flex;flex-direction:column;min-width:0;border-right:2px solid ${primary};}
 
-  .photo-row{height:200px;background:#dde3ec;overflow:hidden;flex-shrink:0;}
-  .photo-row img{width:100%;height:100%;object-fit:cover;}
-  .photo-row .no-photo{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px;}
+  .photo{height:168px;background:#dde3ec;overflow:hidden;flex-shrink:0;position:relative;}
+  .photo img{width:100%;height:100%;object-fit:cover;object-position:center;}
+  .photo-none{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px;background:#e8ecf0;}
 
-  /* Spec ribbon below photo */
-  .spec-ribbon{display:flex;background:#f1f5f9;border-bottom:1px solid #dde3ec;flex-shrink:0;}
-  .spec-cell{flex:1;padding:6px 10px;border-right:1px solid #dde3ec;text-align:center;}
-  .spec-cell:last-child{border-right:none;}
-  .spec-cell .sl{font-size:7.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;}
-  .spec-cell .sv{font-size:10.5px;font-weight:700;color:#0f172a;margin-top:1px;}
+  .ribbon{display:flex;background:#f0f4f8;border-bottom:1px solid #d1dae3;flex-shrink:0;}
+  .rc{flex:1;padding:5px 8px;border-right:1px solid #d1dae3;text-align:center;}
+  .rc:last-child{border-right:none;}
+  .rl{font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;}
+  .rv{font-size:10px;font-weight:700;color:#0f172a;margin-top:1px;line-height:1.2;}
 
-  /* Feature columns */
-  .feat-section{display:flex;flex:1;padding:10px 8px 8px;gap:8px;}
-  .fcol{flex:1;min-width:0;}
-  .col-hdr{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:${primary};border-bottom:2px solid ${secondary};padding-bottom:3px;margin-bottom:6px;}
-  .fi{font-size:9.5px;color:#334155;padding:2.5px 0 2.5px 12px;position:relative;line-height:1.35;}
-  .fi::before{content:"•";position:absolute;left:2px;color:${secondary};font-weight:900;font-size:11px;top:1px;}
+  /* 4 feature columns */
+  .cols{display:flex;flex:1;padding:8px 6px 0;gap:6px;min-height:0;}
+  .fcol{flex:1;min-width:0;overflow:hidden;}
+  .col-hdr{font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${primary};border-bottom:2px solid ${secondary};padding-bottom:2px;margin-bottom:5px;}
+  .fi{font-size:9px;color:#1e293b;padding:2px 0 2px 10px;position:relative;line-height:1.3;}
+  .fi::before{content:"•";position:absolute;left:1px;color:${secondary};font-weight:900;font-size:10px;line-height:1.3;}
 
-  /* RIGHT: price box */
-  .right-panel{width:220px;display:flex;flex-direction:column;background:#fff;}
-  .price-hdr{background:${primary};color:#fff;padding:11px 14px 8px;text-align:center;flex-shrink:0;}
-  .price-hdr .ph-label{font-size:8px;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;}
-  .price-hdr .ph-val{font-size:28px;font-weight:900;line-height:1.1;margin-top:1px;}
-  .price-hdr .ph-cond{font-size:9px;opacity:.75;margin-top:2px;letter-spacing:.5px;}
+  /* Build data section */
+  .build-section{background:#f8fafc;border-top:1.5px solid ${secondary};padding:5px 8px;flex-shrink:0;}
+  .build-hdr{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:${primary};margin-bottom:4px;}
+  .build-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px 8px;}
+  .build-cell{}
+  .bc-label{font-size:6.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;}
+  .bc-val{font-size:8px;font-weight:700;color:#0f172a;line-height:1.25;}
 
-  .price-breakdown{padding:10px 14px;border-bottom:1px solid #e2e8f0;flex-shrink:0;}
-  .pb-row{display:flex;justify-content:space-between;font-size:9.5px;padding:2px 0;color:#475569;}
-  .pb-row.total{font-size:11px;font-weight:800;color:${primary};border-top:2px solid ${secondary};margin-top:5px;padding-top:5px;}
-  .pb-row b{color:#0f172a;}
+  /* RIGHT = price panel */
+  .right{width:210px;display:flex;flex-direction:column;flex-shrink:0;}
 
-  .vin-block{padding:9px 14px;border-bottom:1px solid #e2e8f0;flex-shrink:0;text-align:center;}
-  .vin-label{font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
-  .vin-val{font-size:9.5px;font-weight:700;font-family:monospace;letter-spacing:.7px;word-break:break-all;margin-top:2px;color:#0f172a;}
+  .price-hdr{background:${primary};color:#fff;padding:10px 13px 8px;text-align:center;}
+  .ph-lbl{font-size:7.5px;letter-spacing:2px;text-transform:uppercase;opacity:.65;margin-bottom:2px;}
+  .ph-val{font-size:30px;font-weight:900;line-height:1;}
+  .ph-sub{font-size:8.5px;opacity:.7;margin-top:3px;}
 
-  .recall-block{padding:8px 14px;border-bottom:1px solid #e2e8f0;flex-shrink:0;}
-  .recall-ok{background:#f0fdf4;border:1px solid #86efac;border-radius:5px;padding:7px 9px;text-align:center;font-size:9.5px;font-weight:700;color:#15803d;}
-  .recall-bad{background:#fef2f2;border:1px solid #fca5a5;border-radius:5px;padding:7px 9px;font-size:9.5px;font-weight:700;color:#dc2626;text-align:center;}
+  .price-break{padding:9px 13px;border-bottom:1px solid #e2e8f0;}
+  .pb-row{display:flex;justify-content:space-between;font-size:9px;padding:2.5px 0;color:#64748b;}
+  .pb-row b{color:#1e293b;font-weight:700;}
+  .pb-total{display:flex;justify-content:space-between;font-size:10.5px;font-weight:800;color:${primary};border-top:2px solid ${secondary};margin-top:5px;padding-top:5px;}
 
-  .dealer-block{padding:10px 14px;flex:1;}
-  .db-name{font-size:12px;font-weight:900;color:${primary};margin-bottom:5px;}
-  .db-line{font-size:9.5px;color:#475569;line-height:1.7;}
-  .db-tagline{font-size:9px;font-style:italic;color:#94a3b8;margin-top:6px;}
+  .vin-blk{padding:8px 13px;border-bottom:1px solid #e2e8f0;text-align:center;}
+  .vin-lbl{font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
+  .vin-val{font-size:8.5px;font-weight:700;font-family:monospace;letter-spacing:.5px;word-break:break-all;color:#0f172a;margin-top:2px;line-height:1.3;}
 
-  .stock-badge{background:${secondary};color:#fff;font-size:9px;font-weight:800;padding:5px 14px;text-align:center;letter-spacing:.5px;flex-shrink:0;}
+  .recall-blk{padding:7px 13px;border-bottom:1px solid #e2e8f0;}
+  .r-ok{background:#f0fdf4;border:1px solid #86efac;border-radius:4px;padding:6px 8px;text-align:center;font-size:9px;font-weight:700;color:#15803d;}
+  .r-bad{background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;padding:6px 8px;text-align:center;font-size:9px;font-weight:700;color:#dc2626;}
+  .r-note{font-size:7.5px;font-weight:400;display:block;margin-top:2px;}
+
+  .dealer-blk{padding:9px 13px;flex:1;}
+  .d-name{font-size:12px;font-weight:900;color:${primary};margin-bottom:4px;}
+  .d-line{font-size:8.5px;color:#475569;line-height:1.75;}
+  .d-tag{font-size:8px;font-style:italic;color:#94a3b8;margin-top:5px;}
+
+  .stock-bar{background:${secondary};color:#fff;font-size:8.5px;font-weight:800;padding:5px 13px;text-align:center;letter-spacing:.5px;}
 
   /* ── FOOTER ── */
-  .footer{background:${primary};color:rgba(255,255,255,.8);padding:8px 22px;display:flex;justify-content:space-between;font-size:9px;height:38px;align-items:center;}
+  .footer{background:${primary};color:rgba(255,255,255,.75);padding:0 20px;display:flex;justify-content:space-between;align-items:center;font-size:8.5px;height:33px;flex-shrink:0;}
   .footer b{color:#fff;}
 </style>
 </head>
 <body>
 
-<!-- TOP HEADER -->
+<!-- HEADER -->
 <div class="top-hdr">
   <div class="logo-cell">${logoHtml}</div>
-  <div class="veh-name-cell">
-    <div class="veh-label">Monroney Label &nbsp;·&nbsp; Vehicle Information</div>
-    <div class="veh-name">${vehicleName || 'Vehicle Details'}</div>
+  <div class="name-cell">
+    <div class="name-label">Monroney Label &nbsp;&middot;&nbsp; Vehicle Information</div>
+    <div class="name-val">${vehicleName || 'Vehicle Details'}</div>
   </div>
-  <div class="color-cell">
-    ${vehicle.exterior_color ? `<div class="color-row"><span>Exterior:</span><b>${vehicle.exterior_color}</b></div>` : ''}
-    ${vehicle.interior_color ? `<div class="color-row"><span>Interior:</span><b>${vehicle.interior_color}</b></div>` : ''}
-    ${vehicle.body_style     ? `<div class="color-row"><span>Body:</span><b>${vehicle.body_style}</b></div>` : ''}
+  <div class="meta-cell">
+    ${vehicle.exterior_color ? `<div class="meta-row"><span>Exterior:</span><b>${vehicle.exterior_color}</b></div>` : ''}
+    ${vehicle.interior_color ? `<div class="meta-row"><span>Interior:</span><b>${vehicle.interior_color}</b></div>` : ''}
+    ${vehicle.body_style     ? `<div class="meta-row"><span>Body:</span><b>${vehicle.body_style}</b></div>` : ''}
+    ${plantStr               ? `<div class="meta-row"><span>Built In:</span><b>${plantStr}</b></div>` : ''}
   </div>
   <div class="eng-cell">
     ${vehicle.engine       ? `<div class="eng-row"><span>Engine:</span><b>${vehicle.engine}</b></div>` : ''}
     ${vehicle.transmission ? `<div class="eng-row"><span>Trans:</span><b>${vehicle.transmission}</b></div>` : ''}
     ${vehicle.drivetrain   ? `<div class="eng-row"><span>Drive:</span><b>${vehicle.drivetrain}</b></div>` : ''}
+    ${vd.horsepower        ? `<div class="eng-row"><span>Power:</span><b>${vd.horsepower} HP</b></div>` : ''}
   </div>
 </div>
+<div class="accent-bar"></div>
 
-<div class="sec-stripe"></div>
-
-<div class="body-wrap">
+<!-- MAIN -->
+<div class="main">
 
   <!-- LEFT PANEL -->
-  <div class="left-panel">
+  <div class="left">
 
-    <!-- Vehicle photo -->
-    <div class="photo-row">
+    <div class="photo">
       ${photoDataUri
         ? `<img src="${photoDataUri}" alt="Vehicle">`
-        : `<div class="no-photo">No Photo Available</div>`}
+        : `<div class="photo-none">No Photo Available</div>`}
     </div>
 
-    <!-- Spec ribbon -->
-    <div class="spec-ribbon">
+    <div class="ribbon">
       ${[
-        ['Stock #',      vehicle.stocknumber  || '—'],
-        ['Condition',    cap(vehicle.condition)],
-        ['Mileage',      mileage],
-        ['Fuel Type',    vehicle.fuel_type    || '—'],
-        ['Doors',        vehicle.doors ? String(vehicle.doors) : '—'],
-        ['Year',         vehicle.year         || '—'],
-      ].map(([l,v]) => `<div class="spec-cell"><div class="sl">${l}</div><div class="sv">${v}</div></div>`).join('')}
+        ['Stock #',   vehicle.stocknumber || '—'],
+        ['Condition', cap(vehicle.condition)],
+        ['Mileage',   mileage],
+        ['Fuel',      vehicle.fuel_type || '—'],
+        ['Doors',     vehicle.doors ? String(vehicle.doors) : '—'],
+        ['Seats',     vd.seats || '—'],
+        ['GVWR',      vd.gvwr || '—'],
+        ['Year',      String(vehicle.year || '—')],
+      ].map(([l,v]) => `<div class="rc"><div class="rl">${l}</div><div class="rv">${v}</div></div>`).join('')}
     </div>
 
-    <!-- 4-column features (GM Monroney style) -->
-    <div class="feat-section">${colHtml}</div>
+    <div class="cols">${colHtml}</div>
 
-    <!-- Full Build Data row -->
-    ${Object.values(vd).some(v => v !== null) ? `
-    <div style="background:#f8fafc;border-top:2px solid ${secondary};padding:7px 10px;display:flex;flex-wrap:wrap;gap:3px 14px;">
-      <div style="width:100%;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${primary};margin-bottom:4px;">Vehicle Build Data (NHTSA)</div>
-      ${[
-        vd.manufacturer       && ['Manufacturer',       vd.manufacturer],
-        vd.vehicle_type       && ['Type',               vd.vehicle_type],
-        vd.series             && ['Series',             vd.series],
-        plantStr              && ['Built In',           plantStr],
-        vd.plant_company      && ['Plant',              vd.plant_company],
-        vd.engine_model       && ['Engine Model',       vd.engine_model],
-        vd.engine_manufacturer && ['Engine Mfr',        vd.engine_manufacturer],
-        vd.engine_config      && ['Engine Config',      vd.engine_config],
-        vd.valve_train        && ['Valve Train',        vd.valve_train],
-        vd.displacement_l     && ['Displacement',       `${vd.displacement_l}L`],
-        vd.displacement_cc    && ['Displ. (cc)',        `${vd.displacement_cc}cc`],
-        vd.cylinders          && ['Cylinders',          vd.cylinders],
-        vd.horsepower         && ['Horsepower',         `${vd.horsepower} HP`],
-        vd.turbo              && ['Turbo',              vd.turbo],
-        vd.fuel_injection     && ['Fuel Injection',     vd.fuel_injection],
-        vd.fuel_type_secondary && ['Alt Fuel',          vd.fuel_type_secondary],
-        vd.electrification    && ['Electrification',    vd.electrification],
-        vd.transmission_speeds && ['Trans Speeds',      vd.transmission_speeds],
-        vd.wheel_base         && ['Wheel Base',         vd.wheel_base],
-        vd.wheel_size_front   && ['Wheel Size (F)',     vd.wheel_size_front],
-        vd.wheel_size_rear    && ['Wheel Size (R)',     vd.wheel_size_rear],
-        vd.wheels             && ['Wheels',             vd.wheels],
-        vd.axles              && ['Axles',              vd.axles],
-        vd.windows            && ['Windows',            vd.windows],
-        vd.seat_rows          && ['Seat Rows',          vd.seat_rows],
-        vd.seats              && ['Seats',              vd.seats],
-        vd.gvwr               && ['GVWR',               vd.gvwr],
-        vd.curb_weight_lb     && ['Curb Weight',        `${vd.curb_weight_lb} lbs`],
-        vd.brake_system       && ['Brakes',             vd.brake_system],
-        vd.steering_location  && ['Steering',           vd.steering_location],
-        vd.abs                && ['ABS',                vd.abs],
-        vd.esc                && ['ESC',                vd.esc],
-        vd.tpms               && ['TPMS',               vd.tpms],
-        vd.forward_collision  && ['Fwd Collision Warn', vd.forward_collision],
-        vd.lane_departure     && ['Lane Departure',     vd.lane_departure],
-        vd.lane_keep          && ['Lane Keep',          vd.lane_keep],
-        vd.blind_spot_mon     && ['Blind Spot Mon',     vd.blind_spot_mon],
-        vd.adaptive_cruise    && ['Adaptive Cruise',    vd.adaptive_cruise],
-        vd.auto_brake         && ['Auto Emergency Brk', vd.auto_brake],
-        vd.adaptive_headlights && ['Adaptive Hdlts',   vd.adaptive_headlights],
-        vd.airbag_front       && ['Airbags (Front)',    vd.airbag_front],
-        vd.airbag_side        && ['Airbags (Side)',     vd.airbag_side],
-        vd.airbag_curtain     && ['Airbags (Curtain)',  vd.airbag_curtain],
-        vd.airbag_knee        && ['Airbags (Knee)',     vd.airbag_knee],
-        vd.keyless_ignition   && ['Keyless Ignition',   vd.keyless_ignition],
-        vd.sae_automation     && ['SAE Auto Level',     vd.sae_automation],
-      ].filter(Boolean).map(([l,v]) => `<div style="display:flex;gap:3px;align-items:baseline;"><span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;">${l}:</span><span style="font-size:8px;font-weight:700;color:#1e293b;">${v}</span></div>`).join('')}
-    </div>` : ''}
+    ${buildDataHtml}
 
   </div>
 
-  <!-- RIGHT PANEL (price box) -->
-  <div class="right-panel">
+  <!-- RIGHT PANEL -->
+  <div class="right">
     <div class="price-hdr">
-      <div class="ph-label">Total Asking Price</div>
+      <div class="ph-lbl">Total Asking Price</div>
       <div class="ph-val">${price}</div>
-      <div class="ph-cond">${cap(vehicle.condition)} &nbsp;·&nbsp; ${mileage}</div>
+      <div class="ph-sub">${cap(vehicle.condition)} &nbsp;&middot;&nbsp; ${mileage}</div>
     </div>
 
-    <div class="price-breakdown">
+    <div class="price-break">
       ${basePrice !== null ? `
-      <div class="pb-row"><span>Base Vehicle Price</span><b>${`$${basePrice.toLocaleString()}`}</b></div>
+      <div class="pb-row"><span>Base Vehicle Price</span><b>$${basePrice.toLocaleString()}</b></div>
       <div class="pb-row"><span>Options / Packages</span><b>Included</b></div>
       <div class="pb-row"><span>Destination &amp; Delivery</span><b>See Dealer</b></div>
-      <div class="pb-row total"><span>TOTAL PRICE</span><b>${price}</b></div>
-      ` : `<div class="pb-row"><span>Contact dealer for pricing details.</span></div>`}
+      <div class="pb-total"><span>TOTAL PRICE</span><span>${price}</span></div>
+      ` : `<div class="pb-row"><span>Contact dealer for pricing.</span></div>`}
     </div>
 
-    <div class="vin-block">
-      <div class="vin-label">Vehicle Identification Number (VIN)</div>
+    <div class="vin-blk">
+      <div class="vin-lbl">Vehicle Identification Number</div>
       <div class="vin-val">${vehicle.vin || 'Not Available'}</div>
     </div>
 
-    <div class="recall-block">
+    <div class="recall-blk">
       ${recalls?.length
-        ? `<div class="recall-bad">⚠ ${recalls.length} Open Recall${recalls.length > 1 ? 's' : ''}<br><span style="font-weight:400;font-size:9px;">Contact dealer for remedy details</span></div>`
-        : `<div class="recall-ok">✓ No Open Recalls on Record</div>`}
+        ? `<div class="r-bad">⚠ ${recalls.length} Open Recall${recalls.length > 1 ? 's' : ''}<span class="r-note">Contact dealer for remedy</span></div>`
+        : `<div class="r-ok">&#10003; No Open Recalls on Record</div>`}
     </div>
 
-    <div class="dealer-block">
-      <div class="db-name">${dealer.name || 'Your Dealership'}</div>
-      ${dealer.website_url ? `<div class="db-line">🌐 ${dealer.website_url}</div>` : ''}
-      ${branding.tagline   ? `<div class="db-tagline">"${branding.tagline}"</div>` : ''}
+    <div class="dealer-blk">
+      <div class="d-name">${dealer.name || 'Your Dealership'}</div>
+      ${dealer.website_url ? `<div class="d-line">${dealer.website_url}</div>` : ''}
+      ${branding.tagline   ? `<div class="d-tag">&ldquo;${branding.tagline}&rdquo;</div>` : ''}
     </div>
 
-    <div class="stock-badge">Stock # ${vehicle.stocknumber || '—'}</div>
+    <div class="stock-bar">Stock # ${vehicle.stocknumber || '&mdash;'}</div>
   </div>
 
 </div>
 
 <!-- FOOTER -->
 <div class="footer">
-  <span>VIN: <b>${vehicle.vin || '—'}</b></span>
-  <span>${dealer.name || ''}</span>
+  <span>VIN: <b>${vehicle.vin || '&mdash;'}</b></span>
+  <span>${dealer.name || ''} &nbsp;&middot;&nbsp; ${dealer.website_url || ''}</span>
   <span>Generated: <b>${new Date().toLocaleDateString('en-CA')}</b></span>
 </div>
 
