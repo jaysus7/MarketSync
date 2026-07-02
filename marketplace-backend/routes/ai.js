@@ -711,21 +711,21 @@ Return ONLY valid JSON array (no markdown):
     const [{ data: available }, { data: sold90 }, { data: sold30 }] = await Promise.all([
       supabaseAdmin
         .from('inventory')
-        .select('id, vin, stocknumber, make, model, year, condition, price, mileage, description, image_urls, created_at, updated_at')
+        .select('id, vin, stocknumber, make, model, year, condition, price, mileage, description, image_urls, created_at')
         .eq('dealership_id', req.dealershipId)
         .eq('status', 'available'),
       supabaseAdmin
         .from('inventory')
-        .select('make, model, year, condition, updated_at')
+        .select('make, model, year, condition, last_synced_at')
         .eq('dealership_id', req.dealershipId)
         .in('status', ['sold', 'archived'])
-        .gte('updated_at', since90),
+        .gte('last_synced_at', since90),
       supabaseAdmin
         .from('inventory')
-        .select('make, model, year, condition, updated_at')
+        .select('make, model, year, condition, last_synced_at')
         .eq('dealership_id', req.dealershipId)
         .in('status', ['sold', 'archived'])
-        .gte('updated_at', since30),
+        .gte('last_synced_at', since30),
     ])
 
     const vehicles = available || []
