@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { scrapeMarketData } from '../scraper.js'
-import { createNotifications } from '../notifications.js'
+import { createNotification, createNotifications } from '../notifications.js'
 
 const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 
