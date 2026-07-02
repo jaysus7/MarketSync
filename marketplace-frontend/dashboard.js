@@ -3670,29 +3670,51 @@ async function loadVinStickerInventory() {
     if (!vehicles.length) { empty.classList.remove('hidden'); return; }
 
     list.innerHTML = vehicles.map(v => {
-      const label = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ');
-      const price = v.price ? `$${Number(v.price).toLocaleString()}` : 'No price';
-      const mileage = v.mileage ? `${Number(v.mileage).toLocaleString()} km` : '';
+      const label   = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ');
+      const price   = v.price   ? `$${Number(v.price).toLocaleString()}` : 'No price';
+      const mileage = v.mileage ? `${Number(v.mileage).toLocaleString()} km` : (v.condition === 'new' ? 'New' : '');
+      const cap     = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+
       const recallBadge = v.recalls?.length
-        ? `<span class="text-xs font-bold text-red-600 dark:text-red-400">⚠ ${v.recalls.length} recall${v.recalls.length > 1 ? 's' : ''}</span>`
-        : (v.recalls_checked_at ? `<span class="text-xs text-emerald-600 dark:text-emerald-400">✓ No recalls</span>` : '');
-      const stickerIcon = v.window_sticker_url
-        ? `<span class="text-xs text-emerald-500 mr-1" title="Cached">●</span>` : '';
-      const brochureIcon = v.brochure_url
-        ? `<span class="text-xs text-emerald-500 mr-1" title="Cached">●</span>` : '';
-      return `<li class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
-        <div class="flex-1 min-w-0">
-          <div class="text-sm font-bold text-slate-900 dark:text-white truncate">${label}</div>
-          <div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
-            <span>${price}</span>${mileage ? `<span>· ${mileage}</span>` : ''}
-            ${v.vin ? `<span class="font-mono text-slate-400">${v.vin}</span>` : ''}
-            ${recallBadge}
+        ? `<span class="inline-flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded px-1.5 py-0.5">⚠ ${v.recalls.length} recall${v.recalls.length > 1 ? 's' : ''}</span>`
+        : (v.recalls_checked_at ? `<span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded px-1.5 py-0.5">✓ No recalls</span>` : '');
+
+      const stickerIcon  = v.window_sticker_url ? `<span class="text-emerald-400 mr-0.5" title="Cached PDF">●</span>` : '';
+      const brochureIcon = v.brochure_url        ? `<span class="text-emerald-400 mr-0.5" title="Cached PDF">●</span>` : '';
+
+      // Build pill-style detail chips
+      const chips = [
+        v.condition    && `<span class="chip">${cap(v.condition)}</span>`,
+        v.body_style   && `<span class="chip">${v.body_style}</span>`,
+        v.engine       && `<span class="chip">${v.engine}</span>`,
+        v.drivetrain   && `<span class="chip">${v.drivetrain}</span>`,
+        v.fuel_type    && `<span class="chip">${v.fuel_type}</span>`,
+        v.transmission && `<span class="chip">${v.transmission}</span>`,
+        v.exterior_color && `<span class="chip">Ext: ${v.exterior_color}</span>`,
+        v.interior_color && `<span class="chip">Int: ${v.interior_color}</span>`,
+        v.doors        && `<span class="chip">${v.doors}-door</span>`,
+      ].filter(Boolean).join('');
+
+      return `<li class="px-4 py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
+        <div class="flex flex-col sm:flex-row sm:items-start gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-sm font-bold text-slate-900 dark:text-white">${label}</span>
+              ${v.stocknumber ? `<span class="text-xs font-mono text-slate-400 dark:text-slate-500">#${v.stocknumber}</span>` : ''}
+              ${recallBadge}
+            </div>
+            <div class="flex items-center gap-2 mt-0.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+              <span class="font-semibold text-slate-700 dark:text-slate-200">${price}</span>
+              ${mileage ? `<span>· ${mileage}</span>` : ''}
+              ${v.vin ? `<span class="font-mono text-slate-400 dark:text-slate-500">${v.vin}</span>` : ''}
+            </div>
+            ${chips ? `<div class="flex flex-wrap gap-1 mt-1.5">${chips}</div>` : ''}
           </div>
-        </div>
-        <div class="flex gap-2 flex-shrink-0">
-          <button class="vs-decode-btn text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg transition font-medium" data-id="${v.id}" data-vin="${v.vin || ''}">VIN Decode</button>
-          <button class="vs-sticker-btn text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}">${stickerIcon}Sticker</button>
-          <button class="vs-brochure-btn text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}">${brochureIcon}Brochure</button>
+          <div class="flex gap-2 flex-shrink-0 items-start pt-0.5">
+            <button class="vs-decode-btn text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg transition font-medium" data-id="${v.id}" data-vin="${v.vin || ''}">VIN Decode</button>
+            <button class="vs-sticker-btn text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}">${stickerIcon}Sticker</button>
+            <button class="vs-brochure-btn text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}">${brochureIcon}Brochure</button>
+          </div>
         </div>
       </li>`;
     }).join('');
