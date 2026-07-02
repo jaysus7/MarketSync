@@ -345,9 +345,11 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
     const mileageText = vehicle.mileage ? `${Number(vehicle.mileage).toLocaleString()} ${distanceUnit}` : 'unknown mileage'
     const trimText = vehicle.trim ? ` ${vehicle.trim}` : ''
 
-    const prompt = `You are an automotive market pricing expert specializing in the ${marketLabel} market. Your estimates are based on ${marketLabel} automotive marketplace pricing data including ${marketSources.join(', ')}.
+    const [src1, src2, src3] = marketSources
 
-Provide a realistic ${marketLabel} retail market price range for the following ${conditionLabel} vehicle near ${location}:
+    const prompt = `You are an automotive market pricing expert specializing in the ${marketLabel} market with deep knowledge of ${marketSources.join(', ')} pricing data.
+
+Provide a detailed ${marketLabel} retail market price analysis for the following ${conditionLabel} vehicle near ${location}:
 
 ${vehicle.year} ${vehicle.make} ${vehicle.model}${trimText}
 Condition: ${conditionLabel}
@@ -357,20 +359,25 @@ ${vehicle.exterior_color ? `Colour: ${vehicle.exterior_color}` : ''}
 Rules:
 - For USED vehicles: compare only against used vehicles of the SAME year and SAME trim level in the ${location} region
 - For NEW vehicles: compare against new vehicles of the SAME year (trim flexible, as new units sell near MSRP)
-- Base estimates on ${marketLabel} market pricing (${currency}), not ${isUS ? 'Canadian' : 'US'} pricing
+- Base ALL estimates on ${marketLabel} market pricing (${currency}), not ${isUS ? 'Canadian' : 'US'} pricing
 - Account for regional market conditions in ${location}
+- Each marketplace typically prices slightly differently — reflect realistic differences between them
 - Be realistic and specific — not overly wide ranges
-- In your note, briefly mention which marketplace(s) typically show the most listings for this vehicle type
+- Estimated listing counts should reflect typical market volume for this vehicle type
 
 Respond with ONLY valid JSON (no explanation, no markdown) in this exact format:
 {
-  "low": <integer ${currency} price, lower end of fair market range>,
-  "mid": <integer ${currency} price, typical market price>,
-  "high": <integer ${currency} price, upper end of fair market range>,
+  "low": <integer ${currency}, lower end of overall fair market range>,
+  "mid": <integer ${currency}, overall typical market price across all sources>,
+  "high": <integer ${currency}, upper end of overall fair market range>,
   "currency": "${currency}",
   "confidence": "high" | "medium" | "low",
-  "note": "<one or two sentences: market context for this vehicle, referencing relevant ${marketLabel} marketplace pricing trends>",
-  "sources": ${JSON.stringify(marketSources)}
+  "note": "<two sentences: market context and demand for this vehicle in the ${location} region>",
+  "marketplace_averages": [
+    { "name": "${src1}", "avg": <integer ${currency} average listing price on ${src1}>, "estimated_listings": "<e.g. ~40 listings>" },
+    { "name": "${src2}", "avg": <integer ${currency} average listing price on ${src2}>, "estimated_listings": "<e.g. ~25 listings>" },
+    { "name": "${src3}", "avg": <integer ${currency} average listing price on ${src3}>, "estimated_listings": "<e.g. ~55 listings>" }
+  ]
 }`
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -379,7 +386,7 @@ Respond with ONLY valid JSON (no explanation, no markdown) in this exact format:
     try {
       const message = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 256,
+        max_tokens: 512,
         messages: [{ role: 'user', content: prompt }]
       })
       const text = message.content[0]?.text?.trim() || ''
