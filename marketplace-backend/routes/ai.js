@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { scrapeMarketData } from '../scraper.js'
 
 const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 
@@ -26,32 +27,44 @@ export function registerAI(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data, error } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, auction_api_key')
       .eq('id', req.dealershipId)
       .single()
     if (error) return res.status(500).json({ error: error.message })
     const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
-    res.json({ ...data, ai_boost_active: isOwner ? true : !!data.ai_boost_active })
+    // Mask the key — return only a boolean indicating whether one is set,
+    // plus a redacted preview so the UI can show "••••••••abc123"
+    const auctionKeySet = !!data.auction_api_key
+    const auctionKeyPreview = data.auction_api_key
+      ? '••••••••' + data.auction_api_key.slice(-6)
+      : ''
+    const { auction_api_key: _, ...rest } = data
+    res.json({ ...rest, ai_boost_active: isOwner ? true : !!data.ai_boost_active, auction_key_set: auctionKeySet, auction_key_preview: auctionKeyPreview })
   })
 
   // PUT /ai/config — update dealership AI config (DEALER_ADMIN only)
   app.put('/ai/config', requireAuth, requireDealerAdmin, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const { ai_tone, ai_required_fields, ai_manager_email, ai_boost_active } = req.body
+    const { ai_tone, ai_required_fields, ai_manager_email, ai_boost_active, auction_api_key } = req.body
     const update = {}
     if (ai_tone !== undefined) update.ai_tone = ai_tone
     if (ai_required_fields !== undefined) update.ai_required_fields = ai_required_fields
     if (ai_manager_email !== undefined) update.ai_manager_email = ai_manager_email
     if (ai_boost_active !== undefined) update.ai_boost_active = ai_boost_active
+    // Empty string clears the key; undefined = no change
+    if (auction_api_key !== undefined) update.auction_api_key = auction_api_key || null
 
     const { data, error } = await supabaseAdmin
       .from('dealerships')
       .update(update)
       .eq('id', req.dealershipId)
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, auction_api_key')
       .single()
     if (error) return res.status(500).json({ error: error.message })
-    res.json(data)
+    const auctionKeySet = !!data.auction_api_key
+    const auctionKeyPreview = data.auction_api_key ? '••••••••' + data.auction_api_key.slice(-6) : ''
+    const { auction_api_key: __, ...rest2 } = data
+    res.json({ ...rest2, auction_key_set: auctionKeySet, auction_key_preview: auctionKeyPreview })
   })
 
   // POST /ai/enrich-listing — run AI enrichment on an inventory item
@@ -115,11 +128,11 @@ export function registerAI(app) {
     }
 
     // ── Price comp check ──
-    // Current-year new vehicles sell at MSRP — skip comp flagging for them.
+    // Skip for new or current-year vehicles — MSRP pricing has no internal comparable.
     let price_flag = null
     const _currentYear = new Date().getFullYear()
-    const _isCurrentYearNew = Number(vehicle.year) >= _currentYear || vehicle.condition === 'new'
-    if (!_isCurrentYearNew && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
+    const _isNewOrCurrentYear = vehicle.condition === 'new' || Number(vehicle.year) >= _currentYear
+    if (!_isNewOrCurrentYear && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
       const yearMin = vehicle.year - 2
       const yearMax = vehicle.year + 2
       const { data: comps } = await supabaseAdmin
@@ -252,8 +265,8 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
 
           let price_flag = null
           const currentYear = new Date().getFullYear()
-          const isCurrentYearNew = vehicle.condition === 'new' && Number(vehicle.year) >= currentYear
-          if (!isCurrentYearNew && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
+          const isNewOrCurrentYear = vehicle.condition === 'new' || Number(vehicle.year) >= currentYear
+          if (!isNewOrCurrentYear && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
             const { data: comps } = await supabaseAdmin
               .from('inventory').select('price')
               .eq('dealership_id', req.dealershipId).eq('make', vehicle.make)
@@ -356,6 +369,62 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
       ? `This vehicle has ${mileageDelta > 0 ? mileageDelta.toLocaleString() + ' ' + distanceUnit + ' MORE than expected' : Math.abs(mileageDelta).toLocaleString() + ' ' + distanceUnit + ' LESS than expected'} for its age (expected ~${expectedMileage.toLocaleString()} ${distanceUnit} for a ${vehicleAge}-year-old vehicle at typical ${marketLabel} annual rates of ${isUS ? '13,500 mi/yr' : '19,000 km/yr'}).`
       : 'Mileage unknown.'
 
+    // Attempt live market scraping (best-effort; falls back to AI-only on failure)
+    const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}${trimText}`
+    let scraped = { autotrader: null, cargurus: null, copart: null }
+    let dataSource = 'ai_estimate'
+    try {
+      scraped = await scrapeMarketData({
+        make: vehicle.make,
+        model: vehicle.model,
+        year: Number(vehicle.year),
+        trim: vehicle.trim || '',
+        postalCode: dealer?.postal_code || '',
+        province: dealer?.province || '',
+        city: dealer?.city || '',
+        isUS,
+        vehicleLabel,
+      })
+      if (scraped.autotrader || scraped.cargurus) dataSource = 'live'
+    } catch {
+      // scrapeMarketData handles its own alerts; keep ai_estimate mode
+    }
+
+    // Build real-data context lines to inject into the prompt
+    const liveDataLines = []
+    const fmtScraped = (s) => {
+      const daysNote = s.avg_days_online != null
+        ? `, avg days online ${s.avg_days_online} (${s.days_online_sample}/${s.count} listings had date)`
+        : ''
+      return `avg price $${s.avg_price.toLocaleString()} ${currency}, median price $${s.median_price.toLocaleString()}, avg mileage ${s.avg_mileage.toLocaleString()} ${distanceUnit}, median mileage ${s.median_mileage.toLocaleString()} ${distanceUnit}${daysNote}`
+    }
+
+    if (scraped.autotrader) liveDataLines.push(`LIVE ${src1} data (${scraped.autotrader.count} listings): ${fmtScraped(scraped.autotrader)}`)
+    if (scraped.cargurus) liveDataLines.push(`LIVE ${src2} data (${scraped.cargurus.count} listings): ${fmtScraped(scraped.cargurus)}`)
+    if (scraped.copart) {
+      const cp = scraped.copart
+      liveDataLines.push(`AUCTION REFERENCE — Copart Canada (${cp.count} salvage/insurance lots): avg $${cp.avg_price.toLocaleString()} ${currency}, median $${cp.median_price.toLocaleString()}, avg mileage ${cp.avg_mileage.toLocaleString()} ${distanceUnit} — these are WHOLESALE/SALVAGE values, expect retail to be 40–80% higher`)
+    }
+
+    const liveDataBlock = liveDataLines.length
+      ? `\nREAL SCRAPED MARKET DATA — use these as your primary anchors for pricing, mileage, and days-on-market:\n${liveDataLines.join('\n')}\n`
+      : `\nNo live scrape data available — use your training knowledge of the ${marketLabel} market.\n`
+
+    // Compute combined avg days online across retail platforms (for days_on_market_estimate rule)
+    const allDaysSamples = [scraped.autotrader, scraped.cargurus]
+      .filter(s => s?.avg_days_online != null)
+    const combinedAvgDays = allDaysSamples.length
+      ? Math.round(allDaysSamples.reduce((a, b) => a + b.avg_days_online, 0) / allDaysSamples.length)
+      : null
+
+    // Marketplace-specific instructions for the JSON output
+    const atInstruction = scraped.autotrader
+      ? `"avg": ${scraped.autotrader.avg_price}, "estimated_listings": "~${scraped.autotrader.count} listings", "avg_mileage": ${scraped.autotrader.avg_mileage}`
+      : `"avg": <integer ${currency} realistic avg for this vehicle on ${src1}>, "estimated_listings": "<e.g. ~40 listings>", "avg_mileage": <integer>`
+    const cgInstruction = scraped.cargurus
+      ? `"avg": ${scraped.cargurus.avg_price}, "estimated_listings": "~${scraped.cargurus.count} listings", "avg_mileage": ${scraped.cargurus.avg_mileage}`
+      : `"avg": <integer ${currency}>, "estimated_listings": "<e.g. ~25 listings>", "avg_mileage": <integer>`
+
     const prompt = `You are a professional automotive market analyst with dealer-grade accuracy, equivalent to vAuto or Black Book. You specialize in the ${marketLabel} used vehicle market and have deep knowledge of real retail listing prices on ${marketSources.join(', ')}.
 
 VEHICLE TO ANALYZE:
@@ -366,18 +435,19 @@ Mileage: ${mileageText}
 ${vehicle.exterior_color ? `Colour: ${vehicle.exterior_color}` : ''}
 Vehicle age: ${vehicleAge} year(s) old (${currentYear} model year context: ${vehicle.year})
 Mileage context: ${mileageContext}
-
+${liveDataBlock}
 CRITICAL RULES — accuracy is paramount:
 1. USED vehicles: compare ONLY against used ${vehicle.year} ${vehicle.make} ${vehicle.model}${trimText} listings (same year, same trim) in the ${location} area
 2. NEW vehicles: compare against new ${vehicle.year} ${vehicle.make} ${vehicle.model} at MSRP
 3. ALL prices MUST be in ${currency} reflecting the ACTUAL ${marketLabel} retail market — do NOT use US prices for Canadian vehicles or vice versa
 4. ${isUS ? 'US retail prices are typically 15–25% lower in USD than equivalent Canadian CAD prices.' : 'Canadian retail prices in CAD are typically 25–35% higher than the same vehicle in USD due to currency, taxes, and import costs.'}
-5. Mileage rating MUST accurately reflect the delta vs expected mileage — if mileage is ABOVE expected it is above/well above average, if BELOW it is below/well below average
-6. price_to_market_pct: compute as Math.round((listedPrice / mid) * 100) where listedPrice = ${vehicle.price || 0}
-7. days_on_market_estimate: estimate realistically — overpriced vehicles take longer, well-priced take less
-8. Each marketplace has slightly different avg prices — reflect this realistically
-9. You MUST return ALL fields in the JSON — do not omit any field
-10. This report is used by professional auto dealers — be precise and realistic, not generic
+5. If LIVE SCRAPED data is provided above, anchor your mid price and market_avg_mileage to that data — do not deviate by more than 5%
+6. Mileage rating MUST accurately reflect the delta vs expected mileage — if mileage is ABOVE expected it is above/well above average, if BELOW it is below/well below average
+7. price_to_market_pct: compute as Math.round((listedPrice / mid) * 100) where listedPrice = ${vehicle.price || 0}
+8. days_on_market_estimate: ${combinedAvgDays != null ? `The scraped market average days online is ${combinedAvgDays} days — use this as your baseline, then adjust up/down based on how this vehicle's price compares to market mid` : 'estimate realistically based on price-to-market — overpriced vehicles take longer, well-priced take less'}
+9. Each marketplace has slightly different avg prices — reflect this realistically
+10. You MUST return ALL fields in the JSON — do not omit any field
+11. This report is used by professional auto dealers — be precise and realistic, not generic
 
 Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
 {
@@ -390,12 +460,12 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
   "confidence": "high" | "medium" | "low",
   "note": "<two specific sentences about this exact vehicle's market demand, trim desirability, mileage position, and regional pricing in ${location}>",
   "marketplace_averages": [
-    { "name": "${src1}", "avg": <integer ${currency} realistic avg for this vehicle on ${src1}>, "estimated_listings": "<e.g. ~40 listings>", "avg_mileage": <integer, realistic avg ${distanceUnit} for similar listings on this platform> },
-    { "name": "${src2}", "avg": <integer ${currency}>, "estimated_listings": "<e.g. ~25 listings>", "avg_mileage": <integer> },
+    { "name": "${src1}", ${atInstruction} },
+    { "name": "${src2}", ${cgInstruction} },
     { "name": "${src3}", "avg": <integer ${currency}>, "estimated_listings": "<e.g. ~55 listings>", "avg_mileage": <integer> }
   ],
   "mileage_analysis": {
-    "market_avg_mileage": <integer, realistic average ${distanceUnit} for used ${vehicle.year} ${vehicle.make} ${vehicle.model}${trimText} listings in ${location}>,
+    "market_avg_mileage": <integer, ${scraped.autotrader || scraped.cargurus ? 'anchor to live scraped avg_mileage above' : `realistic average ${distanceUnit} for used ${vehicle.year} ${vehicle.make} ${vehicle.model}${trimText} listings in ${location}`}>,
     "mileage_rating": "well below average" | "below average" | "average" | "above average" | "well above average",
     "mileage_price_impact": <integer ${currency}, realistic dollar premium (positive) or discount (negative) vs same vehicle at average mileage — typically $500–$3000 range>,
     "mileage_note": "<one precise sentence: state actual mileage vs market avg and the pricing implication>"
@@ -424,6 +494,17 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
       ? Math.round(((yourPrice - estimate.mid) / estimate.mid) * 1000) / 10
       : null
 
-    res.json({ vehicle, estimate, pct_diff })
+    res.json({
+      vehicle,
+      estimate,
+      pct_diff,
+      data_source: dataSource,
+      copart: scraped.copart ? {
+        avg_price: scraped.copart.avg_price,
+        median_price: scraped.copart.median_price,
+        avg_mileage: scraped.copart.avg_mileage,
+        count: scraped.copart.count,
+      } : null,
+    })
   })
 }
