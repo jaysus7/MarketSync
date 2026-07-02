@@ -308,6 +308,7 @@ function switchPage(pageId) {
 
   if (pageId === 'ai-boost') loadAIActivity();
   if (pageId === 'vin-sticker') loadVinStickerPage();
+  if (pageId === 'profile') loadProfileBranding();
 }
 
 // Idempotent restore: makes sure leaderboard / team-insights / sales-team panels live
@@ -3738,3 +3739,110 @@ async function startVinStickerTrial() {
     }
   } catch {}
 })();
+
+// ── Profile page: Branding + Tone ──────────────────────────────────────────
+
+let _profBrandingLoaded = false;
+
+function _syncProfBrandSwatch() {
+  const p = document.getElementById('prof-brand-primary-hex')?.value || '#1a2e4a';
+  const a = document.getElementById('prof-brand-accent-hex')?.value || '#c8a84b';
+  document.getElementById('prof-brand-swatch-header')?.style.setProperty('background', p);
+  document.getElementById('prof-brand-swatch-accent')?.style.setProperty('background', a);
+}
+
+async function loadProfileBranding() {
+  // Wire up colour pickers once
+  if (!_profBrandingLoaded) {
+    _profBrandingLoaded = true;
+
+    const primaryPicker = document.getElementById('prof-brand-primary-color');
+    const primaryHex    = document.getElementById('prof-brand-primary-hex');
+    const accentPicker  = document.getElementById('prof-brand-accent-color');
+    const accentHex     = document.getElementById('prof-brand-accent-hex');
+
+    primaryPicker?.addEventListener('input', () => { if (primaryHex) primaryHex.value = primaryPicker.value; _syncProfBrandSwatch(); });
+    primaryHex?.addEventListener('input',   () => { if (/^#[0-9a-fA-F]{6}$/.test(primaryHex.value)) { if (primaryPicker) primaryPicker.value = primaryHex.value; _syncProfBrandSwatch(); } });
+    accentPicker?.addEventListener('input', () => { if (accentHex) accentHex.value = accentPicker.value; _syncProfBrandSwatch(); });
+    accentHex?.addEventListener('input',   () => { if (/^#[0-9a-fA-F]{6}$/.test(accentHex.value)) { if (accentPicker) accentPicker.value = accentHex.value; _syncProfBrandSwatch(); } });
+
+    document.getElementById('prof-brand-logo-input')?.addEventListener('change', uploadProfileLogo);
+    document.getElementById('prof-brand-save-btn')?.addEventListener('click', saveProfileBranding);
+  }
+
+  const t = localStorage.getItem('token');
+  if (!t) return;
+
+  try {
+    // Load branding
+    const res = await fetch(`${API}/branding`, { headers: { 'Authorization': `Bearer ${t}` } });
+    if (res.ok) {
+      const data = await res.json();
+      const b = data.branding || {};
+      if (b.primary_color) {
+        document.getElementById('prof-brand-primary-color').value = b.primary_color;
+        document.getElementById('prof-brand-primary-hex').value   = b.primary_color;
+      }
+      if (b.secondary_color) {
+        document.getElementById('prof-brand-accent-color').value = b.secondary_color;
+        document.getElementById('prof-brand-accent-hex').value   = b.secondary_color;
+      }
+      if (b.tagline) document.getElementById('prof-brand-tagline').value = b.tagline;
+      if (b.logo_url) {
+        const preview = document.getElementById('prof-brand-logo-preview');
+        if (preview) preview.innerHTML = `<img src="${b.logo_url}" class="max-h-16 max-w-full object-contain p-1" alt="logo">`;
+      }
+      _syncProfBrandSwatch();
+    }
+
+    // Load AI tone
+    const cfgRes = await fetch(`${API}/ai/config`, { headers: { 'Authorization': `Bearer ${t}` } });
+    if (cfgRes.ok) {
+      const cfg = await cfgRes.json();
+      const toneEl = document.getElementById('prof-ai-tone');
+      if (toneEl && cfg.tone) toneEl.value = cfg.tone;
+    }
+  } catch {}
+}
+
+async function uploadProfileLogo() {
+  const file = document.getElementById('prof-brand-logo-input').files[0];
+  if (!file) return;
+  const msg = document.getElementById('prof-brand-save-msg');
+  const t = localStorage.getItem('token');
+  try {
+    const fd = new FormData();
+    fd.append('logo', file);
+    const res = await fetch(`${API}/branding/logo`, { method: 'POST', headers: { 'Authorization': `Bearer ${t}` }, body: fd });
+    const data = await res.json();
+    if (data.url) {
+      const preview = document.getElementById('prof-brand-logo-preview');
+      if (preview) preview.innerHTML = `<img src="${data.url}" class="max-h-16 max-w-full object-contain p-1" alt="logo">`;
+    }
+    if (msg) { msg.textContent = res.ok ? 'Logo uploaded' : (data.error || 'Upload failed'); msg.className = `text-xs font-medium px-2.5 py-1 rounded-md ${res.ok ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`; msg.classList.remove('hidden'); setTimeout(() => msg.classList.add('hidden'), 3000); }
+  } catch { if (msg) { msg.textContent = 'Upload failed'; msg.className = 'text-xs font-medium px-2.5 py-1 rounded-md text-red-700 bg-red-50'; msg.classList.remove('hidden'); } }
+}
+
+async function saveProfileBranding() {
+  const t = localStorage.getItem('token');
+  const msg = document.getElementById('prof-brand-save-msg');
+  const tone = document.getElementById('prof-ai-tone')?.value || 'professional';
+
+  // Save branding colours + tagline
+  const brandPayload = {
+    primary_color:   document.getElementById('prof-brand-primary-hex')?.value || '',
+    secondary_color: document.getElementById('prof-brand-accent-hex')?.value || '',
+    tagline:         document.getElementById('prof-brand-tagline')?.value || '',
+  };
+  try {
+    const [brandRes, toneRes] = await Promise.all([
+      fetch(`${API}/branding`, { method: 'PUT', headers: { 'Authorization': `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify(brandPayload) }),
+      fetch(`${API}/ai/config`, { method: 'POST', headers: { 'Authorization': `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ tone }) }),
+    ]);
+    const ok = brandRes.ok && toneRes.ok;
+    // Mirror tone into AI Boost settings element if visible
+    const aiToneEl = document.getElementById('ai-tone');
+    if (aiToneEl) aiToneEl.value = tone;
+    if (msg) { msg.textContent = ok ? 'Saved!' : 'Save failed'; msg.className = `text-xs font-medium px-2.5 py-1 rounded-md ${ok ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`; msg.classList.remove('hidden'); setTimeout(() => msg.classList.add('hidden'), 3000); }
+  } catch { if (msg) { msg.textContent = 'Save failed'; msg.className = 'text-xs font-medium px-2.5 py-1 rounded-md text-red-700 bg-red-50'; msg.classList.remove('hidden'); } }
+}
