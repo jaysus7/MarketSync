@@ -2512,7 +2512,7 @@ function exportPriceReportPDF() {
   const fmtMi = n => n != null ? Number(n).toLocaleString() + ' ' + distUnit : '—';
 
   const over = pct_diff != null && pct_diff > 0;
-  const diffColor = pct_diff == null ? '#94a3b8' : over ? '#ef4444' : '#22c55e';
+  const diffColor = pct_diff == null ? '#94a3b8' : over ? '#ef4444' : '#7c3aed';
   const diffText = pct_diff != null ? (over ? '+' : '') + pct_diff + '%' : '—';
 
   const avgs = estimate?.marketplace_averages || [];
@@ -2521,15 +2521,15 @@ function exportPriceReportPDF() {
   const isNew = vehicle.condition === 'new' || Number(vehicle.year) >= new Date().getFullYear();
 
   const ptm = estimate?.price_to_market_pct;
-  const ptmColor = ptm == null ? '#94a3b8' : ptm > 105 ? '#ef4444' : ptm < 95 ? '#22c55e' : '#0f172a';
+  const ptmColor = ptm == null ? '#94a3b8' : ptm > 105 ? '#ef4444' : ptm < 95 ? '#7c3aed' : '#0f172a';
   const dom = estimate?.days_on_market_estimate;
 
   const ratingColorMap = {
-    'well below average': '#22c55e', 'below average': '#86efac',
+    'well below average': '#7c3aed', 'below average': '#c4b5fd',
     'average': '#94a3b8', 'above average': '#f59e0b', 'well above average': '#ef4444'
   };
   const mileageImpact = ma?.mileage_price_impact != null ? Number(ma.mileage_price_impact) : null;
-  const mileageImpactColor = mileageImpact == null ? '#94a3b8' : mileageImpact > 0 ? '#22c55e' : '#ef4444';
+  const mileageImpactColor = mileageImpact == null ? '#94a3b8' : mileageImpact > 0 ? '#7c3aed' : '#ef4444';
   const mileageImpactText = mileageImpact != null
     ? (mileageImpact >= 0 ? '+' : '') + '$' + Math.abs(mileageImpact).toLocaleString() + ' ' + cl
     : '—';
@@ -2619,7 +2619,7 @@ ${avgs.length ? `
     const mAvg = Number(m.avg);
     const vp = Number(vehicle.price);
     const vs = mAvg ? Math.round(((vp - mAvg) / mAvg) * 100) : null;
-    const vsColor = vs == null ? '#94a3b8' : vs > 0 ? '#ef4444' : '#22c55e';
+    const vsColor = vs == null ? '#94a3b8' : vs > 0 ? '#ef4444' : '#7c3aed';
     return `<div class="mkt-card">
       <div class="mkt-name">${m.name}</div>
       <div class="mkt-row"><span class="mkt-lbl">Avg Price</span><span class="mkt-val">${fmt(m.avg)}</span></div>
