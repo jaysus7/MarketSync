@@ -84,10 +84,10 @@ export function registerAI(app) {
       .single()
     if (invErr || !vehicle) return res.status(404).json({ error: 'Inventory item not found' })
 
-    // Fetch dealership AI config
+    // Fetch dealership AI config + location for market price comps
     const { data: dealer, error: dealerErr } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, city, province, country, postal_code')
       .eq('id', req.dealershipId)
       .single()
     if (dealerErr) return res.status(500).json({ error: dealerErr.message })
@@ -128,38 +128,39 @@ export function registerAI(app) {
       }).catch(() => {}) // non-blocking — don't fail the request
     }
 
-    // ── Price comp check ──
-    // Skip for new vehicles only — used vehicles of any year are fair game for price comparison.
+    // ── Price comp check vs external marketplaces ──
+    // Skip for new vehicles — MSRP pricing doesn't need market comp.
     let price_flag = null
-    const _isNewOrCurrentYear = (vehicle.condition || '').toLowerCase() === 'new'
-    if (!_isNewOrCurrentYear && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
-      const yearMin = vehicle.year - 2
-      const yearMax = vehicle.year + 2
-      const { data: comps } = await supabaseAdmin
-        .from('inventory')
-        .select('price')
-        .eq('dealership_id', req.dealershipId)
-        .eq('make', vehicle.make)
-        .eq('model', vehicle.model)
-        .eq('status', 'available')
-        .gte('year', yearMin)
-        .lte('year', yearMax)
-        .neq('id', inventory_id)
-        .not('price', 'is', null)
-
-      if (comps && comps.length > 0) {
-        const prices = comps.map(c => Number(c.price)).filter(p => p > 0).sort((a, b) => a - b)
-        const med = median(prices)
-        if (med) {
-          const pct_diff = ((Number(vehicle.price) - med) / med) * 100
+    const _isNewVehicle = (vehicle.condition || '').toLowerCase() === 'new'
+    if (!_isNewVehicle && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
+      try {
+        const countryRaw = (dealer?.country || '').trim().toUpperCase()
+        const _isUS = countryRaw === 'US' || countryRaw === 'USA' || countryRaw === 'UNITED STATES'
+        const { autotrader, cargurus } = await scrapeMarketData({
+          make: vehicle.make,
+          model: vehicle.model,
+          year: vehicle.year,
+          trim: vehicle.trim || '',
+          postalCode: dealer?.postal_code || '',
+          province: dealer?.province || '',
+          isUS: _isUS,
+          vehicleLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+        })
+        // Use AutoTrader median first, fall back to CarGurus
+        const marketMedian = autotrader?.median_price ?? cargurus?.median_price ?? null
+        const marketSource = autotrader ? 'AutoTrader' : cargurus ? 'CarGurus' : null
+        const compCount = (autotrader?.count ?? 0) + (cargurus?.count ?? 0)
+        if (marketMedian) {
+          const pct_diff = ((Number(vehicle.price) - marketMedian) / marketMedian) * 100
           price_flag = {
             flagged: Math.abs(pct_diff) > 15,
-            median: med,
+            median: marketMedian,
             pct_diff: Math.round(pct_diff * 10) / 10,
-            comp_count: prices.length
+            comp_count: compCount,
+            source: marketSource,
           }
         }
-      }
+      } catch {}
     }
 
     // ── Generate AI copy via Anthropic ──
@@ -229,7 +230,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, city, province, country, postal_code')
       .eq('id', req.dealershipId)
       .single()
 
@@ -248,6 +249,11 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
     const ids = (vehicles || []).map(v => v.id)
     res.json({ queued: ids.length, message: `Running AI checks on ${ids.length} vehicles…` })
 
+    const _syncIsUS = (() => {
+      const c = (dealer?.country || '').trim().toUpperCase()
+      return c === 'US' || c === 'USA' || c === 'UNITED STATES'
+    })()
+
     // Run enrichments in the background sequentially to avoid Anthropic rate limits
     ;(async () => {
       for (const inventory_id of ids) {
@@ -264,23 +270,31 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
           if (requiredFields.includes('description') && (!vehicle.description || vehicle.description.length < 20)) warnings.push('Description is missing or too short')
 
           let price_flag = null
-          // Skip price flagging for new vehicles only — used vehicles of any year are compared
-          const isNewOrCurrentYear = (vehicle.condition || '').toLowerCase() === 'new'
-          if (!isNewOrCurrentYear && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
-            const { data: comps } = await supabaseAdmin
-              .from('inventory').select('price')
-              .eq('dealership_id', req.dealershipId).eq('make', vehicle.make)
-              .eq('model', vehicle.model).eq('status', 'available')
-              .gte('year', vehicle.year - 2).lte('year', vehicle.year + 2)
-              .neq('id', inventory_id).not('price', 'is', null)
-            if (comps?.length > 0) {
-              const prices = comps.map(c => Number(c.price)).filter(p => p > 0).sort((a, b) => a - b)
-              const med = median(prices)
-              if (med) {
-                const pct_diff = ((Number(vehicle.price) - med) / med) * 100
-                price_flag = { flagged: Math.abs(pct_diff) > 15, median: med, pct_diff: Math.round(pct_diff * 10) / 10 }
+          const isNewVehicle = (vehicle.condition || '').toLowerCase() === 'new'
+          if (!isNewVehicle && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
+            try {
+              const { autotrader, cargurus } = await scrapeMarketData({
+                make: vehicle.make,
+                model: vehicle.model,
+                year: vehicle.year,
+                trim: vehicle.trim || '',
+                postalCode: dealer?.postal_code || '',
+                province: dealer?.province || '',
+                isUS: _syncIsUS,
+                vehicleLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+              })
+              const marketMedian = autotrader?.median_price ?? cargurus?.median_price ?? null
+              const marketSource = autotrader ? 'AutoTrader' : cargurus ? 'CarGurus' : null
+              if (marketMedian) {
+                const pct_diff = ((Number(vehicle.price) - marketMedian) / marketMedian) * 100
+                price_flag = {
+                  flagged: Math.abs(pct_diff) > 15,
+                  median: marketMedian,
+                  pct_diff: Math.round(pct_diff * 10) / 10,
+                  source: marketSource,
+                }
               }
-            }
+            } catch {}
           }
 
           await supabaseAdmin.from('ai_activity').insert({
