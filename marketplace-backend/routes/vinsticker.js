@@ -570,16 +570,11 @@ export function registerRoutes(app) {
     if (!decoded) return res.status(400).json({ error: 'No decoded data' })
 
     const update = {}
+    // Only update columns that exist in the inventory table
     if (decoded.year) update.year = decoded.year
     if (decoded.make) update.make = decoded.make
     if (decoded.model) update.model = decoded.model
     if (decoded.trim) update.trim = decoded.trim
-    if (decoded.body_style) update.body_style = decoded.body_style
-    if (decoded.fuel_type) update.fuel_type = decoded.fuel_type
-    if (decoded.drivetrain) update.drivetrain = decoded.drivetrain
-    if (decoded.transmission) update.transmission = decoded.transmission
-    if (decoded.engine) update.engine = decoded.engine
-    if (decoded.doors) update.doors = decoded.doors
     if (recalls) {
       update.recalls = recalls
       update.recalls_checked_at = new Date().toISOString()
