@@ -840,7 +840,16 @@ async function imgToDataUri(url) {
   } catch { return null }
 }
 
-async function generatePdf(html, { landscape = false, viewportWidth = 860, viewportHeight = 1100 } = {}) {
+const EXTRA_CHROMIUM_ARGS = [
+  '--disable-dev-shm-usage',  // prevents OOM on containers with small /dev/shm
+  '--disable-gpu',
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-extensions',
+  '--single-process',         // reduces memory on low-RAM instances
+]
+
+async function generatePdf(html, { landscape = false, viewportWidth = 860, viewportHeight = 1100, timeoutMs = 90000 } = {}) {
   // Dynamic import to avoid memory cost when not in use
   const puppeteer = (await import('puppeteer-core')).default
   let browser, page
@@ -851,7 +860,7 @@ async function generatePdf(html, { landscape = false, viewportWidth = 860, viewp
       const chromium = (await import('@sparticuz/chromium')).default
       launchOpts = {
         executablePath: await chromium.executablePath(),
-        args: chromium.args,
+        args: [...new Set([...chromium.args, ...EXTRA_CHROMIUM_ARGS])],
         headless: chromium.headless,
       }
     } else {
@@ -863,11 +872,12 @@ async function generatePdf(html, { landscape = false, viewportWidth = 860, viewp
       const fs = await import('fs')
       const exec = candidates.find(p => { try { fs.statSync(p); return true } catch { return false } })
       if (!exec) throw new Error('No local Chrome found')
-      launchOpts = { executablePath: exec, args: ['--no-sandbox', '--disable-setuid-sandbox'], headless: 'new' }
+      launchOpts = { executablePath: exec, args: EXTRA_CHROMIUM_ARGS, headless: 'new' }
     }
     browser = await puppeteer.launch({ ...launchOpts, defaultViewport: { width: viewportWidth, height: viewportHeight } })
     page = await browser.newPage()
-    await page.setContent(html, { waitUntil: 'domcontentloaded' })
+    page.setDefaultNavigationTimeout(timeoutMs)
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: timeoutMs })
     const pdf = await page.pdf({ format: 'Letter', landscape, printBackground: true, margin: { top: 0, bottom: 0, left: 0, right: 0 } })
     return pdf
   } finally {
@@ -1124,20 +1134,26 @@ export function registerRoutes(app) {
     res.json({ status: 'generating' })
 
     ;(async () => {
+      const deadline = setTimeout(() => {
+        console.error('[window-sticker background] hard timeout — killed after 110s')
+      }, 110000)
       try {
         const branding = dealer.branding || {}
-        const imageUrls = (vehicle.image_urls || []).slice(0, 4)
+        // Limit to 2 images to avoid OOM from large base64 payloads
+        const imageUrls = (vehicle.image_urls || []).slice(0, 2)
         const [photoDataUris, logoDataUri] = await Promise.all([
           Promise.all(imageUrls.map(u => imgToDataUri(u))),
           branding.logo_url ? imgToDataUri(branding.logo_url) : Promise.resolve(null),
         ])
         const html = buildWindowStickerHtml(vehicle, dealer, branding, vehicle.recalls || [], photoDataUris.filter(Boolean), logoDataUri)
-        const pdf = await generatePdf(html, { landscape: true, viewportWidth: 1100, viewportHeight: 860 })
+        const pdf = await generatePdf(html, { landscape: true, viewportWidth: 1100, viewportHeight: 860, timeoutMs: 90000 })
         const path = `${req.dealershipId}/${vehicle.id}/window-sticker.pdf`
         const url = await uploadPdf(pdf, path)
         await supabaseAdmin.from('inventory').update({ window_sticker_url: url }).eq('id', vehicle.id)
       } catch (e) {
         console.error('[window-sticker background]', e.message)
+      } finally {
+        clearTimeout(deadline)
       }
     })()
   })
@@ -1178,20 +1194,26 @@ export function registerRoutes(app) {
     res.json({ status: 'generating' })
 
     ;(async () => {
+      const deadline = setTimeout(() => {
+        console.error('[brochure background] hard timeout — killed after 110s')
+      }, 110000)
       try {
         const branding = dealer.branding || {}
-        const imageUrls = (vehicle.image_urls || []).slice(0, 4)
+        // Limit to 2 images to avoid OOM from large base64 payloads
+        const imageUrls = (vehicle.image_urls || []).slice(0, 2)
         const [photosDataUris, logoDataUri] = await Promise.all([
           Promise.all(imageUrls.map(u => imgToDataUri(u))),
           branding.logo_url ? imgToDataUri(branding.logo_url) : Promise.resolve(null),
         ])
-        const html = buildBrochureHtml(vehicle, dealer, branding, vehicle.recalls || [], photosDataUris, logoDataUri)
-        const pdf = await generatePdf(html, { landscape: false, viewportWidth: 860, viewportHeight: 1100 })
+        const html = buildBrochureHtml(vehicle, dealer, branding, vehicle.recalls || [], photosDataUris.filter(Boolean), logoDataUri)
+        const pdf = await generatePdf(html, { landscape: false, viewportWidth: 860, viewportHeight: 1100, timeoutMs: 90000 })
         const path = `${req.dealershipId}/${vehicle.id}/brochure.pdf`
         const url = await uploadPdf(pdf, path)
         await supabaseAdmin.from('inventory').update({ brochure_url: url }).eq('id', vehicle.id)
       } catch (e) {
         console.error('[brochure background]', e.message)
+      } finally {
+        clearTimeout(deadline)
       }
     })()
   })
