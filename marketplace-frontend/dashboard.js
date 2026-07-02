@@ -4743,30 +4743,45 @@ document.addEventListener('DOMContentLoaded', () => {
       dupsWrap.classList.add('hidden')
     }
 
-    // Velocity table
+    // Velocity table — wrap parent in scroll container with fade edge
+    const velWrap = document.getElementById('inv-intel-velocity-body')?.closest('.overflow-x-auto')
+    if (velWrap) {
+      velWrap.style.cssText = 'overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative'
+      velWrap.parentElement.style.position = 'relative'
+    }
     const tbody = document.getElementById('inv-intel-velocity-body')
     tbody.innerHTML = velocity.map(s => `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-      <td class="px-4 py-2.5 font-medium text-slate-900 dark:text-white">${s.make} ${s.model}</td>
+      <td class="px-4 py-2.5 font-medium text-slate-900 dark:text-white whitespace-nowrap">${s.make} ${s.model}</td>
       <td class="px-4 py-2.5 text-right tabular-nums">${s.sold_30d}</td>
       <td class="px-4 py-2.5 text-right tabular-nums font-bold">${s.sold_90d}</td>
       <td class="px-4 py-2.5 text-right tabular-nums">${s.current_stock}</td>
-      <td class="px-4 py-2.5 text-right tabular-nums ${supplyColor(s.months_of_supply)}">${s.months_of_supply != null ? s.months_of_supply + ' mo' : '—'}</td>
+      <td class="px-4 py-2.5 text-right tabular-nums whitespace-nowrap ${supplyColor(s.months_of_supply)}">${s.months_of_supply != null ? s.months_of_supply + ' mo' : '—'}</td>
     </tr>`).join('') || '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">No sell-through data yet</td></tr>'
 
-    // Health scores table (show lowest 50)
+    // Health scores table — with score breakdown sub-row
     const hbody = document.getElementById('inv-intel-health-body')
     hbody.innerHTML = vehicles.slice(0, 60).map(v => {
       const issues = v.issues.length
         ? v.issues.map(i => `<span class="inline-flex text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">${i}</span>`).join(' ')
         : '<span class="text-emerald-500 text-xs">✓ Good</span>'
       const stockLink = v.stock ? `<a href="#" onclick="switchPage('inventory');document.getElementById('catalog-search').value='${v.stock}';if(typeof renderCatalog==='function')renderCatalog();return false;" class="text-indigo-600 dark:text-indigo-400 hover:underline">${v.stock}</a>` : `<span class="text-slate-400 font-mono text-xs">${v.id.slice(0, 8)}</span>`
+      const b = v.breakdown || {}
+      const bParts = [
+        b.photos  != null && `📷 ${b.photos}/30`,
+        b.days    != null && `📅 ${b.days}/25`,
+        b.price   != null && `💰 ${b.price}/15`,
+        b.mileage != null && `🔢 ${b.mileage}/10`,
+        b.description != null && `📝 ${b.description}/10`,
+        b.fields  != null && `✅ ${b.fields}/10`,
+      ].filter(Boolean).join(' · ')
       return `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
         <td class="px-4 py-2.5">
           <div>${stockLink}</div>
           <div class="text-xs text-slate-400">${v.year} ${v.make} ${v.model}</div>
         </td>
-        <td class="px-4 py-2.5 text-right">
+        <td class="px-4 py-2.5 text-right align-top pt-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${scoreBg(v.score)}">${v.score}</span>
+          ${bParts ? `<div class="text-[9px] text-slate-400 mt-1 text-right leading-relaxed whitespace-nowrap">${bParts.replace(/ · /g, '<br>')}</div>` : ''}
         </td>
         <td class="px-4 py-2.5 text-right tabular-nums text-sm">${v.photos}</td>
         <td class="px-4 py-2.5 text-right tabular-nums text-sm ${v.days >= 60 ? 'text-red-500 font-bold' : v.days >= 30 ? 'text-amber-500' : ''}">${v.days}d</td>

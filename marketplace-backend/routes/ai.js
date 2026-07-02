@@ -794,32 +794,27 @@ Return ONLY valid JSON array (no markdown):
     // ── 3. Per-vehicle health score ────────────────────────────────────────
     const now = Date.now()
     const scoredVehicles = vehicles.map(v => {
-      let score = 0
-      // Photos (30 pts)
+      // Photos (30 pts max)
       const photoCount = Array.isArray(v.image_urls) ? v.image_urls.length : (v.image_urls ? 1 : 0)
-      if (photoCount >= 10) score += 30
-      else if (photoCount >= 5) score += 20
-      else if (photoCount >= 1) score += 10
+      const photoScore = photoCount >= 10 ? 30 : photoCount >= 5 ? 20 : photoCount >= 1 ? 10 : 0
 
-      // Days on lot (25 pts)
+      // Days on lot (25 pts max)
       const days = Math.round((now - new Date(v.created_at).getTime()) / 86400000)
-      if (days < 15)       score += 25
-      else if (days < 30)  score += 20
-      else if (days < 60)  score += 10
-      else if (days < 90)  score += 5
+      const daysScore = days < 15 ? 25 : days < 30 ? 20 : days < 60 ? 10 : days < 90 ? 5 : 0
 
       // Price set (15 pts)
-      if (v.price > 0) score += 15
+      const priceScore = v.price > 0 ? 15 : 0
 
       // Mileage set (10 pts)
-      if (v.mileage > 0) score += 10
+      const mileageScore = v.mileage > 0 ? 10 : 0
 
       // Description (10 pts)
-      if ((v.description || '').trim().length > 50) score += 10
+      const descScore = (v.description || '').trim().length > 50 ? 10 : 0
 
-      // Year / make / model / condition all present (10 pts)
-      const complete = [v.year, v.make, v.model, v.condition].every(Boolean)
-      if (complete) score += 10
+      // Fields complete (10 pts)
+      const completeScore = [v.year, v.make, v.model, v.condition].every(Boolean) ? 10 : 0
+
+      const score = photoScore + daysScore + priceScore + mileageScore + descScore + completeScore
 
       const stock = v.stocknumber || ''
       return {
@@ -833,6 +828,7 @@ Return ONLY valid JSON array (no markdown):
         days,
         photos: photoCount,
         score,
+        breakdown: { photos: photoScore, days: daysScore, price: priceScore, mileage: mileageScore, description: descScore, fields: completeScore },
         issues: [
           photoCount === 0 && 'No photos',
           !(v.price > 0) && 'No price',
