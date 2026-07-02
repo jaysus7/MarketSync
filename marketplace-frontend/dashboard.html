@@ -930,9 +930,11 @@
               <h3 class="text-sm font-bold text-slate-900 dark:text-white">Your Inventory</h3>
               <span class="text-xs text-slate-400">Click Sticker or Brochure to generate a branded PDF</span>
             </div>
-            <div id="vin-sticker-inventory-loading" class="py-10 text-center text-sm text-slate-400 italic">Loading inventory…</div>
-            <div id="vin-sticker-inventory-empty" class="hidden py-10 text-center text-sm text-slate-400">No vehicles found. Add inventory first.</div>
-            <ul id="vin-sticker-inventory-list" class="hidden divide-y divide-slate-100 dark:divide-slate-800"></ul>
+            <div class="max-h-[60vh] overflow-y-auto scrollbar-none">
+              <div id="vin-sticker-inventory-loading" class="py-10 text-center text-sm text-slate-400 italic">Loading inventory…</div>
+              <div id="vin-sticker-inventory-empty" class="hidden py-10 text-center text-sm text-slate-400">No vehicles found. Add inventory first.</div>
+              <ul id="vin-sticker-inventory-list" class="hidden divide-y divide-slate-100 dark:divide-slate-800"></ul>
+            </div>
           </div>
 
         </div><!-- /vin-sticker-active-content -->
@@ -1532,7 +1534,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260702o"></script>
+  <script src="dashboard.js?v=20260702p"></script>
   <script src="tour.js"></script>
 </body>
 </html>
