@@ -711,7 +711,7 @@ Return ONLY valid JSON array (no markdown):
     const [{ data: available }, { data: sold90 }, { data: sold30 }] = await Promise.all([
       supabaseAdmin
         .from('inventory')
-        .select('id, vin, stock_number, stocknumber, make, model, year, condition, price, mileage, description, images, days_on_lot, created_at, updated_at')
+        .select('id, vin, stocknumber, make, model, year, condition, price, mileage, description, image_urls, created_at, updated_at')
         .eq('dealership_id', req.dealershipId)
         .eq('status', 'available'),
       supabaseAdmin
@@ -796,13 +796,13 @@ Return ONLY valid JSON array (no markdown):
     const scoredVehicles = vehicles.map(v => {
       let score = 0
       // Photos (30 pts)
-      const photoCount = Array.isArray(v.images) ? v.images.length : (v.images ? 1 : 0)
+      const photoCount = Array.isArray(v.image_urls) ? v.image_urls.length : (v.image_urls ? 1 : 0)
       if (photoCount >= 10) score += 30
       else if (photoCount >= 5) score += 20
       else if (photoCount >= 1) score += 10
 
       // Days on lot (25 pts)
-      const days = v.days_on_lot ?? Math.round((now - new Date(v.created_at).getTime()) / 86400000)
+      const days = Math.round((now - new Date(v.created_at).getTime()) / 86400000)
       if (days < 15)       score += 25
       else if (days < 30)  score += 20
       else if (days < 60)  score += 10
@@ -821,7 +821,7 @@ Return ONLY valid JSON array (no markdown):
       const complete = [v.year, v.make, v.model, v.condition].every(Boolean)
       if (complete) score += 10
 
-      const stock = v.stocknumber || v.stock_number || ''
+      const stock = v.stocknumber || ''
       return {
         id: v.id,
         stock,

@@ -924,11 +924,62 @@
         </div>
 
         <!-- Upsell if AI Boost not active -->
-        <div id="inv-intel-upsell" class="hidden bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl p-6 text-center space-y-3">
-          <p class="text-2xl">📊</p>
-          <p class="font-bold text-slate-900 dark:text-white">Inventory Intelligence requires AI Boost</p>
-          <p class="text-sm text-slate-600 dark:text-slate-400">Activate AI Boost to unlock turn rate analysis, health scoring, segment gaps, and AI-generated insights.</p>
-          <button onclick="switchPage('ai-boost')" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2 rounded-lg text-sm transition">View AI Boost</button>
+        <div id="inv-intel-upsell" class="hidden">
+          <div class="rounded-2xl overflow-hidden border border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50 via-white to-slate-50 dark:from-indigo-950/40 dark:via-slate-900 dark:to-slate-900">
+            <!-- Header -->
+            <div class="px-6 pt-8 pb-5 text-center">
+              <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600 shadow-lg mb-4">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+              </div>
+              <h2 class="text-xl font-extrabold text-slate-900 dark:text-white mb-1">Inventory Intelligence</h2>
+              <p class="text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto">See exactly what's selling, what's sitting, and where your lot has gaps — powered by AI.</p>
+            </div>
+            <!-- Feature list -->
+            <div class="px-6 pb-5 space-y-2.5">
+              <div class="flex items-start gap-3 bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3">
+                <span class="text-lg mt-0.5">🔥</span>
+                <div>
+                  <p class="text-sm font-semibold text-slate-900 dark:text-white">Hot &amp; Cold Segment Detection</p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Know which make/model combos are flying off the lot and which ones are collecting dust.</p>
+                </div>
+              </div>
+              <div class="flex items-start gap-3 bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3">
+                <span class="text-lg mt-0.5">📈</span>
+                <div>
+                  <p class="text-sm font-semibold text-slate-900 dark:text-white">Turn Rate &amp; Velocity Analysis</p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Monthly sell-through rates and months-of-supply for every segment on your lot.</p>
+                </div>
+              </div>
+              <div class="flex items-start gap-3 bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3">
+                <span class="text-lg mt-0.5">🏥</span>
+                <div>
+                  <p class="text-sm font-semibold text-slate-900 dark:text-white">Per-Vehicle Health Scores</p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Every unit scored 0–100 for photos, pricing, mileage, description, and days on lot.</p>
+                </div>
+              </div>
+              <div class="flex items-start gap-3 bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3">
+                <span class="text-lg mt-0.5">✨</span>
+                <div>
+                  <p class="text-sm font-semibold text-slate-900 dark:text-white">AI-Written Lot Narrative</p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Plain-English bullet points summarizing your lot's health, risks, and opportunities.</p>
+                </div>
+              </div>
+              <div class="flex items-start gap-3 bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3">
+                <span class="text-lg mt-0.5">🔍</span>
+                <div>
+                  <p class="text-sm font-semibold text-slate-900 dark:text-white">Duplicate VIN Detection</p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Automatically flags any VINs listed more than once before they cause problems.</p>
+                </div>
+              </div>
+            </div>
+            <!-- CTA -->
+            <div class="px-6 pb-8 flex flex-col items-center gap-3 text-center">
+              <button onclick="switchPage('ai-boost')" class="w-full max-w-xs bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold px-6 py-3 rounded-xl text-sm shadow-md transition">
+                Try Free for 3 Days
+              </button>
+              <p class="text-xs text-slate-400">Included with AI Boost · No credit card required to start</p>
+            </div>
+          </div>
         </div>
 
         <!-- Loading state -->
@@ -1814,7 +1865,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260703g"></script>
+  <script src="dashboard.js?v=20260703h"></script>
   <script src="tour.js"></script>
 </body>
 </html>
