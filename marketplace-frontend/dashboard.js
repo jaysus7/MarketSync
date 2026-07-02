@@ -4218,12 +4218,74 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('competitors-scan-btn')?.addEventListener('click', async () => {
     const btn = document.getElementById('competitors-scan-btn');
+    const compPanel = document.getElementById('competitor-comparison');
     btn.disabled = true; btn.textContent = 'Scanning…';
+    compPanel?.classList.add('hidden');
     try {
-      const res = await fetch(`${API}/ai/competitors/scan`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Scan failed');
-      showToast(`Scanned ${data.scanned} competitor${data.scanned !== 1 ? 's' : ''}`, 'success');
+      // Run scan + fetch our own lot stats in parallel
+      const [scanRes, ourRes] = await Promise.all([
+        fetch(`${API}/ai/competitors/scan`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API}/inventory/all`, { headers: { 'Authorization': `Bearer ${token}` } })
+      ]);
+      const scanData = await scanRes.json();
+      if (!scanRes.ok) throw new Error(scanData.error || 'Scan failed');
+
+      // Build our lot stats from available inventory
+      const ourVehicles = ourRes.ok ? (await ourRes.json()).filter(v => v.status === 'available' && v.price > 0) : [];
+      const ourPrices = ourVehicles.map(v => Number(v.price)).filter(p => p > 0).sort((a, b) => a - b);
+      const ourAvg = ourPrices.length ? Math.round(ourPrices.reduce((a, b) => a + b, 0) / ourPrices.length) : null;
+      const ourMin = ourPrices[0] || null;
+      const ourMax = ourPrices[ourPrices.length - 1] || null;
+      const ourCount = ourVehicles.length;
+
+      const results = (scanData.results || []).filter(r => r.result && !r.result.error);
+      if (results.length && compPanel) {
+        const fmt = n => n != null ? `$${Number(n).toLocaleString()}` : '—';
+        const pct = (a, b) => (a != null && b != null && b !== 0) ? Math.round(((a - b) / b) * 100) : null;
+
+        const rows = results.map(r => {
+          const s = r.result;
+          const avgDiff = pct(s.avg_price, ourAvg);
+          const flags = [];
+          if (avgDiff != null && avgDiff < -5) flags.push(`<span class="text-amber-500 font-semibold">⚠ Avg price ${Math.abs(avgDiff)}% below yours</span>`);
+          if (avgDiff != null && avgDiff > 10) flags.push(`<span class="text-emerald-500 font-semibold">✓ You're priced ${avgDiff}% cheaper on avg</span>`);
+          if (s.listing_count != null && ourCount > 0 && s.listing_count > ourCount * 1.5) flags.push(`<span class="text-amber-500 font-semibold">⚠ They have ${s.listing_count - ourCount} more units</span>`);
+          if (s.min_price != null && ourMin != null && s.min_price < ourMin * 0.9) flags.push(`<span class="text-amber-500 font-semibold">⚠ Their lowest price is ${fmt(s.min_price)} vs your ${fmt(ourMin)}</span>`);
+
+          return `
+            <div class="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+              <div class="px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 font-bold text-sm text-slate-900 dark:text-white">${r.name}</div>
+              <div class="grid grid-cols-2 divide-x divide-slate-200 dark:divide-slate-700">
+                <div class="px-4 py-3 space-y-2">
+                  <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Your Lot</div>
+                  <div class="text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                    <div><span class="text-slate-400">Units:</span> <span class="font-semibold">${ourCount}</span></div>
+                    <div><span class="text-slate-400">Avg price:</span> <span class="font-semibold">${fmt(ourAvg)}</span></div>
+                    <div><span class="text-slate-400">Range:</span> <span class="font-semibold">${fmt(ourMin)} – ${fmt(ourMax)}</span></div>
+                  </div>
+                </div>
+                <div class="px-4 py-3 space-y-2">
+                  <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">${r.name}</div>
+                  <div class="text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                    <div><span class="text-slate-400">Units:</span> <span class="font-semibold">${s.listing_count ?? '—'}</span></div>
+                    <div><span class="text-slate-400">Avg price:</span> <span class="font-semibold">${fmt(s.avg_price)}</span></div>
+                    <div><span class="text-slate-400">Range:</span> <span class="font-semibold">${fmt(s.min_price)} – ${fmt(s.max_price)}</span></div>
+                  </div>
+                </div>
+              </div>
+              ${flags.length ? `<div class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700 flex flex-col gap-1 text-xs">${flags.join('')}</div>` : ''}
+            </div>`;
+        }).join('');
+
+        compPanel.innerHTML = `
+          <div class="pt-1">
+            <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-3">Lot Comparison</div>
+            <div class="space-y-3 max-h-[480px] overflow-y-auto pr-1">${rows}</div>
+          </div>`;
+        compPanel.classList.remove('hidden');
+      }
+
+      showToast(`Scanned ${scanData.scanned} competitor${scanData.scanned !== 1 ? 's' : ''}`, 'success');
       loadCompetitors();
     } catch (e) { showToast(e.message, 'error'); }
     finally { btn.disabled = false; btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Scan All'; }
