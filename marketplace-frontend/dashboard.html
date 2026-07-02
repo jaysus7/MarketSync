@@ -1356,6 +1356,120 @@
             </div>
           </div>
 
+          <!-- ── Repricing Rules ─────────────────────────────────────────── -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></span>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Repricing Rules</h3>
+                <span class="text-xs text-slate-400 font-normal">— auto-flag stale overpriced units</span>
+              </div>
+              <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body p-5 space-y-4">
+              <div class="flex items-center gap-3">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="repricing-enabled" class="sr-only peer">
+                  <div class="w-10 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+                <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Enable automated repricing alerts</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-xs uppercase font-bold text-slate-400 mb-1.5 tracking-wider">Days on Lot</label>
+                  <input type="number" id="repricing-days" min="1" max="365" value="45" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <p class="text-xs text-slate-400 mt-1">Flag vehicles on lot longer than this.</p>
+                </div>
+                <div>
+                  <label class="block text-xs uppercase font-bold text-slate-400 mb-1.5 tracking-wider">Suggested Price Drop %</label>
+                  <input type="number" id="repricing-drop-pct" min="1" max="50" value="5" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <p class="text-xs text-slate-400 mt-1">Recommended reduction when flagged.</p>
+                </div>
+                <div>
+                  <label class="block text-xs uppercase font-bold text-slate-400 mb-1.5 tracking-wider">Overprice Threshold %</label>
+                  <input type="number" id="repricing-overprice-pct" min="1" max="100" value="20" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <p class="text-xs text-slate-400 mt-1">% above median to consider overpriced.</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <button id="repricing-save-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">Save Rules</button>
+                <button id="repricing-apply-btn" class="bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">Apply Rules Now</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Stocking Recommendations ────────────────────────────────── -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Stocking Recommendations</h3>
+                <span class="text-xs text-slate-400 font-normal">— AI-driven acquisition targets</span>
+              </div>
+              <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body p-5 space-y-4">
+              <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Analyzes your 180-day sell-through history and current stock to recommend the 5 best vehicles to acquire next.</p>
+              <button id="stocking-generate-btn" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+                Generate Recommendations
+              </button>
+              <div id="stocking-results" class="hidden space-y-3"></div>
+            </div>
+          </div>
+
+          <!-- ── Competitor Monitoring ───────────────────────────────────── -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-sky-500 flex-shrink-0"></span>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Competitor Monitoring</h3>
+                <span class="text-xs text-slate-400 font-normal">— track nearby dealership lots</span>
+              </div>
+              <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body p-5 space-y-4">
+              <div id="competitors-list" class="space-y-2">
+                <div class="text-xs text-slate-400 italic" id="competitors-loading">Loading…</div>
+              </div>
+              <!-- Add competitor form -->
+              <div class="pt-3 border-t border-slate-200 dark:border-slate-700">
+                <div class="text-xs uppercase font-bold text-slate-400 mb-2 tracking-wider">Add Competitor</div>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input type="text" id="competitor-name-input" placeholder="Dealership name" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <input type="url" id="competitor-url-input" placeholder="AutoTrader dealer page URL" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <button id="competitor-add-btn" class="bg-sky-600 hover:bg-sky-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Add</button>
+                </div>
+              </div>
+              <button id="competitors-scan-btn" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold px-5 py-2 rounded-lg transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Scan All
+              </button>
+            </div>
+          </div>
+
+          <!-- ── Weekly Lot Health Report ────────────────────────────────── -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0"></span>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Weekly Lot Health Report</h3>
+                <span class="text-xs text-slate-400 font-normal">— email digest of aging, drift &amp; gaps</span>
+              </div>
+              <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body p-5 space-y-4">
+              <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Sends a full lot health email to your alert address: aging units (60+ days), price drift flags, slow movers, and missing-info alerts from the last 7 days.</p>
+              <div class="flex items-center gap-3 flex-wrap">
+                <button id="weekly-report-btn" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                  Send Report Now
+                </button>
+                <span id="weekly-report-last-sent" class="text-xs text-slate-400"></span>
+              </div>
+            </div>
+          </div>
+
         </div><!-- /ai-boost-active-content -->
 
         <!-- Price Report Modal -->
@@ -1534,7 +1648,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260702u"></script>
+  <script src="dashboard.js?v=20260702v"></script>
   <script src="tour.js"></script>
 </body>
 </html>

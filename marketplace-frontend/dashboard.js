@@ -4041,3 +4041,215 @@ async function saveProfileBranding() {
     if (msg) { msg.textContent = ok ? 'Saved!' : 'Save failed'; msg.className = `text-xs font-medium px-2.5 py-1 rounded-md ${ok ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`; msg.classList.remove('hidden'); setTimeout(() => msg.classList.add('hidden'), 3000); }
   } catch { if (msg) { msg.textContent = 'Save failed'; msg.className = 'text-xs font-medium px-2.5 py-1 rounded-md text-red-700 bg-red-50'; msg.classList.remove('hidden'); } }
 }
+
+// ── Repricing Rules ──────────────────────────────────────────────────────────
+
+async function loadRepricingRules() {
+  try {
+    const res = await fetch(`${API}/ai/repricing-rules`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) return;
+    const { rules } = await res.json();
+    const enabledEl = document.getElementById('repricing-enabled');
+    const daysEl = document.getElementById('repricing-days');
+    const dropEl = document.getElementById('repricing-drop-pct');
+    const overEl = document.getElementById('repricing-overprice-pct');
+    if (enabledEl) enabledEl.checked = !!rules.enabled;
+    if (daysEl) daysEl.value = rules.days_on_lot_threshold ?? 45;
+    if (dropEl) dropEl.value = rules.price_drop_pct ?? 5;
+    if (overEl) overEl.value = rules.overprice_threshold_pct ?? 20;
+  } catch {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('repricing-save-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('repricing-save-btn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const res = await fetch(`${API}/ai/repricing-rules`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: document.getElementById('repricing-enabled')?.checked,
+          days_on_lot_threshold: Number(document.getElementById('repricing-days')?.value),
+          price_drop_pct: Number(document.getElementById('repricing-drop-pct')?.value),
+          overprice_threshold_pct: Number(document.getElementById('repricing-overprice-pct')?.value),
+        })
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Save failed');
+      showToast('Repricing rules saved', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Save Rules'; }
+  });
+
+  document.getElementById('repricing-apply-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('repricing-apply-btn');
+    btn.disabled = true; btn.textContent = 'Applying…';
+    try {
+      const res = await fetch(`${API}/ai/repricing-apply`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      showToast(`${data.flagged} vehicle${data.flagged !== 1 ? 's' : ''} flagged for repricing`, data.flagged > 0 ? 'info' : 'success');
+      if (data.flagged > 0) loadAIActivity();
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Apply Rules Now'; }
+  });
+
+  // Load rules when the section is first visible
+  const repricingObs = new MutationObserver(() => {
+    if (!document.getElementById('repricing-days')?.closest('.ai-accordion-body')) return;
+    loadRepricingRules();
+    repricingObs.disconnect();
+  });
+  const repricingBody = document.getElementById('repricing-days')?.closest('.rounded-xl');
+  if (repricingBody) repricingObs.observe(repricingBody, { attributes: true, attributeFilter: ['class'] });
+});
+
+// ── Stocking Recommendations ─────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('stocking-generate-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('stocking-generate-btn');
+    const results = document.getElementById('stocking-results');
+    btn.disabled = true; btn.textContent = 'Generating…';
+    results?.classList.add('hidden');
+    try {
+      const res = await fetch(`${API}/ai/stocking-recommendations`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      const recs = data.recommendations || [];
+      if (!recs.length) { showToast('No recommendations generated — add more inventory history.', 'info'); return; }
+      const priorityColors = { high: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300', medium: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', low: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400' };
+      results.innerHTML = recs.map(r => `
+        <div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <div class="text-sm font-bold text-slate-900 dark:text-white">${r.make} ${r.model} <span class="font-normal text-slate-500">${r.year_range || ''}</span></div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">${r.reason}</div>
+            </div>
+            <span class="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${priorityColors[r.priority] || priorityColors.low}">${r.priority}</span>
+          </div>
+        </div>`).join('');
+      results.classList.remove('hidden');
+      showToast('Recommendations generated', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg> Generate Recommendations'; }
+  });
+});
+
+// ── Competitor Monitoring ─────────────────────────────────────────────────────
+
+async function loadCompetitors() {
+  const listEl = document.getElementById('competitors-list');
+  const loadingEl = document.getElementById('competitors-loading');
+  if (!listEl) return;
+  try {
+    const res = await fetch(`${API}/ai/competitors`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) return;
+    const { competitors } = await res.json();
+    if (loadingEl) loadingEl.remove();
+    if (!competitors.length) {
+      listEl.innerHTML = '<div class="text-xs text-slate-400 italic">No competitors added yet.</div>';
+      return;
+    }
+    listEl.innerHTML = competitors.map(c => {
+      const sr = c.last_scan_result || {};
+      const scannedAt = c.last_scanned_at ? new Date(c.last_scanned_at).toLocaleDateString() : 'Never scanned';
+      const count = sr.listing_count != null ? `${sr.listing_count} listings` : (sr.error ? 'Scan failed' : '—');
+      const priceRange = sr.min_price && sr.max_price ? `$${sr.min_price.toLocaleString()} – $${sr.max_price.toLocaleString()}` : '—';
+      return `<div class="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5" data-competitor-id="${c.id}">
+        <div class="min-w-0">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">${c.name}</div>
+          <div class="text-xs text-slate-400 mt-0.5">${scannedAt} · ${count} · ${priceRange}</div>
+          ${c.autotrader_url ? `<a href="${c.autotrader_url}" target="_blank" rel="noopener" class="text-xs text-indigo-500 hover:underline truncate block max-w-xs">${c.autotrader_url}</a>` : '<span class="text-xs text-slate-400">No URL</span>'}
+        </div>
+        <button class="competitor-delete-btn flex-shrink-0 text-red-400 hover:text-red-600 transition" data-id="${c.id}" title="Remove">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>`;
+    }).join('');
+
+    listEl.querySelectorAll('.competitor-delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Remove this competitor?')) return;
+        try {
+          const res = await fetch(`${API}/ai/competitors/${btn.dataset.id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+          if (!res.ok) throw new Error((await res.json()).error);
+          loadCompetitors();
+          showToast('Competitor removed', 'success');
+        } catch (e) { showToast(e.message, 'error'); }
+      });
+    });
+  } catch {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('competitor-add-btn')?.addEventListener('click', async () => {
+    const name = document.getElementById('competitor-name-input')?.value.trim();
+    const url = document.getElementById('competitor-url-input')?.value.trim();
+    if (!name) { showToast('Dealership name required', 'error'); return; }
+    try {
+      const res = await fetch(`${API}/ai/competitors`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, autotrader_url: url || null })
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+      document.getElementById('competitor-name-input').value = '';
+      document.getElementById('competitor-url-input').value = '';
+      loadCompetitors();
+      showToast('Competitor added', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+  });
+
+  document.getElementById('competitors-scan-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('competitors-scan-btn');
+    btn.disabled = true; btn.textContent = 'Scanning…';
+    try {
+      const res = await fetch(`${API}/ai/competitors/scan`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Scan failed');
+      showToast(`Scanned ${data.scanned} competitor${data.scanned !== 1 ? 's' : ''}`, 'success');
+      loadCompetitors();
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Scan All'; }
+  });
+
+  // Load competitors when accordion opens
+  const competitorAccordion = document.getElementById('competitors-list')?.closest('.rounded-xl');
+  if (competitorAccordion) {
+    new MutationObserver((_, obs) => {
+      if (competitorAccordion.classList.contains('ai-accordion-open')) {
+        loadCompetitors();
+        obs.disconnect();
+      }
+    }).observe(competitorAccordion, { attributes: true, attributeFilter: ['class'] });
+  }
+});
+
+// ── Weekly Lot Health Report ──────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  const lastSentEl = document.getElementById('weekly-report-last-sent');
+  const stored = localStorage.getItem('weekly-report-last-sent');
+  if (lastSentEl && stored) lastSentEl.textContent = `Last sent: ${new Date(stored).toLocaleDateString()}`;
+
+  document.getElementById('weekly-report-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('weekly-report-btn');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      const res = await fetch(`${API}/ai/weekly-report`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      const now = new Date().toISOString();
+      localStorage.setItem('weekly-report-last-sent', now);
+      if (lastSentEl) lastSentEl.textContent = `Last sent: ${new Date(now).toLocaleDateString()}`;
+      showToast(`Report sent to ${data.recipient}`, 'success', 5000);
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg> Send Report Now'; }
+  });
+});

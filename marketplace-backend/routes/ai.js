@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
+import { supabaseAdmin, resend, EMAIL_FROM, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { scrapeMarketData } from '../scraper.js'
 
@@ -506,5 +506,377 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
         count: scraped.copart.count,
       } : null,
     })
+  })
+
+  // ── Repricing Rules ──────────────────────────────────────────────────────
+
+  app.get('/ai/repricing-rules', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const { data, error } = await supabaseAdmin
+      .from('dealerships')
+      .select('repricing_rules')
+      .eq('id', req.dealershipId)
+      .single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ rules: data.repricing_rules || { enabled: false, days_on_lot_threshold: 45, price_drop_pct: 5, overprice_threshold_pct: 20 } })
+  })
+
+  app.put('/ai/repricing-rules', requireAuth, requireDealerAdmin, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const { enabled, days_on_lot_threshold, price_drop_pct, overprice_threshold_pct } = req.body
+    const rules = { enabled: !!enabled, days_on_lot_threshold: Number(days_on_lot_threshold) || 45, price_drop_pct: Number(price_drop_pct) || 5, overprice_threshold_pct: Number(overprice_threshold_pct) || 20 }
+    const { error } = await supabaseAdmin
+      .from('dealerships')
+      .update({ repricing_rules: rules })
+      .eq('id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ rules })
+  })
+
+  app.post('/ai/repricing-apply', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+
+    const { data: dealer } = await supabaseAdmin
+      .from('dealerships')
+      .select('ai_boost_active, repricing_rules')
+      .eq('id', req.dealershipId)
+      .single()
+
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
+
+    const rules = dealer.repricing_rules || { enabled: false, days_on_lot_threshold: 45, price_drop_pct: 5, overprice_threshold_pct: 20 }
+    const { days_on_lot_threshold, price_drop_pct, overprice_threshold_pct } = rules
+
+    const { data: vehicles, error } = await supabaseAdmin
+      .from('inventory')
+      .select('id, year, make, model, trim, price, last_synced_at, created_at')
+      .eq('dealership_id', req.dealershipId)
+      .eq('status', 'available')
+    if (error) return res.status(500).json({ error: error.message })
+
+    const now = Date.now()
+    const suggestions = []
+
+    for (const vehicle of vehicles || []) {
+      const refDate = vehicle.last_synced_at || vehicle.created_at
+      const daysOnLot = refDate ? Math.floor((now - new Date(refDate).getTime()) / 86400000) : 0
+      if (daysOnLot < days_on_lot_threshold) continue
+      if (!vehicle.price || !vehicle.make || !vehicle.model) continue
+
+      const { data: comps } = await supabaseAdmin
+        .from('inventory')
+        .select('price')
+        .eq('dealership_id', req.dealershipId)
+        .eq('make', vehicle.make)
+        .eq('model', vehicle.model)
+        .eq('status', 'available')
+        .gte('year', vehicle.year - 2)
+        .lte('year', vehicle.year + 2)
+        .neq('id', vehicle.id)
+        .not('price', 'is', null)
+
+      if (!comps || comps.length === 0) continue
+      const prices = comps.map(c => Number(c.price)).filter(p => p > 0).sort((a, b) => a - b)
+      const med = median(prices)
+      if (!med) continue
+
+      const pct_diff = ((Number(vehicle.price) - med) / med) * 100
+      if (pct_diff <= overprice_threshold_pct) continue
+
+      const suggestedPrice = Math.round(Number(vehicle.price) * (1 - price_drop_pct / 100))
+      const label = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ')
+      const note = `${daysOnLot} days on lot — suggest reducing price by ${price_drop_pct}% to $${suggestedPrice.toLocaleString()} (currently ${Math.round(pct_diff)}% above median $${Math.round(med).toLocaleString()})`
+
+      suggestions.push({ inventory_id: vehicle.id, vehicle_label: label, note, days_on_lot: daysOnLot, suggested_price: suggestedPrice })
+
+      await supabaseAdmin.from('ai_activity').insert({
+        dealership_id: req.dealershipId,
+        inventory_id: vehicle.id,
+        actor_id: req.user.id,
+        vehicle_label: label,
+        warnings: [note],
+        price_flagged: true,
+        price_pct_diff: Math.round(pct_diff * 10) / 10,
+        price_median: med,
+        copy_generated: false
+      }).then(() => {}).catch(() => {})
+    }
+
+    res.json({ flagged: suggestions.length, suggestions })
+  })
+
+  // ── Stocking Recommendations ─────────────────────────────────────────────
+
+  app.get('/ai/stocking-recommendations', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+
+    const { data: dealer } = await supabaseAdmin
+      .from('dealerships')
+      .select('ai_boost_active')
+      .eq('id', req.dealershipId)
+      .single()
+
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
+
+    if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
+
+    const since180 = new Date(Date.now() - 180 * 86400000).toISOString()
+
+    const [{ data: sold }, { data: current }] = await Promise.all([
+      supabaseAdmin
+        .from('inventory')
+        .select('make, model, year')
+        .eq('dealership_id', req.dealershipId)
+        .in('status', ['sold', 'archived'])
+        .gte('updated_at', since180)
+        .order('updated_at', { ascending: false })
+        .limit(200),
+      supabaseAdmin
+        .from('inventory')
+        .select('make, model, year')
+        .eq('dealership_id', req.dealershipId)
+        .eq('status', 'available')
+    ])
+
+    // Tally sell-through by make/model
+    const sellMap = {}
+    for (const v of sold || []) {
+      const k = `${v.make}|${v.model}`
+      sellMap[k] = (sellMap[k] || { make: v.make, model: v.model, sold: 0 })
+      sellMap[k].sold++
+    }
+    const sell_through = Object.values(sellMap).sort((a, b) => b.sold - a.sold).slice(0, 20)
+
+    // Current stock counts
+    const stockMap = {}
+    for (const v of current || []) {
+      const k = `${v.make}|${v.model}`
+      stockMap[k] = (stockMap[k] || 0) + 1
+    }
+
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    let recommendations = []
+    try {
+      const message = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        messages: [{
+          role: 'user',
+          content: `You are an automotive inventory strategist. Based on this dealership's 180-day sell-through data and current stock, recommend 5 specific vehicle acquisitions.
+
+Sell-through (last 180 days):
+${sell_through.map(s => `- ${s.make} ${s.model}: ${s.sold} sold`).join('\n') || 'No sold data'}
+
+Current stock:
+${Object.entries(stockMap).map(([k, n]) => `- ${k.replace('|', ' ')}: ${n} units`).join('\n') || 'No current stock'}
+
+Return ONLY valid JSON array (no markdown):
+[{"make":"...","model":"...","year_range":"...","reason":"...","priority":"high|medium|low"}]
+(exactly 5 items)`
+        }]
+      })
+      const text = message.content[0]?.text?.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '') || '[]'
+      recommendations = JSON.parse(text)
+    } catch {
+      recommendations = []
+    }
+
+    res.json({ recommendations, sell_through, generated_at: new Date().toISOString() })
+  })
+
+  // ── Competitor Monitoring ────────────────────────────────────────────────
+
+  app.get('/ai/competitors', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const { data, error } = await supabaseAdmin
+      .from('competitor_dealerships')
+      .select('*')
+      .eq('dealership_id', req.dealershipId)
+      .order('created_at', { ascending: true })
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ competitors: data || [] })
+  })
+
+  app.post('/ai/competitors', requireAuth, requireDealerAdmin, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const { name, autotrader_url } = req.body
+    if (!name) return res.status(400).json({ error: 'name required' })
+    const { data, error } = await supabaseAdmin
+      .from('competitor_dealerships')
+      .insert({ dealership_id: req.dealershipId, name, autotrader_url: autotrader_url || null })
+      .select()
+      .single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ competitor: data })
+  })
+
+  app.delete('/ai/competitors/:id', requireAuth, requireDealerAdmin, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const { error } = await supabaseAdmin
+      .from('competitor_dealerships')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ deleted: true })
+  })
+
+  app.post('/ai/competitors/scan', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+
+    const { data: dealer } = await supabaseAdmin
+      .from('dealerships')
+      .select('ai_boost_active')
+      .eq('id', req.dealershipId)
+      .single()
+
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
+
+    const { data: competitors } = await supabaseAdmin
+      .from('competitor_dealerships')
+      .select('*')
+      .eq('dealership_id', req.dealershipId)
+
+    const results = []
+    for (const comp of competitors || []) {
+      if (!comp.autotrader_url) {
+        results.push({ id: comp.id, name: comp.name, result: { error: 'No URL configured', scanned_at: new Date().toISOString() } })
+        continue
+      }
+      let scanResult
+      try {
+        const html = await browserFetch(comp.autotrader_url).then(r => r.text())
+        // Try JSON-LD or embedded listing data
+        let listing_count = null
+        let prices = []
+
+        // Look for result count patterns
+        const countMatch = html.match(/"totalResults"\s*:\s*(\d+)/) || html.match(/"total"\s*:\s*(\d+)/) || html.match(/(\d+)\s+(?:results?|listings?|vehicles?)\s+found/i)
+        if (countMatch) listing_count = parseInt(countMatch[1])
+
+        // Extract prices from embedded JSON
+        const priceMatches = [...html.matchAll(/"price"\s*:\s*(\d{3,6})/g)]
+        if (priceMatches.length > 0) {
+          prices = priceMatches.map(m => parseInt(m[1])).filter(p => p > 1000 && p < 500000)
+        }
+
+        const avg_price = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null
+        const sorted = [...prices].sort((a, b) => a - b)
+        scanResult = {
+          listing_count: listing_count || (prices.length > 0 ? prices.length : null),
+          avg_price,
+          min_price: sorted[0] || null,
+          max_price: sorted[sorted.length - 1] || null,
+          scanned_at: new Date().toISOString()
+        }
+      } catch {
+        scanResult = { error: 'Could not parse listing data', scanned_at: new Date().toISOString() }
+      }
+
+      await supabaseAdmin
+        .from('competitor_dealerships')
+        .update({ last_scan_result: scanResult, last_scanned_at: new Date().toISOString() })
+        .eq('id', comp.id)
+
+      results.push({ id: comp.id, name: comp.name, result: scanResult })
+    }
+
+    res.json({ scanned: results.length, results })
+  })
+
+  // ── Weekly Lot Health Report ─────────────────────────────────────────────
+
+  app.post('/ai/weekly-report', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+
+    const { data: dealer } = await supabaseAdmin
+      .from('dealerships')
+      .select('ai_boost_active, ai_manager_email, name')
+      .eq('id', req.dealershipId)
+      .single()
+
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
+    if (!resend) return res.status(503).json({ error: 'Email not configured' })
+
+    const now = Date.now()
+    const ago60 = new Date(now - 60 * 86400000).toISOString()
+    const ago30 = new Date(now - 30 * 86400000).toISOString()
+    const ago7 = new Date(now - 7 * 86400000).toISOString()
+
+    const { data: allVehicles } = await supabaseAdmin
+      .from('inventory')
+      .select('id, year, make, model, trim, price, last_synced_at, created_at, status')
+      .eq('dealership_id', req.dealershipId)
+      .eq('status', 'available')
+
+    const vehicles = allVehicles || []
+
+    const aging = vehicles
+      .map(v => ({ ...v, daysOnLot: Math.floor((now - new Date(v.last_synced_at || v.created_at).getTime()) / 86400000) }))
+      .filter(v => v.daysOnLot > 60)
+      .sort((a, b) => b.daysOnLot - a.daysOnLot)
+
+    const slowMovers = vehicles
+      .map(v => ({ ...v, daysOnLot: Math.floor((now - new Date(v.last_synced_at || v.created_at).getTime()) / 86400000) }))
+      .filter(v => v.daysOnLot > 30)
+
+    const { data: recentActivity } = await supabaseAdmin
+      .from('ai_activity')
+      .select('vehicle_label, warnings, price_flagged, price_pct_diff, created_at')
+      .eq('dealership_id', req.dealershipId)
+      .gte('created_at', ago7)
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    const priceDrift = (recentActivity || []).filter(a => a.price_flagged)
+    const missingInfo = (recentActivity || []).filter(a => a.warnings?.length > 0)
+
+    const dealerName = dealer.name || 'Your Dealership'
+    const primary = '#1a2e4a'
+
+    const vehicleRow = v => `<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${[v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right">${v.price ? '$' + Number(v.price).toLocaleString() : '—'}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right">${v.daysOnLot} days</td></tr>`
+
+    const sectionHeader = title => `<tr><td colspan="3" style="background:${primary};color:#fff;font-weight:700;font-size:13px;padding:8px 10px">${title}</td></tr>`
+
+    const activityRow = a => `<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${a.vehicle_label}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#ef4444;text-align:right">${a.price_pct_diff != null ? (a.price_pct_diff > 0 ? '+' : '') + a.price_pct_diff + '% vs median' : ''}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b">${new Date(a.created_at).toLocaleDateString()}</td></tr>`
+
+    const warnRow = a => `<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${a.vehicle_label}</td><td colspan="2" style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#b45309">${(a.warnings || []).join(', ')}</td></tr>`
+
+    const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:24px 0">
+<tr><td align="center">
+<table width="640" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0">
+  <tr><td style="background:${primary};padding:20px 24px">
+    <div style="color:#fff;font-size:20px;font-weight:900">${dealerName}</div>
+    <div style="color:#94a3b8;font-size:13px;margin-top:2px">Weekly Lot Health Report · ${new Date().toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+  </td></tr>
+  <tr><td style="padding:20px 24px">
+    <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px">
+      ${aging.length ? `${sectionHeader('⏱ Aging Units (60+ Days on Lot)')}${aging.slice(0, 10).map(vehicleRow).join('')}` : ''}
+      ${priceDrift.length ? `${sectionHeader('💰 Price Drift Flags (Last 7 Days)')}${priceDrift.slice(0, 10).map(activityRow).join('')}` : ''}
+      ${slowMovers.length ? `${sectionHeader('🐢 Slow Movers (30+ Days on Lot)')}${slowMovers.slice(0, 10).map(vehicleRow).join('')}` : ''}
+      ${missingInfo.length ? `${sectionHeader('⚠ Missing Info Alerts (Last 7 Days)')}${missingInfo.slice(0, 10).map(warnRow).join('')}` : ''}
+      ${!aging.length && !priceDrift.length && !slowMovers.length && !missingInfo.length ? '<tr><td colspan="3" style="padding:20px;text-align:center;color:#64748b">No issues found — your lot is in great shape!</td></tr>' : ''}
+    </table>
+    <p style="margin-top:20px;font-size:11px;color:#94a3b8">Sent by MarketSync AI Boost · <a href="https://marketsync.link" style="color:#6366f1">marketsync.link</a></p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`
+
+    const recipient = dealer.ai_manager_email || OWNER_EMAIL
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: recipient,
+      subject: `Lot Health Report — ${dealerName} — ${new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+      html: emailHtml
+    })
+
+    res.json({ sent: true, recipient })
   })
 }
