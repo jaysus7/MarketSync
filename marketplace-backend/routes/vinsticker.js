@@ -57,6 +57,19 @@ function buildWindowStickerHtml(vehicle, dealer, branding, recalls, photoDataUri
   const vd = vehicle.vin_data || {}
   const plantStr = [vd.plant_city, vd.plant_state, vd.plant_country].filter(Boolean).join(', ') || null
 
+  // Derive doors / seats from body style when the inventory record doesn't have them
+  const bodyLower = (vehicle.body_style || vd.body_style || '').toLowerCase()
+  const derivedDoors = vehicle.doors || vd.doors ||
+    (/crew cab|quad cab|double cab|extended cab|4-door|4 door|sedan|suv|crossover|van|wagon/i.test(bodyLower) ? 4
+    : /regular cab|2-door|2 door|coupe|convertible/i.test(bodyLower) ? 2
+    : null)
+  const derivedSeats = vd.seats ||
+    (/van|full.size van|passenger van/i.test(bodyLower) ? '7-8'
+    : /crew cab|quad cab|double cab/i.test(bodyLower) ? '5-6'
+    : /regular cab/i.test(bodyLower) ? '3'
+    : /coupe|convertible/i.test(bodyLower) ? '4'
+    : null)
+
   // ── Feature columns — blend description keywords WITH NHTSA vin_data ──────
   const desc = (vehicle.description || '').toLowerCase()
   const has  = kw => desc.includes(kw)
@@ -202,6 +215,7 @@ function buildWindowStickerHtml(vehicle, dealer, branding, recalls, photoDataUri
 <head><meta charset="UTF-8">
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
+  @page{size:landscape;margin:0;}
   body{font-family:'Arial',Helvetica,sans-serif;width:1056px;height:816px;background:#fff;color:#111;display:flex;flex-direction:column;overflow:hidden;}
 
   /* ── HEADER ── */
@@ -326,8 +340,8 @@ function buildWindowStickerHtml(vehicle, dealer, branding, recalls, photoDataUri
         ['Condition', cap(vehicle.condition)],
         ['Mileage',   mileage],
         ['Fuel',      vehicle.fuel_type || '—'],
-        ['Doors',     vehicle.doors ? String(vehicle.doors) : '—'],
-        ['Seats',     vd.seats || '—'],
+        ['Doors',     derivedDoors ? String(derivedDoors) : '—'],
+        ['Seats',     derivedSeats ? String(derivedSeats) : '—'],
         ['GVWR',      vd.gvwr || '—'],
         ['Year',      String(vehicle.year || '—')],
       ].map(([l,v]) => `<div class="rc"><div class="rl">${l}</div><div class="rv">${v}</div></div>`).join('')}
@@ -480,7 +494,7 @@ function buildBrochureHtml(vehicle, dealer, branding, recalls, photosDataUris, l
     has('third row') || has('3rd row') ? 'Third-Row Seating' : null,
     vehicle.exterior_color    && `${vehicle.exterior_color} Exterior`,
     vehicle.interior_color    && `${vehicle.interior_color} Interior`,
-    vd.seats                  && `${vd.seats} Passenger Capacity`,
+    (derivedSeats || vd.seats) && `${derivedSeats || vd.seats} Passenger Capacity`,
     plantStr                  && `Built in ${plantStr}`,
   ].filter(Boolean)
 
@@ -492,7 +506,7 @@ function buildBrochureHtml(vehicle, dealer, branding, recalls, photosDataUris, l
     ['Trim',          vehicle.trim],
     ['Condition',     cap(vehicle.condition)],
     ['Body Style',    vehicle.body_style],
-    ['Doors',         vehicle.doors ? String(vehicle.doors) : null],
+    ['Doors',         derivedDoors ? String(derivedDoors) : null],
     ['Ext. Colour',   vehicle.exterior_color],
     ['Int. Colour',   vehicle.interior_color],
     ['Mileage',       mileage],
@@ -515,6 +529,7 @@ function buildBrochureHtml(vehicle, dealer, branding, recalls, photosDataUris, l
 <head><meta charset="UTF-8">
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
+  @page{size:portrait;margin:0;}
   body{font-family:'Arial',Helvetica,sans-serif;width:816px;background:#fff;color:#111;margin:0;padding:0;}
   .page{width:816px;min-height:1056px;overflow:hidden;display:flex;flex-direction:column;page-break-after:always;}
 
