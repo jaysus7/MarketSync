@@ -4125,9 +4125,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!recs.length) { showToast('No recommendations generated — add more inventory history.', 'info'); return; }
       const priorityColors = { high: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300', medium: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', low: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400' };
       results.innerHTML = `<div class="max-h-[420px] overflow-y-auto space-y-2 pr-1">${recs.map(r => {
-        const ids = Array.isArray(r.existing_ids) ? r.existing_ids.filter(Boolean) : [];
-        const linksHtml = ids.length
-          ? `<div class="mt-1.5 flex flex-wrap gap-1.5">${ids.map(id => `<a href="#" onclick="openInventoryDetail('${id}');return false;" class="text-[10px] font-semibold text-sky-600 dark:text-sky-400 hover:underline">View unit →</a>`).join('')}</div>`
+        const units = Array.isArray(r.existing_units) ? r.existing_units.filter(u => u?.id) : [];
+        const linksHtml = units.length
+          ? `<div class="mt-1.5 flex flex-wrap gap-1.5">${units.map(u => {
+              const label = u.stocknumber ? `#${u.stocknumber}` : 'View unit';
+              const search = u.stocknumber || u.id;
+              return `<a href="#" onclick="switchPage('inventory');document.getElementById('catalog-search').value='${search}';renderCatalog();return false;" class="text-[10px] font-semibold text-sky-600 dark:text-sky-400 hover:underline">${label} →</a>`;
+            }).join('')}</div>`
           : '';
         return `<div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3">
           <div class="flex items-start justify-between gap-2">

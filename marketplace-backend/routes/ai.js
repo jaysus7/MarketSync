@@ -636,7 +636,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
         .limit(200),
       supabaseAdmin
         .from('inventory')
-        .select('id, make, model, year, price, status')
+        .select('id, make, model, year, price, status, stocknumber')
         .eq('dealership_id', req.dealershipId)
         .eq('status', 'available')
     ])
@@ -654,9 +654,9 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
     const stockMap = {}
     for (const v of current || []) {
       const k = `${v.make}|${v.model}`
-      if (!stockMap[k]) stockMap[k] = { count: 0, ids: [] }
+      if (!stockMap[k]) stockMap[k] = { count: 0, units: [] }
       stockMap[k].count++
-      stockMap[k].ids.push(v.id)
+      stockMap[k].units.push({ id: v.id, stocknumber: v.stocknumber || null })
     }
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -673,11 +673,11 @@ Sell-through (last 180 days):
 ${sell_through.map(s => `- ${s.make} ${s.model}: ${s.sold} sold`).join('\n') || 'No sold data available yet'}
 
 Current stock (available units):
-${Object.entries(stockMap).map(([k, d]) => `- ${k.replace('|', ' ')}: ${d.count} units (IDs: ${d.ids.slice(0, 3).join(', ')}${d.ids.length > 3 ? '…' : ''})`).join('\n') || 'No current stock'}
+${Object.entries(stockMap).map(([k, d]) => `- ${k.replace('|', ' ')}: ${d.count} units (${d.units.slice(0, 3).map(u => `id:${u.id}${u.stocknumber ? ' stock:' + u.stocknumber : ''}`).join(', ')}${d.units.length > 3 ? '…' : ''})`).join('\n') || 'No current stock'}
 
 Return ONLY valid JSON array (no markdown):
-[{"make":"...","model":"...","year_range":"...","reason":"...","priority":"high|medium|low","existing_ids":[]}]
-- "existing_ids": array of inventory IDs from the current stock list that match this make/model (use the IDs provided above); empty array if none in stock
+[{"make":"...","model":"...","year_range":"...","reason":"...","priority":"high|medium|low","existing_units":[{"id":"...","stocknumber":"..."}]}]
+- "existing_units": array of {id, stocknumber} objects from the current stock list that match this make/model; empty array if none in stock
 (exactly 5 items)`
         }]
       })
