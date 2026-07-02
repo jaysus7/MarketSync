@@ -50,6 +50,12 @@ let __canSeeLeaderboard = false;
 let __canSeeTeamInsights = false;
 let __canSeeSalesTeam = false;
 
+// AI Boost — hot/cold segment cache (populated by renderIntel, read by renderCatalog)
+let __hotMakeModels = new Set();
+let __coldMakeModels = new Set();
+// AI Boost — per-vehicle health score cache (id → score)
+let __vehicleHealthScores = {};
+
 // Run Engine Boot Lifecycle
 document.addEventListener('DOMContentLoaded', () => {
   // Show insights immediately — mobile sees content before the auth fetch completes.
@@ -1871,6 +1877,22 @@ function renderCatalog() {
         <div class="flex items-center gap-1 flex-wrap">
           ${conditionBadge(v.condition)}
           ${statusBadge(v.status)}
+          ${(() => {
+            const makeModel = `${v.make} ${v.model}`.toLowerCase()
+            const hotColdTag = __aiBoostActive
+              ? (__hotMakeModels.has(makeModel) ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">🔥 Hot</span>`
+                : __coldMakeModels.has(makeModel) ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300">❄️ Cold</span>`
+                : '')
+              : ''
+            const healthScore = __aiBoostActive && __vehicleHealthScores[v.id] != null ? __vehicleHealthScores[v.id] : null
+            const healthBadge = healthScore != null ? (() => {
+              const cls = healthScore >= 80 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                : healthScore >= 50 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
+                : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+              return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${cls}">⚡ ${healthScore}/100</span>`
+            })() : ''
+            return hotColdTag + healthBadge
+          })()}
         </div>
         <div class="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
           <span class="truncate">${v.trim || ''} ${v.exterior_color ? '· ' + v.exterior_color : ''}</span>
@@ -1881,7 +1903,6 @@ function renderCatalog() {
           ${v.stocknumber ? `<span class="font-mono text-slate-400 dark:text-slate-500">#${v.stocknumber}</span>` : ''}
           <span class="text-slate-500">${mileage}</span>
         </div>
-        ${__aiBoostActive ? `<button class="ai-enrich-btn mt-1 w-full text-xs bg-indigo-900/40 hover:bg-indigo-800/60 border border-indigo-700 text-indigo-300 rounded py-1 transition" data-id="${v.id}">Preview AI Copy</button>` : ''}
         ${__vinStickerActive ? `
         <div class="flex gap-1 mt-1">
           <button class="vin-decode-btn flex-1 text-xs bg-slate-800/60 hover:bg-slate-700/80 border border-slate-600 text-slate-300 rounded py-1 transition" data-id="${v.id}" data-vin="${v.vin || ''}">VIN Decode</button>
@@ -1891,17 +1912,6 @@ function renderCatalog() {
       </${tag}>
     `;
   }).join('');
-
-  // Attach AI Enrichment button listeners after render
-  if (__aiBoostActive) {
-    list.querySelectorAll('.ai-enrich-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        openAIEnrich(btn.dataset.id);
-      });
-    });
-  }
 
   // Attach VIN Sticker button listeners after render
   if (__vinStickerActive) {
@@ -4771,6 +4781,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderIntel(data) {
     const { summary, velocity, hot_segments, cold_segments, duplicate_vins, vehicles } = data
+
+    // Populate module-level caches so renderCatalog can show hot/cold tags and health scores
+    __hotMakeModels = new Set(hot_segments.map(s => `${s.make} ${s.model}`.toLowerCase()))
+    __coldMakeModels = new Set(cold_segments.map(s => `${s.make} ${s.model}`.toLowerCase()))
+    __vehicleHealthScores = Object.fromEntries(vehicles.map(v => [v.id, v.score]))
 
     // Stats
     const sa = summary.avg_score

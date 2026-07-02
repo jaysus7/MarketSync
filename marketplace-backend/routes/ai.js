@@ -754,6 +754,17 @@ Return ONLY valid JSON array (no markdown):
       .filter(([, arr]) => arr.length > 1)
       .map(([vin, units]) => ({ vin, units }))
 
+    // Notify about duplicate VIN check result
+    const dupMsg = duplicateVins.length > 0
+      ? `⚠️ ${duplicateVins.length} duplicate VIN${duplicateVins.length > 1 ? 's' : ''} detected in inventory scan`
+      : '✓ No duplicate VINs found in inventory scan'
+    await createNotification({
+      dealershipId: req.dealershipId,
+      type: 'duplicate_vin_check',
+      title: duplicateVins.length > 0 ? 'Duplicate VINs Detected' : 'VIN Check Complete',
+      body: dupMsg,
+    }).catch(() => {})
+
     // ── 2. Segment velocity (by make × model) ─────────────────────────────
     const seg90 = {}, seg30 = {}
     for (const v of sold90 || []) {
@@ -1240,10 +1251,12 @@ Units 60d+ on lot: ${stale}`
       }
     }
 
-    const results = await Promise.all((competitors || []).map(async comp => {
+    const results = []
+    for (const comp of (competitors || [])) {
       if (!comp.autotrader_url) {
         const result = { error: 'No URL configured', scanned_at: new Date().toISOString() }
-        return { id: comp.id, name: comp.name, result }
+        results.push({ id: comp.id, name: comp.name, result })
+        continue
       }
       let scanResult
       try {
@@ -1265,8 +1278,8 @@ Units 60d+ on lot: ${stale}`
         .update({ last_scan_result: scanResult, last_scanned_at: new Date().toISOString() })
         .eq('id', comp.id)
 
-      return { id: comp.id, name: comp.name, result: scanResult }
-    }))
+      results.push({ id: comp.id, name: comp.name, result: scanResult })
+    }
 
     res.json({ scanned: results.length, results })
   })
@@ -1919,9 +1932,9 @@ Units 60d+ on lot: ${stale}`
     res.send(printHtml)
   })
 
-  // ── Cron: auto-send weekly health reports every Monday ────────────────────
+  // ── Cron: auto-send weekly health reports every Sunday night ─────────────
   // Protected by CRON_SECRET header. Set up as a Render Cron Job:
-  //   Schedule: 0 13 * * 1   (Monday 9am ET = 1pm UTC)
+  //   Schedule: 59 3 * * 1   (Sunday 11:59pm ET = Monday 3:59am UTC)
   //   Command:  curl -X POST https://<your-render-url>/cron/weekly-reports \
   //               -H "x-cron-secret: $CRON_SECRET"
   app.post('/cron/weekly-reports', async (req, res) => {
@@ -2108,6 +2121,15 @@ Units 60d+ on lot: ${stale}`
           subject: `Lot Health Report — ${dealer.name} — ${new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}`,
           html: emailHtml,
         })
+
+        // Notify that the weekly report was sent
+        await createNotification({
+          dealershipId: dealer.id,
+          type: 'weekly_report',
+          title: 'Weekly Lot Health Report Sent',
+          body: `Your weekly lot health report has been sent to ${dealer.ai_manager_email}`,
+          linkPage: 'ai-boost',
+        }).catch(() => {})
 
         // Write in-app notifications for this dealer's most pressing issues
         const notifRows = []
