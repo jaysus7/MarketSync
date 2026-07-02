@@ -3882,7 +3882,7 @@ function loadInvIntelPage() {
   if (__invIntelActive) {
     upsell.classList.add('hidden');
     active.classList.remove('hidden');
-    loadIntel();
+    if (typeof window._loadIntel === 'function') window._loadIntel();
   } else {
     upsell.classList.remove('hidden');
     active.classList.add('hidden');
@@ -4514,10 +4514,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const scanStarted = Date.now();
       let competitors = [];
       btn.textContent = `Scanning 0/${total}…`;
-      for (let attempt = 0; attempt < 60; attempt++) {
-        await new Promise(r => setTimeout(r, 5000));
-        const pollRes = await fetch(`${API}/ai/competitors`, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (!pollRes.ok) break;
+      for (let attempt = 0; attempt < 40; attempt++) {
+        await new Promise(r => setTimeout(r, 7000));
+        let pollRes;
+        try { pollRes = await fetch(`${API}/ai/competitors`, { headers: { 'Authorization': `Bearer ${token}` } }); }
+        catch { continue; } // network/CORS during cold-start — keep waiting
+        if (!pollRes.ok) continue;
         const pollData = await pollRes.json();
         competitors = pollData.competitors || [];
         const done = competitors.filter(c => c.last_scanned_at && new Date(c.last_scanned_at) > new Date(scanStarted)).length;
@@ -5040,5 +5042,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Manage subscription button → Stripe portal
   document.getElementById('inv-intel-manage-btn')?.addEventListener('click', launchStripeLifecycle)
 
+  window._loadIntel = loadIntel
   window._invIntelPageHook = () => loadInvIntelPage()
 })()
