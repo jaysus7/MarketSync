@@ -2506,109 +2506,183 @@ function closePriceReport() {
 function exportPriceReportPDF() {
   if (!__prData) return;
   const { vehicle, estimate, pct_diff, label, currency } = __prData;
-  const currencyLabel = currency === 'USD' ? 'USD' : 'CAD';
-  const fmt = n => n != null ? '$' + Number(n).toLocaleString() + ' ' + currencyLabel : '—';
+  const cl = currency === 'USD' ? 'USD' : 'CAD';
+  const distUnit = cl === 'USD' ? 'mi' : 'km';
+  const fmt = n => n != null ? '$' + Number(n).toLocaleString() + ' ' + cl : '—';
+  const fmtMi = n => n != null ? Number(n).toLocaleString() + ' ' + distUnit : '—';
+
   const over = pct_diff != null && pct_diff > 0;
-  const diffColor = pct_diff == null ? '#94a3b8' : over ? '#ef4444' : '#f59e0b';
+  const diffColor = pct_diff == null ? '#94a3b8' : over ? '#ef4444' : '#22c55e';
   const diffText = pct_diff != null ? (over ? '+' : '') + pct_diff + '%' : '—';
-  const confidenceText = estimate?.confidence
-    ? `Confidence: ${estimate.confidence.charAt(0).toUpperCase() + estimate.confidence.slice(1)}`
-    : '';
-  const marketplaceAvgs = estimate?.marketplace_averages || [];
-  const sourceNames = marketplaceAvgs.length
-    ? marketplaceAvgs.map(m => m.name)
-    : (estimate?.sources || []);
+
+  const avgs = estimate?.marketplace_averages || [];
+  const sourceNames = avgs.length ? avgs.map(m => m.name) : [];
+  const ma = estimate?.mileage_analysis;
   const isNew = vehicle.condition === 'new' || Number(vehicle.year) >= new Date().getFullYear();
 
-  // Capture chart as PNG before opening print window
+  const ptm = estimate?.price_to_market_pct;
+  const ptmColor = ptm == null ? '#94a3b8' : ptm > 105 ? '#ef4444' : ptm < 95 ? '#22c55e' : '#0f172a';
+  const dom = estimate?.days_on_market_estimate;
+
+  const ratingColorMap = {
+    'well below average': '#22c55e', 'below average': '#86efac',
+    'average': '#94a3b8', 'above average': '#f59e0b', 'well above average': '#ef4444'
+  };
+  const mileageImpact = ma?.mileage_price_impact != null ? Number(ma.mileage_price_impact) : null;
+  const mileageImpactColor = mileageImpact == null ? '#94a3b8' : mileageImpact > 0 ? '#22c55e' : '#ef4444';
+  const mileageImpactText = mileageImpact != null
+    ? (mileageImpact >= 0 ? '+' : '') + '$' + Math.abs(mileageImpact).toLocaleString() + ' ' + cl
+    : '—';
+
   const canvas = document.getElementById('pr-chart');
   const chartImg = canvas ? canvas.toDataURL('image/png') : null;
 
   const win = window.open('', '_blank');
   if (!win) return;
-  win.document.write(`<!DOCTYPE html><html><head><title>AI Price Report – ${label}</title>
-    <style>
-      *{box-sizing:border-box}
-      body{font-family:system-ui,sans-serif;padding:36px;color:#1e293b;max-width:700px;margin:0 auto;font-size:13px}
-      h2{font-size:1.3rem;font-weight:900;margin:0 0 2px}
-      .sub{font-size:11px;color:#64748b;margin-bottom:20px}
-      .section-label{font-size:9px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:#94a3b8;margin:16px 0 8px}
-      .strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:4px}
-      .tile{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 10px;text-align:center}
-      .tile-label{font-size:9px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:#94a3b8;margin-bottom:4px}
-      .tile-val{font-size:1.25rem;font-weight:900;color:#0f172a}
-      .mkt-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:4px}
-      .mkt-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center}
-      .mkt-name{font-size:9px;font-weight:700;color:#6366f1;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em}
-      .mkt-avg{font-size:1.1rem;font-weight:900;color:#0f172a;margin-bottom:2px}
-      .mkt-count{font-size:9px;color:#94a3b8}
-      .mkt-vs{font-size:9px;font-weight:700;margin-top:3px}
-      .range-row{display:flex;justify-content:space-between;font-size:11px;color:#64748b;font-family:monospace;margin-bottom:4px}
-      .range-track{height:14px;border-radius:99px;background:#e2e8f0;position:relative;overflow:visible;margin-bottom:4px}
-      .range-band{position:absolute;top:0;height:100%;border-radius:99px;background:#c7d2fe}
-      .range-marker{position:absolute;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:#6366f1;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
-      .range-ends{display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;margin-bottom:16px}
-      .chart-img{width:100%;max-height:240px;object-fit:contain;border:1px solid #e2e8f0;border-radius:8px;padding:8px;display:block}
-      .insight{background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;margin-top:4px}
-      .insight-label{font-size:9px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:#6366f1;margin-bottom:4px}
-      .insight-text{font-size:12px;color:#1e293b;line-height:1.6}
-      .insight-conf{font-size:10px;color:#94a3b8;margin-top:4px}
-      .footnote{font-size:10px;color:#94a3b8;line-height:1.7;border-top:1px solid #e2e8f0;padding-top:12px;margin-top:20px}
-      @media print{body{padding:16px}}
-    </style></head><body>
-    <h2>${label}</h2>
-    <div class="sub">${vehicle.stocknumber ? 'Stock #' + vehicle.stocknumber + ' · ' : ''}${vehicle.condition ? vehicle.condition.charAt(0).toUpperCase() + vehicle.condition.slice(1) : ''}${vehicle.mileage ? ' · ' + Number(vehicle.mileage).toLocaleString() + (currency === 'USD' ? ' mi' : ' km') : ''}</div>
 
-    <div class="section-label">Price Summary</div>
-    <div class="strip">
-      <div class="tile"><div class="tile-label">Your Price</div><div class="tile-val">${fmt(vehicle.price)}</div></div>
-      <div class="tile"><div class="tile-label">Market Average</div><div class="tile-val">${fmt(estimate?.mid)}</div></div>
-      <div class="tile"><div class="tile-label">Difference</div><div class="tile-val" style="color:${diffColor}">${diffText}</div></div>
+  const html = `<!DOCTYPE html><html><head>
+<title>Market Price Report – ${label}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+@page{size:letter portrait;margin:13mm 13mm 11mm}
+body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;font-size:10.5px;line-height:1.35;background:#fff}
+.header{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2.5px solid #6366f1;padding-bottom:7px;margin-bottom:8px}
+.header h1{font-size:14px;font-weight:900;letter-spacing:-.3px;margin-bottom:1px}
+.header .sub{font-size:9.5px;color:#64748b}
+.header-right{text-align:right;font-size:8.5px;color:#94a3b8;line-height:1.7}
+.badge{display:inline-block;background:#eef2ff;color:#6366f1;font-size:7.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:99px;border:1px solid #c7d2fe}
+.sl{font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:#94a3b8;margin:7px 0 4px}
+.strip5{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:7px}
+.tile{background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:6px 5px;text-align:center}
+.tile .tl{font-size:7px;text-transform:uppercase;font-weight:700;letter-spacing:.06em;color:#94a3b8;margin-bottom:2px}
+.tile .tv{font-size:13px;font-weight:900}
+.mkt3{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:7px}
+.mkt-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:6px 7px}
+.mkt-name{font-size:7.5px;font-weight:800;color:#6366f1;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;border-bottom:1px solid #e2e8f0;padding-bottom:2px}
+.mkt-row{display:flex;justify-content:space-between;align-items:center;padding:1.5px 0}
+.mkt-lbl{font-size:8px;color:#64748b}
+.mkt-val{font-size:9px;font-weight:800}
+.mkt-cnt{font-size:7.5px;color:#94a3b8;margin-top:2px}
+.two-col{display:grid;grid-template-columns:3fr 2fr;gap:7px;margin-bottom:7px}
+.chart-wrap{border:1px solid #e2e8f0;border-radius:5px;padding:5px;background:#fafafa}
+.chart-wrap img{width:100%;display:block;max-height:150px;object-fit:contain}
+.mi-panel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:7px}
+.mi-row{display:flex;justify-content:space-between;align-items:center;padding:2.5px 0;border-bottom:1px solid #f1f5f9}
+.mi-row:last-of-type{border-bottom:none}
+.mi-key{font-size:8px;color:#64748b}
+.mi-val{font-size:9px;font-weight:800}
+.mi-note{font-size:7.5px;color:#64748b;margin-top:4px;line-height:1.5;border-top:1px solid #f1f5f9;padding-top:4px}
+.range-header{display:flex;justify-content:space-between;font-size:8.5px;color:#64748b;font-family:monospace;margin-bottom:2px}
+.range-track{height:9px;border-radius:99px;background:#e2e8f0;position:relative;overflow:visible;margin-bottom:2px}
+.range-band{position:absolute;top:0;height:100%;border-radius:99px}
+.range-marker{position:absolute;top:50%;transform:translate(-50%,-50%);width:11px;height:11px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.range-ends{display:flex;justify-content:space-between;font-size:7.5px;color:#94a3b8;margin-bottom:7px}
+.insight{background:#eef2ff;border:1px solid #c7d2fe;border-radius:5px;padding:7px 9px;margin-bottom:6px}
+.insight .il{font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;margin-bottom:2px}
+.insight p{font-size:9.5px;color:#1e293b;line-height:1.5}
+.insight .ic{font-size:8px;color:#94a3b8;margin-top:2px}
+.footer{border-top:1px solid #e2e8f0;padding-top:5px;margin-top:5px;font-size:7.5px;color:#94a3b8;line-height:1.55;display:flex;justify-content:space-between;gap:10px}
+.footer .fl{flex:1}
+.footer .fr{text-align:right;white-space:nowrap}
+</style></head><body>
+
+<div class="header">
+  <div>
+    <h1>${label}</h1>
+    <div class="sub">${[
+      vehicle.stocknumber ? 'Stock #' + vehicle.stocknumber : null,
+      vehicle.condition ? vehicle.condition.charAt(0).toUpperCase() + vehicle.condition.slice(1) : null,
+      vehicle.mileage ? fmtMi(vehicle.mileage) : null,
+      vehicle.exterior_color || null
+    ].filter(Boolean).join(' · ')}</div>
+  </div>
+  <div class="header-right">
+    <div class="badge">AI Market Report</div><br>
+    ${new Date().toLocaleDateString('en-CA', { year:'numeric', month:'long', day:'numeric' })}<br>
+    MarketSync AI Boost
+  </div>
+</div>
+
+<div class="sl">Price Summary</div>
+<div class="strip5">
+  <div class="tile"><div class="tl">Your Price</div><div class="tv">${fmt(vehicle.price)}</div></div>
+  <div class="tile"><div class="tl">Market Average</div><div class="tv">${fmt(estimate?.mid)}</div></div>
+  <div class="tile"><div class="tl">Difference</div><div class="tv" style="color:${diffColor}">${diffText}</div></div>
+  <div class="tile"><div class="tl">Price to Market</div><div class="tv" style="color:${ptmColor}">${ptm != null ? ptm + '%' : '—'}</div></div>
+  <div class="tile"><div class="tl">Est. Days to Sell</div><div class="tv">${dom != null ? dom + 'd' : '—'}</div></div>
+</div>
+
+${avgs.length ? `
+<div class="sl">Average Price by Marketplace</div>
+<div class="mkt3">
+  ${avgs.map(m => {
+    const mAvg = Number(m.avg);
+    const vp = Number(vehicle.price);
+    const vs = mAvg ? Math.round(((vp - mAvg) / mAvg) * 100) : null;
+    const vsColor = vs == null ? '#94a3b8' : vs > 0 ? '#ef4444' : '#22c55e';
+    return `<div class="mkt-card">
+      <div class="mkt-name">${m.name}</div>
+      <div class="mkt-row"><span class="mkt-lbl">Avg Price</span><span class="mkt-val">${fmt(m.avg)}</span></div>
+      ${m.avg_mileage ? `<div class="mkt-row"><span class="mkt-lbl">Avg Mileage</span><span class="mkt-val">${fmtMi(m.avg_mileage)}</span></div>` : ''}
+      <div class="mkt-row"><span class="mkt-lbl">Your vs Avg</span><span class="mkt-val" style="color:${vsColor}">${vs != null ? (vs > 0 ? '+' : '') + vs + '%' : '—'}</span></div>
+      <div class="mkt-cnt">${m.estimated_listings || ''}</div>
+    </div>`;
+  }).join('')}
+</div>` : ''}
+
+<div class="two-col">
+  <div>
+    <div class="sl">Marketplace Averages vs Your Price</div>
+    <div class="chart-wrap">${chartImg ? `<img src="${chartImg}" alt="Price chart"/>` : '<div style="height:130px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:9px">Chart unavailable</div>'}</div>
+  </div>
+  <div>
+    <div class="sl">Mileage Analysis</div>
+    <div class="mi-panel">
+      <div class="mi-row"><span class="mi-key">Your Mileage</span><span class="mi-val">${vehicle.mileage ? fmtMi(vehicle.mileage) : 'N/A'}</span></div>
+      <div class="mi-row"><span class="mi-key">Market Avg</span><span class="mi-val">${ma?.market_avg_mileage ? fmtMi(ma.market_avg_mileage) : '—'}</span></div>
+      ${avgs.filter(m => m.avg_mileage).map(m =>
+        `<div class="mi-row"><span class="mi-key">${m.name}</span><span class="mi-val">${fmtMi(m.avg_mileage)}</span></div>`
+      ).join('')}
+      <div class="mi-row"><span class="mi-key">Rating</span><span class="mi-val" style="color:${ratingColorMap[ma?.mileage_rating] || '#94a3b8'}">${ma?.mileage_rating ? ma.mileage_rating.charAt(0).toUpperCase() + ma.mileage_rating.slice(1) : '—'}</span></div>
+      <div class="mi-row"><span class="mi-key">Price Impact</span><span class="mi-val" style="color:${mileageImpactColor}">${mileageImpactText}</span></div>
+      ${ma?.mileage_note ? `<div class="mi-note">${ma.mileage_note}</div>` : ''}
     </div>
+  </div>
+</div>
 
-    ${marketplaceAvgs.length ? `
-    <div class="section-label">Average Price by Marketplace</div>
-    <div class="mkt-cards">
-      ${marketplaceAvgs.map(m => {
-        const mAvg = Number(m.avg);
-        const vp = Number(vehicle.price);
-        const vs = mAvg ? Math.round(((vp - mAvg) / mAvg) * 100) : null;
-        const vsColor = vs == null ? '#94a3b8' : vs > 0 ? '#ef4444' : '#22c55e';
-        const vsText = vs != null ? (vs > 0 ? '+' : '') + vs + '% vs avg' : '';
-        return `<div class="mkt-card">
-          <div class="mkt-name">${m.name}</div>
-          <div class="mkt-avg">${fmt(m.avg)}</div>
-          <div class="mkt-count">${m.estimated_listings || ''}</div>
-          ${vs != null ? `<div class="mkt-vs" style="color:${vsColor}">${vsText}</div>` : ''}
-        </div>`;
-      }).join('')}
-    </div>` : ''}
+${estimate ? `
+<div class="sl">Overall Market Range (${cl})</div>
+<div class="range-header">
+  <span>${fmt(estimate.low)}</span>
+  <span style="font-weight:700;color:#0f172a">${fmt(estimate.mid)}&nbsp;avg</span>
+  <span>${fmt(estimate.high)}</span>
+</div>
+${(() => {
+  const lo = estimate.low, hi = estimate.high, vp = Number(vehicle.price);
+  const span = (hi - lo) || 1;
+  const markerPct = Math.min(97, Math.max(3, ((vp - lo) / span) * 100));
+  return `<div class="range-track"><div class="range-band" style="left:0%;width:100%;background:#c7d2fe"></div><div class="range-marker" style="left:${markerPct}%;background:#6366f1"></div></div>`;
+})()}
+<div class="range-ends"><span>Market Low</span><span style="font-weight:700;color:#6366f1">▲ Your Price</span><span>Market High</span></div>` : ''}
 
-    ${estimate ? `
-    <div class="section-label">Overall Market Range</div>
-    <div class="range-row"><span>${fmt(estimate.low)}</span><span style="font-weight:700;color:#0f172a">${fmt(estimate.mid)}</span><span>${fmt(estimate.high)}</span></div>
-    ${(() => {
-      const lo = estimate.low, hi = estimate.high, vp = Number(vehicle.price);
-      const span = (hi - lo) || 1;
-      const markerPct = Math.min(100, Math.max(0, ((vp - lo) / span) * 100));
-      return `<div class="range-track"><div class="range-band" style="left:0%;width:100%"></div><div class="range-marker" style="left:${markerPct}%"></div></div>`;
-    })()}
-    <div class="range-ends"><span>Market Low</span><span>Market High</span></div>` : ''}
+${estimate?.note ? `
+<div class="insight">
+  <div class="il">AI Market Insight</div>
+  <p>${estimate.note}</p>
+  ${estimate.confidence ? `<div class="ic">Confidence: ${estimate.confidence.charAt(0).toUpperCase() + estimate.confidence.slice(1)}</div>` : ''}
+</div>` : ''}
 
-    ${chartImg ? `<div class="section-label">Marketplace Averages vs Your Price</div><img class="chart-img" src="${chartImg}" alt="Price comparison chart"/>` : ''}
+<div class="footer">
+  <div class="fl"><strong>Sources:</strong> ${sourceNames.join(' · ') || 'AI market analysis'}&nbsp;&nbsp;·&nbsp;&nbsp;AI-analyzed from marketplace listings. Not a live data feed. ${isNew ? 'New vehicles matched by same year.' : 'Used vehicles matched by same year and trim.'} Not a guarantee of resale value.</div>
+  <div class="fr">Generated ${new Date().toLocaleDateString('en-CA', { year:'numeric', month:'short', day:'numeric' })}</div>
+</div>
 
-    ${estimate?.note ? `<div class="insight"><div class="insight-label">AI Market Insight</div><div class="insight-text">${estimate.note}</div><div class="insight-conf">${confidenceText}</div></div>` : ''}
+</body></html>`;
 
-    <div class="footnote">
-      <strong>Data Sources:</strong> ${sourceNames.join(' · ')}<br>
-      Pricing data is AI-analyzed from automotive marketplace listings. This is not a live data feed — estimates reflect market knowledge at time of analysis.<br>
-      ${isNew ? 'New vehicles matched by same year.' : 'Used vehicles matched by same year and trim.'} Estimates reflect typical market conditions and are not a guarantee of resale value.<br>
-      Generated ${new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}.
-    </div>
-  </body></html>`);
+  win.document.write(html);
   win.document.close();
   win.focus();
-  setTimeout(() => { win.print(); win.close(); }, 500);
+  setTimeout(() => { win.print(); win.close(); }, 600);
 }
 
 async function openPriceReport(inventoryId) {
@@ -2667,6 +2741,58 @@ async function openPriceReport(inventoryId) {
       const markerPct = Math.min(100, Math.max(0, ((vp - lo) / span) * 100));
       document.getElementById('pr-range-band').style.cssText = 'left:0%;width:100%';
       document.getElementById('pr-price-marker').style.left = markerPct + '%';
+    }
+
+    // Market velocity
+    const ptmEl = document.getElementById('pr-ptm');
+    const daysEl = document.getElementById('pr-days');
+    if (ptmEl) {
+      const ptm = estimate?.price_to_market_pct;
+      ptmEl.textContent = ptm != null ? ptm + '%' : '—';
+      ptmEl.className = 'text-xl font-black ' + (ptm == null ? 'text-slate-400' : ptm > 105 ? 'text-red-500' : ptm < 95 ? 'text-emerald-500' : 'text-slate-900 dark:text-white');
+    }
+    if (daysEl) daysEl.textContent = estimate?.days_on_market_estimate != null ? estimate.days_on_market_estimate + ' days' : '—';
+
+    // Mileage panel
+    const ma = estimate?.mileage_analysis;
+    const distUnit = currencyLabel === 'USD' ? 'mi' : 'km';
+    const fmtMi = n => n != null ? Number(n).toLocaleString() + ' ' + distUnit : '—';
+    document.getElementById('pr-your-mileage').textContent = vehicle.mileage ? fmtMi(vehicle.mileage) : 'N/A';
+    document.getElementById('pr-market-mileage').textContent = ma?.market_avg_mileage ? fmtMi(ma.market_avg_mileage) : '—';
+
+    const ratingEl = document.getElementById('pr-mileage-rating');
+    const ratingColorMap = {
+      'well below average': 'text-emerald-500', 'below average': 'text-emerald-400',
+      'average': 'text-slate-500', 'above average': 'text-amber-500', 'well above average': 'text-red-500'
+    };
+    if (ratingEl && ma?.mileage_rating) {
+      ratingEl.textContent = ma.mileage_rating.charAt(0).toUpperCase() + ma.mileage_rating.slice(1);
+      ratingEl.className = 'text-xs font-bold ' + (ratingColorMap[ma.mileage_rating] || 'text-slate-400');
+    }
+
+    const impactEl = document.getElementById('pr-mileage-impact');
+    if (impactEl && ma?.mileage_price_impact != null) {
+      const imp = Number(ma.mileage_price_impact);
+      impactEl.textContent = (imp >= 0 ? '+' : '') + '$' + Math.abs(imp).toLocaleString() + ' ' + currencyLabel;
+      impactEl.className = 'text-xs font-bold ' + (imp > 0 ? 'text-emerald-500' : imp < 0 ? 'text-red-500' : 'text-slate-400');
+      if (imp > 0) impactEl.title = 'Premium for low mileage vs market average';
+      else if (imp < 0) impactEl.title = 'Discount for high mileage vs market average';
+    }
+    document.getElementById('pr-mileage-note').textContent = ma?.mileage_note || '';
+
+    // Mileage range bar: position marker at your mileage vs market avg
+    if (ma?.market_avg_mileage && vehicle.mileage) {
+      const marketAvgMi = Number(ma.market_avg_mileage);
+      const yourMi = Number(vehicle.mileage);
+      // Range: 0 to 2x market avg
+      const rangeMax = marketAvgMi * 2;
+      const markerPct = Math.min(100, Math.max(0, (yourMi / rangeMax) * 100));
+      const marker = document.getElementById('pr-mileage-marker');
+      if (marker) {
+        marker.style.left = markerPct + '%';
+        marker.className = 'absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow ' +
+          (yourMi < marketAvgMi * 0.8 ? 'bg-emerald-500' : yourMi > marketAvgMi * 1.2 ? 'bg-red-500' : 'bg-amber-400');
+      }
     }
 
     // AI insight
