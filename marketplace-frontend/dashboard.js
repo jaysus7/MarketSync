@@ -296,7 +296,7 @@ function switchPage(pageId) {
   document.querySelectorAll('[data-page-content]').forEach(el => {
     el.classList.toggle('hidden', el.dataset.pageContent !== pageId);
   });
-  document.querySelectorAll('#dashboard-nav .nav-item, #nav-ai-boost').forEach(btn => {
+  document.querySelectorAll('#dashboard-nav .nav-item, #nav-ai-boost, #nav-vin-sticker').forEach(btn => {
     const active = btn.dataset.page === pageId;
     btn.classList.toggle('bg-indigo-100', active);
     btn.classList.toggle('dark:bg-indigo-950/50', active);
@@ -2981,29 +2981,30 @@ function renderAIBoostSection(cfg) {
     }
   }
 
-  // Sidebar nav item — reps only see it when the dealer has purchased AI Boost
+  // Sidebar nav item — AI Boost is admin-only (data-admin-nav hides it for reps via CSS).
+  // JS only needs to style it based on active/inactive state.
   const navBtn = document.getElementById('nav-ai-boost');
   const navPill = document.getElementById('nav-ai-boost-pill');
   if (navBtn) {
     const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
-    const showNav = cfg.ai_boost_active || isAdmin;
-    navBtn.classList.toggle('hidden', !showNav);
-    if (cfg.ai_boost_active) {
-      navBtn.classList.remove('hidden', 'text-slate-400', 'dark:text-slate-600', 'hover:bg-indigo-50', 'dark:hover:bg-indigo-950/30');
-      navBtn.classList.add('text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
-      if (navPill) navPill.classList.add('hidden');
+    if (!isAdmin) {
+      navBtn.classList.add('hidden'); // belt-and-suspenders for reps
+    } else {
+      navBtn.classList.remove('hidden');
+      if (cfg.ai_boost_active) {
+        navBtn.classList.remove('text-slate-400', 'dark:text-slate-600', 'hover:bg-indigo-50', 'dark:hover:bg-indigo-950/30');
+        navBtn.classList.add('text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
+        if (navPill) navPill.classList.add('hidden');
+      } else {
+        navBtn.classList.remove('text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
+        navBtn.classList.add('text-slate-400', 'dark:text-slate-600', 'hover:bg-indigo-50', 'dark:hover:bg-indigo-950/30', 'cursor-pointer');
+        if (navPill) navPill.classList.remove('hidden');
+      }
       navBtn.dataset.page = 'ai-boost';
-      navBtn.onclick = null;
       if (!navBtn._clickWired) {
         navBtn._clickWired = true;
         navBtn.addEventListener('click', () => switchPage('ai-boost'));
       }
-    } else if (isAdmin) {
-      navBtn.classList.remove('hidden', 'text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
-      navBtn.classList.add('text-slate-400', 'dark:text-slate-600', 'hover:bg-indigo-50', 'dark:hover:bg-indigo-950/30', 'cursor-pointer');
-      if (navPill) navPill.classList.remove('hidden');
-      navBtn.dataset.page = 'ai-boost';
-      navBtn.onclick = null; // early DOMContentLoaded listener handles the click
     }
   }
 
@@ -3625,21 +3626,26 @@ function initVinStickerPage() {
 
 function renderVinStickerNav() {
   const btn = document.getElementById('nav-vin-sticker');
-  const label = document.getElementById('nav-vin-sticker-label');
   const pill = document.getElementById('nav-vin-sticker-pill');
   if (!btn) return;
 
+  // Show for everyone (roles: admins + dealer reps). The hidden class was set
+  // by the pre-render CSS; now that config is loaded we can reveal it.
   btn.classList.remove('hidden');
 
   if (__vinStickerActive) {
-    btn.className = btn.className.replace(/text-slate-\w+/g, '').trim();
-    btn.classList.add('text-emerald-600', 'dark:text-emerald-400', 'bg-emerald-50', 'dark:bg-emerald-950/30');
-    pill.classList.add('hidden');
+    btn.classList.remove('text-slate-400', 'dark:text-slate-600');
+    btn.classList.add('text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
+    if (pill) pill.classList.add('hidden');
   } else {
     btn.classList.add('text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
+    if (pill) pill.classList.remove('hidden');
   }
 
-  btn.addEventListener('click', () => switchPage('vin-sticker'));
+  if (!btn._clickWired) {
+    btn._clickWired = true;
+    btn.addEventListener('click', () => switchPage('vin-sticker'));
+  }
 }
 
 async function loadVinStickerPage() {
