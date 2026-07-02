@@ -1322,40 +1322,6 @@
             </div>
           </div>
 
-          <!-- Summary stat cards -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Total Checks</div>
-              <div class="text-3xl font-black text-slate-900 dark:text-white" id="ai-stat-total">—</div>
-            </div>
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-              <div class="text-xs uppercase font-bold tracking-wider text-amber-500 mb-1">Missing Info</div>
-              <div class="text-3xl font-black text-amber-500" id="ai-stat-warnings">—</div>
-            </div>
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-              <div class="text-xs uppercase font-bold tracking-wider text-red-500 mb-1">Price Flags</div>
-              <div class="text-3xl font-black text-red-500" id="ai-stat-price-flags">—</div>
-            </div>
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-              <div class="text-xs uppercase font-bold tracking-wider text-emerald-500 mb-1">Copies Written</div>
-              <div class="text-3xl font-black text-emerald-500" id="ai-stat-copies">—</div>
-            </div>
-          </div>
-
-          <!-- Activity feed -->
-          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Recent Activity</h3>
-              <span id="ai-activity-count" class="text-xs text-slate-400"></span>
-            </div>
-            <div class="max-h-[600px] overflow-y-auto">
-              <div id="ai-activity-loading" class="py-12 text-center text-sm text-slate-400 italic">Loading…</div>
-              <div id="ai-activity-empty" class="hidden py-12 text-center text-sm text-slate-400 px-6">No activity yet — click <strong class="text-slate-600 dark:text-slate-300">Scan All Inventory</strong> to run the first check.</div>
-              <div id="ai-activity-error" class="hidden py-6 px-5 text-sm text-red-500"></div>
-              <ul id="ai-activity-list" class="hidden divide-y divide-slate-100 dark:divide-slate-800"></ul>
-            </div>
-          </div>
-
           <!-- ── Repricing Rules ─────────────────────────────────────────── -->
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
             <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
@@ -1467,6 +1433,40 @@
                 </button>
                 <span id="weekly-report-last-sent" class="text-xs text-slate-400"></span>
               </div>
+            </div>
+          </div>
+
+          <!-- Summary stat cards -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Total Checks</div>
+              <div class="text-3xl font-black text-slate-900 dark:text-white" id="ai-stat-total">—</div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+              <div class="text-xs uppercase font-bold tracking-wider text-amber-500 mb-1">Missing Info</div>
+              <div class="text-3xl font-black text-amber-500" id="ai-stat-warnings">—</div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+              <div class="text-xs uppercase font-bold tracking-wider text-red-500 mb-1">Price Flags</div>
+              <div class="text-3xl font-black text-red-500" id="ai-stat-price-flags">—</div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+              <div class="text-xs uppercase font-bold tracking-wider text-emerald-500 mb-1">Copies Written</div>
+              <div class="text-3xl font-black text-emerald-500" id="ai-stat-copies">—</div>
+            </div>
+          </div>
+
+          <!-- Activity feed -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Recent Activity</h3>
+              <span id="ai-activity-count" class="text-xs text-slate-400"></span>
+            </div>
+            <div class="max-h-[600px] overflow-y-auto">
+              <div id="ai-activity-loading" class="py-12 text-center text-sm text-slate-400 italic">Loading…</div>
+              <div id="ai-activity-empty" class="hidden py-12 text-center text-sm text-slate-400 px-6">No activity yet — click <strong class="text-slate-600 dark:text-slate-300">Scan All Inventory</strong> to run the first check.</div>
+              <div id="ai-activity-error" class="hidden py-6 px-5 text-sm text-red-500"></div>
+              <ul id="ai-activity-list" class="hidden divide-y divide-slate-100 dark:divide-slate-800"></ul>
             </div>
           </div>
 
@@ -1648,7 +1648,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260702v"></script>
+  <script src="dashboard.js?v=20260702w"></script>
   <script src="tour.js"></script>
 </body>
 </html>

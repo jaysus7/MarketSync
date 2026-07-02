@@ -128,10 +128,10 @@ export function registerAI(app) {
     }
 
     // ── Price comp check ──
-    // Skip for new or current-year vehicles — MSRP pricing has no internal comparable.
+    // Skip for new vehicles or recent model years — MSRP/near-MSRP pricing has no meaningful internal comparable.
     let price_flag = null
     const _currentYear = new Date().getFullYear()
-    const _isNewOrCurrentYear = vehicle.condition === 'new' || Number(vehicle.year) >= _currentYear
+    const _isNewOrCurrentYear = vehicle.condition === 'new' || Number(vehicle.year) >= _currentYear - 2
     if (!_isNewOrCurrentYear && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
       const yearMin = vehicle.year - 2
       const yearMax = vehicle.year + 2
@@ -265,7 +265,9 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
 
           let price_flag = null
           const currentYear = new Date().getFullYear()
-          const isNewOrCurrentYear = vehicle.condition === 'new' || Number(vehicle.year) >= currentYear
+          // Skip price flagging for new vehicles or recent model years (current year and 2 prior)
+          // — MSRP/near-MSRP pricing on new inventory has no meaningful internal comparable
+          const isNewOrCurrentYear = vehicle.condition === 'new' || Number(vehicle.year) >= currentYear - 2
           if (!isNewOrCurrentYear && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
             const { data: comps } = await supabaseAdmin
               .from('inventory').select('price')
@@ -635,7 +637,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
         .limit(200),
       supabaseAdmin
         .from('inventory')
-        .select('make, model, year')
+        .select('id, make, model, year, price, status')
         .eq('dealership_id', req.dealershipId)
         .eq('status', 'available')
     ])
@@ -649,11 +651,13 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
     }
     const sell_through = Object.values(sellMap).sort((a, b) => b.sold - a.sold).slice(0, 20)
 
-    // Current stock counts
+    // Current stock with IDs for linking
     const stockMap = {}
     for (const v of current || []) {
       const k = `${v.make}|${v.model}`
-      stockMap[k] = (stockMap[k] || 0) + 1
+      if (!stockMap[k]) stockMap[k] = { count: 0, ids: [] }
+      stockMap[k].count++
+      stockMap[k].ids.push(v.id)
     }
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -661,19 +665,20 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
     try {
       const message = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
+        max_tokens: 1200,
         messages: [{
           role: 'user',
-          content: `You are an automotive inventory strategist. Based on this dealership's 180-day sell-through data and current stock, recommend 5 specific vehicle acquisitions.
+          content: `You are an automotive inventory strategist for a Canadian GM dealership in Ontario, Canada. Based on this dealership's 180-day sell-through data and current stock, recommend 5 specific vehicle acquisitions. Base your advice on Canadian market conditions, Ontario buyer preferences, and Canadian government incentives (iZEV program, Ontario rebates) — do NOT reference US programs like IRA or federal US credits.
 
 Sell-through (last 180 days):
-${sell_through.map(s => `- ${s.make} ${s.model}: ${s.sold} sold`).join('\n') || 'No sold data'}
+${sell_through.map(s => `- ${s.make} ${s.model}: ${s.sold} sold`).join('\n') || 'No sold data available yet'}
 
-Current stock:
-${Object.entries(stockMap).map(([k, n]) => `- ${k.replace('|', ' ')}: ${n} units`).join('\n') || 'No current stock'}
+Current stock (available units):
+${Object.entries(stockMap).map(([k, d]) => `- ${k.replace('|', ' ')}: ${d.count} units (IDs: ${d.ids.slice(0, 3).join(', ')}${d.ids.length > 3 ? '…' : ''})`).join('\n') || 'No current stock'}
 
 Return ONLY valid JSON array (no markdown):
-[{"make":"...","model":"...","year_range":"...","reason":"...","priority":"high|medium|low"}]
+[{"make":"...","model":"...","year_range":"...","reason":"...","priority":"high|medium|low","existing_ids":[]}]
+- "existing_ids": array of inventory IDs from the current stock list that match this make/model (use the IDs provided above); empty array if none in stock
 (exactly 5 items)`
         }]
       })

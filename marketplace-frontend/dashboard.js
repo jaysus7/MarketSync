@@ -4124,16 +4124,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const recs = data.recommendations || [];
       if (!recs.length) { showToast('No recommendations generated — add more inventory history.', 'info'); return; }
       const priorityColors = { high: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300', medium: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', low: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400' };
-      results.innerHTML = recs.map(r => `
-        <div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3">
+      results.innerHTML = `<div class="max-h-[420px] overflow-y-auto space-y-2 pr-1">${recs.map(r => {
+        const ids = Array.isArray(r.existing_ids) ? r.existing_ids.filter(Boolean) : [];
+        const linksHtml = ids.length
+          ? `<div class="mt-1.5 flex flex-wrap gap-1.5">${ids.map(id => `<a href="#" onclick="openInventoryDetail('${id}');return false;" class="text-[10px] font-semibold text-sky-600 dark:text-sky-400 hover:underline">View unit →</a>`).join('')}</div>`
+          : '';
+        return `<div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3">
           <div class="flex items-start justify-between gap-2">
-            <div>
+            <div class="min-w-0">
               <div class="text-sm font-bold text-slate-900 dark:text-white">${r.make} ${r.model} <span class="font-normal text-slate-500">${r.year_range || ''}</span></div>
               <div class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">${r.reason}</div>
+              ${linksHtml}
             </div>
             <span class="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${priorityColors[r.priority] || priorityColors.low}">${r.priority}</span>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('')}</div>`;
       results.classList.remove('hidden');
       showToast('Recommendations generated', 'success');
     } catch (e) { showToast(e.message, 'error'); }
