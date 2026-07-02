@@ -128,10 +128,10 @@ export function registerAI(app) {
     }
 
     // ── Price comp check ──
-    // Skip for new vehicles or recent model years — MSRP/near-MSRP pricing has no meaningful internal comparable.
+    // Skip for new vehicles only — used vehicles of any year are fair game for price comparison.
     let price_flag = null
     const _currentYear = new Date().getFullYear()
-    const _isNewOrCurrentYear = vehicle.condition === 'new' || Number(vehicle.year) >= _currentYear - 2
+    const _isNewOrCurrentYear = vehicle.condition === 'new'
     if (!_isNewOrCurrentYear && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
       const yearMin = vehicle.year - 2
       const yearMax = vehicle.year + 2
@@ -265,9 +265,8 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
 
           let price_flag = null
           const currentYear = new Date().getFullYear()
-          // Skip price flagging for new vehicles or recent model years (current year and 2 prior)
-          // — MSRP/near-MSRP pricing on new inventory has no meaningful internal comparable
-          const isNewOrCurrentYear = vehicle.condition === 'new' || Number(vehicle.year) >= currentYear - 2
+          // Skip price flagging for new vehicles only — used vehicles of any year are compared
+          const isNewOrCurrentYear = vehicle.condition === 'new'
           if (!isNewOrCurrentYear && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
             const { data: comps } = await supabaseAdmin
               .from('inventory').select('price')
