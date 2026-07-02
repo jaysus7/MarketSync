@@ -27,7 +27,7 @@ export function registerAI(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data, error } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, auction_api_key')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, auction_api_key, vin_sticker_active')
       .eq('id', req.dealershipId)
       .single()
     if (error) return res.status(500).json({ error: error.message })

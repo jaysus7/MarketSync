@@ -34,6 +34,12 @@
   </style>
   <style id="ms-font-bump">html{font-size:17px}@media (max-width:640px){html{font-size:16px}}</style>
   <style>.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}.scrollbar-none::-webkit-scrollbar{display:none}</style>
+  <style>
+    /* Accordion feature panels — collapsed by default, open when .ai-accordion-open */
+    .ai-accordion-body { display: none; }
+    .ai-accordion-open .ai-accordion-body { display: block; }
+    .ai-accordion-open .ai-chevron { transform: rotate(180deg); }
+  </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen flex flex-col overflow-x-hidden">
 
@@ -844,11 +850,14 @@
 
           <!-- Active features (left 2 cols) -->
           <div class="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0"></span>
-              <h3 class="text-sm font-bold text-slate-900 dark:text-white">What's Included</h3>
-            </div>
-            <div class="divide-y divide-slate-100 dark:divide-slate-800">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0"></span>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">What's Included</h3>
+              </div>
+              <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body divide-y divide-slate-100 dark:divide-slate-800">
 
               <div class="flex items-start gap-3.5 px-5 py-4">
                 <div class="flex-shrink-0 w-8 h-8 bg-indigo-100 dark:bg-indigo-900/40 rounded-lg flex items-center justify-center mt-0.5">
@@ -913,15 +922,18 @@
             </div>
           </div>
 
-          <!-- Coming soon (right 1 col) -->
+          <!-- Also included (right 1 col) -->
           <div class="flex flex-col gap-5">
 
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-              <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0"></span>
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Also Included</h3>
-              </div>
-              <div class="divide-y divide-slate-100 dark:divide-slate-800">
+              <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0"></span>
+                  <h3 class="text-sm font-bold text-slate-900 dark:text-white">Also Included</h3>
+                </div>
+                <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+              <div class="ai-accordion-body divide-y divide-slate-100 dark:divide-slate-800">
 
                 <div class="px-5 py-3.5 flex items-start gap-3">
                   <div class="flex-shrink-0 w-7 h-7 bg-indigo-100 dark:bg-indigo-900/40 rounded-lg flex items-center justify-center mt-0.5">
@@ -1090,6 +1102,80 @@
                   <div id="ai-sync-progress-bar" class="h-full bg-indigo-500 rounded-full transition-all duration-500" style="width:0%"></div>
                 </div>
                 <div class="text-xs text-slate-400" id="ai-sync-progress-label"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Branding Settings card (full width) -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Branding Settings</h3>
+                <span class="text-xs text-slate-400 font-normal">— logo, colours &amp; tagline used on PDF window stickers and brochures</span>
+              </div>
+              <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body p-5">
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+                <!-- Logo upload -->
+                <div class="flex flex-col gap-2">
+                  <label class="block text-xs uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">Dealer Logo</label>
+                  <div id="branding-logo-preview" class="w-full h-20 bg-slate-100 dark:bg-slate-800 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center overflow-hidden">
+                    <span class="text-xs text-slate-400">No logo uploaded</span>
+                  </div>
+                  <label class="cursor-pointer flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+                    Upload Logo
+                    <input type="file" id="branding-logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden">
+                  </label>
+                  <p class="text-xs text-slate-400">PNG, JPG, SVG — max 3 MB. Appears top-left on all PDFs.</p>
+                </div>
+
+                <!-- Colours -->
+                <div class="flex flex-col gap-4">
+                  <div>
+                    <label class="block text-xs uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider mb-2">Primary Colour</label>
+                    <div class="flex items-center gap-3">
+                      <input type="color" id="branding-primary-color" value="#1a2e4a" class="w-10 h-10 rounded-lg cursor-pointer border border-slate-200 dark:border-slate-700 bg-transparent">
+                      <input type="text" id="branding-primary-color-hex" value="#1a2e4a" maxlength="7" placeholder="#1a2e4a" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Header background, price box, footer.</p>
+                  </div>
+                  <div>
+                    <label class="block text-xs uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider mb-2">Accent Colour</label>
+                    <div class="flex items-center gap-3">
+                      <input type="color" id="branding-secondary-color" value="#c8a84b" class="w-10 h-10 rounded-lg cursor-pointer border border-slate-200 dark:border-slate-700 bg-transparent">
+                      <input type="text" id="branding-secondary-color-hex" value="#c8a84b" maxlength="7" placeholder="#c8a84b" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Checkmarks, section titles, accent strip.</p>
+                  </div>
+                </div>
+
+                <!-- Tagline + preview swatch -->
+                <div class="flex flex-col gap-4">
+                  <div>
+                    <label class="block text-xs uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider mb-1.5">Tagline / Slogan</label>
+                    <input type="text" id="branding-tagline" maxlength="80" placeholder="Drive with confidence…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <p class="text-xs text-slate-400 mt-1">Printed in italics at the bottom of PDFs.</p>
+                  </div>
+                  <!-- Colour preview swatch -->
+                  <div>
+                    <label class="block text-xs uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider mb-1.5">Preview</label>
+                    <div id="branding-swatch" class="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                      <div id="branding-swatch-header" class="px-3 py-2 text-white text-xs font-bold" style="background:#1a2e4a;">Header / Footer</div>
+                      <div id="branding-swatch-accent" class="px-3 py-1.5 text-white text-xs font-semibold" style="background:#c8a84b;">Accent Strip</div>
+                      <div class="px-3 py-2 text-xs text-slate-500 bg-white dark:bg-slate-900">Body content area</div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              <div class="mt-5 flex items-center gap-3">
+                <button id="branding-save-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-5 py-2 rounded-lg transition">Save Branding</button>
+                <div id="branding-save-msg" class="hidden text-xs font-medium px-2.5 py-1 rounded-md"></div>
               </div>
             </div>
           </div>
@@ -1271,7 +1357,42 @@
     </section>
   </main>
 
-  <script src="dashboard.js?v=20260702k"></script>
+  <!-- VIN Decode Modal -->
+  <div id="vin-decode-modal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-start justify-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl w-full max-w-xl mt-10 mb-10 overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+        <h3 class="text-base font-bold text-slate-900 dark:text-white">VIN Decode</h3>
+        <button onclick="document.getElementById('vin-decode-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="flex gap-2">
+          <input type="text" id="vin-decode-input" maxlength="17" placeholder="Enter 17-character VIN…" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase">
+          <button id="vin-decode-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Decode VIN</button>
+        </div>
+        <div id="vin-decode-loading" class="hidden text-center py-4 text-sm text-slate-400 italic">Decoding…</div>
+        <div id="vin-decode-error" class="hidden text-sm text-red-500 px-1"></div>
+        <div id="vin-decode-results" class="hidden space-y-3">
+          <!-- Decoded fields grid -->
+          <div id="vin-decoded-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+          <!-- Recalls -->
+          <div id="vin-recalls-section" class="hidden">
+            <div id="vin-recalls-header" class="text-sm font-bold mt-1 mb-2"></div>
+            <div id="vin-recalls-list" class="space-y-2"></div>
+          </div>
+          <!-- Apply button -->
+          <div class="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center gap-3">
+            <button id="vin-apply-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Apply to Vehicle</button>
+            <span id="vin-apply-msg" class="hidden text-xs font-medium px-2.5 py-1 rounded-md"></span>
+            <p class="text-xs text-slate-400">Fills in year, make, model, trim, engine, drivetrain and more.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js?v=20260702l"></script>
   <script src="tour.js"></script>
 </body>
 </html>

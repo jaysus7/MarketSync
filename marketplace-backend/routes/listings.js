@@ -27,7 +27,15 @@ async function finalizeSold(listingId, inventoryId) {
         .update({ status: 'sold', deleted_at: now, sold_at: now, fb_sync_action: 'sold', fb_synced_at: null })
         .eq('id', listingId)
     }
-    // 2. Delete the inventory row — vehicle is gone from the dealer site / sold
+    // 2. Clear cached PDFs — no longer needed after sold
+    const { data: invRow } = await supabaseAdmin.from('inventory').select('dealership_id').eq('id', inventoryId).single()
+    if (invRow?.dealership_id) {
+      await Promise.allSettled([
+        supabaseAdmin.storage.from('vehicle-pdfs').remove([`${invRow.dealership_id}/${inventoryId}/window-sticker.pdf`]),
+        supabaseAdmin.storage.from('vehicle-pdfs').remove([`${invRow.dealership_id}/${inventoryId}/brochure.pdf`]),
+      ])
+    }
+    // 3. Delete the inventory row — vehicle is gone from the dealer site / sold
     await supabaseAdmin.from('inventory').delete().eq('id', inventoryId)
   }
 }
