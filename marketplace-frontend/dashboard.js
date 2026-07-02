@@ -3356,7 +3356,7 @@ async function runVinDecode() {
     showVinError('Please enter a valid 17-character VIN.');
     return;
   }
-  const token = localStorage.getItem('ms_token');
+  const token = localStorage.getItem('token');
   document.getElementById('vin-decode-loading').classList.remove('hidden');
   document.getElementById('vin-decode-results').classList.add('hidden');
   document.getElementById('vin-decode-error').classList.add('hidden');
@@ -3419,7 +3419,7 @@ function renderVinResults({ decoded, recalls }) {
 
 async function applyVinDecode() {
   if (!__vinDecodeData || !__vinDecodeVehicleId) return;
-  const token = localStorage.getItem('ms_token');
+  const token = localStorage.getItem('token');
   const btn = document.getElementById('vin-apply-btn');
   const msg = document.getElementById('vin-apply-msg');
   btn.disabled = true;
@@ -3447,7 +3447,7 @@ async function applyVinDecode() {
 }
 
 async function generatePdf(vehicleId, type, btn) {
-  const token = localStorage.getItem('ms_token');
+  const token = localStorage.getItem('token');
   const origText = btn.textContent;
   btn.disabled = true;
   btn.textContent = '…';
@@ -3468,7 +3468,7 @@ async function generatePdf(vehicleId, type, btn) {
 }
 
 async function loadBrandingSettings() {
-  const token = localStorage.getItem('ms_token');
+  const token = localStorage.getItem('token');
   try {
     const res = await fetch(`${API}/branding`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) return;
@@ -3495,7 +3495,7 @@ async function loadBrandingSettings() {
 async function uploadBrandingLogo() {
   const file = document.getElementById('branding-logo-input').files[0];
   if (!file) return;
-  const token = localStorage.getItem('ms_token');
+  const token = localStorage.getItem('token');
   const msg = document.getElementById('branding-save-msg');
   const formData = new FormData();
   formData.append('logo', file);
@@ -3516,7 +3516,7 @@ async function uploadBrandingLogo() {
 }
 
 async function saveBrandingSettings() {
-  const token = localStorage.getItem('ms_token');
+  const token = localStorage.getItem('token');
   const payload = {
     primary_color: document.getElementById('branding-primary-color-hex')?.value || '',
     secondary_color: document.getElementById('branding-secondary-color-hex')?.value || '',
@@ -3595,7 +3595,7 @@ async function loadVinStickerInventory() {
   const loading = document.getElementById('vin-sticker-inventory-loading');
   const empty = document.getElementById('vin-sticker-inventory-empty');
   const list = document.getElementById('vin-sticker-inventory-list');
-  const token = localStorage.getItem('ms_token');
+  const token = localStorage.getItem('token');
   try {
     const res = await fetch(`${API}/inventory/all`, { headers: { 'Authorization': `Bearer ${token}` } });
     const vehicles = await res.json();
@@ -3653,7 +3653,7 @@ async function runVinPageDecode() {
     document.getElementById('vin-page-error').classList.remove('hidden');
     return;
   }
-  const token = localStorage.getItem('ms_token');
+  const token = localStorage.getItem('token');
   document.getElementById('vin-page-loading').classList.remove('hidden');
   document.getElementById('vin-page-results').classList.add('hidden');
   document.getElementById('vin-page-error').classList.add('hidden');
@@ -3701,7 +3701,7 @@ function renderVinPageResults({ decoded, recalls }) {
 }
 
 async function startVinStickerTrial() {
-  const token = localStorage.getItem('ms_token');
+  const token = localStorage.getItem('token');
   const btn = document.getElementById('vin-sticker-page-upgrade-btn');
   btn.disabled = true;
   btn.textContent = 'Opening checkout…';
@@ -3725,7 +3725,7 @@ async function startVinStickerTrial() {
   const params = new URLSearchParams(window.location.search);
   const sessionId = params.get('vin_sticker_session');
   if (!sessionId) return;
-  const token = localStorage.getItem('ms_token');
+  const token = localStorage.getItem('token');
   if (!token) return;
   try {
     const res = await fetch(`${API}/billing/vin-sticker-verify?session_id=${encodeURIComponent(sessionId)}`, {
