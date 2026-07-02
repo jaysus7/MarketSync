@@ -216,11 +216,11 @@
               <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">AI Boost</h3>
               <span id="ai-boost-badge" class="hidden text-xs font-bold px-2 py-0.5 rounded-full border"></span>
             </div>
-            <p class="text-sm text-slate-500 leading-relaxed mb-3">AI-powered listing copy, missing-info alerts, and price comp checks — $199/month add-on.</p>
+            <p class="text-sm text-slate-500 leading-relaxed mb-3">AI-powered listing copy, missing-info alerts, and price comp checks — $299/month add-on.</p>
 
             <!-- Not active: show upgrade button -->
             <div id="ai-boost-inactive" class="hidden">
-              <button id="ai-boost-upgrade-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Start 3-Day Free Trial — $199/month after</button>
+              <button id="ai-boost-upgrade-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Start 3-Day Free Trial — $299/month after</button>
             </div>
 
             <!-- Active: show shortcut to AI Boost page -->
@@ -228,6 +228,24 @@
               <button id="ai-boost-goto-page-btn" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
                 Open AI Boost
+              </button>
+            </div>
+          </div>
+
+          <!-- ── Inventory Intelligence Add-On ── (dealer admin only) -->
+          <div id="inv-intel-section" data-admin-only class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+            <div class="flex items-center gap-2 mb-1">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Inv. Intelligence</h3>
+              <span id="inv-intel-badge" class="hidden text-xs font-bold px-2 py-0.5 rounded-full border"></span>
+            </div>
+            <p class="text-sm text-slate-500 leading-relaxed mb-3">Turn rate, health scores, segment gaps, and AI insights — $79/month add-on.</p>
+            <div id="inv-intel-sidebar-inactive" class="hidden">
+              <button id="inv-intel-upgrade-btn" class="w-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold py-2 rounded transition">Start 3-Day Free Trial — $79/month after</button>
+            </div>
+            <div id="inv-intel-sidebar-active" class="hidden">
+              <button id="inv-intel-goto-page-btn" class="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold py-2 rounded transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+                Open Intelligence
               </button>
             </div>
           </div>
@@ -371,13 +389,14 @@
             <span class="text-[9px] font-black uppercase tracking-wider bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-full leading-none">Paid</span>
           </span>
         </button>
-        <!-- Inventory Intelligence: admin-only, requires AI Boost -->
+        <!-- Inventory Intelligence: admin-only, separate add-on -->
         <button type="button" id="nav-inv-intel" title="Inventory Intelligence" data-admin-nav class="hidden flex-1 md:flex-none md:w-full flex items-center justify-center md:justify-start md:justify-between gap-2 px-2 md:px-3 py-2.5 md:py-2 rounded font-medium transition">
-          <span class="flex items-center gap-2.5">
+          <span id="nav-inv-intel-label" class="flex items-center gap-2.5">
             <svg class="w-5 h-5 md:w-4 md:h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
             <span class="hidden md:inline">Inv. Intelligence</span>
           </span>
           <span class="hidden md:flex items-center gap-1 flex-shrink-0">
+            <span id="nav-inv-intel-pill" class="hidden text-[9px] font-black uppercase tracking-wider bg-violet-600 text-white px-1.5 py-0.5 rounded-full leading-none">Trial</span>
             <span class="text-[9px] font-black uppercase tracking-wider bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-full leading-none">Paid</span>
           </span>
         </button>
@@ -432,7 +451,7 @@
           <div class="flex items-start gap-3">
             <span class="text-2xl leading-none mt-0.5">✨</span>
             <div>
-              <p class="font-bold text-slate-900 dark:text-white text-sm">AI Boost — $199/month add-on</p>
+              <p class="font-bold text-slate-900 dark:text-white text-sm">AI Boost — $299/month add-on</p>
               <p class="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">Let AI write your listing copy, flag missing photos or price, and check if your vehicles are priced competitively — all before you post.</p>
             </div>
           </div>
@@ -911,173 +930,218 @@
 
       <!-- ── Inventory Intelligence Page ───────────────────────────────────── -->
       <div data-page-content="inv-intel" class="page-content hidden space-y-6">
+
         <!-- Header -->
         <div class="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 class="text-xl font-black text-slate-900 dark:text-white">Inventory Intelligence</h1>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+              Inventory Intelligence
+            </h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Turn rate, health scores, segment gaps, and AI insights for your lot.</p>
           </div>
-          <button id="inv-intel-refresh-btn" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
-            Refresh Analysis
-          </button>
         </div>
 
-        <!-- Upsell if AI Boost not active -->
-        <div id="inv-intel-upsell" class="hidden">
-          <div class="rounded-2xl overflow-hidden border border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50 via-white to-slate-50 dark:from-indigo-950/40 dark:via-slate-900 dark:to-slate-900">
-            <!-- Header -->
-            <div class="px-6 pt-8 pb-5 text-center">
-              <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600 shadow-lg mb-4">
-                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
-              </div>
-              <h2 class="text-xl font-extrabold text-slate-900 dark:text-white mb-1">Inventory Intelligence</h2>
-              <p class="text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto">See exactly what's selling, what's sitting, and where your lot has gaps — powered by AI.</p>
+        <!-- ── Upsell — non-subscribers ──────────────────────────────────── -->
+        <div id="inv-intel-page-upsell" class="hidden">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800">
+              <h3 class="text-base font-bold text-slate-900 dark:text-white">Everything in Inventory Intelligence — $79/month</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Start with a free 3-day trial. No credit card required.</p>
             </div>
-            <!-- Feature list -->
-            <div class="px-6 pb-5 space-y-2.5">
-              <div class="flex items-start gap-3 bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3">
-                <span class="text-lg mt-0.5">🔥</span>
-                <div>
-                  <p class="text-sm font-semibold text-slate-900 dark:text-white">Hot &amp; Cold Segment Detection</p>
-                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Know which make/model combos are flying off the lot and which ones are collecting dust.</p>
+            <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5">
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Hot &amp; cold segment detection</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Turn rate &amp; monthly velocity per segment</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Per-vehicle health scores (0–100)</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>AI-written lot narrative — plain English insights</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Duplicate VIN detection across your lot</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Months-of-supply analysis by make &amp; model</div>
+            </div>
+            <div class="px-6 py-5 border-t border-slate-200 dark:border-slate-800">
+              <button id="inv-intel-page-upgrade-btn" class="bg-violet-600 hover:bg-violet-500 text-white font-bold px-6 py-3 rounded-lg transition text-sm">Start 3-Day Free Trial</button>
+              <span class="ml-4 text-xs text-slate-400">No credit card required · $79/month after trial</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Active content ─────────────────────────────────────────────── -->
+        <div id="inv-intel-active-content" class="hidden space-y-5">
+
+          <!-- What's Included accordion -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0"></span>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">What's Included</h3>
+              </div>
+              <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body divide-y divide-slate-100 dark:divide-slate-800">
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">🔥</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Hot &amp; Cold Segment Detection</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">See which make/model combos are flying off the lot and which ones are collecting dust — updated every time you refresh.</div>
                 </div>
               </div>
-              <div class="flex items-start gap-3 bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3">
-                <span class="text-lg mt-0.5">📈</span>
-                <div>
-                  <p class="text-sm font-semibold text-slate-900 dark:text-white">Turn Rate &amp; Velocity Analysis</p>
-                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Monthly sell-through rates and months-of-supply for every segment on your lot.</p>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">📈</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Turn Rate &amp; Velocity Analysis</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Monthly sell-through rates and months-of-supply for every segment — built from your actual sold history over the last 90 days.</div>
                 </div>
               </div>
-              <div class="flex items-start gap-3 bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3">
-                <span class="text-lg mt-0.5">🏥</span>
-                <div>
-                  <p class="text-sm font-semibold text-slate-900 dark:text-white">Per-Vehicle Health Scores</p>
-                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Every unit scored 0–100 for photos, pricing, mileage, description, and days on lot.</p>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">🏥</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Per-Vehicle Health Scores</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Every unit scored 0–100 across photos, price, mileage, description quality, and days on lot. Lowest-scoring units surface first.</div>
                 </div>
               </div>
-              <div class="flex items-start gap-3 bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3">
-                <span class="text-lg mt-0.5">✨</span>
-                <div>
-                  <p class="text-sm font-semibold text-slate-900 dark:text-white">AI-Written Lot Narrative</p>
-                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Plain-English bullet points summarizing your lot's health, risks, and opportunities.</p>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">✨</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">AI-Written Lot Narrative</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Five plain-English bullet points from Claude summarizing your lot's health, risks, and stocking opportunities each time you run a refresh.</div>
                 </div>
               </div>
-              <div class="flex items-start gap-3 bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3">
-                <span class="text-lg mt-0.5">🔍</span>
-                <div>
-                  <p class="text-sm font-semibold text-slate-900 dark:text-white">Duplicate VIN Detection</p>
-                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Automatically flags any VINs listed more than once before they cause problems.</p>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">🔍</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Duplicate VIN Detection</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Automatically flags any VINs listed more than once across your available inventory before they cause problems at deal time.</div>
                 </div>
               </div>
             </div>
-            <!-- CTA -->
-            <div class="px-6 pb-8 flex flex-col items-center gap-3 text-center">
-              <button onclick="switchPage('ai-boost')" class="w-full max-w-xs bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold px-6 py-3 rounded-xl text-sm shadow-md transition">
-                Try Free for 3 Days
+          </div>
+
+          <!-- Manage subscription -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div class="text-sm font-bold text-slate-900 dark:text-white">Inventory Intelligence — $79/month</div>
+              <div id="inv-intel-status-badge" class="mt-1"></div>
+            </div>
+            <button id="inv-intel-manage-btn" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 underline underline-offset-2 transition">Manage Subscription</button>
+          </div>
+
+          <!-- Analysis section -->
+          <div class="space-y-4">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Lot Analysis</h3>
+              <button id="inv-intel-refresh-btn" class="flex items-center gap-1.5 text-xs font-bold text-violet-600 hover:text-violet-500 dark:text-violet-400 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                Refresh
               </button>
-              <p class="text-xs text-slate-400">Included with AI Boost · No credit card required to start</p>
             </div>
-          </div>
-        </div>
 
-        <!-- Loading state -->
-        <div id="inv-intel-loading" class="hidden flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
-          <svg class="animate-spin w-8 h-8 text-indigo-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-          <span class="text-sm">Analyzing your inventory…</span>
-        </div>
-
-        <!-- Content (shown after load) -->
-        <div id="inv-intel-content" class="hidden space-y-6">
-
-          <!-- Summary stat row -->
-          <div id="inv-intel-stats" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
-
-          <!-- AI Narrative -->
-          <div id="inv-intel-narrative" class="hidden bg-gradient-to-br from-indigo-50 to-slate-50 dark:from-indigo-950/30 dark:to-slate-900 border border-indigo-200 dark:border-indigo-800/50 rounded-xl p-5">
-            <div class="flex items-center gap-2 mb-3">
-              <span class="text-base">✨</span>
-              <span class="text-sm font-bold text-slate-900 dark:text-white">AI Lot Analysis</span>
-              <span class="text-[10px] text-slate-400">Generated now</span>
+            <!-- Loading state -->
+            <div id="inv-intel-loading" class="hidden flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
+              <svg class="animate-spin w-8 h-8 text-violet-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+              <span class="text-sm">Analyzing your inventory…</span>
             </div>
-            <ul id="inv-intel-narrative-list" class="space-y-1.5"></ul>
-          </div>
 
-          <!-- Hot / Cold Segments -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="bg-white dark:bg-slate-800/60 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4">
-              <div class="flex items-center gap-2 mb-3">
-                <span class="text-base">🔥</span>
-                <span class="text-sm font-bold text-slate-900 dark:text-white">Hot Segments</span>
-                <span class="text-xs text-slate-400">Low stock · selling fast</span>
+            <!-- Content -->
+            <div id="inv-intel-content" class="hidden space-y-6">
+
+              <!-- Summary stat row -->
+              <div id="inv-intel-stats" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+
+              <!-- AI Narrative -->
+              <div id="inv-intel-narrative" class="hidden bg-gradient-to-br from-violet-50 to-slate-50 dark:from-violet-950/30 dark:to-slate-900 border border-violet-200 dark:border-violet-800/50 rounded-xl p-5">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="text-base">✨</span>
+                  <span class="text-sm font-bold text-slate-900 dark:text-white">AI Lot Analysis</span>
+                  <span class="text-[10px] text-slate-400">Generated now</span>
+                </div>
+                <ul id="inv-intel-narrative-list" class="space-y-1.5"></ul>
               </div>
-              <div id="inv-intel-hot" class="space-y-2 text-sm text-slate-500">—</div>
-            </div>
-            <div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-              <div class="flex items-center gap-2 mb-3">
-                <span class="text-base">🧊</span>
-                <span class="text-sm font-bold text-slate-900 dark:text-white">Cold Segments</span>
-                <span class="text-xs text-slate-400">High stock · slow moving</span>
+
+              <!-- Hot / Cold Segments -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="bg-white dark:bg-slate-800/60 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-base">🔥</span>
+                    <span class="text-sm font-bold text-slate-900 dark:text-white">Hot Segments</span>
+                    <span class="text-xs text-slate-400">Low stock · selling fast</span>
+                  </div>
+                  <div id="inv-intel-hot" class="space-y-2 text-sm text-slate-500">—</div>
+                </div>
+                <div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-base">🧊</span>
+                    <span class="text-sm font-bold text-slate-900 dark:text-white">Cold Segments</span>
+                    <span class="text-xs text-slate-400">High stock · slow moving</span>
+                  </div>
+                  <div id="inv-intel-cold" class="space-y-2 text-sm text-slate-500">—</div>
+                </div>
               </div>
-              <div id="inv-intel-cold" class="space-y-2 text-sm text-slate-500">—</div>
-            </div>
-          </div>
 
-          <!-- Duplicate VINs alert -->
-          <div id="inv-intel-dups-wrap" class="hidden bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-xl p-4">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-base">⚠️</span>
-              <span class="text-sm font-bold text-red-800 dark:text-red-300">Duplicate VINs Detected</span>
-            </div>
-            <div id="inv-intel-dups" class="space-y-2 text-sm"></div>
-          </div>
+              <!-- Duplicate VINs alert -->
+              <div id="inv-intel-dups-wrap" class="hidden bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-xl p-4">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-base">⚠️</span>
+                  <span class="text-sm font-bold text-red-800 dark:text-red-300">Duplicate VINs Detected</span>
+                </div>
+                <div id="inv-intel-dups" class="space-y-2 text-sm"></div>
+              </div>
 
-          <!-- Turn Rate table -->
-          <div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-              <span class="text-sm font-bold text-slate-900 dark:text-white">Segment Velocity</span>
-              <span class="text-xs text-slate-400">Last 90 days · sorted by volume</span>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead class="bg-slate-50 dark:bg-slate-900/50">
-                  <tr>
-                    <th class="text-left px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Segment</th>
-                    <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Sold 30d</th>
-                    <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Sold 90d</th>
-                    <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">In Stock</th>
-                    <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Mo. Supply</th>
-                  </tr>
-                </thead>
-                <tbody id="inv-intel-velocity-body" class="divide-y divide-slate-100 dark:divide-slate-700"></tbody>
-              </table>
-            </div>
-          </div>
+              <!-- Turn Rate table -->
+              <div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                  <span class="text-sm font-bold text-slate-900 dark:text-white">Segment Velocity</span>
+                  <span class="text-xs text-slate-400">Last 90 days · sorted by volume</span>
+                </div>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-sm">
+                    <thead class="bg-slate-50 dark:bg-slate-900/50">
+                      <tr>
+                        <th class="text-left px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Segment</th>
+                        <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Sold 30d</th>
+                        <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Sold 90d</th>
+                        <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">In Stock</th>
+                        <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Mo. Supply</th>
+                      </tr>
+                    </thead>
+                    <tbody id="inv-intel-velocity-body" class="divide-y divide-slate-100 dark:divide-slate-700"></tbody>
+                  </table>
+                </div>
+              </div>
 
-          <!-- Vehicle Health Scores -->
-          <div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-              <span class="text-sm font-bold text-slate-900 dark:text-white">Vehicle Health Scores</span>
-              <span class="text-xs text-slate-400">Lowest scores first · click to open unit</span>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead class="bg-slate-50 dark:bg-slate-900/50">
-                  <tr>
-                    <th class="text-left px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit</th>
-                    <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Score</th>
-                    <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Photos</th>
-                    <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Days</th>
-                    <th class="text-left px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Issues</th>
-                  </tr>
-                </thead>
-                <tbody id="inv-intel-health-body" class="divide-y divide-slate-100 dark:divide-slate-700"></tbody>
-              </table>
-            </div>
-          </div>
+              <!-- Vehicle Health Scores -->
+              <div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                  <span class="text-sm font-bold text-slate-900 dark:text-white">Vehicle Health Scores</span>
+                  <span class="text-xs text-slate-400">Lowest scores first · click to open unit</span>
+                </div>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-sm">
+                    <thead class="bg-slate-50 dark:bg-slate-900/50">
+                      <tr>
+                        <th class="text-left px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit</th>
+                        <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Score</th>
+                        <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Photos</th>
+                        <th class="text-right px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Days</th>
+                        <th class="text-left px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Issues</th>
+                      </tr>
+                    </thead>
+                    <tbody id="inv-intel-health-body" class="divide-y divide-slate-100 dark:divide-slate-700"></tbody>
+                  </table>
+                </div>
+              </div>
 
-        </div><!-- /inv-intel-content -->
+            </div><!-- /inv-intel-content -->
+          </div><!-- /analysis section -->
+        </div><!-- /inv-intel-active-content -->
       </div><!-- /inv-intel page -->
 
       <!-- ── VIN Sticker & Brochure page ───────────────────────────────────── -->
@@ -1096,7 +1160,7 @@
         <div id="vin-sticker-page-upsell" class="hidden">
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
             <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800">
-              <h3 class="text-base font-bold text-slate-900 dark:text-white">Everything in VIN Sticker &amp; Brochure — $79/month</h3>
+              <h3 class="text-base font-bold text-slate-900 dark:text-white">Everything in VIN Sticker &amp; Brochure — $99.97/month</h3>
               <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Start with a free 3-day trial. No credit card required.</p>
             </div>
             <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5">
@@ -1111,7 +1175,7 @@
             </div>
             <div class="px-6 py-5 border-t border-slate-200 dark:border-slate-800">
               <button id="vin-sticker-page-upgrade-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-3 rounded-lg transition text-sm">Start 3-Day Free Trial</button>
-              <span class="ml-4 text-xs text-slate-400">No credit card required · $79/month after trial</span>
+              <span class="ml-4 text-xs text-slate-400">No credit card required · $99.97/month after trial</span>
             </div>
           </div>
         </div>
@@ -1168,7 +1232,7 @@
         <div id="ai-boost-page-upsell" class="hidden">
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
             <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800">
-              <h3 class="text-base font-bold text-slate-900 dark:text-white">Everything in AI Boost — $199/month</h3>
+              <h3 class="text-base font-bold text-slate-900 dark:text-white">Everything in AI Boost — $299/month</h3>
               <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Start with a free 3-day trial. No credit card required.</p>
             </div>
             <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5">
@@ -1189,7 +1253,7 @@
             </div>
             <div class="px-6 py-5 border-t border-slate-200 dark:border-slate-800">
               <button id="ai-boost-page-upgrade-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-lg transition text-sm">Start 3-Day Free Trial</button>
-              <span class="ml-4 text-xs text-slate-400">No credit card required · $199/month after trial</span>
+              <span class="ml-4 text-xs text-slate-400">No credit card required · $299/month after trial</span>
             </div>
           </div>
         </div>
@@ -1865,7 +1929,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260703h"></script>
+  <script src="dashboard.js?v=20260703i"></script>
   <script src="tour.js"></script>
 </body>
 </html>

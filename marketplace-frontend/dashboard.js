@@ -181,6 +181,7 @@ async function initializeDashboardEcosystem() {
 
     loadAIBoostSection();
     setupAIBoostListeners();
+    setupInvIntelListeners();
 
     const isAdmin = role === 'DEALER_ADMIN' || role === 'OWNER';
     const inDealership = !!profileContext.dealership?.id;
@@ -2413,6 +2414,7 @@ async function loadSessions() {
 let __aiBoostActive = false;
 let __aiBoostConfigLoaded = false;
 let __vinStickerActive = false;
+let __invIntelActive = false;
 
 async function loadAIActivity() {
   const loading = document.getElementById('ai-activity-loading');
@@ -2952,9 +2954,11 @@ async function loadAIBoostSection() {
     const cfg = await res.json();
     __aiBoostActive = !!cfg.ai_boost_active;
     __vinStickerActive = !!cfg.vin_sticker_active;
+    __invIntelActive = !!cfg.inv_intel_active;
     __aiBoostConfigLoaded = true;
     renderAIBoostSection(cfg);
     initVinStickerPage();
+    renderInvIntelSidebar(cfg);
     if (__vinStickerActive) loadBrandingSettings();
     // If the user is already on the AI Boost page (navigated there before config loaded),
     // refresh the visible content now that __aiBoostActive is set correctly.
@@ -3660,12 +3664,14 @@ function renderInvIntelNav() {
   if (!isAdmin) { btn.classList.add('hidden'); return; }
 
   btn.classList.remove('hidden');
-  // Style based on whether AI Boost is active (same data, no separate flag needed)
-  if (__aiBoostActive) {
+  const pill = document.getElementById('nav-inv-intel-pill');
+  if (__invIntelActive) {
     btn.classList.remove('text-slate-400', 'dark:text-slate-600');
     btn.classList.add('text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
+    if (pill) pill.classList.add('hidden');
   } else {
     btn.classList.add('text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
+    if (pill) pill.classList.remove('hidden');
   }
 
   if (!btn._clickWired) {
@@ -3687,6 +3693,68 @@ async function loadVinStickerPage() {
     upsell.classList.remove('hidden');
     active.classList.add('hidden');
   }
+}
+
+function renderInvIntelSidebar(cfg) {
+  const badge = document.getElementById('inv-intel-badge');
+  const inactive = document.getElementById('inv-intel-sidebar-inactive');
+  const activeEl = document.getElementById('inv-intel-sidebar-active');
+  if (!badge || !inactive || !activeEl) return;
+
+  if (__invIntelActive) {
+    const trialEnd = cfg?.inv_intel_trial_ends_at;
+    const inTrial = trialEnd && new Date(trialEnd) > new Date();
+    badge.textContent = inTrial ? 'Trial' : 'Active';
+    badge.className = `text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${inTrial ? 'bg-violet-600 text-white' : 'bg-emerald-600 text-white'}`;
+    badge.classList.remove('hidden');
+    inactive.classList.add('hidden');
+    activeEl.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+    inactive.classList.remove('hidden');
+    activeEl.classList.add('hidden');
+  }
+}
+
+function loadInvIntelPage() {
+  const upsell = document.getElementById('inv-intel-page-upsell');
+  const active = document.getElementById('inv-intel-active-content');
+  if (!upsell || !active) return;
+
+  if (__invIntelActive) {
+    upsell.classList.add('hidden');
+    active.classList.remove('hidden');
+    loadIntel();
+  } else {
+    upsell.classList.remove('hidden');
+    active.classList.add('hidden');
+  }
+}
+
+async function startInvIntelCheckout() {
+  const btn = document.getElementById('inv-intel-page-upgrade-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = 'Opening checkout…';
+  try {
+    const res = await fetch(`${API}/billing/subscribe-inv-intel`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    window.location.href = data.url;
+  } catch (e) {
+    alert(e.message);
+    btn.disabled = false;
+    btn.textContent = 'Start 3-Day Free Trial';
+  }
+}
+
+function setupInvIntelListeners() {
+  document.getElementById('inv-intel-page-upgrade-btn')?.addEventListener('click', startInvIntelCheckout);
+  document.getElementById('inv-intel-upgrade-btn')?.addEventListener('click', startInvIntelCheckout);
+  document.getElementById('inv-intel-goto-page-btn')?.addEventListener('click', () => switchPage('inv-intel'));
 }
 
 async function loadVinStickerInventory() {
@@ -3963,6 +4031,25 @@ async function startVinStickerTrial() {
       __vinStickerActive = true;
       history.replaceState({}, '', window.location.pathname);
       switchPage('vin-sticker');
+    }
+  } catch {}
+})();
+
+// Handle return from Stripe Checkout for Inventory Intelligence
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const sessionId = params.get('inv_intel_session');
+  if (!sessionId) return;
+  const tk = localStorage.getItem('token');
+  if (!tk) return;
+  try {
+    const res = await fetch(`${API}/billing/inv-intel-verify?session_id=${encodeURIComponent(sessionId)}`, {
+      headers: { 'Authorization': `Bearer ${tk}` }
+    });
+    if (res.ok) {
+      __invIntelActive = true;
+      history.replaceState({}, '', window.location.pathname);
+      switchPage('inv-intel');
     }
   } catch {}
 })();
@@ -4726,27 +4813,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Wire nav + refresh button
-  document.addEventListener('DOMContentLoaded', () => {
-    const navBtn = document.getElementById('nav-inv-intel')
-    const refreshBtn = document.getElementById('inv-intel-refresh-btn')
-
-    if (navBtn) {
-      navBtn.addEventListener('click', () => {
-        switchPage('inv-intel')
-        loadIntel()
-      })
-    }
-
-    if (refreshBtn) {
-      refreshBtn.addEventListener('click', () => {
-        _intelLoaded = false
-        loadIntel(true)
-      })
-    }
+  // Wire refresh button
+  document.getElementById('inv-intel-refresh-btn')?.addEventListener('click', () => {
+    _intelLoaded = false
+    loadIntel(true)
   })
 
-  // Auto-load if navigated via notification link
-  const origSwitch = window._origSwitchPage
-  window._invIntelPageHook = () => loadIntel()
+  // Manage subscription button → Stripe portal
+  document.getElementById('inv-intel-manage-btn')?.addEventListener('click', launchStripeLifecycle)
+
+  window._invIntelPageHook = () => loadInvIntelPage()
 })()
