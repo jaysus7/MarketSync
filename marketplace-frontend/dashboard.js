@@ -3679,8 +3679,29 @@ async function loadVinStickerInventory() {
         ? `<span class="inline-flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded px-1.5 py-0.5">⚠ ${v.recalls.length} recall${v.recalls.length > 1 ? 's' : ''}</span>`
         : (v.recalls_checked_at ? `<span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded px-1.5 py-0.5">✓ No recalls</span>` : '');
 
-      const stickerIcon  = v.window_sticker_url ? `<span class="text-emerald-400 mr-0.5" title="Cached PDF">●</span>` : '';
-      const brochureIcon = v.brochure_url        ? `<span class="text-emerald-400 mr-0.5" title="Cached PDF">●</span>` : '';
+      const hasVin      = !!(v.vin_data);
+      const hasSticker  = !!(v.window_sticker_url);
+      const hasBrochure = !!(v.brochure_url);
+      const allDone     = hasVin && hasSticker && hasBrochure;
+
+      const statusDot = allDone
+        ? `<div class="w-1.5 self-stretch rounded-full bg-purple-500 flex-shrink-0" title="VIN decoded · Sticker · Brochure — all complete"></div>`
+        : hasSticker
+          ? `<div class="w-1.5 self-stretch rounded-full bg-emerald-500 flex-shrink-0" title="Window sticker generated"></div>`
+          : `<div class="w-1.5 self-stretch rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0"></div>`;
+
+      const cardBg = allDone
+        ? 'bg-purple-50/40 dark:bg-purple-950/10'
+        : hasSticker
+          ? 'bg-emerald-50/40 dark:bg-emerald-950/10'
+          : '';
+
+      const statusBadges = [
+        hasVin      && `<span class="inline-flex items-center text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded px-1.5 py-0.5">&#10003; VIN</span>`,
+        hasSticker  && `<span class="inline-flex items-center text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded px-1.5 py-0.5">&#10003; Sticker</span>`,
+        hasBrochure && `<span class="inline-flex items-center text-xs font-medium text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded px-1.5 py-0.5">&#10003; Brochure</span>`,
+        allDone     && `<span class="inline-flex items-center text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/40 border border-purple-300 dark:border-purple-700 rounded px-1.5 py-0.5">&#9733; Complete</span>`,
+      ].filter(Boolean).join('');
 
       // Build pill-style detail chips
       const chips = [
@@ -3695,25 +3716,37 @@ async function loadVinStickerInventory() {
         v.doors        && `<span class="chip">${v.doors}-door</span>`,
       ].filter(Boolean).join('');
 
-      return `<li class="px-4 py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
-        <div class="flex flex-col sm:flex-row sm:items-start gap-3">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-sm font-bold text-slate-900 dark:text-white">${label}</span>
-              ${v.stocknumber ? `<span class="text-xs font-mono text-slate-400 dark:text-slate-500">#${v.stocknumber}</span>` : ''}
-              ${recallBadge}
+      const decodeBtn = hasVin
+        ? `<button class="vs-decode-btn text-xs bg-emerald-100 dark:bg-emerald-900/40 hover:bg-emerald-200 dark:hover:bg-emerald-800/60 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-lg transition font-medium" data-id="${v.id}" data-vin="${v.vin || ''}">&#10003; VIN</button>`
+        : `<button class="vs-decode-btn text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg transition font-medium" data-id="${v.id}" data-vin="${v.vin || ''}">VIN Decode</button>`;
+
+      const stickerBtnLabel  = hasSticker  ? `&#9679; Sticker`  : `Sticker`;
+      const brochureBtnCls   = hasBrochure ? 'bg-purple-600 hover:bg-purple-500' : 'bg-indigo-600 hover:bg-indigo-500';
+      const brochureBtnLabel = hasBrochure ? `&#9679; Brochure` : `Brochure`;
+
+      return `<li class="flex gap-0 border-b border-slate-100 dark:border-slate-800 last:border-0 ${cardBg}">
+        ${statusDot}
+        <div class="flex-1 px-4 py-3">
+          <div class="flex flex-col sm:flex-row sm:items-start gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-bold text-slate-900 dark:text-white">${label}</span>
+                ${v.stocknumber ? `<span class="text-xs font-mono text-slate-400 dark:text-slate-500">#${v.stocknumber}</span>` : ''}
+                ${recallBadge}
+                ${statusBadges}
+              </div>
+              <div class="flex items-center gap-2 mt-0.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+                <span class="font-semibold text-slate-700 dark:text-slate-200">${price}</span>
+                ${mileage ? `<span>· ${mileage}</span>` : ''}
+                ${v.vin ? `<span class="font-mono text-slate-400 dark:text-slate-500">${v.vin}</span>` : ''}
+              </div>
+              ${chips ? `<div class="flex flex-wrap gap-1 mt-1.5">${chips}</div>` : ''}
             </div>
-            <div class="flex items-center gap-2 mt-0.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
-              <span class="font-semibold text-slate-700 dark:text-slate-200">${price}</span>
-              ${mileage ? `<span>· ${mileage}</span>` : ''}
-              ${v.vin ? `<span class="font-mono text-slate-400 dark:text-slate-500">${v.vin}</span>` : ''}
+            <div class="flex gap-2 flex-shrink-0 items-start pt-0.5">
+              ${decodeBtn}
+              <button class="vs-sticker-btn text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}">${stickerBtnLabel}</button>
+              <button class="vs-brochure-btn text-xs ${brochureBtnCls} text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}">${brochureBtnLabel}</button>
             </div>
-            ${chips ? `<div class="flex flex-wrap gap-1 mt-1.5">${chips}</div>` : ''}
-          </div>
-          <div class="flex gap-2 flex-shrink-0 items-start pt-0.5">
-            <button class="vs-decode-btn text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg transition font-medium" data-id="${v.id}" data-vin="${v.vin || ''}">VIN Decode</button>
-            <button class="vs-sticker-btn text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}">${stickerIcon}Sticker</button>
-            <button class="vs-brochure-btn text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}">${brochureIcon}Brochure</button>
           </div>
         </div>
       </li>`;
