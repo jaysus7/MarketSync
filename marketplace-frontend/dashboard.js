@@ -4389,3 +4389,141 @@ ${inner}
     else showToast('Pop-up blocked — allow pop-ups and try again', 'error');
   });
 });
+
+// ── Notification Center ────────────────────────────────────────────────────
+;(function() {
+  const bell    = document.getElementById('notif-bell')
+  const badge   = document.getElementById('notif-badge')
+  const panel   = document.getElementById('notif-panel')
+  const backdrop = document.getElementById('notif-backdrop')
+  const list    = document.getElementById('notif-list')
+  const closeBtn = document.getElementById('notif-close')
+  const readAllBtn = document.getElementById('notif-read-all')
+
+  if (!bell || !panel) return
+
+  const TYPE_META = {
+    aging:        { icon: '⏱', color: 'text-orange-500' },
+    price_drift:  { icon: '💰', color: 'text-amber-500' },
+    missing_info: { icon: '📷', color: 'text-blue-500' },
+    new_arrival:  { icon: '🚗', color: 'text-emerald-500' },
+    competitor:   { icon: '🔍', color: 'text-purple-500' },
+    billing:      { icon: '💳', color: 'text-indigo-500' },
+    weekly_report:{ icon: '📊', color: 'text-slate-500' },
+  }
+
+  function timeAgo(iso) {
+    const diff = Date.now() - new Date(iso).getTime()
+    const m = Math.floor(diff / 60000)
+    if (m < 1)  return 'Just now'
+    if (m < 60) return `${m}m ago`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `${h}h ago`
+    return `${Math.floor(h / 24)}d ago`
+  }
+
+  function renderList(items) {
+    if (!items.length) {
+      list.innerHTML = '<div class="flex flex-col items-center justify-center h-48 text-slate-400 text-sm gap-2"><span class="text-3xl">🔔</span>No notifications yet</div>'
+      return
+    }
+    list.innerHTML = items.map(n => {
+      const meta = TYPE_META[n.type] || { icon: '•', color: 'text-slate-400' }
+      return `
+        <div class="notif-item flex gap-3 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer ${n.read ? 'opacity-60' : ''}" data-id="${n.id}" data-page="${n.link_page || ''}" data-filter="${n.link_filter || ''}">
+          <span class="text-xl mt-0.5 flex-shrink-0">${meta.icon}</span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <p class="text-sm font-semibold text-slate-900 dark:text-white leading-snug ${n.read ? '' : 'font-bold'}">${n.title}</p>
+              <span class="text-[10px] text-slate-400 whitespace-nowrap flex-shrink-0 mt-0.5">${timeAgo(n.created_at)}</span>
+            </div>
+            ${n.body ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">${n.body}</p>` : ''}
+          </div>
+          ${!n.read ? '<span class="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0 mt-1.5"></span>' : '<span class="w-2 h-2 flex-shrink-0"></span>'}
+        </div>`
+    }).join('')
+
+    list.querySelectorAll('.notif-item').forEach(el => {
+      el.addEventListener('click', async () => {
+        const id   = el.dataset.id
+        const page = el.dataset.page
+        const filter = el.dataset.filter
+        // Mark read
+        await apiFetch(`${API}/notifications/${id}/read`, { method: 'POST' }).catch(() => {})
+        el.classList.add('opacity-60')
+        el.querySelector('span.bg-indigo-500')?.classList.replace('bg-indigo-500', 'bg-transparent')
+        updateBadge()
+        // Navigate if page set
+        if (page) {
+          closePanel()
+          switchPage(page)
+          if (filter && document.getElementById('catalog-search')) {
+            document.getElementById('catalog-search').value = filter
+            if (typeof renderCatalog === 'function') renderCatalog()
+          }
+        }
+      })
+    })
+  }
+
+  let _notifications = []
+
+  async function loadNotifications() {
+    try {
+      const data = await apiFetch(`${API}/notifications`)
+      _notifications = Array.isArray(data) ? data : []
+      renderList(_notifications)
+    } catch {
+      list.innerHTML = '<div class="px-5 py-8 text-center text-sm text-slate-400">Could not load notifications.</div>'
+    }
+  }
+
+  async function updateBadge() {
+    try {
+      const { count } = await apiFetch(`${API}/notifications/unread-count`)
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count
+        badge.classList.remove('hidden')
+      } else {
+        badge.classList.add('hidden')
+      }
+    } catch {}
+  }
+
+  function openPanel() {
+    panel.classList.remove('hidden')
+    document.body.style.overflow = 'hidden'
+    loadNotifications()
+  }
+
+  function closePanel() {
+    panel.classList.add('hidden')
+    document.body.style.overflow = ''
+    updateBadge()
+  }
+
+  bell.addEventListener('click', () => panel.classList.contains('hidden') ? openPanel() : closePanel())
+  closeBtn.addEventListener('click', closePanel)
+  backdrop.addEventListener('click', closePanel)
+
+  readAllBtn.addEventListener('click', async () => {
+    await apiFetch(`${API}/notifications/read-all`, { method: 'POST' }).catch(() => {})
+    _notifications.forEach(n => n.read = true)
+    renderList(_notifications)
+    badge.classList.add('hidden')
+  })
+
+  // Poll for badge count every 60s after login
+  function startPolling() {
+    updateBadge()
+    setInterval(updateBadge, 60000)
+  }
+
+  // Start after auth resolves — wait for API constant to be ready
+  const authWait = setInterval(() => {
+    if (typeof apiFetch === 'function' && typeof API !== 'undefined') {
+      clearInterval(authWait)
+      startPolling()
+    }
+  }, 500)
+})()

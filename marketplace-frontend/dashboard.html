@@ -57,9 +57,31 @@
         <div class="text-xs sm:text-xs text-slate-500 dark:text-slate-400 truncate max-w-[120px] sm:max-w-none" id="ui-dealership-name">---</div>
       </div>
       <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="hidden bg-purple-600 hover:bg-purple-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-purple-600 shadow-sm shadow-purple-500/40 transition whitespace-nowrap">Install extension</a>
+      <!-- Notification bell -->
+      <button id="notif-bell" aria-label="Notifications" class="relative p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
+        <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span>
+      </button>
       <button id="logout-btn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-medium border border-slate-300 dark:border-slate-700 transition whitespace-nowrap">Sign Out</button>
     </div>
   </header>
+
+  <!-- Notification slideout panel -->
+  <div id="notif-panel" class="fixed inset-0 z-50 hidden" aria-modal="true">
+    <div id="notif-backdrop" class="absolute inset-0 bg-black/30"></div>
+    <aside class="absolute right-0 top-0 h-full w-full max-w-sm bg-white dark:bg-slate-900 shadow-2xl flex flex-col">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+        <h2 class="text-base font-bold text-slate-900 dark:text-white">Notifications</h2>
+        <div class="flex items-center gap-3">
+          <button id="notif-read-all" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium">Mark all read</button>
+          <button id="notif-close" class="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="notif-list" class="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800"></div>
+    </aside>
+  </div>
 
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col md:grid md:grid-cols-4 gap-4 md:gap-8 md:items-start">
 
@@ -1668,7 +1690,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260703c"></script>
+  <script src="dashboard.js?v=20260703d"></script>
   <script src="tour.js"></script>
 </body>
 </html>
