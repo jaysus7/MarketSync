@@ -81,7 +81,7 @@ export function registerRoutes(app) {
         trim: mapped.trim || null,
         price: mapped.saleprice || mapped.price || 0,
         mileage: mapped.mileage || 0,
-        condition: mapped.condition || null,
+        condition: (mapped.demo === true || mapped.demo === 1 || /^demo/i.test(mapped.condition || '') || /^demo/i.test(mapped.sale_class || '')) ? 'Demo' : (mapped.condition || null),
         exterior_color: mapped.exteriorcolor || null,
         interior_color: mapped.interiorcolor || null,
         transmission: mapped.transmission || null,
