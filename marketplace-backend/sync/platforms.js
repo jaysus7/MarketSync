@@ -1057,26 +1057,6 @@ export async function detectFeedPlatform(dealerUrl) {
     attempts.push({ platform: 'spa_render', label: 'SPA (headless render)', ok: false, reason: e.message })
   }
 
-  // Before giving up to "Cloudflare — use the extension": many eDealer sites gate
-  // their JSON API behind Cloudflare but leave the inventory sitemap + detail pages
-  // reachable from the server. If the sitemap answers, register as a normal
-  // server-syncable 'edealer' feed — the sync engine's sitemap walker pulls full
-  // inventory with no extension. (This is the path that "just works" and was the
-  // pre-regression behavior.)
-  const sitemapCount = await eDealerSitemapReachable(origin)
-  if (sitemapCount > 0) {
-    console.log(`[probe] eDealer sitemap reachable (${sitemapCount} vehicles) — registering as edealer (no extension needed)`)
-    return {
-      success: true,
-      platform: 'edealer',
-      platform_label: 'EDealer',
-      feed_url: `${origin}/api/inventory/getall`,
-      vehicle_count: sitemapCount,
-      sample_vehicles: [],
-      attempts
-    }
-  }
-
   // If most probes were blocked (403/503) by a WAF and every fallback also failed,
   // this is almost certainly a Cloudflare IP-reputation block: server-side access —
   // INCLUDING our headless Chrome on Render — can't get through, because the block is

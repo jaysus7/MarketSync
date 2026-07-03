@@ -118,42 +118,12 @@ async function _runInventorySyncInner(dealershipId) {
       let vehicles
 
       if (feed.platform === 'needs_extension_capture') {
-        // This feed was flagged Cloudflare-blocked when it was added — but that
-        // detection is often wrong (it ran while the server was overloaded, or the
-        // block was transient). Try to pull inventory directly from the server. If we
-        // get vehicles, the site is reachable — permanently flip it to 'edealer' so it
-        // syncs without the extension forever after. If genuinely blocked, skip fast.
-        const listingUrl = feed.source_dealer_url || feed.feed_url
-        const healOrigin = (() => { try { return new URL(listingUrl).origin } catch { return '' } })()
-        let healedVehicles = null
-        // eDealer listing pages usually carry only ItemList JSON-LD, not per-vehicle
-        // Car nodes — the per-vehicle data lives on detail pages. So try the sitemap
-        // walker first (fetches the sitemap XML, then each detail page's JSON-LD).
-        // A 403 on the sitemap means the server is genuinely blocked → extension.
-        try {
-          if (healOrigin) healedVehicles = await fetchEDealerInventoryFromSitemap(healOrigin, { headers: CRAWLER_HEADERS })
-        } catch {}
-        // Fallback: universal listing-page JSON-LD walk (Dealer.com, DealerInspire, …)
-        if (!healedVehicles || !healedVehicles.length) {
-          try { healedVehicles = await fetchListingPageInventory(listingUrl, { headers: CRAWLER_HEADERS }) } catch {}
-        }
-        if (healedVehicles && healedVehicles.length > 0) {
-          const apiUrl = (() => { try { return new URL(listingUrl).origin + '/api/inventory/getall' } catch { return feed.feed_url } })()
-          console.log(`[sync] feed ${feed.id}: reachable server-side (${healedVehicles.length} vehicles) — flipping to edealer`)
-          await supabaseAdmin
-            .from('inventory_feeds')
-            .update({ platform: 'edealer', feed_url: apiUrl, source_dealer_url: listingUrl })
-            .eq('id', feed.id)
-          feed.platform = 'edealer'
-          feed.feed_url = apiUrl
-          feed.source_dealer_url = listingUrl
-          // We already have the inventory from the heal probe — use it directly.
-          vehicles = healedVehicles
-          jsonCache.set(feed.feed_url, vehicles)
-        } else {
-          console.log(`[sync] feed ${feed.id} requires Chrome extension — skipping server-side fetch`)
-          continue
-        }
+        // Cloudflare-protected site — inventory is pulled through the user's browser
+        // via the Chrome extension (this is the flow that works seamlessly for these
+        // dealers). No server-side fetch, no ScraperAPI: just skip and let the
+        // extension capture handle it.
+        console.log(`[sync] feed ${feed.id} requires Chrome extension — skipping server-side fetch`)
+        continue
       }
 
       // Match this feed to its probe definition so we can apply the right field mapper
