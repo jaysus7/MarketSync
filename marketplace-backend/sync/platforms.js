@@ -352,7 +352,8 @@ export function parseEDealerDetailPage(html, url) {
 // HTTP-only EDealer walker — uses the inventory sitemap (works on every EDealer site
 // with Yoast SEO, which is all of them). No Chrome/Puppeteer dependency.
 // For 200-300 vehicles this finishes in ~30-60 seconds with concurrency=6.
-export async function fetchEDealerInventoryFromSitemap(origin) {
+export async function fetchEDealerInventoryFromSitemap(origin, opts = {}) {
+  const extraHeaders = opts.headers || {}
   try {
     // eDealer installs expose their vehicle sitemap under several possible names,
     // and some only list it inside the Yoast sitemap index. Discover it robustly:
@@ -370,7 +371,7 @@ export async function fetchEDealerInventoryFromSitemap(origin) {
     for (const path of candidatePaths) {
       let xml
       try {
-        const r = await browserFetch(`${origin}${path}`)
+        const r = await browserFetch(`${origin}${path}`, { headers: extraHeaders })
         if (!r.ok) continue
         xml = await r.text()
       } catch { continue }
@@ -381,7 +382,7 @@ export async function fetchEDealerInventoryFromSitemap(origin) {
         const children = grabLocs(xml).filter(u => /invent|vehic|vehicule|listing|vdp/i.test(u))
         for (const child of children) {
           try {
-            const cr = await browserFetch(child)
+            const cr = await browserFetch(child, { headers: extraHeaders })
             if (!cr.ok) continue
             const cxml = await cr.text()
             urls.push(...grabLocs(cxml).filter(isDetail))
@@ -427,7 +428,7 @@ export async function fetchEDealerInventoryFromSitemap(origin) {
       const batch = urls.slice(i, i + CONCURRENCY)
       const results = await Promise.all(batch.map(async (url) => {
         try {
-          const r = await browserFetch(url)
+          const r = await browserFetch(url, { headers: extraHeaders })
           if (!r.ok) { failed++; return null }
           // Skip oversized responses without decoding the whole body to a string
           const lenHeader = parseInt(r.headers.get('content-length') || '0')
@@ -511,7 +512,8 @@ export function schemaCarToVehicle(c) {
 //
 // listingUrl: the dealer's inventory listing page (e.g. /inventory/new/,
 //             /new-inventory/, /used-vehicles/). Pass source_dealer_url.
-export async function fetchListingPageInventory(listingUrl) {
+export async function fetchListingPageInventory(listingUrl, opts = {}) {
+  const extraHeaders = opts.headers || {}
   let base
   try {
     const u = new URL(listingUrl)
@@ -539,7 +541,7 @@ export async function fetchListingPageInventory(listingUrl) {
   }
   const fetchCars = async (url) => {
     try {
-      const r = await browserFetch(url, { headers: { Accept: 'text/html' } })
+      const r = await browserFetch(url, { headers: { Accept: 'text/html', ...extraHeaders } })
       if (!r.ok) return null
       return extractCarsFromHtml(await r.text())
     } catch { return null }

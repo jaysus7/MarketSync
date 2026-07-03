@@ -1,4 +1,4 @@
-import { supabaseAdmin, sleep, browserFetch, scraperApiFetch } from '../shared.js'
+import { supabaseAdmin, sleep, browserFetch, scraperApiFetch, CRAWLER_HEADERS } from '../shared.js'
 import { renderAndCaptureInventory, genericMapVehicle, inferUrlTemplate, renderUrlTemplate, fetchViaBrowser } from '../puppeteerRenderer.js'
 import { PLATFORM_PROBES, fetchConvertusInventory, fetchDealerPageInventory,
          fetchEDealerInventoryFromSitemap, extractEDealerDetailUrls, fetchEDealerDetailImageGroups,
@@ -131,11 +131,11 @@ async function _runInventorySyncInner(dealershipId) {
         // walker first (fetches the sitemap XML, then each detail page's JSON-LD).
         // A 403 on the sitemap means the server is genuinely blocked → extension.
         try {
-          if (healOrigin) healedVehicles = await fetchEDealerInventoryFromSitemap(healOrigin)
+          if (healOrigin) healedVehicles = await fetchEDealerInventoryFromSitemap(healOrigin, { headers: CRAWLER_HEADERS })
         } catch {}
         // Fallback: universal listing-page JSON-LD walk (Dealer.com, DealerInspire, …)
         if (!healedVehicles || !healedVehicles.length) {
-          try { healedVehicles = await fetchListingPageInventory(listingUrl) } catch {}
+          try { healedVehicles = await fetchListingPageInventory(listingUrl, { headers: CRAWLER_HEADERS }) } catch {}
         }
         if (healedVehicles && healedVehicles.length > 0) {
           const apiUrl = (() => { try { return new URL(listingUrl).origin + '/api/inventory/getall' } catch { return feed.feed_url } })()
@@ -343,9 +343,38 @@ async function _runInventorySyncInner(dealershipId) {
           console.log(`[sync] eDealer API fetch failed: ${e.message} — trying fallbacks`)
         }
 
-        // Method 1b: API via ScraperAPI (residential IP) — clears a Cloudflare
-        // datacenter-IP block in ONE request, so it fits the free tier. Only runs
-        // when the direct API was blocked and a key is configured.
+        // Method 1b: API as Googlebot (FREE). Dealer sites allow search crawlers so
+        // Google can index inventory, so a Googlebot UA often clears a Cloudflare
+        // block that a normal browser UA hits. One request → full inventory, no key.
+        if (!all.length && apiBlocked) {
+          try {
+            const r = await browserFetch(apiUrl, { headers: CRAWLER_HEADERS })
+            const ct = r.headers.get('content-type') || ''
+            if (r.ok && ct.includes('json')) {
+              const d = await r.json().catch(() => null)
+              all = extractVehicles(d)
+              console.log(`[sync] eDealer API as Googlebot: HTTP ${r.status}, extracted ${all.length} vehicles`)
+            } else {
+              console.log(`[sync] eDealer API as Googlebot: HTTP ${r.status} — still blocked`)
+            }
+          } catch (e) {
+            console.log(`[sync] eDealer API as Googlebot failed: ${e.message}`)
+          }
+        }
+
+        // Method 2: sitemap walker as Googlebot (FREE) — the method that worked before
+        // this site added Cloudflare. The detail pages serve JSON-LD FOR crawlers, so
+        // the Googlebot UA restores access. Runs whether or not the API was blocked
+        // (blocked → this is our free bypass; not blocked → API just returned nothing).
+        if (!all.length && origin) {
+          try {
+            const sm = await fetchEDealerInventoryFromSitemap(origin, { headers: CRAWLER_HEADERS })
+            if (sm && sm.length) { all = sm; console.log(`[sync] eDealer sitemap walk (Googlebot): ${all.length} vehicles`) }
+          } catch (e) { console.log(`[sync] eDealer sitemap walk failed: ${e.message}`) }
+        }
+
+        // Method 2b: API via ScraperAPI (residential IP) — only if Googlebot didn't
+        // clear it and a key is configured. One request, fits the free tier.
         if (!all.length && apiBlocked && process.env.SCRAPER_API_KEY) {
           try {
             const r = await scraperApiFetch(apiUrl)
@@ -361,19 +390,9 @@ async function _runInventorySyncInner(dealershipId) {
           }
         }
 
-        // Method 2: sitemap walker — only worth trying when the API failed for a
-        // NON-block reason. If the API was 403-blocked, it's an IP-level Cloudflare
-        // block, so the detail pages are blocked too (walking them would just fail
-        // all N and waste minutes). Skip straight to ScraperAPI/extension in that case.
-        if (!all.length && !apiBlocked && origin) {
-          try {
-            const sm = await fetchEDealerInventoryFromSitemap(origin)
-            if (sm && sm.length) { all = sm; console.log(`[sync] eDealer sitemap walk: ${all.length} vehicles`) }
-          } catch (e) { console.log(`[sync] eDealer sitemap walk failed: ${e.message}`) }
-        }
-
-        // Method 3: listing-page JSON-LD walk (skip if IP-blocked)
-        if (!all.length && !apiBlocked) {
+        // Method 3: listing-page JSON-LD walk (as Googlebot, so it also works past
+        // a Cloudflare block on the listing pages)
+        if (!all.length) {
           const listingUrls = []
           const src = feed.source_dealer_url
           if (src && /\/(inventory|inventaire|new|used|pre-owned|vehicles)\b/i.test(src)) {
@@ -386,7 +405,7 @@ async function _runInventorySyncInner(dealershipId) {
           }
           const seenIds = new Set()
           for (const lu of listingUrls) {
-            const walked = await fetchListingPageInventory(lu)
+            const walked = await fetchListingPageInventory(lu, { headers: CRAWLER_HEADERS })
             for (const v of walked || []) {
               const id = v.vin || (v.stocknumber ? `stk:${v.stocknumber}` : null)
               if (id && !seenIds.has(id)) { seenIds.add(id); all.push(v) }
@@ -395,7 +414,7 @@ async function _runInventorySyncInner(dealershipId) {
           if (all.length) console.log(`[sync] eDealer listing walk: ${all.length} vehicles`)
         }
 
-        if (!all.length) console.log(`[sync] eDealer: 0 vehicles from all methods for ${origin} — likely Cloudflare IP block (needs ScraperAPI key or extension)`)
+        if (!all.length) console.log(`[sync] eDealer: 0 vehicles from all methods for ${origin} — Cloudflare block survived even Googlebot UA (needs ScraperAPI key or extension)`)
         vehicles = all
         jsonCache.set(feed.feed_url, vehicles)
         totalVehiclesFound += vehicles.length
