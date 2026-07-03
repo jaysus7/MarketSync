@@ -80,11 +80,17 @@ export function browserFetch(url, init = {}) {
 // SCRAPER_API_KEY is set. Free tier: 1 000 requests/month.
 // render=true triggers their headless Chrome — JS executes, Cloudflare clears.
 // Returns a standard Response-like object with .ok, .status, .text(), .json().
-export async function scraperApiFetch(targetUrl, { render = false } = {}) {
+export async function scraperApiFetch(targetUrl, { render = false, timeoutMs = 45000 } = {}) {
   const key = process.env.SCRAPER_API_KEY
   if (!key) throw new Error('SCRAPER_API_KEY env var not set')
   const api = `https://api.scraperapi.com?api_key=${key}&url=${encodeURIComponent(targetUrl)}${render ? '&render=true' : ''}`
-  return fetch(api)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(api, { signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 // Parse rendered HTML from ScraperAPI (or any headless response) for eDealer

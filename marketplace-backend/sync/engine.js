@@ -316,10 +316,9 @@ async function _runInventorySyncInner(dealershipId) {
               console.log(`[sync] ScraperAPI failed: ${e.message}`)
             }
           }
+          // No ScraperAPI key — skip local puppeteer (it hangs). Extension required.
           if (!scraped.length) {
-            const rendered = await renderAndScrapeEDealer(sourceUrl)
-            scraped = rendered.success ? rendered.vehicles : []
-            console.log(`[sync] eDealer local DOM scrape: ${scraped.length} vehicles`)
+            console.log(`[sync] eDealer Cloudflare blocked and no SCRAPER_API_KEY — set key or use extension`)
           }
           vehicles = scraped
         } else if (firstRes.ok) {
