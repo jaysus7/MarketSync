@@ -371,7 +371,7 @@ export async function fetchEDealerInventoryFromSitemap(origin) {
     // the heap (each page is ~300KB-1MB HTML, decoded to UTF-16 = 2x in V8). For
     // dealers with more inventory than this cap, we sync only the most recent N and
     // log how many were skipped. Configurable via env so upgrades unlock everything.
-    const MAX_DETAIL_URLS = parseInt(process.env.MAX_SITEMAP_URLS) || 100
+    const MAX_DETAIL_URLS = parseInt(process.env.MAX_SITEMAP_URLS) || 400
     const totalUrls = urls.length
     if (totalUrls > MAX_DETAIL_URLS) {
       urls = urls.slice(0, MAX_DETAIL_URLS)
