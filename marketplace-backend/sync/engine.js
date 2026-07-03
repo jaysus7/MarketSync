@@ -1,4 +1,4 @@
-import { supabaseAdmin, sleep, browserFetch } from '../shared.js'
+import { supabaseAdmin, sleep, browserFetch, scraperApiFetch, parseEDealerHtml } from '../shared.js'
 import { renderAndCaptureInventory, renderAndScrapeEDealer, genericMapVehicle, inferUrlTemplate, renderUrlTemplate, fetchViaBrowser } from '../puppeteerRenderer.js'
 import { PLATFORM_PROBES, fetchConvertusInventory, fetchDealerPageInventory,
          fetchEDealerInventoryFromSitemap, extractEDealerDetailUrls, fetchEDealerDetailImageGroups,
@@ -168,10 +168,27 @@ async function _runInventorySyncInner(dealershipId) {
       }
 
       if (feed.platform === 'needs_extension_capture') {
-        // Cloudflare-protected site — server can't reach it. Skip server sync;
-        // inventory arrives via Chrome extension capture (/feeds/:id/extension-capture).
-        console.log(`[sync] feed ${feed.id} (${feed.feed_url}) requires Chrome extension — skipping server-side fetch`)
-        continue
+        // Cloudflare-protected site. Try ScraperAPI (residential IP + JS render) first —
+        // if it works we get automatic server-side sync without the extension.
+        const sourceUrl = feed.source_dealer_url || feed.feed_url
+        if (process.env.SCRAPER_API_KEY && sourceUrl) {
+          console.log(`[sync] needs_extension_capture — trying ScraperAPI for ${sourceUrl}`)
+          try {
+            const r = await scraperApiFetch(sourceUrl, { render: true })
+            if (r.ok) {
+              const html = await r.text()
+              vehicles = parseEDealerHtml(html)
+              console.log(`[sync] ScraperAPI bypass: ${vehicles.length} vehicles`)
+            }
+          } catch (e) {
+            console.log(`[sync] ScraperAPI failed: ${e.message}`)
+          }
+        }
+        if (!vehicles.length) {
+          // No ScraperAPI key or it returned nothing — inventory arrives via extension.
+          console.log(`[sync] feed ${feed.id} requires Chrome extension — skipping server-side fetch`)
+          continue
+        }
       }
 
       if (jsonCache.has(feed.feed_url)) {
@@ -280,17 +297,31 @@ async function _runInventorySyncInner(dealershipId) {
           headers: { Accept: 'application/json', 'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin' }
         })
         if (firstRes.status === 403 || firstRes.status === 503) {
-          // Cloudflare blocking — try headless Chrome render to scrape DOM
-          console.log(`[sync] eDealer API blocked (${firstRes.status}) — trying headless DOM scrape`)
+          // Cloudflare blocking — route through ScraperAPI (residential IP + JS render)
+          // then fall back to local headless Chrome if no API key is configured.
           const sourceUrl = feed.source_dealer_url || origin
-          const rendered = await renderAndScrapeEDealer(sourceUrl)
-          if (rendered.success && rendered.vehicles.length) {
-            vehicles = rendered.vehicles
-            console.log(`[sync] eDealer DOM scrape: ${vehicles.length} vehicles`)
-          } else {
-            console.log(`[sync] eDealer DOM scrape failed: ${rendered.error}`)
-            vehicles = []
+          console.log(`[sync] eDealer blocked (${firstRes.status}) — trying ScraperAPI render of ${sourceUrl}`)
+          let scraped = []
+          if (process.env.SCRAPER_API_KEY) {
+            try {
+              const r = await scraperApiFetch(sourceUrl, { render: true })
+              if (r.ok) {
+                const html = await r.text()
+                scraped = parseEDealerHtml(html)
+                console.log(`[sync] ScraperAPI eDealer: ${scraped.length} vehicles`)
+              } else {
+                console.log(`[sync] ScraperAPI returned HTTP ${r.status}`)
+              }
+            } catch (e) {
+              console.log(`[sync] ScraperAPI failed: ${e.message}`)
+            }
           }
+          if (!scraped.length) {
+            const rendered = await renderAndScrapeEDealer(sourceUrl)
+            scraped = rendered.success ? rendered.vehicles : []
+            console.log(`[sync] eDealer local DOM scrape: ${scraped.length} vehicles`)
+          }
+          vehicles = scraped
         } else if (firstRes.ok) {
           const firstData = await firstRes.json().catch(() => null)
           const probe = PLATFORM_PROBES.find(p => p.platform === 'edealer')

@@ -76,6 +76,59 @@ export function browserFetch(url, init = {}) {
   })
 }
 
+// Route a request through ScraperAPI (https://scraperapi.com) when
+// SCRAPER_API_KEY is set. Free tier: 1 000 requests/month.
+// render=true triggers their headless Chrome — JS executes, Cloudflare clears.
+// Returns a standard Response-like object with .ok, .status, .text(), .json().
+export async function scraperApiFetch(targetUrl, { render = false } = {}) {
+  const key = process.env.SCRAPER_API_KEY
+  if (!key) throw new Error('SCRAPER_API_KEY env var not set')
+  const api = `https://api.scraperapi.com?api_key=${key}&url=${encodeURIComponent(targetUrl)}${render ? '&render=true' : ''}`
+  return fetch(api)
+}
+
+// Parse rendered HTML from ScraperAPI (or any headless response) for eDealer
+// vehicle data. Tries script-tag JSON globals first, then data-vin card attributes.
+export function parseEDealerHtml(html) {
+  if (!html) return []
+
+  // 1. Window / var globals assigned as JSON arrays in inline scripts
+  const scriptRe = /(?:var |window\.)(?:inventory|inventoryData|inventoryItems|vehicles|inventoryList)\s*=\s*(\[[\s\S]{20,}?\]);/i
+  const keyRe = /"(?:inventory|vehicles|items)"\s*:\s*(\[[\s\S]{20,}?\])/i
+  for (const re of [scriptRe, keyRe]) {
+    const m = html.match(re)
+    if (m) {
+      try {
+        const arr = JSON.parse(m[1])
+        if (Array.isArray(arr) && arr.length && (arr[0]?.VIN || arr[0]?.vin || arr[0]?.stocknumber)) return arr
+      } catch {}
+    }
+  }
+
+  // 2. data-vin attributes on card elements
+  const vehicles = []
+  const seen = new Set()
+  const cardRe = /<[^>]+data-vin="([^"]+)"([^>]*)>/gi
+  let m
+  while ((m = cardRe.exec(html)) !== null) {
+    const vin = m[1]
+    if (!vin || seen.has(vin)) continue
+    seen.add(vin)
+    const tag = m[0]
+    const attr = (name) => { const a = tag.match(new RegExp(`data-${name}="([^"]*)"`, 'i')); return a ? a[1] : null }
+    vehicles.push({
+      VIN: vin, vin,
+      year: attr('year'), make: attr('make'), model: attr('model'), trim: attr('trim'),
+      StockNumber: attr('stock') || attr('stocknumber'),
+      stocknumber: attr('stock') || attr('stocknumber'),
+      price: parseInt(attr('price') || '0', 10) || 0,
+      saleprice: parseInt(attr('saleprice') || attr('price') || '0', 10) || 0,
+      condition: attr('condition'), mileage: parseInt(attr('mileage') || '0', 10) || 0,
+    })
+  }
+  return vehicles
+}
+
 export const sleep = ms => new Promise(r => setTimeout(r, ms))
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
