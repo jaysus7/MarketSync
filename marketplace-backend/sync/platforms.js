@@ -354,16 +354,52 @@ export function parseEDealerDetailPage(html, url) {
 // For 200-300 vehicles this finishes in ~30-60 seconds with concurrency=6.
 export async function fetchEDealerInventoryFromSitemap(origin) {
   try {
-    const smRes = await browserFetch(`${origin}/inventory-listing-sitemap.xml`)
-    if (!smRes.ok) {
-      console.warn(`[sync] EDealer sitemap missing at ${origin} (HTTP ${smRes.status})`)
-      return null
+    // eDealer installs expose their vehicle sitemap under several possible names,
+    // and some only list it inside the Yoast sitemap index. Discover it robustly:
+    // fetch each candidate; if one is a <sitemapindex>, follow its inventory child.
+    const grabLocs = (xml) => [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map(m => m[1])
+    const isDetail = (u) => /\/(inventory|vehicles?|vehicule|vehicule|cars?|autos?)\//i.test(u) &&
+      (/vdp\/?$/i.test(u) || /-\d{4}-/.test(u) || /\/(new|used|demo|pre-owned|certified)-/i.test(u) || /[a-z0-9]{6,}vdp/i.test(u))
+
+    const candidatePaths = [
+      '/inventory-listing-sitemap.xml', '/inventory-sitemap.xml', '/vehicle-sitemap.xml',
+      '/vehicles-sitemap.xml', '/inventory_sitemap.xml', '/sitemap_index.xml', '/sitemap.xml'
+    ]
+
+    let urls = []
+    for (const path of candidatePaths) {
+      let xml
+      try {
+        const r = await browserFetch(`${origin}${path}`)
+        if (!r.ok) continue
+        xml = await r.text()
+      } catch { continue }
+      if (!xml) continue
+
+      // Sitemap INDEX → follow child sitemaps that look inventory-related.
+      if (/<sitemapindex/i.test(xml)) {
+        const children = grabLocs(xml).filter(u => /invent|vehic|vehicule|listing|vdp/i.test(u))
+        for (const child of children) {
+          try {
+            const cr = await browserFetch(child)
+            if (!cr.ok) continue
+            const cxml = await cr.text()
+            urls.push(...grabLocs(cxml).filter(isDetail))
+          } catch {}
+        }
+      } else {
+        urls.push(...grabLocs(xml).filter(isDetail))
+      }
+      if (urls.length) {
+        console.log(`[sync] EDealer sitemap: found ${urls.length} detail URLs via ${path}`)
+        break
+      }
     }
-    const xml = await smRes.text()
-    // Match every <loc>...vdp/</loc> entry — vdp = vehicle detail page
-    let urls = [...xml.matchAll(/<loc>([^<]+\/inventory\/[^<]+vdp\/?)<\/loc>/g)].map(m => m[1])
+
+    // Dedup
+    urls = [...new Set(urls)]
     if (!urls.length) {
-      console.warn(`[sync] EDealer sitemap parsed but contained 0 detail URLs`)
+      console.warn(`[sync] EDealer sitemap: no detail URLs found at ${origin} (tried ${candidatePaths.length} paths)`)
       return null
     }
 

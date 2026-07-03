@@ -301,24 +301,55 @@ async function _runInventorySyncInner(dealershipId) {
         jsonCache.set(feed.feed_url, vehicles)
         totalVehiclesFound += vehicles.length
       } else if (feed.platform === 'edealer') {
-        // eDealer full inventory. Three methods, best-first:
-        //  1. Sitemap walker — reads /inventory-listing-sitemap.xml (ALL vehicle URLs)
-        //     then each detail page's JSON-LD. eDealer listing pages usually carry
-        //     only ItemList JSON-LD, so this is the reliable full-inventory source.
-        //  2. Listing-page JSON-LD walk — for installs that DO embed per-vehicle Car
-        //     nodes on the listing page (and other platforms sharing this branch).
-        //  3. /api/inventory/getall — single page (~25); last-resort so we get SOME.
+        // eDealer full inventory. Methods, best-first:
+        //  1. JSON API (/api/inventory/getall) — the feed that "just works" and returns
+        //     full inventory in one call. Parsed leniently (any array of vehicle-shaped
+        //     objects), because installs vary in casing/wrapping.
+        //  2. Sitemap walker — for sites where the API is Cloudflare-gated but the
+        //     sitemap + detail pages are still reachable server-side.
+        //  3. Listing-page JSON-LD walk — last resort / other platforms.
         let origin
         try { origin = new URL(feed.feed_url).origin } catch { origin = '' }
 
-        // Method 1: sitemap walker
-        let all = []
-        try {
-          const sm = origin ? await fetchEDealerInventoryFromSitemap(origin) : null
-          if (sm && sm.length) { all = sm; console.log(`[sync] eDealer sitemap walk: ${all.length} vehicles`) }
-        } catch (e) { console.log(`[sync] eDealer sitemap walk failed: ${e.message}`) }
+        // Lenient extractor: pull the vehicle array out of whatever shape came back,
+        // and keep only objects that carry a VIN or stock number.
+        const looksVehicle = (o) => o && typeof o === 'object' &&
+          (o.VIN || o.vin || o.Vin || o.StockNumber || o.stocknumber || o.stockNumber || o.Stock)
+        const extractVehicles = (d) => {
+          if (!d) return []
+          const arr = Array.isArray(d) ? d
+            : d.vehicles || d.Vehicles || d.Items || d.items || d.results || d.Results
+              || d.inventory || d.Inventory || d.data || (Array.isArray(d.payload) ? d.payload : null)
+          const list = Array.isArray(arr) ? arr : (Array.isArray(d) ? d : [])
+          return list.filter(looksVehicle)
+        }
 
-        // Method 2: listing-page JSON-LD walk
+        // Method 1: JSON API
+        let all = []
+        const apiUrl = `${origin}/api/inventory/getall`
+        try {
+          const r = await browserFetch(apiUrl, { headers: { Accept: 'application/json' } })
+          const ct = r.headers.get('content-type') || ''
+          if (r.ok && ct.includes('json')) {
+            const d = await r.json().catch(() => null)
+            all = extractVehicles(d)
+            console.log(`[sync] eDealer API: HTTP ${r.status}, extracted ${all.length} vehicles from ${apiUrl}`)
+          } else {
+            console.log(`[sync] eDealer API: HTTP ${r.status} (${ct || 'no content-type'}) at ${apiUrl} — trying fallbacks`)
+          }
+        } catch (e) {
+          console.log(`[sync] eDealer API fetch failed: ${e.message} — trying fallbacks`)
+        }
+
+        // Method 2: sitemap walker (Cloudflare-on-API fallback)
+        if (!all.length && origin) {
+          try {
+            const sm = await fetchEDealerInventoryFromSitemap(origin)
+            if (sm && sm.length) { all = sm; console.log(`[sync] eDealer sitemap walk: ${all.length} vehicles`) }
+          } catch (e) { console.log(`[sync] eDealer sitemap walk failed: ${e.message}`) }
+        }
+
+        // Method 3: listing-page JSON-LD walk
         if (!all.length) {
           const listingUrls = []
           const src = feed.source_dealer_url
@@ -341,24 +372,7 @@ async function _runInventorySyncInner(dealershipId) {
           if (all.length) console.log(`[sync] eDealer listing walk: ${all.length} vehicles`)
         }
 
-        // Method 3: API single-page fallback
-        if (!all.length) {
-          const basePath = feed.feed_url.replace(origin, '').split('?')[0]
-          try {
-            const r = await browserFetch(`${origin}${basePath}`, { headers: { Accept: 'application/json' } })
-            if (r.ok && (r.headers.get('content-type') || '').includes('json')) {
-              const d = await r.json().catch(() => null)
-              const probe = PLATFORM_PROBES.find(p => p.platform === 'edealer')
-              all = d && probe?.validate(d) ? probe.extract(d) : []
-              console.log(`[sync] eDealer API fallback: ${all.length} vehicles`)
-            } else {
-              console.log(`[sync] eDealer unreachable (HTTP ${r.status}) — extension capture required`)
-            }
-          } catch (e) {
-            console.log(`[sync] eDealer fetch failed: ${e.message}`)
-          }
-        }
-
+        if (!all.length) console.log(`[sync] eDealer: 0 vehicles from all methods for ${origin} — likely Cloudflare IP block (needs ScraperAPI key or extension)`)
         vehicles = all
         jsonCache.set(feed.feed_url, vehicles)
         totalVehiclesFound += vehicles.length
