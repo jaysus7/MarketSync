@@ -806,13 +806,13 @@ Return ONLY valid JSON array (no markdown):
     const hot = velocity
       .filter(s => s.monthly_velocity > 0 && s.current_stock < 3)
       .sort((a, b) => b.monthly_velocity - a.monthly_velocity)
-      .slice(0, 4)
+      .slice(0, 5)
 
     // Cold: stock sitting but not moving
     const cold = velocity
       .filter(s => s.current_stock >= 2 && s.monthly_velocity < 1)
       .sort((a, b) => b.current_stock - a.current_stock)
-      .slice(0, 4)
+      .slice(0, 5)
 
     // ── 3. Per-vehicle health score ────────────────────────────────────────
     const now = Date.now()

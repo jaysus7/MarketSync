@@ -4950,7 +4950,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Health scores table — with score breakdown sub-row
     const hbody = document.getElementById('inv-intel-health-body')
-    hbody.innerHTML = vehicles.slice(0, 60).map((v, idx) => {
+    hbody.innerHTML = vehicles.map((v, idx) => {
       const b = v.breakdown || {}
       const scoreColor = v.score >= 80 ? '#10b981' : v.score >= 60 ? '#f59e0b' : '#ef4444'
       const issueList = v.issues.length
