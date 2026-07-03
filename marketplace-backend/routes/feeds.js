@@ -4,6 +4,7 @@ import { fetchViaBrowser, harvestVehicleUrls } from '../puppeteerRenderer.js'
 import { detectFeedPlatform, PLATFORM_PROBES } from '../sync/platforms.js'
 import { inventoryHasFeedId, normalizeFeedUrl, matchesFeedType, buildSourceUrl } from '../sync/engine.js'
 import { mapFuel, buildDescription } from '../utils/description.js'
+import { parseGenericFeed } from '../sync/genericFeed.js'
 
 export function registerRoutes(app) {
   app.post('/feeds/probe', async (req, res) => {
@@ -135,23 +136,43 @@ export function registerRoutes(app) {
     let attempts = []
     let cloudflareBlocked = false
 
-    const userPastedJson = (() => {
-      try { return new URL(rawUrl.trim()).pathname.toLowerCase().endsWith('.json') }
+    // A pasted feed URL is one that points at a data file (JSON/XML/CSV/TSV) rather
+    // than a dealer web page — e.g. the direct inventory feed the dealer's platform
+    // syndicates to AutoTrader/CarGurus/Google/Meta. We parse it generically.
+    const userPastedFeed = (() => {
+      try { return /\.(json|xml|csv|tsv|txt)$/i.test(new URL(rawUrl.trim()).pathname) }
       catch { return false }
     })()
 
-    if (userPastedJson) {
+    if (userPastedFeed) {
       try {
-        const r = await browserFetch(rawUrl, { headers: { 'Accept': 'application/json, text/plain, */*', 'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin' } })
+        const r = await browserFetch(rawUrl, { headers: { 'Accept': 'application/json, application/xml, text/xml, text/csv, text/plain, */*', 'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin' } })
         attempts.push({ url: rawUrl, status: r.status, ok: r.ok })
         if (r.ok) {
-          workingUrl = rawUrl
+          // Validate it actually parses into vehicles, and record the detected format
+          // so the sync engine uses the generic parser (not the legacy JSON-only path).
+          const ct = r.headers.get('content-type') || ''
+          const body = await r.text()
+          const { vehicles, format } = parseGenericFeed(body, ct)
+          if (vehicles.length > 0) {
+            workingUrl = rawUrl
+            detectedPlatformSlug = 'direct_feed'
+            detectedPlatform = `Direct feed (${(format || 'data').toUpperCase()})`
+          } else {
+            attempts.push({ url: rawUrl, note: 'fetched but 0 vehicles parsed' })
+          }
         } else if (r.status === 403 || r.status === 503) {
           // Cloudflare/WAF — confirm reachability through real Chrome before giving up.
           const br = await fetchViaBrowser(rawUrl)
           attempts.push({ url: rawUrl, status: br.status, ok: br.ok, via: 'headless-chrome' })
-          if (br.ok) workingUrl = rawUrl
-          else cloudflareBlocked = true
+          if (br.ok) {
+            const { vehicles, format } = parseGenericFeed(br.body || '', br.contentType || '')
+            if (vehicles.length > 0) {
+              workingUrl = rawUrl
+              detectedPlatformSlug = 'direct_feed'
+              detectedPlatform = `Direct feed (${(format || 'data').toUpperCase()})`
+            } else cloudflareBlocked = true
+          } else cloudflareBlocked = true
         }
       } catch (e) {
         attempts.push({ url: rawUrl, error: e.message })

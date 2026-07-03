@@ -4,6 +4,7 @@ import { PLATFORM_PROBES, fetchConvertusInventory, fetchDealerPageInventory,
          fetchEDealerInventoryFromSitemap, extractEDealerDetailUrls, fetchEDealerDetailImageGroups,
          extractEDealerImageGroups, extractCarsFromJsonLd, fetchListingPageInventory } from './platforms.js'
 import { mapFuel, buildDescription, fetchVehiclePhotos } from '../utils/description.js'
+import { parseGenericFeed } from './genericFeed.js'
 
 // Per-dealership in-flight sync tracking. Prevents the boot sync, the post-add
 // auto-sync, and a manual Sync Now click from all running for the same dealership
@@ -242,6 +243,30 @@ async function _runInventorySyncInner(dealershipId) {
           vehicles = await fetchConvertusInventory(origin, inventoryId, feed.feed_type)
         } else {
           console.warn(`[sync] Convertus feed ${feed.id} missing origin/inventoryId in feed_url`)
+          vehicles = []
+        }
+        jsonCache.set(feed.feed_url, vehicles)
+        totalVehiclesFound += vehicles.length
+      } else if (feed.platform === 'direct_feed') {
+        // Direct dealer data feed (the JSON/XML/CSV export the dealer's platform
+        // syndicates to AutoTrader/CarGurus/Google/Meta). Fetch and parse generically —
+        // works server-side on any device, no Cloudflare, no extension.
+        try {
+          const r = await browserFetch(`${feed.feed_url}${feed.feed_url.includes('?') ? '&' : '?'}v=${Date.now()}`, {
+            headers: { Accept: 'application/json, application/xml, text/xml, text/csv, text/plain, */*' }
+          })
+          if (r.ok) {
+            const ct = r.headers.get('content-type') || ''
+            const body = await r.text()
+            const { vehicles: parsed, format } = parseGenericFeed(body, ct)
+            vehicles = parsed
+            console.log(`[sync] direct_feed (${format || 'unknown'}): ${vehicles.length} vehicles from ${feed.feed_url}`)
+          } else {
+            console.log(`[sync] direct_feed HTTP ${r.status} at ${feed.feed_url}`)
+            vehicles = []
+          }
+        } catch (e) {
+          console.log(`[sync] direct_feed fetch failed: ${e.message}`)
           vehicles = []
         }
         jsonCache.set(feed.feed_url, vehicles)
