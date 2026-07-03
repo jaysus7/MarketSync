@@ -134,4 +134,36 @@ export function registerRoutes(app) {
     setInterval(() => runDrip('interval'), DRIP_INTERVAL_HOURS * 60 * 60 * 1000)
     console.log(`📧 Scheduled onboarding drip every ${DRIP_INTERVAL_HOURS}h (set DRIP_INTERVAL_HOURS=0 to disable)`)
   }
+
+  // ── Nightly inventory sync ──────────────────────────────────────────────────
+  // Runs a full sync of every dealership once a night at NIGHTLY_SYNC_HOUR (server
+  // local time, default 3am). Self-reschedules so it anchors to a wall-clock hour
+  // rather than drifting from boot time. Set NIGHTLY_SYNC_HOUR=-1 to disable.
+  //
+  // NOTE: this only refreshes SERVER-SYNCABLE feeds (direct JSON/XML/CSV feeds,
+  // LeadBox, DealerPage, reachable eDealer). Cloudflare-blocked extension feeds
+  // (needs_extension_capture) are skipped — they can only be pulled manually from
+  // the browser, so a direct feed is required for hands-off nightly updates.
+  const NIGHTLY_SYNC_HOUR = Number(process.env.NIGHTLY_SYNC_HOUR ?? 3)
+  if (NIGHTLY_SYNC_HOUR >= 0) {
+    const scheduleNightlySync = () => {
+      const now = new Date()
+      const next = new Date(now)
+      next.setHours(NIGHTLY_SYNC_HOUR, 0, 0, 0)
+      if (next <= now) next.setDate(next.getDate() + 1)
+      const delay = next - now
+      setTimeout(async () => {
+        try {
+          console.log('🌙 Nightly inventory sync starting…')
+          const r = await syncAllDealerships('nightly')
+          console.log(`🌙 Nightly sync done: ${r.results?.length || 0} dealership(s)`)
+        } catch (e) {
+          console.error('[cron] nightly sync failed:', e.message)
+        }
+        scheduleNightlySync()  // arm the next night
+      }, delay)
+      console.log(`🌙 Nightly inventory sync scheduled for ${next.toISOString()} (in ${Math.round(delay / 3600000)}h; set NIGHTLY_SYNC_HOUR=-1 to disable)`)
+    }
+    scheduleNightlySync()
+  }
 }
