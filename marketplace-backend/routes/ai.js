@@ -1077,6 +1077,85 @@ Units 60d+ on lot: ${stale}`
         }
       } catch {}
 
+      // Strategy 1b: CarGurus dealer inventory API
+      // CarGurus dealer pages: cargurus.com/Cars/new/nl/d/dealer-slug/d_<dealerId>
+      // or: cargurus.com/Cars/inventorylisting/viewDetailsFilterViewInventoryListing.action?zip=...&dealerListings=true&trim=...&sellerType=D&sellerId=<id>
+      if (/cargurus\.com/i.test(url)) {
+        try {
+          // Extract seller/dealer ID from URL
+          const sellerIdMatch = url.match(/[?&]sellerId=(\d+)/) || url.match(/\/d_(\d+)(?:[/?#]|$)/) || url.match(/d_(\d+)/)
+          if (sellerIdMatch) {
+            const sellerId = sellerIdMatch[1]
+            // CarGurus JSON API for a specific dealer's listings
+            const apiUrl = `https://www.cargurus.com/Cars/inventorylisting/ajaxFetchSubsetInventoryListing.action?zip=00000&showNegotiable=true&sortDir=ASC&sourceContext=carGurusHomePageModel&distance=100&sortType=PRICE&sellerTypes=D&listingTypes=ALL&sellerId=${sellerId}&maxResults=100`
+            const r = await browserFetch(apiUrl, {
+              signal: AbortSignal.timeout(15000),
+              headers: { 'Accept': 'application/json', 'Referer': 'https://www.cargurus.com/' }
+            })
+            if (r.ok) {
+              const data = await r.json()
+              const listings = data?.listings ?? data?.listingResults ?? []
+              const total = data?.totalListings ?? data?.totalCount ?? listings.length
+              const prices = listings.map(l => Number(l.price ?? l.listingPrice ?? 0)).filter(p => p > 1000 && p < 500000)
+              if (total > 0 || prices.length > 0) {
+                const sorted = [...prices].sort((a, b) => a - b)
+                return {
+                  listing_count: total || prices.length,
+                  avg_price: prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null,
+                  min_price: sorted[0] ?? null,
+                  max_price: sorted[sorted.length - 1] ?? null,
+                  platform: 'CarGurus',
+                  top_models: [...new Set(listings.slice(0, 20).map(l => [l.year, l.makeName, l.modelName].filter(Boolean).join(' ')).filter(Boolean))].slice(0, 5),
+                  scanned_at: new Date().toISOString()
+                }
+              }
+            }
+          }
+          // Fallback: fetch the CarGurus page directly (they're more permissive than direct dealer sites)
+          const cgRes = await browserFetch(url, { signal: AbortSignal.timeout(15000), headers: { 'Referer': 'https://www.google.com/' } })
+          if (cgRes.ok) {
+            const html = await cgRes.text()
+            // CarGurus embeds data in window.cargurus.viewData or __NEXT_DATA__
+            const cgDataMatch = html.match(/window\.cargurus\s*=\s*(\{[\s\S]{0,200000}\});?\s*<\/script>/i)
+              || html.match(/window\["cargurus"\]\s*=\s*(\{[\s\S]{0,200000}\});?\s*<\/script>/i)
+            if (cgDataMatch) {
+              try {
+                const cgData = JSON.parse(cgDataMatch[1])
+                const tot = cgData?.viewData?.totalListings ?? cgData?.totalListings ?? null
+                const listings2 = cgData?.viewData?.listings ?? cgData?.listings ?? []
+                const prices2 = listings2.map(l => Number(l.price ?? 0)).filter(p => p > 1000 && p < 500000)
+                if (tot || prices2.length) {
+                  const sorted = [...prices2].sort((a, b) => a - b)
+                  return {
+                    listing_count: tot ?? prices2.length,
+                    avg_price: prices2.length ? Math.round(prices2.reduce((a, b) => a + b, 0) / prices2.length) : null,
+                    min_price: sorted[0] ?? null,
+                    max_price: sorted[sorted.length - 1] ?? null,
+                    platform: 'CarGurus',
+                    scanned_at: new Date().toISOString()
+                  }
+                }
+              } catch {}
+            }
+            // Generic count extraction from CarGurus HTML
+            const countMatch = html.match(/"totalListings"\s*:\s*(\d+)/)
+              || html.match(/"numListings"\s*:\s*(\d+)/)
+              || html.match(/(\d{1,4})\s+(?:new\s+[&+]\s+used\s+)?(?:vehicles?|listings?|cars?)\s+for\s+sale/i)
+            if (countMatch) {
+              return {
+                listing_count: parseInt(countMatch[1]),
+                avg_price: null, min_price: null, max_price: null,
+                platform: 'CarGurus',
+                scanned_at: new Date().toISOString()
+              }
+            }
+          }
+        } catch (e) {
+          // If CarGurus specific strategies fail, fall through to generic strategies
+          console.error('[CarGurus scrape]', e.message)
+        }
+      }
+
       // Strategy 2: HTML scraping (AutoTrader pages, generic embedded JSON)
       // For AutoTrader.ca dealer URLs, bump rcp to 100 and force rcs=0 so we
       // get as many listings as possible in one fetch (avoids the 24-unit page cap).
@@ -1291,7 +1370,7 @@ Units 60d+ on lot: ${stale}`
           if (err.message === 'no_inventory_data') {
             msg = 'No inventory data found at this URL. Try the dealership\'s inventory page or their AutoTrader dealer URL (autotrader.ca/dealers/…).'
           } else if (/403|401|429|blocking/i.test(err.message)) {
-            msg = 'Site is blocking automated scans (WAF/bot protection). Try adding their AutoTrader URL instead.'
+            msg = 'Site is blocking automated scans (WAF/bot protection). Try their CarGurus or AutoTrader dealer page URL instead.'
           } else {
             msg = `Scan failed: ${err.message}`
           }
