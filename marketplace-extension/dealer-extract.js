@@ -338,14 +338,6 @@
     return
   }
 
-  // Drop demo/demonstrator vehicles — only new and used go to the dashboard.
-  const isDemo = v => v.demo === true || v.demo === 1
-    || /^demo/i.test(v.condition || '') || /^demo/i.test(v.sale_class || '')
-    || /^demo/i.test(v.SaleClass || '') || /^demo/i.test(v.Condition || '')
-  const beforeFilter = result.vehicles.length
-  result.vehicles = result.vehicles.filter(v => !isDemo(v))
-  if (result.vehicles.length < beforeFilter) log(`filtered ${beforeFilter - result.vehicles.length} demo vehicles`)
-
   // Signal the upload phase so the popup's progress reflects "almost done".
   try {
     chrome.runtime.sendMessage({

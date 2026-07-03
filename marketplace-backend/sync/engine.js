@@ -717,13 +717,10 @@ export function normalizeFeedUrl(input) {
 }
 
 export function matchesFeedType(v, feedType) {
-  const isDemo = v.demo === true || v.demo === 1 || /^demo/i.test(v.condition || '') || /^demo/i.test(v.sale_class || '')
-  if (feedType === 'demo') return isDemo
-  // Exclude demos from every other feed type including 'all'
-  if (isDemo) return false
   if (!feedType || feedType === 'all' || feedType === 'fleet') return true
-  if (feedType === 'new') return v.condition === 'New'
+  if (feedType === 'new') return v.condition === 'New' && !v.demo
   if (feedType === 'used') return v.condition === 'Used'
+  if (feedType === 'demo') return v.demo === true
   return true
 }
 
