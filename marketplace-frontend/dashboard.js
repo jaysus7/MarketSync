@@ -4476,19 +4476,63 @@ async function loadCompetitors() {
       const count = sr.listing_count != null ? `${sr.listing_count} listings` : '—';
       const priceRange = sr.min_price && sr.max_price ? `$${Number(sr.min_price).toLocaleString()} – $${Number(sr.max_price).toLocaleString()}` : '—';
       const platformBadge = sr.platform ? `<span class="text-[10px] text-indigo-400 font-semibold ml-1">(${sr.platform})</span>` : '';
-      const errorLine = sr.error ? `<div class="text-xs text-amber-500 mt-1 leading-snug">⚠ ${sr.error}</div>` : '';
-      return `<div class="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5" data-competitor-id="${c.id}">
-        <div class="min-w-0 flex-1">
-          <div class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">${c.name}</div>
-          <div class="text-xs text-slate-400 mt-0.5">${scannedAt}${hasData ? ` · ${count} · ${priceRange}` : ''}${platformBadge}</div>
-          ${c.autotrader_url ? `<a href="${c.autotrader_url}" target="_blank" rel="noopener" class="text-xs text-indigo-500 hover:underline truncate block max-w-xs">${c.autotrader_url}</a>` : '<span class="text-xs text-slate-400">No URL</span>'}
-          ${errorLine}
+      const isBlocked = sr.error && /WAF|bot|block|protect/i.test(sr.error);
+      const atQuery = encodeURIComponent(c.name + ' Ontario');
+      const atSearchUrl = `https://www.autotrader.ca/dealers/?search=${atQuery}`;
+      const errorLine = sr.error
+        ? isBlocked
+          ? `<div class="text-xs text-amber-500 mt-1 leading-snug">⚠ Site blocked automated scans.
+              <a href="${atSearchUrl}" target="_blank" rel="noopener" class="underline font-semibold">Find on AutoTrader →</a>
+            </div>
+            <div class="mt-2 flex gap-1.5 competitor-url-edit hidden" id="url-edit-${c.id}">
+              <input type="url" placeholder="Paste AutoTrader or dealer URL…" class="flex-1 text-xs border border-slate-300 dark:border-slate-600 rounded px-2 py-1 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200" id="url-input-${c.id}" value="${c.autotrader_url || ''}">
+              <button class="competitor-url-save-btn text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded font-semibold" data-id="${c.id}">Save</button>
+            </div>`
+          : `<div class="text-xs text-amber-500 mt-1 leading-snug">⚠ ${sr.error}</div>`
+        : '';
+      return `<div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5" data-competitor-id="${c.id}">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">${c.name}</div>
+            <div class="text-xs text-slate-400 mt-0.5">${scannedAt}${hasData ? ` · ${count} · ${priceRange}` : ''}${platformBadge}</div>
+            ${c.autotrader_url ? `<a href="${c.autotrader_url}" target="_blank" rel="noopener" class="text-xs text-indigo-500 hover:underline truncate block max-w-xs">${c.autotrader_url}</a>` : '<span class="text-xs text-slate-400">No URL set</span>'}
+            ${errorLine}
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            ${isBlocked ? `<button class="competitor-url-toggle-btn text-xs text-indigo-500 hover:text-indigo-700 font-semibold" data-id="${c.id}">Update URL</button>` : ''}
+            <button class="competitor-delete-btn text-red-400 hover:text-red-600 transition" data-id="${c.id}" title="Remove">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
         </div>
-        <button class="competitor-delete-btn flex-shrink-0 text-red-400 hover:text-red-600 transition" data-id="${c.id}" title="Remove">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
       </div>`;
     }).join('');
+
+    listEl.querySelectorAll('.competitor-url-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const editRow = document.getElementById(`url-edit-${btn.dataset.id}`);
+        if (editRow) editRow.classList.toggle('hidden');
+      });
+    });
+
+    listEl.querySelectorAll('.competitor-url-save-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const input = document.getElementById(`url-input-${btn.dataset.id}`);
+        const newUrl = input?.value.trim();
+        if (!newUrl) return;
+        btn.textContent = 'Saving…'; btn.disabled = true;
+        try {
+          const res = await fetch(`${API}/ai/competitors/${btn.dataset.id}`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ autotrader_url: newUrl })
+          });
+          if (!res.ok) throw new Error((await res.json()).error);
+          showToast('URL updated — run Scan All to refresh', 'success');
+          loadCompetitors();
+        } catch (e) { showToast(e.message, 'error'); btn.textContent = 'Save'; btn.disabled = false; }
+      });
+    });
 
     listEl.querySelectorAll('.competitor-delete-btn').forEach(btn => {
       btn.addEventListener('click', async () => {

@@ -947,6 +947,20 @@ Units 60d+ on lot: ${stale}`
     res.json({ competitor: data })
   })
 
+  app.patch('/ai/competitors/:id', requireAuth, requireDealerAdmin, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const { autotrader_url } = req.body || {}
+    const { data, error } = await supabaseAdmin
+      .from('competitor_dealerships')
+      .update({ autotrader_url: autotrader_url || null })
+      .eq('id', req.params.id)
+      .eq('dealership_id', req.dealershipId)
+      .select()
+      .single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ competitor: data })
+  })
+
   app.delete('/ai/competitors/:id', requireAuth, requireDealerAdmin, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { error } = await supabaseAdmin
