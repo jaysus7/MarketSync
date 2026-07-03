@@ -559,6 +559,21 @@ export async function fetchListingPageInventory(listingUrl) {
   return all.length > 0 ? all : null
 }
 
+// Cheap reachability probe: does this origin expose an eDealer inventory sitemap
+// with vehicle detail URLs, fetchable from the server? Returns the URL count (0 if
+// missing/blocked). Used at feed-add time to register eDealer sites as normal
+// server-syncable 'edealer' feeds even when their JSON API is Cloudflare-gated —
+// the sitemap + detail pages are frequently reachable when the API isn't. One HTTP
+// fetch, so it's safe to call during the synchronous add request.
+export async function eDealerSitemapReachable(origin) {
+  try {
+    const r = await browserFetch(`${origin}/inventory-listing-sitemap.xml`)
+    if (!r.ok) return 0
+    const xml = await r.text()
+    return [...xml.matchAll(/<loc>([^<]+\/inventory\/[^<]+vdp\/?)<\/loc>/g)].length
+  } catch { return 0 }
+}
+
 export function extractEDealerDetailUrls(html, origin) {
   const re = /href="(\/inventory\/[a-zA-Z0-9-]+vdp\/?)"/g
   const out = []
@@ -1002,6 +1017,26 @@ export async function detectFeedPlatform(dealerUrl) {
     attempts.push({ platform: 'spa_render', label: 'SPA (headless render)', ok: false, reason: rendered.error })
   } catch (e) {
     attempts.push({ platform: 'spa_render', label: 'SPA (headless render)', ok: false, reason: e.message })
+  }
+
+  // Before giving up to "Cloudflare — use the extension": many eDealer sites gate
+  // their JSON API behind Cloudflare but leave the inventory sitemap + detail pages
+  // reachable from the server. If the sitemap answers, register as a normal
+  // server-syncable 'edealer' feed — the sync engine's sitemap walker pulls full
+  // inventory with no extension. (This is the path that "just works" and was the
+  // pre-regression behavior.)
+  const sitemapCount = await eDealerSitemapReachable(origin)
+  if (sitemapCount > 0) {
+    console.log(`[probe] eDealer sitemap reachable (${sitemapCount} vehicles) — registering as edealer (no extension needed)`)
+    return {
+      success: true,
+      platform: 'edealer',
+      platform_label: 'EDealer',
+      feed_url: `${origin}/api/inventory/getall`,
+      vehicle_count: sitemapCount,
+      sample_vehicles: [],
+      attempts
+    }
   }
 
   // If most probes were blocked (403/503) by a WAF and every fallback also failed,
