@@ -345,23 +345,13 @@
   // Try each probe in order. First one that returns vehicles wins.
   // For dealer_com and paginating probes, try with a high limit first,
   // then paginate if the response indicates more records are available.
+  //
+  // NOTE: for eDealer we deliberately go straight to the probe loop, which calls
+  // /api/inventory/getall from the user's browser. On a residential IP that endpoint
+  // isn't Cloudflare-blocked and returns the FULL inventory in one shot. A DOM-scrape
+  // shortcut was tried here but it only saw the ~24 cards on the rendered page and
+  // short-circuited the full API call — so it's intentionally NOT used first.
   let result = null
-
-  // eDealer DOM-first: eDealer renders ALL inventory cards server-side so the
-  // API only returns 25 (one page) and ignores pagination. Check the DOM first
-  // to get the full set without any API round-trips.
-  {
-    const html = document.documentElement.innerHTML
-    const isEDealer = /e-dealer\.js|edealer/i.test(html)
-      || /cdn\.impel\.io\/spincar-static\/provider_scripts\/e-dealer/i.test(html)
-    if (isEDealer) {
-      const domVehicles = eDealerScrapeDOM()
-      if (domVehicles.length > 0) {
-        log(`✓ eDealer DOM scrape — ${domVehicles.length} vehicles`)
-        result = { platform: 'edealer', source_url: location.href, vehicles: domVehicles }
-      }
-    }
-  }
 
   for (const probe of PROBES) {
     for (const path of probe.paths) {
