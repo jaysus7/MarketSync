@@ -106,6 +106,98 @@
     return vehicles
   }
 
+  // Full eDealer inventory by paginating the LISTING pages from inside the user's
+  // browser session. This is the legitimate, Cloudflare-safe method: the user already
+  // passed Cloudflare's challenge to view the site, so fetch() here inherits their
+  // cf_clearance cookie (credentials:'include') and the ?page=N requests go through —
+  // no evasion, just the authenticated session. Each listing page carries Schema.org
+  // Car JSON-LD; we walk pages until no new vehicles. Gets ALL of them, not just the
+  // ~24 rendered on one page.
+  async function walkEDealerListingPages() {
+    const seen = new Set()
+    const all = []
+    const jsonLdRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+    const extractCars = (html) => {
+      const cars = []
+      let m
+      while ((m = jsonLdRe.exec(html)) !== null) {
+        let data
+        try { data = JSON.parse(m[1]) } catch { continue }
+        const q = [data]
+        while (q.length) {
+          const n = q.pop()
+          if (!n || typeof n !== 'object') continue
+          if (Array.isArray(n)) { for (const x of n) q.push(x); continue }
+          if (Array.isArray(n['@graph'])) { for (const x of n['@graph']) q.push(x); continue }
+          const t = n['@type']
+          const types = Array.isArray(t) ? t : (t ? [t] : [])
+          if (types.some(x => x === 'Car' || x === 'Vehicle' || x === 'MotorVehicle')) cars.push(n)
+          else for (const v of Object.values(n)) if (v && typeof v === 'object') q.push(v)
+        }
+      }
+      jsonLdRe.lastIndex = 0
+      return cars
+    }
+    const mapCar = (c) => {
+      const cond = (c.itemCondition || '') + ' ' + (c.name || '')
+      const cfg = typeof c.vehicleConfiguration === 'string' ? c.vehicleConfiguration.split(' ').filter(Boolean) : []
+      const offer = Array.isArray(c.offers) ? c.offers[0] : c.offers
+      let price = offer?.price || c.offers?.lowPrice || 0
+      if (typeof price === 'string') price = parseInt(price.replace(/[^0-9]/g, '')) || 0
+      let imgs = c.image
+      if (imgs && typeof imgs === 'object' && !Array.isArray(imgs)) imgs = imgs.url || imgs.contentUrl
+      imgs = (Array.isArray(imgs) ? imgs : (imgs ? [imgs] : []))
+        .map(i => typeof i === 'string' ? i : (i?.url || i?.contentUrl))
+        .filter(u => u && !/coming|no-?image|placeholder/i.test(u))
+      return {
+        vin: c.vehicleIdentificationNumber || null,
+        year: c.vehicleModelDate ? parseInt(c.vehicleModelDate) : null,
+        make: c.brand?.name || c.manufacturer?.name || (typeof c.brand === 'string' ? c.brand : null),
+        model: typeof c.model === 'string' ? c.model : (c.model?.name || null),
+        trim: cfg.length > 1 ? cfg.slice(1).join(' ') : null,
+        price, saleprice: price,
+        mileage: c.mileageFromOdometer?.value || c.mileageFromOdometer || 0,
+        exteriorcolor: c.color || null, transmission: c.vehicleTransmission || null,
+        fueltype: c.fuelType || c.vehicleEngine?.fuelType || null, bodystyle: c.bodyType || null,
+        condition: /demo/i.test(cond) ? 'Demo' : /new/i.test((c.itemCondition||'')) ? 'New' : /used|pre-?owned|certified/i.test(cond) ? 'Used' : null,
+        demo: /demo/i.test(cond),
+        stocknumber: c.sku || c.productID || c.mpn || null,
+        image_urls: imgs, onweb: true, salepending: false
+      }
+    }
+
+    // Walk both new + used listing bases (eDealer splits them). Include the current
+    // page's path too, in case the dealer uses a custom inventory root.
+    const bases = new Set([`${origin}/inventory/new/`, `${origin}/inventory/used/`])
+    if (/\/inventory\//i.test(location.pathname)) {
+      bases.add(location.origin + location.pathname.replace(/\/$/, '').replace(/[^/]*vdp\/?$/i, '') + '/')
+    }
+
+    for (const base of bases) {
+      for (let page = 1; page <= 40; page++) {
+        const url = page === 1 ? base : `${base}?page=${page}`
+        let html
+        try {
+          const r = await fetch(url, { credentials: 'include', headers: { Accept: 'text/html' } })
+          if (!r.ok) break
+          html = await r.text()
+        } catch { break }
+        const cars = extractCars(html)
+        if (!cars.length) break
+        let fresh = 0
+        for (const c of cars) {
+          const v = mapCar(c)
+          const id = v.vin || (v.stocknumber ? 'stk:' + v.stocknumber : null)
+          if (id && !seen.has(id)) { seen.add(id); all.push(v); fresh++ }
+        }
+        if (fresh === 0) break  // page returned only already-seen vehicles — past the end
+        try { chrome.runtime.sendMessage({ type: 'CAPTURE_PROGRESS', feed_id: window.__marketsyncFeedId || null, phase: 'scanning', current: all.length, total: all.length }) } catch {}
+        await new Promise(r => setTimeout(r, 40))
+      }
+    }
+    return all
+  }
+
   // Detect which platform this dealer runs. Same probe shapes as the server
   // PLATFORM_PROBES array, but client-side. Each entry tries a candidate path,
   // validates the response shape, and returns normalized vehicles.
@@ -346,12 +438,25 @@
   // For dealer_com and paginating probes, try with a high limit first,
   // then paginate if the response indicates more records are available.
   //
-  // NOTE: for eDealer we deliberately go straight to the probe loop, which calls
-  // /api/inventory/getall from the user's browser. On a residential IP that endpoint
-  // isn't Cloudflare-blocked and returns the FULL inventory in one shot. A DOM-scrape
-  // shortcut was tried here but it only saw the ~24 cards on the rendered page and
-  // short-circuited the full API call — so it's intentionally NOT used first.
   let result = null
+
+  // eDealer + Cloudflare: the /api/inventory/getall call and the rendered DOM both cap
+  // at ~24 (one page). The reliable full pull is paginating the listing pages from the
+  // user's already-cleared session. If this is an eDealer site, do that first.
+  {
+    const html = document.documentElement.innerHTML
+    const isEDealer = /e-dealer\.js|edealer|inventory-listing-sitemap/i.test(html)
+      || /media\.edealer\.ca|websites\.edealer\.ca/i.test(html)
+    if (isEDealer) {
+      try {
+        const walked = await walkEDealerListingPages()
+        if (walked.length > 0) {
+          log(`✓ eDealer listing walk (browser session) — ${walked.length} vehicles`)
+          result = { platform: 'edealer', source_url: location.href, vehicles: walked }
+        }
+      } catch (e) { log('eDealer listing walk failed:', e.message) }
+    }
+  }
 
   for (const probe of PROBES) {
     for (const path of probe.paths) {
