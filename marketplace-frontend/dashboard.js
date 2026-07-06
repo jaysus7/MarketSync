@@ -229,6 +229,21 @@ async function initializeDashboardEcosystem() {
       document.querySelectorAll('[data-admin-nav]').forEach(el => el.classList.add('hidden'));
     }
 
+    // Everyone working a dealership gets a Sales Pipeline link (reps see their
+    // own postings; dealer-level sees the whole store).
+    if (inDealership) {
+      const navEl = document.getElementById('dashboard-nav');
+      if (navEl && !document.getElementById('nav-pipeline')) {
+        const a = document.createElement('a');
+        a.id = 'nav-pipeline';
+        a.href = 'pipeline.html';
+        a.title = 'Sales Pipeline';
+        a.className = 'flex-1 md:flex-none md:w-full flex items-center justify-center md:justify-start gap-2.5 px-2 md:px-3 py-2.5 md:py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition';
+        a.innerHTML = '<svg class="w-5 h-5 md:w-4 md:h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg><span class="hidden md:inline">Pipeline</span>';
+        navEl.appendChild(a);
+      }
+    }
+
     // Dealer admins, group admins and the owner get a Groups link — where they
     // can create a group, join one with a code, or see the multi-store rollup.
     if (role === 'DEALER_GROUP' || role === 'OWNER' || role === 'DEALER_ADMIN') {
