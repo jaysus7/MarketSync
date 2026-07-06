@@ -716,6 +716,39 @@
     }
   }
 
+  // eDealer full-inventory RESCUE. Several eDealer sites only expose ~10-24 cars via the
+  // API or the first listing page (the JSON-LD fallback grabs exactly those), while the
+  // rest load through infinite scroll (admin-ajax.php?page=N) or numbered pages. If we
+  // ended up with a small result on what looks like an eDealer site, run the sitemap walk
+  // / listing walk / auto-scroll DOM scrape and keep whichever returns the MOST. This runs
+  // no matter which probe (or the JSON-LD fallback) matched — that's the fix for "synced
+  // only 10/24".
+  const looksEDealer = /edealer|media\.edealer\.ca|go-app|inventory-listing-sitemap/i.test(document.documentElement.innerHTML)
+    || /\/inventory\b/i.test(location.pathname)
+  if ((!result || result.vehicles.length <= 25) && looksEDealer) {
+    const startCount = () => (result?.vehicles?.length || 0)
+    for (const strat of [walkEDealerSitemap, walkEDealerListingPages]) {
+      try {
+        const more = await strat()
+        if (more && more.length > startCount()) {
+          log(`eDealer rescue via ${strat.name}: ${more.length} vehicles (was ${startCount()})`)
+          result = { platform: 'edealer', source_url: `${origin}/inventory-listing-sitemap.xml`, vehicles: more }
+        }
+      } catch (e) { log(`eDealer rescue ${strat.name} failed:`, e.message) }
+    }
+    // Last resort: auto-scroll the live page so infinite-scroll cards load, then DOM-scrape.
+    if (startCount() <= 25) {
+      try {
+        await autoScrollToLoadAll()
+        const dom = eDealerScrapeDOM()
+        if (dom.length > startCount()) {
+          log(`eDealer rescue via auto-scroll DOM: ${dom.length} vehicles`)
+          result = { platform: 'edealer', source_url: location.href, vehicles: dom }
+        }
+      } catch (e) { log('eDealer rescue auto-scroll failed:', e.message) }
+    }
+  }
+
   if (!result) {
     log('no inventory found via probes or JSON-LD on this page')
     chrome.runtime.sendMessage({
