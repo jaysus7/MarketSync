@@ -8,6 +8,7 @@ import { parseGenericFeed } from './genericFeed.js'
 import { autoDecodeInventory } from './vinDecode.js'
 import { runPhotoVision } from './photoVision.js'
 import { brandDealershipPhotos } from '../utils/photoOverlay.js'
+import { autoFetchOemStickers } from './oemStickers.js'
 
 // Per-dealership in-flight sync tracking. Prevents the boot sync, the post-add
 // auto-sync, and a manual Sync Now click from all running for the same dealership
@@ -676,6 +677,9 @@ async function _runInventorySyncInner(dealershipId) {
 
   // Photo overlays: pre-brand new photos when the dealer has overlays on.
   brandDealershipPhotos(dealershipId).catch(e => console.warn('[sync] photo-overlay failed:', e.message))
+
+  // Pull authentic OEM window stickers for new vehicles (VIN Sticker add-on).
+  autoFetchOemStickers(dealershipId).catch(e => console.warn('[sync] oem-stickers failed:', e.message))
 
   const { count: availableCount } = await supabaseAdmin
     .from('inventory')

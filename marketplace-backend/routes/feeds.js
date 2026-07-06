@@ -8,6 +8,7 @@ import { parseGenericFeed } from '../sync/genericFeed.js'
 import { autoDecodeInventory } from '../sync/vinDecode.js'
 import { runPhotoVision } from '../sync/photoVision.js'
 import { brandDealershipPhotos } from '../utils/photoOverlay.js'
+import { autoFetchOemStickers } from '../sync/oemStickers.js'
 
 export function registerRoutes(app) {
   app.post('/feeds/probe', async (req, res) => {
@@ -190,6 +191,7 @@ export function registerRoutes(app) {
       if (d?.ai_vision_active) runPhotoVision(req.dealershipId).catch(e => console.warn('[extension-capture] ai-vision failed:', e.message))
     } catch {}
     brandDealershipPhotos(req.dealershipId).catch(e => console.warn('[extension-capture] photo-overlay failed:', e.message))
+    autoFetchOemStickers(req.dealershipId).catch(e => console.warn('[extension-capture] oem-stickers failed:', e.message))
 
     console.log(`[extension-capture] feed=${feedId} upserted=${upserted} skipped=${skipped} removed=${removed}`)
     res.json({ success: true, upserted, skipped, removed, total: vehicles.length })

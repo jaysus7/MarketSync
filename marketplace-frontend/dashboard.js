@@ -2295,7 +2295,11 @@ function renderCatalog() {
                 : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
               return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${cls}">⚡ ${healthScore}/100</span>`
             })() : ''
-            return hotColdTag + healthBadge
+            const recallCount = Array.isArray(v.recalls) ? v.recalls.length : 0
+            const recallBadge = recallCount > 0
+              ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300" title="${recallCount} open recall${recallCount > 1 ? 's' : ''} — open VIN Decode for details">⚠ ${recallCount} Recall${recallCount > 1 ? 's' : ''}</span>`
+              : ''
+            return hotColdTag + healthBadge + recallBadge
           })()}
         </div>
         <div class="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">

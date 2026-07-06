@@ -56,7 +56,8 @@ export function registerPipeline(app) {
     if (repIds.length) {
       const { data: reps } = await supabaseAdmin
         .from('profiles').select('id, full_name, display_name').in('id', repIds)
-      repNames = Object.fromEntries((reps || []).map(r => [r.id, r.display_name || r.full_name || '—']))
+      // Pipeline is an internal management view → show the rep's real name.
+      repNames = Object.fromEntries((reps || []).map(r => [r.id, r.full_name || r.display_name || '—']))
     }
 
     const columns = emptyCols()
