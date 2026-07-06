@@ -566,17 +566,62 @@ async function showInventoryScreen(token, user) {
 
   checkExtensionSyncNeeded(token)
 
+  // Reflect any in-flight capture as soon as the panel opens.
+  chrome.storage.local.get(['captureState'], ({ captureState }) => renderCaptureProgress(captureState))
+
   if (!window.__msCaptureWatch) {
     window.__msCaptureWatch = true
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local' || !changes.captureState) return
       const s = changes.captureState.newValue
+      renderCaptureProgress(s)
       if (s?.status === 'done') {
         checkExtensionSyncNeeded(token)
         loadInventory(token)
       }
     })
   }
+}
+
+// Render the live progress bar from the background's captureState.
+function renderCaptureProgress(s) {
+  const box  = $('ms-progress')
+  if (!box) return
+  const fill = $('ms-progress-fill')
+  const pctEl = $('ms-progress-pct')
+  const labelEl = $('ms-progress-label')
+  const subEl = $('ms-progress-sub')
+
+  if (!s || (s.status !== 'pulling' && s.status !== 'done' && s.status !== 'error')) {
+    box.style.display = 'none'
+    return
+  }
+  // Auto-hide a finished/failed bar shortly after it lands.
+  if (s.finishedAt && Date.now() - s.finishedAt > 6000) { box.style.display = 'none'; return }
+
+  box.style.display = 'block'
+  let pct, label, sub = '', color = null
+  if (s.status === 'done') {
+    pct = 100
+    label = 'Inventory captured'
+    sub = s.count != null ? `${s.count} vehicle${s.count === 1 ? '' : 's'} synced to MarketSync` : 'Sync complete'
+  } else if (s.status === 'error') {
+    pct = 100; color = 'var(--red)'
+    label = 'Capture failed'
+    sub = s.error || 'Something went wrong — please try again.'
+  } else {
+    // pulling — use the reported pct, or a gentle indeterminate crawl.
+    pct = (typeof s.pct === 'number') ? s.pct : 8
+    const phase = (s.phase || 'scanning')
+    label = phase === 'uploading' ? 'Uploading to MarketSync…'
+          : phase === 'scanning'  ? 'Reading dealer inventory…'
+          : 'Working…'
+    if (s.total) sub = `${s.current || 0} of ${s.total} pages scanned`
+  }
+  if (fill) { fill.style.width = `${pct}%`; if (color) fill.style.background = color }
+  if (pctEl) { pctEl.textContent = `${pct}%`; if (color) pctEl.style.color = color }
+  if (labelEl) labelEl.textContent = label
+  if (subEl) subEl.textContent = sub
 }
 
 async function checkExtensionSyncNeeded(token) {

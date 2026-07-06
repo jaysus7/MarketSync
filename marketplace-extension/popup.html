@@ -56,9 +56,12 @@
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    /* Fluid so it fills the docked side panel (drag the panel edge to make it
+       cover up to half the screen). Falls back gracefully if ever shown as a popup. */
     html, body {
-      width: 420px;
-      height: 600px;
+      width: 100%;
+      min-width: 360px;
+      height: 100vh;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
       background: var(--bg);
       color: var(--text);
@@ -591,6 +594,18 @@
     </div>
 
     <!-- Premium Sync bar -->
+    <!-- Live capture progress bar -->
+    <div id="ms-progress" style="display:none;margin:10px 14px 0;padding:12px 14px;background:var(--bg-2);border:1px solid var(--border);border-radius:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span id="ms-progress-label" style="font-size:12px;font-weight:700;color:var(--text);">Working…</span>
+        <span id="ms-progress-pct" style="font-size:12px;font-weight:800;color:var(--accent-2);font-variant-numeric:tabular-nums;">0%</span>
+      </div>
+      <div style="height:8px;background:var(--bg-3);border-radius:99px;overflow:hidden;">
+        <div id="ms-progress-fill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent-2));border-radius:99px;transition:width .4s ease;"></div>
+      </div>
+      <div id="ms-progress-sub" style="font-size:10px;color:var(--text-3);margin-top:6px;"></div>
+    </div>
+
     <div id="premium-sync-bar">
       <div>
         <b>Cloudflare-protected dealer detected.</b><br>

@@ -1,5 +1,13 @@
 // background.js
 const API = 'https://vehicle-marketplace-s0e4.onrender.com'
+
+// Clicking the toolbar icon opens the docked side panel (like Market Post Pro),
+// so MarketSync stays open beside Facebook while you post. Guarded for older
+// Chrome builds without the Side Panel API.
+try {
+  chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true }).catch(() => {})
+} catch {}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   // Record a listing as posted
