@@ -14,6 +14,7 @@ async function apiGetJson(path, { retries = 3, timeoutMs = 30000 } = {}) {
       const r = await fetch(`${API}${path}`, {
         headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}` },
         signal: ctrl.signal,
+        cache: 'no-store',   // avoid 304s that Response.ok treats as a failure
       });
       clearTimeout(timer);
       if (r.ok) return await r.json();
