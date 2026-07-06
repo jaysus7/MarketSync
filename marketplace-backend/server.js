@@ -15,6 +15,7 @@ import { registerRoutes as registerMisc } from './routes/misc.js'
 import { registerAI } from './routes/ai.js'
 import { registerRoutes as registerVinSticker } from './routes/vinsticker.js'
 import { registerNotifications } from './routes/notifications.js'
+import { registerGroups } from './routes/groups.js'
 
 const app = express()
 const PORT = process.env.PORT || 10000
@@ -47,6 +48,7 @@ registerMisc(app)
 registerAI(app)
 registerVinSticker(app)
 registerNotifications(app)
+registerGroups(app)
 
 app.use((err, req, res, next) => {
   console.error('Unhandled Express error:', {
