@@ -326,9 +326,12 @@ export function registerRoutes(app) {
 
   // ── Add-on subscription endpoints ─────────────────────────────────────────
   app.post('/billing/subscribe-ai-boost',    requireAuth, (req, res) => createAddonCheckout(req, res, 'ai_boost'))
-  app.post('/billing/subscribe-vin-sticker', requireAuth, (req, res) => createAddonCheckout(req, res, 'vin_sticker'))
-  app.post('/billing/subscribe-ai-vision',   requireAuth, (req, res) => createAddonCheckout(req, res, 'ai_vision'))
   app.post('/billing/subscribe-inv-intel',   requireAuth, (req, res) => createAddonCheckout(req, res, 'inv_intel'))
+  // Retired add-ons — VIN & Brochure (OEM) is now core; AI Vision + generated docs
+  // are part of AI Boost. Point any stale clients at AI Boost.
+  const retired = (req, res) => res.status(410).json({ error: 'This add-on has moved into AI Boost.', redirect: 'ai_boost' })
+  app.post('/billing/subscribe-vin-sticker', requireAuth, retired)
+  app.post('/billing/subscribe-ai-vision',   requireAuth, retired)
 
   app.get('/billing/ai-boost-verify',    requireAuth, (req, res) => verifyAddonSession(req, res, 'ai_boost'))
   app.get('/billing/vin-sticker-verify', requireAuth, (req, res) => verifyAddonSession(req, res, 'vin_sticker'))

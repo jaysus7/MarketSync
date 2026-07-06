@@ -46,7 +46,20 @@ export function registerAI(app) {
       .single()
     if (error) return res.status(500).json({ error: error.message })
     const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
-    res.json({ ...data, ai_boost_active: isOwner ? true : !!data.ai_boost_active, ai_vision_active: isOwner ? true : !!data.ai_vision_active })
+    // Entitlement model:
+    //  • AI Boost is the master switch for ALL AI (listing copy, price reports,
+    //    AI Vision, generated/branded sticker & brochure, AI lot narrative).
+    //  • VIN decode + factory OEM stickers/brochures are core (always available).
+    //  • Inventory Intelligence is its own analytics tier; its AI narrative needs Boost too.
+    const aiBoost = isOwner || !!data.ai_boost_active
+    res.json({
+      ...data,
+      ai_boost_active: aiBoost,
+      vin_sticker_active: true,          // VIN decode + OEM docs are core now
+      ai_docs_active: aiBoost,           // generated/branded sticker & brochure
+      ai_vision_active: aiBoost,         // AI Vision folded into AI Boost
+      inv_intel_active: isOwner ? true : !!data.inv_intel_active,
+    })
   })
 
   // PUT /ai/config — update dealership AI config (DEALER_ADMIN only)
@@ -970,13 +983,13 @@ Units 60d+ on lot: ${stale}`
     }
   })
 
-  // ── AI Vision — photo quality scoring ($49 add-on) ───────────────────────
+  // ── AI Vision — photo quality scoring (part of AI Boost) ─────────────────
 
   async function visionActive(dealershipId, email) {
     if ((email || '').toLowerCase() === OWNER_EMAIL) return true
     const { data } = await supabaseAdmin
-      .from('dealerships').select('ai_vision_active').eq('id', dealershipId).single()
-    return !!data?.ai_vision_active
+      .from('dealerships').select('ai_boost_active').eq('id', dealershipId).single()
+    return !!data?.ai_boost_active
   }
 
   // Kick off a background photo scan of the dealership's inventory.

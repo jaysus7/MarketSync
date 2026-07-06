@@ -2904,9 +2904,10 @@ async function loadSessions() {
 
 let __aiBoostActive = false;
 let __aiBoostConfigLoaded = false;
-let __vinStickerActive = false;
+let __vinStickerActive = false;   // VIN decode + OEM docs — core (always true)
+let __aiDocsActive = false;       // generated/branded sticker & brochure — AI Boost
 let __invIntelActive = false;
-let __aiVisionActive = false;
+let __aiVisionActive = false;     // now equals AI Boost
 
 async function loadAIActivity() {
   const loading = document.getElementById('ai-activity-loading');
@@ -3499,9 +3500,10 @@ async function loadAIBoostSection() {
     if (!res.ok) return;
     const cfg = await res.json();
     __aiBoostActive = !!cfg.ai_boost_active;
-    __vinStickerActive = !!cfg.vin_sticker_active;
+    __vinStickerActive = cfg.vin_sticker_active !== false;   // core — default on
+    __aiDocsActive = !!cfg.ai_docs_active;                   // generated docs = AI Boost
     __invIntelActive = !!cfg.inv_intel_active;
-    __aiVisionActive = !!cfg.ai_vision_active;
+    __aiVisionActive = !!cfg.ai_vision_active;               // = AI Boost
     renderAiVisionNav();
     __aiBoostConfigLoaded = true;
     // Pre-fetch intel caches so hot/cold tags appear on inventory cards
@@ -4261,24 +4263,9 @@ function renderAiVisionNav() {
   if (!btn._clickWired) { btn._clickWired = true; btn.addEventListener('click', () => switchPage('ai-vision')); }
 }
 
-async function startAiVisionCheckout() {
-  const btn = document.getElementById('ai-vision-upgrade-btn');
-  if (!btn) return;
-  btn.disabled = true;
-  btn.textContent = 'Opening checkout…';
-  try {
-    const res = await fetch(`${API}/billing/subscribe-ai-vision`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed');
-    window.location.href = data.url;
-  } catch (e) {
-    alert(e.message);
-    btn.disabled = false;
-    btn.textContent = 'Try it free for 7 days';
-  }
+// AI Vision is now part of AI Boost — send the user to the AI Boost page to subscribe.
+function startAiVisionCheckout() {
+  switchPage('ai-boost');
 }
 
 function scoreColor(s) {
@@ -4516,9 +4503,9 @@ function showBrochureChoice(btn) {
           <div class="text-sm font-bold text-slate-900 dark:text-white">Get OEM Brochure</div>
           <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pull the factory window sticker for this VIN, when available.</div>
         </button>
-        <button data-choice="dealer" class="w-full text-left px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition">
-          <div class="text-sm font-bold text-slate-900 dark:text-white">Generate Dealer Brochure</div>
-          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Build a branded 2-page MarketSync brochure.</div>
+        <button data-choice="dealer" class="w-full text-left px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition ${__aiDocsActive ? '' : 'opacity-70'}">
+          <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">Generate Dealer Brochure ${__aiDocsActive ? '' : '<span class="text-[10px] font-bold uppercase bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 px-1.5 py-0.5 rounded">AI Boost</span>'}</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Build a branded 2-page MarketSync brochure.${__aiDocsActive ? '' : ' Included with AI Boost.'}</div>
         </button>
       </div>
       <button data-choice="cancel" class="mt-4 w-full text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 py-1.5 transition">Cancel</button>
@@ -4528,6 +4515,7 @@ function showBrochureChoice(btn) {
     if (e.target === modal) return close();
     const choice = e.target.closest('[data-choice]')?.dataset.choice;
     if (!choice) return;
+    if (choice === 'dealer' && !__aiDocsActive) { close(); switchPage('ai-boost'); return; }
     close();
     if (choice === 'oem') generatePdf(id, 'window-sticker', btn);
     else if (choice === 'dealer') generatePdf(id, 'brochure', btn);

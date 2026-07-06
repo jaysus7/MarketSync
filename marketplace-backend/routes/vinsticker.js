@@ -18,11 +18,14 @@ function requireDealerAdmin(req, res, next) {
   next()
 }
 
-function requireVinSticker(req, res, next) {
-  if (!req.dealershipData?.vin_sticker_active) {
-    return res.status(403).json({ error: 'VIN Sticker & Brochure add-on not active' })
-  }
-  next()
+const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+
+// VIN decode + OEM (factory) window stickers/brochures are now part of the core
+// platform. Only the *generated* MarketSync-branded sticker and brochure (which use
+// AI copy) require the AI Boost add-on. This gate is the AI-Boost check.
+function hasAiBoost(dealer, email) {
+  if ((email || '').toLowerCase() === OWNER_EMAIL) return true
+  return !!dealer?.ai_boost_active
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -35,7 +38,7 @@ function pick(obj, ...keys) {
 async function loadDealershipData(dealershipId) {
   const { data, error } = await supabaseAdmin
     .from('dealerships')
-    .select('id, name, website_url, branding, vin_sticker_active')
+    .select('id, name, website_url, branding, vin_sticker_active, ai_boost_active')
     .eq('id', dealershipId)
     .single()
   if (error) console.error('[loadDealershipData]', error.message)
@@ -1012,7 +1015,10 @@ export function registerRoutes(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
 
     const dealer = await loadDealershipData(req.dealershipId)
-    if (!dealer?.vin_sticker_active) return res.status(403).json({ error: 'VIN Sticker & Brochure add-on not active' })
+    // OEM factory stickers are core; the generated MarketSync sticker needs AI Boost.
+    if (req.query.source === 'generate' && !hasAiBoost(dealer, req.user.email)) {
+      return res.status(403).json({ error: 'Generating a branded sticker requires AI Boost' })
+    }
 
     const { data: vehicle, error } = await supabaseAdmin
       .from('inventory')
@@ -1021,6 +1027,19 @@ export function registerRoutes(app) {
       .eq('dealership_id', req.dealershipId)
       .single()
     if (error || !vehicle) return res.status(404).json({ error: 'Vehicle not found' })
+
+    // If the factory sticker isn't available we fall back to generating one — that
+    // fallback also requires AI Boost. Non-Boost users get OEM-or-nothing.
+    if (req.query.source !== 'generate' && !hasAiBoost(dealer, req.user.email)) {
+      const oemProbe = await fetchOemWindowStickerPdf(vehicle).catch(() => null)
+      if (!oemProbe) {
+        return res.status(404).json({ error: 'No factory window sticker is available for this VIN. Generating a branded one requires AI Boost.' })
+      }
+      const path = `${req.dealershipId}/${vehicle.id}/window-sticker.pdf`
+      const url = await uploadPdf(oemProbe.buffer, path)
+      await supabaseAdmin.from('inventory').update({ window_sticker_url: url, window_sticker_source: 'oem' }).eq('id', vehicle.id)
+      return res.json({ url, source: 'oem', cached: false })
+    }
 
     if (vehicle.window_sticker_url && req.query.regen !== '1') {
       return res.json({ url: vehicle.window_sticker_url, source: vehicle.window_sticker_source || 'generated', cached: true })
@@ -1107,7 +1126,10 @@ export function registerRoutes(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
 
     const dealer = await loadDealershipData(req.dealershipId)
-    if (!dealer?.vin_sticker_active) return res.status(403).json({ error: 'VIN Sticker & Brochure add-on not active' })
+    // The branded dealer brochure uses AI-written copy → AI Boost required.
+    if (!hasAiBoost(dealer, req.user.email)) {
+      return res.status(403).json({ error: 'The dealer brochure requires AI Boost' })
+    }
 
     const { data: vehicle, error } = await supabaseAdmin
       .from('inventory')

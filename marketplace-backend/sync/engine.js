@@ -671,8 +671,8 @@ async function _runInventorySyncInner(dealershipId) {
 
   // AI Vision: score newly-synced photos when the add-on is active (incremental).
   try {
-    const { data: d } = await supabaseAdmin.from('dealerships').select('ai_vision_active').eq('id', dealershipId).single()
-    if (d?.ai_vision_active) runPhotoVision(dealershipId).catch(e => console.warn('[sync] ai-vision failed:', e.message))
+    const { data: d } = await supabaseAdmin.from('dealerships').select('ai_boost_active').eq('id', dealershipId).single()
+    if (d?.ai_boost_active) runPhotoVision(dealershipId).catch(e => console.warn('[sync] ai-vision failed:', e.message))
   } catch {}
 
   // Photo overlays: pre-brand new photos when the dealer has overlays on.

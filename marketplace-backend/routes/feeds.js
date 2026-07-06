@@ -187,8 +187,8 @@ export function registerRoutes(app) {
 
     // AI Vision: score newly-captured photos when the add-on is active.
     try {
-      const { data: d } = await supabaseAdmin.from('dealerships').select('ai_vision_active').eq('id', req.dealershipId).single()
-      if (d?.ai_vision_active) runPhotoVision(req.dealershipId).catch(e => console.warn('[extension-capture] ai-vision failed:', e.message))
+      const { data: d } = await supabaseAdmin.from('dealerships').select('ai_boost_active').eq('id', req.dealershipId).single()
+      if (d?.ai_boost_active) runPhotoVision(req.dealershipId).catch(e => console.warn('[extension-capture] ai-vision failed:', e.message))
     } catch {}
     brandDealershipPhotos(req.dealershipId).catch(e => console.warn('[extension-capture] photo-overlay failed:', e.message))
     autoFetchOemStickers(req.dealershipId).catch(e => console.warn('[extension-capture] oem-stickers failed:', e.message))

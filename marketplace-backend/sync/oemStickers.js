@@ -11,9 +11,12 @@ import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
 export async function autoFetchOemStickers(dealershipId, { max = 60 } = {}) {
   if (!dealershipId) return { fetched: 0 }
   try {
+    // Auto-prefetching factory stickers on every sync is a background convenience —
+    // keep it for AI Boost dealerships. (OEM stickers stay available on-demand to
+    // everyone as a core feature; this just warms the cache automatically.)
     const { data: dealer } = await supabaseAdmin
-      .from('dealerships').select('vin_sticker_active').eq('id', dealershipId).maybeSingle()
-    if (!dealer?.vin_sticker_active) return { fetched: 0 }
+      .from('dealerships').select('ai_boost_active').eq('id', dealershipId).maybeSingle()
+    if (!dealer?.ai_boost_active) return { fetched: 0 }
 
     const { data: rows } = await supabaseAdmin
       .from('inventory')
