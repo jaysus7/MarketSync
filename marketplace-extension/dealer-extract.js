@@ -235,7 +235,18 @@
         return r.ok ? await r.text() : null
       } catch { return null }
     }
-    const vdpFrom = (xml) => [...xml.matchAll(/<loc>([^<]+\/inventory\/[^<]+vdp\/?)<\/loc>/gi)].map(m => m[1])
+    // Pull vehicle-detail URLs out of a sitemap. Generic across platforms:
+    //  • eDealer detail pages end in "vdp/"
+    //  • many platforms use /vehicle(s)/ or /inventory/ + a year-make slug
+    // Excludes obvious non-vehicle pages (category/listing "vlp", showroom, build-and-price,
+    // blog/page/category) so we don't fetch hundreds of junk URLs. Any URL that slips
+    // through is filtered later anyway — a page with no JSON-LD Car node is dropped.
+    const vdpFrom = (xml) => {
+      const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/gi)].map(m => m[1])
+      const EXCLUDE = /(vlp\/?$)|\/showroom\/|\/buildandprice\/|\/blog\/|\/category\/|\/page\/|\/wp-|\/author\/|\/tag\//i
+      const INCLUDE = /vdp\/?$|\/vehicle(s)?\/|\/inventory\/[^/]*(19|20)\d{2}[- ][a-z]/i
+      return locs.filter(u => INCLUDE.test(u) && !EXCLUDE.test(u))
+    }
 
     const candidates = [
       '/inventory-listing-sitemap.xml', '/inventory-sitemap.xml', '/vehicle-sitemap.xml',
@@ -259,6 +270,9 @@
     }
     vdpUrls = [...new Set(vdpUrls)]
     if (!vdpUrls.length) return []
+    // Safety cap: never fetch more than 800 detail pages in one capture (protects
+    // against a giant/mis-filtered sitemap on an unknown platform).
+    if (vdpUrls.length > 800) vdpUrls = vdpUrls.slice(0, 800)
 
     const jsonLdRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
     const carFromHtml = (html) => {
@@ -716,16 +730,15 @@
     }
   }
 
-  // eDealer full-inventory RESCUE. Several eDealer sites only expose ~10-24 cars via the
-  // API or the first listing page (the JSON-LD fallback grabs exactly those), while the
-  // rest load through infinite scroll (admin-ajax.php?page=N) or numbered pages. If we
-  // ended up with a small result on what looks like an eDealer site, run the sitemap walk
-  // / listing walk / auto-scroll DOM scrape and keep whichever returns the MOST. This runs
-  // no matter which probe (or the JSON-LD fallback) matched — that's the fix for "synced
-  // only 10/24".
-  const looksEDealer = /edealer|media\.edealer\.ca|go-app|inventory-listing-sitemap/i.test(document.documentElement.innerHTML)
-    || /\/inventory\b/i.test(location.pathname)
-  if ((!result || result.vehicles.length <= 25) && looksEDealer) {
+  // UNIVERSAL full-inventory RESCUE. Many dealer sites only expose ~10-24 cars via the API
+  // or the first listing page (the JSON-LD fallback grabs exactly those), while the rest
+  // load through infinite scroll (admin-ajax.php?page=N) or numbered pages. Whenever we end
+  // up with a small result (<=25) on ANY platform, walk the site's sitemap → each vehicle
+  // detail page's JSON-LD, then the listing-page walk, then auto-scroll DOM scrape, and keep
+  // whichever returns the MOST. Runs no matter which probe (or the JSON-LD fallback) matched.
+  // It's gated on a small result, so it never slows down dealers whose feed already returned
+  // everything (>25). This is the closest thing to a foolproof net across platforms.
+  if (!result || result.vehicles.length <= 25) {
     const startCount = () => (result?.vehicles?.length || 0)
     for (const strat of [walkEDealerSitemap, walkEDealerListingPages]) {
       try {
