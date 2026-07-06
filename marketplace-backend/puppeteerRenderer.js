@@ -80,6 +80,35 @@ async function getBrowser() {
   }
 }
 
+// ── Headless Chrome memory safeguard ──────────────────────────────────────────
+// Each Chromium instance is ~150-200MB. On Render's 512MB tier, two at once (or one
+// heavy page) pushes the process past its limit and Render kills it (exit 134),
+// aborting the WHOLE sync run — every dealer that hadn't synced yet gets nothing.
+// This guard adds three seatbelts around every headless op:
+//   1. Serialize — only ONE headless op runs at a time (others queue behind it).
+//   2. Memory precheck — if the heap is already high, SKIP rather than risk OOM
+//      (the caller falls back to its next method / the extension).
+//   3. GC hint after each op so memory is reclaimed before the next one.
+// Tune the skip threshold with HEADLESS_HEAP_LIMIT_MB (default 350).
+let _headlessChain = Promise.resolve()
+const HEADLESS_HEAP_LIMIT_MB = parseInt(process.env.HEADLESS_HEAP_LIMIT_MB) || 350
+
+export async function withHeadlessGuard(fn, { label = 'headless', onSkip } = {}) {
+  const run = async () => {
+    const heapMB = process.memoryUsage().heapUsed / 1024 / 1024
+    if (heapMB > HEADLESS_HEAP_LIMIT_MB) {
+      console.warn(`[headless] SKIP ${label}: heap ${Math.round(heapMB)}MB > ${HEADLESS_HEAP_LIMIT_MB}MB limit — avoiding OOM`)
+      return typeof onSkip === 'function' ? onSkip() : { skipped: true }
+    }
+    try { return await fn() }
+    finally { if (global.gc) { try { global.gc() } catch {} } }
+  }
+  // Chain so only one runs at a time; swallow rejections so the chain never breaks.
+  const result = _headlessChain.then(run, run)
+  _headlessChain = result.catch(() => {})
+  return result
+}
+
 // Fetch one or more URLs through real Chrome to get past Cloudflare / bot
 // protection that 403s plain `fetch` (UA sniffing or JS challenges). We navigate
 // the origin ONCE so any Cloudflare interstitial ("Just a moment…") runs its JS
@@ -87,8 +116,15 @@ async function getBrowser() {
 // each target URL — those carry the clearance cookie and return the raw body.
 // Returns [{ url, ok, status, body, contentType, error? }] in input order.
 export async function fetchUrlsViaBrowser(urls, opts = {}) {
-  const { timeoutMs = 30000 } = opts
   if (!Array.isArray(urls) || urls.length === 0) return []
+  return withHeadlessGuard(() => _fetchUrlsViaBrowserImpl(urls, opts), {
+    label: `fetchUrlsViaBrowser(${urls.length} url${urls.length > 1 ? 's' : ''})`,
+    onSkip: () => urls.map(u => ({ url: u, ok: false, status: 0, body: '', contentType: '', error: 'skipped (memory guard)' }))
+  })
+}
+
+async function _fetchUrlsViaBrowserImpl(urls, opts = {}) {
+  const { timeoutMs = 30000 } = opts
   const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
   let page
   try {
@@ -165,7 +201,15 @@ function extractVehicleArray(json) {
 
 // Render a dealer URL, watch every XHR/fetch response, return any that looked like inventory.
 // Returns { success, vehicles, source_url, attempts } — attempts is for diagnostics.
+// Guarded so it never OOM-crashes the sync (serialized + memory precheck).
 export async function renderAndCaptureInventory(dealerUrl, opts = {}) {
+  return withHeadlessGuard(() => _renderAndCaptureInventoryImpl(dealerUrl, opts), {
+    label: 'renderAndCaptureInventory',
+    onSkip: () => ({ success: false, error: 'skipped (memory guard)', vehicles: [], attempts: [] })
+  })
+}
+
+async function _renderAndCaptureInventoryImpl(dealerUrl, opts = {}) {
   const timeoutMs = opts.timeoutMs ?? 45000
   const waitForXhrMs = opts.waitForXhrMs ?? 8000
   const attempts = []
