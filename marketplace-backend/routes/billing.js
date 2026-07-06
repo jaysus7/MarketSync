@@ -285,7 +285,8 @@ export function registerRoutes(app) {
         mode: 'subscription',
         metadata: { type: addonKey, dealership_id: req.dealershipId },
         subscription_data: {
-          trial_period_days: 3,
+          // AI Vision gets a 7-day trial; other add-ons keep the standard 3-day.
+          trial_period_days: addonKey === 'ai_vision' ? 7 : 3,
           metadata: { type: addonKey, dealership_id: req.dealershipId },
         },
         success_url: `${FRONTEND_URL}/dashboard.html?${addonKey}_session={CHECKOUT_SESSION_ID}`,
