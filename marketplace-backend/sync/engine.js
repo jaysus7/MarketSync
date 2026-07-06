@@ -1,4 +1,4 @@
-import { supabaseAdmin, sleep, browserFetch, scraperApiFetch, parseEDealerHtml, CRAWLER_HEADERS } from '../shared.js'
+import { supabaseAdmin, sleep, browserFetch } from '../shared.js'
 import { renderAndCaptureInventory, genericMapVehicle, inferUrlTemplate, renderUrlTemplate, fetchViaBrowser } from '../puppeteerRenderer.js'
 import { PLATFORM_PROBES, fetchConvertusInventory, fetchDealerPageInventory,
          fetchEDealerInventoryFromSitemap, extractEDealerDetailUrls, fetchEDealerDetailImageGroups,
@@ -296,152 +296,54 @@ async function _runInventorySyncInner(dealershipId) {
         jsonCache.set(feed.feed_url, vehicles)
         totalVehiclesFound += vehicles.length
       } else if (feed.platform === 'edealer') {
-        // eDealer full inventory. Methods, best-first:
-        //  1. JSON API (/api/inventory/getall) — the feed that "just works" and returns
-        //     full inventory in one call. Parsed leniently (any array of vehicle-shaped
-        //     objects), because installs vary in casing/wrapping.
-        //  2. Sitemap walker — for sites where the API is Cloudflare-gated but the
-        //     sitemap + detail pages are still reachable server-side.
-        //  3. Listing-page JSON-LD walk — last resort / other platforms.
+        // eDealer (restored May flow): try the JSON API first; if it returns JSON, use
+        // it (full inventory in one call). If Cloudflare-challenged / non-JSON, fall
+        // back to the sitemap walker (fetches each detail page's JSON-LD), then to
+        // headless Chrome (renders the listing page and captures the inventory), and
+        // finally ScraperAPI (residential IP) if a key is configured.
         let origin
         try { origin = new URL(feed.feed_url).origin } catch { origin = '' }
-
-        // Lenient extractor: pull the vehicle array out of whatever shape came back,
-        // and keep only objects that carry a VIN or stock number.
-        const looksVehicle = (o) => o && typeof o === 'object' &&
-          (o.VIN || o.vin || o.Vin || o.StockNumber || o.stocknumber || o.stockNumber || o.Stock)
-        const extractVehicles = (d) => {
-          if (!d) return []
-          const arr = Array.isArray(d) ? d
-            : d.vehicles || d.Vehicles || d.Items || d.items || d.results || d.Results
-              || d.inventory || d.Inventory || d.data || (Array.isArray(d.payload) ? d.payload : null)
-          const list = Array.isArray(arr) ? arr : (Array.isArray(d) ? d : [])
-          return list.filter(looksVehicle)
-        }
-
-        // Method 1: JSON API (direct)
-        let all = []
-        let apiBlocked = false
+        const probe = PLATFORM_PROBES.find(p => p.platform === 'edealer')
         const apiUrl = `${origin}/api/inventory/getall`
+        vehicles = []
+
+        // 1. JSON API
         try {
           const r = await browserFetch(apiUrl, { headers: { Accept: 'application/json' } })
           const ct = r.headers.get('content-type') || ''
           if (r.ok && ct.includes('json')) {
             const d = await r.json().catch(() => null)
-            all = extractVehicles(d)
-            console.log(`[sync] eDealer API: HTTP ${r.status}, extracted ${all.length} vehicles from ${apiUrl}`)
+            vehicles = d && probe?.validate(d) ? probe.extract(d) : (Array.isArray(d) ? d : [])
+            console.log(`[sync] eDealer API: ${vehicles.length} vehicles`)
           } else {
-            apiBlocked = (r.status === 403 || r.status === 503)
-            console.log(`[sync] eDealer API: HTTP ${r.status} (${ct || 'no content-type'}) at ${apiUrl} — trying fallbacks`)
+            console.log(`[sync] eDealer API HTTP ${r.status} (${ct || 'no ct'}) — falling back to sitemap walker`)
           }
-        } catch (e) {
-          console.log(`[sync] eDealer API fetch failed: ${e.message} — trying fallbacks`)
+        } catch (e) { console.log(`[sync] eDealer API failed: ${e.message}`) }
+
+        // 2. Sitemap walker — fetches the inventory sitemap, then each detail page's JSON-LD
+        if (!vehicles.length && origin) {
+          try {
+            const sm = await fetchEDealerInventoryFromSitemap(origin)
+            if (sm && sm.length) { vehicles = sm; console.log(`[sync] eDealer sitemap walker: ${vehicles.length} vehicles`) }
+          } catch (e) { console.log(`[sync] eDealer sitemap walker failed: ${e.message}`) }
         }
 
-        // Method 1b: API as Googlebot (FREE). Dealer sites allow search crawlers so
-        // Google can index inventory, so a Googlebot UA often clears a Cloudflare
-        // block that a normal browser UA hits. One request → full inventory, no key.
-        if (!all.length && apiBlocked) {
+        // 3. Headless Chrome — renders the listing page (passes a JS challenge) and
+        //    captures the inventory XHR. The May fallback for JS-rendered / gated sites.
+        if (!vehicles.length && (feed.source_dealer_url || origin)) {
+          const src = feed.source_dealer_url || `${origin}/inventory/new/`
           try {
-            const r = await browserFetch(apiUrl, { headers: CRAWLER_HEADERS })
-            const ct = r.headers.get('content-type') || ''
-            if (r.ok && ct.includes('json')) {
-              const d = await r.json().catch(() => null)
-              all = extractVehicles(d)
-              console.log(`[sync] eDealer API as Googlebot: HTTP ${r.status}, extracted ${all.length} vehicles`)
+            const rendered = await renderAndCaptureInventory(src)
+            if (rendered.success && rendered.vehicles?.length) {
+              vehicles = rendered.vehicles.map(genericMapVehicle)
+              console.log(`[sync] eDealer headless render: ${vehicles.length} vehicles from ${src}`)
             } else {
-              console.log(`[sync] eDealer API as Googlebot: HTTP ${r.status} — still blocked`)
+              console.log(`[sync] eDealer headless render: ${rendered.error || 'no inventory captured'}`)
             }
-          } catch (e) {
-            console.log(`[sync] eDealer API as Googlebot failed: ${e.message}`)
-          }
+          } catch (e) { console.log(`[sync] eDealer headless render failed: ${e.message}`) }
         }
 
-        // Method 2: sitemap walker as Googlebot (FREE) — the method that worked before
-        // this site added Cloudflare. The detail pages serve JSON-LD FOR crawlers, so
-        // the Googlebot UA restores access. Runs whether or not the API was blocked
-        // (blocked → this is our free bypass; not blocked → API just returned nothing).
-        if (!all.length && origin) {
-          try {
-            const sm = await fetchEDealerInventoryFromSitemap(origin, { headers: CRAWLER_HEADERS })
-            if (sm && sm.length) { all = sm; console.log(`[sync] eDealer sitemap walk (Googlebot): ${all.length} vehicles`) }
-          } catch (e) { console.log(`[sync] eDealer sitemap walk failed: ${e.message}`) }
-        }
-
-        // Method 2b: JSON API via ScraperAPI (residential IP + Cloudflare bypass).
-        // The exact eDealer API path varies per install, so try the known candidates
-        // and stop at the first that returns vehicles. One successful call returns the
-        // FULL inventory, so this stays cheap on the free tier.
-        if (!all.length && apiBlocked && process.env.SCRAPER_API_KEY && origin) {
-          const apiCandidates = [
-            '/api/inventory/getall', '/api/vehicles', '/api/inventory/vehicles',
-            '/api/inventory', '/Inventory/GetInventory'
-          ]
-          for (const path of apiCandidates) {
-            try {
-              const r = await scraperApiFetch(`${origin}${path}`)
-              if (r.ok) {
-                const d = await r.json().catch(() => null)
-                const got = extractVehicles(d)
-                if (got.length) {
-                  all = got
-                  console.log(`[sync] eDealer via ScraperAPI ${path}: extracted ${all.length} vehicles`)
-                  break
-                }
-                console.log(`[sync] eDealer ScraperAPI ${path}: HTTP 200 but 0 vehicles`)
-              } else {
-                console.log(`[sync] eDealer ScraperAPI ${path}: HTTP ${r.status}`)
-              }
-            } catch (e) {
-              console.log(`[sync] eDealer ScraperAPI ${path} failed: ${e.message}`)
-            }
-          }
-          // Last resort: render the listing page(s) through ScraperAPI and scrape the
-          // DOM (the same rendered cards the extension reads). Costs more credits, so
-          // only when the JSON endpoints all failed.
-          if (!all.length) {
-            const src = feed.source_dealer_url || `${origin}/inventory/new/`
-            try {
-              const r = await scraperApiFetch(src, { render: true })
-              if (r.ok) {
-                const html = await r.text()
-                all = parseEDealerHtml(html)
-                console.log(`[sync] eDealer via ScraperAPI render ${src}: extracted ${all.length} vehicles`)
-              } else {
-                console.log(`[sync] eDealer ScraperAPI render: HTTP ${r.status}`)
-              }
-            } catch (e) {
-              console.log(`[sync] eDealer ScraperAPI render failed: ${e.message}`)
-            }
-          }
-        }
-
-        // Method 3: listing-page JSON-LD walk (as Googlebot, so it also works past
-        // a Cloudflare block on the listing pages)
-        if (!all.length) {
-          const listingUrls = []
-          const src = feed.source_dealer_url
-          if (src && /\/(inventory|inventaire|new|used|pre-owned|vehicles)\b/i.test(src)) {
-            listingUrls.push(src)
-          } else if (origin) {
-            const ft = (feed.feed_type || 'all').toLowerCase()
-            if (ft === 'new') listingUrls.push(`${origin}/inventory/new/`)
-            else if (ft === 'used') listingUrls.push(`${origin}/inventory/used/`)
-            else listingUrls.push(`${origin}/inventory/new/`, `${origin}/inventory/used/`)
-          }
-          const seenIds = new Set()
-          for (const lu of listingUrls) {
-            const walked = await fetchListingPageInventory(lu, { headers: CRAWLER_HEADERS })
-            for (const v of walked || []) {
-              const id = v.vin || (v.stocknumber ? `stk:${v.stocknumber}` : null)
-              if (id && !seenIds.has(id)) { seenIds.add(id); all.push(v) }
-            }
-          }
-          if (all.length) console.log(`[sync] eDealer listing walk: ${all.length} vehicles`)
-        }
-
-        if (!all.length) console.log(`[sync] eDealer: 0 vehicles from all methods for ${origin} — Cloudflare block survived even Googlebot UA (needs ScraperAPI key or extension)`)
-        vehicles = all
+        if (!vehicles.length) console.log(`[sync] eDealer: 0 vehicles for ${origin} (Cloudflare challenge — use the extension for this dealer)`)
         jsonCache.set(feed.feed_url, vehicles)
         totalVehiclesFound += vehicles.length
       } else {
@@ -450,21 +352,14 @@ async function _runInventorySyncInner(dealershipId) {
         })
         let ct = feedRes.headers.get('content-type') || ''
 
-        // Read the body once. On a Cloudflare/WAF block (403/503), skip fast.
-        // Retrying via headless Chrome is opt-in (ENABLE_PUPPETEER_FALLBACK=1):
-        // on the 512MB tier, launching Chrome starves the whole server — every
-        // other dealer's sync AND all dashboard API calls stall behind it.
+        // Read the body once. On a Cloudflare/WAF block (403/503), retry through real
+        // Chrome so the JS challenge clears and we get the actual feed body (May flow).
         let bodyText
         if (feedRes.status === 403 || feedRes.status === 503) {
-          if (process.env.ENABLE_PUPPETEER_FALLBACK === '1') {
-            console.log(`[sync] feed ${feed.feed_url} blocked (HTTP ${feedRes.status}) — retrying via headless Chrome`)
-            const br = await fetchViaBrowser(`${feed.feed_url}?v=${Date.now()}`)
-            bodyText = br.ok ? br.body : ''
-            if (br.contentType) ct = br.contentType
-          } else {
-            console.log(`[sync] feed ${feed.feed_url} blocked (HTTP ${feedRes.status}) — skipping (extension capture or ENABLE_PUPPETEER_FALLBACK=1)`)
-            bodyText = ''
-          }
+          console.log(`[sync] feed ${feed.feed_url} blocked (HTTP ${feedRes.status}) — retrying via headless Chrome`)
+          const br = await fetchViaBrowser(`${feed.feed_url}?v=${Date.now()}`)
+          bodyText = br.ok ? br.body : ''
+          if (br.contentType) ct = br.contentType
         } else {
           bodyText = await feedRes.text()
         }
