@@ -198,6 +198,30 @@
     return all
   }
 
+  // Auto-scroll to force lazy/infinite-scroll inventory to fully load. Many dealer
+  // sites (eDealer via WordPress admin-ajax.php?page=N) only render ~24 cards up front
+  // and fetch the rest as you scroll. We repeatedly scroll to the bottom, waiting for
+  // the card count to stop growing, so the site's own JS pulls every page into the DOM.
+  async function autoScrollToLoadAll(maxMs = 90000) {
+    const countCards = () => document.querySelectorAll(
+      '[data-vin],[data-vehicle-vin],[class*="vehicle-card"],[class*="inventory-card"],[class*="vehicle-listing"],[class*="srp-item"],article,li'
+    ).length
+    let last = -1, stable = 0
+    const start = Date.now()
+    while (Date.now() - start < maxMs) {
+      window.scrollTo(0, document.body.scrollHeight)
+      // Also nudge any inner scroll containers eDealer sometimes uses.
+      document.querySelectorAll('[class*="results"],[class*="listing"]').forEach(el => { try { el.scrollTop = el.scrollHeight } catch {} })
+      await new Promise(r => setTimeout(r, 1600))  // wait for the next admin-ajax page
+      const now = countCards()
+      try { chrome.runtime.sendMessage({ type: 'CAPTURE_PROGRESS', feed_id: window.__marketsyncFeedId || null, phase: 'scanning', current: now, total: now }) } catch {}
+      if (now <= last) { stable++; if (stable >= 3) break } else { stable = 0 }
+      last = now
+    }
+    window.scrollTo(0, 0)
+    await new Promise(r => setTimeout(r, 300))
+  }
+
   // Full eDealer inventory via the STATIC inventory sitemap. Unlike the React app's
   // client-side ?page=N pagination (which returns page-1 HTML or, on a Cloudflare site,
   // a fresh challenge — capping us at ~24), the sitemap is a plain XML file listing
@@ -427,9 +451,10 @@
           return all
         }
 
-        // Strategy C: DOM scrape — eDealer renders vehicle cards server-side so the
-        // API only returns one page but ALL vehicles are in the rendered HTML.
-        // Extract from [data-vin] elements, window globals, or embedded JSON in <script>.
+        // Strategy C: DOM scrape — but FIRST auto-scroll so the site's own infinite
+        // scroll (WordPress admin-ajax.php?page=N, ~86KB of cards per page) loads EVERY
+        // vehicle into the DOM. Without this the DOM only holds the first ~24 cards.
+        await autoScrollToLoadAll()
         const domVehicles = eDealerScrapeDOM()
         const domFresh = domVehicles.filter(v => {
           const id = v.VIN || v.vin || v.StockNumber || v.stocknumber
