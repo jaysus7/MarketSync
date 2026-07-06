@@ -3,7 +3,7 @@ import { supabaseAdmin, resend, EMAIL_FROM, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { scrapeMarketData } from '../scraper.js'
 import { createNotification, createNotifications } from '../notifications.js'
-import { runPhotoVision } from '../sync/photoVision.js'
+import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
 
 const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 
@@ -937,15 +937,36 @@ Units 60d+ on lot: ${stale}`
       return res.status(403).json({ error: 'AI Vision not active' })
     }
     const rescan = req.query.rescan === '1' || req.body?.rescan === true
-    // Count what will be scanned so the UI can show progress.
+    // Grab the vehicles that still need scoring (or all, on rescan).
     let q = supabaseAdmin.from('inventory')
-      .select('id', { count: 'exact', head: true })
+      .select('id, image_urls, photo_checked_at')
       .eq('dealership_id', req.dealershipId).eq('status', 'available')
+      .order('created_at', { ascending: false }).limit(600)
     if (!rescan) q = q.is('photo_checked_at', null)
-    const { count } = await q
-    res.json({ status: 'scanning', total: count || 0 })
-    // Fire-and-forget — results land on the inventory rows.
-    runPhotoVision(req.dealershipId, { rescan }).catch(e => console.warn('[ai-vision] scan failed:', e.message))
+    const { data: pending } = await q
+    const todo = pending || []
+
+    // Score a small first batch synchronously so results appear the instant the
+    // scan returns — on big stores the fully-background job is slow/unreliable on
+    // the host and the user was left staring at an empty page. The rest runs in
+    // the background as before.
+    const FIRST_BATCH = 6
+    const head = todo.slice(0, FIRST_BATCH)
+    await Promise.all(head.map(async row => {
+      try {
+        const { score, flags, analysis } = await scoreVehiclePhotos(row)
+        await supabaseAdmin.from('inventory').update({
+          photo_score: score, photo_flags: flags, photo_analysis: analysis,
+          photo_checked_at: new Date().toISOString(),
+        }).eq('id', row.id)
+      } catch (e) { console.warn('[ai-vision] first-batch score failed:', e.message) }
+    }))
+
+    res.json({ status: 'scanning', total: todo.length, scored_now: head.length })
+    // Fire-and-forget the remainder — results land on the inventory rows.
+    if (todo.length > FIRST_BATCH) {
+      runPhotoVision(req.dealershipId, { rescan }).catch(e => console.warn('[ai-vision] scan failed:', e.message))
+    }
   })
 
   // Return scored vehicles (worst first) + a summary.

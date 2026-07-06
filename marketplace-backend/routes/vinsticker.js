@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware.js'
 import { createNotification } from '../notifications.js'
 import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
 import { brandVehiclePhotos } from '../utils/photoOverlay.js'
+import { fontFaceCss } from '../utils/brochureFonts.js'
 import multer from 'multer'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024 } })
@@ -219,8 +220,9 @@ function buildWindowStickerHtml(vehicle, dealer, branding, recalls, photoDataUri
 <html lang="en">
 <head><meta charset="UTF-8">
 <style>
+  ${fontFaceCss()}
   *{margin:0;padding:0;box-sizing:border-box;}
-  body{font-family:'Arial',Helvetica,sans-serif;width:1056px;height:816px;background:#fff;color:#111;display:flex;flex-direction:column;overflow:hidden;}
+  body{font-family:'Arimo','Arial',Helvetica,sans-serif;width:1056px;height:816px;background:#fff;color:#111;display:flex;flex-direction:column;overflow:hidden;}
 
   /* ── HEADER ── */
   .top-hdr{background:${primary};display:flex;align-items:stretch;height:60px;flex-shrink:0;}
@@ -529,14 +531,15 @@ function buildBrochureHtml(vehicle, dealer, branding, recalls, photosDataUris, l
 
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><style>
+  ${fontFaceCss()}
   *{margin:0;padding:0;box-sizing:border-box;overflow-wrap:break-word;word-break:break-word;}
-  body{font-family:'Georgia','Times New Roman',serif;width:816px;background:#fff;color:#1f2937;}
+  body{font-family:'Tinos','Georgia','Times New Roman',serif;width:816px;background:#fff;color:#1f2937;}
   /* min-height (not fixed height) + no overflow:hidden → copy can never be clipped;
      a long page simply grows onto a second sheet instead of cutting words off. */
   .page{width:816px;min-height:1056px;position:relative;page-break-after:always;display:flex;flex-direction:column;}
   .page:last-child{page-break-after:auto;}
-  .sans{font-family:'Arial',Helvetica,sans-serif;}
-  .eyebrow{font-family:'Arial',sans-serif;font-size:13px;letter-spacing:5px;text-transform:uppercase;color:${secondary};font-weight:700;}
+  .sans{font-family:'Arimo','Arial',Helvetica,sans-serif;}
+  .eyebrow{font-family:'Arimo','Arial',sans-serif;font-size:13px;letter-spacing:5px;text-transform:uppercase;color:${secondary};font-weight:700;}
 
   /* PAGE 1 — COVER */
   .cover-top{padding:40px 56px 0;display:flex;align-items:center;justify-content:space-between;}
@@ -547,23 +550,23 @@ function buildBrochureHtml(vehicle, dealer, branding, recalls, photosDataUris, l
   .cover-headline{font-size:46px;line-height:1.08;font-weight:900;color:${primary};letter-spacing:-1px;margin:14px 0 16px;}
   .cover-sub{font-size:21px;line-height:1.5;color:#4b5563;font-style:italic;}
   .cover-foot{margin-top:auto;background:${primary};padding:26px 56px;display:flex;align-items:center;justify-content:space-between;}
-  .cover-name{color:#fff;font-size:26px;font-weight:900;font-family:'Arial',sans-serif;}
-  .cover-trim{color:rgba(255,255,255,.75);font-size:16px;font-family:'Arial',sans-serif;margin-top:3px;}
+  .cover-name{color:#fff;font-size:26px;font-weight:900;font-family:'Arimo','Arial',sans-serif;}
+  .cover-trim{color:rgba(255,255,255,.75);font-size:16px;font-family:'Arimo','Arial',sans-serif;margin-top:3px;}
   .cover-price{background:${secondary};color:#fff;border-radius:8px;padding:14px 26px;text-align:center;}
-  .cover-price .lbl{font-family:'Arial',sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;opacity:.85;}
+  .cover-price .lbl{font-family:'Arimo','Arial',sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;opacity:.85;}
   .cover-price .val{font-size:30px;font-weight:900;line-height:1.1;}
 
   /* SHARED interior header */
   .ihdr{background:${primary};padding:34px 56px;}
   .ihdr .eyebrow{color:${secondary};}
-  .ihdr h2{font-family:'Arial',sans-serif;color:#fff;font-size:34px;font-weight:900;margin-top:8px;letter-spacing:-.5px;}
+  .ihdr h2{font-family:'Arimo','Arial',sans-serif;color:#fff;font-size:34px;font-weight:900;margin-top:8px;letter-spacing:-.5px;}
   .icontent{flex:1;padding:36px 56px 44px;}
 
   /* PAGE 2 — lineup + trims */
   .lineup-intro{font-size:18px;line-height:1.7;color:#374151;margin-bottom:26px;}
   .trim{padding:16px 0;border-top:2px solid #eee;}
   .trim:first-child{border-top:3px solid ${secondary};}
-  .trim h3{font-family:'Arial',sans-serif;font-size:21px;font-weight:800;color:${primary};margin-bottom:6px;}
+  .trim h3{font-family:'Arimo','Arial',sans-serif;font-size:21px;font-weight:800;color:${primary};margin-bottom:6px;}
   .trim p{font-size:16px;line-height:1.65;color:#4b5563;}
 
   /* PAGE 3 — this vehicle */
@@ -572,20 +575,20 @@ function buildBrochureHtml(vehicle, dealer, branding, recalls, photosDataUris, l
   .hl-para{font-size:19px;line-height:1.8;color:#374151;margin-bottom:22px;}
   .spec-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:26px;}
   .spec-tile{background:#f8fafc;border:1px solid #e5e7eb;border-top:4px solid ${secondary};border-radius:6px;padding:16px 14px;text-align:center;}
-  .st-label{font-family:'Arial',sans-serif;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;}
-  .st-val{font-family:'Arial',sans-serif;font-size:19px;font-weight:800;color:${primary};margin-top:5px;}
+  .st-label{font-family:'Arimo','Arial',sans-serif;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;}
+  .st-val{font-family:'Arimo','Arial',sans-serif;font-size:19px;font-weight:800;color:${primary};margin-top:5px;}
 
   /* PAGE 4 — dealership */
   .d-page{align-items:stretch;}
   .d-hero{background:${primary};flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px;}
   .d-logo{background:#fff;border-radius:12px;padding:26px 34px;margin-bottom:34px;}
-  .d-name{color:#fff;font-size:40px;font-weight:900;font-family:'Arial',sans-serif;letter-spacing:-.5px;}
+  .d-name{color:#fff;font-size:40px;font-weight:900;font-family:'Arimo','Arial',sans-serif;letter-spacing:-.5px;}
   .d-tag{color:${secondary};font-size:20px;font-style:italic;margin-top:14px;max-width:560px;}
   .d-contact{background:#fff;padding:46px 56px;text-align:center;}
   .d-contact .eyebrow{display:block;margin-bottom:16px;}
-  .d-line{font-family:'Arial',sans-serif;font-size:19px;line-height:1.9;color:#374151;}
-  .d-cta{margin-top:26px;background:${secondary};color:#fff;font-family:'Arial',sans-serif;font-size:20px;font-weight:800;padding:16px 0;border-radius:8px;}
-  .d-vin{font-family:'Arial',sans-serif;font-size:12px;color:#9ca3af;margin-top:22px;letter-spacing:.5px;}
+  .d-line{font-family:'Arimo','Arial',sans-serif;font-size:19px;line-height:1.9;color:#374151;}
+  .d-cta{margin-top:26px;background:${secondary};color:#fff;font-family:'Arimo','Arial',sans-serif;font-size:20px;font-weight:800;padding:16px 0;border-radius:8px;}
+  .d-vin{font-family:'Arimo','Arial',sans-serif;font-size:12px;color:#9ca3af;margin-top:22px;letter-spacing:.5px;}
 </style></head><body>
 
 <!-- PAGE 1 — COVER -->
@@ -736,6 +739,9 @@ async function generatePdf(html, { landscape = false, viewportWidth = 860, viewp
     page = await browser.newPage()
     page.setDefaultNavigationTimeout(timeoutMs)
     await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: timeoutMs })
+    // Wait for the inlined @font-face fonts to finish loading so text is measured
+    // and painted with the right metrics (otherwise a fallback face can flash in).
+    await page.evaluate(() => document.fonts && document.fonts.ready).catch(() => {})
     const pdf = await page.pdf({ format: 'Letter', landscape, printBackground: true, margin: { top: 0, bottom: 0, left: 0, right: 0 } })
     return pdf
   } finally {

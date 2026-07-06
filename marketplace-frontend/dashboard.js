@@ -4303,7 +4303,10 @@ async function runAiVisionScan() {
     if (!res.ok) throw new Error(data.error || 'Scan failed');
     const total = data.total || 0;
     if (!total) { showToast('All photos are already scored — nothing new to scan.', 'info'); await loadAiVisionResults(); return; }
-    showToast(`Scanning photos on ${total} listing${total === 1 ? '' : 's'} — this runs in the background.`, 'info', 6000);
+    // The first few were scored synchronously — show them right away.
+    await loadAiVisionResults();
+    if (total <= (data.scored_now || 0)) { showToast(`Scored ${total} listing${total === 1 ? '' : 's'}.`, 'info'); return; }
+    showToast(`Scanning photos on ${total} listing${total === 1 ? '' : 's'} — the rest fills in over the next couple of minutes.`, 'info', 6000);
     // Poll results for ~2 min as the background scan fills in scores.
     for (let i = 0; i < 20; i++) {
       await new Promise(r => setTimeout(r, 6000));
