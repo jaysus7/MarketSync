@@ -229,9 +229,6 @@ async function initializeDashboardEcosystem() {
       document.querySelectorAll('[data-admin-nav]').forEach(el => el.classList.add('hidden'));
     }
 
-    // Populate the pipeline summary strip on the inventory page.
-    if (inDealership) loadPipelineStrip();
-
     // Groups live inside Profile & Settings — reveal that section for anyone who
     // can create or join a group (dealer admins, group admins, owner).
     if (role === 'DEALER_GROUP' || role === 'OWNER' || role === 'DEALER_ADMIN') {
@@ -892,33 +889,6 @@ async function loadGuardrailSettings() {
       finally { msg.classList.remove('hidden'); btn.disabled = false; }
     });
   }
-}
-
-async function loadPipelineStrip() {
-  const strip = document.getElementById('pipeline-strip');
-  const cols = document.getElementById('pipeline-strip-cols');
-  if (!strip || !cols) return;
-  try {
-    const r = await fetch(`${API}/pipeline`, { headers: { 'Authorization': `Bearer ${token}` } });
-    if (!r.ok) return;
-    const d = await r.json();
-    const c = d.counts || {};
-    const defs = [
-      { k: 'posted', label: 'Posted', cls: 'text-blue-600 dark:text-blue-400' },
-      { k: 'appointment_set', label: 'Appt Set', cls: 'text-indigo-600 dark:text-indigo-400' },
-      { k: 'claimed_sale', label: 'Claimed', cls: 'text-emerald-600 dark:text-emerald-400' },
-      { k: 'need_relisting', label: 'Relist', cls: 'text-amber-600 dark:text-amber-400' },
-    ];
-    cols.innerHTML = defs.map(x => `
-      <div class="text-center">
-        <div class="text-2xl font-black tabular-nums ${x.cls}">${c[x.k] || 0}</div>
-        <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400 mt-0.5">${x.label}</div>
-      </div>`).join('');
-    // Open the integrated pipeline page rather than the old standalone file.
-    strip.setAttribute('href', 'javascript:void(0)');
-    strip.onclick = (e) => { e.preventDefault(); switchPage('pipeline'); };
-    strip.classList.remove('hidden');
-  } catch {}
 }
 
 async function setRepRole(id, name, to) {
@@ -4431,18 +4401,9 @@ async function loadVinStickerInventory() {
 
       // Status communicated via action button states — no separate badge row needed
 
-      // Build pill-style detail chips
-      const chips = [
-        v.condition    && `<span class="chip">${cap(v.condition)}</span>`,
-        v.body_style   && `<span class="chip">${v.body_style}</span>`,
-        v.engine       && `<span class="chip">${v.engine}</span>`,
-        v.drivetrain   && `<span class="chip">${v.drivetrain}</span>`,
-        v.fuel_type    && `<span class="chip">${v.fuel_type}</span>`,
-        v.transmission && `<span class="chip">${v.transmission}</span>`,
-        v.exterior_color && `<span class="chip">Ext: ${v.exterior_color}</span>`,
-        v.interior_color && `<span class="chip">Int: ${v.interior_color}</span>`,
-        v.doors        && `<span class="chip">${v.doors}-door</span>`,
-      ].filter(Boolean).join('');
+      // Spec detail is available in the VIN Decode modal, so we keep the card
+      // clean and don't repeat it here.
+      const chips = '';
 
       const vinBtnCls = hasVin
         ? 'bg-emerald-50 dark:bg-emerald-900/40 hover:bg-emerald-100 dark:hover:bg-emerald-800/60 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
