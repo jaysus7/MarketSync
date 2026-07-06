@@ -9,7 +9,7 @@ export function registerNotifications(app) {
 
     const { data, error } = await supabaseAdmin
       .from('notifications')
-      .select('id, type, title, body, link_page, link_filter, read, created_at')
+      .select('id, type, title, body, link_page, link_filter, link_url, read, created_at')
       .eq('dealership_id', req.dealershipId)
       .order('created_at', { ascending: false })
       .limit(50)

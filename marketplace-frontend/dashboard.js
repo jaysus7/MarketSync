@@ -4764,6 +4764,9 @@ document.addEventListener('DOMContentLoaded', () => {
     competitor:   { icon: '🔍', color: 'text-purple-500' },
     billing:      { icon: '💳', color: 'text-indigo-500' },
     weekly_report:{ icon: '📊', color: 'text-slate-500' },
+    window_sticker:{ icon: '🪟', color: 'text-cyan-500' },
+    brochure:     { icon: '📄', color: 'text-rose-500' },
+    email_sent:   { icon: '📧', color: 'text-teal-500' },
   }
 
   function timeAgo(iso) {
@@ -4784,7 +4787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     list.innerHTML = items.map(n => {
       const meta = TYPE_META[n.type] || { icon: '•', color: 'text-slate-400' }
       return `
-        <div class="notif-item flex gap-3 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer ${n.read ? 'opacity-60' : ''}" data-id="${n.id}" data-page="${n.link_page || ''}" data-filter="${n.link_filter || ''}">
+        <div class="notif-item flex gap-3 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer ${n.read ? 'opacity-60' : ''}" data-id="${n.id}" data-page="${n.link_page || ''}" data-filter="${n.link_filter || ''}" data-url="${n.link_url || ''}">
           <span class="text-xl mt-0.5 flex-shrink-0">${meta.icon}</span>
           <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-2">
@@ -4792,6 +4795,9 @@ document.addEventListener('DOMContentLoaded', () => {
               <span class="text-[10px] text-slate-400 whitespace-nowrap flex-shrink-0 mt-0.5">${timeAgo(n.created_at)}</span>
             </div>
             ${n.body ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">${n.body}</p>` : ''}
+            ${n.link_url ? `<span class="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">Open PDF
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </span>` : ''}
           </div>
           ${!n.read ? '<span class="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0 mt-1.5"></span>' : '<span class="w-2 h-2 flex-shrink-0"></span>'}
         </div>`
@@ -4802,11 +4808,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const id   = el.dataset.id
         const page = el.dataset.page
         const filter = el.dataset.filter
+        const url  = el.dataset.url
         // Mark read
         await authFetch(`${API}/notifications/${id}/read`, { method: 'POST' }).catch(() => {})
         el.classList.add('opacity-60')
         el.querySelector('span.bg-indigo-500')?.classList.replace('bg-indigo-500', 'bg-transparent')
         updateBadge()
+        // External link (e.g. a generated PDF) → open in a new tab.
+        if (url) {
+          window.open(url, '_blank', 'noopener');
+          return;
+        }
         // Navigate if page set
         if (page) {
           closePanel()

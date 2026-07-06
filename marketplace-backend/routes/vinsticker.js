@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { createNotification } from '../notifications.js'
 import multer from 'multer'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024 } })
@@ -1005,6 +1006,15 @@ export function registerRoutes(app) {
         const path = `${req.dealershipId}/${vehicle.id}/window-sticker.pdf`
         const url = await uploadPdf(pdf, path)
         await supabaseAdmin.from('inventory').update({ window_sticker_url: url }).eq('id', vehicle.id)
+        // Surface a clickable notification linking straight to the finished PDF.
+        const vName = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ')
+        await createNotification({
+          dealershipId: req.dealershipId,
+          type: 'window_sticker',
+          title: 'Window sticker ready',
+          body: `Your window sticker for the ${vName} is ready to view or print.`,
+          linkUrl: url,
+        })
       } catch (e) {
         console.error('[window-sticker background]', e.message)
       } finally {
@@ -1066,6 +1076,15 @@ export function registerRoutes(app) {
         const path = `${req.dealershipId}/${vehicle.id}/brochure.pdf`
         const url = await uploadPdf(pdf, path)
         await supabaseAdmin.from('inventory').update({ brochure_url: url }).eq('id', vehicle.id)
+        // Surface a clickable notification linking straight to the finished PDF.
+        const vName = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ')
+        await createNotification({
+          dealershipId: req.dealershipId,
+          type: 'brochure',
+          title: 'Brochure ready',
+          body: `Your 4-page brochure for the ${vName} is ready to view or print.`,
+          linkUrl: url,
+        })
       } catch (e) {
         console.error('[brochure background]', e.message)
       } finally {

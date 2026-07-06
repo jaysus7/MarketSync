@@ -114,6 +114,15 @@ export function registerAI(app) {
         subject: `Missing info alert: ${vehicleLabel}`,
         html: `<p>The following required fields are missing for <strong>${vehicleLabel}</strong> (Stock #${vehicle.stocknumber || 'N/A'}):</p><ul>${warnings.map(w => `<li>${w}</li>`).join('')}</ul><p>Please update the listing before posting.</p>`
       }).catch(() => {}) // non-blocking — don't fail the request
+      // Mirror the email as an in-app notification, deep-linked to the vehicle.
+      await createNotification({
+        dealershipId: req.dealershipId,
+        type: 'email_sent',
+        title: `Missing-info email sent: ${vehicleLabel}`,
+        body: `Emailed ${dealer.ai_manager_email} — ${warnings.join(', ')}.`,
+        linkPage: 'inventory',
+        linkFilter: vehicle.stocknumber || vehicle.vin || '',
+      })
     }
 
     // ── Price comp check vs external marketplaces ──
