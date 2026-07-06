@@ -503,6 +503,9 @@ const PL_COLS = [
 ];
 const PL_MOVE_LABEL = { posted: 'Posted', appointment_set: 'Appointment Set', claimed_sale: 'Mark Sold', need_relisting: 'Need Relisting' };
 let PL_DATA = { columns: {}, counts: {} };
+// Cards the user has collapsed (kept across re-renders so a move/refresh doesn't
+// re-expand everything). Board-wide collapse toggles every card at once.
+const PL_COLLAPSED = new Set();
 const plMoney = (n) => n != null ? '$' + Number(n).toLocaleString() : '';
 const plKm = (n) => n != null ? Number(n).toLocaleString() + ' km' : '';
 const plPosted = (d) => { try { const days = Math.floor((Date.now() - new Date(d)) / 86400000); return days <= 0 ? 'today' : days + 'd ago'; } catch { return ''; } };
@@ -537,11 +540,20 @@ function plCard(c) {
     ? `<img src="${esc(c.image)}" alt="" loading="lazy" class="w-full h-24 object-cover rounded-md bg-slate-100 dark:bg-slate-800">`
     : `<div class="w-full h-24 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 text-2xl">🚗</div>`;
   const postedTag = `<span class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">Posted</span>`;
+  const collapsed = PL_COLLAPSED.has(c.id);
+  const chevron = `<button data-collapse="${c.id}" class="flex-shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition p-0.5" title="${collapsed ? 'Expand' : 'Collapse'}"><svg class="w-4 h-4 transition-transform ${collapsed ? '' : 'rotate-90'}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>`;
   return `
     <div class="pl-card group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 cursor-grab active:cursor-grabbing" draggable="true" data-card-id="${c.id}" data-card-label="${esc(c.label)}" data-card-stage="${c.stage}">
+      <div class="flex items-start gap-1.5">
+        ${chevron}
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-bold text-slate-900 dark:text-white leading-snug truncate">${esc(c.label)}</div>
+          ${collapsed && c.price ? `<div class="text-xs font-black text-slate-700 dark:text-slate-200 mt-0.5">${plMoney(c.price)}</div>` : ''}
+        </div>
+      </div>
+      <div class="pl-body ${collapsed ? 'hidden' : ''}">
       ${thumb}
       <div class="mt-2 min-w-0">
-        <div class="text-sm font-bold text-slate-900 dark:text-white leading-snug truncate">${esc(c.label)}</div>
         ${sub ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">${esc(sub)}</div>` : ''}
       </div>
       <div class="flex items-center justify-between gap-2 mt-1.5">
@@ -564,6 +576,7 @@ function plCard(c) {
       <select data-move="${c.id}" class="mt-2 w-full text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-slate-600 dark:text-slate-300">
         <option value="">Move to…</option>${opts}
       </select>
+      </div>
     </div>`;
 }
 
@@ -582,6 +595,8 @@ async function plMoveCard(id, stage, label) {
 function plRender() {
   const root = document.getElementById('pipeline-root');
   if (!root) return;
+  const allCardIds = Object.values(PL_DATA.columns || {}).flat().map(c => c.id);
+  const allCollapsed = allCardIds.length > 0 && allCardIds.every(id => PL_COLLAPSED.has(id));
   const cols = PL_COLS.map(col => {
     const cards = (PL_DATA.columns[col.key] || []);
     const bodyHtml = cards.length ? cards.map(plCard).join('') : '<div class="text-xs text-slate-400 italic py-6 text-center">Nothing here</div>';
@@ -601,11 +616,27 @@ function plRender() {
         <h2 class="text-xl font-bold text-slate-900 dark:text-white">Sales Pipeline</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">${PL_DATA.can_manage_all ? 'Every posting across your store' : 'Your postings'} — move each one as the deal progresses.</p>
       </div>
-      <button id="pl-refresh" class="text-sm font-bold px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Refresh</button>
+      <div class="flex items-center gap-2">
+        <button id="pl-collapse-all" class="text-sm font-bold px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${allCollapsed ? 'Expand all' : 'Collapse all'}</button>
+        <button id="pl-refresh" class="text-sm font-bold px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Refresh</button>
+      </div>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">${cols}</div>`;
 
   document.getElementById('pl-refresh').addEventListener('click', loadPipelinePage);
+  // Collapse / expand toggles (kept client-side; no reload needed).
+  root.querySelectorAll('[data-collapse]').forEach(btn => btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const id = btn.dataset.collapse;
+    if (PL_COLLAPSED.has(id)) PL_COLLAPSED.delete(id); else PL_COLLAPSED.add(id);
+    plRender();
+  }));
+  document.getElementById('pl-collapse-all').addEventListener('click', () => {
+    const allIds = Object.values(PL_DATA.columns || {}).flat().map(c => c.id);
+    if (allIds.every(id => PL_COLLAPSED.has(id))) allIds.forEach(id => PL_COLLAPSED.delete(id));
+    else allIds.forEach(id => PL_COLLAPSED.add(id));
+    plRender();
+  });
   root.querySelectorAll('[data-relist]').forEach(btn => btn.addEventListener('click', async () => {
     btn.disabled = true; btn.textContent = 'Relisting…';
     try {
