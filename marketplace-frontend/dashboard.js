@@ -3579,9 +3579,17 @@ async function generatePdf(vehicleId, type, btn) {
   btn.textContent = 'Generating…';
   const label = type === 'window-sticker' ? 'Window Sticker' : 'Brochure';
 
-  const openUrl = (url) => {
+  const openUrl = (url, source) => {
     window.open(url, '_blank');
-    showToast(`${label} ready — opened in new tab`, 'success');
+    // For window stickers, tell the dealer whether it's the authentic factory
+    // document or one we generated.
+    let msg = `${label} ready — opened in new tab`;
+    if (type === 'window-sticker') {
+      msg = source === 'oem'
+        ? 'Official manufacturer window sticker — opened in new tab'
+        : 'MarketSync-generated window sticker — opened in new tab';
+    }
+    showToast(msg, 'success');
     btn.disabled = false;
     btn.textContent = origText;
   };
@@ -3599,7 +3607,7 @@ async function generatePdf(vehicleId, type, btn) {
       });
       const d = await r.json();
       if (d.status === 'ready' && d.url) {
-        openUrl(d.url);
+        openUrl(d.url, d.source);
       } else {
         setTimeout(() => pollStatus(deadline), 4000);
       }
@@ -3618,7 +3626,7 @@ async function generatePdf(vehicleId, type, btn) {
     if (!res.ok) throw new Error(data.error || 'PDF generation failed');
     if (data.url) {
       // Cached — open immediately
-      openUrl(data.url);
+      openUrl(data.url, data.source);
     } else {
       // Generation started — poll for completion (150s deadline)
       pollStatus(Date.now() + 150_000);

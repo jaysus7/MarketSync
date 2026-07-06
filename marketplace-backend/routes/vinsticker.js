@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { createNotification } from '../notifications.js'
+import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
 import multer from 'multer'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024 } })
@@ -983,7 +984,7 @@ export function registerRoutes(app) {
     if (error || !vehicle) return res.status(404).json({ error: 'Vehicle not found' })
 
     if (vehicle.window_sticker_url && req.query.regen !== '1') {
-      return res.json({ url: vehicle.window_sticker_url, cached: true })
+      return res.json({ url: vehicle.window_sticker_url, source: vehicle.window_sticker_source || 'generated', cached: true })
     }
 
     // Respond immediately — generate in background to avoid platform timeout
@@ -994,6 +995,30 @@ export function registerRoutes(app) {
         console.error('[window-sticker background] hard timeout — killed after 110s')
       }, 110000)
       try {
+        const path = `${req.dealershipId}/${vehicle.id}/window-sticker.pdf`
+        const vName = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ')
+
+        // ── OEM-first: try to fetch the authentic manufacturer window sticker ──
+        // by VIN. When a public source has it (e.g. Ford), we use the real
+        // factory Monroney label instead of generating one.
+        const oem = await fetchOemWindowStickerPdf(vehicle)
+        if (oem) {
+          const url = await uploadPdf(oem.buffer, path)
+          await supabaseAdmin.from('inventory')
+            .update({ window_sticker_url: url, window_sticker_source: 'oem' })
+            .eq('id', vehicle.id)
+          await createNotification({
+            dealershipId: req.dealershipId,
+            type: 'window_sticker',
+            title: `Official ${oem.provider} window sticker found`,
+            body: `The authentic factory window sticker for the ${vName} is ready to view or print.`,
+            linkUrl: url,
+          })
+          clearTimeout(deadline)
+          return
+        }
+
+        // ── Fallback: generate our own sticker from the (auto-decoded) specs ──
         const branding = dealer.branding || {}
         // Images are resized to WebP by imgToDataUri to keep HTML payload small
         const imageUrls = (vehicle.image_urls || []).slice(0, 2)
@@ -1003,11 +1028,11 @@ export function registerRoutes(app) {
         ])
         const html = buildWindowStickerHtml(vehicle, dealer, branding, vehicle.recalls || [], photoDataUris.filter(Boolean), logoDataUri)
         const pdf = await generatePdf(html, { landscape: true, viewportWidth: 1100, viewportHeight: 860, timeoutMs: 90000 })
-        const path = `${req.dealershipId}/${vehicle.id}/window-sticker.pdf`
         const url = await uploadPdf(pdf, path)
-        await supabaseAdmin.from('inventory').update({ window_sticker_url: url }).eq('id', vehicle.id)
+        await supabaseAdmin.from('inventory')
+          .update({ window_sticker_url: url, window_sticker_source: 'generated' })
+          .eq('id', vehicle.id)
         // Surface a clickable notification linking straight to the finished PDF.
-        const vName = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ')
         await createNotification({
           dealershipId: req.dealershipId,
           type: 'window_sticker',
@@ -1028,11 +1053,11 @@ export function registerRoutes(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: vehicle } = await supabaseAdmin
       .from('inventory')
-      .select('window_sticker_url')
+      .select('window_sticker_url, window_sticker_source')
       .eq('id', req.params.vehicleId)
       .eq('dealership_id', req.dealershipId)
       .single()
-    if (vehicle?.window_sticker_url) return res.json({ status: 'ready', url: vehicle.window_sticker_url })
+    if (vehicle?.window_sticker_url) return res.json({ status: 'ready', url: vehicle.window_sticker_url, source: vehicle.window_sticker_source || 'generated' })
     res.json({ status: 'generating' })
   })
 
@@ -1113,7 +1138,7 @@ export function registerRoutes(app) {
     await Promise.allSettled([
       supabaseAdmin.storage.from('vehicle-pdfs').remove([`${req.dealershipId}/${vehicleId}/window-sticker.pdf`]),
       supabaseAdmin.storage.from('vehicle-pdfs').remove([`${req.dealershipId}/${vehicleId}/brochure.pdf`]),
-      supabaseAdmin.from('inventory').update({ window_sticker_url: null, brochure_url: null }).eq('id', vehicleId).eq('dealership_id', req.dealershipId),
+      supabaseAdmin.from('inventory').update({ window_sticker_url: null, window_sticker_source: null, brochure_url: null }).eq('id', vehicleId).eq('dealership_id', req.dealershipId),
     ])
     res.json({ ok: true })
   })
