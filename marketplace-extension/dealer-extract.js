@@ -198,6 +198,114 @@
     return all
   }
 
+  // Full eDealer inventory via the STATIC inventory sitemap. Unlike the React app's
+  // client-side ?page=N pagination (which returns page-1 HTML or, on a Cloudflare site,
+  // a fresh challenge — capping us at ~24), the sitemap is a plain XML file listing
+  // EVERY vehicle detail (vdp) URL. We fetch it with the user's session (passes
+  // Cloudflare via cf_clearance), then pull each detail page's JSON-LD Car node.
+  // This is the reliable way to get the full inventory on Cloudflare eDealer sites.
+  async function walkEDealerSitemap() {
+    const fetchText = async (url) => {
+      try {
+        const r = await fetch(url, { credentials: 'include', headers: { Accept: 'application/xml,text/html,*/*' } })
+        return r.ok ? await r.text() : null
+      } catch { return null }
+    }
+    const vdpFrom = (xml) => [...xml.matchAll(/<loc>([^<]+\/inventory\/[^<]+vdp\/?)<\/loc>/gi)].map(m => m[1])
+
+    const candidates = [
+      '/inventory-listing-sitemap.xml', '/inventory-sitemap.xml', '/vehicle-sitemap.xml',
+      '/vehicles-sitemap.xml', '/inventory_sitemap.xml', '/sitemap_index.xml', '/sitemap.xml'
+    ]
+    let vdpUrls = []
+    for (const path of candidates) {
+      const xml = await fetchText(origin + path)
+      if (!xml) continue
+      if (/<sitemapindex/i.test(xml)) {
+        // Sitemap index → follow inventory-related child sitemaps.
+        const children = [...xml.matchAll(/<loc>([^<]+)<\/loc>/gi)].map(m => m[1]).filter(u => /invent|vehicle/i.test(u))
+        for (const child of children) {
+          const cx = await fetchText(child)
+          if (cx) vdpUrls.push(...vdpFrom(cx))
+        }
+      } else {
+        vdpUrls.push(...vdpFrom(xml))
+      }
+      if (vdpUrls.length) break
+    }
+    vdpUrls = [...new Set(vdpUrls)]
+    if (!vdpUrls.length) return []
+
+    const jsonLdRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+    const carFromHtml = (html) => {
+      let m
+      while ((m = jsonLdRe.exec(html)) !== null) {
+        let data; try { data = JSON.parse(m[1]) } catch { continue }
+        const q = [data]
+        while (q.length) {
+          const n = q.pop()
+          if (!n || typeof n !== 'object') continue
+          if (Array.isArray(n)) { for (const x of n) q.push(x); continue }
+          if (Array.isArray(n['@graph'])) { for (const x of n['@graph']) q.push(x); continue }
+          const t = n['@type']; const types = Array.isArray(t) ? t : (t ? [t] : [])
+          if (types.some(x => x === 'Car' || x === 'Vehicle' || x === 'MotorVehicle')) { jsonLdRe.lastIndex = 0; return n }
+          for (const v of Object.values(n)) if (v && typeof v === 'object') q.push(v)
+        }
+      }
+      jsonLdRe.lastIndex = 0
+      return null
+    }
+    const mapCar = (c, url) => {
+      const cond = (c.itemCondition || '') + ' ' + (c.name || '')
+      const cfg = typeof c.vehicleConfiguration === 'string' ? c.vehicleConfiguration.split(' ').filter(Boolean) : []
+      const offer = Array.isArray(c.offers) ? c.offers[0] : c.offers
+      let price = offer?.price || c.offers?.lowPrice || 0
+      if (typeof price === 'string') price = parseInt(price.replace(/[^0-9]/g, '')) || 0
+      let imgs = c.image
+      if (imgs && typeof imgs === 'object' && !Array.isArray(imgs)) imgs = imgs.url || imgs.contentUrl
+      imgs = (Array.isArray(imgs) ? imgs : (imgs ? [imgs] : []))
+        .map(i => typeof i === 'string' ? i : (i?.url || i?.contentUrl))
+        .filter(u => u && !/coming|no-?image|placeholder/i.test(u))
+      return {
+        vin: c.vehicleIdentificationNumber || null,
+        year: c.vehicleModelDate ? parseInt(c.vehicleModelDate) : null,
+        make: c.brand?.name || c.manufacturer?.name || (typeof c.brand === 'string' ? c.brand : null),
+        model: typeof c.model === 'string' ? c.model : (c.model?.name || null),
+        trim: cfg.length > 1 ? cfg.slice(1).join(' ') : null,
+        price, saleprice: price,
+        mileage: c.mileageFromOdometer?.value || c.mileageFromOdometer || 0,
+        exteriorcolor: c.color || null, transmission: c.vehicleTransmission || null,
+        fueltype: c.fuelType || c.vehicleEngine?.fuelType || null, bodystyle: c.bodyType || null,
+        condition: /demo/i.test(cond) ? 'Demo' : /new/i.test((c.itemCondition || '')) ? 'New' : /used|pre-?owned|certified/i.test(cond) ? 'Used' : null,
+        demo: /demo/i.test(cond),
+        stocknumber: c.sku || c.productID || c.mpn || null,
+        image_urls: imgs, onweb: true, salepending: false,
+        vdp_url: url, _detail_url: url
+      }
+    }
+
+    const all = []
+    const seen = new Set()
+    const CONC = 4
+    for (let i = 0; i < vdpUrls.length; i += CONC) {
+      const batch = vdpUrls.slice(i, i + CONC)
+      const results = await Promise.all(batch.map(async (url) => {
+        const html = await fetchText(url)
+        if (!html) return null
+        const car = carFromHtml(html)
+        return car ? mapCar(car, url) : null
+      }))
+      for (const v of results) {
+        if (!v) continue
+        const id = v.vin || (v.stocknumber ? 'stk:' + v.stocknumber : v._detail_url)
+        if (id && !seen.has(id)) { seen.add(id); all.push(v) }
+      }
+      try { chrome.runtime.sendMessage({ type: 'CAPTURE_PROGRESS', feed_id: window.__marketsyncFeedId || null, phase: 'scanning', current: all.length, total: vdpUrls.length }) } catch {}
+    }
+    log(`eDealer sitemap walk: ${all.length}/${vdpUrls.length} detail pages parsed`)
+    return all
+  }
+
   // Detect which platform this dealer runs. Same probe shapes as the server
   // PLATFORM_PROBES array, but client-side. Each entry tries a candidate path,
   // validates the response shape, and returns normalized vehicles.
@@ -332,6 +440,22 @@
           domFresh.forEach(v => seen.add(v.VIN || v.vin || v.StockNumber || v.stocknumber))
           all.push(...domFresh)
           try { chrome.runtime.sendMessage({ type: 'CAPTURE_PROGRESS', feed_id: window.__marketsyncFeedId || null, phase: 'scanning', current: all.length, total: all.length }) } catch {}
+        }
+
+        // Strategy D: still capped at the API page size (≤ 25)? The React app paginates
+        // client-side and the getall API caps at 24, so the only reliable full-inventory
+        // source is the static sitemap (every vdp URL), then the listing-page walk.
+        // Try each and keep whichever returns the most vehicles.
+        if (all.length <= 25) {
+          for (const strat of [walkEDealerSitemap, walkEDealerListingPages]) {
+            try {
+              const more = await strat()
+              if (more && more.length > all.length) {
+                log(`eDealer ${strat.name}: ${more.length} vehicles (was ${all.length})`)
+                return more
+              }
+            } catch (e) { log(`eDealer ${strat.name} failed:`, e.message) }
+          }
         }
         return all
       }
