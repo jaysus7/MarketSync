@@ -7,6 +7,7 @@ import { mapFuel, buildDescription, fetchVehiclePhotos } from '../utils/descript
 import { parseGenericFeed } from './genericFeed.js'
 import { autoDecodeInventory } from './vinDecode.js'
 import { runPhotoVision } from './photoVision.js'
+import { brandDealershipPhotos } from '../utils/photoOverlay.js'
 
 // Per-dealership in-flight sync tracking. Prevents the boot sync, the post-add
 // auto-sync, and a manual Sync Now click from all running for the same dealership
@@ -672,6 +673,9 @@ async function _runInventorySyncInner(dealershipId) {
     const { data: d } = await supabaseAdmin.from('dealerships').select('ai_vision_active').eq('id', dealershipId).single()
     if (d?.ai_vision_active) runPhotoVision(dealershipId).catch(e => console.warn('[sync] ai-vision failed:', e.message))
   } catch {}
+
+  // Photo overlays: pre-brand new photos when the dealer has overlays on.
+  brandDealershipPhotos(dealershipId).catch(e => console.warn('[sync] photo-overlay failed:', e.message))
 
   const { count: availableCount } = await supabaseAdmin
     .from('inventory')

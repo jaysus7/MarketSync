@@ -776,6 +776,24 @@ async function postVehicle(inventoryId, token) {
       apiGet('/auth/me', token).catch(() => null)
     ])
     if (enriched?.copy) vehicle.ai_description = enriched.copy
+
+    // Photo overlays: post the branded (phone/logo) photos when available. If the
+    // dealer has overlays on but this vehicle isn't branded yet, generate now.
+    if (Array.isArray(vehicle.branded_image_urls) && vehicle.branded_image_urls.length) {
+      vehicle.image_urls = vehicle.branded_image_urls
+    } else {
+      try {
+        btn.textContent = 'Branding photos...'
+        const r = await fetch(`${API}/photos/brand/${inventoryId}`, {
+          method: 'POST', headers: { Authorization: `Bearer ${token}` }
+        })
+        if (r.ok) {
+          const d = await r.json()
+          if (Array.isArray(d.branded_image_urls) && d.branded_image_urls.length) vehicle.image_urls = d.branded_image_urls
+        }
+      } catch { /* overlays off or unavailable — post the original photos */ }
+    }
+
     btn.textContent = 'Opening Facebook...'
     chrome.storage.local.set({ pendingPost: { vehicle, token, poster } }, () => {
       chrome.tabs.create({ url: 'https://www.facebook.com/marketplace/create/vehicle' })

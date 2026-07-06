@@ -7,6 +7,7 @@ import { mapFuel, buildDescription } from '../utils/description.js'
 import { parseGenericFeed } from '../sync/genericFeed.js'
 import { autoDecodeInventory } from '../sync/vinDecode.js'
 import { runPhotoVision } from '../sync/photoVision.js'
+import { brandDealershipPhotos } from '../utils/photoOverlay.js'
 
 export function registerRoutes(app) {
   app.post('/feeds/probe', async (req, res) => {
@@ -188,6 +189,7 @@ export function registerRoutes(app) {
       const { data: d } = await supabaseAdmin.from('dealerships').select('ai_vision_active').eq('id', req.dealershipId).single()
       if (d?.ai_vision_active) runPhotoVision(req.dealershipId).catch(e => console.warn('[extension-capture] ai-vision failed:', e.message))
     } catch {}
+    brandDealershipPhotos(req.dealershipId).catch(e => console.warn('[extension-capture] photo-overlay failed:', e.message))
 
     console.log(`[extension-capture] feed=${feedId} upserted=${upserted} skipped=${skipped} removed=${removed}`)
     res.json({ success: true, upserted, skipped, removed, total: vehicles.length })

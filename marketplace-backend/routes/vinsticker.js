@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { createNotification } from '../notifications.js'
 import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
+import { brandVehiclePhotos } from '../utils/photoOverlay.js'
 import multer from 'multer'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024 } })
@@ -771,19 +772,44 @@ export function registerRoutes(app) {
   // ── Branding: PUT ──────────────────────────────────────────────────────
   app.put('/branding', requireAuth, requireDealerAdmin, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { primary_color, secondary_color, tagline, logo_url } = req.body
-    const branding = {}
-    if (primary_color !== undefined) branding.primary_color = primary_color
-    if (secondary_color !== undefined) branding.secondary_color = secondary_color
-    if (tagline !== undefined) branding.tagline = tagline
-    if (logo_url !== undefined) branding.logo_url = logo_url
+    const b = req.body || {}
+    // Merge onto existing branding so a partial save never wipes other fields.
+    const { data: current } = await supabaseAdmin
+      .from('dealerships').select('branding').eq('id', req.dealershipId).single()
+    const branding = { ...(current?.branding || {}) }
+    for (const k of ['primary_color', 'secondary_color', 'tagline', 'logo_url',
+                     'overlay_enabled', 'overlay_phone', 'overlay_position', 'overlay_logo']) {
+      if (b[k] !== undefined) branding[k] = b[k]
+    }
 
     const { error } = await supabaseAdmin
       .from('dealerships')
       .update({ branding })
       .eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
-    res.json({ ok: true })
+    res.json({ ok: true, branding })
+  })
+
+  // ── Brand a vehicle's photos (phone/logo overlay) ──────────────────────
+  app.post('/photos/brand/:vehicleId', requireAuth, requireDealerAdmin, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: vehicle, error } = await supabaseAdmin
+      .from('inventory')
+      .select('id, image_urls, branded_image_urls')
+      .eq('id', req.params.vehicleId).eq('dealership_id', req.dealershipId).single()
+    if (error || !vehicle) return res.status(404).json({ error: 'Vehicle not found' })
+
+    const dealer = await loadDealershipData(req.dealershipId)
+    if (!dealer?.branding?.overlay_enabled) {
+      return res.status(400).json({ error: 'Photo overlays are turned off. Enable them in Branding first.' })
+    }
+    try {
+      const urls = await brandVehiclePhotos({ ...vehicle, id: vehicle.id }, { id: req.dealershipId, branding: dealer.branding }, { force: req.query.regen === '1' })
+      if (!urls) return res.status(422).json({ error: 'Could not brand these photos (no usable images or overlay disabled).' })
+      res.json({ branded_image_urls: urls })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
   })
 
   // ── Branding logo upload ───────────────────────────────────────────────

@@ -4482,6 +4482,14 @@ async function loadProfileBranding() {
         document.getElementById('prof-brand-accent-hex').value   = b.secondary_color;
       }
       if (b.tagline) document.getElementById('prof-brand-tagline').value = b.tagline;
+      const ovEn = document.getElementById('prof-overlay-enabled');
+      if (ovEn) ovEn.checked = !!b.overlay_enabled;
+      const ovPh = document.getElementById('prof-overlay-phone');
+      if (ovPh) ovPh.value = b.overlay_phone || '';
+      const ovPos = document.getElementById('prof-overlay-position');
+      if (ovPos) ovPos.value = b.overlay_position === 'top' ? 'top' : 'bottom';
+      const ovLogo = document.getElementById('prof-overlay-logo');
+      if (ovLogo) ovLogo.checked = b.overlay_logo !== false;
       if (b.logo_url) {
         const preview = document.getElementById('prof-brand-logo-preview');
         if (preview) preview.innerHTML = `<img src="${b.logo_url}" class="max-h-16 max-w-full object-contain p-1" alt="logo">`;
@@ -4527,6 +4535,10 @@ async function saveProfileBranding() {
     primary_color:   document.getElementById('prof-brand-primary-hex')?.value || '',
     secondary_color: document.getElementById('prof-brand-accent-hex')?.value || '',
     tagline:         document.getElementById('prof-brand-tagline')?.value || '',
+    overlay_enabled:  !!document.getElementById('prof-overlay-enabled')?.checked,
+    overlay_phone:    document.getElementById('prof-overlay-phone')?.value || '',
+    overlay_position: document.getElementById('prof-overlay-position')?.value || 'bottom',
+    overlay_logo:     document.getElementById('prof-overlay-logo')?.checked !== false,
   };
   try {
     const [brandRes, toneRes] = await Promise.all([
