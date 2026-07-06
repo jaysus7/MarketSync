@@ -2192,10 +2192,16 @@ function setupActionListeners() {
 
   // Team invite toggle + form
   const inviteForm = document.getElementById('invite-rep-form');
-  document.getElementById('invite-rep-btn')?.addEventListener('click', () => {
-    inviteForm.classList.toggle('hidden');
+  const openInvite = (role) => {
+    document.getElementById('invite-role').value = role;
+    document.getElementById('invite-form-title').textContent = role === 'MANAGER' ? 'Invite a manager' : 'Invite a sales rep';
+    document.getElementById('invite-submit-btn').textContent = role === 'MANAGER' ? 'Create Manager' : 'Create Rep';
+    document.getElementById('invite-email').placeholder = role === 'MANAGER' ? 'manager@dealership.com' : 'rep@dealership.com';
+    inviteForm.classList.remove('hidden');
     document.getElementById('invite-result').classList.add('hidden');
-  });
+  };
+  document.getElementById('invite-rep-btn')?.addEventListener('click', () => openInvite('SALES_REP'));
+  document.getElementById('invite-manager-btn')?.addEventListener('click', () => openInvite('MANAGER'));
   document.getElementById('invite-cancel-btn')?.addEventListener('click', () => {
     inviteForm.classList.add('hidden');
   });
@@ -2204,7 +2210,8 @@ function setupActionListeners() {
     const payload = {
       full_name: document.getElementById('invite-name').value.trim(),
       email: document.getElementById('invite-email').value.trim(),
-      password: document.getElementById('invite-password').value || undefined
+      password: document.getElementById('invite-password').value || undefined,
+      role: document.getElementById('invite-role').value || 'SALES_REP'
     };
     try {
       const data = await inviteRep(payload);
@@ -3524,24 +3531,20 @@ function openVinDecode(vehicleId, existingVin) {
   __vinDecodeVehicleId = vehicleId;
   __vinDecodeData = null;
   const modal = document.getElementById('vin-decode-modal');
-  const input = document.getElementById('vin-decode-input');
   document.getElementById('vin-decode-results').classList.add('hidden');
   document.getElementById('vin-decode-error').classList.add('hidden');
   document.getElementById('vin-decode-loading').classList.add('hidden');
-  if (existingVin) input.value = existingVin;
-  else input.value = '';
+  const vinLabel = document.getElementById('vin-decode-vin');
+  if (vinLabel) vinLabel.textContent = existingVin ? `VIN ${existingVin}` : '';
   modal.classList.remove('hidden');
-  input.focus();
+  // Auto-load the full decode from the vehicle's VIN — no manual step.
+  if (existingVin && existingVin.length >= 11) runVinDecode(existingVin);
+  else showVinError('This vehicle has no VIN on file to decode.');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('vin-decode-modal')?.addEventListener('click', (e) => {
     if (e.target.id === 'vin-decode-modal') e.target.classList.add('hidden');
-  });
-
-  document.getElementById('vin-decode-btn')?.addEventListener('click', runVinDecode);
-  document.getElementById('vin-decode-input')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') runVinDecode();
   });
 
   // Branding Settings wiring
@@ -3566,10 +3569,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('branding-save-btn')?.addEventListener('click', saveBrandingSettings);
 });
 
-async function runVinDecode() {
-  const vin = (document.getElementById('vin-decode-input')?.value || '').trim().toUpperCase();
+async function runVinDecode(vinArg) {
+  const vin = String(vinArg || '').trim().toUpperCase();
   if (!vin || vin.length < 11) {
-    showVinError('Please enter a valid 17-character VIN.');
+    showVinError('This vehicle has no VIN on file to decode.');
     return;
   }
   const token = localStorage.getItem('token');
@@ -3597,10 +3600,9 @@ function showVinError(msg) {
   el.classList.remove('hidden');
 }
 
-function renderVinResults({ decoded, recalls }) {
+function renderVinResults({ decoded, recalls, all_fields }) {
   const grid = document.getElementById('vin-decoded-grid');
-  const vd = decoded.vin_data || {};
-  const plantStr = [vd.plant_city, vd.plant_state, vd.plant_country].filter(Boolean).join(', ') || null;
+  const escv = (s) => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
   const coreFields = [
     ['Year',         decoded.year],
@@ -3615,65 +3617,18 @@ function renderVinResults({ decoded, recalls }) {
     ['Engine',       decoded.engine],
   ].filter(([, v]) => v);
 
-  const extFields = [
-    ['Manufacturer',      vd.manufacturer],
-    ['Vehicle Type',      vd.vehicle_type],
-    ['Series',            vd.series],
-    ['Built In',          plantStr],
-    ['Plant',             vd.plant_company],
-    ['Horsepower',        vd.horsepower ? vd.horsepower + ' HP' : null],
-    ['Cylinders',         vd.cylinders],
-    ['Displacement',      vd.displacement_l ? vd.displacement_l + 'L' : null],
-    ['Displ. (cc)',       vd.displacement_cc ? vd.displacement_cc + 'cc' : null],
-    ['Engine Config',     vd.engine_config],
-    ['Valve Train',       vd.valve_train],
-    ['Turbo',             vd.turbo],
-    ['Engine Model',      vd.engine_model],
-    ['Engine Mfr',        vd.engine_manufacturer],
-    ['Fuel Injection',    vd.fuel_injection],
-    ['Alt Fuel',          vd.fuel_type_secondary],
-    ['Electrification',   vd.electrification],
-    ['Trans Speeds',      vd.transmission_speeds],
-    ['Wheel Base',        vd.wheel_base],
-    ['Wheel Size (F)',    vd.wheel_size_front],
-    ['Wheel Size (R)',    vd.wheel_size_rear],
-    ['Wheels',            vd.wheels],
-    ['Axles',             vd.axles],
-    ['Windows',           vd.windows],
-    ['Seat Rows',         vd.seat_rows],
-    ['Seats',             vd.seats],
-    ['GVWR',              vd.gvwr],
-    ['Curb Weight',       vd.curb_weight_lb ? vd.curb_weight_lb + ' lbs' : null],
-    ['Brakes',            vd.brake_system],
-    ['Steering',          vd.steering_location],
-    ['ABS',               vd.abs],
-    ['ESC',               vd.esc],
-    ['TPMS',              vd.tpms],
-    ['Fwd Collision Warn',vd.forward_collision],
-    ['Lane Departure',    vd.lane_departure],
-    ['Lane Keep',         vd.lane_keep],
-    ['Blind Spot Mon',    vd.blind_spot_mon],
-    ['Adaptive Cruise',   vd.adaptive_cruise],
-    ['Auto Emergency Brk',vd.auto_brake],
-    ['Adaptive Hdlts',    vd.adaptive_headlights],
-    ['Airbags (Front)',   vd.airbag_front],
-    ['Airbags (Side)',    vd.airbag_side],
-    ['Airbags (Curtain)', vd.airbag_curtain],
-    ['Airbags (Knee)',    vd.airbag_knee],
-    ['Keyless Ignition',  vd.keyless_ignition],
-    ['SAE Auto Level',    vd.sae_automation],
-  ].filter(([, v]) => v);
-
   const card = (label, value) => `
     <div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
-      <div class="text-xs text-slate-400 uppercase tracking-wide">${label}</div>
-      <div class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">${value}</div>
+      <div class="text-xs text-slate-400 uppercase tracking-wide">${escv(label)}</div>
+      <div class="text-sm font-bold text-slate-900 dark:text-white mt-0.5">${escv(value)}</div>
     </div>`;
 
+  // Summary tiles up top, then EVERY field NHTSA returned (full deep dive).
   let html = coreFields.map(([l, v]) => card(l, v)).join('');
-  if (extFields.length) {
-    html += `<div class="col-span-2 mt-1 pt-2 border-t border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-400 uppercase tracking-widest">Extended Build Data (NHTSA)</div>`;
-    html += extFields.map(([l, v]) => card(l, v)).join('');
+  const all = Array.isArray(all_fields) ? all_fields : [];
+  if (all.length) {
+    html += `<div class="col-span-2 sm:col-span-3 mt-1 pt-2 border-t border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-400 uppercase tracking-widest">Full Build Data — ${all.length} fields (NHTSA)</div>`;
+    html += all.map(f => card(f.label, f.value)).join('');
   }
   grid.innerHTML = html;
 

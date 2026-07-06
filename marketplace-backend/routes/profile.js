@@ -148,6 +148,14 @@ export function registerRoutes(app) {
     const { email, full_name, password } = req.body || {}
     if (!email || !full_name) return res.status(400).json({ error: 'email and full_name required' })
 
+    // Only a dealer admin/owner may invite someone straight in as a Manager;
+    // a manager inviting can only add reps.
+    const wantsManager = req.body?.role === 'MANAGER'
+    if (wantsManager && !['DEALER_ADMIN', 'OWNER'].includes(req.profile.role)) {
+      return res.status(403).json({ error: 'Only a dealer admin can invite a manager' })
+    }
+    const newRole = wantsManager ? 'MANAGER' : 'SALES_REP'
+
     // Either: admin set a real password (must meet 2026 policy), or we generate a
     // cryptographically-random 16-char temporary one. No more weak Math.random() temps.
     let tempPassword
@@ -174,8 +182,8 @@ export function registerRoutes(app) {
       id: newUser.user.id,
       dealership_id: req.dealershipId,
       full_name,
-      role: 'SALES_REP',
-      account_role: 'sales_rep'
+      role: newRole,
+      account_role: newRole === 'MANAGER' ? 'dealer_admin' : 'sales_rep'
     })
     if (profileError) {
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)

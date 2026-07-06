@@ -962,12 +962,19 @@
             <h2 class="text-lg font-bold text-slate-900 dark:text-white">Sales Team</h2>
             <p class="text-slate-500 dark:text-slate-400 text-xs">Add or remove sales reps for your dealership.</p>
           </div>
-          <button id="invite-rep-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
-            + Invite Rep
-          </button>
+          <div class="flex gap-2">
+            <button id="invite-rep-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
+              + Invite Rep
+            </button>
+            <button id="invite-manager-btn" data-admin-only class="bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
+              + Invite Manager
+            </button>
+          </div>
         </div>
 
         <form id="invite-rep-form" class="hidden mb-4 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded space-y-2">
+          <div id="invite-form-title" class="text-xs font-bold text-slate-700 dark:text-slate-200">Invite a sales rep</div>
+          <input type="hidden" id="invite-role" value="SALES_REP">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <input type="text" id="invite-name" required placeholder="Full name" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
             <input type="email" id="invite-email" required placeholder="rep@dealership.com" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
@@ -975,7 +982,7 @@
           <input type="password" id="invite-password" placeholder="Temporary password (leave blank to auto-generate)" class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
           <div class="flex gap-2 justify-end">
             <button type="button" id="invite-cancel-btn" class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:hover:text-slate-700 dark:text-slate-200 px-3 py-2">Cancel</button>
-            <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition">Create Rep</button>
+            <button type="submit" id="invite-submit-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition">Create Rep</button>
           </div>
         </form>
 
@@ -1996,11 +2003,8 @@
         </button>
       </div>
       <div class="p-5 space-y-4">
-        <div class="flex gap-2">
-          <input type="text" id="vin-decode-input" maxlength="17" placeholder="Enter 17-character VIN…" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase">
-          <button id="vin-decode-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Decode VIN</button>
-        </div>
-        <div id="vin-decode-loading" class="hidden text-center py-4 text-sm text-slate-400 italic">Decoding…</div>
+        <div id="vin-decode-vin" class="text-xs font-mono text-slate-400"></div>
+        <div id="vin-decode-loading" class="hidden text-center py-4 text-sm text-slate-400 italic">Loading decode…</div>
         <div id="vin-decode-error" class="hidden text-sm text-red-500 px-1"></div>
         <div id="vin-decode-results" class="hidden space-y-3">
           <!-- Decoded fields grid -->

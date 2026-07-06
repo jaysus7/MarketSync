@@ -844,8 +844,15 @@ export function registerRoutes(app) {
       ])
 
       let decoded = {}
+      let allFields = []
       if (decodeRes.status === 'fulfilled') {
         const r = decodeRes.value?.Results?.[0] || {}
+        // Full deep-dive: every non-empty NHTSA field, as label/value pairs, so the
+        // modal can show ALL of it (not just the curated subset). Noise keys dropped.
+        const NOISE = /^(ErrorCode|ErrorText|AdditionalErrorText|SuggestedVIN|PossibleValues|VIN|VehicleDescriptor|NCSABodyType|NCSAMake|NCSAModel|NCSAMapExcApprovedBy|NCSAMapExcApprovedOn|NCSANote|NCSAMappingException)$/
+        allFields = Object.entries(r)
+          .filter(([k, v]) => v != null && String(v).trim() !== '' && String(v).trim() !== 'Not Applicable' && String(v).trim() !== '0' && !NOISE.test(k))
+          .map(([k, v]) => ({ label: k.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/_/g, ' ').trim(), value: String(v).trim() }))
         const nv = v => (v && v !== 'Not Applicable' && v !== '0' && v.trim() !== '') ? v.trim() : null
         const ni = v => { const n = parseInt(v); return isNaN(n) ? null : n }
         const nf = v => { const n = parseFloat(v); return isNaN(n) ? null : n }
@@ -956,7 +963,7 @@ export function registerRoutes(app) {
         }))
       }
 
-      res.json({ decoded, recalls, recall_count: recalls.length })
+      res.json({ decoded, recalls, recall_count: recalls.length, all_fields: allFields })
     } catch (e) {
       res.status(500).json({ error: e.message })
     }
