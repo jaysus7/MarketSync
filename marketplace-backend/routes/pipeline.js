@@ -1,5 +1,6 @@
-import { supabaseAdmin } from '../shared.js'
+import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { createNotification } from '../notifications.js'
 
 const STALE_DAYS = 21
 const STAGES = ['posted', 'appointment_set', 'claimed_sale', 'need_relisting']
@@ -36,7 +37,7 @@ export function registerPipeline(app) {
 
     let q = supabaseAdmin
       .from('listings')
-      .select('id, inventory_id, posted_by, vehicle_label, status, posted_at, sold_at, pipeline_stage, fb_listing_url, relisted_at')
+      .select('id, inventory_id, posted_by, vehicle_label, status, posted_at, sold_at, pipeline_stage, fb_listing_url, relisted_at, appointment_at, appointment_note')
       .in('inventory_id', invIds)
       .in('status', ['posted', 'sold'])
       .order('posted_at', { ascending: false })
@@ -64,6 +65,8 @@ export function registerPipeline(app) {
         posted_at: l.posted_at,
         stage: stageFor(l),
         fb_listing_url: l.fb_listing_url || null,
+        appointment_at: l.appointment_at || null,
+        appointment_note: l.appointment_note || null,
       }
       columns[card.stage].push(card)
     }
@@ -90,6 +93,22 @@ export function registerPipeline(app) {
     }
 
     const update = { pipeline_stage: stage === 'posted' ? null : stage, pipeline_updated_at: new Date().toISOString() }
+
+    if (stage === 'appointment_set') {
+      // Capture the appointment time (+ optional note). Re-arm the reminder.
+      if (req.body.appointment_at) {
+        const dt = new Date(req.body.appointment_at)
+        if (isNaN(dt)) return res.status(400).json({ error: 'Invalid appointment time' })
+        update.appointment_at = dt.toISOString()
+      }
+      if (req.body.appointment_note !== undefined) update.appointment_note = req.body.appointment_note || null
+      update.appointment_reminded_at = null
+    } else {
+      // Leaving the appointment column clears the appointment.
+      update.appointment_at = null
+      update.appointment_note = null
+      update.appointment_reminded_at = null
+    }
 
     if (stage === 'claimed_sale') {
       // Mark the listing sold and log the sale (awards leaderboard points), once.
@@ -139,6 +158,56 @@ export function registerPipeline(app) {
     }).eq('id', req.params.id)
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, inventory_id: listing.inventory_id, label: listing.vehicle_label })
+  })
+
+  // Cron: remind on appointments happening within the next 24h (once each).
+  // Creates an in-app notification for the store and emails the manager address
+  // when set. Schedule this hourly/daily with the x-cron-secret header.
+  app.post('/cron/appointment-reminders', async (req, res) => {
+    if (req.headers['x-cron-secret'] !== process.env.CRON_SECRET) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+    const now = new Date()
+    const soon = new Date(now.getTime() + 24 * 3600 * 1000)
+    const { data: due } = await supabaseAdmin
+      .from('listings')
+      .select('id, inventory_id, vehicle_label, appointment_at, appointment_note, posted_by, inventory:inventory_id(dealership_id)')
+      .eq('pipeline_stage', 'appointment_set')
+      .is('appointment_reminded_at', null)
+      .gte('appointment_at', now.toISOString())
+      .lte('appointment_at', soon.toISOString())
+      .limit(500)
+
+    let sent = 0
+    for (const l of due || []) {
+      const dealershipId = l.inventory?.dealership_id
+      if (!dealershipId) continue
+      const when = new Date(l.appointment_at).toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      const label = l.vehicle_label || 'a vehicle'
+      await createNotification({
+        dealershipId,
+        type: 'appointment',
+        title: `Appointment soon — ${label}`,
+        body: `${when}${l.appointment_note ? ' · ' + l.appointment_note : ''}`,
+        linkPage: 'inventory',
+      })
+      // Email the manager address if configured.
+      try {
+        const { data: dealer } = await supabaseAdmin
+          .from('dealerships').select('name, ai_manager_email').eq('id', dealershipId).maybeSingle()
+        if (dealer?.ai_manager_email && resend) {
+          await resend.emails.send({
+            from: EMAIL_FROM,
+            to: dealer.ai_manager_email,
+            subject: `Appointment reminder: ${label}`,
+            html: `<p>Upcoming appointment for <strong>${label}</strong>.</p><p><strong>When:</strong> ${when}</p>${l.appointment_note ? `<p><strong>Note:</strong> ${l.appointment_note}</p>` : ''}`,
+          }).catch(() => {})
+        }
+      } catch {}
+      await supabaseAdmin.from('listings').update({ appointment_reminded_at: now.toISOString() }).eq('id', l.id)
+      sent++
+    }
+    res.json({ ok: true, reminded: sent })
   })
 }
 

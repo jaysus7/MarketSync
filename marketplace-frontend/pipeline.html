@@ -26,13 +26,54 @@
     <div id="root"><div class="py-20 text-center text-sm text-slate-400 italic">Loading pipeline…</div></div>
   </main>
 
+  <!-- Appointment modal -->
+  <div id="appt-modal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl w-full max-w-sm p-6">
+      <h3 class="text-base font-bold mb-1">Set appointment</h3>
+      <p id="appt-veh" class="text-xs text-slate-500 dark:text-slate-400 mb-4"></p>
+      <label class="block text-xs uppercase font-bold tracking-wider text-slate-400 mb-1.5">Date &amp; time</label>
+      <input id="appt-dt" type="datetime-local" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm mb-3">
+      <label class="block text-xs uppercase font-bold tracking-wider text-slate-400 mb-1.5">Note (optional)</label>
+      <input id="appt-note" placeholder="Buyer name, phone…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm mb-4">
+      <div class="flex justify-end gap-2">
+        <button id="appt-cancel" class="text-sm font-bold px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Cancel</button>
+        <button id="appt-save" class="text-sm font-bold px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">Save</button>
+      </div>
+      <p id="appt-err" class="hidden text-xs text-red-500 mt-2"></p>
+    </div>
+  </div>
+
   <script>
     const API = 'https://vehicle-marketplace-s0e4.onrender.com';
     const token = localStorage.getItem('token');
     const root = document.getElementById('root');
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     const fmtDate = (d) => { try { const days = Math.floor((Date.now() - new Date(d)) / 86400000); return days <= 0 ? 'today' : days + 'd ago'; } catch { return ''; } };
+    const fmtAppt = (d) => { try { return new Date(d).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch { return ''; } };
     if (!token) location.href = 'login.html';
+
+    // Appointment modal — resolves with { at, note } or null.
+    function askAppointment(label, existingAt, existingNote) {
+      return new Promise(resolve => {
+        const modal = document.getElementById('appt-modal');
+        const dt = document.getElementById('appt-dt');
+        const note = document.getElementById('appt-note');
+        const err = document.getElementById('appt-err');
+        document.getElementById('appt-veh').textContent = label || '';
+        err.classList.add('hidden');
+        // Prefill (convert ISO → local datetime-local value).
+        if (existingAt) { const d = new Date(existingAt); const off = d.getTimezoneOffset(); dt.value = new Date(d.getTime() - off * 60000).toISOString().slice(0, 16); }
+        else { const d = new Date(Date.now() + 3600000); const off = d.getTimezoneOffset(); dt.value = new Date(d.getTime() - off * 60000).toISOString().slice(0, 16); }
+        note.value = existingNote || '';
+        modal.classList.remove('hidden');
+        const close = (val) => { modal.classList.add('hidden'); document.getElementById('appt-save').onclick = null; document.getElementById('appt-cancel').onclick = null; resolve(val); };
+        document.getElementById('appt-cancel').onclick = () => close(null);
+        document.getElementById('appt-save').onclick = () => {
+          if (!dt.value) { err.textContent = 'Pick a date and time.'; err.classList.remove('hidden'); return; }
+          close({ at: new Date(dt.value).toISOString(), note: note.value.trim() });
+        };
+      });
+    }
 
     const COLS = [
       { key: 'posted',          label: 'Posted',          dot: 'bg-blue-500' },
@@ -55,12 +96,17 @@
       const rep = c.rep ? `<span class="text-slate-400">· ${esc(c.rep)}</span>` : '';
       const link = c.fb_listing_url ? `<a href="${esc(c.fb_listing_url)}" target="_blank" rel="noopener" class="text-indigo-500 hover:text-indigo-400" title="Open on Facebook">↗</a>` : '';
       return `
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3" data-card-label="${esc(c.label)}">
           <div class="flex items-start justify-between gap-2">
             <div class="text-sm font-semibold text-slate-900 dark:text-white leading-snug">${esc(c.label)}</div>
             ${link}
           </div>
           <div class="text-[11px] text-slate-400 mt-1">${c.posted_at ? 'Posted ' + fmtDate(c.posted_at) : ''} ${rep}</div>
+          ${c.stage === 'appointment_set' && c.appointment_at ? `
+            <div class="mt-2 flex items-center justify-between gap-2 text-xs bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded px-2 py-1.5">
+              <span class="font-semibold text-indigo-700 dark:text-indigo-300">📅 ${esc(fmtAppt(c.appointment_at))}</span>
+              <button data-appt-edit="${c.id}" data-label="${esc(c.label)}" data-at="${esc(c.appointment_at)}" data-note="${esc(c.appointment_note || '')}" class="text-indigo-500 hover:text-indigo-400 font-bold">Edit</button>
+            </div>${c.appointment_note ? `<div class="text-[11px] text-slate-400 mt-1">${esc(c.appointment_note)}</div>` : ''}` : ''}
           ${c.stage === 'need_relisting' ? `<button data-relist="${c.id}" class="mt-2 w-full text-xs font-bold bg-amber-500 hover:bg-amber-400 text-white rounded px-2 py-1.5 transition">↻ Relist on Facebook</button>` : ''}
           <select data-move="${c.id}" class="mt-2 w-full text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-slate-600 dark:text-slate-300">
             <option value="">Move to…</option>${opts}
@@ -104,11 +150,28 @@
         } catch (e) { alert(e.message); btn.disabled = false; btn.textContent = '↻ Relist on Facebook'; }
       }));
 
+      document.querySelectorAll('[data-appt-edit]').forEach(btn => btn.addEventListener('click', async () => {
+        const appt = await askAppointment(btn.dataset.label, btn.dataset.at, btn.dataset.note);
+        if (!appt) return;
+        try {
+          const r = await api(`/pipeline/${btn.dataset.apptEdit}`, { method: 'PATCH', body: JSON.stringify({ stage: 'appointment_set', appointment_at: appt.at, appointment_note: appt.note }) });
+          if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+          await load();
+        } catch (e) { alert(e.message); }
+      }));
+
       document.querySelectorAll('[data-move]').forEach(sel => sel.addEventListener('change', async () => {
         const stage = sel.value; if (!stage) return;
+        const body = { stage };
+        // Moving into Appointment Set → ask for the date/time first.
+        if (stage === 'appointment_set') {
+          const appt = await askAppointment(sel.closest('[data-card-label]')?.dataset.cardLabel, null, null);
+          if (!appt) { sel.value = ''; return; }
+          body.appointment_at = appt.at; body.appointment_note = appt.note;
+        }
         sel.disabled = true;
         try {
-          const r = await api(`/pipeline/${sel.dataset.move}`, { method: 'PATCH', body: JSON.stringify({ stage }) });
+          const r = await api(`/pipeline/${sel.dataset.move}`, { method: 'PATCH', body: JSON.stringify(body) });
           if (!r.ok) throw new Error((await r.json()).error || 'Failed');
           await load();
         } catch (e) { alert(e.message); sel.disabled = false; sel.value = ''; }

@@ -4996,6 +4996,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window_sticker:{ icon: '🪟', color: 'text-cyan-500' },
     brochure:     { icon: '📄', color: 'text-rose-500' },
     email_sent:   { icon: '📧', color: 'text-teal-500' },
+    appointment:  { icon: '📅', color: 'text-indigo-500' },
   }
 
   function timeAgo(iso) {
