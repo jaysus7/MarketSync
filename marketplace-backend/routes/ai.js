@@ -1056,7 +1056,68 @@ Units 60d+ on lot: ${stale}`
       return null
     }
 
+    // Sitemap fallback — the one path that survives Cloudflare/WAF blocks. Every
+    // dealer platform publishes an XML sitemap of its vehicle-detail (VDP) pages;
+    // counting those URLs gives an accurate inventory count without loading a single
+    // JS-rendered page, and the sitemap host/URL shape reveals the platform.
+    async function sitemapCountFallback(origin) {
+      if (!origin) return null
+      const candidates = [
+        '/inventory-listing-sitemap.xml', '/vehicles-sitemap.xml', '/inventory-sitemap.xml',
+        '/sitemap_index.xml', '/sitemap.xml'
+      ]
+      // A VDP URL is a single-vehicle detail page; exclude listing/showroom/blog pages.
+      const EXCLUDE = /(vlp\/?$)|\/showroom\/|\/buildandprice\/|\/blog\/|\/category\/|\/page\/|\/wp-|\/author\/|\/tag\//i
+      const INCLUDE = /vdp\/?$|\/vehicle(s)?\/|\/inventory\/[^/]*(19|20)\d{2}[- ][a-z]/i
+      const seen = new Set()
+      let sniffedXml = ''
+      const collect = async (u, depth = 0) => {
+        if (depth > 2 || seen.size > 5000) return
+        let xml = ''
+        try {
+          const r = await browserFetch(u, { signal: AbortSignal.timeout(12000), headers: { 'Accept': 'application/xml, text/xml, */*' } })
+          if (!r.ok) return
+          xml = await r.text()
+        } catch { return }
+        sniffedXml += xml.slice(0, 4000)
+        const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/gi)].map(m => m[1].trim())
+        // Sitemap index → recurse into child sitemaps that look inventory-related.
+        if (/<sitemapindex/i.test(xml)) {
+          for (const child of locs) {
+            if (/inventory|vehicle|listing/i.test(child)) await collect(child, depth + 1)
+          }
+          return
+        }
+        for (const loc of locs) {
+          if (INCLUDE.test(loc) && !EXCLUDE.test(loc)) seen.add(loc)
+        }
+      }
+      for (const path of candidates) {
+        await collect(origin + path)
+        if (seen.size > 0) break
+      }
+      if (seen.size === 0) return null
+      // Platform sniff from the collected VDP URLs + sitemap markup.
+      const sample = [...seen].slice(0, 50).join(' ') + ' ' + sniffedXml
+      let platform = 'Unknown (sitemap)'
+      if (/edealer|\/vdp\//i.test(sample)) platform = 'eDealer'
+      else if (/dealer\.com|dealerdotcom/i.test(sample)) platform = 'Dealer.com'
+      else if (/dealerinspire/i.test(sample)) platform = 'Dealer Inspire'
+      else if (/wp-|wordpress|admin-ajax/i.test(sample)) platform = 'WordPress'
+      else if (/convertus/i.test(sample)) platform = 'Convertus'
+      else if (/vinsolutions|dealersocket/i.test(sample)) platform = 'DealerSocket'
+      return {
+        listing_count: seen.size,
+        avg_price: null, min_price: null, max_price: null,
+        platform,
+        scanned_at: new Date().toISOString()
+      }
+    }
+
     async function scrapeInventoryUrl(url) {
+      let sitemapOrigin = ''
+      try { sitemapOrigin = new URL(url).origin } catch {}
+
       // Strategy 1: DMS platform detection (probes known API endpoints — works on dealer homepages)
       try {
         const { detectFeedPlatform } = await import('../sync/platforms.js')
@@ -1246,6 +1307,10 @@ Units 60d+ on lot: ${stale}`
           }
         } catch {}
 
+        // 3d: last resort — sitemap VDP count (immune to WAF/Cloudflare page blocks)
+        const sm = await sitemapCountFallback(origin)
+        if (sm) return sm
+
         throw new Error(`HTTP ${res.status} — site is blocking automated scans`)
       }
 
@@ -1336,7 +1401,11 @@ Units 60d+ on lot: ${stale}`
         prices = priceMatches.map(m => parseInt(m[1])).filter(p => p > 1000 && p < 500000)
       }
 
-      if (!listing_count && !prices.length) throw new Error('no_inventory_data')
+      if (!listing_count && !prices.length) {
+        const sm = await sitemapCountFallback(sitemapOrigin)
+        if (sm) return sm
+        throw new Error('no_inventory_data')
+      }
 
       const sorted = [...prices].sort((a, b) => a - b)
       const avg_price = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null

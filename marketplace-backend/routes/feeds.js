@@ -61,6 +61,7 @@ export function registerRoutes(app) {
     // so the dashboard catalog / sold-tracking / leaderboard all just work.
     const hasFeedId = await inventoryHasFeedId()
     let upserted = 0, skipped = 0
+    const capturedVins = new Set()   // VINs seen in THIS capture — for the drop-off diff
     for (const v of vehicles) {
       // The probe inside the extension already runs roughly the same field
       // normalization as PLATFORM_PROBES.mapVehicle. Apply the canonical mapper
@@ -72,6 +73,14 @@ export function registerRoutes(app) {
       if (!matchesFeedType(mapped, 'all')) { skipped++; continue }
 
       const effectiveVin = mapped.vin || `STK-${req.dealershipId.slice(0, 8)}-${mapped.stocknumber}`
+
+      // Platform-agnostic sold/pending detection — mirrors runInventorySync so the
+      // dashboard catalog / sold-tracking / Facebook queue behave the same whether a
+      // feed synced server-side or was captured by the extension (Cloudflare dealers).
+      // A vehicle can't be both — sold wins over pending.
+      const statusStr = String(mapped.status || mapped.availability || mapped.sale_status || mapped.saleStatus || mapped.state || '').toLowerCase()
+      const isSold = mapped.sold === true || /\bsold\b|sold[\s_-]?out|soldout/.test(statusStr)
+      const isPending = !isSold && (mapped.salepending === true || mapped.sale_pending === true || /pending|deposit|on[\s_-]?hold|in[\s_-]?progress/.test(statusStr))
 
       const record = {
         dealership_id: req.dealershipId,
@@ -90,7 +99,7 @@ export function registerRoutes(app) {
         description: buildDescription(mapped),
         image_urls: Array.isArray(mapped.image_urls) ? mapped.image_urls : [],
         source_url: buildSourceUrl({ ...feed, platform, url_template: null, url_map: null }, mapped),
-        status: mapped.salepending ? 'pending' : 'available',
+        status: isSold ? 'sold' : (isPending ? 'pending' : 'available'),
         last_synced_at: new Date().toISOString(),
         ...(hasFeedId ? { feed_id: feedId } : {})
       }
@@ -100,10 +109,75 @@ export function registerRoutes(app) {
         .upsert(record, { onConflict: 'vin' })
       if (error) { skipped++; continue }
       upserted++
+      capturedVins.add(effectiveVin)
     }
 
-    console.log(`[extension-capture] feed=${feedId} upserted=${upserted} skipped=${skipped}`)
-    res.json({ success: true, upserted, skipped, total: vehicles.length })
+    // ── Auto-removal + sold→FB queue (feed-scoped) ──
+    // The extension capture is a full-inventory snapshot, so any vehicle that was
+    // previously captured for THIS feed but isn't in the snapshot has dropped off the
+    // dealer site (sold/removed). Delete it, and queue any posted Facebook listing for
+    // deletion first. Scoped to feed_id so we only ever touch this feed's rows — never
+    // another feed's inventory in the same dealership. Requires the feed_id column.
+    let removed = 0
+    if (hasFeedId && capturedVins.size > 0) {
+      try {
+        const { data: currentRows, error: fetchErr } = await supabaseAdmin
+          .from('inventory')
+          .select('id, vin, status')
+          .eq('dealership_id', req.dealershipId)
+          .eq('feed_id', feedId)
+          .eq('status', 'available')
+        if (fetchErr) {
+          console.warn('[extension-capture] could not fetch inventory for diff:', fetchErr.message)
+        } else {
+          const toDelete = []
+          for (const row of currentRows || []) {
+            if (!row.vin) continue
+            if (!capturedVins.has(row.vin)) toDelete.push(row.id)
+          }
+          // Safety brake: refuse to wipe >50% of this feed's inventory (partial capture).
+          const totalCount = (currentRows || []).length
+          if (totalCount > 0 && toDelete.length / totalCount > 0.5) {
+            console.warn(`[extension-capture] would delete ${toDelete.length}/${totalCount} rows — refusing (likely partial capture)`)
+          } else if (toDelete.length) {
+            for (let i = 0; i < toDelete.length; i += 100) {
+              const slice = toDelete.slice(i, i + 100)
+              // Queue Facebook deletion for any posted listing BEFORE deleting inventory
+              // (so inventory_id still matches). Wrapped for pre-migration DBs.
+              try {
+                await supabaseAdmin
+                  .from('listings')
+                  .update({ status: 'deleted', deleted_at: new Date().toISOString(), fb_sync_action: 'delete', fb_synced_at: null })
+                  .in('inventory_id', slice)
+                  .eq('status', 'posted')
+                  .not('fb_listing_url', 'is', null)
+              } catch (e) { console.warn('[extension-capture] delete→FB queue failed (non-fatal):', e.message) }
+              await supabaseAdmin.from('inventory').delete().in('id', slice)
+            }
+            removed = toDelete.length
+            console.log(`[extension-capture] auto-delete: ${removed} rows removed (dropped from feed)`)
+          }
+        }
+      } catch (e) { console.warn('[extension-capture] auto-removal failed (non-fatal):', e.message) }
+
+      // Feed marks a vehicle SOLD but keeps it listed → if posted to Facebook, queue a
+      // "mark sold" so the FB listing reflects it. Idempotent once it flips to 'sold'.
+      try {
+        const { data: soldRows } = await supabaseAdmin
+          .from('inventory').select('id')
+          .eq('dealership_id', req.dealershipId).eq('feed_id', feedId).eq('status', 'sold')
+        const soldIds = (soldRows || []).map(r => r.id)
+        for (let i = 0; i < soldIds.length; i += 100) {
+          const slice = soldIds.slice(i, i + 100)
+          await supabaseAdmin.from('listings')
+            .update({ status: 'sold', deleted_at: new Date().toISOString(), fb_sync_action: 'sold', fb_synced_at: null })
+            .in('inventory_id', slice).eq('status', 'posted').not('fb_listing_url', 'is', null)
+        }
+      } catch (e) { console.warn('[extension-capture] sold→FB queue failed (non-fatal):', e.message) }
+    }
+
+    console.log(`[extension-capture] feed=${feedId} upserted=${upserted} skipped=${skipped} removed=${removed}`)
+    res.json({ success: true, upserted, skipped, removed, total: vehicles.length })
   })
 
   app.get('/inventory-feeds', requireAuth, async (req, res) => {
