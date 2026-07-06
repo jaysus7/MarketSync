@@ -273,6 +273,7 @@ async function initializeDashboardEcosystem() {
     document.querySelectorAll('#dashboard-nav .nav-item').forEach(btn => {
       btn.addEventListener('click', () => switchPage(btn.dataset.page));
     });
+    setupMobileMoreMenu();
     switchPage('insights');
 
     // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
@@ -463,6 +464,37 @@ async function loadLeadsPage() {
       loadLeadsPage();
     } catch (e) { alert(e.message); b.disabled = false; b.textContent = 'Send to CRM'; }
   }));
+}
+
+// Mobile "all pages" sheet — lists every nav page the user can access.
+function setupMobileMoreMenu() {
+  const btn = document.getElementById('nav-more');
+  const menu = document.getElementById('nav-more-menu');
+  const list = document.getElementById('nav-more-list');
+  if (!btn || !menu || !list) return;
+  const close = () => menu.classList.add('hidden');
+
+  btn.addEventListener('click', () => {
+    // Rebuild each open so it reflects the user's current role/add-on access.
+    // Include every nav button that isn't role-hidden (Tailwind `hidden` class).
+    const navBtns = [...document.querySelectorAll('#dashboard-nav button[title]')]
+      .filter(b => b.id !== 'nav-more' && !b.classList.contains('hidden'));
+    list.innerHTML = '';
+    navBtns.forEach(src => {
+      const label = src.getAttribute('title') || '';
+      const svg = src.querySelector('svg')?.outerHTML || '';
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'flex items-center gap-2.5 px-3 py-3 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left';
+      item.innerHTML = `<span class="w-5 h-5 flex-shrink-0 opacity-70">${svg}</span><span class="truncate">${label}</span>`;
+      item.addEventListener('click', () => { close(); src.click(); });
+      list.appendChild(item);
+    });
+    menu.classList.remove('hidden');
+  });
+
+  document.getElementById('nav-more-close')?.addEventListener('click', close);
+  menu.addEventListener('click', (e) => { if (e.target === menu) close(); });
 }
 
 // ── Sales Pipeline (integrated page) ─────────────────────────────────────────
