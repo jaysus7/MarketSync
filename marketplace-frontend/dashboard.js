@@ -101,7 +101,7 @@ async function initializeDashboardEcosystem() {
     const dealershipName = isPersonalDealership
       ? 'Independent'
       : (profileContext.dealership?.name || 'Independent');
-    const isAdminHeader = profileContext.role === 'DEALER_ADMIN' || profileContext.role === 'OWNER';
+    const isAdminHeader = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext.role);
 
     if (isAdminHeader && !isPersonalDealership) {
       document.getElementById('ui-profile-name').textContent = dealershipName;
@@ -174,7 +174,7 @@ async function initializeDashboardEcosystem() {
     document.getElementById('ui-role-pill').textContent = rolePillLabel;
 
     // Hide dealer-only profile fields for sales reps
-    if (role !== 'DEALER_ADMIN' && role !== 'OWNER') {
+    if (role !== 'DEALER_ADMIN' && role !== 'OWNER' && role !== 'MANAGER') {
       document.querySelectorAll('[data-dealer-only]').forEach(el => el.classList.add('hidden'));
     }
 
@@ -199,7 +199,7 @@ async function initializeDashboardEcosystem() {
     setupInvIntelListeners();
     setupAiVisionListeners();
 
-    const isAdmin = role === 'DEALER_ADMIN' || role === 'OWNER';
+    const isAdmin = role === 'DEALER_ADMIN' || role === 'OWNER' || role === 'MANAGER';
     const inDealership = !!profileContext.dealership?.id;
     const isPersonal = profileContext.dealership?.is_personal === true;
     const isSolo = role === 'SALES_REP' && (isPersonal || !inDealership);
@@ -227,6 +227,20 @@ async function initializeDashboardEcosystem() {
     // Hide admin-only nav items for non-admins
     if (!isAdmin) {
       document.querySelectorAll('[data-admin-nav]').forEach(el => el.classList.add('hidden'));
+    }
+
+    // Group admins (and the owner) get a link to the multi-store Group dashboard.
+    if (role === 'DEALER_GROUP' || role === 'OWNER') {
+      const navEl = document.getElementById('dashboard-nav');
+      if (navEl && !document.getElementById('nav-group-admin')) {
+        const a = document.createElement('a');
+        a.id = 'nav-group-admin';
+        a.href = 'group.html';
+        a.title = 'Group Admin';
+        a.className = 'flex-1 md:flex-none md:w-full flex items-center justify-center md:justify-start gap-2.5 px-2 md:px-3 py-2.5 md:py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition';
+        a.innerHTML = '<svg class="w-5 h-5 md:w-4 md:h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/></svg><span class="hidden md:inline">Group Admin</span>';
+        navEl.appendChild(a);
+      }
     }
     // Hide team-only nav items (Leaderboard) for solo reps — nothing to rank
     if (isSolo || !inDealership) {
@@ -484,12 +498,21 @@ async function loadDealerManagementMatrix() {
     tableBody.innerHTML = team.map(m => {
       const isSelf = m.id === user.id;
       const isAdmin = m.role === 'DEALER_ADMIN' || m.role === 'OWNER';
-      const roleBadge = isAdmin
+      const isManager = m.role === 'MANAGER';
+      // Only a dealer admin/owner may change roles (a manager cannot mint managers).
+      const viewerCanSetRole = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
+      const roleBadge = (isAdmin || isManager)
         ? `<span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">${m.role}</span>`
         : `<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700">${m.role}</span>`;
+      const roleBtn = (!isSelf && !isAdmin && viewerCanSetRole)
+        ? `<button class="rep-role-btn text-indigo-500 hover:text-indigo-400 text-xs font-bold" data-rep-id="${m.id}" data-rep-name="${m.full_name || m.email || 'this rep'}" data-to="${isManager ? 'SALES_REP' : 'MANAGER'}">${isManager ? 'Make Rep' : 'Make Manager'}</button>`
+        : '';
+      const removeBtn = (!isSelf && !isAdmin)
+        ? `<button class="rep-remove-btn text-red-400 hover:text-red-300 text-xs font-bold" data-rep-id="${m.id}" data-rep-name="${m.full_name || m.email || 'this rep'}">Remove</button>`
+        : '';
       const action = (isSelf || isAdmin)
         ? `<span class="text-xs text-slate-600">—</span>`
-        : `<button class="rep-remove-btn text-red-400 hover:text-red-300 text-xs font-bold" data-rep-id="${m.id}" data-rep-name="${m.full_name || m.email || 'this rep'}">Remove</button>`;
+        : `<div class="flex items-center justify-end gap-3">${roleBtn}${removeBtn}</div>`;
       const youTag = isSelf ? ' <span class="text-xs text-slate-500 font-normal">(you)</span>' : '';
       const nameCell = `<button class="rep-detail-btn text-left font-bold text-slate-900 dark:text-white hover:text-indigo-400 transition" data-rep-id="${m.id}">${m.full_name || '(no name)'}${youTag}</button>`;
       return `
@@ -509,11 +532,32 @@ async function loadDealerManagementMatrix() {
     document.querySelectorAll('.rep-remove-btn').forEach(btn => {
       btn.addEventListener('click', () => removeRep(btn.dataset.repId, btn.dataset.repName));
     });
+    document.querySelectorAll('.rep-role-btn').forEach(btn => {
+      btn.addEventListener('click', () => setRepRole(btn.dataset.repId, btn.dataset.repName, btn.dataset.to));
+    });
     document.querySelectorAll('.rep-detail-btn').forEach(btn => {
       btn.addEventListener('click', () => openRepDetail(btn.dataset.repId));
     });
   } catch (e) {
     tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-red-400">${e.message}</td></tr>`;
+  }
+}
+
+async function setRepRole(id, name, to) {
+  const label = to === 'MANAGER' ? 'manager' : 'sales rep';
+  if (!confirm(`Change ${name} to ${label}? ${to === 'MANAGER' ? 'Managers get full dealer access for this store and can manage reps.' : ''}`)) return;
+  try {
+    const res = await fetch(`${API}/admin/users/${id}/role`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: to }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Role change failed');
+    showInviteResult(`${name} is now a ${label}.`, 'ok');
+    loadDealerManagementMatrix();
+  } catch (err) {
+    showInviteResult(err.message, 'err');
   }
 }
 
@@ -1268,7 +1312,7 @@ async function loadInventoryFeeds() {
     }
     // Anyone who can manage feeds (dealer admins + solo reps with a personal dealership)
     // should see the Remove button. Backend permission is enforced server-side too.
-    const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
+    const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER' || profileContext?.role === 'MANAGER';
     const isSoloOwner = profileContext?.dealership?.is_personal === true;
     const canManage = isAdmin || isSoloOwner;
 
@@ -3103,7 +3147,7 @@ function renderAIBoostSection(cfg) {
 
   const upsellBanner = document.getElementById('ai-boost-upsell-banner');
   if (upsellBanner) {
-    const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
+    const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER' || profileContext?.role === 'MANAGER';
     const dismissed = (() => { try { return localStorage.getItem('ms_ai_boost_banner_dismissed') === '1'; } catch { return false; } })();
     const showBanner = isAdmin && !cfg.ai_boost_active && !dismissed;
     upsellBanner.classList.toggle('hidden', !showBanner);
@@ -3122,7 +3166,7 @@ function renderAIBoostSection(cfg) {
   const navBtn = document.getElementById('nav-ai-boost');
   const navPill = document.getElementById('nav-ai-boost-pill');
   if (navBtn) {
-    const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
+    const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER' || profileContext?.role === 'MANAGER';
     if (!isAdmin) {
       navBtn.classList.add('hidden'); // belt-and-suspenders for reps
     } else {
@@ -3763,7 +3807,7 @@ function renderVinStickerNav() {
 function renderInvIntelNav() {
   const btn = document.getElementById('nav-inv-intel');
   if (!btn) return;
-  const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
+  const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER' || profileContext?.role === 'MANAGER';
   if (!isAdmin) { btn.classList.add('hidden'); return; }
 
   btn.classList.remove('hidden');
@@ -3865,7 +3909,7 @@ function setupInvIntelListeners() {
 function renderAiVisionNav() {
   const btn = document.getElementById('nav-ai-vision');
   if (!btn) return;
-  const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
+  const isAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER' || profileContext?.role === 'MANAGER';
   if (!isAdmin) { btn.classList.add('hidden'); return; }
   btn.classList.remove('hidden');
   btn.classList.add('text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');

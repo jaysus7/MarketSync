@@ -10,7 +10,7 @@ const NHTSA_DECODE = 'https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExt
 const NHTSA_RECALLS = 'https://api.nhtsa.gov/recalls/recallsByVin'
 
 function requireDealerAdmin(req, res, next) {
-  if (!['DEALER_ADMIN', 'DEALER_STAFF', 'SALES_REP'].includes(req.profile?.role)) {
+  if (!['DEALER_ADMIN', 'DEALER_STAFF', 'SALES_REP', 'MANAGER', 'OWNER'].includes(req.profile?.role)) {
     return res.status(403).json({ error: 'Dealer access required' })
   }
   next()

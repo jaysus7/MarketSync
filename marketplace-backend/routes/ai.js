@@ -8,8 +8,10 @@ import { runPhotoVision } from '../sync/photoVision.js'
 const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 
 function requireDealerAdmin(req, res, next) {
-  if (req.profile?.role !== 'DEALER_ADMIN') {
-    return res.status(403).json({ error: 'DEALER_ADMIN role required' })
+  // Dealer-level access: dealer admins, owners, and managers (a manager has full
+  // dealer access, just scoped to the store they're logged into).
+  if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) {
+    return res.status(403).json({ error: 'Dealer-level access required' })
   }
   next()
 }

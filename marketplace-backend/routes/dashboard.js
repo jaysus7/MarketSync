@@ -153,7 +153,7 @@ export function registerRoutes(app) {
   })
 
   app.get('/dealership/charts', requireAuth, async (req, res) => {
-    if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') {
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
       return res.status(403).json({ error: 'Admins only' })
     }
     if (!req.dealershipId) return res.json({ daily: [], by_rep: [] })
@@ -409,7 +409,7 @@ export function registerRoutes(app) {
   })
 
   app.get('/dashboard/insights', requireAuth, async (req, res) => {
-    const isAdmin = req.profile.role === 'DEALER_ADMIN' || req.profile.role === 'OWNER'
+    const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
     const now = new Date()
 
     // Time range filter: lifetime | 365 | 90 | 30 | 7 (days). Defaults to lifetime.
@@ -622,7 +622,7 @@ export function registerRoutes(app) {
   })
 
   app.get('/dealership/team/:userId/stats', requireAuth, async (req, res) => {
-    if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') {
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
       return res.status(403).json({ error: 'Admins only' })
     }
 

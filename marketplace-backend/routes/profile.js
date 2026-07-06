@@ -93,7 +93,7 @@ export function registerRoutes(app) {
 
   // ── 5. TEAM MANAGEMENT ──
   app.get('/dealership/team', requireAuth, async (req, res) => {
-    if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') {
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
       return res.status(403).json({ error: 'Admins only' })
     }
     if (!req.dealershipId) return res.json([])
@@ -140,7 +140,7 @@ export function registerRoutes(app) {
   })
 
   app.post('/admin/users/invite', requireAuth, async (req, res) => {
-    if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') {
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
       return res.status(403).json({ error: 'Admins only' })
     }
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this admin account' })
@@ -190,6 +190,36 @@ export function registerRoutes(app) {
       temp_password: tempPassword,
       note: 'Rep must verify their email before they can log in. Share the temp password securely.'
     })
+  })
+
+  // Promote a rep to Manager (full dealer access, scoped to this store) or
+  // demote a manager back to rep. Dealer admins/owners only — a manager cannot
+  // mint other managers.
+  app.post('/admin/users/:id/role', requireAuth, async (req, res) => {
+    if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') {
+      return res.status(403).json({ error: 'Only a dealer admin can change roles' })
+    }
+    const { role } = req.body || {}
+    if (!['MANAGER', 'SALES_REP'].includes(role)) {
+      return res.status(400).json({ error: "role must be 'MANAGER' or 'SALES_REP'" })
+    }
+    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Cannot change your own role' })
+
+    const { data: target } = await supabaseAdmin
+      .from('profiles').select('id, dealership_id, role').eq('id', req.params.id).single()
+    if (!target || target.dealership_id !== req.dealershipId) {
+      return res.status(404).json({ error: 'User not found in your dealership' })
+    }
+    if (target.role === 'DEALER_ADMIN' || target.role === 'OWNER') {
+      return res.status(403).json({ error: 'Cannot change an admin/owner role here' })
+    }
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update({ role, account_role: role === 'MANAGER' ? 'dealer_admin' : 'sales_rep' })
+      .eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, AuditAction.TEAM_MEMBER_INVITED, { role_change_user_id: req.params.id, new_role: role })
+    res.json({ success: true, role })
   })
 
   // ── SESSION ACTIVITY (recent logins + sign out other devices) ──
@@ -307,7 +337,7 @@ export function registerRoutes(app) {
   })
 
   app.delete('/admin/users/:id', requireAuth, async (req, res) => {
-    if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') {
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
       return res.status(403).json({ error: 'Admins only' })
     }
     if (req.params.id === req.user.id) return res.status(400).json({ error: 'Cannot remove yourself' })
