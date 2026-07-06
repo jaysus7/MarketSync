@@ -3211,7 +3211,7 @@ ${estimate?.note ? `
   setTimeout(() => { win.print(); win.close(); }, 600);
 }
 
-async function openPriceReport(inventoryId) {
+async function openPriceReport(inventoryId, forceRefresh = false) {
   const modal = document.getElementById('price-report-modal');
   const loading = document.getElementById('pr-loading');
   const content = document.getElementById('pr-content');
@@ -3219,17 +3219,29 @@ async function openPriceReport(inventoryId) {
 
   modal.classList.remove('hidden');
   loading.classList.remove('hidden');
-  loading.textContent = 'Generating AI market estimate…';
+  loading.textContent = forceRefresh ? 'Refreshing AI market estimate…' : 'Generating AI market estimate…';
   content.classList.add('hidden');
   if (__prChart) { __prChart.destroy(); __prChart = null; }
   __prData = null;
 
   try {
-    const res = await fetch(`${API}/ai/price-report/${inventoryId}`, {
+    const res = await fetch(`${API}/ai/price-report/${inventoryId}${forceRefresh ? '?refresh=1' : ''}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!res.ok) throw new Error('Could not load report');
-    const { vehicle, estimate, pct_diff, data_source } = await res.json();
+    const { vehicle, estimate, pct_diff, data_source, skipped, reason, cached, generated_at } = await res.json();
+
+    // New / current-year / demo vehicles have no reliable used-market comp set —
+    // the backend returns skipped:true with a reason instead of a bogus report.
+    if (skipped || !estimate) {
+      const lbl = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ');
+      document.getElementById('pr-title').textContent = lbl;
+      document.getElementById('pr-subtitle').textContent = vehicle.stocknumber ? `Stock #${vehicle.stocknumber} · ${vehicle.condition || ''}` : (vehicle.condition || '');
+      loading.classList.remove('hidden');
+      loading.innerHTML = `<div class="py-8 text-center text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">${esc(reason || 'A market price report isn’t available for this vehicle.')}</div>`;
+      content.classList.add('hidden');
+      return;
+    }
 
     const currency = estimate?.currency || 'CAD';
     const currencyLabel = currency === 'USD' ? 'USD' : 'CAD';
@@ -3238,8 +3250,16 @@ async function openPriceReport(inventoryId) {
     __prData = { vehicle, estimate, pct_diff, label, currency, data_source };
 
     document.getElementById('pr-title').textContent = label;
-    document.getElementById('pr-subtitle').textContent =
-      vehicle.stocknumber ? `Stock #${vehicle.stocknumber} · ${vehicle.condition || ''}` : (vehicle.condition || '');
+    const subBase = vehicle.stocknumber ? `Stock #${vehicle.stocknumber} · ${vehicle.condition || ''}` : (vehicle.condition || '');
+    const subEl = document.getElementById('pr-subtitle');
+    if (cached && generated_at) {
+      const days = Math.floor((Date.now() - new Date(generated_at)) / 86400000);
+      const ago = days <= 0 ? 'today' : days === 1 ? '1 day ago' : `${days} days ago`;
+      subEl.innerHTML = `${esc(subBase)} · <span class="text-slate-400">cached ${ago}</span> · <button id="pr-refresh" class="text-indigo-500 hover:text-indigo-400 font-semibold">Refresh</button>`;
+      setTimeout(() => document.getElementById('pr-refresh')?.addEventListener('click', () => openPriceReport(inventoryId, true)), 0);
+    } else {
+      subEl.textContent = subBase;
+    }
 
     // Compute market average from valid (non-outlier) marketplace bars
     const _avgsAll = estimate?.marketplace_averages || [];

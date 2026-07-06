@@ -120,17 +120,28 @@ function normaliseListings(raw) {
     .filter(l => l.price > 1000 && l.mileage > 0)
 }
 
-function summarise(listings) {
+function summarise(listings, targetMileage = null) {
   if (!listings.length) return null
+
+  // Keep comps close to the subject vehicle's mileage — a same-year, same-trim car
+  // with wildly different odometer is not a true comparable and skews the average.
+  // Only apply when we have a target and enough comps survive (>=3), so a thin
+  // comp set never collapses to nothing.
+  let pool = listings
+  if (targetMileage && targetMileage > 0) {
+    const lo = targetMileage * 0.6, hi = targetMileage * 1.4
+    const near = listings.filter(l => l.mileage >= lo && l.mileage <= hi)
+    if (near.length >= 3) pool = near
+  }
 
   // Remove statistical outliers: prices below 40% or above 250% of the median
   // price are almost certainly wrong-year comps or salvage titles bleeding in.
-  const rawPrices = listings.map(l => l.price).sort((a, b) => a - b)
+  const rawPrices = pool.map(l => l.price).sort((a, b) => a - b)
   const rawMedian = rawPrices.length % 2 !== 0
     ? rawPrices[Math.floor(rawPrices.length / 2)]
     : (rawPrices[rawPrices.length / 2 - 1] + rawPrices[rawPrices.length / 2]) / 2
-  const filtered = listings.filter(l => l.price >= rawMedian * 0.4 && l.price <= rawMedian * 2.5)
-  const use = filtered.length >= 3 ? filtered : listings
+  const filtered = pool.filter(l => l.price >= rawMedian * 0.4 && l.price <= rawMedian * 2.5)
+  const use = filtered.length >= 3 ? filtered : pool
 
   const prices = use.map(l => l.price)
   const mileages = use.map(l => l.mileage)
@@ -158,7 +169,7 @@ function summarise(listings) {
 
 // ── AutoTrader Canada / AutoTrader.com ─────────────────────────────────────
 
-export async function scrapeAutoTrader({ make, model, year, trim, postalCode, province, isUS }) {
+export async function scrapeAutoTrader({ make, model, year, trim, mileage, postalCode, province, isUS }) {
   const domain = isUS ? 'autotrader.com' : 'autotrader.ca'
   let url
 
@@ -231,12 +242,12 @@ export async function scrapeAutoTrader({ make, model, year, trim, postalCode, pr
   const listings = normaliseListings(raw)
   if (!listings.length) throw new Error('AutoTrader: no usable listings parsed')
 
-  return { source: isUS ? 'AutoTrader.com' : 'AutoTrader Canada', ...summarise(listings), listings }
+  return { source: isUS ? 'AutoTrader.com' : 'AutoTrader Canada', ...summarise(listings, mileage), listings }
 }
 
 // ── CarGurus Canada / CarGurus.com ─────────────────────────────────────────
 
-export async function scrapeCarGurus({ make, model, year, trim, postalCode, province, isUS }) {
+export async function scrapeCarGurus({ make, model, year, trim, mileage, postalCode, province, isUS }) {
   const domain = isUS ? 'cargurus.com' : 'cargurus.ca'
   // CarGurus uses zip/postal for radius search
   const zip = postalCode || (isUS ? '10001' : 'M5V 3A8')
@@ -320,7 +331,7 @@ export async function scrapeCarGurus({ make, model, year, trim, postalCode, prov
   const listings = normaliseListings(raw)
   if (!listings.length) throw new Error('CarGurus: no usable listings parsed')
 
-  return { source: isUS ? 'CarGurus.com' : 'CarGurus Canada', ...summarise(listings), listings }
+  return { source: isUS ? 'CarGurus.com' : 'CarGurus Canada', ...summarise(listings, mileage), listings }
 }
 
 // ── Copart Canada ──────────────────────────────────────────────────────────
@@ -397,8 +408,8 @@ export async function scrapeCopart({ make, model, year, trim, province, isUS }) 
  * Returns { autotrader, cargurus, copart } — any may be null if scraping failed.
  * Sends alert email for each retail scrape failure (Copart failure is silent).
  */
-export async function scrapeMarketData({ make, model, year, trim, postalCode, province, city, isUS, vehicleLabel }) {
-  const opts = { make, model, year, trim, postalCode, province, isUS }
+export async function scrapeMarketData({ make, model, year, trim, mileage, condition, postalCode, province, city, isUS, vehicleLabel }) {
+  const opts = { make, model, year, trim, mileage, postalCode, province, isUS }
   const label = vehicleLabel || `${year} ${make} ${model}${trim ? ' ' + trim : ''}`
 
   const [atResult, cgResult, copartResult] = await Promise.allSettled([

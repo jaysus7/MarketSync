@@ -7,6 +7,16 @@ import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
 
 const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 
+// A vehicle we should NOT run market price comparisons on: brand-new / demo units,
+// and anything at or beyond the current model year (e.g. 2026 in 2026). There is no
+// meaningful used-market comp set for these, so any "% over/under market" is noise.
+function skipPriceComp(vehicle) {
+  const cond = (vehicle?.condition || '').toLowerCase()
+  if (cond === 'new' || cond === 'demo') return true
+  const yr = Number(vehicle?.year)
+  return Number.isFinite(yr) && yr >= new Date().getFullYear()
+}
+
 function requireDealerAdmin(req, res, next) {
   // Dealer-level access: dealer admins, owners, and managers (a manager has full
   // dealer access, just scoped to the store they're logged into).
@@ -131,8 +141,7 @@ export function registerAI(app) {
     // ── Price comp check vs external marketplaces ──
     // Skip for new vehicles — MSRP pricing doesn't need market comp.
     let price_flag = null
-    const _isNewVehicle = (vehicle.condition || '').toLowerCase() === 'new'
-    if (!_isNewVehicle && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
+    if (!skipPriceComp(vehicle) && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
       try {
         const countryRaw = (dealer?.country || '').trim().toUpperCase()
         const _isUS = countryRaw === 'US' || countryRaw === 'USA' || countryRaw === 'UNITED STATES'
@@ -270,8 +279,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
           if (requiredFields.includes('description') && (!vehicle.description || vehicle.description.length < 20)) warnings.push('Description is missing or too short')
 
           let price_flag = null
-          const isNewVehicle = (vehicle.condition || '').toLowerCase() === 'new'
-          if (!isNewVehicle && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
+          if (!skipPriceComp(vehicle) && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
             try {
               const { autotrader, cargurus } = await scrapeMarketData({
                 make: vehicle.make,
@@ -345,6 +353,31 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
       return res.json({ vehicle, estimate: null, pct_diff: null })
     }
 
+    // Current-year / new / demo units have no meaningful used-market comp set —
+    // skip the calculation entirely rather than flag them against mismatched data.
+    if (skipPriceComp(vehicle)) {
+      return res.json({
+        vehicle, estimate: null, pct_diff: null, skipped: true,
+        reason: `${vehicle.year} ${vehicle.make} ${vehicle.model} is a new / current-year vehicle — there isn't a reliable used-market comparison set, so a market price report isn't generated for it.`,
+      })
+    }
+
+    // Serve the cached report if it's fresh (7 days) and the asking price hasn't
+    // changed. Reports cache for a week from generation; ?refresh=1 forces a rebuild.
+    const CACHE_DAYS = 7
+    if (req.query.refresh !== '1') {
+      const { data: cached } = await supabaseAdmin
+        .from('price_reports').select('report, price_at_generation, generated_at')
+        .eq('inventory_id', inventory_id).maybeSingle()
+      if (cached) {
+        const ageDays = (Date.now() - new Date(cached.generated_at)) / 86400000
+        const priceSame = cached.price_at_generation == null || Number(cached.price_at_generation) === Number(vehicle.price)
+        if (ageDays < CACHE_DAYS && priceSame) {
+          return res.json({ ...cached.report, cached: true, generated_at: cached.generated_at })
+        }
+      }
+    }
+
     if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(503).json({ error: 'AI features not configured' })
     }
@@ -393,6 +426,8 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
         model: vehicle.model,
         year: Number(vehicle.year),
         trim: vehicle.trim || '',
+        mileage: vehicleMileage,
+        condition: vehicle.condition || '',
         postalCode: dealer?.postal_code || '',
         province: dealer?.province || '',
         city: dealer?.city || '',
@@ -451,7 +486,7 @@ Vehicle age: ${vehicleAge} year(s) old (${currentYear} model year context: ${veh
 Mileage context: ${mileageContext}
 ${liveDataBlock}
 CRITICAL RULES — accuracy is paramount:
-1. USED vehicles: compare ONLY against used ${vehicle.year} ${vehicle.make} ${vehicle.model}${trimText} listings (same year, same trim) in the ${location} area
+1. Compare ONLY against listings that match on ALL of: same MODEL (${vehicle.make} ${vehicle.model}), same YEAR (${vehicle.year}), same TRIM (${vehicle.trim || 'base'}), same CONDITION (${conditionLabel}), and comparable MILEAGE (within roughly ±30% of ${mileageText}) in the ${location} area. Discard any comp that differs in trim, is a different model year, or has wildly different mileage — those are NOT valid comparables and must not pull the average up or down.
 2. NEW vehicles: compare against new ${vehicle.year} ${vehicle.make} ${vehicle.model} at MSRP
 3. ALL prices MUST be in ${currency} reflecting the ACTUAL ${marketLabel} retail market — do NOT use US prices for Canadian vehicles or vice versa
 4. ${isUS ? 'US retail prices are typically 15–25% lower in USD than equivalent Canadian CAD prices.' : 'Canadian retail prices in CAD are typically 25–35% higher than the same vehicle in USD due to currency, taxes, and import costs.'}
@@ -508,7 +543,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
       ? Math.round(((yourPrice - estimate.mid) / estimate.mid) * 1000) / 10
       : null
 
-    res.json({
+    const payload = {
       vehicle,
       estimate,
       pct_diff,
@@ -519,7 +554,21 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
         avg_mileage: scraped.copart.avg_mileage,
         count: scraped.copart.count,
       } : null,
+    }
+
+    // Cache the report for a week (keyed by vehicle; keyed price lets us bust it
+    // early if the asking price changes). Fire-and-forget — never block the response.
+    supabaseAdmin.from('price_reports').upsert({
+      inventory_id: inventory_id,
+      dealership_id: req.dealershipId,
+      report: payload,
+      price_at_generation: yourPrice,
+      generated_at: new Date().toISOString(),
+    }, { onConflict: 'inventory_id' }).then(({ error }) => {
+      if (error) console.warn('[price-report] cache write failed:', error.message)
     })
+
+    res.json(payload)
   })
 
   // ── Repricing Rules ──────────────────────────────────────────────────────
