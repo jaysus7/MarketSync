@@ -3635,6 +3635,10 @@ function renderAIBoostSection(cfg) {
     if (toneEl) toneEl.value = cfg.ai_tone || 'professional';
     const emailEl = document.getElementById('ai-manager-email');
     if (emailEl) emailEl.value = cfg.ai_manager_email || '';
+    const cty = document.getElementById('ai-country'); if (cty) cty.value = (cfg.country || 'CA').toUpperCase() === 'US' ? 'US' : 'CA';
+    const prov = document.getElementById('ai-province'); if (prov) prov.value = cfg.province || '';
+    const cityEl = document.getElementById('ai-city'); if (cityEl) cityEl.value = cfg.city || '';
+    const postal = document.getElementById('ai-postal'); if (postal) postal.value = cfg.postal_code || '';
 
     const reqFields = cfg.ai_required_fields || [];
     ['price', 'mileage', 'image_urls', 'description'].forEach(f => {
@@ -3774,6 +3778,10 @@ function setupAIBoostListeners() {
       ai_tone: document.getElementById('ai-tone')?.value || 'professional',
       ai_manager_email: document.getElementById('ai-manager-email')?.value.trim() || null,
       ai_required_fields: reqFields,
+      country: document.getElementById('ai-country')?.value || 'CA',
+      province: document.getElementById('ai-province')?.value.trim() || null,
+      city: document.getElementById('ai-city')?.value.trim() || null,
+      postal_code: document.getElementById('ai-postal')?.value.trim() || null,
     };
 
     try {

@@ -1745,6 +1745,21 @@
                 </div>
               </div>
 
+              <!-- Market / location — drives US vs Canada pricing -->
+              <div>
+                <label class="block text-xs uppercase font-bold text-slate-400 dark:text-slate-500 mb-1.5 tracking-wider">Market &amp; Location</label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <select id="ai-country" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="CA">Canada</option>
+                    <option value="US">United States</option>
+                  </select>
+                  <input id="ai-province" placeholder="Province / State" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <input id="ai-city" placeholder="City" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <input id="ai-postal" placeholder="Postal / ZIP" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <p class="text-xs text-slate-400 mt-1">Sets whether market price reports use US or Canadian comps and pricing.</p>
+              </div>
+
               <!-- Required fields -->
               <div>
                 <label class="block text-xs uppercase font-bold text-slate-400 dark:text-slate-500 mb-2 tracking-wider">Flag listing if missing</label>
@@ -2078,7 +2093,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260706m"></script>
+  <script src="dashboard.js?v=20260706n"></script>
   <script src="tour.js"></script>
   <script src="table-sort.js?v=20260706a"></script>
 </body>

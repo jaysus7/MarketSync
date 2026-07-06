@@ -14,33 +14,56 @@ function formatPrice(p) {
   return '$' + Number(p).toLocaleString()
 }
 
-async function apiGet(path, token, timeout = 60000) {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeout)
-  try {
-    const r = await fetch(`${API}${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal
-    })
-    clearTimeout(timer)
-    if (r.status === 401) {
-      chrome.storage.local.remove(['token', 'user'])
-      throw new Error('AUTH_EXPIRED — please sign in again')
+// The backend runs on a tier that spins down when idle, so the first request
+// after a lull can hang or return a 502/503/504 for ~30–60s while it wakes.
+// Retry those (and timeouts) a few times with backoff so the popup self-heals
+// instead of showing empty stats/inventory. 401/402 are never retried.
+async function apiGet(path, token, { timeout = 20000, retries = 3 } = {}) {
+  let lastErr
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeout)
+    try {
+      const r = await fetch(`${API}${path}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal
+      })
+      clearTimeout(timer)
+      if (r.status === 401) {
+        chrome.storage.local.remove(['token', 'user'])
+        throw new Error('AUTH_EXPIRED — please sign in again')
+      }
+      if (r.status === 402) throw new Error('SUBSCRIPTION_REQUIRED')
+      // Server waking up / gateway error → retry.
+      if ([429, 500, 502, 503, 504].includes(r.status)) {
+        lastErr = new Error(`Server status [${r.status}]`)
+        if (attempt < retries) { await sleep(1000 * Math.pow(2, attempt)); continue }
+        throw lastErr
+      }
+      const contentType = r.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const textFallback = await r.text()
+        console.error('Non-JSON response:', textFallback)
+        throw new Error(`Server status [${r.status}]. Please try again in a moment.`)
+      }
+      return await r.json()
+    } catch (e) {
+      clearTimeout(timer)
+      // Retry timeouts / network blips (but not auth/subscription errors).
+      const transient = e.name === 'AbortError' || /Failed to fetch|NetworkError|Server status/.test(e.message || '')
+      if (transient && !/AUTH_EXPIRED|SUBSCRIPTION_REQUIRED/.test(e.message || '') && attempt < retries) {
+        lastErr = e
+        await sleep(1000 * Math.pow(2, attempt))
+        continue
+      }
+      if (e.name === 'AbortError') throw new Error('Server waking up — click Refresh in a moment')
+      throw e
     }
-    if (r.status === 402) throw new Error('SUBSCRIPTION_REQUIRED')
-    const contentType = r.headers.get('content-type')
-    if (!contentType || !contentType.includes('application/json')) {
-      const textFallback = await r.text()
-      console.error('Non-JSON response:', textFallback)
-      throw new Error(`Server status [${r.status}]. Please try again in a moment.`)
-    }
-    return await r.json()
-  } catch (e) {
-    clearTimeout(timer)
-    if (e.name === 'AbortError') throw new Error('Server waking up — click Refresh in a moment')
-    throw e
   }
+  throw lastErr || new Error('Request failed')
 }
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 function handleSubscriptionGate(token) {
   $('stat-total').textContent = '0'

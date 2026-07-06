@@ -41,7 +41,7 @@ export function registerAI(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data, error } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, vin_sticker_active, inv_intel_active, ai_vision_active')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, vin_sticker_active, inv_intel_active, ai_vision_active, country, province, city, postal_code')
       .eq('id', req.dealershipId)
       .single()
     if (error) return res.status(500).json({ error: error.message })
@@ -66,18 +66,23 @@ export function registerAI(app) {
   // PUT /ai/config — update dealership AI config (DEALER_ADMIN only)
   app.put('/ai/config', requireAuth, requireDealerAdmin, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const { ai_tone, ai_required_fields, ai_manager_email, ai_boost_active } = req.body
+    const { ai_tone, ai_required_fields, ai_manager_email, ai_boost_active, country, province, city, postal_code } = req.body
     const update = {}
     if (ai_tone !== undefined) update.ai_tone = ai_tone
     if (ai_required_fields !== undefined) update.ai_required_fields = ai_required_fields
     if (ai_manager_email !== undefined) update.ai_manager_email = ai_manager_email
     if (ai_boost_active !== undefined) update.ai_boost_active = ai_boost_active
+    // Market/location — drives US-vs-Canada pricing and comp searches.
+    if (country !== undefined) update.country = (country || '').trim() || null
+    if (province !== undefined) update.province = (province || '').trim() || null
+    if (city !== undefined) update.city = (city || '').trim() || null
+    if (postal_code !== undefined) update.postal_code = (postal_code || '').trim() || null
 
     const { data, error } = await supabaseAdmin
       .from('dealerships')
       .update(update)
       .eq('id', req.dealershipId)
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, country, province, city, postal_code')
       .single()
     if (error) return res.status(500).json({ error: error.message })
     res.json(data)
@@ -707,8 +712,8 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
         .select('make, model, year')
         .eq('dealership_id', req.dealershipId)
         .in('status', ['sold', 'archived'])
-        .gte('updated_at', since180)
-        .order('updated_at', { ascending: false })
+        .gte('last_synced_at', since180)
+        .order('last_synced_at', { ascending: false })
         .limit(200),
       supabaseAdmin
         .from('inventory')
@@ -1648,13 +1653,13 @@ Units 60d+ on lot: ${stale}`
         .select('id')
         .eq('dealership_id', dealershipId)
         .eq('status', 'sold')
-        .gte('updated_at', ago7),
+        .gte('last_synced_at', ago7),
       supabaseAdmin.from('inventory')
         .select('id')
         .eq('dealership_id', dealershipId)
         .eq('status', 'sold')
-        .gte('updated_at', ago14)
-        .lt('updated_at', ago7)
+        .gte('last_synced_at', ago14)
+        .lt('last_synced_at', ago7)
     ])
 
     const vehicles = allVehicles || []
