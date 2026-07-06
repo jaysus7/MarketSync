@@ -32,7 +32,7 @@ export function registerPipeline(app) {
 
     const { data: inv } = await supabaseAdmin
       .from('inventory')
-      .select('id, year, make, model, trim, price, mileage, exterior_color, condition, stocknumber, image_urls')
+      .select('id, year, make, model, trim, price, mileage, exterior_color, condition, stocknumber, image_urls, source_url')
       .eq('dealership_id', req.dealershipId)
     const invIds = (inv || []).map(v => v.id)
     if (!invIds.length) return res.json({ columns: emptyCols(), counts: zeroCounts() })
@@ -76,6 +76,7 @@ export function registerPipeline(app) {
         condition: v.condition || null,
         stocknumber: v.stocknumber || null,
         image: Array.isArray(v.image_urls) ? v.image_urls[0] : null,
+        source_url: v.source_url || null,
         rep: repNames[l.posted_by] || null,
         posted_at: l.posted_at,
         stage: stageFor(l),
