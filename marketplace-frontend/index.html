@@ -857,23 +857,61 @@
             </div>
         </div>
 
-        <!-- AI Boost Add-On -->
-        <div class="mt-8 relative bg-gradient-to-br from-indigo-950/60 to-slate-900 border border-indigo-500/40 rounded-2xl p-8 flex flex-col md:flex-row items-start md:items-center gap-6 shadow-xl shadow-indigo-900/20">
-            <div class="absolute top-4 right-4 bg-indigo-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">Add-On</div>
-            <div class="text-4xl"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
-            <div class="flex-1">
-                <h3 class="text-xl font-bold text-white">AI Boost — every AI feature in one add-on</h3>
-                <p class="text-slate-400 text-xs mt-1">One switch turns on all the smart stuff. No separate AI add-ons.</p>
-                <ul class="mt-4 grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm text-slate-300">
-                    <li class="flex items-center gap-2"><i class="fa-solid fa-check text-indigo-400 text-xs"></i> AI-written listing copy per vehicle</li>
-                    <li class="flex items-center gap-2"><i class="fa-solid fa-check text-indigo-400 text-xs"></i> Live US &amp; Canada market price reports</li>
-                    <li class="flex items-center gap-2"><i class="fa-solid fa-check text-indigo-400 text-xs"></i> AI Vision photo scoring included</li>
-                    <li class="flex items-center gap-2"><i class="fa-solid fa-check text-indigo-400 text-xs"></i> Branded stickers &amp; AI dealer brochures</li>
-                </ul>
-            </div>
-            <div class="flex-shrink-0 text-center md:text-right">
-                <div class="text-3xl font-black text-white">$199<span class="text-base font-normal text-slate-400"> / month</span></div>
-                <a href="register.html" class="mt-3 inline-block px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition text-sm">Start Free Trial</a>
+        <!-- Optional Add-Ons -->
+        <div class="mt-14">
+            <h3 class="text-center text-lg font-black text-slate-900 dark:text-white">Optional add-ons</h3>
+            <p class="text-center text-slate-500 dark:text-gray-400 text-sm mt-1 mb-8">Bolt on to any plan. Start each with a free trial — cancel anytime.</p>
+            <div class="grid md:grid-cols-2 gap-6">
+
+                <!-- Inventory Intelligence -->
+                <div class="glass-panel bg-white dark:bg-gray-900/70 border border-violet-300 dark:border-violet-500/40 rounded-2xl p-8 flex flex-col shadow-xl shadow-violet-200/20 dark:shadow-none">
+                    <div class="flex items-center justify-between gap-3 mb-1">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-violet-600/10 text-violet-600 dark:text-violet-400 flex items-center justify-center"><i class="fa-solid fa-gauge-high"></i></div>
+                            <h4 class="text-xl font-bold text-slate-900 dark:text-white">Inventory Intelligence</h4>
+                        </div>
+                        <span class="text-[10px] font-black uppercase tracking-wider bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 px-2 py-0.5 rounded-full">Add-On</span>
+                    </div>
+                    <div class="my-4"><span class="text-4xl font-black text-slate-900 dark:text-white">$149.97</span><span class="text-slate-500 text-sm"> / month</span></div>
+                    <p class="text-sm text-slate-500 dark:text-gray-400 mb-5">Know your lot cold — the analytics tier, plus the VIN decoder and factory window stickers.</p>
+                    <ul class="space-y-2.5 text-sm text-slate-700 dark:text-gray-300 border-t border-slate-100 dark:border-gray-800 pt-5 flex-1">
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-violet-500 text-xs mt-1"></i> Per-vehicle health scores (0–100)</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-violet-500 text-xs mt-1"></i> Hot &amp; cold vehicle detection</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-violet-500 text-xs mt-1"></i> Turn rate &amp; monthly velocity per vehicle</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-violet-500 text-xs mt-1"></i> Months-of-supply by make &amp; model</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-violet-500 text-xs mt-1"></i> Duplicate VIN detection across your lot</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-violet-500 text-xs mt-1"></i> Weekly Monday-morning email digest</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-violet-500 text-xs mt-1"></i> VIN decoder — full factory spec + open recalls</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-violet-500 text-xs mt-1"></i> Factory (OEM) window sticker lookup by VIN</li>
+                    </ul>
+                    <a href="register.html" class="mt-6 block w-full py-3 bg-violet-600 hover:bg-violet-500 text-center text-white font-bold rounded-xl transition">Start Free Trial</a>
+                </div>
+
+                <!-- AI Boost -->
+                <div class="relative glass-panel bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950/40 dark:to-gray-900/70 border-2 border-indigo-500 rounded-2xl p-8 flex flex-col shadow-xl shadow-indigo-500/10">
+                    <div class="flex items-center justify-between gap-3 mb-1">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                            <h4 class="text-xl font-bold text-slate-900 dark:text-white">AI Boost</h4>
+                        </div>
+                        <span class="text-[10px] font-black uppercase tracking-wider bg-indigo-600 text-white px-2 py-0.5 rounded-full">Every AI feature</span>
+                    </div>
+                    <div class="my-4"><span class="text-4xl font-black text-slate-900 dark:text-white">$199</span><span class="text-slate-500 text-sm"> / month</span></div>
+                    <p class="text-sm text-slate-500 dark:text-gray-400 mb-5">One switch turns on all the smart stuff — no separate AI add-ons.</p>
+                    <ul class="space-y-2.5 text-sm text-slate-700 dark:text-gray-300 border-t border-slate-100 dark:border-gray-800 pt-5 flex-1">
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-indigo-500 text-xs mt-1"></i> AI-written listing copy per vehicle</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-indigo-500 text-xs mt-1"></i> Missing photo &amp; price alerts before posting</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-indigo-500 text-xs mt-1"></i> Live US &amp; Canada market price reports (PDF)</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-indigo-500 text-xs mt-1"></i> Price intelligence flags across your lot</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-indigo-500 text-xs mt-1"></i> AI Vision photo scoring (0–100)</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-indigo-500 text-xs mt-1"></i> Branded window stickers &amp; AI dealer brochures</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-indigo-500 text-xs mt-1"></i> Automated repricing rules</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-indigo-500 text-xs mt-1"></i> Competitor lot monitoring</li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-indigo-500 text-xs mt-1"></i> AI lot narrative (with Inventory Intelligence)</li>
+                    </ul>
+                    <a href="register.html" class="mt-6 block w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-center text-white font-bold rounded-xl transition">Start Free Trial</a>
+                </div>
+
             </div>
         </div>
     </section>
