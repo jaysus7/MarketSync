@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../shared.js'
+import { supabaseAdmin, stripe, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { randomBytes } from 'crypto'
 
@@ -126,7 +126,7 @@ export function registerGroups(app) {
     const groupId = req.profile.group_id
 
     let { data: group } = await supabaseAdmin
-      .from('dealer_groups').select('id, name, billing_mode, join_code').eq('id', groupId).single()
+      .from('dealer_groups').select('id, name, billing_mode, billing_status, join_code').eq('id', groupId).single()
     // Backfill a join code for groups created before invite codes existed.
     if (group && !group.join_code) {
       const code = makeJoinCode()
@@ -186,6 +186,96 @@ export function registerGroups(app) {
     }), { stores: 0, reps: 0, listings: 0, posted: 0, sold: 0 })
 
     res.json({ group: group || { id: groupId }, totals, stores: storesOut })
+  })
+
+  // Set how the group is billed: 'group' (one central subscription covers every
+  // store) or 'per_dealer' (each store keeps its own subscription so one can
+  // leave without affecting the others).
+  app.patch('/groups/billing-mode', requireAuth, async (req, res) => {
+    if (!isGroupAdmin(req.profile) || !req.profile.group_id) {
+      return res.status(403).json({ error: 'Group admin required' })
+    }
+    const mode = req.body?.mode
+    if (!['group', 'per_dealer'].includes(mode)) {
+      return res.status(400).json({ error: "mode must be 'group' or 'per_dealer'" })
+    }
+    const { error } = await supabaseAdmin
+      .from('dealer_groups').update({ billing_mode: mode }).eq('id', req.profile.group_id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, billing_mode: mode })
+  })
+
+  // Start a central group subscription checkout. Covers every store in the group
+  // while billing_mode='group'. Requires STRIPE_GROUP_PRICE_ID to be configured.
+  app.post('/groups/billing/checkout', requireAuth, async (req, res) => {
+    if (!isGroupAdmin(req.profile) || !req.profile.group_id) {
+      return res.status(403).json({ error: 'Group admin required' })
+    }
+    const price = process.env.STRIPE_GROUP_PRICE_ID
+    if (!stripe || !price) return res.status(503).json({ error: 'Group billing is not configured yet' })
+    try {
+      const { data: group } = await supabaseAdmin
+        .from('dealer_groups').select('id, name, stripe_customer_id').eq('id', req.profile.group_id).single()
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        line_items: [{ price, quantity: 1 }],
+        customer: group?.stripe_customer_id || undefined,
+        client_reference_id: group.id,
+        metadata: { group_id: group.id },
+        subscription_data: { trial_period_days: 3, metadata: { group_id: group.id } },
+        success_url: `${FRONTEND_URL}/group.html?group_session={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${FRONTEND_URL}/group.html`,
+      })
+      // Flip to group billing the moment they start checkout.
+      await supabaseAdmin.from('dealer_groups').update({ billing_mode: 'group' }).eq('id', group.id)
+      res.json({ url: session.url })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
+
+  // Drill into one store the group admin owns: its metrics, team and recent
+  // listings. Verifies the store actually belongs to the caller's group.
+  app.get('/groups/stores/:storeId', requireAuth, async (req, res) => {
+    if (!isGroupAdmin(req.profile) || !req.profile.group_id) {
+      return res.status(403).json({ error: 'Group admin required' })
+    }
+    const storeId = req.params.storeId
+    const { data: store } = await supabaseAdmin
+      .from('dealerships').select('id, name, group_id, billing_status').eq('id', storeId).single()
+    if (!store || store.group_id !== req.profile.group_id) {
+      return res.status(404).json({ error: 'Store not found in your group' })
+    }
+
+    const [{ data: inv }, { data: team }] = await Promise.all([
+      supabaseAdmin.from('inventory').select('id, status').eq('dealership_id', storeId),
+      supabaseAdmin.from('profiles').select('id, full_name, display_name, role').eq('dealership_id', storeId),
+    ])
+    const invIds = (inv || []).map(v => v.id)
+    let listings = []
+    if (invIds.length) {
+      const { data } = await supabaseAdmin
+        .from('listings')
+        .select('id, inventory_id, vehicle_label, status, posted_at, sold_at')
+        .in('inventory_id', invIds)
+        .order('posted_at', { ascending: false })
+        .limit(25)
+      listings = data || []
+    }
+
+    const counts = { available: 0, sold: 0, pending: 0, total: (inv || []).length }
+    for (const v of inv || []) { if (counts[v.status] != null) counts[v.status]++ }
+    const posted = listings.filter(l => l.status === 'posted').length
+    const daySamples = listings.filter(l => l.sold_at && l.posted_at)
+      .map(l => (new Date(l.sold_at) - new Date(l.posted_at)) / 86400000).filter(d => d >= 0 && d < 365)
+    const avgDays = daySamples.length ? Math.round((daySamples.reduce((a, b) => a + b, 0) / daySamples.length) * 10) / 10 : null
+
+    res.json({
+      store: { id: store.id, name: store.name, billing_status: store.billing_status },
+      counts, posted, avg_days_to_sell: avgDays,
+      team: (team || []).map(p => ({ id: p.id, name: p.display_name || p.full_name || '—', role: p.role })),
+      recent_listings: listings.slice(0, 15).map(l => ({ label: l.vehicle_label || '—', status: l.status, posted_at: l.posted_at })),
+    })
   })
 
   // Full downline — every manager and rep across the group, grouped by store.

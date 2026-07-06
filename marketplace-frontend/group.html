@@ -65,7 +65,7 @@
         const members = dlById[s.id] || [];
         const roleCount = (r) => members.filter(m => m.role === r).length;
         return `
-          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+          <div class="store-card cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-md transition" data-store="${esc(s.id)}">
             <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
               <div class="font-bold text-slate-900 dark:text-white truncate">${esc(s.name || 'Store')}</div>
               ${billingPill(s.billing_status)}
@@ -107,6 +107,22 @@
           ${tile('Posted', t.posted || 0)}
           ${tile('Sold', t.sold || 0, 'text-emerald-600 dark:text-emerald-400')}
         </div>
+        <div class="mb-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-5 py-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div class="text-sm font-bold text-slate-900 dark:text-white">Billing: ${data.group?.billing_mode === 'group' ? 'Central (group pays)' : 'Per-dealer'}</div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${data.group?.billing_mode === 'group'
+                ? 'One subscription covers every store' + (data.group?.billing_status ? ` · ${esc(data.group.billing_status)}` : '') + '. Switch back to per-dealer anytime — a store can then bill on its own.'
+                : 'Each store keeps its own subscription, so one can leave without affecting the rest. Switch to central to cover them all under one bill.'}</p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              ${data.group?.billing_mode === 'group'
+                ? `<button id="bill-per-dealer" class="text-xs font-bold px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Switch to per-dealer</button>`
+                : `<button id="bill-central" class="text-xs font-bold px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">Bill centrally</button>`}
+            </div>
+          </div>
+          <p id="bill-msg" class="hidden text-xs mt-2"></p>
+        </div>
         <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3">Stores</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${storeCards}</div>`;
 
@@ -114,6 +130,66 @@
       if (copyBtn && code) copyBtn.addEventListener('click', () => {
         navigator.clipboard?.writeText(code).then(() => { copyBtn.textContent = 'Copied!'; setTimeout(() => copyBtn.textContent = 'Copy', 1500); }).catch(() => {});
       });
+      document.querySelectorAll('.store-card').forEach(c => c.addEventListener('click', () => openStore(c.dataset.store)));
+
+      const billMsg = document.getElementById('bill-msg');
+      document.getElementById('bill-central')?.addEventListener('click', async () => {
+        try {
+          const r = await api('/groups/billing/checkout', { method: 'POST' });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Failed');
+          window.location.href = d.url;
+        } catch (e) { billMsg.textContent = e.message; billMsg.className = 'text-xs mt-2 text-red-500'; billMsg.classList.remove('hidden'); }
+      });
+      document.getElementById('bill-per-dealer')?.addEventListener('click', async () => {
+        if (!confirm('Switch to per-dealer billing? Each store will need its own active subscription.')) return;
+        try {
+          const r = await api('/groups/billing-mode', { method: 'PATCH', body: JSON.stringify({ mode: 'per_dealer' }) });
+          if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+          load();
+        } catch (e) { billMsg.textContent = e.message; billMsg.className = 'text-xs mt-2 text-red-500'; billMsg.classList.remove('hidden'); }
+      });
+    }
+
+    const fmtDate = (d) => { try { return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return ''; } };
+
+    async function openStore(storeId) {
+      root.innerHTML = '<div class="py-20 text-center text-sm text-slate-400 italic">Loading store…</div>';
+      let d;
+      try {
+        const r = await api(`/groups/stores/${storeId}`);
+        if (!r.ok) throw new Error('Could not load store');
+        d = await r.json();
+      } catch (e) { root.innerHTML = `<div class="py-20 text-center text-sm text-slate-500">${esc(e.message)}</div>`; return; }
+
+      const c = d.counts || {};
+      const statusPill = (s) => {
+        const m = { posted:'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300', sold:'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300', deleted:'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' };
+        return `<span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${m[s] || 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}">${esc(s)}</span>`;
+      };
+      const team = (d.team || []).map(m => `<div class="flex items-center justify-between py-2 text-sm"><span class="text-slate-700 dark:text-slate-200">${esc(m.name)}</span><span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${esc(m.role)}</span></div>`).join('') || '<div class="text-sm text-slate-400 italic py-2">No team members.</div>';
+      const listings = (d.recent_listings || []).map(l => `<div class="flex items-center justify-between py-2 text-sm gap-3"><span class="text-slate-700 dark:text-slate-200 truncate">${esc(l.label)}</span><span class="flex items-center gap-2 flex-shrink-0">${statusPill(l.status)}<span class="text-xs text-slate-400">${l.posted_at ? fmtDate(l.posted_at) : ''}</span></span></div>`).join('') || '<div class="text-sm text-slate-400 italic py-2">No listings yet.</div>';
+
+      root.innerHTML = `
+        <button id="back-btn" class="text-sm font-medium text-slate-500 hover:text-slate-900 dark:hover:text-white transition mb-4">← All stores</button>
+        <div class="flex items-center gap-3 mb-6"><h1 class="text-2xl font-black tracking-tight">${esc(d.store.name)}</h1>${billingPill(d.store.billing_status)}</div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          ${tile('In stock', c.available || 0)}
+          ${tile('Posted', d.posted || 0)}
+          ${tile('Sold', c.sold || 0, 'text-emerald-600 dark:text-emerald-400')}
+          ${tile('Avg days to sell', d.avg_days_to_sell != null ? d.avg_days_to_sell : '—')}
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2">Team (${(d.team || []).length})</h2>
+            <div class="divide-y divide-slate-100 dark:divide-slate-800">${team}</div>
+          </div>
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2">Recent listings</h2>
+            <div class="divide-y divide-slate-100 dark:divide-slate-800">${listings}</div>
+          </div>
+        </div>`;
+      document.getElementById('back-btn').addEventListener('click', load);
     }
 
     function renderCreate() {
@@ -189,6 +265,12 @@
       } catch (e) {
         root.innerHTML = `<div class="py-20 text-center text-sm text-slate-500">${esc(e.message)}</div>`;
       }
+    }
+
+    // Returning from group-billing checkout — clean the URL, then show the (now
+    // updated) group. The webhook has already flipped billing_status.
+    if (new URLSearchParams(location.search).get('group_session')) {
+      history.replaceState({}, '', location.pathname);
     }
 
     load();

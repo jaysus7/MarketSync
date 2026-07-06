@@ -63,6 +63,20 @@ export function registerRoutes(app) {
         case 'checkout.session.completed': {
           const session = event.data.object
           const meta = session.metadata || {}
+
+          // Central dealer-group subscription — covers every store in the group.
+          if (meta.group_id) {
+            const sub = await stripe.subscriptions.retrieve(session.subscription)
+            const isActive = sub.status === 'active' || sub.status === 'trialing'
+            await supabaseAdmin.from('dealer_groups').update({
+              billing_mode: 'group',
+              billing_status: isActive ? (sub.status === 'trialing' ? 'TRIALING' : 'ACTIVE') : 'INACTIVE',
+              stripe_customer_id: session.customer || null,
+              subscription_id: session.subscription || null,
+            }).eq('id', meta.group_id)
+            break
+          }
+
           if (!meta.dealership_id) break
 
           const sub = await stripe.subscriptions.retrieve(session.subscription)
@@ -103,6 +117,13 @@ export function registerRoutes(app) {
         case 'customer.subscription.updated': {
           const sub = event.data.object
           const isActive = sub.status === 'active' || sub.status === 'trialing'
+          // Group subscription lifecycle (tagged on the subscription metadata).
+          if (sub.metadata?.group_id) {
+            await supabaseAdmin.from('dealer_groups').update({
+              billing_status: isActive ? (sub.status === 'trialing' ? 'TRIALING' : 'ACTIVE') : 'INACTIVE',
+            }).eq('id', sub.metadata.group_id)
+            break
+          }
           const addons = addonsInSub(sub)
           const updates = {}
           for (const key of addons) Object.assign(updates, colsForAddon(key, isActive))
@@ -114,6 +135,10 @@ export function registerRoutes(app) {
 
         case 'customer.subscription.deleted': {
           const sub = event.data.object
+          if (sub.metadata?.group_id) {
+            await supabaseAdmin.from('dealer_groups').update({ billing_status: 'INACTIVE' }).eq('id', sub.metadata.group_id)
+            break
+          }
           const addons = addonsInSub(sub)
           const updates = {}
           for (const key of addons) Object.assign(updates, colsForAddon(key, false))
