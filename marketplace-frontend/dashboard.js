@@ -2263,23 +2263,25 @@ function renderCatalog() {
     return;
   }
 
+  // Glass tag base — translucent fill + subtle border + blur, rounded rectangle.
+  const TAG = 'inline-flex items-center text-[10px] uppercase font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm';
   const statusBadge = (s) => {
     const map = {
-      available: 'bg-emerald-600 text-white',
-      pending:   'bg-amber-500 text-white',
-      sold:      'bg-slate-500 text-white'
+      available: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
+      pending:   'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
+      sold:      'bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/30'
     };
-    return `<span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${map[s] || map.sold}">${s || 'unknown'}</span>`;
+    return `<span class="${TAG} ${map[s] || map.sold}">${s || 'unknown'}</span>`;
   };
   const conditionBadge = (c) => {
     if (!c) return '';
     const lc = c.toLowerCase();
     const cls = lc === 'new'
-      ? 'bg-blue-600 text-white'
+      ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
       : lc === 'demo'
-        ? 'bg-purple-600 text-white'
-        : 'bg-orange-500 text-white';
-    return `<span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${cls}">${c}</span>`;
+        ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30'
+        : 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30';
+    return `<span class="${TAG} ${cls}">${c}</span>`;
   };
 
   list.innerHTML = filtered.map(v => {
@@ -2315,21 +2317,22 @@ function renderCatalog() {
           ${statusBadge(v.status)}
           ${(() => {
             const makeModel = `${v.make} ${v.model}`.toLowerCase()
+            const gtag = 'inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm'
             const hotColdTag = __aiBoostActive
-              ? (__hotMakeModels.has(makeModel) ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">🔥 Hot</span>`
-                : __coldMakeModels.has(makeModel) ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300">❄️ Cold</span>`
+              ? (__hotMakeModels.has(makeModel) ? `<span class="${gtag} bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30">🔥 Hot</span>`
+                : __coldMakeModels.has(makeModel) ? `<span class="${gtag} bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30">❄️ Cold</span>`
                 : '')
               : ''
             const healthScore = __aiBoostActive && __vehicleHealthScores[v.id] != null ? __vehicleHealthScores[v.id] : null
             const healthBadge = healthScore != null ? (() => {
-              const cls = healthScore >= 80 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-                : healthScore >= 50 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
-                : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
-              return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${cls}">⚡ ${healthScore}/100</span>`
+              const cls = healthScore >= 80 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                : healthScore >= 50 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                : 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30'
+              return `<span class="${gtag} ${cls}">⚡ ${healthScore}/100</span>`
             })() : ''
             const recallCount = Array.isArray(v.recalls) ? v.recalls.length : 0
             const recallBadge = recallCount > 0
-              ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300" title="${recallCount} open recall${recallCount > 1 ? 's' : ''} — open VIN Decode for details">⚠ ${recallCount} Recall${recallCount > 1 ? 's' : ''}</span>`
+              ? `<span class="${gtag} bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30" title="${recallCount} open recall${recallCount > 1 ? 's' : ''} — open VIN Decode for details">⚠ ${recallCount} Recall${recallCount > 1 ? 's' : ''}</span>`
               : ''
             return hotColdTag + healthBadge + recallBadge
           })()}
@@ -5577,7 +5580,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const breakdownId = `hbd-${idx}`
       const breakdownHtml = `
-        <div id="${breakdownId}" class="hidden col-span-5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 px-6 py-4">
+        <div id="${breakdownId}" class="col-span-5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 px-6 py-4">
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
             ${segments.map(s => {
               const pct = Math.round((s.val / s.max) * 100)
@@ -5600,20 +5603,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = this.nextElementSibling;
         if (bd) { bd.classList.toggle('hidden'); this.querySelector('.hbd-arrow')?.classList.toggle('rotate-90'); }
       ">
-        <td class="px-4 py-3">
+        <td class="px-4 py-5">
           <div class="font-semibold text-sm text-indigo-600 dark:text-indigo-400">${stockNum}</div>
           <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${vehicleLine}</div>
         </td>
-        <td class="px-4 py-3 text-center">
-          <div class="inline-flex flex-col items-center gap-0.5">
-            <span class="text-lg font-black" style="color:${scoreColor}">${v.score}</span>
-            <span class="text-[9px] text-slate-400 font-medium">/100</span>
+        <td class="px-4 py-5 text-center">
+          <div class="inline-flex items-baseline gap-1">
+            <span class="text-3xl font-black leading-none" style="color:${scoreColor}">${v.score}</span>
+            <span class="text-xs text-slate-400 font-semibold">/100</span>
           </div>
         </td>
-        <td class="px-4 py-3 text-center tabular-nums text-sm text-slate-700 dark:text-slate-300">${v.photos}</td>
-        <td class="px-4 py-3 text-center tabular-nums text-sm font-semibold ${v.days >= 60 ? 'text-red-500' : v.days >= 30 ? 'text-amber-500' : 'text-slate-700 dark:text-slate-300'}">${v.days}d</td>
-        <td class="px-4 py-3 text-right pr-2">
-          <svg class="hbd-arrow w-4 h-4 text-slate-400 inline transition-transform duration-150" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <td class="px-4 py-5 text-center tabular-nums text-base text-slate-700 dark:text-slate-300">${v.photos}</td>
+        <td class="px-4 py-5 text-center tabular-nums text-base font-semibold ${v.days >= 60 ? 'text-red-500' : v.days >= 30 ? 'text-amber-500' : 'text-slate-700 dark:text-slate-300'}">${v.days}d</td>
+        <td class="px-4 py-5 text-right pr-2">
+          <svg class="hbd-arrow w-4 h-4 text-slate-400 inline transition-transform duration-150 rotate-90" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
         </td>
       </tr>
       <tr class="border-0"><td colspan="5" class="p-0">${breakdownHtml}</td></tr>`
