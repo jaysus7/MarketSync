@@ -2725,7 +2725,7 @@ function renderCatalog() {
             <div class="mt-1.5 pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-1.5" onclick="event.preventDefault();event.stopPropagation();">
               ${recallLine}
               ${v.vin ? `<div class="flex flex-wrap gap-1">
-                <button class="inv-vin-btn ${b} bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700" data-id="${v.id}" ${vinAttr}>VIN &amp; Recalls</button>
+                <button class="inv-vin-btn ${b} bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700" data-id="${v.id}" ${vinAttr}>Decode VIN</button>
                 <button class="inv-sticker-btn ${b} bg-emerald-600 hover:bg-emerald-500 text-white" data-id="${v.id}" data-label="${lbl}">Sticker ▾</button>
                 <button class="inv-brochure-btn ${b} bg-indigo-600 hover:bg-indigo-500 text-white" data-id="${v.id}" data-label="${lbl}">Brochure</button>
               </div>` : `<div class="text-[10px] text-slate-400 italic">No VIN on file — can't decode or build docs.</div>`}
@@ -4435,6 +4435,21 @@ async function runVinDecode(vinArg) {
     if (!res.ok) throw new Error(data.error || 'Decode failed');
     __vinDecodeData = data;
     renderVinResults(data);
+
+    // Persist the recall check to this vehicle so its Inventory card stops saying
+    // "not checked yet" and shows ✓/⚠. Only stores vin_data + recalls — it does not
+    // overwrite the vehicle's year/make/model.
+    if (__vinDecodeVehicleId) {
+      const recalls = Array.isArray(data.recalls) ? data.recalls : [];
+      fetch(`${API}/vin/apply/${__vinDecodeVehicleId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decoded: { vin_data: data.decoded?.vin_data ?? null }, recalls }),
+      }).then(() => {
+        const v = (typeof __catalogCache !== 'undefined' ? __catalogCache : []).find(x => x.id === __vinDecodeVehicleId);
+        if (v) { v.recalls = recalls; v.recalls_checked_at = new Date().toISOString(); if (typeof renderCatalog === 'function') renderCatalog(); }
+      }).catch(() => {});
+    }
   } catch (e) {
     showVinError(e.message);
   } finally {
