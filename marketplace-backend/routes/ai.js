@@ -206,6 +206,7 @@ export function registerAI(app) {
           province: dealer?.province || '',
           isUS: _isUS,
           vehicleLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+          listedPrice: vehicle.price,
         })
         // Use AutoTrader median first, fall back to CarGurus
         const marketMedian = autotrader?.median_price ?? cargurus?.median_price ?? null
@@ -339,6 +340,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
                   province: dealer?.province || '',
                   isUS: _syncIsUS,
                   vehicleLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+          listedPrice: vehicle.price,
                 })
                 const marketMedian = autotrader?.median_price ?? cargurus?.median_price ?? null
                 const marketSource = autotrader ? 'AutoTrader' : cargurus ? 'CarGurus' : null
@@ -482,6 +484,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
         city: dealer?.city || '',
         isUS,
         vehicleLabel,
+        listedPrice: vehicle.price,
       })
       if (scraped.autotrader || scraped.cargurus) dataSource = 'live'
     } catch {

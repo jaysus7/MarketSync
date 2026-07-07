@@ -408,9 +408,33 @@ export async function scrapeCopart({ make, model, year, trim, province, isUS }) 
  * Returns { autotrader, cargurus, copart } — any may be null if scraping failed.
  * Sends alert email for each retail scrape failure (Copart failure is silent).
  */
-export async function scrapeMarketData({ make, model, year, trim, mileage, condition, postalCode, province, city, isUS, vehicleLabel }) {
+export async function scrapeMarketData({ make, model, year, trim, mileage, condition, postalCode, province, city, isUS, vehicleLabel, listedPrice }) {
   const opts = { make, model, year, trim, mileage, postalCode, province, isUS }
   const label = vehicleLabel || `${year} ${make} ${model}${trim ? ' ' + trim : ''}`
+
+  // Reject a scraped source whose median is wildly out of line with the asking
+  // price. HTML scrapes sometimes match the wrong array — a "similar/cheaper
+  // cars" widget, financing teasers, or a different model — which drags the
+  // median to a fraction of reality (e.g. $6k comps for a $21k Volvo). A real
+  // dealer car is never mispriced by more than ~2x, so anything outside
+  // 0.45x–2.2x of the asking price is a mismatched comp set, not a deal. When we
+  // drop a source the report falls back to the AI's own market knowledge.
+  const plausible = (summary, sourceName) => {
+    if (!summary) return null
+    const lp = Number(listedPrice)
+    if (!lp || lp <= 0) return summary // no anchor to validate against
+    const med = summary.median_price
+    if (med && (med < lp * 0.45 || med > lp * 2.2)) {
+      console.error(`[scraper] ${sourceName} median $${med} implausible vs asking $${lp} — discarding as mismatched comps`)
+      sendScrapeAlert({
+        source: `${sourceName} (implausible comps)`,
+        vehicleLabel: label,
+        error: new Error(`median $${med} vs asking $${lp} — likely matched the wrong listings`),
+      })
+      return null
+    }
+    return summary
+  }
 
   const [atResult, cgResult, copartResult] = await Promise.allSettled([
     scrapeAutoTrader(opts),
@@ -423,14 +447,14 @@ export async function scrapeMarketData({ make, model, year, trim, mileage, condi
   let copart = null
 
   if (atResult.status === 'fulfilled') {
-    autotrader = atResult.value
+    autotrader = plausible(atResult.value, 'AutoTrader')
   } else {
     console.error('[scraper] AutoTrader failed:', atResult.reason?.message)
     sendScrapeAlert({ source: 'AutoTrader', vehicleLabel: label, error: atResult.reason })
   }
 
   if (cgResult.status === 'fulfilled') {
-    cargurus = cgResult.value
+    cargurus = plausible(cgResult.value, 'CarGurus')
   } else {
     console.error('[scraper] CarGurus failed:', cgResult.reason?.message)
     sendScrapeAlert({ source: 'CarGurus', vehicleLabel: label, error: cgResult.reason })
