@@ -1331,35 +1331,39 @@ Units 60d+ on lot: ${stale}`
       return null
     }
 
-    // Sitemap fallback — the one path that survives Cloudflare/WAF blocks. Every
-    // dealer platform publishes an XML sitemap of its vehicle-detail (VDP) pages;
-    // counting those URLs gives an accurate inventory count without loading a single
-    // JS-rendered page, and the sitemap host/URL shape reveals the platform.
+    // Sitemap scan — the one method that reliably survives Cloudflare/WAF, because
+    // dealer sites MUST expose an XML sitemap of their vehicle-detail (VDP) pages for
+    // Google. We discover sitemaps via robots.txt (Cloudflare always serves it) plus
+    // common paths, recurse sitemap indexes, and count VDP URLs. No JS page load, no
+    // extension. Returns the inventory count + detected platform, or null.
     async function sitemapCountFallback(origin) {
       if (!origin) return null
-      const candidates = [
-        '/inventory-listing-sitemap.xml', '/vehicles-sitemap.xml', '/inventory-sitemap.xml',
-        '/sitemap_index.xml', '/sitemap.xml'
-      ]
       // A VDP URL is a single-vehicle detail page; exclude listing/showroom/blog pages.
-      const EXCLUDE = /(vlp\/?$)|\/showroom\/|\/buildandprice\/|\/blog\/|\/category\/|\/page\/|\/wp-|\/author\/|\/tag\//i
-      const INCLUDE = /vdp\/?$|\/vehicle(s)?\/|\/inventory\/[^/]*(19|20)\d{2}[- ][a-z]/i
+      const EXCLUDE = /\/(vlp|srp|showroom|search|buildandprice|build-and-price|blog|category|page|author|tag|about|contact|service|parts|finance|specials|staff|reviews|directions)\/?/i
+      // Match single-vehicle detail pages across the common dealer platforms.
+      const INCLUDE = /\/(vdp|vehicle-details|vehicledetails)\b|\/(new|used|certified|pre-owned)\/[^/]+\/[^/]+|\/(vehicle|vehicles|inventory)\/[^/]*(19|20)\d{2}[-_ ][a-z]|\/(19|20)\d{2}-[a-z][a-z0-9-]+-[a-z0-9]+\/?$|[?&](vehicleid|vin|stock|stk)=/i
       const seen = new Set()
       let sniffedXml = ''
+      const tried = new Set()
+
       const collect = async (u, depth = 0) => {
-        if (depth > 2 || seen.size > 5000) return
+        if (depth > 3 || seen.size > 8000 || tried.has(u)) return
+        tried.add(u)
         let xml = ''
         try {
-          const r = await browserFetch(u, { signal: AbortSignal.timeout(12000), headers: { 'Accept': 'application/xml, text/xml, */*' } })
+          const r = await browserFetch(u, { signal: AbortSignal.timeout(9000), headers: { 'Accept': 'application/xml, text/xml, */*' } })
           if (!r.ok) return
           xml = await r.text()
         } catch { return }
         sniffedXml += xml.slice(0, 4000)
-        const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/gi)].map(m => m[1].trim())
-        // Sitemap index → recurse into child sitemaps that look inventory-related.
+        const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/gi)].map(m => m[1].trim().replace(/&amp;/g, '&'))
+        // Sitemap index → recurse into child sitemaps that look inventory-related first,
+        // then any remaining ones if we still have no hits.
         if (/<sitemapindex/i.test(xml)) {
-          for (const child of locs) {
-            if (/inventory|vehicle|listing/i.test(child)) await collect(child, depth + 1)
+          const invChildren = locs.filter(c => /inventory|vehicle|listing|vdp|used|new|certified/i.test(c))
+          for (const child of invChildren) await collect(child, depth + 1)
+          if (seen.size === 0) {
+            for (const child of locs.slice(0, 8)) await collect(child, depth + 1)
           }
           return
         }
@@ -1367,24 +1371,44 @@ Units 60d+ on lot: ${stale}`
           if (INCLUDE.test(loc) && !EXCLUDE.test(loc)) seen.add(loc)
         }
       }
-      for (const path of candidates) {
-        await collect(origin + path)
+
+      // 1) robots.txt → Sitemap: entries (Cloudflare-friendly, dealer-agnostic).
+      const sitemapUrls = []
+      try {
+        const rb = await browserFetch(origin + '/robots.txt', { signal: AbortSignal.timeout(8000) })
+        if (rb.ok) {
+          const txt = await rb.text()
+          for (const m of txt.matchAll(/^\s*sitemap:\s*(\S+)/gim)) sitemapUrls.push(m[1].trim())
+        }
+      } catch {}
+
+      // 2) common sitemap paths as a backstop.
+      const candidates = [
+        ...sitemapUrls,
+        origin + '/inventory-listing-sitemap.xml', origin + '/vehicles-sitemap.xml',
+        origin + '/inventory-sitemap.xml', origin + '/inventory_sitemap.xml',
+        origin + '/sitemap_index.xml', origin + '/sitemap.xml', origin + '/sitemap-index.xml',
+      ]
+      for (const url of candidates) {
+        await collect(url)
         if (seen.size > 0) break
       }
       if (seen.size === 0) return null
+
       // Platform sniff from the collected VDP URLs + sitemap markup.
       const sample = [...seen].slice(0, 50).join(' ') + ' ' + sniffedXml
-      let platform = 'Unknown (sitemap)'
+      let platform = 'Sitemap'
       if (/edealer|\/vdp\//i.test(sample)) platform = 'eDealer'
       else if (/dealer\.com|dealerdotcom/i.test(sample)) platform = 'Dealer.com'
       else if (/dealerinspire/i.test(sample)) platform = 'Dealer Inspire'
-      else if (/wp-|wordpress|admin-ajax/i.test(sample)) platform = 'WordPress'
       else if (/convertus/i.test(sample)) platform = 'Convertus'
       else if (/vinsolutions|dealersocket/i.test(sample)) platform = 'DealerSocket'
+      else if (/wp-|wordpress|admin-ajax/i.test(sample)) platform = 'WordPress'
       return {
         listing_count: seen.size,
         avg_price: null, min_price: null, max_price: null,
         platform,
+        method: 'sitemap',
         scanned_at: new Date().toISOString()
       }
     }
@@ -1412,6 +1436,16 @@ Units 60d+ on lot: ${stale}`
           }
         }
       } catch {}
+
+      // Strategy 1a: sitemap-first for plain dealer websites (NOT AutoTrader/CarGurus,
+      // which have their own richer APIs below). Dealer sites are almost always behind
+      // Cloudflare, which blocks HTML/Puppeteer scraping but serves the XML sitemap. So
+      // for a dealer homepage/inventory URL, count VDP pages from the sitemap up front —
+      // fast and reliable — instead of grinding through soon-to-be-blocked fetches.
+      if (!/autotrader\.|cargurus\./i.test(url)) {
+        const sm = await sitemapCountFallback(sitemapOrigin)
+        if (sm) return sm
+      }
 
       // Strategy 1b: CarGurus dealer inventory API
       // CarGurus dealer pages: cargurus.com/Cars/new/nl/d/dealer-slug/d_<dealerId>

@@ -5255,7 +5255,7 @@ async function loadCompetitors() {
       const atSearchUrl = `https://www.autotrader.ca/dealers/?search=${atQuery}`;
       const errorLine = sr.error
         ? isBlocked
-          ? `<div class="text-xs text-amber-500 mt-1 leading-snug">⚠ Site blocked automated scans — paste an AutoTrader or CarGurus dealer page URL below.</div>
+          ? `<div class="text-xs text-amber-500 mt-1 leading-snug">Couldn't read this site — no public sitemap and the page is bot-protected. For pricing detail, paste their AutoTrader or CarGurus dealer page below.</div>
             <div class="mt-2 flex gap-1.5 competitor-url-edit hidden" id="url-edit-${c.id}">
               <input type="url" placeholder="AutoTrader, CarGurus, or dealer URL…" class="flex-1 text-xs border border-slate-300 dark:border-slate-600 rounded px-2 py-1 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200" id="url-input-${c.id}" value="${c.autotrader_url || ''}">
               <button class="competitor-url-save-btn text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded font-semibold" data-id="${c.id}">Save</button>
