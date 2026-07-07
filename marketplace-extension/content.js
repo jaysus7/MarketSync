@@ -990,14 +990,14 @@ if (modelComboboxNow && (
       dealerWebsite ? `🌐 Visit us online: ${dealerWebsite}` : null,
     ].filter(Boolean).join('\n');
 
-    // ── Section 6: Tracked link + contact ──
-    const trackedLink = vehicle.id ? `${API}/r/v/${vehicle.id}?s=fb` : null;
+    // ── Section 6: Contact ──
+    // The tracked full-listing link is added to Facebook's dedicated Website field
+    // below (a real tappable button), so we don't repeat it here as non-clickable text.
     const contactBlock = [
       `─── CONTACT ───`,
       isAdmin ? brandName : `${repName}${displayDealership ? ' — ' + displayDealership : ''}`,
-      repPhone    ? `📞 ${repPhone}`                        : null,
-      repEmail    ? `✉️  ${repEmail.replace('@', ' [at] ')}` : null,
-      trackedLink ? `🌐 Full listing & photos: marketsync.link/r/v/${vehicle.id}` : (dealerWebsite ? `🌐 ${dealerWebsite}` : null),
+      repPhone ? `📞 ${repPhone}` : null,
+      repEmail ? `✉️  ${repEmail}` : null,
     ].filter(Boolean).join('\n');
 
     const desc = [
