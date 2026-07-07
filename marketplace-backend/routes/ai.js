@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { scrapeMarketData } from '../scraper.js'
-import { marketcheckMarket, marketcheckEnabled } from '../marketcheck.js'
+import { marketcheckMarket, marketcheckEnabled, marketcheckCompetitorStats } from '../marketcheck.js'
 import { createNotification, createNotifications } from '../notifications.js'
 import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
 
@@ -1347,12 +1347,17 @@ Units 60d+ on lot: ${stale}`
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active')
+      .select('ai_boost_active, country')
       .eq('id', req.dealershipId)
       .single()
 
     const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
+
+    const _compIsUS = (() => {
+      const c = (dealer?.country || '').trim().toUpperCase()
+      return c === 'US' || c === 'USA' || c === 'UNITED STATES'
+    })()
 
     const { data: competitors } = await supabaseAdmin
       .from('competitor_dealerships')
@@ -1857,6 +1862,14 @@ Units 60d+ on lot: ${stale}`
     const scanOne = async (comp) => {
       if (!comp.autotrader_url) {
         return { error: 'No URL configured', scanned_at: new Date().toISOString() }
+      }
+      // PRIMARY: MarketCheck (licensed data) — reliable, no scraping, no Cloudflare.
+      // Maps the competitor's website domain to their active listings + price stats.
+      if (marketcheckEnabled()) {
+        try {
+          const mc = await marketcheckCompetitorStats({ url: comp.autotrader_url, isUS: _compIsUS })
+          if (mc) return mc
+        } catch {}
       }
       try {
         return await Promise.race([

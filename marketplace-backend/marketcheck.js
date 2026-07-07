@@ -20,6 +20,45 @@ export function marketcheckEnabled() {
 }
 
 /**
+ * Competitor lot stats from MarketCheck — reliable, no scraping, no Cloudflare.
+ * MarketCheck tags every listing with its `source` (the dealer's website domain),
+ * so we map a competitor's URL → domain → their active listings + price stats.
+ * Returns { listing_count, avg_price, min_price, max_price, platform } or null.
+ */
+export async function marketcheckCompetitorStats({ url, isUS }) {
+  const key = process.env.MARKETCHECK_API_KEY
+  if (!key || !url) return null
+  let domain = ''
+  try { domain = new URL(url).hostname.replace(/^www\./i, '').toLowerCase() } catch { return null }
+  if (!domain) return null
+
+  const path = isUS ? '/search/car/active' : '/search/car/ca/active'
+  const params = new URLSearchParams({ api_key: key, source: domain, stats: 'price', rows: '0' })
+  try {
+    const r = await fetch(`${BASE}${path}?${params.toString()}`, {
+      headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(12000),
+    })
+    if (!r.ok) { console.error('[marketcheck] competitor HTTP', r.status, domain); return null }
+    const j = await r.json()
+    const count = Number(j?.num_found ?? 0)
+    if (!count) return null
+    const p = j?.stats?.price || {}
+    return {
+      listing_count: count,
+      avg_price: p.mean ? Math.round(p.mean) : (p.median ? Math.round(p.median) : null),
+      min_price: p.min ? Math.round(p.min) : null,
+      max_price: p.max ? Math.round(p.max) : null,
+      platform: 'MarketCheck',
+      method: 'marketcheck',
+      scanned_at: new Date().toISOString(),
+    }
+  } catch (e) {
+    console.error('[marketcheck] competitor lookup failed:', e.message)
+    return null
+  }
+}
+
+/**
  * Fetch aggregated market stats for a vehicle.
  * Returns a summary shaped like the scraper's summarise() output, or null.
  */
