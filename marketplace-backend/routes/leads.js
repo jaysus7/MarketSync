@@ -5,9 +5,19 @@ const xmlEsc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&'
 
 // Build a standard ADF (Auto-lead Data Format) XML document that any dealer CRM
 // can ingest. https://www.adfxml.info/
-function buildAdf(lead, vehicle, dealerName) {
+function buildAdf(lead, vehicle, dealerName, rep) {
   const now = new Date().toISOString()
   const nameParts = String(lead.name || 'Unknown').trim()
+  // Salesperson attribution: most CRMs (VinSolutions, DealerSocket, Elead) read the
+  // assigned rep from a <salesperson> contact inside <vendor>. We also append it to
+  // the comments so it's visible even on parsers that ignore the element.
+  const repName = rep && rep.name ? String(rep.name).trim() : ''
+  const salespersonXml = repName ? `
+      <contact>
+        <name part="full" type="individual">${xmlEsc(repName)}</name>
+        ${rep.email ? `<email>${xmlEsc(rep.email)}</email>` : ''}
+        ${rep.phone ? `<phone type="voice">${xmlEsc(rep.phone)}</phone>` : ''}
+      </contact>` : ''
   const veh = vehicle ? `
     <vehicle interest="buy" status="${xmlEsc((vehicle.condition || 'used').toLowerCase())}">
       ${vehicle.year ? `<year>${xmlEsc(vehicle.year)}</year>` : ''}
@@ -30,10 +40,10 @@ function buildAdf(lead, vehicle, dealerName) {
         ${lead.email ? `<email>${xmlEsc(lead.email)}</email>` : ''}
         ${lead.phone ? `<phone type="voice" time="nopreference">${xmlEsc(lead.phone)}</phone>` : ''}
       </contact>
-      ${lead.comments ? `<comments>${xmlEsc(lead.comments)}</comments>` : ''}
+      <comments>${xmlEsc([lead.comments, repName ? `Salesperson: ${repName}` : ''].filter(Boolean).join(' — '))}</comments>
     </customer>
     <vendor>
-      <vendorname>${xmlEsc(dealerName || 'Dealership')}</vendorname>
+      <vendorname>${xmlEsc(dealerName || 'Dealership')}</vendorname>${salespersonXml}
     </vendor>
     <provider>
       <name part="full">MarketSync</name>
@@ -103,9 +113,17 @@ export function registerLeads(app) {
     // Deliver to the CRM via ADF email when configured.
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('name, crm_adf_email').eq('id', req.dealershipId).maybeSingle()
+    // The salesperson who logged the lead — attached to the ADF for CRM attribution.
+    const { data: repProfile } = await supabaseAdmin
+      .from('profiles').select('full_name, display_name, phone').eq('id', req.user.id).maybeSingle()
+    const rep = {
+      name: repProfile?.full_name || repProfile?.display_name || '',
+      email: req.user?.email || '',
+      phone: repProfile?.phone || '',
+    }
     let delivered = false
     if (dealer?.crm_adf_email && resend) {
-      const adf = buildAdf(lead, vehicle, dealer.name)
+      const adf = buildAdf(lead, vehicle, dealer.name, rep)
       try {
         await resend.emails.send({
           from: EMAIL_FROM,

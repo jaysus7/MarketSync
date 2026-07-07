@@ -20,6 +20,28 @@ export function marketcheckEnabled() {
 }
 
 /**
+ * Health check — verifies the key is set AND actually works against the API.
+ * Returns { configured, ok, sample_found?, status?, error? }.
+ */
+export async function marketcheckPing() {
+  if (!process.env.MARKETCHECK_API_KEY) return { configured: false, ok: false }
+  try {
+    const params = new URLSearchParams({
+      api_key: process.env.MARKETCHECK_API_KEY,
+      rows: '0', car_type: 'used', make: 'Chevrolet', model: 'Silverado', stats: 'price',
+    })
+    const r = await fetch(`${BASE}/search/car/active?${params.toString()}`, {
+      headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10000),
+    })
+    if (!r.ok) return { configured: true, ok: false, status: r.status }
+    const j = await r.json()
+    return { configured: true, ok: true, sample_found: Number(j?.num_found ?? 0) }
+  } catch (e) {
+    return { configured: true, ok: false, error: e.message }
+  }
+}
+
+/**
  * Competitor lot stats from MarketCheck — reliable, no scraping, no Cloudflare.
  * MarketCheck tags every listing with its `source` (the dealer's website domain),
  * so we map a competitor's URL → domain → their active listings + price stats.

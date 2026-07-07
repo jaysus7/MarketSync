@@ -4850,9 +4850,34 @@ function loadInvIntelPage() {
     active.classList.remove('hidden');
     if (typeof window._loadIntel === 'function') window._loadIntel();
     loadStockingRecommendations(false);
+    loadMarketcheckStatus();
   } else {
     upsell.classList.remove('hidden');
     active.classList.add('hidden');
+  }
+}
+
+// Show whether the licensed MarketCheck feed is connected & live, so the dealer can
+// tell at a glance that pricing/competitor data is using real data (not the scraper).
+async function loadMarketcheckStatus() {
+  const el = document.getElementById('marketcheck-status');
+  if (!el) return;
+  let s;
+  try {
+    const r = await fetch(`${API}/ai/marketcheck-status`, { headers: { 'Authorization': `Bearer ${token}` } });
+    s = await r.json();
+  } catch { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  const dot = (c) => `<span class="w-2 h-2 rounded-full ${c} flex-shrink-0"></span>`;
+  if (!s.configured) {
+    el.className = 'text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-2 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200';
+    el.innerHTML = `${dot('bg-amber-500')} MarketCheck not connected — pricing & competitor data are using the free scraper. Add MARKETCHECK_API_KEY in Render for reliable, live data.`;
+  } else if (s.ok) {
+    el.className = 'text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-200';
+    el.innerHTML = `${dot('bg-emerald-500')} MarketCheck connected — live market data is active${s.sample_found ? ` (test query returned ${Number(s.sample_found).toLocaleString()} comps)` : ''}.`;
+  } else {
+    el.className = 'text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-2 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900 text-red-800 dark:text-red-200';
+    el.innerHTML = `${dot('bg-red-500')} MarketCheck key is set but the test call failed${s.status ? ` (HTTP ${s.status})` : ''}. Check the key or your plan/endpoint access.`;
   }
 }
 

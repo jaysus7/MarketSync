@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { scrapeMarketData } from '../scraper.js'
-import { marketcheckMarket, marketcheckEnabled, marketcheckCompetitorStats } from '../marketcheck.js'
+import { marketcheckMarket, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing } from '../marketcheck.js'
 import { createNotification, createNotifications } from '../notifications.js'
 import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
 
@@ -391,6 +391,11 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
       for (const r of rows) r.stocknumber = r.inventory_id ? (stockById.get(r.inventory_id) || null) : null
     }
     res.json({ activity: rows })
+  })
+
+  // GET /ai/marketcheck-status — is the licensed MarketCheck feed configured & live?
+  app.get('/ai/marketcheck-status', requireAuth, async (req, res) => {
+    res.json(await marketcheckPing())
   })
 
   // GET /ai/lot-report — aggregate the whole lot against AutoTrader/CarGurus market
