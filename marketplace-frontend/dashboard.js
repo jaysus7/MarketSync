@@ -3170,14 +3170,17 @@ async function loadAIActivity() {
       const warningList = item.warnings?.length > 0
         ? `<ul class="mt-1.5 text-xs text-amber-700 dark:text-amber-300 space-y-0.5 list-disc list-inside">${item.warnings.map(w => `<li>${w}</li>`).join('')}</ul>`
         : '';
-      const clickable = item.price_flagged && item.inventory_id;
+      // Every vehicle gets a clickable price report so the comparison is always
+      // viewable — not just the ones flagged high or low.
+      const clickable = !!item.inventory_id;
+      const hint = item.price_flagged ? 'Click for full price report →' : 'View price comparison →';
       return `<li class="px-4 py-3.5 ${clickable ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors' : ''}" ${clickable ? `data-price-report="${item.inventory_id}"` : ''}>
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <div class="font-semibold text-sm text-slate-900 dark:text-white truncate">${item.vehicle_label || 'Unknown vehicle'}</div>
             <div class="flex flex-wrap gap-1.5 mt-1.5">${badges.join('') || '<span class="text-xs text-slate-400">No issues found</span>'}</div>
             ${warningList}
-            ${clickable ? '<div class="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1">Click for full price report →</div>' : ''}
+            ${clickable ? `<div class="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1">${hint}</div>` : ''}
           </div>
           <div class="text-xs text-slate-400 whitespace-nowrap flex-shrink-0 mt-0.5">${date}</div>
         </div>
@@ -3212,6 +3215,78 @@ function closePriceReport() {
   document.getElementById('price-report-modal')?.classList.add('hidden');
   if (__prChart) { __prChart.destroy(); __prChart = null; }
   __prData = null;
+}
+
+// ── Lot Average Report ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('ai-lot-report-btn')?.addEventListener('click', openLotReport);
+  document.getElementById('lr-close')?.addEventListener('click', () =>
+    document.getElementById('lot-report-modal')?.classList.add('hidden'));
+  document.getElementById('lot-report-modal')?.addEventListener('click', e => {
+    if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+  });
+});
+
+async function openLotReport() {
+  const modal = document.getElementById('lot-report-modal');
+  const loading = document.getElementById('lr-loading');
+  const content = document.getElementById('lr-content');
+  const errorEl = document.getElementById('lr-error');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  loading?.classList.remove('hidden');
+  content?.classList.add('hidden');
+  errorEl?.classList.add('hidden');
+
+  const money = n => '$' + Number(n || 0).toLocaleString();
+  try {
+    const res = await fetch(`${API}/ai/lot-report`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not build lot report');
+    loading?.classList.add('hidden');
+
+    if (!data.count) {
+      if (errorEl) {
+        errorEl.textContent = 'No comparable vehicles yet — run "Scan All Inventory" first so we can pull market comps for your lot.';
+        errorEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    const sub = document.getElementById('lr-subtitle');
+    if (sub) sub.textContent = `${data.count} vehicle${data.count === 1 ? '' : 's'} with market comps · from your latest scan`;
+    document.getElementById('lr-count').textContent = data.count;
+    document.getElementById('lr-lot-avg').textContent = money(data.lot_avg);
+    document.getElementById('lr-market-avg').textContent = money(data.market_avg);
+
+    const diffEl = document.getElementById('lr-diff');
+    const p = data.overall_pct_diff || 0;
+    diffEl.textContent = (p > 0 ? '+' : '') + p + '%';
+    diffEl.className = 'text-2xl font-black ' + (p > 5 ? 'text-red-600 dark:text-red-400' : p < -5 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400');
+
+    document.getElementById('lr-over').textContent = data.over;
+    document.getElementById('lr-fair').textContent = data.fair;
+    document.getElementById('lr-under').textContent = data.under;
+
+    const rowColor = pct => pct > 5 ? 'text-red-600 dark:text-red-400' : pct < -5 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400';
+    document.getElementById('lr-rows').innerHTML = (data.vehicles || []).map(v => `
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer" data-lr-report="${v.inventory_id}">
+        <td class="px-3 py-2 font-medium text-slate-900 dark:text-white">${esc(v.label)}</td>
+        <td class="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">${money(v.your_price)}</td>
+        <td class="px-3 py-2 text-right tabular-nums text-slate-500 dark:text-slate-400">${money(v.market_avg)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-bold ${rowColor(v.pct_diff)}">${(v.pct_diff > 0 ? '+' : '') + v.pct_diff}%</td>
+      </tr>`).join('');
+
+    // Click a row to open that vehicle's full price report
+    document.getElementById('lr-rows').querySelectorAll('[data-lr-report]').forEach(tr => {
+      tr.addEventListener('click', () => { modal.classList.add('hidden'); openPriceReport(tr.dataset.lrReport); });
+    });
+
+    content?.classList.remove('hidden');
+  } catch (err) {
+    loading?.classList.add('hidden');
+    if (errorEl) { errorEl.textContent = err.message; errorEl.classList.remove('hidden'); }
+  }
 }
 
 function exportPriceReportPDF() {

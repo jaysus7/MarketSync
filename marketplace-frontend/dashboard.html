@@ -1815,6 +1815,11 @@
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                   Refresh Log
                 </button>
+                <button id="ai-lot-report-btn" class="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-4 py-2.5 rounded-lg transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V9m4 8V5m4 12v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                  Lot Average Report
+                </button>
+                <p class="text-[11px] text-slate-400 dark:text-slate-500 leading-snug text-center">Your whole lot vs AutoTrader &amp; CarGurus market averages.</p>
               </div>
               <div id="ai-sync-status" class="hidden space-y-2">
                 <div class="flex items-center gap-2 text-xs font-medium text-indigo-600 dark:text-indigo-400">
@@ -2076,6 +2081,87 @@
           </div>
         </div>
 
+        <!-- Lot Average Report Modal -->
+        <div id="lot-report-modal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-start justify-center p-4 overflow-y-auto">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl w-full max-w-3xl mt-10 mb-10 overflow-hidden">
+            <div class="flex items-start justify-between gap-4 px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <div class="text-[10px] font-bold uppercase tracking-wider text-violet-500 flex items-center gap-1 mb-0.5"><svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg> Lot Average Report</div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Your Lot vs the Market</h3>
+                <p id="lr-subtitle" class="text-xs text-slate-500 mt-0.5"></p>
+              </div>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <button id="lr-pdf-btn" class="hidden flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                  Save as PDF
+                </button>
+                <button id="lr-close" class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none px-1">&times;</button>
+              </div>
+            </div>
+
+            <div id="lr-loading" class="py-16 text-center text-sm text-slate-400 italic">Building lot report…</div>
+            <div id="lr-error" class="hidden py-12 text-center text-sm text-red-500 px-6"></div>
+
+            <div id="lr-content" class="hidden p-6 space-y-6">
+              <!-- Headline strip -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 text-center">
+                  <div class="text-[11px] uppercase font-bold tracking-wider text-slate-400 mb-1">Vehicles Compared</div>
+                  <div id="lr-count" class="text-2xl font-black text-slate-900 dark:text-white"></div>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 text-center">
+                  <div class="text-[11px] uppercase font-bold tracking-wider text-slate-400 mb-1">Your Lot Avg</div>
+                  <div id="lr-lot-avg" class="text-2xl font-black text-slate-900 dark:text-white"></div>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 text-center">
+                  <div class="text-[11px] uppercase font-bold tracking-wider text-slate-400 mb-1">Market Avg</div>
+                  <div id="lr-market-avg" class="text-2xl font-black text-slate-900 dark:text-white"></div>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 text-center">
+                  <div class="text-[11px] uppercase font-bold tracking-wider text-slate-400 mb-1">Overall Difference</div>
+                  <div id="lr-diff" class="text-2xl font-black"></div>
+                </div>
+              </div>
+
+              <!-- Positioning counts -->
+              <div class="grid grid-cols-3 gap-3">
+                <div class="bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900 rounded-lg p-3 text-center">
+                  <div id="lr-over" class="text-xl font-black text-red-600 dark:text-red-400"></div>
+                  <div class="text-[11px] font-bold text-red-500 uppercase tracking-wide mt-0.5">Above Market</div>
+                </div>
+                <div class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900 rounded-lg p-3 text-center">
+                  <div id="lr-fair" class="text-xl font-black text-emerald-600 dark:text-emerald-400"></div>
+                  <div class="text-[11px] font-bold text-emerald-500 uppercase tracking-wide mt-0.5">Priced to Market</div>
+                </div>
+                <div class="bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900 rounded-lg p-3 text-center">
+                  <div id="lr-under" class="text-xl font-black text-amber-600 dark:text-amber-400"></div>
+                  <div class="text-[11px] font-bold text-amber-500 uppercase tracking-wide mt-0.5">Below Market</div>
+                </div>
+              </div>
+
+              <!-- Per-vehicle table -->
+              <div>
+                <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-2">Vehicle-by-Vehicle</div>
+                <div class="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
+                  <table class="w-full text-sm">
+                    <thead class="bg-slate-50 dark:bg-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
+                      <tr>
+                        <th class="text-left font-bold px-3 py-2">Vehicle</th>
+                        <th class="text-right font-bold px-3 py-2">Your Price</th>
+                        <th class="text-right font-bold px-3 py-2">Market Avg</th>
+                        <th class="text-right font-bold px-3 py-2">Diff</th>
+                      </tr>
+                    </thead>
+                    <tbody id="lr-rows" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <p class="text-xs text-slate-400 leading-relaxed">Built from your most recent inventory scan — each vehicle's market average comes from AutoTrader &amp; CarGurus comps matched on year and trim. Vehicles without a reliable comp set (new/current-year units, or thin/mismatched data) are excluded. Run <strong>Scan All Inventory</strong> first to refresh the comps. Not a live data feed; estimates only.</p>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </section>
@@ -2107,7 +2193,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260707e"></script>
+  <script src="dashboard.js?v=20260707f"></script>
   <script src="tour.js"></script>
   <script src="table-sort.js?v=20260706a"></script>
 </body>

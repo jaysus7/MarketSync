@@ -387,6 +387,73 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
     res.json({ activity: data || [] })
   })
 
+  // GET /ai/lot-report — aggregate the whole lot against AutoTrader/CarGurus market
+  // averages. Built from the most recent scan (ai_activity.price_median per vehicle)
+  // so it's instant and free — run "Scan All Inventory" first to refresh the comps.
+  app.get('/ai/lot-report', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+
+    const { data: dealer } = await supabaseAdmin
+      .from('dealerships').select('ai_boost_active').eq('id', req.dealershipId).single()
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    if (!isOwner && !dealer?.ai_boost_active) {
+      return res.status(403).json({ error: 'AI Boost not active' })
+    }
+
+    // Latest scan result per vehicle that produced a (reliable) market median.
+    const { data: acts, error: aErr } = await supabaseAdmin
+      .from('ai_activity')
+      .select('inventory_id, price_median, created_at')
+      .eq('dealership_id', req.dealershipId)
+      .not('price_median', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(3000)
+    if (aErr) return res.status(500).json({ error: aErr.message })
+
+    const latest = new Map()
+    for (const a of acts || []) {
+      if (a.inventory_id && !latest.has(a.inventory_id)) latest.set(a.inventory_id, a)
+    }
+    const ids = [...latest.keys()]
+    if (!ids.length) {
+      return res.json({ count: 0, vehicles: [], lot_avg: 0, market_avg: 0, overall_pct_diff: 0, over: 0, under: 0, fair: 0 })
+    }
+
+    const { data: inv } = await supabaseAdmin
+      .from('inventory')
+      .select('id, year, make, model, trim, price, status')
+      .in('id', ids)
+      .eq('dealership_id', req.dealershipId)
+      .eq('status', 'available')
+
+    const vehicles = []
+    for (const v of inv || []) {
+      const a = latest.get(v.id)
+      const yourPrice = Number(v.price)
+      const market = Number(a?.price_median)
+      if (!yourPrice || !market) continue
+      const pct = Math.round(((yourPrice - market) / market) * 1000) / 10
+      vehicles.push({
+        inventory_id: v.id,
+        label: [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle',
+        your_price: yourPrice,
+        market_avg: market,
+        pct_diff: pct,
+      })
+    }
+    vehicles.sort((a, b) => b.pct_diff - a.pct_diff)
+
+    const count = vehicles.length
+    const lotAvg = count ? Math.round(vehicles.reduce((s, v) => s + v.your_price, 0) / count) : 0
+    const marketAvg = count ? Math.round(vehicles.reduce((s, v) => s + v.market_avg, 0) / count) : 0
+    const overallPct = marketAvg ? Math.round(((lotAvg - marketAvg) / marketAvg) * 1000) / 10 : 0
+    const over = vehicles.filter(v => v.pct_diff > 5).length
+    const under = vehicles.filter(v => v.pct_diff < -5).length
+    const fair = count - over - under
+
+    res.json({ count, lot_avg: lotAvg, market_avg: marketAvg, overall_pct_diff: overallPct, over, under, fair, vehicles })
+  })
+
   // GET /ai/price-report/:inventory_id — AI market estimate for a vehicle
   app.get('/ai/price-report/:inventory_id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
