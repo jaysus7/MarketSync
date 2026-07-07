@@ -638,6 +638,8 @@ let PL_DATA = { columns: {}, counts: {} };
 // Cards the user has collapsed (kept across re-renders so a move/refresh doesn't
 // re-expand everything). Board-wide collapse toggles every card at once.
 const PL_COLLAPSED = new Set();
+// Whether we've applied the default "all collapsed" state on first render yet.
+let PL_COLLAPSED_INITED = false;
 const plMoney = (n) => n != null ? '$' + Number(n).toLocaleString() : '';
 const plKm = (n) => n != null ? Number(n).toLocaleString() + ' km' : '';
 const plPosted = (d) => { try { const days = Math.floor((Date.now() - new Date(d)) / 86400000); return days <= 0 ? 'today' : days + 'd ago'; } catch { return ''; } };
@@ -728,6 +730,12 @@ function plRender() {
   const root = document.getElementById('pipeline-root');
   if (!root) return;
   const allCardIds = Object.values(PL_DATA.columns || {}).flat().map(c => c.id);
+  // Start every card collapsed on first load — the user opens the ones they want.
+  // Only done once so a later move/refresh doesn't re-collapse cards they opened.
+  if (!PL_COLLAPSED_INITED && allCardIds.length > 0) {
+    allCardIds.forEach(id => PL_COLLAPSED.add(id));
+    PL_COLLAPSED_INITED = true;
+  }
   const allCollapsed = allCardIds.length > 0 && allCardIds.every(id => PL_COLLAPSED.has(id));
   const cols = PL_COLS.map(col => {
     const cards = (PL_DATA.columns[col.key] || []);
