@@ -1218,14 +1218,19 @@ Units 60d+ on lot: ${stale}`
       return res.status(403).json({ error: 'AI Vision not active' })
     }
     const rescan = req.query.rescan === '1' || req.body?.rescan === true
-    // Grab the vehicles that still need scoring (or all, on rescan).
-    let q = supabaseAdmin.from('inventory')
-      .select('id, image_urls, photo_checked_at')
+    // Grab vehicles that still need scoring: never checked, or the photo count
+    // changed since the last check (so a unit scored before its photos synced gets
+    // re-scored instead of being stuck at "No photos"). ?rescan=1 forces all.
+    const { data: pending } = await supabaseAdmin.from('inventory')
+      .select('id, image_urls, photo_checked_at, photo_analysis')
       .eq('dealership_id', req.dealershipId).eq('status', 'available')
       .order('created_at', { ascending: false }).limit(600)
-    if (!rescan) q = q.is('photo_checked_at', null)
-    const { data: pending } = await q
-    const todo = pending || []
+    const todo = (pending || []).filter(r => {
+      if (rescan || !r.photo_checked_at) return true
+      const cur = Array.isArray(r.image_urls) ? r.image_urls.filter(Boolean).length : 0
+      const prev = r.photo_analysis?.photo_count ?? null
+      return prev !== cur
+    })
 
     // Score a small first batch synchronously so results appear the instant the
     // scan returns — on big stores the fully-background job is slow/unreliable on

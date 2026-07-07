@@ -168,17 +168,23 @@ export async function scoreVehiclePhotos(vehicle) {
 export async function runPhotoVision(dealershipId, { max = 300, rescan = false } = {}) {
   if (!dealershipId) return { scored: 0 }
   try {
-    let q = supabaseAdmin
+    const { data: rows, error } = await supabaseAdmin
       .from('inventory')
-      .select('id, image_urls, photo_checked_at')
+      .select('id, image_urls, photo_checked_at, photo_analysis')
       .eq('dealership_id', dealershipId)
       .eq('status', 'available')
       .limit(max)
-    if (!rescan) q = q.is('photo_checked_at', null)
-    const { data: rows, error } = await q
     if (error) { console.warn('[ai-vision] fetch failed:', error.message); return { scored: 0 } }
 
-    const todo = (rows || []).filter(r => Array.isArray(r.image_urls) && r.image_urls.length >= 0)
+    // Score vehicles that were never checked, or whose photo count changed since the
+    // last check — a unit scored before its photos synced would otherwise stay stuck
+    // at "No photos / 0" forever even after 20 photos land.
+    const todo = (rows || []).filter(r => {
+      if (rescan || !r.photo_checked_at) return true
+      const cur = Array.isArray(r.image_urls) ? r.image_urls.filter(Boolean).length : 0
+      const prev = r.photo_analysis?.photo_count ?? null
+      return prev !== cur
+    })
     if (!todo.length) return { scored: 0 }
 
     let scored = 0

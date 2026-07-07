@@ -6282,8 +6282,12 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           ${(() => {
             // AI Vision photo quality — folded in here instead of a separate page.
-            if (v.photo_checked_at == null && v.photo_score == null) {
-              return `<div class="mb-3 text-[11px] text-slate-400 dark:text-slate-500">AI Vision: photos not scored yet.</div>`;
+            const flags0 = Array.isArray(v.photo_flags) ? v.photo_flags : [];
+            const staleNoPhotos = (v.photos > 0) && flags0.some(f => /no photos/i.test(f));
+            if ((v.photo_checked_at == null && v.photo_score == null) || staleNoPhotos) {
+              // Never scored, OR scored "no photos" before the photos synced — either
+              // way the score is stale. It re-scores automatically on the next sync.
+              return `<div class="mb-3 text-[11px] text-slate-400 dark:text-slate-500">AI Vision: photos not scored yet — will score on the next sync, or click “Score photos”.</div>`;
             }
             const ps = Number(v.photo_score || 0);
             const barColor = ps >= 80 ? 'bg-emerald-500' : ps >= 50 ? 'bg-amber-400' : 'bg-red-400';
