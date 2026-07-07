@@ -623,6 +623,17 @@ function renderCaptureProgress(s) {
   // Auto-hide a finished/failed bar shortly after it lands.
   if (s.finishedAt && Date.now() - s.finishedAt > 6000) { box.style.display = 'none'; return }
 
+  // A "pulling" read that hasn't finished in 3 minutes is stalled — the dealer
+  // site is almost certainly blocking the read. Show that instead of a frozen 8%.
+  if (s.status === 'pulling' && s.startedAt && Date.now() - s.startedAt > 180000) {
+    box.style.display = 'block'
+    if (fill) { fill.style.width = '100%'; fill.style.background = 'var(--red)' }
+    if (pctEl) { pctEl.textContent = ''; }
+    if (labelEl) labelEl.textContent = 'Inventory read stalled'
+    if (subEl) subEl.textContent = 'The dealer site is blocking the read. Tap Refresh to retry, or it will catch up on the next scheduled sync.'
+    return
+  }
+
   box.style.display = 'block'
   let pct, label, sub = '', color = null
   if (s.status === 'done') {
@@ -641,6 +652,12 @@ function renderCaptureProgress(s) {
           : phase === 'scanning'  ? 'Reading dealer inventory…'
           : 'Working…'
     if (s.total) sub = `${s.current || 0} of ${s.total} pages scanned`
+    // Re-render once the stall threshold passes so a frozen read flips to the
+    // "stalled" message without needing a storage event.
+    if (s.startedAt) {
+      const remaining = 180000 - (Date.now() - s.startedAt)
+      if (remaining > 0) { clearTimeout(renderCaptureProgress._t); renderCaptureProgress._t = setTimeout(() => renderCaptureProgress(s), remaining + 500) }
+    }
   }
   if (fill) { fill.style.width = `${pct}%`; if (color) fill.style.background = color }
   if (pctEl) { pctEl.textContent = `${pct}%`; if (color) pctEl.style.color = color }
