@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { createNotification } from '../notifications.js'
 import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
+import { fetchOemBrochurePdf } from '../utils/oemBrochure.js'
 import { brandVehiclePhotos } from '../utils/photoOverlay.js'
 import { fontFaceCss } from '../utils/brochureFonts.js'
 import multer from 'multer'
@@ -1155,8 +1156,14 @@ export function registerRoutes(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
 
     const dealer = await loadDealershipData(req.dealershipId)
-    // The branded dealer brochure uses AI-written copy → AI Boost required.
-    if (!hasAiBoost(dealer, req.user.email)) {
+    // Entitlements mirror the window sticker: the factory (OEM) brochure is part of
+    // Inventory Intelligence; the branded/AI-written dealer brochure needs AI Boost.
+    const wantsOem = req.query.source === 'oem'
+    if (wantsOem) {
+      if (!hasInvIntel(dealer, req.user.email)) {
+        return res.status(403).json({ error: 'The OEM brochure is part of Inventory Intelligence' })
+      }
+    } else if (!hasAiBoost(dealer, req.user.email)) {
       return res.status(403).json({ error: 'The dealer brochure requires AI Boost' })
     }
 
@@ -1168,7 +1175,24 @@ export function registerRoutes(app) {
       .single()
     if (error || !vehicle) return res.status(404).json({ error: 'Vehicle not found' })
 
-    if (vehicle.brochure_url && req.query.regen !== '1') {
+    // OEM-only: fetch the authentic manufacturer brochure (Auto-Brochures, up to
+    // 2023) and cache it. If there's none, return a clear no_oem signal so the UI
+    // can offer to generate a dealer brochure instead.
+    if (wantsOem) {
+      if (vehicle.brochure_url && vehicle.brochure_source === 'oem' && req.query.regen !== '1') {
+        return res.json({ url: vehicle.brochure_url, source: 'oem', cached: true })
+      }
+      const oem = await fetchOemBrochurePdf(vehicle).catch(() => null)
+      if (!oem) {
+        return res.status(404).json({ error: 'no_oem', message: 'No manufacturer brochure is available for this vehicle (factory brochures are on file up to 2023).' })
+      }
+      const path = `${req.dealershipId}/${vehicle.id}/brochure.pdf`
+      const url = await uploadPdf(oem.buffer, path)
+      await supabaseAdmin.from('inventory').update({ brochure_url: url, brochure_source: 'oem' }).eq('id', vehicle.id)
+      return res.json({ url, source: 'oem', cached: false })
+    }
+
+    if (vehicle.brochure_url && vehicle.brochure_source !== 'oem' && req.query.regen !== '1') {
       return res.json({ url: vehicle.brochure_url, cached: true })
     }
 
@@ -1192,7 +1216,7 @@ export function registerRoutes(app) {
         const pdf = await generatePdf(html, { landscape: false, viewportWidth: 860, viewportHeight: 1100, timeoutMs: 90000 })
         const path = `${req.dealershipId}/${vehicle.id}/brochure.pdf`
         const url = await uploadPdf(pdf, path)
-        await supabaseAdmin.from('inventory').update({ brochure_url: url }).eq('id', vehicle.id)
+        await supabaseAdmin.from('inventory').update({ brochure_url: url, brochure_source: 'generated' }).eq('id', vehicle.id)
         // Surface a clickable notification linking straight to the finished PDF.
         const vName = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ')
         await createNotification({
