@@ -453,6 +453,7 @@ function switchPage(pageId) {
   if (pageId === 'ai-vision') loadAiVisionPage();
   if (pageId === 'pipeline') loadPipelinePage();
   if (pageId === 'leads') loadLeadsPage();
+  if (pageId === 'appointments') loadAppointmentsPage();
 }
 
 // ── Leads (CRM ADF delivery) ─────────────────────────────────────────────────
@@ -481,7 +482,7 @@ async function loadLeadsPage() {
   };
   const rows = (data.leads || []).map(l => `
     <tr class="border-b border-slate-100 dark:border-slate-800/60">
-      <td class="py-3 px-3"><div class="font-semibold text-slate-900 dark:text-white">${esc(l.name || '—')}</div><div class="text-xs text-slate-400">${esc(l.source || '')}</div></td>
+      <td class="py-3 px-3"><div class="font-semibold text-slate-900 dark:text-white">${esc(l.name || '—')}</div><div class="text-xs text-slate-400">${esc(l.source || '')}${l.rep ? ' · ' + esc(l.rep) : ''}</div></td>
       <td class="py-3 px-3 text-slate-600 dark:text-slate-300">${esc(l.phone || '')}${l.phone && l.email ? '<br>' : ''}${esc(l.email || '')}</td>
       <td class="py-3 px-3 text-slate-500 dark:text-slate-400 max-w-[220px]">${esc(l.comments || '')}</td>
       <td class="py-3 px-3">${statusPill(l)}</td>
@@ -801,6 +802,58 @@ async function loadPipelinePage() {
   }
   // Leads live on the same page now — load them alongside the board.
   if (document.getElementById('leads-root')) loadLeadsPage();
+}
+
+// ── Appointments (all reps, chronological) ───────────────────────────────────
+async function loadAppointmentsPage() {
+  const root = document.getElementById('appointments-root');
+  if (!root) return;
+  root.innerHTML = `<div class="py-16 text-center text-sm text-slate-400 italic">Loading appointments…</div>`;
+  let data;
+  try {
+    data = await apiGetJson('/appointments', { onRetry: (n, total) => {
+      root.innerHTML = `<div class="py-16 text-center text-sm text-slate-400 italic">Waking up the server… (${n}/${total})</div>`;
+    }});
+  } catch (e) {
+    root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">Couldn't load appointments: ${esc(e.message)}<br><button onclick="loadAppointmentsPage()" class="mt-3 text-indigo-500 hover:text-indigo-400 font-bold">Retry</button></div>`;
+    return;
+  }
+
+  const appts = data.appointments || [];
+  const fmt = (d) => { try { return new Date(d).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch { return ''; } };
+  const upcoming = appts.filter(a => !a.past);
+  const past = appts.filter(a => a.past);
+
+  const row = (a) => `
+    <div class="flex items-start gap-3 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl ${a.past ? 'opacity-60' : ''}">
+      ${a.image
+        ? `<img src="${esc(a.image)}" alt="" loading="lazy" class="w-14 h-14 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 flex-shrink-0">`
+        : `<div class="w-14 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 text-xl flex-shrink-0">🚗</div>`}
+      <div class="min-w-0 flex-1">
+        <div class="font-bold text-slate-900 dark:text-white truncate">${esc(a.label)}</div>
+        <div class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 mt-0.5">📅 ${esc(fmt(a.appointment_at))}</div>
+        ${a.appointment_note ? `<div class="text-xs text-slate-500 dark:text-slate-400 mt-1">${esc(a.appointment_note)}</div>` : ''}
+        <div class="text-[11px] text-slate-400 mt-1">${a.rep ? 'Rep: ' + esc(a.rep) : ''}${a.stocknumber ? (a.rep ? ' · ' : '') + '#' + esc(a.stocknumber) : ''}</div>
+      </div>
+      ${a.fb_listing_url
+        ? `<a href="${esc(a.fb_listing_url)}" target="_blank" rel="noopener" class="flex-shrink-0 text-xs font-bold px-3 py-1.5 rounded bg-[#1877F2]/10 text-[#1877F2] hover:bg-[#1877F2]/20 transition">Facebook ↗</a>`
+        : ''}
+    </div>`;
+
+  root.innerHTML = `
+    <div class="mb-5 flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Appointments</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">${data.can_manage_all ? 'Every appointment your reps have booked' : 'Your booked appointments'} — soonest first.</p>
+      </div>
+      <button onclick="loadAppointmentsPage()" class="text-sm font-bold px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Refresh</button>
+    </div>
+    ${appts.length === 0
+      ? `<div class="py-16 text-center text-sm text-slate-400 italic">No appointments yet. Reps book these by moving a vehicle into “Appointment Set” on the pipeline.</div>`
+      : `
+        ${upcoming.length ? `<div class="space-y-3">${upcoming.map(row).join('')}</div>` : `<div class="text-sm text-slate-400 italic py-4">No upcoming appointments.</div>`}
+        ${past.length ? `<div class="mt-8"><h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Past</h3><div class="space-y-3">${past.map(row).join('')}</div></div>` : ''}
+      `}`;
 }
 
 // Idempotent restore: makes sure leaderboard / team-insights / sales-team panels live
