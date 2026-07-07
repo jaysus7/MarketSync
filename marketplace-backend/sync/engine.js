@@ -5,7 +5,7 @@ import { PLATFORM_PROBES, fetchConvertusInventory, fetchDealerPageInventory,
          extractEDealerImageGroups, extractCarsFromJsonLd } from './platforms.js'
 import { mapFuel, buildDescription, fetchVehiclePhotos } from '../utils/description.js'
 import { parseGenericFeed } from './genericFeed.js'
-import { autoDecodeInventory } from './vinDecode.js'
+import { autoDecodeInventory, autoCheckRecalls } from './vinDecode.js'
 import { runPhotoVision } from './photoVision.js'
 import { brandDealershipPhotos } from '../utils/photoOverlay.js'
 import { autoFetchOemStickers } from './oemStickers.js'
@@ -668,6 +668,10 @@ async function _runInventorySyncInner(dealershipId) {
   // Auto-decode any newly-synced VINs via NHTSA (free, incremental). Fire-and-
   // forget so the sync response returns immediately — enrichment lands shortly after.
   autoDecodeInventory(dealershipId).catch(e => console.warn('[sync] vin auto-decode failed:', e.message))
+
+  // Auto-check open recalls (NHTSA, per-VIN) so each vehicle's card shows ✓/⚠
+  // without anyone opening the VIN decoder. Incremental + fire-and-forget.
+  autoCheckRecalls(dealershipId).catch(e => console.warn('[sync] recall auto-check failed:', e.message))
 
   // AI Vision: score newly-synced photos when the add-on is active (incremental).
   try {

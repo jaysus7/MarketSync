@@ -16,7 +16,7 @@
 //     fuel_type, transmission) ONLY when the feed left them blank — never
 //     overwrites data the dealer's feed already provided.
 // ─────────────────────────────────────────────────────────────────────────
-import { supabaseAdmin } from '../shared.js'
+import { supabaseAdmin, sleep } from '../shared.js'
 
 const NHTSA_BATCH = 'https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVINValuesBatch/'
 // 17 chars, excludes I/O/Q which never appear in a real VIN.
@@ -171,5 +171,61 @@ export async function autoDecodeInventory(dealershipId, { max = 400 } = {}) {
   } catch (e) {
     console.warn('[vin-decode] auto-decode failed (non-fatal):', e.message)
     return { decoded: 0 }
+  }
+}
+
+const NHTSA_RECALLS = 'https://api.nhtsa.gov/recalls/recallsByVin'
+
+/**
+ * Check open recalls (NHTSA, per-VIN) and persist them so each vehicle's card can
+ * show ✓/⚠ without anyone opening the VIN decoder. Runs after each sync on the
+ * vehicles that have never been checked, or were checked more than `staleDays` ago,
+ * capped at `max` per run so a big lot spreads over a few nights.
+ * Safe to fire-and-forget; catches its own errors.
+ */
+export async function autoCheckRecalls(dealershipId, { max = 80, staleDays = 30 } = {}) {
+  if (!dealershipId) return { checked: 0 }
+  try {
+    const staleBefore = new Date(Date.now() - staleDays * 86400000).toISOString()
+    const { data: rows, error } = await supabaseAdmin
+      .from('inventory')
+      .select('id, vin, recalls_checked_at')
+      .eq('dealership_id', dealershipId)
+      .eq('status', 'available')
+      .not('vin', 'is', null)
+      .or(`recalls_checked_at.is.null,recalls_checked_at.lt.${staleBefore}`)
+      .limit(max)
+    if (error) { console.warn('[recalls] fetch failed:', error.message); return { checked: 0 } }
+
+    const todo = (rows || []).filter(r => r.vin && VIN_RE.test(r.vin))
+    if (!todo.length) return { checked: 0 }
+
+    let checked = 0
+    for (const v of todo) {
+      try {
+        const j = await fetch(`${NHTSA_RECALLS}?vin=${encodeURIComponent(v.vin)}`, {
+          signal: AbortSignal.timeout(12000),
+        }).then(r => r.json())
+        const recalls = (j?.results || []).map(r => ({
+          id: r.NHTSACampaignNumber,
+          Component: r.Component,
+          Summary: r.Summary,
+          Consequence: r.Consequence,
+          Remedy: r.Remedy,
+          ReportReceivedDate: r.ReportReceivedDate,
+        }))
+        const { error: upErr } = await supabaseAdmin.from('inventory')
+          .update({ recalls, recalls_checked_at: new Date().toISOString() })
+          .eq('id', v.id)
+        if (!upErr) checked++
+      } catch { /* leave unchecked; retried next sync */ }
+      await sleep(150) // gentle on NHTSA
+    }
+
+    if (checked) console.log(`[recalls] dealership ${dealershipId}: checked ${checked}/${todo.length} vehicles`)
+    return { checked }
+  } catch (e) {
+    console.warn('[recalls] auto-check failed (non-fatal):', e.message)
+    return { checked: 0 }
   }
 }
