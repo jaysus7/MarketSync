@@ -95,6 +95,36 @@ let __coldMakeModels = new Set();
 // AI Boost — per-vehicle health score cache (id → score)
 let __vehicleHealthScores = {};
 
+// Lazy page loaders: registered during init, each runs once the matching page is
+// first opened. Keeps login from firing a burst of heavy requests (feeds, catalog,
+// leaderboard, inventory-intelligence) all at once, which stalled the free-tier
+// backend. Populated in the init flow; drained by switchPage.
+const __pageInit = {};
+function runPageInit(pageId) {
+  const fn = __pageInit[pageId];
+  if (fn) { delete __pageInit[pageId]; try { fn(); } catch (e) { console.warn('[lazy-load]', pageId, e); } }
+}
+
+// Pre-fetch hot/cold + health caches so tags show on inventory cards. Heavy call,
+// so it now runs lazily the first time the Inventory page is opened.
+let __invIntelTagsLoaded = false;
+function prefetchInvIntelTags() {
+  if (!__invIntelActive || __invIntelTagsLoaded) return;
+  __invIntelTagsLoaded = true;
+  apiGetJson('/ai/inventory-intelligence', { retries: 2 })
+    .then(data => {
+      if (!data) return;
+      __hotMakeModels = new Set((data.hot_segments || []).map(s => `${s.make} ${s.model}`.toLowerCase()));
+      __coldMakeModels = new Set((data.cold_segments || []).map(s => `${s.make} ${s.model}`.toLowerCase()));
+      __vehicleHealthScores = Object.fromEntries((data.vehicles || []).map(v => [v.id, v.score]));
+      if (__hotMakeModels.size > 0 || __coldMakeModels.size > 0) {
+        document.getElementById('catalog-segment-pills')?.classList.remove('hidden');
+      }
+      if (typeof renderCatalog === 'function' && document.getElementById('catalog-list')) renderCatalog();
+    })
+    .catch(() => { __invIntelTagsLoaded = false; });
+}
+
 // Run Engine Boot Lifecycle
 document.addEventListener('DOMContentLoaded', () => {
   // Show insights immediately — mobile sees content before the auth fetch completes.
@@ -249,8 +279,8 @@ async function initializeDashboardEcosystem() {
     if (inDealership) {
       document.getElementById('feeds-panel').classList.remove('hidden');
       document.getElementById('catalog-panel').classList.remove('hidden');
-      loadInventoryFeeds();
-      loadInventoryCatalog();
+      // Defer the actual data loads until the Inventory page is first opened.
+      __pageInit.inventory = () => { loadInventoryFeeds(); loadInventoryCatalog(); prefetchInvIntelTags(); };
     }
 
     if (!canManageFeeds) {
@@ -277,7 +307,7 @@ async function initializeDashboardEcosystem() {
     // Posting-safety (FB ban protection) settings — dealer-level.
     if (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)) {
       document.getElementById('guardrail-settings-section')?.classList.remove('hidden');
-      loadGuardrailSettings();
+      __pageInit.profile = () => loadGuardrailSettings();
     }
     // Hide team-only nav items (Leaderboard) for solo reps — nothing to rank
     if (isSolo || !inDealership) {
@@ -295,7 +325,7 @@ async function initializeDashboardEcosystem() {
     // Solo reps / no-team users have nothing to rank against on a team, so we hide
     // the team panel entirely — they only get the Global Leaderboard below.
     if (inDealership && !isPersonal) {
-      loadLeaderboard();
+      __pageInit.leaderboard = () => loadLeaderboard();
     } else {
       document.getElementById('leaderboard-panel')?.classList.add('hidden');
     }
@@ -378,6 +408,10 @@ function switchPage(pageId) {
     btn.classList.toggle('text-slate-700', !active);
     btn.classList.toggle('dark:text-slate-300', !active);
   });
+
+  // Fire any one-time lazy loaders registered for this page (feeds, catalog,
+  // leaderboard, guardrail settings, inventory-intelligence tags).
+  runPageInit(pageId);
 
   if (pageId === 'ai-boost') loadAIActivity();
   if (pageId === 'vin-sticker') loadVinStickerPage();
@@ -3551,23 +3585,11 @@ async function loadAIBoostSection() {
     __aiVisionActive = !!cfg.ai_vision_active;               // = AI Boost
     renderAiVisionNav();
     __aiBoostConfigLoaded = true;
-    // Pre-fetch intel caches so hot/cold tags appear on inventory cards
-    // even if the user never visits the Inv. Intel page this session.
-    if (__invIntelActive) {
-      fetch(`${API}/ai/inventory-intelligence`, { headers: { 'Authorization': `Bearer ${token}` } })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (!data) return;
-          __hotMakeModels = new Set((data.hot_segments || []).map(s => `${s.make} ${s.model}`.toLowerCase()));
-          __coldMakeModels = new Set((data.cold_segments || []).map(s => `${s.make} ${s.model}`.toLowerCase()));
-          __vehicleHealthScores = Object.fromEntries((data.vehicles || []).map(v => [v.id, v.score]));
-          // Show segment filter row and re-render cards now that caches are populated
-          if (__hotMakeModels.size > 0 || __coldMakeModels.size > 0) {
-            document.getElementById('catalog-segment-pills')?.classList.remove('hidden');
-          }
-          if (typeof renderCatalog === 'function' && document.getElementById('catalog-list')) renderCatalog();
-        })
-        .catch(() => {});
+    // Hot/cold + health tags load lazily the first time Inventory is opened
+    // (prefetchInvIntelTags), instead of on login — keeps the initial burst small.
+    // If the user is already on the Inventory page, prime them now.
+    if (__invIntelActive && !document.querySelector('[data-page-content="inventory"]')?.classList.contains('hidden')) {
+      prefetchInvIntelTags();
     }
     renderAIBoostSection(cfg);
     initVinStickerPage();
