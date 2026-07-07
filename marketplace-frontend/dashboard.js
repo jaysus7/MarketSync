@@ -16,7 +16,13 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
         signal: ctrl.signal,
         cache: 'no-store',   // avoid 304s that Response.ok treats as a failure
       });
-      clearTimeout(timer);
+      // IMPORTANT: keep the abort timer armed across the body read too. Reading
+      // the body (r.json()) is a second network step — on a flaky mobile
+      // connection the server can send the 200 headers and then stall mid-body.
+      // If we clear the timer before r.json(), that read has no timeout and hangs
+      // forever: the page is stuck on "Loading…" with no retry and no error (the
+      // exact pipeline/leads "stuck loading" bug). Clearing the timer only after
+      // the body is fully read means a stalled body aborts → retries → surfaces.
       if (r.ok) return await r.json();
       // Transient (waking up / gateway) → retry; otherwise fail with the body.
       if ([429, 500, 502, 503, 504].includes(r.status) && attempt < retries) {
@@ -27,10 +33,11 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
         throw new Error(msg);
       }
     } catch (e) {
-      clearTimeout(timer);
       if (e.name === 'AbortError') lastErr = new Error('Request timed out');
       else lastErr = e;
       if (attempt >= retries) throw lastErr;
+    } finally {
+      clearTimeout(timer);
     }
     if (typeof onRetry === 'function') try { onRetry(attempt + 1, retries + 1); } catch {}
     // Backoff: 1s, 2s, 4s, 6s — ride out a cold start without long silent hangs.
@@ -170,17 +177,21 @@ async function initializeDashboardEcosystem() {
       headers: { 'Authorization': `Bearer ${token}` },
       signal: controller.signal
     });
-    clearTimeout(timeoutId);
-    
+    // Keep the abort timer armed until the body is fully read (same reasoning as
+    // apiGetJson): a response whose headers arrive but whose body stalls must
+    // still time out, otherwise the dashboard hangs on a blank/loading screen.
     if (res.status === 401 || res.status === 402) {
       if (res.status === 402) {
         const body = await res.json().catch(() => ({}))
+        clearTimeout(timeoutId);
         throw new Error(body.error === 'TRIAL_EXPIRED' ? 'TRIAL_EXPIRED' : 'SUBSCRIPTION_REQUIRED')
       }
+      clearTimeout(timeoutId);
       throw new Error('SESSION_EXPIRED')
     }
-    
+
     profileContext = await res.json();
+    clearTimeout(timeoutId);
 
     // Render Shared Header Components
     // For dealer admins: lead with the DEALERSHIP NAME (so it visually distinguishes the
