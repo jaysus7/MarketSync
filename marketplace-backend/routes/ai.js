@@ -817,7 +817,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active, repricing_rules')
+      .select('ai_boost_active, repricing_rules, country, province, postal_code')
       .eq('id', req.dealershipId)
       .single()
 
@@ -826,10 +826,14 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
 
     const rules = dealer.repricing_rules || { enabled: false, days_on_lot_threshold: 45, price_drop_pct: 5, overprice_threshold_pct: 20 }
     const { days_on_lot_threshold, price_drop_pct, overprice_threshold_pct } = rules
+    const _reIsUS = (() => {
+      const c = (dealer?.country || '').trim().toUpperCase()
+      return c === 'US' || c === 'USA' || c === 'UNITED STATES'
+    })()
 
     const { data: vehicles, error } = await supabaseAdmin
       .from('inventory')
-      .select('id, year, make, model, trim, price, last_synced_at, created_at')
+      .select('id, year, make, model, trim, price, mileage, condition, last_synced_at, created_at')
       .eq('dealership_id', req.dealershipId)
       .eq('status', 'available')
     if (error) return res.status(500).json({ error: error.message })
@@ -842,22 +846,30 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
       const daysOnLot = refDate ? Math.floor((now - new Date(refDate).getTime()) / 86400000) : 0
       if (daysOnLot < days_on_lot_threshold) continue
       if (!vehicle.price || !vehicle.make || !vehicle.model) continue
+      if (skipPriceComp(vehicle)) continue // new / current-year units have no used-market comp
 
-      const { data: comps } = await supabaseAdmin
-        .from('inventory')
-        .select('price')
-        .eq('dealership_id', req.dealershipId)
-        .eq('make', vehicle.make)
-        .eq('model', vehicle.model)
-        .eq('status', 'available')
-        .gte('year', vehicle.year - 2)
-        .lte('year', vehicle.year + 2)
-        .neq('id', vehicle.id)
-        .not('price', 'is', null)
-
-      if (!comps || comps.length === 0) continue
-      const prices = comps.map(c => Number(c.price)).filter(p => p > 0).sort((a, b) => a - b)
-      const med = median(prices)
+      // Compare against the MARKET (MarketCheck/scraper — same source as the price
+      // report), so a unit priced above real market gets flagged even when it's in
+      // line with the store's own copies. Fall back to the internal-inventory median
+      // when no market data is available.
+      let med = null
+      const mm = await marketMedianForScan({ vehicle, dealer, isUS: _reIsUS })
+      if (mm?.median) med = mm.median
+      if (!med) {
+        const { data: comps } = await supabaseAdmin
+          .from('inventory')
+          .select('price')
+          .eq('dealership_id', req.dealershipId)
+          .eq('make', vehicle.make)
+          .eq('model', vehicle.model)
+          .eq('status', 'available')
+          .gte('year', vehicle.year - 2)
+          .lte('year', vehicle.year + 2)
+          .neq('id', vehicle.id)
+          .not('price', 'is', null)
+        const prices = (comps || []).map(c => Number(c.price)).filter(p => p > 0).sort((a, b) => a - b)
+        med = median(prices)
+      }
       if (!med) continue
 
       const pct_diff = ((Number(vehicle.price) - med) / med) * 100
@@ -901,7 +913,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
 
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
 
-    const since180 = new Date(Date.now() - 180 * 86400000).toISOString()
+    const since30 = new Date(Date.now() - 30 * 86400000).toISOString()
 
     const [{ data: sold }, { data: current }, { data: competitors }] = await Promise.all([
       supabaseAdmin
@@ -909,7 +921,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
         .select('make, model, year')
         .eq('dealership_id', req.dealershipId)
         .in('status', ['sold', 'archived'])
-        .gte('last_synced_at', since180)
+        .gte('last_synced_at', since30)
         .order('last_synced_at', { ascending: false })
         .limit(200),
       supabaseAdmin
@@ -960,9 +972,9 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
         max_tokens: 1200,
         messages: [{
           role: 'user',
-          content: `You are an automotive inventory strategist for a Canadian GM dealership in Ontario, Canada. Based on this dealership's 180-day sell-through data, current stock, and nearby competitor lots, recommend 5 specific vehicle acquisitions. Factor in Canadian market conditions (fuel prices, weather, rural vs urban mix), Ontario buyer preferences, seasonal demand, Canadian government incentives (iZEV program, Ontario rebates) — do NOT reference US programs. Also consider what competitors are stocking heavily (avoid oversupplied models) and where gaps exist.
+          content: `You are an automotive inventory strategist for a Canadian GM dealership in Ontario, Canada. Based on this dealership's 30-day sell-through data, current stock, and nearby competitor lots, recommend 5 specific vehicle acquisitions. Factor in Canadian market conditions (fuel prices, weather, rural vs urban mix), Ontario buyer preferences, seasonal demand, Canadian government incentives (iZEV program, Ontario rebates) — do NOT reference US programs. Also consider what competitors are stocking heavily (avoid oversupplied models) and where gaps exist.
 
-Sell-through (last 180 days):
+Sell-through (last 30 days):
 ${sell_through.map(s => `- ${s.make} ${s.model}: ${s.sold} sold`).join('\n') || 'No sold data available yet'}
 
 Current stock (available units):
