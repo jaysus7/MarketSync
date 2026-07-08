@@ -1,22 +1,26 @@
 // ─────────────────────────────────────────────────────────────────────────
-// AI Vision — listing photo quality scoring (the "AI Vision" $49 add-on).
+// AI Vision — listing photo quality scoring (part of AI Boost).
 //
 // Cost-controlled by design:
-//   1. Free local pre-filter with sharp — resolution, brightness, and
-//      blank/placeholder detection on the first few photos. No API cost.
-//   2. ONE Claude vision call on the hero (first) photo to judge the things
-//      sharp can't — blur, clutter, bad angle, "is this actually the vehicle".
-//      Uses Haiku (cheap) and only the hero image.
+//   1. Free local pass with sharp across the WHOLE gallery — resolution,
+//      brightness, and blank/placeholder detection on every photo. No API cost.
+//   2. ONE Claude vision call per vehicle that looks at the whole gallery (up to
+//      12 downscaled images in a single message) and judges what sharp can't:
+//      overall quality, per-photo issues, the strongest hero, and — the real
+//      value — GALLERY COVERAGE (is a buyer missing the odometer, engine bay,
+//      interior, etc.?). Uses Haiku (cheap); ~1 call per vehicle.
 //   3. Incremental + cached — only vehicles with photos and no photo_checked_at
-//      are scored; re-runs skip already-scored cars. Ongoing cost ≈ pennies.
+//      (or a changed photo count) are scored. Metered via the cost layer.
 //
 // Produces a 0–100 photo_score + human-readable flags, stored on the inventory
 // row (photo_score / photo_flags / photo_analysis / photo_checked_at).
 // ─────────────────────────────────────────────────────────────────────────
 import { supabaseAdmin } from '../shared.js'
+import { recordUsage } from '../usage.js'
 
 const HERO_MODEL = 'claude-haiku-4-5-20251001'
-const MAX_PREFILTER = 4          // sharp-inspect at most this many photos/vehicle
+const MAX_INSPECT = 16           // sharp-inspect at most this many photos/vehicle (free)
+const MAX_VISION = 12            // images sent to Claude in the single gallery call
 const CONCURRENCY = 3            // vehicles analyzed in parallel
 
 async function fetchBuffer(url, timeoutMs = 12000) {
@@ -45,52 +49,57 @@ async function inspectWithSharp(buf) {
   } catch { return null }
 }
 
-// One Claude vision verdict on the hero photo (blur / composition / subject).
-async function classifyHero(buf) {
+// One Claude vision call over the WHOLE gallery — overall quality, per-photo
+// issues, the strongest hero, and gallery coverage (what shots are missing).
+async function classifyGallery(buffers) {
   if (!process.env.ANTHROPIC_API_KEY) return null
   try {
+    const sharp = (await import('sharp')).default
+    const imgs = []
+    for (const buf of buffers) {
+      if (!buf) continue
+      try {
+        const jpg = await sharp(buf, { failOn: 'none' })
+          .resize({ width: 512, withoutEnlargement: true }).jpeg({ quality: 65 }).toBuffer()
+        imgs.push(jpg.toString('base64'))
+      } catch { imgs.push(buf.toString('base64')) }
+      if (imgs.length >= MAX_VISION) break
+    }
+    if (!imgs.length) return null
+
     const Anthropic = (await import('@anthropic-ai/sdk')).default
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-    // Down-scale to keep the image token cost low.
-    let media = 'image/jpeg', b64
-    try {
-      const sharp = (await import('sharp')).default
-      const jpg = await sharp(buf, { failOn: 'none' }).resize({ width: 768, withoutEnlargement: true }).jpeg({ quality: 72 }).toBuffer()
-      b64 = jpg.toString('base64')
-    } catch { b64 = buf.toString('base64') }
-
-    const prompt = `You are grading the HERO photo of a used-car marketplace listing. Return ONLY JSON:
-{"quality":"good|fair|poor","is_vehicle":true|false,"issues":["short phrases: blurry, too dark, cluttered background, bad angle, watermark, stock/placeholder image, low resolution, obstructed"]}
-Judge sharpness, lighting, framing, and whether it clearly shows the actual vehicle. Be strict but fair.`
+    const content = imgs.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }))
+    content.push({ type: 'text', text: `You are grading the PHOTO GALLERY of a used-car marketplace listing. ${imgs.length} photos are shown, in order (index 0 first). Return ONLY JSON:
+{"overall":"good|fair|poor","best_hero_index":<0-based index of the strongest lead photo>,"missing_shots":[important shots a buyer expects that are NOT present — vocabulary: "exterior front","exterior rear","side profile","interior","dashboard/odometer","engine bay","seats","trunk/cargo","wheels/tires"],"issues":["short phrases: photo 3 blurry, several too dark, watermark, stock/placeholder image, poor lighting, cluttered background, hero doesn't show the vehicle"]}
+Judge sharpness, lighting, framing, whether photos clearly show the actual vehicle, and how complete the gallery is. Be strict but fair.` })
 
     const call = anthropic.messages.create({
       model: HERO_MODEL,
-      max_tokens: 300,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: media, data: b64 } },
-          { type: 'text', text: prompt },
-        ],
-      }],
+      max_tokens: 500,
+      messages: [{ role: 'user', content }],
     })
     const msg = await Promise.race([
       call,
-      new Promise((_, rej) => setTimeout(() => rej(new Error('vision timeout')), 30000)),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('vision timeout')), 45000)),
     ])
     let text = (msg?.content?.[0]?.text || '').trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '')
     const s = text.indexOf('{'), e = text.lastIndexOf('}')
     if (s >= 0 && e > s) text = text.slice(s, e + 1)
-    const parsed = JSON.parse(text)
+    const p = JSON.parse(text)
     return {
-      quality: ['good', 'fair', 'poor'].includes(parsed.quality) ? parsed.quality : 'fair',
-      is_vehicle: parsed.is_vehicle !== false,
-      issues: Array.isArray(parsed.issues) ? parsed.issues.slice(0, 6) : [],
+      overall: ['good', 'fair', 'poor'].includes(p.overall) ? p.overall : 'fair',
+      best_hero_index: Number.isInteger(p.best_hero_index) ? p.best_hero_index : 0,
+      missing_shots: Array.isArray(p.missing_shots) ? p.missing_shots.slice(0, 8) : [],
+      issues: Array.isArray(p.issues) ? p.issues.slice(0, 6) : [],
+      analyzed: imgs.length,
     }
   } catch { return null }
 }
 
 // Score one vehicle's photos → { score, flags, analysis }.
+// Scoring out of 100: quantity 20 · technical quality across the gallery 20 ·
+// AI overall quality 35 · AI gallery coverage 25.
 export async function scoreVehiclePhotos(vehicle) {
   const urls = Array.isArray(vehicle.image_urls) ? vehicle.image_urls.filter(Boolean) : []
   const flags = []
@@ -99,57 +108,65 @@ export async function scoreVehiclePhotos(vehicle) {
     return { score: 0, flags: ['No photos'], analysis: { photo_count: 0 } }
   }
 
-  // 25 pts: quantity. Buyers expect a full gallery.
-  const countScore = urls.length >= 10 ? 25 : urls.length >= 6 ? 18 : urls.length >= 3 ? 10 : 5
-  if (urls.length < 5) flags.push(`Only ${urls.length} photo${urls.length === 1 ? '' : 's'}`)
+  // 20 pts: quantity. Buyers expect a full gallery.
+  const countScore = urls.length >= 10 ? 20 : urls.length >= 6 ? 15 : urls.length >= 3 ? 9 : 4
+  if (urls.length < 6) flags.push(`Only ${urls.length} photo${urls.length === 1 ? '' : 's'}`)
 
-  // Pre-filter the first few photos locally (free).
-  let techScore = 25
-  const perPhoto = []
-  const inspectUrls = urls.slice(0, MAX_PREFILTER)
+  // Local pass across the whole gallery (free). Bound fetches to keep it quick.
+  const inspectUrls = urls.slice(0, MAX_INSPECT)
   const buffers = await Promise.all(inspectUrls.map(u => fetchBuffer(u)))
-  let darkCount = 0, tinyCount = 0, blankCount = 0
+  let darkCount = 0, tinyCount = 0, blankCount = 0, inspected = 0
+  const perPhoto = []
   for (let i = 0; i < buffers.length; i++) {
     const buf = buffers[i]
     if (!buf) continue
     const s = await inspectWithSharp(buf)
     if (!s) continue
+    inspected++
     const issues = []
     if (s.width && s.width < 640) { tinyCount++; issues.push('low resolution') }
     if (s.brightness < 55) { darkCount++; issues.push('too dark') }
     if (s.variation < 12) { blankCount++; issues.push('blank/placeholder') }
     perPhoto.push({ index: i, width: s.width, height: s.height, issues })
   }
-  if (tinyCount) { techScore -= 8; flags.push('Low-resolution photo(s)') }
-  if (darkCount) { techScore -= 8; flags.push('Dark / underexposed photo(s)') }
-  if (blankCount) { techScore -= 12; flags.push('Blank or placeholder image') }
+  // 20 pts: technical quality, scaled by how many photos are affected.
+  let techScore = 20
+  if (tinyCount) { techScore -= Math.min(8, tinyCount * 2); flags.push(`${tinyCount} low-resolution photo${tinyCount > 1 ? 's' : ''}`) }
+  if (darkCount) { techScore -= Math.min(8, darkCount * 2); flags.push(`${darkCount} dark / underexposed photo${darkCount > 1 ? 's' : ''}`) }
+  if (blankCount) { techScore -= Math.min(12, blankCount * 4); flags.push(`${blankCount} blank or placeholder image${blankCount > 1 ? 's' : ''}`) }
   techScore = Math.max(0, techScore)
 
-  // 50 pts: hero-photo quality via Claude vision (the "AI" judgement).
-  let heroScore = 35   // neutral default if vision unavailable
-  let hero = null
-  const heroBuf = buffers[0] || await fetchBuffer(urls[0])
-  if (heroBuf) hero = await classifyHero(heroBuf)
-  if (hero) {
-    heroScore = hero.quality === 'good' ? 50 : hero.quality === 'fair' ? 32 : 12
-    if (!hero.is_vehicle) { heroScore = Math.min(heroScore, 10); flags.push('Hero photo may not show the vehicle') }
-    if (hero.quality === 'poor') flags.push('Poor hero photo')
-    for (const iss of hero.issues) {
+  // 35 pts quality + 25 pts coverage: one Claude vision call over the gallery.
+  let qualityScore = 22   // neutral defaults if vision is unavailable
+  let coverageScore = 18
+  const galleryBufs = buffers.filter(Boolean).slice(0, MAX_VISION)
+  const g = galleryBufs.length ? await classifyGallery(galleryBufs) : null
+  if (g) {
+    qualityScore = g.overall === 'good' ? 35 : g.overall === 'fair' ? 22 : 8
+    coverageScore = Math.max(0, 25 - (g.missing_shots.length * 4))
+    if (g.missing_shots.length) flags.push(`Missing shots: ${g.missing_shots.slice(0, 5).join(', ')}`)
+    if (g.overall === 'poor') flags.push('Poor overall photo quality')
+    for (const iss of g.issues) {
       const f = iss.charAt(0).toUpperCase() + iss.slice(1)
       if (!flags.some(x => x.toLowerCase().includes(iss.toLowerCase()))) flags.push(f)
     }
+    if (Number.isInteger(g.best_hero_index) && g.best_hero_index > 0 && g.best_hero_index < urls.length) {
+      flags.push(`Lead with photo #${g.best_hero_index + 1} for a stronger hero`)
+    }
   }
 
-  const score = Math.max(0, Math.min(100, Math.round(countScore + techScore + heroScore)))
+  const score = Math.max(0, Math.min(100, Math.round(countScore + techScore + qualityScore + coverageScore)))
   return {
     score,
-    flags: [...new Set(flags)].slice(0, 8),
+    flags: [...new Set(flags)].slice(0, 10),
     analysis: {
       photo_count: urls.length,
+      inspected,
       count_score: countScore,
       tech_score: techScore,
-      hero_score: heroScore,
-      hero,
+      quality_score: qualityScore,
+      coverage_score: coverageScore,
+      gallery: g,
       per_photo: perPhoto,
       scored_at: new Date().toISOString(),
     },
@@ -199,6 +216,8 @@ export async function runPhotoVision(dealershipId, { max = 300, rescan = false }
           photo_checked_at: new Date().toISOString(),
         }).eq('id', row.id)
         if (!upErr) scored++
+        // Each scored vehicle is ~one Claude vision call — meter it (soft AI cap).
+        if (analysis?.gallery) recordUsage(dealershipId, { ai: 1 })
       }))
     }
     if (scored) console.log(`[ai-vision] dealership ${dealershipId}: scored ${scored}/${todo.length} vehicles`)

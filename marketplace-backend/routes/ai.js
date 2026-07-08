@@ -1391,6 +1391,7 @@ Units 60d+ on lot: ${stale}`
           photo_score: score, photo_flags: flags, photo_analysis: analysis,
           photo_checked_at: new Date().toISOString(),
         }).eq('id', row.id)
+        if (analysis?.gallery) recordUsage(req.dealershipId, { ai: 1 })
       } catch (e) { console.warn('[ai-vision] first-batch score failed:', e.message) }
     }))
 
