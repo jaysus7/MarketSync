@@ -1,7 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
-import { scrapeMarketData } from '../scraper.js'
 import { marketcheckMarket, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing } from '../marketcheck.js'
 import { createNotification, createNotifications } from '../notifications.js'
 import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
@@ -51,29 +50,18 @@ function aiErrorMessage(err) {
   return `AI request failed: ${raw}`
 }
 
-// Market median for the inventory scan — MarketCheck first (accurate, trim-matched),
-// AutoTrader/CarGurus scrape as the fallback. Returns { median, source, count } or null.
+// Market median for the inventory scan — MarketCheck only (licensed, trim-matched).
+// Returns { median, source, count }, or null when there's no key / no comps.
 async function marketMedianForScan({ vehicle, dealer, isUS }) {
-  if (marketcheckEnabled()) {
-    try {
-      const mc = await marketcheckMarket({
-        make: vehicle.make, model: vehicle.model, year: Number(vehicle.year),
-        trim: vehicle.trim || '', mileage: vehicle.mileage ? Number(vehicle.mileage) : null,
-        postalCode: dealer?.postal_code || '', province: dealer?.province || '', isUS,
-      })
-      if (mc?.median_price) return { median: mc.median_price, source: 'MarketCheck', count: mc.count }
-    } catch {}
-  }
+  if (!marketcheckEnabled()) return null
   try {
-    const { autotrader, cargurus } = await scrapeMarketData({
-      make: vehicle.make, model: vehicle.model, year: vehicle.year, trim: vehicle.trim || '',
+    const mc = await marketcheckMarket({
+      make: vehicle.make, model: vehicle.model, year: Number(vehicle.year),
+      trim: vehicle.trim || '', mileage: vehicle.mileage ? Number(vehicle.mileage) : null,
       postalCode: dealer?.postal_code || '', province: dealer?.province || '', isUS,
-      vehicleLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`, listedPrice: vehicle.price,
     })
-    const median = autotrader?.median_price ?? cargurus?.median_price ?? null
-    const source = autotrader ? 'AutoTrader' : cargurus ? 'CarGurus' : null
-    const count = (autotrader?.count ?? 0) + (cargurus?.count ?? 0)
-    return median ? { median, source, count } : null
+    if (mc?.median_price) return { median: mc.median_price, source: 'MarketCheck', count: mc.count }
+    return null
   } catch { return null }
 }
 
@@ -551,8 +539,8 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
     // ── PRIMARY: MarketCheck licensed data ──────────────────────────────────
     // When a MarketCheck key is configured we build the report from real
     // aggregated market stats (dealer-grade, same class of data as vAuto) and use
-    // the AI only for a short written insight. Falls through to the scraper below
-    // when there's no key or MarketCheck has no comps for this exact vehicle.
+    // the AI only for a short written insight. Falls through to an AI-only estimate
+    // below when there's no key or MarketCheck has no comps for this exact vehicle.
     if (marketcheckEnabled()) {
       const mc = await marketcheckMarket({
         make: vehicle.make, model: vehicle.model, year: Number(vehicle.year),
@@ -619,29 +607,12 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
       }
     }
 
-    // ── FALLBACK: AutoTrader/CarGurus scrape + AI estimate ───────────────────
-    // Attempt live market scraping (best-effort; falls back to AI-only on failure)
-    let scraped = { autotrader: null, cargurus: null, copart: null }
-    let dataSource = 'ai_estimate'
-    try {
-      scraped = await scrapeMarketData({
-        make: vehicle.make,
-        model: vehicle.model,
-        year: Number(vehicle.year),
-        trim: vehicle.trim || '',
-        mileage: vehicleMileage,
-        condition: vehicle.condition || '',
-        postalCode: dealer?.postal_code || '',
-        province: dealer?.province || '',
-        city: dealer?.city || '',
-        isUS,
-        vehicleLabel,
-        listedPrice: vehicle.price,
-      })
-      if (scraped.autotrader || scraped.cargurus) dataSource = 'live'
-    } catch {
-      // scrapeMarketData handles its own alerts; keep ai_estimate mode
-    }
+    // ── FALLBACK: AI estimate (no live comps) ────────────────────────────────
+    // Reached only when MarketCheck has no key or no comps for this exact vehicle.
+    // We no longer scrape retail sites; the AI produces a training-knowledge
+    // estimate and the report is clearly marked ai_estimate.
+    const scraped = { autotrader: null, cargurus: null, copart: null }
+    const dataSource = 'ai_estimate'
 
     // Build real-data context lines to inject into the prompt
     const liveDataLines = []
