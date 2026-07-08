@@ -80,88 +80,84 @@ export async function marketcheckCompetitorStats({ url, isUS }) {
   }
 }
 
+// A reliable market read needs at least this many clean, trim-matched comps.
+// Below this we return null (the UI shows "not enough data") rather than invent a
+// value off 1–2 noisy Canadian listings — which produced absurd numbers before
+// (a 2019 Corvette "median" of $7k, or $99k off a single mispriced listing).
+const MIN_COMPS = 3
+
 /**
- * Fetch aggregated market stats for a vehicle.
- * Returns a summary shaped like the scraper's summarise() output, or null.
+ * Robust market value for a vehicle, computed from actual comparable listings
+ * (not MarketCheck's raw stats, which get dragged around by payment/placeholder/
+ * salvage prices in thin Canadian samples). We trim-match, drop price outliers,
+ * and require a minimum number of clean comps. Returns null when we can't value
+ * it reliably. Also returns the clean `listings` for the appraisal charts.
  */
-export async function marketcheckMarket({ make, model, year, trim, mileage, postalCode, province, isUS }) {
+export async function marketcheckMarket({ make, model, year, trim, mileage, isUS = false } = {}) {
   const key = process.env.MARKETCHECK_API_KEY
   if (!key || !make || !model || !year) return null
 
-  // One active-listings endpoint for both markets; `country` selects US vs Canada.
-  // (The /search/car/ca/active path 404s — Canada is served via country=ca here.)
-  const path = '/search/car/active'
-  const params = new URLSearchParams({
-    api_key: key,
-    country: isUS ? 'us' : 'ca',
-    car_type: 'used',
-    make: String(make),
-    model: String(model),
-    year: String(year),
-    stats: 'price,miles',
-    rows: '0', // we only need the aggregate stats, not the listing bodies
-  })
-  if (trim) params.set('trim', String(trim))
-  // Radius search around the dealer's ZIP — US only. MarketCheck's `zip` expects a
-  // US 5-digit ZIP, so passing a Canadian postal code here makes the API reject the
-  // whole request with HTTP 422. For Canada we rely on country=ca (national comps).
-  const zip = (postalCode || '').replace(/\s+/g, '')
-  if (isUS && /^\d{5}$/.test(zip)) { params.set('zip', zip); params.set('radius', '250') }
-  // Constrain comps to a comparable mileage window (±40%) so a 200k-km car isn't
-  // averaged against 20k-km ones.
-  if (mileage && mileage > 0) {
-    params.set('miles_range', `${Math.round(mileage * 0.6)}-${Math.round(mileage * 1.4)}`)
-  }
-
-  // Try progressively broader queries until one returns comps: exact → drop the
-  // mileage window → drop trim → drop car_type (last resort). Each step logs
-  // num_found so the server logs show exactly what MarketCheck matched — that's
-  // how we tell a query-too-tight issue from a genuine data gap.
-  const attempts = [
-    ['exact',       p => p],
-    ['no-miles',    p => { p.delete('miles_range'); return p }],
-    ['no-trim',     p => { p.delete('miles_range'); p.delete('trim'); return p }],
-    ['no-car_type', p => { p.delete('miles_range'); p.delete('trim'); p.delete('car_type'); return p }],
-  ]
-  let numFound = 0, price = null, miles = null
-  for (const [label, mutate] of attempts) {
-    const p = mutate(new URLSearchParams(params))
+  const fetchListings = async (withTrim) => {
+    const p = new URLSearchParams({
+      api_key: key, country: isUS ? 'us' : 'ca', car_type: 'used',
+      make: String(make), model: String(model), year: String(year),
+      rows: '50', sort_by: 'price', sort_order: 'asc',
+    })
+    if (withTrim && trim) p.set('trim', String(trim))
     try {
-      const r = await fetch(`${BASE}${path}?${p.toString()}`, {
+      const r = await fetch(`${BASE}/search/car/active?${p.toString()}`, {
         headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(12000),
       })
-      if (!r.ok) { console.error(`[marketcheck] HTTP ${r.status} ${isUS ? 'US' : 'CA'} [${label}] ${make} ${model} ${year}`); continue }
+      if (!r.ok) { console.error(`[marketcheck] HTTP ${r.status} ${isUS ? 'US' : 'CA'} ${make} ${model} ${year}`); return null }
       const j = await r.json()
-      const nf = Number(j?.num_found ?? 0)
-      console.log(`[marketcheck] ${make} ${model} ${year} ${isUS ? 'US' : 'CA'} [${label}] num_found=${nf}`)
-      if (nf > 0 && j?.stats?.price?.median != null) {
-        numFound = nf; price = j.stats.price; miles = j.stats.miles
-        break
+      const raw = Array.isArray(j?.listings) ? j.listings : []
+      return {
+        num_found: Number(j?.num_found ?? raw.length),
+        listings: raw.map(l => ({
+          price: Number(l.price ?? 0), miles: Number(l.miles ?? 0),
+          city: l.dealer?.city || null, region: l.dealer?.state || null, dealer: l.dealer?.name || null,
+        })),
       }
-    } catch (e) {
-      console.error(`[marketcheck] request failed [${label}]:`, e.message)
-    }
+    } catch (e) { console.error('[marketcheck] request failed:', e.message); return null }
   }
 
-  if (!numFound || !price) return null
-  const median = Math.round(price.median ?? price.mean ?? 0)
-  if (!median) return null
+  // Trim-matched first (accurate). Only broaden to all trims when the trim query
+  // is completely empty — mixing trims (e.g. Corvette 2LT with a Z06) is what
+  // wrecked the medians, so we never do it just to pad a thin result.
+  let res = await fetchListings(true)
+  if ((!res || res.listings.length === 0) && trim) res = await fetchListings(false)
+  if (!res) return null
 
-  const sd = Number(price.standard_deviation ?? 0)
-  const low = Math.round(price.min && price.min > median * 0.4 ? Math.max(price.min, median - (sd ? sd * 0.8 : median * 0.12)) : median - (sd ? sd * 0.8 : median * 0.12))
-  const high = Math.round(price.max && price.max < median * 2.5 ? Math.min(price.max, median + (sd ? sd * 0.8 : median * 0.12)) : median + (sd ? sd * 0.8 : median * 0.12))
+  // Drop obvious junk (payment/placeholder/salvage) before finding the center.
+  let prices = res.listings.map(l => l.price).filter(p => p >= 2500).sort((a, b) => a - b)
+  console.log(`[marketcheck] ${make} ${model} ${year} ${isUS ? 'US' : 'CA'} raw=${res.listings.length} priced=${prices.length}`)
+  if (prices.length < MIN_COMPS) return null
+
+  // Outlier band around the raw median removes remaining low junk and high
+  // wrong-trim/loaded outliers, then we recompute on the clean set.
+  const med0 = prices[Math.floor(prices.length / 2)]
+  const inBand = (p) => p >= med0 * 0.5 && p <= med0 * 1.8
+  const clean = prices.filter(inBand)
+  if (clean.length < MIN_COMPS) return null
+
+  const median = clean[Math.floor(clean.length / 2)]
+  const avg = Math.round(clean.reduce((a, b) => a + b, 0) / clean.length)
+  const cleanListings = res.listings.filter(l => inBand(l.price))
+  const miles = res.listings.map(l => l.miles).filter(m => m > 0).sort((a, b) => a - b)
 
   return {
     source: 'MarketCheck',
-    count: numFound,
-    avg_price: Math.round(price.mean ?? median),
+    count: clean.length,
+    num_found: res.num_found,
     median_price: median,
-    low_price: Math.max(1, low),
-    high_price: Math.max(median + 1, high),
-    min_price: price.min ? Math.round(price.min) : null,
-    max_price: price.max ? Math.round(price.max) : null,
-    avg_mileage: miles ? Math.round(miles.mean ?? miles.median ?? 0) || null : null,
-    median_mileage: miles ? Math.round(miles.median ?? miles.mean ?? 0) || null : null,
+    avg_price: avg,
+    low_price: clean[Math.max(0, Math.floor(clean.length * 0.1))],
+    high_price: clean[Math.min(clean.length - 1, Math.max(0, Math.ceil(clean.length * 0.9) - 1))],
+    min_price: clean[0],
+    max_price: clean[clean.length - 1],
+    avg_mileage: miles.length ? Math.round(miles.reduce((a, b) => a + b, 0) / miles.length) : null,
+    median_mileage: miles.length ? miles[Math.floor(miles.length / 2)] : null,
+    listings: cleanListings,
   }
 }
 

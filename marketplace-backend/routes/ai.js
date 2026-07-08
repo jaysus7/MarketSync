@@ -438,17 +438,14 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
     const c = (dealer?.country || '').trim().toUpperCase()
     const isUS = c === 'US' || c === 'USA' || c === 'UNITED STATES'
 
-    // Headline stats + the actual comp listings (for the PDF charts + locations).
-    const [market, comps] = await Promise.all([
-      marketcheckMarket({ make, model, year, trim, mileage, postalCode: dealer?.postal_code || '', province: dealer?.province || '', isUS }),
-      marketcheckListings({ make, model, year, trim, mileage, isUS }),
-    ])
+    // Robust market value + the clean comp listings it was built from (charts/locations).
+    const market = await marketcheckMarket({ make, model, year, trim, mileage, isUS })
 
     const vehicle = { year, make, model, trim: trim || null, mileage, vin: (b.vin ? String(b.vin).trim().toUpperCase() : null) }
 
     if (!market || !market.median_price) {
       return res.json({ ok: true, vehicle, retail: null, appraisal: null,
-        message: 'No comparable market listings found for this vehicle. Try removing the trim, or check the year/make/model.' })
+        message: 'Not enough comparable listings to value this reliably (needs at least 3). MarketCheck’s Canadian coverage can be thin for rare trims — try again without the trim, or appraise a more common model.' })
     }
 
     const retailMid = market.median_price
@@ -458,7 +455,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
     const pctToMarket = retailMid > 0 ? Math.round((suggestedOffer / retailMid) * 100) : null
 
     // Location breakdown (province/state → count) for the "where these are" chart.
-    const compList = (comps?.listings || [])
+    const compList = (market.listings || [])
     const locMap = {}
     for (const l of compList) { const k = l.region || 'Other'; locMap[k] = (locMap[k] || 0) + 1 }
     const locations = Object.entries(locMap).map(([region, count]) => ({ region, count })).sort((a, b) => b.count - a.count)
@@ -564,6 +561,9 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
       const market = Number(a?.price_median)
       if (!yourPrice || !market) continue
       const pct = Math.round(((yourPrice - market) / market) * 1000) / 10
+      // Skip implausible comps (>45% off) — almost always mismatched/thin market
+      // data, not real over/under-pricing. Keeps the report honest.
+      if (Math.abs(pct) > 45) continue
       vehicles.push({
         inventory_id: v.id,
         label: [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle',

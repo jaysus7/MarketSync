@@ -2945,10 +2945,13 @@ function renderCatalog() {
             let marketBadge = ''
             if (mktMedian && isUsedCar && v.price > 0) {
               const pct = Math.round((Number(v.price) / mktMedian) * 100)
-              const cls = pct > 103 ? 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30'
-                : pct < 97 ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30'
-                : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-              marketBadge = `<span class="${gtag} ${cls}" title="Your price vs live market median $${Number(mktMedian).toLocaleString()}">${pct}% to market</span>`
+              // Suppress implausible values (thin/noisy comps) — only show a sane band.
+              if (pct >= 60 && pct <= 160) {
+                const cls = pct > 103 ? 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30'
+                  : pct < 97 ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30'
+                  : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                marketBadge = `<span class="${gtag} ${cls}" title="Your price vs live market median $${Number(mktMedian).toLocaleString()}">${pct}% to market</span>`
+              }
             }
             return hotColdTag + healthBadge + recallBadge + marketBadge
           })()}
