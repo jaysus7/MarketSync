@@ -10,12 +10,17 @@ import {
 } from './billing-emails.js'
 import { createNotification } from '../notifications.js'
 
+// Inventory Intelligence price ID — accept the canonical name OR the
+// STRIPE_INVENTORY_INTELLIGANCE name used in the current Render environment,
+// so billing works regardless of which one is set.
+const INV_INTEL_PRICE_ID = process.env.STRIPE_INV_INTEL_PRICE_ID || process.env.STRIPE_INVENTORY_INTELLIGANCE || ''
+
 // Map a Stripe price ID to the add-on key used everywhere else
 function addonKeyForPrice(priceId) {
   if (priceId === process.env.STRIPE_AI_BOOST_PRICE_ID)    return 'ai_boost'
   if (priceId === process.env.STRIPE_VIN_STICKER_PRICE_ID) return 'vin_sticker'
   if (priceId === process.env.STRIPE_AI_VISION_PRICE_ID)   return 'ai_vision'
-  if (priceId === process.env.STRIPE_INV_INTEL_PRICE_ID)   return 'inv_intel'
+  if (INV_INTEL_PRICE_ID && priceId === INV_INTEL_PRICE_ID) return 'inv_intel'
   return null
 }
 
@@ -272,8 +277,9 @@ export function registerRoutes(app) {
       inv_intel:   'STRIPE_INV_INTEL_PRICE_ID',
     }[addonKey]
 
-    const priceId = process.env[envKey]
-    if (!priceId) return res.status(500).json({ error: `${envKey} env var not set` })
+    // Inventory Intelligence tolerates the STRIPE_INVENTORY_INTELLIGANCE alias.
+    const priceId = addonKey === 'inv_intel' ? INV_INTEL_PRICE_ID : process.env[envKey]
+    if (!priceId) return res.status(500).json({ error: `Price ID for ${addonKey} is not configured` })
 
     const existingCustomerId = req.profile.dealerships?.stripe_customer_id
 
