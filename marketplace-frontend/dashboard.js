@@ -3763,13 +3763,19 @@ async function loadLotOverview() {
     const prices = avail.map(v => Number(v.price)).filter(p => p > 0).sort((a, b) => a - b);
     const money = n => '$' + Math.round(n).toLocaleString();
     const set = (id, t) => { const e = document.getElementById(id); if (e) e.textContent = t; };
+    const rangeTxt = prices.length ? `${money(prices[0])}–${money(prices[prices.length - 1])}` : '—';
+    const avgTxt = prices.length ? money(prices.reduce((a, b) => a + b, 0) / prices.length) : '—';
     set('lot-ov-count', avail.length.toLocaleString());
-    set('lot-ov-range', prices.length ? `${money(prices[0])}–${money(prices[prices.length - 1])}` : '—');
-    set('lot-ov-avg', prices.length ? money(prices.reduce((a, b) => a + b, 0) / prices.length) : '—');
+    set('lot-ov-range', rangeTxt);
+    set('lot-ov-avg', avgTxt);
     const yr = new Date().getFullYear();
     const isNew = v => String(v.condition || '').toLowerCase() === 'new' || Number(v.year) >= yr;
     const nu = avail.filter(isNew).length;
     set('lot-ov-split', `${nu} / ${avail.length - nu}`);
+    // Compact copy inside the Competitor Monitoring card.
+    set('lot-mini-count', avail.length.toLocaleString());
+    set('lot-mini-range', rangeTxt);
+    set('lot-mini-avg', avgTxt);
   } catch {}
 }
 
