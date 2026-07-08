@@ -522,6 +522,16 @@ function initAppraisal() {
   if (!decodeBtn || !runBtn) return;
   __apprWired = true;
 
+  // Standalone VIN decoder — pops the same full specs & recall modal as Inventory.
+  const lookupBtn = $('appr-vin-lookup-btn'), lookupInput = $('appr-vin-lookup');
+  const runVinLookup = () => {
+    const vin = (lookupInput?.value || '').trim().toUpperCase();
+    if (vin.length !== 17) { showToast('Enter a 17-character VIN', 'error'); return; }
+    openVinDecode(null, vin);
+  };
+  lookupBtn?.addEventListener('click', runVinLookup);
+  lookupInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runVinLookup(); } });
+
   decodeBtn.addEventListener('click', async () => {
     const vin = ($('appr-vin').value || '').trim().toUpperCase();
     if (vin.length !== 17) { showToast('Enter a 17-character VIN', 'error'); return; }
