@@ -3753,6 +3753,26 @@ async function loadDailyDigest() {
   } catch {}
 }
 
+// Your Lot at a Glance — vehicle count + price range for competitor comparison.
+async function loadLotOverview() {
+  const countEl = document.getElementById('lot-ov-count');
+  if (!countEl) return;
+  try {
+    const inv = await apiGetJson('/inventory/all', { retries: 1 });
+    const avail = (inv || []).filter(v => String(v.status || 'available').toLowerCase() === 'available');
+    const prices = avail.map(v => Number(v.price)).filter(p => p > 0).sort((a, b) => a - b);
+    const money = n => '$' + Math.round(n).toLocaleString();
+    const set = (id, t) => { const e = document.getElementById(id); if (e) e.textContent = t; };
+    set('lot-ov-count', avail.length.toLocaleString());
+    set('lot-ov-range', prices.length ? `${money(prices[0])}–${money(prices[prices.length - 1])}` : '—');
+    set('lot-ov-avg', prices.length ? money(prices.reduce((a, b) => a + b, 0) / prices.length) : '—');
+    const yr = new Date().getFullYear();
+    const isNew = v => String(v.condition || '').toLowerCase() === 'new' || Number(v.year) >= yr;
+    const nu = avail.filter(isNew).length;
+    set('lot-ov-split', `${nu} / ${avail.length - nu}`);
+  } catch {}
+}
+
 // Monthly live-market usage vs the soft cap (cached lookups don't count).
 async function loadScanUsage() {
   const el = document.getElementById('inv-scan-usage');
@@ -5342,6 +5362,7 @@ function loadInvIntelPage() {
     loadStockingRecommendations(false);
     loadMarketcheckStatus();
     loadAIActivity();   // Inventory Scan now lives on this page
+    loadLotOverview();  // Your Lot at a Glance
   } else {
     upsell.classList.remove('hidden');
     active.classList.add('hidden');
