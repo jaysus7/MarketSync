@@ -111,42 +111,34 @@ export async function marketcheckMarket({ make, model, year, trim, mileage, post
     params.set('miles_range', `${Math.round(mileage * 0.6)}-${Math.round(mileage * 1.4)}`)
   }
 
-  let json
-  try {
-    const r = await fetch(`${BASE}${path}?${params.toString()}`, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(12000),
-    })
-    if (!r.ok) {
-      console.error('[marketcheck] HTTP', r.status, isUS ? 'US' : 'CA')
-      return null
-    }
-    json = await r.json()
-  } catch (e) {
-    console.error('[marketcheck] request failed:', e.message)
-    return null
-  }
-
-  let numFound = Number(json?.num_found ?? 0)
-  let price = json?.stats?.price
-  let miles = json?.stats?.miles
-
-  // If a tight trim+mileage query returned nothing, retry once without the mileage
-  // window (broader but still same trim) so thin segments still get a number.
-  if ((!numFound || !price?.median) && (mileage || trim)) {
-    const retry = new URLSearchParams(params)
-    retry.delete('miles_range')
+  // Try progressively broader queries until one returns comps: exact → drop the
+  // mileage window → drop trim → drop car_type (last resort). Each step logs
+  // num_found so the server logs show exactly what MarketCheck matched — that's
+  // how we tell a query-too-tight issue from a genuine data gap.
+  const attempts = [
+    ['exact',       p => p],
+    ['no-miles',    p => { p.delete('miles_range'); return p }],
+    ['no-trim',     p => { p.delete('miles_range'); p.delete('trim'); return p }],
+    ['no-car_type', p => { p.delete('miles_range'); p.delete('trim'); p.delete('car_type'); return p }],
+  ]
+  let numFound = 0, price = null, miles = null
+  for (const [label, mutate] of attempts) {
+    const p = mutate(new URLSearchParams(params))
     try {
-      const r2 = await fetch(`${BASE}${path}?${retry.toString()}`, {
+      const r = await fetch(`${BASE}${path}?${p.toString()}`, {
         headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(12000),
       })
-      if (r2.ok) {
-        const j2 = await r2.json()
-        if (Number(j2?.num_found ?? 0) > 0 && j2?.stats?.price?.median) {
-          numFound = Number(j2.num_found); price = j2.stats.price; miles = j2.stats.miles
-        }
+      if (!r.ok) { console.error(`[marketcheck] HTTP ${r.status} ${isUS ? 'US' : 'CA'} [${label}] ${make} ${model} ${year}`); continue }
+      const j = await r.json()
+      const nf = Number(j?.num_found ?? 0)
+      console.log(`[marketcheck] ${make} ${model} ${year} ${isUS ? 'US' : 'CA'} [${label}] num_found=${nf}`)
+      if (nf > 0 && j?.stats?.price?.median != null) {
+        numFound = nf; price = j.stats.price; miles = j.stats.miles
+        break
       }
-    } catch {}
+    } catch (e) {
+      console.error(`[marketcheck] request failed [${label}]:`, e.message)
+    }
   }
 
   if (!numFound || !price) return null
