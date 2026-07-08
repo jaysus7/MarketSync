@@ -102,9 +102,11 @@ export async function marketcheckMarket({ make, model, year, trim, mileage, post
     rows: '0', // we only need the aggregate stats, not the listing bodies
   })
   if (trim) params.set('trim', String(trim))
-  // Radius search around the dealer's postal/ZIP when we have one.
+  // Radius search around the dealer's ZIP — US only. MarketCheck's `zip` expects a
+  // US 5-digit ZIP, so passing a Canadian postal code here makes the API reject the
+  // whole request with HTTP 422. For Canada we rely on country=ca (national comps).
   const zip = (postalCode || '').replace(/\s+/g, '')
-  if (zip) { params.set('zip', zip); params.set('radius', '250') }
+  if (isUS && /^\d{5}$/.test(zip)) { params.set('zip', zip); params.set('radius', '250') }
   // Constrain comps to a comparable mileage window (±40%) so a 200k-km car isn't
   // averaged against 20k-km ones.
   if (mileage && mileage > 0) {
