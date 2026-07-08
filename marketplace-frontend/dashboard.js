@@ -3073,8 +3073,8 @@ function renderCatalog() {
               ${recallLine}
               ${v.vin ? `<div class="flex flex-wrap gap-1">
                 <button class="inv-vin-btn ${b} bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700" data-id="${v.id}" ${vinAttr}>Decode VIN</button>
-                <button class="inv-sticker-btn ${b} bg-emerald-600 hover:bg-emerald-500 text-white" data-id="${v.id}" data-label="${lbl}">Sticker ▾</button>
-                <button class="inv-brochure-btn ${b} bg-indigo-600 hover:bg-indigo-500 text-white" data-id="${v.id}" data-label="${lbl}">Brochure ▾</button>
+                <button class="inv-sticker-btn ${b} bg-emerald-600 hover:bg-emerald-500 text-white" data-id="${v.id}" data-label="${lbl}" data-oem-url="${v.window_sticker_oem_url || ''}" data-gen-url="${v.window_sticker_gen_url || ''}">Sticker ▾</button>
+                <button class="inv-brochure-btn ${b} bg-indigo-600 hover:bg-indigo-500 text-white" data-id="${v.id}" data-label="${lbl}" data-oem-url="${v.brochure_oem_url || ''}" data-gen-url="${v.brochure_gen_url || ''}">Brochure ▾</button>
               </div>` : `<div class="text-[10px] text-slate-400 italic">No VIN on file — can't decode or build docs.</div>`}
             </div>`;
         })() : ''}
@@ -5000,6 +5000,8 @@ async function generatePdf(vehicleId, type, btn, opts = {}) {
   // oemOnly = fetch the factory sticker only (no fallback); forceGenerate = branded.
   const genQuery = opts.oemOnly ? '?source=oem'
     : opts.forceGenerate ? '?source=generate&regen=1' : '';
+  // Status polling must check the SAME variant's cache (OEM vs generated).
+  const statusQuery = opts.oemOnly ? '?source=oem' : '?source=generate';
 
   const openUrl = (url, source) => {
     window.open(url, '_blank');
@@ -5024,7 +5026,7 @@ async function generatePdf(vehicleId, type, btn, opts = {}) {
       return;
     }
     try {
-      const r = await fetch(`${API}/pdf/${type}/${vehicleId}/status`, {
+      const r = await fetch(`${API}/pdf/${type}/${vehicleId}/status${statusQuery}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const d = await r.json();
@@ -5111,6 +5113,9 @@ function showNoOemPrompt(vehicleId, btn, type = 'window-sticker') {
 function showBrochureChoice(btn) {
   const id = btn.dataset.id;
   const label = btn.dataset.label || 'this vehicle';
+  const oemUrl = btn.dataset.oemUrl || '';
+  const genUrl = btn.dataset.genUrl || '';
+  const savedTag = '<span class="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 px-1.5 py-0.5 rounded">Saved</span>';
   document.getElementById('brochure-choice-modal')?.remove();
   const modal = document.createElement('div');
   modal.id = 'brochure-choice-modal';
@@ -5118,16 +5123,17 @@ function showBrochureChoice(btn) {
   modal.innerHTML = `
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl w-full max-w-sm p-6 shadow-2xl">
       <h3 class="text-base font-bold text-slate-900 dark:text-white mb-1">Brochure</h3>
-      <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 truncate" title="${label}">${label}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 truncate" title="${label}">${label} — OEM &amp; AI brochures save separately.</p>
       <div class="space-y-2.5">
         <button data-choice="oem" class="w-full text-left px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition">
-          <div class="text-sm font-bold text-slate-900 dark:text-white">Get OEM Brochure</div>
-          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pull the authentic manufacturer sales brochure (available up to 2023).</div>
+          <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">${oemUrl ? 'View OEM Brochure' : 'Get OEM Brochure'} ${oemUrl ? savedTag : ''}</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${oemUrl ? 'Open your saved factory brochure.' : 'Pull the authentic manufacturer sales brochure (available up to 2023).'}</div>
         </button>
         <button data-choice="generate" class="w-full text-left px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition ${__aiDocsActive ? '' : 'opacity-70'}">
-          <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">Generate Dealer Brochure <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg> ${__aiDocsActive ? '' : '<span class="text-[10px] font-bold uppercase bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 px-1.5 py-0.5 rounded">AI Boost</span>'}</div>
-          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Build a branded MarketSync brochure.${__aiDocsActive ? '' : ' Included with AI Boost.'}</div>
+          <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">${genUrl ? 'View Dealer Brochure' : 'Generate Dealer Brochure'} <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg> ${genUrl ? savedTag : (__aiDocsActive ? '' : '<span class="text-[10px] font-bold uppercase bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 px-1.5 py-0.5 rounded">AI Boost</span>')}</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${genUrl ? 'Open your saved branded brochure, or regenerate.' : 'Build a branded MarketSync brochure.'}${(!genUrl && !__aiDocsActive) ? ' Included with AI Boost.' : ''}</div>
         </button>
+        ${genUrl ? '<button data-choice="regen" class="w-full text-center text-xs font-bold text-indigo-500 hover:text-indigo-400 py-1 transition">↻ Regenerate dealer brochure</button>' : ''}
       </div>
       <button data-choice="cancel" class="mt-4 w-full text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 py-1.5 transition">Cancel</button>
     </div>`;
@@ -5136,10 +5142,11 @@ function showBrochureChoice(btn) {
     if (e.target === modal) return close();
     const choice = e.target.closest('[data-choice]')?.dataset.choice;
     if (!choice) return;
-    if (choice === 'generate' && !__aiDocsActive) { close(); openUpgradeModal('ai_boost'); return; }
+    if ((choice === 'generate' || choice === 'regen') && !__aiDocsActive) { close(); openUpgradeModal('ai_boost'); return; }
     close();
-    if (choice === 'oem') generatePdf(id, 'brochure', btn, { oemOnly: true });
-    else if (choice === 'generate') generatePdf(id, 'brochure', btn, { forceGenerate: true });
+    if (choice === 'oem') { if (oemUrl) window.open(oemUrl, '_blank'); else generatePdf(id, 'brochure', btn, { oemOnly: true }); }
+    else if (choice === 'generate') { if (genUrl) window.open(genUrl, '_blank'); else generatePdf(id, 'brochure', btn, { forceGenerate: true }); }
+    else if (choice === 'regen') generatePdf(id, 'brochure', btn, { forceGenerate: true });
   });
   document.body.appendChild(modal);
 }
@@ -5568,8 +5575,8 @@ async function loadVinStickerInventory() {
         : (v.recalls_checked_at ? `<span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded px-1.5 py-0.5">✓ No recalls</span>` : '');
 
       const hasVin      = !!(v.vin_data);
-      const hasSticker  = !!(v.window_sticker_url);
-      const hasBrochure = !!(v.brochure_url);
+      const hasSticker  = !!(v.window_sticker_oem_url || v.window_sticker_gen_url || v.window_sticker_url);
+      const hasBrochure = !!(v.brochure_oem_url || v.brochure_gen_url || v.brochure_url);
       const allDone     = hasVin && hasSticker && hasBrochure;
 
       const statusDot = allDone
@@ -5627,8 +5634,8 @@ async function loadVinStickerInventory() {
             </div>
             <div class="flex gap-2 flex-shrink-0 items-start pt-0.5">
               ${decodeBtn}
-              <button class="vs-sticker-btn text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}" data-label="${label.replace(/"/g, '&quot;')}">${stickerBtnLabel} ▾</button>
-              <button class="vs-brochure-btn text-xs ${brochureBtnCls} text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}" data-label="${label.replace(/"/g, '&quot;')}">${brochureBtnLabel} ▾</button>
+              <button class="vs-sticker-btn text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}" data-label="${label.replace(/"/g, '&quot;')}" data-oem-url="${v.window_sticker_oem_url || ''}" data-gen-url="${v.window_sticker_gen_url || ''}">${stickerBtnLabel} ▾</button>
+              <button class="vs-brochure-btn text-xs ${brochureBtnCls} text-white px-3 py-1.5 rounded-lg transition font-bold" data-id="${v.id}" data-label="${label.replace(/"/g, '&quot;')}" data-oem-url="${v.brochure_oem_url || ''}" data-gen-url="${v.brochure_gen_url || ''}">${brochureBtnLabel} ▾</button>
             </div>
             </div>
           </div>
@@ -5657,6 +5664,9 @@ async function loadVinStickerInventory() {
 function showStickerChoice(btn) {
   const id = btn.dataset.id;
   const label = btn.dataset.label || 'this vehicle';
+  const oemUrl = btn.dataset.oemUrl || '';
+  const genUrl = btn.dataset.genUrl || '';
+  const savedTag = '<span class="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 px-1.5 py-0.5 rounded">Saved</span>';
   document.getElementById('sticker-choice-modal')?.remove();
   const modal = document.createElement('div');
   modal.id = 'sticker-choice-modal';
@@ -5664,16 +5674,17 @@ function showStickerChoice(btn) {
   modal.innerHTML = `
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl w-full max-w-sm p-6 shadow-2xl">
       <h3 class="text-base font-bold text-slate-900 dark:text-white mb-1">Window Sticker</h3>
-      <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 truncate" title="${label}">${label}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 truncate" title="${label}">${label} — OEM &amp; AI stickers save separately.</p>
       <div class="space-y-2.5">
         <button data-choice="oem" class="w-full text-left px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition">
-          <div class="text-sm font-bold text-slate-900 dark:text-white">Get OEM Sticker</div>
-          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pull the authentic factory window sticker for this VIN, when available.</div>
+          <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">${oemUrl ? 'View OEM Sticker' : 'Get OEM Sticker'} ${oemUrl ? savedTag : ''}</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${oemUrl ? 'Open your saved factory window sticker.' : 'Pull the authentic factory window sticker for this VIN, when available.'}</div>
         </button>
         <button data-choice="generate" class="w-full text-left px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition ${__aiDocsActive ? '' : 'opacity-70'}">
-          <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">Generate Dealer Sticker <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg> ${__aiDocsActive ? '' : '<span class="text-[10px] font-bold uppercase bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 px-1.5 py-0.5 rounded">AI Boost</span>'}</div>
-          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Build a branded MarketSync window sticker.${__aiDocsActive ? '' : ' Included with AI Boost.'}</div>
+          <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">${genUrl ? 'View Dealer Sticker' : 'Generate Dealer Sticker'} <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg> ${genUrl ? savedTag : (__aiDocsActive ? '' : '<span class="text-[10px] font-bold uppercase bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 px-1.5 py-0.5 rounded">AI Boost</span>')}</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${genUrl ? 'Open your saved branded sticker, or regenerate.' : 'Build a branded MarketSync window sticker.'}${(!genUrl && !__aiDocsActive) ? ' Included with AI Boost.' : ''}</div>
         </button>
+        ${genUrl ? '<button data-choice="regen" class="w-full text-center text-xs font-bold text-indigo-500 hover:text-indigo-400 py-1 transition">↻ Regenerate dealer sticker</button>' : ''}
       </div>
       <button data-choice="cancel" class="mt-4 w-full text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 py-1.5 transition">Cancel</button>
     </div>`;
@@ -5682,10 +5693,11 @@ function showStickerChoice(btn) {
     if (e.target === modal) return close();
     const choice = e.target.closest('[data-choice]')?.dataset.choice;
     if (!choice) return;
-    if (choice === 'generate' && !__aiDocsActive) { close(); openUpgradeModal('ai_boost'); return; }
+    if ((choice === 'generate' || choice === 'regen') && !__aiDocsActive) { close(); openUpgradeModal('ai_boost'); return; }
     close();
-    if (choice === 'oem') generatePdf(id, 'window-sticker', btn, { oemOnly: true });
-    else if (choice === 'generate') generatePdf(id, 'window-sticker', btn, { forceGenerate: true });
+    if (choice === 'oem') { if (oemUrl) window.open(oemUrl, '_blank'); else generatePdf(id, 'window-sticker', btn, { oemOnly: true }); }
+    else if (choice === 'generate') { if (genUrl) window.open(genUrl, '_blank'); else generatePdf(id, 'window-sticker', btn, { forceGenerate: true }); }
+    else if (choice === 'regen') generatePdf(id, 'window-sticker', btn, { forceGenerate: true });
   });
   document.body.appendChild(modal);
 }

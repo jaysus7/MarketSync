@@ -1053,7 +1053,8 @@ export function registerRoutes(app) {
       return res.status(403).json({ error: 'The VIN decoder & window stickers are part of Inventory Intelligence' })
     }
     // The generated (branded) MarketSync sticker additionally needs AI Boost.
-    if (req.query.source === 'generate' && !hasAiBoost(dealer, req.user.email)) {
+    // Anything that isn't an explicit OEM pull is the AI-generated variant.
+    if (req.query.source !== 'oem' && !hasAiBoost(dealer, req.user.email)) {
       return res.status(403).json({ error: 'Generating a branded sticker requires AI Boost' })
     }
 
@@ -1065,38 +1066,30 @@ export function registerRoutes(app) {
       .single()
     if (error || !vehicle) return res.status(404).json({ error: 'Vehicle not found' })
 
-    // OEM-only: the "Get OEM Sticker" button asks for the authentic factory sticker
-    // and nothing else. If there's none to fetch, return a clear signal so the UI can
-    // offer to generate one instead of silently falling back.
-    if (req.query.source === 'oem') {
-      const oemProbe = await fetchOemWindowStickerPdf(vehicle).catch(() => null)
-      if (!oemProbe) {
-        return res.status(404).json({ error: 'no_oem', message: 'No factory (OEM) window sticker is available for this VIN.' })
-      }
-      const path = `${req.dealershipId}/${vehicle.id}/window-sticker.pdf`
-      const url = await uploadPdf(oemProbe.buffer, path)
-      await supabaseAdmin.from('inventory').update({ window_sticker_url: url, window_sticker_source: 'oem' }).eq('id', vehicle.id)
+    // OEM and AI-generated stickers are independent documents with independent
+    // caches — pulling one never overwrites the other.
+    const variant = req.query.source === 'oem' ? 'oem' : 'generated'
+    const col = variant === 'oem' ? 'window_sticker_oem_url' : 'window_sticker_gen_url'
+    const path = `${req.dealershipId}/${vehicle.id}/window-sticker-${variant}.pdf`
+
+    // Serve this variant from its own cache.
+    if (vehicle[col] && req.query.regen !== '1') {
+      return res.json({ url: vehicle[col], source: variant, cached: true })
+    }
+
+    // OEM: fetch the authentic factory sticker (synchronous). No fallback — the
+    // AI-generated sticker is a separate button with its own cache.
+    if (variant === 'oem') {
+      const oem = await fetchOemWindowStickerPdf(vehicle).catch(() => null)
+      if (!oem) return res.status(404).json({ error: 'no_oem', message: 'No factory (OEM) window sticker is available for this VIN.' })
+      const url = await uploadPdf(oem.buffer, path)
+      await supabaseAdmin.from('inventory')
+        .update({ window_sticker_oem_url: url, window_sticker_url: url, window_sticker_source: 'oem' })
+        .eq('id', vehicle.id)
       return res.json({ url, source: 'oem', cached: false })
     }
 
-    // If the factory sticker isn't available we fall back to generating one — that
-    // fallback also requires AI Boost. Non-Boost users get OEM-or-nothing.
-    if (req.query.source !== 'generate' && !hasAiBoost(dealer, req.user.email)) {
-      const oemProbe = await fetchOemWindowStickerPdf(vehicle).catch(() => null)
-      if (!oemProbe) {
-        return res.status(404).json({ error: 'No factory window sticker is available for this VIN. Generating a branded one requires AI Boost.' })
-      }
-      const path = `${req.dealershipId}/${vehicle.id}/window-sticker.pdf`
-      const url = await uploadPdf(oemProbe.buffer, path)
-      await supabaseAdmin.from('inventory').update({ window_sticker_url: url, window_sticker_source: 'oem' }).eq('id', vehicle.id)
-      return res.json({ url, source: 'oem', cached: false })
-    }
-
-    if (vehicle.window_sticker_url && req.query.regen !== '1') {
-      return res.json({ url: vehicle.window_sticker_url, source: vehicle.window_sticker_source || 'generated', cached: true })
-    }
-
-    // Respond immediately — generate in background to avoid platform timeout
+    // AI-generated (branded) — build in the background to avoid platform timeout.
     res.json({ status: 'generating' })
 
     ;(async () => {
@@ -1104,32 +1097,7 @@ export function registerRoutes(app) {
         console.error('[window-sticker background] hard timeout — killed after 110s')
       }, 110000)
       try {
-        const path = `${req.dealershipId}/${vehicle.id}/window-sticker.pdf`
         const vName = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ')
-
-        // ── OEM-first: try to fetch the authentic manufacturer window sticker ──
-        // by VIN. When a public source has it (e.g. Ford), we use the real
-        // factory Monroney label instead of generating one. Skipped when the
-        // caller forces generation (?source=generate) — e.g. the "Generate"
-        // button, used when the factory sticker isn't available.
-        const oem = req.query.source === 'generate' ? null : await fetchOemWindowStickerPdf(vehicle)
-        if (oem) {
-          const url = await uploadPdf(oem.buffer, path)
-          await supabaseAdmin.from('inventory')
-            .update({ window_sticker_url: url, window_sticker_source: 'oem' })
-            .eq('id', vehicle.id)
-          await createNotification({
-            dealershipId: req.dealershipId,
-            type: 'window_sticker',
-            title: `Official ${oem.provider} window sticker found`,
-            body: `The authentic factory window sticker for the ${vName} is ready to view or print.`,
-            linkUrl: url,
-          })
-          clearTimeout(deadline)
-          return
-        }
-
-        // ── Fallback: generate our own sticker from the (auto-decoded) specs ──
         const branding = dealer.branding || {}
         // Images are resized to WebP by imgToDataUri to keep HTML payload small
         const imageUrls = (vehicle.image_urls || []).slice(0, 2)
@@ -1144,7 +1112,7 @@ export function registerRoutes(app) {
         const pdf = await generatePdf(html, { landscape: true, viewportWidth: 1100, viewportHeight: 860, timeoutMs: 90000 })
         const url = await uploadPdf(pdf, path)
         await supabaseAdmin.from('inventory')
-          .update({ window_sticker_url: url, window_sticker_source: 'generated' })
+          .update({ window_sticker_gen_url: url, window_sticker_url: url, window_sticker_source: 'generated' })
           .eq('id', vehicle.id)
         // Surface a clickable notification linking straight to the finished PDF.
         await createNotification({
@@ -1165,14 +1133,16 @@ export function registerRoutes(app) {
   // ── Poll window sticker status ────────────────────────────────────────
   app.get('/pdf/window-sticker/:vehicleId/status', requireAuth, requireDealerAdmin, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const variant = req.query.source === 'oem' ? 'oem' : 'generated'
+    const col = variant === 'oem' ? 'window_sticker_oem_url' : 'window_sticker_gen_url'
     const { data: vehicle } = await supabaseAdmin
       .from('inventory')
-      .select('window_sticker_url, window_sticker_source')
+      .select(col)
       .eq('id', req.params.vehicleId)
       .eq('dealership_id', req.dealershipId)
       .single()
-    if (vehicle?.window_sticker_url) return res.json({ status: 'ready', url: vehicle.window_sticker_url, source: vehicle.window_sticker_source || 'generated' })
-    res.json({ status: 'generating' })
+    if (vehicle?.[col]) return res.json({ status: 'ready', url: vehicle[col], source: variant })
+    return res.json({ status: 'generating' })
   })
 
   // ── Generate brochure ─────────────────────────────────────────────────
@@ -1199,28 +1169,28 @@ export function registerRoutes(app) {
       .single()
     if (error || !vehicle) return res.status(404).json({ error: 'Vehicle not found' })
 
-    // OEM-only: fetch the authentic manufacturer brochure (Auto-Brochures, up to
-    // 2023) and cache it. If there's none, return a clear no_oem signal so the UI
-    // can offer to generate a dealer brochure instead.
-    if (wantsOem) {
-      if (vehicle.brochure_url && vehicle.brochure_source === 'oem' && req.query.regen !== '1') {
-        return res.json({ url: vehicle.brochure_url, source: 'oem', cached: true })
-      }
+    // OEM and AI-generated brochures are independent documents with independent
+    // caches — pulling one never overwrites the other.
+    const variant = wantsOem ? 'oem' : 'generated'
+    const col = variant === 'oem' ? 'brochure_oem_url' : 'brochure_gen_url'
+    const path = `${req.dealershipId}/${vehicle.id}/brochure-${variant}.pdf`
+
+    if (vehicle[col] && req.query.regen !== '1') {
+      return res.json({ url: vehicle[col], source: variant, cached: true })
+    }
+
+    // OEM: fetch the authentic manufacturer brochure (Auto-Brochures, up to 2023).
+    if (variant === 'oem') {
       const oem = await fetchOemBrochurePdf(vehicle).catch(() => null)
       if (!oem) {
         return res.status(404).json({ error: 'no_oem', message: 'No manufacturer brochure is available for this vehicle (factory brochures are on file up to 2023).' })
       }
-      const path = `${req.dealershipId}/${vehicle.id}/brochure.pdf`
       const url = await uploadPdf(oem.buffer, path)
-      await supabaseAdmin.from('inventory').update({ brochure_url: url, brochure_source: 'oem' }).eq('id', vehicle.id)
+      await supabaseAdmin.from('inventory').update({ brochure_oem_url: url, brochure_url: url, brochure_source: 'oem' }).eq('id', vehicle.id)
       return res.json({ url, source: 'oem', cached: false })
     }
 
-    if (vehicle.brochure_url && vehicle.brochure_source !== 'oem' && req.query.regen !== '1') {
-      return res.json({ url: vehicle.brochure_url, cached: true })
-    }
-
-    // Respond immediately — generate in background to avoid platform timeout
+    // AI-written dealer brochure — build in the background to avoid platform timeout.
     res.json({ status: 'generating' })
 
     ;(async () => {
@@ -1236,11 +1206,11 @@ export function registerRoutes(app) {
           branding.logo_url ? imgToDataUri(branding.logo_url) : Promise.resolve(null),
         ])
         const copy = await generateBrochureCopy(vehicle, dealer)
+        recordUsage(req.dealershipId, { ai: 1 })   // AI-written copy (AI Boost)
         const html = buildBrochureHtml(vehicle, dealer, branding, vehicle.recalls || [], photosDataUris.filter(Boolean), logoDataUri, copy)
         const pdf = await generatePdf(html, { landscape: false, viewportWidth: 860, viewportHeight: 1100, timeoutMs: 90000 })
-        const path = `${req.dealershipId}/${vehicle.id}/brochure.pdf`
         const url = await uploadPdf(pdf, path)
-        await supabaseAdmin.from('inventory').update({ brochure_url: url, brochure_source: 'generated' }).eq('id', vehicle.id)
+        await supabaseAdmin.from('inventory').update({ brochure_gen_url: url, brochure_url: url, brochure_source: 'generated' }).eq('id', vehicle.id)
         // Surface a clickable notification linking straight to the finished PDF.
         const vName = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ')
         await createNotification({
@@ -1261,24 +1231,32 @@ export function registerRoutes(app) {
   // ── Poll brochure status ──────────────────────────────────────────────
   app.get('/pdf/brochure/:vehicleId/status', requireAuth, requireDealerAdmin, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const variant = req.query.source === 'oem' ? 'oem' : 'generated'
+    const col = variant === 'oem' ? 'brochure_oem_url' : 'brochure_gen_url'
     const { data: vehicle } = await supabaseAdmin
       .from('inventory')
-      .select('brochure_url')
+      .select(col)
       .eq('id', req.params.vehicleId)
       .eq('dealership_id', req.dealershipId)
       .single()
-    if (vehicle?.brochure_url) return res.json({ status: 'ready', url: vehicle.brochure_url })
-    res.json({ status: 'generating' })
+    if (vehicle?.[col]) return res.json({ status: 'ready', url: vehicle[col], source: variant })
+    return res.json({ status: 'generating' })
   })
 
   // ── Clear cached PDFs when vehicle is sold/deleted ────────────────────
   app.delete('/pdf/cache/:vehicleId', requireAuth, requireDealerAdmin, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const vehicleId = req.params.vehicleId
+    const base = `${req.dealershipId}/${vehicleId}`
     await Promise.allSettled([
-      supabaseAdmin.storage.from('vehicle-pdfs').remove([`${req.dealershipId}/${vehicleId}/window-sticker.pdf`]),
-      supabaseAdmin.storage.from('vehicle-pdfs').remove([`${req.dealershipId}/${vehicleId}/brochure.pdf`]),
-      supabaseAdmin.from('inventory').update({ window_sticker_url: null, window_sticker_source: null, brochure_url: null }).eq('id', vehicleId).eq('dealership_id', req.dealershipId),
+      supabaseAdmin.storage.from('vehicle-pdfs').remove([
+        `${base}/window-sticker.pdf`, `${base}/window-sticker-oem.pdf`, `${base}/window-sticker-generated.pdf`,
+        `${base}/brochure.pdf`, `${base}/brochure-oem.pdf`, `${base}/brochure-generated.pdf`,
+      ]),
+      supabaseAdmin.from('inventory').update({
+        window_sticker_url: null, window_sticker_source: null, window_sticker_oem_url: null, window_sticker_gen_url: null,
+        brochure_url: null, brochure_source: null, brochure_oem_url: null, brochure_gen_url: null,
+      }).eq('id', vehicleId).eq('dealership_id', req.dealershipId),
     ])
     res.json({ ok: true })
   })
