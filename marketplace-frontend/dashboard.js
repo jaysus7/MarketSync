@@ -4871,7 +4871,7 @@ async function loadMarketcheckStatus() {
   const dot = (c) => `<span class="w-2 h-2 rounded-full ${c} flex-shrink-0"></span>`;
   if (!s.configured) {
     el.className = 'text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-2 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200';
-    el.innerHTML = `${dot('bg-amber-500')} MarketCheck not connected — pricing & competitor data are using the free scraper. Add MARKETCHECK_API_KEY in Render for reliable, live data.`;
+    el.innerHTML = `${dot('bg-amber-500')} MarketCheck not connected — pricing & competitor data fall back to an AI estimate. Add MARKETCHECK_API_KEY in your Render backend environment for live market data.`;
   } else if (s.ok) {
     el.className = 'text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-200';
     el.innerHTML = `${dot('bg-emerald-500')} MarketCheck connected — live market data is active${s.sample_found ? ` (test query returned ${Number(s.sample_found).toLocaleString()} comps)` : ''}.`;
