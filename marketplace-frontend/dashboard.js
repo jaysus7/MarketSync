@@ -2791,6 +2791,7 @@ function showSyncStatus(text, kind) {
 
 // INVENTORY CATALOG: full vehicle browser
 let __catalogCache = [];
+let __marketPositions = {};   // inventory_id → market median (Inventory Intelligence)
 
 async function loadInventoryCatalog() {
   const list = document.getElementById('catalog-list');
@@ -2800,6 +2801,14 @@ async function loadInventoryCatalog() {
     const body = await res.json().catch(() => []);
     if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
     __catalogCache = Array.isArray(body) ? body : [];
+    // Inventory Intelligence add-on: pull each used car's market median (from the
+    // last Inventory Scan) so cards can show a "% to market" badge.
+    if (__invIntelActive) {
+      try {
+        const pr = await fetch(`${API}/ai/market-positions`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (pr.ok) __marketPositions = (await pr.json()).positions || {};
+      } catch {}
+    }
     renderCatalog();
   } catch (err) {
     list.innerHTML = `<div class="text-xs text-red-400 col-span-full">Failed to load catalog: ${err.message}</div>`;
@@ -2930,7 +2939,18 @@ function renderCatalog() {
             const recallBadge = recallCount > 0
               ? `<span class="${gtag} bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30" title="${recallCount} open recall${recallCount > 1 ? 's' : ''} — open VIN Decode for details">⚠ ${recallCount} Recall${recallCount > 1 ? 's' : ''}</span>`
               : ''
-            return hotColdTag + healthBadge + recallBadge
+            // "% to market" — used cars only, from the last Inventory Scan's market median.
+            const mktMedian = __invIntelActive ? __marketPositions[v.id] : null
+            const isUsedCar = (v.condition || '').toLowerCase() === 'used'
+            let marketBadge = ''
+            if (mktMedian && isUsedCar && v.price > 0) {
+              const pct = Math.round((Number(v.price) / mktMedian) * 100)
+              const cls = pct > 103 ? 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30'
+                : pct < 97 ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30'
+                : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+              marketBadge = `<span class="${gtag} ${cls}" title="Your price vs live market median $${Number(mktMedian).toLocaleString()}">${pct}% to market</span>`
+            }
+            return hotColdTag + healthBadge + recallBadge + marketBadge
           })()}
         </div>
         <div class="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
@@ -4275,6 +4295,8 @@ async function loadAIBoostSection() {
     __vinStickerActive = !!cfg.vin_sticker_active;           // = Inventory Intelligence tier
     __aiDocsActive = !!cfg.ai_docs_active;                   // generated docs = AI Boost
     __invIntelActive = !!cfg.inv_intel_active;
+    // Trade Appraisal is part of the Inventory Intelligence add-on — hide otherwise.
+    document.getElementById('nav-appraisal')?.classList.toggle('hidden', !__invIntelActive);
     __aiVisionActive = !!cfg.ai_vision_active;               // = AI Boost
     renderAiVisionNav();
     __aiBoostConfigLoaded = true;

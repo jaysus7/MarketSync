@@ -431,7 +431,10 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
     const targetGross = Math.max(0, b.target_gross != null && b.target_gross !== '' ? Number(b.target_gross) : 2500)
 
     const { data: dealer } = await supabaseAdmin
-      .from('dealerships').select('name, country, province, postal_code').eq('id', req.dealershipId).maybeSingle()
+      .from('dealerships').select('name, country, province, postal_code, inv_intel_active').eq('id', req.dealershipId).maybeSingle()
+    // Trade Appraisal is part of the Inventory Intelligence add-on.
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence add-on required' })
     const c = (dealer?.country || '').trim().toUpperCase()
     const isUS = c === 'US' || c === 'USA' || c === 'UNITED STATES'
 
@@ -488,6 +491,31 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
       comps: compList.slice(0, 50).map(l => ({ price: l.price, miles: l.miles, city: l.city, region: l.region })),
       locations,
     })
+  })
+
+  // GET /ai/market-positions — latest market median per inventory_id (from the most
+  // recent Inventory Scan). Powers the "% to market" badge on used inventory cards.
+  // Inventory Intelligence add-on only; returns {} otherwise (so the UI stays hidden).
+  app.get('/ai/market-positions', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json({ positions: {}, active: false })
+    const { data: dealer } = await supabaseAdmin
+      .from('dealerships').select('inv_intel_active').eq('id', req.dealershipId).maybeSingle()
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    if (!isOwner && !dealer?.inv_intel_active) return res.json({ positions: {}, active: false })
+
+    const { data: acts } = await supabaseAdmin
+      .from('ai_activity')
+      .select('inventory_id, price_median, created_at')
+      .eq('dealership_id', req.dealershipId)
+      .not('price_median', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(3000)
+    // Keep the newest median per vehicle (rows come newest-first).
+    const positions = {}
+    for (const a of acts || []) {
+      if (a.inventory_id && positions[a.inventory_id] == null) positions[a.inventory_id] = a.price_median
+    }
+    res.json({ positions, active: true })
   })
 
   // GET /ai/lot-report — aggregate the whole lot against AutoTrader/CarGurus market
