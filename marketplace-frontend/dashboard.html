@@ -438,6 +438,11 @@
           <svg class="w-5 h-5 md:w-4 md:h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15M4.125 4.5h15.75c.621 0 1.125.504 1.125 1.125v12.75c0 .621-.504 1.125-1.125 1.125H4.125A1.125 1.125 0 013 18.375V5.625C3 5.004 3.504 4.5 4.125 4.5z"/></svg>
           <span class="hidden md:inline">Pipeline</span>
         </button>
+        <!-- Trade Appraisal — VIN/manual → live MarketCheck retail value + suggested offer. -->
+        <button type="button" data-page="appraisal" title="Appraisal" class="nav-item flex-1 md:flex-none md:w-full flex items-center justify-center md:justify-start gap-2.5 px-2 md:px-3 py-2.5 md:py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <svg class="w-5 h-5 md:w-4 md:h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18M8 21h8M5 7l7-2 7 2M5 7l-2 5a3 3 0 006 0L5 7zm14 0l-2 5a3 3 0 006 0l-2-5z"/></svg>
+          <span class="hidden md:inline">Appraisal</span>
+        </button>
         <button type="button" data-page="leaderboard" title="Leaderboard" class="nav-item flex-1 md:flex-none md:w-full flex items-center justify-center md:justify-start gap-2.5 px-2 md:px-3 py-2.5 md:py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <svg class="w-5 h-5 md:w-4 md:h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 21V10M12 21V3M16 21v-6"/><path stroke-linecap="round" stroke-linejoin="round" d="M5 21h14"/></svg>
           <span class="hidden md:inline">Leaderboard</span>
@@ -1488,6 +1493,42 @@
         </div>
       </div><!-- /ai-vision page -->
 
+      <!-- ── Trade Appraisal Page ─────────────────────────────────────────── -->
+      <div data-page-content="appraisal" class="page-content hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900 dark:text-white">Trade Appraisal</h2>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Live retail market value + a suggested cash/trade offer, powered by MarketCheck. Enter a VIN to auto-fill, or type it in.</p>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">VIN <span class="normal-case font-normal text-slate-400">(optional — decodes the fields below)</span></label>
+            <div class="flex gap-2">
+              <input id="appr-vin" maxlength="17" placeholder="e.g. 1GNSKBKC5FR123456" class="flex-1 uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <button id="appr-decode" class="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Decode</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Year</label><input id="appr-year" inputmode="numeric" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Make</label><input id="appr-make" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Model</label><input id="appr-model" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Trim</label><input id="appr-trim" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Mileage</label><input id="appr-mileage" inputmode="numeric" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Condition</label><select id="appr-condition" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="good">Good</option><option value="excellent">Excellent</option><option value="fair">Fair</option><option value="rough">Rough</option></select></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Recon ($)</label><input id="appr-recon" inputmode="numeric" value="1200" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Target gross (%)</label><input id="appr-margin" inputmode="numeric" value="12" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+          </div>
+
+          <button id="appr-run" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition">Appraise</button>
+        </div>
+
+        <div id="appr-result"></div>
+      </div><!-- /appraisal page -->
+
       <!-- ── Sales Pipeline Page ──────────────────────────────────────────── -->
       <div data-page-content="pipeline" class="page-content hidden space-y-8">
         <!-- Leads on top, with an Appointments calendar toggle -->
@@ -2211,7 +2252,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260708c"></script>
+  <script src="dashboard.js?v=20260708d"></script>
   <script src="tour.js"></script>
   <script src="table-sort.js?v=20260706a"></script>
 </body>

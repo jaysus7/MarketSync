@@ -386,6 +386,98 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
     res.json(await marketcheckPing())
   })
 
+  // Decode a VIN to year/make/model/trim via NHTSA (free, no key). Used by the
+  // Trade Appraisal form's "Decode" button to prefill the manual fields.
+  app.post('/ai/vin-decode', requireAuth, async (req, res) => {
+    const vin = String(req.body?.vin || '').trim().toUpperCase()
+    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return res.status(400).json({ error: 'Enter a valid 17-character VIN' })
+    try {
+      const r = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${encodeURIComponent(vin)}?format=json`, {
+        signal: AbortSignal.timeout(10000),
+      })
+      if (!r.ok) return res.status(502).json({ error: `VIN service error (HTTP ${r.status})` })
+      const j = await r.json()
+      const row = j?.Results?.[0]
+      const nv = v => (v && v !== 'Not Applicable' && String(v).trim() !== '') ? String(v).trim() : null
+      const yr = parseInt(row?.ModelYear)
+      const out = {
+        year: isNaN(yr) ? null : yr,
+        make: nv(row?.Make),
+        model: nv(row?.Model),
+        trim: nv(row?.Trim) || nv(row?.Series),
+      }
+      if (!out.make || !out.model) return res.status(422).json({ error: 'Could not decode that VIN — enter the details manually.' })
+      res.json({ ok: true, vin, ...out })
+    } catch (e) {
+      res.status(502).json({ error: e.name === 'TimeoutError' ? 'VIN service timed out — try again or enter details manually.' : e.message })
+    }
+  })
+
+  // Trade-in appraisal — MarketCheck retail comps + a derived cash/trade offer.
+  // Accepts either a decoded/manual vehicle. Retail comes from live market data;
+  // the suggested offer = retail median − reconditioning − target gross.
+  app.post('/ai/appraise', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const b = req.body || {}
+    const year = parseInt(b.year)
+    const make = String(b.make || '').trim()
+    const model = String(b.model || '').trim()
+    const trim = String(b.trim || '').trim()
+    const mileage = b.mileage != null && b.mileage !== '' ? Number(b.mileage) : null
+    if (!year || !make || !model) return res.status(400).json({ error: 'Year, make and model are required' })
+
+    const recon = Math.max(0, Number(b.recon) || 0)
+    // Target gross as a % of retail (default 12%). Clamp to something sane.
+    const marginPct = Math.min(40, Math.max(0, b.margin_pct != null ? Number(b.margin_pct) : 12))
+
+    const { data: dealer } = await supabaseAdmin
+      .from('dealerships').select('country, province, postal_code').eq('id', req.dealershipId).maybeSingle()
+    const c = (dealer?.country || '').trim().toUpperCase()
+    const isUS = c === 'US' || c === 'USA' || c === 'UNITED STATES'
+
+    const market = await marketcheckMarket({
+      make, model, year, trim, mileage,
+      postalCode: dealer?.postal_code || '', province: dealer?.province || '', isUS,
+    })
+
+    const vehicle = { year, make, model, trim: trim || null, mileage, vin: (b.vin ? String(b.vin).trim().toUpperCase() : null) }
+
+    if (!market || !market.median_price) {
+      return res.json({ ok: true, vehicle, retail: null, appraisal: null,
+        message: 'No comparable market listings found for this vehicle. Try removing the trim, or check the year/make/model.' })
+    }
+
+    const retailMid = market.median_price
+    const targetGross = Math.round(retailMid * (marginPct / 100))
+    const suggestedOffer = Math.max(0, retailMid - recon - targetGross)
+
+    res.json({
+      ok: true,
+      vehicle,
+      currency: isUS ? 'USD' : 'CAD',
+      distance_unit: isUS ? 'mi' : 'km',
+      retail: {
+        median: retailMid,
+        low: market.low_price ?? null,
+        high: market.high_price ?? null,
+        avg: market.avg_price ?? null,
+        count: market.count ?? null,
+        avg_days_online: market.avg_days_online ?? null,
+        avg_mileage: market.avg_mileage ?? market.median_mileage ?? null,
+        source: market.source || 'MarketCheck',
+      },
+      appraisal: {
+        suggested_offer: suggestedOffer,
+        retail_mid: retailMid,
+        recon,
+        margin_pct: marginPct,
+        target_gross: targetGross,
+        // Rough projected gross if bought at the suggested offer and retailed at market.
+        projected_gross: Math.max(0, retailMid - suggestedOffer - recon),
+      },
+    })
+  })
+
   // GET /ai/lot-report — aggregate the whole lot against AutoTrader/CarGurus market
   // averages. Built from the most recent scan (ai_activity.price_median per vehicle)
   // so it's instant and free — run "Scan All Inventory" first to refresh the comps.

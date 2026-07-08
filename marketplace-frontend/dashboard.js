@@ -511,6 +511,107 @@ function switchPage(pageId) {
   if (pageId === 'ai-vision') loadAiVisionPage();
   if (pageId === 'pipeline') loadPipelinePage();
   if (pageId === 'leads') loadLeadsPage();
+  if (pageId === 'appraisal') initAppraisal();
+}
+
+// ── Trade Appraisal ──────────────────────────────────────────────────────────
+let __apprWired = false;
+function initAppraisal() {
+  if (__apprWired) return;      // switchPage calls this each visit; wire once
+  const $ = (id) => document.getElementById(id);
+  const decodeBtn = $('appr-decode'), runBtn = $('appr-run'), result = $('appr-result');
+  if (!decodeBtn || !runBtn) return;
+  __apprWired = true;
+
+  decodeBtn.addEventListener('click', async () => {
+    const vin = ($('appr-vin').value || '').trim().toUpperCase();
+    if (vin.length !== 17) { showToast('Enter a 17-character VIN', 'error'); return; }
+    const orig = decodeBtn.textContent;
+    decodeBtn.disabled = true; decodeBtn.textContent = 'Decoding…';
+    try {
+      const r = await fetch(`${API}/ai/vin-decode`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vin })
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Decode failed');
+      if (d.year) $('appr-year').value = d.year;
+      $('appr-make').value = d.make || '';
+      $('appr-model').value = d.model || '';
+      $('appr-trim').value = d.trim || '';
+      showToast('VIN decoded — add mileage, then Appraise', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { decodeBtn.disabled = false; decodeBtn.textContent = orig; }
+  });
+
+  runBtn.addEventListener('click', async () => {
+    const num = (id) => ($(id).value || '').replace(/[^0-9.]/g, '');
+    const body = {
+      vin: ($('appr-vin').value || '').trim().toUpperCase() || null,
+      year: ($('appr-year').value || '').trim(),
+      make: ($('appr-make').value || '').trim(),
+      model: ($('appr-model').value || '').trim(),
+      trim: ($('appr-trim').value || '').trim(),
+      mileage: num('appr-mileage'),
+      condition: $('appr-condition').value,
+      recon: num('appr-recon'),
+      margin_pct: num('appr-margin'),
+    };
+    if (!body.year || !body.make || !body.model) { showToast('Year, make and model are required', 'error'); return; }
+    const orig = runBtn.textContent;
+    runBtn.disabled = true; runBtn.textContent = 'Appraising…';
+    result.innerHTML = `<div class="py-10 text-center text-sm text-slate-400 italic">Pulling live market comps…</div>`;
+    try {
+      const r = await fetch(`${API}/ai/appraise`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Appraisal failed');
+      result.innerHTML = renderAppraisal(d);
+    } catch (e) {
+      result.innerHTML = `<div class="py-8 text-center text-sm text-slate-500">Couldn't appraise: ${esc(e.message)}</div>`;
+    } finally { runBtn.disabled = false; runBtn.textContent = orig; }
+  });
+}
+
+function apprTile(label, value, sub) {
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${esc(label)}</div>
+    <div class="text-lg font-black text-slate-900 dark:text-white mt-1 leading-tight">${value}</div>
+    <div class="text-[11px] text-slate-400 mt-0.5">${esc(sub)}</div>
+  </div>`;
+}
+
+function renderAppraisal(d) {
+  const v = d.vehicle || {};
+  const label = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle';
+  const cur = d.currency || 'CAD';
+  const du = d.distance_unit || 'km';
+  const money = (n) => n != null ? '$' + Number(n).toLocaleString() : '—';
+
+  if (!d.retail || !d.appraisal) {
+    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+      <div class="font-bold text-slate-900 dark:text-white">${esc(label)}</div>
+      <div class="text-sm text-amber-600 dark:text-amber-400 mt-2">${esc(d.message || 'No market data found for this vehicle.')}</div>
+    </div>`;
+  }
+  const rt = d.retail, ap = d.appraisal;
+  return `
+    <div class="space-y-4">
+      <div class="bg-indigo-600 text-white rounded-xl p-5">
+        <div class="text-xs font-bold uppercase tracking-wider text-indigo-200">Suggested trade / cash offer</div>
+        <div class="text-3xl font-black mt-1">${money(ap.suggested_offer)} <span class="text-base font-semibold text-indigo-200">${cur}</span></div>
+        <div class="text-xs text-indigo-100 mt-2">Retail ${money(ap.retail_mid)} − recon ${money(ap.recon)} − ${ap.margin_pct}% gross (${money(ap.target_gross)})</div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        ${apprTile('Retail market', money(rt.median), `${rt.count ?? '—'} comps`)}
+        ${apprTile('Retail range', `${money(rt.low)}–${money(rt.high)}`, 'fair retail')}
+        ${apprTile('Avg days to sell', rt.avg_days_online != null ? rt.avg_days_online + ' days' : '—', 'on market')}
+        ${apprTile('Projected gross', money(ap.projected_gross), 'at this offer')}
+      </div>
+      <div class="text-xs text-slate-400">${esc(label)}${v.mileage ? ` · ${Number(v.mileage).toLocaleString()} ${du}` : ''} · Source: ${esc(rt.source || 'MarketCheck')}. Retail-market based — not auction/wholesale values.</div>
+    </div>`;
 }
 
 // Appointments open in a full-screen modal from the Pipeline page.
