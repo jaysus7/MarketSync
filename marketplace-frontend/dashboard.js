@@ -368,7 +368,7 @@ async function initializeDashboardEcosystem() {
       document.getElementById('feeds-panel').classList.remove('hidden');
       document.getElementById('catalog-panel').classList.remove('hidden');
       // Defer the actual data loads until the Inventory page is first opened.
-      __pageInit.inventory = () => { loadInventoryFeeds(); loadInventoryCatalog(); prefetchInvIntelTags(); loadAIActivity(); };
+      __pageInit.inventory = () => { loadInventoryFeeds(); loadInventoryCatalog(); prefetchInvIntelTags(); };
     }
 
     if (!canManageFeeds) {
@@ -535,6 +535,9 @@ function initAppraisal() {
       $('appr-make').value = d.make || '';
       $('appr-model').value = d.model || '';
       $('appr-trim').value = d.trim || '';
+      const summary = [d.year, d.make, d.model, d.trim].filter(Boolean).join(' ');
+      const sumEl = $('appr-vin-decoded-text'), wrap = $('appr-vin-decoded');
+      if (sumEl && wrap) { sumEl.textContent = summary || 'vehicle identified'; wrap.classList.remove('hidden'); }
       showToast('VIN decoded — add mileage, then Appraise', 'success');
     } catch (e) { showToast(e.message, 'error'); }
     finally { decodeBtn.disabled = false; decodeBtn.textContent = orig; }
@@ -4487,10 +4490,10 @@ async function loadAIBoostSection() {
     initVinStickerPage();
     renderInvIntelSidebar(cfg);
     if (__vinStickerActive) loadBrandingSettings();
-    // If the user is already on the Inventory page (navigated there before config
-    // loaded), refresh the Inventory Scan card now that the add-on flags are set.
-    const invPage = document.querySelector('[data-page-content="inventory"]');
-    if (invPage && !invPage.classList.contains('hidden')) loadAIActivity();
+    // If the user is already on the Inventory Intelligence page (navigated there
+    // before config loaded), refresh the Inventory Scan card now that flags are set.
+    const iiPage = document.querySelector('[data-page-content="inv-intel"]');
+    if (iiPage && !iiPage.classList.contains('hidden')) loadAIActivity();
   } catch {}
 }
 
@@ -5284,6 +5287,7 @@ function loadInvIntelPage() {
     if (typeof window._loadIntel === 'function') window._loadIntel();
     loadStockingRecommendations(false);
     loadMarketcheckStatus();
+    loadAIActivity();   // Inventory Scan now lives on this page
   } else {
     upsell.classList.remove('hidden');
     active.classList.add('hidden');

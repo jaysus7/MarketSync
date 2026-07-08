@@ -791,90 +791,6 @@
       <!-- ───────── INVENTORY PAGE ───────── -->
       <div data-page-content="inventory" class="page-content hidden space-y-8">
 
-      <!-- ── Inventory Scan — part of the Inventory Intelligence add-on ────────── -->
-      <div id="inv-scan-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
-        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <svg viewBox="0 0 24 24" width="18" height="18" class="flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg>
-              Inventory Scan
-            </h2>
-            <p class="text-slate-500 dark:text-slate-400 text-xs mt-0.5 max-w-xl">Run live-market checks across every active listing — refreshes each vehicle's “% to market”, flags mispriced units, and powers your Lot Average Report and trade appraisals.</p>
-          </div>
-          <!-- Active controls — Inventory Intelligence subscribers -->
-          <div id="inv-scan-controls" class="hidden flex flex-wrap gap-2 sm:justify-end">
-            <button id="ai-sync-all-btn" class="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2.5 rounded-lg transition whitespace-nowrap">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-              Scan All Inventory
-            </button>
-            <button id="ai-activity-refresh" class="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-bold px-4 py-2.5 rounded-lg transition border border-slate-200 dark:border-slate-700 whitespace-nowrap">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-              Refresh Log
-            </button>
-            <button id="ai-lot-report-btn" class="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-4 py-2.5 rounded-lg transition whitespace-nowrap">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V9m4 8V5m4 12v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-              Lot Average Report
-            </button>
-          </div>
-        </div>
-
-        <!-- Upsell — non-subscribers -->
-        <div id="inv-scan-upsell" class="hidden mt-3 flex flex-col sm:flex-row sm:items-center gap-3 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-900 rounded-lg px-4 py-3">
-          <p class="text-sm text-violet-800 dark:text-violet-200 flex-1">Inventory Scan is part of <strong>Inventory Intelligence</strong> — see exactly how every unit is priced against the live market, flag mispriced stock, and value trades.</p>
-          <button type="button" onclick="openUpgradeModal('inv_intel')" class="bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Unlock — $299/mo</button>
-        </div>
-
-        <!-- Active content — progress, stats, results -->
-        <div id="inv-scan-active" class="hidden mt-4 space-y-4">
-          <div id="ai-sync-status" class="hidden space-y-2">
-            <div class="flex items-center gap-2 text-xs font-medium text-indigo-600 dark:text-indigo-400">
-              <svg class="w-3.5 h-3.5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-              <span id="ai-sync-status-text">Starting scan…</span>
-            </div>
-            <div class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-              <div id="ai-sync-progress-bar" class="h-full bg-indigo-500 rounded-full transition-all duration-500" style="width:0%"></div>
-            </div>
-            <div class="text-xs text-slate-400" id="ai-sync-progress-label"></div>
-          </div>
-
-          <!-- Monthly live-market usage vs cap (cached lookups don't count) -->
-          <div id="inv-scan-usage" class="hidden text-[11px] text-slate-400"></div>
-
-          <!-- Summary stat cards — click to filter the list below -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <button type="button" data-ai-filter="all" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 transition hover:border-slate-300 dark:hover:border-slate-600 focus:outline-none">
-              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Total Checks</div>
-              <div class="text-3xl font-black text-slate-900 dark:text-white" id="ai-stat-total">—</div>
-            </button>
-            <button type="button" data-ai-filter="price" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 transition hover:border-red-300 dark:hover:border-red-700 focus:outline-none">
-              <div class="text-xs uppercase font-bold tracking-wider text-red-500 mb-1">Price Flags</div>
-              <div class="text-3xl font-black text-red-500" id="ai-stat-price-flags">—</div>
-            </button>
-            <button type="button" data-ai-filter="missing" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 transition hover:border-amber-300 dark:hover:border-amber-700 focus:outline-none">
-              <div class="text-xs uppercase font-bold tracking-wider text-amber-500 mb-1">Missing Info</div>
-              <div class="text-3xl font-black text-amber-500" id="ai-stat-warnings">—</div>
-            </button>
-            <button type="button" data-ai-filter="copies" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 transition hover:border-emerald-300 dark:hover:border-emerald-700 focus:outline-none">
-              <div class="text-xs uppercase font-bold tracking-wider text-emerald-500 mb-1">Copies Written</div>
-              <div class="text-3xl font-black text-emerald-500" id="ai-stat-copies">—</div>
-            </button>
-          </div>
-
-          <!-- Activity feed -->
-          <div class="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-            <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Inventory Scan Results — per-vehicle checks</h3>
-              <span id="ai-activity-count" class="text-xs text-slate-400"></span>
-            </div>
-            <div class="max-h-[500px] overflow-y-auto">
-              <div id="ai-activity-loading" class="py-12 text-center text-sm text-slate-400 italic">Loading…</div>
-              <div id="ai-activity-empty" class="hidden py-12 text-center text-sm text-slate-400 px-6">No activity yet — click <strong class="text-slate-600 dark:text-slate-300">Scan All Inventory</strong> to run the first check.</div>
-              <div id="ai-activity-error" class="hidden py-6 px-5 text-sm text-red-500"></div>
-              <ul id="ai-activity-list" class="hidden divide-y divide-slate-100 dark:divide-slate-800"></ul>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div id="feeds-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
         <div class="flex flex-wrap justify-between items-start mb-4 gap-3">
@@ -1197,6 +1113,92 @@
 
           <!-- MarketCheck live-data status — tells the dealer if the licensed feed is on -->
           <div id="marketcheck-status" class="hidden text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-2"></div>
+
+      <!-- ── Inventory Scan — part of the Inventory Intelligence add-on ────────── -->
+      <div id="inv-scan-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <svg viewBox="0 0 24 24" width="18" height="18" class="flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg>
+              Inventory Scan
+            </h2>
+            <p class="text-slate-500 dark:text-slate-400 text-xs mt-0.5 max-w-xl">Run live-market checks across every active listing — refreshes each vehicle's “% to market”, flags mispriced units, and powers your Lot Average Report and trade appraisals.</p>
+          </div>
+          <!-- Active controls — Inventory Intelligence subscribers -->
+          <div id="inv-scan-controls" class="hidden flex flex-wrap gap-2 sm:justify-end">
+            <button id="ai-sync-all-btn" class="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2.5 rounded-lg transition whitespace-nowrap">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Scan All Inventory
+            </button>
+            <button id="ai-activity-refresh" class="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-bold px-4 py-2.5 rounded-lg transition border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Refresh Log
+            </button>
+            <button id="ai-lot-report-btn" class="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-4 py-2.5 rounded-lg transition whitespace-nowrap">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V9m4 8V5m4 12v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+              Lot Average Report
+            </button>
+          </div>
+        </div>
+
+        <!-- Upsell — non-subscribers -->
+        <div id="inv-scan-upsell" class="hidden mt-3 flex flex-col sm:flex-row sm:items-center gap-3 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-900 rounded-lg px-4 py-3">
+          <p class="text-sm text-violet-800 dark:text-violet-200 flex-1">Inventory Scan is part of <strong>Inventory Intelligence</strong> — see exactly how every unit is priced against the live market, flag mispriced stock, and value trades.</p>
+          <button type="button" onclick="openUpgradeModal('inv_intel')" class="bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Unlock — $299/mo</button>
+        </div>
+
+        <!-- Active content — progress, stats, results -->
+        <div id="inv-scan-active" class="hidden mt-4 space-y-4">
+          <div id="ai-sync-status" class="hidden space-y-2">
+            <div class="flex items-center gap-2 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+              <svg class="w-3.5 h-3.5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+              <span id="ai-sync-status-text">Starting scan…</span>
+            </div>
+            <div class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div id="ai-sync-progress-bar" class="h-full bg-indigo-500 rounded-full transition-all duration-500" style="width:0%"></div>
+            </div>
+            <div class="text-xs text-slate-400" id="ai-sync-progress-label"></div>
+          </div>
+
+          <!-- Monthly live-market usage vs cap (cached lookups don't count) -->
+          <div id="inv-scan-usage" class="hidden text-[11px] text-slate-400"></div>
+
+          <!-- Summary stat cards — click to filter the list below -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button type="button" data-ai-filter="all" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 transition hover:border-slate-300 dark:hover:border-slate-600 focus:outline-none">
+              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Total Checks</div>
+              <div class="text-3xl font-black text-slate-900 dark:text-white" id="ai-stat-total">—</div>
+            </button>
+            <button type="button" data-ai-filter="price" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 transition hover:border-red-300 dark:hover:border-red-700 focus:outline-none">
+              <div class="text-xs uppercase font-bold tracking-wider text-red-500 mb-1">Price Flags</div>
+              <div class="text-3xl font-black text-red-500" id="ai-stat-price-flags">—</div>
+            </button>
+            <button type="button" data-ai-filter="missing" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 transition hover:border-amber-300 dark:hover:border-amber-700 focus:outline-none">
+              <div class="text-xs uppercase font-bold tracking-wider text-amber-500 mb-1">Missing Info</div>
+              <div class="text-3xl font-black text-amber-500" id="ai-stat-warnings">—</div>
+            </button>
+            <button type="button" data-ai-filter="copies" class="ai-stat-card text-left bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 transition hover:border-emerald-300 dark:hover:border-emerald-700 focus:outline-none">
+              <div class="text-xs uppercase font-bold tracking-wider text-emerald-500 mb-1">Copies Written</div>
+              <div class="text-3xl font-black text-emerald-500" id="ai-stat-copies">—</div>
+            </button>
+          </div>
+
+          <!-- Activity feed -->
+          <div class="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Inventory Scan Results — per-vehicle checks</h3>
+              <span id="ai-activity-count" class="text-xs text-slate-400"></span>
+            </div>
+            <div class="max-h-[500px] overflow-y-auto">
+              <div id="ai-activity-loading" class="py-12 text-center text-sm text-slate-400 italic">Loading…</div>
+              <div id="ai-activity-empty" class="hidden py-12 text-center text-sm text-slate-400 px-6">No activity yet — click <strong class="text-slate-600 dark:text-slate-300">Scan All Inventory</strong> to run the first check.</div>
+              <div id="ai-activity-error" class="hidden py-6 px-5 text-sm text-red-500"></div>
+              <ul id="ai-activity-list" class="hidden divide-y divide-slate-100 dark:divide-slate-800"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
           <!-- VIN decode, recalls, window stickers & brochures now live on each
                vehicle in the Inventory page (part of Inventory Intelligence). -->
@@ -1626,10 +1628,14 @@
 
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">VIN <span class="normal-case font-normal text-slate-400">(optional — decodes the fields below)</span></label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Decode VIN <span class="normal-case font-normal text-slate-400">(optional — only identifies the vehicle &amp; fills the fields below)</span></label>
             <div class="flex gap-2">
               <input id="appr-vin" maxlength="17" placeholder="e.g. 1GNSKBKC5FR123456" class="flex-1 uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
               <button id="appr-decode" class="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Decode</button>
+            </div>
+            <div id="appr-vin-decoded" class="hidden mt-2 flex items-start gap-2 text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-lg px-3 py-2">
+              <svg class="w-4 h-4 flex-shrink-0 mt-px" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+              <span><span class="font-bold">Decoded:</span> <span id="appr-vin-decoded-text"></span> — this only identifies the vehicle. Add mileage and click <span class="font-semibold">Appraise</span>; the value comes from live market comps, not the VIN.</span>
             </div>
           </div>
 
@@ -2047,7 +2053,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260708l"></script>
+  <script src="dashboard.js?v=20260708m"></script>
   <script src="tour.js"></script>
   <script src="table-sort.js?v=20260706a"></script>
 </body>
