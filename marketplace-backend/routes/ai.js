@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
-import { marketcheckMarket, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing } from '../marketcheck.js'
+import { marketcheckMarket, marketcheckListings, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing } from '../marketcheck.js'
 import { createNotification, createNotifications } from '../notifications.js'
 import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
 
@@ -427,18 +427,19 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
     if (!year || !make || !model) return res.status(400).json({ error: 'Year, make and model are required' })
 
     const recon = Math.max(0, Number(b.recon) || 0)
-    // Target gross as a % of retail (default 12%). Clamp to something sane.
-    const marginPct = Math.min(40, Math.max(0, b.margin_pct != null ? Number(b.margin_pct) : 12))
+    // Target gross is now a DOLLAR figure (default $2,500), same units as recon.
+    const targetGross = Math.max(0, b.target_gross != null && b.target_gross !== '' ? Number(b.target_gross) : 2500)
 
     const { data: dealer } = await supabaseAdmin
-      .from('dealerships').select('country, province, postal_code').eq('id', req.dealershipId).maybeSingle()
+      .from('dealerships').select('name, country, province, postal_code').eq('id', req.dealershipId).maybeSingle()
     const c = (dealer?.country || '').trim().toUpperCase()
     const isUS = c === 'US' || c === 'USA' || c === 'UNITED STATES'
 
-    const market = await marketcheckMarket({
-      make, model, year, trim, mileage,
-      postalCode: dealer?.postal_code || '', province: dealer?.province || '', isUS,
-    })
+    // Headline stats + the actual comp listings (for the PDF charts + locations).
+    const [market, comps] = await Promise.all([
+      marketcheckMarket({ make, model, year, trim, mileage, postalCode: dealer?.postal_code || '', province: dealer?.province || '', isUS }),
+      marketcheckListings({ make, model, year, trim, mileage, isUS }),
+    ])
 
     const vehicle = { year, make, model, trim: trim || null, mileage, vin: (b.vin ? String(b.vin).trim().toUpperCase() : null) }
 
@@ -448,12 +449,19 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
     }
 
     const retailMid = market.median_price
-    const targetGross = Math.round(retailMid * (marginPct / 100))
     const suggestedOffer = Math.max(0, retailMid - recon - targetGross)
+    const grossPct = retailMid > 0 ? Math.round((targetGross / retailMid) * 1000) / 10 : null
+
+    // Location breakdown (province/state → count) for the "where these are" chart.
+    const compList = (comps?.listings || [])
+    const locMap = {}
+    for (const l of compList) { const k = l.region || 'Other'; locMap[k] = (locMap[k] || 0) + 1 }
+    const locations = Object.entries(locMap).map(([region, count]) => ({ region, count })).sort((a, b) => b.count - a.count)
 
     res.json({
       ok: true,
       vehicle,
+      dealer_name: dealer?.name || null,
       currency: isUS ? 'USD' : 'CAD',
       distance_unit: isUS ? 'mi' : 'km',
       retail: {
@@ -470,11 +478,12 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
         suggested_offer: suggestedOffer,
         retail_mid: retailMid,
         recon,
-        margin_pct: marginPct,
         target_gross: targetGross,
-        // Rough projected gross if bought at the suggested offer and retailed at market.
-        projected_gross: Math.max(0, retailMid - suggestedOffer - recon),
+        gross_pct: grossPct,
       },
+      // Sample comps (price + mileage + location) for the PDF charts.
+      comps: compList.slice(0, 50).map(l => ({ price: l.price, miles: l.miles, city: l.city, region: l.region })),
+      locations,
     })
   })
 

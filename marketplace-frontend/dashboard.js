@@ -516,6 +516,7 @@ function switchPage(pageId) {
 
 // ── Trade Appraisal ──────────────────────────────────────────────────────────
 let __apprWired = false;
+let __apprData = null;   // last appraisal result, for the PDF export
 function initAppraisal() {
   if (__apprWired) return;      // switchPage calls this each visit; wire once
   const $ = (id) => document.getElementById(id);
@@ -555,7 +556,7 @@ function initAppraisal() {
       mileage: num('appr-mileage'),
       condition: $('appr-condition').value,
       recon: num('appr-recon'),
-      margin_pct: num('appr-margin'),
+      target_gross: num('appr-gross'),
     };
     if (!body.year || !body.make || !body.model) { showToast('Year, make and model are required', 'error'); return; }
     const orig = runBtn.textContent;
@@ -584,6 +585,7 @@ function apprTile(label, value, sub) {
 }
 
 function renderAppraisal(d) {
+  __apprData = d;
   const v = d.vehicle || {};
   const label = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle';
   const cur = d.currency || 'CAD';
@@ -600,18 +602,147 @@ function renderAppraisal(d) {
   return `
     <div class="space-y-4">
       <div class="bg-indigo-600 text-white rounded-xl p-5">
-        <div class="text-xs font-bold uppercase tracking-wider text-indigo-200">Suggested trade / cash offer</div>
-        <div class="text-3xl font-black mt-1">${money(ap.suggested_offer)} <span class="text-base font-semibold text-indigo-200">${cur}</span></div>
-        <div class="text-xs text-indigo-100 mt-2">Retail ${money(ap.retail_mid)} − recon ${money(ap.recon)} − ${ap.margin_pct}% gross (${money(ap.target_gross)})</div>
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="text-xs font-bold uppercase tracking-wider text-indigo-200">Suggested trade / cash offer</div>
+            <div class="text-3xl font-black mt-1">${money(ap.suggested_offer)} <span class="text-base font-semibold text-indigo-200">${cur}</span></div>
+          </div>
+          <button onclick="generateAppraisalPdf()" class="flex-shrink-0 flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-bold px-3 py-2 rounded-lg transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            PDF
+          </button>
+        </div>
+        <div class="text-xs text-indigo-100 mt-2">Retail ${money(ap.retail_mid)} − recon ${money(ap.recon)} − gross ${money(ap.target_gross)}${ap.gross_pct != null ? ` (${ap.gross_pct}%)` : ''}</div>
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
         ${apprTile('Retail market', money(rt.median), `${rt.count ?? '—'} comps`)}
         ${apprTile('Retail range', `${money(rt.low)}–${money(rt.high)}`, 'fair retail')}
         ${apprTile('Avg days to sell', rt.avg_days_online != null ? rt.avg_days_online + ' days' : '—', 'on market')}
-        ${apprTile('Projected gross', money(ap.projected_gross), 'at this offer')}
+        ${apprTile('Target gross', money(ap.target_gross), ap.gross_pct != null ? ap.gross_pct + '% of retail' : 'your margin')}
       </div>
       <div class="text-xs text-slate-400">${esc(label)}${v.mileage ? ` · ${Number(v.mileage).toLocaleString()} ${du}` : ''} · Source: ${esc(rt.source || 'MarketCheck')}. Retail-market based — not auction/wholesale values.</div>
     </div>`;
+}
+
+// ── Appraisal PDF (print-to-PDF window with charts) ──────────────────────────
+function apprHistogramSvg(prices, marks, money) {
+  if (!prices.length) return '';
+  const W = 680, H = 210, padL = 44, padR = 20, padT = 24, padB = 40;
+  const vals = prices.concat([marks.offer, marks.median].filter(x => x != null));
+  const lo = Math.floor(Math.min(...vals) / 1000) * 1000;
+  const hi = Math.ceil(Math.max(...vals) / 1000) * 1000 || lo + 1000;
+  const bins = 8, bw = (hi - lo) / bins || 1;
+  const counts = new Array(bins).fill(0);
+  prices.forEach(p => { let i = Math.floor((p - lo) / bw); if (i < 0) i = 0; if (i >= bins) i = bins - 1; counts[i]++; });
+  const maxC = Math.max(...counts, 1);
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const xOf = (val) => padL + ((val - lo) / (hi - lo)) * plotW;
+  let bars = '';
+  for (let i = 0; i < bins; i++) {
+    const bx = padL + (i / bins) * plotW + 3, bwid = plotW / bins - 6, bh = (counts[i] / maxC) * plotH;
+    bars += `<rect x="${bx.toFixed(1)}" y="${(padT + plotH - bh).toFixed(1)}" width="${bwid.toFixed(1)}" height="${bh.toFixed(1)}" fill="#c7d2fe" rx="2"/>`;
+  }
+  const mark = (val, color, txt) => val == null ? '' :
+    `<line x1="${xOf(val).toFixed(1)}" y1="${padT}" x2="${xOf(val).toFixed(1)}" y2="${padT + plotH}" stroke="${color}" stroke-width="2" stroke-dasharray="4 3"/>
+     <text x="${xOf(val).toFixed(1)}" y="${padT - 8}" fill="${color}" font-size="10" font-weight="700" text-anchor="middle">${txt}</text>`;
+  let xlab = '';
+  for (let i = 0; i <= bins; i += 2) { const val = lo + i * bw; xlab += `<text x="${xOf(val).toFixed(1)}" y="${H - padB + 16}" fill="#64748b" font-size="9" text-anchor="middle">${money(Math.round(val))}</text>`; }
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+    ${bars}
+    <line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="#cbd5e1"/>
+    ${mark(marks.median, '#4f46e5', 'Market avg')}
+    ${mark(marks.offer, '#16a34a', 'Your offer')}
+    ${xlab}
+  </svg>`;
+}
+function apprLocationSvg(locations) {
+  const top = (locations || []).slice(0, 8);
+  if (!top.length) return '';
+  const maxC = Math.max(...top.map(l => l.count), 1);
+  const rowH = 24, W = 680, labelW = 70, numW = 40;
+  let rows = '';
+  top.forEach((l, i) => {
+    const y = i * rowH, bwid = (W - labelW - numW) * (l.count / maxC);
+    rows += `<text x="0" y="${y + 16}" font-size="11" fill="#0f172a" font-weight="600">${esc(l.region || 'Other')}</text>
+      <rect x="${labelW}" y="${y + 5}" width="${Math.max(2, bwid).toFixed(1)}" height="14" fill="#818cf8" rx="3"/>
+      <text x="${(labelW + Math.max(2, bwid) + 6).toFixed(1)}" y="${y + 16}" font-size="10" fill="#475569">${l.count}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${top.length * rowH}" style="width:100%;height:auto">${rows}</svg>`;
+}
+function generateAppraisalPdf() {
+  const d = __apprData;
+  if (!d || !d.retail || !d.appraisal) { showToast('Run an appraisal first', 'error'); return; }
+  const v = d.vehicle || {}, rt = d.retail, ap = d.appraisal;
+  const label = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle';
+  const cur = d.currency || 'CAD', du = d.distance_unit || 'km';
+  const money = (n) => n != null ? '$' + Number(n).toLocaleString() : '—';
+  const prices = (d.comps || []).map(c => c.price).filter(p => p > 0);
+  const hist = apprHistogramSvg(prices, { median: rt.median, offer: ap.suggested_offer }, money);
+  const locs = apprLocationSvg(d.locations || []);
+  const today = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  const row = (l, val, strong) => `<tr><td style="padding:6px 0;color:#475569">${l}</td><td style="padding:6px 0;text-align:right;font-weight:${strong ? 800 : 600};color:${strong ? '#4f46e5' : '#0f172a'}">${val}</td></tr>`;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Appraisal — ${esc(label)}</title>
+<style>
+  @media print { .no-print{display:none!important} @page{margin:0.6in} }
+  *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#0f172a;background:#fff;margin:0;padding:24px;max-width:760px;margin:0 auto}
+  h1{font-size:22px;margin:0} h2{font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin:26px 0 8px}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #e2e8f0;padding-bottom:12px}
+  .offer{background:#4f46e5;color:#fff;border-radius:12px;padding:18px 20px;margin-top:18px}
+  .offer .n{font-size:32px;font-weight:900;margin-top:2px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  .card{border:1px solid #e2e8f0;border-radius:10px;padding:14px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+  .stat .l{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:700}
+  .stat .v{font-size:18px;font-weight:800;margin-top:2px}
+  .cap{font-size:11px;color:#94a3b8;margin-top:6px}
+  .btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-size:13px;background:#4f46e5;color:#fff}
+</style></head><body>
+  <div class="no-print" style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:14px">
+    <button class="btn" onclick="window.print()">Print / Save as PDF</button>
+    <button class="btn" style="background:#e2e8f0;color:#0f172a" onclick="window.close()">Close</button>
+  </div>
+  <div class="head">
+    <div><h1>${esc(d.dealer_name || 'Trade Appraisal')}</h1><div style="color:#64748b;font-size:13px;margin-top:2px">Vehicle Trade Appraisal</div></div>
+    <div style="text-align:right;font-size:12px;color:#64748b">${today}</div>
+  </div>
+
+  <div style="font-size:17px;font-weight:800;margin-top:16px">${esc(label)}</div>
+  <div style="color:#64748b;font-size:13px">${v.mileage ? Number(v.mileage).toLocaleString() + ' ' + du : ''}${v.vin ? ' · VIN ' + esc(v.vin) : ''}</div>
+
+  <div class="offer">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.8;font-weight:700">Suggested trade / cash offer</div>
+    <div class="n">${money(ap.suggested_offer)} <span style="font-size:15px;opacity:.8">${cur}</span></div>
+  </div>
+
+  <h2>Price breakdown</h2>
+  <div class="card"><table>
+    ${row('Retail market value (median of ' + (rt.count ?? '—') + ' comps)', money(ap.retail_mid))}
+    ${row('− Reconditioning', '−' + money(ap.recon))}
+    ${row('− Target gross' + (ap.gross_pct != null ? ' (' + ap.gross_pct + '%)' : ''), '−' + money(ap.target_gross))}
+    <tr><td colspan="2"><div style="border-top:1px solid #e2e8f0;margin:4px 0"></div></td></tr>
+    ${row('Suggested offer', money(ap.suggested_offer), true)}
+  </table></div>
+
+  <div class="grid">
+    <div class="card stat"><div class="l">Retail range</div><div class="v">${money(rt.low)}–${money(rt.high)}</div></div>
+    <div class="card stat"><div class="l">Avg days to sell</div><div class="v">${rt.avg_days_online != null ? rt.avg_days_online + ' days' : '—'}</div></div>
+    <div class="card stat"><div class="l">Comparable listings</div><div class="v">${rt.count ?? '—'}</div></div>
+  </div>
+
+  ${hist ? `<h2>Market price distribution</h2><div class="card">${hist}<div class="cap">Live retail listings for this ${esc(label)}. Dashed lines mark the market average and your offer.</div></div>` : ''}
+
+  ${locs ? `<h2>Where these comparables are</h2><div class="card">${locs}<div class="cap">Locations of the comparable listings (by region), from ${rt.count ?? (d.comps || []).length} active listings.</div></div>` : ''}
+
+  <div style="margin-top:22px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px">
+    Prepared ${today}. Values are retail-market estimates from live ${esc(rt.source || 'MarketCheck')} listings — not a guaranteed offer or an auction/wholesale value. Final offer subject to inspection.
+  </div>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Allow pop-ups to open the PDF view', 'error'); return; }
+  w.document.write(html);
+  w.document.close();
 }
 
 // Appointments open in a full-screen modal from the Pipeline page.

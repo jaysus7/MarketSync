@@ -164,3 +164,48 @@ export async function marketcheckMarket({ make, model, year, trim, mileage, post
     median_mileage: miles ? Math.round(miles.median ?? miles.mean ?? 0) || null : null,
   }
 }
+
+/**
+ * Fetch actual comparable listings (not just stats) with price, mileage and
+ * location — used to draw the appraisal PDF's price-distribution chart and the
+ * "where these comps are" map/breakdown. Returns { count, listings:[{price,
+ * miles, city, region, dealer}] } or null. Broadens like marketcheckMarket.
+ */
+export async function marketcheckListings({ make, model, year, trim, mileage, isUS = false, rows = 50 } = {}) {
+  const key = process.env.MARKETCHECK_API_KEY
+  if (!key || !make || !model || !year) return null
+  const path = '/search/car/active'
+  const base = () => {
+    const p = new URLSearchParams({
+      api_key: key, country: isUS ? 'us' : 'ca', car_type: 'used',
+      make: String(make), model: String(model), year: String(year),
+      rows: String(rows), sort_by: 'price', sort_order: 'asc',
+    })
+    if (trim) p.set('trim', String(trim))
+    return p
+  }
+  const attempts = [
+    (() => { const p = base(); if (mileage > 0) p.set('miles_range', `${Math.round(mileage * 0.6)}-${Math.round(mileage * 1.4)}`); return p })(),
+    (() => { const p = base(); return p })(),
+    (() => { const p = base(); p.delete('trim'); return p })(),
+  ]
+  for (const p of attempts) {
+    try {
+      const r = await fetch(`${BASE}${path}?${p.toString()}`, {
+        headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(12000),
+      })
+      if (!r.ok) continue
+      const j = await r.json()
+      const raw = Array.isArray(j?.listings) ? j.listings : []
+      const listings = raw.map(l => ({
+        price: Number(l.price ?? 0),
+        miles: Number(l.miles ?? 0),
+        city: (l.dealer?.city || null),
+        region: (l.dealer?.state || null),
+        dealer: (l.dealer?.name || null),
+      })).filter(l => l.price > 1000)
+      if (listings.length) return { count: Number(j?.num_found ?? listings.length), listings }
+    } catch { /* try next */ }
+  }
+  return null
+}
