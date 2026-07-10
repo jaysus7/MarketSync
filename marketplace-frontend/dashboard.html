@@ -1807,6 +1807,28 @@
           </div>
           <div id="appr-deal-msg" class="hidden text-sm rounded-lg px-3 py-2"></div>
         </div>
+
+        <!-- ── Appraisals list (team-wide, filterable) ──────────────────────── -->
+        <div class="space-y-3 pt-2">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-4 rounded-full bg-slate-400 flex-shrink-0"></span>
+              <h3 class="text-base font-bold text-slate-900 dark:text-white">Appraisals</h3>
+            </div>
+            <label id="appr-visibility-wrap" class="hidden items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 cursor-pointer select-none">
+              <input type="checkbox" id="appr-visibility-toggle" class="accent-indigo-600">
+              Let reps see all appraisals
+            </label>
+          </div>
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input id="appr-list-search" placeholder="Search customer, vehicle, VIN…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <select id="appr-list-salesperson" class="hidden w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">All salespeople</option></select>
+              <select id="appr-list-disposition" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">All dispositions</option><option value="retail">Retail</option><option value="wholesale">Wholesale</option></select>
+            </div>
+            <div id="appr-list" class="divide-y divide-slate-100 dark:divide-slate-800"><div class="text-xs text-slate-400 italic py-4">Loading…</div></div>
+          </div>
+        </div>
       </div><!-- /appraisal page -->
 
       <!-- ── Sales Pipeline Page ──────────────────────────────────────────── -->
@@ -2292,7 +2314,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260710e"></script>
+  <script src="dashboard.js?v=20260710f"></script>
   <script src="tour.js"></script>
   <script src="table-sort.js?v=20260706a"></script>
 </body>

@@ -633,12 +633,26 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
       const j = await r.json()
       const row = j?.Results?.[0]
       const nv = v => (v && v !== 'Not Applicable' && String(v).trim() !== '') ? String(v).trim() : null
+      const nf = v => { const n = parseFloat(v); return isNaN(n) ? null : n }
       const yr = parseInt(row?.ModelYear)
+      const dispL = nf(row?.DisplacementL), cyls = nv(row?.EngineCylinders)
+      const engineStr = [
+        dispL ? `${dispL}L` : null,
+        cyls ? `${cyls}-cyl` : null,
+        nv(row?.Turbo) === 'Yes' ? 'Turbo' : null,
+        nv(row?.EngineHP) ? `${nv(row?.EngineHP)} HP` : null,
+      ].filter(Boolean).join(' ') || null
       const out = {
         year: isNaN(yr) ? null : yr,
         make: nv(row?.Make),
         model: nv(row?.Model),
         trim: nv(row?.Trim) || nv(row?.Series),
+        // Extra specs so the appraisal deal + disclosure PDF auto-fill.
+        body_type: nv(row?.BodyClass),
+        engine: engineStr,
+        transmission: nv(row?.TransmissionStyle),
+        drivetrain: nv(row?.DriveType),
+        fuel_type: nv(row?.FuelTypePrimary),
       }
       if (!out.make || !out.model) return res.status(422).json({ error: 'Could not decode that VIN — enter the details manually.' })
       res.json({ ok: true, vin, ...out })
@@ -808,19 +822,60 @@ Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMar
     res.json({ ok: true, id: data.id })
   })
 
+  // Management (owner/admin/manager) always sees the whole lot's appraisals. Reps
+  // see only their own unless the dealership's appraisals_reps_see_all is on.
+  const MANAGEMENT_ROLES = ['OWNER', 'DEALER_ADMIN', 'MANAGER']
   app.get('/ai/appraisals', requireAuth, async (req, res) => {
-    if (!req.dealershipId) return res.json([])
-    const { data, error } = await supabaseAdmin.from('trade_appraisals')
-      .select('id, created_at, salesperson_name, year, make, model, trim, vin, suggested_offer, currency, disposition, customer')
+    const emptyMeta = { is_management: false, reps_see_all: false, restricted: true, salespeople: [] }
+    if (!req.dealershipId) return res.json({ items: [], meta: emptyMeta })
+    const role = req.profile?.role || 'SALES_REP'
+    const isManagement = MANAGEMENT_ROLES.includes(role)
+    const { data: dealer } = await supabaseAdmin.from('dealerships')
+      .select('appraisals_reps_see_all').eq('id', req.dealershipId).maybeSingle()
+    const repsSeeAll = !!dealer?.appraisals_reps_see_all
+    const restrictToOwn = !isManagement && !repsSeeAll
+
+    let query = supabaseAdmin.from('trade_appraisals')
+      .select('id, created_at, created_by, salesperson_name, year, make, model, trim, vin, suggested_offer, currency, disposition, customer')
       .eq('dealership_id', req.dealershipId)
-      .order('created_at', { ascending: false }).limit(50)
+      .order('created_at', { ascending: false }).limit(200)
+    if (restrictToOwn) query = query.eq('created_by', req.user.id)
+    else if (req.query.salesperson) query = query.eq('created_by', req.query.salesperson)
+    if (req.query.disposition === 'retail' || req.query.disposition === 'wholesale') query = query.eq('disposition', req.query.disposition)
+
+    const { data, error } = await query
     if (error) return res.status(500).json({ error: error.message })
-    res.json((data || []).map(r => ({
-      id: r.id, created_at: r.created_at, salesperson: r.salesperson_name,
+    let items = (data || []).map(r => ({
+      id: r.id, created_at: r.created_at, created_by: r.created_by, salesperson: r.salesperson_name,
       label: [r.year, r.make, r.model, r.trim].filter(Boolean).join(' '),
       vin: r.vin, offer: r.suggested_offer, currency: r.currency, disposition: r.disposition,
       customer_name: [r.customer?.first_name, r.customer?.last_name].filter(Boolean).join(' ') || null,
-    })))
+    }))
+    const q = (req.query.q || '').trim().toLowerCase()
+    if (q) items = items.filter(it => [it.label, it.vin, it.customer_name, it.salesperson].filter(Boolean).join(' ').toLowerCase().includes(q))
+
+    // Salespeople list for the filter dropdown — from the full dealership set (not
+    // the current filter), so the dropdown stays stable. Management / reps-see-all only.
+    let salespeople = []
+    if (!restrictToOwn) {
+      const { data: sp } = await supabaseAdmin.from('trade_appraisals')
+        .select('created_by, salesperson_name').eq('dealership_id', req.dealershipId).limit(1000)
+      const seen = new Map()
+      for (const r of (sp || [])) if (r.created_by && !seen.has(r.created_by)) seen.set(r.created_by, r.salesperson_name || '—')
+      salespeople = [...seen.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    }
+    res.json({ items, meta: { role, is_management: isManagement, reps_see_all: repsSeeAll, restricted: restrictToOwn, salespeople } })
+  })
+
+  // Management toggle: let reps see all appraisals, or only their own.
+  app.put('/ai/appraisals-visibility', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    if (!MANAGEMENT_ROLES.includes(req.profile?.role)) return res.status(403).json({ error: 'Only management can change this.' })
+    const reps_see_all = !!req.body?.reps_see_all
+    const { error } = await supabaseAdmin.from('dealerships')
+      .update({ appraisals_reps_see_all: reps_see_all }).eq('id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, reps_see_all })
   })
 
   app.get('/ai/appraisals/:id', requireAuth, async (req, res) => {

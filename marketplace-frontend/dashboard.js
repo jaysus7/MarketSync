@@ -509,13 +509,14 @@ function switchPage(pageId) {
   if (pageId === 'ai-vision') loadAiVisionPage();
   if (pageId === 'pipeline') loadPipelinePage();
   if (pageId === 'leads') loadLeadsPage();
-  if (pageId === 'appraisal') initAppraisal();
+  if (pageId === 'appraisal') { initAppraisal(); loadApprList(); }
 }
 
 // ── Trade Appraisal ──────────────────────────────────────────────────────────
 let __apprWired = false;
 let __apprData = null;   // last appraisal result, for the PDF export
 let __apprDealId = null; // id of the saved trade_appraisals record (for updates)
+let __apprDecodedSpecs = null; // engine/trans/drivetrain/body/fuel from the last VIN decode
 function initAppraisal() {
   if (__apprWired) return;      // switchPage calls this each visit; wire once
   const $ = (id) => document.getElementById(id);
@@ -549,6 +550,8 @@ function initAppraisal() {
       $('appr-make').value = d.make || '';
       $('appr-model').value = d.model || '';
       $('appr-trim').value = d.trim || '';
+      // Stash the specs so the saved deal + disclosure PDF auto-fill.
+      __apprDecodedSpecs = { body_type: d.body_type || null, engine: d.engine || null, transmission: d.transmission || null, drivetrain: d.drivetrain || null, fuel_type: d.fuel_type || null };
       const summary = [d.year, d.make, d.model, d.trim].filter(Boolean).join(' ');
       const sumEl = $('appr-vin-decoded-text'), wrap = $('appr-vin-decoded');
       if (sumEl && wrap) { sumEl.textContent = summary || 'vehicle identified'; wrap.classList.remove('hidden'); }
@@ -7254,9 +7257,10 @@ function apprCollectDeal() {
 }
 
 function apprVehicleForSave() {
-  if (__apprData && __apprData.vehicle) return { ...__apprData.vehicle };
+  const specs = __apprDecodedSpecs || {};
+  if (__apprData && __apprData.vehicle) return { ...specs, ...__apprData.vehicle };
   const g = id => (document.getElementById(id)?.value || '').trim();
-  return { vin: g('appr-vin').toUpperCase() || null, year: g('appr-year'), make: g('appr-make'), model: g('appr-model'), trim: g('appr-trim'), mileage: g('appr-mileage') };
+  return { ...specs, vin: g('appr-vin').toUpperCase() || null, year: g('appr-year'), make: g('appr-make'), model: g('appr-model'), trim: g('appr-trim'), mileage: g('appr-mileage') };
 }
 
 async function apprSaveDeal() {
@@ -7383,4 +7387,130 @@ function apprDisclosurePdf() {
     <div class="muted" style="margin-top:16px">The customer certifies the above is true and complete to the best of their knowledge.</div>
     <div class="sig"><div>Customer signature / date</div><div>Salesperson: ${esc(sales)} / date</div></div>`;
   apprPrintWindow('Disclosure — ' + vlabel, inner);
+}
+
+// ── Appraisals list (team-wide, filterable, with rep-visibility toggle) ───────
+let __apprListWired = false;
+let __apprListDebounce = null;
+let __apprSalespeopleLoaded = false;
+function initApprList() {
+  if (__apprListWired) return;
+  __apprListWired = true;
+  const reload = () => loadApprList();
+  document.getElementById('appr-list-search')?.addEventListener('input', () => { clearTimeout(__apprListDebounce); __apprListDebounce = setTimeout(reload, 300); });
+  document.getElementById('appr-list-salesperson')?.addEventListener('change', reload);
+  document.getElementById('appr-list-disposition')?.addEventListener('change', reload);
+  document.getElementById('appr-visibility-toggle')?.addEventListener('change', async (e) => {
+    const on = e.target.checked;
+    try {
+      const r = await fetch(`${API}/ai/appraisals-visibility`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ reps_see_all: on }) });
+      if (!r.ok) throw new Error();
+      showToast(on ? 'Reps can now see all appraisals' : 'Reps now see only their own', 'success');
+    } catch { e.target.checked = !on; showToast('Could not update setting', 'error'); return; }
+    loadApprList();
+  });
+  document.getElementById('appr-list')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-appr-id]');
+    if (btn) loadAppraisalRecord(btn.getAttribute('data-appr-id'));
+  });
+}
+
+async function loadApprList() {
+  initApprList();
+  const box = document.getElementById('appr-list');
+  if (!box) return;
+  const q = document.getElementById('appr-list-search')?.value.trim() || '';
+  const sp = document.getElementById('appr-list-salesperson')?.value || '';
+  const disp = document.getElementById('appr-list-disposition')?.value || '';
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (sp) params.set('salesperson', sp);
+  if (disp) params.set('disposition', disp);
+  try {
+    const r = await fetch(`${API}/ai/appraisals?${params.toString()}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { box.innerHTML = `<div class="text-xs text-rose-500 py-4">${esc(d.error || 'Could not load appraisals.')}</div>`; return; }
+    const meta = d.meta || {};
+    const vWrap = document.getElementById('appr-visibility-wrap');
+    const vToggle = document.getElementById('appr-visibility-toggle');
+    if (vWrap && vToggle) {
+      if (meta.is_management) { vWrap.classList.remove('hidden'); vWrap.classList.add('flex'); vToggle.checked = !!meta.reps_see_all; }
+      else { vWrap.classList.add('hidden'); vWrap.classList.remove('flex'); }
+    }
+    const spSel = document.getElementById('appr-list-salesperson');
+    if (spSel) {
+      if (meta.salespeople && meta.salespeople.length && !meta.restricted) {
+        spSel.classList.remove('hidden');
+        if (!__apprSalespeopleLoaded) {
+          const cur = spSel.value;
+          spSel.innerHTML = '<option value="">All salespeople</option>' + meta.salespeople.map(p => `<option value="${esc(p.id)}">${esc(p.name || '—')}</option>`).join('');
+          spSel.value = cur;
+          __apprSalespeopleLoaded = true;
+        }
+      } else {
+        spSel.classList.add('hidden');
+      }
+    }
+    const items = d.items || [];
+    if (!items.length) { box.innerHTML = '<div class="text-xs text-slate-400 italic py-4">No appraisals match.</div>'; return; }
+    box.innerHTML = items.map(it => {
+      const date = it.created_at ? new Date(it.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+      const offer = it.offer != null ? '$' + Number(it.offer).toLocaleString() + (it.currency ? ' ' + esc(it.currency) : '') : '—';
+      const disp2 = it.disposition === 'wholesale'
+        ? '<span class="text-[9px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-full leading-none">Wholesale</span>'
+        : '<span class="text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full leading-none">Retail</span>';
+      return `<button type="button" data-appr-id="${esc(it.id)}" class="w-full text-left py-2.5 px-2 -mx-2 rounded flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+        <div class="min-w-0">
+          <div class="text-sm font-semibold text-slate-900 dark:text-white truncate flex items-center gap-2">${esc(it.label || 'Vehicle')} ${disp2}</div>
+          <div class="text-xs text-slate-400 truncate">${esc(it.customer_name || 'No customer')} · ${esc(it.salesperson || '—')} · ${esc(date)}</div>
+        </div>
+        <div class="text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">${offer}</div>
+      </button>`;
+    }).join('');
+  } catch {
+    box.innerHTML = '<div class="text-xs text-rose-500 py-4">Network error loading appraisals.</div>';
+  }
+}
+
+async function loadAppraisalRecord(id) {
+  try {
+    const r = await fetch(`${API}/ai/appraisals/${encodeURIComponent(id)}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const row = await r.json().catch(() => ({}));
+    if (!r.ok) { showToast(row.error || 'Could not load appraisal', 'error'); return; }
+    const setv = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = (val != null ? val : ''); };
+    setv('appr-vin', row.vin); setv('appr-year', row.year); setv('appr-make', row.make);
+    setv('appr-model', row.model); setv('appr-trim', row.trim); setv('appr-mileage', row.mileage);
+    __apprDecodedSpecs = { body_type: row.body_type || null, engine: row.engine || null, transmission: row.transmission || null, drivetrain: row.drivetrain || null, fuel_type: row.fuel_type || null, color: row.color || null };
+    const c = row.customer || {};
+    setv('cust-first', c.first_name); setv('cust-last', c.last_name); setv('cust-home-phone', c.home_phone);
+    setv('cust-mobile-phone', c.mobile_phone); setv('cust-email', c.email); setv('cust-address', c.address); setv('cust-postal', c.postal_code);
+    const dispInput = document.querySelector(`input[name="appr-disposition"][value="${row.disposition === 'wholesale' ? 'wholesale' : 'retail'}"]`);
+    if (dispInput) dispInput.checked = true;
+    const disc = row.disclosure || {};
+    document.querySelectorAll('#appr-features input[type=checkbox]').forEach(cb => { cb.checked = Array.isArray(disc.features) && disc.features.includes(cb.value); });
+    (disc.qa || []).forEach(qq => {
+      setv('disc-' + qq.id, qq.answer || '');
+      setv('disc-' + qq.id + '-details', qq.details || '');
+      if (qq.amount != null) setv('disc-' + qq.id + '-amount', qq.amount || '');
+      if (qq.where != null) setv('disc-' + qq.id + '-where', qq.where || '');
+    });
+    setv('disc-notes', disc.notes || '');
+    __apprDealId = row.id;
+    __apprData = row.appraisal ? {
+      vehicle: { vin: row.vin, year: row.year, make: row.make, model: row.model, trim: row.trim, mileage: row.mileage, engine: row.engine, transmission: row.transmission, drivetrain: row.drivetrain, body_type: row.body_type, fuel_type: row.fuel_type },
+      appraisal: row.appraisal, currency: row.currency, distance_unit: row.currency === 'USD' ? 'mi' : 'km',
+    } : null;
+    const money = n => n != null ? '$' + Number(n).toLocaleString() : '—';
+    const resEl = document.getElementById('appr-result');
+    if (resEl) {
+      const label = [row.year, row.make, row.model, row.trim].filter(Boolean).join(' ') || 'Vehicle';
+      resEl.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
+        <div><div class="text-xs font-bold uppercase tracking-wider text-indigo-500">Loaded saved appraisal</div>
+        <div class="text-sm font-semibold text-slate-900 dark:text-white mt-0.5">${esc(label)}</div></div>
+        ${row.appraisal ? `<div class="text-right"><div class="text-[10px] uppercase tracking-wider text-slate-400">Suggested offer</div><div class="text-lg font-black text-slate-900 dark:text-white">${money(row.appraisal.suggested_offer)} ${esc(row.currency || '')}</div></div>` : ''}
+      </div>`;
+    }
+    apprDealMsg('Loaded — edit and Save to update, or print a PDF. Salesperson: ' + (row.salesperson_name || '—') + '.', 'success');
+    document.getElementById('appr-result')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch { showToast('Could not load appraisal', 'error'); }
 }
