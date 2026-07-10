@@ -360,6 +360,7 @@ async function loadInventory(token) {
       const soldBtns = `<div style="display:flex;flex-direction:column;gap:3px;align-items:stretch;">
         ${pendingBadge}
         ${viewFbBtn}
+        <button class="relist-btn" data-id="${v.id}" style="background:#3a2a0a;border:1px solid #f59e0b;color:#fcd34d;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;" title="Post a fresh Facebook listing to refresh visibility">🔁 Relist</button>
         <button class="sold-by-me-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" data-fb-url="${fbUrl}" style="background:#14532d;border:1px solid #22c55e;color:#86efac;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">🤝 I Sold It</button>
         <button class="sold-on-fb-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" data-fb-url="${fbUrl}" style="background:#172554;border:1px solid #3b82f6;color:#93c5fd;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">📘 Sold on FB</button>
         <button class="sold-by-other-btn" data-listing-id="${listingId}" data-vehicle-name="${vehName}" style="background:#3a1a1a;border:1px solid #ef4444;color:#fca5a5;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;">🔄 Someone Else</button>
@@ -432,6 +433,10 @@ async function loadInventory(token) {
 
     // Wire up buttons
     document.querySelectorAll('.post-btn').forEach(btn => {
+      btn.addEventListener('click', () => postVehicle(btn.dataset.id, token))
+    })
+    // Relist = re-post an already-listed vehicle to Facebook to refresh its listing.
+    document.querySelectorAll('.relist-btn').forEach(btn => {
       btn.addEventListener('click', () => postVehicle(btn.dataset.id, token))
     })
     document.querySelectorAll('.sold-by-me-btn').forEach(btn => {
@@ -783,7 +788,8 @@ async function markSold(listingId, vehicleName, token, kind, fbUrl) {
 }
 
 async function postVehicle(inventoryId, token) {
-  const btn = document.querySelector(`.post-btn[data-id="${inventoryId}"]`)
+  // Matches both the Post button (available units) and the Relist button (posted units).
+  const btn = document.querySelector(`.post-btn[data-id="${inventoryId}"], .relist-btn[data-id="${inventoryId}"]`)
   if (!btn) return
 
   // FB ban protection: check the rep hasn't hit the daily cap or is still in a

@@ -55,14 +55,25 @@ export function registerRoutes(app) {
   })
 
   app.get('/inventory/all', requireAuth, async (req, res) => {
+    // Show the live lot, plus recently-sold units for 2 weeks (as "sold"), then hide
+    // them. Older archived history stays in the DB for analytics until the 1-year purge.
+    const cutoff = new Date(Date.now() - 14 * 86400000).toISOString()
     const { data, error } = await supabaseAdmin
       .from('inventory')
-      .select('id, vin, year, make, model, trim, price, mileage, condition, exterior_color, interior_color, body_style, fuel_type, drivetrain, transmission, engine, doors, status, image_urls, source_url, description, stocknumber, last_synced_at, window_sticker_url, window_sticker_oem_url, window_sticker_gen_url, brochure_url, brochure_oem_url, brochure_gen_url, recalls, recalls_checked_at, vin_data')
+      .select('id, vin, year, make, model, trim, price, mileage, condition, exterior_color, interior_color, body_style, fuel_type, drivetrain, transmission, engine, doors, status, archived_at, image_urls, source_url, description, stocknumber, last_synced_at, window_sticker_url, window_sticker_oem_url, window_sticker_gen_url, brochure_url, brochure_oem_url, brochure_gen_url, recalls, recalls_checked_at, vin_data')
       .eq('dealership_id', req.dealershipId)
-      .neq('status', 'archived')   // archived = dropped off the feed (retained for history, not shown on the lot)
+      // Live units (archived_at IS NULL) OR anything archived within the last 2 weeks.
+      .or(`archived_at.is.null,archived_at.gte.${cutoff}`)
       .order('created_at', { ascending: false })
     if (error) return res.status(500).json({ error: error.message })
-    res.json(data || [])
+
+    const rows = (data || []).filter(v => {
+      // Feed-flagged sold units (archived_at null, status 'sold') only linger 2 weeks too,
+      // measured from their last feed appearance.
+      if (v.status === 'sold' && !v.archived_at) return v.last_synced_at >= cutoff
+      return true
+    }).map(v => (v.status === 'archived' ? { ...v, status: 'sold' } : v))  // show archived as Sold
+    res.json(rows)
   })
 
   app.get('/inventory/:id', requireAuth, async (req, res) => {

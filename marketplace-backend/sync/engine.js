@@ -784,6 +784,17 @@ export async function syncAllDealerships(triggerLabel = 'scheduled') {
     return { success: false, error: error.message }
   }
 
+  // Retention cap: permanently delete sold/archived history older than 1 year.
+  try {
+    const purgeCutoff = new Date(Date.now() - 365 * 86400000).toISOString()
+    const { data: purgedA } = await supabaseAdmin.from('inventory').delete()
+      .eq('status', 'archived').lt('archived_at', purgeCutoff).select('id')
+    const { data: purgedS } = await supabaseAdmin.from('inventory').delete()
+      .eq('status', 'sold').is('archived_at', null).lt('last_synced_at', purgeCutoff).select('id')
+    const purged = (purgedA?.length || 0) + (purgedS?.length || 0)
+    if (purged) console.log(`[sync-all:${triggerLabel}] purged ${purged} archived/sold rows older than 1 year`)
+  } catch (e) { console.warn('[sync-all] 1-year purge failed (non-fatal):', e.message) }
+
   const results = []
   for (const d of dealerships || []) {
     try {
