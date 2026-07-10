@@ -515,6 +515,7 @@ function switchPage(pageId) {
 // ── Trade Appraisal ──────────────────────────────────────────────────────────
 let __apprWired = false;
 let __apprData = null;   // last appraisal result, for the PDF export
+let __apprDealId = null; // id of the saved trade_appraisals record (for updates)
 function initAppraisal() {
   if (__apprWired) return;      // switchPage calls this each visit; wire once
   const $ = (id) => document.getElementById(id);
@@ -585,6 +586,8 @@ function initAppraisal() {
       result.innerHTML = `<div class="py-8 text-center text-sm text-slate-500">Couldn't appraise: ${esc(e.message)}</div>`;
     } finally { runBtn.disabled = false; runBtn.textContent = orig; }
   });
+
+  initApprDeal();
 }
 
 function apprTile(label, value, sub) {
@@ -597,6 +600,7 @@ function apprTile(label, value, sub) {
 
 function renderAppraisal(d) {
   __apprData = d;
+  __apprDealId = null;  // a fresh appraisal starts a new deal record
   const v = d.vehicle || {};
   const label = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle';
   const cur = d.currency || 'CAD';
@@ -7166,3 +7170,217 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById(id)?.addEventListener('keydown', e => { if (e.key === 'Enter') runMarketSnapshot(); });
   });
 });
+
+// ── Trade appraisal: Deal Details (customer, disclosure, salesperson, PDFs) ───
+const APPR_FEATURES = ['Power Windows', 'Power Locks', 'Power Seats', 'Navigation', 'Air Conditioning', 'Sunroof / Moonroof', 'Leather', 'Heated Seats', 'Ventilated Seats', 'Backup Camera', 'Alloy Wheels', 'Remote Start', 'Apple CarPlay / Android Auto', 'Blind Spot Monitor', 'Adaptive Cruise', 'Tow Package', 'Snow Tires', 'Second Key / Remote'];
+const APPR_DISCLOSURES = [
+  { id: 'accident', q: 'Been in an accident?', amount: true },
+  { id: 'panels', q: 'Panels repaired, repainted or replaced?' },
+  { id: 'structural', q: 'Structural / frame damage, altered or repaired?' },
+  { id: 'odometer', q: 'Odometer broken, replaced, disconnected or rolled back?' },
+  { id: 'import', q: 'US or out-of-province vehicle?', where: true },
+  { id: 'total_loss', q: 'Declared a total loss or branded title?' },
+  { id: 'warranty_cancelled', q: "Manufacturer's warranty cancelled?" },
+  { id: 'warranty_active', q: 'Factory or extended warranty remaining?' },
+  { id: 'mechanical', q: 'Open recalls or known mechanical issues?' },
+  { id: 'other', q: 'Any other material facts to disclose?' },
+];
+const APPR_INPUT_CLS = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+
+let __apprDealWired = false;
+function initApprDeal() {
+  const sp = document.getElementById('appr-salesperson');
+  if (sp) sp.textContent = (typeof profileContext !== 'undefined' && profileContext?.full_name) ? profileContext.full_name : (profileContext?.email || 'You');
+
+  const fWrap = document.getElementById('appr-features');
+  if (fWrap && !fWrap.children.length) {
+    fWrap.innerHTML = APPR_FEATURES.map(f => `<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" value="${esc(f)}" class="accent-indigo-600"> <span>${esc(f)}</span></label>`).join('');
+  }
+
+  const qWrap = document.getElementById('appr-disclosure-qa');
+  if (qWrap && !qWrap.children.length) {
+    qWrap.innerHTML = APPR_DISCLOSURES.map(item => `
+      <div>
+        <div class="flex items-center justify-between gap-3">
+          <label class="text-sm text-slate-700 dark:text-slate-200">${esc(item.q)}</label>
+          <select id="disc-${item.id}" class="w-24 flex-shrink-0 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm">
+            <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
+          </select>
+        </div>
+        <div class="grid ${item.amount || item.where ? 'sm:grid-cols-2' : ''} gap-2 mt-2">
+          ${item.amount ? `<input id="disc-${item.id}-amount" inputmode="numeric" placeholder="Estimated damage $" class="${APPR_INPUT_CLS}">` : ''}
+          ${item.where ? `<input id="disc-${item.id}-where" placeholder="Which province / state" class="${APPR_INPUT_CLS}">` : ''}
+          <input id="disc-${item.id}-details" placeholder="Details (optional)" class="${APPR_INPUT_CLS}">
+        </div>
+      </div>`).join('');
+  }
+
+  if (__apprDealWired) return;
+  __apprDealWired = true;
+  document.getElementById('appr-save-deal')?.addEventListener('click', apprSaveDeal);
+  document.getElementById('appr-pdf-summary')?.addEventListener('click', apprCustomerSummaryPdf);
+  document.getElementById('appr-pdf-disclosure')?.addEventListener('click', apprDisclosurePdf);
+}
+
+function apprDealMsg(msg, kind) {
+  const el = document.getElementById('appr-deal-msg');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  el.className = 'text-sm rounded-lg px-3 py-2 ' + (kind === 'error'
+    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900'
+    : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900');
+}
+
+function apprCollectDeal() {
+  const val = id => (document.getElementById(id)?.value || '').trim();
+  const disposition = document.querySelector('input[name="appr-disposition"]:checked')?.value || 'retail';
+  const features = [...document.querySelectorAll('#appr-features input:checked')].map(c => c.value);
+  const qa = APPR_DISCLOSURES.map(item => {
+    const o = { id: item.id, question: item.q, answer: val('disc-' + item.id) || null, details: val('disc-' + item.id + '-details') || null };
+    if (item.amount) o.amount = val('disc-' + item.id + '-amount') || null;
+    if (item.where) o.where = val('disc-' + item.id + '-where') || null;
+    return o;
+  });
+  return {
+    disposition,
+    customer: {
+      first_name: val('cust-first'), last_name: val('cust-last'),
+      home_phone: val('cust-home-phone'), mobile_phone: val('cust-mobile-phone'),
+      email: val('cust-email'), address: val('cust-address'), postal_code: val('cust-postal'),
+    },
+    disclosure: { features, qa, notes: val('disc-notes') },
+  };
+}
+
+function apprVehicleForSave() {
+  if (__apprData && __apprData.vehicle) return { ...__apprData.vehicle };
+  const g = id => (document.getElementById(id)?.value || '').trim();
+  return { vin: g('appr-vin').toUpperCase() || null, year: g('appr-year'), make: g('appr-make'), model: g('appr-model'), trim: g('appr-trim'), mileage: g('appr-mileage') };
+}
+
+async function apprSaveDeal() {
+  const btn = document.getElementById('appr-save-deal');
+  const deal = apprCollectDeal();
+  const payload = {
+    id: __apprDealId || undefined,
+    vehicle: apprVehicleForSave(),
+    appraisal: __apprData?.appraisal ? { ...__apprData.appraisal } : null,
+    currency: __apprData?.currency || null,
+    disposition: deal.disposition, customer: deal.customer, disclosure: deal.disclosure,
+  };
+  if (!payload.vehicle.make || !payload.vehicle.model) { apprDealMsg('Add at least the vehicle make and model (or run an appraisal) before saving.', 'error'); return; }
+  btn.disabled = true; const t = btn.textContent; btn.textContent = 'Saving…';
+  try {
+    const r = await fetch(`${API}/ai/appraisals`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Save failed');
+    __apprDealId = j.id;
+    apprDealMsg('Saved and attached to ' + ((profileContext?.full_name) || 'you') + '.', 'success');
+  } catch (e) { apprDealMsg(e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = t; }
+}
+
+// Shared print-to-PDF window (mirrors generateAppraisalPdf's approach).
+function apprPrintWindow(title, inner) {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>
+    @media print { .no-print{display:none!important} @page{margin:0.55in} }
+    *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#0f172a;background:#fff;margin:0 auto;padding:24px;max-width:780px;font-size:13px;line-height:1.45}
+    h1{font-size:21px;margin:0} h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin:22px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}
+    .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:12px}
+    table{width:100%;border-collapse:collapse} td{padding:4px 0;vertical-align:top}
+    .kv td:first-child{color:#64748b;width:40%} .kv td:last-child{font-weight:600}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:4px 28px}
+    .offer{background:#4f46e5;color:#fff;border-radius:10px;padding:14px 18px;margin-top:6px}
+    .offer .n{font-size:26px;font-weight:900}
+    .feat{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px 16px;font-size:12px}
+    .qa td{border-bottom:1px solid #f1f5f9;padding:6px 0}
+    .yes{color:#b91c1c;font-weight:700} .no{color:#15803d;font-weight:700}
+    .sig{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:34px}
+    .sig div{border-top:1px solid #94a3b8;padding-top:4px;font-size:11px;color:#64748b}
+    .btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-size:13px;background:#4f46e5;color:#fff}
+    .muted{font-size:11px;color:#94a3b8}
+  </style></head><body>
+    <div class="no-print" style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:14px">
+      <button class="btn" onclick="window.print()">Print / Save as PDF</button>
+      <button class="btn" style="background:#e2e8f0;color:#0f172a" onclick="window.close()">Close</button>
+    </div>
+    ${inner}
+  </body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Allow pop-ups to open the PDF view', 'error'); return; }
+  w.document.write(html); w.document.close();
+}
+
+function apprDealMeta() {
+  const deal = apprCollectDeal();
+  const v = apprVehicleForSave();
+  const cust = deal.customer;
+  const custName = [cust.first_name, cust.last_name].filter(Boolean).join(' ') || '—';
+  const today = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  const dealer = (typeof profileContext !== 'undefined' && profileContext?.dealership?.name) || 'Dealership';
+  const sales = (profileContext?.full_name) || (profileContext?.email) || '—';
+  const vlabel = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle';
+  return { deal, v, cust, custName, today, dealer, sales, vlabel };
+}
+
+function apprCustomerSummaryPdf() {
+  const { deal, v, cust, custName, today, dealer, sales, vlabel } = apprDealMeta();
+  const d = __apprData, ap = d?.appraisal, cur = d?.currency || 'CAD';
+  const money = n => n != null ? '$' + Number(n).toLocaleString() : '—';
+  const kv = (l, value) => value ? `<tr><td>${esc(l)}</td><td>${esc(value)}</td></tr>` : '';
+  const yesFacts = deal.disclosure.qa.filter(q => q.answer === 'yes').map(q => q.question);
+  const mi = v.mileage ? Number(String(v.mileage).replace(/[^0-9]/g, '')).toLocaleString() + ' ' + (d?.distance_unit || 'km') : '';
+  const inner = `
+    <div class="head"><div><h1>${esc(dealer)}</h1><div style="color:#64748b">Customer Appraisal Summary</div></div>
+      <div style="text-align:right;font-size:12px;color:#64748b">${today}<br>Salesperson: <b>${esc(sales)}</b><br>${esc(deal.disposition === 'wholesale' ? 'Wholesale' : 'Retail')}</div></div>
+    <h2>Vehicle</h2>
+    <div style="font-size:16px;font-weight:800">${esc(vlabel)}</div>
+    <div class="muted">${esc(mi)}${v.vin ? ' · VIN ' + esc(v.vin) : ''}</div>
+    ${ap ? `<div class="offer"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.85;font-weight:700">Suggested trade / cash offer</div>
+      <div class="n">${money(ap.suggested_offer)} <span style="font-size:14px;opacity:.8">${esc(cur)}</span></div>
+      ${ap.pct_to_market != null ? `<div style="font-size:12px;opacity:.85">${ap.pct_to_market}% of retail market</div>` : ''}</div>
+      <table class="kv" style="margin-top:10px">
+        <tr><td>Retail market value</td><td>${money(ap.retail_mid)}</td></tr>
+        <tr><td>− Reconditioning</td><td>−${money(ap.recon)}</td></tr>
+        <tr><td>− Target gross${ap.gross_pct != null ? ' (' + ap.gross_pct + '%)' : ''}</td><td>−${money(ap.target_gross)}</td></tr>
+        <tr><td style="border-top:1px solid #e2e8f0;color:#0f172a;font-weight:800">Suggested offer</td><td style="border-top:1px solid #e2e8f0;color:#4f46e5;font-weight:800">${money(ap.suggested_offer)}</td></tr>
+      </table>` : '<div class="muted" style="margin-top:8px">No live appraisal attached — run an appraisal to include the offer.</div>'}
+    <h2>Customer</h2>
+    <table class="kv">
+      ${kv('Name', custName)}${kv('Home phone', cust.home_phone)}${kv('Mobile', cust.mobile_phone)}
+      ${kv('Email', cust.email)}${kv('Address', cust.address)}${kv('Postal / ZIP', cust.postal_code)}
+    </table>
+    ${yesFacts.length ? `<h2>Disclosed</h2><ul style="margin:0;padding-left:18px">${yesFacts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
+    <div class="muted" style="margin-top:22px;border-top:1px solid #e2e8f0;padding-top:10px">Prepared ${today} by ${esc(sales)}, ${esc(dealer)}. Values are retail-market estimates — not a guaranteed offer. Final offer subject to inspection.</div>`;
+  apprPrintWindow('Customer Summary — ' + vlabel, inner);
+}
+
+function apprDisclosurePdf() {
+  const { deal, v, cust, custName, today, dealer, sales, vlabel } = apprDealMeta();
+  const d = __apprData;
+  const kv = (l, value) => `<tr><td>${esc(l)}</td><td>${value ? esc(value) : '—'}</td></tr>`;
+  const feats = deal.disclosure.features;
+  const ans = a => a === 'yes' ? '<span class="yes">YES</span>' : a === 'no' ? '<span class="no">No</span>' : '—';
+  const mi = v.mileage ? String(v.mileage).replace(/[^0-9]/g, '') + ' ' + (d?.distance_unit || 'km') : '';
+  const qaRows = deal.disclosure.qa.map(q => {
+    const extra = [q.amount ? 'Est. $' + q.amount : '', q.where || '', q.details || ''].filter(Boolean).join(' — ');
+    return `<tr><td>${esc(q.question)}${extra ? `<div class="muted">${esc(extra)}</div>` : ''}</td><td style="text-align:right;white-space:nowrap">${ans(q.answer)}</td></tr>`;
+  }).join('');
+  const inner = `
+    <div class="head"><div><h1>${esc(dealer)}</h1><div style="color:#64748b">Trade-In Disclosure Statement</div></div>
+      <div style="text-align:right;font-size:12px;color:#64748b">${today}<br>Salesperson: <b>${esc(sales)}</b></div></div>
+    <h2>Vehicle</h2>
+    <div class="grid2"><table class="kv">${kv('Vehicle', vlabel)}${kv('VIN', v.vin)}${kv('Odometer', mi)}</table>
+      <table class="kv">${kv('Engine', v.engine)}${kv('Transmission', v.transmission)}${kv('Drivetrain', v.drivetrain)}</table></div>
+    <h2>Customer</h2>
+    <div class="grid2"><table class="kv">${kv('Name', custName)}${kv('Home phone', cust.home_phone)}${kv('Mobile', cust.mobile_phone)}</table>
+      <table class="kv">${kv('Email', cust.email)}${kv('Address', cust.address)}${kv('Postal / ZIP', cust.postal_code)}</table></div>
+    ${feats.length ? `<h2>Equipment &amp; features</h2><div class="feat">${feats.map(f => `<div>✓ ${esc(f)}</div>`).join('')}</div>` : ''}
+    <h2>Vehicle history &amp; disclosure</h2>
+    <table class="qa">${qaRows}</table>
+    ${deal.disclosure.notes ? `<h2>Additional notes</h2><div>${esc(deal.disclosure.notes)}</div>` : ''}
+    <div class="muted" style="margin-top:16px">The customer certifies the above is true and complete to the best of their knowledge.</div>
+    <div class="sig"><div>Customer signature / date</div><div>Salesperson: ${esc(sales)} / date</div></div>`;
+  apprPrintWindow('Disclosure — ' + vlabel, inner);
+}

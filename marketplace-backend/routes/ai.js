@@ -763,6 +763,75 @@ Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMar
     })
   })
 
+  // ── Saved trade appraisals (customer + disclosure + salesperson) ───────────
+  // Persist a completed appraisal with customer info and disclosure answers,
+  // attributed to the logged-in salesperson from the auth token (never the body).
+  // Inventory Intelligence add-on; owner exempt.
+  app.post('/ai/appraisals', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const { data: dealer } = await supabaseAdmin
+      .from('dealerships').select('inv_intel_active').eq('id', req.dealershipId).maybeSingle()
+    if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence add-on required' })
+
+    const b = req.body || {}
+    const v = b.vehicle || {}
+    const ap = b.appraisal || {}
+    const num = x => { const n = Number(x); return Number.isFinite(n) ? n : null }
+    const row = {
+      dealership_id: req.dealershipId,
+      created_by: req.user.id,
+      salesperson_name: req.profile?.full_name || req.user.email || null,
+      vin: v.vin ? String(v.vin).trim().toUpperCase().slice(0, 17) : null,
+      year: v.year ? (parseInt(v.year) || null) : null,
+      make: v.make || null, model: v.model || null, trim: v.trim || null,
+      mileage: num(v.mileage),
+      body_type: v.body_type || null, engine: v.engine || null,
+      transmission: v.transmission || null, drivetrain: v.drivetrain || null,
+      fuel_type: v.fuel_type || null, color: v.color || null,
+      disposition: b.disposition === 'wholesale' ? 'wholesale' : 'retail',
+      currency: b.currency || null,
+      retail_median: num(ap.retail_mid), suggested_offer: num(ap.suggested_offer),
+      recon: num(ap.recon), target_gross: num(ap.target_gross),
+      appraisal: (ap && typeof ap === 'object') ? ap : null,
+      customer: (b.customer && typeof b.customer === 'object') ? b.customer : null,
+      disclosure: (b.disclosure && typeof b.disclosure === 'object') ? b.disclosure : null,
+    }
+    if (b.id) {
+      const { data, error } = await supabaseAdmin.from('trade_appraisals')
+        .update(row).eq('id', b.id).eq('dealership_id', req.dealershipId).select('id').maybeSingle()
+      if (error) return res.status(500).json({ error: error.message })
+      return res.json({ ok: true, id: data?.id || b.id })
+    }
+    const { data, error } = await supabaseAdmin.from('trade_appraisals').insert(row).select('id').single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, id: data.id })
+  })
+
+  app.get('/ai/appraisals', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json([])
+    const { data, error } = await supabaseAdmin.from('trade_appraisals')
+      .select('id, created_at, salesperson_name, year, make, model, trim, vin, suggested_offer, currency, disposition, customer')
+      .eq('dealership_id', req.dealershipId)
+      .order('created_at', { ascending: false }).limit(50)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json((data || []).map(r => ({
+      id: r.id, created_at: r.created_at, salesperson: r.salesperson_name,
+      label: [r.year, r.make, r.model, r.trim].filter(Boolean).join(' '),
+      vin: r.vin, offer: r.suggested_offer, currency: r.currency, disposition: r.disposition,
+      customer_name: [r.customer?.first_name, r.customer?.last_name].filter(Boolean).join(' ') || null,
+    })))
+  })
+
+  app.get('/ai/appraisals/:id', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const { data, error } = await supabaseAdmin.from('trade_appraisals')
+      .select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!data) return res.status(404).json({ error: 'Not found' })
+    res.json(data)
+  })
+
   // GET /ai/market-positions — latest market median per inventory_id (from the most
   // recent Inventory Scan). Powers the "% to market" badge on used inventory cards.
   // Inventory Intelligence add-on only; returns {} otherwise (so the UI stays hidden).
