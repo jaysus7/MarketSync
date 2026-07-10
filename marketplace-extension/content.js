@@ -1464,3 +1464,131 @@ function fbLoggedOut() {
     ok
   });
 })();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Reply — a floating "Draft reply" helper injected into Facebook so reps can
+// draft a MarketSync AI reply to a Marketplace buyer without leaving the chat.
+// It drafts from the customer's message (pulled from your text selection or a
+// best-effort scrape of the last message — always editable) and copies the result.
+// ─────────────────────────────────────────────────────────────────────────────
+(function aiReplyWidget() {
+  if (window.__msAiReplyInit) return;
+  window.__msAiReplyInit = true;
+
+  const IND = '#6366F1', INDH = '#4f46e5';
+  const onChatPage = () => /\/(messages|t|marketplace)\b/i.test(location.pathname) || /marketplace\/(inbox|item)/i.test(location.href);
+
+  // Best-effort: the customer's latest message. Priority: current text selection →
+  // last inbound message bubble scrape → empty (rep pastes).
+  function grabCustomerMessage() {
+    const sel = String(window.getSelection ? window.getSelection().toString() : '').trim();
+    if (sel && sel.length > 1) return sel.slice(0, 1500);
+    try {
+      // FB message bubbles are dir="auto" spans/divs inside the conversation. Grab the
+      // last handful of readable lines as a hint — the rep edits before drafting.
+      const nodes = [...document.querySelectorAll('div[role="main"] [dir="auto"]')]
+        .map(n => (n.innerText || '').trim())
+        .filter(t => t && t.length > 1 && t.length < 400);
+      if (nodes.length) return nodes.slice(-4).join('\n').slice(0, 1500);
+    } catch {}
+    return '';
+  }
+  function grabVehicle() {
+    try {
+      const a = document.querySelector('a[href*="/marketplace/item/"]');
+      if (a && a.innerText.trim()) return a.innerText.trim().slice(0, 120);
+      const h = document.querySelector('div[role="main"] h1, div[role="main"] h2');
+      if (h && h.innerText.trim()) return h.innerText.trim().slice(0, 120);
+    } catch {}
+    return '';
+  }
+
+  const $ = (tag, css, txt) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (txt != null) e.textContent = txt; return e; };
+  const BTN = `background:${IND};color:#fff;border:none;border-radius:8px;font:700 13px/1 -apple-system,Segoe UI,Roboto,sans-serif;padding:9px 14px;cursor:pointer;`;
+
+  // Launcher pill (fixed, above FB chat).
+  const launcher = $('button', `position:fixed;z-index:2147483000;right:18px;bottom:88px;${BTN}padding:10px 16px;box-shadow:0 6px 20px rgba(99,102,241,.45);display:none;align-items:center;gap:6px;`);
+  launcher.innerHTML = '✦ AI Reply';
+  launcher.onmouseenter = () => launcher.style.background = INDH;
+  launcher.onmouseleave = () => launcher.style.background = IND;
+
+  // Panel
+  const panel = $('div', `position:fixed;z-index:2147483000;right:18px;bottom:140px;width:360px;max-width:calc(100vw - 36px);background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.28);display:none;overflow:hidden;font-family:-apple-system,Segoe UI,Roboto,sans-serif;`);
+  panel.innerHTML = `
+    <div style="background:${IND};color:#fff;padding:11px 14px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-weight:800;font-size:13px;letter-spacing:.2px;">✦ MarketSync · AI Reply</span>
+      <span data-x style="cursor:pointer;font-size:20px;line-height:1;opacity:.85;">&times;</span>
+    </div>
+    <div style="padding:12px 14px;">
+      <label style="font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#64748b;">Customer's message</label>
+      <textarea data-msg rows="3" placeholder="Tip: select the buyer's message on the page, or paste it here…" style="width:100%;margin-top:4px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:8px;font:13px/1.4 inherit;resize:vertical;"></textarea>
+      <label style="font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#64748b;display:block;margin-top:8px;">Vehicle (optional)</label>
+      <input data-veh placeholder="2026 Chevrolet Trax LT" style="width:100%;margin-top:4px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:8px;font:13px inherit;">
+      <button data-go style="${BTN}width:100%;margin-top:10px;padding:10px;">✦ Draft reply</button>
+      <div data-err style="display:none;margin-top:8px;color:#dc2626;font-size:12px;"></div>
+      <div data-out style="display:none;margin-top:10px;">
+        <textarea data-draft rows="6" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:8px;font:13px/1.45 inherit;resize:vertical;"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button data-copy style="${BTN}flex:1;">Copy reply</button>
+          <button data-regen style="background:#f1f5f9;color:#334155;border:none;border-radius:8px;font:700 13px inherit;padding:9px 12px;cursor:pointer;">Redraft</button>
+        </div>
+        <div style="font-size:10.5px;color:#94a3b8;margin-top:6px;">Review before sending — AI can miss details. Paste into your Marketplace chat.</div>
+      </div>
+    </div>`;
+
+  document.documentElement.appendChild(launcher);
+  document.documentElement.appendChild(panel);
+
+  const q = s => panel.querySelector(s);
+  const setErr = (m) => { const e = q('[data-err]'); if (!m) { e.style.display = 'none'; return; } e.textContent = m; e.style.display = 'block'; };
+
+  function openPanel() {
+    q('[data-msg]').value = grabCustomerMessage();
+    q('[data-veh]').value = grabVehicle();
+    q('[data-out]').style.display = 'none';
+    setErr('');
+    panel.style.display = 'block';
+    launcher.style.display = 'none';
+    q('[data-msg]').focus();
+  }
+  function closePanel() { panel.style.display = 'none'; if (onChatPage()) launcher.style.display = 'flex'; }
+
+  launcher.addEventListener('click', openPanel);
+  panel.addEventListener('click', e => { if (e.target.closest('[data-x]')) closePanel(); });
+
+  async function draft() {
+    setErr('');
+    const message = q('[data-msg]').value.trim();
+    const vehicle_label = q('[data-veh]').value.trim();
+    if (!message) { setErr('Add or select the customer’s message first.'); return; }
+    const go = q('[data-go]'); const orig = go.textContent; go.textContent = 'Drafting…'; go.disabled = true;
+    try {
+      const { token } = await new Promise(r => chrome.storage.local.get(['token'], r));
+      if (!token) throw new Error('Open the MarketSync extension and sign in first.');
+      const res = await fetch(`${API}/ai/lead-reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ message, vehicle_label: vehicle_label || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 403) throw new Error('AI Reply needs AI Boost. Enable it in your MarketSync dashboard.');
+      if (res.status === 429) throw new Error(data.error || 'Monthly AI limit reached.');
+      if (!res.ok) throw new Error(data.error || 'Could not draft a reply.');
+      q('[data-draft]').value = data.draft || '';
+      q('[data-out]').style.display = 'block';
+    } catch (e) { setErr(e.message); }
+    finally { go.textContent = orig; go.disabled = false; }
+  }
+  panel.querySelector('[data-go]').addEventListener('click', draft);
+  panel.querySelector('[data-regen]').addEventListener('click', draft);
+  panel.querySelector('[data-copy]').addEventListener('click', () => {
+    const t = q('[data-draft]'); t.select();
+    const done = () => { const b = q('[data-copy]'); b.textContent = 'Copied ✓'; setTimeout(() => b.textContent = 'Copy reply', 1400); };
+    (navigator.clipboard?.writeText(t.value) || Promise.reject()).then(done).catch(() => { try { document.execCommand('copy'); done(); } catch {} });
+  });
+
+  // FB is a SPA — re-check the URL so the launcher only shows on chat/marketplace views.
+  function sync() { if (panel.style.display === 'block') return; launcher.style.display = onChatPage() ? 'flex' : 'none'; }
+  sync();
+  setInterval(sync, 1500);
+})();

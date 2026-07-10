@@ -586,15 +586,25 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
   })
 
   // POST /ai/lead-reply — draft a tone-matched reply to a Marketplace lead (AI Boost).
+  // Two modes: pass { lead_id } to pull the lead from the DB (dashboard Pipeline), OR
+  // pass { message, vehicle_label } for an ad-hoc draft from a live Facebook chat (the
+  // extension, where no lead row exists).
   app.post('/ai/lead-reply', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const { lead_id } = req.body || {}
-    if (!lead_id) return res.status(400).json({ error: 'lead_id required' })
+    const { lead_id, message, vehicle_label: vlabelIn } = req.body || {}
 
-    const { data: lead } = await supabaseAdmin
-      .from('leads').select('id, name, comments, inventory_id')
-      .eq('id', lead_id).eq('dealership_id', req.dealershipId).maybeSingle()
-    if (!lead) return res.status(404).json({ error: 'Lead not found' })
+    let lead = null
+    if (lead_id) {
+      const { data } = await supabaseAdmin
+        .from('leads').select('id, name, comments, inventory_id')
+        .eq('id', lead_id).eq('dealership_id', req.dealershipId).maybeSingle()
+      if (!data) return res.status(404).json({ error: 'Lead not found' })
+      lead = data
+    } else if (message && String(message).trim()) {
+      lead = { name: null, comments: String(message).slice(0, 1500), inventory_id: null }
+    } else {
+      return res.status(400).json({ error: 'lead_id or message required' })
+    }
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('name, ai_tone, ai_boost_active').eq('id', req.dealershipId).maybeSingle()
@@ -616,10 +626,12 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
     const toneLine = tone === 'friendly' ? 'warm, friendly and personable'
       : tone === 'aggressive' ? 'energetic and deal-focused (but never pushy or rude)'
       : 'professional, clear and courteous'
-    const vLabel = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.trim ? ' ' + vehicle.trim : ''}` : null
+    const vLabel = vehicle
+      ? `${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.trim ? ' ' + vehicle.trim : ''}`
+      : (vlabelIn ? String(vlabelIn).slice(0, 120) : null)
     const vLine = vehicle
       ? `They're asking about: ${vLabel}${vehicle.price ? `, listed at $${Number(vehicle.price).toLocaleString()}` : ''}${vehicle.mileage ? `, ${Number(vehicle.mileage).toLocaleString()} on the odometer` : ''}${vehicle.stocknumber ? ` (stock #${vehicle.stocknumber})` : ''}.`
-      : 'No specific vehicle is attached to this lead.'
+      : (vLabel ? `They're asking about: ${vLabel}.` : 'No specific vehicle is attached to this lead.')
 
     const prompt = `You are a salesperson at ${dealer?.name || 'a car dealership'} replying to a customer inquiry that came in from Facebook Marketplace. Write a ${toneLine} reply.
 Customer name: ${lead.name || 'there'}.
