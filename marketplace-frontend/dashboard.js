@@ -585,6 +585,18 @@ function initAppraisal() {
       $('appr-trim').value = d.trim || '';
       // Stash the specs so the saved deal + disclosure PDF auto-fill.
       __apprDecodedSpecs = { body_type: d.body_type || null, engine: d.engine || null, transmission: d.transmission || null, drivetrain: d.drivetrain || null, fuel_type: d.fuel_type || null };
+      // Prefill the comp filters so the appraisal matches like-for-like (same
+      // drivetrain + engine), not every trim/engine of the model.
+      if (d.engine && $('appr-engine')) $('appr-engine').value = d.engine;
+      const dtSel = $('appr-drivetrain');
+      if (dtSel && d.drivetrain) {
+        const dt = d.drivetrain.toUpperCase();
+        const canon = /AWD|ALL.?WHEEL|4MATIC|QUATTRO|XDRIVE/.test(dt) ? 'AWD'
+          : /4WD|4X4|FOUR.?WHEEL/.test(dt) ? '4WD'
+          : /FWD|FRONT|4X2|2WD/.test(dt) ? 'FWD'
+          : /RWD|REAR/.test(dt) ? 'RWD' : '';
+        if (canon) dtSel.value = canon;
+      }
       const summary = [d.year, d.make, d.model, d.trim].filter(Boolean).join(' ');
       const sumEl = $('appr-vin-decoded-text'), wrap = $('appr-vin-decoded');
       if (sumEl && wrap) { sumEl.textContent = summary || 'vehicle identified'; wrap.classList.remove('hidden'); }
@@ -605,6 +617,11 @@ function initAppraisal() {
       condition: $('appr-condition').value,
       recon: num('appr-recon'),
       target_gross: num('appr-gross'),
+      // Like-for-like comp filters. Fall back to the decoded specs when the field
+      // is blank (e.g. rep decoded a VIN but didn't touch the drivetrain select).
+      drivetrain: ($('appr-drivetrain')?.value || '').trim() || (__apprDecodedSpecs?.drivetrain || ''),
+      engine: ($('appr-engine')?.value || '').trim() || (__apprDecodedSpecs?.engine || ''),
+      radius: $('appr-radius')?.value ?? '',
     };
     if (!body.year || !body.make || !body.model) { showToast('Year, make and model are required', 'error'); return; }
     const orig = runBtn.textContent;
@@ -725,6 +742,20 @@ function renderAppraisal(d) {
         ${apprTile('Avg days to sell', rt.avg_days_online != null ? rt.avg_days_online + ' days' : '—', 'on market')}
         ${apprTile('Target gross', money(ap.target_gross), ap.gross_pct != null ? ap.gross_pct + '% of retail' : 'your margin')}
       </div>
+      ${(() => {
+        const m = rt.matched_on || {};
+        const chips = [];
+        chips.push('Year ' + (v.year || '—'));
+        if (m.trim && v.trim) chips.push('Trim ' + v.trim);
+        if (m.drivetrain && v.drivetrain) chips.push(String(v.drivetrain).toUpperCase());
+        if (m.engine && v.engine) chips.push(String(v.engine));
+        if (m.geo && rt.radius_used) chips.push('Within ' + rt.radius_used + ' ' + du + (rt.median_distance != null ? ` · ~${Math.round(rt.median_distance)} ${du} avg` : ''));
+        else chips.push('Nationwide');
+        return `<div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-[11px] font-semibold text-slate-400">Comps matched on:</span>
+          ${chips.map(c => `<span class="text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full px-2 py-0.5">${esc(c)}</span>`).join('')}
+        </div>`;
+      })()}
       <div class="text-xs text-slate-400">${esc(label)}${v.mileage ? ` · ${Number(v.mileage).toLocaleString()} ${du}` : ''} · Source: ${esc(rt.source || 'MarketCheck')}. Retail-market based — not auction/wholesale values.</div>
     </div>`;
 }

@@ -41,9 +41,18 @@ const period = () => new Date().toISOString().slice(0, 7)  // 'YYYY-MM' (UTC)
 const dayPeriod = () => new Date().toISOString().slice(0, 10) // 'YYYY-MM-DD' (UTC)
 
 // Stable key for a vehicle's market lookup — lowercased market|make|model|year|trim.
-export function marketSignature({ make, model, year, trim, isUS }) {
-  return [isUS ? 'us' : 'ca', make, model, year, (trim || '').trim()]
+export function marketSignature({ make, model, year, trim, drivetrain, engine, zip, radius, isUS }) {
+  // Base key (make/model/year/trim) — unchanged so the scan & price-report callers,
+  // which don't pass the finer filters, keep hitting the same cache entries as before.
+  const base = [isUS ? 'us' : 'ca', make, model, year, (trim || '').trim()]
     .map(s => String(s ?? '').toLowerCase().trim()).join('|')
+  // Appraisal passes tighter filters; fold them in so a nearby-AWD-3.5L read can't
+  // collide with a national all-drivetrain read of the same make/model/year/trim.
+  const extra = []
+  if (drivetrain) extra.push('dt:' + String(drivetrain).toLowerCase().trim())
+  if (engine) extra.push('eng:' + String(engine).toLowerCase().replace(/\s+/g, ''))
+  if (zip && Number(radius) > 0) extra.push('geo:' + String(zip).toLowerCase().replace(/\s+/g, '') + '@' + Math.round(Number(radius)))
+  return extra.length ? base + '||' + extra.join('|') : base
 }
 
 async function getCache(sig) {

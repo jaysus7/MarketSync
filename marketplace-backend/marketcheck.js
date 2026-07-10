@@ -93,17 +93,45 @@ const MIN_COMPS = 3
  * and require a minimum number of clean comps. Returns null when we can't value
  * it reliably. Also returns the clean `listings` for the appraisal charts.
  */
-export async function marketcheckMarket({ make, model, year, trim, mileage, isUS = false } = {}) {
+// Canonicalise the many ways a drivetrain is written (AWD / All Wheel Drive /
+// 4x4 / Front Wheel Drive / 4MATIC …) into one of AWD / 4WD / FWD / RWD so we can
+// match the subject vehicle against comp listings reliably.
+export function normalizeDrivetrain(v) {
+  const s = String(v || '').toUpperCase()
+  if (!s) return null
+  if (/\bAWD\b|ALL[\s-]?WHEEL|4MATIC|QUATTRO|XDRIVE|ALL4/.test(s)) return 'AWD'
+  if (/\b4WD\b|4X4|FOUR[\s-]?WHEEL|4-WHEEL/.test(s)) return '4WD'
+  if (/\bFWD\b|FRONT[\s-]?WHEEL|4X2|2WD/.test(s)) return 'FWD'
+  if (/\bRWD\b|REAR[\s-]?WHEEL/.test(s)) return 'RWD'
+  return null
+}
+
+// Pull a litre displacement out of an engine string ("3.5L V6", "5.3L", "2.0T").
+export function engineLitres(v) {
+  const m = String(v || '').match(/(\d\.\d)\s*L?/i)
+  return m ? parseFloat(m[1]) : null
+}
+
+export async function marketcheckMarket({ make, model, year, trim, mileage, drivetrain, engine, zip, radius, isUS = false } = {}) {
   const key = process.env.MARKETCHECK_API_KEY
   if (!key || !make || !model || !year) return null
 
-  const fetchListings = async (withTrim) => {
+  const wantDrive = normalizeDrivetrain(drivetrain)
+  const wantLitres = engineLitres(engine)
+  const cleanZip = String(zip || '').replace(/\s+/g, '').toUpperCase() || null
+  const rad = Number(radius) > 0 ? Math.round(Number(radius)) : null
+
+  // One fetch with a given set of filters. geo/drivetrain/trim can each be turned
+  // off so the caller can relax them when a tighter query comes back too thin.
+  const fetchListings = async ({ withTrim, withDrive, withGeo }) => {
     const p = new URLSearchParams({
       api_key: key, country: isUS ? 'us' : 'ca', car_type: 'used',
       make: String(make), model: String(model), year: String(year),
       rows: '50', sort_by: 'price', sort_order: 'asc',
     })
     if (withTrim && trim) p.set('trim', String(trim))
+    if (withDrive && wantDrive) p.set('drivetrain', wantDrive)
+    if (withGeo && cleanZip && rad) { p.set('zip', cleanZip); p.set('radius', String(rad)) }
     try {
       const r = await fetch(`${BASE}/search/car/active?${p.toString()}`, {
         headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(12000),
@@ -116,21 +144,57 @@ export async function marketcheckMarket({ make, model, year, trim, mileage, isUS
         listings: raw.map(l => ({
           price: Number(l.price ?? 0), miles: Number(l.miles ?? 0),
           city: l.dealer?.city || null, region: l.dealer?.state || null, dealer: l.dealer?.name || null,
+          dist: (l.dist != null ? Number(l.dist) : null),
+          drivetrain: normalizeDrivetrain(l.build?.drivetrain),
+          engine: l.build?.engine || null,
+          litres: (l.build?.engine_size != null ? Number(l.build.engine_size) : engineLitres(l.build?.engine)),
         })),
       }
     } catch (e) { console.error('[marketcheck] request failed:', e.message); return null }
   }
 
-  // Trim-matched first (accurate). Only broaden to all trims when the trim query
-  // is completely empty — mixing trims (e.g. Corvette 2LT with a Z06) is what
-  // wrecked the medians, so we never do it just to pad a thin result.
-  let res = await fetchListings(true)
-  if ((!res || res.listings.length === 0) && trim) res = await fetchListings(false)
+  // Comp-selection cascade: start as tight as the data we were given (trim +
+  // drivetrain + local radius), then relax one constraint at a time only when the
+  // tighter query can't field enough clean comps. Accuracy where data is rich,
+  // coverage where it's thin — never mixing trims/drivetrains just to pad a result.
+  const priced = (res) => (res?.listings || []).filter(l => l.price >= 2500)
+  const attempts = [
+    { withTrim: true,  withDrive: true,  withGeo: true,  applied: { trim: !!trim, drivetrain: !!wantDrive, geo: !!(cleanZip && rad) } },
+    { withTrim: true,  withDrive: true,  withGeo: false, applied: { trim: !!trim, drivetrain: !!wantDrive, geo: false } },
+    { withTrim: true,  withDrive: false, withGeo: false, applied: { trim: !!trim, drivetrain: false, geo: false } },
+    { withTrim: false, withDrive: false, withGeo: false, applied: { trim: false, drivetrain: false, geo: false } },
+  ]
+  let res = null, applied = null
+  const seenKeys = new Set()
+  for (const a of attempts) {
+    // Effective query — skip attempts identical to one we already ran (e.g. there's
+    // no drivetrain/geo to drop, so relaxing them changes nothing).
+    const key = [a.withTrim && trim ? 't' : '', a.withDrive && wantDrive ? 'd' : '', a.withGeo && cleanZip && rad ? 'g' : ''].join('|')
+    if (seenKeys.has(key)) continue
+    seenKeys.add(key)
+    const cand = await fetchListings(a)
+    if (!cand) continue
+    const pc = priced(cand).length
+    if (pc >= MIN_COMPS) { res = cand; applied = a.applied; break }
+    // Keep the widest partial result as a floor in case nothing clears the bar.
+    if (!res || pc > (res._pc || 0)) { res = cand; res._pc = pc; applied = a.applied }
+  }
   if (!res) return null
 
+  // Engine displacement is unreliable as a search param, so filter it here from the
+  // listing's decoded build — but only if it leaves us enough comps (else ignore it).
+  let workingList = res.listings
+  if (wantLitres) {
+    const sameEngine = workingList.filter(l => l.litres != null && Math.abs(l.litres - wantLitres) <= 0.3)
+    if (sameEngine.filter(l => l.price >= 2500).length >= MIN_COMPS) {
+      workingList = sameEngine
+      applied = { ...applied, engine: true }
+    }
+  }
+
   // Drop obvious junk (payment/placeholder/salvage) before finding the center.
-  let prices = res.listings.map(l => l.price).filter(p => p >= 2500).sort((a, b) => a - b)
-  console.log(`[marketcheck] ${make} ${model} ${year} ${isUS ? 'US' : 'CA'} raw=${res.listings.length} priced=${prices.length}`)
+  let prices = workingList.map(l => l.price).filter(p => p >= 2500).sort((a, b) => a - b)
+  console.log(`[marketcheck] ${make} ${model} ${year} ${isUS ? 'US' : 'CA'} raw=${workingList.length} priced=${prices.length} applied=${JSON.stringify(applied)}`)
   if (prices.length < MIN_COMPS) return null
 
   // Outlier band around the raw median removes remaining low junk and high
@@ -142,8 +206,9 @@ export async function marketcheckMarket({ make, model, year, trim, mileage, isUS
 
   const median = clean[Math.floor(clean.length / 2)]
   const avg = Math.round(clean.reduce((a, b) => a + b, 0) / clean.length)
-  const cleanListings = res.listings.filter(l => inBand(l.price))
-  const miles = res.listings.map(l => l.miles).filter(m => m > 0).sort((a, b) => a - b)
+  const cleanListings = workingList.filter(l => inBand(l.price))
+  const miles = workingList.map(l => l.miles).filter(m => m > 0).sort((a, b) => a - b)
+  const dists = cleanListings.map(l => l.dist).filter(d => d != null && d >= 0).sort((a, b) => a - b)
 
   return {
     source: 'MarketCheck',
@@ -157,6 +222,11 @@ export async function marketcheckMarket({ make, model, year, trim, mileage, isUS
     max_price: clean[clean.length - 1],
     avg_mileage: miles.length ? Math.round(miles.reduce((a, b) => a + b, 0) / miles.length) : null,
     median_mileage: miles.length ? miles[Math.floor(miles.length / 2)] : null,
+    // Which of the requested filters actually shaped this comp set (for the UI).
+    matched_on: applied || {},
+    radius_used: (applied?.geo && rad) ? rad : null,
+    median_distance: dists.length ? dists[Math.floor(dists.length / 2)] : null,
+    max_distance: dists.length ? dists[dists.length - 1] : null,
     listings: cleanListings,
   }
 }

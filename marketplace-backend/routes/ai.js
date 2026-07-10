@@ -706,6 +706,10 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
     const model = String(b.model || '').trim()
     const trim = String(b.trim || '').trim()
     const mileage = b.mileage != null && b.mileage !== '' ? Number(b.mileage) : null
+    // Finer comp filters: drivetrain (FWD/RWD/AWD/4WD) and engine displacement,
+    // used to match like-for-like listings instead of every trim/engine of the model.
+    const drivetrain = String(b.drivetrain || '').trim() || null
+    const engine = String(b.engine || '').trim() || null
     if (!year || !make || !model) return res.status(400).json({ error: 'Year, make and model are required' })
 
     const recon = Math.max(0, Number(b.recon) || 0)
@@ -720,14 +724,24 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
     const c = (dealer?.country || '').trim().toUpperCase()
     const isUS = c === 'US' || c === 'USA' || c === 'UNITED STATES'
 
+    // Geo-scope comps around the dealer's location. Radius is client-selectable;
+    // default 250 (mi in the US / km in Canada), 0 = nationwide (no geo filter).
+    // The zip/postal comes off the dealership record so reps don't type it.
+    const radius = (() => {
+      if (b.radius === undefined || b.radius === null || b.radius === '') return 250
+      const r = Number(b.radius)
+      return Number.isFinite(r) ? Math.min(2000, Math.max(0, Math.round(r))) : 250
+    })()
+    const zip = radius > 0 ? ((dealer?.postal_code || '').trim() || null) : null
+
     // Robust market value + the clean comp listings it was built from (charts/locations).
     // Cached + metered via the cost layer (shared with the scan & price report).
     const { data: market } = await getMarketData({
       dealershipId: req.dealershipId, isOwner, allowLive: true,
-      params: { make, model, year, trim, mileage, isUS },
+      params: { make, model, year, trim, mileage, drivetrain, engine, zip, radius, isUS },
     })
 
-    const vehicle = { year, make, model, trim: trim || null, mileage, vin: (b.vin ? String(b.vin).trim().toUpperCase() : null) }
+    const vehicle = { year, make, model, trim: trim || null, mileage, drivetrain, engine, vin: (b.vin ? String(b.vin).trim().toUpperCase() : null) }
 
     if (!market || !market.median_price) {
       return res.json({ ok: true, vehicle, retail: null, appraisal: null,
@@ -831,6 +845,9 @@ Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMar
         avg_days_online: market.avg_days_online ?? null,
         avg_mileage: market.avg_mileage ?? market.median_mileage ?? null,
         market_mileage: compMiles,             // median mileage of the comp pool
+        matched_on: market.matched_on || {},   // which filters shaped the comp set
+        radius_used: market.radius_used ?? null,
+        median_distance: market.median_distance ?? null,
         source: market.source || 'MarketCheck',
       },
       appraisal: {
