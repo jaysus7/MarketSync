@@ -2041,10 +2041,69 @@ async function loadLeaderboard() {
     renderYourPosition(ranking);
     renderRankingTable(ranking);
     loadActivity();
+    loadAchievements();
   } catch (e) {
     console.warn('Leaderboard failed:', e.message);
     body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 italic">Failed to load leaderboard.</td></tr>`;
   }
+}
+
+// ── Achievements (gamification badges) ───────────────────────────────────────
+async function loadAchievements() {
+  const wrap = document.getElementById('lb-achievements');
+  if (!wrap) return;
+  try {
+    const res = await fetch(`${API}/gamification`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error('gamification failed');
+    const d = await res.json();
+    if (!d.me && !d.dealership) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = `
+      ${d.me ? `<div class="mb-4">
+        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Your achievements</div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${(d.me.badges || []).map(badgeCard).join('')}</div>
+      </div>` : ''}
+      ${d.dealership ? `<div>
+        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">${esc(d.dealership.name || 'Dealership')} achievements</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${(d.dealership.badges || []).map(badgeCard).join('')}</div>
+      </div>` : ''}`;
+  } catch (e) {
+    console.warn('Achievements failed:', e.message);
+    wrap.innerHTML = '';
+  }
+}
+
+// Roman-numeral tier tag for a badge level (I / II / III). Grey when locked.
+function badgeCard(b) {
+  const tiers = ['', 'I', 'II', 'III', 'IV', 'V'];
+  const earned = (b.level || 0) > 0;
+  const roman = tiers[b.level] || (b.level ? String(b.level) : '');
+  const valLabel = b.unit === '%' ? `${b.value}%`
+    : b.unit === 'h' ? (b.value != null ? `${b.value}h` : '—')
+    : `${b.value}${b.unit ? ' ' + b.unit : ''}`;
+  // Progress line: cumulative badges show a bar to next; descending/maxed show a note.
+  const next = b.next;
+  const progress = (b.progress_pct != null && next != null)
+    ? `<div class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden mt-2">
+         <div class="h-full bg-gradient-to-r from-indigo-500 to-purple-500" style="width:${b.progress_pct}%"></div>
+       </div>
+       <div class="text-[10px] text-slate-400 mt-1">${next}${b.unit === '%' ? '%' : ''} for next tier</div>`
+    : (next == null
+        ? `<div class="text-[10px] font-bold text-amber-500 mt-2">★ Max tier reached</div>`
+        : `<div class="text-[10px] text-slate-400 mt-2">Reach ${next}${b.unit === 'h' ? 'h or less' : ''} to unlock</div>`);
+  return `
+    <div class="rounded-xl border p-3 ${earned
+      ? 'bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800'
+      : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'}">
+      <div class="flex items-start justify-between gap-2">
+        <div class="text-2xl leading-none ${earned ? '' : 'opacity-30 grayscale'}">${b.icon || '🏅'}</div>
+        ${earned ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300">TIER ${roman}</span>`
+          : `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-400">LOCKED</span>`}
+      </div>
+      <div class="text-sm font-bold text-slate-900 dark:text-white mt-1.5 leading-tight">${esc(b.label)}</div>
+      <div class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">${esc(b.description || '')}</div>
+      <div class="text-lg font-black text-slate-900 dark:text-white mt-1.5 tabular-nums">${valLabel}</div>
+      ${progress}
+    </div>`;
 }
 
 function renderPodium(ranking) {

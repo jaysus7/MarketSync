@@ -408,6 +408,136 @@ export function registerRoutes(app) {
     }
   })
 
+  // ── Gamification: achievement badges (rep level + dealership level) ────────────
+  // Everything is DERIVED from data we already write (listings, trade_appraisals,
+  // inventory) and scoped to ONE dealership, so the queries are bounded — no new
+  // tables, no platform-wide aggregates. Cached 10 min per dealership to keep the
+  // 512MB box calm even if the whole team opens the page at once.
+  const _gamCache = new Map()   // dealershipId -> { exp, data }
+  const GAM_TTL_MS = 10 * 60 * 1000
+  const HR = 60 * 60 * 1000
+
+  // Ascending badge (higher value = better). Returns level (0..N) + progress to next.
+  const ascBadge = (key, icon, label, description, value, thresholds, unit = '') => {
+    let level = 0
+    for (const t of thresholds) if (value >= t) level++
+    const next = thresholds[level] ?? null
+    const prev = level > 0 ? thresholds[level - 1] : 0
+    const progress_pct = next == null ? 100
+      : Math.max(0, Math.min(100, Math.round(((value - prev) / (next - prev)) * 100)))
+    return { key, icon, label, description, value, unit, level, max_level: thresholds.length, thresholds, next, progress_pct }
+  }
+  // Descending badge (lower value = better, e.g. hours-to-post). thresholds hardest last.
+  const descBadge = (key, icon, label, description, value, thresholds, unit = '') => {
+    let level = 0
+    if (value != null) for (const t of thresholds) if (value <= t) level++
+    const next = thresholds[level] ?? null
+    return { key, icon, label, description, value, unit, level, max_level: thresholds.length, thresholds, next, progress_pct: null }
+  }
+
+  app.get('/gamification', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json({ me: null, dealership: null })
+    try {
+      const cached = _gamCache.get(req.dealershipId)
+      if (cached && cached.exp > Date.now()) {
+        const me = cached.data.repBadges[req.user.id] || cached.data.emptyMe(req)
+        return res.json({ dealership: cached.data.dealership, me })
+      }
+
+      const { data: members } = await supabaseAdmin
+        .from('profiles').select('id, full_name').eq('dealership_id', req.dealershipId)
+      const memberIds = (members || []).map(m => m.id)
+      const nameOf = new Map((members || []).map(m => [m.id, m.full_name]))
+
+      // One bounded pull of the team's listings (+ the inventory add-date for the
+      // speed-to-market metric), plus appraisals and the available-inventory count.
+      const [{ data: listings }, { data: appraisals }, { count: availCount }] = await Promise.all([
+        memberIds.length ? supabaseAdmin
+          .from('listings')
+          .select('posted_by, status, posted_at, inventory:inventory_id(created_at)')
+          .in('posted_by', memberIds).limit(20000)
+          : Promise.resolve({ data: [] }),
+        supabaseAdmin
+          .from('trade_appraisals').select('created_by').eq('dealership_id', req.dealershipId).limit(20000),
+        supabaseAdmin
+          .from('inventory').select('id', { count: 'exact', head: true })
+          .eq('dealership_id', req.dealershipId).eq('status', 'available'),
+      ])
+
+      // Per-rep aggregation.
+      const agg = new Map()   // repId -> { posted, sold, apprs, fastFlags:[{t,fast}] }
+      const bump = (id) => { if (!agg.has(id)) agg.set(id, { posted: 0, sold: 0, apprs: 0, fastFlags: [] }); return agg.get(id) }
+      for (const l of listings || []) {
+        const a = bump(l.posted_by)
+        a.posted++
+        if (l.status === 'sold') a.sold++
+        const addedAt = l.inventory?.created_at
+        if (l.posted_at && addedAt) {
+          a.fastFlags.push({ t: l.posted_at, fast: (new Date(l.posted_at) - new Date(addedAt)) <= 24 * HR })
+        }
+      }
+      for (const ap of appraisals || []) { if (ap.created_by) bump(ap.created_by).apprs++ }
+
+      // Current speed-to-market streak = consecutive most-recent posts under 24h.
+      const streakOf = (flags) => {
+        const ordered = flags.slice().sort((x, y) => (y.t || '').localeCompare(x.t || ''))
+        let s = 0
+        for (const f of ordered) { if (f.fast) s++; else break }
+        return s
+      }
+
+      const repBadgesFor = (id) => {
+        const a = agg.get(id) || { posted: 0, sold: 0, apprs: 0, fastFlags: [] }
+        return [
+          ascBadge('closer', '🏆', 'Closer', 'Cars you\'ve sold', a.sold, [10, 50, 250], 'sold'),
+          ascBadge('mover', '📣', 'Marketplace Mover', 'Cars you\'ve posted to Facebook', a.posted, [25, 100, 500], 'posted'),
+          ascBadge('speed', '⚡', 'Speed to Market', 'Consecutive cars posted within 24h of hitting inventory', streakOf(a.fastFlags), [5, 15, 40], 'streak'),
+          ascBadge('hunter', '🔍', 'Trade Hunter', 'Trade appraisals completed', a.apprs, [10, 50, 200], 'appraisals'),
+        ]
+      }
+
+      // Build a badge map for every rep (so the cache serves any rep instantly).
+      const repBadges = {}
+      for (const id of memberIds) repBadges[id] = { name: nameOf.get(id) || 'You', badges: repBadgesFor(id) }
+
+      // ── Dealership-level badges ──
+      const teamSold = [...agg.values()].reduce((s, a) => s + a.sold, 0)
+      // Sold this (calendar) month, team-wide.
+      const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0)
+      let soldThisMonth = 0
+      for (const l of listings || []) {
+        if (l.status === 'sold' && l.posted_at && new Date(l.posted_at) >= monthStart) soldThisMonth++
+      }
+      // Coverage = posted listings / available inventory (capped at 100%).
+      const postedCount = (listings || []).filter(l => l.status === 'posted').length
+      const coverage = availCount ? Math.min(100, Math.round((postedCount / availCount) * 100)) : 0
+      // Median hours-to-post across the team.
+      const gaps = (listings || [])
+        .filter(l => l.posted_at && l.inventory?.created_at)
+        .map(l => (new Date(l.posted_at) - new Date(l.inventory.created_at)) / HR)
+        .filter(h => h >= 0).sort((x, y) => x - y)
+      const medianGap = gaps.length ? Math.round(gaps[Math.floor(gaps.length / 2)]) : null
+
+      const dealershipBadges = [
+        ascBadge('coverage', '🛡️', 'Full Coverage', 'Share of available inventory listed on Facebook', coverage, [60, 80, 95], '%'),
+        descBadge('fastlot', '🏁', 'Fast Lot', 'Median hours from inventory add to Facebook post (lower is better)', medianGap, [48, 24, 6], 'h'),
+        ascBadge('sellthrough', '💰', 'Sell-Through', 'Cars sold this month', soldThisMonth, [5, 15, 40], 'this month'),
+      ]
+
+      const dealerName = req.profile?.dealerships?.name || 'Your dealership'
+      const data = {
+        repBadges,
+        emptyMe: (r) => ({ name: r.profile?.full_name || 'You', badges: repBadgesFor('__none__') }),
+        dealership: { name: dealerName, badges: dealershipBadges, team_sold: teamSold, coverage },
+      }
+      _gamCache.set(req.dealershipId, { exp: Date.now() + GAM_TTL_MS, data })
+      res.json({ dealership: data.dealership, me: repBadges[req.user.id] || data.emptyMe(req) })
+    } catch (e) {
+      console.error('[gamification] failed:', e.message)
+      res.status(500).json({ error: e.message })
+    }
+  })
+
   app.get('/dashboard/insights', requireAuth, async (req, res) => {
     const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
     const now = new Date()
