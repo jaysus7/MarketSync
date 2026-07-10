@@ -535,7 +535,10 @@
 
     </section>
 
-    <section class="w-full md:col-span-1 min-w-0 flex-1 md:flex-none min-h-0 overflow-y-auto md:h-full md:overflow-y-auto md:max-w-[1450px]">
+    <section class="w-full md:col-span-1 min-w-0 flex-1 md:flex-none min-h-0 overflow-y-auto md:h-full md:overflow-y-auto">
+      <!-- Full-width scroll region (scrollbar hugs the screen edge); an inner
+           wrapper caps the readable content width so nothing sprawls edge-to-edge. -->
+      <div class="w-full md:max-w-[1450px]">
 
       <!-- Extension CTA — sits at the top of the dashboard (all pages) until dismissed.
            Dismissal is remembered forever (localStorage), then a compact "Install
@@ -821,7 +824,7 @@
           <!-- hidden select kept for JS compatibility -->
           <select id="catalog-status" class="hidden"></select>
         </div>
-        <div id="catalog-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-1">
+        <div id="catalog-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           <div class="text-xs text-slate-500 italic col-span-full">Loading catalog...</div>
         </div>
       </div>
@@ -1671,18 +1674,19 @@
           <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Live retail market value + a suggested cash/trade offer, powered by MarketCheck. Enter a VIN to auto-fill, or type it in.</p>
         </div>
 
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
-          <!-- Standalone VIN decoder — opens the full specs & recall report modal -->
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Decode VIN report <span class="normal-case font-normal text-slate-400">(view full specs &amp; recalls — opens a report, doesn't change the fields)</span></label>
-            <div class="flex gap-2">
-              <input id="appr-vin-lookup" maxlength="17" placeholder="Enter a VIN to decode" class="flex-1 uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
-              <button id="appr-vin-lookup-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Decode VIN</button>
-            </div>
+        <!-- Card: standalone VIN decode report — opens the full specs & recall modal -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Decode VIN report <span class="normal-case font-normal text-slate-400">(view full specs &amp; recalls — opens a report, doesn't change the fields)</span></label>
+          <div class="flex gap-2">
+            <input id="appr-vin-lookup" maxlength="17" placeholder="Enter a VIN to decode" class="flex-1 uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+            <button id="appr-vin-lookup-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Decode VIN</button>
           </div>
+        </div>
 
+        <!-- Card: the appraisal form -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
           <!-- VIN → auto-fill the appraisal fields -->
-          <div class="pt-1 border-t border-slate-100 dark:border-slate-800">
+          <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Decode VIN <span class="normal-case font-normal text-slate-400">(optional — only identifies the vehicle &amp; fills the fields below)</span></label>
             <div class="flex gap-2">
               <input id="appr-vin" maxlength="17" placeholder="e.g. 1GNSKBKC5FR123456" class="flex-1 uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
@@ -1837,6 +1841,7 @@
 
       </div><!-- /vin-sticker page -->
 
+      </div><!-- /content max-width wrapper -->
 
     </section>
   </main>
