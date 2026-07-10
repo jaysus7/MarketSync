@@ -5,6 +5,7 @@ import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
 import { fetchOemBrochurePdf } from '../utils/oemBrochure.js'
 import { brandVehiclePhotos } from '../utils/photoOverlay.js'
 import { fontFaceCss } from '../utils/brochureFonts.js'
+import { withHeadlessGuard } from '../puppeteerRenderer.js'
 import { recordUsage, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
 import { marketcheckEnabled, marketcheckDecodeVin } from '../marketcheck.js'
 import multer from 'multer'
@@ -612,7 +613,7 @@ function buildBrochureHtml(vehicle, dealer, branding, recalls, photosDataUris, l
   addSpec('Mileage', vehicle.mileage ? `${Number(vehicle.mileage).toLocaleString()} ${distUnit}` : null)
   const vd = vehicle.vin_data || {}
   for (const [k, v] of Object.entries(vd)) { if (!SKIP.has(k)) addSpec(VIN_LABELS[k] || humanize(k), v) }
-  const specSheet = [...specMap.entries()]
+  const specSheet = [...specMap.entries()].slice(0, 48)
     .map(([l, v]) => `<div class="sp"><span class="sp-l">${esc(l)}</span><span class="sp-v">${esc(v)}</span></div>`).join('')
 
   // ── Fuel economy (dual units, ordered by market) ──
@@ -897,7 +898,16 @@ const EXTRA_CHROMIUM_ARGS = [
   '--single-process',         // reduces memory on low-RAM instances
 ]
 
-async function generatePdf(html, { landscape = false, viewportWidth = 860, viewportHeight = 1100, timeoutMs = 90000 } = {}) {
+// Serialize every PDF render behind the shared headless chain so we never run two
+// Chromium instances at once — the #1 cause of OOM on 512MB Render Starter. A
+// user-requested PDF still renders even when heap is high (onSkip runs it too), it
+// just waits its turn instead of spawning a second browser.
+async function generatePdf(html, opts = {}) {
+  const impl = () => _generatePdfImpl(html, opts)
+  return withHeadlessGuard(impl, { label: 'pdf-render', onSkip: impl })
+}
+
+async function _generatePdfImpl(html, { landscape = false, viewportWidth = 860, viewportHeight = 1100, timeoutMs = 90000 } = {}) {
   // Dynamic import to avoid memory cost when not in use
   const puppeteer = (await import('puppeteer-core')).default
   let browser, page
