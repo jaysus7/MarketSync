@@ -509,7 +509,7 @@ function switchPage(pageId) {
   if (pageId === 'ai-vision') loadAiVisionPage();
   if (pageId === 'pipeline') loadPipelinePage();
   if (pageId === 'leads') loadLeadsPage();
-  if (pageId === 'appraisal') { initAppraisal(); loadApprList(); }
+  if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
 }
 
 // ── Trade Appraisal ──────────────────────────────────────────────────────────
@@ -517,6 +517,9 @@ let __apprWired = false;
 let __apprData = null;   // last appraisal result, for the PDF export
 let __apprDealId = null; // id of the saved trade_appraisals record (for updates)
 let __apprDecodedSpecs = null; // engine/trans/drivetrain/body/fuel from the last VIN decode
+let __apprSalesperson = null;  // salesperson name for the CURRENT deal (record's creator, or logged-in)
+let __apprBranding = null;     // { logo_url, primary_color, ... } for PDF branding
+let __apprDealerInfo = null;   // { city, province, postal_code, country } for PDF header
 function initAppraisal() {
   if (__apprWired) return;      // switchPage calls this each visit; wire once
   const $ = (id) => document.getElementById(id);
@@ -603,7 +606,8 @@ function apprTile(label, value, sub) {
 
 function renderAppraisal(d) {
   __apprData = d;
-  __apprDealId = null;  // a fresh appraisal starts a new deal record
+  __apprDealId = null;      // a fresh appraisal starts a new deal record
+  __apprSalesperson = null; // new appraisal → attributed to the logged-in user
   const v = d.vehicle || {};
   const label = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle';
   const cur = d.currency || 'CAD';
@@ -4605,6 +4609,8 @@ async function loadAIBoostSection() {
     document.getElementById('nav-appraisal')?.classList.toggle('hidden', !__invIntelActive);
     // Reveal the floating AI assistant dock for entitled dealers (owner exempt).
     updateAiDockVisibility();
+    // Stash dealership location for the appraisal PDFs' header.
+    __apprDealerInfo = { city: cfg.city, province: cfg.province, postal_code: cfg.postal_code, country: cfg.country };
     __aiVisionActive = !!cfg.ai_vision_active;               // = AI Boost
     renderAiVisionNav();
     __aiBoostConfigLoaded = true;
@@ -7175,20 +7181,83 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Trade appraisal: Deal Details (customer, disclosure, salesperson, PDFs) ───
-const APPR_FEATURES = ['Power Windows', 'Power Locks', 'Power Seats', 'Navigation', 'Air Conditioning', 'Sunroof / Moonroof', 'Leather', 'Heated Seats', 'Ventilated Seats', 'Backup Camera', 'Alloy Wheels', 'Remote Start', 'Apple CarPlay / Android Auto', 'Blind Spot Monitor', 'Adaptive Cruise', 'Tow Package', 'Snow Tires', 'Second Key / Remote'];
-const APPR_DISCLOSURES = [
-  { id: 'accident', q: 'Been in an accident?', amount: true },
-  { id: 'panels', q: 'Panels repaired, repainted or replaced?' },
-  { id: 'structural', q: 'Structural / frame damage, altered or repaired?' },
-  { id: 'odometer', q: 'Odometer broken, replaced, disconnected or rolled back?' },
-  { id: 'import', q: 'US or out-of-province vehicle?', where: true },
-  { id: 'total_loss', q: 'Declared a total loss or branded title?' },
-  { id: 'warranty_cancelled', q: "Manufacturer's warranty cancelled?" },
-  { id: 'warranty_active', q: 'Factory or extended warranty remaining?' },
-  { id: 'mechanical', q: 'Open recalls or known mechanical issues?' },
-  { id: 'other', q: 'Any other material facts to disclose?' },
+const APPR_FEATURES = ['Power Windows', 'Power Door Locks', 'Power Seats', 'DVD Player', 'Navigation System', 'Air Conditioning', 'Sunroof', 'Alloy Wheels', 'Leather', 'Heated Seats', 'Ventilated Seats', 'MP3 Player', 'Park Assist', 'Towing Package', 'Snow Tires', '2 Keyless Remotes', 'Backup Camera', 'Remote Start', 'Apple CarPlay / Android Auto', 'Blind Spot Monitor', 'Adaptive Cruise'];
+
+// The full trade-in disclosure — every question from the standard statement,
+// grouped into sections. Types: 'yesno' (default), 'select', 'money'.
+const APPR_DISCLOSURE_SECTIONS = [
+  { title: 'Vehicle History', items: [
+    { id: 'accident', q: 'Has the vehicle been in an accident?', money: true, moneyLabel: 'Amount $', detail: true },
+    { id: 'panels', q: 'Have any panels been repaired, repainted or replaced?', detail: true },
+    { id: 'abs', q: 'Is the ABS operational?', detail: true, detailLabel: 'If "No," details' },
+    { id: 'accident_type', q: 'Vehicle accident type', type: 'select', options: ['Minor', 'Moderate', 'Severe', 'Other'], detail: true, detailLabel: 'If "Other," details' },
+    { id: 'original_owner', q: 'Customer is original owner?', detail: true, detailLabel: 'If "No," where was it purchased' },
+    { id: 'airbags', q: 'Are all of the air bags operational?', detail: true, detailLabel: 'If "No," details' },
+    { id: 'import', q: 'Is this a US or out-of-province vehicle?', where: true, whereLabel: 'Which province / state', detail: true },
+    { id: 'odometer', q: 'Odometer broken, faulty, replaced, repaired, disconnected or rolled back?', detail: true },
+    { id: 'factory_warranty', q: 'Does the vehicle have a factory warranty?', detail: true },
+    { id: 'extended_warranty', q: 'Does the vehicle have an extended warranty?', detail: true },
+    { id: 'mechanical', q: 'Mechanical issues?', detail: true },
+    { id: 'maintenance_6mo', q: 'Dollar value of maintenance in the last 6 months', type: 'money' },
+  ] },
+  { title: 'Disclosure Declaration', intro: 'Has this vehicle…', items: [
+    { id: 'decl_rental', q: 'Been used as a daily rental, police cruiser, emergency services vehicle, taxi or limousine?' },
+    { id: 'decl_flood_fire', q: 'Sustained damage caused by flood or fire?' },
+    { id: 'decl_modified', q: 'Been modified, including badging or decals, from its original specifications?' },
+    { id: 'decl_total_loss', q: 'Been declared a total loss by an insurer?' },
+    { id: 'decl_stolen', q: 'Been recovered after being reported stolen?' },
+    { id: 'decl_warranty_cancelled', q: "Had the manufacturer's warranty cancelled?" },
+    { id: 'decl_damage_3000', q: 'Had any previous damage repaired exceeding $3,000?' },
+  ] },
+  { title: 'Structural', items: [
+    { id: 'structural', q: 'Does this vehicle have any structural parts that are damaged, altered or repaired?', detail: true },
+  ] },
+  { title: 'Repairs required', intro: 'Does this vehicle require any repairs to the…', items: [
+    { id: 'rep_engine', q: 'Engine, transmission, or powertrain?' },
+    { id: 'rep_suspension', q: 'Subframe or suspension?' },
+    { id: 'rep_computer', q: 'Computer equipment?' },
+    { id: 'rep_electrical', q: 'Electrical system?' },
+    { id: 'rep_fuel', q: 'Fuel operating system?' },
+    { id: 'rep_ac', q: 'Air conditioning system?' },
+  ] },
+  { title: 'Other', items: [
+    { id: 'other', q: 'Are there any other important facts about this vehicle that need to be disclosed?', detail: true },
+  ] },
 ];
+const APPR_DISCLOSURE_ITEMS = APPR_DISCLOSURE_SECTIONS.flatMap(s => s.items);
 const APPR_INPUT_CLS = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+
+// One disclosure row in the form.
+function apprDiscItemHtml(item) {
+  if (item.type === 'money') {
+    return `<div class="flex items-center justify-between gap-3">
+      <label class="text-sm text-slate-700 dark:text-slate-200">${esc(item.q)}</label>
+      <input id="disc-${item.id}" inputmode="numeric" placeholder="$" class="w-32 flex-shrink-0 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>`;
+  }
+  let control;
+  if (item.type === 'select') {
+    control = `<select id="disc-${item.id}" class="w-40 flex-shrink-0 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm"><option value="">—</option>${item.options.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;
+  } else {
+    control = `<select id="disc-${item.id}" class="w-24 flex-shrink-0 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm"><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select>`;
+  }
+  const extras = [];
+  if (item.money) extras.push(`<input id="disc-${item.id}-amount" inputmode="numeric" placeholder="${esc(item.moneyLabel || 'Amount $')}" class="${APPR_INPUT_CLS}">`);
+  if (item.where) extras.push(`<input id="disc-${item.id}-where" placeholder="${esc(item.whereLabel || 'Which province / state')}" class="${APPR_INPUT_CLS}">`);
+  if (item.detail) extras.push(`<input id="disc-${item.id}-details" placeholder="${esc(item.detailLabel || 'Details (optional)')}" class="${APPR_INPUT_CLS}">`);
+  const cols = extras.length >= 2 ? 'sm:grid-cols-2' : '';
+  return `<div>
+    <div class="flex items-center justify-between gap-3"><label class="text-sm text-slate-700 dark:text-slate-200">${esc(item.q)}</label>${control}</div>
+    ${extras.length ? `<div class="grid ${cols} gap-2 mt-2">${extras.join('')}</div>` : ''}
+  </div>`;
+}
+
+// Answer cell for the disclosure PDF.
+function apprDiscAns(item, q) {
+  if (!q) return '—';
+  if (item.type === 'money') return q.value ? '$' + esc(q.value) : '—';
+  if (item.type === 'select') return q.answer ? esc(q.answer) : '—';
+  return q.answer === 'yes' ? '<span class="yes">YES</span>' : q.answer === 'no' ? '<span class="no">No</span>' : '—';
+}
 
 let __apprDealWired = false;
 function initApprDeal() {
@@ -7202,19 +7271,11 @@ function initApprDeal() {
 
   const qWrap = document.getElementById('appr-disclosure-qa');
   if (qWrap && !qWrap.children.length) {
-    qWrap.innerHTML = APPR_DISCLOSURES.map(item => `
-      <div>
-        <div class="flex items-center justify-between gap-3">
-          <label class="text-sm text-slate-700 dark:text-slate-200">${esc(item.q)}</label>
-          <select id="disc-${item.id}" class="w-24 flex-shrink-0 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm">
-            <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
-          </select>
-        </div>
-        <div class="grid ${item.amount || item.where ? 'sm:grid-cols-2' : ''} gap-2 mt-2">
-          ${item.amount ? `<input id="disc-${item.id}-amount" inputmode="numeric" placeholder="Estimated damage $" class="${APPR_INPUT_CLS}">` : ''}
-          ${item.where ? `<input id="disc-${item.id}-where" placeholder="Which province / state" class="${APPR_INPUT_CLS}">` : ''}
-          <input id="disc-${item.id}-details" placeholder="Details (optional)" class="${APPR_INPUT_CLS}">
-        </div>
+    qWrap.innerHTML = APPR_DISCLOSURE_SECTIONS.map(sec => `
+      <div class="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800 first:pt-0 first:border-0">
+        <div class="text-xs font-bold uppercase tracking-wider text-slate-400">${esc(sec.title)}</div>
+        ${sec.intro ? `<div class="text-sm font-medium text-slate-600 dark:text-slate-300">${esc(sec.intro)}</div>` : ''}
+        ${sec.items.map(apprDiscItemHtml).join('')}
       </div>`).join('');
   }
 
@@ -7239,10 +7300,13 @@ function apprCollectDeal() {
   const val = id => (document.getElementById(id)?.value || '').trim();
   const disposition = document.querySelector('input[name="appr-disposition"]:checked')?.value || 'retail';
   const features = [...document.querySelectorAll('#appr-features input:checked')].map(c => c.value);
-  const qa = APPR_DISCLOSURES.map(item => {
-    const o = { id: item.id, question: item.q, answer: val('disc-' + item.id) || null, details: val('disc-' + item.id + '-details') || null };
-    if (item.amount) o.amount = val('disc-' + item.id + '-amount') || null;
+  const qa = APPR_DISCLOSURE_ITEMS.map(item => {
+    const o = { id: item.id, question: item.q, type: item.type || 'yesno' };
+    if (item.type === 'money') o.value = val('disc-' + item.id) || null;
+    else o.answer = val('disc-' + item.id) || null;
+    if (item.money) o.amount = val('disc-' + item.id + '-amount') || null;
     if (item.where) o.where = val('disc-' + item.id + '-where') || null;
+    if (item.detail) o.details = val('disc-' + item.id + '-details') || null;
     return o;
   });
   return {
@@ -7310,6 +7374,7 @@ function apprPrintWindow(title, inner) {
       <button class="btn" style="background:#e2e8f0;color:#0f172a" onclick="window.close()">Close</button>
     </div>
     ${inner}
+    <div style="margin-top:24px;text-align:center;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:8px">Powered by Market<span style="color:#6366f1;font-weight:700">Sync</span></div>
   </body></html>`;
   const w = window.open('', '_blank');
   if (!w) { showToast('Allow pop-ups to open the PDF view', 'error'); return; }
@@ -7323,57 +7388,139 @@ function apprDealMeta() {
   const custName = [cust.first_name, cust.last_name].filter(Boolean).join(' ') || '—';
   const today = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
   const dealer = (typeof profileContext !== 'undefined' && profileContext?.dealership?.name) || 'Dealership';
-  const sales = (profileContext?.full_name) || (profileContext?.email) || '—';
+  // Salesperson = the deal's own salesperson (record creator when loaded), else the
+  // logged-in user's name — NOT the header display name.
+  const sales = __apprSalesperson || (profileContext?.full_name) || (profileContext?.email) || '—';
   const vlabel = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle';
-  return { deal, v, cust, custName, today, dealer, sales, vlabel };
+  const info = __apprDealerInfo || {};
+  const dealerAddr = [info.city, info.province, info.postal_code].filter(Boolean).join(', ');
+  const logo = __apprBranding?.logo_url || null;
+  return { deal, v, cust, custName, today, dealer, dealerAddr, logo, sales, vlabel };
 }
 
+// Fetch dealership branding (logo) once, for the PDF header.
+async function apprEnsureBranding() {
+  if (__apprBranding !== null) return __apprBranding;
+  try {
+    const r = await fetch(`${API}/branding`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const d = await r.json().catch(() => ({}));
+    __apprBranding = (d && d.branding) ? d.branding : {};
+  } catch { __apprBranding = {}; }
+  return __apprBranding;
+}
+
+// Branded PDF header: dealership logo (their logo) left, title center, dealership
+// name + address right. MarketSync wordmark sits in the footer of apprPrintWindow.
+function apprBrandedHeader(title, subtitle, dealer, dealerAddr, logo, today) {
+  const left = logo
+    ? `<img src="${logo}" alt="logo" style="max-height:52px;max-width:190px;object-fit:contain">`
+    : `<div style="font-size:20px;font-weight:900;letter-spacing:-.02em;color:#0f172a">Market<span style="color:#4f46e5">Sync</span></div>`;
+  return `<div class="head" style="align-items:center">
+    <div style="flex:0 0 auto">${left}</div>
+    <div style="flex:1;text-align:center;padding:0 12px"><h1 style="font-size:19px">${esc(title)}</h1>${subtitle ? `<div style="font-size:11px;color:#64748b">${esc(subtitle)}</div>` : ''}</div>
+    <div style="flex:0 0 auto;text-align:right;font-size:11px;color:#334155"><div style="font-weight:800;color:#0f172a">${esc(dealer)}</div>${dealerAddr ? `<div>${esc(dealerAddr)}</div>` : ''}${today ? `<div style="color:#94a3b8;margin-top:2px">${esc(today)}</div>` : ''}</div>
+  </div>`;
+}
+
+// Customer Appraisal Summary — laid out like the vAuto sheet, branded MarketSync
+// with the dealership's logo. Pre-fills what we know; leaves the rest as blank lines.
 function apprCustomerSummaryPdf() {
-  const { deal, v, cust, custName, today, dealer, sales, vlabel } = apprDealMeta();
-  const d = __apprData, ap = d?.appraisal, cur = d?.currency || 'CAD';
-  const money = n => n != null ? '$' + Number(n).toLocaleString() : '—';
-  const kv = (l, value) => value ? `<tr><td>${esc(l)}</td><td>${esc(value)}</td></tr>` : '';
-  const yesFacts = deal.disclosure.qa.filter(q => q.answer === 'yes').map(q => q.question);
-  const mi = v.mileage ? Number(String(v.mileage).replace(/[^0-9]/g, '')).toLocaleString() + ' ' + (d?.distance_unit || 'km') : '';
-  const inner = `
-    <div class="head"><div><h1>${esc(dealer)}</h1><div style="color:#64748b">Customer Appraisal Summary</div></div>
-      <div style="text-align:right;font-size:12px;color:#64748b">${today}<br>Salesperson: <b>${esc(sales)}</b><br>${esc(deal.disposition === 'wholesale' ? 'Wholesale' : 'Retail')}</div></div>
-    <h2>Vehicle</h2>
-    <div style="font-size:16px;font-weight:800">${esc(vlabel)}</div>
-    <div class="muted">${esc(mi)}${v.vin ? ' · VIN ' + esc(v.vin) : ''}</div>
-    ${ap ? `<div class="offer"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.85;font-weight:700">Suggested trade / cash offer</div>
-      <div class="n">${money(ap.suggested_offer)} <span style="font-size:14px;opacity:.8">${esc(cur)}</span></div>
-      ${ap.pct_to_market != null ? `<div style="font-size:12px;opacity:.85">${ap.pct_to_market}% of retail market</div>` : ''}</div>
-      <table class="kv" style="margin-top:10px">
-        <tr><td>Retail market value</td><td>${money(ap.retail_mid)}</td></tr>
-        <tr><td>− Reconditioning</td><td>−${money(ap.recon)}</td></tr>
-        <tr><td>− Target gross${ap.gross_pct != null ? ' (' + ap.gross_pct + '%)' : ''}</td><td>−${money(ap.target_gross)}</td></tr>
-        <tr><td style="border-top:1px solid #e2e8f0;color:#0f172a;font-weight:800">Suggested offer</td><td style="border-top:1px solid #e2e8f0;color:#4f46e5;font-weight:800">${money(ap.suggested_offer)}</td></tr>
-      </table>` : '<div class="muted" style="margin-top:8px">No live appraisal attached — run an appraisal to include the offer.</div>'}
-    <h2>Customer</h2>
-    <table class="kv">
-      ${kv('Name', custName)}${kv('Home phone', cust.home_phone)}${kv('Mobile', cust.mobile_phone)}
-      ${kv('Email', cust.email)}${kv('Address', cust.address)}${kv('Postal / ZIP', cust.postal_code)}
-    </table>
-    ${yesFacts.length ? `<h2>Disclosed</h2><ul style="margin:0;padding-left:18px">${yesFacts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
-    <div class="muted" style="margin-top:22px;border-top:1px solid #e2e8f0;padding-top:10px">Prepared ${today} by ${esc(sales)}, ${esc(dealer)}. Values are retail-market estimates — not a guaranteed offer. Final offer subject to inspection.</div>`;
+  const { deal, v, cust, custName, dealer, dealerAddr, logo, sales, vlabel } = apprDealMeta();
+  const d = __apprData, ap = d?.appraisal;
+  const money2 = n => n != null ? '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+  const short = new Date().toLocaleDateString();
+  const goodUntil = new Date(Date.now() + 7 * 86400000).toLocaleDateString();
+  const qById = Object.fromEntries((deal.disclosure.qa || []).map(q => [q.id, q]));
+  const ynv = id => { const q = qById[id]; return q ? (q.answer === 'yes' ? 'Yes' : q.answer === 'no' ? 'No' : '') : ''; };
+  const mi = v.mileage ? Number(String(v.mileage).replace(/[^0-9]/g, '')).toLocaleString() : '';
+  const fld = (label, value, w) => `<div class="fld" style="${w ? 'flex:0 0 ' + w : 'flex:1'}"><span class="fl">${label}</span><span class="fv">${value != null ? esc(String(value)) : ''}</span></div>`;
+  const style = `<style>
+    .sec{font-size:15px;font-weight:800;border-bottom:2px solid #0f172a;margin:16px 0 8px;padding-bottom:2px}
+    .row{display:flex;gap:18px;margin:6px 0;align-items:flex-end;flex-wrap:wrap}
+    .fld{display:flex;align-items:flex-end;gap:6px;min-width:0}
+    .fl{font-size:12px;color:#0f172a;white-space:nowrap;text-align:right}
+    .fv{flex:1;border-bottom:1px solid #0f172a;min-width:60px;min-height:15px;font-size:12px;padding:0 3px;font-weight:600}
+    .consent{border:1.5px solid #0f172a;padding:10px 12px;font-size:11px}
+    .consent .ln{border-bottom:1px solid #0f172a;height:22px;margin-top:14px}
+    .consent .cap{font-size:10px;color:#334155;text-align:center;margin-top:2px}
+    .amt{background:#e5e7eb;border:1px solid #cbd5e1;padding:12px 14px;display:flex;gap:24px;align-items:flex-end;margin-top:26px}
+  </style>`;
+  const inner = style + `
+    ${apprBrandedHeader('Customer Appraisal Summary', vlabel + (v.vin ? ' - ' + v.vin : ''), dealer, dealerAddr, logo, '')}
+    <div style="display:flex;gap:20px;margin-top:14px">
+      <div style="flex:0 0 40%">
+        <div class="consent">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><span>You may drive and appraise my vehicle</span><span style="border-bottom:1px solid #0f172a;width:64px">&nbsp;</span></div>
+          <div style="text-align:right;font-size:9px;color:#334155">Initials</div>
+          <div class="ln"></div><div class="cap">Customer signature${custName !== '—' ? ' — ' + esc(custName) : ''}</div>
+          <div class="ln"></div><div class="cap">Manager signature</div>
+        </div>
+      </div>
+      <div style="flex:1">
+        <div class="sec" style="text-align:center">Customer Information</div>
+        <div class="row">${fld('Name:', custName === '—' ? '' : custName)}</div>
+        <div class="row">${fld('Address:', cust.address)}</div>
+        <div class="row">${fld('City:', '')}</div>
+        <div class="row">${fld('Province/Territory:', '', '52%')}${fld('Postal Code:', cust.postal_code)}</div>
+        <div class="row">${fld('Email:', cust.email)}</div>
+        <div class="row">${fld('Phone (Home):', cust.home_phone)}</div>
+        <div class="row">${fld('Phone (Work):', '')}</div>
+        <div class="row">${fld('Phone (Mobile):', cust.mobile_phone)}</div>
+      </div>
+    </div>
+    <div class="sec">Vehicle Information</div>
+    <div style="display:flex;gap:24px">
+      <div style="flex:1">
+        <div class="row">${fld('VIN:', v.vin)}</div>
+        <div class="row">${fld('Year:', v.year)}</div>
+        <div class="row">${fld('Make:', v.make)}</div>
+        <div class="row">${fld('Model:', v.model)}</div>
+        <div class="row">${fld('Series:', v.trim)}</div>
+      </div>
+      <div style="flex:1">
+        <div class="row">${fld('Odometer:', mi)}</div>
+        <div class="row">${fld('Interior Colour:', '')}</div>
+        <div class="row">${fld('Exterior Colour:', v.color)}</div>
+        <div class="row">${fld('Transmission:', v.transmission)}</div>
+        <div class="row">${fld('Condition:', '')}</div>
+      </div>
+    </div>
+    <div class="sec">Additional Information</div>
+    <div class="row">${fld('Comments:', deal.disclosure.notes)}</div>
+    <div class="row">${fld('Extended Warranty:', ynv('extended_warranty'), '30%')}${fld('Factory Warranty:', ynv('factory_warranty'), '30%')}</div>
+    <div class="row">${fld('Vehicle Salvaged:', ynv('decl_total_loss'), '30%')}${fld('Flood Damage:', ynv('decl_flood_fire'), '30%')}${fld('Odometer Replaced:', ynv('odometer'), '30%')}</div>
+    <div class="row">${fld('Improvements:', '')}</div>
+    <div class="row">${fld('Lien Holder:', '', '58%')}${fld('Phone:', '')}</div>
+    <div class="row">${fld('Lien Payoff:', '', '38%')}${fld('Good Until:', '', '26%')}${fld('Per Diem:', '', '26%')}</div>
+    <div class="row" style="margin-top:12px;border-top:1px solid #cbd5e1;padding-top:12px">${fld('Salesperson:', sales, '33%')}${fld('Appraisal Date:', short, '30%')}${fld('Est. Recond.:', ap && ap.recon != null ? '$' + Number(ap.recon).toLocaleString() : '')}</div>
+    <div class="amt">
+      ${fld('Appraiser:', '', '38%')}
+      ${fld('Good Until:', goodUntil, '26%')}
+      <div class="fld" style="flex:1"><span class="fl" style="font-weight:800">Appraisal Amount:</span><span class="fv" style="font-weight:800">${ap ? money2(ap.suggested_offer) : ''}</span></div>
+    </div>`;
   apprPrintWindow('Customer Summary — ' + vlabel, inner);
 }
 
+// Trade-In Disclosure Statement — EVERY question, grouped by section, branded, with
+// customer + dealer signature lines that carry their printed names.
 function apprDisclosurePdf() {
-  const { deal, v, cust, custName, today, dealer, sales, vlabel } = apprDealMeta();
+  const { deal, v, cust, custName, today, dealer, dealerAddr, logo, sales, vlabel } = apprDealMeta();
   const d = __apprData;
   const kv = (l, value) => `<tr><td>${esc(l)}</td><td>${value ? esc(value) : '—'}</td></tr>`;
   const feats = deal.disclosure.features;
-  const ans = a => a === 'yes' ? '<span class="yes">YES</span>' : a === 'no' ? '<span class="no">No</span>' : '—';
   const mi = v.mileage ? String(v.mileage).replace(/[^0-9]/g, '') + ' ' + (d?.distance_unit || 'km') : '';
-  const qaRows = deal.disclosure.qa.map(q => {
-    const extra = [q.amount ? 'Est. $' + q.amount : '', q.where || '', q.details || ''].filter(Boolean).join(' — ');
-    return `<tr><td>${esc(q.question)}${extra ? `<div class="muted">${esc(extra)}</div>` : ''}</td><td style="text-align:right;white-space:nowrap">${ans(q.answer)}</td></tr>`;
+  const qById = Object.fromEntries((deal.disclosure.qa || []).map(q => [q.id, q]));
+  const sections = APPR_DISCLOSURE_SECTIONS.map(sec => {
+    const rows = sec.items.map(item => {
+      const q = qById[item.id];
+      const extra = [q?.amount ? 'Est. $' + q.amount : '', q?.where || '', q?.details || ''].filter(Boolean).join(' — ');
+      return `<tr><td>${esc(item.q)}${extra ? `<div class="muted">${esc(extra)}</div>` : ''}</td><td style="text-align:right;white-space:nowrap">${apprDiscAns(item, q)}</td></tr>`;
+    }).join('');
+    return `<h2>${esc(sec.title)}</h2>${sec.intro ? `<div style="font-size:12px;color:#334155;margin:-2px 0 4px">${esc(sec.intro)}</div>` : ''}<table class="qa">${rows}</table>`;
   }).join('');
   const inner = `
-    <div class="head"><div><h1>${esc(dealer)}</h1><div style="color:#64748b">Trade-In Disclosure Statement</div></div>
-      <div style="text-align:right;font-size:12px;color:#64748b">${today}<br>Salesperson: <b>${esc(sales)}</b></div></div>
+    ${apprBrandedHeader('Trade-In Disclosure Statement', vlabel + (v.vin ? ' · ' + v.vin : ''), dealer, dealerAddr, logo, today)}
+    <div style="text-align:right;font-size:11px;color:#64748b;margin-top:4px">Salesperson: <b>${esc(sales)}</b></div>
     <h2>Vehicle</h2>
     <div class="grid2"><table class="kv">${kv('Vehicle', vlabel)}${kv('VIN', v.vin)}${kv('Odometer', mi)}</table>
       <table class="kv">${kv('Engine', v.engine)}${kv('Transmission', v.transmission)}${kv('Drivetrain', v.drivetrain)}</table></div>
@@ -7381,11 +7528,13 @@ function apprDisclosurePdf() {
     <div class="grid2"><table class="kv">${kv('Name', custName)}${kv('Home phone', cust.home_phone)}${kv('Mobile', cust.mobile_phone)}</table>
       <table class="kv">${kv('Email', cust.email)}${kv('Address', cust.address)}${kv('Postal / ZIP', cust.postal_code)}</table></div>
     ${feats.length ? `<h2>Equipment &amp; features</h2><div class="feat">${feats.map(f => `<div>✓ ${esc(f)}</div>`).join('')}</div>` : ''}
-    <h2>Vehicle history &amp; disclosure</h2>
-    <table class="qa">${qaRows}</table>
+    ${sections}
     ${deal.disclosure.notes ? `<h2>Additional notes</h2><div>${esc(deal.disclosure.notes)}</div>` : ''}
     <div class="muted" style="margin-top:16px">The customer certifies the above is true and complete to the best of their knowledge.</div>
-    <div class="sig"><div>Customer signature / date</div><div>Salesperson: ${esc(sales)} / date</div></div>`;
+    <div class="sig">
+      <div>${custName !== '—' ? esc(custName) + ' — ' : ''}Customer signature / date</div>
+      <div>${esc(sales)} — Dealer representative signature / date</div>
+    </div>`;
   apprPrintWindow('Disclosure — ' + vlabel, inner);
 }
 
@@ -7489,13 +7638,14 @@ async function loadAppraisalRecord(id) {
     const disc = row.disclosure || {};
     document.querySelectorAll('#appr-features input[type=checkbox]').forEach(cb => { cb.checked = Array.isArray(disc.features) && disc.features.includes(cb.value); });
     (disc.qa || []).forEach(qq => {
-      setv('disc-' + qq.id, qq.answer || '');
-      setv('disc-' + qq.id + '-details', qq.details || '');
+      setv('disc-' + qq.id, qq.type === 'money' ? (qq.value || '') : (qq.answer || ''));
+      if (qq.details != null) setv('disc-' + qq.id + '-details', qq.details || '');
       if (qq.amount != null) setv('disc-' + qq.id + '-amount', qq.amount || '');
       if (qq.where != null) setv('disc-' + qq.id + '-where', qq.where || '');
     });
     setv('disc-notes', disc.notes || '');
     __apprDealId = row.id;
+    __apprSalesperson = row.salesperson_name || null;  // print the record's salesperson, not the viewer
     __apprData = row.appraisal ? {
       vehicle: { vin: row.vin, year: row.year, make: row.make, model: row.model, trim: row.trim, mileage: row.mileage, engine: row.engine, transmission: row.transmission, drivetrain: row.drivetrain, body_type: row.body_type, fuel_type: row.fuel_type },
       appraisal: row.appraisal, currency: row.currency, distance_unit: row.currency === 'USD' ? 'mi' : 'km',

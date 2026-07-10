@@ -812,8 +812,11 @@ Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMar
       disclosure: (b.disclosure && typeof b.disclosure === 'object') ? b.disclosure : null,
     }
     if (b.id) {
+      // On update, preserve the original salesperson/creator — a manager editing a
+      // rep's appraisal must not reattribute it to themselves.
+      const { created_by, salesperson_name, ...rowUpdate } = row
       const { data, error } = await supabaseAdmin.from('trade_appraisals')
-        .update(row).eq('id', b.id).eq('dealership_id', req.dealershipId).select('id').maybeSingle()
+        .update(rowUpdate).eq('id', b.id).eq('dealership_id', req.dealershipId).select('id').maybeSingle()
       if (error) return res.status(500).json({ error: error.message })
       return res.json({ ok: true, id: data?.id || b.id })
     }
