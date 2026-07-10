@@ -745,7 +745,40 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
       } catch { /* prediction is a bonus — never fail the appraisal for it */ }
     }
 
-    const retailMid = market.median_price
+    // ── Value model ────────────────────────────────────────────────────────────
+    // MarketCheck gives us the median ASKING price of comparable dealer listings.
+    // Two systematic biases push that number well above a real appraisal — which is
+    // why it can land thousands over AutoTrader's "what's my car worth":
+    //   1) Mileage: the comp pool ignores the subject's odometer, so a high-mileage
+    //      trade gets valued like an average-mileage lot car (and vice-versa).
+    //   2) Ask vs. sell: dealer asking prices sit above actual transaction prices —
+    //      buyers negotiate, and trade books are calibrated to sold data, not asks.
+    // We correct both, transparently, so the retail anchor reflects THIS vehicle.
+    const compMedian = market.median_price
+    const compMiles = market.median_mileage || market.avg_mileage || null
+
+    // (1) Mileage adjustment — value-proportional so it scales with the car's tier
+    // instead of a flat $/km that would swamp a cheap car and under-move a truck.
+    // Sensitivity ≈ the share of value explained by mileage across the useful-life
+    // window; tunable via env so we can calibrate against real book values.
+    const REF_DIST = isUS ? 125000 : 200000            // useful-life window (mi / km)
+    const MILEAGE_SENS = Number(process.env.APPRAISE_MILEAGE_SENS || 0.35)
+    let mileageAdj = 0
+    if (mileage > 0 && compMiles > 0) {
+      const ratePerDist = (compMedian * MILEAGE_SENS) / REF_DIST
+      mileageAdj = Math.round((compMiles - mileage) * ratePerDist)   // fewer miles → +, more → −
+      const cap = Math.round(compMedian * 0.30)                       // never move value >30%
+      mileageAdj = Math.max(-cap, Math.min(cap, mileageAdj))
+    }
+    const mileageAdjusted = compMedian + mileageAdj
+
+    // (2) Ask → realistic retail. Dealer asks run above transaction prices; shave a
+    // small, tunable haircut so our retail anchor matches what the car actually sells
+    // for (and lines up with the trade books the customer is checking).
+    const REALISM = Number(process.env.APPRAISE_MARKET_REALISM || 0.04)
+    const realismCut = Math.round(mileageAdjusted * REALISM)
+    const retailMid = Math.max(0, mileageAdjusted - realismCut)
+
     const suggestedOffer = Math.max(0, retailMid - recon - targetGross)
     const grossPct = retailMid > 0 ? Math.round((targetGross / retailMid) * 1000) / 10 : null
     // Offer as a % of retail market value (vAuto-style "% to market").
@@ -765,10 +798,14 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
       try {
         const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
         const cur = isUS ? 'USD' : 'CAD', du = isUS ? 'mi' : 'km'
-        const prompt = `Write a professional 2–3 sentence market summary for a vehicle trade-appraisal sheet a dealer hands to a customer. Explain the offer in plain English and justify it with the market data. No markdown, no bullet points, no greeting.
+        const mileVsMarket = (mileage > 0 && compMiles > 0)
+          ? `This vehicle has ${mileage.toLocaleString()} ${du} vs a market median of ${Math.round(compMiles).toLocaleString()} ${du} (${mileageAdj >= 0 ? '+' : '−'}${cur} $${Math.abs(mileageAdj).toLocaleString()} mileage adjustment).`
+          : ''
+        const prompt = `Write a professional 2–3 sentence market summary for a vehicle trade-appraisal sheet a dealer hands to a customer. Explain the offer in plain English and justify it with the market data, including how the odometer moved the value. No markdown, no bullet points, no greeting.
 Vehicle: ${year} ${make} ${model}${trim ? ' ' + trim : ''}${mileage ? `, ${mileage.toLocaleString()} ${du}` : ''}.
-Retail market from ${market.count} comparable listings: median ${cur} $${retailMid.toLocaleString()}, range $${(market.low_price || retailMid).toLocaleString()}–$${(market.high_price || retailMid).toLocaleString()}${market.avg_mileage ? `, average mileage ${Math.round(market.avg_mileage).toLocaleString()} ${du}` : ''}.
-Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMarket}% of retail market — after ${cur} $${recon.toLocaleString()} reconditioning and a ${cur} $${targetGross.toLocaleString()} target gross.`
+Retail market from ${market.count} comparable listings: asking median ${cur} $${compMedian.toLocaleString()}, range $${(market.low_price || compMedian).toLocaleString()}–$${(market.high_price || compMedian).toLocaleString()}. ${mileVsMarket}
+Adjusted retail value for this vehicle: ${cur} $${retailMid.toLocaleString()}.
+Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMarket}% of retail — after ${cur} $${recon.toLocaleString()} reconditioning and a ${cur} $${targetGross.toLocaleString()} target gross.`
         const msg = await Promise.race([
           anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 220, messages: [{ role: 'user', content: prompt }] }),
           new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 20000)),
@@ -785,13 +822,15 @@ Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMar
       currency: isUS ? 'USD' : 'CAD',
       distance_unit: isUS ? 'mi' : 'km',
       retail: {
-        median: retailMid,
+        median: retailMid,                    // adjusted retail value for THIS vehicle
+        comp_median: compMedian,               // raw median asking price of the comps
         low: market.low_price ?? null,
         high: market.high_price ?? null,
         avg: market.avg_price ?? null,
         count: market.count ?? null,
         avg_days_online: market.avg_days_online ?? null,
         avg_mileage: market.avg_mileage ?? market.median_mileage ?? null,
+        market_mileage: compMiles,             // median mileage of the comp pool
         source: market.source || 'MarketCheck',
       },
       appraisal: {
@@ -802,6 +841,16 @@ Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMar
         gross_pct: grossPct,
         pct_to_market: pctToMarket,
         ai_summary,
+        // Transparent value bridge: comp asking median → adjusted retail value.
+        adjustments: {
+          comp_median: compMedian,
+          subject_mileage: mileage || null,
+          market_mileage: compMiles,
+          mileage_adjustment: mileageAdj,
+          market_realism_pct: Math.round(REALISM * 1000) / 10,
+          market_realism_amount: -realismCut,
+          retail_value: retailMid,
+        },
       },
       // MarketCheck model-comparable predicted retail + confidence band (or null).
       prediction,

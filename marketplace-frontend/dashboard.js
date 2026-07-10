@@ -669,6 +669,36 @@ function renderAppraisal(d) {
         </div>
         <div class="text-xs text-indigo-100 mt-2">Retail ${money(ap.retail_mid)} − recon ${money(ap.recon)} − gross ${money(ap.target_gross)}${ap.gross_pct != null ? ` (${ap.gross_pct}%)` : ''}</div>
       </div>
+      ${ap.adjustments ? (() => {
+        const adj = ap.adjustments;
+        const signed = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + money(Math.abs(n));
+        const rows = [];
+        rows.push(['Comparable asking median', money(adj.comp_median), rt.count != null ? `${rt.count} comps` : '']);
+        if (adj.mileage_adjustment) {
+          const more = (adj.subject_mileage != null && adj.market_mileage != null) ? (adj.subject_mileage > adj.market_mileage) : (adj.mileage_adjustment < 0);
+          const detail = (adj.subject_mileage != null && adj.market_mileage != null)
+            ? `${Number(adj.subject_mileage).toLocaleString()} vs ${Math.round(adj.market_mileage).toLocaleString()} ${du} market`
+            : '';
+          rows.push([`Mileage adjustment (${more ? 'above' : 'below'} market)`, signed(adj.mileage_adjustment), detail, adj.mileage_adjustment < 0]);
+        }
+        if (adj.market_realism_amount) {
+          rows.push([`Ask → sold (${adj.market_realism_pct}%)`, signed(adj.market_realism_amount), 'real transaction gap', true]);
+        }
+        return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+          <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">How we got to retail value</div>
+          <div class="space-y-1.5">
+            ${rows.map(([lbl, val, sub, neg]) => `<div class="flex items-center justify-between gap-3 text-sm">
+              <div class="min-w-0"><span class="text-slate-700 dark:text-slate-200">${esc(lbl)}</span>${sub ? `<span class="text-[11px] text-slate-400 ml-1.5">${esc(sub)}</span>` : ''}</div>
+              <div class="font-bold tabular-nums flex-shrink-0 ${neg ? 'text-rose-500' : 'text-slate-900 dark:text-white'}">${val}</div>
+            </div>`).join('')}
+            <div class="flex items-center justify-between gap-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-1.5 mt-1.5">
+              <div class="font-bold text-slate-900 dark:text-white">Adjusted retail value</div>
+              <div class="font-black tabular-nums text-indigo-600 dark:text-indigo-400">${money(adj.retail_value)}</div>
+            </div>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-2">Adjusts the market's asking prices for this vehicle's actual odometer and the gap between asking and selling — so it lines up with trade-book values like AutoTrader.</div>
+        </div>`;
+      })() : ''}
       ${d.prediction ? `<div class="bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900 rounded-xl p-4">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <div>
@@ -798,7 +828,21 @@ function generateAppraisalPdf() {
 
   <h2>Price breakdown</h2>
   <div class="card"><table>
-    ${row('Retail market value (median of ' + (rt.count ?? '—') + ' comps)', money(ap.retail_mid))}
+    ${(() => {
+      const adj = ap.adjustments;
+      if (!adj) return row('Retail market value (median of ' + (rt.count ?? '—') + ' comps)', money(ap.retail_mid));
+      const signed = (n) => (n < 0 ? '−' : '+') + money(Math.abs(n));
+      let out = row('Comparable asking median (' + (rt.count ?? '—') + ' comps)', money(adj.comp_median));
+      if (adj.mileage_adjustment) {
+        const detail = (adj.subject_mileage != null && adj.market_mileage != null)
+          ? ' (' + Number(adj.subject_mileage).toLocaleString() + ' vs ' + Math.round(adj.market_mileage).toLocaleString() + ' ' + du + ')' : '';
+        out += row('Mileage adjustment' + detail, signed(adj.mileage_adjustment));
+      }
+      if (adj.market_realism_amount) out += row('Ask → sold market adjustment (' + adj.market_realism_pct + '%)', signed(adj.market_realism_amount));
+      out += '<tr><td colspan="2"><div style="border-top:1px solid #e2e8f0;margin:4px 0"></div></td></tr>';
+      out += row('Adjusted retail value', money(ap.retail_mid), true);
+      return out;
+    })()}
     ${row('− Reconditioning', '−' + money(ap.recon))}
     ${row('− Target gross' + (ap.gross_pct != null ? ' (' + ap.gross_pct + '%)' : ''), '−' + money(ap.target_gross))}
     <tr><td colspan="2"><div style="border-top:1px solid #e2e8f0;margin:4px 0"></div></td></tr>
