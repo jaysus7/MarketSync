@@ -3147,13 +3147,6 @@ function renderCatalog() {
           ${v.stocknumber ? `<span class="font-mono text-slate-400 dark:text-slate-500">#${v.stocknumber}</span>` : ''}
           <span class="text-slate-500">${mileage}</span>
         </div>
-        <div class="mt-1.5 flex flex-wrap items-center gap-1.5" onclick="event.preventDefault();event.stopPropagation();">
-          <button class="inv-aiwrite-btn text-[10px] font-bold px-2 py-1 rounded transition bg-violet-600 hover:bg-violet-500 text-white flex items-center gap-1" data-id="${v.id}">
-            <svg viewBox="0 0 24 24" width="11" height="11" class="flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#ffffff" fill-opacity="0.35" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round"/></svg>
-            Write with AI
-          </button>
-          ${v.vin ? `<button type="button" onclick="event.stopPropagation();openCarfax('${v.id}','${v.vin}')" class="text-[10px] font-black px-2 py-1 rounded transition bg-[#0a1e3f] hover:bg-[#122a52] text-white flex items-center gap-1 tracking-tight" title="Pull the Carfax report for this VIN">CARFAX<span class="text-red-500 leading-none">🍁</span></button>` : ''}
-        </div>
         ${__vinStickerActive ? (() => {
           // Recall status + VIN/sticker/brochure actions live on the card for
           // Inventory Intelligence dealers (no separate page).
@@ -3173,6 +3166,7 @@ function renderCatalog() {
                 <button class="inv-vin-btn ${b} bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700" data-id="${v.id}" ${vinAttr}>Decode VIN</button>
                 <button class="inv-sticker-btn ${b} bg-emerald-600 hover:bg-emerald-500 text-white" data-id="${v.id}" data-label="${lbl}" data-oem-url="${v.window_sticker_oem_url || ''}" data-gen-url="${v.window_sticker_gen_url || ''}">Sticker ▾</button>
                 <button class="inv-brochure-btn ${b} bg-indigo-600 hover:bg-indigo-500 text-white" data-id="${v.id}" data-label="${lbl}" data-oem-url="${v.brochure_oem_url || ''}" data-gen-url="${v.brochure_gen_url || ''}">Brochure ▾</button>
+                <button type="button" onclick="event.preventDefault();event.stopPropagation();openCarfax('${v.id}','${v.vin}')" class="${b} bg-[#0a1e3f] hover:bg-[#122a52] text-white flex items-center gap-1 tracking-tight" title="Pull the Carfax report for this VIN">CARFAX<span class="text-red-500 leading-none">🍁</span></button>
               </div>` : `<div class="text-[10px] text-slate-400 italic">No VIN on file — can't decode or build docs.</div>`}
             </div>`;
         })() : ''}
