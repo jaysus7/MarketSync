@@ -3248,6 +3248,35 @@ Units 60d+ on lot: ${stale}`
     res.json({ sent, failed, total: (dealers || []).length })
   })
 
+  // GET /ai/market-snapshot — live listing count, median price and days-on-market
+  // for a make/model (recipe 05). Inventory Intelligence add-on; one metered +
+  // daily-capped MarketCheck call. Owner exempt from the per-dealer caps.
+  app.get('/ai/market-snapshot', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const { data: dealer } = await supabaseAdmin
+      .from('dealerships').select('inv_intel_active, country').eq('id', req.dealershipId).maybeSingle()
+    if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence add-on required' })
+    if (!marketcheckEnabled()) return res.status(503).json({ error: 'Live market data is not configured.' })
+    const make = String(req.query.make || '').trim()
+    const model = String(req.query.model || '').trim()
+    if (!make || !model) return res.status(400).json({ error: 'make and model are required' })
+    if (!(await marketcheckAllowed(req.dealershipId, isOwner))) {
+      return res.status(429).json({ error: 'Market-data lookup limit reached — try again later.' })
+    }
+    const isUS = /^(us|usa|united states)$/i.test((dealer?.country || '').trim())
+    const year = req.query.year ? Number(req.query.year) : undefined
+    const trim = req.query.trim ? String(req.query.trim).trim() : undefined
+    try {
+      const snap = await marketcheckMarketStats({ make, model, year, trim, isUS })
+      await recordMarketcheckCall(req.dealershipId)
+      if (!snap) return res.json({ ok: true, found: false })
+      res.json({ ok: true, found: true, make, model, year: year || null, trim: trim || null, currency: isUS ? 'USD' : 'CAD', ...snap })
+    } catch (e) {
+      res.status(502).json({ error: 'Market snapshot failed — the data service may be busy.' })
+    }
+  })
+
   // ── AI Assistant dock ────────────────────────────────────────────────────
   // The floating "Ask MarketSync" chat. Answers questions grounded in the
   // dealer's live lot/leads snapshot. Paid feature (AI Boost or Inventory

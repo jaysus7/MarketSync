@@ -7119,3 +7119,50 @@ function initAiDock() {
   });
 }
 document.addEventListener('DOMContentLoaded', initAiDock);
+
+// ── Market Snapshot (Inventory Intelligence) ─────────────────────────────────
+// On-demand days-on-market + price stats for any make/model, via /ai/market-snapshot.
+async function runMarketSnapshot() {
+  const btn = document.getElementById('msnap-run');
+  const out = document.getElementById('msnap-result');
+  if (!btn || !out) return;
+  const make = document.getElementById('msnap-make')?.value.trim();
+  const model = document.getElementById('msnap-model')?.value.trim();
+  const year = document.getElementById('msnap-year')?.value.trim();
+  const trim = document.getElementById('msnap-trim')?.value.trim();
+  if (!make || !model) { out.innerHTML = '<div class="text-xs text-amber-600 dark:text-amber-400">Enter at least a make and model.</div>'; return; }
+  btn.disabled = true; btn.textContent = 'Loading…'; out.innerHTML = '';
+  try {
+    const q = new URLSearchParams({ make, model });
+    if (year) q.set('year', year);
+    if (trim) q.set('trim', trim);
+    const r = await fetch(`${API}/ai/market-snapshot?${q.toString()}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { out.innerHTML = `<div class="text-xs text-rose-500">${esc(d.error || 'Lookup failed.')}</div>`; return; }
+    if (!d.found) { out.innerHTML = `<div class="text-xs text-slate-500 dark:text-slate-400">No active listings found for ${esc([year, make, model, trim].filter(Boolean).join(' '))}.</div>`; return; }
+    const money = n => n != null ? '$' + Math.round(Number(n)).toLocaleString() : '—';
+    const days = n => n != null ? Math.round(Number(n)) + ' days' : '—';
+    const tile = (label, val, sub) => `<div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
+      <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">${label}</div>
+      <div class="text-lg font-black text-slate-900 dark:text-white mt-0.5">${val}</div>
+      ${sub ? `<div class="text-[11px] text-slate-400">${sub}</div>` : ''}</div>`;
+    out.innerHTML = `
+      <div class="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">${esc([d.year, d.make, d.model, d.trim].filter(Boolean).join(' '))} · ${esc(d.currency || '')}</div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        ${tile('Active listings', d.count != null ? d.count.toLocaleString() : '—', 'in market')}
+        ${tile('Median price', money(d.price?.median), d.price ? `${money(d.price.min)}–${money(d.price.max)}` : '')}
+        ${tile('Avg days on market', days(d.dom?.mean ?? d.dom?.median), 'lower = hotter')}
+        ${tile('Median mileage', d.miles?.median != null ? Math.round(d.miles.median).toLocaleString() : '—', 'across comps')}
+      </div>`;
+  } catch {
+    out.innerHTML = '<div class="text-xs text-rose-500">Network error — try again.</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Get snapshot';
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('msnap-run')?.addEventListener('click', runMarketSnapshot);
+  ['msnap-make', 'msnap-model', 'msnap-year', 'msnap-trim'].forEach(id => {
+    document.getElementById(id)?.addEventListener('keydown', e => { if (e.key === 'Enter') runMarketSnapshot(); });
+  });
+});

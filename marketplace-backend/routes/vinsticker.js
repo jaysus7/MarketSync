@@ -5,7 +5,8 @@ import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
 import { fetchOemBrochurePdf } from '../utils/oemBrochure.js'
 import { brandVehiclePhotos } from '../utils/photoOverlay.js'
 import { fontFaceCss } from '../utils/brochureFonts.js'
-import { recordUsage } from '../usage.js'
+import { recordUsage, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
+import { marketcheckEnabled, marketcheckDecodeVin } from '../marketcheck.js'
 import multer from 'multer'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024 } })
@@ -1004,6 +1005,32 @@ export function registerRoutes(app) {
           ReportReceivedDate: r.ReportReceivedDate,
         }))
       }
+
+      // Enrich with MarketCheck neovin specs (fuel economy, MSRP, factory options)
+      // when live data is available — a metered + capped call, gracefully skipped
+      // if over cap or unavailable. Richer paid fields are prepended so they show
+      // first in the modal's full field list.
+      try {
+        const isOwner = (req.user.email || '').toLowerCase() === (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+        if (marketcheckEnabled() && vin.length === 17 && await marketcheckAllowed(req.dealershipId, isOwner)) {
+          const specs = await marketcheckDecodeVin(vin)
+          await recordMarketcheckCall(req.dealershipId)
+          if (specs && typeof specs === 'object') {
+            const extra = []
+            const push = (label, val) => { if (val != null && String(val).trim() !== '') extra.push({ label, value: String(val).trim() }) }
+            push('City MPG', specs.city_mpg ?? specs.epa_city_mpg)
+            push('Highway MPG', specs.highway_mpg ?? specs.epa_highway_mpg)
+            push('Combined MPG', specs.combined_mpg ?? specs.epa_combined_mpg)
+            push('MSRP', specs.msrp != null ? '$' + Number(specs.msrp).toLocaleString() : null)
+            push('Body Subtype', specs.body_subtype)
+            push('Drivetrain (MarketCheck)', specs.drivetrain)
+            const opts = specs.options ?? specs.high_value_features ?? specs.installed_options
+            if (Array.isArray(opts) && opts.length) push('Factory options', opts.map(o => o?.name || o).filter(Boolean).slice(0, 30).join(', '))
+            else if (typeof opts === 'string') push('Factory options', opts)
+            if (extra.length) allFields = extra.concat(allFields)
+          }
+        }
+      } catch { /* enrichment is a bonus — never fail the decode for it */ }
 
       res.json({ decoded, recalls, recall_count: recalls.length, all_fields: allFields })
     } catch (e) {
