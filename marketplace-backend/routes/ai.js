@@ -284,6 +284,9 @@ export function registerAI(app) {
 
     const { inventory_id } = req.body
     if (!inventory_id) return res.status(400).json({ error: 'inventory_id required' })
+    // Optional target language for the Facebook listing copy (e.g. "French",
+    // "Spanish"). Defaults to English when empty/unrecognised.
+    const language = String(req.body?.language || '').trim().slice(0, 40)
 
     // Fetch inventory item
     const { data: vehicle, error: invErr } = await supabaseAdmin
@@ -396,7 +399,7 @@ export function registerAI(app) {
 Vehicle details:
 ${vehicleDetails}
 
-Write a compelling listing in under 280 words. Include the year/make/model/trim, mileage, price, condition, colour, and key highlights from the description. Do not invent details not provided. ${tone !== 'friendly' ? 'No emoji.' : 'Minimal emoji only if it enhances readability.'}`
+Write a compelling listing in under 280 words. Include the year/make/model/trim, mileage, price, condition, colour, and key highlights from the description. Do not invent details not provided. ${tone !== 'friendly' ? 'No emoji.' : 'Minimal emoji only if it enhances readability.'}${language && !/^en(g|glish)?$/i.test(language) ? `\n\nWrite the entire listing in ${language}. Keep the price, mileage number, VIN and stock number as-is.` : ''}`
           }
         ]
       })
