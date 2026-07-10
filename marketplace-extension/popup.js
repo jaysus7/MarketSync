@@ -812,7 +812,7 @@ async function postVehicle(inventoryId, token) {
       fetch(`${API}/ai/enrich-listing`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inventory_id: inventoryId })
+        body: JSON.stringify({ inventory_id: inventoryId, language: __postLang || undefined })
       }).then(r => r.ok ? r.json() : null).catch(() => null),
       apiGet('/auth/me', token).catch(() => null)
     ])
@@ -921,10 +921,21 @@ function initRegisterScreen() {
 }
 
 let __popupToken = null
+let __postLang = ''   // language code for AI Facebook copy (from the popup selector)
 
 document.addEventListener('DOMContentLoaded', () => {
   initLoginScreen()
   initRegisterScreen()
+  // Restore + persist the Facebook-copy language choice.
+  const langSel = document.getElementById('post-lang')
+  chrome.storage.local.get(['postLang'], ({ postLang }) => {
+    __postLang = postLang || ''
+    if (langSel) langSel.value = __postLang
+  })
+  langSel?.addEventListener('change', () => {
+    __postLang = langSel.value || ''
+    chrome.storage.local.set({ postLang: __postLang })
+  })
   chrome.storage.local.get(['token', 'user'], ({ token, user }) => {
     __popupToken = token || null
     if (token && user) {
