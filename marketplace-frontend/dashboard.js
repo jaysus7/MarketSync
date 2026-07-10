@@ -4583,6 +4583,8 @@ async function loadAIBoostSection() {
     __invIntelActive = !!cfg.inv_intel_active;
     // Trade Appraisal is part of the Inventory Intelligence add-on — hide otherwise.
     document.getElementById('nav-appraisal')?.classList.toggle('hidden', !__invIntelActive);
+    // Reveal the floating AI assistant dock for entitled dealers (owner exempt).
+    updateAiDockVisibility();
     __aiVisionActive = !!cfg.ai_vision_active;               // = AI Boost
     renderAiVisionNav();
     __aiBoostConfigLoaded = true;
@@ -6980,3 +6982,127 @@ document.addEventListener('DOMContentLoaded', () => {
   window._loadIntel = loadIntel
   window._invIntelPageHook = () => loadInvIntelPage()
 })()
+
+// ── AI Assistant dock ────────────────────────────────────────────────────────
+// Floating "Ask MarketSync" chat, grounded in the dealer's live data via
+// POST /ai/assistant. Visibility is gated to AI Boost / Inventory Intelligence
+// (owner exempt); the launcher is flipped on once /ai/config resolves — see the
+// updateAiDockVisibility() call in loadAIBoostSection().
+let aiDockMessages = [];
+let aiDockBusy = false;
+
+function updateAiDockVisibility() {
+  const btn = document.getElementById('ai-dock-btn');
+  const panel = document.getElementById('ai-dock-panel');
+  if (!btn) return;
+  const show = !!(__aiBoostActive || __invIntelActive);
+  const panelOpen = panel && !panel.classList.contains('hidden');
+  // Launcher hides while the panel is open, or when not entitled.
+  btn.classList.toggle('hidden', !show || panelOpen);
+  if (!show && panel) panel.classList.add('hidden');
+}
+
+function renderAiDockMessages() {
+  const box = document.getElementById('ai-dock-messages');
+  if (!box) return;
+  box.innerHTML = '';
+  if (!aiDockMessages.length) {
+    const intro = document.createElement('div');
+    intro.className = 'text-slate-500 dark:text-slate-400';
+    intro.innerHTML =
+      '<div class="mb-3 leading-relaxed">Hi 👋 Ask me anything about your store — I can see your live inventory, leads and pricing.</div>' +
+      '<div class="flex flex-wrap gap-1.5">' +
+      ['Which units are aging 60+ days?', 'What should I restock?', 'How many leads need follow-up?', 'Anything priced off market?']
+        .map(s => `<button type="button" data-ai-suggest="${s}" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">${s}</button>`)
+        .join('') +
+      '</div>';
+    box.appendChild(intro);
+  }
+  for (const m of aiDockMessages) {
+    const row = document.createElement('div');
+    row.className = m.role === 'user' ? 'flex justify-end' : 'flex justify-start';
+    const bubble = document.createElement('div');
+    bubble.className = m.role === 'user'
+      ? 'max-w-[85%] bg-indigo-600 text-white rounded-2xl rounded-br-sm px-3.5 py-2 whitespace-pre-wrap break-words'
+      : 'max-w-[85%] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl rounded-bl-sm px-3.5 py-2 whitespace-pre-wrap break-words';
+    bubble.textContent = m.content;
+    row.appendChild(bubble);
+    box.appendChild(row);
+  }
+  if (aiDockBusy) {
+    const row = document.createElement('div');
+    row.className = 'flex justify-start';
+    const b = document.createElement('div');
+    b.className = 'bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl px-3.5 py-2 text-xs';
+    b.textContent = 'Thinking…';
+    row.appendChild(b);
+    box.appendChild(row);
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+async function sendAiDock(text) {
+  text = (text || '').trim();
+  if (!text || aiDockBusy) return;
+  aiDockMessages.push({ role: 'user', content: text });
+  aiDockBusy = true;
+  renderAiDockMessages();
+  const input = document.getElementById('ai-dock-input');
+  if (input) { input.value = ''; input.style.height = 'auto'; }
+  try {
+    const r = await fetch(`${API}/ai/assistant`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: aiDockMessages.slice(-10) }),
+    });
+    const d = await r.json().catch(() => ({}));
+    aiDockMessages.push({ role: 'assistant', content: r.ok ? (d.reply || 'No reply.') : (d.error || 'Something went wrong. Try again.') });
+  } catch {
+    aiDockMessages.push({ role: 'assistant', content: 'Network error — please try again.' });
+  } finally {
+    aiDockBusy = false;
+    renderAiDockMessages();
+  }
+}
+
+function openAiDock() {
+  const p = document.getElementById('ai-dock-panel');
+  if (!p) return;
+  p.classList.remove('hidden');
+  document.getElementById('ai-dock-btn')?.classList.add('hidden');
+  renderAiDockMessages();
+  setTimeout(() => document.getElementById('ai-dock-input')?.focus(), 50);
+}
+
+function closeAiDock() {
+  document.getElementById('ai-dock-panel')?.classList.add('hidden');
+  updateAiDockVisibility();
+}
+
+function initAiDock() {
+  const btn = document.getElementById('ai-dock-btn');
+  if (!btn || btn.dataset.wired) return;
+  btn.dataset.wired = '1';
+  btn.addEventListener('click', openAiDock);
+  document.getElementById('ai-dock-close')?.addEventListener('click', closeAiDock);
+  document.getElementById('ai-dock-clear')?.addEventListener('click', () => {
+    aiDockMessages = [];
+    renderAiDockMessages();
+    document.getElementById('ai-dock-input')?.focus();
+  });
+  const form = document.getElementById('ai-dock-form');
+  const input = document.getElementById('ai-dock-input');
+  form?.addEventListener('submit', (e) => { e.preventDefault(); sendAiDock(input?.value); });
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiDock(input.value); }
+  });
+  input?.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 112) + 'px';
+  });
+  document.getElementById('ai-dock-messages')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-ai-suggest]');
+    if (chip) sendAiDock(chip.getAttribute('data-ai-suggest'));
+  });
+}
+document.addEventListener('DOMContentLoaded', initAiDock);

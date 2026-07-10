@@ -3157,4 +3157,95 @@ Units 60d+ on lot: ${stale}`
     }
     res.json({ sent, failed, total: (dealers || []).length })
   })
+
+  // ── AI Assistant dock ────────────────────────────────────────────────────
+  // The floating "Ask MarketSync" chat. Answers questions grounded in the
+  // dealer's live lot/leads snapshot. Paid feature (AI Boost or Inventory
+  // Intelligence; owner exempt) and metered through the same cost layer as
+  // every other AI call so it can't run past the budget kill-switch.
+  app.post('/ai/assistant', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+
+    const { data: dealer } = await supabaseAdmin
+      .from('dealerships')
+      .select('name, ai_boost_active, inv_intel_active, city, province, country')
+      .eq('id', req.dealershipId).maybeSingle()
+
+    const entitled = isOwner || !!dealer?.ai_boost_active || !!dealer?.inv_intel_active
+    if (!entitled) return res.status(403).json({ error: 'The AI assistant needs AI Boost or Inventory Intelligence.' })
+    if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI is not configured.' })
+    if (!(await aiAllowed(req.dealershipId, isOwner))) {
+      return res.status(429).json({ error: 'AI usage limit reached for this month.' })
+    }
+
+    // Sanitise the client-sent transcript: only user/assistant turns, trimmed,
+    // capped to the last 10 so the context can't balloon.
+    const raw = Array.isArray(req.body?.messages) ? req.body.messages : []
+    const messages = raw
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+      .slice(-10)
+      .map(m => ({ role: m.role, content: m.content.trim().slice(0, 2000) }))
+    if (!messages.length || messages[messages.length - 1].role !== 'user') {
+      return res.status(400).json({ error: 'Send a question.' })
+    }
+
+    // Live snapshot the model answers from.
+    const now = Date.now()
+    const { data: inv } = await supabaseAdmin.from('inventory')
+      .select('price, mileage, year, make, model, image_urls, photo_score, created_at')
+      .eq('dealership_id', req.dealershipId).eq('status', 'available')
+    const list = inv || []
+    const total = list.length
+    const photoCount = v => Array.isArray(v.image_urls) ? v.image_urls.filter(Boolean).length : 0
+    const aged = list.filter(v => v.created_at && (now - new Date(v.created_at)) > 60 * 86400000)
+    const lowPhotos = list.filter(v => photoCount(v) < 4 || (v.photo_score != null && v.photo_score < 50)).length
+    const noPrice = list.filter(v => !v.price || Number(v.price) === 0).length
+    const priced = list.filter(v => Number(v.price) > 0).map(v => Number(v.price))
+    const avgPrice = priced.length ? Math.round(priced.reduce((a, b) => a + b, 0) / priced.length) : 0
+    const minPrice = priced.length ? Math.min(...priced) : 0
+    const maxPrice = priced.length ? Math.max(...priced) : 0
+    const makeCounts = {}
+    for (const v of list) { const k = v.make || 'Unknown'; makeCounts[k] = (makeCounts[k] || 0) + 1 }
+    const topMakes = Object.entries(makeCounts).sort((a, b) => b[1] - a[1]).slice(0, 6)
+      .map(([m, n]) => `${m} ${n}`).join(', ')
+    const agedSample = aged.slice(0, 8).map(v => `${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim()).filter(Boolean).join('; ')
+
+    const since = new Date(now - 7 * 86400000).toISOString()
+    const { data: leads } = await supabaseAdmin.from('leads')
+      .select('adf_sent_at, created_at').eq('dealership_id', req.dealershipId).gte('created_at', since)
+    const leadsWaiting = (leads || []).filter(l => !l.adf_sent_at).length
+    const leads7 = (leads || []).length
+
+    const { data: acts } = await supabaseAdmin.from('ai_activity')
+      .select('price_flagged, created_at').eq('dealership_id', req.dealershipId)
+      .order('created_at', { ascending: false }).limit(400)
+    const priceFlags = (acts || []).filter(a => a.price_flagged && (now - new Date(a.created_at)) < 2 * 86400000).length
+
+    const loc = [dealer?.city, dealer?.province, dealer?.country].filter(Boolean).join(', ')
+    const facts = [
+      `Dealership: ${dealer?.name || 'this dealership'}${loc ? ` (${loc})` : ''}.`,
+      `Available units: ${total}. Avg price: ${avgPrice ? '$' + avgPrice.toLocaleString() : 'n/a'} (range ${minPrice ? '$' + minPrice.toLocaleString() : 'n/a'}–${maxPrice ? '$' + maxPrice.toLocaleString() : 'n/a'}).`,
+      `By make: ${topMakes || 'n/a'}.`,
+      `Aging 60+ days: ${aged.length}${agedSample ? ` (e.g. ${agedSample})` : ''}.`,
+      `Weak/thin photos: ${lowPhotos}. Missing price: ${noPrice}. Priced off market (last 2 days): ${priceFlags}.`,
+      `Leads last 7 days: ${leads7}, of which ${leadsWaiting} still need follow-up.`,
+    ].join('\n')
+
+    const system = `You are MarketSync's in-dashboard assistant for a car dealership admin/GM. Answer their question directly and practically using the live snapshot of THEIR store below. Keep it short — a couple of sentences or a tight list, no headings, no fluff. If the snapshot doesn't contain what they need, say so briefly and suggest which page (Inventory, Pipeline, Inventory Intelligence, Appraisal) has it. Don't invent numbers beyond the snapshot. Today: ${new Date().toISOString().slice(0, 10)}.\n\nLIVE SNAPSHOT:\n${facts}`
+
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const msg = await Promise.race([
+        anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 500, system, messages }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 20000)),
+      ])
+      const reply = (msg?.content?.[0]?.text || '').trim()
+      if (!reply) return res.status(502).json({ error: 'No reply generated. Try rephrasing.' })
+      recordUsage(req.dealershipId, { ai: 1 })
+      res.json({ reply })
+    } catch (e) {
+      res.status(502).json({ error: aiErrorMessage(e) })
+    }
+  })
 }
