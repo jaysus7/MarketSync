@@ -4667,6 +4667,8 @@ async function loadAIBoostSection() {
     document.getElementById('nav-appraisal')?.classList.toggle('hidden', !__invIntelActive);
     // Reveal the floating AI assistant dock for entitled dealers (owner exempt).
     updateAiDockVisibility();
+    // Reveal the fixed Reports quick-access rail for Inventory Intelligence dealers.
+    updateReportRailVisibility();
     // Stash dealership location for the appraisal PDFs' header.
     __apprDealerInfo = { city: cfg.city, province: cfg.province, postal_code: cfg.postal_code, country: cfg.country };
     __aiVisionActive = !!cfg.ai_vision_active;               // = AI Boost
@@ -7075,6 +7077,58 @@ document.addEventListener('DOMContentLoaded', () => {
 let aiDockMessages = [];
 let aiDockBusy = false;
 
+// ── Reports rail — fixed right-edge quick access to every lot-wide report ─────
+let __reportRailWired = false;
+
+function updateReportRailVisibility() {
+  const rail = document.getElementById('report-rail');
+  if (!rail) return;
+  // All four reports are Inventory Intelligence features, so the rail rides on
+  // that entitlement (owner already resolves to active in /ai/config).
+  // Step aside while the AI chat panel is open — it occupies the same right edge.
+  const panel = document.getElementById('ai-dock-panel');
+  const panelOpen = panel && !panel.classList.contains('hidden');
+  const show = !!__invIntelActive && !panelOpen;
+  rail.classList.toggle('lg:flex', show);   // lg:flex + base `hidden` = desktop-only when shown
+  if (__invIntelActive) wireReportRail();
+}
+
+function wireReportRail() {
+  if (__reportRailWired) return;
+  const rail = document.getElementById('report-rail');
+  if (!rail) return;
+  __reportRailWired = true;
+
+  // Briefly ring-highlight a control after we jump to its page, so the user can
+  // see where the rail took them.
+  const flash = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-2', 'dark:ring-offset-slate-900', 'rounded-lg');
+    setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-2', 'dark:ring-offset-slate-900', 'rounded-lg'), 2200);
+  };
+
+  rail.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-report]');
+    if (!btn) return;
+    const kind = btn.dataset.report;
+    if (kind === 'lot') {
+      // Lot Average Report opens as a modal — works from any page.
+      if (typeof openLotReport === 'function') openLotReport();
+    } else if (kind === 'scan') {
+      switchPage('inv-intel');
+      setTimeout(() => flash('inv-scan-controls'), 120);
+    } else if (kind === 'snapshot') {
+      switchPage('inv-intel');
+      setTimeout(() => flash('msnap-run'), 120);
+    } else if (kind === 'weekly') {
+      switchPage('profile');
+      setTimeout(() => flash('weekly-report-btn'), 120);
+    }
+  });
+}
+
 function updateAiDockVisibility() {
   const btn = document.getElementById('ai-dock-btn');
   const panel = document.getElementById('ai-dock-panel');
@@ -7154,6 +7208,7 @@ function openAiDock() {
   if (!p) return;
   p.classList.remove('hidden');
   document.getElementById('ai-dock-btn')?.classList.add('hidden');
+  updateReportRailVisibility();   // hide the reports rail while the chat covers the right edge
   renderAiDockMessages();
   setTimeout(() => document.getElementById('ai-dock-input')?.focus(), 50);
 }
@@ -7161,6 +7216,7 @@ function openAiDock() {
 function closeAiDock() {
   document.getElementById('ai-dock-panel')?.classList.add('hidden');
   updateAiDockVisibility();
+  updateReportRailVisibility();   // restore the reports rail
 }
 
 function initAiDock() {
