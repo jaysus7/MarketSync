@@ -580,15 +580,18 @@ export function registerRoutes(app) {
         if (availErr) warnings.inventory_available = availErr.message
         else inventoryAvailable = avail || 0
 
-        // Aged inventory: available cars on the lot more than 60 days
-        const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString()
-        const { count: aged, error: agedErr } = await supabaseAdmin
-          .from('inventory').select('id', { count: 'exact', head: true })
+        // Aged inventory: available cars on the lot more than 60 days. Age from the
+        // true lot date when the feed gave us one, else created_at (first-seen).
+        const sixtyDaysAgoMs = now.getTime() - 60 * 24 * 60 * 60 * 1000
+        const { data: availRows, error: agedErr } = await supabaseAdmin
+          .from('inventory').select('lot_date, created_at')
           .eq('dealership_id', req.dealershipId)
           .eq('status', 'available')
-          .lt('created_at', sixtyDaysAgo)
         if (agedErr) warnings.inventory_aged = agedErr.message
-        else inventoryAged60d = aged || 0
+        else inventoryAged60d = (availRows || []).filter(r => {
+          const ref = r.lot_date || r.created_at
+          return ref && new Date(ref).getTime() < sixtyDaysAgoMs
+        }).length
       }
     } catch (e) { warnings.inventory = e.message }
 

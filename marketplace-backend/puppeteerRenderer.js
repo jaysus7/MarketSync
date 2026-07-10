@@ -691,6 +691,14 @@ export function genericMapVehicle(v) {
     fueltype: pick('fuel_type', 'fuelType'),
     transmission: pick('transmission', 'vehicleTransmission'),
     drivetrain: pick('drivetrain', 'driveTrain', 'drive_train'),
+    lot_date: (() => {
+      const abs = pick('date_in_stock', 'dateInStock', 'in_stock_date', 'inStockDate', 'stock_date',
+        'stockDate', 'date_added', 'dateAdded', 'listing_date', 'listingDate', 'inventory_date')
+      if (abs) { const t = Date.parse(abs); if (Number.isFinite(t) && t > Date.parse('2000-01-01') && t <= Date.now() + 86400000) return new Date(t).toISOString() }
+      const daysRaw = pick('days_in_stock', 'daysInStock', 'days_on_lot', 'daysOnLot', 'age_days')
+      if (daysRaw != null) { const d = parseInt(String(daysRaw).replace(/[^0-9]/g, ''), 10); if (Number.isFinite(d) && d >= 0 && d < 3650) return new Date(Date.now() - d * 86400000).toISOString() }
+      return null
+    })(),
     onweb: v.active !== 'n' && v.active !== false,
     salepending: false,
     image_urls: s3Key

@@ -185,12 +185,12 @@ function median(sorted) {
 async function computeDailyDigest(dealershipId, isOwner = false) {
   const now = Date.now()
   const { data: inv } = await supabaseAdmin.from('inventory')
-    .select('id, price, image_urls, photo_score, created_at')
+    .select('id, price, image_urls, photo_score, created_at, lot_date')
     .eq('dealership_id', dealershipId).eq('status', 'available')
   const list = inv || []
   const total = list.length
   const photoCount = v => Array.isArray(v.image_urls) ? v.image_urls.filter(Boolean).length : 0
-  const aging = list.filter(v => v.created_at && (now - new Date(v.created_at)) > 60 * 86400000).length
+  const aging = list.filter(v => { const ref = v.lot_date || v.created_at; return ref && (now - new Date(ref)) > 60 * 86400000 }).length
   const lowPhotos = list.filter(v => photoCount(v) < 4 || (v.photo_score != null && v.photo_score < 50)).length
   const noPrice = list.filter(v => !v.price || Number(v.price) === 0).length
 
@@ -1511,7 +1511,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
 
     const { data: vehicles, error } = await supabaseAdmin
       .from('inventory')
-      .select('id, year, make, model, trim, price, mileage, condition, last_synced_at, created_at')
+      .select('id, year, make, model, trim, price, mileage, condition, last_synced_at, created_at, lot_date')
       .eq('dealership_id', req.dealershipId)
       .eq('status', 'available')
     if (error) return res.status(500).json({ error: error.message })
@@ -1520,10 +1520,10 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
     const suggestions = []
 
     for (const vehicle of vehicles || []) {
-      // Days on lot = time since the unit first appeared (created_at). last_synced_at
-      // is rewritten to "now" on every feed sync, so it can NEVER be used for aging —
-      // it would keep the count near 0 and nothing would ever flag.
-      const refDate = vehicle.created_at || vehicle.last_synced_at
+      // Days on lot = time since the unit landed (true lot_date when the feed gave
+      // one, else created_at = first-seen). last_synced_at is rewritten every sync,
+      // so it can NEVER be used for aging — it would keep the count near 0.
+      const refDate = vehicle.lot_date || vehicle.created_at || vehicle.last_synced_at
       const daysOnLot = refDate ? Math.floor((now - new Date(refDate).getTime()) / 86400000) : 0
       if (daysOnLot < days_on_lot_threshold) continue
       if (!vehicle.price || !vehicle.make || !vehicle.model) continue
@@ -2678,7 +2678,7 @@ Units 60d+ on lot: ${stale}`
       { data: soldRecent }
     ] = await Promise.all([
       supabaseAdmin.from('inventory')
-        .select('id, year, make, model, trim, price, condition, stocknumber, image_urls, last_synced_at, created_at, status')
+        .select('id, year, make, model, trim, price, condition, stocknumber, image_urls, last_synced_at, created_at, lot_date, status')
         .eq('dealership_id', dealershipId)
         .eq('status', 'available'),
       supabaseAdmin.from('ai_activity')
@@ -2712,9 +2712,10 @@ Units 60d+ on lot: ${stale}`
 
     const withDays = vehicles.map(v => ({
       ...v,
-      // Days on lot = time since the unit first appeared (created_at). last_synced_at
-      // is rewritten to "now" on every feed sync, so it can never measure age.
-      daysOnLot: Math.floor((now - new Date(v.created_at || v.last_synced_at).getTime()) / 86400000)
+      // Days on lot = time since the unit landed (true lot_date from the feed when
+      // present, else created_at = first-seen). last_synced_at is rewritten every
+      // sync, so it's only a last-ditch fallback and can never measure age.
+      daysOnLot: Math.floor((now - new Date(v.lot_date || v.created_at || v.last_synced_at).getTime()) / 86400000)
     }))
     const aging = withDays.filter(v => v.daysOnLot > 60).sort((a, b) => b.daysOnLot - a.daysOnLot)
     const slowMovers30 = withDays.filter(v => v.daysOnLot > 30 && v.daysOnLot <= 60).sort((a, b) => b.daysOnLot - a.daysOnLot)
@@ -3683,12 +3684,12 @@ Units 60d+ on lot: ${stale}`
     // Live snapshot the model answers from.
     const now = Date.now()
     const { data: inv } = await supabaseAdmin.from('inventory')
-      .select('price, mileage, year, make, model, image_urls, photo_score, created_at')
+      .select('price, mileage, year, make, model, image_urls, photo_score, created_at, lot_date')
       .eq('dealership_id', req.dealershipId).eq('status', 'available')
     const list = inv || []
     const total = list.length
     const photoCount = v => Array.isArray(v.image_urls) ? v.image_urls.filter(Boolean).length : 0
-    const aged = list.filter(v => v.created_at && (now - new Date(v.created_at)) > 60 * 86400000)
+    const aged = list.filter(v => { const ref = v.lot_date || v.created_at; return ref && (now - new Date(ref)) > 60 * 86400000 })
     const lowPhotos = list.filter(v => photoCount(v) < 4 || (v.photo_score != null && v.photo_score < 50)).length
     const noPrice = list.filter(v => !v.price || Number(v.price) === 0).length
     const priced = list.filter(v => Number(v.price) > 0).map(v => Number(v.price))

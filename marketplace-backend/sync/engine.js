@@ -554,6 +554,9 @@ async function _runInventorySyncInner(dealershipId) {
   status: isSold ? 'sold' : (isPending ? 'pending' : 'available'),
   archived_at: null,   // present in the feed → not archived (un-archives a relisted unit)
   last_synced_at: new Date().toISOString(),
+  // True lot/in-stock date when the feed provides one — aging uses COALESCE(lot_date,
+  // created_at). Only set when present so we never overwrite a good value with null.
+  ...(v.lot_date ? { lot_date: v.lot_date } : {}),
   // Tag the originating feed when the column exists → ON DELETE CASCADE removes
   // these rows automatically when the feed is deleted (omitted pre-migration).
   ...(hasFeedId ? { feed_id: feed.id } : {})

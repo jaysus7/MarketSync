@@ -28,7 +28,34 @@ const FIELD_ALIASES = {
   condition: ['condition', 'type', 'newused', 'new_used', 'stocktype', 'stock_type', 'vehicle_type', 'availability_type'],
   vdp_url: ['url', 'link', 'vdp', 'vdpurl', 'vdp_url', 'detailurl', 'detail_url', 'vehicle_url', 'vehicleurl', 'permalink'],
   image_field: ['image', 'images', 'imageurl', 'image_url', 'imageurls', 'image_urls', 'photo', 'photos',
-                'picture', 'pictures', 'image_link', 'imagelink', 'additional_image_link', 'photo_url', 'photourl']
+                'picture', 'pictures', 'image_link', 'imagelink', 'additional_image_link', 'photo_url', 'photourl'],
+  // True lot / in-stock date (absolute) — the day the car actually landed on the lot.
+  lot_date: ['date_in_stock', 'dateinstock', 'in_stock_date', 'instockdate', 'stock_date', 'stockdate',
+             'date_added', 'dateadded', 'listing_date', 'listingdate', 'inventory_date', 'date_on_lot',
+             'entry_date', 'date_in', 'datein', 'created_date', 'date_created', 'first_seen', 'inventory_date_added'],
+  // Relative age fallback (days on lot) — used to derive a lot date when no absolute date is given.
+  days_in_stock: ['days_in_stock', 'daysinstock', 'days_on_lot', 'daysonlot', 'age_in_days', 'age_days', 'dol']
+}
+
+// Resolve a true lot/in-stock date from a feed row: prefer an absolute date, else
+// derive from a "days on lot" count. Returns an ISO string or null.
+const parseLotDate = (row) => {
+  const abs = pick(row, FIELD_ALIASES.lot_date)
+  if (abs) {
+    const t = Date.parse(abs)
+    // Guard against garbage / epoch-0 / future-dated values.
+    if (Number.isFinite(t) && t > Date.parse('2000-01-01') && t <= Date.now() + 86400000) {
+      return new Date(t).toISOString()
+    }
+  }
+  const daysRaw = pick(row, FIELD_ALIASES.days_in_stock)
+  if (daysRaw != null) {
+    const d = parseInt(String(daysRaw).replace(/[^0-9]/g, ''), 10)
+    if (Number.isFinite(d) && d >= 0 && d < 3650) {
+      return new Date(Date.now() - d * 86400000).toISOString()
+    }
+  }
+  return null
 }
 
 const pick = (row, aliases) => {
@@ -91,6 +118,7 @@ export function mapFeedRow(rawRow) {
     demo: condition === 'Demo',
     vdp_url: pick(row, FIELD_ALIASES.vdp_url),
     image_urls: splitImages(pick(row, FIELD_ALIASES.image_field)),
+    lot_date: parseLotDate(row),
     onweb: true,
     salepending: false
   }
