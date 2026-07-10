@@ -9,6 +9,8 @@ import { autoDecodeInventory, autoCheckRecalls } from './vinDecode.js'
 import { runPhotoVision } from './photoVision.js'
 import { brandDealershipPhotos } from '../utils/photoOverlay.js'
 import { autoFetchOemStickers } from './oemStickers.js'
+import { getMarketData } from '../usage.js'
+import { marketcheckEnabled } from '../marketcheck.js'
 
 // Per-dealership in-flight sync tracking. Prevents the boot sync, the post-add
 // auto-sync, and a manual Sync Now click from all running for the same dealership
@@ -704,6 +706,47 @@ async function _runInventorySyncInner(dealershipId) {
   }
 }
 
+// Nightly market-comp refresh. Warms the shared 7-day MarketCheck cache for a
+// dealer's used inventory so that daytime reads (price reports, appraisals, AI
+// listing copy, card badges) are served from cache for $0 — live MarketCheck then
+// only ever happens here (nightly) or on an explicit button click. Bounded by the
+// 7-day cache + the dealer's MarketCheck caps, so most nights it costs little or
+// nothing. Best-effort: never throws. Set NIGHTLY_MARKET_REFRESH=0 to disable.
+async function refreshDealerMarketComps(dealershipId) {
+  try {
+    if (!marketcheckEnabled()) return 0
+    const { data: dealer } = await supabaseAdmin
+      .from('dealerships').select('inv_intel_active, country').eq('id', dealershipId).maybeSingle()
+    if (!dealer?.inv_intel_active) return 0   // Inventory Intelligence feature only
+
+    const c = (dealer.country || '').trim().toUpperCase()
+    const isUS = c === 'US' || c === 'USA' || c === 'UNITED STATES'
+    const yearNow = new Date().getFullYear()
+
+    const { data: vehicles } = await supabaseAdmin
+      .from('inventory').select('id, year, make, model, trim, mileage, price, condition')
+      .eq('dealership_id', dealershipId).eq('status', 'available')
+
+    let warmed = 0
+    for (const v of vehicles || []) {
+      // Skip new / demo / current-year / no-price units — no used-market comp set.
+      const cond = (v.condition || '').toLowerCase()
+      if (!v.price || !v.make || !v.model || !v.year) continue
+      if (cond === 'new' || cond === 'demo' || Number(v.year) >= yearNow) continue
+      const { cached } = await getMarketData({
+        dealershipId, isOwner: false, allowLive: true,
+        params: { make: v.make, model: v.model, year: Number(v.year), trim: v.trim || '', mileage: v.mileage ? Number(v.mileage) : null, isUS },
+      })
+      warmed++
+      if (!cached) await sleep(150)   // pace only the live (paid) calls
+    }
+    return warmed
+  } catch (e) {
+    console.warn(`[market-refresh] ${dealershipId} failed:`, e.message)
+    return 0
+  }
+}
+
 export async function syncAllDealerships(triggerLabel = 'scheduled') {
   const startedAt = new Date().toISOString()
   console.log(`[sync-all:${triggerLabel}] started at ${startedAt}`)
@@ -723,6 +766,12 @@ export async function syncAllDealerships(triggerLabel = 'scheduled') {
         `[sync-all:${triggerLabel}] ${d.name} (${d.id}):`,
         r.success ? `${r.unique_vehicles} unique, ${r.skipped} skipped` : r.error
       )
+      // Warm the MarketCheck cache for the freshly-synced lot so daytime reads are
+      // free and live calls stay confined to this nightly pass + button actions.
+      if (process.env.NIGHTLY_MARKET_REFRESH !== '0') {
+        const warmed = await refreshDealerMarketComps(d.id)
+        if (warmed) console.log(`[sync-all:${triggerLabel}] ${d.name}: warmed ${warmed} market comps`)
+      }
       results.push({ dealership_id: d.id, ...r })
     } catch (e) {
       console.error(`[sync-all:${triggerLabel}] ${d.id} threw:`, e.message)

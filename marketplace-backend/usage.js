@@ -144,14 +144,24 @@ export const ASSISTANT_DAILY_LIMIT = ASSISTANT_DAILY_CAP
  *   • cache hit  → { data, cached:true,  capped:false }  (free)
  *   • live call  → { data, cached:false, capped:false }  (counted)
  *   • over cap   → { data:null, cached:false, capped:true } (caller falls back)
+ *
+ * Live (paid) calls are gated by `allowLive`. It defaults to FALSE so passive /
+ * incidental reads (AI listing copy, card badges, etc.) only ever hit the cache
+ * and never spend. Live MarketCheck is reserved for the nightly comp refresh and
+ * explicit button actions (Scan All, Apply Rules, Appraise, Price Report), which
+ * pass allowLive:true. A cache miss with allowLive:false returns null so the
+ * caller falls back to its estimate — at $0.
  */
-export async function getMarketData({ dealershipId, isOwner = false, params }) {
+export async function getMarketData({ dealershipId, isOwner = false, params, allowLive = false }) {
   // No key configured → no live call to make or meter; let callers fall back.
   if (!marketcheckEnabled()) return { data: null, cached: false, capped: false }
 
   const sig = marketSignature(params)
   const hit = await getCache(sig)
   if (hit) return { data: hit, cached: true, capped: false }
+
+  // Cache miss on a passive read → do NOT make a paid call. Caller falls back.
+  if (!allowLive) return { data: null, cached: false, capped: false }
 
   if (!(await marketcheckAllowed(dealershipId, isOwner))) {
     return { data: null, cached: false, capped: true }

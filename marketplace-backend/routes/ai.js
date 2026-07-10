@@ -142,14 +142,14 @@ function aiErrorMessage(err) {
 
 // Market median for the inventory scan — MarketCheck only (licensed, trim-matched).
 // Returns { median, source, count }, or null when there's no key / no comps.
-async function marketMedianForScan({ vehicle, dealer, isUS, dealershipId, isOwner }) {
+async function marketMedianForScan({ vehicle, dealer, isUS, dealershipId, isOwner, allowLive = false }) {
   if (!marketcheckEnabled()) return null
   try {
     // Routed through the cost layer: served from the shared 7-day cache when
-    // possible, counted against the dealer's monthly quota otherwise, and skipped
-    // (returns null → caller falls back) once a soft cap or the global budget is hit.
+    // possible. A live (paid) call is only made when allowLive is set — the nightly
+    // refresh and button actions. Passive callers get cache-or-null (never spend).
     const { data: mc } = await getMarketData({
-      dealershipId, isOwner,
+      dealershipId, isOwner, allowLive,
       params: {
         make: vehicle.make, model: vehicle.model, year: Number(vehicle.year),
         trim: vehicle.trim || '', mileage: vehicle.mileage ? Number(vehicle.mileage) : null,
@@ -513,7 +513,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
             if (requiredFields.includes('description') && (!vehicle.description || vehicle.description.length < 20)) warnings.push('Description is missing or too short')
 
             if (!skipPriceComp(vehicle) && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
-              const mm = await marketMedianForScan({ vehicle, dealer, isUS: _syncIsUS, dealershipId: req.dealershipId, isOwner })
+              const mm = await marketMedianForScan({ vehicle, dealer, isUS: _syncIsUS, dealershipId: req.dealershipId, isOwner, allowLive: true })
               if (mm) price_flag = buildPriceFlag(vehicle.price, mm.median, mm.source, mm.count)
             }
           }
@@ -711,7 +711,7 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
     // Robust market value + the clean comp listings it was built from (charts/locations).
     // Cached + metered via the cost layer (shared with the scan & price report).
     const { data: market } = await getMarketData({
-      dealershipId: req.dealershipId, isOwner,
+      dealershipId: req.dealershipId, isOwner, allowLive: true,
       params: { make, model, year, trim, mileage, isUS },
     })
 
@@ -1080,17 +1080,17 @@ Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMar
       })
     }
 
-    // Serve the cached report if it's fresh (7 days) and the asking price hasn't
-    // changed. Reports cache for a week from generation; ?refresh=1 forces a rebuild.
-    const CACHE_DAYS = 7
+    // Serve the cached report if it's fresh (72 hours) and the asking price hasn't
+    // changed. Reports cache for 72h from generation; ?refresh=1 forces a rebuild.
+    const CACHE_HOURS = 72
     if (req.query.refresh !== '1') {
       const { data: cached } = await supabaseAdmin
         .from('price_reports').select('report, price_at_generation, generated_at')
         .eq('inventory_id', inventory_id).maybeSingle()
       if (cached) {
-        const ageDays = (Date.now() - new Date(cached.generated_at)) / 86400000
+        const ageHours = (Date.now() - new Date(cached.generated_at)) / 3600000
         const priceSame = cached.price_at_generation == null || Number(cached.price_at_generation) === Number(vehicle.price)
-        if (ageDays < CACHE_DAYS && priceSame) {
+        if (ageHours < CACHE_HOURS && priceSame) {
           return res.json({ ...cached.report, cached: true, generated_at: cached.generated_at })
         }
       }
@@ -1145,7 +1145,7 @@ Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMar
     if (marketcheckEnabled()) {
       const _prIsOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
       const { data: mc } = await getMarketData({
-        dealershipId: req.dealershipId, isOwner: _prIsOwner,
+        dealershipId: req.dealershipId, isOwner: _prIsOwner, allowLive: true,
         params: {
           make: vehicle.make, model: vehicle.model, year: Number(vehicle.year),
           trim: vehicle.trim || '', mileage: vehicleMileage, isUS,
@@ -1436,7 +1436,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
       // line with the store's own copies. Fall back to the internal-inventory median
       // when no market data is available.
       let med = null
-      const mm = await marketMedianForScan({ vehicle, dealer, isUS: _reIsUS, dealershipId: req.dealershipId, isOwner: (req.user.email || '').toLowerCase() === OWNER_EMAIL })
+      const mm = await marketMedianForScan({ vehicle, dealer, isUS: _reIsUS, dealershipId: req.dealershipId, isOwner: (req.user.email || '').toLowerCase() === OWNER_EMAIL, allowLive: true })
       if (mm?.median) med = mm.median
       if (!med) {
         const { data: comps } = await supabaseAdmin
