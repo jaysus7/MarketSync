@@ -713,7 +713,7 @@ function buildBrochureHtml(vehicle, dealer, branding, recalls, photosDataUris, l
   ${fontFaceCss()}
   *{margin:0;padding:0;box-sizing:border-box;overflow-wrap:break-word;word-break:break-word;}
   @page{size:Letter;margin:0;}
-  body{font-family:'Tinos','Georgia','Times New Roman',serif;width:816px;background:#fff;color:#1f2937;}
+  body{font-family:'Arimo','Arial',Helvetica,sans-serif;width:816px;background:#fff;color:#1f2937;}
   /* Each .page starts on a fresh sheet and takes only the height its content needs —
      no forced 1056px that would spill a long block onto a second sheet. Full-bleed
      colour pages (.full) fill the whole sheet. Every block is break-inside:avoid so a
@@ -746,7 +746,16 @@ function buildBrochureHtml(vehicle, dealer, branding, recalls, photosDataUris, l
   .ihdr{background:${primary};padding:32px 56px;}
   .ihdr .eyebrow{color:${secondary};}
   .ihdr h2{font-family:'Arimo','Arial',sans-serif;color:#fff;font-size:32px;font-weight:900;margin-top:8px;letter-spacing:-.5px;}
-  .icontent{padding:32px 56px 20px;}
+  .icontent{padding:34px 54px 34px;}
+  /* 2-column content helpers — every content page reads as columns that fill the width */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:22px 30px;align-items:start;}
+  .cards-2col{columns:2;column-gap:24px;}
+  .cards-2col > *{break-inside:avoid;}
+  .trim-inc{margin-top:2px;}
+  .trim-inc .ti-hdr{font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:${secondary};margin-bottom:10px;}
+  .trim-inc ul{list-style:none;}
+  .trim-inc li{font-size:14px;color:#374151;padding:5px 0 5px 20px;position:relative;line-height:1.4;border-bottom:1px solid #f1f3f7;}
+  .trim-inc li:before{content:'✓';position:absolute;left:0;color:${secondary};font-weight:900;}
 
   /* PAGE 2 — the build */
   .spec-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:26px;}
@@ -763,37 +772,36 @@ function buildBrochureHtml(vehicle, dealer, branding, recalls, photosDataUris, l
   .fe-big{font-family:'Arimo','Arial',sans-serif;font-size:20px;font-weight:900;color:#fff;margin-top:4px;}
   .fe-sm{font-family:'Arimo','Arial',sans-serif;font-size:12px;color:${secondary};margin-top:2px;}
   .fe-foot{font-family:'Arimo','Arial',sans-serif;font-size:10px;color:rgba(255,255,255,.6);margin-top:10px;}
-  .specsheet{columns:2;column-gap:36px;}
-  .sp{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #eef1f5;break-inside:avoid;}
-  .sp-l{font-family:'Arimo','Arial',sans-serif;font-size:12.5px;color:#64748b;}
-  .sp-v{font-family:'Arimo','Arial',sans-serif;font-size:12.5px;font-weight:700;color:${primary};text-align:right;}
+  .specsheet{columns:2;column-gap:40px;}
+  .sp{display:flex;justify-content:space-between;gap:12px;padding:8.5px 0;border-bottom:1px solid #eef1f5;break-inside:avoid;}
+  .sp-l{font-size:13px;color:#64748b;}
+  .sp-v{font-size:13px;font-weight:700;color:${primary};text-align:right;}
 
   /* PAGE 3 — this vehicle */
   .hl-photo{height:300px;background:${primary};margin-bottom:28px;border-radius:8px;overflow:hidden;}
   .hl-photo img{width:100%;height:100%;object-fit:cover;}
-  .hl-para{font-size:19px;line-height:1.8;color:#374151;margin-bottom:20px;}
+  .hl-para{font-size:15px;line-height:1.65;color:#374151;margin-bottom:14px;}
 
   /* PAGE 4 — trims */
   .lineup-intro{font-size:17px;line-height:1.7;color:#374151;margin-bottom:8px;}
   .lifestyle{font-size:15px;line-height:1.6;color:#6b7280;font-style:italic;margin-bottom:22px;}
-  .trimcard{border:1px solid #e5e7eb;border-left:4px solid #e5e7eb;border-radius:6px;padding:14px 18px;margin-bottom:14px;break-inside:avoid;}
+  .trimcard{border:1px solid #e5e7eb;border-left:4px solid #e5e7eb;border-radius:6px;padding:13px 15px;margin-bottom:16px;break-inside:avoid;}
   .trimcard.mine{border-color:${secondary};border-left-color:${secondary};background:${secondary}0f;}
-  .trimcard-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;}
-  .trimcard h3{font-family:'Arimo','Arial',sans-serif;font-size:20px;font-weight:800;color:${primary};}
-  .trim-msrp{font-family:'Arimo','Arial',sans-serif;font-size:14px;font-weight:800;color:${primary};margin-left:auto;}
-  .trim-badge{font-family:'Arimo','Arial',sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;background:${secondary};color:#fff;padding:2px 8px;border-radius:99px;}
-  .trim-sum{font-size:15px;line-height:1.55;color:#4b5563;margin-bottom:6px;}
-  .trim-feats{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:2px 18px;}
-  .trim-feats li{font-family:'Arimo','Arial',sans-serif;font-size:12.5px;color:#374151;padding-left:14px;position:relative;line-height:1.5;}
+  .trimcard-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;}
+  .trimcard h3{font-size:17px;font-weight:800;color:${primary};}
+  .trim-msrp{font-size:12.5px;font-weight:800;color:${primary};margin-left:auto;}
+  .trim-badge{font-size:9.5px;font-weight:800;letter-spacing:1px;background:${secondary};color:#fff;padding:2px 7px;border-radius:99px;}
+  .trim-sum{font-size:12.5px;line-height:1.5;color:#4b5563;margin-bottom:5px;}
+  .trim-feats{list-style:none;}
+  .trim-feats li{font-size:12.5px;color:#374151;padding-left:14px;position:relative;line-height:1.55;}
   .trim-feats li:before{content:'✓';position:absolute;left:0;color:${secondary};font-weight:900;}
 
   /* PAGE 5 — packages */
-  .pkg{border-top:2px solid #eee;padding:13px 0;break-inside:avoid;}
-  .pkg:first-child{border-top:3px solid ${secondary};}
-  .pkg-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
-  .pkg h4{font-family:'Arimo','Arial',sans-serif;font-size:17px;font-weight:800;color:${primary};}
-  .pkg-av{font-family:'Arimo','Arial',sans-serif;font-size:11px;color:#94a3b8;margin-left:auto;}
-  .pkg p{font-size:14.5px;line-height:1.55;color:#4b5563;margin-top:4px;}
+  .pkg{border:1px solid #e5e7eb;border-left:4px solid ${secondary};border-radius:6px;padding:12px 16px;margin-bottom:16px;break-inside:avoid;}
+  .pkg-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:2px;}
+  .pkg h4{font-size:16px;font-weight:800;color:${primary};}
+  .pkg-av{font-size:10.5px;color:#94a3b8;margin-left:auto;}
+  .pkg p{font-size:13px;line-height:1.5;color:#4b5563;margin-top:3px;}
 
   /* PAGE 6 — dealership */
   .d-page{align-items:stretch;}
@@ -833,10 +841,20 @@ function buildBrochureHtml(vehicle, dealer, branding, recalls, photosDataUris, l
     <div class="spec-row">
       ${specTile('Our Price', price)}
       ${msrp ? specTile('MSRP', String(msrp).replace(/\s*\(approx\.?\)/i, '')) : specTile('Mileage', mileage)}
+      ${specTile('Mileage', mileage)}
+    </div>
+    <div class="spec-row">
       ${specTile(vehicle.vin_data?.electrification ? 'Powertrain' : 'Drivetrain', vehicle.vin_data?.electrification || vehicle.drivetrain)}
+      ${specTile('Engine', vehicle.engine)}
+      ${specTile('Transmission', vehicle.transmission || (vehicle.vin_data?.transmission_speeds ? `${vehicle.vin_data.transmission_speeds}-Speed` : null))}
     </div>
     ${feHtml}
-    ${highlight.length ? `<div class="sect-lbl">About This Vehicle</div>${highlight.map(p => `<p class="hl-para">${esc(p)}</p>`).join('')}` : ''}
+    <div class="two-col">
+      ${highlight.length ? `<div><div class="sect-lbl">About This Vehicle</div>${highlight.map(p => `<p class="hl-para">${esc(p)}</p>`).join('')}</div>` : '<div></div>'}
+      ${myTrimObj && Array.isArray(myTrimObj.features) && myTrimObj.features.length
+        ? `<div class="trim-inc"><div class="ti-hdr">Your ${esc(myTrimObj.name || trim || 'Trim')} Includes</div><ul>${myTrimObj.features.slice(0, 12).map(f => `<li>${esc(f)}</li>`).join('')}</ul></div>`
+        : ''}
+    </div>
   </div>
 </div>
 
@@ -855,7 +873,7 @@ ${specTrims.length ? `
   <div class="icontent">
     ${specs?.model_intro ? `<p class="lineup-intro">${esc(specs.model_intro)}</p>` : ''}
     ${specs?.lifestyle ? `<p class="lifestyle">${esc(specs.lifestyle)}</p>` : ''}
-    ${trimsHtml}
+    <div class="cards-2col">${trimsHtml}</div>
   </div>
 </div>` : ''}
 
@@ -864,7 +882,7 @@ ${pkgs.length ? `
 <div class="page">
   <div class="ihdr"><span class="eyebrow">Packages &amp; Options</span><h2>Available on the ${esc([vehicle.make, vehicle.model].filter(Boolean).join(' '))}</h2></div>
   <div class="icontent">
-    ${pkgsHtml}
+    <div class="cards-2col">${pkgsHtml}</div>
   </div>
 </div>` : ''}
 
