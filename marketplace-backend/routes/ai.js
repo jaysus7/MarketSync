@@ -776,7 +776,7 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
     // Sensitivity ≈ the share of value explained by mileage across the useful-life
     // window; tunable via env so we can calibrate against real book values.
     const REF_DIST = isUS ? 125000 : 200000            // useful-life window (mi / km)
-    const MILEAGE_SENS = Number(process.env.APPRAISE_MILEAGE_SENS || 0.35)
+    const MILEAGE_SENS = Number(process.env.APPRAISE_MILEAGE_SENS || 0.5)
     let mileageAdj = 0
     if (mileage > 0 && compMiles > 0) {
       const ratePerDist = (compMedian * MILEAGE_SENS) / REF_DIST
@@ -791,10 +791,25 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
     // for (and lines up with the trade books the customer is checking).
     const REALISM = Number(process.env.APPRAISE_MARKET_REALISM || 0.04)
     const realismCut = Math.round(mileageAdjusted * REALISM)
-    const retailMid = Math.max(0, mileageAdjusted - realismCut)
+    const retailMid = Math.max(0, mileageAdjusted - realismCut)   // realistic retail value
 
-    const suggestedOffer = Math.max(0, retailMid - recon - targetGross)
-    const grossPct = retailMid > 0 ? Math.round((targetGross / retailMid) * 1000) / 10 : null
+    // (3) Retail → trade. THIS is the big one. A used car's trade / wholesale value
+    // (its ACV) is a PROPORTION of retail, not retail minus a flat gross — the
+    // dealer's margin scales with the car. Anchoring the offer at retail − recon −
+    // $2.5k gross left it near 85% of retail; real trade values run ~60–75%. We now
+    // compute a market trade value (compare this to AutoTrader's "what's my car
+    // worth"), then the rep's offer sits below it by recon + their target gross.
+    // Ratio is tunable per-appraisal (trade_pct) and globally (APPRAISE_TRADE_RATIO).
+    const tradeRatio = (() => {
+      const p = Number(b.trade_pct)
+      if (Number.isFinite(p) && p > 0) return Math.min(1, p > 1 ? p / 100 : p)
+      const env = Number(process.env.APPRAISE_TRADE_RATIO)
+      return Number.isFinite(env) && env > 0 ? Math.min(1, env) : 0.72
+    })()
+    const tradeValue = Math.round(retailMid * tradeRatio)          // market ACV / trade value
+    const suggestedOffer = Math.max(0, tradeValue - recon - targetGross)
+    // Effective gross = the full spread between retail and what we pay.
+    const grossPct = retailMid > 0 ? Math.round(((retailMid - suggestedOffer) / retailMid) * 1000) / 10 : null
     // Offer as a % of retail market value (vAuto-style "% to market").
     const pctToMarket = retailMid > 0 ? Math.round((suggestedOffer / retailMid) * 100) : null
 
@@ -819,7 +834,8 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
 Vehicle: ${year} ${make} ${model}${trim ? ' ' + trim : ''}${mileage ? `, ${mileage.toLocaleString()} ${du}` : ''}.
 Retail market from ${market.count} comparable listings: asking median ${cur} $${compMedian.toLocaleString()}, range $${(market.low_price || compMedian).toLocaleString()}–$${(market.high_price || compMedian).toLocaleString()}. ${mileVsMarket}
 Adjusted retail value for this vehicle: ${cur} $${retailMid.toLocaleString()}.
-Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMarket}% of retail — after ${cur} $${recon.toLocaleString()} reconditioning and a ${cur} $${targetGross.toLocaleString()} target gross.`
+Market trade value (ACV): ${cur} $${tradeValue.toLocaleString()} — about ${Math.round(tradeRatio * 100)}% of retail, in line with trade-value tools.
+Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — after ${cur} $${recon.toLocaleString()} reconditioning and a ${cur} $${targetGross.toLocaleString()} target gross.`
         const msg = await Promise.race([
           anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 220, messages: [{ role: 'user', content: prompt }] }),
           new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 20000)),
@@ -853,12 +869,14 @@ Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMar
       appraisal: {
         suggested_offer: suggestedOffer,
         retail_mid: retailMid,
+        trade_value: tradeValue,               // market ACV — compare to AutoTrader
+        trade_ratio: Math.round(tradeRatio * 1000) / 10,
         recon,
         target_gross: targetGross,
         gross_pct: grossPct,
         pct_to_market: pctToMarket,
         ai_summary,
-        // Transparent value bridge: comp asking median → adjusted retail value.
+        // Transparent value bridge: comp asking median → adjusted retail → trade → offer.
         adjustments: {
           comp_median: compMedian,
           subject_mileage: mileage || null,
@@ -867,6 +885,10 @@ Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMar
           market_realism_pct: Math.round(REALISM * 1000) / 10,
           market_realism_amount: -realismCut,
           retail_value: retailMid,
+          trade_ratio_pct: Math.round(tradeRatio * 1000) / 10,
+          trade_value: tradeValue,
+          recon: -recon,
+          target_gross: -targetGross,
         },
       },
       // MarketCheck model-comparable predicted retail + confidence band (or null).

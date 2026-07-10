@@ -622,6 +622,7 @@ function initAppraisal() {
       drivetrain: ($('appr-drivetrain')?.value || '').trim() || (__apprDecodedSpecs?.drivetrain || ''),
       engine: ($('appr-engine')?.value || '').trim() || (__apprDecodedSpecs?.engine || ''),
       radius: $('appr-radius')?.value ?? '',
+      trade_pct: num('appr-trade-pct'),
     };
     if (!body.year || !body.make || !body.model) { showToast('Year, make and model are required', 'error'); return; }
     const orig = runBtn.textContent;
@@ -676,7 +677,7 @@ function renderAppraisal(d) {
             <div class="text-xs font-bold uppercase tracking-wider text-indigo-200">Suggested trade / cash offer</div>
             <div class="flex items-center gap-2 mt-1 flex-wrap">
               <div class="text-3xl font-black">${money(ap.suggested_offer)} <span class="text-base font-semibold text-indigo-200">${cur}</span></div>
-              ${ap.pct_to_market != null ? `<span class="text-[11px] font-bold bg-white/15 rounded-full px-2 py-0.5">${ap.pct_to_market}% of market</span>` : ''}
+              ${ap.trade_value != null ? `<span class="text-[11px] font-bold bg-white/15 rounded-full px-2 py-0.5">Trade value ${money(ap.trade_value)}</span>` : ''}
             </div>
           </div>
           <button onclick="generateAppraisalPdf()" class="flex-shrink-0 flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-bold px-3 py-2 rounded-lg transition">
@@ -684,7 +685,7 @@ function renderAppraisal(d) {
             PDF
           </button>
         </div>
-        <div class="text-xs text-indigo-100 mt-2">Retail ${money(ap.retail_mid)} − recon ${money(ap.recon)} − gross ${money(ap.target_gross)}${ap.gross_pct != null ? ` (${ap.gross_pct}%)` : ''}</div>
+        <div class="text-xs text-indigo-100 mt-2">Trade value ${money(ap.trade_value)} − recon ${money(ap.recon)} − gross ${money(ap.target_gross)} = your offer${ap.pct_to_market != null ? ` · ${ap.pct_to_market}% of retail` : ''}</div>
       </div>
       ${ap.adjustments ? (() => {
         const adj = ap.adjustments;
@@ -710,10 +711,24 @@ function renderAppraisal(d) {
             </div>`).join('')}
             <div class="flex items-center justify-between gap-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-1.5 mt-1.5">
               <div class="font-bold text-slate-900 dark:text-white">Adjusted retail value</div>
-              <div class="font-black tabular-nums text-indigo-600 dark:text-indigo-400">${money(adj.retail_value)}</div>
+              <div class="font-black tabular-nums text-slate-900 dark:text-white">${money(adj.retail_value)}</div>
+            </div>
+            ${adj.trade_value != null ? `<div class="flex items-center justify-between gap-3 text-sm">
+              <div class="min-w-0"><span class="text-slate-700 dark:text-slate-200">Retail → trade${adj.trade_ratio_pct != null ? ` (${adj.trade_ratio_pct}% of retail)` : ''}</span><span class="text-[11px] text-slate-400 ml-1.5">wholesale spread</span></div>
+              <div class="font-bold tabular-nums flex-shrink-0 text-rose-500">−${money(adj.retail_value - adj.trade_value)}</div>
+            </div>
+            <div class="flex items-center justify-between gap-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-1.5 mt-1.5">
+              <div class="font-bold text-slate-900 dark:text-white">Market trade value <span class="text-[11px] font-medium text-slate-400">(compare to AutoTrader)</span></div>
+              <div class="font-black tabular-nums text-indigo-600 dark:text-indigo-400">${money(adj.trade_value)}</div>
+            </div>` : ''}
+            ${adj.recon ? `<div class="flex items-center justify-between gap-3 text-sm"><div class="text-slate-700 dark:text-slate-200">Reconditioning</div><div class="font-bold tabular-nums text-rose-500">−${money(Math.abs(adj.recon))}</div></div>` : ''}
+            ${adj.target_gross ? `<div class="flex items-center justify-between gap-3 text-sm"><div class="text-slate-700 dark:text-slate-200">Target gross</div><div class="font-bold tabular-nums text-rose-500">−${money(Math.abs(adj.target_gross))}</div></div>` : ''}
+            <div class="flex items-center justify-between gap-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-1.5 mt-1.5">
+              <div class="font-bold text-slate-900 dark:text-white">Suggested offer</div>
+              <div class="font-black tabular-nums text-emerald-600 dark:text-emerald-400">${money(ap.suggested_offer)}</div>
             </div>
           </div>
-          <div class="text-[11px] text-slate-400 mt-2">Adjusts the market's asking prices for this vehicle's actual odometer and the gap between asking and selling — so it lines up with trade-book values like AutoTrader.</div>
+          <div class="text-[11px] text-slate-400 mt-2">Adjusts the market's asking prices for this vehicle's odometer and the ask→sell gap to get retail value, then applies the retail→trade spread so the trade value lines up with tools like AutoTrader. Tune the trade % on the form.</div>
         </div>`;
       })() : ''}
       ${d.prediction ? `<div class="bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900 rounded-xl p-4">
@@ -872,10 +887,15 @@ function generateAppraisalPdf() {
       if (adj.market_realism_amount) out += row('Ask → sold market adjustment (' + adj.market_realism_pct + '%)', signed(adj.market_realism_amount));
       out += '<tr><td colspan="2"><div style="border-top:1px solid #e2e8f0;margin:4px 0"></div></td></tr>';
       out += row('Adjusted retail value', money(ap.retail_mid), true);
+      if (adj.trade_value != null) {
+        out += row('− Retail → trade spread' + (adj.trade_ratio_pct != null ? ' (trade = ' + adj.trade_ratio_pct + '% of retail)' : ''), '−' + money(adj.retail_value - adj.trade_value));
+        out += '<tr><td colspan="2"><div style="border-top:1px solid #e2e8f0;margin:4px 0"></div></td></tr>';
+        out += row('Market trade value', money(adj.trade_value), true);
+      }
       return out;
     })()}
     ${row('− Reconditioning', '−' + money(ap.recon))}
-    ${row('− Target gross' + (ap.gross_pct != null ? ' (' + ap.gross_pct + '%)' : ''), '−' + money(ap.target_gross))}
+    ${row('− Target gross', '−' + money(ap.target_gross))}
     <tr><td colspan="2"><div style="border-top:1px solid #e2e8f0;margin:4px 0"></div></td></tr>
     ${row('Suggested offer', money(ap.suggested_offer), true)}
     ${ap.pct_to_market != null ? row('Offer as % of retail market', ap.pct_to_market + '%') : ''}
