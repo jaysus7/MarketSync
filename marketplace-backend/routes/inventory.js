@@ -1,8 +1,47 @@
-import { supabaseAdmin } from '../shared.js'
+import { supabaseAdmin, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { runInventorySync, syncProgress } from '../sync/engine.js'
 
+// Pull the Carfax report link the dealer already embeds on a listing page (their
+// paid Carfax badge). Returns the best-matching absolute carfax URL, or null.
+function extractCarfaxLink(html, vin) {
+  const hrefs = [...html.matchAll(/href\s*=\s*["']([^"']+)["']/gi)].map(m => m[1].replace(/&amp;/g, '&'))
+  const carfax = hrefs.filter(u =>
+    /carfax/i.test(u) && /^https?:\/\//i.test(u) && !/\.(png|jpe?g|svg|gif|css|js)(\?|#|$)/i.test(u))
+  if (!carfax.length) return null
+  const vinU = (vin || '').toUpperCase()
+  const score = u => (vinU && u.toUpperCase().includes(vinU) ? 10 : 0) + (/vhr|report|vehicle-history/i.test(u) ? 3 : 0)
+  return carfax.sort((a, b) => score(b) - score(a))[0]
+}
+
 export function registerRoutes(app) {
+  // GET /inventory/:id/carfax — resolve the Carfax report link for a vehicle by
+  // scraping the badge off its source listing page (cached after first hit).
+  app.get('/inventory/:id/carfax', requireAuth, async (req, res) => {
+    const { data: v } = await supabaseAdmin.from('inventory')
+      .select('id, vin, source_url, carfax_url')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!v) return res.status(404).json({ error: 'Not found' })
+    if (v.carfax_url) return res.json({ url: v.carfax_url, source: 'cached' })
+
+    let found = null
+    if (v.source_url) {
+      try {
+        const r = await browserFetch(v.source_url)
+        if (r.ok) found = extractCarfaxLink(await r.text(), v.vin)
+      } catch { /* fall through to fallback */ }
+    }
+    if (found) {
+      await supabaseAdmin.from('inventory').update({ carfax_url: found }).eq('id', v.id)
+      return res.json({ url: found, source: 'website' })
+    }
+    // No badge found on the page — fall back to a Carfax Canada VIN search.
+    const fallback = v.vin
+      ? `https://www.carfax.ca/vehicle-history-reports?vin=${encodeURIComponent(v.vin)}`
+      : 'https://www.carfax.ca/'
+    res.json({ url: fallback, source: 'fallback' })
+  })
+
   // ── 6. INVENTORY ──
   app.get('/inventory', requireAuth, async (req, res) => {
     const { data, error } = await supabaseAdmin

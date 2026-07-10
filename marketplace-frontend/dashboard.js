@@ -2959,6 +2959,22 @@ function showSyncStatus(text, kind) {
 let __catalogCache = [];
 let __marketPositions = {};   // inventory_id → market median (Inventory Intelligence)
 
+// Carfax: open the dealer's embedded Carfax report for this VIN (scraped from the
+// vehicle's listing page + cached), falling back to a Carfax Canada VIN search.
+async function openCarfax(id, vin) {
+  const w = window.open('about:blank', '_blank');
+  const fallback = vin ? `${CARFAX_BASE}${encodeURIComponent(vin)}` : 'https://www.carfax.ca/';
+  try {
+    const r = await fetch(`${API}/inventory/${id}/carfax`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const d = await r.json().catch(() => ({}));
+    const url = d.url || fallback;
+    if (w) w.location.href = url; else window.open(url, '_blank', 'noopener');
+    if (d.source === 'fallback') showToast('No Carfax badge on that listing — opened a Carfax search instead.', 'info');
+  } catch {
+    if (w) w.location.href = fallback; else window.open(fallback, '_blank', 'noopener');
+  }
+}
+
 async function loadInventoryCatalog() {
   const list = document.getElementById('catalog-list');
   list.innerHTML = '<div class="text-xs text-slate-500 italic col-span-full">Loading catalog...</div>';
@@ -3136,7 +3152,7 @@ function renderCatalog() {
             <svg viewBox="0 0 24 24" width="11" height="11" class="flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#ffffff" fill-opacity="0.35" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round"/></svg>
             Write with AI
           </button>
-          ${v.vin ? `<a href="${CARFAX_BASE}${encodeURIComponent(v.vin)}" target="_blank" rel="noopener" class="text-[10px] font-black px-2 py-1 rounded transition bg-[#0a1e3f] hover:bg-[#122a52] text-white flex items-center gap-1 tracking-tight" title="View the Carfax Canada report for this VIN">CARFAX<span class="text-red-500 leading-none">🍁</span></a>` : ''}
+          ${v.vin ? `<button type="button" onclick="event.stopPropagation();openCarfax('${v.id}','${v.vin}')" class="text-[10px] font-black px-2 py-1 rounded transition bg-[#0a1e3f] hover:bg-[#122a52] text-white flex items-center gap-1 tracking-tight" title="Pull the Carfax report for this VIN">CARFAX<span class="text-red-500 leading-none">🍁</span></button>` : ''}
         </div>
         ${__vinStickerActive ? (() => {
           // Recall status + VIN/sticker/brochure actions live on the card for
