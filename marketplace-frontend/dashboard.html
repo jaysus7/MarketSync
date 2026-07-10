@@ -1691,6 +1691,10 @@
           <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Live retail market value + a suggested cash/trade offer, powered by MarketCheck. Enter a VIN to auto-fill, or type it in.</p>
         </div>
 
+        <!-- Two-column layout: appraisal flow on the left, Appraisals list pinned right -->
+        <div class="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div class="space-y-6 min-w-0">
+
         <!-- Card: standalone VIN decode report — opens the full specs & recall modal -->
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
           <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Decode VIN report <span class="normal-case font-normal text-slate-400">(view full specs &amp; recalls — opens a report, doesn't change the fields)</span></label>
@@ -1747,16 +1751,24 @@
             <span class="text-xs text-slate-500 dark:text-slate-400">— fill in, save, and print a Customer Summary or Disclosure</span>
           </div>
 
-          <!-- Salesperson + disposition -->
-          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Salesperson</label>
-              <div id="appr-salesperson" class="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-semibold text-slate-800 dark:text-slate-100">—</div>
-              <p class="text-[11px] text-slate-400 mt-1">Automatically attached from your login.</p>
+          <!-- Salesperson + Notify Appraiser + disposition -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Salesperson</label>
+                <input id="appr-salesperson-input" placeholder="Salesperson name" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                <p class="text-[11px] text-slate-400 mt-1">Prefilled from your login — edit if a different rep handled it.</p>
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Notify Appraiser <span class="normal-case font-normal text-slate-400">(managers alerted on save)</span></label>
+                <div id="appr-notify-list" class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-slate-700 dark:text-slate-200">
+                  <div class="text-xs text-slate-400 italic col-span-full">Loading managers…</div>
+                </div>
+              </div>
             </div>
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Disposition</label>
-              <div class="flex gap-2">
+              <div class="flex gap-2 max-w-md">
                 <label class="flex-1 flex items-center justify-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-950/40">
                   <input type="radio" name="appr-disposition" value="retail" checked class="accent-indigo-600"> Retail
                 </label>
@@ -1778,17 +1790,6 @@
               <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Email</label><input id="cust-email" inputmode="email" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
               <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Postal / ZIP</label><input id="cust-postal" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
               <div class="sm:col-span-2"><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Address</label><input id="cust-address" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
-            </div>
-          </div>
-
-          <!-- Notify Appraiser -->
-          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-            <div class="flex items-center gap-2 mb-2">
-              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Notify Appraiser</h4>
-              <span class="text-xs text-slate-400">— alerts the selected managers when you save</span>
-            </div>
-            <div id="appr-notify-list" class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm text-slate-700 dark:text-slate-200">
-              <div class="text-xs text-slate-400 italic col-span-full">Loading managers…</div>
             </div>
           </div>
 
@@ -1823,9 +1824,10 @@
           </div>
           <div id="appr-deal-msg" class="hidden text-sm rounded-lg px-3 py-2"></div>
         </div>
+          </div><!-- /left column -->
 
-        <!-- ── Appraisals list (team-wide, filterable) ──────────────────────── -->
-        <div class="space-y-3 pt-2">
+          <!-- ── Appraisals list — pinned right sidebar on this page ──────────── -->
+          <aside class="space-y-3 lg:sticky lg:top-2 self-start">
           <div class="flex items-center gap-2">
             <span class="w-1.5 h-4 rounded-full bg-slate-400 flex-shrink-0"></span>
             <h3 class="text-base font-bold text-slate-900 dark:text-white">Appraisals</h3>
@@ -1837,9 +1839,10 @@
               <select id="appr-list-salesperson" class="hidden w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">All salespeople</option></select>
               <select id="appr-list-disposition" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">All dispositions</option><option value="retail">Retail</option><option value="wholesale">Wholesale</option></select>
             </div>
-            <div id="appr-list" class="divide-y divide-slate-100 dark:divide-slate-800"><div class="text-xs text-slate-400 italic py-4">Loading…</div></div>
+            <div id="appr-list" class="divide-y divide-slate-100 dark:divide-slate-800 lg:max-h-[60vh] lg:overflow-y-auto"><div class="text-xs text-slate-400 italic py-4">Loading…</div></div>
           </div>
-        </div>
+          </aside>
+        </div><!-- /appraisal grid -->
       </div><!-- /appraisal page -->
 
       <!-- ── Sales Pipeline Page ──────────────────────────────────────────── -->
@@ -2325,7 +2328,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260710k"></script>
+  <script src="dashboard.js?v=20260710l"></script>
   <script src="tour.js"></script>
   <script src="table-sort.js?v=20260706a"></script>
 </body>

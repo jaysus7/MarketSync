@@ -795,7 +795,7 @@ Suggested trade offer: ${cur} $${suggestedOffer.toLocaleString()} — ${pctToMar
     const row = {
       dealership_id: req.dealershipId,
       created_by: req.user.id,
-      salesperson_name: req.profile?.full_name || req.user.email || null,
+      salesperson_name: (b.salesperson_name && String(b.salesperson_name).trim()) || req.profile?.full_name || req.user.email || null,
       vin: v.vin ? String(v.vin).trim().toUpperCase().slice(0, 17) : null,
       year: v.year ? (parseInt(v.year) || null) : null,
       make: v.make || null, model: v.model || null, trim: v.trim || null,

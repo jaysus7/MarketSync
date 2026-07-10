@@ -7319,8 +7319,8 @@ function apprDiscAns(item, q) {
 
 let __apprDealWired = false;
 function initApprDeal() {
-  const sp = document.getElementById('appr-salesperson');
-  if (sp) sp.textContent = (typeof profileContext !== 'undefined' && profileContext?.full_name) ? profileContext.full_name : (profileContext?.email || 'You');
+  const sp = document.getElementById('appr-salesperson-input');
+  if (sp && !sp.value) sp.value = (typeof profileContext !== 'undefined' && profileContext?.full_name) ? profileContext.full_name : (profileContext?.email || '');
 
   const fWrap = document.getElementById('appr-features');
   if (fWrap && !fWrap.children.length) {
@@ -7409,6 +7409,7 @@ async function apprSaveDeal() {
     currency: __apprData?.currency || null,
     disposition: deal.disposition, customer: deal.customer, disclosure: deal.disclosure,
     notify,
+    salesperson_name: (document.getElementById('appr-salesperson-input')?.value || '').trim() || null,
   };
   if (!payload.vehicle.make || !payload.vehicle.model) { apprDealMsg('Add at least the vehicle make and model (or run an appraisal) before saving.', 'error'); return; }
   btn.disabled = true; const t = btn.textContent; btn.textContent = 'Saving…';
@@ -7461,9 +7462,10 @@ function apprDealMeta() {
   const custName = [cust.first_name, cust.last_name].filter(Boolean).join(' ') || '—';
   const today = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
   const dealer = (typeof profileContext !== 'undefined' && profileContext?.dealership?.name) || 'Dealership';
-  // Salesperson = the deal's own salesperson (record creator when loaded), else the
-  // logged-in user's name — NOT the header display name.
-  const sales = __apprSalesperson || (profileContext?.full_name) || (profileContext?.email) || '—';
+  // Salesperson = whatever's in the (editable) salesperson field, else the loaded
+  // record's salesperson, else the logged-in user's name.
+  const sales = (document.getElementById('appr-salesperson-input')?.value || '').trim()
+    || __apprSalesperson || (profileContext?.full_name) || (profileContext?.email) || '—';
   const vlabel = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle';
   const info = __apprDealerInfo || {};
   const dealerAddr = [info.city, info.province, info.postal_code].filter(Boolean).join(', ');
@@ -7709,6 +7711,8 @@ async function loadAppraisalRecord(id) {
     setv('disc-notes', disc.notes || '');
     __apprDealId = row.id;
     __apprSalesperson = row.salesperson_name || null;  // print the record's salesperson, not the viewer
+    const spEl = document.getElementById('appr-salesperson-input');
+    if (spEl) spEl.value = row.salesperson_name || '';
     __apprData = row.appraisal ? {
       vehicle: { vin: row.vin, year: row.year, make: row.make, model: row.model, trim: row.trim, mileage: row.mileage, engine: row.engine, transmission: row.transmission, drivetrain: row.drivetrain, body_type: row.body_type, fuel_type: row.fuel_type },
       appraisal: row.appraisal, currency: row.currency, distance_unit: row.currency === 'USD' ? 'mi' : 'km',
