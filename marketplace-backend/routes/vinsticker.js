@@ -72,11 +72,38 @@ Notable: ${(vehicle.description || '').slice(0, 400) || 'well-equipped'}.`
   } catch { return null }
 }
 
-function buildWindowStickerHtml(vehicle, dealer, branding, recalls, photoDataUris, logoDataUri, blurb) {
+function buildWindowStickerHtml(vehicle, dealer, branding, recalls, photoDataUris, logoDataUri, blurb, specs) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
   const photoDataUri = Array.isArray(photoDataUris) ? photoDataUris[0] : photoDataUris
   const allPhotos = (Array.isArray(photoDataUris) ? photoDataUris : [photoDataUri]).filter(Boolean)
   const primary   = branding.primary_color   || '#003087'
   const secondary = branding.secondary_color || '#c9a84c'
+  const isUS = /^(US|USA|UNITED STATES)$/.test((dealer?.country || '').trim().toUpperCase())
+
+  // ── Cached model research: MSRP for this trim, options/packages, fuel economy ──
+  const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const myNorm = norm(vehicle.trim)
+  const specTrims = Array.isArray(specs?.trims) ? specs.trims : []
+  const myTrimObj = specTrims.find(t => { const n = norm(t.name); return myNorm && n && (n.includes(myNorm) || myNorm.includes(n)) }) || null
+  const msrpClean = myTrimObj?.msrp ? String(myTrimObj.msrp).replace(/\s*\(approx\.?\)/i, '') : null
+  const pkgs = Array.isArray(specs?.packages) ? specs.packages : []
+  const optRows = pkgs.slice(0, 6)
+    .map(p => `<div class="opt-row"><span>${esc(p.name || '')}</span><b>${esc((p.availability || '').replace(/^available on\s*/i, '').trim() || 'Avail.')}</b></div>`).join('')
+  const feCells = (() => {
+    const fe = specs?.fuel_economy; if (!fe) return ''
+    const g = fe.gas || {}, e = fe.electric || {}
+    const cell = (lab, big, small) => `<div class="fe-c"><div class="fe-cl">${lab}</div><div class="fe-cb">${esc(big)}</div><div class="fe-cs">${esc(small)}</div></div>`
+    if (e && (e.range_km != null || e.range_mi != null)) {
+      const km = e.range_km != null ? `${e.range_km} km` : '—', mi = e.range_mi != null ? `${e.range_mi} mi` : '—'
+      return cell('Range', isUS ? mi : km, isUS ? km : mi) + (e.kwh != null ? cell('Battery', `${e.kwh} kWh`, ' ') : '')
+    }
+    const dual = (l, m) => { const met = l != null ? `${l} L/100` : '—', imp = m != null ? `${m} MPG` : '—'; return { big: isUS ? imp : met, small: isUS ? met : imp } }
+    let out = ''
+    for (const [lab, l, m] of [['City', g.city_l100, g.city_mpg], ['Hwy', g.hwy_l100, g.hwy_mpg], ['Comb', g.combined_l100, g.combined_mpg]]) {
+      if (l == null && m == null) continue; const d = dual(l, m); out += cell(lab, d.big, d.small)
+    }
+    return out
+  })()
 
   const logoSrc  = logoDataUri || branding.logo_url || null
   const logoHtml = logoSrc
@@ -314,6 +341,18 @@ function buildWindowStickerHtml(vehicle, dealer, branding, recalls, photoDataUri
   .pb-row b{color:#1e293b;font-weight:700;}
   .pb-total{display:flex;justify-content:space-between;font-size:10.5px;font-weight:800;color:${primary};border-top:2px solid ${secondary};margin-top:5px;padding-top:5px;}
 
+  .opt-blk{padding:7px 13px;border-bottom:1px solid #e2e8f0;}
+  .opt-hdr{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${primary};margin-bottom:4px;}
+  .opt-row{display:flex;justify-content:space-between;gap:6px;font-size:8px;color:#475569;padding:1.5px 0;line-height:1.25;}
+  .opt-row b{color:#1e293b;font-weight:700;font-size:7px;white-space:nowrap;}
+  .fe-blk{padding:7px 13px;border-bottom:1px solid #e2e8f0;}
+  .fe-hdr{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${primary};margin-bottom:4px;}
+  .fe-grid{display:flex;gap:5px;}
+  .fe-c{flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:4px 2px;text-align:center;}
+  .fe-cl{font-size:6.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;}
+  .fe-cb{font-size:10px;font-weight:800;color:${primary};line-height:1.1;margin-top:1px;}
+  .fe-cs{font-size:7px;color:#64748b;}
+
   .vin-blk{padding:8px 13px;border-bottom:1px solid #e2e8f0;text-align:center;}
   .vin-lbl{font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;}
   .vin-val{font-size:8.5px;font-weight:700;font-family:monospace;letter-spacing:.5px;word-break:break-all;color:#0f172a;margin-top:2px;line-height:1.3;}
@@ -398,14 +437,18 @@ function buildWindowStickerHtml(vehicle, dealer, branding, recalls, photoDataUri
 
     <div class="price-break">
       ${basePrice !== null ? `
+      ${msrpClean ? `<div class="pb-row"><span>MSRP${myTrimObj?.name ? ` &middot; ${esc(myTrimObj.name)}` : ''}</span><b>${esc(msrpClean)}</b></div>` : ''}
       <div class="pb-row"><span>Base Vehicle Price</span><b>$${basePrice.toLocaleString()}</b></div>
-      <div class="pb-row"><span>Options / Packages</span><b>Included</b></div>
       <div class="pb-row"><span>Destination &amp; Delivery</span><b>See Dealer</b></div>
-      <div class="pb-total"><span>TOTAL PRICE</span><span>${price}</span></div>
+      <div class="pb-total"><span>OUR PRICE</span><span>${price}</span></div>
       ` : `<div class="pb-row"><span>Contact dealer for pricing.</span></div>`}
     </div>
 
-    ${blurb ? `<div style="margin-top:10px;padding:10px 12px;border-left:3px solid ${secondary};background:rgba(0,0,0,.035);font-size:12px;font-style:italic;color:#333;line-height:1.4;">${blurb}</div>` : ''}
+    ${optRows ? `<div class="opt-blk"><div class="opt-hdr">Optional Equipment &amp; Packages</div>${optRows}</div>` : ''}
+
+    ${feCells ? `<div class="fe-blk"><div class="fe-hdr">Fuel Economy${specs?.fuel_economy?.electric?.range_km != null || specs?.fuel_economy?.electric?.range_mi != null ? '' : ` &middot; ${isUS ? 'MPG / L·100' : 'L·100 / MPG'}`}</div><div class="fe-grid">${feCells}</div></div>` : ''}
+
+    ${blurb ? `<div style="margin-top:8px;padding:8px 12px;border-left:3px solid ${secondary};background:rgba(0,0,0,.035);font-size:11px;font-style:italic;color:#333;line-height:1.35;">${esc(blurb)}</div>` : ''}
 
     <div class="vin-blk">
       <div class="vin-lbl">Vehicle Identification Number</div>
@@ -1329,10 +1372,15 @@ export function registerRoutes(app) {
           Promise.all(imageUrls.map(u => imgToDataUri(u))),
           branding.logo_url ? imgToDataUri(branding.logo_url) : Promise.resolve(null),
         ])
-        // AI enhancement (AI Boost): a one-line "why buy this" on the branded sticker.
-        const stickerBlurb = await buildStickerBlurb(vehicle)
+        // AI enhancement (AI Boost): a one-line "why buy this" blurb, plus the cached
+        // model research (MSRP · packages · fuel economy) — shared with the brochure,
+        // so it's free when that model was already researched.
+        const [stickerBlurb, specs] = await Promise.all([
+          buildStickerBlurb(vehicle),
+          getModelSpecs(vehicle, dealer),
+        ])
         if (stickerBlurb) recordUsage(req.dealershipId, { ai: 1 })
-        const html = buildWindowStickerHtml(vehicle, dealer, branding, vehicle.recalls || [], photoDataUris.filter(Boolean), logoDataUri, stickerBlurb)
+        const html = buildWindowStickerHtml(vehicle, dealer, branding, vehicle.recalls || [], photoDataUris.filter(Boolean), logoDataUri, stickerBlurb, specs)
         const pdf = await generatePdf(html, { landscape: true, viewportWidth: 1100, viewportHeight: 860, timeoutMs: 90000 })
         const url = await uploadPdf(pdf, path)
         await supabaseAdmin.from('inventory')
