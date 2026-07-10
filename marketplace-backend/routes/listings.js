@@ -229,6 +229,74 @@ export function registerRoutes(app) {
     res.json({ success: true, fb_listing_url })
   })
 
+  // ── Auto-backfill exact FB permalinks ─────────────────────────────────────────
+  // Facebook never redirects to /marketplace/item/<id> after publishing, so the
+  // extension can't capture the permalink at post time. Instead, when the rep opens
+  // their own "Your listings / selling" page, the content script scrapes every
+  // listing card (permalink + title) and posts them here. We match each scraped
+  // card to one of THIS rep's posted listings that's still missing its permalink
+  // (year + make + model must all appear in the FB title) and fill it in.
+  app.post('/listings/backfill-fb-urls', requireAuth, async (req, res) => {
+    const cards = Array.isArray(req.body?.cards) ? req.body.cards : []
+    if (!cards.length) return res.json({ matched: 0 })
+
+    // This rep's posted listings that don't yet have a permalink.
+    const { data: listings, error } = await supabaseAdmin
+      .from('listings')
+      .select('id, vehicle_label, inventory:inventory_id(year, make, model, trim)')
+      .eq('posted_by', req.user.id)
+      .eq('status', 'posted')
+      .is('fb_listing_url', null)
+    if (error) return res.status(500).json({ error: error.message })
+    if (!listings?.length) return res.json({ matched: 0 })
+
+    const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()
+
+    // Only keep valid item permalinks; strip query/hash so we store a clean URL.
+    const scraped = cards
+      .map(c => ({
+        url: (c.url || '').split('?')[0].split('#')[0],
+        title: norm(c.title)
+      }))
+      .filter(c => /facebook\.com\/marketplace\/item\/\d+/i.test(c.url) && c.title)
+
+    const pool = listings.map(l => {
+      const inv = l.inventory || {}
+      return {
+        id: l.id,
+        year: inv.year ? String(inv.year) : '',
+        make: norm(inv.make),
+        model: norm(inv.model),
+        label: norm(l.vehicle_label)
+      }
+    })
+
+    let matched = 0
+    const usedUrls = new Set()
+    for (const l of pool) {
+      const hit = scraped.find(c => {
+        if (usedUrls.has(c.url)) return false
+        // Require year+make+model tokens in the FB title (fall back to label tokens).
+        const yearOk = !l.year || c.title.includes(l.year)
+        const makeOk = l.make && c.title.includes(l.make)
+        const modelOk = l.model && c.title.includes(l.model)
+        if (yearOk && makeOk && modelOk) return true
+        // Fallback: the stored vehicle_label's core words all appear in the title.
+        if (l.label) {
+          const words = l.label.split(' ').filter(w => w.length > 1)
+          if (words.length >= 2 && words.every(w => c.title.includes(w))) return true
+        }
+        return false
+      })
+      if (!hit) continue
+      usedUrls.add(hit.url)
+      const { error: upErr } = await supabaseAdmin
+        .from('listings').update({ fb_listing_url: hit.url }).eq('id', l.id)
+      if (!upErr) matched++
+    }
+    res.json({ matched })
+  })
+
   app.patch('/listings/:id/delete', requireAuth, async (req, res) => {
     // Queue the Facebook listing for DELETION (not "sold") — the extension will
     // remove it from Marketplace. We only queue it if there's an FB URL to act on;

@@ -1183,6 +1183,59 @@ if (window.location.href.includes('/marketplace/item/')) {
   // Stop observing after 60s to avoid leaks
   setTimeout(() => observer.disconnect(), 60000);
 }
+// ── Auto-capture exact FB permalinks from the rep's "selling" page ────────────
+// FB never redirects to /marketplace/item/<id> after publishing, so we can't grab
+// the permalink at post time. Instead, whenever the rep opens their own listings
+// page, scrape every card's permalink + title and send them to the backend, which
+// fills in the missing links on their posted MarketSync listings.
+if (/\/marketplace\/you(\/selling)?/.test(window.location.pathname)) {
+  let backfilled = false;
+
+  const scrapeAndBackfill = async () => {
+    if (backfilled) return;
+    const seen = new Set();
+    const cards = [];
+    document.querySelectorAll('a[href*="/marketplace/item/"]').forEach(a => {
+      const m = a.href.match(/\/marketplace\/item\/\d+/);
+      if (!m) return;
+      const url = a.href.split('?')[0].split('#')[0];
+      if (seen.has(url)) return;
+      // Title lives in the card; the anchor's own text (or its parent card's text)
+      // usually contains "$price Year Make Model …". Token matching handles noise.
+      const title = (a.innerText || a.closest('[role="none"],div')?.innerText || '').trim();
+      if (!title) return;
+      seen.add(url);
+      cards.push({ url, title: title.slice(0, 120) });
+    });
+    if (!cards.length) return;
+
+    const { token } = await new Promise(r => chrome.storage.local.get(['token'], r));
+    if (!token) return;
+    backfilled = true;
+    try {
+      const r = await fetch(`${API}/listings/backfill-fb-urls`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ cards })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (data.matched > 0) {
+        showStatus(`✅ MarketSync: linked ${data.matched} Facebook listing${data.matched > 1 ? 's' : ''} back to your inventory.`, 'success');
+      }
+    } catch (e) {
+      console.warn('FB link backfill failed:', e.message);
+      backfilled = false; // allow a later retry
+    }
+  };
+
+  // FB lazy-loads the grid; try a few times as cards paint in.
+  setTimeout(scrapeAndBackfill, 3000);
+  setTimeout(scrapeAndBackfill, 8000);
+  const obs = new MutationObserver(() => { if (!backfilled) scrapeAndBackfill(); });
+  obs.observe(document.body, { childList: true, subtree: true });
+  setTimeout(() => obs.disconnect(), 45000);
+}
+
 // ── Full auto Mark Sold + Delete ──────────────────────────────────────────────
 // Triggered when background.js opens a listing tab with a pending fbSyncQueue
 // entry whose action is 'sold' or 'delete'. Runs the FB UI clicks unattended.
