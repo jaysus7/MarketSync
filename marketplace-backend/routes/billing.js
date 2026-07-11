@@ -113,7 +113,7 @@ export function registerRoutes(app) {
             dealershipId: meta.dealership_id,
             type: 'billing',
             title: `Trial started — ${addons.map(a => a === 'ai_boost' ? 'AI Boost' : a === 'vin_sticker' ? 'VIN & Brochure' : 'AI Vision').join(', ')}`,
-            body: '7-day free trial is now active. No charge until the trial ends.',
+            body: '30-day free trial is now active. No charge until the trial ends.',
             linkPage: 'settings',
           })
           break
@@ -291,8 +291,8 @@ export function registerRoutes(app) {
         mode: 'subscription',
         metadata: { type: addonKey, dealership_id: req.dealershipId },
         subscription_data: {
-          // AI Vision gets a 7-day trial; other add-ons keep the standard 3-day.
-          trial_period_days: addonKey === 'ai_vision' ? 7 : 3,
+          // Every add-on gets a 30-day free trial (no card required up front).
+          trial_period_days: 30,
           metadata: { type: addonKey, dealership_id: req.dealershipId },
         },
         success_url: `${FRONTEND_URL}/dashboard.html?${addonKey}_session={CHECKOUT_SESSION_ID}`,

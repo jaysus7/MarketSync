@@ -471,7 +471,7 @@ async function initializeDashboardEcosystem() {
 
 } catch (err) {
     if (err.message === 'TRIAL_EXPIRED') {
-      alert('Your 7-day free trial has ended. Add a payment method to keep using MarketSync.');
+      alert('Your 30-day free trial has ended. Add a payment method to keep using MarketSync.');
       window.location.href = '/upgrade.html?reason=trial_ended';
       return;
     }
@@ -5040,7 +5040,7 @@ const UPGRADE_PLANS = {
     title: 'Inventory Intelligence',
     tagline: 'Know exactly where every unit sits vs the live market — and value every trade.',
     price: '$299',
-    cta: 'Start 3-Day Free Trial',
+    cta: 'Start 30-Day Free Trial',
     endpoint: 'subscribe-inv-intel',
     features: [
       '“% to market” on every used vehicle',
@@ -5058,7 +5058,7 @@ const UPGRADE_PLANS = {
     title: 'AI Boost',
     tagline: 'AI listing tools that write, check and polish every vehicle.',
     price: '$129',
-    cta: 'Start 3-Day Free Trial',
+    cta: 'Start 30-Day Free Trial',
     endpoint: 'subscribe-ai-boost',
     features: [
       'AI listing copy in your dealership’s tone',
@@ -5114,6 +5114,61 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 window.openUpgradeModal = openUpgradeModal;
 window.closeUpgradeModal = closeUpgradeModal;
+
+// Shared checkout starter (30-day trial, no card required) — used by the modal + hub.
+async function startAddonCheckout(endpoint, btn, ctaText) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
+  try {
+    const res = await fetch(`${API}/billing/${endpoint}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    if (data.url) { window.location.href = data.url; return; }
+    throw new Error(data.error || 'Failed to start checkout');
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = ctaText || 'Start 30-day free trial'; }
+    alert('Could not start checkout: ' + e.message);
+  }
+}
+
+// ── Upgrades hub (header ✦ icon) ─────────────────────────────────────────────
+// One place to see every add-on, what you already have, pricing, and start a
+// 30-day free trial. Reads live entitlements from /ai/config.
+async function openUpgradesHub() {
+  const isAdmin = ['DEALER_ADMIN', 'OWNER'].includes(profileContext?.role);
+  let cfg = {};
+  try { cfg = await (await fetch(`${API}/ai/config`, { headers: { 'Authorization': `Bearer ${token}` } })).json(); } catch {}
+  const active = { inv_intel: !!cfg.inv_intel_active, ai_boost: !!cfg.ai_boost_active };
+  const order = ['inv_intel', 'ai_boost'];
+  const check = '<svg class="w-3.5 h-3.5 text-violet-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>';
+  const cards = order.map(key => {
+    const p = UPGRADE_PLANS[key]; const on = active[key];
+    return `<div class="border ${on ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/10' : 'border-slate-200 dark:border-slate-700'} rounded-xl p-4 flex flex-col">
+      <div class="flex items-start justify-between gap-2">
+        <div><div class="text-[10px] font-bold uppercase tracking-wider text-violet-500">${esc(p.eyebrow)}</div>
+          <div class="text-lg font-black text-slate-900 dark:text-white leading-tight">${esc(p.title)}</div></div>
+        <div class="text-right flex-shrink-0"><div class="text-xl font-black text-slate-900 dark:text-white">${esc(p.price)}</div><div class="text-[10px] text-slate-400">/month</div></div>
+      </div>
+      <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">${esc(p.tagline)}</p>
+      <ul class="mt-2 space-y-1 flex-1">${p.features.slice(0, 6).map(f => `<li class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">${check}<span>${esc(f)}</span></li>`).join('')}</ul>
+      <div class="mt-3">
+        ${on
+          ? `<span class="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-600 dark:text-emerald-400">${check.replace('w-3.5 h-3.5', 'w-4 h-4')}You have this</span>`
+          : (isAdmin
+              ? `<button data-endpoint="${p.endpoint}" class="upg-hub-buy w-full bg-violet-600 hover:bg-violet-500 text-white font-bold px-4 py-2.5 rounded-lg text-sm transition">Start 30-day free trial</button>`
+              : '<span class="text-xs text-slate-400">Ask your admin to start a trial.</span>')}
+      </div>
+    </div>`;
+  }).join('');
+  const ov = crmOverlay(`<div class="p-5">
+    <div class="flex items-center justify-between mb-1">
+      <div class="text-lg font-black text-slate-900 dark:text-white">Upgrades &amp; add-ons</div>
+      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Every add-on includes a <span class="font-bold text-slate-700 dark:text-slate-200">30-day free trial</span> — no credit card required, cancel anytime.</p>
+    <div class="grid sm:grid-cols-2 gap-3">${cards}</div>
+  </div>`, 'max-w-3xl');
+  ov.querySelectorAll('.upg-hub-buy').forEach(b => b.addEventListener('click', () => startAddonCheckout(b.dataset.endpoint, b, 'Start 30-day free trial')));
+}
+window.openUpgradesHub = openUpgradesHub;
 
 // ── Price Report Modal ──────────────────────────────────────────────────────
 
@@ -5805,15 +5860,15 @@ async function startAIBoostCheckout(btn, resetLabel) {
 
 function setupAIBoostListeners() {
   document.getElementById('ai-boost-upgrade-btn')?.addEventListener('click', (e) => {
-    startAIBoostCheckout(e.currentTarget, 'Start 3-Day Free Trial — $129/month after');
+    startAIBoostCheckout(e.currentTarget, 'Start 30-Day Free Trial — $129/month after');
   });
 
   document.getElementById('ai-boost-upsell-btn')?.addEventListener('click', (e) => {
-    startAIBoostCheckout(e.currentTarget, 'Try Free for 3 Days');
+    startAIBoostCheckout(e.currentTarget, 'Try Free for 30 Days');
   });
 
   document.getElementById('ai-boost-page-upgrade-btn')?.addEventListener('click', (e) => {
-    startAIBoostCheckout(e.currentTarget, 'Try Free for 3 Days');
+    startAIBoostCheckout(e.currentTarget, 'Try Free for 30 Days');
   });
   document.getElementById('ai-boost-manage-btn')?.addEventListener('click', launchStripeLifecycle);
 
@@ -6574,7 +6629,7 @@ async function startInvIntelCheckout() {
   } catch (e) {
     alert(e.message);
     btn.disabled = false;
-    btn.textContent = 'Start 3-Day Free Trial';
+    btn.textContent = 'Start 30-Day Free Trial';
   }
 }
 
