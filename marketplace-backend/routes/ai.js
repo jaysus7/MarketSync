@@ -903,7 +903,7 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
           ? `This vehicle has ${mileage.toLocaleString()} ${du} vs a market median of ${Math.round(compMiles).toLocaleString()} ${du} (${mileageAdj >= 0 ? '+' : '−'}${cur} $${Math.abs(mileageAdj).toLocaleString()} mileage adjustment).`
           : ''
         const accidentLine = (accidentTier !== 'none' && historyCut > 0)
-          ? `Accident/history: Carfax shows a ${accidentTier} accident/history record${reportedDamage ? ` (~${cur} $${reportedDamage.toLocaleString()} reported damage)` : ''}, which permanently lowers value — we deducted ${cur} $${historyCut.toLocaleString()} (${Math.round(accidentPct * 100)}%) from clean retail. State this plainly as a reason the offer is below a clean-history example.`
+          ? `Accident/history: this vehicle has a ${accidentTier} accident/history record${reportedDamage ? ` (~${cur} $${reportedDamage.toLocaleString()} reported damage)` : ''}, which permanently lowers value — we deducted ${cur} $${historyCut.toLocaleString()} (${Math.round(accidentPct * 100)}%) from clean retail. State this plainly as a reason the offer is below a clean-history example.`
           : ''
         const soldLine = (sold && sold.median_price > 0)
           ? `Proven to market: ${sold.count} recently SOLD comparable${sold.count === 1 ? '' : 's'} sold at a median of ${cur} $${sold.median_price.toLocaleString()}${sold.median_dom != null ? `, averaging ${sold.median_dom} days on market before selling` : ''}. Real sold prices run about ${Math.round(realism * 100)}% below the ${cur} $${compMedian.toLocaleString()} asking median, which is why the offer is grounded in what these cars actually sell for — not just what they're listed at.`

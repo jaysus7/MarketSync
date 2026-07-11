@@ -704,12 +704,24 @@ function apprCompsTable(comps, du, money, numFound) {
     </div>`;
 }
 
+// Robust sold-date formatter. MarketCheck dates can arrive as Unix epoch SECONDS,
+// which new Date() misreads as ms → "Jan 1970". Coerce seconds→ms and reject any
+// pre-2000 / invalid value so we show a clean "—" instead of a bogus 1970.
+function fmtSoldDate(s) {
+  if (s == null || s === '') return '—';
+  let d;
+  if (typeof s === 'number' || /^\d+$/.test(String(s))) {
+    let n = Number(s); if (n < 1e12) n *= 1000;
+    d = new Date(n);
+  } else { d = new Date(s); }
+  return (isNaN(d.getTime()) || d.getFullYear() < 2000) ? '—' : d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+}
+
 // Recently-SOLD comps table — like apprCompsTable but with a days-on-market column
 // and a sold date. These are proven transactions, the strongest evidence on the sheet.
 function apprSoldTable(sold, du, money) {
   const rows = (sold || []).filter(c => c.price > 0).sort((a, b) => a.price - b.price).slice(0, 40);
   if (!rows.length) return '';
-  const fmtDate = (s) => { if (!s) return '—'; const dt = new Date(s); return isNaN(dt) ? '—' : dt.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }); };
   return `
     <div class="mt-3 overflow-x-auto -mx-1">
       <table class="w-full text-sm border-collapse min-w-[520px]">
@@ -729,7 +741,7 @@ function apprSoldTable(sold, du, money) {
               <td class="py-2 px-2 text-right tabular-nums text-slate-600 dark:text-slate-300">${c.miles ? Number(c.miles).toLocaleString() : '—'}</td>
               <td class="py-2 px-2 text-right tabular-nums text-slate-600 dark:text-slate-300">${c.dom != null ? c.dom : '—'}</td>
               <td class="py-2 px-2 text-slate-600 dark:text-slate-300 truncate max-w-[200px]">${esc(loc || '—')}</td>
-              <td class="py-2 px-2 text-right text-slate-500 dark:text-slate-400 whitespace-nowrap">${esc(fmtDate(c.sold_date))}</td>
+              <td class="py-2 px-2 text-right text-slate-500 dark:text-slate-400 whitespace-nowrap">${esc(fmtSoldDate(c.sold_date))}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -801,7 +813,7 @@ function renderAppraisal(d) {
               <div class="font-black tabular-nums text-slate-900 dark:text-white">${money(adj.retail_clean != null ? adj.retail_clean : adj.retail_value)}</div>
             </div>
             ${adj.accident_amount ? `<div class="flex items-center justify-between gap-3 text-sm">
-              <div class="min-w-0"><span class="text-slate-700 dark:text-slate-200">Accident / history${adj.accident_tier ? ` (${esc(adj.accident_tier)})` : ''}${adj.accident_pct != null ? ` −${adj.accident_pct}%` : ''}</span><span class="text-[11px] text-slate-400 ml-1.5">Carfax deduction</span></div>
+              <div class="min-w-0"><span class="text-slate-700 dark:text-slate-200">Accident / history${adj.accident_tier ? ` (${esc(adj.accident_tier)})` : ''}${adj.accident_pct != null ? ` −${adj.accident_pct}%` : ''}</span><span class="text-[11px] text-slate-400 ml-1.5">history deduction</span></div>
               <div class="font-bold tabular-nums flex-shrink-0 text-rose-500">−${money(Math.abs(adj.accident_amount))}</div>
             </div>
             <div class="flex items-center justify-between gap-3 text-sm">
@@ -1125,7 +1137,6 @@ function generateAppraisalPdf() {
   ${(() => {
     const rows = (sd?.listings || []).filter(c => c.price > 0).sort((a, b) => a.price - b.price).slice(0, 25);
     if (!rows.length) return '';
-    const fmtDate = (s) => { if (!s) return '—'; const dt = new Date(s); return isNaN(dt) ? '—' : dt.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }); };
     return `<h2>Recently sold — proven transactions</h2><div class="card"><table>
       <tr style="color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:.04em">
         <td style="padding:4px 0">Sold price</td><td style="padding:4px 0;text-align:right">${du === 'mi' ? 'Miles' : 'KM'}</td>
@@ -1137,7 +1148,7 @@ function generateAppraisalPdf() {
           <td style="padding:6px 0;text-align:right;color:#475569">${c.miles ? Number(c.miles).toLocaleString() : '—'}</td>
           <td style="padding:6px 0;text-align:right;color:#475569">${c.dom != null ? c.dom : '—'}</td>
           <td style="padding:6px 0;color:#475569;font-size:12px">${esc(loc || '—')}</td>
-          <td style="padding:6px 0;text-align:right;color:#64748b">${esc(fmtDate(c.sold_date))}</td>
+          <td style="padding:6px 0;text-align:right;color:#64748b">${esc(fmtSoldDate(c.sold_date))}</td>
         </tr>`;
       }).join('')}
     </table><div class="cap">Comparable vehicles that recently left the market — real sale prices and how long each took to sell.</div></div>`;

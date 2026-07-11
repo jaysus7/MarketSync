@@ -368,13 +368,26 @@ export async function marketcheckSoldListings({ make, model, year, trim, drivetr
       }
       const j = await r.json()
       const raw = Array.isArray(j?.listings) ? j.listings : []
+      // MarketCheck date fields come back as Unix EPOCH SECONDS (or occasionally an
+      // ISO string). new Date(seconds) reads them as ms → Jan 1970. Normalise to a
+      // real ISO date (or null) so the UI never renders a 1970 placeholder.
+      const toIso = (v) => {
+        if (v == null || v === '') return null
+        if (typeof v === 'number' || /^\d+$/.test(String(v))) {
+          let n = Number(v); if (n < 1e12) n *= 1000       // seconds → ms
+          const d = new Date(n)
+          return (isNaN(d.getTime()) || d.getFullYear() < 2000) ? null : d.toISOString()
+        }
+        const d = new Date(v)
+        return (isNaN(d.getTime()) || d.getFullYear() < 2000) ? null : d.toISOString()
+      }
       return {
         num_found: Number(j?.num_found ?? raw.length),
         listings: raw.map(l => ({
           price: Number(l.price ?? 0), miles: Number(l.miles ?? 0),
           city: l.dealer?.city || null, region: l.dealer?.state || null, dealer: l.dealer?.name || null,
           dom: (l.dom != null ? Number(l.dom) : null),
-          sold_date: l.last_seen_at || l.sold_date || l.scraped_at || null,
+          sold_date: toIso(l.last_seen_at ?? l.sold_date ?? l.scraped_at ?? l.last_seen_at_date),
           vdp_url: l.vdp_url || l.href || null, source: l.source || null,
           litres: (l.build?.engine_size != null ? Number(l.build.engine_size) : engineLitres(l.build?.engine)),
         })),
