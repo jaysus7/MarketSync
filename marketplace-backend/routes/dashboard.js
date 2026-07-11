@@ -538,6 +538,49 @@ export function registerRoutes(app) {
     }
   })
 
+  // ── Sync health / staleness monitor ───────────────────────────────────────────
+  // Server-side feeds refresh every night hands-off. Cloudflare feeds
+  // (needs_extension_capture) only refresh when a rep's Chrome is open, so they can
+  // silently go stale. This surfaces that so the dashboard can nudge the rep to open
+  // MarketSync and sync — turning "stale for days, nobody noticed" into an alert.
+  app.get('/dashboard/sync-health', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json({ needs_browser: false, stale: false })
+    try {
+      const { data: feeds } = await supabaseAdmin
+        .from('inventory_feeds')
+        .select('platform, last_extension_sync_at, source_dealer_url, feed_url')
+        .eq('dealership_id', req.dealershipId)
+      const browserFeeds = (feeds || []).filter(f => f.platform === 'needs_extension_capture')
+      if (!browserFeeds.length) return res.json({ needs_browser: false, stale: false })
+
+      const staleHours = Number(process.env.EXT_STALE_HOURS || 36)
+      const now = Date.now()
+      let worst = 0
+      let neverSynced = false
+      for (const f of browserFeeds) {
+        if (!f.last_extension_sync_at) { neverSynced = true; worst = Math.max(worst, 9999); continue }
+        const h = (now - new Date(f.last_extension_sync_at).getTime()) / 3600000
+        worst = Math.max(worst, h)
+      }
+      const stale = neverSynced || worst > staleHours
+      const days = Math.floor(worst / 24)
+      const openUrl = browserFeeds[0]?.source_dealer_url || browserFeeds[0]?.feed_url || null
+      res.json({
+        needs_browser: true,
+        stale,
+        worst_hours: Math.round(worst),
+        message: !stale ? null
+          : neverSynced
+            ? 'This dealer’s inventory hasn’t synced yet. Open MarketSync in Chrome and connect the dealer site to pull inventory.'
+            : `This dealer’s inventory hasn’t refreshed in ${days >= 1 ? days + ' day' + (days > 1 ? 's' : '') : Math.round(worst) + ' hours'}. Open MarketSync in Chrome to sync.`,
+        open_url: openUrl,
+      })
+    } catch (e) {
+      console.error('[sync-health] failed:', e.message)
+      res.json({ needs_browser: false, stale: false })
+    }
+  })
+
   app.get('/dashboard/insights', requireAuth, async (req, res) => {
     const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
     const now = new Date()

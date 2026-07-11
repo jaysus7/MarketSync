@@ -623,6 +623,17 @@
         </div>
       </div>
 
+      <!-- Sync staleness banner (Cloudflare/extension feeds that haven't refreshed) -->
+      <div id="sync-health-banner" class="hidden items-start gap-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-lg p-4">
+        <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-bold text-amber-800 dark:text-amber-200">Inventory sync is behind</div>
+          <div id="sync-health-msg" class="text-xs text-amber-700 dark:text-amber-300 mt-0.5"></div>
+        </div>
+        <a id="sync-health-open" target="_blank" rel="noopener" class="hidden flex-shrink-0 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition">Open dealer site</a>
+        <button id="sync-health-dismiss" aria-label="Dismiss" class="flex-shrink-0 text-amber-400 hover:text-amber-600 text-lg leading-none p-1">×</button>
+      </div>
+
       <!-- Time range toggle. Reusable component — same markup is used on Team Insights too. -->
       <div class="range-toggle flex items-center justify-between flex-wrap gap-3">
         <h2 class="text-lg font-bold text-slate-900 dark:text-white">Insights · <span class="range-label font-normal text-slate-500 text-sm">lifetime</span></h2>
@@ -2378,7 +2389,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260711a"></script>
+  <script src="dashboard.js?v=20260711b"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

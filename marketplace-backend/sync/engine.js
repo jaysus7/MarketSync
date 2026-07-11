@@ -81,7 +81,7 @@ async function _runInventorySyncInner(dealershipId) {
   {
     const { data, error } = await supabaseAdmin
       .from('inventory_feeds')
-      .select('id, feed_url, feed_type, platform, source_dealer_url, url_map, url_template')
+      .select('id, feed_url, feed_type, platform, source_dealer_url, url_map, url_template, last_extension_sync_at')
       .eq('dealership_id', dealershipId)
     if (!error) { feeds = data }
     else selectError = error
@@ -123,14 +123,31 @@ async function _runInventorySyncInner(dealershipId) {
     })
     try {
       let vehicles
+      // Effective platform for the fetch dispatch below. Normally === feed.platform,
+      // but a STALE extension-capture feed can be routed through the SPA-render path
+      // as a best-effort headless fallback (see below).
+      let effectivePlatform = feed.platform
 
       if (feed.platform === 'needs_extension_capture') {
-        // Cloudflare-protected site — inventory is pulled through the user's browser
-        // via the Chrome extension (this is the flow that works seamlessly for these
-        // dealers). No server-side fetch, no ScraperAPI: just skip and let the
-        // extension capture handle it.
-        console.log(`[sync] feed ${feed.id} requires Chrome extension — skipping server-side fetch`)
-        continue
+        // Cloudflare-protected site — normally pulled through the rep's browser via the
+        // Chrome extension. These were flagged BECAUSE server-side headless already
+        // failed at connect time, so a nightly retry is opportunistic at best: only
+        // attempt it when the feed has gone stale AND it's explicitly enabled
+        // (EXT_HEADLESS_FALLBACK=1). The render is memory-guarded, so it self-skips
+        // when the box is tight. If it captures nothing, we leave it to the extension
+        // (0 vehicles → auto-archive is skipped, so inventory is never wiped).
+        const lastRefreshMs = feed.last_extension_sync_at ? new Date(feed.last_extension_sync_at).getTime() : 0
+        const hoursStale = (Date.now() - lastRefreshMs) / 3600000
+        const staleThreshold = Number(process.env.EXT_STALE_HOURS || 36)
+        const fallbackOn = process.env.EXT_HEADLESS_FALLBACK === '1'
+        const renderTarget = feed.source_dealer_url || feed.feed_url
+        if (fallbackOn && renderTarget && (lastRefreshMs === 0 || hoursStale > staleThreshold)) {
+          console.log(`[sync] feed ${feed.id} extension-capture stale ${Math.round(hoursStale)}h — trying opportunistic headless fallback`)
+          effectivePlatform = 'spa_render'   // route through the SPA-render branch below
+        } else {
+          console.log(`[sync] feed ${feed.id} requires Chrome extension — skipping server-side fetch (${Math.round(hoursStale)}h since last capture)`)
+          continue
+        }
       }
 
       // Match this feed to its probe definition so we can apply the right field mapper
@@ -185,7 +202,7 @@ async function _runInventorySyncInner(dealershipId) {
 
       if (jsonCache.has(feed.feed_url)) {
         vehicles = jsonCache.get(feed.feed_url)
-      } else if (feed.platform === 'spa_render') {
+      } else if (effectivePlatform === 'spa_render') {
         // SPA dealer. The captured XHR URL almost always works for plain HTTP fetches —
         // try that first (fast). Re-render the dealer site only if direct fetch fails
         // (XHR URL broken, auth rotated, dealer moved). When re-render finds a new URL,

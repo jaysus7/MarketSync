@@ -1560,7 +1560,31 @@ function syncRangeLabels(label) {
   document.querySelectorAll('.range-label').forEach(el => { el.textContent = label || 'lifetime' });
 }
 
+// Surface a nudge when a Cloudflare/extension feed hasn't refreshed in a while.
+async function loadSyncHealth() {
+  const banner = document.getElementById('sync-health-banner');
+  if (!banner) return;
+  try {
+    const res = await fetch(`${API}/dashboard/sync-health`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) return;
+    const d = await res.json();
+    if (!d.stale || sessionStorage.getItem('syncHealthDismissed') === '1') { banner.classList.add('hidden'); return; }
+    const msg = document.getElementById('sync-health-msg');
+    if (msg) msg.textContent = d.message || 'Open MarketSync in Chrome to sync inventory.';
+    const openBtn = document.getElementById('sync-health-open');
+    if (openBtn) {
+      if (d.open_url) { openBtn.href = d.open_url; openBtn.classList.remove('hidden'); }
+      else openBtn.classList.add('hidden');
+    }
+    banner.classList.remove('hidden');
+    banner.classList.add('flex');
+    const dismiss = document.getElementById('sync-health-dismiss');
+    if (dismiss) dismiss.onclick = () => { sessionStorage.setItem('syncHealthDismissed', '1'); banner.classList.add('hidden'); banner.classList.remove('flex'); };
+  } catch { /* non-fatal */ }
+}
+
 async function loadInsights() {
+  loadSyncHealth();
   try {
     const res = await fetch(`${API}/dashboard/insights?range=${insightsRange}`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) {
