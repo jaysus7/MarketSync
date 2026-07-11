@@ -753,7 +753,7 @@ function renderAppraisal(d) {
         <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">${esc(ap.ai_summary)}</p>
       </div>` : ''}
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        ${apprTile('Retail market', money(rt.median), `${rt.count ?? '—'} comps`)}
+        ${apprTile('We sell for', money(rt.median), `retail · ${rt.count ?? '—'} comps`)}
         ${hasTradeSpread ? apprTile('Wholesale (ACV)', money(ap.trade_value), `${ap.trade_ratio}% of retail`) : apprTile('Retail range', `${money(rt.low)}–${money(rt.high)}`, 'fair retail')}
         ${apprTile('Avg days to sell', rt.avg_days_online != null ? rt.avg_days_online + ' days' : '—', 'on market')}
         ${apprTile('Target gross', money(ap.target_gross), ap.gross_pct != null ? ap.gross_pct + '% of retail' : 'your margin')}
@@ -802,8 +802,8 @@ function apprHistogramSvg(prices, marks, money) {
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
     ${bars}
     <line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="#cbd5e1"/>
-    ${mark(marks.median, '#4f46e5', 'Market avg')}
-    ${mark(marks.offer, '#16a34a', 'Your offer')}
+    ${mark(marks.median, '#4f46e5', 'We sell')}
+    ${mark(marks.offer, '#16a34a', 'We buy')}
     ${xlab}
   </svg>`;
 }
@@ -862,10 +862,17 @@ function generateAppraisalPdf() {
   <div style="font-size:17px;font-weight:800;margin-top:16px">${esc(label)}</div>
   <div style="color:#64748b;font-size:13px">${v.mileage ? Number(v.mileage).toLocaleString() + ' ' + du : ''}${v.vin ? ' · VIN ' + esc(v.vin) : ''}</div>
 
-  <div class="offer">
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.8;font-weight:700">Suggested trade / cash offer</div>
-    <div class="n">${money(ap.suggested_offer)} <span style="font-size:15px;opacity:.8">${cur}</span></div>
-    ${ap.pct_to_market != null ? `<div style="font-size:12px;opacity:.85;margin-top:4px">${ap.pct_to_market}% of retail market</div>` : ''}
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px">
+    <div class="offer" style="margin-top:0">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.8;font-weight:700">We buy it for (trade / cash offer)</div>
+      <div class="n">${money(ap.suggested_offer)} <span style="font-size:15px;opacity:.8">${cur}</span></div>
+      ${ap.pct_to_market != null ? `<div style="font-size:12px;opacity:.85;margin-top:4px">${ap.pct_to_market}% of retail market</div>` : ''}
+    </div>
+    <div class="offer" style="margin-top:0;background:#059669">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.85;font-weight:700">We sell it for (retail)</div>
+      <div class="n">${money(rt.median)} <span style="font-size:15px;opacity:.8">${cur}</span></div>
+      <div style="font-size:12px;opacity:.9;margin-top:4px">${money(rt.median - ap.suggested_offer)} spread before costs</div>
+    </div>
   </div>
 
   ${ap.ai_summary ? `<div class="card" style="background:#f5f3ff;border-color:#ddd6fe">
@@ -908,7 +915,7 @@ function generateAppraisalPdf() {
     <div class="card stat"><div class="l">Comparable listings</div><div class="v">${rt.count ?? '—'}</div></div>
   </div>
 
-  ${hist ? `<h2>Market price distribution</h2><div class="card">${hist}<div class="cap">Live retail listings for this ${esc(label)}. Dashed lines mark the market average and your offer.</div></div>` : ''}
+  ${hist ? `<h2>Market price distribution</h2><div class="card">${hist}<div class="cap">Live retail listings for this ${esc(label)}. Dashed lines mark what we sell it for (retail) and what we buy it at (offer).</div></div>` : ''}
 
   ${locs ? `<h2>Where these comparables are</h2><div class="card">${locs}<div class="cap">Locations of the comparable listings (by region), from ${rt.count ?? (d.comps || []).length} active listings.</div></div>` : ''}
 
