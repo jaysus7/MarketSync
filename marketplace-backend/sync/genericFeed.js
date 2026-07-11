@@ -37,8 +37,8 @@ const FIELD_ALIASES = {
   days_in_stock: ['days_in_stock', 'daysinstock', 'days_on_lot', 'daysonlot', 'age_in_days', 'age_days', 'dol']
 }
 
-// Resolve a true lot/in-stock date from a feed row: prefer an absolute date, else
-// derive from a "days on lot" count. Returns an ISO string or null.
+// Resolve a lot date from an already-lowercased row (internal helper).
+// Prefer an absolute in-stock date, else derive from a "days on lot" count.
 const parseLotDate = (row) => {
   const abs = pick(row, FIELD_ALIASES.lot_date)
   if (abs) {
@@ -56,6 +56,16 @@ const parseLotDate = (row) => {
     }
   }
   return null
+}
+
+// Public: resolve a true lot/in-stock date from ANY vehicle object (mixed-case keys
+// ok). Used by the server sync, the puppeteer mapper, AND the extension-capture
+// ingest so aging is captured identically no matter which path fetched the data.
+export function resolveLotDate(obj) {
+  if (!obj || typeof obj !== 'object') return null
+  const row = {}
+  for (const [k, v] of Object.entries(obj)) row[String(k).toLowerCase().trim()] = v
+  return parseLotDate(row)
 }
 
 const pick = (row, aliases) => {

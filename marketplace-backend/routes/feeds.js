@@ -4,7 +4,7 @@ import { fetchViaBrowser, harvestVehicleUrls } from '../puppeteerRenderer.js'
 import { detectFeedPlatform, PLATFORM_PROBES } from '../sync/platforms.js'
 import { inventoryHasFeedId, normalizeFeedUrl, matchesFeedType, buildSourceUrl } from '../sync/engine.js'
 import { mapFuel, buildDescription } from '../utils/description.js'
-import { parseGenericFeed } from '../sync/genericFeed.js'
+import { parseGenericFeed, resolveLotDate } from '../sync/genericFeed.js'
 import { autoDecodeInventory } from '../sync/vinDecode.js'
 import { runPhotoVision } from '../sync/photoVision.js'
 import { brandDealershipPhotos } from '../utils/photoOverlay.js'
@@ -105,6 +105,9 @@ export function registerRoutes(app) {
         source_url: buildSourceUrl({ ...feed, platform, url_template: null, url_map: null }, mapped),
         status: isSold ? 'sold' : (isPending ? 'pending' : 'available'),
         last_synced_at: new Date().toISOString(),
+        // True lot/in-stock date if the captured payload carried one — same parser
+        // the server sync uses, so Cloudflare/extension dealers age correctly too.
+        ...((v => v ? { lot_date: v } : {})(resolveLotDate(mapped) || resolveLotDate(v))),
         ...(hasFeedId ? { feed_id: feedId } : {})
       }
 
