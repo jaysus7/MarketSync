@@ -617,6 +617,8 @@ function initAppraisal() {
       condition: $('appr-condition').value,
       recon: num('appr-recon'),
       target_gross: num('appr-gross'),
+      accident: $('appr-accident')?.value || 'none',
+      damage: num('appr-damage'),
       // Like-for-like comp filters. Fall back to the decoded specs when the field
       // is blank (e.g. rep decoded a VIN but didn't touch the drivetrain select).
       drivetrain: ($('appr-drivetrain')?.value || '').trim() || (__apprDecodedSpecs?.drivetrain || ''),
@@ -795,9 +797,17 @@ function renderAppraisal(d) {
               <div class="font-bold tabular-nums flex-shrink-0 ${neg ? 'text-rose-500' : 'text-slate-900 dark:text-white'}">${val}</div>
             </div>`).join('')}
             <div class="flex items-center justify-between gap-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-1.5 mt-1.5">
-              <div class="font-bold text-slate-900 dark:text-white">Adjusted retail value</div>
-              <div class="font-black tabular-nums text-slate-900 dark:text-white">${money(adj.retail_value)}</div>
+              <div class="font-bold text-slate-900 dark:text-white">Adjusted retail value${adj.accident_amount ? ' (clean history)' : ''}</div>
+              <div class="font-black tabular-nums text-slate-900 dark:text-white">${money(adj.retail_clean != null ? adj.retail_clean : adj.retail_value)}</div>
             </div>
+            ${adj.accident_amount ? `<div class="flex items-center justify-between gap-3 text-sm">
+              <div class="min-w-0"><span class="text-slate-700 dark:text-slate-200">Accident / history${adj.accident_tier ? ` (${esc(adj.accident_tier)})` : ''}${adj.accident_pct != null ? ` −${adj.accident_pct}%` : ''}</span><span class="text-[11px] text-slate-400 ml-1.5">Carfax deduction</span></div>
+              <div class="font-bold tabular-nums flex-shrink-0 text-rose-500">−${money(Math.abs(adj.accident_amount))}</div>
+            </div>
+            <div class="flex items-center justify-between gap-3 text-sm">
+              <div class="font-bold text-slate-900 dark:text-white">Retail (this vehicle)</div>
+              <div class="font-black tabular-nums text-slate-900 dark:text-white">${money(adj.retail_value)}</div>
+            </div>` : ''}
             ${hasTradeSpread ? `<div class="flex items-center justify-between gap-3 text-sm">
               <div class="min-w-0"><span class="text-slate-700 dark:text-slate-200">Retail → wholesale${adj.trade_ratio_pct != null ? ` (${adj.trade_ratio_pct}% of retail)` : ''}</span><span class="text-[11px] text-slate-400 ml-1.5">wholesale spread</span></div>
               <div class="font-bold tabular-nums flex-shrink-0 text-rose-500">−${money(adj.retail_value - adj.trade_value)}</div>
@@ -1050,7 +1060,14 @@ function generateAppraisalPdf() {
       }
       if (adj.market_realism_amount) out += row('Ask → sold market adjustment (' + adj.market_realism_pct + '%)', signed(adj.market_realism_amount));
       out += '<tr><td colspan="2"><div style="border-top:1px solid #e2e8f0;margin:4px 0"></div></td></tr>';
-      out += row('Adjusted retail value', money(ap.retail_mid), true);
+      if (adj.accident_amount) {
+        out += row('Adjusted retail value (clean history)', money(adj.retail_clean != null ? adj.retail_clean : ap.retail_mid), true);
+        out += row('− Accident / history' + (adj.accident_tier ? ' (' + adj.accident_tier + (adj.accident_pct != null ? ', −' + adj.accident_pct + '%' : '') + ')' : ''), '−' + money(Math.abs(adj.accident_amount)));
+        out += '<tr><td colspan="2"><div style="border-top:1px solid #e2e8f0;margin:4px 0"></div></td></tr>';
+        out += row('Retail value (this vehicle)', money(ap.retail_mid), true);
+      } else {
+        out += row('Adjusted retail value', money(ap.retail_mid), true);
+      }
       if (adj.trade_value != null && adj.trade_value < adj.retail_value - 1) {
         out += row('− Retail → wholesale spread' + (adj.trade_ratio_pct != null ? ' (wholesale = ' + adj.trade_ratio_pct + '% of retail)' : ''), '−' + money(adj.retail_value - adj.trade_value));
         out += '<tr><td colspan="2"><div style="border-top:1px solid #e2e8f0;margin:4px 0"></div></td></tr>';

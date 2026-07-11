@@ -716,6 +716,27 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
     // Target gross is now a DOLLAR figure (default $2,500), same units as recon.
     const targetGross = Math.max(0, b.target_gross != null && b.target_gross !== '' ? Number(b.target_gross) : 2500)
 
+    // Accident / history — a reported accident permanently lowers what a car retails
+    // AND wholesales for (buyers discount it, and it re-lists with the same disclosure).
+    // The rep enters what the Carfax shows; we convert severity + reported damage into a
+    // percentage haircut off the clean market retail. Tiers are deliberately conservative
+    // and env-tunable. `damage` (total reported $) can only escalate the tier, never lower it.
+    const ACCIDENT_PCT = {
+      none: 0,
+      minor: Number(process.env.APPRAISE_ACC_MINOR || 0.05),      // 1 claim, cosmetic
+      moderate: Number(process.env.APPRAISE_ACC_MODERATE || 0.10), // panel/multiple claims
+      major: Number(process.env.APPRAISE_ACC_MAJOR || 0.18),       // structural / airbags
+      branded: Number(process.env.APPRAISE_ACC_BRANDED || 0.40),   // salvage / rebuilt / flood
+    }
+    const accidentRaw = String(b.accident || 'none').toLowerCase().trim()
+    const reportedDamage = Math.max(0, Number(b.damage) || 0)
+    // Reported-damage floor: a big number forces at least the matching tier.
+    const damageTier = reportedDamage >= 6000 ? 'major' : reportedDamage >= 3000 ? 'moderate' : reportedDamage >= 1 ? 'minor' : 'none'
+    const rank = { none: 0, minor: 1, moderate: 2, major: 3, branded: 4 }
+    let accidentTier = ['none', 'minor', 'moderate', 'major', 'branded'].includes(accidentRaw) ? accidentRaw : 'none'
+    if (rank[damageTier] > rank[accidentTier]) accidentTier = damageTier
+    const accidentPct = ACCIDENT_PCT[accidentTier] ?? 0
+
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('name, country, province, postal_code, inv_intel_active, ai_boost_active').eq('id', req.dealershipId).maybeSingle()
     // Trade Appraisal is part of the Inventory Intelligence add-on.
@@ -838,7 +859,13 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
       retailSignals.push({ v: prediction.predicted, w: 0.9, key: 'model' })
     }
     const wSum = retailSignals.reduce((a, s) => a + s.w, 0)
-    const retailMid = Math.max(0, Math.round(retailSignals.reduce((a, s) => a + s.v * s.w, 0) / wSum))
+    // Clean-history retail — the reconciled blend of comps/sold/model. The comp pool is
+    // average-condition, so this is what the car retails for with a clean Carfax.
+    const retailClean = Math.max(0, Math.round(retailSignals.reduce((a, s) => a + s.v * s.w, 0) / wSum))
+    // Apply the accident/history haircut to get THIS car's retail. Everything downstream
+    // (trade, offer, gross) then flows off the accident-adjusted number.
+    const historyCut = Math.round(retailClean * accidentPct)
+    const retailMid = Math.max(0, retailClean - historyCut)
 
     // (3) ACV / wholesale = what we take the trade in for, and it "comes off retail":
     // retail − recon − target gross. That IS the wholesale take-in (it lines up with
@@ -875,6 +902,9 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
         const mileVsMarket = (mileage > 0 && compMiles > 0)
           ? `This vehicle has ${mileage.toLocaleString()} ${du} vs a market median of ${Math.round(compMiles).toLocaleString()} ${du} (${mileageAdj >= 0 ? '+' : '−'}${cur} $${Math.abs(mileageAdj).toLocaleString()} mileage adjustment).`
           : ''
+        const accidentLine = (accidentTier !== 'none' && historyCut > 0)
+          ? `Accident/history: Carfax shows a ${accidentTier} accident/history record${reportedDamage ? ` (~${cur} $${reportedDamage.toLocaleString()} reported damage)` : ''}, which permanently lowers value — we deducted ${cur} $${historyCut.toLocaleString()} (${Math.round(accidentPct * 100)}%) from clean retail. State this plainly as a reason the offer is below a clean-history example.`
+          : ''
         const soldLine = (sold && sold.median_price > 0)
           ? `Proven to market: ${sold.count} recently SOLD comparable${sold.count === 1 ? '' : 's'} sold at a median of ${cur} $${sold.median_price.toLocaleString()}${sold.median_dom != null ? `, averaging ${sold.median_dom} days on market before selling` : ''}. Real sold prices run about ${Math.round(realism * 100)}% below the ${cur} $${compMedian.toLocaleString()} asking median, which is why the offer is grounded in what these cars actually sell for — not just what they're listed at.`
           : ''
@@ -882,6 +912,7 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
 Vehicle: ${year} ${make} ${model}${trim ? ' ' + trim : ''}${mileage ? `, ${mileage.toLocaleString()} ${du}` : ''}.
 Retail market from ${market.count} comparable listings: asking median ${cur} $${compMedian.toLocaleString()}, range $${(market.low_price || compMedian).toLocaleString()}–$${(market.high_price || compMedian).toLocaleString()}. ${mileVsMarket}
 ${soldLine}
+${accidentLine}
 Adjusted retail value for this vehicle: ${cur} $${retailMid.toLocaleString()}.${tradeValue < retailMid - 1 ? `
 Wholesale value (ACV): ${cur} $${tradeValue.toLocaleString()} — about ${Math.round(tradeRatio * 100)}% of retail, in line with trade/wholesale valuation tools like AutoTrader.` : ''}
 ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.toLocaleString()} — the retail value less ${cur} $${recon.toLocaleString()} reconditioning and a ${cur} $${targetGross.toLocaleString()} target gross, in line with trade-value tools like AutoTrader.`
@@ -904,6 +935,9 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
       sold_median: sold?.median_price ?? null,
       sold_dom: sold?.median_dom ?? null,
       sold_count: sold?.count ?? null,
+      accident_tier: accidentTier !== 'none' ? accidentTier : null,
+      accident_amount: historyCut || null,
+      retail_clean: retailClean,
     }
     let appraisal_id = null
     try {
@@ -976,7 +1010,11 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
           market_realism_amount: -realismCut,
           market_realism_proven: realismProven,   // true = gap derived from real sold comps
           retail_from_comps: retailFromComps,       // ask-derived retail (one signal)
-          retail_value: retailMid,                  // reconciled retail (blend of signals)
+          retail_clean: retailClean,                // reconciled clean-history retail (blend)
+          accident_tier: accidentTier !== 'none' ? accidentTier : null,
+          accident_pct: accidentPct ? Math.round(accidentPct * 1000) / 10 : null,
+          accident_amount: historyCut ? -historyCut : null,
+          retail_value: retailMid,                  // retail after the accident/history haircut
           trade_ratio_pct: Math.round(tradeRatio * 1000) / 10,
           trade_value: tradeValue,
           recon: -recon,
@@ -1014,6 +1052,15 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
           dealer: l.dealer || null, dom: l.dom ?? null, sold_date: l.sold_date || null,
           url: l.vdp_url || null, source: l.source || null,
         })),
+      } : null,
+      // Accident / history deduction applied to retail (null tier when clean).
+      accident: accidentTier !== 'none' ? {
+        tier: accidentTier,
+        pct: Math.round(accidentPct * 1000) / 10,
+        amount: historyCut,
+        reported_damage: reportedDamage || null,
+        retail_clean: retailClean,
+        retail_after: retailMid,
       } : null,
       // MarketCheck model-comparable predicted retail + confidence band (or null).
       prediction,
