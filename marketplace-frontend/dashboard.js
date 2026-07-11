@@ -504,6 +504,11 @@ async function initializeDashboardEcosystem() {
 function switchPage(pageId) {
   ensurePanelsInOriginalLocations();
 
+  // Pipeline is retired and Leads moved into the CRM — redirect any old deep link
+  // (nav, notification link_page) to the right CRM tab.
+  if (pageId === 'leads') { __crmTab = 'leads'; pageId = 'crm'; }
+  else if (pageId === 'pipeline') { __crmTab = 'contacts'; pageId = 'crm'; }
+
   document.querySelectorAll('[data-page-content]').forEach(el => {
     el.classList.toggle('hidden', el.dataset.pageContent !== pageId);
   });
@@ -528,9 +533,7 @@ function switchPage(pageId) {
   if (pageId === 'profile') loadProfileBranding();
   if (pageId === 'inv-intel' && typeof window._invIntelPageHook === 'function') window._invIntelPageHook();
   if (pageId === 'ai-vision') loadAiVisionPage();
-  if (pageId === 'pipeline') loadPipelinePage();
   if (pageId === 'crm') loadCrmPage();
-  if (pageId === 'leads') loadLeadsPage();
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
 }
 
@@ -1239,14 +1242,23 @@ async function crmEnsureLookups() {
 async function loadCrmPage() {
   const root = document.getElementById('crm-root');
   if (!root) return;
+  const tab = (id, label) => `<button onclick="crmSetTab('${id}')" class="px-4 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition ${__crmTab === id ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">${label}</button>`;
   root.innerHTML = `
-    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 mb-4">
-      <button onclick="crmSetTab('contacts')" id="crm-tab-contacts" class="px-4 py-2 text-sm font-bold border-b-2 transition ${__crmTab === 'contacts' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">Contacts</button>
-      <button onclick="crmSetTab('tasks')" id="crm-tab-tasks" class="px-4 py-2 text-sm font-bold border-b-2 transition ${__crmTab === 'tasks' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">My Tasks</button>
+    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
+      ${tab('contacts', 'Contacts')}${tab('leads', 'Leads')}${tab('appointments', 'Appointments')}${tab('tasks', 'Tasks')}
     </div>
     <div id="crm-body"></div>`;
+  const body = document.getElementById('crm-body');
   if (__crmTab === 'contacts') crmLoadContacts();
-  else crmLoadTasks();
+  else if (__crmTab === 'tasks') crmLoadTasks();
+  else if (__crmTab === 'leads') {
+    // Leads (incl. Facebook Marketplace) + the DMS/CRM (ADF) connection live here now.
+    body.innerHTML = `<div id="leads-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading leads…</div></div>`;
+    loadLeadsPage();
+  } else if (__crmTab === 'appointments') {
+    body.innerHTML = `<div id="appointments-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading appointments…</div></div>`;
+    loadAppointmentsPage();
+  }
 }
 function crmSetTab(t) { __crmTab = t; loadCrmPage(); }
 
