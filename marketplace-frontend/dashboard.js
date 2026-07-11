@@ -653,7 +653,7 @@ function apprTile(label, value, sub) {
 
 // vAuto-style live comparable listings — click any row to open the actual listing
 // (dealer site / AutoTrader / CarGurus, wherever it's listed) and compare.
-function apprCompsTable(comps, du, money) {
+function apprCompsTable(comps, du, money, numFound) {
   const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
   const srcLabel = (c) => {
     const h = (host(c.url) || (c.source || '')).toLowerCase();
@@ -669,7 +669,7 @@ function apprCompsTable(comps, du, money) {
   return `
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
       <div class="flex items-center justify-between mb-2">
-        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">Comparable listings</div>
+        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">Comparable listings${numFound && numFound > rows.length ? ` · ${Number(numFound).toLocaleString()} in market` : ''}</div>
         <div class="text-[11px] text-slate-400">${withLinks} of ${rows.length} link to the live ad</div>
       </div>
       <div class="overflow-x-auto -mx-1">
@@ -824,8 +824,37 @@ function renderAppraisal(d) {
           ${chips.map(c => `<span class="text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full px-2 py-0.5">${esc(c)}</span>`).join('')}
         </div>`;
       })()}
-      ${apprCompsTable(d.comps, du, money)}
+      ${apprMarketplaceLinks(d, v)}
+      ${apprCompsTable(d.comps, du, money, rt.num_found)}
       <div class="text-xs text-slate-400">${esc(label)}${v.mileage ? ` · ${Number(v.mileage).toLocaleString()} ${du}` : ''} · Source: ${esc(rt.source || 'MarketCheck')}. Retail-market based — not auction/wholesale values.</div>
+    </div>`;
+}
+
+// vAuto-style "check the other marketplaces" jump-offs — dealers price the same car
+// differently across sites, so give reps one click to the exact vehicle on AutoTrader
+// and CarGurus near them. Uses each site's native search where reliable.
+function apprMarketplaceLinks(d, v) {
+  const slug = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const make = slug(v.make), model = slug(v.model);
+  if (!make || !model) return '';
+  const isUS = (d.distance_unit === 'mi');
+  const postal = (d.dealer_postal || '').replace(/\s+/g, '');
+  const yr = v.year || '';
+  // AutoTrader native path search (CA + US both use /cars/{make}/{model}); scope to
+  // year + the dealer's location when we have it.
+  const atBase = isUS ? 'https://www.autotrader.com' : 'https://www.autotrader.ca';
+  const at = isUS
+    ? `${atBase}/cars-for-sale/all-cars/${make}/${model}?searchRadius=${d.search_radius || 300}${postal ? `&zip=${encodeURIComponent(postal)}` : ''}${yr ? `&startYear=${yr}&endYear=${yr}` : ''}`
+    : `${atBase}/cars/${make}/${model}/?${postal ? `loc=${encodeURIComponent(postal)}&prx=${d.search_radius || 250}&` : ''}${yr ? `yRng=${yr}%2C${yr}&` : ''}sts=Used`;
+  // CarGurus URLs are entity-ID based (not buildable), so use a site-scoped Google
+  // search — always lands on real CarGurus listings for the vehicle.
+  const q = encodeURIComponent(`${yr} ${v.make} ${v.model} ${v.trim || ''} for sale`.trim());
+  const cg = `https://www.google.com/search?q=${q}+site:${isUS ? 'cargurus.com' : 'cargurus.ca'}`;
+  return `
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-[11px] font-semibold text-slate-400">Compare across sites:</span>
+      <a href="${at}" target="_blank" rel="noopener" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">AutoTrader ↗</a>
+      <a href="${cg}" target="_blank" rel="noopener" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">CarGurus ↗</a>
     </div>`;
 }
 

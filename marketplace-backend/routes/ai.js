@@ -849,6 +849,8 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
       dealer_name: dealer?.name || null,
       currency: isUS ? 'USD' : 'CAD',
       distance_unit: isUS ? 'mi' : 'km',
+      dealer_postal: zip || null,            // for the AutoTrader/CarGurus jump-off links
+      search_radius: radius || null,
       retail: {
         median: retailMid,                    // adjusted retail value for THIS vehicle
         comp_median: compMedian,               // raw median asking price of the comps
@@ -856,6 +858,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
         high: market.high_price ?? null,
         avg: market.avg_price ?? null,
         count: market.count ?? null,
+        num_found: market.num_found ?? null,   // total matching listings in the market
         avg_days_online: market.avg_days_online ?? null,
         avg_mileage: market.avg_mileage ?? market.median_mileage ?? null,
         market_mileage: compMiles,             // median mileage of the comp pool
