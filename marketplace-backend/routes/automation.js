@@ -62,8 +62,8 @@ const DEFAULT_CAMPAIGNS = [
   { key: 'birthday', name: 'Birthday Greeting', category: 'calendar', trigger_event: 'birthday', channel: 'sms', delay_minutes: 0, send_at_hour: 9, sender_identity: 'rep', sort: 110,
     message_body_template: `Happy Birthday, {{customer.first_name|there}}! 🎉 Hope you have a great one. — {{rep.first_name|Your friends}} at {{dealership.name}}` },
   { key: 'holiday', name: 'Holiday Greeting', category: 'calendar', trigger_event: 'holiday', channel: 'email', delay_minutes: 0, send_at_hour: 9, sender_identity: 'house', sort: 120,
-    subject_template: `Happy Holidays from {{dealership.name}}`,
-    message_body_template: `Wishing you and your family a wonderful holiday season from all of us at {{dealership.name}}. Please note our holiday service hours may vary — check {{service_url|our website}} before stopping by. Thank you for being part of our community!` },
+    subject_template: `Happy {{holiday.name|Holidays}} from {{dealership.name}}`,
+    message_body_template: `Wishing you and your family a wonderful {{holiday.name|holiday season}} from all of us at {{dealership.name}}. Please note our holiday service hours may vary — check {{service_url|our website}} before stopping by. Thank you for being part of our community!` },
 ]
 
 // Seed the default campaigns for a dealership the first time (idempotent).
@@ -157,12 +157,14 @@ export async function enqueueForTrigger(dealershipId, trigger, ctx = {}) {
         if (m != null) at = addMonths(base, m)
         else at = new Date(base.getTime() + (c.delay_minutes || 0) * 60000)
         if (c.send_at_hour != null) at = alignHour(at, c.send_at_hour, false, base.getTime() + (c.delay_minutes || 0) * 60000)
-        // Calendar campaigns dedupe once per year via the marker.
-        const marker = m != null ? m : (trigger === 'birthday' || trigger === 'holiday' ? year : null)
+        // Calendar campaigns dedupe once per year (birthday) or per-holiday-per-year
+        // (holiday, via a markerOverride like year*10000 + MMDD) via the marker.
+        const marker = m != null ? m : (ctx.markerOverride != null ? ctx.markerOverride : ((trigger === 'birthday' || trigger === 'holiday') ? year : null))
         rows.push({
           dealership_id: dealershipId, contact_id: ctx.contactId, vehicle_id: ctx.vehicleId || null, rep_id: ctx.repId || null,
           campaign_id: c.id, sequence_key: `${trigger}:${c.key || c.id}`, interval_marker: marker,
           channel: c.channel, sender_identity: c.sender_identity, scheduled_at: at.toISOString(), status: 'pending',
+          context: ctx.context || null,
         })
       }
     }
@@ -286,10 +288,12 @@ async function dispatch(msg, campaign) {
   const s = dealerSettings(dealer)
   const vehicle = msg.vehicle_id ? (await supabaseAdmin.from('inventory').select('year, make, model, trim').eq('id', msg.vehicle_id).maybeSingle()).data : null
   const sender = await resolveSender(campaign, contact, dealer, s)
-  const vars = buildVars(contact, vehicle, sender.rep, dealer, s)
+  const ctx = (msg.context && typeof msg.context === 'object') ? msg.context : {}
+  const vars = { ...buildVars(contact, vehicle, sender.rep, dealer, s), ...(ctx.vars || {}) }
 
-  let subject = campaign.subject_template ? renderTemplate(campaign.subject_template, vars) : null
-  let body = renderTemplate(campaign.message_body_template, vars)
+  // Per-send overrides (e.g. a specific holiday's message) win over the campaign template.
+  let subject = (ctx.subject_override != null ? renderTemplate(ctx.subject_override, vars) : (campaign.subject_template ? renderTemplate(campaign.subject_template, vars) : null))
+  let body = renderTemplate(ctx.body_override != null ? ctx.body_override : campaign.message_body_template, vars)
 
   // TCPA / A2P 10DLC: opt-out disclosure ONLY on the first automated touch per
   // channel — suppressed afterwards so threads read like a real person texting.
@@ -382,13 +386,19 @@ async function runDaily() {
       const b = String(c.birthday).slice(5, 10) // MM-DD from YYYY-MM-DD
       if (b === mmdd) { await enqueueForTrigger(d.id, 'birthday', { contactId: c.id, repId: c.assigned_rep }); birthdays++ }
     }
-    // Holidays — dealer-configured [{name, date:'MM-DD'}].
-    const todaysHolidays = (s.holidays || []).filter(h => String(h.date || '').slice(0, 5) === mmdd)
+    // Holidays — dealer-configured [{name, date:'MM-DD', enabled, message, subject}].
+    const todaysHolidays = (s.holidays || []).filter(h => h.enabled !== false && String(h.date || '').slice(0, 5) === mmdd)
     if (todaysHolidays.length) {
       const { data: emailable } = await supabaseAdmin.from('contacts').select('id, assigned_rep, consent_email, dnc, opt_out').eq('dealership_id', d.id).not('email', 'is', null)
-      for (const c of (emailable || [])) {
-        if (c.dnc || c.opt_out || c.consent_email === false) continue
-        await enqueueForTrigger(d.id, 'holiday', { contactId: c.id, repId: c.assigned_rep }); holidays++
+      const year = today.getFullYear()
+      const mmddInt = (today.getMonth() + 1) * 100 + today.getDate()
+      for (const h of todaysHolidays) {
+        const context = { vars: { 'holiday.name': h.name || 'the holidays' }, body_override: h.message || null, subject_override: h.subject || null }
+        const markerOverride = year * 10000 + mmddInt   // one per holiday-date per year
+        for (const c of (emailable || [])) {
+          if (c.dnc || c.opt_out || c.consent_email === false) continue
+          await enqueueForTrigger(d.id, 'holiday', { contactId: c.id, repId: c.assigned_rep, context, markerOverride }); holidays++
+        }
       }
     }
   }
@@ -436,12 +446,13 @@ export function registerAutomation(app) {
   // ── Campaign management (manager) ──────────────────────────────────────────
   app.get('/automation/campaigns', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required', can_manage: false })
     await ensureCampaigns(req.dealershipId)
     const [{ data: campaigns }, { data: dealer }] = await Promise.all([
       supabaseAdmin.from('automated_campaigns').select('*').eq('dealership_id', req.dealershipId).order('sort'),
-      supabaseAdmin.from('dealerships').select('automation_settings').eq('id', req.dealershipId).maybeSingle(),
+      supabaseAdmin.from('dealerships').select('automation_settings, province, country').eq('id', req.dealershipId).maybeSingle(),
     ])
-    res.json({ campaigns: campaigns || [], settings: dealerSettings(dealer), can_manage: isDealerLevel(req) })
+    res.json({ campaigns: campaigns || [], settings: dealerSettings(dealer), region: { province: dealer?.province || null, country: dealer?.country || null }, can_manage: true })
   })
   app.put('/automation/campaigns/:id', requireAuth, async (req, res) => {
     if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
@@ -476,7 +487,12 @@ export function registerAutomation(app) {
     if (b.business_start !== undefined) s.business_start = Math.max(0, Math.min(23, parseInt(b.business_start) || 0))
     if (b.business_end !== undefined) s.business_end = Math.max(0, Math.min(24, parseInt(b.business_end) || 19))
     if (b.enabled !== undefined) s.enabled = !!b.enabled
-    if (Array.isArray(b.holidays)) s.holidays = b.holidays.slice(0, 30).map(h => ({ name: String(h.name || '').slice(0, 60), date: String(h.date || '').slice(0, 5) })).filter(h => h.name && /^\d{2}-\d{2}$/.test(h.date))
+    if (Array.isArray(b.holidays)) s.holidays = b.holidays.slice(0, 40).map(h => ({
+      name: String(h.name || '').slice(0, 60), date: String(h.date || '').slice(0, 5),
+      enabled: h.enabled !== false,
+      subject: h.subject ? String(h.subject).slice(0, 200) : null,
+      message: h.message ? String(h.message).slice(0, 3000) : null,
+    })).filter(h => h.name && /^\d{2}-\d{2}$/.test(h.date))
     await supabaseAdmin.from('dealerships').update({ automation_settings: s }).eq('id', req.dealershipId)
     res.json({ ok: true, settings: dealerSettings({ automation_settings: s }) })
   })
