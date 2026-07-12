@@ -8,6 +8,9 @@
   <style>
     :root{--brand:#1e3a8a;--brand2:#0f172a}
     .brand-bg{background:var(--brand)} .brand-text{color:var(--brand)} .brand2-bg{background:var(--brand2)}
+    /* Never let anything push the page wider than the phone screen (kills the sliver
+       of horizontal scroll). `clip` (not `hidden`) so the sticky header still works. */
+    html,body{max-width:100%;overflow-x:clip}
     body{-webkit-font-smoothing:antialiased}
     .cshadow{box-shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04)}
   </style>
@@ -58,9 +61,21 @@
       const style=bg?`background-image:url('${esc(bg)}');background-size:cover;background-position:center`:'background:linear-gradient(135deg,var(--brand),var(--brand2))';
       return `<div class="${cls} flex items-center justify-center" style="${style}"><svg viewBox="0 0 120 46" class="w-3/4 max-w-[200px]" style="opacity:.95"><path d="M10 34 h100 a3 3 0 0 0 3-3 v-6 a4 4 0 0 0-3-4 l-14-3 -9-9 a7 7 0 0 0-5-2 H43 a7 7 0 0 0-5 2 l-9 9 -14 3 a4 4 0 0 0-3 4 v6 a3 3 0 0 0 3 3 z" fill="#ffffff" fill-opacity=".92"/><circle cx="34" cy="35" r="7" fill="#0f172a"/><circle cx="86" cy="35" r="7" fill="#0f172a"/><circle cx="34" cy="35" r="3" fill="#fff"/><circle cx="86" cy="35" r="3" fill="#fff"/></svg></div>`;
     }
+    // Carfax / window sticker / brochure links + open-recall badge — same set the
+    // internal inventory cards show. Only renders links the dealer actually has; no
+    // decode, and no AI sticker/brochure unless the dealer already generated one.
+    function docLinks(v){
+      const b='text-[11px] font-bold border border-slate-300 rounded-md px-2 py-1 hover:bg-slate-50 inline-flex items-center gap-1 bg-white';
+      const p=[];
+      if(v.carfax_url) p.push(`<a href="${esc(v.carfax_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="${b}">CARFAX<span class="text-red-500">🍁</span></a>`);
+      if(v.window_sticker_url) p.push(`<a href="${esc(v.window_sticker_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="${b}">Window sticker</a>`);
+      if(v.brochure_url) p.push(`<a href="${esc(v.brochure_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="${b}">Brochure</a>`);
+      if(v.recall_count) p.push(`<span class="text-[11px] font-bold text-amber-800 bg-amber-100 rounded-md px-2 py-1">⚠ ${v.recall_count} recall${v.recall_count>1?'s':''}</span>`);
+      return p.length?`<div class="flex flex-wrap gap-1.5 px-3 pb-3 mt-auto">${p.join('')}</div>`:'';
+    }
     // Shared vehicle card + inventory wiring (reused by default home and section grids).
     function vehicleCard(v){ const img=v.image_urls[0]; const specs=[v.mileage?km(v.mileage):null,v.drivetrain,v.fuel_type].filter(Boolean).slice(0,3).join(' · ');
-      return `<button onclick="openVehicle('${v.id}')" class="text-left bg-white rounded-xl overflow-hidden cshadow hover:shadow-lg transition">${img?`<img src="${esc(img)}" loading="lazy" class="w-full h-48 object-cover bg-slate-100">`:carPlaceholder('w-full h-48')}<div class="p-3"><div class="font-bold truncate">${esc([v.year,v.make,v.model].filter(Boolean).join(' '))}</div><div class="text-xs text-slate-500 truncate">${esc(v.trim||'')}${v.image_urls.length>1?` · ${v.image_urls.length} photos`:''}</div><div class="mt-1.5 flex items-center justify-between"><span class="brand-text font-black">${money(v.price)}</span>${v.condition?`<span class="text-[10px] uppercase font-bold text-slate-400">${esc(v.condition)}</span>`:''}</div>${specs?`<div class="text-xs text-slate-500 mt-1 truncate">${esc(specs)}</div>`:''}</div></button>`; }
+      return `<div class="bg-white rounded-xl overflow-hidden cshadow hover:shadow-lg transition flex flex-col"><button onclick="openVehicle('${v.id}')" class="text-left w-full">${img?`<img src="${esc(img)}" loading="lazy" class="w-full h-48 object-cover bg-slate-100">`:carPlaceholder('w-full h-48')}<div class="p-3"><div class="font-bold truncate">${esc([v.year,v.make,v.model].filter(Boolean).join(' '))}</div><div class="text-xs text-slate-500 truncate">${esc(v.trim||'')}${v.image_urls.length>1?` · ${v.image_urls.length} photos`:''}</div><div class="mt-1.5 flex items-center justify-between"><span class="brand-text font-black">${money(v.price)}</span>${v.condition?`<span class="text-[10px] uppercase font-bold text-slate-400">${esc(v.condition)}</span>`:''}</div>${specs?`<div class="text-xs text-slate-500 mt-1 truncate">${esc(specs)}</div>`:''}</div></button>${docLinks(v)}</div>`; }
     function wireInventory(){ const on=(id,ev,fn)=>{const x=document.getElementById(id); if(x) x.addEventListener(ev,fn);};
       on('q','input',e=>{FILTERS.q=e.target.value;applyFilters();renderGrid();updateCount();});
       on('f-cond','change',e=>{FILTERS.condition=e.target.value;applyFilters();renderGrid();updateCount();});
@@ -76,26 +91,34 @@
       const s=DATA.site;
       const addr=[s.address,[s.city,s.province,s.postal_code].filter(Boolean).join(', ')].filter(Boolean).join(', ');
       const navPages=(s.pages||[]).filter(p=>p.nav);
+      // One nav list drives both the desktop bar and the mobile drop-down menu.
+      const teamNav=(DATA.team||[]).length?[['Team',"go('home');setTimeout(()=>document.getElementById('team')&&document.getElementById('team').scrollIntoView({behavior:'smooth'}),50)"]]:[];
+      const navItems=[['Inventory',"go('home')"],['Value Trade',"go('trade')"],['Financing',"go('finance')"],...teamNav,...navPages.map(p=>[p.title,`go('page:${p.slug}')`]),['Contact',"go('inquiry')"]];
       document.getElementById('app').innerHTML=`
         ${slotHtml('top_banner')}
         <header class="brand-bg text-white sticky top-0 z-30">
-          <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-            <a href="#" onclick="go('home');return false" class="flex items-center gap-3 min-w-0">
-              ${s.logo_url?`<img src="${esc(s.logo_url)}" alt="" class="h-9 w-auto bg-white/10 rounded px-1">`:''}
+          <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-2">
+            <a href="#" onclick="go('home');return false" class="flex items-center gap-2 min-w-0 flex-1">
+              ${s.logo_url?`<img src="${esc(s.logo_url)}" alt="" class="h-9 w-auto bg-white/10 rounded px-1 shrink-0">`:''}
               <span class="font-black text-lg truncate">${esc(s.name)}</span>
             </a>
-            <nav class="hidden lg:flex items-center gap-5 text-sm font-semibold">
-              <a href="#" onclick="go('home');return false" class="hover:opacity-80">Inventory</a>
-              <a href="#" onclick="go('trade');return false" class="hover:opacity-80">Value Trade</a>
-              <a href="#" onclick="go('finance');return false" class="hover:opacity-80">Financing</a>
-              ${(DATA.team||[]).length?'<a href="#" onclick="go(\'home\');setTimeout(()=>document.getElementById(\'team\')?.scrollIntoView({behavior:\'smooth\'}),50);return false" class="hover:opacity-80">Team</a>':''}
-              ${navPages.map(p=>`<a href="#" onclick="go('page:${p.slug}');return false" class="hover:opacity-80">${esc(p.title)}</a>`).join('')}
-              <a href="#" onclick="go('inquiry');return false" class="hover:opacity-80">Contact</a>
+            <nav class="hidden lg:flex items-center gap-5 text-sm font-semibold shrink-0">
+              ${navItems.map(n=>`<a href="#" onclick="${n[1]};return false" class="hover:opacity-80">${esc(n[0])}</a>`).join('')}
             </nav>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 shrink-0">
               <button onclick="go('finance')" class="hidden sm:inline bg-white text-slate-900 rounded-lg px-3 py-1.5 text-sm font-bold hover:bg-slate-100">Get pre-approved</button>
-              ${s.phone?`<a href="tel:${esc(s.phone)}" class="bg-white/15 hover:bg-white/25 rounded-lg px-3 py-1.5 text-sm font-bold whitespace-nowrap">${esc(s.phone)}</a>`:''}
+              ${s.phone?`<a href="tel:${esc(s.phone)}" class="hidden sm:inline bg-white/15 hover:bg-white/25 rounded-lg px-3 py-1.5 text-sm font-bold whitespace-nowrap">${esc(s.phone)}</a>`:''}
+              <button onclick="toggleMobileNav()" aria-label="Menu" class="lg:hidden text-white p-2 -mr-2 text-2xl leading-none">☰</button>
             </div>
+          </div>
+          <div id="mnav" class="lg:hidden hidden border-t border-white/10">
+            <nav class="max-w-6xl mx-auto px-4 py-1 flex flex-col text-sm font-semibold">
+              ${navItems.map(n=>`<a href="#" onclick="toggleMobileNav();${n[1]};return false" class="py-3 border-b border-white/10">${esc(n[0])}</a>`).join('')}
+              <div class="flex gap-2 py-3">
+                <button onclick="toggleMobileNav();go('finance')" class="flex-1 bg-white text-slate-900 rounded-lg px-3 py-2 font-bold">Get pre-approved</button>
+                ${s.phone?`<a href="tel:${esc(s.phone)}" class="flex-1 text-center bg-white/15 rounded-lg px-3 py-2 font-bold">Call ${esc(s.phone)}</a>`:''}
+              </div>
+            </nav>
           </div>
         </header>
         <div id="view"></div>
@@ -234,9 +257,7 @@
     const updateCount=()=>{const el=document.getElementById('count'); if(el) el.textContent=`${FILTERED.length} vehicle${FILTERED.length===1?'':'s'}`;};
     function renderGrid(){ const grid=document.getElementById('grid'); if(!grid) return;
       if(!FILTERED.length){ grid.innerHTML='<div class="col-span-full text-center text-sm text-slate-400 py-10">No vehicles match your search.</div>'; return; }
-      grid.innerHTML=FILTERED.map(v=>{ const img=v.image_urls[0]; const specs=[v.mileage?km(v.mileage):null,v.drivetrain,v.fuel_type].filter(Boolean).slice(0,3).join(' · ');
-        return `<button onclick="openVehicle('${v.id}')" class="text-left bg-white rounded-xl overflow-hidden cshadow hover:shadow-lg transition">${img?`<img src="${esc(img)}" loading="lazy" class="w-full h-48 object-cover bg-slate-100">`:`<div class="w-full h-48 bg-slate-100 flex items-center justify-center text-slate-300 text-4xl">⌀</div>`}<div class="p-3"><div class="font-bold truncate">${esc([v.year,v.make,v.model].filter(Boolean).join(' '))}</div><div class="text-xs text-slate-500 truncate">${esc(v.trim||'')}${v.image_urls.length>1?` · ${v.image_urls.length} photos`:''}</div><div class="mt-1.5 flex items-center justify-between"><span class="brand-text font-black">${money(v.price)}</span>${v.condition?`<span class="text-[10px] uppercase font-bold text-slate-400">${esc(v.condition)}</span>`:''}</div>${specs?`<div class="text-xs text-slate-500 mt-1 truncate">${esc(specs)}</div>`:''}</div></button>`;
-      }).join('');
+      grid.innerHTML=FILTERED.map(vehicleCard).join('');
     }
     function openVehicle(id){ const v=(DATA.vehicles||[]).find(x=>x.id===id); if(!v) return;
       const rows=[['Mileage',v.mileage?km(v.mileage):null],['Condition',v.condition],['Drivetrain',v.drivetrain],['Transmission',v.transmission],['Fuel',v.fuel_type],['Engine',v.engine],['Body',v.body_style],['Exterior',v.exterior_color],['Interior',v.interior_color],['Doors',v.doors],['Stock #',v.stocknumber],['VIN',v.vin]].filter(r=>r[1]);
@@ -296,7 +317,8 @@
       if(!V('i-name')&&!V('i-phone')&&!V('i-email')){alert('Add a name, phone, or email.');return;}
       postLead({form_type:'inquiry',name:V('i-name'),phone:V('i-phone'),email:V('i-email'),message:V('i-msg'),vehicle_id:V('i-vehicle')||null},e.target,btn); }
 
-    window.go=go; window.setCond=setCond; window.openVehicle=openVehicle;
+    function toggleMobileNav(){ const m=document.getElementById('mnav'); if(m) m.classList.toggle('hidden'); }
+    window.go=go; window.setCond=setCond; window.openVehicle=openVehicle; window.toggleMobileNav=toggleMobileNav;
     window.submitTrade=submitTrade; window.submitFinance=submitFinance; window.submitInquiry=submitInquiry;
     boot();
   </script>
