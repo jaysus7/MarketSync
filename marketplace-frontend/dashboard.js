@@ -4008,6 +4008,8 @@ async function openCarfax(id, vin) {
 // and everything (website, syndication) reads from this.
 let __vehExistingUrls = [];   // already-uploaded photo URLs (editable)
 let __vehFormFiles = [];      // File objects staged for upload
+let __photoBackgroundUrl = null;  // dealership branded background (or null)
+let __bgProviderReady = false;    // AI cutout provider key configured server-side
 
 function openVehicleForm(vehicle) {
   const v = vehicle || {};
@@ -4053,10 +4055,22 @@ function openVehicleForm(vehicle) {
     </div>
     <div>${lbl('Description')}<textarea id="veh-desc" rows="3" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${esc(v.description || '')}</textarea></div>
     <div>
-      ${lbl('Photos')}
+      <div class="flex items-center justify-between mb-1">
+        ${lbl('Photos')}
+        <button type="button" onclick="openPhotoBackgroundUploader()" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">${__photoBackgroundUrl ? 'Change branded background' : 'Set branded background'}</button>
+      </div>
       <div id="veh-photos" class="grid grid-cols-4 sm:grid-cols-6 gap-2 mb-2"></div>
       <input id="veh-file" type="file" accept="image/*" multiple class="hidden" onchange="vehAddFiles(this.files); this.value='';">
-      <button type="button" onclick="document.getElementById('veh-file').click()" class="w-full border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 rounded-lg py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 transition">+ Add photos</button>
+      <input id="veh-cam" type="file" accept="image/*" capture="environment" class="hidden" onchange="vehAddFiles(this.files); this.value='';">
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" onclick="document.getElementById('veh-file').click()" class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 rounded-lg py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 transition">+ Add photos</button>
+        <button type="button" onclick="document.getElementById('veh-cam').click()" class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 rounded-lg py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 transition flex items-center justify-center gap-1.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h3l1.5-2h7L17 7h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1z"/></svg>Take photo</button>
+      </div>
+      ${__photoBackgroundUrl ? `<label class="flex items-center gap-2 mt-2 text-xs ${__bgProviderReady ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400'}">
+        <input id="veh-bg-toggle" type="checkbox" ${__bgProviderReady ? 'checked' : 'disabled'} class="accent-indigo-600">
+        Put these photos on our branded background${__bgProviderReady ? '' : ' (AI background not enabled yet)'}
+        <img src="${esc(__photoBackgroundUrl)}" class="w-8 h-6 object-cover rounded ml-auto border border-slate-200 dark:border-slate-700">
+      </label>` : ''}
     </div>
     <div class="flex gap-2 items-center justify-between pt-1">
       <div>${isEdit ? `<button onclick="vehDelete('${v.id}')" class="text-sm font-bold text-rose-600 hover:text-rose-500 px-2 py-2">Delete</button>` : ''}</div>
@@ -4111,9 +4125,11 @@ async function vehSave(btn, id) {
     if (id) await apiSendJson(`/inventory/${id}`, 'PUT', body);
     else { const d = await apiSendJson('/inventory', 'POST', body); vehId = d.vehicle?.id; }
     if (vehId && __vehFormFiles.length) {
-      btn.textContent = `Uploading ${__vehFormFiles.length} photo${__vehFormFiles.length > 1 ? 's' : ''}…`;
+      const useBg = document.getElementById('veh-bg-toggle')?.checked;
+      btn.textContent = useBg ? `Applying background to ${__vehFormFiles.length}…` : `Uploading ${__vehFormFiles.length} photo${__vehFormFiles.length > 1 ? 's' : ''}…`;
       const fd = new FormData();
       __vehFormFiles.forEach(f => fd.append('photos', f));
+      if (useBg) fd.append('background', '1');
       const r = await fetch(`${API}/inventory/${vehId}/photos`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd });
       if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || 'Photo upload failed'); }
     }
@@ -4132,9 +4148,52 @@ async function vehDelete(id) {
   } catch (e) { showToast(e.message, 'error'); }
 }
 function editVehicle(id) { const v = (typeof __catalogCache !== 'undefined' ? __catalogCache : []).find(x => x.id === id); if (v) openVehicleForm(v); }
+
+// Upload/replace the dealership's branded photo background (used by the AI swap).
+function openPhotoBackgroundUploader() {
+  const ov = crmOverlay(`<div class="p-5 space-y-3">
+    <div class="flex items-center justify-between">
+      <div class="text-lg font-black text-slate-900 dark:text-white">Branded photo background</div>
+      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <p class="text-sm text-slate-500 dark:text-slate-400">Upload one background (your lot, a studio backdrop, a branded scene). When you add vehicle photos you can drop them onto it — the AI cuts out the car and places it on this background.</p>
+    ${!__bgProviderReady ? '<div class="text-xs bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg p-2 text-amber-700 dark:text-amber-300">The AI cutout provider isn\'t enabled yet — set REMOVEBG_API_KEY to turn on background swapping. You can still upload the background now.</div>' : ''}
+    <div id="pbg-preview">${__photoBackgroundUrl ? `<img src="${esc(__photoBackgroundUrl)}" class="w-full h-40 object-cover rounded-lg border border-slate-200 dark:border-slate-700">` : '<div class="w-full h-40 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm text-slate-400">No background set</div>'}</div>
+    <input id="pbg-file" type="file" accept="image/*" class="hidden" onchange="uploadPhotoBackground(this.files[0])">
+    <div class="flex gap-2 justify-between">
+      <div>${__photoBackgroundUrl ? '<button onclick="removePhotoBackground()" class="text-sm font-bold text-rose-600 hover:text-rose-500 px-2 py-2">Remove</button>' : ''}</div>
+      <button onclick="document.getElementById('pbg-file').click()" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">${__photoBackgroundUrl ? 'Replace background' : 'Upload background'}</button>
+    </div>
+  </div>`, 'max-w-md');
+  return ov;
+}
+async function uploadPhotoBackground(file) {
+  if (!file) return;
+  showToast('Uploading background…', 'info');
+  try {
+    const fd = new FormData(); fd.append('background', file);
+    const r = await fetch(`${API}/dealership/photo-background`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Upload failed');
+    __photoBackgroundUrl = d.url;
+    showToast('Background saved', 'success');
+    document.querySelector('.fixed')?.remove();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+async function removePhotoBackground() {
+  try {
+    await apiSendJson('/dealership/photo-background', 'DELETE');
+    __photoBackgroundUrl = null;
+    showToast('Background removed', 'success');
+    document.querySelector('.fixed')?.remove();
+  } catch (e) { showToast(e.message, 'error'); }
+}
 window.openVehicleForm = openVehicleForm;
 window.vehDelete = vehDelete;
 window.editVehicle = editVehicle;
+window.openPhotoBackgroundUploader = openPhotoBackgroundUploader;
+window.uploadPhotoBackground = uploadPhotoBackground;
+window.removePhotoBackground = removePhotoBackground;
 
 async function loadInventoryCatalog() {
   const list = document.getElementById('catalog-list');
@@ -5916,6 +5975,9 @@ async function loadAIBoostSection() {
     __invIntelActive = !!cfg.inv_intel_active;
     // Trial countdown badge on the ✦ Upgrades icon during the 30-day full-access window.
     updateTrialBadge(cfg.full_access ? (cfg.trial_days_left || 0) : 0);
+    // Photo tools state (branded background + AI cutout provider) for the add-vehicle form.
+    __photoBackgroundUrl = cfg.photo_background_url || null;
+    __bgProviderReady = !!cfg.background_provider_ready;
     // Trade Appraisal is part of the Inventory Intelligence add-on — hide otherwise.
     document.getElementById('nav-appraisal')?.classList.toggle('hidden', !__invIntelActive);
     // Reveal the floating AI assistant dock for entitled dealers (owner exempt).

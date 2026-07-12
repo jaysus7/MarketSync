@@ -243,7 +243,7 @@ export function registerAI(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data, error } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, vin_sticker_active, inv_intel_active, ai_vision_active, ai_boost_paid, inv_intel_paid, full_access_until, country, province, city, postal_code, daily_digest_enabled')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, vin_sticker_active, inv_intel_active, ai_vision_active, ai_boost_paid, inv_intel_paid, full_access_until, photo_background_url, country, province, city, postal_code, daily_digest_enabled')
       .eq('id', req.dealershipId)
       .single()
     if (error) return res.status(500).json({ error: error.message })
@@ -284,6 +284,9 @@ export function registerAI(app) {
       full_access: fullAccess,           // in the 30-day everything-on window
       full_access_until: data.full_access_until,
       trial_days_left: trialDaysLeft,
+      // Photo tools: is a branded background set, and is the AI cutout provider keyed?
+      photo_background_url: data.photo_background_url || null,
+      background_provider_ready: !!process.env.REMOVEBG_API_KEY,
     })
   })
 

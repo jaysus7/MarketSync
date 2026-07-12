@@ -2,11 +2,39 @@ import { supabaseAdmin, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { runInventorySync, syncProgress } from '../sync/engine.js'
 import multer from 'multer'
+import sharp from 'sharp'
 
 // Vehicle-photo uploads: in-memory, 12MB/file, up to 30 at once.
 const photoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024, files: 30 } })
 const INV_MANAGERS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const canManageInventory = (req) => INV_MANAGERS.includes(req.profile?.role)
+
+// Compress to WebP for the web — auto-orient from EXIF (phone photos), cap at
+// 1920px, quality 82 (visually lossless, ~70-80% smaller than the original JPG).
+async function toWebp(buffer, { max = 1920, quality = 82 } = {}) {
+  return sharp(buffer).rotate()
+    .resize({ width: max, height: max, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality }).toBuffer()
+}
+
+// AI background swap: cut the vehicle out and drop it on the dealer's branded
+// background in one call (remove.bg). Returns a composited buffer, or null if the
+// feature isn't configured / the call fails (caller then keeps the original).
+async function compositeOnBackground(buffer, bgUrl) {
+  const key = process.env.REMOVEBG_API_KEY
+  if (!key || !bgUrl) return null
+  try {
+    const form = new FormData()
+    form.append('image_file', new Blob([buffer]), 'vehicle.jpg')
+    form.append('bg_image_url', bgUrl)
+    form.append('size', 'auto')
+    const r = await fetch('https://api.remove.bg/v1.0/removebg', {
+      method: 'POST', headers: { 'X-Api-Key': key }, body: form, signal: AbortSignal.timeout(30000),
+    })
+    if (!r.ok) { console.warn('[removebg] HTTP', r.status, (await r.text().catch(() => '')).slice(0, 200)); return null }
+    return Buffer.from(await r.arrayBuffer())
+  } catch (e) { console.warn('[removebg] failed:', e.message); return null }
+}
 const numOrNull = (x) => { const n = Number(x); return Number.isFinite(n) ? n : null }
 // Pull the storage object path back out of a public vehicle-photos URL (for deletes).
 function photoStoragePath(url) {
@@ -108,12 +136,27 @@ export function registerRoutes(app) {
     if (!v) return res.status(404).json({ error: 'Vehicle not found' })
     const files = req.files || []
     if (!files.length) return res.status(400).json({ error: 'No photos uploaded' })
+
+    // Optionally composite every photo onto the dealership's branded background.
+    const applyBg = String(req.body?.background || '') === '1' || req.body?.background === true
+    let bgUrl = null
+    if (applyBg) {
+      const { data: d } = await supabaseAdmin.from('dealerships').select('photo_background_url').eq('id', req.dealershipId).maybeSingle()
+      bgUrl = d?.photo_background_url || null
+    }
+
     const urls = [...(v.image_urls || [])]
     for (const f of files) {
-      const ext = (f.mimetype.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
-      const path = `${req.dealershipId}/${req.params.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+      let buf = f.buffer
+      if (applyBg && bgUrl) {
+        const composited = await compositeOnBackground(buf, bgUrl)
+        if (composited) buf = composited
+      }
+      let webp
+      try { webp = await toWebp(buf) } catch (e) { console.warn('[inv-photo] webp encode failed:', e.message); webp = f.buffer }
+      const path = `${req.dealershipId}/${req.params.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`
       const { error: upErr } = await supabaseAdmin.storage.from('vehicle-photos')
-        .upload(path, f.buffer, { contentType: f.mimetype, upsert: false })
+        .upload(path, webp, { contentType: 'image/webp', upsert: false })
       if (upErr) { console.warn('[inv-photo] upload failed:', upErr.message); continue }
       const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(path)
       urls.push(publicUrl)
@@ -143,6 +186,27 @@ export function registerRoutes(app) {
       .update({ image_urls: nextUrls }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('image_urls').single()
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, image_urls: data.image_urls })
+  })
+
+  // ── Dealership branded photo background (for AI background swap) ────────────
+  app.post('/dealership/photo-background', requireAuth, photoUpload.single('background'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
+    if (!req.file) return res.status(400).json({ error: 'No image uploaded' })
+    let webp
+    try { webp = await toWebp(req.file.buffer, { max: 2000, quality: 88 }) } catch (e) { return res.status(500).json({ error: 'Could not process image: ' + e.message }) }
+    const path = `${req.dealershipId}/_background/bg-${Date.now()}.webp`
+    const { error: upErr } = await supabaseAdmin.storage.from('vehicle-photos').upload(path, webp, { contentType: 'image/webp', upsert: false })
+    if (upErr) return res.status(500).json({ error: upErr.message })
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(path)
+    await supabaseAdmin.from('dealerships').update({ photo_background_url: publicUrl }).eq('id', req.dealershipId)
+    res.json({ ok: true, url: publicUrl, provider_ready: !!process.env.REMOVEBG_API_KEY })
+  })
+  app.delete('/dealership/photo-background', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
+    await supabaseAdmin.from('dealerships').update({ photo_background_url: null }).eq('id', req.dealershipId)
+    res.json({ ok: true })
   })
 
   // GET /inventory/:id/carfax — resolve the Carfax report link for a vehicle by
