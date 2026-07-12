@@ -12,6 +12,10 @@
        of horizontal scroll). `clip` (not `hidden`) so the sticky header still works. */
     html,body{max-width:100%;overflow-x:clip}
     body{-webkit-font-smoothing:antialiased}
+    /* Let form fields shrink inside flex/grid rows instead of forcing the row wider
+       than the viewport (was cropping whole sections on small phones). */
+    input,select,textarea{min-width:0;max-width:100%}
+    img{max-width:100%}
     .cshadow{box-shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04)}
   </style>
 </head>
@@ -25,6 +29,22 @@
     const attr=(s)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     const money=(n)=>n?'$'+Number(n).toLocaleString():'Call for price';
     const km=(n)=>n?Number(n).toLocaleString()+' km':'—';
+    // Legal: advertised price must state it's plus tax + licensing. Tax name depends on
+    // the dealer's province/state (HST/GST/PST/QST in Canada; "sales tax" in the US).
+    function taxLabel(){
+      const p=(DATA&&DATA.site&&DATA.site.province||'').trim().toLowerCase();
+      const HST=['on','ontario','nb','new brunswick','nl','newfoundland','newfoundland and labrador','ns','nova scotia','pe','pei','prince edward island'];
+      const PST=['bc','british columbia','mb','manitoba','sk','saskatchewan'];
+      const QST=['qc','quebec','québec'];
+      const GST=['ab','alberta','nt','northwest territories','nu','nunavut','yt','yukon'];
+      if(HST.includes(p)) return 'HST';
+      if(QST.includes(p)) return 'GST + QST';
+      if(PST.includes(p)) return 'GST + PST';
+      if(GST.includes(p)) return 'GST';
+      return p?'sales tax':'applicable tax';
+    }
+    // Small "+ tax & licensing" note shown under every advertised price.
+    const priceNote=(v,cls)=>v&&v.price?`<div class="${cls||'text-[10px] text-slate-400 mt-0.5'}">+ ${taxLabel()} &amp; licensing</div>`:'';
     let DATA=null, FILTERED=[], FILTERS={q:'',condition:'',body:'',sort:'newest'}, VIEW='home';
 
     async function boot(){
@@ -75,7 +95,8 @@
     }
     // Shared vehicle card + inventory wiring (reused by default home and section grids).
     function vehicleCard(v){ const img=v.image_urls[0]; const specs=[v.mileage?km(v.mileage):null,v.drivetrain,v.fuel_type].filter(Boolean).slice(0,3).join(' · ');
-      return `<div class="bg-white rounded-xl overflow-hidden cshadow hover:shadow-lg transition flex flex-col"><button onclick="openVehicle('${v.id}')" class="text-left w-full">${img?`<img src="${esc(img)}" loading="lazy" class="w-full h-48 object-cover bg-slate-100">`:carPlaceholder('w-full h-48')}<div class="p-3"><div class="font-bold truncate">${esc([v.year,v.make,v.model].filter(Boolean).join(' '))}</div><div class="text-xs text-slate-500 truncate">${esc(v.trim||'')}${v.image_urls.length>1?` · ${v.image_urls.length} photos`:''}</div><div class="mt-1.5 flex items-center justify-between"><span class="brand-text font-black">${money(v.price)}</span>${v.condition?`<span class="text-[10px] uppercase font-bold text-slate-400">${esc(v.condition)}</span>`:''}</div>${specs?`<div class="text-xs text-slate-500 mt-1 truncate">${esc(specs)}</div>`:''}</div></button>${docLinks(v)}</div>`; }
+      const badge=v.market_status==='pending'?`<span class="absolute top-2 left-2 text-[10px] font-black uppercase tracking-wide text-white bg-amber-500 rounded px-2 py-0.5">Sale Pending</span>`:v.market_status==='demo'?`<span class="absolute top-2 left-2 text-[10px] font-black uppercase tracking-wide text-white bg-slate-700 rounded px-2 py-0.5">Demo</span>`:'';
+      return `<div class="bg-white rounded-xl overflow-hidden cshadow hover:shadow-lg transition flex flex-col"><button onclick="openVehicle('${v.id}')" class="text-left w-full"><div class="relative">${img?`<img src="${esc(img)}" loading="lazy" class="w-full h-48 object-cover bg-slate-100">`:carPlaceholder('w-full h-48')}${badge}</div><div class="p-3"><div class="font-bold truncate">${esc([v.year,v.make,v.model].filter(Boolean).join(' '))}</div><div class="text-xs text-slate-500 truncate">${esc(v.trim||'')}${v.image_urls.length>1?` · ${v.image_urls.length} photos`:''}</div><div class="mt-1.5 flex items-center justify-between"><span class="brand-text font-black">${money(v.price)}</span>${v.condition?`<span class="text-[10px] uppercase font-bold text-slate-400">${esc(v.condition)}</span>`:''}</div>${priceNote(v)}${specs?`<div class="text-xs text-slate-500 mt-1 truncate">${esc(specs)}</div>`:''}</div></button>${docLinks(v)}</div>`; }
     function wireInventory(){ const on=(id,ev,fn)=>{const x=document.getElementById(id); if(x) x.addEventListener(ev,fn);};
       on('q','input',e=>{FILTERS.q=e.target.value;applyFilters();renderGrid();updateCount();});
       on('f-cond','change',e=>{FILTERS.condition=e.target.value;applyFilters();renderGrid();updateCount();});
@@ -141,7 +162,8 @@
             </div>
             <div>${s.hours?`<div class="font-bold text-white mb-2">Hours</div><div class="text-slate-400 whitespace-pre-line">${esc(s.hours)}</div>`:''}</div>
           </div>
-          <div class="border-t border-slate-800 text-center text-xs text-slate-500 py-4">© ${new Date().getFullYear()} ${esc(s.name)} · Powered by MarketSync</div>
+          <div class="border-t border-slate-800 text-center text-[11px] text-slate-500 px-4 pt-4">All advertised prices are plus ${taxLabel()} and licensing. Prices do not include applicable taxes, licensing, or fees. Vehicle availability is subject to change.</div>
+          <div class="text-center text-xs text-slate-500 py-4">© ${new Date().getFullYear()} ${esc(s.name)} · Powered by MarketSync</div>
         </footer>`;
     }
     function go(view,vehId,prefill){ VIEW=view; window.scrollTo(0,0); renderView();
@@ -245,11 +267,12 @@
 
     // ── Faceted inventory page (its own view) ──────────────────────────────────
     let INV={ q:'', sort:'newest', facets:{}, limit:24, showFilters:false, collapsed:{}, more:{}, _results:[], _io:null };
-    const INV_FACETS=[['condition','Condition'],['make','Make'],['model','Model'],['body','Body type'],['year','Year'],['price','Price'],['drivetrain','Drivetrain'],['fuel','Fuel']];
+    const INV_FACETS=[['status','Status'],['condition','Condition'],['make','Make'],['model','Model'],['body','Body type'],['year','Year'],['price','Price'],['drivetrain','Drivetrain'],['fuel','Fuel']];
     const PRICE_BUCKETS=[['Under $20,000',0,20000],['$20,000 – $30,000',20000,30000],['$30,000 – $40,000',30000,40000],['$40,000 – $50,000',40000,50000],['$50,000 – $70,000',50000,70000],['$70,000+',70000,1e12]];
     const cap=(s)=>s?String(s)[0].toUpperCase()+String(s).slice(1).toLowerCase():'';
     function priceBucket(p){ if(!p) return ''; for(const b of PRICE_BUCKETS){ if(p>=b[1]&&p<b[2]) return b[0]; } return ''; }
-    function facetVal(v,f){ switch(f){ case 'condition':return cap(v.condition); case 'make':return v.make||''; case 'model':return v.model||''; case 'body':return v.body_style||''; case 'drivetrain':return v.drivetrain||''; case 'fuel':return v.fuel_type||''; case 'year':return v.year?String(v.year):''; case 'price':return priceBucket(v.price); } return ''; }
+    const STATUS_LABEL={available:'In stock',pending:'Sale pending',demo:'Demo'};
+    function facetVal(v,f){ switch(f){ case 'status':return STATUS_LABEL[v.market_status]||'In stock'; case 'condition':return cap(v.condition); case 'make':return v.make||''; case 'model':return v.model||''; case 'body':return v.body_style||''; case 'drivetrain':return v.drivetrain||''; case 'fuel':return v.fuel_type||''; case 'year':return v.year?String(v.year):''; case 'price':return priceBucket(v.price); } return ''; }
     function invMatch(v,except){ if(INV.q){ const hay=[v.year,v.make,v.model,v.trim,v.stocknumber,v.body_style].filter(Boolean).join(' ').toLowerCase(); if(!hay.includes(INV.q)) return false; } for(const f in INV.facets){ if(f===except) continue; const set=INV.facets[f]; if(set&&set.size&&!set.has(facetVal(v,f))) return false; } return true; }
     function invResults(){ let v=(DATA.vehicles||[]).filter(x=>invMatch(x,null)); const s=INV.sort; v.sort((a,b)=>s==='price-asc'?(a.price||1e12)-(b.price||1e12):s==='price-desc'?(b.price||0)-(a.price||0):s==='miles-asc'?(a.mileage||1e12)-(b.mileage||1e12):s==='year-desc'?(b.year||0)-(a.year||0):0); return v; }
     function invFacetCounts(f){ const m=new Map(); for(const v of (DATA.vehicles||[])){ if(!invMatch(v,f)) continue; const val=facetVal(v,f); if(!val) continue; m.set(val,(m.get(val)||0)+1); } let e=[...m.entries()]; if(f==='year') e.sort((a,b)=>Number(b[0])-Number(a[0])); else if(f==='price') e.sort((a,b)=>PRICE_BUCKETS.findIndex(x=>x[0]===a[0])-PRICE_BUCKETS.findIndex(x=>x[0]===b[0])); else e.sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(String(b[0]))); return e; }
@@ -352,7 +375,7 @@
         : carPlaceholder('w-full h-72 rounded-xl');
       const docs=(v.carfax_url||v.window_sticker_url||v.brochure_url||v.recall_count)?`<div class="flex flex-wrap gap-2 mb-4">${v.carfax_url?`<a href="${esc(v.carfax_url)}" target="_blank" rel="noopener" class="text-xs font-bold border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50 flex items-center gap-1">CARFAX<span class="text-red-500">🍁</span> ↗</a>`:''}${v.window_sticker_url?`<a href="${esc(v.window_sticker_url)}" target="_blank" rel="noopener" class="text-xs font-bold border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50">Window sticker ↗</a>`:''}${v.brochure_url?`<a href="${esc(v.brochure_url)}" target="_blank" rel="noopener" class="text-xs font-bold border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50">Brochure ↗</a>`:''}${v.recall_count?`<span class="text-xs font-bold text-amber-800 bg-amber-100 rounded-lg px-3 py-1.5">⚠ ${v.recall_count} open recall${v.recall_count>1?'s':''}</span>`:''}</div>`:'';
       const ov=document.createElement('div'); ov.className='fixed inset-0 z-40 bg-black/60 overflow-y-auto'; ov.onclick=(e)=>{if(e.target===ov)ov.remove();};
-      ov.innerHTML=`<div class="min-h-full flex items-start justify-center p-3"><div class="bg-white rounded-2xl w-full max-w-3xl my-4"><div class="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white rounded-t-2xl z-10"><div class="font-black truncate pr-2">${esc([v.year,v.make,v.model,v.trim].filter(Boolean).join(' '))}</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 text-2xl leading-none shrink-0">&times;</button></div><div class="p-4"><div class="mb-4">${gallery}</div><div class="flex items-center justify-between mb-3"><div class="text-2xl font-black brand-text">${money(v.price)}</div>${v.mileage?`<div class="text-sm text-slate-500">${km(v.mileage)}</div>`:''}</div>${docs}${v.description?`<div class="mb-5 text-sm text-slate-700 leading-relaxed whitespace-pre-line">${esc(v.description)}</div>`:''}${specSheet(v)}<div class="grid grid-cols-2 gap-2 mt-2"><button onclick="this.closest('.fixed').remove();go('inquiry','${v.id}','I\\'m interested in the ${label} (stock ${esc(v.stocknumber||v.id.slice(0,6))}).')" class="brand-bg text-white font-bold py-2.5 rounded-lg">Ask about this</button><button onclick="this.closest('.fixed').remove();go('finance')" class="border-2 brand-border brand-text font-bold py-2.5 rounded-lg">Get financing</button></div></div></div></div>`;
+      ov.innerHTML=`<div class="min-h-full flex items-start justify-center p-3"><div class="bg-white rounded-2xl w-full max-w-3xl my-4"><div class="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white rounded-t-2xl z-10"><div class="flex items-center gap-2 min-w-0"><div class="font-black truncate">${esc([v.year,v.make,v.model,v.trim].filter(Boolean).join(' '))}</div>${v.market_status==='pending'?'<span class="shrink-0 text-[10px] font-black uppercase text-white bg-amber-500 rounded px-2 py-0.5">Sale Pending</span>':v.market_status==='demo'?'<span class="shrink-0 text-[10px] font-black uppercase text-white bg-slate-700 rounded px-2 py-0.5">Demo</span>':''}</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 text-2xl leading-none shrink-0">&times;</button></div><div class="p-4"><div class="mb-4">${gallery}</div><div class="flex items-center justify-between mb-1"><div class="text-2xl font-black brand-text">${money(v.price)}</div>${v.mileage?`<div class="text-sm text-slate-500">${km(v.mileage)}</div>`:''}</div>${v.price?`<div class="text-xs text-slate-500 mb-3">Price is plus ${taxLabel()} &amp; licensing.</div>`:'<div class="mb-3"></div>'}${docs}${v.description?`<div class="mb-5 text-sm text-slate-700 leading-relaxed whitespace-pre-line">${esc(v.description)}</div>`:''}${specSheet(v)}<div class="grid grid-cols-2 gap-2 mt-2"><button onclick="this.closest('.fixed').remove();go('inquiry','${v.id}','I\\'m interested in the ${label} (stock ${esc(v.stocknumber||v.id.slice(0,6))}).')" class="brand-bg text-white font-bold py-2.5 rounded-lg">Ask about this</button><button onclick="this.closest('.fixed').remove();go('finance')" class="border-2 brand-border brand-text font-bold py-2.5 rounded-lg">Get financing</button></div></div></div></div>`;
       document.body.appendChild(ov);
     }
     // Brochure-style deep spec sheet from the NHTSA VIN decode (only shows fields we have).

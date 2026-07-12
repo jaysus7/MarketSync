@@ -5,7 +5,7 @@ const DEALER_LEVEL = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isDealerLevel = (req) => DEALER_LEVEL.includes(req.profile?.role)
 const digits = (s) => String(s || '').replace(/\D/g, '')
 
-const CONTACT_STATUSES = ['uncontacted', 'contacted', 'appointment', 'sold', 'fni', 'turnover', 'followup', 'lost']
+const CONTACT_STATUSES = ['uncontacted', 'contacted', 'appointment', 'sold', 'fni', 'turnover', 'delivered', 'followup', 'lost']
 
 // Map an incoming body to a writable contacts patch (shared by create + update).
 // Only assigns keys the caller actually sent, so PATCH-style updates don't wipe

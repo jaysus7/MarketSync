@@ -7,6 +7,18 @@ const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
 const slugOk = (s) => /^[a-z0-9]([a-z0-9-]{1,38})[a-z0-9]$/.test(s)   // 3–40, no leading/trailing dash
 
 // Only expose safe, public-facing vehicle fields (no internal/source data).
+// Derive a vehicle's public market status from the inventory flag + the pipeline
+// stage of any lead attached to it. Delivered (or manually sold) → off the lot;
+// a live deal (sold/fni/turnover, not yet delivered) → sale pending; demo units →
+// demo; everything else → in stock.
+function marketStatus(v, contactStage) {
+  const s = String(v.status || '').toLowerCase()
+  const stage = String(contactStage || '').toLowerCase()
+  if (s === 'sold' || stage === 'delivered') return 'delivered'
+  if (s === 'pending' || stage === 'sold' || stage === 'fni' || stage === 'turnover') return 'pending'
+  if (String(v.condition || '').toLowerCase() === 'demo') return 'demo'
+  return 'available'
+}
 function publicVehicle(v) {
   // Only surface docs that already exist — factory (oem) or a sticker/brochure the
   // dealer generated (gen). The public site never generates or decodes anything.
@@ -26,6 +38,7 @@ function publicVehicle(v) {
     window_sticker_url: v.window_sticker_oem_url || v.window_sticker_gen_url || v.window_sticker_url || null,
     brochure_url: v.brochure_oem_url || v.brochure_gen_url || v.brochure_url || null,
     recall_count: recallCount,
+    market_status: v._market_status || marketStatus(v),
     // Deep spec sheet (NHTSA decode) for the brochure-style detail layout.
     vin_data: v.vin_data && typeof v.vin_data === 'object' ? v.vin_data : null,
   }
@@ -130,16 +143,32 @@ export function registerSite(app) {
       .ilike('site_slug', slug).maybeSingle()
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
 
-    const [{ data: inv }, { data: team }] = await Promise.all([
+    const [{ data: inv }, { data: team }, { data: interests }] = await Promise.all([
       supabaseAdmin.from('inventory')
-        .select('id, year, make, model, trim, price, mileage, condition, exterior_color, interior_color, drivetrain, fuel_type, transmission, engine, body_style, doors, stocknumber, vin, image_urls, description, carfax_url, window_sticker_url, window_sticker_oem_url, window_sticker_gen_url, brochure_url, brochure_oem_url, brochure_gen_url, recalls, vin_data, sales_pitch, specs_manual, created_at')
-        .eq('dealership_id', d.id).is('archived_at', null).eq('status', 'available')
+        .select('id, year, make, model, trim, price, mileage, condition, exterior_color, interior_color, drivetrain, fuel_type, transmission, engine, body_style, doors, stocknumber, vin, image_urls, description, carfax_url, window_sticker_url, window_sticker_oem_url, window_sticker_gen_url, brochure_url, brochure_oem_url, brochure_gen_url, recalls, vin_data, sales_pitch, specs_manual, status, created_at')
+        .eq('dealership_id', d.id).is('archived_at', null).neq('status', 'sold')
         .order('created_at', { ascending: false }).limit(600),
       supabaseAdmin.from('profiles')
         .select('full_name, display_name, avatar_url, phone, role, hide_on_site')
         .eq('dealership_id', d.id),
+      // Pipeline stage of any contact tied to a vehicle → drives the vehicle's status.
+      supabaseAdmin.from('contacts')
+        .select('interest_inventory_id, status')
+        .eq('dealership_id', d.id).not('interest_inventory_id', 'is', null),
     ])
-    const vehicles = (inv || []).map(publicVehicle)
+    // Best (furthest-along) pipeline stage per vehicle.
+    const stageByVeh = {}
+    const RANK = { delivered: 4, sold: 3, fni: 3, turnover: 3 }
+    for (const c of (interests || [])) {
+      const s = String(c.status || '').toLowerCase(); const r = RANK[s]; if (!r) continue
+      const cur = stageByVeh[c.interest_inventory_id]
+      if (!cur || r > cur.r) stageByVeh[c.interest_inventory_id] = { s, r }
+    }
+    const vehicles = (inv || [])
+      .map(v => ({ ...v, _market_status: marketStatus(v, stageByVeh[v.id]?.s) }))
+      // Delivered/sold units come off the public lot.
+      .filter(v => v._market_status !== 'delivered')
+      .map(publicVehicle)
     const roster = (team || []).filter(p => !p.hide_on_site && (p.display_name || p.full_name)).map(publicRep)
     res.json({ site: siteContent(d), vehicles, team: roster, count: vehicles.length })
   })
