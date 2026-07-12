@@ -4746,7 +4746,7 @@ function wsTeam() {
     <div class="flex items-center justify-between gap-2">
       <div>
         <div class="text-sm font-black text-slate-900 dark:text-white">Team</div>
-        <p class="text-[11px] text-slate-400">Add managers, sales, finance, service, admin… Each appears on your public Team page grouped by department.</p>
+        <p class="text-[11px] text-slate-400">Your logged-in sales team appears on the public Team page automatically (edit their name/photo/bio under <b>Sales Team → Edit</b>). Add anyone else here — finance, service, parts, admin, reception — and they'll show under the right department.</p>
       </div>
       <button type="button" onclick="addSiteStaff()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 shrink-0">+ Add person</button>
     </div>

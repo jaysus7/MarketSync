@@ -472,8 +472,13 @@
       <input type="hidden" id="i-vehicle"><input type="hidden" id="i-prefill">`,'submitInquiry(event)'); }
     // ── Team page (grouped by department) ──────────────────────────────────────
     function viewTeam(){
-      const staff=(DATA.site.staff||[]);
-      const roster=staff.length?staff:(DATA.team||[]).map(t=>({name:t.name,title:t.title,department:'Sales',photo:t.photo,phone:t.phone,email:null,bio:t.bio}));
+      // Merge dealer-added staff (Website → Team) with the logged-in sales team (roster).
+      // Staff entries win on a name clash so a manually-crafted card overrides the auto one.
+      const staff=(DATA.site.staff||[]).map(m=>({...m}));
+      const taken=new Set(staff.map(m=>(m.name||'').trim().toLowerCase()));
+      const reps=(DATA.team||[]).filter(t=>t.name&&!taken.has(t.name.trim().toLowerCase()))
+        .map(t=>({name:t.name,title:t.title,department:t.department||'Sales',photo:t.photo,phone:t.phone,email:null,bio:t.bio}));
+      const roster=[...staff,...reps];
       if(!roster.length) return `<section class="max-w-4xl mx-auto px-4 py-16 text-center text-slate-400">Our team will be listed here soon.</section>`;
       const ORDER=['Management','Sales','Finance','Service','Parts','Admin','Reception','Other'];
       const byDept={}; for(const m of roster){ const d=m.department||'Sales'; (byDept[d]=byDept[d]||[]).push(m); }

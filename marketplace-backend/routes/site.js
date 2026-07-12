@@ -49,6 +49,8 @@ function publicRep(p) {
   return {
     name: p.display_name || p.full_name || null,
     title: ({ OWNER: 'Owner', DEALER_ADMIN: 'General Manager', MANAGER: 'Sales Manager', SALES_REP: 'Sales' }[p.role] || 'Sales'),
+    // Department header on the public Team page — merges cleanly with dealer-added staff.
+    department: ({ OWNER: 'Management', DEALER_ADMIN: 'Management', MANAGER: 'Management', SALES_REP: 'Sales' }[p.role] || 'Sales'),
     photo: p.avatar_url || null,
     phone: p.phone || null,
     bio: p.bio || null,
