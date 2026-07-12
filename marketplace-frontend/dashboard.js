@@ -4489,6 +4489,7 @@ function renderSitePages() {
       <input class="pg-title flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" placeholder="Page title (e.g. About Us)" value="${esc(p.title || '')}">
       ${badge(p)}
       <label class="flex items-center gap-1 text-[11px] text-slate-500"><input class="pg-nav" type="checkbox" ${p.nav !== false ? 'checked' : ''}>In nav</label>
+      <button type="button" onclick="collectSitePages();wsSetTarget(${i})" title="Build this page's hero, CTAs and sections" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">✎ Customize${(p.sections && p.sections.length) ? ' ('+p.sections.length+')' : ''}</button>
       <button type="button" onclick="removeSitePage(${i})" class="text-rose-500 text-xs font-bold">✕</button>
     </div>
     <div class="flex items-center gap-1"><span class="text-[10px] text-slate-400 shrink-0">Menu group</span><input class="pg-menu flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" list="pg-menu-opts" placeholder="(none — top-level link)" value="${esc(p.menu || '')}"></div>
@@ -4587,7 +4588,9 @@ window.removeSitePage = removeSitePage;
 window.uploadSiteImage = uploadSiteImage;
 
 // ══ Website page builder (Squarespace-simple, dealership-aware) ═══════════════
-let __siteCfg = null, __siteSections = [], __wsTab = 'builder';
+// __siteSections = the ACTIVE editing buffer. __wsTarget = 'home' or a page index.
+// The home layout lives in __homeSections; each page's layout in __sitePages[i].sections.
+let __siteCfg = null, __siteSections = [], __homeSections = [], __wsTarget = 'home', __wsTab = 'builder';
 const SEC_META = {
   hero:               { label: 'Hero', fields: [['image','Background image','image'],['headline','Headline','text'],['subheadline','Subheadline','text'],['button_label','Button label','text'],['button_target','Button goes to','target'],['button_link','Custom link','text'],['overlay','Image darkness','range'],['height','Height','height']] },
   featured_inventory: { label: 'Featured inventory', fields: [['title','Title','text'],['condition','Show','cond'],['count','How many','number']] },
@@ -4611,10 +4614,22 @@ async function loadWebsitePage() {
   if (!root) return;
   root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
   try { __siteCfg = await apiGetJson('/dealership/site'); } catch (e) { root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">Couldn't load: ${esc(e.message)}</div>`; return; }
-  __siteSections = Array.isArray(__siteCfg.content?.sections) ? __siteCfg.content.sections.slice() : [];
-  __sitePages = Array.isArray(__siteCfg.content?.pages) ? __siteCfg.content.pages.slice() : [];
+  __homeSections = Array.isArray(__siteCfg.content?.sections) ? __siteCfg.content.sections.slice() : [];
+  __sitePages = Array.isArray(__siteCfg.content?.pages) ? __siteCfg.content.pages.map(p => ({ ...p, sections: Array.isArray(p.sections) ? p.sections : [] })) : [];
   __siteStaff = Array.isArray(__siteCfg.content?.staff) ? __siteCfg.content.staff.slice() : [];
+  __wsTarget = 'home'; __siteSections = __homeSections;
   renderWebsitePage();
+}
+// Move the active buffer back onto its source (home or a page) before switching/saving.
+function wsFlushTarget() {
+  if (__wsTarget === 'home') __homeSections = __siteSections;
+  else if (__sitePages[__wsTarget]) __sitePages[__wsTarget].sections = __siteSections;
+}
+function wsSetTarget(v) {
+  wsFlushTarget();
+  __wsTarget = v === 'home' ? 'home' : parseInt(v);
+  __siteSections = __wsTarget === 'home' ? (__homeSections || []) : (Array.isArray(__sitePages[__wsTarget]?.sections) ? __sitePages[__wsTarget].sections : []);
+  __wsTab = 'builder'; renderWsBody();
 }
 function renderWebsitePage() {
   const root = document.getElementById('website-root'); if (!root) return;
@@ -4647,10 +4662,15 @@ function renderWsBody() {
   if (__wsTab === 'settings') { body.innerHTML = wsSettings(); __siteWidgets = Array.isArray(__siteCfg?.content?.widgets) ? __siteCfg.content.widgets.slice() : []; renderSiteWidgets(); return; }
   // Builder
   const palette = SEC_ORDER.map(t => `<button onclick="addSection('${t}')" class="text-left text-xs font-semibold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:border-indigo-400">+ ${SEC_META[t].label}</button>`).join('');
+  const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>${esc(p.title || 'Untitled page')}</option>`).join('');
   body.innerHTML = `
-    <div class="flex items-center justify-between gap-2 mt-4 mb-2">
-      <div class="text-[11px] text-slate-400">Add sections, reorder, and edit — no code. Or start from a branded template.</div>
-      <button onclick="openTemplatePicker()" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg">Start from a template</button>
+    <div class="flex items-center gap-2 mt-4 mb-2 flex-wrap">
+      <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Editing:</span>
+      <select onchange="wsSetTarget(this.value)" class="text-sm font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
+        <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>🏠 Home page</option>${pageOpts}
+      </select>
+      <span class="text-[11px] text-slate-400 flex-1">Build each page with its own hero, CTAs and sections — just like home.</span>
+      <button onclick="openTemplatePicker()" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg">Template</button>
     </div>
     <div class="grid lg:grid-cols-[minmax(0,1fr)_240px] gap-4">
       <div id="ws-sections" class="space-y-2"></div>
@@ -4802,8 +4822,9 @@ async function saveWebsite(btn) {
   const c = __siteCfg.content || (__siteCfg.content = {});
   if (document.getElementById('ws-c1')) { c.primary_color = document.getElementById('ws-c1').value; c.secondary_color = document.getElementById('ws-c2').value; c.accent_color = document.getElementById('ws-c3').value; c.typography = document.getElementById('ws-typo').value; }
   collectSitePages(); collectSiteStaff(); // no-op unless that tab is currently rendered
+  wsFlushTarget();                        // push the active buffer onto home / its page
   const body = {
-    sections: __siteSections,
+    sections: __homeSections,
     pages: __sitePages.filter(p => (p.title || '').trim()),
     staff: __siteStaff.filter(m => (m.name || '').trim()),
     site_published: document.getElementById('ws-pub')?.checked || false,
@@ -4944,7 +4965,7 @@ async function applyTemplate(id) {
   renderWebsitePage();
   showToast('Template applied — review, then Save', 'success');
 }
-Object.assign(window, { loadWebsitePage, wsTab, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto });
+Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto });
 
 // ══ Automation engine — manager workspace (inline toggles + message boxes) ═══
 // State: __autoCfg { campaigns[], settings{}, region{}, can_manage }; __autoHol = working holiday rows.

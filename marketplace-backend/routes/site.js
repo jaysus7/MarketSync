@@ -75,6 +75,8 @@ function cleanPages(arr) {
       menu: p.menu ? String(p.menu).slice(0, 40) : null,
       make: p.make ? String(p.make).slice(0, 40) : null,
       model: p.model ? String(p.model).slice(0, 60) : null,
+      // Full section builder per page (hero, CTAs, inventory…) — same as the home page.
+      sections: Array.isArray(p.sections) ? cleanSections(p.sections) : [],
     }
   }).filter(p => p.title && p.slug)
 }
