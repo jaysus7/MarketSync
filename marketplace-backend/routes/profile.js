@@ -102,7 +102,7 @@ export function registerRoutes(app) {
 
     const { data: members, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, role, account_role, created_at, can_see_all_appraisals, sales_team, mgr_role, active')
+      .select('id, full_name, display_name, avatar_url, bio, role, account_role, created_at, can_see_all_appraisals, sales_team, mgr_role, active')
       .eq('dealership_id', req.dealershipId)
       .order('created_at', { ascending: true })
     if (error) return res.status(500).json({ error: error.message })
@@ -125,6 +125,9 @@ export function registerRoutes(app) {
       return {
         id: m.id,
         full_name: m.full_name,
+        display_name: m.display_name || null,
+        avatar_url: m.avatar_url || null,
+        bio: m.bio || null,
         role: m.role,
         account_role: m.account_role,
         can_see_all_appraisals: !!m.can_see_all_appraisals,
@@ -234,6 +237,39 @@ export function registerRoutes(app) {
     if (error) return res.status(500).json({ error: error.message })
     audit(req, AuditAction.TEAM_MEMBER_INVITED, { role_change_user_id: req.params.id, new_role: role })
     res.json({ success: true, role })
+  })
+
+  // Edit a team member's public-facing profile (name, bio, photo) — coincides with
+  // the website team card. Manager+ can edit any rep in their dealership.
+  app.put('/admin/users/:id/profile', requireAuth, async (req, res) => {
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id').eq('id', req.params.id).maybeSingle()
+    if (!target || target.dealership_id !== req.dealershipId) return res.status(404).json({ error: 'User not found in your dealership' })
+    const b = req.body || {}, patch = {}
+    if (b.full_name !== undefined) patch.full_name = String(b.full_name || '').trim().slice(0, 120) || null
+    if (b.display_name !== undefined) patch.display_name = String(b.display_name || '').trim().slice(0, 120) || null
+    if (b.bio !== undefined) patch.bio = String(b.bio || '').trim().slice(0, 1000) || null
+    if (b.avatar_url !== undefined) patch.avatar_url = b.avatar_url ? String(b.avatar_url).slice(0, 500) : null
+    if (!Object.keys(patch).length) return res.json({ ok: true })
+    const { error } = await supabaseAdmin.from('profiles').update(patch).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, ...patch })
+  })
+
+  // Reset a team member's password (dealer admin / owner only). Sets a temp password.
+  app.put('/admin/users/:id/password', requireAuth, async (req, res) => {
+    if (!['DEALER_ADMIN', 'OWNER'].includes(req.profile.role)) return res.status(403).json({ error: 'Dealer admin required' })
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Use Settings to change your own password' })
+    const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id').eq('id', req.params.id).maybeSingle()
+    if (!target || target.dealership_id !== req.dealershipId) return res.status(404).json({ error: 'User not found in your dealership' })
+    let password = String(req.body?.password || '').trim()
+    if (!password) password = 'MS-' + Math.random().toString(36).slice(2, 8) + Math.floor(10 + Math.random() * 89)  // auto temp
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' })
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(req.params.id, { password })
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, password })
   })
 
   // Set a member's sales team + manager scope (for lead routing / notifications).

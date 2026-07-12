@@ -473,12 +473,12 @@
     // ── Team page (grouped by department) ──────────────────────────────────────
     function viewTeam(){
       const staff=(DATA.site.staff||[]);
-      const roster=staff.length?staff:(DATA.team||[]).map(t=>({name:t.name,title:t.title,department:'Sales',photo:t.photo,phone:t.phone,email:null}));
+      const roster=staff.length?staff:(DATA.team||[]).map(t=>({name:t.name,title:t.title,department:'Sales',photo:t.photo,phone:t.phone,email:null,bio:t.bio}));
       if(!roster.length) return `<section class="max-w-4xl mx-auto px-4 py-16 text-center text-slate-400">Our team will be listed here soon.</section>`;
       const ORDER=['Management','Sales','Finance','Service','Parts','Admin','Reception','Other'];
       const byDept={}; for(const m of roster){ const d=m.department||'Sales'; (byDept[d]=byDept[d]||[]).push(m); }
       const depts=ORDER.filter(d=>byDept[d]).concat(Object.keys(byDept).filter(d=>!ORDER.includes(d)));
-      const card=(m)=>`<div class="bg-white rounded-xl cshadow p-4 text-center">${m.photo?`<img src="${esc(m.photo)}" class="w-24 h-24 rounded-full object-cover mx-auto mb-3">`:`<div class="w-24 h-24 rounded-full brand-bg text-white flex items-center justify-center text-2xl font-black mx-auto mb-3">${esc((m.name||'?')[0])}</div>`}<div class="font-bold">${esc(m.name)}</div>${m.title?`<div class="text-xs text-slate-500">${esc(m.title)}</div>`:''}${m.phone?`<a href="tel:${esc(m.phone)}" class="text-xs brand-text font-semibold block mt-1">${esc(m.phone)}</a>`:''}${m.email?`<a href="mailto:${esc(m.email)}" class="text-xs text-slate-500 block truncate">${esc(m.email)}</a>`:''}</div>`;
+      const card=(m)=>`<div class="bg-white rounded-xl cshadow p-4 text-center">${m.photo?`<img src="${esc(m.photo)}" class="w-24 h-24 rounded-full object-cover mx-auto mb-3">`:`<div class="w-24 h-24 rounded-full brand-bg text-white flex items-center justify-center text-2xl font-black mx-auto mb-3">${esc((m.name||'?')[0])}</div>`}<div class="font-bold">${esc(m.name)}</div>${m.title?`<div class="text-xs text-slate-500">${esc(m.title)}</div>`:''}${m.bio?`<p class="text-xs text-slate-500 mt-1.5 leading-relaxed">${esc(m.bio)}</p>`:''}${m.phone?`<a href="tel:${esc(m.phone)}" class="text-xs brand-text font-semibold block mt-1">${esc(m.phone)}</a>`:''}${m.email?`<a href="mailto:${esc(m.email)}" class="text-xs text-slate-500 block truncate">${esc(m.email)}</a>`:''}</div>`;
       return `<section class="brand2-bg text-white"><div class="max-w-6xl mx-auto px-4 py-10"><h1 class="text-3xl font-black">Meet our team</h1><p class="text-white/80 mt-1">The people behind ${esc(DATA.site.name)}.</p></div></section>
         <div class="max-w-6xl mx-auto px-4 py-8 space-y-8">${depts.map(d=>`<section><h2 class="text-xl font-black mb-4">${esc(d)}</h2><div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">${byDept[d].map(card).join('')}</div></section>`).join('')}</div>`;
     }

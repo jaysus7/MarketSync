@@ -2540,29 +2540,11 @@ async function loadDealerManagementMatrix() {
       const isSelf = m.id === user.id;
       const isAdmin = m.role === 'DEALER_ADMIN' || m.role === 'OWNER';
       const isManager = m.role === 'MANAGER';
-      // Only a dealer admin/owner may change roles (a manager cannot mint managers).
-      const viewerCanSetRole = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
       const roleBadge = (isAdmin || isManager)
         ? `<span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">${m.role}</span>`
         : `<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700">${m.role}</span>`;
-      const roleBtn = (!isSelf && !isAdmin && viewerCanSetRole)
-        ? `<button class="rep-role-btn text-indigo-500 hover:text-indigo-400 text-xs font-bold" data-rep-id="${m.id}" data-rep-name="${m.full_name || m.email || 'this rep'}" data-to="${isManager ? 'SALES_REP' : 'MANAGER'}">${isManager ? 'Make Rep' : 'Make Manager'}</button>`
-        : '';
-      const removeBtn = (!isSelf && !isAdmin)
-        ? `<button class="rep-remove-btn text-red-400 hover:text-red-300 text-xs font-bold" data-rep-id="${m.id}" data-rep-name="${m.full_name || m.email || 'this rep'}">Remove</button>`
-        : '';
-      // Per-rep appraisal visibility (reps only — managers/admins already see all).
-      const apprVisBtn = (m.role === 'SALES_REP')
-        ? `<label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 cursor-pointer whitespace-nowrap" title="Let this rep see every appraisal on the lot"><input type="checkbox" class="rep-appr-vis accent-indigo-600" data-rep-id="${m.id}" data-rep-name="${m.full_name || 'this rep'}" ${m.can_see_all_appraisals ? 'checked' : ''}> sees all appraisals</label>`
-        : '';
-      // Lead-routing controls: reps pick a lot (new/used/both); managers pick a scope (GSM / new / used).
-      const selCls = 'rep-routing-sel text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1';
-      const teamSel = (m.role === 'SALES_REP')
-        ? `<select class="${selCls}" data-rep-id="${m.id}" data-field="sales_team" title="Which lot this rep sells (for auto-assigned leads)">${[['', 'Team —'], ['new', 'New'], ['used', 'Used'], ['both', 'Both']].map(o => `<option value="${o[0]}" ${(m.sales_team || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`
-        : (isManager || isAdmin)
-          ? `<select class="${selCls}" data-rep-id="${m.id}" data-field="mgr_role" title="Manager scope for lead notifications">${[['', 'Scope —'], ['gsm', 'GSM'], ['new_mgr', 'New mgr'], ['used_mgr', 'Used mgr']].map(o => `<option value="${o[0]}" ${(m.mgr_role || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`
-          : '';
-      const action = `<div class="flex items-center justify-end gap-3 flex-wrap">${teamSel}${apprVisBtn}${(isSelf || isAdmin) ? '' : roleBtn + removeBtn}</div>`;
+      // One consolidated Edit button per rep — opens a modal with everything.
+      const action = `<button class="rep-edit-btn inline-flex items-center gap-1 text-xs font-bold text-indigo-500 hover:text-indigo-400" data-rep-id="${m.id}"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Edit</button>`;
       const youTag = isSelf ? ' <span class="text-xs text-slate-500 font-normal">(you)</span>' : '';
       const nameCell = `<button class="rep-detail-btn text-left font-bold text-slate-900 dark:text-white hover:text-indigo-400 transition" data-rep-id="${m.id}">${m.full_name || '(no name)'}${youTag}</button>`;
       return `
@@ -2579,42 +2561,106 @@ async function loadDealerManagementMatrix() {
       `;
     }).join('');
 
-    document.querySelectorAll('.rep-remove-btn').forEach(btn => {
-      btn.addEventListener('click', () => removeRep(btn.dataset.repId, btn.dataset.repName));
-    });
-    document.querySelectorAll('.rep-role-btn').forEach(btn => {
-      btn.addEventListener('click', () => setRepRole(btn.dataset.repId, btn.dataset.repName, btn.dataset.to));
-    });
+    __dealerTeam = team;   // cache for the edit modal
     document.querySelectorAll('.rep-detail-btn').forEach(btn => {
       btn.addEventListener('click', () => openRepDetail(btn.dataset.repId));
     });
-    document.querySelectorAll('.rep-routing-sel').forEach(sel => {
-      sel.addEventListener('change', async () => {
-        try {
-          const r = await fetch(`${API}/admin/users/${sel.dataset.repId}/team`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ [sel.dataset.field]: sel.value }) });
-          if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Failed');
-          showToast('Routing updated', 'success');
-        } catch (e) { showToast(e.message, 'error'); }
-      });
+    document.querySelectorAll('.rep-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => openRepEdit(btn.dataset.repId));
     });
     loadLeadRoutingCard();
-    document.querySelectorAll('.rep-appr-vis').forEach(cb => {
-      cb.addEventListener('change', async () => {
-        const on = cb.checked;
-        try {
-          const r = await fetch(`${API}/ai/rep-appraisal-visibility`, {
-            method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rep_id: cb.dataset.repId, can_see_all: on }),
-          });
-          if (!r.ok) throw new Error();
-          showToast(`${cb.dataset.repName} ${on ? 'can now see all appraisals' : 'now sees only their own'}`, 'success');
-        } catch { cb.checked = !on; showToast('Could not update setting', 'error'); }
-      });
-    });
   } catch (e) {
     tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-red-400">${e.message}</td></tr>`;
   }
 }
+
+// ── Consolidated rep editor — profile (name/bio/photo) + role + routing +
+//    appraisal visibility + password reset + remove, all in one modal ──────────
+let __dealerTeam = [];
+let __repEditAvatar = null;
+function openRepEdit(id) {
+  const m = (__dealerTeam || []).find(x => x.id === id); if (!m) { showToast('Rep not found — reload the page', 'error'); return; }
+  __repEditAvatar = m.avatar_url || null;
+  const isSelf = m.id === user.id;
+  const isAdmin = m.role === 'DEALER_ADMIN' || m.role === 'OWNER';
+  const isManager = m.role === 'MANAGER';
+  const viewerAdmin = profileContext?.role === 'DEALER_ADMIN' || profileContext?.role === 'OWNER';
+  const ic = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+  const lbl = (t) => `<label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${t}</label>`;
+  const routingRow = (m.role === 'SALES_REP')
+    ? `<div>${lbl('Sales lot (for auto-assigned leads)')}<select id="re-team" class="${ic}">${[['', '—'], ['new', 'New'], ['used', 'Used'], ['both', 'Both']].map(o => `<option value="${o[0]}" ${(m.sales_team || '') === o[0] ? 'selected' : ''}>${o[1] === '—' ? 'Not set' : o[1]}</option>`).join('')}</select></div>`
+    : `<div>${lbl('Manager scope (lead notifications)')}<select id="re-mgr" class="${ic}">${[['', '—'], ['gsm', 'GSM'], ['new_mgr', 'New-car manager'], ['used_mgr', 'Used-car manager']].map(o => `<option value="${o[0]}" ${(m.mgr_role || '') === o[0] ? 'selected' : ''}>${o[1] === '—' ? 'Not set' : o[1]}</option>`).join('')}</select></div>`;
+  crmOverlay(`<div class="p-5 space-y-3">
+    <div class="flex items-center justify-between"><div class="text-lg font-black text-slate-900 dark:text-white">Edit ${esc(m.full_name || 'team member')}</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="flex items-center gap-3">
+      <div id="re-avatar-wrap" class="w-16 h-16 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-lg font-black text-slate-500 shrink-0">${m.avatar_url ? `<img src="${esc(m.avatar_url)}" class="w-full h-full object-cover">` : esc((m.full_name || '?')[0] || '?')}</div>
+      <div><input type="file" accept="image/*" id="re-photo-file" class="hidden" onchange="repEditUploadPhoto(this.files[0])"><button type="button" onclick="document.getElementById('re-photo-file').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-3 py-1.5 rounded-lg">Upload photo</button><p class="text-[11px] text-slate-400 mt-1">Shows on your website team page.</p></div>
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+      <div>${lbl('Full name')}<input id="re-name" value="${esc(m.full_name || '')}" class="${ic}"></div>
+      <div>${lbl('Display name (public)')}<input id="re-display" value="${esc(m.display_name || '')}" placeholder="${esc(m.full_name || '')}" class="${ic}"></div>
+    </div>
+    <div>${lbl('Bio (public — appears on the website)')}<textarea id="re-bio" rows="3" class="${ic}" placeholder="A sentence or two about this team member.">${esc(m.bio || '')}</textarea></div>
+    <div class="grid grid-cols-2 gap-2">
+      ${routingRow}
+      ${m.role === 'SALES_REP' ? `<div>${lbl('Appraisals')}<label class="flex items-center gap-2 text-sm ${ic}"><input id="re-appr" type="checkbox" class="accent-indigo-600" ${m.can_see_all_appraisals ? 'checked' : ''}>Sees all appraisals</label></div>` : '<div></div>'}
+    </div>
+    <label class="flex items-center gap-2 text-sm"><input id="re-active" type="checkbox" class="accent-indigo-600" ${m.active !== false ? 'checked' : ''}>Active (uncheck to pause lead assignment &amp; rep sends)</label>
+    <div class="border-t border-slate-200 dark:border-slate-700 pt-3 flex flex-wrap items-center gap-2">
+      ${(!isSelf && !isAdmin && viewerAdmin) ? `<button onclick="repEditRole('${m.id}', '${isManager ? 'SALES_REP' : 'MANAGER'}', this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">${isManager ? 'Make Rep' : 'Make Manager'}</button>` : ''}
+      ${(!isSelf && viewerAdmin) ? `<button onclick="repEditPassword('${m.id}', this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">Reset password</button>` : ''}
+      ${(!isSelf && !isAdmin) ? `<button onclick="repEditRemove('${m.id}','${esc(m.full_name || 'this rep')}')" class="text-xs font-bold text-rose-600 hover:text-rose-500 px-2 py-2">Remove</button>` : ''}
+      <div class="flex-1"></div>
+      <button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-4 py-2">Cancel</button>
+      <button onclick="repEditSave('${m.id}', this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save</button>
+    </div>
+    <p id="re-msg" class="hidden text-xs"></p>
+  </div>`, 'max-w-lg');
+}
+async function repEditUploadPhoto(file) {
+  if (!file) return; showToast('Uploading…', 'info');
+  try {
+    const fd = new FormData(); fd.append('image', file);
+    const r = await fetch(`${API}/dealership/site-image`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Upload failed');
+    __repEditAvatar = d.url;
+    const w = document.getElementById('re-avatar-wrap'); if (w) w.innerHTML = `<img src="${esc(d.url)}" class="w-full h-full object-cover">`;
+    showToast('Photo set — Save to apply', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+async function repEditSave(id, btn) {
+  const val = (i) => (document.getElementById(i)?.value || '').trim();
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await apiSendJson(`/admin/users/${id}/profile`, 'PUT', { full_name: val('re-name'), display_name: val('re-display'), bio: val('re-bio'), avatar_url: __repEditAvatar });
+    const team = {}; const t = document.getElementById('re-team'); const mg = document.getElementById('re-mgr');
+    if (t) team.sales_team = t.value; if (mg) team.mgr_role = mg.value;
+    const act = document.getElementById('re-active'); if (act) team.active = act.checked;
+    if (Object.keys(team).length) await apiSendJson(`/admin/users/${id}/team`, 'PUT', team);
+    const appr = document.getElementById('re-appr');
+    if (appr) await fetch(`${API}/ai/rep-appraisal-visibility`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ rep_id: id, can_see_all: appr.checked }) });
+    btn.closest('.fixed').remove(); showToast('Saved', 'success'); loadDealerManagementMatrix();
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
+}
+async function repEditPassword(id, btn) {
+  if (!confirm('Reset this person\'s password to a new temporary one? They\'ll need to use it to sign in.')) return;
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Resetting…';
+  try {
+    const d = await apiSendJson(`/admin/users/${id}/password`, 'PUT', {});
+    const msg = document.getElementById('re-msg'); if (msg) { msg.textContent = `New temporary password: ${d.password} — copy it now and share it securely.`; msg.className = 'text-xs text-emerald-600 dark:text-emerald-400 select-all'; msg.classList.remove('hidden'); }
+    showToast('Password reset', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = orig; }
+}
+async function repEditRole(id, to, btn) {
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
+  try { await apiSendJson(`/admin/users/${id}/role`, 'POST', { role: to }); showToast('Role updated', 'success'); btn.closest('.fixed').remove(); loadDealerManagementMatrix(); }
+  catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
+}
+async function repEditRemove(id, name) {
+  if (typeof removeRep === 'function') { document.querySelector('.fixed')?.remove(); removeRep(id, name); }
+}
+Object.assign(window, { openRepEdit, repEditUploadPhoto, repEditSave, repEditPassword, repEditRole, repEditRemove });
 
 // Lead routing + notification config card (on the Sales Team page).
 async function loadLeadRoutingCard() {

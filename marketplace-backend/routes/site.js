@@ -51,6 +51,7 @@ function publicRep(p) {
     title: ({ OWNER: 'Owner', DEALER_ADMIN: 'General Manager', MANAGER: 'Sales Manager', SALES_REP: 'Sales' }[p.role] || 'Sales'),
     photo: p.avatar_url || null,
     phone: p.phone || null,
+    bio: p.bio || null,
   }
 }
 
@@ -183,7 +184,7 @@ export function registerSite(app) {
         .eq('dealership_id', d.id).is('archived_at', null).neq('status', 'sold')
         .order('created_at', { ascending: false }).limit(600),
       supabaseAdmin.from('profiles')
-        .select('full_name, display_name, avatar_url, phone, role, hide_on_site')
+        .select('full_name, display_name, avatar_url, phone, role, hide_on_site, bio')
         .eq('dealership_id', d.id),
       // Pipeline stage of any contact tied to a vehicle → drives the vehicle's status.
       supabaseAdmin.from('contacts')
