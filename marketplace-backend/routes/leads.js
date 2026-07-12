@@ -1,6 +1,7 @@
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { findOrCreateContact } from './crm.js'
+import { routeAndNotifyLead } from '../lead-routing.js'
 
 const xmlEsc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]))
 
@@ -118,7 +119,11 @@ export function registerLeads(app) {
         dealershipId: req.dealershipId, name: lead.name, email: lead.email,
         phone: lead.phone, repId: req.user.id, source: lead.source,
       })
-      if (contactId) await supabaseAdmin.from('leads').update({ contact_id: contactId }).eq('id', lead.id)
+      if (contactId) {
+        await supabaseAdmin.from('leads').update({ contact_id: contactId }).eq('id', lead.id)
+        // Auto-assign to the right team + notify management (fire-and-forget).
+        routeAndNotifyLead(req.dealershipId, { contactId, vehicleId: vehicle?.id || null, name: lead.name, source: lead.source })
+      }
     } catch (e) { console.warn('[leads] contact link failed:', e.message) }
 
     // Deliver to the CRM via ADF email when configured.
@@ -159,6 +164,23 @@ export function registerLeads(app) {
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('crm_adf_email').eq('id', req.dealershipId).maybeSingle()
     res.json({ crm_adf_email: dealer?.crm_adf_email || null, can_configure: ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role) })
+  })
+
+  // Lead routing config (auto-assignment + who gets notified).
+  app.get('/leads/routing', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json({ routing: {}, can_manage: false })
+    const { data: d } = await supabaseAdmin.from('dealerships').select('lead_routing').eq('id', req.dealershipId).maybeSingle()
+    const r = (d?.lead_routing && typeof d.lead_routing === 'object') ? d.lead_routing : {}
+    res.json({ routing: { mode: r.mode === 'all' ? 'all' : 'targeted', notify_reps: r.notify_reps !== false, notify_managers: r.notify_managers !== false, notify_all_sales: !!r.notify_all_sales }, can_manage: ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role) })
+  })
+  app.put('/leads/routing', requireAuth, async (req, res) => {
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const b = req.body || {}
+    const routing = { mode: b.mode === 'all' ? 'all' : 'targeted', notify_reps: b.notify_reps !== false, notify_managers: b.notify_managers !== false, notify_all_sales: !!b.notify_all_sales }
+    const { error } = await supabaseAdmin.from('dealerships').update({ lead_routing: routing }).eq('id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, routing })
   })
 
   app.put('/leads/crm-email', requireAuth, async (req, res) => {

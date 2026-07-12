@@ -1355,12 +1355,25 @@ function crmContactRow(c) {
       </div>
       <div class="text-xs text-slate-500 dark:text-slate-400 truncate">${esc(sub || '—')}</div>
     </div>
-    <div class="text-right flex-shrink-0">
+    <div class="text-right flex-shrink-0 flex flex-col items-end gap-1">
+      <select onclick="event.stopPropagation()" onchange="crmQuickStatus(event,'${c.id}')" title="Move up the pipeline" class="text-[11px] font-bold border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-200 px-1.5 py-1 cursor-pointer">
+        ${Object.entries(CRM_STATUS).map(([k, l]) => `<option value="${k}" ${c.status === k ? 'selected' : ''}>${l}</option>`).join('')}
+      </select>
       ${c.rep_name ? `<div class="text-[11px] text-slate-500 dark:text-slate-400">${esc(c.rep_name)}</div>` : ''}
       <div class="text-[11px] text-slate-400">${esc(crmWhen(c.last_activity_at || c.created_at))}</div>
     </div>
   </div>`;
 }
+// Quick pipeline move from the list — PUT the new stage (fires automation server-side).
+async function crmQuickStatus(ev, id) {
+  ev.stopPropagation();
+  const sel = ev.target, status = sel.value;
+  sel.disabled = true;
+  try { await apiSendJson(`/crm/contacts/${id}`, 'PUT', { status }); showToast('Moved to ' + (CRM_STATUS[status] || status), 'success'); if (typeof crmRefreshContacts === 'function') crmRefreshContacts(); }
+  catch (e) { showToast(e.message, 'error'); }
+  finally { sel.disabled = false; }
+}
+window.crmQuickStatus = crmQuickStatus;
 
 // ── Contact detail modal ─────────────────────────────────────────────────────
 function crmOverlay(inner, maxW = 'max-w-2xl') {
@@ -2542,9 +2555,14 @@ async function loadDealerManagementMatrix() {
       const apprVisBtn = (m.role === 'SALES_REP')
         ? `<label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 cursor-pointer whitespace-nowrap" title="Let this rep see every appraisal on the lot"><input type="checkbox" class="rep-appr-vis accent-indigo-600" data-rep-id="${m.id}" data-rep-name="${m.full_name || 'this rep'}" ${m.can_see_all_appraisals ? 'checked' : ''}> sees all appraisals</label>`
         : '';
-      const action = (isSelf || isAdmin)
-        ? (apprVisBtn ? `<div class="flex items-center justify-end">${apprVisBtn}</div>` : `<span class="text-xs text-slate-600">—</span>`)
-        : `<div class="flex items-center justify-end gap-3 flex-wrap">${apprVisBtn}${roleBtn}${removeBtn}</div>`;
+      // Lead-routing controls: reps pick a lot (new/used/both); managers pick a scope (GSM / new / used).
+      const selCls = 'rep-routing-sel text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1';
+      const teamSel = (m.role === 'SALES_REP')
+        ? `<select class="${selCls}" data-rep-id="${m.id}" data-field="sales_team" title="Which lot this rep sells (for auto-assigned leads)">${[['', 'Team —'], ['new', 'New'], ['used', 'Used'], ['both', 'Both']].map(o => `<option value="${o[0]}" ${(m.sales_team || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`
+        : (isManager || isAdmin)
+          ? `<select class="${selCls}" data-rep-id="${m.id}" data-field="mgr_role" title="Manager scope for lead notifications">${[['', 'Scope —'], ['gsm', 'GSM'], ['new_mgr', 'New mgr'], ['used_mgr', 'Used mgr']].map(o => `<option value="${o[0]}" ${(m.mgr_role || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`
+          : '';
+      const action = `<div class="flex items-center justify-end gap-3 flex-wrap">${teamSel}${apprVisBtn}${(isSelf || isAdmin) ? '' : roleBtn + removeBtn}</div>`;
       const youTag = isSelf ? ' <span class="text-xs text-slate-500 font-normal">(you)</span>' : '';
       const nameCell = `<button class="rep-detail-btn text-left font-bold text-slate-900 dark:text-white hover:text-indigo-400 transition" data-rep-id="${m.id}">${m.full_name || '(no name)'}${youTag}</button>`;
       return `
@@ -2570,6 +2588,16 @@ async function loadDealerManagementMatrix() {
     document.querySelectorAll('.rep-detail-btn').forEach(btn => {
       btn.addEventListener('click', () => openRepDetail(btn.dataset.repId));
     });
+    document.querySelectorAll('.rep-routing-sel').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        try {
+          const r = await fetch(`${API}/admin/users/${sel.dataset.repId}/team`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ [sel.dataset.field]: sel.value }) });
+          if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Failed');
+          showToast('Routing updated', 'success');
+        } catch (e) { showToast(e.message, 'error'); }
+      });
+    });
+    loadLeadRoutingCard();
     document.querySelectorAll('.rep-appr-vis').forEach(cb => {
       cb.addEventListener('change', async () => {
         const on = cb.checked;
@@ -2587,6 +2615,40 @@ async function loadDealerManagementMatrix() {
     tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-red-400">${e.message}</td></tr>`;
   }
 }
+
+// Lead routing + notification config card (on the Sales Team page).
+async function loadLeadRoutingCard() {
+  const card = document.getElementById('lead-routing-card'); if (!card) return;
+  let d; try { d = await apiGetJson('/leads/routing'); } catch { return; }
+  if (!d.can_manage) { card.classList.add('hidden'); return; }
+  const r = d.routing || {};
+  const targeted = r.mode !== 'all';
+  card.classList.remove('hidden');
+  card.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
+    <h2 class="text-lg font-bold text-slate-900 dark:text-white">Lead routing &amp; notifications</h2>
+    <p class="text-slate-500 dark:text-slate-400 text-xs mb-3">New leads are auto-assigned by a random draw within the matching lot. Set each person's lot/scope in the roster below.</p>
+    <div class="space-y-2 text-sm">
+      <label class="flex items-start gap-2 cursor-pointer"><input type="radio" name="lr-mode" value="targeted" ${targeted ? 'checked' : ''} class="mt-1 accent-indigo-600"><span><b>Targeted</b> — a used lead goes to a random used-car rep + the GSM and used-car manager (new → new rep + new manager).</span></label>
+      <label class="flex items-start gap-2 cursor-pointer"><input type="radio" name="lr-mode" value="all" ${targeted ? '' : 'checked'} class="mt-1 accent-indigo-600"><span><b>Everyone</b> — assign to a random rep and notify <b>all management</b>.</span></label>
+    </div>
+    <div class="border-t border-slate-200 dark:border-slate-800 mt-3 pt-3 space-y-2 text-sm">
+      <label class="flex items-center gap-2"><input id="lr-notify-reps" type="checkbox" ${r.notify_reps !== false ? 'checked' : ''} class="accent-indigo-600">Notify the assigned rep</label>
+      <label class="flex items-center gap-2"><input id="lr-notify-mgrs" type="checkbox" ${r.notify_managers !== false ? 'checked' : ''} class="accent-indigo-600">Notify management</label>
+      <label class="flex items-center gap-2"><input id="lr-notify-all-sales" type="checkbox" ${r.notify_all_sales ? 'checked' : ''} class="accent-indigo-600">Also notify <b>all sales</b> (Everyone mode)</label>
+    </div>
+    <button onclick="saveLeadRouting(this)" class="mt-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition">Save routing</button>
+    <span id="lr-msg" class="hidden text-xs ml-2"></span>
+  </div>`;
+}
+async function saveLeadRouting(btn) {
+  const mode = document.querySelector('input[name="lr-mode"]:checked')?.value || 'targeted';
+  const body = { mode, notify_reps: document.getElementById('lr-notify-reps')?.checked, notify_managers: document.getElementById('lr-notify-mgrs')?.checked, notify_all_sales: document.getElementById('lr-notify-all-sales')?.checked };
+  const msg = document.getElementById('lr-msg'); btn.disabled = true;
+  try { await apiSendJson('/leads/routing', 'PUT', body); if (msg) { msg.textContent = '✓ Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); } }
+  catch (e) { if (msg) { msg.textContent = e.message; msg.className = 'text-xs ml-2 text-red-500'; msg.classList.remove('hidden'); } }
+  finally { btn.disabled = false; }
+}
+window.saveLeadRouting = saveLeadRouting;
 
 async function loadGuardrailSettings() {
   try {

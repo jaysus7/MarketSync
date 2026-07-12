@@ -102,7 +102,7 @@ export function registerRoutes(app) {
 
     const { data: members, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, role, account_role, created_at, can_see_all_appraisals')
+      .select('id, full_name, role, account_role, created_at, can_see_all_appraisals, sales_team, mgr_role, active')
       .eq('dealership_id', req.dealershipId)
       .order('created_at', { ascending: true })
     if (error) return res.status(500).json({ error: error.message })
@@ -128,6 +128,9 @@ export function registerRoutes(app) {
         role: m.role,
         account_role: m.account_role,
         can_see_all_appraisals: !!m.can_see_all_appraisals,
+        sales_team: m.sales_team || null,
+        mgr_role: m.mgr_role || null,
+        active: m.active !== false,
         email: authUser?.user?.email || null,
         listings_posted: listingsCount || 0,
         listings_sold: soldCount || 0,
@@ -231,6 +234,22 @@ export function registerRoutes(app) {
     if (error) return res.status(500).json({ error: error.message })
     audit(req, AuditAction.TEAM_MEMBER_INVITED, { role_change_user_id: req.params.id, new_role: role })
     res.json({ success: true, role })
+  })
+
+  // Set a member's sales team + manager scope (for lead routing / notifications).
+  app.put('/admin/users/:id/team', requireAuth, async (req, res) => {
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id').eq('id', req.params.id).maybeSingle()
+    if (!target || target.dealership_id !== req.dealershipId) return res.status(404).json({ error: 'User not found in your dealership' })
+    const b = req.body || {}, patch = {}
+    if (b.sales_team !== undefined) patch.sales_team = ['new', 'used', 'both'].includes(b.sales_team) ? b.sales_team : null
+    if (b.mgr_role !== undefined) patch.mgr_role = ['gsm', 'new_mgr', 'used_mgr'].includes(b.mgr_role) ? b.mgr_role : null
+    if (b.active !== undefined) patch.active = !!b.active
+    if (!Object.keys(patch).length) return res.json({ ok: true })
+    const { error } = await supabaseAdmin.from('profiles').update(patch).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, ...patch })
   })
 
   // ── SESSION ACTIVITY (recent logins + sign out other devices) ──

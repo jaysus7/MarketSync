@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { findOrCreateContact } from './crm.js'
 import { enqueueForTrigger } from './automation.js'
+import { routeAndNotifyLead } from '../lead-routing.js'
 
 const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
@@ -243,8 +244,11 @@ export function registerSite(app) {
       }).select('id').single()
       const contactId = await findOrCreateContact({ dealershipId: d.id, name, email, phone, source: 'Website' })
       if (contactId && lead?.id) await supabaseAdmin.from('leads').update({ contact_id: contactId }).eq('id', lead.id)
-      // Kick off the automated speed-to-lead sequence (fire-and-forget).
-      if (contactId) enqueueForTrigger(d.id, 'internet_lead', { contactId, vehicleId: inventory_id || null })
+      if (contactId) {
+        // Auto-assign + notify, then kick off the speed-to-lead sequence with the routed rep.
+        const routed = await routeAndNotifyLead(d.id, { contactId, vehicleId: inventory_id || null, name, source: source })
+        enqueueForTrigger(d.id, 'internet_lead', { contactId, vehicleId: inventory_id || null, repId: routed?.assignee || null })
+      }
       res.json({ ok: true })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
