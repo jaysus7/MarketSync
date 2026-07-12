@@ -66,10 +66,26 @@ function cleanPages(arr) {
     const kind = ['content', 'model', 'incentive'].includes(p.kind) ? p.kind : 'content'
     return {
       slug, title, body_html: String(p.body_html || '').slice(0, 40000), nav: p.nav !== false, kind,
+      // Optional dropdown group in the top nav (e.g. "New Vehicles", "Offers").
+      menu: p.menu ? String(p.menu).slice(0, 40) : null,
       make: p.make ? String(p.make).slice(0, 40) : null,
       model: p.model ? String(p.model).slice(0, 60) : null,
     }
   }).filter(p => p.title && p.slug)
+}
+
+// Dealer staff shown on the Team page, grouped by department with a job label.
+const STAFF_DEPTS = ['Management', 'Sales', 'Finance', 'Service', 'Parts', 'Admin', 'Reception', 'Other']
+function cleanStaff(arr) {
+  if (!Array.isArray(arr)) return []
+  return arr.slice(0, 80).map(m => ({
+    name: String(m.name || '').trim().slice(0, 80),
+    title: String(m.title || '').trim().slice(0, 60) || null,
+    department: STAFF_DEPTS.includes(m.department) ? m.department : 'Sales',
+    photo: m.photo ? String(m.photo).slice(0, 500) : null,
+    phone: String(m.phone || '').trim().slice(0, 40) || null,
+    email: String(m.email || '').trim().slice(0, 160) || null,
+  })).filter(m => m.name)
 }
 
 // The section palette for the page builder. Each is dealership-aware on render.
@@ -126,6 +142,8 @@ function siteContent(d) {
     head_html: b.site_head_html || null,
     widgets: cleanWidgets(b.site_widgets),
     pages: cleanPages(b.site_pages),
+    // Dealer-managed staff for the Team page (managers, sales, service, admin…).
+    staff: cleanStaff(b.site_team),
     // Page builder: ordered sections + global styling.
     sections: cleanSections(b.site_sections),
     typography: TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern',
@@ -187,7 +205,7 @@ export function registerSite(app) {
     if (!name && !email && !phone) return res.status(400).json({ error: 'Enter a name, phone, or email' })
 
     // Which shell form: general Inquiry, Trade-In quote, or Credit Application.
-    const FORMS = { trade: 'Trade-In', credit: 'Credit Application', inquiry: 'Website' }
+    const FORMS = { trade: 'Trade-In', credit: 'Credit Application', inquiry: 'Website', build: 'Build & Price' }
     const source = FORMS[String(b.form_type || '').toLowerCase()] || 'Website'
     // Fold any extra shell fields (trade vehicle, employment, etc.) into the comments.
     let comments = message
@@ -248,7 +266,7 @@ export function registerSite(app) {
 
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
     const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography']
-    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined
+    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined
     if (touchesContent) {
       const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
       const branding = { ...(cur?.branding || {}) }
@@ -256,6 +274,7 @@ export function registerSite(app) {
       if (b.head_html !== undefined) branding.site_head_html = String(b.head_html || '').slice(0, 20000) || null
       if (b.widgets !== undefined) branding.site_widgets = cleanWidgets(b.widgets)
       if (b.pages !== undefined) branding.site_pages = cleanPages(b.pages)
+      if (b.staff !== undefined) branding.site_team = cleanStaff(b.staff)
       if (b.sections !== undefined) branding.site_sections = cleanSections(b.sections)
       if (b.typography !== undefined) branding.typography = TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern'
       update.branding = branding

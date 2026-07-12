@@ -4351,6 +4351,7 @@ function collectSitePages() {
     ...(__sitePages[idx] || {}),
     title: r.querySelector('.pg-title')?.value || '',
     nav: r.querySelector('.pg-nav')?.checked !== false,
+    menu: (r.querySelector('.pg-menu')?.value || '').trim() || null,
     body_html: r.querySelector('.pg-body')?.value || '',
   }));
 }
@@ -4360,6 +4361,7 @@ function renderSitePages() {
   if (!__sitePages.length) { box.innerHTML = '<div class="text-[11px] text-slate-400 italic">No extra pages.</div>'; return; }
   const badge = (p) => p.kind === 'model' ? '<span class="text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 px-1.5 py-0.5 rounded-full">Model · auto-inventory</span>'
     : p.kind === 'incentive' ? '<span class="text-[9px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full">Offer</span>' : '';
+  const menus = [...new Set(__sitePages.map(p => p.menu).filter(Boolean))];
   box.innerHTML = __sitePages.map((p, i) => `<div data-pgx="${i}" class="border border-slate-200 dark:border-slate-700 rounded-lg p-2 space-y-1">
     <div class="flex gap-2 items-center">
       <input class="pg-title flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" placeholder="Page title (e.g. About Us)" value="${esc(p.title || '')}">
@@ -4367,8 +4369,9 @@ function renderSitePages() {
       <label class="flex items-center gap-1 text-[11px] text-slate-500"><input class="pg-nav" type="checkbox" ${p.nav !== false ? 'checked' : ''}>In nav</label>
       <button type="button" onclick="removeSitePage(${i})" class="text-rose-500 text-xs font-bold">✕</button>
     </div>
+    <div class="flex items-center gap-1"><span class="text-[10px] text-slate-400 shrink-0">Menu group</span><input class="pg-menu flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" list="pg-menu-opts" placeholder="(none — top-level link)" value="${esc(p.menu || '')}"></div>
     <textarea class="pg-body w-full text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1" rows="${p.kind === 'model' ? 2 : 3}" placeholder="${p.kind === 'model' ? 'Intro blurb (optional) — inventory lists automatically below it. ✨ generate with AI.' : 'Page content — plain text or basic HTML'}">${esc(p.body_html || '')}</textarea>
-  </div>`).join('');
+  </div>`).join('') + `<datalist id="pg-menu-opts">${['New Vehicles','Pre-Owned','Offers','About','Financing'].concat(menus).filter((v,i,a)=>a.indexOf(v)===i).map(m => `<option value="${esc(m)}">`).join('')}</datalist>`;
 }
 // Auto-build model pages (from your inventory) + standard offer pages.
 async function autoBuildPages(btn) {
@@ -4386,12 +4389,13 @@ async function autoBuildPages(btn) {
     for (const { make, model } of seen.values()) {
       const title = `${make} ${model}`;
       if (have.has(title.toLowerCase())) continue;
-      __sitePages.push({ title, make, model, kind: 'model', nav: false, body_html: '' });
+      // Group each model page under its make → becomes a nav dropdown automatically.
+      __sitePages.push({ title, make, model, kind: 'model', nav: true, menu: `${make} Lineup`, body_html: '' });
       have.add(title.toLowerCase()); added++;
     }
     for (const t of ['Current Offers', 'Finance Offers', 'Lease Offers', 'EV Rebates']) {
       if (have.has(t.toLowerCase())) continue;
-      __sitePages.push({ title: t, kind: 'incentive', nav: true, body_html: '' });
+      __sitePages.push({ title: t, kind: 'incentive', nav: true, menu: 'Offers', body_html: '' });
       have.add(t.toLowerCase()); added++;
     }
     renderSitePages();
@@ -4483,6 +4487,7 @@ async function loadWebsitePage() {
   try { __siteCfg = await apiGetJson('/dealership/site'); } catch (e) { root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">Couldn't load: ${esc(e.message)}</div>`; return; }
   __siteSections = Array.isArray(__siteCfg.content?.sections) ? __siteCfg.content.sections.slice() : [];
   __sitePages = Array.isArray(__siteCfg.content?.pages) ? __siteCfg.content.pages.slice() : [];
+  __siteStaff = Array.isArray(__siteCfg.content?.staff) ? __siteCfg.content.staff.slice() : [];
   renderWebsitePage();
 }
 function renderWebsitePage() {
@@ -4503,7 +4508,7 @@ function renderWebsitePage() {
         <button onclick="saveWebsite(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save</button>
       </div>
     </div>
-    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800">${tab('builder', 'Builder')}${tab('design', 'Design')}${tab('pages', 'Pages')}</div>
+    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 flex-wrap">${tab('builder', 'Builder')}${tab('design', 'Design')}${tab('pages', 'Pages')}${tab('team', 'Team')}</div>
     <div id="ws-body"></div>`;
   renderWsBody();
 }
@@ -4512,6 +4517,7 @@ function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
   if (__wsTab === 'design') { body.innerHTML = wsDesign(); return; }
   if (__wsTab === 'pages') { body.innerHTML = wsPages(); renderSitePages(); return; }
+  if (__wsTab === 'team') { body.innerHTML = wsTeam(); renderSiteStaff(); return; }
   // Builder
   const palette = SEC_ORDER.map(t => `<button onclick="addSection('${t}')" class="text-left text-xs font-semibold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:border-indigo-400">+ ${SEC_META[t].label}</button>`).join('');
   body.innerHTML = `
@@ -4605,14 +4611,74 @@ function wsPages() {
     <div id="site-page-list" class="space-y-2"></div>
   </div>`;
 }
+// ── Team tab: dealer staff (managers, sales, service, admin…) with dept labels ──
+let __siteStaff = [];
+const STAFF_DEPTS = ['Management', 'Sales', 'Finance', 'Service', 'Parts', 'Admin', 'Reception', 'Other'];
+function wsTeam() {
+  return `<div class="mt-4 max-w-2xl space-y-3">
+    <div class="flex items-center justify-between gap-2">
+      <div>
+        <div class="text-sm font-black text-slate-900 dark:text-white">Team</div>
+        <p class="text-[11px] text-slate-400">Add managers, sales, finance, service, admin… Each appears on your public Team page grouped by department.</p>
+      </div>
+      <button type="button" onclick="addSiteStaff()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 shrink-0">+ Add person</button>
+    </div>
+    <div id="site-staff-list" class="space-y-2"></div>
+  </div>`;
+}
+function collectSiteStaff() {
+  if (!document.getElementById('site-staff-list')) return;
+  __siteStaff = Array.from(document.querySelectorAll('#site-staff-list [data-stx]')).map((r, idx) => ({
+    ...(__siteStaff[idx] || {}),
+    name: r.querySelector('.st-name')?.value || '',
+    title: r.querySelector('.st-title')?.value || '',
+    department: r.querySelector('.st-dept')?.value || 'Sales',
+    phone: r.querySelector('.st-phone')?.value || '',
+    email: r.querySelector('.st-email')?.value || '',
+  }));
+}
+function renderSiteStaff() {
+  const box = document.getElementById('site-staff-list'); if (!box) return;
+  const ic = 'bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs';
+  if (!__siteStaff.length) { box.innerHTML = '<div class="text-[11px] text-slate-400 italic">No team members yet. Add managers, sales, service, admin…</div>'; return; }
+  box.innerHTML = __siteStaff.map((m, i) => `<div data-stx="${i}" class="border border-slate-200 dark:border-slate-700 rounded-lg p-2 space-y-1">
+    <div class="flex gap-2 items-center">
+      ${m.photo ? `<img src="${esc(m.photo)}" class="w-9 h-9 rounded-full object-cover shrink-0">` : `<div class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold shrink-0">${esc((m.name || '?')[0] || '?')}</div>`}
+      <input class="st-name flex-1 ${ic}" placeholder="Full name" value="${esc(m.name || '')}">
+      <select class="st-dept ${ic}">${STAFF_DEPTS.map(d => `<option ${m.department === d ? 'selected' : ''}>${d}</option>`).join('')}</select>
+      <button type="button" onclick="removeSiteStaff(${i})" class="text-rose-500 text-xs font-bold shrink-0">✕</button>
+    </div>
+    <div class="grid grid-cols-2 gap-1">
+      <input class="st-title ${ic}" placeholder="Title (e.g. Sales Manager)" value="${esc(m.title || '')}">
+      <input class="st-phone ${ic}" placeholder="Phone" value="${esc(m.phone || '')}">
+    </div>
+    <div class="flex gap-1 items-center">
+      <input class="st-email flex-1 ${ic}" placeholder="Email (optional)" value="${esc(m.email || '')}">
+      <input type="file" accept="image/*" class="hidden" id="st-file-${i}" onchange="uploadStaffPhoto(${i}, this.files[0])">
+      <button type="button" onclick="document.getElementById('st-file-${i}').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded shrink-0">${m.photo ? 'Change photo' : 'Photo'}</button>
+    </div>
+  </div>`).join('');
+}
+function addSiteStaff() { collectSiteStaff(); __siteStaff.push({ name: '', title: '', department: 'Sales' }); renderSiteStaff(); }
+function removeSiteStaff(i) { collectSiteStaff(); __siteStaff.splice(i, 1); renderSiteStaff(); }
+async function uploadStaffPhoto(i, file) {
+  if (!file) return; collectSiteStaff(); showToast('Uploading photo…', 'info');
+  try {
+    const fd = new FormData(); fd.append('image', file);
+    const r = await fetch(`${API}/dealership/site-image`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Upload failed');
+    __siteStaff[i].photo = d.url; renderSiteStaff(); showToast('Photo added', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
 async function saveWebsite(btn) {
   // Collect design values if on that tab (they persist across tabs via __siteCfg.content).
   const c = __siteCfg.content || (__siteCfg.content = {});
   if (document.getElementById('ws-c1')) { c.primary_color = document.getElementById('ws-c1').value; c.secondary_color = document.getElementById('ws-c2').value; c.accent_color = document.getElementById('ws-c3').value; c.typography = document.getElementById('ws-typo').value; }
-  collectSitePages(); // no-op unless the Pages tab is currently rendered
+  collectSitePages(); collectSiteStaff(); // no-op unless that tab is currently rendered
   const body = {
     sections: __siteSections,
     pages: __sitePages.filter(p => (p.title || '').trim()),
+    staff: __siteStaff.filter(m => (m.name || '').trim()),
     site_published: document.getElementById('ws-pub')?.checked || false,
     primary_color: c.primary_color, secondary_color: c.secondary_color, accent_color: c.accent_color, typography: c.typography,
   };
@@ -4697,7 +4763,7 @@ function applyTemplate(id) {
   renderWebsitePage();
   showToast('Template applied — review, then Save', 'success');
 }
-Object.assign(window, { loadWebsitePage, wsTab, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate });
+Object.assign(window, { loadWebsitePage, wsTab, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto });
 
 window.openVehicleForm = openVehicleForm;
 window.vehDelete = vehDelete;

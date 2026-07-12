@@ -111,10 +111,21 @@
     function renderChrome(){
       const s=DATA.site;
       const addr=[s.address,[s.city,s.province,s.postal_code].filter(Boolean).join(', ')].filter(Boolean).join(', ');
+      // Build the nav: simple links + dealer-grouped page dropdowns.
       const navPages=(s.pages||[]).filter(p=>p.nav);
-      // One nav list drives both the desktop bar and the mobile drop-down menu.
-      const teamNav=(DATA.team||[]).length?[['Team',"go('home');setTimeout(()=>document.getElementById('team')&&document.getElementById('team').scrollIntoView({behavior:'smooth'}),50)"]]:[];
-      const navItems=[['Inventory',"go('inventory')"],['Value Trade',"go('trade')"],['Financing',"go('finance')"],...teamNav,...navPages.map(p=>[p.title,`go('page:${p.slug}')`]),['Contact',"go('inquiry')"]];
+      const grouped={}, topPages=[];
+      for(const p of navPages){ if(p.menu){ (grouped[p.menu]=grouped[p.menu]||[]).push(p); } else topPages.push(p); }
+      const hasTeam=(s.staff||[]).length||(DATA.team||[]).length;
+      const navItems=[
+        {label:'Inventory',onclick:"go('inventory')"},
+        {label:'Build & Price',onclick:"go('build')"},
+        ...Object.keys(grouped).map(m=>({label:m,children:grouped[m].map(p=>({label:p.title,onclick:`go('page:${p.slug}')`}))})),
+        ...topPages.map(p=>({label:p.title,onclick:`go('page:${p.slug}')`})),
+        {label:'Value Trade',onclick:"go('trade')"},
+        {label:'Financing',onclick:"go('finance')"},
+        ...(hasTeam?[{label:'Team',onclick:"go('team')"}]:[]),
+        {label:'Contact',onclick:"go('inquiry')"},
+      ];
       document.getElementById('app').innerHTML=`
         ${slotHtml('top_banner')}
         <header class="brand-bg text-white sticky top-0 z-30">
@@ -124,7 +135,10 @@
               <span class="font-black text-lg truncate">${esc(s.name)}</span>
             </a>
             <nav class="hidden lg:flex items-center gap-5 text-sm font-semibold shrink-0">
-              ${navItems.map(n=>`<a href="#" onclick="${n[1]};return false" class="hover:opacity-80">${esc(n[0])}</a>`).join('')}
+              ${navItems.map(it=> it.children
+                ? `<div class="relative group"><button class="hover:opacity-80 flex items-center gap-1">${esc(it.label)}<span class="text-[9px]">▾</span></button><div class="absolute left-0 top-full pt-2 hidden group-hover:block z-40"><div class="bg-white text-slate-800 rounded-lg shadow-xl py-1 min-w-[190px] max-h-[70vh] overflow-y-auto">${it.children.map(c=>`<a href="#" onclick="${c.onclick};return false" class="block px-4 py-2 hover:bg-slate-100 text-sm">${esc(c.label)}</a>`).join('')}</div></div></div>`
+                : `<a href="#" onclick="${it.onclick};return false" class="hover:opacity-80">${esc(it.label)}</a>`
+              ).join('')}
             </nav>
             <div class="flex items-center gap-2 shrink-0">
               <button onclick="go('finance')" class="hidden sm:inline bg-white text-slate-900 rounded-lg px-3 py-1.5 text-sm font-bold hover:bg-slate-100">Get pre-approved</button>
@@ -134,7 +148,10 @@
           </div>
           <div id="mnav" class="lg:hidden hidden border-t border-white/10">
             <nav class="max-w-6xl mx-auto px-4 py-1 flex flex-col text-sm font-semibold">
-              ${navItems.map(n=>`<a href="#" onclick="toggleMobileNav();${n[1]};return false" class="py-3 border-b border-white/10">${esc(n[0])}</a>`).join('')}
+              ${navItems.map(it=> it.children
+                ? `<div class="py-2 border-b border-white/10"><div class="text-[11px] uppercase tracking-wide text-white/60 mb-1">${esc(it.label)}</div>${it.children.map(c=>`<a href="#" onclick="toggleMobileNav();${c.onclick};return false" class="block py-2 pl-3">${esc(c.label)}</a>`).join('')}</div>`
+                : `<a href="#" onclick="toggleMobileNav();${it.onclick};return false" class="py-3 border-b border-white/10">${esc(it.label)}</a>`
+              ).join('')}
               <div class="flex gap-2 py-3">
                 <button onclick="toggleMobileNav();go('finance')" class="flex-1 bg-white text-slate-900 rounded-lg px-3 py-2 font-bold">Get pre-approved</button>
                 ${s.phone?`<a href="tel:${esc(s.phone)}" class="flex-1 text-center bg-white/15 rounded-lg px-3 py-2 font-bold">Call ${esc(s.phone)}</a>`:''}
@@ -171,6 +188,8 @@
     function renderView(){
       const el=document.getElementById('view'); if(!el) return;
       if(VIEW==='inventory') return void renderInventory(el);
+      if(VIEW==='build') return void renderBuild(el);
+      if(VIEW==='team') return void(el.innerHTML=viewTeam());
       if(VIEW==='trade') return void(el.innerHTML=viewTrade());
       if(VIEW==='finance') return void(el.innerHTML=viewFinance());
       if(VIEW==='inquiry') return void(el.innerHTML=viewInquiry());
@@ -205,7 +224,7 @@
         ${slotHtml('above_inventory')}
         ${homeSearchBlock('Our inventory')}
         ${slotHtml('below_inventory')}
-        ${(DATA.team||[]).length?`<section id="team" class="bg-white border-t border-slate-200"><div class="max-w-6xl mx-auto px-4 py-12"><h2 class="text-2xl font-black mb-6">Meet our team</h2><div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">${DATA.team.map(t=>`<div class="text-center">${t.photo?`<img src="${esc(t.photo)}" class="w-24 h-24 rounded-full object-cover mx-auto mb-2">`:`<div class="w-24 h-24 rounded-full brand-bg text-white flex items-center justify-center text-2xl font-black mx-auto mb-2">${esc((t.name||'?')[0])}</div>`}<div class="font-bold">${esc(t.name)}</div><div class="text-xs text-slate-500">${esc(t.title)}</div>${t.phone?`<a href="tel:${esc(t.phone)}" class="text-xs brand-text font-semibold">${esc(t.phone)}</a>`:''}</div>`).join('')}</div></div></section>`:''}
+        ${((DATA.site.staff||[]).length||(DATA.team||[]).length)?`<section class="bg-white border-t border-slate-200"><div class="max-w-6xl mx-auto px-4 py-10 text-center"><h2 class="text-2xl font-black mb-2">Meet our team</h2><p class="text-slate-500 mb-4">Sales, service and management — here to help.</p><button onclick="go('team')" class="brand-bg text-white font-bold px-5 py-2.5 rounded-lg">See our team →</button></div></section>`:''}
         <section class="brand-bg text-white"><div class="max-w-6xl mx-auto px-4 py-10 text-center">
           <h2 class="text-2xl font-black">Ready to find your next vehicle?</h2>
           <div class="mt-4 flex flex-wrap justify-center gap-3">
@@ -242,7 +261,7 @@
         case 'trade_cta': return ctaBand(g.title||'Value your trade',g.subtitle||'Get a real offer in minutes.',g.button_label||'Value my trade','trade');
         case 'service_cta': return ctaBand(g.title||'Book your service',g.subtitle||'Factory-trained technicians.',g.button_label||'Book service',g.button_target||'inquiry',g.button_link);
         case 'cta_banner': return ctaBand(g.title||'Ready to get started?','',g.button_label||'Contact us',g.button_target||'inquiry',g.button_link);
-        case 'staff': return (DATA.team||[]).length?`<section id="team" class="bg-white border-t border-slate-200"><div class="max-w-6xl mx-auto px-4 py-12"><h2 class="text-2xl font-black mb-6">${esc(g.title||'Meet our team')}</h2><div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">${DATA.team.map(t=>`<div class="text-center">${t.photo?`<img src="${esc(t.photo)}" class="w-24 h-24 rounded-full object-cover mx-auto mb-2">`:`<div class="w-24 h-24 rounded-full brand-bg text-white flex items-center justify-center text-2xl font-black mx-auto mb-2">${esc((t.name||'?')[0])}</div>`}<div class="font-bold">${esc(t.name)}</div><div class="text-xs text-slate-500">${esc(t.title)}</div>${t.phone?`<a href="tel:${esc(t.phone)}" class="text-xs brand-text font-semibold">${esc(t.phone)}</a>`:''}</div>`).join('')}</div></div></section>`:'';
+        case 'staff': return ((DATA.site.staff||[]).length||(DATA.team||[]).length)?`<section class="bg-white border-t border-slate-200"><div class="max-w-6xl mx-auto px-4 py-10 text-center"><h2 class="text-2xl font-black mb-2">${esc(g.title||'Meet our team')}</h2><p class="text-slate-500 mb-4">Sales, service and management — here to help.</p><button onclick="go('team')" class="brand-bg text-white font-bold px-5 py-2.5 rounded-lg">See our team →</button></div></section>`:'';
         case 'reviews': return `<section class="bg-slate-100"><div class="max-w-6xl mx-auto px-4 py-12"><h2 class="text-2xl font-black mb-4 text-center">${esc(g.title||'What our customers say')}</h2>${g.embed_html?`<div>${g.embed_html}</div>`:'<div class="text-center text-sm text-slate-400">Reviews widget — paste your Google Reviews embed in the section settings.</div>'}</div></section>`;
         case 'faq': { const items=Array.isArray(g.items)?g.items:[]; return `<section class="max-w-3xl mx-auto px-4 py-12"><h2 class="text-2xl font-black mb-6">${esc(g.title||'Frequently asked questions')}</h2><div class="space-y-3">${items.map(it=>`<details class="bg-white rounded-lg cshadow p-4"><summary class="font-bold cursor-pointer">${esc(it.q||'')}</summary><p class="text-sm text-slate-600 mt-2 whitespace-pre-line">${esc(it.a||'')}</p></details>`).join('')||'<div class="text-sm text-slate-400">Add FAQ items in the section settings.</div>'}</div></section>`; }
         case 'gallery': { const imgs=Array.isArray(g.images)?g.images:[]; return imgs.length?`<section class="max-w-6xl mx-auto px-4 py-10">${g.title?`<h2 class="text-2xl font-black mb-4">${esc(g.title)}</h2>`:''}<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">${imgs.map(u=>`<img src="${esc(u)}" class="w-full h-40 object-cover rounded-lg">`).join('')}</div></section>`:''; }
@@ -437,6 +456,68 @@
       <div class="grid grid-cols-2 gap-2">${field('i-phone','Phone','tel')}${field('i-email','Email','email')}</div>
       <textarea id="i-msg" rows="4" placeholder="How can we help?" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></textarea>
       <input type="hidden" id="i-vehicle"><input type="hidden" id="i-prefill">`,'submitInquiry(event)'); }
+    // ── Team page (grouped by department) ──────────────────────────────────────
+    function viewTeam(){
+      const staff=(DATA.site.staff||[]);
+      const roster=staff.length?staff:(DATA.team||[]).map(t=>({name:t.name,title:t.title,department:'Sales',photo:t.photo,phone:t.phone,email:null}));
+      if(!roster.length) return `<section class="max-w-4xl mx-auto px-4 py-16 text-center text-slate-400">Our team will be listed here soon.</section>`;
+      const ORDER=['Management','Sales','Finance','Service','Parts','Admin','Reception','Other'];
+      const byDept={}; for(const m of roster){ const d=m.department||'Sales'; (byDept[d]=byDept[d]||[]).push(m); }
+      const depts=ORDER.filter(d=>byDept[d]).concat(Object.keys(byDept).filter(d=>!ORDER.includes(d)));
+      const card=(m)=>`<div class="bg-white rounded-xl cshadow p-4 text-center">${m.photo?`<img src="${esc(m.photo)}" class="w-24 h-24 rounded-full object-cover mx-auto mb-3">`:`<div class="w-24 h-24 rounded-full brand-bg text-white flex items-center justify-center text-2xl font-black mx-auto mb-3">${esc((m.name||'?')[0])}</div>`}<div class="font-bold">${esc(m.name)}</div>${m.title?`<div class="text-xs text-slate-500">${esc(m.title)}</div>`:''}${m.phone?`<a href="tel:${esc(m.phone)}" class="text-xs brand-text font-semibold block mt-1">${esc(m.phone)}</a>`:''}${m.email?`<a href="mailto:${esc(m.email)}" class="text-xs text-slate-500 block truncate">${esc(m.email)}</a>`:''}</div>`;
+      return `<section class="brand2-bg text-white"><div class="max-w-6xl mx-auto px-4 py-10"><h1 class="text-3xl font-black">Meet our team</h1><p class="text-white/80 mt-1">The people behind ${esc(DATA.site.name)}.</p></div></section>
+        <div class="max-w-6xl mx-auto px-4 py-8 space-y-8">${depts.map(d=>`<section><h2 class="text-xl font-black mb-4">${esc(d)}</h2><div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">${byDept[d].map(card).join('')}</div></section>`).join('')}</div>`;
+    }
+
+    // ── Build & Price: pick from the lineup we carry → send the build as a lead ──
+    let BUILD={ make:'', model:'', trim:'', ext:'', int:'' };
+    function buildLineup(){
+      // Manufacturer lineup derived from what the dealer actually stocks.
+      const L={}; for(const v of (DATA.vehicles||[])){ if(!v.make||!v.model) continue;
+        const mk=v.make, md=v.model; L[mk]=L[mk]||{}; L[mk][md]=L[mk][md]||{trims:new Set(),ext:new Set(),int:new Set()};
+        if(v.trim) L[mk][md].trims.add(v.trim); if(v.exterior_color) L[mk][md].ext.add(v.exterior_color); if(v.interior_color) L[mk][md].int.add(v.interior_color); }
+      return L;
+    }
+    function renderBuild(el){
+      const L=buildLineup(); const makes=Object.keys(L).sort();
+      if(!makes.length){ el.innerHTML=`<section class="max-w-3xl mx-auto px-4 py-16 text-center text-slate-400">Build &amp; Price isn't available yet.</section>`; return; }
+      if(!BUILD.make||!L[BUILD.make]) BUILD.make=makes[0];
+      el.innerHTML=`<section class="brand2-bg text-white"><div class="max-w-6xl mx-auto px-4 py-10"><h1 class="text-3xl font-black">Build your vehicle</h1><p class="text-white/80 mt-1">Configure a ${esc(DATA.site.name)} vehicle and send us your build — we'll find it or order it for you.</p></div></section>
+        <div class="max-w-3xl mx-auto px-4 py-8"><div id="build-body"></div></div>`;
+      renderBuildBody();
+    }
+    function renderBuildBody(){
+      const box=document.getElementById('build-body'); if(!box) return;
+      const L=buildLineup(); const makes=Object.keys(L).sort();
+      const models=BUILD.make&&L[BUILD.make]?Object.keys(L[BUILD.make]).sort():[];
+      if(BUILD.model&&!L[BUILD.make]?.[BUILD.model]) BUILD.model='';
+      const node=BUILD.model?L[BUILD.make][BUILD.model]:null;
+      const trims=node?[...node.trims].sort():[]; const exts=node?[...node.ext].sort():[]; const ints=node?[...node.int].sort():[];
+      const chip=(active,label,onclick)=>`<button onclick="${onclick}" class="px-3 py-2 rounded-lg border text-sm font-semibold ${active?'brand-bg text-white brand-border':'bg-white border-slate-300 hover:border-slate-400'}">${esc(label)}</button>`;
+      const step=(n,title,inner)=>`<div class="mb-6"><div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Step ${n} · ${esc(title)}</div><div class="flex flex-wrap gap-2">${inner}</div></div>`;
+      box.innerHTML=`
+        ${step(1,'Make',makes.map(m=>chip(BUILD.make===m,m,`buildSet('make','${attr(m)}')`)).join(''))}
+        ${BUILD.make?step(2,'Model',models.map(m=>chip(BUILD.model===m,m,`buildSet('model','${attr(m)}')`)).join('')||'<span class="text-sm text-slate-400">No models found.</span>'):''}
+        ${BUILD.model&&trims.length?step(3,'Trim',trims.map(t=>chip(BUILD.trim===t,t,`buildSet('trim','${attr(t)}')`)).join('')):''}
+        ${BUILD.model&&exts.length?step(4,'Exterior colour',exts.map(c=>chip(BUILD.ext===c,c,`buildSet('ext','${attr(c)}')`)).join('')):''}
+        ${BUILD.model&&ints.length?step(5,'Interior',ints.map(c=>chip(BUILD.int===c,c,`buildSet('int','${attr(c)}')`)).join('')):''}
+        ${BUILD.model?`<div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mt-2">
+          <div class="font-black mb-1">Your build</div>
+          <div class="text-sm text-slate-600 mb-4">${esc([BUILD.make,BUILD.model,BUILD.trim].filter(Boolean).join(' '))}${BUILD.ext?` · ${esc(BUILD.ext)}`:''}${BUILD.int?` · ${esc(BUILD.int)} interior`:''}</div>
+          <form onsubmit="submitBuild(event);return false" class="space-y-2">
+            ${field('b-name','Your name')}
+            <div class="grid grid-cols-2 gap-2">${field('b-phone','Phone','tel')}${field('b-email','Email','email')}</div>
+            <textarea id="b-notes" rows="2" placeholder="Anything specific? (options, budget, timing)" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></textarea>
+            <button class="w-full brand-bg text-white font-bold py-2.5 rounded-lg">Send my build</button>
+            <p class="text-[11px] text-slate-400 text-center">We'll match your build to inventory or order it. Price shown at quote is plus ${taxLabel()} &amp; licensing.</p>
+          </form></div>`:''}`;
+    }
+    function buildSet(k,v){ BUILD[k]=v; if(k==='make'){ BUILD.model='';BUILD.trim='';BUILD.ext='';BUILD.int=''; } if(k==='model'){ BUILD.trim='';BUILD.ext='';BUILD.int=''; } renderBuildBody(); }
+    function submitBuild(e){ e.preventDefault(); const btn=e.target.querySelector('button'); const V=(id)=>(document.getElementById(id)?.value||'').trim();
+      if(!V('b-name')&&!V('b-phone')&&!V('b-email')){ alert('Add a name, phone, or email.'); return; }
+      postLead({form_type:'build',name:V('b-name'),phone:V('b-phone'),email:V('b-email'),message:V('b-notes'),
+        fields:{Make:BUILD.make,Model:BUILD.model,Trim:BUILD.trim,Exterior:BUILD.ext,Interior:BUILD.int}},e.target,btn); }
+
     function viewPage(p){
       if(!p) return `<section class="max-w-3xl mx-auto px-4 py-16 text-center text-slate-400">Page not found.</section>`;
       if(p.make&&p.model){
@@ -466,7 +547,7 @@
     function toggleMobileNav(){ const m=document.getElementById('mnav'); if(m) m.classList.toggle('hidden'); }
     window.go=go; window.setCond=setCond; window.openVehicle=openVehicle; window.toggleMobileNav=toggleMobileNav;
     window.openLightbox=openLightbox; window.lbNext=lbNext; window.closeLightbox=closeLightbox;
-    Object.assign(window,{ invToggle, invCollapse, invMore, invSort, invSearch, invClear, invToggleFilters, homeSearch });
+    Object.assign(window,{ invToggle, invCollapse, invMore, invSort, invSearch, invClear, invToggleFilters, homeSearch, buildSet, submitBuild });
     window.submitTrade=submitTrade; window.submitFinance=submitFinance; window.submitInquiry=submitInquiry;
     boot();
   </script>
