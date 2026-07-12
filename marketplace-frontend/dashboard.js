@@ -4188,6 +4188,77 @@ async function removePhotoBackground() {
     document.querySelector('.fixed')?.remove();
   } catch (e) { showToast(e.message, 'error'); }
 }
+// ── Website manager: the public dealer site we host ──────────────────────────
+const SITE_BASE = (location.origin && !/^file/.test(location.origin)) ? `${location.origin}/site.html` : 'https://marketsync.link/site.html';
+async function openSiteManager() {
+  let cfg = {};
+  try { cfg = await apiGetJson('/dealership/site'); } catch (e) { showToast(e.message, 'error'); return; }
+  const c = cfg.content || {};
+  const publicUrl = cfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(cfg.site_slug)}` : null;
+  const inp = (id, v, ph, cls = '') => `<input id="${id}" value="${esc(v == null ? '' : v)}" placeholder="${esc(ph)}" class="${cls} bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">`;
+  const lbl = (t) => `<label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${t}</label>`;
+  crmOverlay(`<div class="p-5 space-y-3">
+    <div class="flex items-center justify-between">
+      <div class="text-lg font-black text-slate-900 dark:text-white">Your website</div>
+      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <p class="text-sm text-slate-500 dark:text-slate-400">A branded site that shows your inventory, team and contact info — all from what you manage here. Publish it and share the link.</p>
+
+    ${publicUrl ? `<div class="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
+      <span class="text-xs text-slate-600 dark:text-slate-300 truncate flex-1">${esc(publicUrl)}</span>
+      <button onclick="navigator.clipboard?.writeText('${publicUrl}');showToast('Link copied','success')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">Copy</button>
+      <a href="${publicUrl}" target="_blank" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">Open ↗</a>
+    </div>` : ''}
+
+    <div class="flex items-center gap-2">
+      <div class="flex-1">${lbl('Site address (letters, numbers, dashes)')}
+        <div class="flex items-center gap-1 text-sm">
+          <span class="text-xs text-slate-400 whitespace-nowrap">…/site.html?d=</span>
+          ${inp('site-slug', cfg.site_slug, 'welland-chev', 'flex-1')}
+        </div>
+      </div>
+      <label class="flex items-center gap-1.5 text-sm font-bold mt-4 whitespace-nowrap"><input id="site-pub" type="checkbox" ${cfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Published</label>
+    </div>
+
+    <div class="grid grid-cols-1 gap-2">
+      <div>${lbl('Headline / tagline')}${inp('site-tagline', c.tagline, 'Your trusted local dealership', 'w-full')}</div>
+      <div>${lbl('About')}<textarea id="site-about" rows="2" placeholder="A sentence or two about your store" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${esc(c.about || '')}</textarea></div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>${lbl('Phone')}${inp('site-phone', c.phone, '905-555-1234', 'w-full')}</div>
+        <div>${lbl('Email')}${inp('site-email', c.email, 'sales@…', 'w-full')}</div>
+      </div>
+      <div>${lbl('Address')}${inp('site-address', c.address, 'Street, City', 'w-full')}</div>
+      <div>${lbl('Hours')}<textarea id="site-hours" rows="2" placeholder="Mon–Fri 9–6, Sat 9–5" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${esc(c.hours || '')}</textarea></div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>${lbl('Brand colour')}<input id="site-color" type="color" value="${esc(c.primary_color || '#1e3a8a')}" class="w-full h-9 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg"></div>
+        <div>${lbl('Hero image URL (optional)')}${inp('site-hero', c.hero_url, 'https://…', 'w-full')}</div>
+      </div>
+    </div>
+    <div class="text-[11px] text-slate-400">Logo, and your sales team, come from your existing branding + team roster.</div>
+    <div class="flex gap-2 justify-end pt-1">
+      <button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-4 py-2">Cancel</button>
+      <button onclick="saveSite(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save</button>
+    </div>
+  </div>`, 'max-w-lg');
+}
+async function saveSite(btn) {
+  const val = (i) => (document.getElementById(i)?.value || '').trim();
+  const body = {
+    site_slug: val('site-slug'), site_published: document.getElementById('site-pub')?.checked || false,
+    tagline: val('site-tagline'), about: val('site-about'), phone: val('site-phone'), email: val('site-email'),
+    address: val('site-address'), hours: val('site-hours'), primary_color: val('site-color'), hero_url: val('site-hero'),
+  };
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await apiSendJson('/dealership/site', 'PUT', body);
+    showToast('Website saved', 'success');
+    btn.closest('.fixed').remove();
+    openSiteManager();
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
+}
+window.openSiteManager = openSiteManager;
+window.saveSite = saveSite;
+
 window.openVehicleForm = openVehicleForm;
 window.vehDelete = vehDelete;
 window.editVehicle = editVehicle;

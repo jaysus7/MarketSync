@@ -1,0 +1,150 @@
+import { supabaseAdmin } from '../shared.js'
+import { requireAuth } from '../middleware.js'
+import { findOrCreateContact } from './crm.js'
+
+const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
+const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
+const slugOk = (s) => /^[a-z0-9]([a-z0-9-]{1,38})[a-z0-9]$/.test(s)   // 3–40, no leading/trailing dash
+
+// Only expose safe, public-facing vehicle fields (no internal/source data).
+function publicVehicle(v) {
+  return {
+    id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim,
+    price: v.price, mileage: v.mileage, condition: v.condition,
+    exterior_color: v.exterior_color, interior_color: v.interior_color,
+    drivetrain: v.drivetrain, fuel_type: v.fuel_type, transmission: v.transmission,
+    engine: v.engine, body_style: v.body_style, doors: v.doors,
+    stocknumber: v.stocknumber, vin: v.vin,
+    image_urls: Array.isArray(v.image_urls) ? v.image_urls : [],
+    description: v.description || null,
+  }
+}
+function publicRep(p) {
+  return {
+    name: p.display_name || p.full_name || null,
+    title: ({ OWNER: 'Owner', DEALER_ADMIN: 'General Manager', MANAGER: 'Sales Manager', SALES_REP: 'Sales' }[p.role] || 'Sales'),
+    photo: p.avatar_url || null,
+    phone: p.phone || null,
+  }
+}
+
+// The site's content bundle from the dealership's branding jsonb.
+function siteContent(d) {
+  const b = d.branding || {}
+  return {
+    name: d.name,
+    logo_url: b.logo_url || null,
+    primary_color: b.primary_color || '#1e3a8a',
+    secondary_color: b.secondary_color || '#0f172a',
+    tagline: b.tagline || null,
+    hero_url: b.hero_url || null,
+    about: b.about || null,
+    hours: b.hours || null,
+    phone: b.phone || null,
+    email: b.email || null,
+    address: b.address || null,
+    city: d.city || null, province: d.province || null, postal_code: d.postal_code || null,
+    website_url: d.website_url || null,
+  }
+}
+
+export function registerSite(app) {
+  // ── PUBLIC: a dealer's live site data (no auth) ────────────────────────────
+  app.get('/site/:slug', async (req, res) => {
+    const slug = String(req.params.slug || '').toLowerCase().trim()
+    if (!slug) return res.status(404).json({ error: 'Not found' })
+    const { data: d } = await supabaseAdmin.from('dealerships')
+      .select('id, name, branding, site_published, city, province, postal_code, website_url')
+      .ilike('site_slug', slug).maybeSingle()
+    if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
+
+    const [{ data: inv }, { data: team }] = await Promise.all([
+      supabaseAdmin.from('inventory')
+        .select('id, year, make, model, trim, price, mileage, condition, exterior_color, interior_color, drivetrain, fuel_type, transmission, engine, body_style, doors, stocknumber, vin, image_urls, description, created_at')
+        .eq('dealership_id', d.id).is('archived_at', null).eq('status', 'available')
+        .order('created_at', { ascending: false }).limit(600),
+      supabaseAdmin.from('profiles')
+        .select('full_name, display_name, avatar_url, phone, role, hide_on_site')
+        .eq('dealership_id', d.id),
+    ])
+    const vehicles = (inv || []).map(publicVehicle)
+    const roster = (team || []).filter(p => !p.hide_on_site && (p.display_name || p.full_name)).map(publicRep)
+    res.json({ site: siteContent(d), vehicles, team: roster, count: vehicles.length })
+  })
+
+  // ── PUBLIC: capture a lead from the site → lands in the CRM ─────────────────
+  app.post('/site/:slug/lead', async (req, res) => {
+    const slug = String(req.params.slug || '').toLowerCase().trim()
+    const { data: d } = await supabaseAdmin.from('dealerships')
+      .select('id, site_published').ilike('site_slug', slug).maybeSingle()
+    if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
+    const b = req.body || {}
+    const name = String(b.name || '').trim().slice(0, 120)
+    const email = String(b.email || '').trim().slice(0, 160)
+    const phone = String(b.phone || '').trim().slice(0, 40)
+    const message = String(b.message || '').trim().slice(0, 2000)
+    if (!name && !email && !phone) return res.status(400).json({ error: 'Enter a name, phone, or email' })
+
+    let inventory_id = null
+    if (b.vehicle_id) {
+      const { data: v } = await supabaseAdmin.from('inventory').select('id, dealership_id').eq('id', b.vehicle_id).maybeSingle()
+      if (v && v.dealership_id === d.id) inventory_id = v.id
+    }
+    try {
+      const { data: lead } = await supabaseAdmin.from('leads').insert({
+        dealership_id: d.id, name: name || null, email: email || null, phone: phone || null,
+        comments: message || null, source: 'Website', inventory_id,
+      }).select('id').single()
+      const contactId = await findOrCreateContact({ dealershipId: d.id, name, email, phone, source: 'Website' })
+      if (contactId && lead?.id) await supabaseAdmin.from('leads').update({ contact_id: contactId }).eq('id', lead.id)
+      res.json({ ok: true })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // ── ADMIN: read the site config (slug, published, content) ─────────────────
+  app.get('/dealership/site', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: d } = await supabaseAdmin.from('dealerships')
+      .select('name, branding, site_slug, site_published, city, province, postal_code, website_url').eq('id', req.dealershipId).single()
+    res.json({
+      site_slug: d.site_slug || null,
+      site_published: !!d.site_published,
+      can_manage: isSiteAdmin(req),
+      content: siteContent(d),
+    })
+  })
+
+  // ── ADMIN: update slug / publish / site content ────────────────────────────
+  app.put('/dealership/site', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Manager access required' })
+    const b = req.body || {}
+    const update = {}
+
+    if (b.site_slug !== undefined) {
+      const slug = String(b.site_slug || '').toLowerCase().trim()
+      if (slug) {
+        if (!slugOk(slug)) return res.status(400).json({ error: 'Use 3–40 letters, numbers or dashes (no leading/trailing dash).' })
+        const { data: taken } = await supabaseAdmin.from('dealerships')
+          .select('id').ilike('site_slug', slug).neq('id', req.dealershipId).maybeSingle()
+        if (taken) return res.status(409).json({ error: 'That address is already taken — try another.' })
+        update.site_slug = slug
+      } else update.site_slug = null
+    }
+    if (b.site_published !== undefined) update.site_published = !!b.site_published
+
+    // Merge site content into the shared branding jsonb (don't wipe sticker fields).
+    const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color']
+    if (contentKeys.some(k => b[k] !== undefined)) {
+      const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
+      const branding = { ...(cur?.branding || {}) }
+      for (const k of contentKeys) if (b[k] !== undefined) branding[k] = b[k] === '' ? null : b[k]
+      update.branding = branding
+    }
+
+    if (!Object.keys(update).length) return res.json({ ok: true })
+    const { error } = await supabaseAdmin.from('dealerships').update(update).eq('id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published })
+  })
+}
