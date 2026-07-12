@@ -534,6 +534,7 @@ function switchPage(pageId) {
   if (pageId === 'inv-intel' && typeof window._invIntelPageHook === 'function') window._invIntelPageHook();
   if (pageId === 'ai-vision') loadAiVisionPage();
   if (pageId === 'crm') loadCrmPage();
+  if (pageId === 'website') loadWebsitePage();
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
 }
 
@@ -4367,6 +4368,146 @@ window.removeSiteWidget = removeSiteWidget;
 window.addSitePage = addSitePage;
 window.removeSitePage = removeSitePage;
 window.uploadSiteImage = uploadSiteImage;
+
+// ══ Website page builder (Squarespace-simple, dealership-aware) ═══════════════
+let __siteCfg = null, __siteSections = [], __wsTab = 'builder';
+const SEC_META = {
+  hero:               { label: 'Hero', fields: [['image','Background image','image'],['headline','Headline','text'],['subheadline','Subheadline','text'],['button_label','Button label','text'],['button_target','Button goes to','target'],['button_link','Custom link','text'],['overlay','Image darkness','range'],['height','Height','height']] },
+  featured_inventory: { label: 'Featured inventory', fields: [['title','Title','text'],['condition','Show','cond'],['count','How many','number']] },
+  inventory_grid:     { label: 'Inventory grid', fields: [['title','Title','text']] },
+  trade_cta:          { label: 'Trade-in banner', fields: [['title','Title','text'],['subtitle','Subtitle','text'],['button_label','Button label','text']] },
+  finance_cta:        { label: 'Finance banner', fields: [['title','Title','text'],['subtitle','Subtitle','text'],['button_label','Button label','text']] },
+  service_cta:        { label: 'Service banner', fields: [['title','Title','text'],['subtitle','Subtitle','text'],['button_label','Button label','text'],['button_target','Button goes to','target'],['button_link','Custom link','text']] },
+  cta_banner:         { label: 'Call-to-action banner', fields: [['title','Title','text'],['button_label','Button label','text'],['button_target','Button goes to','target'],['button_link','Custom link','text']] },
+  staff:              { label: 'Meet the team', fields: [['title','Title','text']] },
+  reviews:            { label: 'Reviews', fields: [['title','Title','text'],['embed_html','Reviews embed code','textarea']] },
+  faq:                { label: 'FAQ', fields: [['title','Title','text'],['items','Questions (one per line: Question :: Answer)','faq']] },
+  gallery:            { label: 'Photo gallery', fields: [['title','Title','text'],['images','Images','images']] },
+  map:                { label: 'Map', fields: [['title','Title','text'],['address','Address (blank = your address)','text']] },
+  contact:            { label: 'Contact form', fields: [['title','Title','text']] },
+  html:               { label: 'Custom HTML', fields: [['html','HTML','textarea']] },
+};
+const SEC_ORDER = ['hero','featured_inventory','inventory_grid','trade_cta','finance_cta','service_cta','staff','reviews','faq','gallery','map','contact','cta_banner','html'];
+
+async function loadWebsitePage() {
+  const root = document.getElementById('website-root');
+  if (!root) return;
+  root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
+  try { __siteCfg = await apiGetJson('/dealership/site'); } catch (e) { root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">Couldn't load: ${esc(e.message)}</div>`; return; }
+  __siteSections = Array.isArray(__siteCfg.content?.sections) ? __siteCfg.content.sections.slice() : [];
+  renderWebsitePage();
+}
+function renderWebsitePage() {
+  const root = document.getElementById('website-root'); if (!root) return;
+  const c = __siteCfg.content || {};
+  const url = __siteCfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
+  const tab = (id, label) => `<button onclick="wsTab('${id}')" class="px-4 py-2 text-sm font-bold border-b-2 transition ${__wsTab === id ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">${label}</button>`;
+  root.innerHTML = `
+    <div class="flex items-start justify-between gap-3 flex-wrap">
+      <div>
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Website</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Professional dealership site anyone can edit. Add sections, no code required.</p>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        ${url ? `<a href="${url}" target="_blank" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">View site ↗</a>` : ''}
+        <label class="flex items-center gap-1.5 text-sm font-bold"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Published</label>
+        <button onclick="openSiteManager()" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">Settings & pages</button>
+        <button onclick="saveWebsite(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save</button>
+      </div>
+    </div>
+    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800">${tab('builder', 'Builder')}${tab('design', 'Design')}</div>
+    <div id="ws-body"></div>`;
+  renderWsBody();
+}
+function wsTab(t) { __wsTab = t; renderWsBody(); }
+function renderWsBody() {
+  const body = document.getElementById('ws-body'); if (!body) return;
+  if (__wsTab === 'design') { body.innerHTML = wsDesign(); return; }
+  // Builder
+  const palette = SEC_ORDER.map(t => `<button onclick="addSection('${t}')" class="text-left text-xs font-semibold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:border-indigo-400">+ ${SEC_META[t].label}</button>`).join('');
+  body.innerHTML = `
+    <div class="grid lg:grid-cols-[minmax(0,1fr)_240px] gap-4 mt-4">
+      <div id="ws-sections" class="space-y-2"></div>
+      <div class="lg:sticky lg:top-4 self-start">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">+ Add section</div>
+        <div class="grid grid-cols-1 gap-1.5">${palette}</div>
+      </div>
+    </div>`;
+  renderWsSections();
+}
+function renderWsSections() {
+  const box = document.getElementById('ws-sections'); if (!box) return;
+  if (!__siteSections.length) { box.innerHTML = '<div class="text-sm text-slate-400 italic border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center">No sections yet. Add one from the right →<br><span class="text-xs">(If you leave this empty, your site uses the default layout.)</span></div>'; return; }
+  box.innerHTML = __siteSections.map((sec, i) => `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+      <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+        <span class="font-bold text-sm text-slate-800 dark:text-slate-100 flex-1">${esc(SEC_META[sec.type]?.label || sec.type)}</span>
+        <button onclick="moveSection(${i},-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" title="Move up">↑</button>
+        <button onclick="moveSection(${i},1)" ${i === __siteSections.length - 1 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" title="Move down">↓</button>
+        <button onclick="dupSection(${i})" class="text-slate-400 hover:text-slate-700 px-1" title="Duplicate">⧉</button>
+        <button onclick="delSection(${i})" class="text-rose-500 hover:text-rose-600 px-1" title="Delete">✕</button>
+      </div>
+      <div class="p-3 grid sm:grid-cols-2 gap-2">${(SEC_META[sec.type]?.fields || []).map(f => wsField(i, sec, f)).join('')}</div>
+    </div>`).join('');
+}
+function wsField(i, sec, [key, label, type]) {
+  const v = sec.settings?.[key];
+  const lbl = `<label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${label}</label>`;
+  const cls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm';
+  const wide = ['textarea', 'faq', 'images', 'image', 'html'].includes(type) ? 'sm:col-span-2' : '';
+  let input;
+  if (type === 'textarea' || type === 'html') input = `<textarea rows="3" oninput="setSec(${i},'${key}',this.value)" class="${cls} font-mono text-xs">${esc(v || '')}</textarea>`;
+  else if (type === 'range') input = `<input type="range" min="0" max="90" value="${v == null ? 45 : v}" oninput="setSec(${i},'${key}',+this.value)" class="w-full">`;
+  else if (type === 'number') input = `<input type="number" value="${esc(v == null ? 6 : v)}" oninput="setSec(${i},'${key}',+this.value)" class="${cls}">`;
+  else if (type === 'target') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['inquiry','Contact form'],['trade','Trade-in'],['finance','Financing'],['link','Custom link']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
+  else if (type === 'cond') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['all','All'],['new','New'],['used','Used']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
+  else if (type === 'height') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['sm','Short'],['md','Medium'],['lg','Tall']].map(o => `<option value="${o[0]}" ${(v || 'md') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
+  else if (type === 'image') input = `<div class="flex gap-1 items-center">${v ? `<img src="${esc(v)}" class="w-12 h-9 object-cover rounded">` : ''}<input value="${esc(v || '')}" placeholder="URL or upload" oninput="setSec(${i},'${key}',this.value)" class="${cls} flex-1"><input type="file" accept="image/*" class="hidden" id="secimg-${i}-${key}" onchange="uploadToSec(${i},'${key}',this.files[0])"><button type="button" onclick="document.getElementById('secimg-${i}-${key}').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-2 rounded">Upload</button></div>`;
+  else if (type === 'images') { const arr = Array.isArray(v) ? v : []; input = `<div><div class="flex flex-wrap gap-1 mb-1">${arr.map((u, k) => `<div class="relative"><img src="${esc(u)}" class="w-12 h-9 object-cover rounded"><button onclick="delSecImg(${i},'${key}',${k})" class="absolute -top-1 -right-1 bg-black/60 text-white rounded-full w-4 h-4 text-[10px]">×</button></div>`).join('')}</div><input type="file" accept="image/*" multiple class="hidden" id="secimgs-${i}-${key}" onchange="uploadToSecMulti(${i},'${key}',this.files)"><button type="button" onclick="document.getElementById('secimgs-${i}-${key}').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">+ Add images</button></div>`; }
+  else if (type === 'faq') { const lines = (Array.isArray(v) ? v : []).map(it => `${it.q || ''} :: ${it.a || ''}`).join('\n'); input = `<textarea rows="4" oninput="setSecFaq(${i},'${key}',this.value)" placeholder="Question :: Answer" class="${cls} text-xs">${esc(lines)}</textarea>`; }
+  else input = `<input value="${esc(v || '')}" oninput="setSec(${i},'${key}',this.value)" class="${cls}">`;
+  return `<div class="${wide}">${lbl}${input}</div>`;
+}
+function setSec(i, key, val) { if (__siteSections[i]) { __siteSections[i].settings = __siteSections[i].settings || {}; __siteSections[i].settings[key] = val; } }
+function setSecFaq(i, key, text) { const items = text.split('\n').map(l => { const [q, ...a] = l.split('::'); return { q: (q || '').trim(), a: a.join('::').trim() }; }).filter(x => x.q); setSec(i, key, items); }
+function delSecImg(i, key, k) { const arr = (__siteSections[i].settings?.[key] || []).slice(); arr.splice(k, 1); setSec(i, key, arr); renderWsSections(); }
+async function uploadToSec(i, key, file) { if (!file) return; showToast('Uploading…', 'info'); try { const fd = new FormData(); fd.append('image', file); const r = await fetch(`${API}/dealership/site-image`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd }); const d = await r.json(); if (!r.ok) throw new Error(d.error); setSec(i, key, d.url); renderWsSections(); showToast('Uploaded', 'success'); } catch (e) { showToast(e.message, 'error'); } }
+async function uploadToSecMulti(i, key, files) { for (const f of Array.from(files || [])) { try { const fd = new FormData(); fd.append('image', f); const r = await fetch(`${API}/dealership/site-image`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd }); const d = await r.json(); if (r.ok) { const arr = (__siteSections[i].settings?.[key] || []).slice(); arr.push(d.url); setSec(i, key, arr); } } catch {} } renderWsSections(); showToast('Images added', 'success'); }
+function addSection(type) { __siteSections.push({ id: 's' + Date.now().toString(36), type, settings: {} }); renderWsSections(); }
+function moveSection(i, dir) { const j = i + dir; if (j < 0 || j >= __siteSections.length) return; const [s] = __siteSections.splice(i, 1); __siteSections.splice(j, 0, s); renderWsSections(); }
+function dupSection(i) { __siteSections.splice(i + 1, 0, JSON.parse(JSON.stringify(__siteSections[i]))); renderWsSections(); }
+function delSection(i) { __siteSections.splice(i, 1); renderWsSections(); }
+function wsDesign() {
+  const c = __siteCfg.content || {};
+  const swatch = (id, label, val) => `<div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${label}</label><input id="${id}" type="color" value="${esc(val || '#1e3a8a')}" class="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg"></div>`;
+  const typos = [['modern','Modern'],['luxury','Luxury'],['bold','Bold'],['corporate','Corporate'],['minimal','Minimal']];
+  return `<div class="mt-4 max-w-lg space-y-4">
+    <div>
+      <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Brand colours</div>
+      <div class="grid grid-cols-3 gap-2">${swatch('ws-c1', 'Primary', c.primary_color)}${swatch('ws-c2', 'Secondary / hero', c.secondary_color)}${swatch('ws-c3', 'Accent', c.accent_color)}</div>
+    </div>
+    <div>
+      <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Typography</div>
+      <select id="ws-typo" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${typos.map(t => `<option value="${t[0]}" ${(c.typography || 'modern') === t[0] ? 'selected' : ''}>${t[1]}</option>`).join('')}</select>
+      <p class="text-[11px] text-slate-400 mt-1">Changes every heading &amp; body font across the site.</p>
+    </div>
+    <p class="text-[11px] text-slate-400">Logo comes from your branding (Settings & pages). Colours &amp; fonts update the whole site automatically.</p>
+  </div>`;
+}
+async function saveWebsite(btn) {
+  // Collect design values if on that tab (they persist across tabs via __siteCfg.content).
+  const c = __siteCfg.content || (__siteCfg.content = {});
+  if (document.getElementById('ws-c1')) { c.primary_color = document.getElementById('ws-c1').value; c.secondary_color = document.getElementById('ws-c2').value; c.accent_color = document.getElementById('ws-c3').value; c.typography = document.getElementById('ws-typo').value; }
+  const body = {
+    sections: __siteSections,
+    site_published: document.getElementById('ws-pub')?.checked || false,
+    primary_color: c.primary_color, secondary_color: c.secondary_color, accent_color: c.accent_color, typography: c.typography,
+  };
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  try { await apiSendJson('/dealership/site', 'PUT', body); showToast('Website saved', 'success'); btn.disabled = false; btn.textContent = orig; }
+  catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
+}
+Object.assign(window, { loadWebsitePage, wsTab, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite });
 
 window.openVehicleForm = openVehicleForm;
 window.vehDelete = vehDelete;

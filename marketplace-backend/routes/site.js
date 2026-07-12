@@ -43,6 +43,22 @@ function cleanPages(arr) {
   }).filter(p => p.title && p.slug)
 }
 
+// The section palette for the page builder. Each is dealership-aware on render.
+const SECTION_TYPES = ['hero', 'featured_inventory', 'inventory_grid', 'finance_cta', 'trade_cta', 'service_cta', 'staff', 'reviews', 'faq', 'cta_banner', 'gallery', 'map', 'contact', 'html']
+function cleanSections(arr) {
+  if (!Array.isArray(arr)) return []
+  return arr.slice(0, 40).map((s, i) => {
+    let settings = (s.settings && typeof s.settings === 'object') ? s.settings : {}
+    try { if (JSON.stringify(settings).length > 12000) settings = {} } catch { settings = {} }
+    return {
+      id: String(s.id || `s${i}_${Math.random().toString(36).slice(2, 7)}`),
+      type: SECTION_TYPES.includes(s.type) ? s.type : 'html',
+      settings,
+    }
+  })
+}
+const TYPOGRAPHY = ['modern', 'luxury', 'bold', 'corporate', 'minimal']
+
 // Placed widgets: where they can go and their shape.
 const WIDGET_SLOTS = ['top_banner', 'hero_below', 'above_inventory', 'below_inventory', 'above_footer']
 function cleanWidgets(arr) {
@@ -80,6 +96,10 @@ function siteContent(d) {
     head_html: b.site_head_html || null,
     widgets: cleanWidgets(b.site_widgets),
     pages: cleanPages(b.site_pages),
+    // Page builder: ordered sections + global styling.
+    sections: cleanSections(b.site_sections),
+    typography: TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern',
+    accent_color: b.accent_color || null,
   }
 }
 
@@ -181,8 +201,8 @@ export function registerSite(app) {
     if (b.site_published !== undefined) update.site_published = !!b.site_published
 
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
-    const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'facebook_url', 'instagram_url']
-    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined
+    const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography']
+    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined
     if (touchesContent) {
       const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
       const branding = { ...(cur?.branding || {}) }
@@ -190,6 +210,8 @@ export function registerSite(app) {
       if (b.head_html !== undefined) branding.site_head_html = String(b.head_html || '').slice(0, 20000) || null
       if (b.widgets !== undefined) branding.site_widgets = cleanWidgets(b.widgets)
       if (b.pages !== undefined) branding.site_pages = cleanPages(b.pages)
+      if (b.sections !== undefined) branding.site_sections = cleanSections(b.sections)
+      if (b.typography !== undefined) branding.typography = TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern'
       update.branding = branding
     }
 
