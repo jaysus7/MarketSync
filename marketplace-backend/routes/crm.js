@@ -95,6 +95,26 @@ async function logComm({ dealershipId, contactId, channel, direction, subject, b
   } catch (e) { console.warn('[crm] logComm failed:', e.message); return null }
 }
 
+// Keep CRM follow-ups and the task list in sync (#24): moving a contact to the
+// "Follow-up" stage auto-opens a follow-up task (due next day) for its rep, unless
+// one is already open. So a follow-up always shows up as an actionable task.
+async function ensureFollowupTask(dealershipId, contact, actingUserId) {
+  try {
+    if (!dealershipId || !contact?.id) return
+    const { data: open } = await supabaseAdmin.from('crm_tasks')
+      .select('id').eq('contact_id', contact.id).eq('type', 'followup').eq('done', false).limit(1)
+    if (open && open.length) return   // already has an open follow-up
+    const due = new Date(); due.setDate(due.getDate() + 1); due.setHours(9, 0, 0, 0)
+    const who = contact.name ? ` — ${contact.name}` : ''
+    await supabaseAdmin.from('crm_tasks').insert({
+      dealership_id: dealershipId, contact_id: contact.id,
+      assigned_to: contact.assigned_rep || actingUserId || null,
+      created_by: actingUserId || null,
+      title: `Follow up${who}`, type: 'followup', due_at: due.toISOString(),
+    })
+  } catch (e) { console.warn('[crm] ensureFollowupTask failed:', e.message) }
+}
+
 export function registerCrm(app) {
   // ── Contacts list / search ────────────────────────────────────────────────
   // Browsing scope: reps see only contacts they own/created; managers see all and
@@ -234,6 +254,7 @@ export function registerCrm(app) {
       const vehicleId = data.interest_inventory_id || null
       if (patch.status === 'delivered') markDelivered(req.dealershipId, data.id, vehicleId, data.assigned_rep)
       else if (patch.status === 'appointment') enqueueForTrigger(req.dealershipId, 'appointment_booked', { contactId: data.id, vehicleId, repId: data.assigned_rep })
+      else if (patch.status === 'followup') ensureFollowupTask(req.dealershipId, data, req.user.id)
     }
     res.json({ ok: true, contact: data })
   })
