@@ -5147,10 +5147,10 @@ function renderWsSections() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
         </span>
         <span class="font-bold text-sm text-slate-800 dark:text-slate-100 flex-1">${esc(SEC_META[sec.type]?.label || sec.type)}</span>
-        <button onclick="moveSection(${i},-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" title="Move up">↑</button>
-        <button onclick="moveSection(${i},1)" ${i === __siteSections.length - 1 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" title="Move down">↓</button>
-        <button onclick="dupSection(${i})" class="text-slate-400 hover:text-slate-700 px-1" title="Duplicate">⧉</button>
-        <button onclick="delSection(${i})" class="text-rose-500 hover:text-rose-600 px-1" title="Delete">✕</button>
+        <button onclick="moveSection(${i},-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" title="Move up"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+        <button onclick="moveSection(${i},1)" ${i === __siteSections.length - 1 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" title="Move down"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
+        <button onclick="dupSection(${i})" class="text-slate-400 hover:text-slate-700 px-1" title="Duplicate"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        <button onclick="delSection(${i})" class="text-rose-500 hover:text-rose-600 px-1" title="Delete"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="p-3 grid sm:grid-cols-2 gap-2">${(SEC_META[sec.type]?.fields || []).map(f => wsField(i, sec, f)).join('')}</div>
     </div>`).join('');
@@ -9762,18 +9762,39 @@ document.addEventListener('DOMContentLoaded', () => {
     return res.json()
   }
 
+  // Inline SVG icons (stroke = currentColor, so the color class tints them). #26 —
+  // replaces the old emoji so notifications read as crisp product icons.
+  const _svg = (p) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`
+  const NI = {
+    clock: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    dollar: _svg('<line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'),
+    camera: _svg('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>'),
+    car: _svg('<path d="M5 13l1.5-4.5A2 2 0 0 1 8.4 7h7.2a2 2 0 0 1 1.9 1.5L19 13"/><path d="M5 13h14a1 1 0 0 1 1 1v3H4v-3a1 1 0 0 1 1-1z"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/>'),
+    search: _svg('<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
+    card: _svg('<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>'),
+    chart: _svg('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'),
+    window: _svg('<rect x="4" y="3" width="16" height="18" rx="1"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="4" y1="12" x2="20" y2="12"/>'),
+    doc: _svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/>'),
+    mail: _svg('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 6 10 7 10-7"/>'),
+    calendar: _svg('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
+    user: _svg('<path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/>'),
+    clipboard: _svg('<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/><path d="M9 14l2 2 4-4"/>'),
+    bell: _svg('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'),
+  }
   const TYPE_META = {
-    aging:        { icon: '⏱', color: 'text-orange-500' },
-    price_drift:  { icon: '💰', color: 'text-amber-500' },
-    missing_info: { icon: '📷', color: 'text-blue-500' },
-    new_arrival:  { icon: '🚗', color: 'text-emerald-500' },
-    competitor:   { icon: '🔍', color: 'text-purple-500' },
-    billing:      { icon: '💳', color: 'text-indigo-500' },
-    weekly_report:{ icon: '📊', color: 'text-slate-500' },
-    window_sticker:{ icon: '🪟', color: 'text-cyan-500' },
-    brochure:     { icon: '📄', color: 'text-rose-500' },
-    email_sent:   { icon: '📧', color: 'text-teal-500' },
-    appointment:  { icon: '📅', color: 'text-indigo-500' },
+    aging:        { icon: NI.clock, color: 'text-orange-500' },
+    price_drift:  { icon: NI.dollar, color: 'text-amber-500' },
+    missing_info: { icon: NI.camera, color: 'text-blue-500' },
+    new_arrival:  { icon: NI.car, color: 'text-emerald-500' },
+    competitor:   { icon: NI.search, color: 'text-purple-500' },
+    billing:      { icon: NI.card, color: 'text-indigo-500' },
+    weekly_report:{ icon: NI.chart, color: 'text-slate-500' },
+    window_sticker:{ icon: NI.window, color: 'text-cyan-500' },
+    brochure:     { icon: NI.doc, color: 'text-rose-500' },
+    email_sent:   { icon: NI.mail, color: 'text-teal-500' },
+    appointment:  { icon: NI.calendar, color: 'text-indigo-500' },
+    new_lead:     { icon: NI.user, color: 'text-emerald-500' },
+    appraisal:    { icon: NI.clipboard, color: 'text-violet-500' },
   }
 
   function timeAgo(iso) {
@@ -9788,14 +9809,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderList(items) {
     if (!items.length) {
-      list.innerHTML = '<div class="flex flex-col items-center justify-center h-48 text-slate-400 text-sm gap-2"><span class="text-3xl">🔔</span>No notifications yet</div>'
+      list.innerHTML = `<div class="flex flex-col items-center justify-center h-48 text-slate-400 text-sm gap-2"><span class="w-8 h-8">${NI.bell}</span>No notifications yet</div>`
       return
     }
     list.innerHTML = items.map(n => {
-      const meta = TYPE_META[n.type] || { icon: '•', color: 'text-slate-400' }
+      const meta = TYPE_META[n.type] || { icon: NI.bell, color: 'text-slate-400' }
       return `
         <div class="notif-item flex gap-3 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer ${n.read ? 'opacity-60' : ''}" data-id="${n.id}" data-page="${n.link_page || ''}" data-filter="${n.link_filter || ''}" data-url="${n.link_url || ''}">
-          <span class="text-xl mt-0.5 flex-shrink-0">${meta.icon}</span>
+          <span class="mt-0.5 flex-shrink-0 ${meta.color}">${meta.icon}</span>
           <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-2">
               <p class="text-sm font-semibold text-slate-900 dark:text-white leading-snug ${n.read ? '' : 'font-bold'}">${n.title}</p>
