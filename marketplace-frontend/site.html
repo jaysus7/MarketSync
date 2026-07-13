@@ -352,7 +352,12 @@
           return `<section class="bg-slate-900 text-white"><div class="max-w-6xl mx-auto px-4 py-14"><h2 class="text-2xl font-black mb-5">${esc(g.title||'Browse by body style')}</h2><div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${items.map(([b,d])=>`<div class="bg-white text-slate-900 rounded-2xl p-4 flex flex-col"><div class="font-black">${esc(b)}</div>${d.min<Infinity?`<div class="text-xs text-slate-500 mt-0.5 mb-3">Starting at ${money(d.min)}</div>`:'<div class="mb-3"></div>'}<button onclick="setBody('${esc(b)}')" class="mt-auto w-full brand-bg text-white text-sm font-bold py-2 rounded-lg hover:opacity-90">See (${d.n}) in stock</button></div>`).join('')}</div></div></section>`;
         }
         case 'featured_inventory': {
-          const cond=(g.condition||'all'); let vs=(DATA.vehicles||[]); if(cond!=='all') vs=vs.filter(v=>(v.condition||'').toLowerCase()===cond);
+          const cond=(g.condition||'all');
+          let vs=(DATA.vehicles||[]).filter(v=>Array.isArray(v.image_urls)&&v.image_urls[0]);   // only feature cars that have a photo
+          if(cond!=='all') vs=vs.filter(v=>(v.condition||'').toLowerCase()===cond);
+          // Rotate the featured set every week (deterministic by ISO week number).
+          const wk=Math.floor(Date.now()/(7*864e5));
+          if(vs.length>1){ const off=((wk%vs.length)+vs.length)%vs.length; vs=vs.slice(off).concat(vs.slice(0,off)); }
           vs=vs.slice(0,Math.min(12,Math.max(3,parseInt(g.count)||6)));
           return `<section class="max-w-6xl mx-auto px-4 py-10"><div class="flex items-center justify-between mb-4"><h2 class="text-2xl font-black">${esc(g.title||'Featured vehicles')}</h2><a href="#" onclick="setCond('');return false" class="text-sm font-bold brand-text">View all →</a></div><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${vs.map(vehicleCard).join('')||'<div class="text-sm text-slate-400">No vehicles yet.</div>'}</div></section>`;
         }
