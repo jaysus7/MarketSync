@@ -373,4 +373,75 @@ export function registerCrm(app) {
     if (!data) return res.status(404).json({ error: 'Task not found' })
     res.json({ ok: true, task: data })
   })
+
+  // ── CRM + Lead insights (#21) and sales-lead reports (#22) ─────────────────
+  // Managers get the whole team; reps get their own book. One roll-up call powers
+  // the Insights tab: lead volume + sources, pipeline funnel, rep leaderboard,
+  // conversion, and open/overdue tasks — all over a selectable date range.
+  app.get('/crm/insights', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json({ ok: true, empty: true })
+    const isMgr = isDealerLevel(req)
+    const days = ({ '7': 7, '30': 30, '90': 90, '365': 365 }[String(req.query.range || '30')]) || 30
+    const startIso = new Date(Date.now() - days * 86400000).toISOString()
+    const prevStartIso = new Date(Date.now() - days * 2 * 86400000).toISOString()
+
+    // Roster for names + leaderboard.
+    const { data: staff } = await supabaseAdmin.from('profiles')
+      .select('id, full_name, display_name, role').eq('dealership_id', req.dealershipId)
+    const nameOf = (id) => { const p = (staff || []).find(s => s.id === id); return p ? (p.full_name || p.display_name || '—') : '—' }
+
+    // Leads over the (double) window so we can compute a trend.
+    let lq = supabaseAdmin.from('leads')
+      .select('id, source, status, created_by, created_at, contact_id')
+      .eq('dealership_id', req.dealershipId).gte('created_at', prevStartIso).limit(10000)
+    if (!isMgr) lq = lq.eq('created_by', req.user.id)
+    const { data: leadRows } = await lq
+    const inWindow = (r) => r.created_at >= startIso
+    const cur = (leadRows || []).filter(inWindow)
+    const prev = (leadRows || []).filter(r => !inWindow(r))
+
+    const tally = (rows, key, fallback) => {
+      const m = {}
+      for (const r of rows) { const k = (r[key] || fallback || 'Unknown'); m[k] = (m[k] || 0) + 1 }
+      return Object.entries(m).map(([k, v]) => ({ key: k, count: v })).sort((a, b) => b.count - a.count)
+    }
+    const bySource = tally(cur, 'source', 'Website')
+    const perRep = isMgr
+      ? tally(cur, 'created_by').map(x => ({ rep_id: x.key, name: nameOf(x.key), count: x.count }))
+      : []
+
+    // Pipeline funnel from contacts (current book, not range-bound — it's a snapshot).
+    let cq = supabaseAdmin.from('contacts')
+      .select('status, assigned_rep, created_at').eq('dealership_id', req.dealershipId).limit(20000)
+    if (!isMgr) cq = cq.eq('assigned_rep', req.user.id)
+    const { data: contactRows } = await cq
+    const funnelOrder = ['uncontacted', 'contacted', 'appointment', 'sold', 'fni', 'delivered', 'followup', 'lost']
+    const funnelMap = {}
+    for (const c of (contactRows || [])) { const s = c.status || 'uncontacted'; funnelMap[s] = (funnelMap[s] || 0) + 1 }
+    const funnel = funnelOrder.map(s => ({ status: s, count: funnelMap[s] || 0 }))
+    const totalContacts = (contactRows || []).length
+    const wonContacts = (contactRows || []).filter(c => ['sold', 'fni', 'delivered'].includes(c.status)).length
+    const conversionPct = totalContacts ? Math.round((wonContacts / totalContacts) * 1000) / 10 : 0
+
+    // Tasks: open, overdue, due today.
+    let tq = supabaseAdmin.from('crm_tasks')
+      .select('assigned_to, due_at, done').eq('dealership_id', req.dealershipId).eq('done', false).limit(20000)
+    if (!isMgr) tq = tq.eq('assigned_to', req.user.id)
+    const { data: taskRows } = await tq
+    const now = Date.now(); const endToday = new Date(); endToday.setHours(23, 59, 59, 999)
+    const openTasks = (taskRows || []).length
+    const overdueTasks = (taskRows || []).filter(t => t.due_at && new Date(t.due_at).getTime() < now).length
+    const dueTodayTasks = (taskRows || []).filter(t => t.due_at && new Date(t.due_at).getTime() >= now && new Date(t.due_at).getTime() <= endToday.getTime()).length
+
+    res.json({
+      ok: true, range_days: days, is_manager: isMgr,
+      leads: {
+        total: cur.length, prev_total: prev.length,
+        trend_pct: prev.length ? Math.round(((cur.length - prev.length) / prev.length) * 100) : (cur.length ? 100 : 0),
+        by_source: bySource, per_rep: perRep,
+      },
+      pipeline: { funnel, total_contacts: totalContacts, won: wonContacts, conversion_pct: conversionPct },
+      tasks: { open: openTasks, overdue: overdueTasks, due_today: dueTodayTasks },
+    })
+  })
 }

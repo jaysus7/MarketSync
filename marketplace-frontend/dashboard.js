@@ -1275,7 +1275,7 @@ async function loadCrmPage() {
   const tab = (id, label) => `<button onclick="crmSetTab('${id}')" class="px-4 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition ${__crmTab === id ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">${label}</button>`;
   root.innerHTML = `
     <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
-      ${tab('contacts', 'Contacts')}${tab('leads', 'Leads')}${tab('appointments', 'Appointments')}${tab('tasks', 'Tasks')}
+      ${tab('contacts', 'Contacts')}${tab('leads', 'Leads')}${tab('appointments', 'Appointments')}${tab('tasks', 'Tasks')}${tab('insights', 'Insights')}
     </div>
     <div id="crm-body"></div>`;
   const body = document.getElementById('crm-body');
@@ -1288,9 +1288,72 @@ async function loadCrmPage() {
   } else if (__crmTab === 'appointments') {
     body.innerHTML = `<div id="appointments-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading appointments…</div></div>`;
     loadAppointmentsPage();
+  } else if (__crmTab === 'insights') {
+    body.innerHTML = `<div id="crm-insights-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading insights…</div></div>`;
+    loadCrmInsights();
   }
 }
 function crmSetTab(t) { __crmTab = t; loadCrmPage(); }
+
+// ── CRM + Lead insights + sales-lead reports (#21, #22) ─────────────────────
+let __crmInsightsRange = '30';
+async function loadCrmInsights() {
+  const root = document.getElementById('crm-insights-root');
+  if (!root) return;
+  let d;
+  try { d = await apiGetJson(`/crm/insights?range=${encodeURIComponent(__crmInsightsRange)}`, { retries: 1 }); }
+  catch (e) { root.innerHTML = `<div class="py-12 text-center text-sm text-slate-500">Couldn't load insights: ${esc(e.message)}</div>`; return; }
+  if (d.empty) { root.innerHTML = `<div class="py-12 text-center text-sm text-slate-400 italic">No data yet.</div>`; return; }
+
+  const CRM_STATUS_LABEL = { uncontacted: 'Uncontacted', contacted: 'Contacted', appointment: 'Appointment', sold: 'Sold', fni: 'F&I', delivered: 'Delivered', followup: 'Follow-up', lost: 'Lost' };
+  const card = (inner, extra = '') => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 ${extra}">${inner}</div>`;
+  const stat = (label, value, sub = '') => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+    <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${esc(label)}</div>
+    <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">${esc(String(value))}</div>
+    ${sub ? `<div class="text-xs mt-0.5">${sub}</div>` : ''}</div>`;
+
+  const trend = d.leads.trend_pct;
+  const trendHtml = `<span class="${trend >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-bold">${trend >= 0 ? '▲' : '▼'} ${Math.abs(trend)}%</span> <span class="text-slate-400">vs prior ${d.range_days}d</span>`;
+
+  // Horizontal bar list (lead sources / rep leaderboard).
+  const barList = (items, labelFn, max) => {
+    const mx = max || Math.max(1, ...items.map(i => i.count));
+    return items.slice(0, 8).map(i => `<div class="flex items-center gap-2 text-sm">
+      <div class="w-28 shrink-0 truncate text-slate-600 dark:text-slate-300" title="${esc(labelFn(i))}">${esc(labelFn(i))}</div>
+      <div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden"><div class="h-full bg-indigo-500 rounded-full" style="width:${Math.round((i.count / mx) * 100)}%"></div></div>
+      <div class="w-8 text-right font-bold tabular-nums text-slate-700 dark:text-slate-200">${i.count}</div>
+    </div>`).join('') || '<div class="text-xs text-slate-400 italic">No data in range.</div>';
+  };
+
+  // Pipeline funnel bars.
+  const fmax = Math.max(1, ...d.pipeline.funnel.map(f => f.count));
+  const funnelHtml = d.pipeline.funnel.filter(f => f.count > 0).map(f => `<div class="flex items-center gap-2 text-sm">
+    <div class="w-24 shrink-0 text-slate-600 dark:text-slate-300">${esc(CRM_STATUS_LABEL[f.status] || f.status)}</div>
+    <div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden"><div class="h-full bg-violet-500 rounded-full" style="width:${Math.round((f.count / fmax) * 100)}%"></div></div>
+    <div class="w-8 text-right font-bold tabular-nums text-slate-700 dark:text-slate-200">${f.count}</div>
+  </div>`).join('') || '<div class="text-xs text-slate-400 italic">No contacts yet.</div>';
+
+  const rangeBtn = (v, label) => `<button onclick="crmInsightsRange('${v}')" class="px-3 py-1.5 text-xs font-bold rounded-lg border ${__crmInsightsRange === v ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}">${label}</button>`;
+
+  root.innerHTML = `
+    <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+      <div class="text-sm text-slate-500 dark:text-slate-400">${d.is_manager ? 'Team-wide' : 'Your book'} · last ${d.range_days} days</div>
+      <div class="flex gap-1.5">${rangeBtn('7', '7d')}${rangeBtn('30', '30d')}${rangeBtn('90', '90d')}${rangeBtn('365', '1y')}</div>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      ${stat('New leads', d.leads.total, trendHtml)}
+      ${stat('Pipeline', d.pipeline.total_contacts, `${d.pipeline.won} won`)}
+      ${stat('Conversion', d.pipeline.conversion_pct + '%', 'contacts → sold/delivered')}
+      ${stat('Open tasks', d.tasks.open, `${d.tasks.overdue} overdue · ${d.tasks.due_today} due today`)}
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      ${card(`<div class="text-sm font-bold text-slate-900 dark:text-white mb-3">Lead sources</div><div class="space-y-2">${barList(d.leads.by_source, i => i.key)}</div>`)}
+      ${card(`<div class="text-sm font-bold text-slate-900 dark:text-white mb-3">Pipeline funnel</div><div class="space-y-2">${funnelHtml}</div>`)}
+      ${d.is_manager ? card(`<div class="text-sm font-bold text-slate-900 dark:text-white mb-3">Leads by rep</div><div class="space-y-2">${barList(d.leads.per_rep, i => i.name)}</div>`, 'lg:col-span-2') : ''}
+    </div>`;
+}
+function crmInsightsRange(v) { __crmInsightsRange = v; loadCrmInsights(); }
+window.crmInsightsRange = crmInsightsRange;
 
 let __crmCanSeeAll = false;
 // Renders the persistent toolbar (search + manager "by rep" filter) ONCE, then
