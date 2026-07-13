@@ -4625,6 +4625,15 @@ function siteSettingsFields(cfg) {
       </div>
     </div>
     <div class="border-t border-slate-200 dark:border-slate-700 pt-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm font-black text-slate-900 dark:text-white">AI sales chat</div>
+          <p class="text-[11px] text-slate-400 mt-0.5 max-w-md">A concierge chat bubble on your site that answers shopper questions from your live inventory and captures leads. Replies come from your stock only.</p>
+        </div>
+        <label class="flex items-center gap-2 text-sm font-bold whitespace-nowrap"><input id="site-sales-chat" type="checkbox" ${c.sales_chat ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Enabled</label>
+      </div>
+    </div>
+    <div class="border-t border-slate-200 dark:border-slate-700 pt-3">
       <div class="text-sm font-black text-slate-900 dark:text-white">Widgets &amp; integrations</div>
       <p class="text-[11px] text-slate-400 mb-2">Paste embed code from Keyloop, Equifax, trade-value tools, chat or AI tools. Global scripts (analytics/chat) go in “site-wide code”; placed embeds appear as blocks in a chosen section.</p>
       ${lbl('Site-wide code — runs in the page &lt;head&gt;')}
@@ -4998,6 +5007,7 @@ async function saveSite(btn) {
     facebook_url: val('site-fb'), instagram_url: val('site-ig'),
     seo_title: val('seo-title'), seo_description: val('seo-desc'), seo_keywords: val('seo-keywords'), seo_image: val('seo-image'),
     head_html: document.getElementById('site-head')?.value || '',
+    sales_chat: document.getElementById('site-sales-chat')?.checked || false,
     widgets: __siteWidgets.filter(w => (w.html || '').trim()),
   };
   if (document.getElementById('bm-wrap')) body.build_makes = Array.from(document.querySelectorAll('.bm-check:checked')).map(el => el.value);

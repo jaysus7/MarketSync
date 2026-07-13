@@ -1,10 +1,13 @@
 import dns from 'node:dns/promises'
+import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { findOrCreateContact } from './crm.js'
 import { enqueueForTrigger } from './automation.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
 import { createNotification } from '../notifications.js'
+import { aiAllowed, recordUsage } from '../usage.js'
+import { rateLimit } from '../security.js'
 
 const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
@@ -245,6 +248,8 @@ function siteContent(d) {
     // When on, heroes use real inventory photos instead of the generated gradient art.
     hero_photos: !!b.hero_photos,
     accent_color: b.accent_color || null,
+    // AI sales concierge chat bubble on the public site (dealer opt-in).
+    sales_chat: !!b.site_sales_chat,
   }
 }
 
@@ -367,7 +372,7 @@ export function registerSite(app) {
     if (!name && !email && !phone) return res.status(400).json({ error: 'Enter a name, phone, or email' })
 
     // Which shell form: general Inquiry, Trade-In quote, or Credit Application.
-    const FORMS = { trade: 'Trade-In', credit: 'Credit Application', inquiry: 'Website', build: 'Build & Price' }
+    const FORMS = { trade: 'Trade-In', credit: 'Credit Application', inquiry: 'Website', build: 'Build & Price', chat: 'Website Chat' }
     const source = FORMS[String(b.form_type || '').toLowerCase()] || 'Website'
     // Fold any extra shell fields (trade vehicle, employment, etc.) into the comments.
     let comments = message
@@ -431,6 +436,86 @@ export function registerSite(app) {
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
+  // ── PUBLIC: AI sales concierge chat for a dealer's website ─────────────────
+  // Answers shopper questions strictly from THIS dealer's live inventory + info,
+  // nudges toward a test drive / financing / trade, and hands off to the lead form
+  // for contact capture. Rate-limited per IP + gated on the dealer's AI budget and
+  // an opt-in toggle so it can never run up cost silently.
+  const CHAT_FALLBACK = "I can't chat live right now, but leave your name and number and a product advisor will get right back to you."
+  app.post('/site/:slug/chat', rateLimit('sitechat', 20, 60000), async (req, res) => {
+    const slug = String(req.params.slug || '').toLowerCase().trim()
+    const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
+    if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
+    const b = d.branding || {}
+    if (!b.site_sales_chat) return res.status(403).json({ error: 'Chat is not enabled for this site.' })
+
+    // Graceful degrade: no key or over budget → tell the widget to show the form.
+    if (!process.env.ANTHROPIC_API_KEY || !(await aiAllowed(d.id, false))) {
+      return res.json({ reply: CHAT_FALLBACK, capture: true })
+    }
+
+    const raw = Array.isArray(req.body?.messages) ? req.body.messages : []
+    const messages = raw
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+      .slice(-8)
+      .map(m => ({ role: m.role, content: m.content.trim().slice(0, 1000) }))
+    if (!messages.length || messages[messages.length - 1].role !== 'user') return res.status(400).json({ error: 'Send a message.' })
+
+    // Live inventory the concierge answers from (scoped to this dealer, on-lot only).
+    const { data: inv } = await supabaseAdmin.from('inventory')
+      .select('year, make, model, trim, price, mileage, condition, exterior_color, drivetrain, fuel_type, body_style, stocknumber')
+      .eq('dealership_id', d.id).is('archived_at', null).neq('status', 'sold')
+      .or('awaiting_possession.is.null,awaiting_possession.eq.false')
+      .order('price', { ascending: true }).limit(400)
+    const list = inv || []
+    const money = n => n ? '$' + Number(n).toLocaleString('en-US') : 'call for price'
+    const lines = list.slice(0, 60).map(v => `- ${[v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')} · ${money(v.price)}${v.mileage ? ' · ' + Number(v.mileage).toLocaleString('en-US') + ' km/mi' : ''}${v.exterior_color ? ' · ' + v.exterior_color : ''}${v.condition ? ' · ' + v.condition : ''}${v.stocknumber ? ' · #' + v.stocknumber : ''}`).join('\n')
+    const makeCounts = {}
+    for (const v of list) { const k = v.make || 'Other'; makeCounts[k] = (makeCounts[k] || 0) + 1 }
+    const byMake = Object.entries(makeCounts).sort((a, c) => c[1] - a[1]).slice(0, 10).map(([m, n]) => `${m} (${n})`).join(', ')
+    const bi = cleanBuiltins(b.site_builtins)
+    const can = (k) => !bi[k] || bi[k].enabled !== false
+    const loc = [d.city, d.province].filter(Boolean).join(', ')
+    const facts = [
+      `Dealership: ${d.name}${loc ? ` — ${loc}` : ''}.`,
+      b.phone ? `Phone: ${b.phone}.` : '',
+      b.address ? `Address: ${b.address}.` : '',
+      b.hours ? `Hours: ${String(b.hours).slice(0, 300)}.` : '',
+      `Vehicles in stock: ${list.length}. By make: ${byMake || 'n/a'}.`,
+      `Financing available: ${can('finance') ? 'yes' : 'ask'}. Trade-in appraisals: ${can('trade') ? 'yes' : 'ask'}.`,
+    ].filter(Boolean).join('\n')
+
+    const system = `You are the friendly online sales concierge for ${d.name}, a car dealership${loc ? ` in ${loc}` : ''}. Help shoppers find a vehicle, answer questions about the inventory below, and guide them toward the next step: booking a test drive, getting pre-approved for financing, or valuing their trade. Be warm, concise (2–4 sentences), and never pushy.
+
+RULES:
+- Only discuss vehicles from the INVENTORY list. Never invent stock, prices, VINs, or specs. If something isn't listed, say you'll have an advisor confirm and offer to take their info.
+- Quote prices exactly as listed; if a unit shows "call for price", invite them to enquire.
+- When the shopper shows buying intent (a specific vehicle, financing, a test drive, a trade value), invite them to leave their name and phone/email so a product advisor can follow up, and end that message with the token [CAPTURE].
+- Keep it about ${d.name}. Don't mention other dealers or that you are an AI model. Today: ${new Date().toISOString().slice(0, 10)}.
+
+DEALERSHIP FACTS:
+${facts}
+
+INVENTORY (${list.length} in stock):
+${lines || '(no vehicles listed right now)'}`
+
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const response = await Promise.race([
+        anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, system, messages }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 20000)),
+      ])
+      let reply = (response?.content || []).filter(x => x.type === 'text').map(x => x.text).join('\n').trim()
+      const capture = /\[CAPTURE\]/i.test(reply)
+      reply = reply.replace(/\[CAPTURE\]/ig, '').trim()
+      if (!reply) return res.json({ reply: CHAT_FALLBACK, capture: true })
+      recordUsage(d.id, { ai: 1 })
+      res.json({ reply, capture })
+    } catch (e) {
+      res.json({ reply: CHAT_FALLBACK, capture: true })
+    }
+  })
+
   // ── ADMIN: read the site config (slug, published, content) ─────────────────
   app.get('/dealership/site', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
@@ -490,11 +575,12 @@ export function registerSite(app) {
 
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
     const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'hero_photos', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image']
-    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined
+    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined || b.sales_chat !== undefined
     if (touchesContent) {
       const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
       const branding = { ...(cur?.branding || {}) }
       for (const k of contentKeys) if (b[k] !== undefined) branding[k] = b[k] === '' ? null : b[k]
+      if (b.sales_chat !== undefined) branding.site_sales_chat = !!b.sales_chat
       if (b.head_html !== undefined) branding.site_head_html = String(b.head_html || '').slice(0, 20000) || null
       if (b.widgets !== undefined) branding.site_widgets = cleanWidgets(b.widgets)
       if (b.pages !== undefined) branding.site_pages = cleanPages(b.pages)
