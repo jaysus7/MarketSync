@@ -141,13 +141,16 @@
       const biLabel=(k,def)=>(bi[k]&&bi[k].label)||def;
       const biMenu=(k)=>(bi[k]&&bi[k].menu)||null;
       const entries=[];
-      if(biOn('inventory')) entries.push({label:biLabel('inventory','Inventory'),onclick:"go('inventory')",menu:biMenu('inventory')});
-      if(biOn('build')) entries.push({label:biLabel('build','Build & Price'),onclick:"go('build')",menu:biMenu('build')});
-      for(const p of navPages) entries.push({label:p.title,onclick:`go('page:${p.slug}')`,menu:p.menu||null});
-      if(biOn('trade')) entries.push({label:biLabel('trade','Value Trade'),onclick:"go('trade')",menu:biMenu('trade')});
-      if(biOn('finance')) entries.push({label:biLabel('finance','Financing'),onclick:"go('finance')",menu:biMenu('finance')});
-      if(hasTeam&&biOn('team')) entries.push({label:biLabel('team','Team'),onclick:"go('team')",menu:biMenu('team')});
-      if(biOn('contact')) entries.push({label:biLabel('contact','Contact'),onclick:"go('inquiry')",menu:biMenu('contact')});
+      if(biOn('inventory')) entries.push({token:'b:inventory',label:biLabel('inventory','Inventory'),onclick:"go('inventory')",menu:biMenu('inventory')});
+      if(biOn('build')) entries.push({token:'b:build',label:biLabel('build','Build & Price'),onclick:"go('build')",menu:biMenu('build')});
+      for(const p of navPages) entries.push({token:'p:'+(p.id||p.slug),label:p.title,onclick:`go('page:${p.slug}')`,menu:p.menu||null});
+      if(biOn('trade')) entries.push({token:'b:trade',label:biLabel('trade','Value Trade'),onclick:"go('trade')",menu:biMenu('trade')});
+      if(biOn('finance')) entries.push({token:'b:finance',label:biLabel('finance','Financing'),onclick:"go('finance')",menu:biMenu('finance')});
+      if(hasTeam&&biOn('team')) entries.push({token:'b:team',label:biLabel('team','Team'),onclick:"go('team')",menu:biMenu('team')});
+      if(biOn('contact')) entries.push({token:'b:contact',label:biLabel('contact','Contact'),onclick:"go('inquiry')",menu:biMenu('contact')});
+      // Apply the dealer's explicit menu order (unlisted items keep their natural order, after listed ones).
+      const order=Array.isArray(s.menu_order)?s.menu_order:[];
+      if(order.length){ const ix=t=>{const i=order.indexOf(t);return i<0?9999:i;}; entries.sort((a,b)=>ix(a.token)-ix(b.token)); }
       const navItems=[]; const groupIdx={};
       for(const e of entries){
         if(e.menu){

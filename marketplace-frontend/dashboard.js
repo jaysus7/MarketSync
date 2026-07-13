@@ -4522,57 +4522,94 @@ function normBuiltins(src) {
   if (src && typeof src === 'object') for (const [k, def] of BUILTIN_META) { const v = src[k] || {}; o[k] = { enabled: v.enabled !== false, label: (v.label || def).toString().slice(0, 40), menu: (v.menu || '').toString().slice(0, 40) }; }
   return o;
 }
-function collectBuiltins() {
-  if (!document.getElementById('builtin-page-list')) return;
+let __menuOrder = [];
+// One draggable list controls the whole nav: built-in pages + custom pages,
+// their order, on/off, labels and submenu grouping. collectMenu() is the single
+// source of truth — it reads the DOM row order + each row's fields.
+function collectMenu() {
+  const list = document.getElementById('menu-list'); if (!list) return;
+  const rows = [...list.querySelectorAll('.menu-row')]; if (!rows.length) return;
+  __menuOrder = rows.map(r => r.dataset.token).filter(Boolean);
   for (const [k] of BUILTIN_META) {
-    const row = document.querySelector(`#builtin-page-list [data-bi="${k}"]`); if (!row) continue;
-    __siteBuiltins[k] = { enabled: row.querySelector('.bi-on')?.checked !== false, label: (row.querySelector('.bi-label')?.value || '').trim() || __siteBuiltins[k]?.label || k, menu: (row.querySelector('.bi-menu')?.value || '').trim() };
+    const r = list.querySelector(`.menu-row[data-bi="${k}"]`); if (!r) continue;
+    __siteBuiltins[k] = { enabled: r.querySelector('.bi-on')?.checked !== false, label: (r.querySelector('.bi-label')?.value || '').trim() || __siteBuiltins[k]?.label || k, menu: (r.querySelector('.bi-menu')?.value || '').trim() };
   }
+  const byId = Object.fromEntries((__sitePages || []).map(p => [p.id, p]));
+  __sitePages = rows.filter(r => r.dataset.pid).map(r => {
+    const id = r.dataset.pid, prev = byId[id] || {};
+    return { ...prev, id, title: r.querySelector('.pg-title')?.value || prev.title || '', nav: r.querySelector('.pg-nav')?.checked !== false, menu: (r.querySelector('.pg-menu')?.value || '').trim() || null, body_html: r.querySelector('.pg-body') ? (r.querySelector('.pg-body').value || '') : (prev.body_html || '') };
+  });
 }
-function renderBuiltinPages() {
-  const box = document.getElementById('builtin-page-list'); if (!box) return;
-  const menus = [...new Set(Object.values(__siteBuiltins).map(b => b.menu).concat((__sitePages || []).map(p => p.menu)).filter(Boolean))];
-  box.innerHTML = `<datalist id="bi-menu-opts">${menus.map(m => `<option value="${esc(m)}">`).join('')}</datalist>` + BUILTIN_META.map(([k, def, desc]) => {
-    const b = __siteBuiltins[k] || { enabled: true, label: def, menu: '' };
-    return `<div data-bi="${k}" class="border border-slate-200 dark:border-slate-700 rounded-lg p-2 flex items-center gap-2 flex-wrap ${b.enabled ? '' : 'opacity-60'}">
-      <label class="relative inline-flex items-center cursor-pointer shrink-0"><input type="checkbox" class="bi-on sr-only peer" ${b.enabled ? 'checked' : ''} onchange="collectBuiltins();renderBuiltinPages()"><div class="w-9 h-5 bg-slate-300 dark:bg-slate-600 peer-checked:bg-indigo-600 rounded-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition peer-checked:after:translate-x-4"></div></label>
-      <input class="bi-label flex-1 min-w-[120px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-semibold" value="${esc(b.label || def)}" placeholder="${esc(def)}">
-      <input class="bi-menu w-32 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" list="bi-menu-opts" value="${esc(b.menu || '')}" placeholder="Submenu (opt.)" title="Group under a nav dropdown">
-      <span class="text-[10px] text-slate-400 hidden lg:block w-48 shrink-0">${esc(desc)}</span>
+// Back-compat shims for callers elsewhere.
+function collectSitePages() { collectMenu(); }
+function collectBuiltins() { collectMenu(); }
+function renderSitePages() { renderMenuList(); }
+function renderBuiltinPages() { renderMenuList(); }
+function ensurePageIds() { (__sitePages || []).forEach(p => { if (!p.id) p.id = 'pg' + Math.random().toString(36).slice(2, 9); }); }
+function menuDescriptors() {
+  ensurePageIds();
+  const items = [];
+  for (const [k, label, desc] of BUILTIN_META) items.push({ token: 'b:' + k, kind: 'builtin', key: k, def: label, desc, b: __siteBuiltins[k] || { enabled: true, label, menu: '' } });
+  for (const p of (__sitePages || [])) items.push({ token: 'p:' + p.id, kind: 'page', page: p });
+  const ix = t => { const i = __menuOrder.indexOf(t); return i < 0 ? 9999 : i; };
+  items.sort((a, b) => ix(a.token) - ix(b.token));   // stable → unlisted keep natural order
+  return items;
+}
+function menuMove(token, dir) {
+  collectMenu();
+  const a = __menuOrder, i = a.indexOf(token), j = i + dir;
+  if (i < 0 || j < 0 || j >= a.length) return;
+  [a[i], a[j]] = [a[j], a[i]]; renderMenuList();
+}
+function wsCustomizeById(id) { collectMenu(); const i = (__sitePages || []).findIndex(p => p.id === id); if (i >= 0) wsSetTarget(i); }
+function removeSitePageById(id) { collectMenu(); __sitePages = (__sitePages || []).filter(p => p.id !== id); __menuOrder = __menuOrder.filter(t => t !== 'p:' + id); renderMenuList(); }
+const MENU_SWITCH = (cls, on) => `<label class="relative inline-flex items-center cursor-pointer shrink-0"><input type="checkbox" class="${cls} sr-only peer" ${on ? 'checked' : ''} onchange="collectMenu();renderMenuList()"><div class="w-9 h-5 bg-slate-300 dark:bg-slate-600 peer-checked:bg-indigo-600 rounded-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition peer-checked:after:translate-x-4"></div></label>`;
+function menuRow(it, i, n) {
+  const grp = 'w-24 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs';
+  const handle = `<span class="menu-drag cursor-grab select-none text-slate-400 shrink-0 text-lg leading-none" draggable="true" title="Drag to reorder">⠿</span>
+    <div class="flex flex-col shrink-0 -my-1"><button type="button" onclick="menuMove('${it.token}',-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-25 leading-none text-[10px]">▲</button><button type="button" onclick="menuMove('${it.token}',1)" ${i === n - 1 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-25 leading-none text-[10px]">▼</button></div>`;
+  if (it.kind === 'builtin') {
+    const b = it.b;
+    return `<div class="menu-row flex items-center gap-2 flex-wrap border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-900 ${b.enabled ? '' : 'opacity-60'}" data-token="${it.token}" data-bi="${it.key}">
+      ${handle}${MENU_SWITCH('bi-on', b.enabled)}
+      <input class="bi-label flex-1 min-w-[110px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-semibold" value="${esc(b.label || it.def)}" placeholder="${esc(it.def)}">
+      <input class="bi-menu ${grp}" list="menu-grp-opts" value="${esc(b.menu || '')}" placeholder="Submenu">
+      <span class="text-[9px] font-bold text-slate-400 uppercase shrink-0">Built-in</span>
     </div>`;
-  }).join('');
-}
-function collectSitePages() {
-  // Only read from the DOM when the Pages editor is actually rendered; otherwise
-  // keep __sitePages as loaded so a save from another tab never wipes pages.
-  if (!document.getElementById('site-page-list')) return;
-  // Preserve make/model/kind (not shown in the editor) by merging with existing.
-  __sitePages = Array.from(document.querySelectorAll('#site-page-list [data-pgx]')).map((r, idx) => ({
-    ...(__sitePages[idx] || {}),
-    title: r.querySelector('.pg-title')?.value || '',
-    nav: r.querySelector('.pg-nav')?.checked !== false,
-    menu: (r.querySelector('.pg-menu')?.value || '').trim() || null,
-    body_html: r.querySelector('.pg-body')?.value || '',
-  }));
-}
-function renderSitePages() {
-  const box = document.getElementById('site-page-list');
-  if (!box) return;
-  if (!__sitePages.length) { box.innerHTML = '<div class="text-[11px] text-slate-400 italic">No extra pages.</div>'; return; }
-  const badge = (p) => p.kind === 'model' ? '<span class="text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 px-1.5 py-0.5 rounded-full">Model · auto-inventory</span>'
-    : p.kind === 'incentive' ? '<span class="text-[9px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full">Offer</span>' : '';
-  const menus = [...new Set(__sitePages.map(p => p.menu).filter(Boolean))];
-  box.innerHTML = __sitePages.map((p, i) => `<div data-pgx="${i}" class="border border-slate-200 dark:border-slate-700 rounded-lg p-2 space-y-1">
-    <div class="flex gap-2 items-center">
-      <input class="pg-title flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" placeholder="Page title (e.g. About Us)" value="${esc(p.title || '')}">
-      ${badge(p)}
-      <label class="flex items-center gap-1 text-[11px] text-slate-500"><input class="pg-nav" type="checkbox" ${p.nav !== false ? 'checked' : ''}>In nav</label>
-      <button type="button" onclick="collectSitePages();wsSetTarget(${i})" title="Build this page's hero, CTAs and sections" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">✎ Customize${(p.sections && p.sections.length) ? ' ('+p.sections.length+')' : ''}</button>
-      <button type="button" onclick="removeSitePage(${i})" class="text-rose-500 text-xs font-bold">✕</button>
+  }
+  const p = it.page;
+  const badge = p.kind === 'model' ? '<span class="text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 px-1.5 py-0.5 rounded-full shrink-0">Model</span>' : p.kind === 'incentive' ? '<span class="text-[9px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full shrink-0">Offer</span>' : '';
+  const showBody = p.kind === 'model' || p.kind === 'incentive' || (p.body_html && !(p.sections && p.sections.length));
+  return `<div class="menu-row border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-900 space-y-1" data-token="${it.token}" data-pid="${p.id}">
+    <div class="flex items-center gap-2 flex-wrap">
+      ${handle}${MENU_SWITCH('pg-nav', p.nav !== false)}
+      <input class="pg-title flex-1 min-w-[110px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-semibold" placeholder="Page title" value="${esc(p.title || '')}">${badge}
+      <input class="pg-menu ${grp}" list="menu-grp-opts" value="${esc(p.menu || '')}" placeholder="Submenu">
+      <button type="button" onclick="wsCustomizeById('${p.id}')" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap shrink-0">✎ Customize${(p.sections && p.sections.length) ? ' (' + p.sections.length + ')' : ''}</button>
+      <button type="button" onclick="removeSitePageById('${p.id}')" class="text-rose-500 text-xs font-bold shrink-0">✕</button>
     </div>
-    <div class="flex items-center gap-1"><span class="text-[10px] text-slate-400 shrink-0">Menu group</span><input class="pg-menu flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" list="pg-menu-opts" placeholder="(none — top-level link)" value="${esc(p.menu || '')}"></div>
-    <textarea class="pg-body w-full text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1" rows="${p.kind === 'model' ? 2 : 3}" placeholder="${p.kind === 'model' ? 'Intro blurb (optional) — inventory lists automatically below it. ✨ generate with AI.' : 'Page content — plain text or basic HTML'}">${esc(p.body_html || '')}</textarea>
-  </div>`).join('') + `<datalist id="pg-menu-opts">${['New Vehicles','Pre-Owned','Offers','About','Financing'].concat(menus).filter((v,i,a)=>a.indexOf(v)===i).map(m => `<option value="${esc(m)}">`).join('')}</datalist>`;
+    ${showBody ? `<textarea class="pg-body w-full text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1" rows="2" placeholder="${p.kind === 'model' ? 'Intro blurb — inventory lists automatically below it.' : 'Page content — plain text or basic HTML'}">${esc(p.body_html || '')}</textarea>` : ''}
+  </div>`;
+}
+function renderMenuList() {
+  const box = document.getElementById('menu-list'); if (!box) return;
+  const menus = [...new Set(Object.values(__siteBuiltins).map(b => b.menu).concat((__sitePages || []).map(p => p.menu)).filter(Boolean))];
+  const items = menuDescriptors();
+  box.innerHTML = `<datalist id="menu-grp-opts">${['New Vehicles', 'Pre-Owned', 'Service', 'Offers', 'About', 'Financing'].concat(menus).filter((v, i, a) => a.indexOf(v) === i).map(m => `<option value="${esc(m)}">`).join('')}</datalist>` + (items.map((it, i) => menuRow(it, i, items.length)).join('') || '<div class="text-[11px] text-slate-400 italic">No menu items.</div>');
+  wsMenuDragWire();
+}
+// Drag from the ⠿ handle; the row is moved. collectMenu() on drop re-reads order.
+function wsMenuDragWire() {
+  const list = document.getElementById('menu-list'); if (!list || list._dw) return; list._dw = 1;
+  let drag = null;
+  list.addEventListener('dragstart', e => { if (!e.target.classList?.contains('menu-drag')) return; drag = e.target.closest('.menu-row'); if (!drag) return; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', ''); } catch {} setTimeout(() => drag && drag.classList.add('opacity-40'), 0); });
+  list.addEventListener('dragend', () => { if (drag) drag.classList.remove('opacity-40'); drag = null; collectMenu(); });
+  list.addEventListener('dragover', e => { if (!drag) return; e.preventDefault(); const after = menuDragAfter(list, e.clientY); if (!after) list.appendChild(drag); else list.insertBefore(drag, after); });
+}
+function menuDragAfter(list, y) {
+  let best = null, bestOff = -Infinity;
+  for (const el of list.querySelectorAll('.menu-row:not(.opacity-40)')) { const box = el.getBoundingClientRect(); const off = y - box.top - box.height / 2; if (off < 0 && off > bestOff) { bestOff = off; best = el; } }
+  return best;
 }
 // Auto-build model pages (from your inventory) + standard offer pages.
 async function autoBuildPages(btn) {
@@ -4605,8 +4642,8 @@ async function autoBuildPages(btn) {
   finally { btn.disabled = false; btn.textContent = orig; }
 }
 window.autoBuildPages = autoBuildPages;
-function addSitePage() { collectSitePages(); __sitePages.push({ title: '', nav: true, body_html: '' }); renderSitePages(); }
-function removeSitePage(i) { collectSitePages(); __sitePages.splice(i, 1); renderSitePages(); }
+function addSitePage() { collectMenu(); __sitePages.push({ id: 'pg' + Math.random().toString(36).slice(2, 9), title: '', nav: true, body_html: '' }); renderMenuList(); }
+function removeSitePage(i) { collectMenu(); __sitePages.splice(i, 1); renderMenuList(); }
 // Starter pages the dealer can drop in with one click, pre-filled + grouped in the nav.
 const __psec = (type, settings) => ({ id: 's' + Math.random().toString(36).slice(2, 9), type, settings: settings || {} });
 function PAGE_PRESETS() {
@@ -4629,8 +4666,8 @@ function addSitePagePreset(key) {
   if (!key) return;
   collectSitePages();
   const preset = PAGE_PRESETS()[key]; if (!preset) return;
-  __sitePages.push(JSON.parse(JSON.stringify(preset.page)));
-  renderSitePages();
+  __sitePages.push({ id: 'pg' + Math.random().toString(36).slice(2, 9), ...JSON.parse(JSON.stringify(preset.page)) });
+  renderMenuList();
   showToast(`Added “${preset.label}” — customize & Save`, 'success');
 }
 const SITE_SLOTS = [['top_banner', 'Top banner'], ['hero_below', 'Under hero'], ['above_inventory', 'Above inventory'], ['below_inventory', 'Below inventory'], ['above_footer', 'Above footer']];
@@ -4719,7 +4756,8 @@ async function loadWebsitePage() {
   root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
   try { __siteCfg = await apiGetJson('/dealership/site'); } catch (e) { root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">Couldn't load: ${esc(e.message)}</div>`; return; }
   __homeSections = Array.isArray(__siteCfg.content?.sections) ? __siteCfg.content.sections.slice() : [];
-  __sitePages = Array.isArray(__siteCfg.content?.pages) ? __siteCfg.content.pages.map(p => ({ ...p, sections: Array.isArray(p.sections) ? p.sections : [] })) : [];
+  __sitePages = Array.isArray(__siteCfg.content?.pages) ? __siteCfg.content.pages.map(p => ({ id: p.id || ('pg' + Math.random().toString(36).slice(2, 9)), ...p, sections: Array.isArray(p.sections) ? p.sections : [] })) : [];
+  __menuOrder = Array.isArray(__siteCfg.content?.menu_order) ? __siteCfg.content.menu_order.slice() : [];
   __siteStaff = Array.isArray(__siteCfg.content?.staff) ? __siteCfg.content.staff.slice() : [];
   __siteBuiltins = normBuiltins(__siteCfg.content?.builtins);
   __wsTarget = 'home'; __siteSections = __homeSections;
@@ -4762,7 +4800,7 @@ function wsTab(t) { __wsTab = t; renderWsBody(); }
 function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
   if (__wsTab === 'design') { body.innerHTML = wsDesign(); return; }
-  if (__wsTab === 'pages') { body.innerHTML = wsPages(); renderBuiltinPages(); renderSitePages(); return; }
+  if (__wsTab === 'pages') { body.innerHTML = wsPages(); renderMenuList(); return; }
   if (__wsTab === 'team') { body.innerHTML = wsTeam(); renderSiteStaff(); return; }
   if (__wsTab === 'settings') { body.innerHTML = wsSettings(); __siteWidgets = Array.isArray(__siteCfg?.content?.widgets) ? __siteCfg.content.widgets.slice() : []; renderSiteWidgets(); return; }
   // Builder
@@ -4872,36 +4910,28 @@ function wsDesign() {
 }
 // Pages tab: extra content pages + auto-built model/offer pages (moved here from Settings).
 function wsPages() {
-  return `<div class="mt-4 max-w-2xl space-y-5">
-    <div>
-      <div class="text-sm font-black text-slate-900 dark:text-white">Built-in pages</div>
-      <p class="text-[11px] text-slate-400 mb-2">These ship with your site (and your template). Rename the nav label, or switch off any you don't want. Turning one off removes it from the menu and the whole site.</p>
-      <div id="builtin-page-list" class="space-y-2"></div>
-    </div>
-    <div class="border-t border-slate-200 dark:border-slate-800 pt-4">
-      <div class="flex items-center justify-between gap-2">
-        <div>
-          <div class="text-sm font-black text-slate-900 dark:text-white">Your pages</div>
-          <p class="text-[11px] text-slate-400">Extra pages (About, Financing…) that appear in your nav. Auto-build creates a page per model in your inventory (pulls stock automatically) plus standard offer pages.</p>
-        </div>
-        <div class="flex items-center gap-2 shrink-0 flex-wrap">
-          <button type="button" onclick="autoBuildPages(this)" class="text-xs font-bold text-violet-600 dark:text-violet-400">✨ Auto-build model &amp; offer pages</button>
-          <select onchange="addSitePagePreset(this.value);this.value=''" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5">
-            <option value="">+ Add page…</option>
-            <option value="about">About Us</option>
-            <option value="contact">— (Contact is built-in)</option>
-            <option value="book_service">Book a Service Appointment</option>
-            <option value="service">Service Department</option>
-            <option value="parts">Parts Department</option>
-            <option value="accessories">Accessories</option>
-            <option value="specials">Specials / Offers</option>
-            <option value="careers">Careers</option>
-            <option value="blank">Blank page</option>
-          </select>
-        </div>
+  return `<div class="mt-4 max-w-2xl space-y-3">
+    <div class="flex items-start justify-between gap-2 flex-wrap">
+      <div>
+        <div class="text-sm font-black text-slate-900 dark:text-white">Menu &amp; pages</div>
+        <p class="text-[11px] text-slate-400">Drag the ⠿ handle (or use ▲▼) to reorder. Toggle a page on/off, rename its nav label, and type a <b>Submenu</b> name to group items into a dropdown. Built-ins + your own pages all live here.</p>
       </div>
-      <div id="site-page-list" class="space-y-2 mt-2"></div>
+      <div class="flex items-center gap-2 shrink-0 flex-wrap">
+        <button type="button" onclick="autoBuildPages(this)" class="text-xs font-bold text-violet-600 dark:text-violet-400">✨ Auto-build model &amp; offer pages</button>
+        <select onchange="addSitePagePreset(this.value);this.value=''" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5">
+          <option value="">+ Add page…</option>
+          <option value="about">About Us</option>
+          <option value="book_service">Book a Service Appointment</option>
+          <option value="service">Service Department</option>
+          <option value="parts">Parts Department</option>
+          <option value="accessories">Accessories</option>
+          <option value="specials">Specials / Offers</option>
+          <option value="careers">Careers</option>
+          <option value="blank">Blank page</option>
+        </select>
+      </div>
     </div>
+    <div id="menu-list" class="space-y-2"></div>
   </div>`;
 }
 // ── Team tab: dealer staff (managers, sales, service, admin…) with dept labels ──
@@ -4967,13 +4997,14 @@ async function saveWebsite(btn) {
   // Collect design values if on that tab (they persist across tabs via __siteCfg.content).
   const c = __siteCfg.content || (__siteCfg.content = {});
   if (document.getElementById('ws-c1')) { c.primary_color = document.getElementById('ws-c1').value; c.secondary_color = document.getElementById('ws-c2').value; c.accent_color = document.getElementById('ws-c3').value; c.typography = document.getElementById('ws-typo').value; c.heading_font = document.getElementById('ws-hfont')?.value || ''; c.body_font = document.getElementById('ws-bfont')?.value || ''; }
-  collectSitePages(); collectSiteStaff(); collectBuiltins(); // no-op unless that tab is currently rendered
+  collectMenu(); collectSiteStaff();      // no-op unless that tab is currently rendered
   wsFlushTarget();                        // push the active buffer onto home / its page
   const body = {
     sections: __homeSections,
     pages: __sitePages.filter(p => (p.title || '').trim()),
     staff: __siteStaff.filter(m => (m.name || '').trim()),
     builtins: Object.keys(__siteBuiltins).length ? __siteBuiltins : defaultBuiltins(),
+    menu_order: __menuOrder,
     site_published: document.getElementById('ws-pub')?.checked || false,
     primary_color: c.primary_color, secondary_color: c.secondary_color, accent_color: c.accent_color, typography: c.typography,
     heading_font: c.heading_font || '', body_font: c.body_font || '',
@@ -5114,7 +5145,7 @@ async function applyTemplate(id) {
   renderWebsitePage();
   showToast('Template applied — review, then Save', 'success');
 }
-Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectBuiltins, renderBuiltinPages, addSitePagePreset, wsApplyPalette });
+Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette });
 
 // ══ Automation engine — manager workspace (inline toggles + message boxes) ═══
 // State: __autoCfg { campaigns[], settings{}, region{}, can_manage }; __autoHol = working holiday rows.

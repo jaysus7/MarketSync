@@ -70,6 +70,8 @@ function cleanPages(arr) {
     seen.add(slug)
     const kind = ['content', 'model', 'incentive'].includes(p.kind) ? p.kind : 'content'
     return {
+      // Stable id so the menu-order list can reference a page across saves.
+      id: p.id ? String(p.id).slice(0, 40) : ('pg' + Math.random().toString(36).slice(2, 9)),
       slug, title, body_html: String(p.body_html || '').slice(0, 40000), nav: p.nav !== false, kind,
       // Optional dropdown group in the top nav (e.g. "New Vehicles", "Offers").
       menu: p.menu ? String(p.menu).slice(0, 40) : null,
@@ -79,6 +81,14 @@ function cleanPages(arr) {
       sections: Array.isArray(p.sections) ? cleanSections(p.sections) : [],
     }
   }).filter(p => p.title && p.slug)
+}
+
+// Explicit nav ordering: an array of tokens ("b:inventory", "p:<pageId>").
+function cleanMenuOrder(arr) {
+  if (!Array.isArray(arr)) return []
+  const seen = new Set(), out = []
+  for (const t of arr) { const s = String(t || '').trim().slice(0, 60); if (s && /^[bp]:/.test(s) && !seen.has(s)) { seen.add(s); out.push(s) } }
+  return out.slice(0, 60)
 }
 
 // The franchise brands a dealer sells new (drives the Build & Price make list).
@@ -187,6 +197,8 @@ function siteContent(d) {
     build_makes: cleanMakes(b.build_makes),
     // Built-in page on/off + custom nav labels.
     builtins: cleanBuiltins(b.site_builtins),
+    // Explicit nav order across built-ins + custom pages.
+    menu_order: Array.isArray(b.site_menu_order) ? b.site_menu_order : [],
     // Page builder: ordered sections + global styling.
     sections: cleanSections(b.site_sections),
     typography: TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern',
@@ -317,7 +329,7 @@ export function registerSite(app) {
 
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
     const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image']
-    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined
+    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined
     if (touchesContent) {
       const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
       const branding = { ...(cur?.branding || {}) }
@@ -328,6 +340,7 @@ export function registerSite(app) {
       if (b.staff !== undefined) branding.site_team = cleanStaff(b.staff)
       if (b.build_makes !== undefined) branding.build_makes = cleanMakes(b.build_makes)
       if (b.builtins !== undefined) branding.site_builtins = cleanBuiltins(b.builtins)
+      if (b.menu_order !== undefined) branding.site_menu_order = cleanMenuOrder(b.menu_order)
       if (b.sections !== undefined) branding.site_sections = cleanSections(b.sections)
       if (b.typography !== undefined) branding.typography = TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern'
       update.branding = branding
