@@ -5129,8 +5129,13 @@ function renderWsSections() {
   const box = document.getElementById('ws-sections'); if (!box) return;
   if (!__siteSections.length) { box.innerHTML = '<div class="text-sm text-slate-400 italic border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center">No sections yet. Add one from the right →<br><span class="text-xs">(If you leave this empty, your site uses the default layout.)</span></div>'; return; }
   box.innerHTML = __siteSections.map((sec, i) => `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+    <div class="ws-sec bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden transition"
+         data-idx="${i}" ondragover="secDragOver(event,${i})" ondragleave="secDragLeave(event)" ondrop="secDrop(event,${i})">
       <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+        <span class="ws-sec-grip cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 select-none px-0.5" title="Drag to reorder"
+              draggable="true" ondragstart="secDragStart(event,${i})" ondragend="secDragEnd(event)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
+        </span>
         <span class="font-bold text-sm text-slate-800 dark:text-slate-100 flex-1">${esc(SEC_META[sec.type]?.label || sec.type)}</span>
         <button onclick="moveSection(${i},-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" title="Move up">↑</button>
         <button onclick="moveSection(${i},1)" ${i === __siteSections.length - 1 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" title="Move down">↓</button>
@@ -5140,6 +5145,22 @@ function renderWsSections() {
       <div class="p-3 grid sm:grid-cols-2 gap-2">${(SEC_META[sec.type]?.fields || []).map(f => wsField(i, sec, f)).join('')}</div>
     </div>`).join('');
 }
+// Drag-and-drop section reordering (#27). Keeps the ↑/↓ buttons as a fallback.
+let __secDragIdx = null;
+function secDragStart(e, i) { __secDragIdx = i; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(i)); } catch {} const card = e.target.closest('.ws-sec'); if (card) setTimeout(() => card.classList.add('opacity-40'), 0); }
+function secDragEnd() { __secDragIdx = null; document.querySelectorAll('#ws-sections .ws-sec').forEach(el => el.classList.remove('opacity-40', 'ring-2', 'ring-indigo-400')); }
+function secDragOver(e, i) { if (__secDragIdx === null || __secDragIdx === i) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const card = e.currentTarget; card.classList.add('ring-2', 'ring-indigo-400'); }
+function secDragLeave(e) { e.currentTarget.classList.remove('ring-2', 'ring-indigo-400'); }
+function secDrop(e, i) {
+  e.preventDefault();
+  const from = __secDragIdx; __secDragIdx = null;
+  document.querySelectorAll('#ws-sections .ws-sec').forEach(el => el.classList.remove('opacity-40', 'ring-2', 'ring-indigo-400'));
+  if (from === null || from === i || from < 0 || from >= __siteSections.length) return;
+  const [s] = __siteSections.splice(from, 1);
+  __siteSections.splice(i, 0, s);
+  renderWsSections();
+}
+window.secDragStart = secDragStart; window.secDragEnd = secDragEnd; window.secDragOver = secDragOver; window.secDragLeave = secDragLeave; window.secDrop = secDrop;
 const WS_AI_KIND = { headline: 'headline', subheadline: 'subheadline', title: 'headline', subtitle: 'subheadline', button_label: 'cta', items: 'faq', html: 'text', embed_html: 'text' };
 function wsField(i, sec, [key, label, type]) {
   const v = sec.settings?.[key];
