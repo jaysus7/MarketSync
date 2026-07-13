@@ -88,6 +88,24 @@ function cleanMakes(arr) {
   for (const m of arr) { const s = String(m || '').trim().slice(0, 40); const k = s.toLowerCase(); if (s && !seen.has(k)) { seen.add(k); out.push(s) } }
   return out.slice(0, 20)
 }
+// Built-in pages that ship with every site (Inventory, Build & Price, Value Trade,
+// Financing, Team, Contact). The dealer can rename or switch each off from the page
+// builder; unset = on, so existing dealers keep them all.
+const BUILTIN_KEYS = ['inventory', 'build', 'trade', 'finance', 'team', 'contact']
+const BUILTIN_DEFAULTS = { inventory: 'Inventory', build: 'Build & Price', trade: 'Value Trade', finance: 'Financing', team: 'Team', contact: 'Contact' }
+function cleanBuiltins(obj) {
+  const src = (obj && typeof obj === 'object') ? obj : {}
+  const out = {}
+  for (const k of BUILTIN_KEYS) {
+    const v = (src[k] && typeof src[k] === 'object') ? src[k] : {}
+    out[k] = {
+      enabled: v.enabled !== false,   // default ON
+      label: (v.label ? String(v.label).trim().slice(0, 40) : '') || BUILTIN_DEFAULTS[k],
+    }
+  }
+  return out
+}
+
 // Dealer staff shown on the Team page, grouped by department with a job label.
 const STAFF_DEPTS = ['Management', 'Sales', 'Finance', 'Service', 'Parts', 'Admin', 'Reception', 'Other']
 function cleanStaff(arr) {
@@ -165,6 +183,8 @@ function siteContent(d) {
     staff: cleanStaff(b.site_team),
     // Franchise brands sold new — the Build & Price make list (empty = auto-detect).
     build_makes: cleanMakes(b.build_makes),
+    // Built-in page on/off + custom nav labels.
+    builtins: cleanBuiltins(b.site_builtins),
     // Page builder: ordered sections + global styling.
     sections: cleanSections(b.site_sections),
     typography: TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern',
@@ -292,7 +312,7 @@ export function registerSite(app) {
 
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
     const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image']
-    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined
+    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined
     if (touchesContent) {
       const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
       const branding = { ...(cur?.branding || {}) }
@@ -302,6 +322,7 @@ export function registerSite(app) {
       if (b.pages !== undefined) branding.site_pages = cleanPages(b.pages)
       if (b.staff !== undefined) branding.site_team = cleanStaff(b.staff)
       if (b.build_makes !== undefined) branding.build_makes = cleanMakes(b.build_makes)
+      if (b.builtins !== undefined) branding.site_builtins = cleanBuiltins(b.builtins)
       if (b.sections !== undefined) branding.site_sections = cleanSections(b.sections)
       if (b.typography !== undefined) branding.typography = TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern'
       update.branding = branding

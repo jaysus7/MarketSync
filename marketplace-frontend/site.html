@@ -130,15 +130,19 @@
       const grouped={}, topPages=[];
       for(const p of navPages){ if(p.menu){ (grouped[p.menu]=grouped[p.menu]||[]).push(p); } else topPages.push(p); }
       const hasTeam=(s.staff||[]).length||(DATA.team||[]).length;
+      // Built-in page on/off + custom labels (default on when unset).
+      const bi=s.builtins||{};
+      const biOn=(k)=>!bi[k]||bi[k].enabled!==false;
+      const biLabel=(k,def)=>(bi[k]&&bi[k].label)||def;
       const navItems=[
-        {label:'Inventory',onclick:"go('inventory')"},
-        {label:'Build & Price',onclick:"go('build')"},
+        ...(biOn('inventory')?[{label:biLabel('inventory','Inventory'),onclick:"go('inventory')"}]:[]),
+        ...(biOn('build')?[{label:biLabel('build','Build & Price'),onclick:"go('build')"}]:[]),
         ...Object.keys(grouped).map(m=>({label:m,children:grouped[m].map(p=>({label:p.title,onclick:`go('page:${p.slug}')`}))})),
         ...topPages.map(p=>({label:p.title,onclick:`go('page:${p.slug}')`})),
-        {label:'Value Trade',onclick:"go('trade')"},
-        {label:'Financing',onclick:"go('finance')"},
-        ...(hasTeam?[{label:'Team',onclick:"go('team')"}]:[]),
-        {label:'Contact',onclick:"go('inquiry')"},
+        ...(biOn('trade')?[{label:biLabel('trade','Value Trade'),onclick:"go('trade')"}]:[]),
+        ...(biOn('finance')?[{label:biLabel('finance','Financing'),onclick:"go('finance')"}]:[]),
+        ...(hasTeam&&biOn('team')?[{label:biLabel('team','Team'),onclick:"go('team')"}]:[]),
+        ...(biOn('contact')?[{label:biLabel('contact','Contact'),onclick:"go('inquiry')"}]:[]),
       ];
       document.getElementById('app').innerHTML=`
         ${slotHtml('top_banner')}
@@ -155,7 +159,7 @@
               ).join('')}
             </nav>
             <div class="flex items-center gap-2 shrink-0">
-              <button onclick="go('finance')" class="hidden sm:inline bg-white text-slate-900 rounded-lg px-3 py-1.5 text-sm font-bold hover:bg-slate-100">Get pre-approved</button>
+              ${biOn('finance')?`<button onclick="go('finance')" class="hidden sm:inline bg-white text-slate-900 rounded-lg px-3 py-1.5 text-sm font-bold hover:bg-slate-100">Get pre-approved</button>`:''}
               ${s.phone?`<a href="tel:${esc(s.phone)}" class="hidden sm:inline bg-white/15 hover:bg-white/25 rounded-lg px-3 py-1.5 text-sm font-bold whitespace-nowrap">${esc(s.phone)}</a>`:''}
               <button onclick="toggleMobileNav()" aria-label="Menu" class="lg:hidden text-white p-2 -mr-2 text-2xl leading-none">☰</button>
             </div>
@@ -167,7 +171,7 @@
                 : `<a href="#" onclick="toggleMobileNav();${it.onclick};return false" class="py-3 border-b border-white/10">${esc(it.label)}</a>`
               ).join('')}
               <div class="flex gap-2 py-3">
-                <button onclick="toggleMobileNav();go('finance')" class="flex-1 bg-white text-slate-900 rounded-lg px-3 py-2 font-bold">Get pre-approved</button>
+                ${biOn('finance')?`<button onclick="toggleMobileNav();go('finance')" class="flex-1 bg-white text-slate-900 rounded-lg px-3 py-2 font-bold">Get pre-approved</button>`:''}
                 ${s.phone?`<a href="tel:${esc(s.phone)}" class="flex-1 text-center bg-white/15 rounded-lg px-3 py-2 font-bold">Call ${esc(s.phone)}</a>`:''}
               </div>
             </nav>
@@ -187,9 +191,9 @@
               <a href="#" onclick="setCond('used');return false" class="block text-slate-400 hover:text-white">Used vehicles</a>
             </div>
             <div><div class="font-bold text-white mb-2">Finance & Trade</div>
-              <a href="#" onclick="go('trade');return false" class="block text-slate-400 hover:text-white">Value your trade</a>
-              <a href="#" onclick="go('finance');return false" class="block text-slate-400 hover:text-white">Get pre-approved</a>
-              <a href="#" onclick="go('inquiry');return false" class="block text-slate-400 hover:text-white">Contact us</a>
+              ${biOn('trade')?`<a href="#" onclick="go('trade');return false" class="block text-slate-400 hover:text-white">Value your trade</a>`:''}
+              ${biOn('finance')?`<a href="#" onclick="go('finance');return false" class="block text-slate-400 hover:text-white">Get pre-approved</a>`:''}
+              ${biOn('contact')?`<a href="#" onclick="go('inquiry');return false" class="block text-slate-400 hover:text-white">Contact us</a>`:''}
             </div>
             <div>${s.hours?`<div class="font-bold text-white mb-2">Hours</div><div class="text-slate-400 whitespace-pre-line">${esc(s.hours)}</div>`:''}</div>
           </div>
@@ -199,8 +203,13 @@
     }
     function go(view,vehId,prefill){ VIEW=view; window.scrollTo(0,0); renderView();
       if(view==='inquiry'){ setTimeout(()=>{ const vf=document.getElementById('i-vehicle'); if(vehId&&vf) vf.value=vehId; const mf=document.getElementById('i-msg'); if(prefill&&mf) mf.value=prefill; },30); } }
+    // Is a built-in page switched on? (default on when unset)
+    function builtinOn(k){ const bi=(DATA.site&&DATA.site.builtins)||{}; return !bi[k]||bi[k].enabled!==false; }
+    // Map a view to the builtin key that gates it (null = always available).
+    const VIEW_BUILTIN={inventory:'inventory',build:'build',trade:'trade',finance:'finance',inquiry:'contact',team:'team'};
     function renderView(){
       const el=document.getElementById('view'); if(!el) return;
+      const gate=VIEW_BUILTIN[VIEW]; if(gate&&!builtinOn(gate)){ VIEW='home'; return void renderHome(el); }
       if(VIEW==='inventory') return void renderInventory(el);
       if(VIEW==='build') return void renderBuild(el);
       if(VIEW==='team') return void(el.innerHTML=viewTeam());

@@ -4506,6 +4506,40 @@ async function uploadSiteImage(targetId, file) {
   } catch (e) { showToast(e.message, 'error'); }
 }
 let __sitePages = [];
+// Built-in pages that ship with every site — dealer can rename or switch off.
+const BUILTIN_META = [
+  ['inventory', 'Inventory', 'Your live stock, searchable & filterable'],
+  ['build', 'Build & Price', 'Configure a new vehicle from your franchise lineup'],
+  ['trade', 'Value Trade', 'Trade-in appraisal request form'],
+  ['finance', 'Financing', 'Get-pre-approved credit application'],
+  ['team', 'Team', 'Your staff, grouped by department'],
+  ['contact', 'Contact', 'General contact / inquiry form'],
+];
+let __siteBuiltins = {};
+function defaultBuiltins() { const o = {}; for (const [k, label] of BUILTIN_META) o[k] = { enabled: true, label }; return o; }
+function normBuiltins(src) {
+  const o = defaultBuiltins();
+  if (src && typeof src === 'object') for (const [k, def] of BUILTIN_META) { const v = src[k] || {}; o[k] = { enabled: v.enabled !== false, label: (v.label || def).toString().slice(0, 40) }; }
+  return o;
+}
+function collectBuiltins() {
+  if (!document.getElementById('builtin-page-list')) return;
+  for (const [k] of BUILTIN_META) {
+    const row = document.querySelector(`#builtin-page-list [data-bi="${k}"]`); if (!row) continue;
+    __siteBuiltins[k] = { enabled: row.querySelector('.bi-on')?.checked !== false, label: (row.querySelector('.bi-label')?.value || '').trim() || __siteBuiltins[k]?.label || k };
+  }
+}
+function renderBuiltinPages() {
+  const box = document.getElementById('builtin-page-list'); if (!box) return;
+  box.innerHTML = BUILTIN_META.map(([k, def, desc]) => {
+    const b = __siteBuiltins[k] || { enabled: true, label: def };
+    return `<div data-bi="${k}" class="border border-slate-200 dark:border-slate-700 rounded-lg p-2 flex items-center gap-2 ${b.enabled ? '' : 'opacity-60'}">
+      <label class="relative inline-flex items-center cursor-pointer shrink-0"><input type="checkbox" class="bi-on sr-only peer" ${b.enabled ? 'checked' : ''} onchange="collectBuiltins();renderBuiltinPages()"><div class="w-9 h-5 bg-slate-300 dark:bg-slate-600 peer-checked:bg-indigo-600 rounded-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition peer-checked:after:translate-x-4"></div></label>
+      <input class="bi-label flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-semibold" value="${esc(b.label || def)}" placeholder="${esc(def)}">
+      <span class="text-[10px] text-slate-400 hidden sm:block w-56 shrink-0">${esc(desc)}</span>
+    </div>`;
+  }).join('');
+}
 function collectSitePages() {
   // Only read from the DOM when the Pages editor is actually rendered; otherwise
   // keep __sitePages as loaded so a save from another tab never wipes pages.
@@ -4659,6 +4693,7 @@ async function loadWebsitePage() {
   __homeSections = Array.isArray(__siteCfg.content?.sections) ? __siteCfg.content.sections.slice() : [];
   __sitePages = Array.isArray(__siteCfg.content?.pages) ? __siteCfg.content.pages.map(p => ({ ...p, sections: Array.isArray(p.sections) ? p.sections : [] })) : [];
   __siteStaff = Array.isArray(__siteCfg.content?.staff) ? __siteCfg.content.staff.slice() : [];
+  __siteBuiltins = normBuiltins(__siteCfg.content?.builtins);
   __wsTarget = 'home'; __siteSections = __homeSections;
   renderWebsitePage();
 }
@@ -4699,7 +4734,7 @@ function wsTab(t) { __wsTab = t; renderWsBody(); }
 function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
   if (__wsTab === 'design') { body.innerHTML = wsDesign(); return; }
-  if (__wsTab === 'pages') { body.innerHTML = wsPages(); renderSitePages(); return; }
+  if (__wsTab === 'pages') { body.innerHTML = wsPages(); renderBuiltinPages(); renderSitePages(); return; }
   if (__wsTab === 'team') { body.innerHTML = wsTeam(); renderSiteStaff(); return; }
   if (__wsTab === 'settings') { body.innerHTML = wsSettings(); __siteWidgets = Array.isArray(__siteCfg?.content?.widgets) ? __siteCfg.content.widgets.slice() : []; renderSiteWidgets(); return; }
   // Builder
@@ -4786,18 +4821,25 @@ function wsDesign() {
 }
 // Pages tab: extra content pages + auto-built model/offer pages (moved here from Settings).
 function wsPages() {
-  return `<div class="mt-4 max-w-2xl space-y-3">
-    <div class="flex items-center justify-between gap-2">
-      <div>
-        <div class="text-sm font-black text-slate-900 dark:text-white">Pages</div>
-        <p class="text-[11px] text-slate-400">Extra pages (About, Financing…) that appear in your nav. Auto-build creates a page per model in your inventory (pulls stock automatically) plus standard offer pages.</p>
-      </div>
-      <div class="flex items-center gap-2 shrink-0">
-        <button type="button" onclick="autoBuildPages(this)" class="text-xs font-bold text-violet-600 dark:text-violet-400">✨ Auto-build model &amp; offer pages</button>
-        <button type="button" onclick="addSitePage()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">+ Add page</button>
-      </div>
+  return `<div class="mt-4 max-w-2xl space-y-5">
+    <div>
+      <div class="text-sm font-black text-slate-900 dark:text-white">Built-in pages</div>
+      <p class="text-[11px] text-slate-400 mb-2">These ship with your site (and your template). Rename the nav label, or switch off any you don't want. Turning one off removes it from the menu and the whole site.</p>
+      <div id="builtin-page-list" class="space-y-2"></div>
     </div>
-    <div id="site-page-list" class="space-y-2"></div>
+    <div class="border-t border-slate-200 dark:border-slate-800 pt-4">
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <div class="text-sm font-black text-slate-900 dark:text-white">Your pages</div>
+          <p class="text-[11px] text-slate-400">Extra pages (About, Financing…) that appear in your nav. Auto-build creates a page per model in your inventory (pulls stock automatically) plus standard offer pages.</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" onclick="autoBuildPages(this)" class="text-xs font-bold text-violet-600 dark:text-violet-400">✨ Auto-build model &amp; offer pages</button>
+          <button type="button" onclick="addSitePage()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">+ Add page</button>
+        </div>
+      </div>
+      <div id="site-page-list" class="space-y-2 mt-2"></div>
+    </div>
   </div>`;
 }
 // ── Team tab: dealer staff (managers, sales, service, admin…) with dept labels ──
@@ -4863,12 +4905,13 @@ async function saveWebsite(btn) {
   // Collect design values if on that tab (they persist across tabs via __siteCfg.content).
   const c = __siteCfg.content || (__siteCfg.content = {});
   if (document.getElementById('ws-c1')) { c.primary_color = document.getElementById('ws-c1').value; c.secondary_color = document.getElementById('ws-c2').value; c.accent_color = document.getElementById('ws-c3').value; c.typography = document.getElementById('ws-typo').value; }
-  collectSitePages(); collectSiteStaff(); // no-op unless that tab is currently rendered
+  collectSitePages(); collectSiteStaff(); collectBuiltins(); // no-op unless that tab is currently rendered
   wsFlushTarget();                        // push the active buffer onto home / its page
   const body = {
     sections: __homeSections,
     pages: __sitePages.filter(p => (p.title || '').trim()),
     staff: __siteStaff.filter(m => (m.name || '').trim()),
+    builtins: Object.keys(__siteBuiltins).length ? __siteBuiltins : defaultBuiltins(),
     site_published: document.getElementById('ws-pub')?.checked || false,
     primary_color: c.primary_color, secondary_color: c.secondary_color, accent_color: c.accent_color, typography: c.typography,
   };
@@ -5002,12 +5045,13 @@ async function applyTemplate(id) {
   __siteSections = t.build(ctx);
   const c = __siteCfg.content || (__siteCfg.content = {});
   c.primary_color = colors.primary; c.secondary_color = colors.secondary; c.accent_color = colors.accent; c.typography = colors.typography;
+  if (!Object.keys(__siteBuiltins).length) __siteBuiltins = defaultBuiltins();   // template ships the built-in pages, all on
   document.querySelector('.fixed')?.remove();
   __wsTab = 'builder';
   renderWebsitePage();
   showToast('Template applied — review, then Save', 'success');
 }
-Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto });
+Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectBuiltins, renderBuiltinPages });
 
 // ══ Automation engine — manager workspace (inline toggles + message boxes) ═══
 // State: __autoCfg { campaigns[], settings{}, region{}, can_manage }; __autoHol = working holiday rows.
