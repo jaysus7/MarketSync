@@ -299,13 +299,28 @@
     }
     function ctaTarget(t,link){ if(t==='link'&&link) return `onclick="window.open('${esc(link)}','_blank')"`; const v={trade:'trade',finance:'finance',contact:'inquiry',inquiry:'inquiry',inventory:'inventory',build:'build',team:'team'}[t]||'inquiry'; return `onclick="go('${v}')"`; }
     function setBody(b){ invReset(); if(b) INV.facets.body=new Set([b]); go('inventory'); }
+    // Generated hero art: layered mesh gradients tinted with the dealer's brand +
+    // a per-style accent, over a subtle dot texture. Beautiful, on-brand, and the
+    // same library on every site (a different style per hero). No external images.
+    const HERO_BGS={
+      g1:['#6366f1','radial-gradient(70% 90% at 12% 8%, var(--brand) 0%, transparent 55%),radial-gradient(60% 80% at 92% 18%, #6366f1 0%, transparent 50%),linear-gradient(135deg, var(--brand2), #0b1220)'],
+      g2:['#0ea5e9','radial-gradient(80% 90% at 85% 10%, var(--brand) 0%, transparent 55%),radial-gradient(60% 70% at 8% 92%, #0ea5e9 0%, transparent 55%),linear-gradient(160deg, #0b1220, var(--brand2))'],
+      g3:['#14b8a6','radial-gradient(60% 80% at 50% -12%, var(--brand) 0%, transparent 55%),radial-gradient(70% 80% at 100% 100%, #14b8a6 0%, transparent 55%),linear-gradient(200deg, var(--brand2), #0b1220)'],
+      g4:['#8b5cf6','radial-gradient(70% 80% at 18% 92%, var(--brand) 0%, transparent 55%),radial-gradient(60% 70% at 82% 8%, #8b5cf6 0%, transparent 52%),linear-gradient(135deg, #0b1220, var(--brand2))'],
+      g5:['#f59e0b','radial-gradient(70% 90% at 10% 10%, var(--brand) 0%, transparent 55%),radial-gradient(55% 65% at 90% 88%, #f59e0b 0%, transparent 50%),linear-gradient(150deg, var(--brand2), #0b1220)'],
+      g6:['#f43f5e','radial-gradient(75% 85% at 88% 14%, var(--brand) 0%, transparent 55%),radial-gradient(60% 70% at 12% 82%, #f43f5e 0%, transparent 50%),linear-gradient(160deg, #0b1220, var(--brand2))'],
+      g7:['#10b981','radial-gradient(70% 85% at 14% 16%, var(--brand) 0%, transparent 55%),radial-gradient(60% 70% at 86% 84%, #10b981 0%, transparent 52%),linear-gradient(135deg, var(--brand2), #0b1220)'],
+      g8:['#06b6d4','radial-gradient(78% 88% at 82% 8%, var(--brand) 0%, transparent 55%),radial-gradient(60% 70% at 18% 90%, #06b6d4 0%, transparent 55%),linear-gradient(170deg, #0b1220, var(--brand2))'],
+    };
+    function heroArt(bg){ const p=HERO_BGS[bg]||HERO_BGS.g1; return `<div class="absolute inset-0" style="background:${p[1]}"></div><div class="absolute inset-0" style="opacity:.06;background-image:radial-gradient(circle at 1px 1px,#fff 1px,transparent 0);background-size:22px 22px"></div>`; }
     function sectionHtml(sec){
       const s=DATA.site, g=sec.settings||{};
       switch(sec.type){
         case 'hero': {
           const h={sm:'py-12',md:'py-20',lg:'py-32'}[g.height||'md'];
           const ov=Math.max(0,Math.min(90,g.overlay==null?45:g.overlay))/100;
-          return `<section class="relative brand2-bg text-white"><div class="absolute inset-0">${g.image?`<img src="${esc(g.image)}" class="w-full h-full object-cover">`:''}<div class="absolute inset-0" style="background:rgba(15,23,42,${ov})"></div></div>
+          const bgLayer = g.image ? `<img src="${esc(g.image)}" class="w-full h-full object-cover">` : heroArt(g.bg);
+          return `<section class="relative brand2-bg text-white"><div class="absolute inset-0">${bgLayer}<div class="absolute inset-0" style="background:rgba(15,23,42,${g.image?ov:Math.min(ov,0.35)})"></div></div>
             <div class="relative max-w-6xl mx-auto px-4 ${h}"><h1 class="text-3xl sm:text-5xl font-black max-w-2xl">${esc(g.headline||s.tagline||'Find your next vehicle')}</h1>${g.subheadline?`<p class="mt-3 text-white/80 max-w-xl">${esc(g.subheadline)}</p>`:''}
             <div class="mt-6 flex flex-wrap gap-3">${g.button_label?`<button ${ctaTarget(g.button_target,g.button_link)} class="bg-white text-slate-900 font-bold px-5 py-2.5 rounded-lg hover:bg-slate-100">${esc(g.button_label)}</button>`:''}<a href="#" onclick="setCond('');return false" class="border border-white/40 font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Browse inventory</a></div></div></section>`;
         }

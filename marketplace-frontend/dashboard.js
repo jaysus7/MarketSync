@@ -4718,7 +4718,7 @@ const __psec = (type, settings) => ({ id: 's' + Math.random().toString(36).slice
 function ctxName() { return (__siteCfg?.content?.name) || 'our dealership'; }
 function ctxCity() { const c = __siteCfg?.content?.city; return c ? (' in ' + c) : ''; }
 // Section builders shared by presets + templates.
-const psHero = (h, s, btn, target) => __psec('hero', { headline: h, subheadline: s, button_label: btn || 'Contact us', button_target: target || 'inquiry', overlay: 45, height: 'md' });
+const psHero = (h, s, btn, target, bg) => __psec('hero', { headline: h, subheadline: s, button_label: btn || 'Contact us', button_target: target || 'inquiry', overlay: 45, height: 'md', bg: bg || 'g1' });
 const psSeo = (h, paras) => __psec('html', { html: `<h2>${h}</h2>` + paras.map(p => `<p>${p}</p>`).join('') });
 const psContact = () => __psec('contact', { title: 'Get in touch', subtitle: 'Send us a message and we’ll get right back to you.' });
 const psCta = (t, s, btn, target) => __psec('cta_banner', { title: t, subtitle: s, button_label: btn, button_target: target || 'inquiry' });
@@ -4726,7 +4726,7 @@ function PAGE_PRESETS() {
   const name = ctxName(), city = ctxCity();
   return {
     about: { label: 'About Us', page: { title: 'About Us', menu: '', nav: true, sections: [
-      psHero(`About ${name}`, `Proudly serving drivers${city} with honest deals and a no-pressure experience.`, 'Meet the team', 'inquiry'),
+      psHero(`About ${name}`, `Proudly serving drivers${city} with honest deals and a no-pressure experience.`, 'Meet the team', 'inquiry', 'g8'),
       psSeo('Your trusted local dealership', [
         `At ${name}, buying a vehicle should feel easy, transparent and even a little fun. From your first message to long after you drive off the lot, our team is here to make sure you get the right vehicle at the right price — with zero pressure.`,
         `We’ve built our reputation${city} on straight answers, fair pricing and treating every customer like a neighbour. Whether you’re shopping new, pre-owned or certified, our specialists know the inventory inside and out and will help you find the perfect fit for your life and budget.`,
@@ -4735,7 +4735,7 @@ function PAGE_PRESETS() {
       psContact(),
     ] } },
     book_service: { label: 'Book a Service Appointment', page: { title: 'Book Service', menu: 'Service', nav: true, sections: [
-      psHero('Book a Service Appointment', 'Factory-trained technicians, genuine parts, and scheduling that fits your day.', 'Request appointment', 'inquiry'),
+      psHero('Book a Service Appointment', 'Factory-trained technicians, genuine parts, and scheduling that fits your day.', 'Request appointment', 'inquiry', 'g2'),
       psSeo('Service you can count on', [
         `Keep your vehicle running like new with the certified team at ${name}. From routine oil changes and tire rotations to brakes, diagnostics and full factory-scheduled maintenance, we do it right the first time.`,
         `Booking is simple — tell us your vehicle and preferred time below and a service advisor will confirm the details. Genuine parts, transparent pricing, and a job done right, every time.`,
@@ -4743,7 +4743,7 @@ function PAGE_PRESETS() {
       psContact(),
     ] } },
     service: { label: 'Service Department', page: { title: 'Service', menu: 'Service', nav: true, sections: [
-      psHero('Service Department', 'Certified techs. Genuine parts. Your vehicle at its best.', 'Book service', 'inquiry'),
+      psHero('Service Department', 'Certified techs. Genuine parts. Your vehicle at its best.', 'Book service', 'inquiry', 'g3'),
       psSeo('Expert care for every vehicle', [
         `Our factory-trained technicians at ${name} handle everything from quick maintenance to complex repairs — oil changes, brakes, tires, batteries, diagnostics and full manufacturer-scheduled service.`,
         `We use genuine OEM parts, quote honestly up front, and get you back on the road fast. Your vehicle is an investment — protect it with a service team that treats it like their own.`,
@@ -4751,7 +4751,7 @@ function PAGE_PRESETS() {
       psContact(),
     ] } },
     parts: { label: 'Parts Department', page: { title: 'Parts', menu: 'Service', nav: true, sections: [
-      psHero('Parts Department', 'Genuine OEM parts and accessories, sourced fast.', 'Request a part', 'inquiry'),
+      psHero('Parts Department', 'Genuine OEM parts and accessories, sourced fast.', 'Request a part', 'inquiry', 'g4'),
       psSeo('The right part, guaranteed to fit', [
         `Looking for a specific part? The parts team at ${name} stocks and orders genuine OEM components built to fit and last — no guesswork, no aftermarket compromises.`,
         `Tell us the year, make, model and what you need, and we’ll track it down and let you know availability and pricing right away.`,
@@ -4759,7 +4759,7 @@ function PAGE_PRESETS() {
       psContact(),
     ] } },
     accessories: { label: 'Accessories', page: { title: 'Accessories', menu: 'Service', nav: true, sections: [
-      psHero('Accessories', 'Make it yours with genuine accessories.', 'Ask about accessories', 'inquiry'),
+      psHero('Accessories', 'Make it yours with genuine accessories.', 'Ask about accessories', 'inquiry', 'g5'),
       psSeo('Personalize your ride', [
         `From all-weather floor mats and cargo liners to tonneau covers, roof racks, running boards and more, ${name} carries the genuine accessories that make your vehicle work harder and look better.`,
         `Not sure what fits? Our team will match the right accessories to your exact vehicle and how you use it.`,
@@ -4767,7 +4767,7 @@ function PAGE_PRESETS() {
       psContact(),
     ] } },
     specials: { label: 'Specials / Offers', page: { title: 'Specials', menu: '', nav: true, sections: [
-      psHero('Current Specials', 'Limited-time offers on new, pre-owned and certified vehicles.', 'Get my price', 'inquiry'),
+      psHero('Current Specials', 'Limited-time offers on new, pre-owned and certified vehicles.', 'Get my price', 'inquiry', 'g6'),
       psSeo('Deals worth driving for', [
         `Great vehicles at even better prices — the current specials at ${name} won’t last long. Our best deals move fast, so if something catches your eye, reach out and we’ll hold it for you.`,
       ]),
@@ -4775,7 +4775,7 @@ function PAGE_PRESETS() {
       psCta('See something you like?', 'Get your best price today — no pressure, no games.', 'Get my price', 'inquiry'),
     ] } },
     careers: { label: 'Careers', page: { title: 'Careers', menu: 'About', nav: true, sections: [
-      psHero('Careers', 'Join a team that puts people first.', 'Apply now', 'inquiry'),
+      psHero('Careers', 'Join a team that puts people first.', 'Apply now', 'inquiry', 'g7'),
       psSeo(`Grow your career at ${name}`, [
         `We’re always looking for driven, people-first talent — sales, service, parts, finance and admin. If you love helping people and want to grow with a dealership that invests in its team, we want to hear from you.`,
         `Tell us a little about yourself below and attach nothing more than your enthusiasm — we’ll take it from there.`,
@@ -4790,7 +4790,7 @@ function PAGE_PRESETS() {
 function templateHome(ctx) {
   const name = ctx.name || ctxName(), cityTxt = ctx.city ? (' in ' + ctx.city) : ctxCity();
   return [
-    psHero(`Quality vehicles${cityTxt}`, `Shop, finance and drive away with confidence at ${name}.`, 'Get pre-approved', 'finance'),
+    psHero(`Quality vehicles${cityTxt}`, `Shop, finance and drive away with confidence at ${name}.`, 'Get pre-approved', 'finance', 'g1'),
     __psec('feature_cards', {}),
     __psec('featured_inventory', { title: 'Featured inventory', condition: 'all', count: 6 }),
     __psec('text_image', { headline: 'Drive more, spend less', body: `At ${name}${cityTxt}, we make it simple to get into a vehicle you’ll love at a price that makes sense. Every vehicle is inspected, competitively priced and ready for the road — backed by friendly, no-pressure service that makes buying easy.`, button_label: 'View inventory', button_target: 'inventory' }),
@@ -4804,12 +4804,12 @@ function templateHome(ctx) {
 function templateBuiltinSections() {
   const city = ctxCity();
   return {
-    inventory: [psHero('Browse our inventory', `New, used and certified vehicles${city} — updated daily and priced to move.`, 'Get pre-approved', 'finance')],
-    build: [psHero('Build your vehicle', 'Configure your next vehicle exactly how you want it, then send us your build — we’ll find it or order it for you.', 'Start building', 'build')],
-    trade: [psHero('What’s your trade worth?', 'Get a real number from our team — fast, and with no obligation.', 'Value my trade', 'trade')],
-    finance: [psHero('Financing made easy', 'Apply in minutes — all credit situations welcome, and it won’t affect your score.', 'Start my application', 'finance')],
-    team: [psHero('Meet our team', 'The friendly people behind your next great vehicle.', 'Contact us', 'inquiry')],
-    contact: [psHero('Get in touch', 'Questions, a test drive, or just want to talk numbers? We’d love to hear from you.', 'Call us', 'inquiry')],
+    inventory: [psHero('Browse our inventory', `New, used and certified vehicles${city} — updated daily and priced to move.`, 'Get pre-approved', 'finance', 'g2')],
+    build: [psHero('Build your vehicle', 'Configure your next vehicle exactly how you want it, then send us your build — we’ll find it or order it for you.', 'Start building', 'build', 'g3')],
+    trade: [psHero('What’s your trade worth?', 'Get a real number from our team — fast, and with no obligation.', 'Value my trade', 'trade', 'g4')],
+    finance: [psHero('Financing made easy', 'Apply in minutes — all credit situations welcome, and it won’t affect your score.', 'Start my application', 'finance', 'g5')],
+    team: [psHero('Meet our team', 'The friendly people behind your next great vehicle.', 'Contact us', 'inquiry', 'g6')],
+    contact: [psHero('Get in touch', 'Questions, a test drive, or just want to talk numbers? We’d love to hear from you.', 'Call us', 'inquiry', 'g7')],
   };
 }
 // Only offer presets the dealer hasn't already added (matched by title). Blank always available.
@@ -4896,7 +4896,7 @@ window.uploadSiteImage = uploadSiteImage;
 // The home layout lives in __homeSections; each page's layout in __sitePages[i].sections.
 let __siteCfg = null, __siteSections = [], __homeSections = [], __wsTarget = 'home', __wsTab = 'builder';
 const SEC_META = {
-  hero:               { label: 'Hero', fields: [['image','Background image','image'],['headline','Headline','text'],['subheadline','Subheadline','text'],['button_label','Button label','text'],['button_target','Button goes to','target'],['button_link','Custom link','text'],['overlay','Image darkness','range'],['height','Height','height']] },
+  hero:               { label: 'Hero', fields: [['bg','Background style','herobg'],['image','Or upload a photo','image'],['headline','Headline','text'],['subheadline','Subheadline','text'],['button_label','Button label','text'],['button_target','Button goes to','target'],['button_link','Custom link','text'],['overlay','Image darkness','range'],['height','Height','height']] },
   feature_cards:      { label: 'Feature cards (Inventory / Finance / Contact)', fields: [['title','Heading (optional)','text']] },
   featured_inventory: { label: 'Featured inventory', fields: [['title','Title','text'],['condition','Show','cond'],['count','How many','number']] },
   inventory_grid:     { label: 'Inventory grid', fields: [['title','Title','text']] },
@@ -5021,6 +5021,7 @@ function wsField(i, sec, [key, label, type]) {
   else if (type === 'range') input = `<input type="range" min="0" max="90" value="${v == null ? 45 : v}" oninput="setSec(${i},'${key}',+this.value)" class="w-full">`;
   else if (type === 'number') input = `<input type="number" value="${esc(v == null ? 6 : v)}" oninput="setSec(${i},'${key}',+this.value)" class="${cls}">`;
   else if (type === 'target') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['inquiry','Contact form'],['inventory','Inventory'],['build','Build & Price'],['trade','Trade-in'],['finance','Financing'],['team','Team'],['link','Custom link']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
+  else if (type === 'herobg') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['','None (solid brand)'],['g1','Indigo glow'],['g2','Sky wave'],['g3','Teal depth'],['g4','Violet dusk'],['g5','Amber warmth'],['g6','Rose accent'],['g7','Emerald'],['g8','Cyan drift']].map(o => `<option value="${o[0]}" ${(v||'')===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'cond') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['all','All'],['new','New'],['used','Used']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'height') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['sm','Short'],['md','Medium'],['lg','Tall']].map(o => `<option value="${o[0]}" ${(v || 'md') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'image') input = `<div class="flex gap-1 items-center">${v ? `<img src="${esc(v)}" class="w-12 h-9 object-cover rounded">` : ''}<input value="${esc(v || '')}" placeholder="URL or upload" oninput="setSec(${i},'${key}',this.value)" class="${cls} flex-1"><input type="file" accept="image/*" class="hidden" id="secimg-${i}-${key}" onchange="uploadToSec(${i},'${key}',this.files[0])"><button type="button" onclick="document.getElementById('secimg-${i}-${key}').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-2 rounded">Upload</button></div>`;
