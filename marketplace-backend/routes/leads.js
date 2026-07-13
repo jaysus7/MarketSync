@@ -94,24 +94,44 @@ export function registerLeads(app) {
     if (!req.dealershipId) return res.json({ leads: [], crm_adf_email: null })
     const dealerLevel = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
     let q = supabaseAdmin.from('leads')
-      .select('id, name, email, phone, comments, source, status, adf_sent_at, adf_error, inventory_id, created_by, created_at')
+      .select('id, name, email, phone, comments, source, status, adf_sent_at, adf_error, inventory_id, contact_id, created_by, created_at')
       .eq('dealership_id', req.dealershipId)
       .order('created_at', { ascending: false })
       .limit(300)
-    if (!dealerLevel) q = q.eq('created_by', req.user.id)
+    if (!dealerLevel) {
+      // A rep sees leads they logged OR leads whose linked contact is assigned to
+      // them — the latter covers website leads auto-routed to the rep, which have
+      // no created_by (nobody keyed them in) but do own the contact.
+      const { data: mine } = await supabaseAdmin.from('contacts')
+        .select('id').eq('dealership_id', req.dealershipId).eq('assigned_rep', req.user.id).limit(2000)
+      const ids = (mine || []).map(c => c.id)
+      q = ids.length
+        ? q.or(`created_by.eq.${req.user.id},contact_id.in.(${ids.join(',')})`)
+        : q.eq('created_by', req.user.id)
+    }
     const { data, error } = await q
     if (error) return res.status(500).json({ error: error.message })
 
-    // Attribute each lead to the rep who logged it, so a dealer-level view shows
-    // the whole team's leads with who captured them.
-    const repIds = [...new Set((data || []).map(l => l.created_by).filter(Boolean))]
+    // Who owns each lead: prefer the linked contact's assigned rep (the routed
+    // owner the notification announced), falling back to whoever keyed it in. This
+    // keeps the list in step with the "Assigned to …" alert for website leads.
+    const contactIds = [...new Set((data || []).map(l => l.contact_id).filter(Boolean))]
+    let assignedByContact = {}
+    if (contactIds.length) {
+      const { data: cs } = await supabaseAdmin.from('contacts').select('id, assigned_rep').in('id', contactIds)
+      assignedByContact = Object.fromEntries((cs || []).map(c => [c.id, c.assigned_rep]).filter(([, r]) => r))
+    }
+    const repIds = [...new Set([...(data || []).map(l => l.created_by), ...Object.values(assignedByContact)].filter(Boolean))]
     let repNames = {}
     if (repIds.length) {
       const { data: reps } = await supabaseAdmin
         .from('profiles').select('id, full_name, display_name').in('id', repIds)
       repNames = Object.fromEntries((reps || []).map(r => [r.id, r.full_name || r.display_name || '—']))
     }
-    const leads = (data || []).map(l => ({ ...l, rep: repNames[l.created_by] || null }))
+    const leads = (data || []).map(l => {
+      const ownerId = assignedByContact[l.contact_id] || l.created_by || null
+      return { ...l, rep: ownerId ? (repNames[ownerId] || null) : null }
+    })
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('crm_adf_email').eq('id', req.dealershipId).maybeSingle()
@@ -123,14 +143,21 @@ export function registerLeads(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const dealerLevel = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
     let q = supabaseAdmin.from('leads')
-      .select('name, email, phone, source, status, comments, inventory_id, created_by, created_at')
+      .select('name, email, phone, source, status, comments, inventory_id, contact_id, created_by, created_at')
       .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(5000)
     if (!dealerLevel) q = q.eq('created_by', req.user.id)
     const { data, error } = await q
     if (error) return res.status(500).json({ error: error.message })
-    // Resolve vehicle labels + rep names in bulk.
+    // Resolve vehicle labels + rep names in bulk. Owner = contact's assigned rep
+    // (the routed owner) with the keyed-in creator as a fallback.
     const invIds = [...new Set((data || []).map(l => l.inventory_id).filter(Boolean))]
-    const repIds = [...new Set((data || []).map(l => l.created_by).filter(Boolean))]
+    const contactIds = [...new Set((data || []).map(l => l.contact_id).filter(Boolean))]
+    let assignedByContact = {}
+    if (contactIds.length) {
+      const { data: cs } = await supabaseAdmin.from('contacts').select('id, assigned_rep').in('id', contactIds)
+      assignedByContact = Object.fromEntries((cs || []).map(c => [c.id, c.assigned_rep]).filter(([, r]) => r))
+    }
+    const repIds = [...new Set([...(data || []).map(l => l.created_by), ...Object.values(assignedByContact)].filter(Boolean))]
     let veh = {}, reps = {}
     if (invIds.length) {
       const { data: iv } = await supabaseAdmin.from('inventory').select('id, year, make, model, trim').in('id', invIds)
@@ -142,7 +169,8 @@ export function registerLeads(app) {
     }
     const rows = (data || []).map(l => ({
       name: l.name, email: l.email, phone: l.phone, source: l.source, status: l.status,
-      comments: l.comments, vehicle: veh[l.inventory_id] || '', rep: reps[l.created_by] || '',
+      comments: l.comments, vehicle: veh[l.inventory_id] || '',
+      rep: reps[assignedByContact[l.contact_id] || l.created_by] || '',
       created_at: l.created_at,
     }))
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
