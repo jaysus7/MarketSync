@@ -101,6 +101,8 @@ function cleanBuiltins(obj) {
     out[k] = {
       enabled: v.enabled !== false,   // default ON
       label: (v.label ? String(v.label).trim().slice(0, 40) : '') || BUILTIN_DEFAULTS[k],
+      // Optional dropdown group in the nav (e.g. put Value Trade + Financing under "Finance").
+      menu: v.menu ? String(v.menu).trim().slice(0, 40) : null,
     }
   }
   return out
@@ -188,6 +190,9 @@ function siteContent(d) {
     // Page builder: ordered sections + global styling.
     sections: cleanSections(b.site_sections),
     typography: TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern',
+    // Optional dealer-chosen Google Fonts (override the typography preset).
+    heading_font: b.heading_font || null,
+    body_font: b.body_font || null,
     accent_color: b.accent_color || null,
   }
 }
@@ -311,7 +316,7 @@ export function registerSite(app) {
     if (b.site_published !== undefined) update.site_published = !!b.site_published
 
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
-    const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image']
+    const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image']
     const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined
     if (touchesContent) {
       const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()

@@ -523,6 +523,9 @@ function switchPage(pageId) {
     btn.classList.toggle('dark:text-indigo-300', active);
     btn.classList.toggle('text-slate-700', !active);
     btn.classList.toggle('dark:text-slate-300', !active);
+    // Explicit active flag so the highlight always reflects the current page,
+    // even for the specially-handled (non data-page) nav buttons.
+    if (active) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
   });
 
   // Fire any one-time lazy loaders registered for this page (feeds, catalog,
@@ -4195,7 +4198,7 @@ function openVehicleForm(vehicle) {
     <div class="grid grid-cols-4 gap-2">
       <div>${lbl('Price ($)')}${inp('veh-price', v.price, '', 'w-full')}</div>
       <div>${lbl('Mileage (km)')}${inp('veh-mileage', v.mileage, '', 'w-full')}</div>
-      <div>${lbl('Condition')}<select id="veh-condition" class="${selCls}">${opts(v.condition || 'used', [['used', 'Used'], ['new', 'New'], ['demo', 'Demo']])}</select></div>
+      <div>${lbl('Condition')}<select id="veh-condition" class="${selCls}">${opts(v.condition || 'used', [['used', 'Used'], ['new', 'New'], ['demo', 'Demo'], ['certified', 'Certified (CPO)']])}</select></div>
       <div>${lbl('Stock #')}${inp('veh-stock', v.stocknumber, '', 'w-full')}</div>
     </div>
     <div class="grid grid-cols-4 gap-2">
@@ -4513,27 +4516,29 @@ const BUILTIN_META = [
   ['contact', 'Contact', 'General contact / inquiry form'],
 ];
 let __siteBuiltins = {};
-function defaultBuiltins() { const o = {}; for (const [k, label] of BUILTIN_META) o[k] = { enabled: true, label }; return o; }
+function defaultBuiltins() { const o = {}; for (const [k, label] of BUILTIN_META) o[k] = { enabled: true, label, menu: '' }; return o; }
 function normBuiltins(src) {
   const o = defaultBuiltins();
-  if (src && typeof src === 'object') for (const [k, def] of BUILTIN_META) { const v = src[k] || {}; o[k] = { enabled: v.enabled !== false, label: (v.label || def).toString().slice(0, 40) }; }
+  if (src && typeof src === 'object') for (const [k, def] of BUILTIN_META) { const v = src[k] || {}; o[k] = { enabled: v.enabled !== false, label: (v.label || def).toString().slice(0, 40), menu: (v.menu || '').toString().slice(0, 40) }; }
   return o;
 }
 function collectBuiltins() {
   if (!document.getElementById('builtin-page-list')) return;
   for (const [k] of BUILTIN_META) {
     const row = document.querySelector(`#builtin-page-list [data-bi="${k}"]`); if (!row) continue;
-    __siteBuiltins[k] = { enabled: row.querySelector('.bi-on')?.checked !== false, label: (row.querySelector('.bi-label')?.value || '').trim() || __siteBuiltins[k]?.label || k };
+    __siteBuiltins[k] = { enabled: row.querySelector('.bi-on')?.checked !== false, label: (row.querySelector('.bi-label')?.value || '').trim() || __siteBuiltins[k]?.label || k, menu: (row.querySelector('.bi-menu')?.value || '').trim() };
   }
 }
 function renderBuiltinPages() {
   const box = document.getElementById('builtin-page-list'); if (!box) return;
-  box.innerHTML = BUILTIN_META.map(([k, def, desc]) => {
-    const b = __siteBuiltins[k] || { enabled: true, label: def };
-    return `<div data-bi="${k}" class="border border-slate-200 dark:border-slate-700 rounded-lg p-2 flex items-center gap-2 ${b.enabled ? '' : 'opacity-60'}">
+  const menus = [...new Set(Object.values(__siteBuiltins).map(b => b.menu).concat((__sitePages || []).map(p => p.menu)).filter(Boolean))];
+  box.innerHTML = `<datalist id="bi-menu-opts">${menus.map(m => `<option value="${esc(m)}">`).join('')}</datalist>` + BUILTIN_META.map(([k, def, desc]) => {
+    const b = __siteBuiltins[k] || { enabled: true, label: def, menu: '' };
+    return `<div data-bi="${k}" class="border border-slate-200 dark:border-slate-700 rounded-lg p-2 flex items-center gap-2 flex-wrap ${b.enabled ? '' : 'opacity-60'}">
       <label class="relative inline-flex items-center cursor-pointer shrink-0"><input type="checkbox" class="bi-on sr-only peer" ${b.enabled ? 'checked' : ''} onchange="collectBuiltins();renderBuiltinPages()"><div class="w-9 h-5 bg-slate-300 dark:bg-slate-600 peer-checked:bg-indigo-600 rounded-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition peer-checked:after:translate-x-4"></div></label>
-      <input class="bi-label flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-semibold" value="${esc(b.label || def)}" placeholder="${esc(def)}">
-      <span class="text-[10px] text-slate-400 hidden sm:block w-56 shrink-0">${esc(desc)}</span>
+      <input class="bi-label flex-1 min-w-[120px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-semibold" value="${esc(b.label || def)}" placeholder="${esc(def)}">
+      <input class="bi-menu w-32 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" list="bi-menu-opts" value="${esc(b.menu || '')}" placeholder="Submenu (opt.)" title="Group under a nav dropdown">
+      <span class="text-[10px] text-slate-400 hidden lg:block w-48 shrink-0">${esc(desc)}</span>
     </div>`;
   }).join('');
 }
@@ -4602,6 +4607,32 @@ async function autoBuildPages(btn) {
 window.autoBuildPages = autoBuildPages;
 function addSitePage() { collectSitePages(); __sitePages.push({ title: '', nav: true, body_html: '' }); renderSitePages(); }
 function removeSitePage(i) { collectSitePages(); __sitePages.splice(i, 1); renderSitePages(); }
+// Starter pages the dealer can drop in with one click, pre-filled + grouped in the nav.
+const __psec = (type, settings) => ({ id: 's' + Math.random().toString(36).slice(2, 9), type, settings: settings || {} });
+function PAGE_PRESETS() {
+  const name = (__siteCfg?.content?.name) || 'our dealership';
+  const hero = (h, s) => __psec('hero', { headline: h, subheadline: s, button_label: 'Contact us', button_target: 'inquiry', overlay: 45, height: 'md' });
+  const contact = () => __psec('contact', { title: 'Get in touch', subtitle: 'Send us a message and we’ll get right back to you.' });
+  const text = (html) => __psec('html', { html });
+  return {
+    about: { label: 'About Us', page: { title: 'About Us', menu: '', nav: true, sections: [hero(`About ${name}`, 'Get to know our team, our story and what sets us apart.'), text(`<p>${esc(name)} has proudly served our community for years. Our team is committed to a no-pressure, transparent experience from first hello to long after you drive off.</p>`)] } },
+    book_service: { label: 'Book a Service Appointment', page: { title: 'Book Service', menu: 'Service', nav: true, sections: [hero('Book a Service Appointment', 'Factory-trained technicians. Genuine parts. Quick, easy scheduling.'), contact()] } },
+    service: { label: 'Service Department', page: { title: 'Service', menu: 'Service', nav: true, sections: [hero('Service Department', 'Keep your vehicle running its best with our certified team.'), text('<p>Oil changes, brakes, tires, diagnostics and full factory-scheduled maintenance — all under one roof.</p>'), contact()] } },
+    parts: { label: 'Parts Department', page: { title: 'Parts', menu: 'Service', nav: true, sections: [hero('Parts Department', 'Genuine OEM parts and accessories, ordered fast.'), text('<p>Looking for a specific part? Tell us what you need and we’ll source it for you.</p>'), contact()] } },
+    accessories: { label: 'Accessories', page: { title: 'Accessories', menu: 'Service', nav: true, sections: [hero('Accessories', 'Personalize your vehicle with genuine accessories.'), text('<p>From all-weather mats to tonneau covers and roof racks — build your vehicle your way.</p>'), contact()] } },
+    specials: { label: 'Specials / Offers', page: { title: 'Specials', menu: '', nav: true, sections: [hero('Current Specials', 'Limited-time offers on new and pre-owned vehicles.'), __psec('featured_inventory', { title: 'Featured deals', condition: 'all', count: 6 })] } },
+    careers: { label: 'Careers', page: { title: 'Careers', menu: 'About', nav: true, sections: [hero('Careers', 'Join a team that puts people first.'), text('<p>We’re always looking for great people. Tell us about yourself below.</p>'), contact()] } },
+    blank: { label: 'Blank page', page: { title: '', menu: '', nav: true, sections: [] } },
+  };
+}
+function addSitePagePreset(key) {
+  if (!key) return;
+  collectSitePages();
+  const preset = PAGE_PRESETS()[key]; if (!preset) return;
+  __sitePages.push(JSON.parse(JSON.stringify(preset.page)));
+  renderSitePages();
+  showToast(`Added “${preset.label}” — customize & Save`, 'success');
+}
 const SITE_SLOTS = [['top_banner', 'Top banner'], ['hero_below', 'Under hero'], ['above_inventory', 'Above inventory'], ['below_inventory', 'Below inventory'], ['above_footer', 'Above footer']];
 let __siteWidgets = [];
 function collectSiteWidgets() {
@@ -4799,19 +4830,42 @@ function addSection(type) { __siteSections.push({ id: 's' + Date.now().toString(
 function moveSection(i, dir) { const j = i + dir; if (j < 0 || j >= __siteSections.length) return; const [s] = __siteSections.splice(i, 1); __siteSections.splice(j, 0, s); renderWsSections(); }
 function dupSection(i) { __siteSections.splice(i + 1, 0, JSON.parse(JSON.stringify(__siteSections[i]))); renderWsSections(); }
 function delSection(i) { __siteSections.splice(i, 1); renderWsSections(); }
+const WS_PALETTES = [
+  ['Chevy Blue', '#0b2a5b', '#0a1a33', '#d4af37'],
+  ['GMC Red', '#c8102e', '#1a1a1a', '#9ea2a2'],
+  ['Buick Bronze', '#151a20', '#0a0f14', '#b08d57'],
+  ['Ford Blue', '#003478', '#00142e', '#1071e5'],
+  ['Midnight', '#1e293b', '#0f172a', '#6366f1'],
+  ['Clean Slate', '#334155', '#0f172a', '#2563eb'],
+  ['Luxury Gold', '#111111', '#000000', '#c9a24b'],
+  ['Forest', '#14532d', '#052e16', '#22c55e'],
+];
+const WS_FONTS = ['Inter', 'Poppins', 'Montserrat', 'Oswald', 'Bebas Neue', 'Anton', 'Archivo', 'Rubik', 'Barlow', 'Raleway', 'Playfair Display', 'Roboto Slab', 'Merriweather', 'Teko', 'Roboto', 'Open Sans', 'Lato', 'Source Sans 3', 'Nunito Sans', 'Work Sans', 'Mulish', 'PT Sans'];
+function wsApplyPalette(p, s, a) { const g = id => document.getElementById(id); if (g('ws-c1')) g('ws-c1').value = p; if (g('ws-c2')) g('ws-c2').value = s; if (g('ws-c3')) g('ws-c3').value = a; showToast('Palette applied — Save to publish', 'info'); }
+function wsFontOpts(sel) { return `<option value="">— Use preset —</option>` + WS_FONTS.map(f => `<option value="${f}" ${sel === f ? 'selected' : ''}>${f}</option>`).join(''); }
 function wsDesign() {
   const c = __siteCfg.content || {};
   const swatch = (id, label, val) => `<div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${label}</label><input id="${id}" type="color" value="${esc(val || '#1e3a8a')}" class="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg"></div>`;
   const typos = [['modern','Modern'],['luxury','Luxury'],['bold','Bold'],['corporate','Corporate'],['minimal','Minimal']];
-  return `<div class="mt-4 max-w-lg space-y-4">
+  const sel = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+  return `<div class="mt-4 max-w-lg space-y-5">
+    <div>
+      <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Quick palettes</div>
+      <div class="flex flex-wrap gap-2">${WS_PALETTES.map(([n, p, s, a]) => `<button type="button" onclick="wsApplyPalette('${p}','${s}','${a}')" class="flex items-center gap-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 hover:border-indigo-400"><span class="flex"><span class="w-3.5 h-3.5 rounded-l" style="background:${p}"></span><span class="w-3.5 h-3.5" style="background:${s}"></span><span class="w-3.5 h-3.5 rounded-r" style="background:${a}"></span></span>${n}</button>`).join('')}</div>
+    </div>
     <div>
       <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Brand colours</div>
       <div class="grid grid-cols-3 gap-2">${swatch('ws-c1', 'Primary', c.primary_color)}${swatch('ws-c2', 'Secondary / hero', c.secondary_color)}${swatch('ws-c3', 'Accent', c.accent_color)}</div>
     </div>
     <div>
       <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Typography</div>
-      <select id="ws-typo" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${typos.map(t => `<option value="${t[0]}" ${(c.typography || 'modern') === t[0] ? 'selected' : ''}>${t[1]}</option>`).join('')}</select>
-      <p class="text-[11px] text-slate-400 mt-1">Changes every heading &amp; body font across the site.</p>
+      <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Font preset</label>
+      <select id="ws-typo" class="${sel}">${typos.map(t => `<option value="${t[0]}" ${(c.typography || 'modern') === t[0] ? 'selected' : ''}>${t[1]}</option>`).join('')}</select>
+      <div class="grid grid-cols-2 gap-2 mt-2">
+        <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Heading font</label><select id="ws-hfont" class="${sel}">${wsFontOpts(c.heading_font)}</select></div>
+        <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Body font</label><select id="ws-bfont" class="${sel}">${wsFontOpts(c.body_font)}</select></div>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-1">Pick any Google Font for headings/body — they override the preset. Leave on “Use preset” to keep the preset pairing.</p>
     </div>
     <p class="text-[11px] text-slate-400">Logo comes from your branding (Settings). Colours &amp; fonts update the whole site automatically.</p>
   </div>`;
@@ -4830,9 +4884,20 @@ function wsPages() {
           <div class="text-sm font-black text-slate-900 dark:text-white">Your pages</div>
           <p class="text-[11px] text-slate-400">Extra pages (About, Financing…) that appear in your nav. Auto-build creates a page per model in your inventory (pulls stock automatically) plus standard offer pages.</p>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-2 shrink-0 flex-wrap">
           <button type="button" onclick="autoBuildPages(this)" class="text-xs font-bold text-violet-600 dark:text-violet-400">✨ Auto-build model &amp; offer pages</button>
-          <button type="button" onclick="addSitePage()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">+ Add page</button>
+          <select onchange="addSitePagePreset(this.value);this.value=''" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5">
+            <option value="">+ Add page…</option>
+            <option value="about">About Us</option>
+            <option value="contact">— (Contact is built-in)</option>
+            <option value="book_service">Book a Service Appointment</option>
+            <option value="service">Service Department</option>
+            <option value="parts">Parts Department</option>
+            <option value="accessories">Accessories</option>
+            <option value="specials">Specials / Offers</option>
+            <option value="careers">Careers</option>
+            <option value="blank">Blank page</option>
+          </select>
         </div>
       </div>
       <div id="site-page-list" class="space-y-2 mt-2"></div>
@@ -4901,7 +4966,7 @@ async function uploadStaffPhoto(i, file) {
 async function saveWebsite(btn) {
   // Collect design values if on that tab (they persist across tabs via __siteCfg.content).
   const c = __siteCfg.content || (__siteCfg.content = {});
-  if (document.getElementById('ws-c1')) { c.primary_color = document.getElementById('ws-c1').value; c.secondary_color = document.getElementById('ws-c2').value; c.accent_color = document.getElementById('ws-c3').value; c.typography = document.getElementById('ws-typo').value; }
+  if (document.getElementById('ws-c1')) { c.primary_color = document.getElementById('ws-c1').value; c.secondary_color = document.getElementById('ws-c2').value; c.accent_color = document.getElementById('ws-c3').value; c.typography = document.getElementById('ws-typo').value; c.heading_font = document.getElementById('ws-hfont')?.value || ''; c.body_font = document.getElementById('ws-bfont')?.value || ''; }
   collectSitePages(); collectSiteStaff(); collectBuiltins(); // no-op unless that tab is currently rendered
   wsFlushTarget();                        // push the active buffer onto home / its page
   const body = {
@@ -4911,6 +4976,7 @@ async function saveWebsite(btn) {
     builtins: Object.keys(__siteBuiltins).length ? __siteBuiltins : defaultBuiltins(),
     site_published: document.getElementById('ws-pub')?.checked || false,
     primary_color: c.primary_color, secondary_color: c.secondary_color, accent_color: c.accent_color, typography: c.typography,
+    heading_font: c.heading_font || '', body_font: c.body_font || '',
   };
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
   try { await apiSendJson('/dealership/site', 'PUT', body); showToast('Website saved', 'success'); btn.disabled = false; btn.textContent = orig; }
@@ -5048,7 +5114,7 @@ async function applyTemplate(id) {
   renderWebsitePage();
   showToast('Template applied — review, then Save', 'success');
 }
-Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectBuiltins, renderBuiltinPages });
+Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectBuiltins, renderBuiltinPages, addSitePagePreset, wsApplyPalette });
 
 // ══ Automation engine — manager workspace (inline toggles + message boxes) ═══
 // State: __autoCfg { campaigns[], settings{}, region{}, can_manage }; __autoHol = working holiday rows.

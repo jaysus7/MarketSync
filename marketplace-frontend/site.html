@@ -57,7 +57,7 @@
         document.documentElement.style.setProperty('--brand',s.primary_color||'#1e3a8a');
         document.documentElement.style.setProperty('--brand2',s.secondary_color||'#0f172a');
         injectHead(s.head_html);
-        applyTypography(s.typography);
+        applyTypography(s);
         renderChrome(); go('home');
       }catch(e){ document.getElementById('app').innerHTML=errPage(e.message); }
     }
@@ -77,16 +77,23 @@
       meta('meta[name="twitter:card"]',['name','twitter:card'],'summary_large_image');
     }
     function injectHead(html){ if(!html) return; try{ const t=document.createElement('div'); t.innerHTML=html; Array.from(t.childNodes).forEach(n=>{ if(n.nodeType===1&&n.tagName==='SCRIPT'){ const s=document.createElement('script'); for(const a of n.attributes) s.setAttribute(a.name,a.value); s.textContent=n.textContent; document.head.appendChild(s);} else if(n.nodeType===1) document.head.appendChild(n); }); }catch(e){} }
-    // Typography theme → one selector changes every heading/body font site-wide.
-    function applyTypography(theme){
+    // Typography → dealer-chosen Google Fonts (heading + body), or a named preset.
+    function applyTypography(s){
       const T={ modern:{h:'Inter',b:'Inter',u:'Inter:wght@400;600;800'},
         luxury:{h:'Playfair Display',b:'Inter',u:'Playfair+Display:wght@600;800|Inter:wght@400;600'},
         bold:{h:'Oswald',b:'Inter',u:'Oswald:wght@600;700|Inter:wght@400;600'},
         corporate:{h:'Roboto Slab',b:'Inter',u:'Roboto+Slab:wght@600;800|Inter:wght@400;600'},
         minimal:{h:'Inter',b:'Inter',u:'Inter:wght@300;500;700'} };
-      const t=T[theme]||T.modern;
-      const link=document.createElement('link'); link.rel='stylesheet'; link.href=`https://fonts.googleapis.com/css2?family=${t.u}&display=swap`; document.head.appendChild(link);
-      const st=document.createElement('style'); st.textContent=`body{font-family:'${t.b}',system-ui,sans-serif}h1,h2,h3,.font-black,.font-bold{font-family:'${t.h}',system-ui,sans-serif}`; document.head.appendChild(st);
+      let h,b,url;
+      if(s&&(s.heading_font||s.body_font)){
+        h=s.heading_font||'Inter'; b=s.body_font||'Inter';
+        const fams=[...new Set([h,b])].map(f=>`family=${String(f).trim().replace(/\s+/g,'+')}:wght@400;600;700;800`).join('&');
+        url=`https://fonts.googleapis.com/css2?${fams}&display=swap`;
+      } else {
+        const t=T[(s&&s.typography)]||T.modern; h=t.h; b=t.b; url=`https://fonts.googleapis.com/css2?family=${t.u}&display=swap`;
+      }
+      const link=document.createElement('link'); link.rel='stylesheet'; link.href=url; document.head.appendChild(link);
+      const st=document.createElement('style'); st.textContent=`body{font-family:'${b}',system-ui,sans-serif}h1,h2,h3,.font-black,.font-bold{font-family:'${h}',system-ui,sans-serif}`; document.head.appendChild(st);
     }
     // Rendered-car placeholder when a unit has no photo — the car on the dealer's
     // chosen background (or a brand gradient). Never a broken/empty tile.
@@ -125,25 +132,29 @@
     function renderChrome(){
       const s=DATA.site;
       const addr=[s.address,[s.city,s.province,s.postal_code].filter(Boolean).join(', ')].filter(Boolean).join(', ');
-      // Build the nav: simple links + dealer-grouped page dropdowns.
+      // Build the nav: built-in pages + custom pages, any of which can sit under a
+      // dealer-named dropdown (submenu). Order is preserved by first appearance.
       const navPages=(s.pages||[]).filter(p=>p.nav);
-      const grouped={}, topPages=[];
-      for(const p of navPages){ if(p.menu){ (grouped[p.menu]=grouped[p.menu]||[]).push(p); } else topPages.push(p); }
       const hasTeam=(s.staff||[]).length||(DATA.team||[]).length;
-      // Built-in page on/off + custom labels (default on when unset).
       const bi=s.builtins||{};
       const biOn=(k)=>!bi[k]||bi[k].enabled!==false;
       const biLabel=(k,def)=>(bi[k]&&bi[k].label)||def;
-      const navItems=[
-        ...(biOn('inventory')?[{label:biLabel('inventory','Inventory'),onclick:"go('inventory')"}]:[]),
-        ...(biOn('build')?[{label:biLabel('build','Build & Price'),onclick:"go('build')"}]:[]),
-        ...Object.keys(grouped).map(m=>({label:m,children:grouped[m].map(p=>({label:p.title,onclick:`go('page:${p.slug}')`}))})),
-        ...topPages.map(p=>({label:p.title,onclick:`go('page:${p.slug}')`})),
-        ...(biOn('trade')?[{label:biLabel('trade','Value Trade'),onclick:"go('trade')"}]:[]),
-        ...(biOn('finance')?[{label:biLabel('finance','Financing'),onclick:"go('finance')"}]:[]),
-        ...(hasTeam&&biOn('team')?[{label:biLabel('team','Team'),onclick:"go('team')"}]:[]),
-        ...(biOn('contact')?[{label:biLabel('contact','Contact'),onclick:"go('inquiry')"}]:[]),
-      ];
+      const biMenu=(k)=>(bi[k]&&bi[k].menu)||null;
+      const entries=[];
+      if(biOn('inventory')) entries.push({label:biLabel('inventory','Inventory'),onclick:"go('inventory')",menu:biMenu('inventory')});
+      if(biOn('build')) entries.push({label:biLabel('build','Build & Price'),onclick:"go('build')",menu:biMenu('build')});
+      for(const p of navPages) entries.push({label:p.title,onclick:`go('page:${p.slug}')`,menu:p.menu||null});
+      if(biOn('trade')) entries.push({label:biLabel('trade','Value Trade'),onclick:"go('trade')",menu:biMenu('trade')});
+      if(biOn('finance')) entries.push({label:biLabel('finance','Financing'),onclick:"go('finance')",menu:biMenu('finance')});
+      if(hasTeam&&biOn('team')) entries.push({label:biLabel('team','Team'),onclick:"go('team')",menu:biMenu('team')});
+      if(biOn('contact')) entries.push({label:biLabel('contact','Contact'),onclick:"go('inquiry')",menu:biMenu('contact')});
+      const navItems=[]; const groupIdx={};
+      for(const e of entries){
+        if(e.menu){
+          if(groupIdx[e.menu]==null){ groupIdx[e.menu]=navItems.length; navItems.push({label:e.menu,children:[]}); }
+          navItems[groupIdx[e.menu]].children.push({label:e.label,onclick:e.onclick});
+        } else navItems.push({label:e.label,onclick:e.onclick});
+      }
       document.getElementById('app').innerHTML=`
         ${slotHtml('top_banner')}
         <header class="brand-bg text-white sticky top-0 z-30">
@@ -395,7 +406,7 @@
         <p class="text-sm text-slate-500 mb-4">${DATA.count} vehicle${DATA.count===1?'':'s'} in stock.</p>
         <form onsubmit="homeSearch();return false" class="flex flex-wrap items-center gap-2">
           <input id="hq" placeholder="Make, model, or keyword" class="flex-1 min-w-[180px] border border-slate-300 rounded-lg px-3 py-2 text-sm">
-          <select id="hcond" class="border border-slate-300 rounded-lg px-3 py-2 text-sm"><option value="">All conditions</option>${['new','used','demo'].map(c=>`<option value="${c}">${cap(c)}</option>`).join('')}</select>
+          <select id="hcond" class="border border-slate-300 rounded-lg px-3 py-2 text-sm"><option value="">All conditions</option>${['new','used','demo','certified'].map(c=>`<option value="${c}">${cap(c)}</option>`).join('')}</select>
           ${bodies.length?`<select id="hbody" class="border border-slate-300 rounded-lg px-3 py-2 text-sm"><option value="">All types</option>${bodies.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('')}</select>`:''}
           <button class="brand-bg text-white font-bold px-5 py-2 rounded-lg">Search</button>
           <a href="#" onclick="go('inventory');return false" class="text-sm font-bold brand-text">Browse all →</a>

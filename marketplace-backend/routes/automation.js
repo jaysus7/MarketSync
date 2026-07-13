@@ -413,6 +413,22 @@ async function runDaily() {
 export function registerAutomation(app) {
   const cronOk = (req) => (req.headers['x-cron-secret'] || '').trim() === (process.env.CRON_SECRET || '').trim() && !!process.env.CRON_SECRET
 
+  // ── Safe diagnostic: is the cron secret configured + does a given header match?
+  // Reveals only booleans (never the secret). Open it in a browser (no header) to
+  // check whether the SERVER has CRON_SECRET set; add the header to check a match.
+  app.get('/cron/selftest', (req, res) => {
+    const provided = (req.headers['x-cron-secret'] || '').trim()
+    const server = (process.env.CRON_SECRET || '').trim()
+    res.json({
+      server_secret_configured: !!server,
+      provided_header_present: !!provided,
+      matches: !!server && provided === server,
+      hint: !server ? 'Set CRON_SECRET in the Render service Environment tab.'
+        : !provided ? 'Server secret is set. Send x-cron-secret to test a match (GitHub secret CRON_SECRET must equal it).'
+        : (provided === server ? 'All good — crons will authenticate.' : 'Header present but does not match the server secret. Make the GitHub secret equal the Render value.'),
+    })
+  })
+
   // ── Background worker cron endpoints ───────────────────────────────────────
   app.post('/cron/automation-run', async (req, res) => {
     if (!cronOk(req)) return res.status(401).json({ error: 'unauthorized' })
