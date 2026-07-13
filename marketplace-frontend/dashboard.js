@@ -4785,6 +4785,33 @@ function PAGE_PRESETS() {
     blank: { label: 'Blank page', page: { title: '', menu: '', nav: true, sections: [] } },
   };
 }
+// A polished, complete home layout every template ships (hero → feature cards →
+// featured inventory → text+image → body styles → reviews → map → contact).
+function templateHome(ctx) {
+  const name = ctx.name || ctxName(), cityTxt = ctx.city ? (' in ' + ctx.city) : ctxCity();
+  return [
+    psHero(`Quality vehicles${cityTxt}`, `Shop, finance and drive away with confidence at ${name}.`, 'Get pre-approved', 'finance'),
+    __psec('feature_cards', {}),
+    __psec('featured_inventory', { title: 'Featured inventory', condition: 'all', count: 6 }),
+    __psec('text_image', { headline: 'Drive more, spend less', body: `At ${name}${cityTxt}, we make it simple to get into a vehicle you’ll love at a price that makes sense. Every vehicle is inspected, competitively priced and ready for the road — backed by friendly, no-pressure service that makes buying easy.`, button_label: 'View inventory', button_target: 'inventory' }),
+    __psec('body_style', { title: 'Browse by body style' }),
+    __psec('reviews', { title: 'What our customers say' }),
+    __psec('map', { title: 'Visit us' }),
+    __psec('contact', { title: 'Get in touch' }),
+  ];
+}
+// Hero/intro pre-filled on every built-in page so nothing is empty after a template.
+function templateBuiltinSections() {
+  const city = ctxCity();
+  return {
+    inventory: [psHero('Browse our inventory', `New, used and certified vehicles${city} — updated daily and priced to move.`, 'Get pre-approved', 'finance')],
+    build: [psHero('Build your vehicle', 'Configure your next vehicle exactly how you want it, then send us your build — we’ll find it or order it for you.', 'Start building', 'build')],
+    trade: [psHero('What’s your trade worth?', 'Get a real number from our team — fast, and with no obligation.', 'Value my trade', 'trade')],
+    finance: [psHero('Financing made easy', 'Apply in minutes — all credit situations welcome, and it won’t affect your score.', 'Start my application', 'finance')],
+    team: [psHero('Meet our team', 'The friendly people behind your next great vehicle.', 'Contact us', 'inquiry')],
+    contact: [psHero('Get in touch', 'Questions, a test drive, or just want to talk numbers? We’d love to hear from you.', 'Call us', 'inquiry')],
+  };
+}
 // Only offer presets the dealer hasn't already added (matched by title). Blank always available.
 function wsAddPageOptions() {
   const presets = PAGE_PRESETS();
@@ -4870,8 +4897,11 @@ window.uploadSiteImage = uploadSiteImage;
 let __siteCfg = null, __siteSections = [], __homeSections = [], __wsTarget = 'home', __wsTab = 'builder';
 const SEC_META = {
   hero:               { label: 'Hero', fields: [['image','Background image','image'],['headline','Headline','text'],['subheadline','Subheadline','text'],['button_label','Button label','text'],['button_target','Button goes to','target'],['button_link','Custom link','text'],['overlay','Image darkness','range'],['height','Height','height']] },
+  feature_cards:      { label: 'Feature cards (Inventory / Finance / Contact)', fields: [['title','Heading (optional)','text']] },
   featured_inventory: { label: 'Featured inventory', fields: [['title','Title','text'],['condition','Show','cond'],['count','How many','number']] },
   inventory_grid:     { label: 'Inventory grid', fields: [['title','Title','text']] },
+  text_image:         { label: 'Text + image split', fields: [['image','Image','image'],['headline','Headline','text'],['body','Paragraph','textarea'],['button_label','Button label','text'],['button_target','Button goes to','target']] },
+  body_style:         { label: 'Browse by body style', fields: [['title','Title','text']] },
   trade_cta:          { label: 'Trade-in banner', fields: [['title','Title','text'],['subtitle','Subtitle','text'],['button_label','Button label','text']] },
   finance_cta:        { label: 'Finance banner', fields: [['title','Title','text'],['subtitle','Subtitle','text'],['button_label','Button label','text']] },
   service_cta:        { label: 'Service banner', fields: [['title','Title','text'],['subtitle','Subtitle','text'],['button_label','Button label','text'],['button_target','Button goes to','target'],['button_link','Custom link','text']] },
@@ -4884,7 +4914,7 @@ const SEC_META = {
   contact:            { label: 'Contact form', fields: [['title','Title','text']] },
   html:               { label: 'Custom HTML', fields: [['html','HTML','textarea']] },
 };
-const SEC_ORDER = ['hero','featured_inventory','inventory_grid','trade_cta','finance_cta','service_cta','staff','reviews','faq','gallery','map','contact','cta_banner','html'];
+const SEC_ORDER = ['hero','feature_cards','featured_inventory','text_image','body_style','inventory_grid','trade_cta','finance_cta','service_cta','staff','reviews','faq','gallery','map','contact','cta_banner','html'];
 
 async function loadWebsitePage() {
   const root = document.getElementById('website-root');
@@ -4990,7 +5020,7 @@ function wsField(i, sec, [key, label, type]) {
   if (type === 'textarea' || type === 'html') input = `<textarea rows="3" oninput="setSec(${i},'${key}',this.value)" class="${cls} font-mono text-xs">${esc(v || '')}</textarea>`;
   else if (type === 'range') input = `<input type="range" min="0" max="90" value="${v == null ? 45 : v}" oninput="setSec(${i},'${key}',+this.value)" class="w-full">`;
   else if (type === 'number') input = `<input type="number" value="${esc(v == null ? 6 : v)}" oninput="setSec(${i},'${key}',+this.value)" class="${cls}">`;
-  else if (type === 'target') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['inquiry','Contact form'],['trade','Trade-in'],['finance','Financing'],['link','Custom link']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
+  else if (type === 'target') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['inquiry','Contact form'],['inventory','Inventory'],['build','Build & Price'],['trade','Trade-in'],['finance','Financing'],['team','Team'],['link','Custom link']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'cond') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['all','All'],['new','New'],['used','Used']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'height') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['sm','Short'],['md','Medium'],['lg','Tall']].map(o => `<option value="${o[0]}" ${(v || 'md') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'image') input = `<div class="flex gap-1 items-center">${v ? `<img src="${esc(v)}" class="w-12 h-9 object-cover rounded">` : ''}<input value="${esc(v || '')}" placeholder="URL or upload" oninput="setSec(${i},'${key}',this.value)" class="${cls} flex-1"><input type="file" accept="image/*" class="hidden" id="secimg-${i}-${key}" onchange="uploadToSec(${i},'${key}',this.files[0])"><button type="button" onclick="document.getElementById('secimg-${i}-${key}').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 px-2 rounded">Upload</button></div>`;
@@ -5270,8 +5300,8 @@ async function applyTemplate(id) {
   let colors = { primary: t.primary, secondary: t.secondary, accent: t.accent, typography: t.typography };
   if (id === 'manufacturer') { const th = MAKE_THEME[(ctx.primaryMake || '').toLowerCase()]; if (th) colors = { primary: th.p, secondary: th.s, accent: th.a, typography: th.t }; }
 
-  // Home — the template's own hero/section layout.
-  __homeSections = t.build(ctx);
+  // Home — a complete, polished layout (hero, feature cards, inventory, split, body styles, reviews, map, contact).
+  __homeSections = templateHome(ctx);
   __wsTarget = 'home'; __siteSections = __homeSections;
 
   // A complete, editable page set — rich content + SEO already written.
@@ -5286,11 +5316,10 @@ async function applyTemplate(id) {
     else if (tt === 'careers') p.menu = 'About Us';
     else p.menu = '';
   }
-  // Built-ins on, with a hero/intro on the key functional pages.
+  // Built-ins on, every one pre-filled with a hero/intro so nothing is empty.
   __siteBuiltins = defaultBuiltins();
-  __siteBuiltins.inventory.sections = [psHero('Browse our inventory', `New, pre-owned and certified vehicles${ctxCity()} — updated daily.`, 'Get pre-approved', 'finance')];
-  __siteBuiltins.finance.sections = [psHero('Financing made easy', 'Apply in minutes — all credit situations welcome, and it won’t affect your score.', 'Start my application', 'finance')];
-  __siteBuiltins.trade.sections = [psHero('What’s your trade worth?', 'Get a real number from our team — fast, and with no obligation.', 'Value my trade', 'trade')];
+  const bsecs = templateBuiltinSections();
+  for (const k of Object.keys(bsecs)) if (__siteBuiltins[k]) __siteBuiltins[k].sections = bsecs[k];
 
   // Nav order with the submenus laid out (parent immediately before its children).
   const pageTok = (title) => { const p = __sitePages.find(x => (x.title || '').toLowerCase() === title.toLowerCase()); return p ? ('p:' + p.id) : null; };

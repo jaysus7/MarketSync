@@ -297,7 +297,8 @@
     function renderSections(el, secs){
       el.innerHTML = secs.map(sectionHtml).join('');
     }
-    function ctaTarget(t,link){ if(t==='link'&&link) return `onclick="window.open('${esc(link)}','_blank')"`; const v={trade:'trade',finance:'finance',contact:'inquiry',inquiry:'inquiry'}[t]||'inquiry'; return `onclick="go('${v}')"`; }
+    function ctaTarget(t,link){ if(t==='link'&&link) return `onclick="window.open('${esc(link)}','_blank')"`; const v={trade:'trade',finance:'finance',contact:'inquiry',inquiry:'inquiry',inventory:'inventory',build:'build',team:'team'}[t]||'inquiry'; return `onclick="go('${v}')"`; }
+    function setBody(b){ invReset(); if(b) INV.facets.body=new Set([b]); go('inventory'); }
     function sectionHtml(sec){
       const s=DATA.site, g=sec.settings||{};
       switch(sec.type){
@@ -307,6 +308,26 @@
           return `<section class="relative brand2-bg text-white"><div class="absolute inset-0">${g.image?`<img src="${esc(g.image)}" class="w-full h-full object-cover">`:''}<div class="absolute inset-0" style="background:rgba(15,23,42,${ov})"></div></div>
             <div class="relative max-w-6xl mx-auto px-4 ${h}"><h1 class="text-3xl sm:text-5xl font-black max-w-2xl">${esc(g.headline||s.tagline||'Find your next vehicle')}</h1>${g.subheadline?`<p class="mt-3 text-white/80 max-w-xl">${esc(g.subheadline)}</p>`:''}
             <div class="mt-6 flex flex-wrap gap-3">${g.button_label?`<button ${ctaTarget(g.button_target,g.button_link)} class="bg-white text-slate-900 font-bold px-5 py-2.5 rounded-lg hover:bg-slate-100">${esc(g.button_label)}</button>`:''}<a href="#" onclick="setCond('');return false" class="border border-white/40 font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Browse inventory</a></div></div></section>`;
+        }
+        case 'feature_cards': {
+          const iInv='<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13l2-5a2 2 0 012-1h10a2 2 0 012 1l2 5M5 13h14v5H5zM7 18v2M17 18v2"/></svg>';
+          const iFin='<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18v10H3zM3 11h18"/></svg>';
+          const iCon='<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>';
+          const card=(target,icon,title,sub)=>`<button ${ctaTarget(target)} class="text-left bg-white rounded-2xl cshadow p-5 hover:shadow-lg transition flex flex-col gap-2"><div class="w-11 h-11 rounded-full brand-bg text-white flex items-center justify-center">${icon}</div><div class="font-black text-lg text-slate-900">${title}</div><div class="text-sm text-slate-500">${sub}</div></button>`;
+          return `<section class="max-w-6xl mx-auto px-4 -mt-10 relative z-10">${g.title?`<h2 class="text-white/0"></h2>`:''}<div class="grid sm:grid-cols-3 gap-4">${card('inventory',iInv,'View Inventory','Browse our selection of quality vehicles')}${card('finance',iFin,'Vehicle Financing','Fast, hassle-free approvals')}${card('inquiry',iCon,'Contact Us','Call or email our team anytime')}</div></section>`;
+        }
+        case 'text_image': {
+          const img=g.image;
+          return `<section class="max-w-6xl mx-auto px-4 py-14"><div class="grid md:grid-cols-2 gap-8 items-center">
+            <div class="order-2 md:order-1">${img?`<img src="${esc(img)}" class="w-full rounded-2xl cshadow object-cover">`:`<div class="w-full aspect-[4/3] rounded-2xl brand2-bg flex items-center justify-center text-white/40">${s.logo_url?`<img src="${esc(s.logo_url)}" class="max-h-16 opacity-80">`:'<span class="text-sm">Add an image in the section settings</span>'}</div>`}</div>
+            <div class="order-1 md:order-2"><h2 class="text-3xl font-black mb-3 text-slate-900">${esc(g.headline||'Drive more, spend less')}</h2><p class="text-slate-600 leading-relaxed">${esc(g.body||'')}</p>${g.button_label?`<button ${ctaTarget(g.button_target)} class="mt-5 brand-bg text-white font-bold px-5 py-2.5 rounded-lg">${esc(g.button_label)}</button>`:''}</div>
+          </div></section>`;
+        }
+        case 'body_style': {
+          const map={}; for(const v of (DATA.vehicles||[])){ const b=(v.body_style||'').trim(); if(!b) continue; (map[b]=map[b]||{n:0,min:Infinity}); map[b].n++; if(v.price) map[b].min=Math.min(map[b].min,Number(v.price)); }
+          const items=Object.entries(map).sort((a,b)=>b[1].n-a[1].n).slice(0,8);
+          if(!items.length) return '';
+          return `<section class="bg-slate-900 text-white"><div class="max-w-6xl mx-auto px-4 py-14"><h2 class="text-2xl font-black mb-5">${esc(g.title||'Browse by body style')}</h2><div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${items.map(([b,d])=>`<div class="bg-white text-slate-900 rounded-2xl p-4 flex flex-col"><div class="font-black">${esc(b)}</div>${d.min<Infinity?`<div class="text-xs text-slate-500 mt-0.5 mb-3">Starting at ${money(d.min)}</div>`:'<div class="mb-3"></div>'}<button onclick="setBody('${esc(b)}')" class="mt-auto w-full brand-bg text-white text-sm font-bold py-2 rounded-lg hover:opacity-90">See (${d.n}) in stock</button></div>`).join('')}</div></div></section>`;
         }
         case 'featured_inventory': {
           const cond=(g.condition||'all'); let vs=(DATA.vehicles||[]); if(cond!=='all') vs=vs.filter(v=>(v.condition||'').toLowerCase()===cond);
@@ -647,7 +668,7 @@
       postLead({form_type:'inquiry',name:V('i-name'),phone:V('i-phone'),email:V('i-email'),message:V('i-msg'),vehicle_id:V('i-vehicle')||null},e.target,btn); }
 
     function toggleMobileNav(){ const m=document.getElementById('mnav'); if(m) m.classList.toggle('hidden'); }
-    window.go=go; window.setCond=setCond; window.openVehicle=openVehicle; window.toggleMobileNav=toggleMobileNav;
+    window.go=go; window.setCond=setCond; window.setBody=setBody; window.openVehicle=openVehicle; window.toggleMobileNav=toggleMobileNav;
     window.openLightbox=openLightbox; window.lbNext=lbNext; window.closeLightbox=closeLightbox;
     Object.assign(window,{ invToggle, invCollapse, invMore, invSort, invSearch, invClear, invToggleFilters, homeSearch, buildSet, submitBuild });
     window.submitTrade=submitTrade; window.submitFinance=submitFinance; window.submitInquiry=submitInquiry;

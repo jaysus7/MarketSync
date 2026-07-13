@@ -164,7 +164,7 @@ function cleanStaff(arr) {
 }
 
 // The section palette for the page builder. Each is dealership-aware on render.
-const SECTION_TYPES = ['hero', 'featured_inventory', 'inventory_grid', 'finance_cta', 'trade_cta', 'service_cta', 'staff', 'reviews', 'faq', 'cta_banner', 'gallery', 'map', 'contact', 'html']
+const SECTION_TYPES = ['hero', 'feature_cards', 'featured_inventory', 'inventory_grid', 'text_image', 'body_style', 'finance_cta', 'trade_cta', 'service_cta', 'staff', 'reviews', 'faq', 'cta_banner', 'gallery', 'map', 'contact', 'html']
 function cleanSections(arr) {
   if (!Array.isArray(arr)) return []
   return arr.slice(0, 40).map((s, i) => {
