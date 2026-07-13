@@ -32,7 +32,8 @@
 
   <script>
     const API='https://vehicle-marketplace-s0e4.onrender.com';
-    const slug=(new URLSearchParams(location.search).get('d')||location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase();
+    let SLUG=(new URLSearchParams(location.search).get('d')||location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase();
+    if(SLUG.endsWith('.html')) SLUG='';   // custom-domain root → resolve by hostname instead
     const esc=(s)=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const attr=(s)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     const money=(n)=>n?'$'+Number(n).toLocaleString():'Call for price';
@@ -56,11 +57,13 @@
     let DATA=null, FILTERED=[], FILTERS={q:'',condition:'',body:'',sort:'newest'}, VIEW='home';
 
     async function boot(){
-      if(!slug){ document.getElementById('app').innerHTML=errPage('No dealership specified.'); return; }
       try{
-        const r=await fetch(`${API}/site/${encodeURIComponent(slug)}`);
+        const r = SLUG
+          ? await fetch(`${API}/site/${encodeURIComponent(SLUG)}`)
+          : await fetch(`${API}/site-by-domain?host=${encodeURIComponent(location.hostname)}`);
         if(!r.ok) throw new Error('This site isn\'t available.');
         DATA=await r.json(); const s=DATA.site;
+        if(!SLUG && s.slug) SLUG=s.slug;   // resolved from the custom domain — used for lead posting
         applySeo(s);
         document.documentElement.style.setProperty('--brand',s.primary_color||'#1e3a8a');
         document.documentElement.style.setProperty('--brand2',s.secondary_color||'#0f172a');
@@ -628,7 +631,7 @@
     }
 
     async function postLead(body,formEl,btn){ btn.disabled=true; const t=btn.textContent; btn.textContent='Sending…';
-      try{ const r=await fetch(`${API}/site/${encodeURIComponent(slug)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('x');
+      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('x');
         formEl.innerHTML='<div class="text-center py-10"><div class="text-2xl mb-2">✓</div><div class="font-bold text-emerald-600">Thanks! We\'ll be in touch shortly.</div></div>';
       }catch(e){ btn.disabled=false; btn.textContent=t; alert('Sorry, something went wrong. Please call us.'); } }
     const V=(id)=>(document.getElementById(id)?.value||'').trim();

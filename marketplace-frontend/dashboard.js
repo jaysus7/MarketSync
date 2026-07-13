@@ -4404,6 +4404,46 @@ async function removePhotoBackground() {
 // ── Website manager: the public dealer site we host ──────────────────────────
 const SITE_BASE = (location.origin && !/^file/.test(location.origin)) ? `${location.origin}/site.html` : 'https://marketsync.link/site.html';
 // The settings form body (shared by the Website → Settings tab and the modal).
+// "Connect your own domain" — one field, the exact DNS record, and a Check button.
+function customDomainCard(cfg) {
+  const dom = cfg.custom_domain || '';
+  const target = cfg.domain_target || 'marketsync.link';
+  const verified = !!cfg.custom_domain_verified;
+  const status = !dom ? ''
+    : verified
+      ? `<span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">✓ Connected — live at <a href="https://${esc(dom)}" target="_blank" class="underline">${esc(dom)}</a></span>`
+      : `<span class="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">⏳ Waiting for DNS — add the record below, then Check.</span>`;
+  const rec = (host, val) => `<div class="flex items-center gap-2 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1"><span class="text-slate-400">${host}</span><span class="flex-1 truncate">${esc(val)}</span><button type="button" onclick="navigator.clipboard?.writeText('${esc(val)}');showToast('Copied','success')" class="text-indigo-600 dark:text-indigo-400 font-bold">Copy</button></div>`;
+  return `<div class="border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-2">
+    <div class="flex items-center justify-between gap-2 flex-wrap">
+      <div class="text-sm font-black text-slate-900 dark:text-white">🌐 Your own domain</div>
+      ${status}
+    </div>
+    <p class="text-[11px] text-slate-400">Use your own web address (like <b>www.yourdealership.com</b>) instead of the MarketSync link. Enter it, add one DNS record at your domain provider, and hit Check.</p>
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-slate-400">https://</span>
+      ${`<input id="site-domain" value="${esc(dom)}" placeholder="www.yourdealership.com" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">`}
+    </div>
+    ${dom ? `<div class="space-y-1.5 pt-1">
+      <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Add this at your domain provider (GoDaddy, Namecheap, etc.):</div>
+      ${rec('CNAME&nbsp;&nbsp;www', target)}
+      <div class="text-[10px] text-slate-400">Using the bare domain (no “www”)? Add a CNAME/ALIAS on <b>@</b> pointing to <b>${esc(target)}</b>, or an A record if your provider requires one. Not sure? We’ll help — just ask.</div>
+      <div class="flex items-center gap-2 pt-1">
+        <button type="button" onclick="verifyDomain(this)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Check connection</button>
+        <span class="text-[10px] text-slate-400">DNS can take a few minutes to an hour to update.</span>
+      </div>
+    </div>` : `<div class="text-[10px] text-slate-400">Enter your domain and click <b>Save settings</b> below — then the DNS record + Check button appear here.</div>`}
+  </div>`;
+}
+async function verifyDomain(btn) {
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    const d = await apiSendJson('/dealership/site/verify-domain', 'POST', {});
+    showToast(d.message, d.verified ? 'success' : 'info');
+    if (typeof loadWebsitePage === 'function' && __wsTab === 'settings') { __siteCfg.custom_domain_verified = d.verified; renderWsBody(); }
+  } catch (e) { showToast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = orig; }
+}
 function siteSettingsFields(cfg) {
   const c = cfg.content || {};
   const publicUrl = cfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(cfg.site_slug)}` : null;
@@ -4422,6 +4462,7 @@ function siteSettingsFields(cfg) {
       </div>
       <label class="flex items-center gap-1.5 text-sm font-bold mt-4 whitespace-nowrap"><input id="site-pub" type="checkbox" ${cfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Published</label>
     </div>
+    ${customDomainCard(cfg)}
     <div class="grid grid-cols-1 gap-2">
       <div>${lbl('Headline / tagline')}${inp('site-tagline', c.tagline, 'Your trusted local dealership', 'w-full')}</div>
       <div>${lbl('About')}${ta('site-about', c.about, 'A sentence or two about your store', 2)}</div>
@@ -4795,6 +4836,7 @@ async function saveSite(btn) {
   collectSiteWidgets();
   const body = {
     site_slug: val('site-slug'), site_published: document.getElementById('site-pub')?.checked || false,
+    ...(document.getElementById('site-domain') ? { custom_domain: val('site-domain') } : {}),
     tagline: val('site-tagline'), about: val('site-about'), phone: val('site-phone'), email: val('site-email'),
     address: val('site-address'), hours: val('site-hours'), primary_color: val('site-color'), hero_url: val('site-hero'),
     facebook_url: val('site-fb'), instagram_url: val('site-ig'),
@@ -4814,6 +4856,7 @@ async function saveSite(btn) {
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
 }
 window.openSiteManager = openSiteManager;
+window.verifyDomain = verifyDomain;
 window.saveSite = saveSite;
 window.addSiteWidget = addSiteWidget;
 window.removeSiteWidget = removeSiteWidget;

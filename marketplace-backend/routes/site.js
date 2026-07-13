@@ -1,3 +1,4 @@
+import dns from 'node:dns/promises'
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { findOrCreateContact } from './crm.js'
@@ -7,6 +8,9 @@ import { routeAndNotifyLead } from '../lead-routing.js'
 const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
 const slugOk = (s) => /^[a-z0-9]([a-z0-9-]{1,38})[a-z0-9]$/.test(s)   // 3–40, no leading/trailing dash
+// The host a dealer points their custom domain's CNAME at (the static-site domain).
+const SITE_HOST = (process.env.SITE_DOMAIN_TARGET || 'marketsync.link').replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+const domainOk = (s) => /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/.test(s)   // basic FQDN
 
 // Only expose safe, public-facing vehicle fields (no internal/source data).
 // Derive a vehicle's public market status from the inventory flag + the pipeline
@@ -168,6 +172,8 @@ function siteContent(d) {
   const b = d.branding || {}
   return {
     name: d.name,
+    slug: d.site_slug || null,
+    custom_domain: d.custom_domain || null,
     logo_url: b.logo_url || null,
     primary_color: b.primary_color || '#1e3a8a',
     secondary_color: b.secondary_color || '#0f172a',
@@ -211,44 +217,54 @@ function siteContent(d) {
   }
 }
 
+const SITE_COLS = 'id, name, branding, site_published, site_slug, custom_domain, city, province, postal_code, website_url, photo_background_url'
+async function buildSiteResponse(d) {
+  const [{ data: inv }, { data: team }, { data: interests }] = await Promise.all([
+    supabaseAdmin.from('inventory')
+      .select('id, year, make, model, trim, price, mileage, condition, exterior_color, interior_color, drivetrain, fuel_type, transmission, engine, body_style, doors, stocknumber, vin, image_urls, description, carfax_url, window_sticker_url, window_sticker_oem_url, window_sticker_gen_url, brochure_url, brochure_oem_url, brochure_gen_url, recalls, vin_data, sales_pitch, specs_manual, status, created_at')
+      .eq('dealership_id', d.id).is('archived_at', null).neq('status', 'sold')
+      .order('created_at', { ascending: false }).limit(600),
+    supabaseAdmin.from('profiles')
+      .select('full_name, display_name, avatar_url, phone, role, hide_on_site, bio')
+      .eq('dealership_id', d.id),
+    // Pipeline stage of any contact tied to a vehicle → drives the vehicle's status.
+    supabaseAdmin.from('contacts')
+      .select('interest_inventory_id, status')
+      .eq('dealership_id', d.id).not('interest_inventory_id', 'is', null),
+  ])
+  const stageByVeh = {}
+  const RANK = { delivered: 4, sold: 3, fni: 3, turnover: 3 }
+  for (const c of (interests || [])) {
+    const s = String(c.status || '').toLowerCase(); const r = RANK[s]; if (!r) continue
+    const cur = stageByVeh[c.interest_inventory_id]
+    if (!cur || r > cur.r) stageByVeh[c.interest_inventory_id] = { s, r }
+  }
+  const vehicles = (inv || [])
+    .map(v => ({ ...v, _market_status: marketStatus(v, stageByVeh[v.id]?.s) }))
+    .filter(v => v._market_status !== 'delivered')
+    .map(publicVehicle)
+  const roster = (team || []).filter(p => !p.hide_on_site && (p.display_name || p.full_name)).map(publicRep)
+  return { site: siteContent(d), vehicles, team: roster, count: vehicles.length }
+}
+
 export function registerSite(app) {
-  // ── PUBLIC: a dealer's live site data (no auth) ────────────────────────────
+  // ── PUBLIC: a dealer's live site data by slug (no auth) ────────────────────
   app.get('/site/:slug', async (req, res) => {
     const slug = String(req.params.slug || '').toLowerCase().trim()
     if (!slug) return res.status(404).json({ error: 'Not found' })
-    const { data: d } = await supabaseAdmin.from('dealerships')
-      .select('id, name, branding, site_published, city, province, postal_code, website_url, photo_background_url')
-      .ilike('site_slug', slug).maybeSingle()
+    const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
+    res.json(await buildSiteResponse(d))
+  })
 
-    const [{ data: inv }, { data: team }, { data: interests }] = await Promise.all([
-      supabaseAdmin.from('inventory')
-        .select('id, year, make, model, trim, price, mileage, condition, exterior_color, interior_color, drivetrain, fuel_type, transmission, engine, body_style, doors, stocknumber, vin, image_urls, description, carfax_url, window_sticker_url, window_sticker_oem_url, window_sticker_gen_url, brochure_url, brochure_oem_url, brochure_gen_url, recalls, vin_data, sales_pitch, specs_manual, status, created_at')
-        .eq('dealership_id', d.id).is('archived_at', null).neq('status', 'sold')
-        .order('created_at', { ascending: false }).limit(600),
-      supabaseAdmin.from('profiles')
-        .select('full_name, display_name, avatar_url, phone, role, hide_on_site, bio')
-        .eq('dealership_id', d.id),
-      // Pipeline stage of any contact tied to a vehicle → drives the vehicle's status.
-      supabaseAdmin.from('contacts')
-        .select('interest_inventory_id, status')
-        .eq('dealership_id', d.id).not('interest_inventory_id', 'is', null),
-    ])
-    // Best (furthest-along) pipeline stage per vehicle.
-    const stageByVeh = {}
-    const RANK = { delivered: 4, sold: 3, fni: 3, turnover: 3 }
-    for (const c of (interests || [])) {
-      const s = String(c.status || '').toLowerCase(); const r = RANK[s]; if (!r) continue
-      const cur = stageByVeh[c.interest_inventory_id]
-      if (!cur || r > cur.r) stageByVeh[c.interest_inventory_id] = { s, r }
-    }
-    const vehicles = (inv || [])
-      .map(v => ({ ...v, _market_status: marketStatus(v, stageByVeh[v.id]?.s) }))
-      // Delivered/sold units come off the public lot.
-      .filter(v => v._market_status !== 'delivered')
-      .map(publicVehicle)
-    const roster = (team || []).filter(p => !p.hide_on_site && (p.display_name || p.full_name)).map(publicRep)
-    res.json({ site: siteContent(d), vehicles, team: roster, count: vehicles.length })
+  // ── PUBLIC: resolve a dealer's site by its custom domain (Host header) ──────
+  app.get('/site-by-domain', async (req, res) => {
+    const host = String(req.query.host || '').toLowerCase().trim().replace(/^www\./, '').replace(/:\d+$/, '')
+    if (!host) return res.status(404).json({ error: 'Not found' })
+    const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS)
+      .or(`custom_domain.ilike.${host},custom_domain.ilike.www.${host}`).maybeSingle()
+    if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
+    res.json(await buildSiteResponse(d))
   })
 
   // ── PUBLIC: capture a lead from the site → lands in the CRM ─────────────────
@@ -301,10 +317,13 @@ export function registerSite(app) {
   app.get('/dealership/site', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: d } = await supabaseAdmin.from('dealerships')
-      .select('name, branding, site_slug, site_published, city, province, postal_code, website_url').eq('id', req.dealershipId).single()
+      .select('name, branding, site_slug, site_published, custom_domain, custom_domain_verified, city, province, postal_code, website_url').eq('id', req.dealershipId).single()
     res.json({
       site_slug: d.site_slug || null,
       site_published: !!d.site_published,
+      custom_domain: d.custom_domain || null,
+      custom_domain_verified: !!d.custom_domain_verified,
+      domain_target: SITE_HOST,   // where the dealer points their CNAME
       can_manage: isSiteAdmin(req),
       content: siteContent(d),
     })
@@ -329,6 +348,19 @@ export function registerSite(app) {
     }
     if (b.site_published !== undefined) update.site_published = !!b.site_published
 
+    if (b.custom_domain !== undefined) {
+      const dom = String(b.custom_domain || '').toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
+      if (dom) {
+        if (!domainOk(dom)) return res.status(400).json({ error: 'Enter a valid domain like yourdealership.com (no http:// or paths).' })
+        const { data: taken } = await supabaseAdmin.from('dealerships').select('id')
+          .or(`custom_domain.ilike.${dom},custom_domain.ilike.www.${dom}`).neq('id', req.dealershipId).maybeSingle()
+        if (taken) return res.status(409).json({ error: 'That domain is already connected to another account.' })
+        update.custom_domain = dom
+        update.custom_domain_verified = false
+        update.custom_domain_added_at = new Date().toISOString()
+      } else { update.custom_domain = null; update.custom_domain_verified = false }
+    }
+
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
     const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image']
     const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined
@@ -351,6 +383,28 @@ export function registerSite(app) {
     if (!Object.keys(update).length) return res.json({ ok: true })
     const { error } = await supabaseAdmin.from('dealerships').update(update).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
-    res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published })
+    res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST })
+  })
+
+  // ── ADMIN: check whether the dealer's custom domain now points at us ─────────
+  app.post('/dealership/site/verify-domain', requireAuth, async (req, res) => {
+    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Manager access required' })
+    const { data: d } = await supabaseAdmin.from('dealerships').select('custom_domain').eq('id', req.dealershipId).single()
+    const dom = d?.custom_domain
+    if (!dom) return res.status(400).json({ error: 'Add a domain first.' })
+    let ok = false
+    // A CNAME (usually on www) that points at our host is the strongest signal.
+    for (const n of [dom, 'www.' + dom]) {
+      try { const c = await dns.resolveCname(n); if (c.some(x => x.toLowerCase().includes(SITE_HOST))) { ok = true; break } } catch {}
+    }
+    // Apex domains can't CNAME — fall back to comparing A records with our host's.
+    if (!ok) {
+      try {
+        const [ourA, theirA] = await Promise.all([dns.resolve4(SITE_HOST).catch(() => []), dns.resolve4(dom).catch(() => [])])
+        if (theirA.length && theirA.some(ip => ourA.includes(ip))) ok = true
+      } catch {}
+    }
+    await supabaseAdmin.from('dealerships').update({ custom_domain_verified: ok }).eq('id', req.dealershipId)
+    res.json({ verified: ok, domain: dom, target: SITE_HOST, message: ok ? 'Connected! Your domain points to MarketSync.' : 'Not detected yet — DNS changes can take up to an hour. Add the record shown, then check again.' })
   })
 }
