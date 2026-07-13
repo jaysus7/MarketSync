@@ -1884,7 +1884,7 @@ async function loadLeadsPage() {
   };
   const rows = (data.leads || []).map(l => `
     <tr class="border-b border-slate-100 dark:border-slate-800/60">
-      <td class="py-3 px-3"><div class="font-semibold text-slate-900 dark:text-white">${esc(l.name || '—')}</div><div class="text-xs text-slate-400">${esc(l.source || '')}${l.rep ? ' · ' + esc(l.rep) : ''}</div></td>
+      <td class="py-3 px-3"><div class="font-semibold text-slate-900 dark:text-white">${esc(l.name || '—')}</div><div class="text-xs text-slate-400">${esc(l.source || '')}</div><div class="text-[11px] font-semibold mt-0.5 inline-flex items-center gap-1 ${l.rep ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>${l.rep ? esc(l.rep) : 'Unassigned'}</div></td>
       <td class="py-3 px-3 text-slate-600 dark:text-slate-300">${esc(l.phone || '')}${l.phone && l.email ? '<br>' : ''}${esc(l.email || '')}</td>
       <td class="py-3 px-3 text-slate-500 dark:text-slate-400 max-w-[220px]">${esc(l.comments || '')}</td>
       <td class="py-3 px-3">${statusPill(l)}</td>
@@ -4768,6 +4768,7 @@ function PAGE_PRESETS() {
     ] } },
     specials: { label: 'Specials / Offers', page: { title: 'Specials', menu: '', nav: true, sections: [
       psHero('Current Specials', 'Limited-time offers on new, pre-owned and certified vehicles.', 'Get my price', 'inquiry', 'g6'),
+      __psec('ad_banner', { tag: 'Limited time', headline: 'This month’s specials', subtitle: 'Save on select new and pre-owned vehicles — while they last.', button_label: 'See the deals', button_target: 'inquiry' }),
       psSeo('Deals worth driving for', [
         `Great vehicles at even better prices — the current specials at ${name} won’t last long. Our best deals move fast, so if something catches your eye, reach out and we’ll hold it for you.`,
       ]),
@@ -4903,6 +4904,7 @@ const SEC_META = {
   text_image:         { label: 'Text + image split', fields: [['image','Image','image'],['headline','Headline','text'],['body','Paragraph','textarea'],['button_label','Button label','text'],['button_target','Button goes to','target']] },
   body_style:         { label: 'Browse by body style', fields: [['title','Title','text']] },
   payment_calc:       { label: 'Payment calculator', fields: [['title','Title','text'],['rate','Default rate %','number'],['term','Default term (months)','number']] },
+  ad_banner:          { label: 'Specials / promo ad', fields: [['tag','Tag (e.g. Limited time)','text'],['headline','Headline','text'],['subtitle','Subtitle','text'],['button_label','Button label','text'],['button_target','Button goes to','target'],['button_link','Custom link','text'],['image','Image (optional)','image']] },
   trade_cta:          { label: 'Trade-in banner', fields: [['title','Title','text'],['subtitle','Subtitle','text'],['button_label','Button label','text']] },
   finance_cta:        { label: 'Finance banner', fields: [['title','Title','text'],['subtitle','Subtitle','text'],['button_label','Button label','text']] },
   service_cta:        { label: 'Service banner', fields: [['title','Title','text'],['subtitle','Subtitle','text'],['button_label','Button label','text'],['button_target','Button goes to','target'],['button_link','Custom link','text']] },
@@ -4915,7 +4917,7 @@ const SEC_META = {
   contact:            { label: 'Contact form', fields: [['title','Title','text']] },
   html:               { label: 'Custom HTML', fields: [['html','HTML','textarea']] },
 };
-const SEC_ORDER = ['hero','feature_cards','featured_inventory','text_image','body_style','payment_calc','inventory_grid','trade_cta','finance_cta','service_cta','staff','reviews','faq','gallery','map','contact','cta_banner','html'];
+const SEC_ORDER = ['hero','feature_cards','featured_inventory','text_image','body_style','payment_calc','ad_banner','inventory_grid','trade_cta','finance_cta','service_cta','staff','reviews','faq','gallery','map','contact','cta_banner','html'];
 
 async function loadWebsitePage() {
   const root = document.getElementById('website-root');
@@ -10022,7 +10024,8 @@ function updateReportRailVisibility() {
   // Step aside while the AI chat panel is open — it occupies the same right edge.
   const panel = document.getElementById('ai-dock-panel');
   const panelOpen = panel && !panel.classList.contains('hidden');
-  const show = !!__invIntelActive && !panelOpen;
+  const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+  const show = !!__invIntelActive && isMgr && !panelOpen;   // reports are manager-only
   rail.classList.toggle('lg:flex', show);   // lg:flex + base `hidden` = desktop-only when shown
   if (__invIntelActive) wireReportRail();
 }

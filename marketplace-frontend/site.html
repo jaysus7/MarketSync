@@ -397,6 +397,18 @@
             <p class="text-[11px] text-slate-400 mt-2">Estimate only, on approved credit. Taxes are ${taxLabel()} where applicable.</p>
           </div></section>`;
         }
+        case 'ad_banner': {
+          const btn=g.button_label?`<button ${ctaTarget(g.button_target,g.button_link)} class="mt-4 bg-white text-slate-900 font-black px-6 py-3 rounded-lg hover:bg-slate-100 self-start">${esc(g.button_label)}</button>`:'';
+          const img=g.image?`<div class="sm:w-2/5 shrink-0"><img src="${esc(g.image)}" class="w-full h-40 sm:h-full object-cover"></div>`:'';
+          return `<section class="max-w-6xl mx-auto px-4 py-6"><div class="brand-bg text-white rounded-2xl overflow-hidden cshadow flex flex-col sm:flex-row">
+            <div class="flex-1 p-6 sm:p-8 flex flex-col justify-center">
+              ${g.tag?`<span class="self-start text-[11px] font-black uppercase tracking-widest bg-white/20 px-2.5 py-1 rounded-full mb-2">${esc(g.tag)}</span>`:''}
+              <h2 class="text-2xl sm:text-3xl font-black">${esc(g.headline||'This month’s special')}</h2>
+              ${g.subtitle?`<p class="mt-2 text-white/85 max-w-lg">${esc(g.subtitle)}</p>`:''}
+              ${btn}
+            </div>${img}
+          </div></section>`;
+        }
         case 'html': return `<section class="max-w-6xl mx-auto px-4 py-8"><div class="prose max-w-none">${g.html||''}</div></section>`;
         default: return '';
       }
