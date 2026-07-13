@@ -4772,7 +4772,7 @@ function wsSetTarget(v) {
   wsFlushTarget();
   __wsTarget = v === 'home' ? 'home' : parseInt(v);
   __siteSections = __wsTarget === 'home' ? (__homeSections || []) : (Array.isArray(__sitePages[__wsTarget]?.sections) ? __sitePages[__wsTarget].sections : []);
-  __wsTab = 'builder'; renderWsBody();
+  __wsTab = 'builder'; renderWebsitePage();   // full re-render so the Builder tab lights up
 }
 function renderWebsitePage() {
   const root = document.getElementById('website-root'); if (!root) return;
@@ -4796,7 +4796,7 @@ function renderWebsitePage() {
     <div id="ws-body"></div>`;
   renderWsBody();
 }
-function wsTab(t) { __wsTab = t; renderWsBody(); }
+function wsTab(t) { __wsTab = t; renderWebsitePage(); }   // re-render header+tabs so the active underline moves
 function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
   if (__wsTab === 'design') { body.innerHTML = wsDesign(); return; }
@@ -4812,7 +4812,8 @@ function renderWsBody() {
       <select onchange="wsSetTarget(this.value)" class="text-sm font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
         <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>🏠 Home page</option>${pageOpts}
       </select>
-      <span class="text-[11px] text-slate-400 flex-1">Build each page with its own hero, CTAs and sections — just like home.</span>
+      <button onclick="wsTab('pages')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add / manage pages</button>
+      <span class="text-[11px] text-slate-400 flex-1">${(__sitePages || []).length ? 'Pick a page to build it — its own hero, CTAs and sections, just like home.' : 'Only Home so far. Add pages in the Pages tab, then pick them here to customize.'}</span>
       <button onclick="openTemplatePicker()" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg">Template</button>
     </div>
     <div class="grid lg:grid-cols-[minmax(0,1fr)_240px] gap-4">
@@ -5405,7 +5406,7 @@ function renderEquityPage() {
     <div id="equity-body"></div>`;
   renderEquityBody();
 }
-function eqTab(t) { __equity.tab = t; renderEquityBody(); }
+function eqTab(t) { __equity.tab = t; renderEquityPage(); }   // re-render tabs so the active underline moves
 function renderEquityBody() {
   const body = document.getElementById('equity-body'); if (!body) return;
   if (__equity.tab === 'settings') { body.innerHTML = eqSettingsHtml(); return; }
