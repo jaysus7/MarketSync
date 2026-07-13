@@ -154,7 +154,13 @@
       const navItems=[]; const groupIdx={};
       for(const e of entries){
         if(e.menu){
-          if(groupIdx[e.menu]==null){ groupIdx[e.menu]=navItems.length; navItems.push({label:e.menu,children:[]}); }
+          if(groupIdx[e.menu]==null){
+            // If the item just above is a plain link with the same label, make IT the
+            // clickable parent of this dropdown (WordPress-style), else start a group.
+            const last=navItems[navItems.length-1];
+            if(last && !last.children && last.label===e.menu){ last.children=[]; groupIdx[e.menu]=navItems.length-1; }
+            else { groupIdx[e.menu]=navItems.length; navItems.push({label:e.menu,children:[]}); }
+          }
           navItems[groupIdx[e.menu]].children.push({label:e.label,onclick:e.onclick});
         } else navItems.push({label:e.label,onclick:e.onclick});
       }
@@ -168,7 +174,7 @@
             </a>
             <nav class="hidden lg:flex items-center gap-5 text-sm font-semibold shrink-0">
               ${navItems.map(it=> it.children
-                ? `<div class="relative group"><button class="hover:opacity-80 flex items-center gap-1">${esc(it.label)}<span class="text-[9px]">▾</span></button><div class="absolute left-0 top-full pt-2 hidden group-hover:block z-40"><div class="bg-white text-slate-800 rounded-lg shadow-xl py-1 min-w-[190px] max-h-[70vh] overflow-y-auto">${it.children.map(c=>`<a href="#" onclick="${c.onclick};return false" class="block px-4 py-2 hover:bg-slate-100 text-sm">${esc(c.label)}</a>`).join('')}</div></div></div>`
+                ? `<div class="relative group"><button ${it.onclick?`onclick="${it.onclick};return false"`:''} class="hover:opacity-80 flex items-center gap-1">${esc(it.label)}<span class="text-[9px]">▾</span></button><div class="absolute left-0 top-full pt-2 hidden group-hover:block z-40"><div class="bg-white text-slate-800 rounded-lg shadow-xl py-1 min-w-[190px] max-h-[70vh] overflow-y-auto">${it.children.map(c=>`<a href="#" onclick="${c.onclick};return false" class="block px-4 py-2 hover:bg-slate-100 text-sm">${esc(c.label)}</a>`).join('')}</div></div></div>`
                 : `<a href="#" onclick="${it.onclick};return false" class="hover:opacity-80">${esc(it.label)}</a>`
               ).join('')}
             </nav>
@@ -181,7 +187,7 @@
           <div id="mnav" class="lg:hidden hidden border-t border-white/10">
             <nav class="max-w-6xl mx-auto px-4 py-1 flex flex-col text-sm font-semibold">
               ${navItems.map(it=> it.children
-                ? `<div class="py-2 border-b border-white/10"><div class="text-[11px] uppercase tracking-wide text-white/60 mb-1">${esc(it.label)}</div>${it.children.map(c=>`<a href="#" onclick="toggleMobileNav();${c.onclick};return false" class="block py-2 pl-3">${esc(c.label)}</a>`).join('')}</div>`
+                ? `<div class="py-2 border-b border-white/10">${it.onclick?`<a href="#" onclick="toggleMobileNav();${it.onclick};return false" class="block text-[11px] uppercase tracking-wide text-white/80 font-bold mb-1">${esc(it.label)}</a>`:`<div class="text-[11px] uppercase tracking-wide text-white/60 mb-1">${esc(it.label)}</div>`}${it.children.map(c=>`<a href="#" onclick="toggleMobileNav();${c.onclick};return false" class="block py-2 pl-3">${esc(c.label)}</a>`).join('')}</div>`
                 : `<a href="#" onclick="toggleMobileNav();${it.onclick};return false" class="py-3 border-b border-white/10">${esc(it.label)}</a>`
               ).join('')}
               <div class="flex gap-2 py-3">

@@ -4561,30 +4561,50 @@ function menuMove(token, dir) {
   if (i < 0 || j < 0 || j >= a.length) return;
   [a[i], a[j]] = [a[j], a[i]]; renderMenuList();
 }
+// Nest (dir=1) under the nearest item above, or un-nest (dir=-1) to top level.
+function menuSetMenu(it, val) {
+  if (it.kind === 'builtin') { (__siteBuiltins[it.key] = __siteBuiltins[it.key] || { enabled: true, label: it.def, menu: '' }).menu = val || ''; }
+  else { const p = (__sitePages || []).find(x => x.id === it.page.id); if (p) p.menu = val || null; }
+}
+function menuIndent(token, dir) {
+  collectMenu();
+  const items = menuDescriptors();
+  const idx = items.findIndex(it => it.token === token); if (idx < 0) return;
+  if (dir < 0) { menuSetMenu(items[idx], ''); renderMenuList(); return; }
+  let parent = null;
+  for (let j = idx - 1; j >= 0; j--) { const m = items[j].kind === 'builtin' ? (items[j].b.menu || '') : (items[j].page.menu || ''); if (!m) { parent = items[j]; break; } }
+  if (!parent) { showToast('Put this below another item first, then nest it', 'info'); return; }
+  const label = parent.kind === 'builtin' ? (__siteBuiltins[parent.key]?.label || parent.def) : (parent.page.title || '');
+  menuSetMenu(items[idx], label); renderMenuList();
+}
 function wsCustomizeById(id) { collectMenu(); const i = (__sitePages || []).findIndex(p => p.id === id); if (i >= 0) wsSetTarget(i); }
-function removeSitePageById(id) { collectMenu(); __sitePages = (__sitePages || []).filter(p => p.id !== id); __menuOrder = __menuOrder.filter(t => t !== 'p:' + id); renderMenuList(); }
+function removeSitePageById(id) { collectMenu(); __sitePages = (__sitePages || []).filter(p => p.id !== id); __menuOrder = __menuOrder.filter(t => t !== 'p:' + id); renderWsBody(); }
 const MENU_SWITCH = (cls, on) => `<label class="relative inline-flex items-center cursor-pointer shrink-0"><input type="checkbox" class="${cls} sr-only peer" ${on ? 'checked' : ''} onchange="collectMenu();renderMenuList()"><div class="w-9 h-5 bg-slate-300 dark:bg-slate-600 peer-checked:bg-indigo-600 rounded-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition peer-checked:after:translate-x-4"></div></label>`;
 function menuRow(it, i, n) {
   const grp = 'w-24 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs';
-  const handle = `<span class="menu-drag cursor-grab select-none text-slate-400 shrink-0 text-lg leading-none" draggable="true" title="Drag to reorder">⠿</span>
-    <div class="flex flex-col shrink-0 -my-1"><button type="button" onclick="menuMove('${it.token}',-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-25 leading-none text-[10px]">▲</button><button type="button" onclick="menuMove('${it.token}',1)" ${i === n - 1 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-25 leading-none text-[10px]">▼</button></div>`;
+  const menuVal = it.kind === 'builtin' ? (it.b.menu || '') : (it.page.menu || '');
+  const indent = menuVal ? 'style="margin-left:1.75rem"' : '';
+  const childMark = menuVal ? `<span class="text-slate-400 shrink-0 text-xs" title="Nested under ${esc(menuVal)}">↳</span>` : '';
+  const handle = `<span class="menu-drag cursor-grab select-none text-slate-400 shrink-0 text-lg leading-none" draggable="true" title="Drag up/down to reorder, right to nest">⠿</span>
+    <div class="flex flex-col shrink-0 -my-1"><button type="button" onclick="menuMove('${it.token}',-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-25 leading-none text-[10px]">▲</button><button type="button" onclick="menuMove('${it.token}',1)" ${i === n - 1 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-25 leading-none text-[10px]">▼</button></div>
+    <div class="flex flex-col shrink-0 -my-1"><button type="button" onclick="menuIndent('${it.token}',1)" class="text-slate-400 hover:text-indigo-600 leading-none text-[11px]" title="Nest under the item above">→</button><button type="button" onclick="menuIndent('${it.token}',-1)" ${menuVal ? '' : 'disabled'} class="text-slate-400 hover:text-indigo-600 disabled:opacity-25 leading-none text-[11px]" title="Move to top level">←</button></div>${childMark}`;
   if (it.kind === 'builtin') {
     const b = it.b;
-    return `<div class="menu-row flex items-center gap-2 flex-wrap border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-900 ${b.enabled ? '' : 'opacity-60'}" data-token="${it.token}" data-bi="${it.key}">
+    return `<div class="menu-row flex items-center gap-2 flex-wrap border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-900 ${b.enabled ? '' : 'opacity-60'}" ${indent} data-token="${it.token}" data-bi="${it.key}">
       ${handle}${MENU_SWITCH('bi-on', b.enabled)}
       <input class="bi-label flex-1 min-w-[110px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-semibold" value="${esc(b.label || it.def)}" placeholder="${esc(it.def)}">
-      <input class="bi-menu ${grp}" list="menu-grp-opts" value="${esc(b.menu || '')}" placeholder="Submenu">
+      <input class="bi-menu ${grp}" list="menu-grp-opts" value="${esc(b.menu || '')}" placeholder="Submenu" onchange="collectMenu();renderMenuList()">
       <span class="text-[9px] font-bold text-slate-400 uppercase shrink-0">Built-in</span>
     </div>`;
   }
   const p = it.page;
   const badge = p.kind === 'model' ? '<span class="text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 px-1.5 py-0.5 rounded-full shrink-0">Model</span>' : p.kind === 'incentive' ? '<span class="text-[9px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full shrink-0">Offer</span>' : '';
   const showBody = p.kind === 'model' || p.kind === 'incentive' || (p.body_html && !(p.sections && p.sections.length));
-  return `<div class="menu-row border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-900 space-y-1" data-token="${it.token}" data-pid="${p.id}">
+  return `<div class="menu-row border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-900 space-y-1" ${indent} data-token="${it.token}" data-pid="${p.id}">
     <div class="flex items-center gap-2 flex-wrap">
       ${handle}${MENU_SWITCH('pg-nav', p.nav !== false)}
       <input class="pg-title flex-1 min-w-[110px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-semibold" placeholder="Page title" value="${esc(p.title || '')}">${badge}
-      <input class="pg-menu ${grp}" list="menu-grp-opts" value="${esc(p.menu || '')}" placeholder="Submenu">
+      <input class="pg-menu ${grp}" list="menu-grp-opts" value="${esc(p.menu || '')}" placeholder="Submenu" onchange="collectMenu();renderMenuList()">
       <button type="button" onclick="wsCustomizeById('${p.id}')" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap shrink-0">✎ Customize${(p.sections && p.sections.length) ? ' (' + p.sections.length + ')' : ''}</button>
       <button type="button" onclick="removeSitePageById('${p.id}')" class="text-rose-500 text-xs font-bold shrink-0">✕</button>
     </div>
@@ -4601,10 +4621,18 @@ function renderMenuList() {
 // Drag from the ⠿ handle; the row is moved. collectMenu() on drop re-reads order.
 function wsMenuDragWire() {
   const list = document.getElementById('menu-list'); if (!list || list._dw) return; list._dw = 1;
-  let drag = null;
-  list.addEventListener('dragstart', e => { if (!e.target.classList?.contains('menu-drag')) return; drag = e.target.closest('.menu-row'); if (!drag) return; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', ''); } catch {} setTimeout(() => drag && drag.classList.add('opacity-40'), 0); });
-  list.addEventListener('dragend', () => { if (drag) drag.classList.remove('opacity-40'); drag = null; collectMenu(); });
-  list.addEventListener('dragover', e => { if (!drag) return; e.preventDefault(); const after = menuDragAfter(list, e.clientY); if (!after) list.appendChild(drag); else list.insertBefore(drag, after); });
+  let drag = null, startX = 0, lastX = 0;
+  list.addEventListener('dragstart', e => { if (!e.target.classList?.contains('menu-drag')) return; drag = e.target.closest('.menu-row'); if (!drag) return; startX = lastX = e.clientX; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', ''); } catch {} setTimeout(() => drag && drag.classList.add('opacity-40'), 0); });
+  list.addEventListener('dragend', () => {
+    if (!drag) return;
+    drag.classList.remove('opacity-40');
+    const token = drag.dataset.token, dx = lastX - startX; drag = null;
+    collectMenu();                                   // sync new vertical order
+    if (dx > 40) menuIndent(token, 1);               // dragged right → nest
+    else if (dx < -40) menuIndent(token, -1);        // dragged left → un-nest
+    else renderMenuList();                            // refresh arrows/indent marks
+  });
+  list.addEventListener('dragover', e => { if (!drag) return; e.preventDefault(); lastX = e.clientX; const after = menuDragAfter(list, e.clientY); if (!after) list.appendChild(drag); else list.insertBefore(drag, after); });
 }
 function menuDragAfter(list, y) {
   let best = null, bestOff = -Infinity;
@@ -4662,12 +4690,23 @@ function PAGE_PRESETS() {
     blank: { label: 'Blank page', page: { title: '', menu: '', nav: true, sections: [] } },
   };
 }
+// Only offer presets the dealer hasn't already added (matched by title). Blank always available.
+function wsAddPageOptions() {
+  const presets = PAGE_PRESETS();
+  const have = new Set((__sitePages || []).map(p => (p.title || '').trim().toLowerCase()));
+  let opts = `<option value="">+ Add page…</option>`;
+  for (const k of ['about', 'book_service', 'service', 'parts', 'accessories', 'specials', 'careers']) {
+    const pr = presets[k]; if (!pr || have.has((pr.page.title || '').trim().toLowerCase())) continue;
+    opts += `<option value="${k}">${esc(pr.label)}</option>`;
+  }
+  return opts + `<option value="blank">Blank page</option>`;
+}
 function addSitePagePreset(key) {
   if (!key) return;
   collectSitePages();
   const preset = PAGE_PRESETS()[key]; if (!preset) return;
   __sitePages.push({ id: 'pg' + Math.random().toString(36).slice(2, 9), ...JSON.parse(JSON.stringify(preset.page)) });
-  renderMenuList();
+  renderWsBody();   // rebuild the whole Pages tab so the add dropdown drops the used preset
   showToast(`Added “${preset.label}” — customize & Save`, 'success');
 }
 const SITE_SLOTS = [['top_banner', 'Top banner'], ['hero_below', 'Under hero'], ['above_inventory', 'Above inventory'], ['below_inventory', 'Below inventory'], ['above_footer', 'Above footer']];
@@ -4919,17 +4958,7 @@ function wsPages() {
       </div>
       <div class="flex items-center gap-2 shrink-0 flex-wrap">
         <button type="button" onclick="autoBuildPages(this)" class="text-xs font-bold text-violet-600 dark:text-violet-400">✨ Auto-build model &amp; offer pages</button>
-        <select onchange="addSitePagePreset(this.value);this.value=''" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5">
-          <option value="">+ Add page…</option>
-          <option value="about">About Us</option>
-          <option value="book_service">Book a Service Appointment</option>
-          <option value="service">Service Department</option>
-          <option value="parts">Parts Department</option>
-          <option value="accessories">Accessories</option>
-          <option value="specials">Specials / Offers</option>
-          <option value="careers">Careers</option>
-          <option value="blank">Blank page</option>
-        </select>
+        <select onchange="addSitePagePreset(this.value);this.value=''" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5">${wsAddPageOptions()}</select>
       </div>
     </div>
     <div id="menu-list" class="space-y-2"></div>
@@ -5146,7 +5175,7 @@ async function applyTemplate(id) {
   renderWebsitePage();
   showToast('Template applied — review, then Save', 'success');
 }
-Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette });
+Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, menuIndent, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette });
 
 // ══ Automation engine — manager workspace (inline toggles + message boxes) ═══
 // State: __autoCfg { campaigns[], settings{}, region{}, can_manage }; __autoHol = working holiday rows.
