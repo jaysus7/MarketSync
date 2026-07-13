@@ -619,6 +619,9 @@
       <!-- ───────── INSIGHTS PAGE ───────── -->
       <div data-page-content="insights" class="page-content space-y-8">
 
+      <!-- Executive ROI dashboard (managers) — injected by loadExecutiveRoi() -->
+      <div id="exec-roi"></div>
+
       <!-- Loading skeleton — visible until JS resolves the profile and hides it -->
       <div id="insights-skeleton" class="space-y-4">
         <div class="h-7 w-40 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
@@ -2455,7 +2458,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260713o"></script>
+  <script src="dashboard.js?v=20260713p"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

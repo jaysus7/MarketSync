@@ -22,6 +22,7 @@ function contactPatchFromBody(b) {
   if (b.birthday !== undefined) p.birthday = b.birthday || null
   if (b.dl_expiry !== undefined) p.dl_expiry = b.dl_expiry || null
   if (b.status !== undefined) p.status = CONTACT_STATUSES.includes(b.status) ? b.status : 'uncontacted'
+  if (b.sold_source !== undefined) p.sold_source = b.sold_source ? String(b.sold_source).slice(0, 60) : null
   if (b.assigned_rep !== undefined) p.assigned_rep = b.assigned_rep || null
   if (b.tags !== undefined) p.tags = Array.isArray(b.tags) ? b.tags : []
   if (b.consent_email !== undefined) p.consent_email = !!b.consent_email

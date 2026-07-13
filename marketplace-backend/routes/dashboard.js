@@ -796,4 +796,108 @@ export function registerRoutes(app) {
       ...stats
     })
   })
+
+  // ── Executive ROI dashboard (managers) — proves the platform is paying off ───
+  // Every metric here is computed from data we already capture, so the numbers are
+  // real, not modelled: speed-to-lead, lead volume, conversion, days-to-sell,
+  // marketplace posts, appraisals, follow-up completion, repricing signals, and
+  // (once captured) attributed sales by source.
+  app.get('/dashboard/executive', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json({ ok: true, empty: true })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
+    const days = ({ '7': 7, '30': 30, '90': 90, '365': 365 }[String(req.query.range || '90')]) || 90
+    const now = Date.now()
+    const startIso = new Date(now - days * 86400000).toISOString()
+    const prevStartIso = new Date(now - days * 2 * 86400000).toISOString()
+    const did = req.dealershipId
+
+    // ── Leads + speed-to-lead ──────────────────────────────────────────────────
+    const { data: leadRows } = await supabaseAdmin.from('leads')
+      .select('id, contact_id, created_at').eq('dealership_id', did).gte('created_at', prevStartIso).limit(20000)
+    const curLeads = (leadRows || []).filter(l => l.created_at >= startIso)
+    const prevLeads = (leadRows || []).filter(l => l.created_at < startIso)
+    // Earliest lead time per contact (in the current window) → response baseline.
+    const firstLeadByContact = {}
+    for (const l of curLeads) {
+      if (!l.contact_id) continue
+      const t = new Date(l.created_at).getTime()
+      if (!firstLeadByContact[l.contact_id] || t < firstLeadByContact[l.contact_id]) firstLeadByContact[l.contact_id] = t
+    }
+    const leadContactIds = Object.keys(firstLeadByContact)
+    let responded = 0, under5 = 0, respTimes = []
+    if (leadContactIds.length) {
+      const { data: comms } = await supabaseAdmin.from('communications')
+        .select('contact_id, direction, occurred_at, created_at')
+        .eq('dealership_id', did).in('contact_id', leadContactIds.slice(0, 3000))
+        .in('direction', ['out', 'outbound']).limit(50000)
+      // Earliest outbound touch per contact.
+      const firstTouch = {}
+      for (const c of (comms || [])) {
+        const t = new Date(c.occurred_at || c.created_at).getTime()
+        if (!Number.isFinite(t)) continue
+        if (!firstTouch[c.contact_id] || t < firstTouch[c.contact_id]) firstTouch[c.contact_id] = t
+      }
+      for (const cid of leadContactIds) {
+        const touch = firstTouch[cid]; const lead = firstLeadByContact[cid]
+        if (touch && touch >= lead) {
+          const mins = (touch - lead) / 60000
+          responded++; respTimes.push(mins)
+          if (mins <= 5) under5++
+        }
+      }
+    }
+    respTimes.sort((a, b) => a - b)
+    const medianResp = respTimes.length ? Math.round(respTimes[Math.floor(respTimes.length / 2)]) : null
+    const under5Pct = responded ? Math.round((under5 / responded) * 100) : 0
+    const respRate = curLeads.length ? Math.round((responded / curLeads.length) * 100) : 0
+
+    // ── Pipeline conversion + attributed sales by source ───────────────────────
+    const { data: contactRows } = await supabaseAdmin.from('contacts')
+      .select('status, sold_source').eq('dealership_id', did).limit(50000)
+    const totalContacts = (contactRows || []).length
+    const wonRows = (contactRows || []).filter(c => ['sold', 'fni', 'delivered'].includes(c.status))
+    const conversionPct = totalContacts ? Math.round((wonRows.length / totalContacts) * 1000) / 10 : 0
+    const sourceMap = {}
+    for (const c of wonRows) { const s = c.sold_source || 'Unattributed'; sourceMap[s] = (sourceMap[s] || 0) + 1 }
+    const sold_by_source = Object.entries(sourceMap).map(([k, v]) => ({ source: k, count: v })).sort((a, b) => b.count - a.count)
+
+    // ── Marketplace posts + days-to-sell (listings via this dealer's inventory) ─
+    const { data: invIds } = await supabaseAdmin.from('inventory').select('id').eq('dealership_id', did).limit(5000)
+    const ids = (invIds || []).map(v => v.id)
+    let mkPosted = 0, daysSamples = []
+    if (ids.length) {
+      const { data: listings } = await supabaseAdmin.from('listings')
+        .select('inventory_id, posted_at, sold_at').in('inventory_id', ids.slice(0, 5000)).limit(50000)
+      for (const l of (listings || [])) {
+        if (l.posted_at && l.posted_at >= startIso) mkPosted++
+        if (l.sold_at && l.posted_at && l.sold_at >= startIso) {
+          const d = (new Date(l.sold_at) - new Date(l.posted_at)) / 86400000
+          if (d >= 0 && d < 365) daysSamples.push(d)
+        }
+      }
+    }
+    const avgDaysToSell = daysSamples.length ? Math.round((daysSamples.reduce((a, b) => a + b, 0) / daysSamples.length) * 10) / 10 : null
+
+    // ── Appraisals, follow-up completion, repricing signals ────────────────────
+    const [{ count: apprCount }, { data: taskRows }, { count: priceFlags }] = await Promise.all([
+      supabaseAdmin.from('trade_appraisals').select('id', { count: 'exact', head: true }).eq('dealership_id', did).gte('created_at', startIso),
+      supabaseAdmin.from('crm_tasks').select('done').eq('dealership_id', did).gte('created_at', startIso).limit(50000),
+      supabaseAdmin.from('ai_activity').select('id', { count: 'exact', head: true }).eq('dealership_id', did).eq('price_flagged', true).gte('created_at', startIso),
+    ])
+    const taskTotal = (taskRows || []).length
+    const taskDone = (taskRows || []).filter(t => t.done).length
+    const followupPct = taskTotal ? Math.round((taskDone / taskTotal) * 100) : 0
+
+    res.json({
+      ok: true, range_days: days,
+      leads: {
+        total: curLeads.length, prev_total: prevLeads.length,
+        trend_pct: prevLeads.length ? Math.round(((curLeads.length - prevLeads.length) / prevLeads.length) * 100) : (curLeads.length ? 100 : 0),
+        response_rate_pct: respRate, under_5min_pct: under5Pct, responded, median_response_min: medianResp,
+      },
+      pipeline: { total_contacts: totalContacts, won: wonRows.length, conversion_pct: conversionPct, sold_by_source },
+      inventory: { marketplace_posted: mkPosted, avg_days_to_sell: avgDaysToSell, days_sold_count: daysSamples.length, repricing_signals: priceFlags || 0 },
+      activity: { appraisals: apprCount || 0, followup_completion_pct: followupPct, tasks_total: taskTotal, tasks_done: taskDone },
+    })
+  })
 }

@@ -1436,9 +1436,21 @@ async function crmQuickStatus(ev, id) {
   ev.stopPropagation();
   const sel = ev.target, status = sel.value;
   sel.disabled = true;
-  try { await apiSendJson(`/crm/contacts/${id}`, 'PUT', { status }); showToast('Moved to ' + (CRM_STATUS[status] || status), 'success'); if (typeof crmRefreshContacts === 'function') crmRefreshContacts(); }
+  // On a win, capture where the deal came from — powers the ROI "sales by source".
+  const body = { status };
+  if (['sold', 'fni', 'delivered'].includes(status)) {
+    const src = askSoldSource();
+    if (src) body.sold_source = src;
+  }
+  try { await apiSendJson(`/crm/contacts/${id}`, 'PUT', body); showToast('Moved to ' + (CRM_STATUS[status] || status), 'success'); if (typeof crmRefreshContacts === 'function') crmRefreshContacts(); }
   catch (e) { showToast(e.message, 'error'); }
   finally { sel.disabled = false; }
+}
+// Lightweight sold-source prompt (managers can also leave it blank).
+function askSoldSource() {
+  const opts = ['Website', 'Website Chat', 'Facebook Marketplace', 'Walk-in', 'Phone', 'Referral', 'Repeat', 'Other'];
+  const ans = prompt(`Where did this sale come from?\nType one of: ${opts.join(', ')}\n(or leave blank to skip)`, '');
+  return (ans || '').trim().slice(0, 60) || null;
 }
 window.crmQuickStatus = crmQuickStatus;
 
@@ -2548,7 +2560,63 @@ async function loadSyncHealth() {
   } catch { /* non-fatal */ }
 }
 
+// ── Executive ROI dashboard (managers) — the "is this paying off?" view ──────
+let __execRoiRange = '90';
+async function loadExecutiveRoi() {
+  const root = document.getElementById('exec-roi');
+  if (!root) return;
+  const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+  if (!isMgr) { root.innerHTML = ''; return; }
+  let d;
+  try { d = await apiGetJson(`/dashboard/executive?range=${encodeURIComponent(__execRoiRange)}`, { retries: 1 }); }
+  catch { root.innerHTML = ''; return; }
+  if (!d || d.empty) { root.innerHTML = ''; return; }
+
+  const tile = (label, value, sub, accent) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+    <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${esc(label)}</div>
+    <div class="text-2xl font-black ${accent || 'text-slate-900 dark:text-white'} mt-1">${value}</div>
+    ${sub ? `<div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${sub}</div>` : ''}</div>`;
+  const trend = d.leads.trend_pct;
+  const trendHtml = `<span class="${trend >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-bold">${trend >= 0 ? '▲' : '▼'} ${Math.abs(trend)}%</span> <span class="text-slate-400">vs prior</span>`;
+  const rangeBtn = (v, label) => `<button onclick="execRoiRange('${v}')" class="px-3 py-1.5 text-xs font-bold rounded-lg border ${__execRoiRange === v ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}">${label}</button>`;
+  const speedAccent = d.leads.under_5min_pct >= 50 ? 'text-emerald-600 dark:text-emerald-400' : d.leads.under_5min_pct >= 25 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400';
+  const srcMax = Math.max(1, ...(d.pipeline.sold_by_source || []).map(s => s.count));
+  const srcHtml = (d.pipeline.sold_by_source || []).length
+    ? d.pipeline.sold_by_source.slice(0, 6).map(s => `<div class="flex items-center gap-2 text-sm">
+        <div class="w-32 shrink-0 truncate text-slate-600 dark:text-slate-300" title="${esc(s.source)}">${esc(s.source)}</div>
+        <div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden"><div class="h-full bg-indigo-500 rounded-full" style="width:${Math.round((s.count / srcMax) * 100)}%"></div></div>
+        <div class="w-8 text-right font-bold tabular-nums text-slate-700 dark:text-slate-200">${s.count}</div></div>`).join('')
+    : '<div class="text-xs text-slate-400 italic">No attributed sales yet — set a “sold source” when you mark a deal delivered.</div>';
+
+  root.innerHTML = `
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <h2 class="text-xl font-black text-slate-900 dark:text-white">Executive summary</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400">What MarketSync moved for you — last ${d.range_days} days.</p>
+      </div>
+      <div class="flex gap-1.5">${rangeBtn('7', '7d')}${rangeBtn('30', '30d')}${rangeBtn('90', '90d')}${rangeBtn('365', '1y')}</div>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      ${tile('New leads', d.leads.total, trendHtml)}
+      ${tile('Responded &lt; 5 min', d.leads.under_5min_pct + '%', `${d.leads.responded} responded · median ${d.leads.median_response_min != null ? d.leads.median_response_min + ' min' : '—'}`, speedAccent)}
+      ${tile('Conversion', d.pipeline.conversion_pct + '%', `${d.pipeline.won} of ${d.pipeline.total_contacts} contacts`)}
+      ${tile('Avg days to sell', d.inventory.avg_days_to_sell != null ? d.inventory.avg_days_to_sell : '—', `${d.inventory.days_sold_count} sold via Marketplace`)}
+      ${tile('Marketplace posts', d.inventory.marketplace_posted, 'vehicles posted')}
+      ${tile('Trade appraisals', d.activity.appraisals, 'completed')}
+      ${tile('Follow-up completion', d.activity.followup_completion_pct + '%', `${d.activity.tasks_done}/${d.activity.tasks_total} tasks`)}
+      ${tile('Repricing signals', d.inventory.repricing_signals, 'off-market alerts')}
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+      <div class="text-sm font-bold text-slate-900 dark:text-white mb-3">Attributed sales by source</div>
+      <div class="space-y-2">${srcHtml}</div>
+    </div>
+    <div class="border-b border-slate-200 dark:border-slate-800 pt-1"></div>`;
+}
+function execRoiRange(v) { __execRoiRange = v; loadExecutiveRoi(); }
+window.execRoiRange = execRoiRange;
+
 async function loadInsights() {
+  loadExecutiveRoi();
   loadSyncHealth();
   try {
     const res = await fetch(`${API}/dashboard/insights?range=${insightsRange}`, { headers: { 'Authorization': `Bearer ${token}` } });
