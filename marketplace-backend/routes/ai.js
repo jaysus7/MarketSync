@@ -6,8 +6,25 @@ import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, assistant
 import { findOrCreateContact } from './crm.js'
 import { createNotification, createNotifications } from '../notifications.js'
 import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
+import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
 
 const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+
+// Best-effort: pull the factory (OEM) window sticker for an acquired unit's VIN and
+// attach it, so a freshly-taken trade carries real factory documentation before the
+// lot shoots photos (#18). Fire-and-forget — never blocks or fails the acquisition.
+async function attachOemStickerToInventory(dealershipId, inventoryId, vehicle) {
+  try {
+    if (!vehicle?.vin) return
+    const oem = await fetchOemWindowStickerPdf({ vin: vehicle.vin, make: vehicle.make || null }).catch(() => null)
+    if (!oem?.buffer) return
+    const path = `${dealershipId}/appraisal/${vehicle.vin}-window-sticker-oem.pdf`
+    const { error } = await supabaseAdmin.storage.from('vehicle-pdfs').upload(path, oem.buffer, { contentType: 'application/pdf', upsert: true })
+    if (error) return
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-pdfs').getPublicUrl(path)
+    if (publicUrl) await supabaseAdmin.from('inventory').update({ window_sticker_oem_url: publicUrl }).eq('id', inventoryId).eq('dealership_id', dealershipId)
+  } catch (e) { console.warn('[acquire] OEM sticker attach failed:', e.message) }
+}
 
 // Google-Translate language codes → names, so AI-written listing copy can be
 // requested in the rep's chosen language. Unknown codes pass through as-is.
@@ -1383,6 +1400,82 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
     if (error) return res.status(500).json({ error: error.message })
     if (!data) return res.status(404).json({ error: 'Not found' })
     res.json(data)
+  })
+
+  // Push an appraised/won trade onto the website inventory — GATED until the
+  // dealer takes possession (#16). The unit is created hidden (awaiting_possession)
+  // and only goes live once the linked deal is Delivered in the CRM, or a manager
+  // flips possession manually. Images/docs (#18) come from the brochure/window
+  // sticker fetched during appraisal, carried over as-is when the client passes them.
+  app.post('/ai/appraisals/:id/acquire', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    if (!MANAGEMENT_ROLES.includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
+    const { data: ap, error } = await supabaseAdmin.from('trade_appraisals')
+      .select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!ap) return res.status(404).json({ error: 'Appraisal not found' })
+
+    // Already pushed? Return the existing unit rather than duplicating.
+    if (ap.inventory_id) {
+      const { data: existing } = await supabaseAdmin.from('inventory')
+        .select('id, status, awaiting_possession').eq('id', ap.inventory_id).maybeSingle()
+      if (existing) return res.json({ ok: true, inventory_id: existing.id, already: true, awaiting_possession: !!existing.awaiting_possession })
+    }
+
+    const b = req.body || {}
+    const numOrNull = (x) => { const n = Number(x); return Number.isFinite(n) ? n : null }
+    // Asking price defaults to the appraisal's reconciled retail; the manager can edit later.
+    const retail = numOrNull(ap.appraisal?.retail_mid) ?? numOrNull(ap.retail_median)
+    const price = numOrNull(b.price) ?? retail
+    // Brochure / window-sticker docs captured during appraisal (as-is, #18).
+    const docFields = {}
+    for (const k of ['window_sticker_oem_url', 'window_sticker_gen_url', 'brochure_oem_url', 'brochure_gen_url']) {
+      if (b[k] && typeof b[k] === 'string') docFields[k] = b[k]
+    }
+    const row = {
+      dealership_id: req.dealershipId, source: 'appraisal', status: 'available',
+      condition: 'used',
+      vin: ap.vin ? String(ap.vin).trim().toUpperCase().slice(0, 17) : null,
+      year: ap.year || null, make: ap.make || null, model: ap.model || null, trim: ap.trim || null,
+      mileage: numOrNull(ap.mileage), price,
+      body_style: ap.body_type || null, engine: ap.engine || null,
+      transmission: ap.transmission || null, drivetrain: ap.drivetrain || null,
+      fuel_type: ap.fuel_type || null, exterior_color: ap.color || null,
+      stocknumber: (b.stocknumber && String(b.stocknumber).trim()) || (ap.vin ? String(ap.vin).trim().toUpperCase().slice(-8) : null),
+      image_urls: Array.isArray(b.image_urls) ? b.image_urls.filter(u => typeof u === 'string') : [],
+      description: b.description || null,
+      ...docFields,
+      // The possession gate: hidden from the public site until this clears.
+      awaiting_possession: true,
+      source_appraisal_id: ap.id,
+      lot_date: new Date().toISOString(),
+    }
+    const { data: inv, error: invErr } = await supabaseAdmin.from('inventory').insert(row).select('id').single()
+    if (invErr) return res.status(500).json({ error: invErr.message })
+    await supabaseAdmin.from('trade_appraisals').update({ inventory_id: inv.id }).eq('id', ap.id)
+    // #18: best-effort factory window sticker for the unit (Inventory Intelligence only),
+    // fire-and-forget so it never delays or fails the acquisition.
+    if (row.vin && !row.window_sticker_oem_url) {
+      const { data: dealer } = await supabaseAdmin.from('dealerships').select('inv_intel_active').eq('id', req.dealershipId).maybeSingle()
+      const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+      if (isOwner || dealer?.inv_intel_active) attachOemStickerToInventory(req.dealershipId, inv.id, { vin: row.vin, make: row.make }).catch(() => {})
+    }
+    res.json({ ok: true, inventory_id: inv.id, awaiting_possession: true })
+  })
+
+  // Manually clear the possession gate → the acquired unit goes live on the site.
+  app.post('/ai/appraisals/:id/take-possession', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    if (!MANAGEMENT_ROLES.includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
+    const { data: ap } = await supabaseAdmin.from('trade_appraisals')
+      .select('id, inventory_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!ap?.inventory_id) return res.status(404).json({ error: 'No acquired unit for this appraisal' })
+    const { error } = await supabaseAdmin.from('inventory')
+      .update({ awaiting_possession: false, possession_at: new Date().toISOString() })
+      .eq('id', ap.inventory_id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    await supabaseAdmin.from('trade_appraisals').update({ acquired_at: new Date().toISOString() }).eq('id', ap.id)
+    res.json({ ok: true, inventory_id: ap.inventory_id, live: true })
   })
 
   // Managers/appraisers for the "Notify appraiser" checklist (any dealership user).

@@ -302,7 +302,7 @@ export function registerRoutes(app) {
     const cutoff = new Date(Date.now() - 14 * 86400000).toISOString()
     const { data, error } = await supabaseAdmin
       .from('inventory')
-      .select('id, vin, year, make, model, trim, price, mileage, condition, exterior_color, interior_color, body_style, fuel_type, drivetrain, transmission, engine, doors, status, archived_at, image_urls, source_url, source, description, stocknumber, last_synced_at, window_sticker_url, window_sticker_oem_url, window_sticker_gen_url, brochure_url, brochure_oem_url, brochure_gen_url, recalls, recalls_checked_at, vin_data, sales_pitch, sales_pitch_at, specs_manual')
+      .select('id, vin, year, make, model, trim, price, mileage, condition, exterior_color, interior_color, body_style, fuel_type, drivetrain, transmission, engine, doors, status, archived_at, image_urls, source_url, source, description, stocknumber, last_synced_at, window_sticker_url, window_sticker_oem_url, window_sticker_gen_url, brochure_url, brochure_oem_url, brochure_gen_url, recalls, recalls_checked_at, vin_data, sales_pitch, sales_pitch_at, specs_manual, awaiting_possession, source_appraisal_id')
       .eq('dealership_id', req.dealershipId)
       // Live units (archived_at IS NULL) OR anything archived within the last 2 weeks.
       .or(`archived_at.is.null,archived_at.gte.${cutoff}`)

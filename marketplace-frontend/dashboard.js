@@ -5957,6 +5957,7 @@ function renderCatalog() {
         <div class="flex items-center gap-1 flex-wrap">
           ${conditionBadge(v.condition)}
           ${statusBadge(v.status)}
+          ${v.awaiting_possession ? `<span class="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md border bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" title="Acquired trade — hidden from your website until the deal is delivered (possession)">⏳ Awaiting possession</span>` : ''}
           ${(() => {
             const makeModel = `${v.make} ${v.model}`.toLowerCase()
             const gtag = 'inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm'
@@ -10742,15 +10743,60 @@ async function loadAppraisalRecord(id) {
     const resEl = document.getElementById('appr-result');
     if (resEl) {
       const label = [row.year, row.make, row.model, row.trim].filter(Boolean).join(' ') || 'Vehicle';
+      const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+      // Push-to-website control (#16). Gated to managers; the unit stays hidden from
+      // the public site until the customer's deal is delivered (possession).
+      let acquireCtrl = '';
+      if (isMgr) {
+        if (!row.inventory_id) {
+          acquireCtrl = `<button onclick="acquireAppraisal('${row.id}')" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Add to website inventory</button>
+          <div class="text-[10px] text-slate-400 mt-1 text-right max-w-[180px]">Hidden until the deal is delivered (possession).</div>`;
+        } else if (!row.acquired_at) {
+          acquireCtrl = `<div class="text-right"><span class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[11px] font-bold px-2.5 py-1">Awaiting possession</span>
+            <div><button onclick="takePossession('${row.id}')" class="mt-1.5 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold px-3 py-1.5">Mark in possession → go live</button></div></div>`;
+        } else {
+          acquireCtrl = `<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold px-2.5 py-1">Live on website</span>`;
+        }
+      }
       resEl.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
         <div><div class="text-xs font-bold uppercase tracking-wider text-indigo-500">Loaded saved appraisal</div>
         <div class="text-sm font-semibold text-slate-900 dark:text-white mt-0.5">${esc(label)}</div></div>
         ${row.appraisal ? `<div class="text-right"><div class="text-[10px] uppercase tracking-wider text-slate-400">Suggested offer</div><div class="text-lg font-black text-slate-900 dark:text-white">${money(row.appraisal.suggested_offer)} ${esc(row.currency || '')}</div></div>` : ''}
+        ${acquireCtrl ? `<div class="w-full flex justify-end pt-1 border-t border-slate-100 dark:border-slate-800 mt-1">${acquireCtrl}</div>` : ''}
       </div>`;
     }
     apprDealMsg('Loaded — edit and Save to update, or print a PDF. Salesperson: ' + (row.salesperson_name || '—') + '.', 'success');
     document.getElementById('appr-result')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch { showToast('Could not load appraisal', 'error'); }
+}
+
+// Push an acquired trade onto the website inventory — created hidden, released to
+// the public site once the deal is delivered (or via "Mark in possession"). (#16)
+async function acquireAppraisal(id) {
+  if (!confirm('Add this vehicle to your website inventory?\n\nIt stays HIDDEN from the public site until the customer’s deal is Delivered (you take possession). You can also flip it live manually.')) return;
+  try {
+    const r = await fetch(`${API}/ai/appraisals/${encodeURIComponent(id)}/acquire`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { showToast(d.error || 'Could not add to inventory', 'error'); return; }
+    showToast(d.already ? 'Already on your inventory.' : 'Added — hidden until possession.', 'success');
+    loadAppraisalRecord(id);
+  } catch { showToast('Network error', 'error'); }
+}
+async function takePossession(id) {
+  if (!confirm('Mark this trade as in your possession?\n\nThe unit goes LIVE on your website inventory now.')) return;
+  try {
+    const r = await fetch(`${API}/ai/appraisals/${encodeURIComponent(id)}/take-possession`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { showToast(d.error || 'Could not update', 'error'); return; }
+    showToast('Live on your website inventory.', 'success');
+    loadAppraisalRecord(id);
+  } catch { showToast('Network error', 'error'); }
 }
 
 // Google Translate widget: when the rep picks a language, persist it so their

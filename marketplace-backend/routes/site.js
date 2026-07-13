@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware.js'
 import { findOrCreateContact } from './crm.js'
 import { enqueueForTrigger } from './automation.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
+import { createNotification } from '../notifications.js'
 
 const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
@@ -250,6 +251,7 @@ async function buildSiteResponse(d) {
     supabaseAdmin.from('inventory')
       .select('id, year, make, model, trim, price, mileage, condition, exterior_color, interior_color, drivetrain, fuel_type, transmission, engine, body_style, doors, stocknumber, vin, image_urls, description, carfax_url, window_sticker_url, window_sticker_oem_url, window_sticker_gen_url, brochure_url, brochure_oem_url, brochure_gen_url, recalls, vin_data, sales_pitch, specs_manual, status, created_at')
       .eq('dealership_id', d.id).is('archived_at', null).neq('status', 'sold')
+      .or('awaiting_possession.is.null,awaiting_possession.eq.false')   // hide acquired trades until possession (#16)
       .order('created_at', { ascending: false }).limit(600),
     supabaseAdmin.from('profiles')
       .select('full_name, display_name, avatar_url, phone, role, hide_on_site, bio')
@@ -294,6 +296,60 @@ export function registerSite(app) {
     res.json(await buildSiteResponse(d))
   })
 
+  // ── Trade-in ballpark (zero-cost heuristic) ────────────────────────────────
+  // A rough, dependency-free trade-in range so a rep has a number to quote back
+  // FAST when a website trade lead lands — NOT a real appraisal. The one-click
+  // MarketCheck appraisal (POST /ai/appraise) replaces it with live comps.
+  // Never surfaced on the public site; used only in the rep's alert + CRM note.
+  const LUX_MAKES = new Set(['bmw', 'mercedes', 'mercedes-benz', 'audi', 'lexus', 'acura', 'infiniti', 'cadillac', 'lincoln', 'porsche', 'land rover', 'range rover', 'jaguar', 'volvo', 'tesla', 'genesis', 'maserati', 'bentley'])
+  const TRUCK_RE = /silverado|sierra|f-?150|f-?250|f-?350|\bram\b|ram\s?1500|tundra|titan|tahoe|suburban|yukon|expedition|sequoia|super\s?duty|colorado|canyon|ranger|tacoma|frontier/i
+  const numish = (v) => { const n = Number(String(v ?? '').replace(/[^0-9.]/g, '')); return Number.isFinite(n) && n > 0 ? n : null }
+  function heuristicTradeRange({ year, make, model, mileage }) {
+    const now = new Date().getFullYear()
+    const yr = numish(year)
+    if (!yr || yr < 1990 || yr > now + 1) return null
+    const age = Math.max(0, now - yr)
+    const mk = String(make || '').toLowerCase().trim()
+    const md = String(model || '')
+    // Baseline original transaction price by segment.
+    let base = 34000
+    if (LUX_MAKES.has(mk)) base = 58000
+    else if (TRUCK_RE.test(md) || TRUCK_RE.test(mk)) base = 52000
+    // Depreciation: ~16% year one, ~11%/yr after, with a residual floor.
+    let val = base
+    for (let i = 0; i < age; i++) val *= (i === 0 ? 0.84 : 0.89)
+    val = Math.max(val, base * 0.09)
+    // Mileage vs an expected ~18k/yr; ~$0.06 per unit over/under, asymmetric + capped.
+    const mi = numish(mileage)
+    if (mi != null) {
+      const expected = Math.max(age, 1) * 18000
+      const delta = (expected - mi) * 0.06
+      val = Math.max(base * 0.06, val + Math.max(-val * 0.35, Math.min(val * 0.25, delta)))
+    }
+    const lo = Math.round((val * 0.88) / 250) * 250
+    const hi = Math.round((val * 1.12) / 250) * 250
+    if (hi <= 0 || lo <= 0) return null
+    return { low: lo, high: hi }
+  }
+  // Pull whatever the trade shell captured into a vehicle-ish shape (keys vary by form).
+  function tradeVehicleFromFields(fields) {
+    if (!fields || typeof fields !== 'object') return {}
+    const pick = (...names) => {
+      for (const [k, v] of Object.entries(fields)) {
+        const key = k.toLowerCase().replace(/[^a-z]/g, '')
+        if (names.includes(key) && v != null && String(v).trim()) return String(v).trim()
+      }
+      return null
+    }
+    return {
+      year: pick('year', 'vehicleyear'),
+      make: pick('make', 'vehiclemake'),
+      model: pick('model', 'vehiclemodel'),
+      trim: pick('trim', 'vehicletrim', 'series'),
+      mileage: pick('mileage', 'kilometers', 'kilometres', 'km', 'miles', 'odometer'),
+    }
+  }
+
   // ── PUBLIC: capture a lead from the site → lands in the CRM ─────────────────
   app.post('/site/:slug/lead', async (req, res) => {
     const slug = String(req.params.slug || '').toLowerCase().trim()
@@ -335,6 +391,38 @@ export function registerSite(app) {
         // Auto-assign + notify, then kick off the speed-to-lead sequence with the routed rep.
         const routed = await routeAndNotifyLead(d.id, { contactId, vehicleId: inventory_id || null, name, source: source })
         enqueueForTrigger(d.id, 'internet_lead', { contactId, vehicleId: inventory_id || null, repId: routed?.assignee || null })
+
+        // Trade-in leads: hand the rep an instant ballpark range so they have an
+        // answer to quote back — internal only, never shown on the site. They can
+        // one-click the full MarketCheck appraisal from the CRM for a firm number.
+        if (String(b.form_type || '').toLowerCase() === 'trade') {
+          const tv = tradeVehicleFromFields(b.fields)
+          const range = heuristicTradeRange(tv)
+          if (range) {
+            const veh = [tv.year, tv.make, tv.model, tv.trim].filter(Boolean).join(' ').trim() || 'their trade'
+            const fmt = (n) => '$' + Math.round(n).toLocaleString('en-US')
+            const rangeStr = `${fmt(range.low)}–${fmt(range.high)}`
+            // Timeline note on the contact (internal), so the range is in the CRM record.
+            try {
+              await supabaseAdmin.from('communications').insert({
+                dealership_id: d.id, contact_id: contactId, channel: 'note', direction: 'internal',
+                subject: 'Trade-in ballpark (auto)',
+                body: `Rough trade range for ${veh}: ${rangeStr}. Estimate only — run the full appraisal for a firm number.`,
+                meta: { kind: 'trade_ballpark', low: range.low, high: range.high, vehicle: tv },
+              })
+              await supabaseAdmin.from('contacts')
+                .update({ last_activity_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+                .eq('id', contactId)
+            } catch (err) { console.warn('[site] trade note failed:', err.message) }
+            // Alert the assigned rep with the number front-and-centre.
+            await createNotification({
+              dealershipId: d.id, type: 'new_lead',
+              title: `Trade lead${name ? ': ' + name : ''} — approx ${rangeStr}`,
+              body: `${veh}. Ballpark only — open the contact and run the full appraisal for a firm offer.`,
+              linkPage: 'crm', targetUserId: routed?.assignee || null,
+            })
+          }
+        }
       }
       res.json({ ok: true })
     } catch (e) { res.status(500).json({ error: e.message }) }

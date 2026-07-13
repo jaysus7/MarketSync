@@ -186,7 +186,27 @@ export async function markDelivered(dealershipId, contactId, vehicleId, repId, d
       owns_vehicle: true, vehicle_status: 'delivered', delivery_date: when.toISOString(), updated_at: nowIso(),
     }, { onConflict: 'customer_id,vehicle_id' })
     await enqueueForTrigger(dealershipId, 'delivered', { contactId, vehicleId, repId, baseAt: when })
+    // Possession gate (#16): delivering this customer's deal means we now have their
+    // trade in hand → release any acquired trade unit tied to their appraisal to the site.
+    await releasePossessionForContact(dealershipId, contactId, when).catch(() => {})
   } catch (e) { console.warn('[automation] markDelivered failed:', e.message) }
+}
+
+// When a contact's deal is delivered, any trade they gave us is now in the dealer's
+// possession — flip its acquired inventory unit live on the website (#16).
+async function releasePossessionForContact(dealershipId, contactId, when) {
+  if (!dealershipId || !contactId) return
+  const { data: aps } = await supabaseAdmin.from('trade_appraisals')
+    .select('id, inventory_id').eq('dealership_id', dealershipId).eq('contact_id', contactId)
+    .not('inventory_id', 'is', null)
+  const invIds = [...new Set((aps || []).map(a => a.inventory_id).filter(Boolean))]
+  if (!invIds.length) return
+  const at = (when ? new Date(when) : new Date()).toISOString()
+  await supabaseAdmin.from('inventory')
+    .update({ awaiting_possession: false, possession_at: at })
+    .in('id', invIds).eq('dealership_id', dealershipId).eq('awaiting_possession', true)
+  await supabaseAdmin.from('trade_appraisals')
+    .update({ acquired_at: at }).in('id', (aps || []).map(a => a.id))
 }
 
 // ── Drop-out: an inbound reply freezes every running sequence for the contact ──
