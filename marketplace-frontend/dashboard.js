@@ -4362,6 +4362,34 @@ async function vehDelete(id) {
 }
 function editVehicle(id) { const v = (typeof __catalogCache !== 'undefined' ? __catalogCache : []).find(x => x.id === id); if (v) openVehicleForm(v); }
 
+// ── Inventory CSV import / export ────────────────────────────────────────────
+async function invExportCsv(btn) {
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch(`${API}/inventory/export.csv`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Export failed');
+    const blob = await r.blob(); const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `inventory-${new Date().toISOString().slice(0, 10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    showToast('Inventory exported', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = orig; }
+}
+async function invImportCsv(file) {
+  if (!file) return;
+  const input = document.getElementById('inv-import-file');
+  let text; try { text = await file.text(); } catch { showToast('Could not read that file', 'error'); return; }
+  showToast('Importing…', 'info');
+  try {
+    const d = await apiSendJson('/inventory/import', 'POST', { csv: text });
+    const parts = [`${d.created} added`, `${d.updated} updated`]; if (d.skipped) parts.push(`${d.skipped} skipped`);
+    showToast('Imported — ' + parts.join(', '), 'success');
+    if (d.errors && d.errors.length) console.warn('Import row errors:', d.errors);
+    loadInventoryCatalog?.();
+  } catch (e) { showToast(e.message, 'error'); }
+  finally { if (input) input.value = ''; }
+}
+window.invExportCsv = invExportCsv; window.invImportCsv = invImportCsv;
+
 // Upload/replace the dealership's branded photo background (used by the AI swap).
 function openPhotoBackgroundUploader() {
   const ov = crmOverlay(`<div class="p-5 space-y-3">

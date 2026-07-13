@@ -9,6 +9,28 @@ const photoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize
 const INV_MANAGERS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const canManageInventory = (req) => INV_MANAGERS.includes(req.profile?.role)
 
+// ── CSV helpers (dependency-free, RFC-4180-ish) ──────────────────────────────
+const CSV_COLS = ['vin', 'year', 'make', 'model', 'trim', 'price', 'mileage', 'condition', 'stocknumber', 'exterior_color', 'interior_color', 'transmission', 'fuel_type', 'drivetrain', 'engine', 'body_style', 'doors', 'status', 'description', 'image_urls']
+function csvCell(v) { if (v == null) return ''; let s = Array.isArray(v) ? v.join(' | ') : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
+function toCsv(rows) {
+  const body = rows.map(r => CSV_COLS.map(c => csvCell(c === 'image_urls' ? (Array.isArray(r.image_urls) ? r.image_urls : []) : r[c])).join(',')).join('\n')
+  return CSV_COLS.join(',') + '\n' + body + '\n'
+}
+function parseCsv(text) {
+  const s = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const rows = []; let field = '', row = [], inq = false
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (inq) { if (ch === '"') { if (s[i + 1] === '"') { field += '"'; i++ } else inq = false } else field += ch; continue }
+    if (ch === '"') inq = true
+    else if (ch === ',') { row.push(field); field = '' }
+    else if (ch === '\n') { row.push(field); rows.push(row); field = ''; row = [] }
+    else field += ch
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row) }
+  return rows.filter(r => r.length && r.some(c => String(c).trim() !== ''))
+}
+
 // Compress to WebP for the web — auto-orient from EXIF (phone photos), cap at
 // 1920px, quality 82 (visually lossless, ~70-80% smaller than the original JPG).
 async function toWebp(buffer, { max = 1920, quality = 82 } = {}) {
@@ -294,6 +316,60 @@ export function registerRoutes(app) {
       return true
     }).map(v => (v.status === 'archived' ? { ...v, status: 'sold' } : v))  // show archived as Sold
     res.json(rows)
+  })
+
+  // ── CSV import / export ─────────────────────────────────────────────────────
+  // Registered BEFORE /inventory/:id so "export.csv" isn't swallowed as an :id.
+  app.get('/inventory/export.csv', requireAuth, async (req, res) => {
+    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
+    const { data } = await supabaseAdmin.from('inventory')
+      .select(CSV_COLS.filter(c => c !== 'image_urls').join(', ') + ', image_urls')
+      .eq('dealership_id', req.dealershipId).is('archived_at', null).order('created_at', { ascending: false })
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="inventory-${new Date().toISOString().slice(0, 10)}.csv"`)
+    res.send(toCsv(data || []))
+  })
+
+  app.post('/inventory/import', requireAuth, async (req, res) => {
+    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
+    const csv = req.body && req.body.csv
+    if (!csv || typeof csv !== 'string') return res.status(400).json({ error: 'Provide CSV text as { csv }' })
+    const rows = parseCsv(csv)
+    if (rows.length < 2) return res.status(400).json({ error: 'No data rows found (need a header row + at least one vehicle).' })
+    const header = rows[0].map(h => h.trim().toLowerCase())
+    const idx = Object.fromEntries(CSV_COLS.map(c => [c, header.indexOf(c)]))
+    if (idx.make < 0 || idx.model < 0) return res.status(400).json({ error: 'CSV needs at least "make" and "model" columns. Export a file first to see the format.' })
+    const { data: existing } = await supabaseAdmin.from('inventory').select('id, vin, stocknumber').eq('dealership_id', req.dealershipId).is('archived_at', null)
+    const byVin = {}, byStock = {}
+    for (const e of (existing || [])) { if (e.vin) byVin[e.vin.toUpperCase()] = e.id; if (e.stocknumber) byStock[String(e.stocknumber).toLowerCase()] = e.id }
+    let created = 0, updated = 0, skipped = 0; const errors = []
+    for (let r = 1; r < rows.length; r++) {
+      const cells = rows[r]; const get = c => idx[c] >= 0 ? String(cells[idx[c]] || '').trim() : ''
+      const make = get('make'), model = get('model')
+      if (!make || !model) { skipped++; continue }
+      const vin = (get('vin').toUpperCase().slice(0, 17)) || null
+      const mi = numOrNull(get('mileage'))
+      const patch = {
+        make, model, vin, year: parseInt(get('year')) || null, trim: get('trim') || null,
+        price: numOrNull(get('price')), mileage: mi != null ? Math.round(mi) : null,
+        condition: get('condition') || 'used', stocknumber: get('stocknumber') || null,
+        exterior_color: get('exterior_color') || null, interior_color: get('interior_color') || null,
+        transmission: get('transmission') || null, fuel_type: get('fuel_type') || null, drivetrain: get('drivetrain') || null,
+        engine: get('engine') || null, body_style: get('body_style') || null, doors: numOrNull(get('doors')),
+        status: get('status') || 'available', description: get('description') || null,
+      }
+      const imgs = get('image_urls'); if (imgs) patch.image_urls = imgs.split('|').map(x => x.trim()).filter(Boolean)
+      const matchId = (vin && byVin[vin]) || (patch.stocknumber && byStock[patch.stocknumber.toLowerCase()]) || null
+      try {
+        if (matchId) { await supabaseAdmin.from('inventory').update(patch).eq('id', matchId).eq('dealership_id', req.dealershipId); updated++ }
+        else {
+          const { data: ins } = await supabaseAdmin.from('inventory').insert({ dealership_id: req.dealershipId, source: 'import', lot_date: new Date().toISOString(), image_urls: [], ...patch }).select('id').single()
+          created++
+          if (ins) { if (vin) byVin[vin] = ins.id; if (patch.stocknumber) byStock[patch.stocknumber.toLowerCase()] = ins.id }   // dedupe within the same file
+        }
+      } catch (e) { errors.push(`Row ${r + 1}: ${e.message}`) }
+    }
+    res.json({ ok: true, created, updated, skipped, errors: errors.slice(0, 20) })
   })
 
   app.get('/inventory/:id', requireAuth, async (req, res) => {

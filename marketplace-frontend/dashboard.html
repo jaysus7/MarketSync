@@ -868,6 +868,9 @@
                 Website
               </button>
               <button id="gen-pitches-btn" data-admin-only onclick="generateAllPitches(this)" title="Write an AI sales pitch for every car that doesn't have one" class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0">✨ Sales pitches</button>
+              <input type="file" id="inv-import-file" accept=".csv,text/csv" class="hidden" onchange="invImportCsv(this.files[0])">
+              <button data-admin-only onclick="document.getElementById('inv-import-file').click()" title="Bulk import vehicles from a CSV" class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">Import CSV</button>
+              <button data-admin-only onclick="invExportCsv(this)" title="Download all inventory as CSV" class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">Export CSV</button>
               <button id="add-vehicle-btn" data-admin-only onclick="openVehicleForm()" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                 Add vehicle
@@ -2449,7 +2452,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260713f"></script>
+  <script src="dashboard.js?v=20260713g"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
