@@ -55,6 +55,27 @@ async function buildUserStats(userId) {
 }
 
 export function registerRoutes(app) {
+  // ── Per-dealer feature toggles ───────────────────────────────────────────
+  // Managers hide paid features they don't use. Nav gates on this + entitlement.
+  const FEATURE_KEYS = ['website', 'automation', 'equity', 'inv_intel', 'appraisals', 'reports']
+  app.get('/dealership/features', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json({ features: {}, can_manage: false })
+    const { data } = await supabaseAdmin.from('dealerships').select('feature_flags').eq('id', req.dealershipId).maybeSingle()
+    const f = (data?.feature_flags && typeof data.feature_flags === 'object') ? data.feature_flags : {}
+    const features = Object.fromEntries(FEATURE_KEYS.map(k => [k, f[k] !== false]))   // default on
+    res.json({ features, can_manage: ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role) })
+  })
+  app.put('/dealership/features', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!['DEALER_ADMIN', 'OWNER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Admin access required' })
+    const body = req.body || {}
+    const flags = {}
+    for (const k of FEATURE_KEYS) if (k in body) flags[k] = !!body[k]
+    const { error } = await supabaseAdmin.from('dealerships').update({ feature_flags: flags }).eq('id', req.dealershipId)
+    if (error) return res.status(500).json({ error: 'Save failed' })
+    res.json({ ok: true, features: Object.fromEntries(FEATURE_KEYS.map(k => [k, flags[k] !== false])) })
+  })
+
   app.get('/dealership/leaderboard', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ranking: [], total_members: 0 })
     if (req.profile.dealerships?.is_personal === true) return res.json({ ranking: [], total_members: 0 })

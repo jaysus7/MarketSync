@@ -484,6 +484,7 @@ async function initializeDashboardEcosystem() {
     });
     setupMobileMoreMenu();
     switchPage('insights');
+    applyFeatureFlags();   // hide nav for features the dealer switched off
 
     // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
     initGlobalLeaderboard();
@@ -532,6 +533,31 @@ async function initializeDashboardEcosystem() {
 
 // Sidebar nav page switcher. Each page shows only its own content — no panel
 // mirroring, so Insights stays clean and each nav item lands on a focused view.
+// Per-dealer feature toggles — hide nav for features the dealer switched off
+// (entitlement still governs access; this is a visibility preference on top).
+let __featureFlags = null;
+const FEATURE_NAV = {
+  website: '.nav-group[data-group="web"]',
+  automation: '[data-page="automation"]',
+  equity: '[data-page="equity"]',
+  inv_intel: '.nav-group[data-group="ii"]',
+  appraisals: '#nav-appraisal',
+  reports: '#nav-reports, #nav-reports-m',
+};
+async function applyFeatureFlags(force) {
+  if (__featureFlags === null || force) {
+    try { const d = await apiGetJson('/dealership/features', { retries: 1 }); __featureFlags = d?.features || {}; }
+    catch { __featureFlags = {}; return; }
+  }
+  // Use a dedicated `ff-off` class so we never fight the `hidden` class that
+  // role/entitlement gating owns — an item hides if role-hidden OR feature-off.
+  for (const [k, sel] of Object.entries(FEATURE_NAV)) {
+    const off = __featureFlags[k] === false;
+    document.querySelectorAll(sel).forEach(el => el.classList.toggle('ff-off', off));
+  }
+}
+window.applyFeatureFlags = applyFeatureFlags;
+
 // Collapse/expand a nav group in the desktop sidebar.
 function toggleNavGroup(id) {
   const body = document.getElementById('grp-' + id);
@@ -3340,7 +3366,7 @@ const SETTINGS_TAB_SECTIONS = {
   billing: ['billing-section'],
   aiboost: ['ai-boost-section', 'inv-intel-section'],
   group: ['groups-settings-section'],
-  dealermgmt: ['crm-dms-card', 'guardrail-settings-section'],
+  dealermgmt: ['crm-dms-card', 'dealer-features-card', 'guardrail-settings-section'],
   security: ['security-section'],
 };
 function settingsTab(tab) {
@@ -3360,8 +3386,41 @@ function settingsTab(tab) {
     b.classList.toggle('text-slate-500', !on);
   });
   if (tab === 'team') loadSettingsTeam(document.getElementById('team-picker')?.value || 'sales');
+  if (tab === 'dealermgmt') loadDealerFeatures();
 }
 window.settingsTab = settingsTab;
+
+// ── Feature toggles (Settings › Dealer Management) ───────────────────────────
+const FEATURE_LABELS = { website: 'Website', automation: 'Automation', equity: 'Equity Mining', inv_intel: 'Inventory Intelligence', appraisals: 'Appraisals', reports: 'Reports' };
+async function loadDealerFeatures() {
+  const root = document.getElementById('dealer-features-list');
+  if (!root) return;
+  let d;
+  try { d = await apiGetJson('/dealership/features', { retries: 1 }); }
+  catch { root.innerHTML = '<div class="text-sm text-rose-500 py-2">Could not load features.</div>'; return; }
+  __featureFlags = d?.features || {};
+  root.innerHTML = Object.entries(FEATURE_LABELS).map(([k, label]) => {
+    const on = __featureFlags[k] !== false;
+    return `<label class="flex items-center justify-between gap-3 py-1.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0">
+      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">${label}</span>
+      <button onclick="toggleDealerFeature('${k}', ${!on})" title="${on ? 'On — click to hide' : 'Off — click to show'}" class="shrink-0 w-9 h-5 rounded-full transition ${on ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'} relative"><span class="absolute top-0.5 w-4 h-4 bg-white rounded-full transition" style="left:${on ? '18px' : '2px'}"></span></button>
+    </label>`;
+  }).join('');
+}
+async function toggleDealerFeature(key, on) {
+  const prev = __featureFlags[key] !== false;
+  __featureFlags[key] = on;
+  loadDealerFeatures();          // optimistic
+  applyFeatureFlags();           // reflect in the nav immediately (both directions)
+  try {
+    await apiSendJson('/dealership/features', 'PUT', __featureFlags);
+  } catch (e) {
+    __featureFlags[key] = prev; loadDealerFeatures(); applyFeatureFlags();
+    showToast(e.message || 'Only owners/admins can change features', 'error');
+  }
+}
+window.loadDealerFeatures = loadDealerFeatures;
+window.toggleDealerFeature = toggleDealerFeature;
 
 // ── Team roster (Settings › Team) ────────────────────────────────────────────
 let __teamCurrent = 'sales';
@@ -8726,6 +8785,7 @@ async function loadAIBoostSection() {
     document.getElementById('nav-appraisal')?.classList.toggle('hidden', !__invIntelActive);
     // Paint the nav "Paid" badges: green when the dealer is entitled, grey when not.
     applyPaidBadges();
+    applyFeatureFlags();   // re-hide any feature the dealer switched off (e.g. Appraisals)
     // Reveal the floating AI assistant dock for entitled dealers (owner exempt).
     updateAiDockVisibility();
     // Reveal the fixed Reports quick-access rail for Inventory Intelligence dealers.
