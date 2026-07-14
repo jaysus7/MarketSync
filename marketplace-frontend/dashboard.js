@@ -458,6 +458,10 @@ async function initializeDashboardEcosystem() {
     document.querySelectorAll('#dashboard-nav .nav-item').forEach(btn => {
       btn.addEventListener('click', () => {
         if (btn.dataset.tab) __crmTab = btn.dataset.tab;
+        // CRM contacts sub-links may carry a status filter (e.g. Sold Customers).
+        if (btn.dataset.page === 'crm' && btn.dataset.tab === 'contacts') {
+          __crmStatusFilter = btn.dataset.filter === 'sold' ? 'sold,fni,delivered' : '';
+        }
         switchPage(btn.dataset.page);
       });
     });
@@ -1390,6 +1394,9 @@ function crmInsightsRange(v) { __crmInsightsRange = v; loadCrmInsights(); }
 window.crmInsightsRange = crmInsightsRange;
 
 let __crmCanSeeAll = false;
+let __crmStatusFilter = '';   // set by the "Sold Customers" nav leaf (comma list)
+function crmClearStatusFilter() { __crmStatusFilter = ''; crmRefreshContacts(); }
+window.crmClearStatusFilter = crmClearStatusFilter;
 // Renders the persistent toolbar (search + manager "by rep" filter) ONCE, then
 // only refreshes the list on search/filter so the search box keeps focus.
 async function crmLoadContacts() {
@@ -1415,6 +1422,7 @@ async function crmRefreshContacts() {
   const params = new URLSearchParams();
   if (q) params.set('q', q);
   if (rep) params.set('rep', rep);
+  if (__crmStatusFilter) params.set('status', __crmStatusFilter);
   try {
     const d = await apiGetJson(`/crm/contacts${params.toString() ? `?${params}` : ''}`);
     const list = document.getElementById('crm-list');
@@ -1429,14 +1437,17 @@ async function crmRefreshContacts() {
       </select>`;
     }
     const contacts = d.contacts || [];
+    const filterChip = __crmStatusFilter
+      ? `<div class="mb-2"><span class="inline-flex items-center gap-1.5 text-xs font-bold bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-full">Sold customers<button onclick="crmClearStatusFilter()" class="hover:text-indigo-900 dark:hover:text-white" aria-label="Clear filter">&times;</button></span></div>`
+      : '';
     if (!contacts.length) {
       list.className = '';
-      list.innerHTML = `<div class="py-16 text-center text-sm text-slate-400">${q || rep ? 'No contacts match.' : 'No contacts yet — they appear automatically as you capture leads and save appraisals, or add one manually.'}</div>`;
+      list.innerHTML = filterChip + `<div class="py-16 text-center text-sm text-slate-400">${q || rep || __crmStatusFilter ? 'No contacts match.' : 'No contacts yet — they appear automatically as you capture leads and save appraisals, or add one manually.'}</div>`;
       return;
     }
     const scopeNote = q ? 'searching all' : (rep ? 'one rep' : (d.can_see_all ? 'whole team' : 'yours'));
     list.className = '';
-    list.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+    list.innerHTML = filterChip + `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
       ${contacts.map(crmContactRow).join('')}</div>
       <div class="text-[11px] text-slate-400 mt-2">${contacts.length} contact${contacts.length === 1 ? '' : 's'} · ${scopeNote}</div>`;
   } catch (e) {

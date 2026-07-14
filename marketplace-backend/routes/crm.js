@@ -140,7 +140,7 @@ export function registerCrm(app) {
     if (!dealer && !searching) query = query.or(`assigned_rep.eq.${req.user.id},created_by.eq.${req.user.id}`)
     // "By rep" filter — managers only (a rep can't browse another rep's whole book).
     if (repFilter && dealer) query = query.eq('assigned_rep', repFilter)
-    if (status) query = query.eq('status', status)
+    if (status) { const list = status.split(',').map(s => s.trim()).filter(Boolean); query = list.length > 1 ? query.in('status', list) : query.eq('status', list[0]) }
     if (q) query = query.or(`full_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,phone_mobile.ilike.%${q}%,company_name.ilike.%${q}%`)
     const { data, error } = await query
     if (error) return res.status(500).json({ error: error.message })
