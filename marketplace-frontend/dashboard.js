@@ -2821,10 +2821,45 @@ const SOLD_DEAL_COLS = [
   { key: 'salesperson', label: 'Salesperson' },
 ];
 
+// Inventory data source — the "what" report. Flat row per vehicle.
+const INVENTORY_COLS = [
+  { key: 'stock_number', label: 'Stock Number' },
+  { key: 'vin', label: 'VIN' },
+  { key: 'year', label: 'Year' },
+  { key: 'make', label: 'Make' },
+  { key: 'model', label: 'Model' },
+  { key: 'trim', label: 'Trim' },
+  { key: 'condition', label: 'Condition' },
+  { key: 'body_style', label: 'Body Style' },
+  { key: 'exterior_color', label: 'Exterior Color' },
+  { key: 'interior_color', label: 'Interior Color' },
+  { key: 'mileage', label: 'Mileage' },
+  { key: 'price', label: 'Price' },
+  { key: 'status', label: 'Status' },
+  { key: 'drivetrain', label: 'Drivetrain' },
+  { key: 'fuel_type', label: 'Fuel Type' },
+  { key: 'transmission', label: 'Transmission' },
+  { key: 'days_on_lot', label: 'Days On Lot' },
+  { key: 'lot_date', label: 'Lot Date', type: 'date' },
+  { key: 'sold_date', label: 'Sold Date', type: 'date' },
+];
+
+// Report source registry — drives dropdown, columns, fetch URL, filenames.
+const RB_SOURCES = {
+  sold: { label: 'Sold deals (per rep)', noun: 'deal', cols: SOLD_DEAL_COLS, hasRep: true, hasDeal: true,
+    url: () => `/reports/sold-deals?range=${encodeURIComponent(__rbRange)}&rep=${encodeURIComponent(__rbRep)}`,
+    file: () => `sold-deals-${__rbRep === 'all' ? 'all-reps' : (__rbData?.reps?.find(r => r.id === __rbRep)?.name || 'rep').replace(/\s+/g, '-').toLowerCase()}` },
+  inventory: { label: 'Inventory', noun: 'vehicle', cols: INVENTORY_COLS, hasStatus: true,
+    url: () => `/reports/inventory?range=${encodeURIComponent(__rbRange)}&status=${encodeURIComponent(__rbStatus)}`,
+    file: () => `inventory-${__rbStatus}` },
+};
+
+let __rbSource = 'sold';
 let __rbRange = '365';
 let __rbRep = 'all';
+let __rbStatus = 'all';
 let __rbData = null;          // last { rows, reps }
-let __rbCols = null;          // Set of selected column keys (null = all)
+let __rbColSel = {};          // per-source Set of selected column keys
 let __rbHideBlank = false;    // hide the F&I columns we don't capture yet
 
 function rbFmt(v, type) {
@@ -2832,13 +2867,17 @@ function rbFmt(v, type) {
   if (type === 'date') { const d = new Date(v); return isNaN(d) ? String(v) : d.toISOString().slice(0, 10); }
   return String(v);
 }
+function rbCols() { return RB_SOURCES[__rbSource].cols; }
+function rbColSet() {
+  if (!__rbColSel[__rbSource]) __rbColSel[__rbSource] = new Set(rbCols().map(c => c.key));
+  return __rbColSel[__rbSource];
+}
 
 async function loadReportBuilder() {
   const root = document.getElementById('report-builder');
   if (!root) return;
   const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
   if (!isMgr) { root.innerHTML = ''; return; }
-  if (__rbCols === null) __rbCols = new Set(SOLD_DEAL_COLS.map(c => c.key));
 
   // Shell (rendered once); the data + table live in child nodes we repaint.
   if (!root.dataset.wired) {
@@ -2848,7 +2887,7 @@ async function loadReportBuilder() {
         <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
           <div>
             <h2 class="text-xl font-black text-slate-900 dark:text-white">Custom report</h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Sold deals per rep — choose who and what, then export.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Choose who and what with dropdowns, then export.</p>
           </div>
           <button id="rb-export" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition inline-flex items-center gap-1.5">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
@@ -2858,10 +2897,17 @@ async function loadReportBuilder() {
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <label class="block"><span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Report</span>
             <select id="rb-source" class="mt-1 w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
-              <option value="sold">Sold deals (per rep)</option>
+              ${Object.entries(RB_SOURCES).map(([k, s]) => `<option value="${k}">${esc(s.label)}</option>`).join('')}
             </select></label>
-          <label class="block"><span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Salesperson</span>
+          <label class="block" id="rb-rep-wrap"><span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Salesperson</span>
             <select id="rb-rep" class="mt-1 w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></select></label>
+          <label class="block hidden" id="rb-status-wrap"><span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Status</span>
+            <select id="rb-status" class="mt-1 w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <option value="all">All statuses</option>
+              <option value="available">Available</option>
+              <option value="sold">Sold</option>
+              <option value="archived">Archived (off feed)</option>
+            </select></label>
           <label class="block"><span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Date range</span>
             <select id="rb-range" class="mt-1 w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
               <option value="30">Last 30 days</option>
@@ -2876,35 +2922,52 @@ async function loadReportBuilder() {
             <summary class="cursor-pointer text-xs font-bold text-indigo-600 dark:text-indigo-400 select-none">Columns ▾</summary>
             <div id="rb-cols" class="absolute z-20 mt-2 w-72 max-h-72 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl p-3 grid grid-cols-1 gap-1"></div>
           </details>
-          <label class="text-xs font-semibold text-slate-600 dark:text-slate-300 inline-flex items-center gap-1.5 cursor-pointer">
+          <label id="rb-hideblank-wrap" class="text-xs font-semibold text-slate-600 dark:text-slate-300 inline-flex items-center gap-1.5 cursor-pointer">
             <input type="checkbox" id="rb-hideblank" class="rounded"> Hide columns we don't capture yet
           </label>
         </div>
         <div id="rb-result" class="overflow-x-auto -mx-4 sm:mx-0"></div>
       </div>`;
+    root.querySelector('#rb-source').addEventListener('change', e => { __rbSource = e.target.value; rbSyncControls(); rbRenderColMenu(); rbFetch(); });
     root.querySelector('#rb-rep').addEventListener('change', e => { __rbRep = e.target.value; rbFetch(); });
+    root.querySelector('#rb-status').addEventListener('change', e => { __rbStatus = e.target.value; rbFetch(); });
     root.querySelector('#rb-range').addEventListener('change', e => { __rbRange = e.target.value; rbFetch(); });
     root.querySelector('#rb-hideblank').addEventListener('change', e => { __rbHideBlank = e.target.checked; rbRenderTable(); });
     root.querySelector('#rb-export').addEventListener('click', rbExportCsv);
-    // Column checkboxes
-    const cw = root.querySelector('#rb-cols');
-    cw.innerHTML = SOLD_DEAL_COLS.map(c => `<label class="text-xs text-slate-700 dark:text-slate-200 inline-flex items-center gap-1.5">
-      <input type="checkbox" data-col="${c.key}" ${__rbCols.has(c.key) ? 'checked' : ''} class="rounded"> ${esc(c.label)}${c.blank ? ' <span class="text-slate-400">(blank)</span>' : ''}</label>`).join('');
-    cw.querySelectorAll('input[data-col]').forEach(cb => cb.addEventListener('change', () => {
-      cb.checked ? __rbCols.add(cb.dataset.col) : __rbCols.delete(cb.dataset.col);
-      rbRenderTable();
-    }));
+    rbSyncControls();
+    rbRenderColMenu();
   }
   await rbFetch();
+}
+
+// Show/hide the rep vs status filter + the "hide blank" toggle per source.
+function rbSyncControls() {
+  const s = RB_SOURCES[__rbSource];
+  document.getElementById('rb-rep-wrap')?.classList.toggle('hidden', !s.hasRep);
+  document.getElementById('rb-status-wrap')?.classList.toggle('hidden', !s.hasStatus);
+  document.getElementById('rb-hideblank-wrap')?.classList.toggle('hidden', !s.cols.some(c => c.blank));
+}
+
+// Rebuild the column checkbox menu for the current source.
+function rbRenderColMenu() {
+  const cw = document.getElementById('rb-cols');
+  if (!cw) return;
+  const set = rbColSet();
+  cw.innerHTML = rbCols().map(c => `<label class="text-xs text-slate-700 dark:text-slate-200 inline-flex items-center gap-1.5">
+    <input type="checkbox" data-col="${c.key}" ${set.has(c.key) ? 'checked' : ''} class="rounded"> ${esc(c.label)}${c.blank ? ' <span class="text-slate-400">(blank)</span>' : ''}</label>`).join('');
+  cw.querySelectorAll('input[data-col]').forEach(cb => cb.addEventListener('change', () => {
+    cb.checked ? set.add(cb.dataset.col) : set.delete(cb.dataset.col);
+    rbRenderTable();
+  }));
 }
 
 async function rbFetch() {
   const rr = document.getElementById('rb-result');
   if (rr) rr.innerHTML = '<div class="text-sm text-slate-400 italic px-4 py-6">Loading…</div>';
   let d;
-  try { d = await apiGetJson(`/reports/sold-deals?range=${encodeURIComponent(__rbRange)}&rep=${encodeURIComponent(__rbRep)}`, { retries: 1 }); }
+  try { d = await apiGetJson(RB_SOURCES[__rbSource].url(), { retries: 1 }); }
   catch { if (rr) rr.innerHTML = '<div class="text-sm text-rose-500 px-4 py-6">Could not load the report.</div>'; return; }
-  __rbData = d || { rows: [], reps: [] };
+  __rbData = d || { rows: [] };
   // Populate the rep dropdown once (keep current selection).
   const sel = document.getElementById('rb-rep');
   if (sel && !sel.dataset.filled && Array.isArray(__rbData.reps)) {
@@ -2917,25 +2980,28 @@ async function rbFetch() {
 }
 
 function rbActiveCols() {
-  return SOLD_DEAL_COLS.filter(c => __rbCols.has(c.key) && !(__rbHideBlank && c.blank));
+  const set = rbColSet();
+  return rbCols().filter(c => set.has(c.key) && !(__rbHideBlank && c.blank));
 }
 
 function rbRenderTable() {
   const rr = document.getElementById('rb-result');
   if (!rr) return;
+  const src = RB_SOURCES[__rbSource];
   const rows = __rbData?.rows || [];
   const cols = rbActiveCols();
-  if (!rows.length) { rr.innerHTML = '<div class="text-sm text-slate-400 italic px-4 py-6">No sold deals in this range.</div>'; return; }
+  if (!rows.length) { rr.innerHTML = `<div class="text-sm text-slate-400 italic px-4 py-6">No ${src.noun}s match these filters.</div>`; return; }
+  const dealCol = src.hasDeal;
   const head = `<th class="py-2 px-3 text-right sticky left-0 bg-slate-50 dark:bg-slate-950">#</th>` +
-    `<th class="py-2 px-3"></th>` +
+    (dealCol ? `<th class="py-2 px-3"></th>` : '') +
     cols.map(c => `<th class="py-2 px-3 whitespace-nowrap ${c.blank ? 'text-slate-400' : ''}">${esc(c.label)}</th>`).join('');
   const body = rows.map((r, i) => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
       <td class="py-2 px-3 text-right tabular-nums text-slate-400 sticky left-0 bg-white dark:bg-slate-900">${i + 1}</td>
-      <td class="py-2 px-3"><button onclick="rbOpenDeal('${r.contact_id}')" title="${r.has_deal ? 'Edit deal desk fields' : 'Add deal desk fields'}" class="text-xs font-bold ${r.has_deal ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'} hover:underline whitespace-nowrap">${r.has_deal ? '✎ Deal' : '+ Deal'}</button></td>
+      ${dealCol ? `<td class="py-2 px-3"><button onclick="rbOpenDeal('${r.contact_id}')" title="${r.has_deal ? 'Edit deal desk fields' : 'Add deal desk fields'}" class="text-xs font-bold ${r.has_deal ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'} hover:underline whitespace-nowrap">${r.has_deal ? '✎ Deal' : '+ Deal'}</button></td>` : ''}
       ${cols.map(c => `<td class="py-2 px-3 whitespace-nowrap ${c.blank ? 'text-slate-300 dark:text-slate-600' : 'text-slate-700 dark:text-slate-200'}">${esc(rbFmt(r[c.key], c.type))}</td>`).join('')}
     </tr>`).join('');
   rr.innerHTML = `
-    <div class="px-4 sm:px-0 text-xs text-slate-500 dark:text-slate-400 mb-2">${rows.length} deal${rows.length === 1 ? '' : 's'} · ${cols.length} columns shown</div>
+    <div class="px-4 sm:px-0 text-xs text-slate-500 dark:text-slate-400 mb-2">${rows.length} ${src.noun}${rows.length === 1 ? '' : 's'} · ${cols.length} columns shown</div>
     <table class="text-xs text-left border-collapse min-w-full">
       <thead><tr class="border-y border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider bg-slate-50 dark:bg-slate-950">${head}</tr></thead>
       <tbody>${body}</tbody>
@@ -2952,8 +3018,7 @@ function rbExportCsv() {
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const repName = __rbRep === 'all' ? 'all-reps' : (__rbData?.reps?.find(r => r.id === __rbRep)?.name || 'rep').replace(/\s+/g, '-').toLowerCase();
-  a.href = url; a.download = `sold-deals-${repName}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.href = url; a.download = `${RB_SOURCES[__rbSource].file()}-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

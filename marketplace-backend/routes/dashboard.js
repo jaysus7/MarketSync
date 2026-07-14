@@ -1216,4 +1216,55 @@ export function registerRoutes(app) {
     if (error) { console.error('deal upsert failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
     res.json({ ok: true, deal: data })
   })
+
+  // Inventory report — the "what" data source for the custom report builder.
+  // Filters by status and (lot-date) range; returns a flat row per vehicle.
+  app.get('/reports/inventory', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json({ ok: true, rows: [] })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
+    const did = req.dealershipId
+    const days = ({ '30': 30, '90': 90, '180': 180, '365': 365, 'all': null }[String(req.query.range || 'all')])
+    const startIso = days ? new Date(Date.now() - days * 86400000).toISOString() : null
+    const status = String(req.query.status || 'all')
+
+    let q = supabaseAdmin.from('inventory')
+      .select('stocknumber, vin, year, make, model, trim, condition, body_style, exterior_color, interior_color, mileage, price, status, drivetrain, fuel_type, transmission, lot_date, created_at, sold_at, archived_at')
+      .eq('dealership_id', did).limit(20000)
+    if (status === 'available') q = q.eq('status', 'available').is('archived_at', null)
+    else if (status === 'sold') q = q.eq('status', 'sold')
+    else if (status === 'archived') q = q.not('archived_at', 'is', null)
+    if (startIso) q = q.or(`lot_date.gte.${startIso},and(lot_date.is.null,created_at.gte.${startIso})`)
+    const { data: inv } = await q
+
+    const now = Date.now()
+    const money = (n) => (n == null || n === '') ? null : Number(n).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+    const STATUS_LABEL = { available: 'Available', sold: 'Sold', archived: 'Archived', pending: 'Pending' }
+    const rows = (inv || [])
+      .sort((a, b) => new Date(b.lot_date || b.created_at || 0) - new Date(a.lot_date || a.created_at || 0))
+      .map(v => {
+        const ref = v.lot_date || v.created_at
+        const end = v.sold_at || v.archived_at || (v.status === 'available' ? null : null)
+        const daysOnLot = ref ? Math.floor(((end ? new Date(end).getTime() : now) - new Date(ref).getTime()) / 86400000) : null
+        const st = (v.archived_at && v.status !== 'sold') ? 'archived' : v.status
+        return {
+          stock_number: v.stocknumber || null,
+          vin: v.vin || null,
+          year: v.year || null, make: v.make || null, model: v.model || null, trim: v.trim || null,
+          condition: v.condition || null,
+          body_style: v.body_style || null,
+          exterior_color: v.exterior_color || null,
+          interior_color: v.interior_color || null,
+          mileage: v.mileage != null ? Number(v.mileage).toLocaleString('en-US') : null,
+          price: money(v.price),
+          status: STATUS_LABEL[st] || st || null,
+          drivetrain: v.drivetrain || null,
+          fuel_type: v.fuel_type || null,
+          transmission: v.transmission || null,
+          days_on_lot: daysOnLot != null ? String(daysOnLot) : null,
+          lot_date: ref || null,
+          sold_date: v.sold_at || null,
+        }
+      })
+    res.json({ ok: true, rows, count: rows.length })
+  })
 }
