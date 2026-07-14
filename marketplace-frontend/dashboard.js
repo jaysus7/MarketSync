@@ -11237,11 +11237,21 @@ function updateReportRailVisibility() {
   if (__invIntelActive) wireReportRail();
 }
 
+function toggleReportRail() {
+  const rail = document.getElementById('report-rail');
+  if (!rail) return;
+  const open = rail.classList.toggle('rr-open');
+  try { localStorage.setItem('reportRailOpen', open ? '1' : '0'); } catch {}
+}
+window.toggleReportRail = toggleReportRail;
+
 function wireReportRail() {
   if (__reportRailWired) return;
   const rail = document.getElementById('report-rail');
   if (!rail) return;
   __reportRailWired = true;
+  // Minimized (icon-only) by default; remember the user's preference.
+  try { if (localStorage.getItem('reportRailOpen') === '1') rail.classList.add('rr-open'); } catch {}
 
   // Briefly ring-highlight a control after we jump to its page, so the user can
   // see where the rail took them.

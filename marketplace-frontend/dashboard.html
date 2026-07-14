@@ -37,6 +37,12 @@
 
     /* Settings hub: each tab shows only its own section cards. */
     .stab-hide { display: none !important; }
+
+    /* Report rail: minimized (icon-only) unless expanded via the toggle. */
+    #report-rail:not(.rr-open) button[data-report] span,
+    #report-rail:not(.rr-open) .rr-head-label { display: none; }
+    #report-rail:not(.rr-open) button[data-report] { justify-content: center; }
+    #report-rail.rr-open #rr-chevron { transform: rotate(180deg); }
   </style>
   <style id="ms-font-bump">html{font-size:17px}@media (max-width:640px){html{font-size:16px}}</style>
   <style>.chip{display:inline-flex;align-items:center;font-size:0.7rem;padding:1px 7px;border-radius:999px;background:rgb(241 245 249);color:rgb(71 85 105);border:1px solid rgb(226 232 240);white-space:nowrap}.dark .chip{background:rgb(30 41 59);color:rgb(148 163 184);border-color:rgb(51 65 85)}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}.scrollbar-none::-webkit-scrollbar{display:none}</style>
@@ -2199,7 +2205,12 @@
 
   <!-- ── Reports rail — fixed quick-access to every lot-wide report (II; shown via JS) ── -->
   <div id="report-rail" class="hidden fixed right-0 top-1/2 -translate-y-1/2 z-30 flex-col items-stretch gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-r-0 border-slate-200 dark:border-slate-800 rounded-l-2xl shadow-xl shadow-slate-900/10 py-2.5 pl-2 pr-2.5">
-    <div class="px-1 pb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Reports</div>
+    <div class="flex items-center justify-between gap-1 px-1 pb-1.5">
+      <span class="rr-head-label text-[10px] font-black uppercase tracking-widest text-slate-400">Reports</span>
+      <button type="button" onclick="toggleReportRail()" title="Expand / minimize reports" aria-label="Expand or minimize reports" class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5 mx-auto">
+        <svg id="rr-chevron" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+    </div>
     <button type="button" data-report="lot" title="Lot Average Report — your whole lot vs the market" class="group flex items-center gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 hover:text-violet-700 dark:hover:text-violet-300 transition">
       <svg class="w-5 h-5 flex-shrink-0 text-violet-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V9m4 8V5m4 12v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
       <span class="text-xs font-bold whitespace-nowrap">Lot Average</span>
@@ -2573,7 +2584,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260714j"></script>
+  <script src="dashboard.js?v=20260714k"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
