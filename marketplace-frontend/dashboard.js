@@ -421,6 +421,10 @@ async function initializeDashboardEcosystem() {
       document.getElementById('guardrail-settings-section')?.classList.remove('hidden');
       __pageInit.profile = () => loadGuardrailSettings();
     }
+    // Reports page (stacked manager reports + custom builder) — managers only.
+    if (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)) {
+      document.getElementById('nav-reports')?.classList.remove('hidden');
+    }
     // Hide team-only nav items (Leaderboard) for solo reps — nothing to rank
     if (isSolo || !inDealership) {
       document.querySelectorAll('[data-team-nav]').forEach(el => el.classList.add('hidden'));
@@ -536,6 +540,7 @@ function switchPage(pageId) {
   if (pageId === 'profile') { loadProfileBranding(); loadCrmAdfSetting(); }
   if (pageId === 'inv-intel' && typeof window._invIntelPageHook === 'function') window._invIntelPageHook();
   if (pageId === 'ai-vision') loadAiVisionPage();
+  if (pageId === 'reports') loadReports();
   if (pageId === 'crm') loadCrmPage();
   if (pageId === 'website') loadWebsitePage();
   if (pageId === 'automation') loadAutomationPage();
@@ -2769,10 +2774,199 @@ async function loadSalesAnalysis() {
 function salesAnalysisRange(v) { __salesAnalysisRange = v; loadSalesAnalysis(); }
 window.salesAnalysisRange = salesAnalysisRange;
 
-async function loadInsights() {
+// ── Custom report builder + Sold-per-rep report (managers) ───────────────────
+// The 40-column "sold deals" layout, in the exact order requested. `#` (row index)
+// is rendered separately; `salesperson` is appended as a trailing convenience column.
+const SOLD_DEAL_COLS = [
+  { key: 'sold_date', label: 'Sold Date', type: 'date' },
+  { key: 'source', label: 'Source' },
+  { key: 'first_name', label: 'First Name' },
+  { key: 'last_name', label: 'Last Name' },
+  { key: 'phone', label: 'Phone Number' },
+  { key: 'email', label: 'Email' },
+  { key: 'street_address', label: 'Street Address' },
+  { key: 'city', label: 'City' },
+  { key: 'region', label: 'Region' },
+  { key: 'postal_code', label: 'Postal Code' },
+  { key: 'country', label: 'Country' },
+  { key: 'birthday', label: 'Birthday', type: 'date' },
+  { key: 'status', label: 'Status' },
+  { key: 'delivery_date', label: 'Delivery Date', type: 'date' },
+  { key: 'delivery_time', label: 'Delivery Time', blank: true },
+  { key: 'fni_manager', label: 'FNI Manager', blank: true },
+  { key: 'deposit_amount', label: 'Deposit Amount', blank: true },
+  { key: 'type_of_vehicle', label: 'Type Of Vehicle' },
+  { key: 'stock_number', label: 'Stock Number' },
+  { key: 'vin', label: 'VIN' },
+  { key: 'year', label: 'Year' },
+  { key: 'make', label: 'Make' },
+  { key: 'model', label: 'Model' },
+  { key: 'trim', label: 'Trim' },
+  { key: 'drivetrain', label: 'Drivetrain' },
+  { key: 'deal_type', label: 'Deal Type', blank: true },
+  { key: 'term', label: 'Term', blank: true },
+  { key: 'plates', label: 'Plates', blank: true },
+  { key: 'fni_products', label: 'FNI Products', blank: true },
+  { key: 'trade_type', label: 'Trade Type' },
+  { key: 'google_review', label: 'Google Review', blank: true },
+  { key: 'gm_survey', label: 'GM Survey', blank: true },
+  { key: 'gm_survey_pct', label: 'GM Survey %', blank: true },
+  { key: 'fni_gross_1500', label: '$1,500 FNI Gross', blank: true },
+  { key: 'split_deal', label: 'Split Deal', blank: true },
+  { key: 'split_with', label: 'Split With', blank: true },
+  { key: 'vehicle_commission', label: 'Vehicle Commission', blank: true },
+  { key: 'fni_commission', label: 'FNI Comission', blank: true },
+  { key: 'unsubscribed', label: 'Unsubscribed' },
+  { key: 'no_longer_owns', label: 'No Longer Owns' },
+  { key: 'salesperson', label: 'Salesperson' },
+];
+
+let __rbRange = '365';
+let __rbRep = 'all';
+let __rbData = null;          // last { rows, reps }
+let __rbCols = null;          // Set of selected column keys (null = all)
+let __rbHideBlank = false;    // hide the F&I columns we don't capture yet
+
+function rbFmt(v, type) {
+  if (v == null || v === '') return '';
+  if (type === 'date') { const d = new Date(v); return isNaN(d) ? String(v) : d.toISOString().slice(0, 10); }
+  return String(v);
+}
+
+async function loadReportBuilder() {
+  const root = document.getElementById('report-builder');
+  if (!root) return;
+  const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+  if (!isMgr) { root.innerHTML = ''; return; }
+  if (__rbCols === null) __rbCols = new Set(SOLD_DEAL_COLS.map(c => c.key));
+
+  // Shell (rendered once); the data + table live in child nodes we repaint.
+  if (!root.dataset.wired) {
+    root.dataset.wired = '1';
+    root.innerHTML = `
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-5">
+        <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <div>
+            <h2 class="text-xl font-black text-slate-900 dark:text-white">Custom report</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Sold deals per rep — choose who and what, then export.</p>
+          </div>
+          <button id="rb-export" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition inline-flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+            Export CSV
+          </button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+          <label class="block"><span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Report</span>
+            <select id="rb-source" class="mt-1 w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <option value="sold">Sold deals (per rep)</option>
+            </select></label>
+          <label class="block"><span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Salesperson</span>
+            <select id="rb-rep" class="mt-1 w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></select></label>
+          <label class="block"><span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Date range</span>
+            <select id="rb-range" class="mt-1 w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="180">Last 6 months</option>
+              <option value="365" selected>Last 12 months</option>
+              <option value="all">All time</option>
+            </select></label>
+        </div>
+        <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <details class="relative">
+            <summary class="cursor-pointer text-xs font-bold text-indigo-600 dark:text-indigo-400 select-none">Columns ▾</summary>
+            <div id="rb-cols" class="absolute z-20 mt-2 w-72 max-h-72 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl p-3 grid grid-cols-1 gap-1"></div>
+          </details>
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-300 inline-flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" id="rb-hideblank" class="rounded"> Hide columns we don't capture yet
+          </label>
+        </div>
+        <div id="rb-result" class="overflow-x-auto -mx-4 sm:mx-0"></div>
+      </div>`;
+    root.querySelector('#rb-rep').addEventListener('change', e => { __rbRep = e.target.value; rbFetch(); });
+    root.querySelector('#rb-range').addEventListener('change', e => { __rbRange = e.target.value; rbFetch(); });
+    root.querySelector('#rb-hideblank').addEventListener('change', e => { __rbHideBlank = e.target.checked; rbRenderTable(); });
+    root.querySelector('#rb-export').addEventListener('click', rbExportCsv);
+    // Column checkboxes
+    const cw = root.querySelector('#rb-cols');
+    cw.innerHTML = SOLD_DEAL_COLS.map(c => `<label class="text-xs text-slate-700 dark:text-slate-200 inline-flex items-center gap-1.5">
+      <input type="checkbox" data-col="${c.key}" ${__rbCols.has(c.key) ? 'checked' : ''} class="rounded"> ${esc(c.label)}${c.blank ? ' <span class="text-slate-400">(blank)</span>' : ''}</label>`).join('');
+    cw.querySelectorAll('input[data-col]').forEach(cb => cb.addEventListener('change', () => {
+      cb.checked ? __rbCols.add(cb.dataset.col) : __rbCols.delete(cb.dataset.col);
+      rbRenderTable();
+    }));
+  }
+  await rbFetch();
+}
+
+async function rbFetch() {
+  const rr = document.getElementById('rb-result');
+  if (rr) rr.innerHTML = '<div class="text-sm text-slate-400 italic px-4 py-6">Loading…</div>';
+  let d;
+  try { d = await apiGetJson(`/reports/sold-deals?range=${encodeURIComponent(__rbRange)}&rep=${encodeURIComponent(__rbRep)}`, { retries: 1 }); }
+  catch { if (rr) rr.innerHTML = '<div class="text-sm text-rose-500 px-4 py-6">Could not load the report.</div>'; return; }
+  __rbData = d || { rows: [], reps: [] };
+  // Populate the rep dropdown once (keep current selection).
+  const sel = document.getElementById('rb-rep');
+  if (sel && !sel.dataset.filled && Array.isArray(__rbData.reps)) {
+    sel.dataset.filled = '1';
+    sel.innerHTML = `<option value="all">All salespeople</option>` +
+      __rbData.reps.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
+    sel.value = __rbRep;
+  }
+  rbRenderTable();
+}
+
+function rbActiveCols() {
+  return SOLD_DEAL_COLS.filter(c => __rbCols.has(c.key) && !(__rbHideBlank && c.blank));
+}
+
+function rbRenderTable() {
+  const rr = document.getElementById('rb-result');
+  if (!rr) return;
+  const rows = __rbData?.rows || [];
+  const cols = rbActiveCols();
+  if (!rows.length) { rr.innerHTML = '<div class="text-sm text-slate-400 italic px-4 py-6">No sold deals in this range.</div>'; return; }
+  const head = `<th class="py-2 px-3 text-right sticky left-0 bg-slate-50 dark:bg-slate-950">#</th>` +
+    cols.map(c => `<th class="py-2 px-3 whitespace-nowrap ${c.blank ? 'text-slate-400' : ''}">${esc(c.label)}</th>`).join('');
+  const body = rows.map((r, i) => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
+      <td class="py-2 px-3 text-right tabular-nums text-slate-400 sticky left-0 bg-white dark:bg-slate-900">${i + 1}</td>
+      ${cols.map(c => `<td class="py-2 px-3 whitespace-nowrap ${c.blank ? 'text-slate-300 dark:text-slate-600' : 'text-slate-700 dark:text-slate-200'}">${esc(rbFmt(r[c.key], c.type))}</td>`).join('')}
+    </tr>`).join('');
+  rr.innerHTML = `
+    <div class="px-4 sm:px-0 text-xs text-slate-500 dark:text-slate-400 mb-2">${rows.length} deal${rows.length === 1 ? '' : 's'} · ${cols.length} columns shown</div>
+    <table class="text-xs text-left border-collapse min-w-full">
+      <thead><tr class="border-y border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider bg-slate-50 dark:bg-slate-950">${head}</tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
+}
+
+function rbExportCsv() {
+  const rows = __rbData?.rows || [];
+  const cols = rbActiveCols();
+  const csvCell = v => { const s = (v == null ? '' : String(v)); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const header = ['#', ...cols.map(c => c.label)].map(csvCell).join(',');
+  const lines = rows.map((r, i) => [i + 1, ...cols.map(c => rbFmt(r[c.key], c.type))].map(csvCell).join(','));
+  const csv = [header, ...lines].join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const repName = __rbRep === 'all' ? 'all-reps' : (__rbData?.reps?.find(r => r.id === __rbRep)?.name || 'rep').replace(/\s+/g, '-').toLowerCase();
+  a.href = url; a.download = `sold-deals-${repName}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+window.loadReportBuilder = loadReportBuilder;
+
+// Reports page — stacks the three manager reports + the sold-per-rep report and
+// the custom report builder. Called from switchPage('reports').
+function loadReports() {
   loadExecutiveRoi();
   loadInventoryMix();
   loadSalesAnalysis();
+  loadReportBuilder();
+}
+
+async function loadInsights() {
   loadSyncHealth();
   try {
     const res = await fetch(`${API}/dashboard/insights?range=${insightsRange}`, { headers: { 'Authorization': `Bearer ${token}` } });

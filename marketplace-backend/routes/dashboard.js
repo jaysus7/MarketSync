@@ -1071,4 +1071,90 @@ export function registerRoutes(app) {
       by_condition: groupBy(v => { const x = (v.condition || '').toLowerCase(); return x === 'new' ? 'New' : x === 'demo' ? 'Demo' : x === 'certified' ? 'Certified' : 'Used' }),
     })
   })
+
+  // ── Sold deals report (managers) — the per-rep sold sheet + custom filters ──
+  // One row per won contact (Sold/F&I/Delivered) with the customer, the vehicle of
+  // interest, and delivery/ownership. F&I desk fields (manager, deposit, term,
+  // products, gross, commissions, surveys) are returned as null — they need a deal
+  // record that isn't captured yet, so they ship as empty columns to fill later.
+  app.get('/reports/sold-deals', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json({ ok: true, rows: [], reps: [] })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
+    const did = req.dealershipId
+    const days = ({ '30': 30, '90': 90, '180': 180, '365': 365, 'all': null }[String(req.query.range || '365')])
+    const startIso = days ? new Date(Date.now() - days * 86400000).toISOString() : null
+    const repFilter = req.query.rep && req.query.rep !== 'all' ? String(req.query.rep) : null
+    const statuses = ['sold', 'fni', 'delivered']
+
+    let q = supabaseAdmin.from('contacts')
+      .select('id, first_name, last_name, full_name, email, phone, phone_mobile, phone_home, address, city, province, postal_code, country, birthday, status, source, sold_source, sold_at, assigned_rep, interest_inventory_id, trade_vehicle, opt_out, consent_email, consent_sms, created_at')
+      .eq('dealership_id', did).in('status', statuses).limit(20000)
+    if (repFilter) q = q.eq('assigned_rep', repFilter)
+    if (startIso) q = q.or(`sold_at.gte.${startIso},and(sold_at.is.null,created_at.gte.${startIso})`)
+    const { data: contacts } = await q
+
+    // Roster (names + the dropdown), vehicles, and ownership in bulk.
+    const { data: staff } = await supabaseAdmin.from('profiles')
+      .select('id, full_name, display_name, role').eq('dealership_id', did)
+    const repName = (id) => { const p = (staff || []).find(s => s.id === id); return p ? (p.full_name || p.display_name || '') : '' }
+    const reps = (staff || []).filter(p => p.role !== 'DEALER_GROUP').map(p => ({ id: p.id, name: p.full_name || p.display_name || '—' })).sort((a, b) => a.name.localeCompare(b.name))
+
+    const invIds = [...new Set((contacts || []).map(c => c.interest_inventory_id).filter(Boolean))]
+    let veh = {}
+    if (invIds.length) {
+      const { data: iv } = await supabaseAdmin.from('inventory')
+        .select('id, year, make, model, trim, vin, stocknumber, drivetrain, condition, body_style').in('id', invIds)
+      veh = Object.fromEntries((iv || []).map(v => [v.id, v]))
+    }
+    const contactIds = (contacts || []).map(c => c.id)
+    let own = {}
+    if (contactIds.length) {
+      const { data: ot } = await supabaseAdmin.from('customer_ownership_tracking')
+        .select('customer_id, delivery_date, owns_vehicle, vehicle_status').in('customer_id', contactIds)
+      own = Object.fromEntries((ot || []).map(o => [o.customer_id, o]))
+    }
+
+    const STATUS_LABEL = { sold: 'Sold', fni: 'F&I', delivered: 'Delivered' }
+    const rows = (contacts || [])
+      .sort((a, b) => new Date(b.sold_at || b.created_at) - new Date(a.sold_at || a.created_at))
+      .map(c => {
+        const v = veh[c.interest_inventory_id] || {}
+        const o = own[c.id] || {}
+        const delivered = o.delivery_date || (c.status === 'delivered' ? c.sold_at : null)
+        const noLongerOwns = o.owns_vehicle === false || ['traded_in', 'sold_private', 'totaled'].includes(o.vehicle_status)
+        const cond = (v.condition || '').toLowerCase()
+        return {
+          sold_date: c.sold_at || null,
+          source: c.sold_source || c.source || null,
+          first_name: c.first_name || null,
+          last_name: c.last_name || (c.full_name && !c.first_name ? c.full_name : null),
+          phone: c.phone || c.phone_mobile || c.phone_home || null,
+          email: c.email || null,
+          street_address: c.address || null,
+          city: c.city || null,
+          region: c.province || null,
+          postal_code: c.postal_code || null,
+          country: c.country || null,
+          birthday: c.birthday || null,
+          status: STATUS_LABEL[c.status] || c.status,
+          delivery_date: delivered || null,
+          delivery_time: null,
+          fni_manager: null,
+          deposit_amount: null,
+          type_of_vehicle: cond === 'new' ? 'New' : cond === 'demo' ? 'Demo' : cond === 'certified' ? 'Certified' : cond ? 'Used' : (v.body_style || null),
+          stock_number: v.stocknumber || null,
+          vin: v.vin || null,
+          year: v.year || null, make: v.make || null, model: v.model || null, trim: v.trim || null,
+          drivetrain: v.drivetrain || null,
+          deal_type: null, term: null, plates: null, fni_products: null,
+          trade_type: c.trade_vehicle ? 'Trade' : null,
+          google_review: null, gm_survey: null, gm_survey_pct: null, fni_gross_1500: null,
+          split_deal: null, split_with: null, vehicle_commission: null, fni_commission: null,
+          unsubscribed: (c.opt_out || c.consent_email === false || c.consent_sms === false) ? 'Yes' : 'No',
+          no_longer_owns: noLongerOwns ? 'Yes' : 'No',
+          salesperson: repName(c.assigned_rep) || null,
+        }
+      })
+    res.json({ ok: true, rows, reps, count: rows.length })
+  })
 }

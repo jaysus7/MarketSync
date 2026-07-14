@@ -500,6 +500,11 @@
           <svg class="w-5 h-5 md:w-4 md:h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 17H3a1 1 0 01-1-1v-4l2.5-5h11L18 12v4a1 1 0 01-1 1h-2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/><path stroke-linecap="round" d="M7.5 12h5"/></svg>
           <span class="hidden md:inline">Inventory</span>
         </button>
+        <!-- Reports — stacked manager reports + custom report builder. Manager-gated (revealed in JS). -->
+        <button type="button" id="nav-reports" data-page="reports" title="Reports" class="nav-item hidden flex-1 md:flex-none md:w-full flex items-center justify-center md:justify-start gap-2.5 px-2 md:px-3 py-2.5 md:py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <svg class="w-5 h-5 md:w-4 md:h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4"/><rect x="3.5" y="3.5" width="17" height="17" rx="2"/></svg>
+          <span class="hidden md:inline">Reports</span>
+        </button>
         <!-- Website — the hosted dealer site + page builder. Admin only. -->
         <button type="button" data-page="website" data-admin-nav title="Website" class="nav-item flex-1 md:flex-none md:w-full flex items-center justify-center md:justify-start gap-2.5 px-2 md:px-3 py-2.5 md:py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <svg class="w-5 h-5 md:w-4 md:h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path stroke-linecap="round" d="M3 9h18M7 4v5"/></svg>
@@ -618,17 +623,28 @@
         </div>
       </div>
 
+      <!-- ───────── REPORTS PAGE (managers) ───────── -->
+      <!-- The three manager reports are stacked here, plus the Sold-per-rep report
+           and a custom report builder. Manager-gated (nav revealed in JS). -->
+      <div data-page-content="reports" class="page-content hidden space-y-6">
+        <div>
+          <h1 class="text-2xl font-black text-slate-900 dark:text-white">Reports</h1>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Your store's numbers — pull a stock report or build your own.</p>
+        </div>
+
+        <!-- Custom report builder — pick who/what with dropdowns -->
+        <div id="report-builder"></div>
+
+        <!-- Executive ROI dashboard (managers) — injected by loadExecutiveRoi() -->
+        <div id="exec-roi"></div>
+        <!-- Inventory mix & aging report (managers) — injected by loadInventoryMix() -->
+        <div id="inv-mix" class="mt-6"></div>
+        <!-- Sales analysis report (managers) — injected by loadSalesAnalysis() -->
+        <div id="sales-analysis" class="mt-6"></div>
+      </div>
+
       <!-- ───────── INSIGHTS PAGE ───────── -->
       <div data-page-content="insights" class="page-content space-y-8">
-
-      <!-- Executive ROI dashboard (managers) — injected by loadExecutiveRoi() -->
-      <div id="exec-roi"></div>
-
-      <!-- Inventory mix & aging report (managers) — injected by loadInventoryMix() -->
-      <div id="inv-mix" class="mt-6"></div>
-
-      <!-- Sales analysis report (managers) — injected by loadSalesAnalysis() -->
-      <div id="sales-analysis" class="mt-6"></div>
 
       <!-- Loading skeleton — visible until JS resolves the profile and hides it -->
       <div id="insights-skeleton" class="space-y-4">
@@ -2467,7 +2483,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260713y"></script>
+  <script src="dashboard.js?v=20260714a"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
