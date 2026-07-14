@@ -941,4 +941,65 @@ export function registerRoutes(app) {
       per_rep,
     })
   })
+
+  // ── Inventory mix & aging report (managers) ─────────────────────────────────
+  // The classic lot breakdown: age buckets (0-30 / 31-60 / 61-90 / 90+), plus mix
+  // by colour, by mileage band, and by make — count, value, and average age each.
+  app.get('/dashboard/inventory-mix', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.json({ ok: true, empty: true })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
+    const { data: dealer } = await supabaseAdmin.from('dealerships').select('country').eq('id', req.dealershipId).maybeSingle()
+    const c = (dealer?.country || '').trim().toUpperCase()
+    const isUS = c === 'US' || c === 'USA' || c === 'UNITED STATES'
+    const unit = isUS ? 'mi' : 'km'
+
+    const { data: inv } = await supabaseAdmin.from('inventory')
+      .select('price, mileage, exterior_color, make, condition, lot_date, created_at, last_synced_at')
+      .eq('dealership_id', req.dealershipId).eq('status', 'available').is('archived_at', null).limit(20000)
+    const list = inv || []
+    const now = Date.now()
+    const ageOf = (v) => { const ref = v.lot_date || v.created_at || v.last_synced_at; return ref ? Math.floor((now - new Date(ref).getTime()) / 86400000) : 0 }
+    const num = (n) => { const x = Number(n); return Number.isFinite(x) ? x : null }
+
+    // Generic bucketer → [{key, count, value, avg_price, avg_age}]
+    const groupBy = (rows, keyFn, order) => {
+      const m = {}
+      for (const v of rows) {
+        const k = keyFn(v); if (k == null) continue
+        const g = m[k] || (m[k] = { key: k, count: 0, value: 0, priced: 0, ageSum: 0 })
+        g.count++; g.ageSum += ageOf(v)
+        const p = num(v.price); if (p) { g.value += p; g.priced++ }
+      }
+      let arr = Object.values(m).map(g => ({
+        key: g.key, count: g.count, value: Math.round(g.value),
+        avg_price: g.priced ? Math.round(g.value / g.priced) : null,
+        avg_age: g.count ? Math.round(g.ageSum / g.count) : null,
+      }))
+      if (order) arr.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
+      else arr.sort((a, b) => b.count - a.count)
+      return arr
+    }
+
+    const ageBucket = (v) => { const d = ageOf(v); return d <= 30 ? '0–30' : d <= 60 ? '31–60' : d <= 90 ? '61–90' : '90+' }
+    const AGE_ORDER = ['0–30', '31–60', '61–90', '90+']
+    const kmBucket = (v) => {
+      const m = num(v.mileage); if (m == null) return 'Unknown'
+      return m < 50000 ? `Under 50k` : m < 100000 ? `50–100k` : m < 150000 ? `100–150k` : `150k+`
+    }
+    const KM_ORDER = ['Under 50k', '50–100k', '100–150k', '150k+', 'Unknown']
+
+    const totalValue = list.reduce((s, v) => s + (num(v.price) || 0), 0)
+    const avgAge = list.length ? Math.round(list.reduce((s, v) => s + ageOf(v), 0) / list.length) : 0
+    const aged60 = list.filter(v => ageOf(v) > 60).length
+
+    res.json({
+      ok: true, distance_unit: unit,
+      summary: { total_units: list.length, total_value: Math.round(totalValue), avg_age: avgAge, aged_over_60: aged60 },
+      by_age: groupBy(list, ageBucket, AGE_ORDER),
+      by_color: groupBy(list, v => (v.exterior_color || '').trim() || 'Unspecified').slice(0, 12),
+      by_mileage: groupBy(list, kmBucket, KM_ORDER),
+      by_make: groupBy(list, v => (v.make || '').trim() || 'Unspecified').slice(0, 12),
+      by_condition: groupBy(list, v => { const x = (v.condition || '').toLowerCase(); return x === 'new' ? 'New' : x === 'demo' ? 'Demo' : x === 'certified' ? 'Certified' : 'Used' }),
+    })
+  })
 }

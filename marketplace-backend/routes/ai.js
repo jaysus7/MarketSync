@@ -1789,6 +1789,13 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
               ? `At ${vehicleMileage.toLocaleString()} ${distanceUnit} vs a market average of ${mc.median_mileage.toLocaleString()} ${distanceUnit}, this unit is ${mileageRating}.`
               : 'Mileage comparison unavailable.',
           },
+          // The actual comps behind the average, so the dealer can verify the match
+          // (right trim? right mileage?) instead of trusting a black-box number.
+          comps: (mc.listings || [])
+            .filter(l => Number(l.price) > 0)
+            .sort((a, b) => (a.price || 0) - (b.price || 0))
+            .slice(0, 20)
+            .map(l => ({ year: l.year ?? null, trim: l.trim ?? null, price: l.price ?? null, mileage: l.miles ?? null, region: l.region ?? null, dealer: l.dealer ?? null, url: l.vdp_url ?? null })),
         }
 
         const payload = { vehicle, estimate, pct_diff, data_source: 'marketcheck', copart: null }

@@ -2640,8 +2640,71 @@ async function loadExecutiveRoi() {
 function execRoiRange(v) { __execRoiRange = v; loadExecutiveRoi(); }
 window.execRoiRange = execRoiRange;
 
+// ── Inventory mix & aging report (managers) ──────────────────────────────────
+async function loadInventoryMix() {
+  const root = document.getElementById('inv-mix');
+  if (!root) return;
+  const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+  if (!isMgr) { root.innerHTML = ''; return; }
+  let d;
+  try { d = await apiGetJson('/dashboard/inventory-mix', { retries: 1 }); }
+  catch { root.innerHTML = ''; return; }
+  if (!d || d.empty || !d.summary) { root.innerHTML = ''; return; }
+  const money = n => n != null ? '$' + Number(n).toLocaleString() : '—';
+  const compact = n => n >= 1e6 ? '$' + (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? '$' + Math.round(n / 1e3) + 'k' : '$' + (n || 0);
+
+  // Horizontal bar table for a grouped breakdown.
+  const rows = (items, label, accent) => {
+    const max = Math.max(1, ...items.map(i => i.count));
+    return items.map(i => `<div class="flex items-center gap-2 text-sm py-0.5">
+      <div class="w-24 shrink-0 truncate text-slate-600 dark:text-slate-300" title="${esc(i.key)}">${esc(i.key)}</div>
+      <div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden"><div class="h-full ${accent} rounded-full" style="width:${Math.round((i.count / max) * 100)}%"></div></div>
+      <div class="w-8 text-right font-bold tabular-nums text-slate-700 dark:text-slate-200">${i.count}</div>
+      <div class="w-20 text-right tabular-nums text-slate-400 text-xs hidden sm:block">${i.avg_price != null ? money(i.avg_price) : '—'}</div>
+      <div class="w-14 text-right tabular-nums text-slate-400 text-xs">${i.avg_age != null ? i.avg_age + 'd' : '—'}</div>
+    </div>`).join('') || '<div class="text-xs text-slate-400 italic">No units.</div>';
+  };
+  const card = (title, body, extra = '') => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 ${extra}">
+    <div class="flex items-center justify-between mb-2"><div class="text-sm font-bold text-slate-900 dark:text-white">${title}</div><div class="text-[10px] uppercase tracking-wider text-slate-400 hidden sm:flex gap-4"><span class="w-20 text-right">avg price</span><span class="w-14 text-right">avg age</span></div></div>
+    <div>${body}</div></div>`;
+  const stat = (label, value, sub) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+    <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${label}</div>
+    <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">${value}</div>${sub ? `<div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${sub}</div>` : ''}</div>`;
+
+  // Age buckets with colour coding (fresh → stale).
+  const ageColors = { '0–30': 'bg-emerald-500', '31–60': 'bg-amber-500', '61–90': 'bg-orange-500', '90+': 'bg-rose-500' };
+  const ageMax = Math.max(1, ...d.by_age.map(i => i.count));
+  const ageHtml = d.by_age.map(i => `<div class="flex items-center gap-2 text-sm py-0.5">
+    <div class="w-16 shrink-0 text-slate-600 dark:text-slate-300 font-semibold">${esc(i.key)}d</div>
+    <div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden"><div class="h-full ${ageColors[i.key] || 'bg-slate-400'} rounded-full" style="width:${Math.round((i.count / ageMax) * 100)}%"></div></div>
+    <div class="w-8 text-right font-bold tabular-nums text-slate-700 dark:text-slate-200">${i.count}</div>
+    <div class="w-24 text-right tabular-nums text-slate-400 text-xs">${compact(i.value)}</div>
+  </div>`).join('');
+
+  root.innerHTML = `
+    <div class="mb-4"><h2 class="text-xl font-black text-slate-900 dark:text-white">Inventory mix &amp; aging</h2>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Your live lot, right now — how it's aging and what it's made of.</p></div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      ${stat('Units in stock', d.summary.total_units, 'available')}
+      ${stat('Lot value', compact(d.summary.total_value), 'total asking')}
+      ${stat('Avg days on lot', d.summary.avg_age + 'd', '')}
+      ${stat('Aged 60+ days', d.summary.aged_over_60, d.summary.total_units ? Math.round(d.summary.aged_over_60 / d.summary.total_units * 100) + '% of lot' : '')}
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mb-3">
+      <div class="flex items-center justify-between mb-2"><div class="text-sm font-bold text-slate-900 dark:text-white">Aging buckets (days on lot)</div><div class="text-[10px] uppercase tracking-wider text-slate-400 w-24 text-right">value</div></div>
+      ${ageHtml}
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      ${card('By colour', rows(d.by_color, 'colour', 'bg-indigo-500'))}
+      ${card(`By mileage (${d.distance_unit})`, rows(d.by_mileage, 'mileage', 'bg-sky-500'))}
+      ${card('By make', rows(d.by_make, 'make', 'bg-violet-500'))}
+      ${card('By condition', rows(d.by_condition, 'condition', 'bg-teal-500'))}
+    </div>`;
+}
+
 async function loadInsights() {
   loadExecutiveRoi();
+  loadInventoryMix();
   loadSyncHealth();
   try {
     const res = await fetch(`${API}/dashboard/insights?range=${insightsRange}`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -7555,6 +7618,29 @@ ${estimate?.note ? `
   <p>${estimate.note}</p>
   ${estimate.confidence ? `<div class="ic">Confidence: ${estimate.confidence.charAt(0).toUpperCase() + estimate.confidence.slice(1)}</div>` : ''}
 </div>` : ''}
+
+${(estimate?.comps && estimate.comps.length) ? `
+<div class="sl">Comparable Listings (${estimate.comps.length})</div>
+<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:4px">
+  <thead><tr style="text-align:left;color:#64748b;border-bottom:1px solid #e2e8f0">
+    <th style="padding:6px 8px">Year / Trim</th>
+    <th style="padding:6px 8px;text-align:right">Price</th>
+    <th style="padding:6px 8px;text-align:right">Mileage</th>
+    <th style="padding:6px 8px">Dealer / Location</th>
+    <th style="padding:6px 8px"></th>
+  </tr></thead>
+  <tbody>
+  ${estimate.comps.map(c => `<tr style="border-bottom:1px solid #f1f5f9">
+    <td style="padding:6px 8px;font-weight:600;color:#0f172a">${esc([c.year, c.trim].filter(Boolean).join(' ') || '—')}</td>
+    <td style="padding:6px 8px;text-align:right;color:#0f172a">${c.price ? fmt(c.price) : '—'}</td>
+    <td style="padding:6px 8px;text-align:right;color:#334155">${c.mileage ? fmtMi(c.mileage) : '—'}</td>
+    <td style="padding:6px 8px;color:#64748b">${esc([c.dealer, c.region].filter(Boolean).join(', ') || '—')}</td>
+    <td style="padding:6px 8px;white-space:nowrap">${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener" style="color:#6366f1;font-weight:700;text-decoration:none">View ↗</a>` : ''}</td>
+  </tr>`).join('')}
+  </tbody>
+</table></div>
+<div style="font-size:10px;color:#94a3b8;margin-top:6px">These are the live listings behind the ${fmt(estimate.mid)} average. Check the trim column — if they aren't this vehicle's trim, treat the % to market as a rough guide, not a firm number.</div>
+` : ''}
 
 <div class="footer">
   <div class="fl"><strong>Sources:</strong> ${sourceNames.join(' · ') || 'AI market analysis'}&nbsp;&nbsp;·&nbsp;&nbsp;${data_source === 'marketcheck' ? 'Live market data from MarketCheck.' : 'AI-analyzed from marketplace listings. Not a live data feed.'} ${isNew ? 'New vehicles matched by same year.' : 'Used vehicles matched by same year and trim.'} Not a guarantee of resale value.</div>
