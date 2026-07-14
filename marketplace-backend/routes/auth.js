@@ -74,6 +74,29 @@ MarketSync
 https://marketsync.link/`
 }
 
+// Deliver the account-verification email ourselves via Resend. Supabase's
+// admin.createUser() sends nothing, and its built-in SMTP is rate-limited and
+// unreliable — so we mint the link with generateLink and email it on-brand here.
+async function sendVerificationEmail({ email, actionLink, name }) {
+  if (!resend || !actionLink) return false
+  const esc = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+  const first = name ? esc(String(name).split(/\s+/)[0]) : 'there'
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: email,
+      subject: 'Confirm your MarketSync account',
+      html: `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;color:#0f172a">
+        <h2 style="font-size:20px;margin:0 0 12px">Welcome to MarketSync, ${first}!</h2>
+        <p style="color:#334155;line-height:1.6;margin:0 0 18px">Confirm your email to activate your account and start your 30-day free trial.</p>
+        <p style="margin:0 0 20px"><a href="${actionLink}" style="display:inline-block;background:#4f46e5;color:#fff;font-weight:700;padding:12px 24px;border-radius:10px;text-decoration:none">Verify my email →</a></p>
+        <p style="color:#64748b;font-size:13px;line-height:1.5;margin:0">Or paste this link into your browser:<br><a href="${actionLink}" style="color:#4f46e5;word-break:break-all">${actionLink}</a></p>
+      </div>`,
+    })
+    return true
+  } catch (e) { console.warn('[auth] verification email send failed:', e.message); return false }
+}
+
 export function registerRoutes(app) {
   // ── 3. AUTH ENDPOINTS ──
   // 5 login attempts per IP per 15 minutes — slows credential stuffing without
@@ -159,17 +182,21 @@ export function registerRoutes(app) {
 
     let createdUserId = null
     let createdDealershipId = null
+    let confirmActionLink = null
 
     try {
-      // email_confirm: false → Supabase sends a verification email; user can't log in
-      // until they click the link. This blocks signups with someone else's email.
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      // Create the unconfirmed user AND mint its confirmation link in one call.
+      // (admin.createUser creates the user but sends NO email — the reason
+      // confirmations never arrived. We email the link ourselves via Resend below.)
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'signup',
         email,
         password,
-        email_confirm: false
+        options: { redirectTo: `${FRONTEND_URL}/login.html?verified=1` }
       })
       if (authError) throw authError
       createdUserId = authData.user.id
+      confirmActionLink = authData.properties?.action_link || null
 
       // 30-day free trial: full account access AND every add-on switched on. When
       // it ends, add-ons drop to whatever the dealer actually paid for (see the
@@ -261,11 +288,16 @@ export function registerRoutes(app) {
         if (profileError) throw profileError
       }
 
+      // Deliver the confirmation email now that the account is fully set up.
+      const emailed = await sendVerificationEmail({ email, actionLink: confirmActionLink, name: fullName })
       res.json({
         success: true,
         user_id: createdUserId,
         verification_required: true,
-        message: 'Account created. Check your email and click the verification link to activate your account.'
+        email_sent: emailed,
+        message: emailed
+          ? 'Account created. Check your email and click the verification link to activate your account.'
+          : 'Account created. If you don\'t receive a verification email shortly, use “Resend verification”.'
       })
     } catch (err) {
       if (createdDealershipId) {
@@ -283,12 +315,25 @@ export function registerRoutes(app) {
     const { email } = req.body || {}
     if (!email) return res.status(400).json({ error: 'email required' })
     try {
-      // Supabase's resend endpoint covers both signup and email-change confirmations
-      await supabase.auth.resend({
-        type: 'signup',
-        email,
-        options: { emailRedirectTo: `${FRONTEND_URL}/login.html?verified=1` }
-      })
+      // Prefer our own delivery: mint a link and send it via Resend (reliable,
+      // on-brand). A magic link confirms the email and signs the user in on click.
+      // Fall back to Supabase's built-in resend only if Resend isn't configured.
+      let sent = false
+      if (resend) {
+        const { data: link } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'magiclink',
+          email,
+          options: { redirectTo: `${FRONTEND_URL}/dashboard.html` }
+        })
+        sent = await sendVerificationEmail({ email, actionLink: link?.properties?.action_link, name: null })
+      }
+      if (!sent) {
+        await supabase.auth.resend({
+          type: 'signup',
+          email,
+          options: { emailRedirectTo: `${FRONTEND_URL}/login.html?verified=1` }
+        })
+      }
     } catch (e) {
       console.warn('resend verification failed:', e.message)
     }
