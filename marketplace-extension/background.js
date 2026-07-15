@@ -360,11 +360,53 @@ async function runSoldScan() {
   for (const url of toOpen) chrome.tabs.create({ url, active: false }).catch(() => {})
 }
 
+// ── Facebook sold / price-change desktop alerts ──────────────────────────────
+// The server flags when a live-on-FB vehicle sells or its price changes. We show
+// a desktop notification for each new one, deduped locally so the same alert never
+// pops twice. We do NOT mark it read here — the dashboard bell should still show
+// it until the rep opens it there.
+async function pollFbAlerts() {
+  const { token } = await chrome.storage.local.get(['token'])
+  if (!token) return
+  let alerts
+  try {
+    const r = await fetch(`${API}/listings/fb-alerts`, { headers: { Authorization: `Bearer ${token}` } })
+    if (!r.ok) return
+    alerts = await r.json()
+  } catch { return }
+  if (!Array.isArray(alerts) || !alerts.length) return
+
+  const { fbAlertsShown = {} } = await chrome.storage.local.get(['fbAlertsShown'])
+  for (const a of alerts) {
+    if (!a.id || fbAlertsShown[a.id]) continue
+    try {
+      chrome.notifications.create('msfb-' + a.id, {
+        type: 'basic',
+        iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+        title: a.title || 'MarketSync',
+        message: a.body || '',
+        priority: 2,
+      })
+    } catch (e) { console.warn('[MarketSync] notification failed:', e.message) }
+    fbAlertsShown[a.id] = Date.now()
+  }
+  // Keep the dedupe map from growing forever — retain the most recent ~200.
+  const ids = Object.keys(fbAlertsShown)
+  if (ids.length > 200) for (const id of ids.slice(0, ids.length - 200)) delete fbAlertsShown[id]
+  await chrome.storage.local.set({ fbAlertsShown })
+}
+
+// Clicking a sold / price-change notification opens the dashboard (frontend host).
+chrome.notifications?.onClicked.addListener((id) => {
+  if (id.startsWith('msfb-')) chrome.tabs.create({ url: 'https://marketsync.link/dashboard.html' }).catch(() => {})
+})
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Run a poll right now (e.g. popup just opened, or a sale was just recorded).
   if (msg.type === 'FB_SYNC_NOW') {
     pollFbSync()       // processes pending mark-sold/delete queue from MarketSync
     runSoldScan()       // proactively checks active FB listings for the sold badge
+    pollFbAlerts()      // surface any new sold / price-change desktop alerts
     sendResponse({ success: true })
     return true
   }
@@ -476,17 +518,19 @@ function armAlarms() {
 chrome.runtime.onInstalled.addListener(() => {
   armAlarms()
   pollFbSync()
+  pollFbAlerts()
   setTimeout(runSoldScan, 10 * 60 * 1000) // wait 10 min after install/boot before first scan
   setTimeout(runInventoryAutoCapture, 3 * 60 * 1000) // morning/boot inventory refresh
 })
 chrome.runtime.onStartup.addListener(() => {
   armAlarms()
   pollFbSync()
+  pollFbAlerts()
   setTimeout(runSoldScan, 10 * 60 * 1000)
   setTimeout(runInventoryAutoCapture, 3 * 60 * 1000)
 })
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === FB_SYNC_ALARM) pollFbSync()
+  if (alarm.name === FB_SYNC_ALARM) { pollFbSync(); pollFbAlerts() }
   if (alarm.name === SOLD_SCAN_ALARM) runSoldScan()
   if (alarm.name === INV_CAPTURE_ALARM) runInventoryAutoCapture()
 })
