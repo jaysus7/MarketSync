@@ -1007,7 +1007,7 @@
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <h2 class="text-lg font-bold text-slate-900 dark:text-white">Inventory Catalog</h2>
-              <p class="text-slate-500 dark:text-slate-400 text-xs">Every vehicle — synced from your feeds or added here with photos.</p>
+              <p class="text-slate-500 dark:text-slate-400 text-xs">Your added vehicles &amp; trades — plus feed-synced stock to post on Facebook.</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <input type="text" id="catalog-search" placeholder="Search make, model, VIN, stock..." class="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 w-full sm:w-64">
@@ -1032,6 +1032,12 @@
             <button data-status="posted"    class="catalog-status-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Posted</button>
             <button data-status="pending"   class="catalog-status-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Pending</button>
             <button data-status="sold"      class="catalog-status-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Sold</button>
+          </div>
+          <!-- Source pill row — split the dealer's own stock from feed-synced -->
+          <div class="flex flex-wrap gap-1.5" id="catalog-source-pills">
+            <button data-src="mine"   class="catalog-source-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition">My inventory &amp; trades</button>
+            <button data-src="synced" class="catalog-source-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Synced feed → Facebook</button>
+            <button data-src="all"    class="catalog-source-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">All</button>
           </div>
           <!-- Type pill row -->
           <div class="flex flex-wrap gap-1.5" id="catalog-type-pills">
@@ -2675,7 +2681,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260715b"></script>
+  <script src="dashboard.js?v=20260715c"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

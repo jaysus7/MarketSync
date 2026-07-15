@@ -7756,6 +7756,14 @@ async function loadInventoryCatalog() {
 let __catalogStatusFilter = 'all';
 let __catalogTypeFilter = 'all';
 let __catalogSegmentFilter = 'all';
+let __catalogSourceFilter = 'mine';   // 'mine' (added + trades) | 'synced' (feed) | 'all'
+
+// A vehicle the dealer entered themselves: manually added, imported, or acquired
+// from a trade appraisal. Everything else came in from a synced website feed.
+function catalogIsMine(v) {
+  return ['manual', 'appraisal', 'import'].includes(v.source) || !!v.source_appraisal_id;
+}
+function catalogIsSynced(v) { return !catalogIsMine(v); }
 
 function renderCatalog() {
   const list = document.getElementById('catalog-list');
@@ -7780,6 +7788,8 @@ function renderCatalog() {
   };
 
   let filtered = __catalogCache;
+  if (__catalogSourceFilter === 'mine') filtered = filtered.filter(catalogIsMine);
+  else if (__catalogSourceFilter === 'synced') filtered = filtered.filter(catalogIsSynced);
   if (statusFilter !== 'all') {
     filtered = filtered.filter(v => v.status === statusFilter);
   }
@@ -7853,7 +7863,8 @@ function renderCatalog() {
       : '';
     return `
       <${tag} ${linkAttrs} class="relative bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3 flex flex-col gap-2 ${href ? 'hover:border-indigo-400 dark:hover:border-indigo-500 transition no-underline' : ''}">
-        ${v.source === 'manual' ? `<button onclick="event.preventDefault();event.stopPropagation();editVehicle('${v.id}')" title="Edit vehicle" class="absolute top-1.5 right-1.5 z-10 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 rounded-md p-1 shadow border border-slate-200 dark:border-slate-700"><svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` : ''}
+        ${catalogIsMine(v) ? `<button onclick="event.preventDefault();event.stopPropagation();editVehicle('${v.id}')" title="Edit vehicle" class="absolute top-1.5 right-1.5 z-10 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 rounded-md p-1 shadow border border-slate-200 dark:border-slate-700"><svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`
+          : `<a href="https://www.facebook.com/marketplace/create/vehicle" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Post this vehicle on Facebook Marketplace" class="absolute top-1.5 right-1.5 z-10 bg-[#1877F2] hover:bg-[#0f6ae0] text-white rounded-md px-1.5 py-1 shadow text-[10px] font-bold flex items-center gap-1">Post ↗</a>`}
         ${img}
         <div class="text-xs font-bold text-slate-900 dark:text-white truncate" title="${v.year} ${v.make} ${v.model} ${v.trim || ''}">${v.year} ${v.make} ${v.model}</div>
         <div class="flex items-center gap-1 flex-wrap">
@@ -8059,6 +8070,19 @@ function setupActionListeners() {
       b.className = active
         ? 'catalog-status-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition'
         : 'catalog-status-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition';
+    });
+    renderCatalog();
+  });
+
+  document.getElementById('catalog-source-pills')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.catalog-source-pill');
+    if (!btn) return;
+    __catalogSourceFilter = btn.dataset.src;
+    document.querySelectorAll('.catalog-source-pill').forEach(b => {
+      const active = b.dataset.src === __catalogSourceFilter;
+      b.className = active
+        ? 'catalog-source-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition'
+        : 'catalog-source-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition';
     });
     renderCatalog();
   });
