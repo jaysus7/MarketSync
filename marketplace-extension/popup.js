@@ -30,8 +30,21 @@ async function apiGet(path, token, { timeout = 20000, retries = 3 } = {}) {
       })
       clearTimeout(timer)
       if (r.status === 401) {
-        chrome.storage.local.remove(['token', 'user'])
-        throw new Error('AUTH_EXPIRED — please sign in again')
+        // A single 401 on a data endpoint isn't proof the session is dead — a
+        // cold-start race or an endpoint-specific auth hiccup (e.g. right after a
+        // big inventory pull) can 401 while the token is still valid. Re-validate
+        // before nuking it: a false clear here also signs the user out of the open
+        // dashboard (dashboard-bridge follows the extension token).
+        let dead = true
+        try {
+          const chk = await fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+          dead = chk.status === 401
+        } catch { dead = false }   // network blip — keep the token
+        if (dead) {
+          chrome.storage.local.remove(['token', 'user'])
+          throw new Error('AUTH_EXPIRED — please sign in again')
+        }
+        throw new Error('Server status [401]. Please try again in a moment.')
       }
       if (r.status === 402) throw new Error('SUBSCRIPTION_REQUIRED')
       // Server waking up / gateway error → retry.
@@ -517,7 +530,10 @@ async function showInventoryScreen(token, user) {
     })
     .catch(() => {})
 
-  $('logout-btn').onclick = () => chrome.storage.local.remove(['token', 'user'], () => location.reload())
+  // Mark this as an explicit, user-initiated sign-out so the open dashboard follows
+  // us out too. Auto-clears (from a 401) don't set this flag, so they never sign the
+  // dashboard out mid-task.
+  $('logout-btn').onclick = () => chrome.storage.local.set({ explicit_logout: true }, () => chrome.storage.local.remove(['token', 'user'], () => location.reload()))
   $('refresh-btn').onclick = () => { loadInventory(token); renderGuardrail(token) }
 
   $('open-dashboard-btn').onclick = () => {

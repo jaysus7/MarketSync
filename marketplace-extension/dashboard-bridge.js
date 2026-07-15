@@ -121,7 +121,14 @@
       if (area !== 'local' || !changes.token) return
       const newTok = changes.token.newValue
       if (!newTok) {
-        if (getPageAuth()) { clearPageAuth(); location.replace('login.html') }
+        // Only follow the extension into a logout when the user EXPLICITLY signed
+        // out from the popup — never because a transient 401 auto-cleared the
+        // extension's token (that used to sign the user out of the dashboard
+        // mid-task, e.g. right after pulling all cars).
+        chrome.storage.local.get(['explicit_logout'], ({ explicit_logout }) => {
+          if (explicit_logout && getPageAuth()) { clearPageAuth(); location.replace('login.html') }
+          if (explicit_logout) chrome.storage.local.remove('explicit_logout')
+        })
       } else if (getPageAuth()?.token !== newTok) {
         // Cap reloads from this listener too — same loop risk as the autologin path.
         const reloadAttempts = Number(sessionStorage.getItem('ms_storage_reload_attempts') || '0')

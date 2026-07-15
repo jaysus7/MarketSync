@@ -421,9 +421,16 @@ export async function fetchEDealerInventoryFromSitemap(origin, opts = {}) {
       } catch { continue }
       if (!xml) continue
 
-      // Sitemap INDEX → follow child sitemaps that look inventory-related.
+      // Sitemap INDEX (e.g. Yoast's /sitemap_index.xml) → follow ONLY the
+      // inventory child sitemaps. Broaden the inventory match (stock/unit/car),
+      // and explicitly skip WordPress content sitemaps (page/post/category/etc.)
+      // so we never walk About/Contact/Blog pages as if they were vehicles.
       if (/<sitemapindex/i.test(xml)) {
-        const children = grabLocs(xml).filter(u => /invent|vehic|vehicule|listing|vdp/i.test(u))
+        const NON_INV = /(page|post|categor|author|tag|attachment|news|blog|team|staff|about|local|product)[-_]?sitemap/i
+        let children = grabLocs(xml).filter(u => /invent|vehic|vehicule|listing|vdp|stock|\bunit|\bcars?\b|autos?/i.test(u) && !NON_INV.test(u))
+        // If nothing matched the inventory names but the index isn't just content,
+        // fall back to every child that ISN'T an obvious content sitemap.
+        if (!children.length) children = grabLocs(xml).filter(u => !NON_INV.test(u) && !/sitemap_index|main-?sitemap/i.test(u))
         for (const child of children) {
           try {
             const cr = await browserFetch(child, { headers: extraHeaders })
