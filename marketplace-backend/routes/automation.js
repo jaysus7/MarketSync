@@ -114,6 +114,13 @@ function dealerSettings(dealer) {
     service_url: s.service_url || (dealer?.branding?.email ? null : null),
     holidays: Array.isArray(s.holidays) ? s.holidays : [],
     enabled: s.enabled !== false,
+    email: (s.email && typeof s.email === 'object') ? {
+      from_name: s.email.from_name || null,
+      from: s.email.from || null,
+      reply_to: s.email.reply_to || null,
+      sender_mode: ['house', 'rep', 'both'].includes(s.email.sender_mode) ? s.email.sender_mode : 'house',
+      track_to_tasks: s.email.track_to_tasks !== false,
+    } : { from_name: null, from: null, reply_to: null, sender_mode: 'house', track_to_tasks: true },
   }
 }
 const isBusinessHours = (s) => { const h = localHour(s.timezone); return h >= s.business_start && h < s.business_end }
@@ -235,7 +242,13 @@ export async function freezeSequences(contactId, reason = 'customer_replied') {
 
 // ── Sender identity resolution (house / rep / dynamic smart switch + orphan) ──
 async function resolveSender(campaign, contact, dealer, s) {
+  // Dealer-wide sender mode (Automation → Settings) is the master switch: house =
+  // dealership general email, rep = the salesperson's, both = rep with the
+  // dealership on reply-to. When unset, the campaign's own choice stands.
+  const mode = s.email?.sender_mode
   let identity = campaign.sender_identity || 'house'
+  if (mode === 'house') identity = 'house'
+  else if (mode === 'rep' || mode === 'both') identity = 'rep'
   if (identity === 'dynamic_smart_switch') identity = isBusinessHours(s) ? 'rep' : 'house'
   let rep = null
   if (identity === 'rep') {
@@ -255,8 +268,18 @@ async function resolveSender(campaign, contact, dealer, s) {
     }
   }
   const smsFrom = identity === 'rep' ? (rep?.sms_number || s.house_sms) : s.house_sms
-  const emailFrom = identity === 'rep' ? (rep?.business_email ? `${rep.display_name || rep.full_name} <${rep.business_email}>` : EMAIL_FROM) : (s.house_email ? `${dealer?.name} <${s.house_email}>` : EMAIL_FROM)
-  return { identity, rep, smsFrom, emailFrom, plaintext: identity === 'rep' }
+  // Professional "from" — prefer the configured email-setup identity, then the
+  // legacy house_email, then the platform default.
+  const houseEmail = s.email?.from || s.house_email
+  const houseName = s.email?.from_name || dealer?.name
+  const houseFrom = houseEmail ? `${houseName} <${houseEmail}>` : EMAIL_FROM
+  const emailFrom = identity === 'rep'
+    ? (rep?.business_email ? `${rep.display_name || rep.full_name} <${rep.business_email}>` : houseFrom)
+    : houseFrom
+  // 'both' routes replies to the dealership general inbox so every thread is
+  // centrally tracked even when it's sent from the rep.
+  const replyTo = s.email?.reply_to || (mode === 'both' ? houseEmail : null)
+  return { identity, rep, smsFrom, emailFrom, replyTo, plaintext: identity === 'rep' }
 }
 
 // ── Kill-switch verification (runs at dispatch AND 1h prior) ──────────────────
@@ -343,6 +366,7 @@ async function dispatch(msg, campaign) {
     else if (contact.email) {
       // rep identity → plaintext, no banners/pixels. house → light branded HTML.
       const payload = { from: sender.emailFrom, to: contact.email, subject: subject || `A note from ${dealer.name}` }
+      if (sender.replyTo) payload.reply_to = sender.replyTo
       if (sender.plaintext) payload.text = body
       else payload.html = `<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:15px;color:#0f172a;line-height:1.6">${body.replace(/\n/g, '<br>')}<hr style="border:none;border-top:1px solid #e2e8f0;margin:18px 0"><div style="font-size:12px;color:#94a3b8">${dealer.name}${s.house_email ? ' · ' + s.house_email : ''}</div></div>`
       try { const r = await resend.emails.send(payload); result = { ok: !r.error, error: r.error?.message } } catch (e) { result = { ok: false, error: e.message } }
@@ -561,6 +585,19 @@ export function registerAutomation(app) {
     const { data: cur } = await supabaseAdmin.from('dealerships').select('automation_settings').eq('id', req.dealershipId).maybeSingle()
     const s = { ...(cur?.automation_settings || {}) }
     for (const k of ['review_url', 'referral_bonus', 'service_url', 'house_sms', 'house_email', 'timezone']) if (b[k] !== undefined) s[k] = b[k] === '' ? null : String(b[k]).slice(0, 300)
+    // Professional email setup: from-name/address, reply-to, who we send as
+    // (house = dealership general, rep = the salesperson, both = rep with the
+    // dealership on reply-to), and whether to log each send to the CRM timeline.
+    if (b.email && typeof b.email === 'object') {
+      const e = { ...(s.email || {}) }
+      const str = (v) => v == null || v === '' ? null : String(v).slice(0, 200)
+      if (b.email.from_name !== undefined) e.from_name = str(b.email.from_name)
+      if (b.email.from !== undefined) e.from = str(b.email.from)
+      if (b.email.reply_to !== undefined) e.reply_to = str(b.email.reply_to)
+      if (b.email.sender_mode !== undefined) e.sender_mode = ['house', 'rep', 'both'].includes(b.email.sender_mode) ? b.email.sender_mode : 'house'
+      if (b.email.track_to_tasks !== undefined) e.track_to_tasks = !!b.email.track_to_tasks
+      s.email = e
+    }
     if (b.business_start !== undefined) s.business_start = Math.max(0, Math.min(23, parseInt(b.business_start) || 0))
     if (b.business_end !== undefined) s.business_end = Math.max(0, Math.min(24, parseInt(b.business_end) || 19))
     if (b.enabled !== undefined) s.enabled = !!b.enabled

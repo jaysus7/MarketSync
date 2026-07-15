@@ -606,10 +606,21 @@
             </div>
           </div>
 
-          <!-- Automation (admin) -->
-          <button type="button" data-page="automation" data-admin-nav title="Automation" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            <span>Automation</span>          </button>
+          <!-- Automation (admin) — header opens Settings; sub-items are focused pages -->
+          <div class="nav-group" data-group="auto" data-admin-nav>
+            <div class="flex items-center">
+              <button type="button" data-page="automation" title="Automation" class="nav-item flex-1 flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <svg class="w-4 h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span>Automation</span>
+              </button>
+              <button type="button" onclick="toggleNavGroup('auto')" aria-label="Toggle Automation" class="px-2 py-2 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg id="chev-auto" class="w-3.5 h-3.5 transition-transform -rotate-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
+            </div>
+            <div id="grp-auto" class="nav-group-body space-y-0.5 mt-0.5 hidden">
+              <button type="button" data-page="auto-holidays" title="Holidays" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Holidays</button>
+              <button type="button" data-page="auto-leads" title="New Lead Follow-ups" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>New Lead Follow-ups</button>
+              <button type="button" data-page="auto-delivery" title="Delivery Follow-ups" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Delivery Follow-ups</button>
+            </div>
+          </div>
 
           <!-- Equity (admin) -->
           <button type="button" data-page="equity" data-admin-nav title="Equity" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -1927,6 +1938,18 @@
         <div id="automation-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
       </div>
 
+      <div data-page-content="auto-holidays" class="page-content hidden space-y-6">
+        <div id="auto-holidays-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
+      </div>
+
+      <div data-page-content="auto-leads" class="page-content hidden space-y-6">
+        <div id="auto-leads-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
+      </div>
+
+      <div data-page-content="auto-delivery" class="page-content hidden space-y-6">
+        <div id="auto-delivery-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
+      </div>
+
       <div data-page-content="equity" class="page-content hidden space-y-6">
         <div id="equity-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
       </div>
@@ -2647,7 +2670,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260714u"></script>
+  <script src="dashboard.js?v=20260714v"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

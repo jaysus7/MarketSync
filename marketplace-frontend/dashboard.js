@@ -657,6 +657,9 @@ function switchPage(pageId) {
   if (pageId === 'website') loadWebsitePage();
   if (pageId === 'website-settings') loadWebsiteSettings();
   if (pageId === 'automation') loadAutomationPage();
+  if (pageId === 'auto-holidays') loadAutoHolidays();
+  if (pageId === 'auto-leads') loadAutoLeads();
+  if (pageId === 'auto-delivery') loadAutoDelivery();
   if (pageId === 'equity') loadEquityPage();
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
 }
@@ -7135,6 +7138,7 @@ Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSec
 // ══ Automation engine — manager workspace (inline toggles + message boxes) ═══
 // State: __autoCfg { campaigns[], settings{}, region{}, can_manage }; __autoHol = working holiday rows.
 let __autoCfg = { campaigns: [], settings: {}, region: {}, can_manage: false };
+let __autoLoaded = false;   // true once /automation/campaigns has been fetched this session
 let __autoHol = [];
 const AUTO_CATS = [['pipeline', 'Sales pipeline'], ['tasks', 'Sales-rep tasks'], ['retention', 'Post-delivery retention'], ['reviews', 'Reviews'], ['referrals', 'Referrals'], ['equity', 'Lease pull-ahead'], ['calendar', 'Birthdays'], ['custom', 'Custom']];
 const AUTO_TRIGGER_LABEL = { internet_lead: 'New internet lead', appointment_booked: 'Appointment booked', show_no_sale: 'Showed — no sale', delivered: 'Vehicle delivered', birthday: 'Birthday', holiday: 'Holiday' };
@@ -7178,17 +7182,64 @@ function autoRegionKey() {
   if (US_STATES.includes(p)) return 'US';
   return 'CA';
 }
-async function loadAutomationPage() {
-  const root = document.getElementById('automation-root'); if (!root) return;
-  root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
-  try { __autoCfg = await apiGetJson('/automation/campaigns'); }
-  catch (e) {
-    if (String(e.message).toLowerCase().includes('manager')) { root.innerHTML = '<div class="py-16 text-center text-sm text-slate-500">Automation is available to managers only.</div>'; return; }
-    root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">Couldn't load: ${esc(e.message)}</div>`; return;
+// Which sub-page a campaign belongs to. New-lead journey vs post-delivery; the
+// rest (equity, birthdays, custom) live on the Settings page.
+const AUTO_LEAD_CATS = ['pipeline', 'tasks'];
+const AUTO_LEAD_TRIGGERS = ['internet_lead', 'appointment_booked', 'show_no_sale'];
+const AUTO_DELIVERY_CATS = ['retention', 'reviews', 'referrals'];
+function autoBucketOf(c) {
+  if (AUTO_LEAD_CATS.includes(c.category) || AUTO_LEAD_TRIGGERS.includes(c.trigger_type)) return 'leads';
+  if (AUTO_DELIVERY_CATS.includes(c.category) || c.trigger_type === 'delivered') return 'delivery';
+  return 'other';
+}
+// Load the shared automation config once; render into the given root on failure.
+async function ensureAutoCfg(rootId) {
+  const root = document.getElementById(rootId);
+  if (root) root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
+  if (!__autoLoaded) {
+    try { __autoCfg = await apiGetJson('/automation/campaigns'); __autoLoaded = true; }
+    catch (e) {
+      const msg = String(e.message).toLowerCase().includes('manager') ? 'Automation is available to managers only.' : `Couldn't load: ${esc(e.message)}`;
+      if (root) root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">${msg}</div>`;
+      return false;
+    }
+    autoInitHolidays();
   }
-  if (!__autoCfg.can_manage) { root.innerHTML = '<div class="py-16 text-center text-sm text-slate-500">Automation is available to managers only.</div>'; return; }
-  autoInitHolidays();
-  renderAutomationPage();
+  if (!__autoCfg.can_manage) { if (root) root.innerHTML = '<div class="py-16 text-center text-sm text-slate-500">Automation is available to managers only.</div>'; return false; }
+  return true;
+}
+
+async function loadAutomationPage() {
+  if (!(await ensureAutoCfg('automation-root'))) return;
+  renderAutomationSettings();
+}
+async function loadAutoHolidays() {
+  if (!(await ensureAutoCfg('auto-holidays-root'))) return;
+  renderHolidaysRoot();
+}
+function renderHolidaysRoot() {
+  const root = document.getElementById('auto-holidays-root'); if (!root) return;
+  root.innerHTML = `<div><h2 class="text-xl font-bold text-slate-900 dark:text-white">Holidays</h2>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Auto-filled for your region — flip on the ones you want and edit the wording.</p></div>
+    ${autoHolidaysHtml()}`;
+}
+async function loadAutoLeads() {
+  if (!(await ensureAutoCfg('auto-leads-root'))) return;
+  renderAutoBucket('auto-leads-root', 'leads', 'New Lead Follow-ups', 'Automated texts, emails and rep tasks that fire when a new lead comes in — through the first appointment and showroom visit.');
+}
+async function loadAutoDelivery() {
+  if (!(await ensureAutoCfg('auto-delivery-root'))) return;
+  renderAutoBucket('auto-delivery-root', 'delivery', 'Delivery Follow-ups', 'Post-delivery retention, review requests and referral asks — everything that fires after the customer takes delivery.');
+}
+function renderAutoBucket(rootId, bucket, title, desc) {
+  const root = document.getElementById(rootId); if (!root) return;
+  const cards = (__autoCfg.campaigns || []).filter(c => autoBucketOf(c) === bucket);
+  const byCat = {}; for (const c of cards) (byCat[c.category] = byCat[c.category] || []).push(c);
+  root.innerHTML = `
+    <div><h2 class="text-xl font-bold text-slate-900 dark:text-white">${title}</h2>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">${desc}</p></div>
+    ${cards.length ? AUTO_CATS.filter(([k]) => byCat[k]?.length).map(([k, label]) => `<div><div class="text-xs font-black uppercase tracking-wider text-slate-400 mb-2 mt-4">${label}</div><div class="space-y-2">${byCat[k].map(autoCardHtml).join('')}</div></div>`).join('')
+      : '<div class="py-12 text-center text-sm text-slate-400 italic">No campaigns here yet.</div>'}`;
 }
 function autoInitHolidays() {
   const saved = Array.isArray(__autoCfg.settings.holidays) ? __autoCfg.settings.holidays : [];
@@ -7201,21 +7252,76 @@ function autoInitHolidays() {
   for (const h of saved) { const k = `${h.name}|${h.date}`; if (!presets.some(p => `${p[0]}|${p[1]}` === k)) rows.push({ name: h.name, date: h.date, message: h.message || `Happy ${h.name} from {{dealership.name}}`, subject: h.subject || `Happy ${h.name} from {{dealership.name}}`, enabled: h.enabled !== false, preset: false }); }
   __autoHol = rows;
 }
-function renderAutomationPage() {
+// Settings page (the Automation group header). Engine switch, professional email
+// setup, global settings, and any campaigns that aren't lead/delivery/holiday.
+function renderAutomationSettings() {
   const root = document.getElementById('automation-root'); if (!root) return;
   const s = __autoCfg.settings || {};
-  const byCat = {}; for (const c of (__autoCfg.campaigns || [])) (byCat[c.category] = byCat[c.category] || []).push(c);
+  const other = (__autoCfg.campaigns || []).filter(c => autoBucketOf(c) === 'other');
+  const byCat = {}; for (const c of other) (byCat[c.category] = byCat[c.category] || []).push(c);
   root.innerHTML = `
     <div class="flex items-start justify-between gap-3 flex-wrap">
       <div>
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Automation</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Every automated text &amp; email in one place — flip them on, edit the wording, or rewrite with AI. Compliance kill switches run behind the scenes.</p>
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Automation settings</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">The engine, your professional email setup, and global settings. Manage the actual touches under <span class="font-semibold">Holidays</span>, <span class="font-semibold">New Lead Follow-ups</span> and <span class="font-semibold">Delivery Follow-ups</span>.</p>
       </div>
       <label class="flex items-center gap-1.5 text-sm font-bold"><input type="checkbox" ${s.enabled !== false ? 'checked' : ''} onchange="autoToggleEngine(this.checked)" class="accent-indigo-600 w-4 h-4">Engine on</label>
     </div>
+    ${autoEmailSetupHtml(s)}
     ${autoGlobalsHtml(s)}
-    ${AUTO_CATS.filter(([k]) => byCat[k]?.length).map(([k, label]) => `<div><div class="text-xs font-black uppercase tracking-wider text-slate-400 mb-2 mt-4">${label}</div><div class="space-y-2">${byCat[k].map(autoCardHtml).join('')}</div></div>`).join('')}
-    ${autoHolidaysHtml()}`;
+    ${other.length ? `<div class="pt-2"><div class="text-sm font-black text-slate-900 dark:text-white">Other campaigns</div>
+      ${AUTO_CATS.filter(([k]) => byCat[k]?.length).map(([k, label]) => `<div><div class="text-xs font-black uppercase tracking-wider text-slate-400 mb-2 mt-4">${label}</div><div class="space-y-2">${byCat[k].map(autoCardHtml).join('')}</div></div>`).join('')}</div>` : ''}`;
+}
+// Re-render whichever automation view is currently on screen (after a toggle/save).
+function autoRerenderCurrent() {
+  if (!document.querySelector('[data-page-content="automation"]')?.classList.contains('hidden')) return renderAutomationSettings();
+  if (!document.querySelector('[data-page-content="auto-leads"]')?.classList.contains('hidden')) return renderAutoBucket('auto-leads-root', 'leads', 'New Lead Follow-ups', 'Automated texts, emails and rep tasks that fire when a new lead comes in — through the first appointment and showroom visit.');
+  if (!document.querySelector('[data-page-content="auto-delivery"]')?.classList.contains('hidden')) return renderAutoBucket('auto-delivery-root', 'delivery', 'Delivery Follow-ups', 'Post-delivery retention, review requests and referral asks — everything that fires after the customer takes delivery.');
+}
+// Professional email setup: from-name/address, reply-to, who we send as, tracking.
+function autoEmailSetupHtml(s) {
+  const e = s.email || {};
+  const mode = ['house', 'rep', 'both'].includes(e.sender_mode) ? e.sender_mode : 'house';
+  const inp = (id, v, ph, t = 'text') => `<input id="${id}" type="${t}" value="${esc(v == null ? '' : v)}" placeholder="${esc(ph)}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">`;
+  const lbl = (t) => `<label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${t}</label>`;
+  const modeBtn = (val, label, desc) => `<label class="flex-1 cursor-pointer"><input type="radio" name="ae-mode" value="${val}" ${mode === val ? 'checked' : ''} class="peer sr-only"><div class="border-2 rounded-lg px-3 py-2 text-center transition peer-checked:border-indigo-500 peer-checked:bg-indigo-50 dark:peer-checked:bg-indigo-950/40 border-slate-200 dark:border-slate-700"><div class="text-sm font-bold text-slate-900 dark:text-white">${label}</div><div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">${desc}</div></div></label>`;
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+    <div class="text-sm font-black text-slate-900 dark:text-white mb-1">Email setup</div>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Send automated emails from your own professional address so replies land in your inbox and every message is logged to the customer's timeline.</p>
+    <div class="grid sm:grid-cols-2 gap-2">
+      <div>${lbl('From name')}${inp('ae-from-name', e.from_name, 'Welland Chevrolet Sales')}</div>
+      <div>${lbl('From email (dealership general)')}${inp('ae-from', e.from, 'sales@yourdealer.com', 'email')}</div>
+      <div>${lbl('Reply-to (optional)')}${inp('ae-reply', e.reply_to, 'leads@yourdealer.com', 'email')}</div>
+    </div>
+    <div class="mt-3">${lbl('Send automated emails as')}
+      <div class="flex gap-2">
+        ${modeBtn('house', 'Dealership', 'General store email')}
+        ${modeBtn('rep', 'Sales rep', "The assigned rep's email")}
+        ${modeBtn('both', 'Both', 'Rep sends, store on reply-to')}
+      </div>
+    </div>
+    <label class="flex items-center gap-2 mt-3 text-sm font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"><input type="checkbox" id="ae-track" ${e.track_to_tasks !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4"> Log every send to the customer's timeline &amp; tasks</label>
+    <div class="mt-2 text-[11px] text-slate-400">Sending a rep's email requires their <span class="font-semibold">business email</span> to be set on their profile. A verified sending domain (Resend/SPF/DKIM) is needed for delivery — ask support to connect yours.</div>
+    <button onclick="autoSaveEmail(this)" class="mt-3 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save email setup</button>
+    <span id="ae-msg" class="hidden text-xs ml-2"></span>
+  </div>`;
+}
+async function autoSaveEmail(btn) {
+  const g = (id) => document.getElementById(id);
+  const email = {
+    from_name: g('ae-from-name')?.value || '',
+    from: g('ae-from')?.value || '',
+    reply_to: g('ae-reply')?.value || '',
+    sender_mode: (document.querySelector('input[name="ae-mode"]:checked')?.value) || 'house',
+    track_to_tasks: !!g('ae-track')?.checked,
+  };
+  const msg = g('ae-msg'); const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const d = await apiSendJson('/automation/settings', 'PUT', { email });
+    __autoCfg.settings = d.settings;
+    if (msg) { msg.textContent = '✓ Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); }
+  } catch (e) { showToast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = orig; }
 }
 function autoGlobalsHtml(s) {
   const inp = (id, v, ph, t = 'text') => `<input id="${id}" type="${t}" value="${esc(v == null ? '' : v)}" placeholder="${esc(ph)}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">`;
@@ -7273,7 +7379,7 @@ function autoInsertVar(cid, v) {
 }
 function autoCardField(cid, field, val) { const c = __autoCfg.campaigns.find(x => x.id === cid); if (c) c[field] = val; }
 async function autoToggleCard(cid, active) {
-  try { await apiSendJson(`/automation/campaigns/${cid}`, 'PUT', { is_active: active }); const c = __autoCfg.campaigns.find(x => x.id === cid); if (c) c.is_active = active; renderAutomationPage(); }
+  try { await apiSendJson(`/automation/campaigns/${cid}`, 'PUT', { is_active: active }); const c = __autoCfg.campaigns.find(x => x.id === cid); if (c) c.is_active = active; autoRerenderCurrent(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 async function autoSaveCard(cid, btn) {
@@ -7324,7 +7430,7 @@ function autoAddHolidayRow() {
   const name = prompt('Holiday name (e.g. Thanksgiving)'); if (!name) return;
   const date = prompt('Date as MM-DD (e.g. 10-13)'); if (!date || !/^\d{2}-\d{2}$/.test(date)) { showToast('Use MM-DD format', 'error'); return; }
   __autoHol.push({ name: name.trim(), date, message: `Happy ${name.trim()} from {{dealership.name}}!`, subject: `Happy ${name.trim()} from {{dealership.name}}`, enabled: true, preset: false });
-  renderAutomationPage();
+  renderHolidaysRoot();
 }
 async function autoSaveHolidays(btn) {
   __autoHol.forEach((h, i) => { const el = document.getElementById(`am-hol-${i}`); if (el) h.message = el.value; });
@@ -7343,7 +7449,7 @@ async function autoSaveGlobals(btn) {
   catch (e) { if (msg) { msg.textContent = e.message; msg.className = 'text-xs ml-2 text-red-500'; msg.classList.remove('hidden'); } }
   finally { btn.disabled = false; btn.textContent = orig; }
 }
-Object.assign(window, { loadAutomationPage, autoToggleEngine, autoToggleCard, autoCardField, autoInsertVar, autoSaveCard, autoAiCard, autoHolToggle, autoHolAi, autoAddHolidayRow, autoSaveHolidays, autoSaveGlobals });
+Object.assign(window, { loadAutomationPage, loadAutoHolidays, loadAutoLeads, loadAutoDelivery, autoToggleEngine, autoToggleCard, autoCardField, autoInsertVar, autoSaveCard, autoAiCard, autoHolToggle, autoHolAi, autoAddHolidayRow, autoSaveHolidays, autoSaveGlobals, autoSaveEmail });
 
 // ══ Equity Radar — lease pull-ahead / equity mining (managers) ═══════════════
 let __equity = { radar: [], leases: [], settings: {}, tab: 'radar' };
