@@ -558,6 +558,25 @@ async function applyFeatureFlags(force) {
 }
 window.applyFeatureFlags = applyFeatureFlags;
 
+// How-to guide — open the full guide page inside an in-app modal (iframe),
+// not a separate browser tab. Loaded lazily on first open.
+function openGuideModal() {
+  const m = document.getElementById('guide-modal'), f = document.getElementById('guide-frame');
+  if (!m || !f) return;
+  if (!f.getAttribute('src')) f.setAttribute('src', '/guide.html');
+  m.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeGuideModal() {
+  const m = document.getElementById('guide-modal');
+  if (m) m.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+window.openGuideModal = openGuideModal;
+window.closeGuideModal = closeGuideModal;
+document.addEventListener('click', (e) => { if (e.target && e.target.id === 'guide-modal') closeGuideModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !document.getElementById('guide-modal')?.classList.contains('hidden')) closeGuideModal(); });
+
 // Collapse/expand a nav group in the desktop sidebar.
 function toggleNavGroup(id) {
   const body = document.getElementById('grp-' + id);

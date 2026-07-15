@@ -22,7 +22,7 @@
     {
       target: '#dashboard-nav',
       title: 'Your control center',
-      body: `Switch between <b>Insights</b>, <b>Inventory</b>, your <b>Leaderboard</b>, and <b>Sales Team</b> from here.`
+      body: `Everything lives here — <b>Dashboard</b>, <b>Facebook</b> posting, <b>CRM</b>, <b>Reports</b> and more. Sections are colour-coded and start collapsed: click a name to open its page, or the arrow to expand its items. Your <b>Settings</b> are behind the gear icon, top-right.`
     },
     {
       target: '#feeds-panel',
@@ -55,9 +55,20 @@
     },
     {
       target: '#dashboard-nav [data-page="leaderboard"]',
-      before: () => goPage('leaderboard'),
+      before: () => { document.getElementById('grp-fb')?.classList.remove('hidden'); document.getElementById('chev-fb')?.classList.remove('-rotate-90'); goPage('leaderboard'); },
       title: '6. Track your wins',
       body: `Every listing and sale earns points. The <b>Global Leaderboard</b> ranks you against every dealer and rep on MarketSync (everyone else stays anonymous) — so even solo reps can see how they stack up.`
+    },
+    {
+      target: '#dashboard-nav [data-page="crm"]',
+      before: () => goPage('crm'),
+      title: '7. Your CRM & deals',
+      body: `The <b>CRM</b> keeps every customer, lead, appointment and task in one place — with a month <b>calendar</b> and auto follow-up <b>tasks</b>. Managers also get <b>Reports</b> (red) and can <b>Desk a deal</b> right from a sold customer.`
+    },
+    {
+      target: '#header-settings',
+      title: '8. Settings & features',
+      body: `The gear icon opens <b>Settings</b> — your team, branding, billing and add-ons, all in tabs. Under <b>Dealer Management → Features</b> you can turn any paid feature on or off for the whole store.`
     },
     {
       target: null,
