@@ -17,6 +17,11 @@
     input,select,textarea{min-width:0;max-width:100%}
     img{max-width:100%}
     .cshadow{box-shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04)}
+    /* AI-inserted links inside description copy. Inherit color where the text is on
+       a dark hero (white/80), else tint with the brand. */
+    .prose-links a{text-decoration:underline;text-underline-offset:2px;font-weight:600;color:var(--brand,#1e3a8a)}
+    .prose-links a:hover{opacity:.85}
+    [class*="text-white"] .prose-links a,.prose-links.text-white\/80 a{color:inherit}
     /* The Tailwind CDN doesn't ship the typography plugin, so give .prose (used by
        html sections + page bodies) sensible readable defaults. */
     .prose{color:#334155;line-height:1.7}
@@ -35,6 +40,25 @@
     let SLUG=(new URLSearchParams(location.search).get('d')||location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase();
     if(SLUG.endsWith('.html')) SLUG='';   // custom-domain root → resolve by hostname instead
     const esc=(s)=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    // Rich text for description fields: allows a safe subset of HTML so AI-inserted
+    // internal/external links render, while stripping anything unsafe. Plain text
+    // (no tags) is escaped and its line breaks preserved.
+    const RICH_TAGS={A:['href','target','rel'],STRONG:[],B:[],EM:[],I:[],BR:[],P:[],UL:[],OL:[],LI:[],SPAN:[]};
+    function sanitizeRich(html){
+      const tpl=document.createElement('template'); tpl.innerHTML=String(html||'');
+      const walk=(node)=>{ for(const n of [...node.childNodes]){
+        if(n.nodeType===3) continue;
+        if(n.nodeType!==1){ n.remove(); continue; }
+        const allow=RICH_TAGS[n.tagName];
+        if(!allow){ n.replaceWith(...n.childNodes); continue; }
+        for(const a of [...n.attributes]){ if(!allow.includes(a.name.toLowerCase())) n.removeAttribute(a.name); }
+        if(n.tagName==='A'){ const href=n.getAttribute('href')||''; if(/^\s*(javascript|data):/i.test(href)) n.removeAttribute('href');
+          if(/^https?:/i.test(href)){ n.setAttribute('target','_blank'); n.setAttribute('rel','nofollow noopener'); } }
+        walk(n);
+      } };
+      walk(tpl.content); return tpl.innerHTML;
+    }
+    function richText(str){ str=String(str==null?'':str); if(!str) return ''; return /<(a|strong|b|em|i|br|p|ul|ol|li|span)\b/i.test(str)?sanitizeRich(str):esc(str).replace(/\n/g,'<br>'); }
     const attr=(s)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     const money=(n)=>n?'$'+Number(n).toLocaleString():'Call for price';
     const km=(n)=>n?Number(n).toLocaleString()+' km':'—';
@@ -69,24 +93,48 @@
         document.documentElement.style.setProperty('--brand2',s.secondary_color||'#0f172a');
         injectHead(s.head_html);
         applyTypography(s);
-        renderChrome(); go('home');
+        renderChrome(); go(hashToView(location.hash));
         if(s.sales_chat) mountSalesChat(s);
       }catch(e){ document.getElementById('app').innerHTML=errPage(e.message); }
     }
     const errPage=(m)=>`<div class="min-h-screen flex flex-col items-center justify-center gap-2 text-center px-6"><div class="text-lg font-bold text-slate-700">${esc(m)}</div><div class="text-sm text-slate-400">Please check the link.</div></div>`;
-    // SEO: set the page title + meta description + Open Graph tags from dealer settings.
+    // Set/replace a <meta> (or <title>) tag by selector.
+    function metaTag(sel,attr,val){ if(!val) return; let el=document.head.querySelector(sel); if(!el){ el=document.createElement('meta'); const [k,v]=attr; el.setAttribute(k,v); document.head.appendChild(el);} el.setAttribute('content',val); }
+    // SEO: seed the site-wide title/description + social (OG) tags. Per-view/page
+    // overrides are applied on every navigation by applyViewSeo().
     function applySeo(s){
-      const title=s.seo_title||`${s.name||'Inventory'}${s.city?' | '+s.city:''}`;
-      const desc=s.seo_description||s.about||`Browse inventory, build your vehicle, and get financing at ${s.name||'our dealership'}.`;
-      document.title=title;
-      const meta=(sel,attr,val)=>{ if(!val) return; let el=document.head.querySelector(sel); if(!el){ el=document.createElement('meta'); const [k,v]=attr; el.setAttribute(k,v); document.head.appendChild(el);} el.setAttribute('content',val); };
-      meta('meta[name="description"]',['name','description'],desc);
-      if(s.seo_keywords) meta('meta[name="keywords"]',['name','keywords'],s.seo_keywords);
-      meta('meta[property="og:title"]',['property','og:title'],title);
-      meta('meta[property="og:description"]',['property','og:description'],desc);
-      meta('meta[property="og:type"]',['property','og:type'],'website');
-      if(s.seo_image||s.hero_url||s.logo_url) meta('meta[property="og:image"]',['property','og:image'],s.seo_image||s.hero_url||s.logo_url);
-      meta('meta[name="twitter:card"]',['name','twitter:card'],'summary_large_image');
+      if(s.seo_keywords) metaTag('meta[name="keywords"]',['name','keywords'],s.seo_keywords);
+      metaTag('meta[property="og:type"]',['property','og:type'],'website');
+      if(s.seo_image||s.hero_url||s.logo_url) metaTag('meta[property="og:image"]',['property','og:image'],s.seo_image||s.hero_url||s.logo_url);
+      metaTag('meta[name="twitter:card"]',['name','twitter:card'],'summary_large_image');
+    }
+    // Title + description for the current view — updated on every navigation so
+    // each page carries its OWN, distinct meta. Custom pages use their per-page SEO
+    // (or a description derived from the page's own content + focus keyword).
+    function setMeta(title,desc){
+      if(title){ document.title=title; metaTag('meta[property="og:title"]',['property','og:title'],title); }
+      if(desc){ metaTag('meta[name="description"]',['name','description'],desc); metaTag('meta[property="og:description"]',['property','og:description'],desc); }
+    }
+    function stripText(html,max){ const d=document.createElement('div'); d.innerHTML=html||''; let t=(d.textContent||'').replace(/\s+/g,' ').trim(); if(max&&t.length>max) t=t.slice(0,max-1).replace(/\s+\S*$/,'').trim()+'…'; return t; }
+    function pageDerivedDesc(p,name,loc){
+      const parts=[p.body_html||'',...((p.sections||[]).map(sec=>Object.values(sec.settings||{}).filter(v=>typeof v==='string').join(' ')))];
+      const body=stripText(parts.join(' '),155);
+      if(body) return body;
+      return `${p.title} at ${name}${loc}.${p.seo_keyword?' '+p.seo_keyword+'.':''}`.trim();
+    }
+    function applyViewSeo(){
+      const s=DATA.site, name=s.name||'Our dealership', loc=s.city?` in ${s.city}`:'';
+      let title, desc;
+      if(VIEW.startsWith('page:')){
+        const p=(s.pages||[]).find(x=>x.slug===VIEW.slice(5));
+        if(p){ title=p.seo_title||`${p.title} | ${name}`; desc=p.seo_description||pageDerivedDesc(p,name,loc); }
+      }
+      if(!title){
+        const D={ inventory:['Inventory',`Browse new & used vehicles${loc}`], build:['Build & Price','Build and price your next vehicle'], trade:['Value Your Trade','Get a real trade-in value in minutes'], finance:['Financing','Get pre-approved fast — no impact to your credit score'], team:['Our Team','Meet our sales, finance and service team'], inquiry:['Contact','Hours, directions and a quick way to reach us'] }[VIEW];
+        if(VIEW==='home'||!D){ title=s.seo_title||`${name}${s.city?' | '+s.city:''}`; desc=s.seo_description||s.about||`Browse inventory, build your vehicle, and get financing at ${name}.`; }
+        else { title=`${D[0]} | ${name}`; desc=`${D[1]} at ${name}${loc}.`; }
+      }
+      setMeta(title,desc);
     }
     function injectHead(html){ if(!html) return; try{ const t=document.createElement('div'); t.innerHTML=html; Array.from(t.childNodes).forEach(n=>{ if(n.nodeType===1&&n.tagName==='SCRIPT'){ const s=document.createElement('script'); for(const a of n.attributes) s.setAttribute(a.name,a.value); s.textContent=n.textContent; document.head.appendChild(s);} else if(n.nodeType===1) document.head.appendChild(n); }); }catch(e){} }
     // Typography → dealer-chosen Google Fonts (heading + body), or a named preset.
@@ -242,8 +290,14 @@
           <div class="text-center text-xs text-slate-500 py-4">© ${new Date().getFullYear()} ${esc(s.name)} · Powered by MarketSync</div>
         </footer>`;
     }
-    function go(view,vehId,prefill){ VIEW=view; window.scrollTo(0,0); renderView();
+    function go(view,vehId,prefill){ VIEW=view; window.scrollTo(0,0); renderView(); applyViewSeo();
+      const h=viewToHash(view); if(location.hash!==h){ location.hash=h; }
       if(view==='inquiry'){ setTimeout(()=>{ const vf=document.getElementById('i-vehicle'); if(vehId&&vf) vf.value=vehId; const mf=document.getElementById('i-msg'); if(prefill&&mf) mf.value=prefill; },30); } }
+    // Hash routing: gives every page a distinct, shareable, crawlable URL and lets
+    // AI-inserted internal links (href="#finance", "#/page-slug") just work.
+    function viewToHash(v){ if(!v||v==='home') return '#home'; if(v.startsWith('page:')) return '#/'+v.slice(5); if(v==='inquiry') return '#contact'; return '#'+v; }
+    function hashToView(h){ h=(h||'').replace(/^#/,''); if(!h||h==='home') return 'home'; if(h[0]==='/') return 'page:'+h.slice(1); if(h==='contact') return 'inquiry'; if(['inventory','build','trade','finance','team'].includes(h)) return h; return 'home'; }
+    window.addEventListener('hashchange',()=>{ const v=hashToView(location.hash); if(v===VIEW) return; VIEW=v; window.scrollTo(0,0); renderView(); applyViewSeo(); });
     // Is a built-in page switched on? (default on when unset)
     function builtinOn(k){ const bi=(DATA.site&&DATA.site.builtins)||{}; return !bi[k]||bi[k].enabled!==false; }
     // Map a view to the builtin key that gates it (null = always available).
@@ -274,7 +328,7 @@
           ${s.hero_url?`<img src="${esc(s.hero_url)}" class="absolute inset-0 w-full h-full object-cover opacity-40">`:''}
           <div class="relative max-w-6xl mx-auto px-4 py-16 sm:py-24">
             <h1 class="text-3xl sm:text-5xl font-black max-w-2xl">${esc(s.tagline||'Find your next vehicle')}</h1>
-            <p class="mt-3 text-white/80 max-w-xl">${esc(s.about?s.about.slice(0,180):`Browse our ${DATA.count} available vehicle${DATA.count===1?'':'s'}.`)}</p>
+            <div class="mt-3 text-white/80 max-w-xl prose-links">${s.about?richText(s.about):esc(`Browse our ${DATA.count} available vehicle${DATA.count===1?'':'s'}.`)}</div>
             <div class="mt-6 flex flex-wrap gap-3">
               <a href="#" onclick="go('inventory');return false" class="bg-white text-slate-900 font-bold px-5 py-2.5 rounded-lg hover:bg-slate-100">Browse inventory →</a>
               <button onclick="go('trade')" class="border border-white/40 text-white font-bold px-5 py-2.5 rounded-lg hover:bg-white/10">Value your trade</button>
@@ -352,12 +406,12 @@
           const img=g.image;
           return `<section class="max-w-6xl mx-auto px-4 py-14"><div class="grid md:grid-cols-2 gap-8 items-center">
             <div class="order-2 md:order-1">${img?`<img src="${esc(img)}" class="w-full rounded-2xl cshadow object-cover">`:`<div class="w-full aspect-[4/3] rounded-2xl brand2-bg flex items-center justify-center text-white/40">${s.logo_url?`<img src="${esc(s.logo_url)}" class="max-h-16 opacity-80">`:'<span class="text-sm">Add an image in the section settings</span>'}</div>`}</div>
-            <div class="order-1 md:order-2"><h2 class="text-3xl font-black mb-3 text-slate-900">${esc(g.headline||'Drive more, spend less')}</h2><p class="text-slate-600 leading-relaxed">${esc(g.body||'')}</p>${g.button_label?`<button ${ctaTarget(g.button_target)} class="mt-5 brand-bg text-white font-bold px-5 py-2.5 rounded-lg">${esc(g.button_label)}</button>`:''}</div>
+            <div class="order-1 md:order-2"><h2 class="text-3xl font-black mb-3 text-slate-900">${esc(g.headline||'Drive more, spend less')}</h2><div class="text-slate-600 leading-relaxed prose-links">${richText(g.body||'')}</div>${g.button_label?`<button ${ctaTarget(g.button_target)} class="mt-5 brand-bg text-white font-bold px-5 py-2.5 rounded-lg">${esc(g.button_label)}</button>`:''}</div>
           </div></section>`;
         }
         case 'two_col': {
           const wrap=g.full?'w-full px-4 sm:px-8':'max-w-6xl mx-auto px-4';
-          const col=(t,b,img)=>`<div>${img?`<img src="${esc(img)}" class="w-full rounded-2xl cshadow object-cover mb-4">`:''}${t?`<h3 class="text-2xl font-black mb-2 text-slate-900">${esc(t)}</h3>`:''}${b?`<p class="text-slate-600 leading-relaxed" style="white-space:pre-line">${esc(b)}</p>`:''}</div>`;
+          const col=(t,b,img)=>`<div>${img?`<img src="${esc(img)}" class="w-full rounded-2xl cshadow object-cover mb-4">`:''}${t?`<h3 class="text-2xl font-black mb-2 text-slate-900">${esc(t)}</h3>`:''}${b?`<div class="text-slate-600 leading-relaxed prose-links" style="white-space:pre-line">${richText(b)}</div>`:''}</div>`;
           if(!g.left_title&&!g.left_body&&!g.right_title&&!g.right_body&&!g.left_image&&!g.right_image) return '';
           return `<section class="${wrap} py-14"><div class="grid md:grid-cols-2 gap-8 items-start">${col(g.left_title,g.left_body,g.left_image)}${col(g.right_title,g.right_body,g.right_image)}</div></section>`;
         }

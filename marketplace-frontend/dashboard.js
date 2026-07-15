@@ -6263,7 +6263,7 @@ function siteSettingsFields(cfg) {
     ${customDomainCard(cfg)}
     <div class="grid grid-cols-1 gap-2">
       <div>${lbl('Headline / tagline')}${inp('site-tagline', c.tagline, 'Your trusted local dealership', 'w-full')}</div>
-      <div>${lbl('About')}${ta('site-about', c.about, 'A sentence or two about your store', 2)}</div>
+      <div><div class="flex items-center justify-between"><div>${lbl('About')}</div><button type="button" onclick="aiAboutMenu(event)" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 mb-1">✨ AI</button></div>${ta('site-about', c.about, 'A sentence or two about your store', 2)}</div>
       <div class="grid grid-cols-2 gap-2">
         <div>${lbl('Phone')}${inp('site-phone', c.phone, '905-555-1234', 'w-full')}</div>
         <div>${lbl('Email')}${inp('site-email', c.email, 'sales@…', 'w-full')}</div>
@@ -6288,6 +6288,7 @@ function siteSettingsFields(cfg) {
       <div class="text-sm font-black text-slate-900 dark:text-white">SEO</div>
       <p class="text-[11px] text-slate-400 mb-2">How your site shows in Google and when shared. Leave blank to auto-generate from your name, city and About.</p>
       <div class="space-y-2">
+        <div class="flex justify-end -mb-1"><button type="button" onclick="aiSiteMeta(this)" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500">✨ AI write title + meta</button></div>
         <div>${lbl('Page title (Google tab, ~60 chars)')}${inp('seo-title', c.seo_title, 'Welland Chevrolet Buick GMC | New & Used in Welland', 'w-full')}</div>
         <div>${lbl('Meta description (~155 chars)')}${ta('seo-desc', c.seo_description, 'Shop new and used Chevrolet, Buick & GMC in Welland. Build & price, get financing, value your trade.', 2)}</div>
         <div>${lbl('Keywords (comma separated, optional)')}${inp('seo-keywords', c.seo_keywords, 'Chevrolet Welland, used trucks Niagara, GMC dealer', 'w-full')}</div>
@@ -6820,6 +6821,15 @@ function renderWsBody() {
       <label class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 ml-2">Nav icon
         <input value="${esc(cp.icon || '')}" maxlength="4" placeholder="🚗" oninput="setPageStyle('icon',this.value)" class="w-16 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1 py-1"></label>
       <span class="text-slate-400 flex-1">Shows in the site nav and tints this page's buttons/links.</span>
+    </div>
+    <div class="mb-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 space-y-1.5">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-xs font-bold text-slate-500 dark:text-slate-400">This page's SEO <span class="font-normal text-slate-400">— a unique title & meta for Google (blank auto-fills from this page)</span></span>
+        <button type="button" onclick="aiPageMeta(this)" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 whitespace-nowrap">✨ AI write meta</button>
+      </div>
+      <input id="pg-seo-title" value="${esc(cp.seo_title || '')}" oninput="setPageStyle('seo_title',this.value)" placeholder="SEO title (~60 chars, click-worthy hook)" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5">
+      <textarea id="pg-seo-desc" rows="2" oninput="setPageStyle('seo_description',this.value)" placeholder="Meta description (~155 chars, include your focus keyword)" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5">${esc(cp.seo_description || '')}</textarea>
+      <input id="pg-seo-kw" value="${esc(cp.seo_keyword || '')}" oninput="setPageStyle('seo_keyword',this.value)" placeholder="Focus keyword (e.g. used trucks in ${esc((__siteCfg?.content?.city) || 'your city')})" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5">
     </div>`; })() : ''}
     <div class="grid lg:grid-cols-[minmax(0,1fr)_240px] gap-4">
       <div id="ws-sections" class="space-y-2"></div>
@@ -6866,7 +6876,15 @@ function secDrop(e, i) {
   renderWsSections();
 }
 window.secDragStart = secDragStart; window.secDragEnd = secDragEnd; window.secDragOver = secDragOver; window.secDragLeave = secDragLeave; window.secDrop = secDrop;
-const WS_AI_KIND = { headline: 'headline', subheadline: 'subheadline', title: 'headline', subtitle: 'subheadline', button_label: 'cta', items: 'faq', html: 'text', embed_html: 'text' };
+// Which section fields get the ✨ AI writer, and what "kind" it writes as. Titles →
+// title/hook + rewrites; body/paragraph/subtitle → rewrites + link insertion. Every
+// copy field a dealer can type into should map here so nothing is left un-AI'd.
+const WS_AI_KIND = {
+  headline: 'headline', title: 'headline', subheadline: 'subheadline', subtitle: 'subheadline',
+  button_label: 'cta', items: 'faq', html: 'text', embed_html: 'text',
+  body: 'body', text: 'body', paragraph: 'body', intro: 'body', description: 'description',
+  left_body: 'body', right_body: 'body', tag: 'cta',
+};
 function wsField(i, sec, [key, label, type]) {
   const v = sec.settings?.[key];
   const aiKind = WS_AI_KIND[key];
@@ -7052,19 +7070,116 @@ async function saveWebsite(btn) {
   try { await apiSendJson('/dealership/site', 'PUT', body); showToast('Website saved', 'success'); btn.disabled = false; btn.textContent = orig; }
   catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
 }
-// ✨ AI-per-section: one-click Rewrite / Improve / Generate / SEO on copy fields.
+// ✨ AI-per-section: Boost / Fresh / Short / Long / SEO on any copy field, plus a
+// SEO title-with-hook option on titles and link-insertion on description copy.
+const AI_RICH_KINDS = ['about', 'body', 'text', 'description', 'paragraph', 'intro'];
+const AI_TITLE_KINDS = ['headline', 'title', 'cta', 'subheadline'];
 function aiMenu(ev, i, key, kind) {
   ev.stopPropagation();
   document.querySelectorAll('.ai-menu').forEach(m => m.remove());
-  const acts = kind === 'faq' ? [['faq', 'Generate FAQ']]
-    : [['improve', '✨ Improve'], ['rewrite', 'Rewrite'], ['shorten', 'Shorten'], ['expand', 'Expand'], ['generate', 'Generate new'], ['seo', 'SEO version']];
+  let acts;
+  if (kind === 'faq') acts = [['faq', 'Generate FAQ']];
+  else {
+    acts = [['boost', '✨ Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite']];
+    if (AI_TITLE_KINDS.includes(kind)) acts.push(['title', '🎯 SEO title + hook']);
+    if (AI_RICH_KINDS.includes(kind)) acts.push(['links', '🔗 Add links']);
+  }
   const m = document.createElement('div');
-  m.className = 'ai-menu fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[140px]';
+  m.className = 'ai-menu fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[170px]';
   const r = ev.currentTarget.getBoundingClientRect();
-  m.style.top = (r.bottom + 4) + 'px'; m.style.left = Math.max(8, r.right - 150) + 'px';
+  m.style.top = (r.bottom + 4) + 'px'; m.style.left = Math.max(8, r.right - 180) + 'px';
   m.innerHTML = acts.map(a => `<button class="block w-full text-left px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" onclick="aiRun(${i},'${key}','${kind}','${a[0]}');this.closest('.ai-menu').remove()">${a[1]}</button>`).join('');
   document.body.appendChild(m);
   setTimeout(() => document.addEventListener('click', function h() { m.remove(); document.removeEventListener('click', h); }, { once: true }), 10);
+}
+// The site's primary focus keyword (first of the SEO keywords field) — feeds the
+// SEO/title/meta prompts so copy is optimized around what the dealer targets.
+function sitePrimaryKeyword() {
+  const raw = (document.getElementById('seo-keywords')?.value || __siteCfg?.content?.seo_keywords || '').split(',')[0];
+  return (raw || '').trim().slice(0, 80);
+}
+// Internal link targets (hash URLs that the public site routes) the AI can weave
+// into descriptions — built-in pages + the dealer's custom pages.
+function siteInternalLinks() {
+  const bi = __siteBuiltins || {};
+  const on = (k) => !bi[k] || bi[k].enabled !== false;
+  const lbl = (k, d) => (bi[k] && bi[k].label) || d;
+  const out = [];
+  if (on('inventory')) out.push({ label: lbl('inventory', 'our inventory'), href: '#inventory' });
+  if (on('finance')) out.push({ label: lbl('finance', 'financing'), href: '#finance' });
+  if (on('trade')) out.push({ label: lbl('trade', 'value your trade'), href: '#trade' });
+  if (on('build')) out.push({ label: lbl('build', 'build & price'), href: '#build' });
+  if (on('contact')) out.push({ label: lbl('contact', 'contact us'), href: '#contact' });
+  for (const p of (__sitePages || [])) { if ((p.title || '').trim() && p.slug) out.push({ label: p.title, href: '#/' + p.slug }); }
+  return out.slice(0, 12);
+}
+// ✨ AI menu for the site-level About field (boost / fresh / short / long / SEO / links).
+function aiAboutMenu(ev) {
+  ev.stopPropagation();
+  document.querySelectorAll('.ai-menu').forEach(m => m.remove());
+  const acts = [['boost', '✨ Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite'], ['links', '🔗 Add links']];
+  const m = document.createElement('div');
+  m.className = 'ai-menu fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[170px]';
+  const r = ev.currentTarget.getBoundingClientRect();
+  m.style.top = (r.bottom + 4) + 'px'; m.style.left = Math.max(8, r.right - 180) + 'px';
+  m.innerHTML = acts.map(a => `<button class="block w-full text-left px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" onclick="aiAboutRun('${a[0]}');this.closest('.ai-menu').remove()">${a[1]}</button>`).join('');
+  document.body.appendChild(m);
+  setTimeout(() => document.addEventListener('click', function h() { m.remove(); document.removeEventListener('click', h); }, { once: true }), 10);
+}
+async function aiAboutRun(task) {
+  const el = document.getElementById('site-about'); if (!el) return;
+  const withLinks = task === 'links';
+  showToast('✨ Writing…', 'info');
+  try {
+    const d = await apiSendJson('/ai/site-copy', 'POST', { task, kind: 'about', current: el.value, hint: 'about the dealership', keyword: sitePrimaryKeyword(), with_links: withLinks, links: withLinks ? siteInternalLinks() : [] });
+    el.value = d.text; showToast(d.html ? '✨ Links added — review & Save' : '✨ Done — review & Save', 'success');
+  } catch (e) { showToast(e.message === 'AI Boost not active' ? 'AI editing needs AI Boost (or your free trial).' : e.message, 'error'); }
+}
+// ✨ Write the site-wide (home) SEO title + meta description from name/city/About.
+async function aiSiteMeta(btn) {
+  const kw = sitePrimaryKeyword();
+  const about = (document.getElementById('site-about')?.value || __siteCfg?.content?.about || '').trim();
+  const name = (__siteCfg?.content?.name || '').trim();
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = '✨ Writing…';
+  try {
+    const [ttl, dsc] = await Promise.all([
+      apiSendJson('/ai/site-copy', 'POST', { task: 'title', kind: 'title', hint: 'homepage', keyword: kw, current: name }),
+      apiSendJson('/ai/site-copy', 'POST', { task: 'meta', kind: 'meta', hint: 'homepage', keyword: kw, current: about || name }),
+    ]);
+    const tEl = document.getElementById('seo-title'); if (tEl && ttl.text) tEl.value = ttl.text;
+    const dEl = document.getElementById('seo-desc'); if (dEl && dsc.text) dEl.value = dsc.text;
+    showToast('✨ Title + meta written — review & Save', 'success');
+  } catch (e) { showToast(e.message === 'AI Boost not active' ? 'AI meta needs AI Boost (or your free trial).' : e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = orig; }
+}
+// Flatten a page's own content (title + body + every section's text) so the AI can
+// write a meta description that actually reflects what's ON the page.
+function pageContentText(p) {
+  const parts = [p.title || '', p.body_html || ''];
+  for (const s of (p.sections || [])) for (const v of Object.values(s.settings || {})) if (typeof v === 'string') parts.push(v);
+  return parts.join(' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1200);
+}
+// ✨ Write this page's meta description (and a title if it has none) from its content.
+async function aiPageMeta(btn) {
+  const p = (typeof __wsTarget === 'number') ? __sitePages[__wsTarget] : null;
+  if (!p) { showToast('Pick a page to edit first', 'info'); return; }
+  const kw = (p.seo_keyword || sitePrimaryKeyword() || '').trim();
+  const pageText = pageContentText(p);
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = '✨ Writing…';
+  try {
+    const dsc = await apiSendJson('/ai/site-copy', 'POST', { task: 'meta', kind: 'meta', hint: p.title, keyword: kw, current: pageText });
+    p.seo_description = dsc.text;
+    const dEl = document.getElementById('pg-seo-desc'); if (dEl) dEl.value = dsc.text;
+    if (!(p.seo_title || '').trim()) {
+      try {
+        const ttl = await apiSendJson('/ai/site-copy', 'POST', { task: 'title', kind: 'title', hint: p.title, keyword: kw, current: p.title });
+        p.seo_title = ttl.text;
+        const tEl = document.getElementById('pg-seo-title'); if (tEl) tEl.value = ttl.text;
+      } catch {}
+    }
+    showToast('✨ Meta written — review & Save', 'success');
+  } catch (e) { showToast(e.message === 'AI Boost not active' ? 'AI meta needs AI Boost (or your free trial).' : e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = orig; }
 }
 const __aiHistory = {}; // per-field recent outputs, so repeated clicks don't repeat
 async function aiRun(i, key, kind, task) {
@@ -7073,13 +7188,14 @@ async function aiRun(i, key, kind, task) {
   const secLabel = SEC_META[__siteSections[i]?.type]?.label || '';
   const histKey = `${__siteSections[i]?.id || i}:${key}`;
   const avoid = (__aiHistory[histKey] || []).slice(-5);
+  const withLinks = task === 'links';
   showToast('✨ Writing…', 'info');
   try {
-    const d = await apiSendJson('/ai/site-copy', 'POST', { task, kind, current, hint: secLabel, avoid });
+    const d = await apiSendJson('/ai/site-copy', 'POST', { task, kind, current, hint: secLabel, avoid, keyword: sitePrimaryKeyword(), with_links: withLinks, links: withLinks ? siteInternalLinks() : [] });
     if (kind === 'faq' || key === 'items') setSecFaq(i, key, d.text); else setSec(i, key, d.text);
     (__aiHistory[histKey] = __aiHistory[histKey] || []).push(d.text);
     renderWsSections();
-    showToast('✨ Done — review & Save', 'success');
+    showToast(d.html ? '✨ Links added — review & Save' : '✨ Done — review & Save', 'success');
   } catch (e) { showToast(e.message === 'AI Boost not active' ? 'AI editing needs AI Boost (or your free trial).' : e.message, 'error'); }
 }
 // ── Templates: distinct layouts + copy pre-filled from the dealer's own details ──

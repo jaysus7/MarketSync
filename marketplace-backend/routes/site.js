@@ -113,6 +113,11 @@ function cleanPages(arr) {
       // Per-page brand accent (hex) + nav icon (emoji/short glyph) — #28.
       accent: /^#[0-9a-fA-F]{6}$/.test(String(p.accent || '')) ? String(p.accent) : null,
       icon: p.icon ? String(p.icon).slice(0, 8) : null,
+      // Per-page SEO: unique title, meta description and focus keyword. Blank = the
+      // public site derives them from the page's own content at render time.
+      seo_title: p.seo_title ? String(p.seo_title).slice(0, 120) : null,
+      seo_description: p.seo_description ? String(p.seo_description).slice(0, 320) : null,
+      seo_keyword: p.seo_keyword ? String(p.seo_keyword).slice(0, 80) : null,
       // Full section builder per page (hero, CTAs, inventory…) — same as the home page.
       sections: Array.isArray(p.sections) ? cleanSections(p.sections) : [],
     }

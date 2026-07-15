@@ -773,20 +773,44 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
     if (!(await aiAllowed(req.dealershipId, isOwner))) return res.status(429).json({ error: 'Monthly AI limit reached — resets next month.' })
 
+    // Canonical tasks + back-compat aliases. The five the dealer asked for are
+    // boost / fresh / short / long / seo, plus title (SEO click-worthy hook),
+    // links (link-rich description) and meta (page meta description).
+    const YEAR = new Date().getFullYear()
+    const taskAlias = { improve: 'boost', rewrite: 'fresh', generate: 'fresh', expand: 'long', shorten: 'short' }
+    const t = taskAlias[task] || task
+    const keyword = String(b.keyword || '').slice(0, 80).trim()
+    // Internal link targets the AI may weave in: [{label, href}]. External auth
+    // links the AI chooses itself. Both only used for description-style copy.
+    const linkTargets = Array.isArray(b.links)
+      ? b.links.filter(l => l && l.href).slice(0, 12).map(l => ({ label: String(l.label || '').slice(0, 60), href: String(l.href).slice(0, 200) }))
+      : []
+    // Description-ish kinds can hold HTML links; short labels stay plain text.
+    const RICH_KINDS = ['about', 'body', 'text', 'description', 'paragraph', 'intro']
+    const isRich = RICH_KINDS.includes(kind)
+    const wantLinks = t === 'links' || (b.with_links === true && isRich)
+
+    const SEO_RULES = `Follow modern ${YEAR} SEO best practices: write for humans first and search engines second. ${keyword ? `Weave the focus keyword "${keyword}" in naturally near the start plus one close variant — never stuff it.` : 'Use the natural language a buyer would search.'} Match search intent, be specific and genuinely useful, use concrete entities (brands, models, city), and keep it scannable.`
     const instr = {
-      rewrite: 'Rewrite it to be clearer and more compelling',
-      improve: 'Improve it (grammar, punch, flow) while keeping the meaning',
-      expand: 'Expand it with a little more useful detail',
-      shorten: 'Make it shorter and punchier',
-      generate: 'Write fresh copy',
-      seo: 'Rewrite it to be SEO-friendly with natural keywords (no keyword stuffing)',
-      faq: 'Write 5 genuinely useful FAQ items',
-    }[task] || 'Write fresh copy'
+      boost: 'Keep the meaning but make it noticeably sharper — tighter phrasing, stronger verbs, better flow and punch.',
+      fresh: 'Rewrite it from scratch with a genuinely new angle and fresh wording — do not lightly reword the original.',
+      short: 'Make it shorter and punchier — cut every wasted word while keeping the core message.',
+      long: 'Expand it with more useful, specific detail a buyer actually cares about — no filler or fluff.',
+      seo: `Rewrite it for search. ${SEO_RULES}`,
+      title: `Write ONE SEO-optimized, click-worthy title with a real hook. ${keyword ? `Front-load the keyword "${keyword}".` : ''} Under ~60 characters, specific and compelling (a curiosity or benefit hook), never clickbait that lies. No trailing period.`,
+      links: `Rewrite it into an engaging, SEO-aware description (${SEO_RULES}).`,
+      meta: `Write ONE meta description of 140–160 characters for this page. ${keyword ? `Include the keyword "${keyword}" naturally near the front.` : ''} Action-oriented, unique, benefit-led. Plain text only.`,
+      faq: 'Write 5 genuinely useful FAQ items.',
+    }[t] || 'Write fresh, specific copy.'
     const kindHint = {
-      headline: 'a distinctive hero headline, 4–9 words (a real headline, not a generic slogan)',
+      headline: 'a distinctive hero headline, 4–9 words (a real headline with a hook, not a generic slogan)',
       subheadline: 'a single supporting subheadline sentence',
       cta: 'a short call-to-action button label (2–4 words)',
-      about: 'a warm 2–3 sentence "about the dealership" paragraph',
+      about: 'a warm, specific "about the dealership" paragraph',
+      body: 'a section of website body copy',
+      text: 'a section of website body copy',
+      title: 'an SEO page or section title',
+      meta: 'a page meta description',
       faq: 'FAQ content',
       seo: 'SEO website copy',
     }[kind] || 'a short piece of website copy'
@@ -814,23 +838,34 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
     const angle = ANGLES[Math.floor(Math.random() * ANGLES.length)]
     const avoid = Array.isArray(b.avoid) ? b.avoid : (b.avoid ? [String(b.avoid)] : [])
     const avoidLine = [current, ...avoid].filter(Boolean).slice(0, 6).map(s => `"${String(s).slice(0, 120)}"`).join(', ')
-    const isFaq = task === 'faq' || kind === 'faq'
-    const prompt = `You are a senior copywriter for ${dealer?.name || 'a car dealership'}${loc ? ' in ' + loc : ''}.${makes.length ? ` They primarily sell ${makes.join(', ')}.` : ''} Tone: ${tone}.
-Write ${kindHint}. ${instr}.${hint ? ` This is for the "${hint}" section.` : ''}
-For this version, ${angle}.
-Make it specific and distinctive — reference real details (brands, city, selection) where natural. Avoid generic dealer clichés; NEVER use phrases like "Drive Home Your Dream", "Best Deals", "Your Trusted Dealer", "Today!", "Look no further", "Unbeatable", or empty hype.${avoidLine ? ` Do NOT repeat or lightly reword any of these existing lines: ${avoidLine}.` : ''}${current && !isFaq ? `\nCurrent text to work from: "${current}".` : ''}
-Return ONLY the copy — no quotes, no markdown, no preamble.${isFaq ? ' Put each FAQ on its own line formatted exactly as "Question :: Answer".' : ''}`
+    const isFaq = t === 'faq' || kind === 'faq'
+    const isTitle = t === 'title'
+    const isMeta = t === 'meta' || kind === 'meta'
+    // Angle rotation only helps free-form copy; titles/meta/links stay on-brief.
+    const angleLine = (isTitle || isMeta || wantLinks) ? '' : `For this version, ${angle}.\n`
+    // Link block: give the model the exact internal hrefs to use + rules for one
+    // external authority link. HTML output so links actually render on the site.
+    const linksBlock = wantLinks
+      ? `\nInclude 1–2 relevant INTERNAL links using ONLY these exact hrefs, as HTML anchors: ${linkTargets.length ? linkTargets.map(l => `"${l.label}" -> ${l.href}`).join('; ') : '(none provided — skip internal links)'}. Also include exactly ONE relevant EXTERNAL link to a genuinely authoritative, useful source (e.g. the manufacturer's official site, a government safety/consumer resource, Carfax) — use target="_blank" rel="nofollow noopener" on the external one only. Output valid HTML using <a>, <strong>, <em> and <br> where helpful; no other tags, no markdown, no <html>/<body> wrapper.`
+      : ''
+    const banned = 'NEVER use phrases like "Drive Home Your Dream", "Best Deals", "Your Trusted Dealer", "Today!", "Look no further", "Unbeatable", or empty hype.'
+    const prompt = `You are a senior automotive copywriter for ${dealer?.name || 'a car dealership'}${loc ? ' in ' + loc : ''}.${makes.length ? ` They primarily sell ${makes.join(', ')}.` : ''} Tone: ${tone}.
+Write ${kindHint}. ${instr}${hint ? ` This is for the "${hint}" ${isMeta || isTitle ? 'page' : 'section'}.` : ''}
+${angleLine}Make it specific and distinctive — reference real details (brands, city, selection) where natural. ${banned}${avoidLine ? ` Do NOT repeat or lightly reword any of these existing lines: ${avoidLine}.` : ''}${linksBlock}${current && !isFaq ? `\nCurrent text to work from: "${current}".` : ''}
+Return ONLY the ${isTitle ? 'title' : isMeta ? 'meta description' : 'copy'} — no quotes, no preamble${wantLinks ? '' : ', no markdown'}.${isFaq ? ' Put each FAQ on its own line formatted exactly as "Question :: Answer".' : ''}`
 
     try {
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const maxTok = wantLinks || t === 'long' ? 900 : isTitle ? 120 : 500
       const msg = await Promise.race([
-        anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 500, temperature: 1, messages: [{ role: 'user', content: prompt }] }),
+        anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTok, temperature: isTitle || isMeta ? 0.9 : 1, messages: [{ role: 'user', content: prompt }] }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 25000)),
       ])
-      const text = (msg?.content?.[0]?.text || '').trim().replace(/^["']|["']$/g, '')
+      let text = (msg?.content?.[0]?.text || '').trim()
+      if (!wantLinks) text = text.replace(/^["']|["']$/g, '')
       if (!text) throw new Error('No copy generated')
       recordUsage(req.dealershipId, { ai: 1 })
-      res.json({ ok: true, text })
+      res.json({ ok: true, text, html: /<a\s/i.test(text) })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
