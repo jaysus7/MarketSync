@@ -1,7 +1,7 @@
 import { supabaseAdmin, sleep, browserFetch } from '../shared.js'
 import { renderAndCaptureInventory, genericMapVehicle, inferUrlTemplate, renderUrlTemplate, fetchViaBrowser } from '../puppeteerRenderer.js'
 import { PLATFORM_PROBES, fetchConvertusInventory, fetchDealerPageInventory,
-         fetchEDealerInventoryFromSitemap, extractEDealerDetailUrls, fetchEDealerDetailImageGroups,
+         fetchEDealerInventoryFromSitemap, fetchInventoryFromSitemapLite, extractEDealerDetailUrls, fetchEDealerDetailImageGroups,
          extractEDealerImageGroups, extractCarsFromJsonLd } from './platforms.js'
 import { mapFuel, buildDescription, fetchVehiclePhotos } from '../utils/description.js'
 import { parseGenericFeed } from './genericFeed.js'
@@ -13,6 +13,50 @@ import { autoFetchOemStickers } from './oemStickers.js'
 import { getMarketData } from '../usage.js'
 import { marketcheckEnabled } from '../marketcheck.js'
 import { createNotification } from '../notifications.js'
+
+// Non-destructive merge for the sitemap-lite (Cloudflare) path. Matches existing
+// inventory by VIN and ONLY fills gaps — photos when there are none, missing
+// year/make/model, and un-archives a unit that reappeared in the sitemap. It never
+// writes price and never archives, so it can only ever ADD signal, never degrade
+// the richer data the extension already captured. New VINs are inserted as a
+// synced 'available' unit (price fills in later via the extension / VIN decode).
+async function mergeSitemapLite(dealershipId, lite) {
+  let inserted = 0, filled = 0
+  if (!dealershipId) return { inserted, filled }
+  const withVin = lite.filter(v => v.vin)
+  const vins = [...new Set(withVin.map(v => v.vin))]
+  const existing = {}
+  for (let i = 0; i < vins.length; i += 200) {
+    const { data } = await supabaseAdmin.from('inventory')
+      .select('id, vin, year, make, model, image_urls, status, archived_at')
+      .eq('dealership_id', dealershipId).in('vin', vins.slice(i, i + 200))
+    for (const r of (data || [])) existing[r.vin] = r
+  }
+  const now = new Date().toISOString()
+  for (const v of withVin) {
+    const cur = existing[v.vin]
+    if (cur) {
+      const patch = {}
+      if ((!Array.isArray(cur.image_urls) || !cur.image_urls.length) && v.image_urls?.length) patch.image_urls = v.image_urls
+      if (!cur.year && v.year) patch.year = v.year
+      if (!cur.make && v.make) patch.make = v.make
+      if (!cur.model && v.model) patch.model = v.model
+      if (cur.status === 'archived' || cur.archived_at) { patch.status = 'available'; patch.archived_at = null }  // relisted
+      if (Object.keys(patch).length) {
+        patch.last_synced_at = now
+        const { error } = await supabaseAdmin.from('inventory').update(patch).eq('id', cur.id)
+        if (!error) filled++
+      }
+    } else {
+      const { error } = await supabaseAdmin.from('inventory').insert({
+        dealership_id: dealershipId, vin: v.vin, year: v.year || null, make: v.make || null, model: v.model || null,
+        image_urls: v.image_urls || [], status: 'available', source: 'sitemap_lite', last_synced_at: now, archived_at: null,
+      })
+      if (!error) inserted++
+    }
+  }
+  return { inserted, filled }
+}
 
 // Per-dealership in-flight sync tracking. Prevents the boot sync, the post-add
 // auto-sync, and a manual Sync Now click from all running for the same dealership
@@ -143,6 +187,23 @@ async function _runInventorySyncInner(dealershipId) {
         const staleThreshold = Number(process.env.EXT_STALE_HOURS || 36)
         const fallbackOn = process.env.EXT_HEADLESS_FALLBACK === '1'
         const renderTarget = feed.source_dealer_url || feed.feed_url
+        // Sitemap-lite: the sitemap XML usually clears Cloudflare even when the
+        // detail pages don't, so we can keep the lot LIST (and photos, when the
+        // site emits image sitemaps) fresh server-side overnight — no browser. This
+        // is gap-fill only: it never touches price and never archives, so it can't
+        // degrade richer data the extension captured. Opt-in via SITEMAP_LITE_SYNC=1.
+        if (process.env.SITEMAP_LITE_SYNC === '1' && renderTarget && (lastRefreshMs === 0 || hoursStale > staleThreshold)) {
+          try {
+            const origin = new URL(renderTarget).origin
+            const lite = await fetchInventoryFromSitemapLite(origin)
+            if (lite && lite.length) {
+              const merged = await mergeSitemapLite(feed.dealership_id, lite)
+              console.log(`[sync] feed ${feed.id} sitemap-lite: ${lite.length} vehicles (${merged.inserted} new, ${merged.filled} gap-filled) — no browser needed`)
+            } else {
+              console.log(`[sync] feed ${feed.id} sitemap-lite: 0 vehicles (sitemap blocked/empty) — leaving to extension`)
+            }
+          } catch (e) { console.warn(`[sync] feed ${feed.id} sitemap-lite error: ${e.message}`) }
+        }
         if (fallbackOn && renderTarget && (lastRefreshMs === 0 || hoursStale > staleThreshold)) {
           console.log(`[sync] feed ${feed.id} extension-capture stale ${Math.round(hoursStale)}h — trying opportunistic headless fallback`)
           effectivePlatform = 'spa_render'   // route through the SPA-render branch below

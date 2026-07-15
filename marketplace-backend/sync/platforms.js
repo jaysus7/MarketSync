@@ -392,6 +392,79 @@ export function parseEDealerDetailPage(html, url) {
   return { vin, year, make, model, price, mileage, stocknumber, condition, onweb: true, salepending: false, image_urls, _detail_url: url }
 }
 
+// ── Sitemap-lite fetcher (Cloudflare-friendly) ───────────────────────────────
+// The detail PAGES on a Cloudflare-protected site are JS-challenged and 403 the
+// server, but the SITEMAP XML is served for crawlers and usually is NOT — so we
+// can still learn the full LIST of vehicles (and often their photos, when the
+// site emits Yoast image sitemaps) without a browser. VIN + year + make/model are
+// parsed from the URL slug; photos come from <image:loc> entries. Price/specs are
+// intentionally NOT here (they live on the challenged page) — this keeps the lot
+// LIST fresh server-side overnight; the extension/VIN-decode fill the rest.
+const _COMMON_MAKES = ['chevrolet','gmc','buick','cadillac','ford','lincoln','ram','dodge','jeep','chrysler','toyota','lexus','honda','acura','nissan','infiniti','hyundai','genesis','kia','mazda','subaru','volkswagen','audi','bmw','mercedes-benz','mercedes','mini','volvo','porsche','jaguar','land rover','landrover','mitsubishi','tesla','fiat','alfa romeo','maserati']
+function _vinFromUrl(u) { const m = String(u).toUpperCase().match(/\b([A-HJ-NPR-Z0-9]{17})\b/); return m ? m[1] : null }
+function _yearFromSlug(s) { const m = String(s).match(/\b(19[89]\d|20[0-4]\d)\b/); return m ? parseInt(m[1]) : null }
+function _makeModelFromSlug(slug) {
+  const words = decodeURIComponent(slug).toLowerCase().replace(/[_+]/g, '-').split(/[/-]/).filter(Boolean)
+  let make = null, mi = -1
+  for (let i = 0; i < words.length; i++) {
+    if (_COMMON_MAKES.includes(words[i])) { make = words[i]; mi = i; break }
+    if (i + 1 < words.length && _COMMON_MAKES.includes(`${words[i]} ${words[i + 1]}`)) { make = `${words[i]} ${words[i + 1]}`; mi = i + 1; break }
+  }
+  if (!make) return { make: null, model: null }
+  const cap = (w) => w.replace(/\b\w/g, c => c.toUpperCase())
+  const model = (words[mi + 1] && !/^\d/.test(words[mi + 1]) && words[mi + 1].length > 1) ? cap(words[mi + 1]) : null
+  return { make: cap(make), model }
+}
+export async function fetchInventoryFromSitemapLite(origin, opts = {}) {
+  const extraHeaders = opts.headers || {}
+  const candidatePaths = ['/inventory-listing-sitemap.xml', '/inventory-sitemap.xml', '/vehicle-sitemap.xml', '/vehicles-sitemap.xml', '/inventory_sitemap.xml', '/sitemap_index.xml', '/sitemap.xml']
+  const grabLocs = (xml) => [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map(m => m[1])
+  const NON_INV = /(page|post|categor|author|tag|attachment|news|blog|team|staff|about|local|product)[-_]?sitemap/i
+  const isDetail = (u) => /\/(inventory|vehicles?|vehicule|cars?|autos?|used|new|pre-owned|certified)\//i.test(u) && (_vinFromUrl(u) || /-\d{4}-/.test(u) || /vdp/i.test(u))
+  // Parse a vehicle sitemap's <url> blocks so each page keeps its own <image:loc> photos.
+  const parseUrlBlocks = (xml) => {
+    const out = []
+    for (const m of xml.matchAll(/<url>([\s\S]*?)<\/url>/g)) {
+      const block = m[1]
+      const loc = (block.match(/<loc>\s*([^<\s]+)\s*<\/loc>/) || [])[1]
+      if (!loc || !isDetail(loc)) continue
+      const imgs = [...block.matchAll(/<image:loc>\s*([^<\s]+)\s*<\/image:loc>/g)].map(x => x[1])
+      out.push({ loc, imgs })
+    }
+    return out
+  }
+  try {
+    let entries = []
+    for (const path of candidatePaths) {
+      let xml
+      try { const r = await browserFetch(`${origin}${path}`, { headers: extraHeaders }); if (!r.ok) continue; xml = await r.text() } catch { continue }
+      if (!xml) continue
+      if (/<sitemapindex/i.test(xml)) {
+        let children = grabLocs(xml).filter(u => /invent|vehic|listing|vdp|stock|\bunit|\bcars?\b|autos?/i.test(u) && !NON_INV.test(u))
+        if (!children.length) children = grabLocs(xml).filter(u => !NON_INV.test(u) && !/sitemap_index|main-?sitemap/i.test(u))
+        for (const child of children) {
+          try { const cr = await browserFetch(child, { headers: extraHeaders }); if (!cr.ok) continue; entries.push(...parseUrlBlocks(await cr.text())) } catch {}
+        }
+      } else {
+        entries.push(...parseUrlBlocks(xml))
+      }
+      if (entries.length) break
+    }
+    // Dedup by URL, build lightweight records.
+    const seen = new Set(); const vehicles = []
+    for (const e of entries) {
+      if (seen.has(e.loc)) continue; seen.add(e.loc)
+      const slug = (() => { try { return new URL(e.loc).pathname } catch { return e.loc } })()
+      const vin = _vinFromUrl(e.loc)
+      const year = _yearFromSlug(slug)
+      const { make, model } = _makeModelFromSlug(slug)
+      if (!vin && !(year && make)) continue   // need a real identifier
+      vehicles.push({ vin, year, make, model, image_urls: [...new Set(e.imgs)].slice(0, 30), onweb: true, _detail_url: e.loc, _source: 'sitemap_lite' })
+    }
+    return vehicles
+  } catch (e) { console.warn(`[sync] sitemap-lite failed for ${origin}: ${e.message}`); return [] }
+}
+
 // ── Puppeteer-based full inventory fetcher for JS-rendered EDealer sites ──
 // HTTP-only EDealer walker — uses the inventory sitemap (works on every EDealer site
 // with Yoast SEO, which is all of them). No Chrome/Puppeteer dependency.
