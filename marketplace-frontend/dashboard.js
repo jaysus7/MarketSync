@@ -383,6 +383,7 @@ async function initializeDashboardEcosystem() {
     ]);
 
     loadInsights();
+    loadMyTierChip();
     initSecurityPanel();
 
     // If returning from Stripe checkout, verify payment then load AI config
@@ -4681,9 +4682,10 @@ const LB_TIERS = [
 const TIER_DOT = { Bronze: '#b45309', Silver: '#94a3b8', Gold: '#f59e0b', Platinum: '#22d3ee', Diamond: '#a78bfa', Legend: '#7c6cf6' };
 function leaderboardLegendHTML() {
   const rules = [
+    { label: 'Close a deal (sold / F&amp;I / delivered)', pts: '+500', cls: 'text-emerald-600 dark:text-emerald-400' },
+    { label: 'Complete a trade appraisal', pts: '+50', cls: 'text-amber-600 dark:text-amber-400' },
     { label: 'Post a car to Facebook Marketplace', pts: '+100', cls: 'text-indigo-600 dark:text-indigo-400' },
-    { label: 'You sell that car ("I Sold It")', pts: '+500', cls: 'text-emerald-600 dark:text-emerald-400' },
-    { label: 'Someone else sold it (no points, just tracked)', pts: '0', cls: 'text-slate-400' }
+    { label: 'Sell a car you posted ("I Sold It")', pts: '+500', cls: 'text-emerald-600 dark:text-emerald-400' }
   ];
   const ruleRows = rules.map((r, i) => `
     <div class="flex items-center justify-between py-3 ${i < rules.length - 1 ? 'border-b border-slate-100 dark:border-slate-800/60' : ''}">
@@ -4721,7 +4723,7 @@ function ensureLeaderboardLegend(panelId) {
   panel.insertAdjacentHTML('beforeend', leaderboardLegendHTML());
 }
 
-const calcPoints = (m) => (m.total_listings || 0) * 100 + (m.sold_listings || 0) * 500;
+const calcPoints = (m) => (m.total_listings || 0) * 100 + (m.sold_listings || 0) * 500 + (m.deals_closed || 0) * 500 + (m.appraisals || 0) * 50;
 const tierFor = (points) => {
   let current = LB_TIERS[0];
   for (const t of LB_TIERS) if (points >= t.min) current = t;
@@ -4732,7 +4734,7 @@ const nextTierFor = (points) => LB_TIERS.find(t => t.min > points) || null;
 async function loadLeaderboard() {
   const body = document.getElementById('leaderboard-body');
   if (!body) return;
-  body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">Loading leaderboard...</td></tr>`;
+  body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-500 italic">Loading leaderboard...</td></tr>`;
   try {
     const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error('Leaderboard failed');
@@ -4751,12 +4753,41 @@ async function loadLeaderboard() {
     renderPodium(ranking);
     renderYourPosition(ranking);
     renderRankingTable(ranking);
+    updateTierChip(ranking);
     loadActivity();
     loadAchievements();
   } catch (e) {
     console.warn('Leaderboard failed:', e.message);
-    body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 italic">Failed to load leaderboard.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-red-500 italic">Failed to load leaderboard.</td></tr>`;
   }
+}
+
+// ── Badges everywhere: the always-on header rank/tier chip ────────────────────
+// Reflects the signed-in rep's live tier + rank on every page. Fed from a ranking
+// array when the leaderboard is open (free), or self-fetched once at startup.
+function updateTierChip(ranking) {
+  const chip = document.getElementById('ui-tier-chip');
+  if (!chip) return;
+  const me = (ranking || []).find(r => r.id === user.id);
+  if (!me || !me.tier) { chip.classList.add('hidden'); return; }
+  chip.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition hover:brightness-110 whitespace-nowrap ${me.tier.cls}`;
+  chip.classList.remove('hidden');
+  const rankTxt = me.rank ? `#${me.rank}` : '';
+  chip.innerHTML = `<span>${me.tier.icon}</span><span>${me.tier.name}</span>${rankTxt ? `<span class="opacity-70 font-mono">${rankTxt}</span>` : ''}`;
+}
+async function loadMyTierChip() {
+  const chip = document.getElementById('ui-tier-chip');
+  if (!chip) return;
+  try {
+    const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) return;
+    const data = await res.json();
+    const ranking = (data.ranking || []).map(r => {
+      const points = calcPoints(r);
+      return { ...r, points, tier: tierFor(points) };
+    });
+    updateTierChip(ranking);
+  } catch (e) { /* non-fatal — chip just stays hidden */ }
 }
 
 // ── Achievements (gamification badges) ───────────────────────────────────────
@@ -4891,7 +4922,7 @@ function renderRankingTable(ranking) {
   const body = document.getElementById('leaderboard-body');
   if (!body) return;
   if (!ranking.length) {
-    body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">No team members yet.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-500 italic">No team members yet.</td></tr>`;
     return;
   }
   const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -4913,9 +4944,11 @@ function renderRankingTable(ranking) {
           </span>
         </td>
         <td class="py-3 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">${r.points.toLocaleString()}</td>
+        <td class="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">${r.deals_closed || 0}</td>
+        <td class="py-3 px-3 text-right font-mono text-amber-600 dark:text-amber-400">${r.appraisals || 0}</td>
         <td class="py-3 px-3 text-right font-mono text-indigo-600 dark:text-indigo-400">${r.total_listings}</td>
-        <td class="py-3 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">${r.sold_listings}</td>
-        <td class="py-3 px-3 text-right font-mono text-amber-600 dark:text-amber-400">${r.conversion_rate}%</td>
+        <td class="py-3 px-3 text-right font-mono text-slate-500 dark:text-slate-400">${r.sold_listings}</td>
+        <td class="py-3 px-3 text-right font-mono text-slate-500 dark:text-slate-400">${r.conversion_rate}%</td>
       </tr>
     `;
   }).join('');

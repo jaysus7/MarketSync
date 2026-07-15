@@ -79,6 +79,8 @@
         <div class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[120px] sm:max-w-none" id="ui-profile-name">---</div>
         <div class="text-xs sm:text-xs text-slate-500 dark:text-slate-400 truncate max-w-[120px] sm:max-w-none" id="ui-dealership-name">---</div>
       </div>
+      <!-- Rank/tier chip — always-visible gamification status; opens the leaderboard -->
+      <button id="ui-tier-chip" onclick="switchPage('leaderboard')" title="Your rank & badges — open the leaderboard" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition hover:brightness-110 whitespace-nowrap"></button>
       <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="hidden bg-purple-600 hover:bg-purple-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-purple-600 shadow-sm shadow-purple-500/40 transition whitespace-nowrap">Install extension</a>
       <!-- How-to guide -->
       <button type="button" id="guide-btn" onclick="openGuideModal()" title="How-to guide — learn every feature" aria-label="How-to guide" class="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition">
@@ -1072,7 +1074,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="text-lg font-bold text-slate-900 dark:text-white">🏆 Leaderboard</h2>
-            <p class="text-slate-500 dark:text-slate-400 text-xs">100 pts / listing · 500 pts / sale · Climb the tiers, top the team.</p>
+            <p class="text-slate-500 dark:text-slate-400 text-xs">500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.</p>
           </div>
           <div class="flex items-center gap-3 flex-wrap">
             <!-- Team conversion (hidden on global view) -->
@@ -1091,9 +1093,10 @@
 
         <!-- ── Legend (compact, always visible at top) ── -->
         <div class="lb-legend border-b border-slate-200 dark:border-slate-800 pb-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+          <span><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Close a deal</span>
+          <span><span class="font-bold text-amber-600 dark:text-amber-400">+50</span> Trade appraisal</span>
           <span><span class="font-bold text-indigo-600 dark:text-indigo-400">+100</span> Post a car</span>
-          <span><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> You sell it ("I Sold It")</span>
-          <span><span class="font-bold text-slate-400">0</span> Someone else sold it</span>
+          <span><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Sell what you posted</span>
           <div id="lb-legend-tiers" class="w-full flex flex-wrap gap-x-5 gap-y-0.5 mt-0.5"></div>
         </div>
 
@@ -1145,13 +1148,15 @@
                     <th class="py-3 px-3 text-left">Player</th>
                     <th class="py-3 px-3 text-left">Tier</th>
                     <th class="py-3 px-3 text-right">Points</th>
+                    <th class="py-3 px-3 text-right">Deals</th>
+                    <th class="py-3 px-3 text-right">Appr.</th>
                     <th class="py-3 px-3 text-right">Listings</th>
-                    <th class="py-3 px-3 text-right">Sold</th>
+                    <th class="py-3 px-3 text-right">FB Sold</th>
                     <th class="py-3 px-3 text-right">Conv.</th>
                   </tr>
                 </thead>
                 <tbody id="leaderboard-body" class="divide-y divide-slate-100 dark:divide-slate-800/60">
-                  <tr><td colspan="7" class="p-6 text-center text-slate-500 italic">Loading leaderboard...</td></tr>
+                  <tr><td colspan="9" class="p-6 text-center text-slate-500 italic">Loading leaderboard...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -2682,7 +2687,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260715e"></script>
+  <script src="dashboard.js?v=20260715f"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

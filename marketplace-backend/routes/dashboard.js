@@ -86,6 +86,23 @@ export function registerRoutes(app) {
       .from('profiles').select('id, full_name, role').eq('dealership_id', req.dealershipId)
     if (!members?.length) return res.json({ ranking: [], total_members: 0 })
 
+    // Real closed sales (desked deals) and trade appraisals so the board rewards
+    // the whole job, not just Facebook activity. A "sale" of record is a won CRM
+    // contact (status sold/fni/delivered) attributed to its assigned rep; each
+    // appraisal is credited to whoever created it. Both are pulled ONCE for the
+    // dealership and tallied in memory (bounded), then merged into each rep's row.
+    const WON = ['sold', 'fni', 'delivered']
+    const [{ data: wonContacts }, { data: apprRows }] = await Promise.all([
+      supabaseAdmin.from('contacts')
+        .select('assigned_rep, status').eq('dealership_id', req.dealershipId)
+        .in('status', WON).limit(50000),
+      supabaseAdmin.from('trade_appraisals')
+        .select('created_by').eq('dealership_id', req.dealershipId).limit(50000),
+    ])
+    const dealsByRep = new Map(), apprByRep = new Map()
+    for (const c of (wonContacts || [])) if (c.assigned_rep) dealsByRep.set(c.assigned_rep, (dealsByRep.get(c.assigned_rep) || 0) + 1)
+    for (const a of (apprRows || [])) if (a.created_by) apprByRep.set(a.created_by, (apprByRep.get(a.created_by) || 0) + 1)
+
     const rows = await Promise.all(members.map(async (m) => {
       const { count: posted } = await supabaseAdmin
         .from('listings').select('id', { count: 'exact', head: true })
@@ -106,6 +123,8 @@ export function registerRoutes(app) {
         total_listings: total || 0,
         active_listings: posted || 0,
         sold_listings: sold || 0,
+        deals_closed: dealsByRep.get(m.id) || 0,
+        appraisals: apprByRep.get(m.id) || 0,
         recent_logins: recentLogins || 0,
         conversion_rate: (total || 0) > 0
           ? Math.round(((sold || 0) / (total || 0)) * 100)
@@ -113,10 +132,13 @@ export function registerRoutes(app) {
       }
     }))
 
+    // Points mirror the frontend legend: listing·100 + FB-sold·500 + deal·500 + appraisal·50.
+    const pointsOf = (r) => (r.total_listings * 100) + (r.sold_listings * 500) + (r.deals_closed * 500) + (r.appraisals * 50)
     const ranking = rows
       .slice()
       .sort((a, b) =>
-        b.total_listings - a.total_listings
+        pointsOf(b) - pointsOf(a)
+        || b.deals_closed - a.deals_closed
         || b.sold_listings - a.sold_listings
         || b.recent_logins - a.recent_logins
         || a.name.localeCompare(b.name)
@@ -125,12 +147,16 @@ export function registerRoutes(app) {
 
     const totalListings = rows.reduce((s, r) => s + r.total_listings, 0)
     const totalSold = rows.reduce((s, r) => s + r.sold_listings, 0)
+    const totalDeals = rows.reduce((s, r) => s + r.deals_closed, 0)
+    const totalAppraisals = rows.reduce((s, r) => s + r.appraisals, 0)
 
     res.json({
       ranking,
       total_members: members.length,
       team_total_listings: totalListings,
       team_total_sold: totalSold,
+      team_total_deals: totalDeals,
+      team_total_appraisals: totalAppraisals,
       team_conversion_rate: totalListings > 0
         ? Math.round((totalSold / totalListings) * 100)
         : 0
