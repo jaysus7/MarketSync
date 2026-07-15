@@ -8838,6 +8838,46 @@ async function startAddonCheckout(endpoint, btn, ctaText) {
   }
 }
 
+// Start a bundled-package subscription (Starter / Growth / Pro). Currency is
+// decided server-side from the dealer's country.
+async function startPackageCheckout(pkg, btn) {
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
+  try {
+    const res = await fetch(`${API}/billing/subscribe-package`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ package: pkg }) });
+    const data = await res.json();
+    if (data.url) { window.location.href = data.url; return; }
+    throw new Error(data.error || 'Failed to start checkout');
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = orig || 'Start 30-day free trial'; }
+    alert('Could not start checkout: ' + e.message);
+  }
+}
+// Start / manage the standalone Facebook posting subscription (base dealer plan).
+async function startFacebookCheckout(btn) {
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
+  try {
+    const res = await fetch(`${API}/billing/checkout`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+    const data = await res.json();
+    if (data.url) { window.location.href = data.url; return; }
+    if (data.complimentary) { alert('Your account is complimentary right now — nothing to pay.'); if (btn) { btn.disabled = false; btn.textContent = orig; } return; }
+    throw new Error(data.error || 'Failed to start checkout');
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = orig || 'Add Facebook posting'; }
+    alert('Could not start checkout: ' + e.message);
+  }
+}
+window.startPackageCheckout = startPackageCheckout;
+window.startFacebookCheckout = startFacebookCheckout;
+
+// Package feature bullets for the upgrades hub.
+const PACKAGES_UI = {
+  starter: { title: 'Starter', tagline: 'The operational core for a small store.', features: ['Full CRM — leads, appointments, tasks', 'Automated follow-ups (SMS/email)', 'Website builder (SEO, reviews, AI chat)', 'Deal desk — estimate & bill of sale', 'Inventory sync + team dashboard'] },
+  growth: { title: 'Growth', tagline: 'Starter plus AI & market intelligence.', features: ['Everything in Starter', 'AI Boost — copy, Vision, stickers & brochures', 'Inventory Intelligence — pricing & competitors', 'Trade appraisal + VIN decoder & OEM docs', 'Manager reports (sold, price drift, aging)'] },
+  pro: { title: 'Pro', tagline: 'The full growth engine.', features: ['Everything in Growth', 'Equity mining — payoff & upgrade targeting', 'Executive ROI dashboard', 'Facebook Marketplace posting included', 'Priority support & onboarding'] },
+};
+
 // Trial countdown badge on the ✦ Upgrades icon (days left in the 30-day trial).
 function updateTrialBadge(daysLeft) {
   const b = document.getElementById('upg-days-badge');
@@ -8858,49 +8898,69 @@ window.updateTrialBadge = updateTrialBadge;
 // 30-day free trial. Reads live entitlements from /ai/config.
 async function openUpgradesHub() {
   const isAdmin = ['DEALER_ADMIN', 'OWNER'].includes(profileContext?.role);
-  let cfg = {};
+  let cfg = {}, pk = { currency: 'CAD', packages: [] };
   try { cfg = await (await fetch(`${API}/ai/config`, { headers: { 'Authorization': `Bearer ${token}` } })).json(); } catch {}
-  const paid = { inv_intel: !!cfg.inv_intel_paid, ai_boost: !!cfg.ai_boost_paid };
+  try { pk = await (await fetch(`${API}/billing/packages`, { headers: { 'Authorization': `Bearer ${token}` } })).json(); } catch {}
   const fullAccess = !!cfg.full_access;
   const daysLeft = cfg.trial_days_left || 0;
-  const order = ['inv_intel', 'ai_boost'];
+  const currentPlan = cfg.plan || null;
+  // Match the currency the checkout will actually charge (dealer's country).
+  const cur = String(cfg.country || '').toUpperCase() === 'US' ? 'USD' : (pk.currency || 'CAD');
+  const amountFor = (key) => { const row = (pk.packages || []).find(p => p.key === key); return row ? row.amount : ({ starter: 999, growth: 1499, pro: 1999 }[key]); };
   const check = '<svg class="w-3.5 h-3.5 text-violet-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>';
+  const order = ['starter', 'growth', 'pro'];
   const cards = order.map(key => {
-    const p = UPGRADE_PLANS[key];
-    const isPaid = paid[key];
-    const on = isPaid || fullAccess;   // usable right now?
+    const p = PACKAGES_UI[key];
+    const isCurrent = currentPlan === key;
+    const featured = key === 'growth';
     let statusHtml;
-    if (isPaid) statusHtml = `<span class="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-600 dark:text-emerald-400">${check.replace('w-3.5 h-3.5', 'w-4 h-4')}You have this</span>`;
-    else if (fullAccess) statusHtml = `<div class="flex items-center justify-between gap-2"><span class="inline-flex items-center gap-1.5 text-sm font-bold text-violet-600 dark:text-violet-400">${check.replace('w-3.5 h-3.5 text-violet-500', 'w-4 h-4 text-violet-500')}Included in your trial</span>${isAdmin ? `<button data-endpoint="${p.endpoint}" class="upg-hub-buy text-xs font-bold text-violet-600 dark:text-violet-400 underline hover:no-underline">Keep it →</button>` : ''}</div>`;
-    else statusHtml = isAdmin
-      ? `<button data-endpoint="${p.endpoint}" class="upg-hub-buy w-full bg-violet-600 hover:bg-violet-500 text-white font-bold px-4 py-2.5 rounded-lg text-sm transition">Start 30-day free trial</button>`
-      : '<span class="text-xs text-slate-400">Ask your admin to start a trial.</span>';
-    return `<div class="border ${on ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/10' : 'border-slate-200 dark:border-slate-700'} rounded-xl p-4 flex flex-col">
+    if (isCurrent) statusHtml = `<span class="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-600 dark:text-emerald-400">${check.replace('w-3.5 h-3.5', 'w-4 h-4')}Current plan</span>`;
+    else if (!isAdmin) statusHtml = '<span class="text-xs text-slate-400">Ask your admin to change the plan.</span>';
+    else statusHtml = `<button data-pkg="${key}" class="upg-pkg-buy w-full ${featured ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600'} text-white font-bold px-4 py-2.5 rounded-lg text-sm transition">${currentPlan ? 'Switch to ' + p.title : 'Start 30-day free trial'}</button>`;
+    return `<div class="border ${isCurrent ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/10' : featured ? 'border-indigo-400 dark:border-indigo-600' : 'border-slate-200 dark:border-slate-700'} rounded-xl p-4 flex flex-col relative">
+      ${featured ? '<div class="absolute -top-2 right-3 bg-indigo-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">Most popular</div>' : ''}
       <div class="flex items-start justify-between gap-2">
-        <div><div class="text-[10px] font-bold uppercase tracking-wider text-violet-500">${esc(p.eyebrow)}</div>
-          <div class="text-lg font-black text-slate-900 dark:text-white leading-tight">${esc(p.title)}</div></div>
-        <div class="text-right flex-shrink-0"><div class="text-xl font-black text-slate-900 dark:text-white">${esc(p.price)}</div><div class="text-[10px] text-slate-400">/month</div></div>
+        <div class="text-lg font-black text-slate-900 dark:text-white leading-tight">${esc(p.title)}</div>
+        <div class="text-right flex-shrink-0"><div class="text-xl font-black text-slate-900 dark:text-white">$${amountFor(key).toLocaleString()}</div><div class="text-[10px] text-slate-400">/mo ${cur}</div></div>
       </div>
       <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">${esc(p.tagline)}</p>
-      <ul class="mt-2 space-y-1 flex-1">${p.features.slice(0, 6).map(f => `<li class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">${check}<span>${esc(f)}</span></li>`).join('')}</ul>
+      <ul class="mt-2 space-y-1 flex-1">${p.features.map(f => `<li class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">${check}<span>${esc(f)}</span></li>`).join('')}</ul>
       <div class="mt-3">${statusHtml}</div>
     </div>`;
   }).join('');
+  // Facebook posting — standalone add-on (included with Pro).
+  const fbIncluded = currentPlan === 'pro';
+  const fbCard = `<div class="border border-slate-200 dark:border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+    <div class="flex-1">
+      <div class="text-sm font-black text-slate-900 dark:text-white">Facebook Marketplace posting</div>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Sold separately — 60-second posting automation for the whole store. ${fbIncluded ? '<span class="font-bold text-emerald-600 dark:text-emerald-400">Included in your Pro plan.</span>' : 'Included free with Pro.'}</p>
+    </div>
+    <div class="flex items-center gap-3 flex-shrink-0">
+      <div class="text-right"><div class="text-lg font-black text-slate-900 dark:text-white">$499</div><div class="text-[10px] text-slate-400">/mo ${cur}</div></div>
+      ${fbIncluded ? `<span class="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-600 dark:text-emerald-400">${check.replace('w-3.5 h-3.5', 'w-4 h-4')}Included</span>`
+        : isAdmin ? `<button id="upg-fb-buy" class="bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold px-4 py-2.5 rounded-lg text-sm transition whitespace-nowrap">Add posting</button>`
+        : '<span class="text-xs text-slate-400">Admin only</span>'}
+    </div>
+  </div>`;
   const banner = fullAccess
     ? `<div class="mb-4 rounded-xl bg-violet-600 text-white px-4 py-3">
         <div class="font-black text-sm">🎉 You're on your 30-day free trial — every feature is unlocked.</div>
-        <div class="text-xs text-violet-100 mt-0.5">${daysLeft} day${daysLeft === 1 ? '' : 's'} left. After that, you keep only the add-ons you subscribe to.</div>
+        <div class="text-xs text-violet-100 mt-0.5">${daysLeft} day${daysLeft === 1 ? '' : 's'} left. Pick a package below to keep going.</div>
       </div>`
-    : `<p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Every add-on includes a <span class="font-bold text-slate-700 dark:text-slate-200">30-day free trial</span> — no credit card required, cancel anytime.</p>`;
+    : currentPlan
+    ? `<p class="text-sm text-slate-500 dark:text-slate-400 mb-4">You're on the <span class="font-bold text-slate-700 dark:text-slate-200">${esc(PACKAGES_UI[currentPlan]?.title || currentPlan)}</span> plan. Switch anytime — changes take effect on your next bill.</p>`
+    : `<p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Every package includes a <span class="font-bold text-slate-700 dark:text-slate-200">30-day free trial</span> — no credit card required, cancel anytime.</p>`;
   const ov = crmOverlay(`<div class="p-5">
     <div class="flex items-center justify-between mb-2">
-      <div class="text-lg font-black text-slate-900 dark:text-white">Upgrades &amp; add-ons</div>
+      <div class="text-lg font-black text-slate-900 dark:text-white">Plans &amp; upgrades</div>
       <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     ${banner}
-    <div class="grid sm:grid-cols-2 gap-3">${cards}</div>
-  </div>`, 'max-w-3xl');
-  ov.querySelectorAll('.upg-hub-buy').forEach(b => b.addEventListener('click', () => startAddonCheckout(b.dataset.endpoint, b, 'Start 30-day free trial')));
+    <div class="grid sm:grid-cols-3 gap-3">${cards}</div>
+    <div class="mt-3">${fbCard}</div>
+  </div>`, 'max-w-4xl');
+  ov.querySelectorAll('.upg-pkg-buy').forEach(b => b.addEventListener('click', () => startPackageCheckout(b.dataset.pkg, b)));
+  ov.querySelector('#upg-fb-buy')?.addEventListener('click', (e) => startFacebookCheckout(e.currentTarget));
 }
 window.openUpgradesHub = openUpgradesHub;
 
