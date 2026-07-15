@@ -4,7 +4,7 @@
 //
 // How it's driven: a daily cron (see /cron/drip in server.js) calls
 // runDripCampaign(). For each trialing, email-verified user we work out which day
-// of their trial they're on (derived from trial_ends_at, which is signup + 7 days)
+// of their trial they're on (derived from trial_ends_at, which is signup + 30 days)
 // and send the next unsent email in the sequence — at most one per user per run,
 // in order. Sends are recorded in the `drip_sends` table, so the cron is
 // idempotent: a double-fire or a re-run never sends the same email twice.
@@ -20,7 +20,7 @@
 import { createHash } from 'crypto'
 
 const DAY_MS = 24 * 60 * 60 * 1000
-const TRIAL_DAYS = 7   // keep in sync with trialEndsAt in server.js registration
+const TRIAL_DAYS = 30   // keep in sync with trialEndsAt in auth.js registration
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unsubscribe tokens
@@ -62,13 +62,13 @@ function dripContent(frontendUrl, extensionUrl) {
       subject: 'Welcome to MarketSync — let\'s sync your inventory',
       heading: 'Welcome to MarketSync 👋',
       body: [
-        'Thanks for starting your trial! MarketSync auto-posts your dealership inventory to Facebook Marketplace so you stop copy-pasting listings by hand.',
+        'Thanks for starting your 30-day trial! MarketSync runs your whole store from one place — your website, sales CRM, inventory intelligence and pricing, trade appraisals, equity mining, reports, and vehicle marketing. Enter a car once and everything else follows.',
         'First step: connect your inventory so we can pull in your vehicles. It takes about two minutes — add your inventory feed URL (or website) from your dashboard and we\'ll do the rest.'
       ],
       cta: { text: 'Sync your inventory', url: dash }
     },
     {
-      day: 1,
+      day: 2,
       key: 'inventory-live',
       subject: 'Your inventory is live 🚗',
       heading: 'Your inventory is live',
@@ -79,7 +79,7 @@ function dripContent(frontendUrl, extensionUrl) {
       cta: { text: 'View your listings', url: dash }
     },
     {
-      day: 2,
+      day: 4,
       key: 'post-to-facebook',
       subject: 'Post to Facebook Marketplace in a couple clicks',
       heading: 'Posting to Facebook Marketplace',
@@ -90,7 +90,7 @@ function dripContent(frontendUrl, extensionUrl) {
       cta: { text: 'Get the Chrome extension', url: extensionUrl }
     },
     {
-      day: 3,
+      day: 6,
       key: 'as-is-status-badges',
       subject: 'Pro tip: AS-IS notes & status badges',
       heading: 'Pro tip: AS-IS & status badges',
@@ -101,7 +101,7 @@ function dripContent(frontendUrl, extensionUrl) {
       cta: { text: 'Manage your listings', url: dash }
     },
     {
-      day: 4,
+      day: 10,
       key: 'track-whats-posted',
       subject: 'Never double-post a vehicle again',
       heading: 'Track what\'s already posted',
@@ -112,7 +112,7 @@ function dripContent(frontendUrl, extensionUrl) {
       cta: { text: 'See what\'s posted', url: dash }
     },
     {
-      day: 5,
+      day: 18,
       key: 'power-user-tips',
       subject: 'Get the most out of MarketSync',
       heading: 'Power-user tips',
@@ -123,13 +123,13 @@ function dripContent(frontendUrl, extensionUrl) {
       cta: { text: 'Open your dashboard', url: dash }
     },
     {
-      day: 6,
+      day: 29,
       key: 'trial-ending',
       subject: 'Your MarketSync trial ends tomorrow',
       heading: 'Your trial ends tomorrow',
       skipIfTrialEnded: true,
       body: [
-        'Your free trial wraps up tomorrow. To keep auto-posting your inventory to Facebook Marketplace without interruption, pick a plan from your dashboard — it takes a minute and you keep everything you\'ve set up.',
+        'Your free trial wraps up tomorrow. To keep your website, CRM, pricing intelligence, appraisals and marketing running without interruption, pick a plan from your dashboard — it takes a minute and you keep everything you\'ve set up.',
         'Questions before you decide? Just reply to this email. Common ones: yes, you can cancel anytime; yes, your listings stay; and yes, the extension keeps working on your plan.'
       ],
       cta: { text: 'Choose your plan', url: `${frontendUrl}/dashboard.html` }

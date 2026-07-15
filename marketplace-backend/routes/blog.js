@@ -161,8 +161,8 @@ export function registerRoutes(app) {
     ${cover}
     <div class="article">${p.content_html || ''}</div>
     <div class="cta">
-      <h3>Post your inventory to Facebook in seconds</h3>
-      <p>MarketSync auto-fills every Marketplace listing for you. Free 7-day trial.</p>
+      <h3>Run your whole dealership from one platform</h3>
+      <p>Website, CRM, inventory intelligence, appraisals and vehicle marketing in one system. Free 30-day trial.</p>
       <a href="https://marketsync.link/register.html">Start free trial</a>
     </div>
   </main>
