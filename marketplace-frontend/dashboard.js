@@ -621,7 +621,10 @@ function switchPage(pageId) {
     const active = btn.id === 'nav-inv-intel' ? pageId === 'inv-intel'
                  : btn.id === 'nav-vin-sticker'? pageId === 'vin-sticker'
                  : btn.id === 'nav-ai-vision' ? pageId === 'ai-vision'
-                 : btn.dataset.page === pageId;
+                 // Marketplace (facebook) and Inventory List (manual) share data-page
+                 // "inventory" — disambiguate by mode so only the active one highlights.
+                 : btn.dataset.page === pageId
+                   && (pageId !== 'inventory' || !btn.dataset.invmode || btn.dataset.invmode === __inventoryMode);
     btn.classList.toggle('bg-indigo-100', active);
     btn.classList.toggle('dark:bg-indigo-950/50', active);
     btn.classList.toggle('text-indigo-700', active);
@@ -8081,7 +8084,6 @@ async function loadInventoryCatalog() {
     const body = await res.json().catch(() => []);
     if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
     __catalogCache = Array.isArray(body) ? body : [];
-    autoDefaultCatalogSource();
     // Inventory Intelligence add-on: pull each used car's market median (from the
     // last Inventory Scan) so cards can show a "% to market" badge.
     if (__invIntelActive) {
@@ -8099,32 +8101,28 @@ async function loadInventoryCatalog() {
 let __catalogStatusFilter = 'all';
 let __catalogTypeFilter = 'all';
 let __catalogSegmentFilter = 'all';
-let __catalogSourceFilter = 'mine';   // 'mine' (added + trades) | 'synced' (feed) | 'all'
-let __catalogSourceUserSet = false;   // true once the dealer clicks a source pill — stops auto-default from overriding their choice
+// The two inventory pages are strictly separate feeds, scoped by mode — no user-facing
+// source toggle. Facebook = the synced website feed (to post on Facebook Marketplace);
+// Inventory Intelligence = the dealer's own stock (manually added + trade appraisals won).
+let __catalogSourceFilter = 'mine';   // set from __inventoryMode: 'synced' (Facebook) | 'mine' (Intelligence)
 
 // The Inventory page serves two nav entries: the Facebook posting hub (feed sync +
-// synced/own stock) and the Inventory-Intelligence manual list (own stock only).
+// synced stock) and the Inventory-Intelligence manual list (own stock only).
 // Default to 'manual' so generic deep-links land on the dealer's own inventory.
 let __inventoryMode = 'manual';   // 'facebook' | 'manual'
 function applyInventoryMode() {
   const facebook = __inventoryMode === 'facebook';
   const feeds = document.getElementById('feeds-panel');
-  const srcPills = document.getElementById('catalog-source-pills');
   const title = document.getElementById('catalog-title');
   const sub = document.getElementById('catalog-sub');
-  // Feed sync + the "synced feed" source only live under Facebook. The manual list
-  // is the dealer's own stock, so it hides both.
+  // Feed sync lives only under Facebook. The source is fixed by mode (no user-facing
+  // toggle) — each page shows exactly its own feed.
   if (feeds) feeds.classList.toggle('hidden', !facebook);
-  if (srcPills) srcPills.classList.toggle('hidden', !facebook);
-  if (!facebook) __catalogSourceFilter = 'mine';
-  // Entering Facebook mode with a feed-only lot? Land on a source that has cars.
-  else autoDefaultCatalogSource();
-  // Keep the source pills reflecting the active filter for when Facebook shows them.
-  paintCatalogSourcePills();
+  __catalogSourceFilter = facebook ? 'synced' : 'mine';
   if (title) title.textContent = facebook ? 'Inventory Catalog' : 'Inventory List';
   if (sub) sub.textContent = facebook
-    ? 'Your added vehicles & trades — plus feed-synced stock to post on Facebook.'
-    : 'Your manually-added vehicles & trades.';
+    ? 'Feed-synced stock, ready to post on Facebook Marketplace.'
+    : 'Your own stock — manually added vehicles & trade appraisals won.';
   // Re-render if the catalog is already loaded; first open loads it via page init.
   if (typeof __catalogCache !== 'undefined' && __catalogCache && document.getElementById('catalog-list')) renderCatalog();
 }
@@ -8136,42 +8134,6 @@ function catalogIsMine(v) {
   return ['manual', 'appraisal', 'import'].includes(v.source) || !!v.source_appraisal_id;
 }
 function catalogIsSynced(v) { return !catalogIsMine(v); }
-
-// Paint the source pills so the active one matches __catalogSourceFilter.
-function paintCatalogSourcePills() {
-  document.querySelectorAll('.catalog-source-pill').forEach(b => {
-    const active = b.dataset.src === __catalogSourceFilter;
-    b.className = active
-      ? 'catalog-source-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition'
-      : 'catalog-source-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition';
-  });
-}
-
-// Jump to the synced-feed source (used by the empty "My inventory" state's link).
-function showSyncedCatalog() {
-  __catalogSourceUserSet = true;
-  __catalogSourceFilter = 'synced';
-  paintCatalogSourcePills();
-  renderCatalog();
-}
-window.showSyncedCatalog = showSyncedCatalog;
-
-// Facebook mode IS the synced-feed inventory (pulled from the dealer's own site to post
-// on Facebook) — a separate feed from the Inventory-Intelligence list, which is the stock
-// the dealer uploads directly to us. So when the dealer hasn't picked a source themselves,
-// Facebook mode defaults to the Synced feed whenever synced stock exists, rather than the
-// empty "My inventory & trades" view that made a good sync look like it found nothing.
-// Only when there's no synced stock at all do we fall back to "mine".
-function autoDefaultCatalogSource() {
-  if (__catalogSourceUserSet) return;
-  if (__inventoryMode !== 'facebook') return;   // source pills only live under Facebook
-  const cache = Array.isArray(__catalogCache) ? __catalogCache : [];
-  const hasSynced = cache.some(catalogIsSynced);
-  if (__catalogSourceFilter === 'mine' && hasSynced) {
-    __catalogSourceFilter = 'synced';
-    paintCatalogSourcePills();
-  }
-}
 
 function renderCatalog() {
   const list = document.getElementById('catalog-list');
@@ -8221,15 +8183,15 @@ function renderCatalog() {
 
   if (!filtered.length) {
     document.getElementById('catalog-value-summary')?.classList.add('hidden');
-    // If the empty view is "My inventory & trades" but feed-synced stock exists, don't
-    // leave the dealer thinking the sync failed — point them at their synced vehicles.
-    const syncedCount = (__catalogCache || []).filter(catalogIsSynced).length;
-    if (__catalogSourceFilter === 'mine' && syncedCount > 0) {
-      list.innerHTML = `<div class="text-xs text-slate-500 col-span-full">No manually-added vehicles yet. `
-        + `<button type="button" onclick="showSyncedCatalog()" class="text-indigo-500 hover:text-indigo-400 underline font-semibold">View ${syncedCount} synced feed ${syncedCount === 1 ? 'vehicle' : 'vehicles'} →</button></div>`;
-    } else {
-      list.innerHTML = '<div class="text-xs text-slate-500 italic col-span-full">No vehicles match.</div>';
+    // Mode-aware empty state: Facebook waits on a synced feed; Intelligence on own stock.
+    const noFilters = q === '' && statusFilter === 'all' && typeFilter === 'all' && segmentFilter === 'all';
+    let msg = 'No vehicles match.';
+    if (noFilters) {
+      msg = __inventoryMode === 'facebook'
+        ? 'No synced vehicles yet. Add an inventory feed above, then click Sync Now.'
+        : 'No vehicles yet. Use “Add vehicle” or import a CSV — trade appraisals you win also land here.';
     }
+    list.innerHTML = `<div class="text-xs text-slate-500 italic col-span-full">${msg}</div>`;
     return;
   }
 
@@ -8300,7 +8262,7 @@ function renderCatalog() {
     return `
       <${tag} ${linkAttrs} class="relative bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3 flex flex-col gap-2 ${href ? 'hover:border-indigo-400 dark:hover:border-indigo-500 transition no-underline' : ''}">
         ${catalogIsMine(v) ? `<button onclick="event.preventDefault();event.stopPropagation();editVehicle('${v.id}')" title="Edit vehicle" class="absolute top-1.5 right-1.5 z-10 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 rounded-md p-1 shadow border border-slate-200 dark:border-slate-700"><svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`
-          : `<a href="https://www.facebook.com/marketplace/create/vehicle" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Post this vehicle on Facebook Marketplace" class="absolute top-1.5 right-1.5 z-10 bg-[#1877F2] hover:bg-[#0f6ae0] text-white rounded-md px-1.5 py-1 shadow text-[10px] font-bold flex items-center gap-1">Post ↗</a>`}
+          : `<button type="button" onclick="event.preventDefault();event.stopPropagation();window.open('https://www.facebook.com/marketplace/create/vehicle','_blank','noopener')" title="Post this vehicle on Facebook Marketplace" class="absolute top-1.5 right-1.5 z-10 bg-[#1877F2] hover:bg-[#0f6ae0] text-white rounded-md px-1.5 py-1 shadow text-[10px] font-bold flex items-center gap-1">Post ↗</button>`}
         ${img}
         <div class="text-xs font-bold text-slate-900 dark:text-white truncate" title="${v.year} ${v.make} ${v.model} ${v.trim || ''}">${v.year} ${v.make} ${v.model}</div>
         <div class="flex items-center gap-1 flex-wrap">
@@ -8514,14 +8476,6 @@ function setupActionListeners() {
     renderCatalog();
   });
 
-  document.getElementById('catalog-source-pills')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('.catalog-source-pill');
-    if (!btn) return;
-    __catalogSourceUserSet = true;   // dealer chose a source — don't auto-override from here on
-    __catalogSourceFilter = btn.dataset.src;
-    paintCatalogSourcePills();
-    renderCatalog();
-  });
 
   document.getElementById('catalog-type-pills')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.catalog-type-pill');
