@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(grep -oE \"\\(yippi|uxauto|wp-content/[^\\\\\"' ]+\\\\.json|inventory[^\\\\\"' ]*\\\\.json|api/[a-z]+|/feed/?[\\\\\"']\\)\" /tmp/wellandchev.html | sort -u | head -30)",
-      "Read(//private/tmp/**)"
+      "Read(//private/tmp/**)",
+      "Bash(node --check marketplace-backend/routes/automation.js)",
+      "Bash(node --check marketplace-backend/routes/crm.js)"
     ]
   }
 }
