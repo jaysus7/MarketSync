@@ -5468,8 +5468,10 @@ async function loadInventoryFeeds() {
       const btn = wrap.querySelector('.ms-pull-btn');
       const st = wrap.querySelector('.ms-pull-status');
       if (!window.__msExtPresent) {
-        if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); }
-        if (st) st.textContent = 'Install/enable the MarketSync extension to pull this.';
+        // Don't hard-disable — the content script often announces itself a beat late,
+        // and a dead button reads as "nothing happens". Leave it clickable; the click
+        // handler re-pings the extension and gives a clear message if it's truly absent.
+        if (st) st.textContent = 'Detecting the MarketSync extension…';
       }
       btn?.addEventListener('click', () => pullViaExtension(wrap.dataset.feedId, wrap.dataset.feedUrl));
     });
@@ -5550,10 +5552,19 @@ function handlePostStarted(d) {
   }
 }
 
-function pullViaExtension(feedId, feedUrl) {
+function pullViaExtension(feedId, feedUrl, _retried) {
   const wrap = document.querySelector(`.ms-ext-capture[data-feed-id="${feedId}"]`);
   if (!window.__msExtPresent) {
-    setPullUI(wrap, { status: 'Extension not detected — install/enable MarketSync, then reload.', disabled: false });
+    // The extension's content script may have loaded after our initial ping. Re-announce
+    // and retry once before declaring it absent — turns a silent no-op into either a
+    // successful pull or a clear, actionable message.
+    if (!_retried) {
+      setPullUI(wrap, { status: 'Checking for the MarketSync extension…', disabled: true });
+      window.postMessage({ __marketsync: true, dir: 'from-page', type: 'PING' }, '*');
+      setTimeout(() => pullViaExtension(feedId, feedUrl, true), 900);
+      return;
+    }
+    setPullUI(wrap, { status: 'MarketSync extension not detected. Make sure it’s installed and enabled, then reload this page. If it is installed, click its toolbar icon once and try Pull Inventory again.', disabled: false });
     return;
   }
   setPullUI(wrap, { status: 'Starting…', disabled: true });
