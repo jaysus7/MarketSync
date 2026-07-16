@@ -22,6 +22,8 @@ export function registerRoutes(app) {
       avatar_url: req.profile.avatar_url || null,
       role: req.profile.role,
       mgr_role: req.profile.mgr_role || null,
+      email_signature: req.profile.email_signature || null,
+      email_reply_to: req.profile.email_reply_to || null,
       dealership: req.profile.dealerships
     })
   })
@@ -43,7 +45,7 @@ export function registerRoutes(app) {
   })
 
   app.put('/profile/update', requireAuth, rateLimit('profile-update', 10, 60 * 60 * 1000), async (req, res) => {
-    const { fullName, displayName, phone, email, password, dealershipName, websiteUrl, avatarUrl, registrationId } = req.body
+    const { fullName, displayName, phone, email, password, dealershipName, websiteUrl, avatarUrl, registrationId, emailSignature, emailReplyTo } = req.body
 
     try {
       const authUpdates = {}
@@ -67,6 +69,14 @@ export function registerRoutes(app) {
       if (avatarUrl !== undefined) profileUpdates.avatar_url = avatarUrl || null
       // Salesperson/manager OMVIC or provincial registration # — prints on the bill of sale.
       if (registrationId !== undefined) profileUpdates.registration_id = (registrationId || '').trim() || null
+      // CRM email signature (appended to sent emails) + optional reply-to override so
+      // replies can land in a personal inbox rather than the login email.
+      if (emailSignature !== undefined) profileUpdates.email_signature = (emailSignature || '').trim().slice(0, 2000) || null
+      if (emailReplyTo !== undefined) {
+        const rt = (emailReplyTo || '').trim()
+        if (rt && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rt)) return res.status(400).json({ error: 'Enter a valid reply-to email address' })
+        profileUpdates.email_reply_to = rt || null
+      }
       if (Object.keys(profileUpdates).length > 0) {
         const { error: profileError } = await supabaseAdmin
           .from('profiles')

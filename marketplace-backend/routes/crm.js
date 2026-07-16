@@ -304,14 +304,20 @@ export function registerCrm(app) {
     const subject = String(req.body?.subject || '').trim()
     const body = String(req.body?.body || '').trim()
     if (!subject || !body) return res.status(400).json({ error: 'Subject and message are required' })
-    const { data: rep } = await supabaseAdmin.from('profiles').select('full_name, display_name').eq('id', req.user.id).maybeSingle()
+    const { data: rep } = await supabaseAdmin.from('profiles').select('full_name, display_name, email_signature, email_reply_to').eq('id', req.user.id).maybeSingle()
     const repName = rep?.full_name || rep?.display_name || null
+    // Signature: the rep's saved signature (Settings) if present, else just their name.
+    // Reply-to: their chosen reply address (personal inbox) if set, else their login email —
+    // so the customer's reply lands with the rep, not the shared MarketSync address.
+    const sig = (rep?.email_signature || '').trim()
+    const sigHtml = sig ? sig.replace(/\n/g, '<br>') : (repName || '')
+    const replyTo = (rep?.email_reply_to || '').trim() || req.user.email || undefined
     try {
       const html = body.replace(/\n/g, '<br>')
       await resend.emails.send({
         from: EMAIL_FROM, to: contact.email, subject,
-        html: `<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#0f172a;line-height:1.5">${html}${repName ? `<br><br>—<br>${repName}` : ''}</div>`,
-        reply_to: req.user.email || undefined,
+        html: `<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#0f172a;line-height:1.5">${html}${sigHtml ? `<br><br>—<br>${sigHtml}` : ''}</div>`,
+        reply_to: replyTo,
       })
       const comm = await logComm({
         dealershipId: req.dealershipId, contactId: contact.id, channel: 'email', direction: 'out',

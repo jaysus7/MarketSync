@@ -361,6 +361,9 @@ async function initializeDashboardEcosystem() {
     document.getElementById('prof-name').value = profileContext.full_name || '';
     document.getElementById('prof-email').value = profileContext.email || user.email || '';
     { const p = document.getElementById('prof-phone'); if (p) p.value = profileContext.phone || ''; }
+    // Email-sending card: signature + reply-to override (placeholder = login email).
+    { const s = document.getElementById('es-signature'); if (s) s.value = profileContext.email_signature || ''; }
+    { const r = document.getElementById('es-reply-to'); if (r) { r.value = profileContext.email_reply_to || ''; r.placeholder = profileContext.email || user.email || 'your login email'; } }
     document.getElementById('prof-dealername').value = profileContext.dealership?.name || '';
     document.getElementById('prof-website').value = profileContext.dealership?.website_url || '';
     document.getElementById('prof-display-name').value = profileContext.display_name || '';
@@ -1861,8 +1864,11 @@ function crmEmailForm(id) {
     <div class="text-[11px] font-bold uppercase tracking-wider text-indigo-500">Send email</div>
     <input id="crm-email-subject" placeholder="Subject" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">
     <textarea id="crm-email-body" rows="4" placeholder="Message…" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></textarea>
-    <div class="flex gap-2 justify-end"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
+    <div class="flex items-center justify-between gap-2">
+      <span class="text-[10px] text-slate-400">Replies go to ${esc((profileContext?.email_reply_to || profileContext?.email) || 'your inbox')} · <button type="button" onclick="switchPage('profile');settingsTab('account')" class="text-indigo-500 font-bold">change</button></span>
+      <div class="flex gap-2"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
       <button onclick="crmSendEmail('${id}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Send</button></div>
+    </div>
   </div>`);
 }
 async function crmSendEmail(id) {
@@ -4460,7 +4466,7 @@ window.openDeskForContact = openDeskForContact;
 let __settingsTab = 'account';
 const SETTINGS_TAB_SECTIONS = {
   team: ['settings-team'],
-  account: ['profile-form'],
+  account: ['profile-form', 'email-sending-card'],
   branding: ['prof-branding-section'],
   language: ['settings-language-card'],
   billing: ['billing-section'],
@@ -4526,6 +4532,21 @@ async function saveDealerDocs(btn) {
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
 }
 window.saveDealerDocs = saveDealerDocs;
+
+// ── Per-user email sending settings (Settings › Account) ────────────────────
+async function saveEmailSettings(btn) {
+  const sig = (document.getElementById('es-signature')?.value || '').trim();
+  const replyTo = (document.getElementById('es-reply-to')?.value || '').trim();
+  if (replyTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) { showToast('Enter a valid reply-to email address', 'error'); return; }
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await apiSendJson('/profile/update', 'PUT', { emailSignature: sig, emailReplyTo: replyTo });
+    if (profileContext) { profileContext.email_signature = sig || null; profileContext.email_reply_to = replyTo || null; }
+    btn.textContent = 'Saved ✓'; setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
+    showToast('Email settings saved', 'success');
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
+}
+window.saveEmailSettings = saveEmailSettings;
 
 // ── Deal Desk fee schedule (Settings › Dealer Management) ────────────────────
 // Management-controlled prefill fees. Each: { name, amount, taxable, locked }.

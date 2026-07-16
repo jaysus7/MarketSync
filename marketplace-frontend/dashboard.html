@@ -192,6 +192,25 @@
             <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Save Changes</button>
           </form>
 
+          <!-- Email sending — how the CRM emails you send go out (per-person) -->
+          <div id="email-sending-card" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Email sending</h3>
+            <p class="text-sm text-slate-500 leading-relaxed mb-3">Emails you send from the CRM go out through MarketSync (so they're tracked and logged), and <strong>replies come straight to your own inbox</strong> — no setup needed. Set where replies land and add your signature below.</p>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Replies go to</label>
+                <input type="email" id="es-reply-to" placeholder="your login email" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+                <p class="text-[11px] text-slate-400 mt-1">Leave blank to use your login email. Set an Outlook / Gmail / personal address here if you'd rather replies land there.</p>
+              </div>
+              <div>
+                <label class="block text-xs uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 tracking-wider">Email signature</label>
+                <textarea id="es-signature" rows="4" placeholder="Jane Smith&#10;Sales Consultant · Welland Chevrolet&#10;(905) 555-0123" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"></textarea>
+                <p class="text-[11px] text-slate-400 mt-1">Added to the bottom of every email you send from the CRM.</p>
+              </div>
+              <button type="button" id="es-save" onclick="saveEmailSettings(this)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Save email settings</button>
+            </div>
+          </div>
+
           <div id="billing-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Billing &amp; Subscription</h3>
             <p class="text-sm text-slate-500 leading-relaxed mb-3">Choose or change your package, download invoices, or update payment method.</p>
@@ -2716,7 +2735,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260716p"></script>
+  <script src="dashboard.js?v=20260716q"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
