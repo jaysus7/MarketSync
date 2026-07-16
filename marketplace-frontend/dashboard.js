@@ -5944,6 +5944,7 @@ function showSyncStatus(text, kind) {
 let __catalogCache = [];
 let __marketPositions = {};   // inventory_id → market median (Inventory Intelligence)
 let __marketMeta = {};        // inventory_id → { count, trim_matched } comp quality
+let __marketVerdicts = {};    // inventory_id → { verdict, headline, reason, price_at_generation }
 
 // Carfax: open the dealer's embedded Carfax report for this VIN (scraped from the
 // vehicle's listing page + cached), falling back to a Carfax Canada VIN search.
@@ -8133,7 +8134,7 @@ async function loadInventoryCatalog() {
     if (__invIntelActive) {
       try {
         const pr = await fetch(`${API}/ai/market-positions`, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (pr.ok) { const pj = await pr.json(); __marketPositions = pj.positions || {}; __marketMeta = pj.meta || {}; }
+        if (pr.ok) { const pj = await pr.json(); __marketPositions = pj.positions || {}; __marketMeta = pj.meta || {}; __marketVerdicts = pj.verdicts || {}; }
       } catch {}
     }
     renderCatalog();
@@ -8328,6 +8329,21 @@ function renderCatalog() {
                 : 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30'
               return `<span class="${gtag} ${cls}">⚡ ${healthScore}/100</span>`
             })() : ''
+            // Pricing action verdict (from the AI market report): green = priced right,
+            // amber = underpriced (raise), red = overpriced (lower). Hidden if the price
+            // changed since the report ran (stale) or no report exists yet.
+            const vv = __invIntelActive ? __marketVerdicts[v.id] : null
+            const vFresh = vv && (vv.price_at_generation == null || Number(vv.price_at_generation) === Number(v.price))
+            const verdictBadge = vFresh ? (() => {
+              const map = {
+                ok:    { cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30', txt: '✓ Priced right' },
+                raise: { cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30', txt: '↑ Underpriced' },
+                lower: { cls: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30', txt: '↓ Overpriced' },
+              }
+              const cfg = map[vv.verdict]; if (!cfg) return ''
+              const tip = ((vv.headline || cfg.txt) + (vv.reason ? ' — ' + vv.reason : '')).replace(/"/g, '&quot;')
+              return `<span class="${gtag} ${cfg.cls}" title="${tip}">${cfg.txt}</span>`
+            })() : ''
             const recallCount = Array.isArray(v.recalls) ? v.recalls.length : 0
             const recallBadge = recallCount > 0
               ? `<span class="${gtag} bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30" title="${recallCount} open recall${recallCount > 1 ? 's' : ''} — open VIN Decode for details">⚠ ${recallCount} Recall${recallCount > 1 ? 's' : ''}</span>`
@@ -8356,7 +8372,7 @@ function renderCatalog() {
                 marketBadge = `<span class="${gtag} ${cls}" title="${tip}">${pct}% to market${cnt != null ? ` · ${cnt}` : ''}${shaky ? ' ⚠' : ''}</span>`;
               }
             }
-            return hotColdTag + healthBadge + recallBadge + marketBadge
+            return hotColdTag + healthBadge + recallBadge + marketBadge + verdictBadge
           })()}
         </div>
         <div class="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">

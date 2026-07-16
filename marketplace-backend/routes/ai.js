@@ -1630,7 +1630,29 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
         meta[a.inventory_id] = { count: a.comp_count ?? null, trim_matched: a.trim_matched ?? null }
       }
     }
-    res.json({ positions, meta, active: true })
+
+    // Action verdict per vehicle (ok / raise / lower) from the cached price reports —
+    // powers the green/amber/red tag on inventory cards. Only surfaced when the report
+    // was generated at the vehicle's CURRENT price (a price change makes it stale).
+    const verdicts = {}
+    const { data: reports } = await supabaseAdmin
+      .from('price_reports')
+      .select('inventory_id, report, price_at_generation, generated_at')
+      .eq('dealership_id', req.dealershipId)
+      .limit(5000)
+    for (const r of reports || []) {
+      const est = r.report?.estimate
+      const v = est?.pricing_verdict
+      if (!r.inventory_id || !v) continue
+      verdicts[r.inventory_id] = {
+        verdict: v,
+        headline: est.verdict_headline || null,
+        reason: est.verdict_reason || null,
+        price_at_generation: r.price_at_generation ?? null,
+        generated_at: r.generated_at || null,
+      }
+    }
+    res.json({ positions, meta, verdicts, active: true })
   })
 
   // GET /ai/lot-report — aggregate the whole lot against AutoTrader/CarGurus market
