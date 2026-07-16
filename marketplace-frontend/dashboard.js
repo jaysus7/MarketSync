@@ -3361,6 +3361,8 @@ let __deskContactId = null;   // set when opened from a CRM customer row
 let __deskDealer = null;      // { name, city, province, postal, country, logo } — letterhead + tax
 let __deskBuyer = null;       // full contact block for the bill of sale
 let __deskDeal = {};          // loaded/working deal record
+let __deskCustomerNumber = null;  // per-dealership customer #
+let __deskSalesperson = null;     // { name, registration_id } — the rep on this deal
 let __deskAddons = [], __deskFni = [], __deskFees = [];
 let __deskSearchTimer = null, __deskVehTimer = null;
 
@@ -3479,7 +3481,7 @@ async function deskPickCustomer(id) {
   if (wrap) wrap.innerHTML = '<div class="text-sm text-slate-400 italic p-4">Loading deal…</div>';
   __deskBuyer = null; __deskDeal = {};
   try { const d = await apiGetJson(`/deals/customer?id=${encodeURIComponent(id)}`, { retries: 1 }); __deskBuyer = d?.contact || null; __deskDeal.__vehicleOfInterest = d?.vehicle || null; } catch {}
-  try { const d = await apiGetJson(`/reports/deal?contact_id=${encodeURIComponent(id)}`, { retries: 1 }); __deskDeal = { ...__deskDeal, ...(d?.deal || {}) }; } catch {}
+  try { const d = await apiGetJson(`/reports/deal?contact_id=${encodeURIComponent(id)}`, { retries: 1 }); __deskDeal = { ...__deskDeal, ...(d?.deal || {}) }; __deskCustomerNumber = d?.customer_number || __deskDeal.customer_number || null; __deskSalesperson = d?.salesperson || null; } catch {}
   const s = document.getElementById('desk-search');
   if (s && __deskBuyer) s.value = __deskBuyer.full_name || [__deskBuyer.first_name, __deskBuyer.last_name].filter(Boolean).join(' ') || '';
   // Seed line-item arrays: saved deal first, else Ontario defaults on a fresh deal.
@@ -3523,7 +3525,11 @@ function deskRenderForm(contactId) {
         <div class="text-lg font-black text-slate-900 dark:text-white">${esc(buyerName)}</div>
         <div class="text-sm text-slate-500 dark:text-slate-400">${[b.email, b.phone || b.phone_mobile, [b.city, b.province].filter(Boolean).join(', ')].filter(Boolean).map(esc).join(' · ') || 'No contact details on file'}</div>
       </div>
-      <span class="text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded-full ${onFile ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}">${onFile ? 'On file' : 'New deal'}</span>
+      <div class="flex items-center gap-2 flex-wrap">
+        ${__deskCustomerNumber ? `<span class="text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 font-mono">Customer #${__deskCustomerNumber}</span>` : ''}
+        ${(__deskDeal.deal_number) ? `<span class="text-[11px] font-bold px-2 py-1 rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 font-mono">Deal #${__deskDeal.deal_number}</span>` : ''}
+        <span class="text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded-full ${onFile ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}">${onFile ? 'On file' : 'New deal'}</span>
+      </div>
     </div>
 
     <div class="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start">
@@ -3810,9 +3816,12 @@ async function deskSave(contactId) {
     d.payment = Math.round(c.payment * 100) / 100;
     const res = await fetch(`${API}/reports/deal`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
-    const saved = (await res.json()).deal;
-    __deskDeal = { ...__deskDeal, ...(saved || {}) };
-    showToast('Deal saved', 'success');
+    const body = await res.json();
+    __deskDeal = { ...__deskDeal, ...(body.deal || {}) };
+    if (body.customer_number) __deskCustomerNumber = body.customer_number;
+    if (body.salesperson) __deskSalesperson = body.salesperson;
+    showToast(`Deal saved · Deal #${body.deal?.deal_number || '—'}`, 'success');
+    deskRenderForm(contactId);   // re-render so the new Customer #/Deal # show
     if (btn) { btn.disabled = false; btn.textContent = 'Saved ✓'; setTimeout(() => { if (btn) btn.textContent = 'Save deal'; }, 1500); }
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Save deal'; }
@@ -3851,7 +3860,9 @@ function deskPrint(kind) {
   const condLabel = isNew ? 'New' : 'Used';
   const dealerLine = [dealer.street, dealer.city, dealer.province, dealer.postal].filter(Boolean).join(', ') + (dealer.phone ? ` · Tel: ${dealer.phone}` : '') + (dealer.fax ? ` · Fax: ${dealer.fax}` : '');
   const km = (v) => v != null && v !== '' ? Number(v).toLocaleString() + ' km' : '';
-  const dealNo = (__deskDeal.id ? String(__deskDeal.id).replace(/-/g, '').slice(0, 8).toUpperCase() : '—');
+  const dealNo = __deskDeal.deal_number ? String(__deskDeal.deal_number) : (__deskDeal.id ? String(__deskDeal.id).replace(/-/g, '').slice(0, 8).toUpperCase() : '—');
+  const custNo = __deskCustomerNumber ? String(__deskCustomerNumber) : '—';
+  const sp = __deskSalesperson || {};
 
   // A boxed field (label above value) — the OMVIC face-sheet look.
   const F = (label, val) => `<div class="fx"><div class="fl">${label}</div><div class="fv">${val != null && val !== '' ? esc(String(val)) : '&nbsp;'}</div></div>`;
@@ -3920,7 +3931,7 @@ function deskPrint(kind) {
   const idBand = `
     <div class="band">
       <div class="bandtitle">${condLabel.toUpperCase()} MOTOR VEHICLE PURCHASE AGREEMENT</div>
-      <div class="idline">${[dealer.hst ? 'HST# ' + esc(dealer.hst) : '', dealer.omvic ? 'Dealer Reg# ' + esc(dealer.omvic) : '', 'Deal# ' + dealNo, veh.stock ? 'Stock# ' + esc(veh.stock) : ''].filter(Boolean).join(' &nbsp;|&nbsp; ')}</div>
+      <div class="idline">${[dealer.hst ? 'HST# ' + esc(dealer.hst) : '', dealer.omvic ? 'Dealer Reg# ' + esc(dealer.omvic) : '', 'Deal# ' + dealNo, 'Customer# ' + custNo, veh.stock ? 'Stock# ' + esc(veh.stock) : ''].filter(Boolean).join(' &nbsp;|&nbsp; ')}</div>
       <div class="idline"><b>${esc(dealer.name || 'Dealership')}</b> — ${esc(dealerLine)}</div>
       ${d.fni_manager ? `<div class="idline">F&amp;I Manager: <b>${esc(d.fni_manager)}</b></div>` : ''}
     </div>`;
@@ -3959,7 +3970,11 @@ function deskPrint(kind) {
 
     <div class="sig">
       <div>${esc(buyerName)} — buyer signature &amp; date</div>
-      <div>For ${esc(dealer.name || 'Dealership')}${d.fni_manager ? ' — ' + esc(d.fni_manager) : ''} — date</div>
+      <div>${esc(sp.name || dealer.name || 'Dealership')}${sp.registration_id ? ' — Reg# ' + esc(sp.registration_id) : ''} — salesperson signature &amp; date</div>
+    </div>
+    <div class="sig" style="margin-top:6px">
+      <div>For ${esc(dealer.name || 'Dealership')}${d.fni_manager ? ' — ' + esc(d.fni_manager) : ''} — authorized on behalf of the dealer</div>
+      <div>${dealer.omvic ? 'Dealer Reg# ' + esc(dealer.omvic) : ''}</div>
     </div>`;
 
   // Standard Ontario disclosure checklist (unchecked boxes for manual completion).
@@ -4376,6 +4391,7 @@ function openRepEdit(id) {
       <div>${lbl('Display name (public)')}<input id="re-display" value="${esc(m.display_name || '')}" placeholder="${esc(m.full_name || '')}" class="${ic}"></div>
     </div>
     <div>${lbl('Bio (public — appears on the website)')}<textarea id="re-bio" rows="3" class="${ic}" placeholder="A sentence or two about this team member.">${esc(m.bio || '')}</textarea></div>
+    <div>${lbl('Registration / OMVIC # (prints on the bill of sale, beside their signature)')}<input id="re-reg" value="${esc(m.registration_id || '')}" placeholder="5642822" class="${ic}"></div>
     <div class="grid grid-cols-2 gap-2">
       ${routingRow}
       ${m.role === 'SALES_REP' ? `<div>${lbl('Appraisals')}<label class="flex items-center gap-2 text-sm ${ic}"><input id="re-appr" type="checkbox" class="accent-indigo-600" ${m.can_see_all_appraisals ? 'checked' : ''}>Sees all appraisals</label></div>` : '<div></div>'}
@@ -4407,7 +4423,7 @@ async function repEditSave(id, btn) {
   const val = (i) => (document.getElementById(i)?.value || '').trim();
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    await apiSendJson(`/admin/users/${id}/profile`, 'PUT', { full_name: val('re-name'), display_name: val('re-display'), bio: val('re-bio'), avatar_url: __repEditAvatar });
+    await apiSendJson(`/admin/users/${id}/profile`, 'PUT', { full_name: val('re-name'), display_name: val('re-display'), bio: val('re-bio'), avatar_url: __repEditAvatar, registration_id: val('re-reg') });
     const team = {}; const t = document.getElementById('re-team'); const mg = document.getElementById('re-mgr');
     if (t) team.sales_team = t.value; if (mg) team.mgr_role = mg.value;
     const act = document.getElementById('re-active'); if (act) team.active = act.checked;

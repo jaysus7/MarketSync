@@ -1248,8 +1248,27 @@ export function registerRoutes(app) {
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
     const { data } = await supabaseAdmin.from('deals')
       .select('*').eq('dealership_id', req.dealershipId).eq('contact_id', contactId).maybeSingle()
-    res.json({ ok: true, deal: data || null })
+    // Customer # lives on the contact; the deal carries deal #. Surface both plus the
+    // salesperson (name + registration/OMVIC #) so the bill of sale can print them.
+    const { data: cust } = await supabaseAdmin.from('contacts')
+      .select('customer_number').eq('id', contactId).maybeSingle()
+    let salesperson = null
+    const repId = data?.created_by
+    if (repId) {
+      const { data: rep } = await supabaseAdmin.from('profiles').select('full_name, registration_id').eq('id', repId).maybeSingle()
+      if (rep) salesperson = { name: rep.full_name || null, registration_id: rep.registration_id || null }
+    }
+    res.json({ ok: true, deal: data || null, customer_number: cust?.customer_number || null, salesperson })
   })
+
+  // Next sequential number for a dealership (max+1, base-offset so it reads like a
+  // real dealer number). Low-concurrency per dealer, so max+1 is safe enough.
+  async function nextDealershipNumber(table, col, dealershipId, base) {
+    const { data } = await supabaseAdmin.from(table).select(col)
+      .eq('dealership_id', dealershipId).not(col, 'is', null).order(col, { ascending: false }).limit(1).maybeSingle()
+    const cur = data?.[col]
+    return (cur && cur >= base) ? cur + 1 : base
+  }
 
   app.post('/reports/deal', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
@@ -1271,10 +1290,31 @@ export function registerRoutes(app) {
     for (const f of DEAL_BOOL_FIELDS) if (f in body) row[f] = bool(body[f])
     for (const f of DEAL_TEXT_FIELDS) if (f in body) row[f] = str(body[f])
     for (const f of DEAL_JSON_FIELDS) if (f in body) row[f] = json(body[f])
+
+    // Assign a permanent deal # (once) and make sure the customer has a customer #.
+    // Both are per-dealership sequential and stay attached: the deal references the
+    // contact, and the bill of sale prints both numbers together.
+    const { data: existingDeal } = await supabaseAdmin.from('deals')
+      .select('deal_number').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (existingDeal?.deal_number) row.deal_number = existingDeal.deal_number
+    else row.deal_number = await nextDealershipNumber('deals', 'deal_number', req.dealershipId, 1000)
+
+    const { data: custRow } = await supabaseAdmin.from('contacts').select('customer_number').eq('id', contactId).maybeSingle()
+    let customerNumber = custRow?.customer_number || null
+    if (!customerNumber) {
+      customerNumber = await nextDealershipNumber('contacts', 'customer_number', req.dealershipId, 1000)
+      await supabaseAdmin.from('contacts').update({ customer_number: customerNumber }).eq('id', contactId)
+    }
+
     const { data, error } = await supabaseAdmin.from('deals')
       .upsert(row, { onConflict: 'contact_id' }).select().maybeSingle()
     if (error) { console.error('deal upsert failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
-    res.json({ ok: true, deal: data })
+    let salesperson = null
+    if (row.created_by) {
+      const { data: rep } = await supabaseAdmin.from('profiles').select('full_name, registration_id').eq('id', row.created_by).maybeSingle()
+      if (rep) salesperson = { name: rep.full_name || null, registration_id: rep.registration_id || null }
+    }
+    res.json({ ok: true, deal: data, customer_number: customerNumber, salesperson })
   })
 
   // ── Desk-a-deal helpers: search customers, prefill one, search inventory ──────

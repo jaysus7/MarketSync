@@ -42,7 +42,7 @@ export function registerRoutes(app) {
   })
 
   app.put('/profile/update', requireAuth, rateLimit('profile-update', 10, 60 * 60 * 1000), async (req, res) => {
-    const { fullName, displayName, phone, email, password, dealershipName, websiteUrl, avatarUrl } = req.body
+    const { fullName, displayName, phone, email, password, dealershipName, websiteUrl, avatarUrl, registrationId } = req.body
 
     try {
       const authUpdates = {}
@@ -64,6 +64,8 @@ export function registerRoutes(app) {
       if (displayName !== undefined) profileUpdates.display_name = displayName || null
       if (phone !== undefined) profileUpdates.phone = (phone || '').trim() || null
       if (avatarUrl !== undefined) profileUpdates.avatar_url = avatarUrl || null
+      // Salesperson/manager OMVIC or provincial registration # — prints on the bill of sale.
+      if (registrationId !== undefined) profileUpdates.registration_id = (registrationId || '').trim() || null
       if (Object.keys(profileUpdates).length > 0) {
         const { error: profileError } = await supabaseAdmin
           .from('profiles')
@@ -102,7 +104,7 @@ export function registerRoutes(app) {
 
     const { data: members, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, display_name, avatar_url, bio, role, account_role, created_at, can_see_all_appraisals, sales_team, mgr_role, active')
+      .select('id, full_name, display_name, avatar_url, bio, role, account_role, created_at, can_see_all_appraisals, sales_team, mgr_role, active, registration_id')
       .eq('dealership_id', req.dealershipId)
       .order('created_at', { ascending: true })
     if (error) return res.status(500).json({ error: error.message })
@@ -251,6 +253,8 @@ export function registerRoutes(app) {
     if (b.display_name !== undefined) patch.display_name = String(b.display_name || '').trim().slice(0, 120) || null
     if (b.bio !== undefined) patch.bio = String(b.bio || '').trim().slice(0, 1000) || null
     if (b.avatar_url !== undefined) patch.avatar_url = b.avatar_url ? String(b.avatar_url).slice(0, 500) : null
+    // OMVIC / provincial registration # for this rep — prints beside their name + signature on the bill of sale.
+    if (b.registration_id !== undefined) patch.registration_id = String(b.registration_id || '').trim().slice(0, 60) || null
     if (!Object.keys(patch).length) return res.json({ ok: true })
     const { error } = await supabaseAdmin.from('profiles').update(patch).eq('id', req.params.id)
     if (error) return res.status(500).json({ error: error.message })
