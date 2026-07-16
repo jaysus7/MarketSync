@@ -2446,6 +2446,15 @@
             <!-- Content (hidden until loaded) -->
             <div id="pr-content" class="hidden p-6 space-y-6">
 
+              <!-- Action verdict banner: green (priced right) / amber (raise) / red (lower) -->
+              <div id="pr-verdict" class="hidden rounded-lg border p-4 flex items-start gap-3">
+                <span id="pr-verdict-icon" class="text-xl leading-none mt-0.5"></span>
+                <div class="min-w-0">
+                  <div id="pr-verdict-headline" class="text-sm font-black"></div>
+                  <p id="pr-verdict-reason" class="text-xs mt-1 leading-relaxed"></p>
+                </div>
+              </div>
+
               <!-- Summary strip: Your Price / Overall Market Mid / Difference -->
               <div class="grid grid-cols-3 gap-3">
                 <div class="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 text-center">
@@ -2678,7 +2687,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260716c"></script>
+  <script src="dashboard.js?v=20260716d"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

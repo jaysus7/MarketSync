@@ -9563,7 +9563,9 @@ function exportPriceReportPDF() {
   const isNew = vehicle.condition === 'new' || Number(vehicle.year) >= new Date().getFullYear();
 
   const ptm = estimate?.price_to_market_pct;
-  const ptmColor = lowConf ? '#94a3b8' : (ptm == null ? '#94a3b8' : ptm > 105 ? '#ef4444' : ptm < 95 ? '#7c3aed' : '#0f172a');
+  // Colour by the action verdict (ok=green, raise=amber, lower=red), matching the modal.
+  const _verdictColorMap = { ok: '#10b981', raise: '#f59e0b', lower: '#ef4444' };
+  const ptmColor = ptm == null ? '#94a3b8' : (_verdictColorMap[estimate?.pricing_verdict] || '#0f172a');
   const dom = estimate?.days_on_market_estimate;
 
   const ratingColorMap = {
@@ -9861,13 +9863,40 @@ async function openPriceReport(inventoryId, forceRefresh = false) {
       document.getElementById('pr-price-marker').style.left = markerPct + '%';
     }
 
-    // Market velocity
+    // Action verdict — the tag meaning: ok = priced right (even if above/below market),
+    // raise = underpriced (money on the table), lower = overpriced (will sit).
+    const verdict = estimate?.pricing_verdict || 'ok';
+    const V = {
+      ok:    { icon: '✓', box: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800', head: 'text-emerald-700 dark:text-emerald-300', body: 'text-emerald-800/80 dark:text-emerald-200/70', tile: 'text-emerald-500', fallbackHead: 'Priced right' },
+      raise: { icon: '↑', box: 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800', head: 'text-amber-700 dark:text-amber-300', body: 'text-amber-800/80 dark:text-amber-200/70', tile: 'text-amber-500', fallbackHead: 'Underpriced — room to raise' },
+      lower: { icon: '↓', box: 'bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-800', head: 'text-red-700 dark:text-red-300', body: 'text-red-800/80 dark:text-red-200/70', tile: 'text-red-500', fallbackHead: 'Overpriced — consider lowering' },
+    };
+    const vc = V[verdict] || V.ok;
+    const vBanner = document.getElementById('pr-verdict');
+    if (vBanner) {
+      if (estimate) {
+        vBanner.className = 'rounded-lg border p-4 flex items-start gap-3 ' + vc.box;
+        document.getElementById('pr-verdict-icon').textContent = vc.icon;
+        const hEl = document.getElementById('pr-verdict-headline');
+        hEl.textContent = estimate.verdict_headline || vc.fallbackHead;
+        hEl.className = 'text-sm font-black ' + vc.head;
+        const rEl = document.getElementById('pr-verdict-reason');
+        rEl.textContent = estimate.verdict_reason || '';
+        rEl.className = 'text-xs mt-1 leading-relaxed ' + vc.body;
+        rEl.classList.toggle('hidden', !estimate.verdict_reason);
+      } else {
+        vBanner.className = 'hidden rounded-lg border p-4 flex items-start gap-3';
+      }
+    }
+
+    // Market velocity — colour the Price-to-Market tile by the ACTION verdict, not the
+    // raw ratio (a high % can be fine and a low % can still be too high for the unit).
     const ptmEl = document.getElementById('pr-ptm');
     const daysEl = document.getElementById('pr-days');
     if (ptmEl) {
       const ptm = estimate?.price_to_market_pct;
       ptmEl.textContent = ptm != null ? ptm + '%' : '—';
-      ptmEl.className = 'text-xl font-black ' + (ptm == null ? 'text-slate-400' : ptm > 105 ? 'text-red-500' : ptm < 95 ? 'text-emerald-500' : 'text-slate-900 dark:text-white');
+      ptmEl.className = 'text-xl font-black ' + (ptm == null ? 'text-slate-400' : vc.tile);
     }
     if (daysEl) daysEl.textContent = estimate?.days_on_market_estimate != null ? estimate.days_on_market_estimate + ' days' : '—';
 
