@@ -8081,6 +8081,7 @@ async function loadInventoryCatalog() {
     const body = await res.json().catch(() => []);
     if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
     __catalogCache = Array.isArray(body) ? body : [];
+    autoDefaultCatalogSource();
     // Inventory Intelligence add-on: pull each used car's market median (from the
     // last Inventory Scan) so cards can show a "% to market" badge.
     if (__invIntelActive) {
@@ -8099,6 +8100,7 @@ let __catalogStatusFilter = 'all';
 let __catalogTypeFilter = 'all';
 let __catalogSegmentFilter = 'all';
 let __catalogSourceFilter = 'mine';   // 'mine' (added + trades) | 'synced' (feed) | 'all'
+let __catalogSourceUserSet = false;   // true once the dealer clicks a source pill — stops auto-default from overriding their choice
 
 // The Inventory page serves two nav entries: the Facebook posting hub (feed sync +
 // synced/own stock) and the Inventory-Intelligence manual list (own stock only).
@@ -8115,13 +8117,10 @@ function applyInventoryMode() {
   if (feeds) feeds.classList.toggle('hidden', !facebook);
   if (srcPills) srcPills.classList.toggle('hidden', !facebook);
   if (!facebook) __catalogSourceFilter = 'mine';
+  // Entering Facebook mode with a feed-only lot? Land on a source that has cars.
+  else autoDefaultCatalogSource();
   // Keep the source pills reflecting the active filter for when Facebook shows them.
-  document.querySelectorAll('.catalog-source-pill').forEach(b => {
-    const active = b.dataset.src === __catalogSourceFilter;
-    b.className = active
-      ? 'catalog-source-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition'
-      : 'catalog-source-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition';
-  });
+  paintCatalogSourcePills();
   if (title) title.textContent = facebook ? 'Inventory Catalog' : 'Inventory List';
   if (sub) sub.textContent = facebook
     ? 'Your added vehicles & trades — plus feed-synced stock to post on Facebook.'
@@ -8137,6 +8136,42 @@ function catalogIsMine(v) {
   return ['manual', 'appraisal', 'import'].includes(v.source) || !!v.source_appraisal_id;
 }
 function catalogIsSynced(v) { return !catalogIsMine(v); }
+
+// Paint the source pills so the active one matches __catalogSourceFilter.
+function paintCatalogSourcePills() {
+  document.querySelectorAll('.catalog-source-pill').forEach(b => {
+    const active = b.dataset.src === __catalogSourceFilter;
+    b.className = active
+      ? 'catalog-source-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition'
+      : 'catalog-source-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition';
+  });
+}
+
+// Jump to the synced-feed source (used by the empty "My inventory" state's link).
+function showSyncedCatalog() {
+  __catalogSourceUserSet = true;
+  __catalogSourceFilter = 'synced';
+  paintCatalogSourcePills();
+  renderCatalog();
+}
+window.showSyncedCatalog = showSyncedCatalog;
+
+// Facebook mode IS the synced-feed inventory (pulled from the dealer's own site to post
+// on Facebook) — a separate feed from the Inventory-Intelligence list, which is the stock
+// the dealer uploads directly to us. So when the dealer hasn't picked a source themselves,
+// Facebook mode defaults to the Synced feed whenever synced stock exists, rather than the
+// empty "My inventory & trades" view that made a good sync look like it found nothing.
+// Only when there's no synced stock at all do we fall back to "mine".
+function autoDefaultCatalogSource() {
+  if (__catalogSourceUserSet) return;
+  if (__inventoryMode !== 'facebook') return;   // source pills only live under Facebook
+  const cache = Array.isArray(__catalogCache) ? __catalogCache : [];
+  const hasSynced = cache.some(catalogIsSynced);
+  if (__catalogSourceFilter === 'mine' && hasSynced) {
+    __catalogSourceFilter = 'synced';
+    paintCatalogSourcePills();
+  }
+}
 
 function renderCatalog() {
   const list = document.getElementById('catalog-list');
@@ -8186,7 +8221,15 @@ function renderCatalog() {
 
   if (!filtered.length) {
     document.getElementById('catalog-value-summary')?.classList.add('hidden');
-    list.innerHTML = '<div class="text-xs text-slate-500 italic col-span-full">No vehicles match.</div>';
+    // If the empty view is "My inventory & trades" but feed-synced stock exists, don't
+    // leave the dealer thinking the sync failed — point them at their synced vehicles.
+    const syncedCount = (__catalogCache || []).filter(catalogIsSynced).length;
+    if (__catalogSourceFilter === 'mine' && syncedCount > 0) {
+      list.innerHTML = `<div class="text-xs text-slate-500 col-span-full">No manually-added vehicles yet. `
+        + `<button type="button" onclick="showSyncedCatalog()" class="text-indigo-500 hover:text-indigo-400 underline font-semibold">View ${syncedCount} synced feed ${syncedCount === 1 ? 'vehicle' : 'vehicles'} →</button></div>`;
+    } else {
+      list.innerHTML = '<div class="text-xs text-slate-500 italic col-span-full">No vehicles match.</div>';
+    }
     return;
   }
 
@@ -8474,13 +8517,9 @@ function setupActionListeners() {
   document.getElementById('catalog-source-pills')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.catalog-source-pill');
     if (!btn) return;
+    __catalogSourceUserSet = true;   // dealer chose a source — don't auto-override from here on
     __catalogSourceFilter = btn.dataset.src;
-    document.querySelectorAll('.catalog-source-pill').forEach(b => {
-      const active = b.dataset.src === __catalogSourceFilter;
-      b.className = active
-        ? 'catalog-source-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition'
-        : 'catalog-source-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition';
-    });
+    paintCatalogSourcePills();
     renderCatalog();
   });
 
