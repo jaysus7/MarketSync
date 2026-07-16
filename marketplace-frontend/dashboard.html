@@ -75,6 +75,11 @@
       <span class="hidden sm:inline-block text-xs sm:text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-mono px-2 py-0.5 rounded" id="ui-role-pill">Loading...</span>
     </div>
     <div class="flex items-center gap-2 sm:gap-4 min-w-0">
+      <!-- Desk a deal — prominent quick-launch (managers + F&I); revealed in JS -->
+      <button id="header-desk-btn" onclick="switchPage('desk')" title="Desk a deal" class="hidden items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm shadow-purple-500/40 transition whitespace-nowrap">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
+        <span class="hidden sm:inline">Desk a deal</span>
+      </button>
       <div class="text-right min-w-0">
         <div class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[120px] sm:max-w-none" id="ui-profile-name">---</div>
         <div class="text-xs sm:text-xs text-slate-500 dark:text-slate-400 truncate max-w-[120px] sm:max-w-none" id="ui-dealership-name">---</div>
@@ -730,6 +735,16 @@
           <h2 class="text-lg font-bold text-slate-900 dark:text-white">Features</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Turn features on or off for your whole store. Switching one off hides it from the menu for everyone; you can turn it back on any time.</p>
           <div id="dealer-features-list" class="space-y-2"><div class="text-sm text-slate-400 italic py-3">Loading…</div></div>
+        </div>
+        <!-- Deal Desk: management-controlled fee schedule (prefilled + lockable) -->
+        <div id="desk-fees-card" data-admin-only class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Deal Desk — fees</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Set the fees that prefill on every deal. <b>Locked</b> fees can't be changed on the desk (consistent across all deals); unlocked ones can be adjusted per-deal. Mark each taxable or not.</p>
+          <div id="desk-fees-list" class="space-y-2"><div class="text-sm text-slate-400 italic py-3">Loading…</div></div>
+          <div class="flex items-center justify-between mt-3">
+            <button onclick="deskFeeAddRow()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">＋ Add a fee</button>
+            <button id="desk-fees-save" onclick="saveDeskFees(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save fees</button>
+          </div>
         </div>
         <!-- Language: per-rep dashboard translation (Google Translate) + AI listing-copy language -->
         <div id="settings-language-card" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 notranslate">
@@ -2687,7 +2702,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260716k"></script>
+  <script src="dashboard.js?v=20260716l"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

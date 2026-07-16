@@ -300,6 +300,13 @@ async function initializeDashboardEcosystem() {
       : (profileContext.dealership?.name || 'Independent');
     const isAdminHeader = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext.role);
 
+    // Purple "Desk a deal" quick-launch — managers + F&I only, and not on a
+    // personal (solo) dealership where there's no desk workflow.
+    if (isAdminHeader && !isPersonalDealership) {
+      const deskBtn = document.getElementById('header-desk-btn');
+      if (deskBtn) { deskBtn.classList.remove('hidden'); deskBtn.classList.add('inline-flex'); }
+    }
+
     if (isAdminHeader && !isPersonalDealership) {
       document.getElementById('ui-profile-name').textContent = dealershipName;
       document.getElementById('ui-dealership-name').textContent = `${personName} · Admin`;
@@ -2628,8 +2635,11 @@ function renderApptCalendar() {
     }).join('');
     const more = items.length > 3 ? `<div class="text-[10px] text-slate-400 px-1.5">+${items.length - 3} more</div>` : '';
     cells.push(`
-      <div class="bg-white dark:bg-slate-900 min-h-[92px] p-1.5 flex flex-col gap-1 ${isToday ? 'ring-2 ring-inset ring-indigo-400' : ''}">
-        <div class="text-[11px] font-bold ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}">${day}</div>
+      <div class="group bg-white dark:bg-slate-900 min-h-[92px] p-1.5 flex flex-col gap-1 ${isToday ? 'ring-2 ring-inset ring-indigo-400' : ''}">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}">${day}</span>
+          <button data-add-day="${k}" title="Add appointment" class="opacity-0 group-hover:opacity-100 transition text-violet-500 hover:text-violet-600 leading-none text-sm font-black">＋</button>
+        </div>
         ${chips}${more}
       </div>`);
   }
@@ -2647,21 +2657,99 @@ function renderApptCalendar() {
         <div class="text-sm font-bold text-slate-800 dark:text-slate-200 min-w-[140px] text-center">${monthName}</div>
         <button id="appt-next" class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Next month"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
         <button id="appt-today" class="text-xs font-bold px-3 h-8 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Today</button>
+        <button id="appt-add" class="inline-flex items-center gap-1.5 text-xs font-bold px-3 h-8 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition">＋ Add appointment</button>
       </div>
     </div>
     <div class="grid grid-cols-7 gap-px bg-slate-200 dark:bg-slate-800 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
       ${dow.map(d => `<div class="bg-slate-50 dark:bg-slate-950 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 py-2">${d}</div>`).join('')}
       ${cells.join('')}
     </div>
-    ${__apptData.length === 0 ? `<div class="py-10 text-center text-sm text-slate-400 italic">No appointments yet. Reps book these by moving a vehicle into “Appointment Set” on the pipeline.</div>` : ''}`;
+    ${__apptData.length === 0 ? `<div class="py-10 text-center text-sm text-slate-400 italic">No appointments yet. Hit <b>＋ Add appointment</b>, hover a day for a quick “＋”, or book one from a customer or the pipeline.</div>` : ''}`;
 
   document.getElementById('appt-prev')?.addEventListener('click', () => { __apptMonth = new Date(view.getFullYear(), view.getMonth() - 1, 1); renderApptCalendar(); });
   document.getElementById('appt-next')?.addEventListener('click', () => { __apptMonth = new Date(view.getFullYear(), view.getMonth() + 1, 1); renderApptCalendar(); });
   document.getElementById('appt-today')?.addEventListener('click', () => { __apptMonth = new Date(); renderApptCalendar(); });
+  document.getElementById('appt-add')?.addEventListener('click', () => apptAddForm(null));
+  root.querySelectorAll('[data-add-day]').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); apptAddForm(btn.dataset.addDay); });
+  });
   root.querySelectorAll('[data-appt-idx]').forEach(btn => {
     btn.addEventListener('click', () => openApptDetail(__apptData[Number(btn.dataset.apptIdx)]));
   });
 }
+
+// ── Add an appointment straight from the calendar (any customer + date/time) ──
+let __apptPickedContact = null;   // { id, name } chosen in the add form
+let __apptSearchTimer = null;
+function apptAddForm(dayKey) {
+  __apptPickedContact = null;
+  // dayKey is "YYYY-M-D" (month 0-based) from a day cell, else default to today.
+  let def = new Date(Date.now() + 3600000);
+  if (dayKey) { const [y, m, d] = dayKey.split('-').map(Number); def = new Date(y, m, d, def.getHours(), 0); }
+  const defDate = `${def.getFullYear()}-${String(def.getMonth() + 1).padStart(2, '0')}-${String(def.getDate()).padStart(2, '0')}`;
+  const defTime = def.toTimeString().slice(0, 5);
+  const iCls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+  crmOverlay(`<div class="p-5 space-y-3">
+    <div class="flex items-center justify-between">
+      <div class="text-lg font-black text-slate-900 dark:text-white">Add appointment</div>
+      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div>
+      <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Customer</label>
+      <input id="appt-cust-search" placeholder="Search your customers by name, phone or email" autocomplete="off" class="${iCls}">
+      <div id="appt-cust-results" class="hidden mt-1 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden max-h-52 overflow-y-auto"></div>
+      <div id="appt-cust-picked" class="hidden mt-1.5 text-sm font-bold text-violet-600 dark:text-violet-400"></div>
+    </div>
+    <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Title</label><input id="appt-title" value="Appointment" class="${iCls}"></div>
+    <div class="grid grid-cols-3 gap-2">
+      <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Date</label><input id="appt-date" type="date" value="${defDate}" class="${iCls}"></div>
+      <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Time</label><input id="appt-time" type="time" value="${defTime}" class="${iCls}"></div>
+      <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Length</label><select id="appt-dur" class="${iCls}"><option value="30">30 min</option><option value="60" selected>1 hr</option><option value="90">1.5 hr</option></select></div>
+    </div>
+    <div class="flex justify-end gap-2 pt-1">
+      <button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-4 py-2">Cancel</button>
+      <button id="appt-save-btn" onclick="apptSaveNew(this)" class="text-sm font-bold bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg">Add appointment</button>
+    </div>
+  </div>`, 'max-w-md');
+  const s = document.getElementById('appt-cust-search');
+  s?.addEventListener('input', () => { clearTimeout(__apptSearchTimer); __apptSearchTimer = setTimeout(() => apptCustSearch(s.value.trim()), 220); });
+}
+async function apptCustSearch(q) {
+  const box = document.getElementById('appt-cust-results');
+  if (!box || q.length < 2) { if (box) box.classList.add('hidden'); return; }
+  try {
+    const d = await apiGetJson(`/crm/contacts?q=${encodeURIComponent(q)}&limit=12`, { retries: 1 });
+    const rows = d?.contacts || [];
+    if (!rows.length) { box.innerHTML = '<div class="px-3 py-2 text-xs text-slate-400 italic">No matches.</div>'; box.classList.remove('hidden'); return; }
+    box.innerHTML = rows.map(c => `<button type="button" onclick="apptPickContact('${c.id}','${esc((c.full_name || 'Customer').replace(/'/g, ' '))}')" class="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800 last:border-0">
+      <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(c.full_name || 'Customer')}</div>
+      <div class="text-xs text-slate-500 dark:text-slate-400">${esc([c.email, c.phone].filter(Boolean).join(' · ') || '')}</div></button>`).join('');
+    box.classList.remove('hidden');
+  } catch { box.classList.add('hidden'); }
+}
+function apptPickContact(id, name) {
+  __apptPickedContact = { id, name };
+  document.getElementById('appt-cust-results')?.classList.add('hidden');
+  const s = document.getElementById('appt-cust-search'); if (s) s.value = name;
+  const p = document.getElementById('appt-cust-picked'); if (p) { p.textContent = '✓ ' + name; p.classList.remove('hidden'); }
+}
+async function apptSaveNew(btn) {
+  if (!__apptPickedContact) { showToast('Pick a customer first', 'error'); return; }
+  const title = document.getElementById('appt-title')?.value.trim() || 'Appointment';
+  const date = document.getElementById('appt-date')?.value;
+  const time = document.getElementById('appt-time')?.value || '09:00';
+  if (!date) { showToast('Pick a date', 'error'); return; }
+  const startIso = new Date(`${date}T${time}`).toISOString();
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Adding…';
+  try {
+    await apiSendJson('/crm/tasks', 'POST', { contact_id: __apptPickedContact.id, title, type: 'appointment', due_at: startIso });
+    await apiSendJson(`/crm/contacts/${__apptPickedContact.id}`, 'PUT', { status: 'appointment' });
+    showToast('Appointment added', 'success');
+    btn.closest('.fixed')?.remove();
+    loadAppointmentsPage();
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not add appointment', 'error'); }
+}
+window.apptAddForm = apptAddForm; window.apptCustSearch = apptCustSearch; window.apptPickContact = apptPickContact; window.apptSaveNew = apptSaveNew;
 
 function openApptDetail(a) {
   if (!a) return;
@@ -2676,6 +2764,10 @@ function openApptDetail(a) {
   modal.classList.remove('hidden');
 
   const money = n => n != null ? '$' + Number(n).toLocaleString() : null;
+  // Appointments booked as CRM tasks carry an id like "task:<uuid>" — those can be
+  // rescheduled / cancelled here; pipeline appointments are managed on the pipeline.
+  const isTaskAppt = typeof a.id === 'string' && a.id.startsWith('task:');
+  const taskId = isTaskAppt ? a.id.slice(5) : '';
   const when = new Date(a.appointment_at).toLocaleString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
   const specs = [
     a.trim ? esc(a.trim) : null,
@@ -2723,13 +2815,54 @@ function openApptDetail(a) {
 
         <div class="flex flex-wrap gap-2 pt-1">
           ${a.contact_id ? `<button onclick="document.getElementById('appt-detail-modal').classList.add('hidden'); switchPage('crm'); openCrmContact('${a.contact_id}')" class="text-xs font-bold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">View customer →</button>` : ''}
+          ${isTaskAppt ? `<button onclick="apptRescheduleForm('${esc(taskId)}','${a.appointment_at}')" class="text-xs font-bold px-3 py-2 rounded-lg bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200 transition">Reschedule</button>
+          <button onclick="apptCancel('${esc(taskId)}')" class="text-xs font-bold px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">Cancel</button>` : ''}
           ${a.fb_listing_url ? `<a href="${esc(a.fb_listing_url)}" target="_blank" rel="noopener" class="text-xs font-bold px-3 py-2 rounded-lg bg-[#1877F2]/10 text-[#1877F2] hover:bg-[#1877F2]/20 transition">View on Facebook ↗</a>` : ''}
           ${a.source_url ? `<a href="${esc(a.source_url)}" target="_blank" rel="noopener" class="text-xs font-bold px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Vehicle page ↗</a>` : ''}
         </div>
+        <div id="appt-reschedule-slot"></div>
       </div>
     </div>`;
   document.getElementById('appt-detail-close')?.addEventListener('click', () => modal.classList.add('hidden'));
 }
+// Reschedule / cancel apply to appointments booked as CRM tasks (id "task:<id>").
+// Pipeline appointments are managed from the pipeline board.
+function apptRescheduleForm(taskId, currentIso) {
+  const slot = document.getElementById('appt-reschedule-slot'); if (!slot) return;
+  const d = currentIso ? new Date(currentIso) : new Date();
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const time = d.toTimeString().slice(0, 5);
+  const iCls = 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm';
+  slot.innerHTML = `<div class="mt-3 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900 rounded-lg p-3 flex items-end gap-2 flex-wrap">
+    <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Date</label><input id="appt-re-date" type="date" value="${date}" class="${iCls}"></div>
+    <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Time</label><input id="appt-re-time" type="time" value="${time}" class="${iCls}"></div>
+    <button onclick="apptReschedule('${esc(taskId)}',this)" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-2 rounded-lg">Save</button>
+  </div>`;
+}
+async function apptReschedule(taskId, btn) {
+  const date = document.getElementById('appt-re-date')?.value;
+  const time = document.getElementById('appt-re-time')?.value || '09:00';
+  if (!date) { showToast('Pick a date', 'error'); return; }
+  const iso = new Date(`${date}T${time}`).toISOString();
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { due_at: iso });
+    showToast('Appointment rescheduled', 'success');
+    document.getElementById('appt-detail-modal')?.classList.add('hidden');
+    loadAppointmentsPage();
+  } catch (e) { btn.disabled = false; btn.textContent = 'Save'; showToast(e.message || 'Could not reschedule', 'error'); }
+}
+async function apptCancel(taskId) {
+  if (!confirm('Cancel this appointment? It will be removed from the calendar.')) return;
+  try {
+    // Mark done + retype so it drops off the appointment calendar without deleting the record.
+    await apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { done: true, type: 'other' });
+    showToast('Appointment cancelled', 'success');
+    document.getElementById('appt-detail-modal')?.classList.add('hidden');
+    loadAppointmentsPage();
+  } catch (e) { showToast(e.message || 'Could not cancel', 'error'); }
+}
+window.apptRescheduleForm = apptRescheduleForm; window.apptReschedule = apptReschedule; window.apptCancel = apptCancel;
 
 // Idempotent restore: makes sure leaderboard / team-insights / sales-team panels live
 // in their own page wrappers. (Older code mirrored them into Insights as an overview,
@@ -3389,14 +3522,26 @@ function deskTaxRate(prov, country) {
   if (/ontar/.test(p)) return 13;
   return 13;   // sensible Canadian default; editable
 }
-// Ontario fee lines, prefilled and editable. Licensing/registration is a government
-// passthrough (not taxable); doc fee, OMVIC and the tire levy are taxable.
+let __deskDealerFees = null;   // management's configured fee schedule (from /ai/config), or null
+// Re-apply the "locked" flag to a saved deal's fees by matching names against the
+// store's fee schedule, so a fee management locked stays locked when the deal reopens.
+function deskApplyFeeLocks(fees) {
+  const locks = new Set((Array.isArray(__deskDealerFees) ? __deskDealerFees : []).filter(f => f.locked).map(f => (f.name || '').trim().toLowerCase()));
+  return fees.map(f => ({ ...f, locked: locks.has((f.name || '').trim().toLowerCase()) }));
+}
+// Prefill fees on a fresh deal. Uses the store's configured schedule when management
+// has set one in Settings (each fee may be `locked` = not editable on the desk),
+// else falls back to the standard Ontario lines. Licensing/registration is a
+// government passthrough (not taxable); doc fee, OMVIC and tire levy are taxable.
 function deskDefaultFees() {
+  if (Array.isArray(__deskDealerFees) && __deskDealerFees.length) {
+    return __deskDealerFees.map(f => ({ name: f.name, amount: Number(f.amount) || 0, taxable: f.taxable !== false, locked: f.locked === true }));
+  }
   return [
-    { name: 'Documentation / admin fee', amount: 699, taxable: true },
-    { name: 'Licensing & registration', amount: 60, taxable: false },
-    { name: 'OMVIC fee', amount: 10, taxable: true },
-    { name: 'Tire / enviro levy', amount: 24.75, taxable: true },
+    { name: 'Documentation / admin fee', amount: 699, taxable: true, locked: false },
+    { name: 'Licensing & registration', amount: 60, taxable: false, locked: true },
+    { name: 'OMVIC fee', amount: 10, taxable: true, locked: true },
+    { name: 'Tire / enviro levy', amount: 24.75, taxable: true, locked: false },
   ];
 }
 
@@ -3416,6 +3561,8 @@ async function loadDeskDeal() {
         street: cfg.street_address || null, phone: cfg.phone || null, fax: cfg.fax || null,
         hst: cfg.hst_number || null, omvic: cfg.omvic_reg || null, logo: null,
       };
+      // Management-configured fee schedule; null until a dealer sets one in Settings.
+      __deskDealerFees = Array.isArray(cfg.desk_fees) ? cfg.desk_fees : null;
     } catch { __deskDealer = { name: profileContext?.dealership?.name || 'Dealership' }; }
     try { const b = await apiGetJson('/branding', { retries: 1 }); __deskDealer.logo = b?.branding?.logo_url || null; } catch {}
   }
@@ -3491,7 +3638,7 @@ async function deskPickCustomer(id) {
   const deal = __deskDeal;
   __deskAddons = Array.isArray(deal.addons) ? deal.addons.slice() : [];
   __deskFni = Array.isArray(deal.fni_items) ? deal.fni_items.slice() : [];
-  __deskFees = Array.isArray(deal.fees) ? deal.fees.slice() : (deal.id ? [] : deskDefaultFees());
+  __deskFees = Array.isArray(deal.fees) ? deskApplyFeeLocks(deal.fees.slice()) : (deal.id ? [] : deskDefaultFees());
   // Prefill the vehicle block from a saved snapshot, else the customer's vehicle of interest.
   if (!deal.vehicle && deal.__vehicleOfInterest) {
     const v = deal.__vehicleOfInterest;
@@ -3643,13 +3790,19 @@ function deskDelLine(kind, i) { deskLinesFor(kind).splice(i, 1); deskRenderLines
 function deskLineEdit(kind, i, field, val) { const r = deskLinesFor(kind)[i]; if (!r) return; if (field === 'taxable') r[field] = val; else if (field === 'name') r[field] = val; else r[field] = (val === '' ? null : Number(val)); deskRenderSummary(); }
 function deskRenderLines() {
   const iCls = 'bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
-  const rowHtml = (kind, r, i, amtKey) => `
+  const rowHtml = (kind, r, i, amtKey) => {
+    // A fee that management locked can't be edited or removed on the desk.
+    const locked = kind === 'fee' && r.locked === true;
+    const ro = locked ? 'readonly disabled' : '';
+    const roCls = locked ? 'opacity-70 cursor-not-allowed' : '';
+    return `
     <div class="flex items-center gap-2 mb-2">
-      <input value="${esc(r.name || '')}" oninput="deskLineEdit('${kind}',${i},'name',this.value)" placeholder="Description" class="${iCls} flex-1">
-      <input value="${r[amtKey] == null ? '' : r[amtKey]}" oninput="deskLineEdit('${kind}',${i},'${amtKey}',this.value)" type="number" step="0.01" placeholder="0.00" class="${iCls} w-28 text-right">
-      ${kind === 'fee' ? `<label class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 whitespace-nowrap"><input type="checkbox" ${r.taxable !== false ? 'checked' : ''} onchange="deskLineEdit('fee',${i},'taxable',this.checked)" class="rounded"> tax</label>` : ''}
-      <button type="button" onclick="deskDelLine('${kind}',${i})" class="text-rose-500 hover:text-rose-600 px-1" title="Remove">✕</button>
+      <input value="${esc(r.name || '')}" oninput="deskLineEdit('${kind}',${i},'name',this.value)" placeholder="Description" ${ro} class="${iCls} ${roCls} flex-1">
+      <input value="${r[amtKey] == null ? '' : r[amtKey]}" oninput="deskLineEdit('${kind}',${i},'${amtKey}',this.value)" type="number" step="0.01" placeholder="0.00" ${ro} class="${iCls} ${roCls} w-28 text-right">
+      ${kind === 'fee' ? `<label class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 whitespace-nowrap ${roCls}"><input type="checkbox" ${r.taxable !== false ? 'checked' : ''} ${locked ? 'disabled' : ''} onchange="deskLineEdit('fee',${i},'taxable',this.checked)" class="rounded"> tax</label>` : ''}
+      ${locked ? '<span class="text-slate-400 px-1" title="Locked by management — edit in Settings › Dealer Management">🔒</span>' : `<button type="button" onclick="deskDelLine('${kind}',${i})" class="text-rose-500 hover:text-rose-600 px-1" title="Remove">✕</button>`}
     </div>`;
+  };
   const a = document.getElementById('desk-addons'); if (a) a.innerHTML = __deskAddons.map((r, i) => rowHtml('addon', r, i, 'price')).join('') || '<div class="text-xs text-slate-400 italic">None.</div>';
   const f = document.getElementById('desk-fni'); if (f) f.innerHTML = __deskFni.map((r, i) => rowHtml('fni', r, i, 'price')).join('') || '<div class="text-xs text-slate-400 italic">None.</div>';
   const e = document.getElementById('desk-fees'); if (e) e.innerHTML = __deskFees.map((r, i) => rowHtml('fee', r, i, 'amount')).join('') || '<div class="text-xs text-slate-400 italic">None.</div>';
@@ -4207,7 +4360,7 @@ const SETTINGS_TAB_SECTIONS = {
   billing: ['billing-section'],
   aiboost: ['ai-boost-section', 'inv-intel-section'],
   group: ['groups-settings-section'],
-  dealermgmt: ['crm-dms-card', 'dealer-features-card', 'guardrail-settings-section'],
+  dealermgmt: ['crm-dms-card', 'dealer-features-card', 'desk-fees-card', 'guardrail-settings-section'],
   security: ['security-section'],
 };
 function settingsTab(tab) {
@@ -4239,9 +4392,56 @@ function settingsTab(tab) {
     if (host && lr && isAdmin && lr.parentElement !== host) host.appendChild(lr);
     if (isAdmin) loadDealerManagementMatrix();
   }
-  if (tab === 'dealermgmt') loadDealerFeatures();
+  if (tab === 'dealermgmt') { loadDealerFeatures(); loadDeskFeeSettings(); }
 }
 window.settingsTab = settingsTab;
+
+// ── Deal Desk fee schedule (Settings › Dealer Management) ────────────────────
+// Management-controlled prefill fees. Each: { name, amount, taxable, locked }.
+let __deskFeeConfig = [];
+const DESK_FEE_FALLBACK = [
+  { name: 'Documentation / admin fee', amount: 699, taxable: true, locked: false },
+  { name: 'Licensing & registration', amount: 60, taxable: false, locked: true },
+  { name: 'OMVIC fee', amount: 10, taxable: true, locked: true },
+  { name: 'Tire / enviro levy', amount: 24.75, taxable: true, locked: false },
+];
+async function loadDeskFeeSettings() {
+  const list = document.getElementById('desk-fees-list');
+  if (!list) return;
+  try {
+    const cfg = await apiGetJson('/ai/config', { retries: 1 });
+    __deskFeeConfig = Array.isArray(cfg.desk_fees) && cfg.desk_fees.length ? cfg.desk_fees.map(f => ({ name: f.name || '', amount: f.amount ?? '', taxable: f.taxable !== false, locked: f.locked === true })) : DESK_FEE_FALLBACK.slice();
+  } catch { __deskFeeConfig = DESK_FEE_FALLBACK.slice(); }
+  renderDeskFeeSettings();
+}
+function renderDeskFeeSettings() {
+  const list = document.getElementById('desk-fees-list');
+  if (!list) return;
+  const iCls = 'bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+  list.innerHTML = __deskFeeConfig.length ? __deskFeeConfig.map((f, i) => `
+    <div class="flex flex-wrap items-center gap-2">
+      <input value="${esc(f.name || '')}" oninput="deskFeeEdit(${i},'name',this.value)" placeholder="Fee name" class="${iCls} flex-1 min-w-[160px]">
+      <input value="${f.amount == null ? '' : f.amount}" oninput="deskFeeEdit(${i},'amount',this.value)" type="number" step="0.01" placeholder="0.00" class="${iCls} w-28 text-right">
+      <label class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 whitespace-nowrap"><input type="checkbox" ${f.taxable !== false ? 'checked' : ''} onchange="deskFeeEdit(${i},'taxable',this.checked)" class="rounded"> Taxable</label>
+      <label class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 whitespace-nowrap" title="Locked fees can't be changed on the desk"><input type="checkbox" ${f.locked ? 'checked' : ''} onchange="deskFeeEdit(${i},'locked',this.checked)" class="rounded"> 🔒 Lock</label>
+      <button type="button" onclick="deskFeeDelRow(${i})" class="text-rose-500 hover:text-rose-600 px-1" title="Remove">✕</button>
+    </div>`).join('') : '<div class="text-sm text-slate-400 italic py-1">No fees yet — add the ones your store charges on every deal.</div>';
+}
+function deskFeeEdit(i, field, val) { const r = __deskFeeConfig[i]; if (!r) return; r[field] = (field === 'amount') ? (val === '' ? '' : Number(val)) : val; }
+function deskFeeAddRow() { __deskFeeConfig.push({ name: '', amount: '', taxable: true, locked: false }); renderDeskFeeSettings(); }
+function deskFeeDelRow(i) { __deskFeeConfig.splice(i, 1); renderDeskFeeSettings(); }
+async function saveDeskFees(btn) {
+  const clean = __deskFeeConfig.map(f => ({ name: (f.name || '').trim(), amount: Number(f.amount) || 0, taxable: f.taxable !== false, locked: f.locked === true })).filter(f => f.name);
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await apiSendJson('/ai/config', 'PUT', { desk_fees: clean });
+    __deskFeeConfig = clean.length ? clean : [];
+    __deskDealerFees = clean;   // refresh the desk's cache so new deals prefill the new schedule
+    btn.textContent = 'Saved ✓'; setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
+    showToast('Deal-desk fees saved', 'success');
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save fees', 'error'); }
+}
+window.deskFeeAddRow = deskFeeAddRow; window.deskFeeDelRow = deskFeeDelRow; window.deskFeeEdit = deskFeeEdit; window.saveDeskFees = saveDeskFees;
 
 // ── Feature toggles (Settings › Dealer Management) ───────────────────────────
 const FEATURE_LABELS = { website: 'Website', automation: 'Automation', equity: 'Equity Mining', inv_intel: 'Inventory Intelligence', appraisals: 'Appraisals', reports: 'Reports' };

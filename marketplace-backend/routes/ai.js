@@ -307,7 +307,7 @@ export function registerAI(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data, error } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, vin_sticker_active, inv_intel_active, ai_vision_active, ai_boost_paid, inv_intel_paid, full_access_until, photo_background_url, country, province, city, postal_code, daily_digest_enabled, legal_name, street_address, phone, fax, hst_number, omvic_reg, plan')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, vin_sticker_active, inv_intel_active, ai_vision_active, ai_boost_paid, inv_intel_paid, full_access_until, photo_background_url, country, province, city, postal_code, daily_digest_enabled, legal_name, street_address, phone, fax, hst_number, omvic_reg, plan, desk_fees')
       .eq('id', req.dealershipId)
       .single()
     if (error) return res.status(500).json({ error: error.message })
@@ -377,12 +377,24 @@ export function registerAI(app) {
     if (fax !== undefined) update.fax = (fax || '').trim() || null
     if (hst_number !== undefined) update.hst_number = (hst_number || '').trim() || null
     if (omvic_reg !== undefined) update.omvic_reg = (omvic_reg || '').trim() || null
+    // Deal-desk fee schedule set by management: [{name, amount, taxable, locked}].
+    // `locked` fees can't be edited per-deal on the desk; unlocked ones can.
+    if (req.body.desk_fees !== undefined) {
+      update.desk_fees = Array.isArray(req.body.desk_fees)
+        ? req.body.desk_fees.slice(0, 30).map(f => ({
+            name: String(f?.name || '').trim().slice(0, 80),
+            amount: Math.max(0, Number(f?.amount) || 0),
+            taxable: f?.taxable !== false,
+            locked: f?.locked === true,
+          })).filter(f => f.name)
+        : null
+    }
 
     const { data, error } = await supabaseAdmin
       .from('dealerships')
       .update(update)
       .eq('id', req.dealershipId)
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, country, province, city, postal_code, daily_digest_enabled, legal_name, street_address, phone, fax, hst_number, omvic_reg')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, country, province, city, postal_code, daily_digest_enabled, legal_name, street_address, phone, fax, hst_number, omvic_reg, desk_fees')
       .single()
     if (error) return res.status(500).json({ error: error.message })
     res.json(data)
