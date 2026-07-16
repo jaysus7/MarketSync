@@ -342,9 +342,9 @@ async function initializeDashboardEcosystem() {
       : (profileContext.dealership?.name || 'Independent');
     const isAdminHeader = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext.role);
 
-    // Purple "Desk a deal" quick-launch — managers + F&I only, and not on a
-    // personal (solo) dealership where there's no desk workflow.
-    if (isAdminHeader && !isPersonalDealership) {
+    // Purple "Desk a deal" quick-launch — any admin/manager/F&I (including a solo
+    // "Independent" account, which is still allowed to desk deals).
+    if (isAdminHeader) {
       const deskBtn = document.getElementById('header-desk-btn');
       if (deskBtn) { deskBtn.classList.remove('hidden'); deskBtn.classList.add('inline-flex'); }
     }
