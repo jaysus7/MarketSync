@@ -683,6 +683,12 @@ function switchPage(pageId) {
 
   // Pipeline is retired — old deep links land on the Customers page.
   if (pageId === 'pipeline') pageId = 'crm';
+  // The three automation follow-up pages are now tabs inside one Builder page —
+  // keep old deep links (notifications, mobile nav) working by mapping to the tab.
+  if (pageId === 'auto-holidays' || pageId === 'auto-leads' || pageId === 'auto-delivery') {
+    __autoTab = pageId === 'auto-holidays' ? 'holidays' : pageId === 'auto-delivery' ? 'delivery' : 'leads';
+    pageId = 'automation-builder';
+  }
 
   document.querySelectorAll('[data-page-content]').forEach(el => {
     el.classList.toggle('hidden', el.dataset.pageContent !== pageId);
@@ -741,9 +747,7 @@ function switchPage(pageId) {
   if (pageId === 'website') loadWebsitePage();
   if (pageId === 'website-settings') loadWebsiteSettings();
   if (pageId === 'automation') loadAutomationPage();
-  if (pageId === 'auto-holidays') loadAutoHolidays();
-  if (pageId === 'auto-leads') loadAutoLeads();
-  if (pageId === 'auto-delivery') loadAutoDelivery();
+  if (pageId === 'automation-builder') loadAutoBuilderPage();
   if (pageId === 'equity') loadEquityPage();
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
 }
@@ -8647,9 +8651,30 @@ function renderAutomationSettings() {
 // Re-render whichever automation view is currently on screen (after a toggle/save).
 function autoRerenderCurrent() {
   if (!document.querySelector('[data-page-content="automation"]')?.classList.contains('hidden')) return renderAutomationSettings();
-  if (!document.querySelector('[data-page-content="auto-leads"]')?.classList.contains('hidden')) return renderAutoBucket('auto-leads-root', 'leads', 'New Lead Follow-ups', 'Automated texts, emails and rep tasks that fire when a new lead comes in — through the first appointment and showroom visit.');
-  if (!document.querySelector('[data-page-content="auto-delivery"]')?.classList.contains('hidden')) return renderAutoBucket('auto-delivery-root', 'delivery', 'Delivery Follow-ups', 'Post-delivery retention, review requests and referral asks — everything that fires after the customer takes delivery.');
+  if (!document.querySelector('[data-page-content="automation-builder"]')?.classList.contains('hidden')) {
+    if (__autoTab === 'delivery') return renderAutoBucket('auto-delivery-root', 'delivery', 'Delivery Follow-ups', 'Post-delivery retention, review requests and referral asks — everything that fires after the customer takes delivery.');
+    if (__autoTab === 'holidays') return renderHolidaysRoot();
+    return renderAutoBucket('auto-leads-root', 'leads', 'New Lead Follow-ups', 'Automated texts, emails and rep tasks that fire when a new lead comes in — through the first appointment and showroom visit.');
+  }
 }
+
+// Automation Builder: one page, tabbed like the Website builder. Each tab's body
+// keeps its original root id, so the existing bucket loaders render unchanged.
+let __autoTab = 'leads';
+function autoTab(t) { __autoTab = t; loadAutoBuilderPage(); }
+window.autoTab = autoTab;
+async function loadAutoBuilderPage() {
+  const tabsEl = document.getElementById('auto-builder-tabs');
+  if (!tabsEl) return;
+  const tab = (id, label) => `<button onclick="autoTab('${id}')" class="px-4 py-2 text-sm font-bold border-b-2 transition ${__autoTab === id ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">${label}</button>`;
+  tabsEl.innerHTML = tab('leads', 'New Lead Follow-ups') + tab('delivery', 'Delivery Follow-ups') + tab('holidays', 'Holidays');
+  const roots = { leads: 'auto-leads-root', delivery: 'auto-delivery-root', holidays: 'auto-holidays-root' };
+  Object.entries(roots).forEach(([k, id]) => document.getElementById(id)?.classList.toggle('hidden', k !== __autoTab));
+  if (__autoTab === 'delivery') await loadAutoDelivery();
+  else if (__autoTab === 'holidays') await loadAutoHolidays();
+  else await loadAutoLeads();
+}
+window.loadAutoBuilderPage = loadAutoBuilderPage;
 // Professional email setup: from-name/address, reply-to, who we send as, tracking.
 function autoEmailSetupHtml(s) {
   const e = s.email || {};
