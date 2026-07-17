@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6366F1">
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/favicon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .sync-color { color: #6366F1; }
+        .gradient-text { background: linear-gradient(135deg, #A78BFA 0%, #6366F1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        html { font-size: 17px; scroll-behavior: smooth; scroll-padding-top: 96px; }
+        @media (max-width:640px){ html { font-size: 16px; } }
+        details > summary { list-style: none; } details > summary::-webkit-details-marker { display: none; }
+        .shot { box-shadow: 0 24px 55px -22px rgba(15,23,42,.5); }
+    </style>
+    <title>Car Dealer Website Builder — Live Inventory & VIN Pages | MarketSync</title>
+    <meta name="description" content="A drag-and-drop dealer website with live inventory, self-building VIN pages, model & offer pages, built-in lead forms wired to your CRM, an AI sales chat, SEO and a custom domain on Cloudflare.">
+    <meta name="keywords" content="car dealer website builder, dealership website, live inventory website, VIN pages, automotive website with CRM">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://marketsync.link/dealer-website.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="MarketSync">
+    <meta property="og:title" content="Car Dealer Website Builder — Live Inventory & VIN Pages | MarketSync">
+    <meta property="og:description" content="A drag-and-drop dealer website with live inventory, self-building VIN pages, model & offer pages, built-in lead forms wired to your CRM, an AI sales chat, SEO and a custom domain on Cloudflare.">
+    <meta property="og:url" content="https://marketsync.link/dealer-website.html">
+    <meta property="og:image" content="https://marketsync.link/img/dashboard-overview.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"MarketSync — A dealer website you <span class=gradient-text>actually control</span>.","description":"A drag-and-drop dealer website with live inventory, self-building VIN pages, model & offer pages, built-in lead forms wired to your CRM, an AI sales chat, SEO and a custom domain on Cloudflare.","brand":{"@type":"Brand","name":"MarketSync"},"url":"https://marketsync.link/dealer-website.html","offers":{"@type":"Offer","priceCurrency":"USD","price":"299","availability":"https://schema.org/InStock","url":"https://marketsync.link/register.html"}}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Do I have to rebuild my current site?","acceptedAnswer":{"@type":"Answer","text":"No. MarketSync can read your existing inventory and you can migrate at your own pace. Your live inventory and VIN pages build themselves from your data."}},{"@type":"Question","name":"Can I use my own domain?","acceptedAnswer":{"@type":"Answer","text":"Yes — connect any custom domain with Cloudflare security and SSL included."}},{"@type":"Question","name":"Are the lead forms connected to the CRM?","acceptedAnswer":{"@type":"Answer","text":"Yes. Every form on the site drops the lead straight into your MarketSync CRM and auto-assigns it to a rep."}}]}</script>
+</head>
+<body class="bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-gray-200 antialiased">
+    <div class="w-full bg-indigo-600/10 border-b border-indigo-500/20 py-2 text-center text-sm font-medium text-indigo-600 dark:text-indigo-400">30-day free trial · No credit card required</div>
+    <header class="sticky top-0 z-40 bg-slate-50/80 dark:bg-[#0B0F19]/80 backdrop-blur-md border-b border-slate-200/60 dark:border-gray-800/60">
+      <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <a href="/" class="flex items-center space-x-3"><span class="text-3xl font-normal text-slate-900 dark:text-white">|</span><span class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Market<span class="sync-color">Sync</span></span></a>
+        <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-600 dark:text-gray-400" aria-label="Primary">
+            <a href="https://marketsync.link/workflow.html" class="hover:text-indigo-600 dark:hover:text-white transition">Workflow</a>
+            <a href="https://marketsync.link/features.html" class="hover:text-indigo-600 dark:hover:text-white transition">Features</a>
+            <a href="https://marketsync.link/compare.html" class="hover:text-indigo-600 dark:hover:text-white transition">Compare</a>
+            <a href="https://marketsync.link/#pricing" class="hover:text-indigo-600 dark:hover:text-white transition">Pricing</a>
+            <a href="https://marketsync.link/faq.html" class="hover:text-indigo-600 dark:hover:text-white transition">FAQ</a>
+        </nav>
+        <div class="flex items-center space-x-3">
+            <a href="https://marketsync.link/login.html" class="hidden sm:inline-flex text-sm font-semibold text-slate-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-white px-3 py-2 transition">Log in</a>
+            <a href="https://marketsync.link/register.html" class="hidden sm:inline-flex bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">Sign up free</a>
+            <button id="ms-menu-btn" type="button" class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-gray-800 text-slate-700 dark:text-gray-300" aria-label="Open menu" aria-expanded="false" onclick="msToggleMenu()"><i class="fa-solid fa-bars text-lg" id="ms-menu-icon"></i></button>
+        </div>
+      </div>
+      <nav id="ms-mobile-menu" class="md:hidden hidden border-t border-slate-200/60 dark:border-gray-800/60 bg-slate-50 dark:bg-[#0B0F19] px-6 py-4 space-y-1 text-sm font-medium text-slate-600 dark:text-gray-400" aria-label="Mobile">
+        <a href="https://marketsync.link/workflow.html" class="block py-2.5">Workflow</a>
+        <a href="https://marketsync.link/features.html" class="block py-2.5">Features</a>
+        <a href="https://marketsync.link/compare.html" class="block py-2.5">Compare</a>
+        <a href="https://marketsync.link/#pricing" class="block py-2.5">Pricing</a>
+        <a href="https://marketsync.link/faq.html" class="block py-2.5">FAQ</a>
+        <div class="pt-3 mt-2 border-t border-slate-200 dark:border-gray-800 flex flex-col gap-2">
+            <a href="https://marketsync.link/login.html" class="text-center py-2.5 font-semibold text-slate-700 dark:text-gray-300">Log in</a>
+            <a href="https://marketsync.link/register.html" class="text-center py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg">Sign up free</a>
+        </div>
+      </nav>
+    </header>
+    <section class="max-w-7xl mx-auto px-6 pt-14 pb-8 grid lg:grid-cols-2 gap-12 items-center">
+      <div>
+        <span class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full">Market · Website</span>
+        <h1 class="mt-5 text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.06]">A dealer website you <span class="gradient-text">actually control</span>.</h1>
+        <p class="mt-5 text-lg text-slate-600 dark:text-gray-400">undefined</p>
+        <div class="mt-7 flex flex-col sm:flex-row gap-3">
+          <a href="https://marketsync.link/register.html" class="text-center bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-7 py-3.5 rounded-xl transition shadow-lg shadow-indigo-500/30">Start your free trial</a>
+          <a href="https://marketsync.link/workflow.html" class="text-center font-semibold text-slate-700 dark:text-gray-300 px-7 py-3.5 rounded-xl border border-slate-300 dark:border-gray-700 hover:border-indigo-400 transition">See the full workflow</a>
+        </div>
+        <p class="mt-4 text-sm text-slate-500">Replaces your website vendor. Edits are live the moment you hit save.</p>
+      </div>
+      <div class="rounded-2xl overflow-hidden border border-slate-200 dark:border-gray-800 shot"><img src="img/dashboard-overview.png" alt="A dealer website you <span class=gradient-text>actually control</span>." class="w-full"></div>
+    </section>
+
+    <section class="max-w-6xl mx-auto px-6 py-12">
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-center text-slate-900 dark:text-white">Your site builds itself from your inventory</h2>
+      <div class="mt-9 grid md:grid-cols-3 gap-5">
+        <div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black">1</div>
+          <h3 class="mt-4 font-bold text-slate-900 dark:text-white">Pick a template, drop your sections</h3>
+          <p class="mt-1.5 text-sm text-slate-600 dark:text-gray-400">Inventory grids, model pages, finance & trade forms, specials — arranged the way you want, no code.</p></div><div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black">2</div>
+          <h3 class="mt-4 font-bold text-slate-900 dark:text-white">Set your brand & domain</h3>
+          <p class="mt-1.5 text-sm text-slate-600 dark:text-gray-400">Per-page brand colours and icons, then connect your custom domain with Cloudflare security & SSL in minutes.</p></div><div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black">3</div>
+          <h3 class="mt-4 font-bold text-slate-900 dark:text-white">Publish — it stays in sync</h3>
+          <p class="mt-1.5 text-sm text-slate-600 dark:text-gray-400">Your live inventory and VIN pages build themselves from the same database everything else uses. Sell a car, it drops off automatically.</p></div>
+      </div>
+    </section>
+
+    <section class="max-w-6xl mx-auto px-6 py-12">
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-center text-slate-900 dark:text-white">Everything a dealer site needs, built in</h2>
+      <div class="mt-9 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+          <div class="w-11 h-11 rounded-xl bg-slate-100 dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-lg"><i class="fa-solid fa-table-cells"></i></div>
+          <h3 class="mt-4 font-bold text-slate-900 dark:text-white">Live inventory grid</h3>
+          <p class="mt-1.5 text-sm text-slate-600 dark:text-gray-400">Searchable, filterable, always current — pulled from the same stock your team works.</p></div><div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+          <div class="w-11 h-11 rounded-xl bg-slate-100 dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-lg"><i class="fa-solid fa-file-lines"></i></div>
+          <h3 class="mt-4 font-bold text-slate-900 dark:text-white">Self-building VIN pages</h3>
+          <p class="mt-1.5 text-sm text-slate-600 dark:text-gray-400">Every vehicle gets a full detail page with specs, photos and price — no manual pages.</p></div><div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+          <div class="w-11 h-11 rounded-xl bg-slate-100 dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-lg"><i class="fa-solid fa-pen-ruler"></i></div>
+          <h3 class="mt-4 font-bold text-slate-900 dark:text-white">Drag-and-drop builder</h3>
+          <p class="mt-1.5 text-sm text-slate-600 dark:text-gray-400">Sections, model & offer pages, specials and ad banners you can rearrange in seconds.</p></div><div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+          <div class="w-11 h-11 rounded-xl bg-slate-100 dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-lg"><i class="fa-solid fa-comments"></i></div>
+          <h3 class="mt-4 font-bold text-slate-900 dark:text-white">AI sales concierge chat</h3>
+          <p class="mt-1.5 text-sm text-slate-600 dark:text-gray-400">Answers shoppers from your live stock 24/7 and captures the lead into your CRM.</p></div><div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+          <div class="w-11 h-11 rounded-xl bg-slate-100 dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-lg"><i class="fa-solid fa-inbox"></i></div>
+          <h3 class="mt-4 font-bold text-slate-900 dark:text-white">Lead forms → your CRM</h3>
+          <p class="mt-1.5 text-sm text-slate-600 dark:text-gray-400">Finance, trade and contact forms wire straight to your pipeline and auto-assign to a rep.</p></div><div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+          <div class="w-11 h-11 rounded-xl bg-slate-100 dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-lg"><i class="fa-solid fa-shield-halved"></i></div>
+          <h3 class="mt-4 font-bold text-slate-900 dark:text-white">Custom domain + SSL</h3>
+          <p class="mt-1.5 text-sm text-slate-600 dark:text-gray-400">Your own domain on Cloudflare with security and SSL — no separate hosting bill.</p></div>
+      </div>
+    </section>
+
+    <section class="max-w-3xl mx-auto px-6 py-12">
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-center text-slate-900 dark:text-white mb-6">Common questions</h2>
+      <div class="space-y-3">
+        <details class="group bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-xl px-5 py-4">
+          <summary class="flex items-center justify-between cursor-pointer font-semibold text-slate-900 dark:text-white">Do I have to rebuild my current site?<i class="fa-solid fa-chevron-down text-sm text-slate-400 group-open:rotate-180 transition"></i></summary>
+          <p class="mt-3 text-sm text-slate-600 dark:text-gray-400">No. MarketSync can read your existing inventory and you can migrate at your own pace. Your live inventory and VIN pages build themselves from your data.</p></details><details class="group bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-xl px-5 py-4">
+          <summary class="flex items-center justify-between cursor-pointer font-semibold text-slate-900 dark:text-white">Can I use my own domain?<i class="fa-solid fa-chevron-down text-sm text-slate-400 group-open:rotate-180 transition"></i></summary>
+          <p class="mt-3 text-sm text-slate-600 dark:text-gray-400">Yes — connect any custom domain with Cloudflare security and SSL included.</p></details><details class="group bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-xl px-5 py-4">
+          <summary class="flex items-center justify-between cursor-pointer font-semibold text-slate-900 dark:text-white">Are the lead forms connected to the CRM?<i class="fa-solid fa-chevron-down text-sm text-slate-400 group-open:rotate-180 transition"></i></summary>
+          <p class="mt-3 text-sm text-slate-600 dark:text-gray-400">Yes. Every form on the site drops the lead straight into your MarketSync CRM and auto-assigns it to a rep.</p></details>
+      </div>
+    </section>
+
+    <section class="max-w-4xl mx-auto px-6 py-14 text-center">
+      <div class="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-3xl px-8 py-14 text-white">
+        <h2 class="text-3xl sm:text-4xl font-extrabold">Own your storefront.</h2>
+        <p class="mt-3 text-indigo-100 max-w-xl mx-auto">Stop renting your website from a vendor. Build it, brand it, and keep it in sync with your lot — all on one platform.</p>
+        <a href="https://marketsync.link/register.html" class="mt-8 inline-block bg-white text-indigo-700 font-bold px-8 py-3.5 rounded-xl hover:bg-indigo-50 transition">Start free — 30 days</a>
+        <div class="mt-5 text-sm text-indigo-200">Part of the MarketSync workflow · <a href="https://marketsync.link/workflow.html" class="underline">See how it all connects →</a></div>
+      </div>
+    </section>
+<footer class="max-w-7xl mx-auto px-6 py-12 mt-12 border-t border-slate-200 dark:border-gray-900 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-slate-500">
+        <div><p>© 2026 MarketSync Technologies Inc. All rights reserved.</p></div>
+        <div class="flex flex-wrap items-center justify-center gap-6 font-medium text-slate-600 dark:text-gray-400">
+            <a href="https://marketsync.link/workflow.html" class="hover:text-slate-900 dark:hover:text-white transition">Workflow</a>
+            <a href="https://marketsync.link/features.html" class="hover:text-slate-900 dark:hover:text-white transition">Features</a>
+            <a href="https://marketsync.link/compare.html" class="hover:text-slate-900 dark:hover:text-white transition">Compare</a>
+            <a href="https://marketsync.link/upgrade.html" class="hover:text-slate-900 dark:hover:text-white transition">Pricing</a>
+            <a href="https://marketsync.link/faq.html" class="hover:text-slate-900 dark:hover:text-white transition">FAQ</a>
+            <a href="https://marketsync.link/support.html" class="hover:text-slate-900 dark:hover:text-white transition">Support</a>
+            <a href="https://marketsync.link/terms.html" class="hover:text-slate-900 dark:hover:text-white transition">Terms</a>
+            <a href="https://marketsync.link/privacy-policy.html" class="hover:text-slate-900 dark:hover:text-white transition">Privacy</a>
+        </div>
+    </footer>
+    <script>function msToggleMenu(){ const m=document.getElementById('ms-mobile-menu'),b=document.getElementById('ms-menu-btn'),i=document.getElementById('ms-menu-icon'); const o=!m.classList.contains('hidden'); m.classList.toggle('hidden'); b.setAttribute('aria-expanded',String(!o)); i.className=o?'fa-solid fa-bars text-lg':'fa-solid fa-xmark text-lg'; }</script>
+</body></html>
