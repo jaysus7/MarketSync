@@ -130,12 +130,38 @@ export function registerLeads(app) {
     }
     const leads = (data || []).map(l => {
       const ownerId = assignedByContact[l.contact_id] || l.created_by || null
-      return { ...l, rep: ownerId ? (repNames[ownerId] || null) : null }
+      return { ...l, rep: ownerId ? (repNames[ownerId] || null) : null, owner_id: ownerId }
     })
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('crm_adf_email').eq('id', req.dealershipId).maybeSingle()
-    res.json({ leads, crm_adf_email: dealer?.crm_adf_email || null, can_configure: dealerLevel })
+
+    // Managers/dealer-admins can reassign leads — hand the roster to the picker.
+    let reps = []
+    if (dealerLevel) {
+      const { data: r } = await supabaseAdmin
+        .from('profiles').select('id, full_name, display_name').eq('dealership_id', req.dealershipId)
+      reps = (r || []).map(p => ({ id: p.id, name: p.display_name || p.full_name || '—' }))
+    }
+    res.json({ leads, crm_adf_email: dealer?.crm_adf_email || null, can_configure: dealerLevel, can_reassign: dealerLevel, reps })
+  })
+
+  // Reassign a lead to a different salesperson (manager/dealer-admin only). Ownership
+  // lives on the linked contact's assigned_rep — the same field the routing + list use.
+  app.put('/leads/:id/assign', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
+      return res.status(403).json({ error: 'Manager access required' })
+    }
+    const repId = req.body?.rep_id || null
+    const { data: lead } = await supabaseAdmin.from('leads')
+      .select('id, contact_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!lead) return res.status(404).json({ error: 'Lead not found' })
+    if (!lead.contact_id) return res.status(400).json({ error: 'This lead has no linked contact to reassign.' })
+    const { error } = await supabaseAdmin.from('contacts')
+      .update({ assigned_rep: repId }).eq('id', lead.contact_id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
   })
 
   // Export leads as CSV. Reps get their own; dealer-level gets the whole team.

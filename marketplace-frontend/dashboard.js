@@ -526,6 +526,7 @@ async function initializeDashboardEcosystem() {
     // flashed for a solo rep). This happens synchronously after the hides, so the
     // browser paints the correct nav in one go.
     document.body.classList.add('ms-role-ready');
+    personalizeSalesNav();
     document.getElementById('insights-skeleton')?.classList.add('hidden');
 
     // Team leaderboard is for actual teams (admin + reps in a real dealership).
@@ -664,6 +665,18 @@ function toggleNavGroup(id) {
   chev?.classList.toggle('-rotate-90', collapsed);
 }
 window.toggleNavGroup = toggleNavGroup;
+
+// The Sales menu reads differently by role: a rep sees "My Tasks / My Appointments"
+// and no Leads item; a manager/dealer-admin sees "All Tasks / All Appointments" plus
+// the manager-only Leads worklist.
+function personalizeSalesNav() {
+  const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+  const setLbl = (id, txt) => { const el = document.getElementById(id)?.querySelector('[data-nav-label]'); if (el) el.textContent = txt; };
+  setLbl('nav-tasks', isMgr ? 'All Tasks' : 'My Tasks');
+  setLbl('nav-appointments', isMgr ? 'All Appointments' : 'My Appointments');
+  document.getElementById('nav-leads-sales')?.classList.toggle('hidden', !isMgr);
+}
+window.personalizeSalesNav = personalizeSalesNav;
 
 function switchPage(pageId) {
   ensurePanelsInOriginalLocations();
@@ -2331,27 +2344,47 @@ async function loadLeadsPage() {
 
   const crmSet = !!data.crm_adf_email;
 
+  const canReassign = !!data.can_reassign;
+  const reps = data.reps || [];
   const statusPill = (l) => {
     if (l.adf_sent_at) return `<span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">Sent to CRM</span>`;
     if (l.adf_error) return `<span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300" title="${esc(l.adf_error)}">Failed</span>`;
     return `<span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">Not delivered</span>`;
   };
+  // How long the lead has been sitting since it arrived — green ≤1h, amber ≤1d, red older.
+  const sittingBadge = (l) => {
+    if (!l.created_at) return '<span class="text-xs text-slate-400">—</span>';
+    const mins = Math.max(0, Math.floor((Date.now() - new Date(l.created_at)) / 60000));
+    const txt = mins < 60 ? `${mins}m` : mins < 1440 ? `${Math.floor(mins / 60)}h` : `${Math.floor(mins / 1440)}d`;
+    const cls = mins <= 60 ? 'text-emerald-600 dark:text-emerald-400' : mins <= 1440 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500';
+    return `<span class="text-xs font-bold ${cls}" title="Time since this lead arrived">⏱ ${txt}</span>`;
+  };
+  // Managers/dealer-admins get a reassign dropdown; everyone else sees the owner name.
+  const repControl = (l) => {
+    if (canReassign && reps.length) {
+      const opts = ['<option value="">Unassigned</option>']
+        .concat(reps.map(r => `<option value="${r.id}" ${r.id === l.owner_id ? 'selected' : ''}>${esc(r.name)}</option>`)).join('');
+      return `<select class="lead-reassign mt-1 text-[11px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5" data-id="${l.id}" title="Reassign this lead">${opts}</select>`;
+    }
+    return `<div class="text-[11px] font-semibold mt-0.5 inline-flex items-center gap-1 ${l.rep ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>${l.rep ? esc(l.rep) : 'Unassigned'}</div>`;
+  };
   const rows = (data.leads || []).map(l => `
     <tr class="border-b border-slate-100 dark:border-slate-800/60">
-      <td class="py-3 px-3"><div class="font-semibold text-slate-900 dark:text-white">${esc(l.name || '—')}</div><div class="text-xs text-slate-400">${esc(l.source || '')}</div><div class="text-[11px] font-semibold mt-0.5 inline-flex items-center gap-1 ${l.rep ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>${l.rep ? esc(l.rep) : 'Unassigned'}</div></td>
+      <td class="py-3 px-3"><div class="font-semibold text-slate-900 dark:text-white">${esc(l.name || '—')}</div><div class="text-xs text-slate-400">${esc(l.source || '')}</div>${repControl(l)}</td>
       <td class="py-3 px-3 text-slate-600 dark:text-slate-300">${esc(l.phone || '')}${l.phone && l.email ? '<br>' : ''}${esc(l.email || '')}</td>
       <td class="py-3 px-3 text-slate-500 dark:text-slate-400 max-w-[220px]">${esc(l.comments || '')}</td>
+      <td class="py-3 px-3 whitespace-nowrap">${sittingBadge(l)}</td>
       <td class="py-3 px-3">${statusPill(l)}</td>
       <td class="py-3 px-3 text-right whitespace-nowrap">
         <button class="lead-ai-reply text-violet-600 hover:text-violet-500 text-xs font-bold" data-id="${l.id}">✦ Draft reply</button>
         ${!l.adf_sent_at && crmSet ? `<button class="lead-resend text-indigo-500 hover:text-indigo-400 text-xs font-bold ml-3" data-id="${l.id}">Send to CRM</button>` : ''}
       </td>
-    </tr>`).join('') || '<tr><td colspan="5" class="py-8 text-center text-sm text-slate-400 italic">No leads yet.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="6" class="py-8 text-center text-sm text-slate-400 italic">No leads yet.</td></tr>';
 
   root.innerHTML = `
     <div class="mb-5 flex items-start justify-between gap-3 flex-wrap">
       <div>
-        <h2 class="text-xl font-bold text-slate-900 dark:text-white">New Leads</h2>
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Leads</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Incoming Marketplace &amp; web leads — each auto-assigned to a salesperson and delivered to your CRM as an ADF email. To log one yourself, add them as a contact.</p>
       </div>
       <div class="flex items-center gap-2">
@@ -2370,7 +2403,7 @@ async function loadLeadsPage() {
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
       <div class="overflow-x-auto"><table class="w-full text-sm text-left min-w-[640px]">
         <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wider">
-          <th class="py-3 px-3">Buyer</th><th class="py-3 px-3">Contact</th><th class="py-3 px-3">Notes</th><th class="py-3 px-3">CRM</th><th class="py-3 px-3 text-right">Action</th>
+          <th class="py-3 px-3">Buyer</th><th class="py-3 px-3">Contact</th><th class="py-3 px-3">Notes</th><th class="py-3 px-3">Sitting</th><th class="py-3 px-3">CRM</th><th class="py-3 px-3 text-right">Action</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
@@ -2386,6 +2419,21 @@ async function loadLeadsPage() {
   }));
 
   root.querySelectorAll('.lead-ai-reply').forEach(b => b.addEventListener('click', () => openLeadReply(b.dataset.id)));
+
+  // Manager reassignment — update the lead's owner, then refresh the list + timers.
+  root.querySelectorAll('.lead-reassign').forEach(sel => sel.addEventListener('change', async () => {
+    const prev = sel.dataset.prev || '';
+    sel.disabled = true;
+    try {
+      const r = await fetch(`${API}/leads/${sel.dataset.id}/assign`, {
+        method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rep_id: sel.value || null }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+      showToast('Lead reassigned', 'success');
+      loadLeadsPage();
+    } catch (e) { showToast(e.message || 'Could not reassign', 'error'); sel.disabled = false; }
+  }));
 }
 
 // AI reply draft for a Marketplace lead (AI Boost). Non-subscribers → upgrade modal.
