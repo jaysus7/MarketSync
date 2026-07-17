@@ -4,7 +4,13 @@
       "Bash(grep -oE \"\\(yippi|uxauto|wp-content/[^\\\\\"' ]+\\\\.json|inventory[^\\\\\"' ]*\\\\.json|api/[a-z]+|/feed/?[\\\\\"']\\)\" /tmp/wellandchev.html | sort -u | head -30)",
       "Read(//private/tmp/**)",
       "Bash(node --check marketplace-backend/routes/automation.js)",
-      "Bash(node --check marketplace-backend/routes/crm.js)"
+      "Bash(node --check marketplace-backend/routes/crm.js)",
+      "Bash(node --check routes/recon.js)",
+      "mcp__b4a5b15c-553c-478d-a856-c45bd9f55aa1__list_projects",
+      "mcp__b4a5b15c-553c-478d-a856-c45bd9f55aa1__apply_migration",
+      "mcp__b4a5b15c-553c-478d-a856-c45bd9f55aa1__list_tables",
+      "Bash(git commit -m ' *)",
+      "Bash(node --check marketplace-backend/routes/leads.js)"
     ]
   }
 }
