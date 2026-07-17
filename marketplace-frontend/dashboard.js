@@ -696,10 +696,15 @@ function switchPage(pageId) {
   // Groups load collapsed; expand any group that contains the active page so
   // the current item is visible (a page can live in more than one group).
   document.querySelectorAll('#nav-desktop .nav-item[aria-current="page"]').forEach(leaf => {
-    const body = leaf.closest('.nav-group-body');
-    if (body?.classList.contains('hidden')) {
-      body.classList.remove('hidden');
-      document.getElementById('chev-' + body.id.replace('grp-', ''))?.classList.remove('-rotate-90');
+    // Walk up EVERY enclosing group body (a page can sit inside a nested subgroup,
+    // e.g. Automation → Builder → New Lead Follow-ups) so both levels expand.
+    let body = leaf.closest('.nav-group-body');
+    while (body) {
+      if (body.classList.contains('hidden')) {
+        body.classList.remove('hidden');
+        document.getElementById('chev-' + body.id.replace('grp-', ''))?.classList.remove('-rotate-90');
+      }
+      body = body.parentElement?.closest('.nav-group-body');
     }
   });
 
