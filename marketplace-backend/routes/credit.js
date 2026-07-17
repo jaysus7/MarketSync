@@ -103,17 +103,22 @@ export function registerCredit(app) {
     }
     if (existing) { row.created_by = existing.created_by || row.created_by; row.created_at = existing.created_at }
 
-    // Upsert keyed on the deal (one credit app per deal). Without a deal, insert new.
-    let saved
+    // Upsert keyed on the deal (one credit app per deal). Without a deal, dedupe on
+    // the contact so repeated saves update the same record instead of piling up.
+    let saved, error
     if (dealId) {
-      const { data, error } = await supabaseAdmin.from('credit_applications').upsert(row, { onConflict: 'deal_id' }).select().maybeSingle()
-      if (error) { console.error('[credit] save failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
-      saved = data
+      ({ data: saved, error } = await supabaseAdmin.from('credit_applications').upsert(row, { onConflict: 'deal_id' }).select().maybeSingle())
     } else {
-      const { data, error } = await supabaseAdmin.from('credit_applications').insert(row).select().maybeSingle()
-      if (error) { console.error('[credit] save failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
-      saved = data
+      let existingId = null
+      if (contactId) {
+        const { data: ex } = await supabaseAdmin.from('credit_applications').select('id')
+          .eq('contact_id', contactId).eq('dealership_id', req.dealershipId).order('updated_at', { ascending: false }).limit(1).maybeSingle()
+        existingId = ex?.id || null
+      }
+      if (existingId) ({ data: saved, error } = await supabaseAdmin.from('credit_applications').update(row).eq('id', existingId).select().maybeSingle())
+      else ({ data: saved, error } = await supabaseAdmin.from('credit_applications').insert(row).select().maybeSingle())
     }
+    if (error) { console.error('[credit] save failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
     res.json({ ok: true, application: publicShape(saved) })
   })
 

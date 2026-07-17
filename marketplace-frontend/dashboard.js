@@ -4161,6 +4161,7 @@ function deskRenderForm(contactId) {
             <button onclick="deskPrint('estimate')" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-sm font-bold px-3 py-2.5 rounded-lg transition">Print estimate</button>
             <button onclick="deskPrint('bill')" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-sm font-bold px-3 py-2.5 rounded-lg transition">Bill of sale</button>
           </div>
+          <button onclick="openCreditApp('${contactId}')" class="w-full inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-3 py-2.5 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Credit application</button>
         </div>
       </div>
     </div>`;
@@ -4328,6 +4329,164 @@ function deskCollect(contactId) {
   };
   return d;
 }
+// ── Credit application ───────────────────────────────────────────────────────
+// Full lender-grade applicant/co-applicant/employment/financing capture. SIN & DOB
+// are encrypted server-side; masks show without decrypting; export produces the
+// STAR credit-app XML to upload to RouteOne / Dealertrack.
+function creditSetPath(obj, path, val) {
+  const parts = path.split('.'); let o = obj;
+  for (let i = 0; i < parts.length - 1; i++) { const k = parts[i]; o[k] = o[k] || {}; o = o[k]; }
+  o[parts[parts.length - 1]] = val;
+}
+async function openCreditApp(contactId) {
+  if (!contactId) { showToast('Select a customer first.', 'error'); return; }
+  const d = deskCollect(contactId); const c = deskCompute(d);
+  let app = null;
+  try { const r = await apiGetJson(`/credit/application?contact_id=${encodeURIComponent(contactId)}`); app = r?.application || null; }
+  catch (e) { if (/Manager access/.test(e.message || '')) { showToast('Manager access required for credit apps.', 'error'); return; } }
+  const rnd = (x) => x == null ? '' : Math.round(Number(x) * 100) / 100;
+  const dv = (id) => (document.getElementById(id)?.value || '').trim();
+  const veh = (app?.vehicle && Object.keys(app.vehicle).length) ? app.vehicle
+    : { year: dv('dk-veh-year'), make: dv('dk-veh-make'), model: dv('dk-veh-model'), trim: dv('dk-veh-trim'), vin: dv('dk-veh-vin'), mileage: dv('dk-veh-mileage'), stock: dv('dk-veh-stock'), inventory_id: __deskDeal.inventory_id || null };
+  const fin = (app?.financing && Object.keys(app.financing).length) ? app.financing
+    : { selling_price: rnd(c.sellingPrice), tax_amount: rnd(c.taxAmount), fees_total: rnd(c.feesTotal), trade_value: rnd(c.tradeValue), trade_payoff: rnd(c.tradePayoff), down_payment: rnd(c.down), rebate: rnd(c.rebate), amount_financed: rnd(c.amountFinanced), apr: c.apr, term: c.term, payment_freq: c.freq, payment: rnd(c.payment), first_payment_date: d.first_payment_date, lender: d.finance_company, program: d.program };
+  const A = app?.applicant || {}, CO = app?.co_applicant || null;
+  const hasCo = !!CO;
+
+  const CI = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-900 dark:text-white';
+  const F = (label, inner) => `<label class="block"><span class="block text-[10.5px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">${label}</span>${inner}</label>`;
+  const IN = (path, val, ph, num) => `<input data-f="${path}"${num ? ' data-num inputmode="decimal"' : ''} value="${esc(val == null ? '' : val)}" placeholder="${ph || ''}" class="${CI}">`;
+  const SEL = (path, opts, val) => `<select data-f="${path}" class="${CI}">${opts.map(o => `<option ${o === (val || '') ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+  const sinField = (path, mask, hasVal) => `<div class="flex gap-1"><input data-f="${path}" value="" placeholder="${hasVal ? (mask || '•••• on file') + ' — reveal or re-enter' : '123-456-789'}" class="${CI}">${hasVal ? `<button type="button" data-reveal="${path}" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 px-2 rounded border border-slate-200 dark:border-slate-700 whitespace-nowrap">Reveal</button>` : ''}</div>`;
+
+  const person = (pre, p, sinPath, dobPath, sinMask, hasSin, hasDob) => {
+    const ad = p.address || {}, em = p.employment || {}, oi = p.other_income || {};
+    return `
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      ${F('First name', IN(pre + '.first', p.first))}${F('Middle', IN(pre + '.middle', p.middle))}${F('Last name', IN(pre + '.last', p.last))}
+      ${F('Email', IN(pre + '.email', p.email))}${F('Cell phone', IN(pre + '.phone', p.phone))}${F('Home phone', IN(pre + '.phone_home', p.phone_home))}
+      ${F('SIN', sinField(sinPath, sinMask, hasSin))}${F('Date of birth', `<input data-f="${dobPath}" type="date" value="" class="${CI}" placeholder="${hasDob ? 'on file' : ''}">`)}${F('Marital status', SEL(pre + '.marital', ['', 'Single', 'Married', 'Common-law', 'Divorced', 'Widowed', 'Separated'], p.marital))}
+    </div>
+    <div class="mt-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Residence</div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      ${F('Street', IN(pre + '.address.street', ad.street))}${F('City', IN(pre + '.address.city', ad.city))}${F('Province', IN(pre + '.address.province', ad.province))}${F('Postal', IN(pre + '.address.postal', ad.postal))}
+      ${F('Status', SEL(pre + '.address.status', ['', 'Own', 'Rent', 'Live with family', 'Other'], ad.status))}${F('Monthly pmt', IN(pre + '.address.payment', ad.payment, '', true))}${F('Years', IN(pre + '.address.years', ad.years, '', true))}${F('Months', IN(pre + '.address.months', ad.months, '', true))}
+    </div>
+    <div class="mt-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Employment &amp; income</div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      ${F('Employer', IN(pre + '.employment.employer', em.employer))}${F('Occupation', IN(pre + '.employment.occupation', em.occupation))}${F('Status', SEL(pre + '.employment.status', ['', 'Full-time', 'Part-time', 'Self-employed', 'Retired', 'Unemployed'], em.status))}${F('Work phone', IN(pre + '.employment.phone', em.phone))}
+      ${F('Years', IN(pre + '.employment.years', em.years, '', true))}${F('Months', IN(pre + '.employment.months', em.months, '', true))}${F('Gross monthly $', IN(pre + '.employment.income_monthly', em.income_monthly, '', true))}${F('Other income $', IN(pre + '.other_income.amount', oi.amount, '', true))}
+    </div>`;
+  };
+
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-[75] bg-black/70 flex items-start justify-center p-4 overflow-y-auto';
+  modal.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-3xl my-8 shadow-2xl">
+    <div class="flex items-center justify-between gap-3 p-5 border-b border-slate-200 dark:border-slate-800">
+      <div><h3 class="text-base font-bold text-slate-900 dark:text-white">Credit application</h3><div class="text-xs text-slate-400">SIN &amp; DOB are encrypted · export to RouteOne / Dealertrack</div></div>
+      <button data-x class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <div class="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+      <div class="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Applicant</div>
+      ${person('applicant', A, 'applicant_sin', 'applicant_dob', app?.applicant_sin_mask, app?.has_applicant_sin, app?.has_applicant_dob)}
+      <label class="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200 pt-1"><input type="checkbox" data-co-toggle ${hasCo ? 'checked' : ''} class="rounded"> Add co-applicant</label>
+      <div data-co-section class="${hasCo ? '' : 'hidden'} space-y-2 border-l-2 border-slate-200 dark:border-slate-700 pl-3">
+        ${person('co_applicant', CO || {}, 'co_sin', 'co_dob', app?.co_sin_mask, app?.has_co_sin, app?.has_co_dob)}
+      </div>
+      <div class="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 pt-1">Vehicle</div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        ${F('Year', IN('vehicle.year', veh.year))}${F('Make', IN('vehicle.make', veh.make))}${F('Model', IN('vehicle.model', veh.model))}${F('Trim', IN('vehicle.trim', veh.trim))}
+        ${F('VIN', IN('vehicle.vin', veh.vin))}${F('Mileage', IN('vehicle.mileage', veh.mileage, '', true))}${F('Stock #', IN('vehicle.stock', veh.stock))}
+      </div>
+      <div class="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 pt-1">Financing</div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        ${F('Lender', IN('financing.lender', fin.lender))}${F('Program', IN('financing.program', fin.program))}${F('Selling price', IN('financing.selling_price', fin.selling_price, '', true))}${F('Tax', IN('financing.tax_amount', fin.tax_amount, '', true))}
+        ${F('Fees', IN('financing.fees_total', fin.fees_total, '', true))}${F('Trade allowance', IN('financing.trade_value', fin.trade_value, '', true))}${F('Trade payoff', IN('financing.trade_payoff', fin.trade_payoff, '', true))}${F('Cash down', IN('financing.down_payment', fin.down_payment, '', true))}
+        ${F('Rebate', IN('financing.rebate', fin.rebate, '', true))}${F('Amount financed', IN('financing.amount_financed', fin.amount_financed, '', true))}${F('APR %', IN('financing.apr', fin.apr, '', true))}${F('Term (mo)', IN('financing.term', fin.term, '', true))}
+        ${F('Frequency', SEL('financing.payment_freq', ['monthly', 'biweekly', 'weekly', 'semimonthly'], fin.payment_freq))}${F('Payment', IN('financing.payment', fin.payment, '', true))}${F('First payment', `<input data-f="financing.first_payment_date" type="date" value="${esc(fin.first_payment_date || '')}" class="${CI}">`)}
+      </div>
+      <label class="flex items-start gap-2 rounded-lg bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 px-3 py-2.5 text-[12.5px] text-slate-700 dark:text-slate-300"><input type="checkbox" data-f="consent" ${app?.consent ? 'checked' : ''} class="rounded mt-0.5"><span>The applicant authorizes ${esc(profileContext?.dealershipName || 'the dealership')} and its lenders to obtain a consumer credit report. ${app?.consent_at ? `<em class="text-emerald-600 dark:text-emerald-400 not-italic font-semibold">Consent recorded ${new Date(app.consent_at).toLocaleDateString()}.</em>` : ''}</span></label>
+    </div>
+    <div class="flex flex-wrap items-center justify-between gap-2 p-4 border-t border-slate-200 dark:border-slate-800">
+      <div class="flex items-center gap-2">
+        <select data-provider class="${CI} w-auto"><option value="routeone">RouteOne</option><option value="dealertrack">Dealertrack</option></select>
+        <button data-submit class="text-sm font-bold text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Submit to lender</button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button data-export class="text-sm font-bold text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Export XML</button>
+        <button data-save class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg">Save</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  let appId = app?.id || null;
+  const close = () => modal.remove();
+  modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('[data-x]')) close(); });
+  modal.querySelector('[data-co-toggle]').addEventListener('change', e => modal.querySelector('[data-co-section]').classList.toggle('hidden', !e.target.checked));
+
+  // Reveal a masked SIN/DOB (audited server-side) into its field.
+  modal.querySelectorAll('[data-reveal]').forEach(b => b.addEventListener('click', async () => {
+    if (!appId) { showToast('Save the application first, then reveal.', 'error'); return; }
+    try {
+      const r = await fetch(`${API}/credit/application/${appId}/reveal`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Failed');
+      const path = b.dataset.reveal; const map = { applicant_sin: j.applicant_sin, co_sin: j.co_sin };
+      const el = modal.querySelector(`[data-f="${path}"]`); if (el && map[path] != null) el.value = map[path];
+    } catch (e) { showToast(e.message || 'Could not reveal', 'error'); }
+  }));
+
+  const collect = () => {
+    const out = { contact_id: contactId };
+    if (__deskDeal?.inventory_id) out.vehicle = { inventory_id: __deskDeal.inventory_id };
+    modal.querySelectorAll('[data-f]').forEach(el => {
+      const path = el.dataset.f;
+      let val = el.type === 'checkbox' ? el.checked : el.value.trim();
+      if (el.type !== 'checkbox' && val === '') { if (!/^(applicant_sin|applicant_dob|co_sin|co_dob)$/.test(path)) creditSetPath(out, path, ''); return; }
+      if (el.hasAttribute('data-num')) { const nn = msNum(val); val = Number.isFinite(nn) ? nn : val; }
+      creditSetPath(out, path, val);
+    });
+    if (!modal.querySelector('[data-co-toggle]').checked) { out.co_applicant = null; delete out.co_sin; delete out.co_dob; }
+    return out;
+  };
+
+  const save = async () => {
+    const body = collect();
+    const r = await fetch(`${API}/credit/application`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Save failed');
+    appId = j.application?.id || appId;
+    return j.application;
+  };
+  modal.querySelector('[data-save]').addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget; btn.disabled = true; btn.textContent = 'Saving…';
+    try { await save(); showToast('Credit application saved.', 'success'); close(); }
+    catch (e) { showToast(e.message || 'Save failed', 'error'); btn.disabled = false; btn.textContent = 'Save'; }
+  });
+  modal.querySelector('[data-export]').addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget; btn.disabled = true;
+    try {
+      await save();
+      const r = await fetch(`${API}/credit/application/${appId}/export`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ format: 'xml' }) });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Export failed');
+      const blob = new Blob([j.xml], { type: 'application/xml' }); const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = j.filename || 'credit-app.xml'; a.click(); URL.revokeObjectURL(url);
+      showToast('Credit application XML downloaded.', 'success');
+    } catch (e) { showToast(e.message || 'Export failed', 'error'); }
+    btn.disabled = false;
+  });
+  modal.querySelector('[data-submit]').addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget; btn.disabled = true; btn.textContent = 'Submitting…';
+    try {
+      await save();
+      const provider = modal.querySelector('[data-provider]').value;
+      const r = await fetch(`${API}/credit/application/${appId}/submit`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ provider }) });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Submit failed');
+      showToast(j.message || 'Submitted.', j.mode === 'manual' ? 'info' : 'success');
+    } catch (e) { showToast(e.message || 'Submit failed', 'error'); }
+    btn.disabled = false; btn.textContent = 'Submit to lender';
+  });
+}
+window.openCreditApp = openCreditApp;
+
 function deskCompute(d) {
   const n = (v) => Number(v) || 0;
   // Selling price = Retail − rebate(before tax) + adjustment when a Retail/MSRP is
