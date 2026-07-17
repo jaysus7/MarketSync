@@ -6365,6 +6365,7 @@ let __fniData = null;
 async function loadFniPage() {
   const root = document.getElementById('fni-root');
   if (!root) return;
+  __fniTab = 'worklist';
   root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading deals…</div>';
   try { __fniData = await apiGetJson('/fni/deals'); }
   catch (e) { root.innerHTML = `<div class="py-12 text-center text-sm text-red-400">Could not load deals: ${esc(e.message)}<br><button onclick="loadFniPage()" class="mt-3 text-indigo-500 font-bold">Retry</button></div>`; return; }
@@ -6410,11 +6411,26 @@ function fniRenderRows() {
   tbody.querySelectorAll('[data-fni-delivered]').forEach(b => b.addEventListener('click', () => fniMarkDelivered(b.dataset.fniDelivered)));
 }
 
+// FNI page has two tabs: the Deals worklist and the F&I performance Report.
+let __fniTab = 'worklist';
+function fniSwitchTab(tab) {
+  __fniTab = tab;
+  if (tab === 'reports') renderFniReports();
+  else renderFniPage();
+}
+window.fniSwitchTab = fniSwitchTab;
+
+function fniTabsHtml() {
+  const btn = (id, label) => `<button onclick="fniSwitchTab('${id}')" class="px-3 py-1.5 rounded-lg text-sm font-bold transition ${__fniTab === id ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}">${label}</button>`;
+  return `<div class="inline-flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl mb-4">${btn('worklist', 'Worklist')}${btn('reports', 'Reports')}</div>`;
+}
+
 function renderFniPage() {
   const root = document.getElementById('fni-root');
   if (!root || !__fniData) return;
   const deals = __fniData.deals || [];
   root.innerHTML = `
+    ${fniTabsHtml()}
     <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
       <input id="fni-search" placeholder="Search customer, vehicle, stock #, deal #…" class="flex-1 min-w-[220px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
       <span class="text-xs text-slate-500 dark:text-slate-400">${deals.length} in the pipeline</span>
@@ -6500,6 +6516,108 @@ async function saveFniEmails(btn) {
   finally { btn.disabled = false; btn.textContent = t; }
 }
 window.saveFniEmails = saveFniEmails;
+
+// F&I performance report — mirrors the speed-to-lead metrics style (KPI tiles,
+// range switch, tables). Data comes from GET /fni/reports?days=N.
+let __fniReportDays = 30;
+async function renderFniReports() {
+  const root = document.getElementById('fni-root');
+  if (!root) return;
+  root.innerHTML = `${fniTabsHtml()}<div class="py-16 text-center text-sm text-slate-400 italic">Loading report…</div>`;
+  let m;
+  try { m = await apiGetJson(`/fni/reports?days=${__fniReportDays}`); }
+  catch (e) { root.innerHTML = `${fniTabsHtml()}<div class="py-12 text-center text-sm text-red-400">Could not load report: ${esc(e.message)}<br><button onclick="renderFniReports()" class="mt-3 text-indigo-500 font-bold">Retry</button></div>`; return; }
+
+  const money = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const pctv = (n) => (n == null ? '—' : `${n}%`);
+  const daysv = (n) => (n == null ? '—' : `${n} d`);
+  const tile = (label, val, cls = 'text-slate-900 dark:text-white', sub = '') => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">${label}</div><div class="text-base font-black ${cls}">${val}</div>${sub ? `<div class="text-[11px] text-slate-400 font-semibold">${sub}</div>` : ''}</div>`;
+  const rangeBtn = (d, label) => `<button onclick="__fniReportDays=${d};renderFniReports()" class="px-2.5 py-1 rounded-full text-xs font-bold ${__fniReportDays === d ? 'bg-indigo-600 text-white' : 'border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}">${label}</button>`;
+
+  const prodRows = (m.products || []).map(p => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
+    <td class="py-2 px-3 text-sm font-semibold text-slate-900 dark:text-white">${esc(p.product)}</td>
+    <td class="py-2 px-3 text-sm text-slate-600 dark:text-slate-300">${p.deals}</td>
+    <td class="py-2 px-3 text-sm font-bold ${p.penetration >= 50 ? 'text-emerald-600 dark:text-emerald-400' : p.penetration >= 20 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-300'}">${pctv(p.penetration)}</td>
+    <td class="py-2 px-3 text-sm text-slate-600 dark:text-slate-300">${money(p.total)}</td>
+    <td class="py-2 px-3 text-sm text-slate-600 dark:text-slate-300">${money(p.avg)}</td>
+  </tr>`).join('') || '<tr><td colspan="5" class="py-4 px-3 text-center text-sm text-slate-400 italic">No F&I products in this window.</td></tr>';
+
+  const staffRows = (rows) => rows.map(r => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
+    <td class="py-2 px-3 text-sm font-semibold text-slate-900 dark:text-white">${esc(r.name)}</td>
+    <td class="py-2 px-3 text-sm text-slate-600 dark:text-slate-300">${r.deals}<span class="text-slate-400"> / ${r.units}</span></td>
+    <td class="py-2 px-3 text-sm font-bold text-slate-900 dark:text-white">${money(r.gross)}</td>
+    <td class="py-2 px-3 text-sm text-indigo-600 dark:text-indigo-400 font-bold">${money(r.pvr)}</td>
+    <td class="py-2 px-3 text-sm text-slate-600 dark:text-slate-300">${money(r.avg_gross)}</td>
+    <td class="py-2 px-3 text-sm font-bold ${r.attach_rate >= 50 ? 'text-emerald-600 dark:text-emerald-400' : r.attach_rate >= 20 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-300'}">${pctv(r.attach_rate)}</td>
+  </tr>`).join('');
+  const spRows = staffRows(m.per_salesperson || []) || '<tr><td colspan="6" class="py-4 px-3 text-center text-sm text-slate-400 italic">No deals in this window.</td></tr>';
+  const mgrRows = staffRows(m.per_fni_manager || []) || '<tr><td colspan="6" class="py-4 px-3 text-center text-sm text-slate-400 italic">No F&I manager tagged in this window.</td></tr>';
+  const staffHead = (first) => `<thead><tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-[11px] tracking-wider"><th class="py-2 px-3">${first}</th><th class="py-2 px-3">Deals / units</th><th class="py-2 px-3">F&amp;I gross</th><th class="py-2 px-3">PVR</th><th class="py-2 px-3">Avg gross</th><th class="py-2 px-3">Attach</th></tr></thead>`;
+
+  // Weekly trend as a lightweight bar strip (gross per week).
+  const wk = m.weekly || [];
+  const maxG = Math.max(1, ...wk.map(w => w.gross));
+  const trend = wk.length ? `<div class="flex items-end gap-1 h-24">${wk.map(w => `<div class="flex-1 flex flex-col items-center justify-end gap-1" title="Week of ${esc(w.week)} · ${money(w.gross)} · ${w.deals} deals">
+      <div class="w-full bg-indigo-500/80 dark:bg-indigo-500 rounded-t" style="height:${Math.max(2, Math.round((w.gross / maxG) * 88))}px"></div>
+      <div class="text-[9px] text-slate-400 whitespace-nowrap">${esc(w.week.slice(5))}</div>
+    </div>`).join('')}</div>` : '<div class="py-6 text-center text-sm text-slate-400 italic">No activity in this window.</div>';
+
+  root.innerHTML = `
+    ${fniTabsHtml()}
+    <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
+      <h3 class="text-sm font-bold text-slate-700 dark:text-slate-200">F&amp;I performance report</h3>
+      <div class="flex items-center gap-1.5">${rangeBtn(7, '7d')}${rangeBtn(30, '30d')}${rangeBtn(90, '90d')}${rangeBtn(365, '1y')}</div>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+      ${tile('F&I gross', money(m.total_gross), 'text-emerald-600 dark:text-emerald-400')}
+      ${tile('PVR', money(m.pvr), 'text-indigo-600 dark:text-indigo-400', `${m.unit_count} units`)}
+      ${tile('Avg gross / deal', money(m.avg_gross))}
+      ${tile('Delivered', m.delivered_count, 'text-slate-900 dark:text-white', `${m.deal_count} deals`)}
+      ${tile('Attach rate', pctv(m.overall_attach_rate))}
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+      ${tile('Working', m.by_status?.working ?? 0)}
+      ${tile('Pending credit', m.by_status?.pending_credit ?? 0)}
+      ${tile('Sold', m.by_status?.sold ?? 0)}
+      ${tile('Total commission', money(m.total_commission))}
+    </div>
+
+    <div class="mt-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+      <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-3">Weekly F&amp;I gross</div>
+      ${trend}
+    </div>
+
+    <div class="mt-4">
+      <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-2">Product penetration</div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+        <div class="overflow-x-auto"><table class="w-full text-left min-w-[520px]">
+          <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-[11px] tracking-wider"><th class="py-2 px-3">Product</th><th class="py-2 px-3">Deals</th><th class="py-2 px-3">Penetration</th><th class="py-2 px-3">Total $</th><th class="py-2 px-3">Avg $</th></tr></thead>
+          <tbody>${prodRows}</tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-2">By salesperson</div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+        <div class="overflow-x-auto"><table class="w-full text-left min-w-[620px]">${staffHead('Salesperson')}<tbody>${spRows}</tbody></table></div>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-2">By F&amp;I manager</div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+        <div class="overflow-x-auto"><table class="w-full text-left min-w-[620px]">${staffHead('F&I manager')}<tbody>${mgrRows}</tbody></table></div>
+      </div>
+    </div>
+
+    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+      ${tile('Approved → delivered', daysv(m.turnaround?.approved_to_delivered_days), 'text-slate-900 dark:text-white', `avg over ${m.turnaround?.approved_to_delivered_n || 0} delivered`)}
+      ${tile('Credit app → delivered', daysv(m.turnaround?.credit_to_delivered_days), 'text-slate-900 dark:text-white', `avg over ${m.turnaround?.credit_to_delivered_n || 0} delivered`)}
+    </div>
+    <div class="text-[11px] text-slate-400 mt-2">Last ${m.days} days · cohort by deal created date · F&amp;I gross = sum of deal F&amp;I product prices · PVR = gross ÷ sold/delivered units.</div>`;
+}
+window.renderFniReports = renderFniReports;
 
 async function loadReconPage() {
   const root = document.getElementById('recon-root');
