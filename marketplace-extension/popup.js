@@ -647,9 +647,26 @@ function renderCaptureProgress(s) {
   // A "pulling" read that hasn't finished in 3 minutes is stalled — the dealer
   // site is almost certainly blocking the read. Show that instead of a frozen 8%.
   if (s.status === 'pulling' && s.startedAt && Date.now() - s.startedAt > 180000) {
+    // A read stuck for 10+ minutes is a dead capture (tab closed / crashed and never
+    // wrote a finish state). Clear it so the banner doesn't linger indefinitely.
+    if (Date.now() - s.startedAt > 600000) {
+      try { chrome.storage.local.remove('captureState') } catch {}
+      box.style.display = 'none'
+      return
+    }
+    // If feed-synced inventory is already loaded, the live read is redundant — the
+    // scheduled server sync keeps things current. Show a soft amber note, not red alarm.
+    const haveInv = Array.isArray(window.__msInvCache?.inventory) && window.__msInvCache.inventory.length > 0
     box.style.display = 'block'
+    if (haveInv) {
+      if (fill) { fill.style.width = '100%'; fill.style.background = 'var(--amber)' }
+      if (pctEl) { pctEl.textContent = '' }
+      if (labelEl) labelEl.textContent = 'Live read blocked — using synced feed'
+      if (subEl) subEl.textContent = 'Your inventory is up to date from the scheduled sync. Tap Refresh to retry the live read.'
+      return
+    }
     if (fill) { fill.style.width = '100%'; fill.style.background = 'var(--red)' }
-    if (pctEl) { pctEl.textContent = ''; }
+    if (pctEl) { pctEl.textContent = '' }
     if (labelEl) labelEl.textContent = 'Inventory read stalled'
     if (subEl) subEl.textContent = 'The dealer site is blocking the read. Tap Refresh to retry, or it will catch up on the next scheduled sync.'
     return
