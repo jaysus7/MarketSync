@@ -691,6 +691,7 @@ function personalizeSalesNav() {
   const setLbl = (id, txt) => { const el = document.getElementById(id)?.querySelector('[data-nav-label]'); if (el) el.textContent = txt; };
   setLbl('nav-tasks', isMgr ? 'All Tasks' : 'My Tasks');
   setLbl('nav-appointments', isMgr ? 'All Appointments' : 'My Appointments');
+  setLbl('nav-leads-sales', isMgr ? 'All Leads' : 'My Leads');
   document.getElementById('nav-leads-sales')?.classList.toggle('hidden', !isMgr);
   document.getElementById('nav-fni-deals')?.classList.toggle('hidden', !isMgr);
 }
