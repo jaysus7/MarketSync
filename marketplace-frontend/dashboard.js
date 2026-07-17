@@ -675,6 +675,7 @@ function personalizeSalesNav() {
   setLbl('nav-tasks', isMgr ? 'All Tasks' : 'My Tasks');
   setLbl('nav-appointments', isMgr ? 'All Appointments' : 'My Appointments');
   document.getElementById('nav-leads-sales')?.classList.toggle('hidden', !isMgr);
+  document.getElementById('nav-fni-deals')?.classList.toggle('hidden', !isMgr);
 }
 window.personalizeSalesNav = personalizeSalesNav;
 
@@ -748,6 +749,7 @@ function switchPage(pageId) {
   if (pageId === 'website-settings') loadWebsiteSettings();
   if (pageId === 'automation') loadAutomationPage();
   if (pageId === 'automation-builder') loadAutoBuilderPage();
+  if (pageId === 'fni') loadFniPage();
   if (pageId === 'equity') loadEquityPage();
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
 }
@@ -6279,6 +6281,147 @@ async function reconApi(path, method = 'POST', body = null) {
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
+
+// ── FNI Deals worklist ───────────────────────────────────────────────────────
+let __fniData = null;
+async function loadFniPage() {
+  const root = document.getElementById('fni-root');
+  if (!root) return;
+  root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading deals…</div>';
+  try { __fniData = await apiGetJson('/fni/deals'); }
+  catch (e) { root.innerHTML = `<div class="py-12 text-center text-sm text-red-400">Could not load deals: ${esc(e.message)}<br><button onclick="loadFniPage()" class="mt-3 text-indigo-500 font-bold">Retry</button></div>`; return; }
+  renderFniPage();
+}
+window.loadFniPage = loadFniPage;
+
+function fniStatusPill(s) {
+  const map = {
+    working: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+    pending_credit: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
+    sold: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300',
+    delivered: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
+  };
+  const label = { working: 'Working', pending_credit: 'Pending credit', sold: 'Sold', delivered: 'Delivered' }[s] || (s || '—');
+  return `<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded ${map[s] || map.working}">${label}</span>`;
+}
+
+function fniRowHtml(d) {
+  const approved = !!d.approved_at;
+  const deliv = d.delivery_date ? `${d.delivery_date}${d.delivery_time ? ' ' + d.delivery_time : ''}` : '<span class="text-slate-400">—</span>';
+  return `<tr class="border-b border-slate-100 dark:border-slate-800/60">
+    <td class="py-2.5 px-3"><div class="text-sm font-semibold text-slate-900 dark:text-white">${esc(d.customer)}</div><div class="text-[11px] text-slate-400">${d.deal_number ? 'Deal #' + esc(String(d.deal_number)) : ''}</div></td>
+    <td class="py-2.5 px-3 text-sm text-slate-700 dark:text-slate-200">${esc(d.vehicle)}${d.stocknumber ? ` <span class="text-[11px] text-slate-400">#${esc(d.stocknumber)}</span>` : ''}</td>
+    <td class="py-2.5 px-3 text-sm text-slate-600 dark:text-slate-300">${d.salesperson ? esc(d.salesperson) : '<span class="text-slate-400">—</span>'}</td>
+    <td class="py-2.5 px-3 whitespace-nowrap">${fniStatusPill(d.deal_status)}${approved ? ' <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">✓ Approved</span>' : ''}</td>
+    <td class="py-2.5 px-3 text-sm whitespace-nowrap">${deliv}</td>
+    <td class="py-2.5 px-3 text-right whitespace-nowrap">
+      <button data-fni-approve="${d.id}" class="text-indigo-500 hover:text-indigo-400 text-xs font-bold">${approved ? 'Edit get-ready' : 'Approve'}</button>
+      <button data-fni-delivered="${d.id}" class="text-emerald-600 hover:text-emerald-500 text-xs font-bold ml-3">Delivered</button>
+    </td>
+  </tr>`;
+}
+
+function fniRenderRows() {
+  const tbody = document.getElementById('fni-tbody');
+  if (!tbody || !__fniData) return;
+  const q = (document.getElementById('fni-search')?.value || '').trim().toLowerCase();
+  let filtered = __fniData.deals || [];
+  if (q) filtered = filtered.filter(d => `${d.customer} ${d.vehicle} ${d.stocknumber || ''} ${d.deal_number || ''} ${d.salesperson || ''}`.toLowerCase().includes(q));
+  tbody.innerHTML = filtered.map(fniRowHtml).join('') || '<tr><td colspan="6" class="py-8 text-center text-sm text-slate-400 italic">No deals waiting.</td></tr>';
+  tbody.querySelectorAll('[data-fni-approve]').forEach(b => b.addEventListener('click', () => openFniApprove(b.dataset.fniApprove)));
+  tbody.querySelectorAll('[data-fni-delivered]').forEach(b => b.addEventListener('click', () => fniMarkDelivered(b.dataset.fniDelivered)));
+}
+
+function renderFniPage() {
+  const root = document.getElementById('fni-root');
+  if (!root || !__fniData) return;
+  const deals = __fniData.deals || [];
+  root.innerHTML = `
+    <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+      <input id="fni-search" placeholder="Search customer, vehicle, stock #, deal #…" class="flex-1 min-w-[220px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
+      <span class="text-xs text-slate-500 dark:text-slate-400">${deals.length} in the pipeline</span>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto"><table class="w-full text-left min-w-[760px]">
+        <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wider">
+          <th class="py-3 px-3">Customer</th><th class="py-3 px-3">Vehicle</th><th class="py-3 px-3">Salesperson</th><th class="py-3 px-3">Status</th><th class="py-3 px-3">Delivery</th><th class="py-3 px-3 text-right">Action</th>
+        </tr></thead>
+        <tbody id="fni-tbody"></tbody>
+      </table></div>
+    </div>
+    <div class="mt-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+      <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">Cleanup / service notification emails</div>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">Extra recipients (cleanup + service teams) that get the get-ready email on Approve. Comma or newline separated. Managers &amp; the salesperson are always included.</p>
+      <div class="flex gap-2">
+        <textarea id="fni-emails" rows="2" class="flex-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" placeholder="detail@dealer.com, service@dealer.com">${esc(__fniData.cleanup_notify_emails || '')}</textarea>
+        <button onclick="saveFniEmails(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg self-start">Save</button>
+      </div>
+    </div>`;
+  document.getElementById('fni-search')?.addEventListener('input', fniRenderRows);
+  fniRenderRows();
+}
+
+function openFniApprove(dealId) {
+  const d = (__fniData?.deals || []).find(x => x.id === dealId);
+  if (!d) return;
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-[70] bg-black/70 flex items-start justify-center p-4 overflow-y-auto';
+  modal.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg mt-12 shadow-2xl">
+    <div class="flex items-start justify-between gap-3 p-5 border-b border-slate-200 dark:border-slate-800">
+      <div><h3 class="text-base font-bold text-slate-900 dark:text-white">Approve — get ready</h3><div class="text-xs text-slate-400">${esc(d.vehicle)} · ${esc(d.customer)}${d.salesperson ? ' · ' + esc(d.salesperson) : ''}</div></div>
+      <button data-x class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <div class="p-5 space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">Delivery date</label><input data-dd type="date" value="${d.delivery_date || ''}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white"></div>
+        <div><label class="block text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">Delivery time</label><input data-dt type="time" value="${d.delivery_time || ''}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white"></div>
+      </div>
+      <div><label class="block text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">F&amp;I products to install</label><textarea data-fp rows="3" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" placeholder="e.g. Rustproofing, extended warranty, paint protection…">${esc(d.fni_products || '')}</textarea></div>
+      <div><label class="block text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">Special details / notes</label><textarea data-nt rows="3" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" placeholder="Anything cleanup/service needs to know…">${esc(d.notes || '')}</textarea></div>
+    </div>
+    <div class="flex items-center justify-end gap-2 p-5 border-t border-slate-200 dark:border-slate-800">
+      <button data-x class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-200">Cancel</button>
+      <button data-approve class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Approve &amp; send get-ready</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  const close = () => modal.remove();
+  modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('[data-x]')) close(); });
+  modal.querySelector('[data-approve]').addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget; btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      const body = {
+        delivery_date: modal.querySelector('[data-dd]').value || null,
+        delivery_time: modal.querySelector('[data-dt]').value || null,
+        fni_products: modal.querySelector('[data-fp]').value,
+        notes: modal.querySelector('[data-nt]').value,
+      };
+      const r = await fetch(`${API}/fni/deals/${dealId}/approve`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+      close(); showToast('Approved — get-ready sent to cleanup & service.', 'success'); loadFniPage();
+    } catch (e) { showToast(e.message || 'Could not approve', 'error'); btn.disabled = false; btn.textContent = 'Approve & send get-ready'; }
+  });
+}
+
+async function fniMarkDelivered(dealId) {
+  if (!confirm('Mark this deal delivered?\n\nThe vehicle will be set to Sold and the customer moved to Sold Customers.')) return;
+  try {
+    const r = await fetch(`${API}/fni/deals/${dealId}/delivered`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+    if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+    showToast('Delivered — moved to Sold Customers.', 'success'); loadFniPage();
+  } catch (e) { showToast(e.message || 'Could not mark delivered', 'error'); }
+}
+
+async function saveFniEmails(btn) {
+  const t = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const r = await fetch(`${API}/fni/settings`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ cleanup_notify_emails: document.getElementById('fni-emails').value }) });
+    if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+    showToast('Saved', 'success');
+  } catch (e) { showToast(e.message || 'Could not save', 'error'); }
+  finally { btn.disabled = false; btn.textContent = t; }
+}
+window.saveFniEmails = saveFniEmails;
 
 async function loadReconPage() {
   const root = document.getElementById('recon-root');

@@ -588,6 +588,7 @@
               <button type="button" id="nav-leads-sales" data-page="leads" title="Leads" class="nav-item nav-sub hidden w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Leads</button>
               <button type="button" data-page="crm" data-crm-view="mine" title="My Customer Database" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>My Customer Database</button>
               <button type="button" id="nav-desk" data-page="desk" title="Desk a Deal" class="nav-item nav-sub hidden w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0"></span>Desk a Deal</button>
+              <button type="button" id="nav-fni-deals" data-page="fni" title="Deals" class="nav-item nav-sub hidden w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Deals</button>
               <button type="button" data-page="recon" title="Cleanup" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Cleanup</button>
             </div>
           </div>
@@ -1117,6 +1118,18 @@
         </div>
         <div id="recon-root">
           <div class="py-16 text-center text-sm text-slate-400 italic">Loading cleanup…</div>
+        </div>
+      </div>
+      <!-- ───────── FNI DEALS PAGE ───────── -->
+      <div data-page-content="fni" class="page-content hidden space-y-5">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 class="text-xl font-black text-slate-900 dark:text-white">Deals</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pending &amp; pushed deals waiting for delivery. Do the credit app &amp; F&amp;I products, hit <b>Approve</b> to send get-ready to cleanup/service, then <b>Delivered</b> to close it out.</p>
+          </div>
+        </div>
+        <div id="fni-root">
+          <div class="py-16 text-center text-sm text-slate-400 italic">Loading deals…</div>
         </div>
       </div>
       <!-- ───────── LEADERBOARD PAGE ───────── -->
@@ -2748,7 +2761,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260717a"></script>
+  <script src="dashboard.js?v=20260717b"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
