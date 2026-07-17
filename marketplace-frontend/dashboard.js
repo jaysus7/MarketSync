@@ -2385,7 +2385,7 @@ async function loadLeadsPage() {
       <td class="py-3 px-3 whitespace-nowrap">${sittingBadge(l)}</td>
       <td class="py-3 px-3">${statusPill(l)}</td>
       <td class="py-3 px-3 text-right whitespace-nowrap">
-        ${!l.responded_at ? `<button class="lead-answered text-emerald-600 hover:text-emerald-500 text-xs font-bold" data-id="${l.id}" title="Stop the clock — mark this lead answered">✓ Mark answered</button>` : ''}
+        ${!l.responded_at ? `<button class="lead-answered text-emerald-600 hover:text-emerald-500 text-xs font-bold" data-id="${l.id}" data-contact="${l.contact_id || ''}" title="Log a call/text/email with a note — stops the clock">✓ Log &amp; complete</button>` : ''}
         <button class="lead-ai-reply text-violet-600 hover:text-violet-500 text-xs font-bold ml-3" data-id="${l.id}">✦ Draft reply</button>
         ${!l.adf_sent_at && crmSet ? `<button class="lead-resend text-indigo-500 hover:text-indigo-400 text-xs font-bold ml-3" data-id="${l.id}">Send to CRM</button>` : ''}
       </td>
@@ -2424,14 +2424,7 @@ async function loadLeadsPage() {
   startLeadTimers();
   if (data.can_reassign) renderLeadMetrics();
 
-  root.querySelectorAll('.lead-answered').forEach(b => b.addEventListener('click', async () => {
-    b.disabled = true; b.textContent = 'Saving…';
-    try {
-      const r = await fetch(`${API}/leads/${b.dataset.id}/answered`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-      if (!r.ok) throw new Error((await r.json()).error || 'Failed');
-      loadLeadsPage();
-    } catch (e) { showToast(e.message || 'Could not mark answered', 'error'); b.disabled = false; b.textContent = '✓ Mark answered'; }
-  }));
+  root.querySelectorAll('.lead-answered').forEach(b => b.addEventListener('click', () => openLeadComplete(b.dataset.id, b.dataset.contact || '')));
 
   root.querySelectorAll('.lead-resend').forEach(b => b.addEventListener('click', async () => {
     b.disabled = true; b.textContent = 'Sending…';
@@ -2494,25 +2487,108 @@ function startLeadTimers() {
 }
 
 // Speed-to-lead KPI strip for managers — median answer time, answered %, SLA hits.
+let __leadMetricsDays = 30;
 async function renderLeadMetrics() {
   const box = document.getElementById('leads-metrics');
   if (!box) return;
   let m;
-  try { m = await apiGetJson('/leads/response-metrics?days=30'); } catch { return; }
+  try { m = await apiGetJson(`/leads/response-metrics?days=${__leadMetricsDays}`); } catch { return; }
   const dur = (s) => s == null ? '—' : fmtLeadDuration(s);
-  const pct = m.total ? Math.round((m.answered / m.total) * 100) : 0;
+  const pct = (n, d) => d ? Math.round((n / d) * 100) : 0;
+  const answeredPct = pct(m.answered, m.total);
   const tile = (label, val, cls = 'text-slate-900 dark:text-white') => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">${label}</div><div class="text-base font-black ${cls}">${val}</div></div>`;
-  const best = (m.per_rep || [])[0];
+  // SLA buckets are cumulative counts → show as % of answered for a clean funnel.
+  const sla = (label, count) => {
+    const p = pct(count, m.answered);
+    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
+      <div class="flex items-center justify-between text-[11px]"><span class="font-bold text-slate-500 dark:text-slate-300">${label}</span><span class="font-black text-slate-900 dark:text-white">${count} <span class="text-slate-400 font-semibold">(${p}%)</span></span></div>
+      <div class="mt-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full bg-emerald-500" style="width:${p}%"></div></div>
+    </div>`;
+  };
+  const repRows = (m.per_rep || []).map(r => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
+    <td class="py-2 px-3 text-sm font-semibold text-slate-900 dark:text-white">${esc(r.rep)}</td>
+    <td class="py-2 px-3 text-sm text-slate-600 dark:text-slate-300">${r.answered}</td>
+    <td class="py-2 px-3 text-sm font-bold ${r.median_seconds <= 300 ? 'text-emerald-600 dark:text-emerald-400' : r.median_seconds <= 900 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500'}">${dur(r.median_seconds)}</td>
+  </tr>`).join('') || '<tr><td colspan="3" class="py-4 px-3 text-center text-sm text-slate-400 italic">No answered leads in this window.</td></tr>';
+  const rangeBtn = (d, label) => `<button onclick="__leadMetricsDays=${d};renderLeadMetrics()" class="px-2.5 py-1 rounded-full text-xs font-bold ${__leadMetricsDays === d ? 'bg-indigo-600 text-white' : 'border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}">${label}</button>`;
+
   box.innerHTML = `
+    <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+      <h3 class="text-sm font-bold text-slate-700 dark:text-slate-200">Speed-to-lead report</h3>
+      <div class="flex items-center gap-1.5">${rangeBtn(7, '7d')}${rangeBtn(30, '30d')}${rangeBtn(90, '90d')}</div>
+    </div>
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
       ${tile('Median answer', dur(m.median_seconds), 'text-indigo-600 dark:text-indigo-400')}
-      ${tile('Answered', `${pct}% <span class="text-xs font-semibold text-slate-400">(${m.answered}/${m.total})</span>`)}
-      ${tile('Within 5 min', m.within_5min, 'text-emerald-600 dark:text-emerald-400')}
+      ${tile('Avg answer', dur(m.avg_seconds))}
+      ${tile('Answered', `${answeredPct}% <span class="text-xs font-semibold text-slate-400">(${m.answered}/${m.total})</span>`)}
       ${tile('Still open', m.unanswered, m.unanswered ? 'text-red-500' : 'text-slate-900 dark:text-white')}
-      ${tile('Fastest rep', best ? esc(best.rep) : '—')}
+      ${tile('Leads', m.total)}
     </div>
-    <div class="text-[11px] text-slate-400 mt-1">Speed-to-lead over the last ${m.days} days · median is created→answered time.</div>`;
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+      ${sla('Within 5 min', m.within_5min)}
+      ${sla('Within 15 min', m.within_15min)}
+      ${sla('Within 60 min', m.within_60min)}
+    </div>
+    <div class="mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+      <div class="overflow-x-auto"><table class="w-full text-left">
+        <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-[11px] tracking-wider"><th class="py-2 px-3">Rep</th><th class="py-2 px-3">Answered</th><th class="py-2 px-3">Median time</th></tr></thead>
+        <tbody>${repRows}</tbody>
+      </table></div>
+    </div>
+    <div class="text-[11px] text-slate-400 mt-1.5">Last ${m.days} days · median is created→answered time · SLA % is of answered leads.</div>`;
 }
+
+// Completing a lead requires logging the outreach (call/text/email) WITH a note —
+// this documents the touch on the contact's timeline and stops the clock.
+function openLeadComplete(leadId, contactId) {
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-[70] bg-black/70 flex items-start justify-center p-4 overflow-y-auto';
+  modal.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md mt-16 shadow-2xl">
+    <div class="flex items-center justify-between gap-3 p-5 border-b border-slate-200 dark:border-slate-800">
+      <h3 class="text-base font-bold text-slate-900 dark:text-white">Log outreach &amp; complete</h3>
+      <button data-x class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <div class="p-5 space-y-4">
+      <div>
+        <label class="block text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">How did you reach them?</label>
+        <div class="flex gap-2">
+          ${['call', 'text', 'email'].map((ch, i) => `<label class="flex-1"><input type="radio" name="lc-ch" value="${ch}" class="peer sr-only" ${i === 0 ? 'checked' : ''}><div class="text-center text-sm font-semibold py-2 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600">${ch[0].toUpperCase() + ch.slice(1)}</div></label>`).join('')}
+        </div>
+      </div>
+      <div>
+        <label class="block text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">Note <span class="text-red-500">*</span></label>
+        <textarea data-note rows="4" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" placeholder="What was said / next step… (required)"></textarea>
+      </div>
+    </div>
+    <div class="flex items-center justify-end gap-2 p-5 border-t border-slate-200 dark:border-slate-800">
+      <button data-x class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-200">Cancel</button>
+      <button data-save class="text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg">Save &amp; complete</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  const close = () => modal.remove();
+  modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('[data-x]')) close(); });
+  modal.querySelector('[data-note]').focus();
+  modal.querySelector('[data-save]').addEventListener('click', async (ev) => {
+    const note = modal.querySelector('[data-note]').value.trim();
+    if (!note) { showToast('A note is required to complete.', 'error'); modal.querySelector('[data-note]').focus(); return; }
+    const channel = modal.querySelector('input[name="lc-ch"]:checked')?.value || 'call';
+    const btn = ev.currentTarget; btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      // Log the outreach on the contact's timeline (channel + note) when linked.
+      if (contactId) {
+        await fetch(`${API}/crm/contacts/${contactId}/log`, {
+          method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel: channel === 'text' ? 'sms' : channel, direction: 'out', body: note }),
+        }).catch(() => {});
+      }
+      const r = await fetch(`${API}/leads/${leadId}/answered`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+      if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+      close(); showToast('Logged — lead completed.', 'success'); loadLeadsPage();
+    } catch (e) { showToast(e.message || 'Could not complete', 'error'); btn.disabled = false; btn.textContent = 'Save & complete'; }
+  });
+}
+window.openLeadComplete = openLeadComplete;
 
 // AI reply draft for a Marketplace lead (AI Boost). Non-subscribers → upgrade modal.
 async function openLeadReply(leadId) {
