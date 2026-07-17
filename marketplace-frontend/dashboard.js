@@ -6331,7 +6331,7 @@ function renderReconBoard() {
   const esc = (s) => String(s == null ? '' : s).replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
   if (!cards.length) {
-    root.innerHTML = '<div class="py-16 text-center text-sm text-slate-500 dark:text-slate-400">No vehicles in cleanup yet. Add one with <b>“Add vehicle”</b> — or they land here automatically when a deal is approved in FNI.</div>';
+    root.innerHTML = '<div class="py-16 text-center text-sm text-slate-500 dark:text-slate-400">No vehicles in cleanup yet. Cars land here automatically when a deal is approved in FNI.</div>';
     return;
   }
 
