@@ -22,6 +22,7 @@ import { registerCrm } from './routes/crm.js'
 import { registerSite } from './routes/site.js'
 import { registerAutomation } from './routes/automation.js'
 import { registerEquity } from './routes/equity.js'
+import { registerRecon } from './routes/recon.js'
 
 const app = express()
 const PORT = process.env.PORT || 10000
@@ -66,6 +67,7 @@ registerCrm(app)
 registerSite(app)
 registerAutomation(app)
 registerEquity(app)
+registerRecon(app)
 
 app.use((err, req, res, next) => {
   console.error('Unhandled Express error:', {

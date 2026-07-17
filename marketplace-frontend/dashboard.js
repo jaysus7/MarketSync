@@ -703,6 +703,7 @@ function switchPage(pageId) {
   runPageInit(pageId);
 
   if (pageId === 'inventory') applyInventoryMode();
+  if (pageId === 'recon') loadReconPage();
   if (pageId === 'vin-sticker') loadVinStickerPage();
   if (pageId === 'profile') { loadProfileBranding(); loadCrmAdfSetting(); settingsTab(__settingsTab); }
   if (pageId === 'inv-intel' && typeof window._invIntelPageHook === 'function') window._invIntelPageHook();
@@ -6119,6 +6120,163 @@ function msPostVehicle(vehicleId, btn) {
   window.postMessage({ __marketsync: true, dir: 'from-page', type: 'POST_VEHICLE', vehicleId }, '*');
 }
 window.msPostVehicle = msPostVehicle;
+
+// ── Reconditioning board ─────────────────────────────────────────────────────
+let __reconData = null;
+
+// Small POST/DELETE helper matching the app's token-based fetch pattern.
+async function reconApi(path, method = 'POST', body = null) {
+  const res = await fetch(`${API}${path}`, {
+    method,
+    headers: { 'Authorization': `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+async function loadReconPage() {
+  const root = document.getElementById('recon-root');
+  if (!root) return;
+  root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading recon board…</div>';
+  const addBtn = document.getElementById('recon-add-btn');
+  if (addBtn && !addBtn.dataset.wired) { addBtn.dataset.wired = '1'; addBtn.addEventListener('click', openReconAddPicker); }
+  try {
+    __reconData = await apiGetJson('/recon');
+    renderReconBoard();
+  } catch (err) {
+    root.innerHTML = `<div class="py-12 text-center text-sm text-red-400">Could not load recon: ${err.message}</div>`;
+  }
+}
+
+function reconStageMeta(stage) {
+  return {
+    arrived:    { label: 'Arrived',            dot: 'bg-slate-400' },
+    mechanical: { label: 'Mechanical / Safety', dot: 'bg-amber-500' },
+    parts:      { label: 'Parts',              dot: 'bg-orange-500' },
+    detail:     { label: 'Detail',             dot: 'bg-sky-500' },
+    photos:     { label: 'Photos',             dot: 'bg-violet-500' },
+    frontline:  { label: 'Frontline-Ready',    dot: 'bg-emerald-500' },
+  }[stage] || { label: stage, dot: 'bg-slate-400' };
+}
+
+// A unit sitting too long in a stage (excluding the terminal frontline) is a bottleneck.
+function reconIsStuck(card) { return card.stage !== 'frontline' && card.hours_in_stage >= 72; }
+
+function renderReconBoard() {
+  const root = document.getElementById('recon-root');
+  if (!root || !__reconData) return;
+  const stages = __reconData.stages || [];
+  const cards = __reconData.cards || [];
+  const esc = (s) => String(s == null ? '' : s).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+  if (!cards.length) {
+    root.innerHTML = '<div class="py-16 text-center text-sm text-slate-500 dark:text-slate-400">No vehicles in recon yet. Click <b>“Add vehicle to recon”</b> to start tracking a unit from arrival to frontline-ready.</div>';
+    return;
+  }
+
+  const byStage = {};
+  stages.forEach(s => { byStage[s] = []; });
+  cards.forEach(c => { (byStage[c.stage] = byStage[c.stage] || []).push(c); });
+
+  const stuckCount = cards.filter(reconIsStuck).length;
+  const readyCount = (byStage.frontline || []).length;
+  const summary = `<div class="flex items-center gap-3 text-xs mb-3">
+    <span class="text-slate-500 dark:text-slate-400">${cards.length} in recon</span>
+    <span class="text-emerald-600 dark:text-emerald-400 font-semibold">${readyCount} frontline-ready</span>
+    ${stuckCount ? `<span class="text-red-500 font-semibold">⚠ ${stuckCount} stuck (72h+ in a stage)</span>` : ''}
+  </div>`;
+
+  const columns = stages.map(stage => {
+    const meta = reconStageMeta(stage);
+    const list = byStage[stage] || [];
+    const cardsHtml = list.map(c => reconCardHtml(c, stages, esc)).join('')
+      || '<div class="text-[11px] text-slate-400 italic px-1 py-4 text-center">—</div>';
+    return `<div class="flex-shrink-0 w-64 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-2.5">
+      <div class="flex items-center gap-2 px-1 mb-2">
+        <span class="w-2 h-2 rounded-full ${meta.dot}"></span>
+        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">${meta.label}</span>
+        <span class="text-[10px] text-slate-400 font-semibold ml-auto">${list.length}</span>
+      </div>
+      <div class="space-y-2">${cardsHtml}</div>
+    </div>`;
+  }).join('');
+
+  root.innerHTML = summary + `<div class="flex gap-3 overflow-x-auto pb-2">${columns}</div>`;
+
+  root.querySelectorAll('[data-recon-move]').forEach(b => b.addEventListener('click', () =>
+    reconMove(b.dataset.reconMove, b.dataset.dir)));
+  root.querySelectorAll('[data-recon-post]').forEach(b => b.addEventListener('click', () =>
+    msPostVehicle(b.dataset.reconPost, b)));
+  root.querySelectorAll('[data-recon-remove]').forEach(b => b.addEventListener('click', () =>
+    reconRemove(b.dataset.reconRemove)));
+}
+
+function reconCardHtml(c, stages, esc) {
+  const idx = stages.indexOf(c.stage);
+  const stuck = reconIsStuck(c);
+  const timeTxt = c.hours_in_stage < 24 ? `${c.hours_in_stage}h in stage` : `${Math.floor(c.hours_in_stage / 24)}d in stage`;
+  const img = c.photo
+    ? `<img src="${API}/proxy-image?url=${encodeURIComponent(c.photo)}" loading="lazy" class="w-full h-20 object-cover rounded-md bg-slate-100 dark:bg-slate-800">`
+    : `<div class="w-full h-20 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] text-slate-400">No photo</div>`;
+  const back = idx > 0 ? `<button data-recon-move="${c.inventory_id}" data-dir="back" title="Move back" class="text-xs px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600">‹</button>` : '';
+  const fwd = idx < stages.length - 1
+    ? `<button data-recon-move="${c.inventory_id}" data-dir="fwd" title="Advance stage" class="flex-1 text-xs font-semibold px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white">Advance ›</button>`
+    : `<button data-recon-post="${c.inventory_id}" title="Post to Facebook" class="flex-1 text-xs font-bold px-2 py-1 rounded bg-[#1877F2] hover:bg-[#0f6ae0] text-white">Post ↗</button>`;
+  return `<div class="bg-white dark:bg-slate-950 border ${stuck ? 'border-red-400/60' : 'border-slate-200 dark:border-slate-800'} rounded-lg p-2 space-y-1.5">
+    ${img}
+    <div class="text-xs font-bold text-slate-900 dark:text-white truncate" title="${esc(c.label)}">${esc(c.label)}</div>
+    <div class="flex items-center justify-between text-[10px] text-slate-400">
+      <span>${c.stocknumber ? '#' + esc(c.stocknumber) : ''}</span>
+      <span>${c.photo_count} photo${c.photo_count === 1 ? '' : 's'}</span>
+    </div>
+    <div class="text-[10px] font-semibold ${stuck ? 'text-red-500' : 'text-slate-400'}">${stuck ? '⚠ ' : ''}${timeTxt}</div>
+    <div class="flex items-center gap-1 pt-0.5">
+      ${back}${fwd}
+      <button data-recon-remove="${c.inventory_id}" title="Remove from recon" class="text-xs px-1.5 py-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-500/10">✕</button>
+    </div>
+  </div>`;
+}
+
+async function reconMove(inventoryId, dir) {
+  if (!__reconData) return;
+  const stages = __reconData.stages;
+  const card = (__reconData.cards || []).find(c => c.inventory_id === inventoryId);
+  if (!card) return;
+  const idx = stages.indexOf(card.stage);
+  const next = dir === 'fwd' ? stages[idx + 1] : stages[idx - 1];
+  if (!next) return;
+  try {
+    await reconApi(`/recon/${inventoryId}/stage`, 'POST', { stage: next });
+    loadReconPage();
+  } catch (e) { showToast(e.message || 'Could not move vehicle', 'error'); }
+}
+
+async function reconRemove(inventoryId) {
+  if (!confirm('Remove this vehicle from the recon board?')) return;
+  try {
+    await reconApi(`/recon/${inventoryId}`, 'DELETE');
+    loadReconPage();
+  } catch (e) { showToast(e.message || 'Could not remove', 'error'); }
+}
+
+async function openReconAddPicker() {
+  const list = (__reconData && __reconData.not_in_recon) || [];
+  if (!list.length) { showToast('Every available vehicle is already on the recon board.', 'info'); return; }
+  // Lightweight prompt-based picker for v1 — the manager types the stock # to add.
+  const label = prompt(`Add a vehicle to recon by stock # (${list.length} available):\n\n` +
+    list.slice(0, 40).map(v => `${v.stocknumber || '—'}  ${v.label}`).join('\n'));
+  if (!label) return;
+  const q = label.trim().toLowerCase();
+  const match = list.find(v => (v.stocknumber || '').toLowerCase() === q)
+    || list.find(v => v.label.toLowerCase().includes(q));
+  if (!match) { showToast('No matching vehicle found.', 'error'); return; }
+  try {
+    await reconApi(`/recon/${match.inventory_id}/start`, 'POST', {});
+    loadReconPage();
+  } catch (e) { showToast(e.message || 'Could not add vehicle', 'error'); }
+}
 
 // Reset a card's Post button after the extension replies (POST_STARTED).
 function handlePostStarted(d) {
