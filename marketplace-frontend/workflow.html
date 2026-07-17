@@ -191,5 +191,28 @@
           </div>`;
       }).join('');
     </script>
+
+    <!-- MarketSync render lightbox — click any product render to enlarge -->
+    <div id="ms-lb" class="ms-lb" hidden aria-hidden="true" role="dialog" aria-label="Enlarged screenshot"><button class="ms-lb-x" type="button" aria-label="Close">&times;</button><img alt=""></div>
+    <style>
+      .ms-lb{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,6,23,.85);cursor:zoom-out}
+      .ms-lb[hidden]{display:none}
+      .ms-lb img{max-width:95vw;max-height:92vh;border-radius:14px;box-shadow:0 30px 90px -20px rgba(0,0,0,.7)}
+      .ms-lb-x{position:absolute;top:16px;right:20px;width:44px;height:44px;font-size:30px;line-height:1;color:#fff;background:rgba(255,255,255,.14);border:0;border-radius:12px;cursor:pointer}
+      img.ms-zoom{cursor:zoom-in}
+    </style>
+    <script>
+      (function(){
+        var lb=document.getElementById('ms-lb'),img=lb.querySelector('img');
+        function open(src,alt){img.src=src;img.alt=alt||'';lb.hidden=false;lb.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';}
+        function close(){lb.hidden=true;lb.setAttribute('aria-hidden','true');img.removeAttribute('src');document.body.style.overflow='';}
+        function tag(el){el.classList.add('ms-zoom');el.setAttribute('role','button');el.setAttribute('tabindex','0');
+          el.addEventListener('click',function(){open(el.currentSrc||el.src,el.alt);});
+          el.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();open(el.currentSrc||el.src,el.alt);}});}
+        document.querySelectorAll('img').forEach(function(el){var s=el.getAttribute('src')||'';if(/img\/[^"']+\.svg$/.test(s)||el.closest('.shot')){tag(el);}});
+        lb.addEventListener('click',close);
+        document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!lb.hidden){close();}});
+      })();
+    </script>
 </body>
 </html>
