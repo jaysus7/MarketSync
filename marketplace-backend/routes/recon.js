@@ -33,10 +33,28 @@ export function registerRecon(app) {
       for (const p of reps || []) repById[p.id] = p.display_name || p.full_name || 'Unassigned'
     }
 
+    // Get-ready cards are for SOLD units awaiting delivery (F&I "approve & send
+    // get-ready" links a deal_id / delivery_at), so they MUST stay on the board even
+    // though the unit is 'sold'. Only drop: sold units that aren't a get-ready, and
+    // get-ready cards whose deal has already been delivered.
+    const dealIds = [...new Set((rows || []).map(r => r.deal_id).filter(Boolean))]
+    const deliveredDeals = new Set()
+    if (dealIds.length) {
+      const { data: dl } = await supabaseAdmin.from('deals')
+        .select('id, deal_status').in('id', dealIds).eq('deal_status', 'delivered')
+      for (const d of (dl || [])) deliveredDeals.add(d.id)
+    }
+
     const now = Date.now()
     const inReconIds = new Set()
     const cards = (rows || [])
-      .filter(r => r.inventory && r.inventory.status !== 'sold')   // drop sold units off the board
+      .filter(r => {
+        if (!r.inventory) return false
+        const getReady = !!(r.deal_id || r.delivery_at)
+        if (r.inventory.status === 'sold' && !getReady) return false   // sold, not a get-ready → off the board
+        if (r.deal_id && deliveredDeals.has(r.deal_id)) return false    // already delivered → off the board
+        return true
+      })
       .map(r => {
         inReconIds.add(r.inventory_id)
         const v = r.inventory || {}
