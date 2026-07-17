@@ -12,6 +12,7 @@ import { brandDealershipPhotos } from '../utils/photoOverlay.js'
 import { autoFetchOemStickers } from './oemStickers.js'
 import { getMarketData } from '../usage.js'
 import { marketcheckEnabled } from '../marketcheck.js'
+import { buildMarketCheckReport } from '../pricing/marketcheckReport.js'
 import { createNotification } from '../notifications.js'
 
 // Non-destructive merge for the sitemap-lite (Cloudflare) path. Matches existing
@@ -917,7 +918,7 @@ async function refreshDealerMarketComps(dealershipId) {
   try {
     if (!marketcheckEnabled()) return 0
     const { data: dealer } = await supabaseAdmin
-      .from('dealerships').select('inv_intel_active, country').eq('id', dealershipId).maybeSingle()
+      .from('dealerships').select('inv_intel_active, country, city, province').eq('id', dealershipId).maybeSingle()
     if (!dealer?.inv_intel_active) return 0   // Inventory Intelligence feature only
 
     const c = (dealer.country || '').trim().toUpperCase()
@@ -925,7 +926,7 @@ async function refreshDealerMarketComps(dealershipId) {
     const yearNow = new Date().getFullYear()
 
     const { data: vehicles } = await supabaseAdmin
-      .from('inventory').select('id, year, make, model, trim, mileage, price, condition')
+      .from('inventory').select('id, year, make, model, trim, mileage, price, condition, exterior_color, lot_date, created_at')
       .eq('dealership_id', dealershipId).eq('status', 'available')
 
     let refreshed = 0
@@ -957,6 +958,28 @@ async function refreshDealerMarketComps(dealershipId) {
           copy_generated: false,
         }).then(() => {}).catch(() => {})
         refreshed++
+
+        // Whole-lot pricing verdict: pre-generate the full price report (with the
+        // ok/raise/lower verdict) so every used card shows a flag without anyone
+        // opening it. Gated on staleness — skip if a report was generated in the last
+        // ~2 days at the same price — so nightly AI cost stays bounded. Only reliable
+        // reads make an AI call (the builder no-ops the AI for thin/mismatched comps).
+        try {
+          const { data: pr } = await supabaseAdmin
+            .from('price_reports').select('generated_at, price_at_generation')
+            .eq('inventory_id', v.id).maybeSingle()
+          const freshHours = pr ? (Date.now() - new Date(pr.generated_at)) / 3600000 : Infinity
+          const priceSame = pr && (pr.price_at_generation == null || Number(pr.price_at_generation) === Number(v.price))
+          if (!(freshHours < 48 && priceSame)) {
+            const built = await buildMarketCheckReport({ vehicle: v, dealer, mc })
+            if (built?.payload) {
+              await supabaseAdmin.from('price_reports').upsert({
+                inventory_id: v.id, dealership_id: dealershipId, report: built.payload,
+                price_at_generation: Number(v.price), generated_at: new Date().toISOString(),
+              }, { onConflict: 'inventory_id' })
+            }
+          }
+        } catch (e) { /* verdict pre-gen is best-effort — never blocks the comp refresh */ }
       }
       if (!cached) await sleep(150)   // pace only the live (paid) calls
     }
