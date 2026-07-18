@@ -3,9 +3,27 @@
 Running list of things discussed or recommended that are **not yet built**, so nothing
 falls through the cracks. Grouped by theme, roughly in priority order.
 
-_Last updated: 2026-07-17_
+_Last updated: 2026-07-18_
 
-## ✅ Phase 2 (Integrations — "the glue") — shipped this round
+## ✅ Shipped 2026-07-18 (this round)
+
+- **AI sales-chat tuning (public site concierge).** Settings → Website → AI sales chat
+  now has a dealer **knowledge base** (paste or upload .txt/.md, ~12k chars),
+  **special instructions** (~4k — tone/emphasis/handoff, layered above the core
+  honesty rules), and a **disclaimer** (~600, worked in on pricing/terms/availability).
+  Stored in branding (`site_chat_kb/_instructions/_disclaimer`), injected into the
+  `/site/:slug/chat` system prompt only when non-empty.
+- **Geo-aware holiday greetings.** Full 2026 CA + US preset list; each greeting is
+  tagged CA / US / Everyone and only sends to customers in that country (derived from
+  contact country → province/state → postal/ZIP, falling back to the dealership's own
+  region). Floating dates (Thanksgiving, Labour/Labor, Victoria Day, Family Day,
+  Memorial Day, Good Friday/Easter Monday) resolve by rule per year so they never
+  drift. Custom holidays pick their own audience.
+- **Two-column settings.** The Settings hub and Automation settings flow into two
+  columns on wide screens; a tab with a single card stays full-width (JS toggles
+  `.is-multi` only when >1 card shows). Website settings was already two-column.
+
+## ✅ Phase 2 (Integrations — "the glue") — shipped earlier
 
 - **Integrations Hub** (Settings → Integrations, admin-only) — lists every connectable
   service grouped by category, live vs. coming-soon.
@@ -124,10 +142,15 @@ reconditioning status, overdue tasks, today's appointments (who to call today), 
 recent trade appraisals** — all from the store's own data, manager-gated on the
 financial slices. The base snapshot also carries a month-to-date sales pulse.
 
+**Deepened 2026-07-18:** added `trends` (period-over-period sales/lead/gross deltas)
+and `priorities` ("what needs attention right now") topics to `dealership_report`,
+and the concierge system prompt now frames MarketSync as "the smartest person at the
+dealership."
+
 Still to deepen:
 - [ ] Which cars should I discount today? / wholesale / send to auction (needs the
       market-comp layer joined per-unit into the report, not just aging).
-- [ ] Why did leads drop this month? (period-over-period trend, not just current counts)
+- [x] Why did leads drop this month? (period-over-period trend) — `trends` topic.
 - [ ] Which marketing campaign made money? (marketing ROI attribution — no spend data yet)
 - [ ] Equity/service-based "who to call" (today it's task/appointment based; equity mining
       exists separately and could feed in).
