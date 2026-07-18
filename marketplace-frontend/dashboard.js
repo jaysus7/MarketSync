@@ -5309,6 +5309,15 @@ function settingsTab(tab) {
     b.classList.toggle('border-transparent', !on);
     b.classList.toggle('text-slate-500', !on);
   });
+  // Two-column layout only when the active tab actually shows more than one card
+  // (a lone card stays full-width instead of hugging the left half).
+  ['profile-panel', 'settings-panel-extra'].forEach(pid => {
+    const panel = document.getElementById(pid); if (!panel) return;
+    const shown = Array.from(panel.children).filter(el =>
+      el.nodeType === 1 && el.id !== 'profile-msg' &&
+      !el.classList.contains('stab-hide') && !el.classList.contains('hidden'));
+    panel.classList.toggle('is-multi', shown.length > 1);
+  });
   if (tab === 'team') {
     loadSettingsTeam(document.getElementById('team-picker')?.value || 'sales');
     // Bring the full login/role management + lead-routing setup into Settings →
@@ -10000,31 +10009,40 @@ function autoDelayLabel(c) {
   if (m < 1440) return `${Math.round(m / 60)} hr`;
   return `${Math.round(m / 1440)} day${Math.round(m / 1440) === 1 ? '' : 's'}`;
 }
-// Region-aware fixed-date holiday presets (floating holidays can be added manually).
-const HOLIDAY_PRESETS = {
-  CA: [
-    ["New Year's Day", '01-01', "Happy New Year from all of us at {{dealership.name}}! Wishing you a safe and healthy year ahead."],
-    ["Valentine's Day", '02-14', "Happy Valentine's Day from {{dealership.name}}! Thanks for being part of our family."],
-    ['Canada Day', '07-01', "Happy Canada Day from {{dealership.name}}! Enjoy the long weekend — please note our holiday hours."],
-    ['Halloween', '10-31', "Happy Halloween from {{dealership.name}} — stay safe out there tonight! 🎃"],
-    ['Remembrance Day', '11-11', "Today we remember and honour those who served. — {{dealership.name}}"],
-    ['Christmas Eve', '12-24', "Merry Christmas from everyone at {{dealership.name}}! Wishing you a warm and happy holiday."],
-    ['Christmas Day', '12-25', "Merry Christmas from {{dealership.name}}! We hope your day is filled with family and joy."],
-    ['Boxing Day', '12-26', "Happy Boxing Day from {{dealership.name}}! Check our website for holiday hours before visiting."],
-    ["New Year's Eve", '12-31', "Happy New Year's Eve from {{dealership.name}}! Thank you for a wonderful year — see you in the new one."],
-  ],
-  US: [
-    ["New Year's Day", '01-01', "Happy New Year from all of us at {{dealership.name}}! Wishing you a great year ahead."],
-    ["Valentine's Day", '02-14', "Happy Valentine's Day from {{dealership.name}}! Thanks for being part of our family."],
-    ['Independence Day', '07-04', "Happy 4th of July from {{dealership.name}}! Enjoy the holiday — please note our hours."],
-    ['Halloween', '10-31', "Happy Halloween from {{dealership.name}} — stay safe tonight! 🎃"],
-    ['Veterans Day', '11-11', "Today we honor all who served. Thank you. — {{dealership.name}}"],
-    ['Christmas Eve', '12-24', "Merry Christmas from everyone at {{dealership.name}}! Wishing you a warm holiday."],
-    ['Christmas Day', '12-25', "Merry Christmas from {{dealership.name}}! We hope your day is filled with family and joy."],
-    ["New Year's Eve", '12-31', "Happy New Year's Eve from {{dealership.name}}! Thank you for a wonderful year."],
-  ],
-};
-const US_STATES = ['al', 'ak', 'az', 'ar', 'ca', 'co', 'ct', 'de', 'fl', 'ga', 'hi', 'id', 'il', 'in', 'ia', 'ks', 'ky', 'la', 'me', 'md', 'ma', 'mi', 'mn', 'ms', 'mo', 'mt', 'ne', 'nv', 'nh', 'nj', 'nm', 'ny', 'nc', 'nd', 'oh', 'ok', 'or', 'pa', 'ri', 'sc', 'sd', 'tn', 'tx', 'ut', 'vt', 'va', 'wa', 'wv', 'wi', 'wy'];
+// Holiday presets. `country`: 'CA', 'US', or 'BOTH' (everyone). `rule` resolves
+// floating dates for the current year (fixed dates just use `date`). Sending is
+// geo-gated per customer on the backend, so a border dealer can flip on both
+// countries' holidays and each greeting only reaches the right customers.
+//  rule grammar: nth:<weekday>:<n>:<month> | last:<weekday>:<month> |
+//                monbefore:<MM-DD> | easter:<offset>   (weekday 0=Sun..6=Sat)
+const HOLIDAY_PRESETS_ALL = [
+  { name: "New Year's Day", date: '01-01', country: 'BOTH', message: "Happy New Year from all of us at {{dealership.name}}! Wishing you a safe and healthy year ahead." },
+  { name: 'Martin Luther King Jr. Day', rule: 'nth:1:3:1', country: 'US', message: "Honoring the legacy of Dr. Martin Luther King Jr. today. — {{dealership.name}}" },
+  { name: "Valentine's Day", date: '02-14', country: 'BOTH', message: "Happy Valentine's Day from {{dealership.name}}! Thanks for being part of our family." },
+  { name: 'Family Day (Canada)', rule: 'nth:1:3:2', country: 'CA', message: "Happy Family Day from {{dealership.name}}! Enjoy the long weekend with the people who matter most." },
+  { name: "Presidents' Day", rule: 'nth:1:3:2', country: 'US', message: "Happy Presidents' Day from {{dealership.name}}! Please note our holiday hours." },
+  { name: 'Good Friday', rule: 'easter:-2', country: 'CA', message: "Wishing you a peaceful Good Friday from all of us at {{dealership.name}}." },
+  { name: 'Easter Monday', rule: 'easter:1', country: 'CA', message: "Happy Easter Monday from {{dealership.name}}! We hope you had a restful long weekend." },
+  { name: 'Victoria Day', rule: 'monbefore:05-25', country: 'CA', message: "Happy Victoria Day from {{dealership.name}}! Enjoy the long weekend — please note our holiday hours." },
+  { name: 'Memorial Day', rule: 'last:1:5', country: 'US', message: "This Memorial Day we honor those who gave everything. Thank you. — {{dealership.name}}" },
+  { name: 'Juneteenth', date: '06-19', country: 'US', message: "Honoring freedom and history this Juneteenth. — {{dealership.name}}" },
+  { name: 'Canada Day', date: '07-01', country: 'CA', message: "Happy Canada Day from {{dealership.name}}! Enjoy the long weekend — please note our holiday hours." },
+  { name: 'Independence Day', date: '07-04', country: 'US', message: "Happy 4th of July from {{dealership.name}}! Enjoy the holiday — please note our hours." },
+  { name: 'Labour Day (Canada)', rule: 'nth:1:1:9', country: 'CA', message: "Happy Labour Day from {{dealership.name}}! Enjoy the long weekend." },
+  { name: 'Labor Day', rule: 'nth:1:1:9', country: 'US', message: "Happy Labor Day from {{dealership.name}}! Enjoy the long weekend." },
+  { name: 'Truth & Reconciliation Day', date: '09-30', country: 'CA', message: "Today we reflect and honor on the National Day for Truth and Reconciliation. — {{dealership.name}}" },
+  { name: 'Columbus Day', rule: 'nth:1:2:10', country: 'US', message: "Wishing you a great Columbus Day from {{dealership.name}}! Please note our holiday hours." },
+  { name: 'Thanksgiving (Canada)', rule: 'nth:1:2:10', country: 'CA', message: "Happy Thanksgiving from all of us at {{dealership.name}}! We're grateful for customers like you." },
+  { name: 'Halloween', date: '10-31', country: 'BOTH', message: "Happy Halloween from {{dealership.name}} — stay safe out there tonight! 🎃" },
+  { name: 'Remembrance Day', date: '11-11', country: 'CA', message: "Today we remember and honour those who served. — {{dealership.name}}" },
+  { name: 'Veterans Day', date: '11-11', country: 'US', message: "Today we honor all who served. Thank you. — {{dealership.name}}" },
+  { name: 'Thanksgiving (US)', rule: 'nth:4:4:11', country: 'US', message: "Happy Thanksgiving from all of us at {{dealership.name}}! We're grateful for customers like you." },
+  { name: 'Christmas Eve', date: '12-24', country: 'BOTH', message: "Merry Christmas from everyone at {{dealership.name}}! Wishing you a warm and happy holiday." },
+  { name: 'Christmas Day', date: '12-25', country: 'BOTH', message: "Merry Christmas from {{dealership.name}}! We hope your day is filled with family and joy." },
+  { name: 'Boxing Day', date: '12-26', country: 'CA', message: "Happy Boxing Day from {{dealership.name}}! Check our website for holiday hours before visiting." },
+  { name: "New Year's Eve", date: '12-31', country: 'BOTH', message: "Happy New Year's Eve from {{dealership.name}}! Thank you for a wonderful year — see you in the new one." },
+];
+const US_STATES = ['al', 'ak', 'az', 'ar', 'ca', 'co', 'ct', 'de', 'fl', 'ga', 'hi', 'id', 'il', 'in', 'ia', 'ks', 'ky', 'la', 'me', 'md', 'ma', 'mi', 'mn', 'ms', 'mo', 'mt', 'ne', 'nv', 'nh', 'nj', 'nm', 'ny', 'nc', 'nd', 'oh', 'ok', 'or', 'pa', 'ri', 'sc', 'sd', 'tn', 'tx', 'ut', 'vt', 'va', 'wa', 'wv', 'wi', 'wy', 'dc'];
 function autoRegionKey() {
   const r = __autoCfg.region || {};
   const c = String(r.country || '').toLowerCase(), p = String(r.province || '').toLowerCase();
@@ -10032,6 +10050,34 @@ function autoRegionKey() {
   if (US_STATES.includes(p)) return 'US';
   return 'CA';
 }
+// Frontend mirror of the backend floating-date resolver (display only).
+function holPad2(n) { return String(n).padStart(2, '0'); }
+function holMMDD(dt) { return `${holPad2(dt.getUTCMonth() + 1)}-${holPad2(dt.getUTCDate())}`; }
+function holEaster(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mo = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(y, mo - 1, day));
+}
+function holNth(y, mo, wd, n) { const f = new Date(Date.UTC(y, mo - 1, 1)); const sh = (wd - f.getUTCDay() + 7) % 7; return new Date(Date.UTC(y, mo - 1, 1 + sh + (n - 1) * 7)); }
+function holLast(y, mo, wd) { const last = new Date(Date.UTC(y, mo, 0)); const sh = (last.getUTCDay() - wd + 7) % 7; return new Date(Date.UTC(y, mo - 1, last.getUTCDate() - sh)); }
+function holMonBefore(y, mo, day) { const dt = new Date(Date.UTC(y, mo - 1, day)); let back = (dt.getUTCDay() + 6) % 7; if (!back) back = 7; return new Date(Date.UTC(y, mo - 1, day - back)); }
+function resolveHolMMDD(h, year) {
+  const rule = h && h.rule ? String(h.rule) : '';
+  if (!rule) return String(h && h.date || '').slice(0, 5);
+  const p = rule.split(':');
+  try {
+    if (p[0] === 'nth') return holMMDD(holNth(year, +p[3], +p[1], +p[2]));
+    if (p[0] === 'last') return holMMDD(holLast(year, +p[2], +p[1]));
+    if (p[0] === 'monbefore') { const [mm, dd] = p[1].split('-').map(Number); return holMMDD(holMonBefore(year, mm, dd)); }
+    if (p[0] === 'easter') { const e = holEaster(year); e.setUTCDate(e.getUTCDate() + (+p[1] || 0)); return holMMDD(e); }
+  } catch (e) {}
+  return String(h && h.date || '').slice(0, 5);
+}
+const HOL_MONTHS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function holDateLabel(h) { const mmdd = resolveHolMMDD(h, new Date().getFullYear()); const [m, d] = mmdd.split('-').map(Number); return (HOL_MONTHS[m] || mmdd) + (d ? ' ' + d : ''); }
+const HOL_COUNTRY_BADGE = { CA: '🇨🇦 Canada', US: '🇺🇸 U.S.', BOTH: '🌐 Everyone' };
 // Which sub-page a campaign belongs to. New-lead journey vs post-delivery; the
 // rest (equity, birthdays, custom) live on the Settings page.
 const AUTO_LEAD_CATS = ['pipeline', 'tasks'];
@@ -10228,7 +10274,10 @@ function autoAddHolidayModal() {
     <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">A dated greeting that sends every year to your delivered customers.</p>
     <div class="space-y-3">
       <div>${lbl('Name')}<input id="ahm-name" placeholder="e.g. Customer Appreciation Day" class="${inp}"></div>
-      <div>${lbl('Date (MM-DD)')}<input id="ahm-date" placeholder="10-13" maxlength="5" class="${inp}"></div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>${lbl('Date (MM-DD)')}<input id="ahm-date" placeholder="10-13" maxlength="5" class="${inp}"></div>
+        <div>${lbl('Who gets it')}<select id="ahm-country" class="${inp}"><option value="BOTH">🌐 Everyone</option><option value="CA">🇨🇦 Canadian customers only</option><option value="US">🇺🇸 U.S. customers only</option></select></div>
+      </div>
       <div>${lbl('Message')}<textarea id="ahm-msg" rows="3" placeholder="Happy … from {{dealership.name}}!" class="${inp}"></textarea></div>
     </div>
     <button onclick="autoSubmitHoliday(this)" class="mt-3 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Add holiday</button>
@@ -10238,8 +10287,9 @@ function autoSubmitHoliday(btn) {
   const g = id => document.getElementById(id);
   const name = (g('ahm-name').value || '').trim(); if (!name) return showToast('Name it', 'error');
   const date = (g('ahm-date').value || '').trim(); if (!/^\d{2}-\d{2}$/.test(date)) return showToast('Use MM-DD (e.g. 10-13)', 'error');
+  const country = ['CA', 'US', 'BOTH'].includes(g('ahm-country')?.value) ? g('ahm-country').value : 'BOTH';
   const message = (g('ahm-msg').value || '').trim() || `Happy ${name} from {{dealership.name}}!`;
-  __autoHol.push({ name, date, message, subject: `Happy ${name} from {{dealership.name}}`, enabled: true, preset: false });
+  __autoHol.push({ name, date, rule: null, country, message, subject: `Happy ${name} from {{dealership.name}}`, enabled: true, preset: false });
   btn.closest('.fixed')?.remove();
   renderHolidaysRoot();
   showToast('Holiday added — review, then Save holidays', 'success');
@@ -10247,13 +10297,26 @@ function autoSubmitHoliday(btn) {
 
 function autoInitHolidays() {
   const saved = Array.isArray(__autoCfg.settings.holidays) ? __autoCfg.settings.holidays : [];
-  const presets = HOLIDAY_PRESETS[autoRegionKey()] || HOLIDAY_PRESETS.CA;
-  const byKey = {}; for (const h of saved) byKey[`${h.name}|${h.date}`] = h;
-  const rows = presets.map(([name, date, message]) => {
-    const sv = byKey[`${name}|${date}`];
-    return { name, date, message: sv?.message || message, subject: sv?.subject || `Happy ${name} from {{dealership.name}}`, enabled: sv ? sv.enabled !== false : false, preset: true };
+  const byName = {}; for (const h of saved) byName[String(h.name || '').toLowerCase()] = h;
+  const region = autoRegionKey();   // dealer's own country → shown/sorted first
+  const rows = HOLIDAY_PRESETS_ALL.map(p => {
+    const sv = byName[p.name.toLowerCase()];
+    return {
+      name: p.name, date: resolveHolMMDD(p, new Date().getFullYear()), rule: p.rule || null, country: p.country,
+      message: sv?.message || p.message,
+      subject: sv?.subject || `Happy ${p.name.replace(/\s*\(.*\)$/, '')} from {{dealership.name}}`,
+      enabled: sv ? sv.enabled !== false : false, preset: true,
+    };
   });
-  for (const h of saved) { const k = `${h.name}|${h.date}`; if (!presets.some(p => `${p[0]}|${p[1]}` === k)) rows.push({ name: h.name, date: h.date, message: h.message || `Happy ${h.name} from {{dealership.name}}`, subject: h.subject || `Happy ${h.name} from {{dealership.name}}`, enabled: h.enabled !== false, preset: false }); }
+  // Custom (non-preset) saved holidays keep their spot at the end.
+  const presetNames = new Set(HOLIDAY_PRESETS_ALL.map(p => p.name.toLowerCase()));
+  for (const h of saved) {
+    if (presetNames.has(String(h.name || '').toLowerCase())) continue;
+    rows.push({ name: h.name, date: h.date, rule: h.rule || null, country: (h.country === 'CA' || h.country === 'US') ? h.country : 'BOTH', message: h.message || `Happy ${h.name} from {{dealership.name}}!`, subject: h.subject || `Happy ${h.name} from {{dealership.name}}`, enabled: h.enabled !== false, preset: false });
+  }
+  // Stable sort: dealer's own country + Everyone first, then by calendar date.
+  const cRank = c => (c === region || c === 'BOTH') ? 0 : 1;
+  rows.sort((a, b) => (cRank(a.country) - cRank(b.country)) || (resolveHolMMDD(a, 2026) < resolveHolMMDD(b, 2026) ? -1 : 1));
   __autoHol = rows;
 }
 // Settings page (the Automation group header). Engine switch, professional email
@@ -10271,8 +10334,10 @@ function renderAutomationSettings() {
       </div>
       <label class="flex items-center gap-1.5 text-sm font-bold"><input type="checkbox" ${s.enabled !== false ? 'checked' : ''} onchange="autoToggleEngine(this.checked)" class="accent-indigo-600 w-4 h-4">Engine on</label>
     </div>
-    ${autoEmailSetupHtml(s)}
-    ${autoGlobalsHtml(s)}
+    <div class="grid lg:grid-cols-2 gap-4 items-start">
+      ${autoEmailSetupHtml(s)}
+      ${autoGlobalsHtml(s)}
+    </div>
     ${other.length ? `<div class="pt-2"><div class="text-sm font-black text-slate-900 dark:text-white">Other campaigns</div>
       ${AUTO_CATS.filter(([k]) => byCat[k]?.length).map(([k, label]) => `<div><div class="text-xs font-black uppercase tracking-wider text-slate-400 mb-2 mt-4">${label}</div><div class="space-y-2">${byCat[k].map(autoCardHtml).join('')}</div></div>`).join('')}</div>` : ''}`;
 }
@@ -10458,7 +10523,8 @@ function autoHolidaysHtml() {
       <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-900 dark:text-white truncate">${esc(h.name)}</div>
         <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
           <span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">email</span>
-          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">${esc(h.date)}</span>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">${esc(holDateLabel(h))}</span>
+          <span title="${h.country === 'BOTH' ? 'Sends to all your customers' : 'Only sends to customers in this country'}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full ${h.country === 'CA' ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' : h.country === 'US' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'}">${HOL_COUNTRY_BADGE[h.country] || HOL_COUNTRY_BADGE.BOTH}</span>
         </div>
       </div>
       ${h.preset ? '' : `<button onclick="autoDeleteHolidayRow(${i})" title="Remove this holiday" class="shrink-0 text-slate-400 hover:text-red-500 p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>`}
@@ -10471,7 +10537,7 @@ function autoHolidaysHtml() {
       <button onclick="autoHolAi(${i},this)" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg">✨ Rewrite</button>
     </div>
   </div>`).join('');
-  return `<div><div class="flex items-center justify-between mt-4 mb-2"><div class="text-xs font-black uppercase tracking-wider text-slate-400">Holidays <span class="normal-case font-normal text-slate-400">· auto-filled for your region — flip on the ones you want</span></div><button onclick="autoAddCustom('holidays')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">+ Add holiday</button></div>
+  return `<div><div class="flex items-center justify-between mt-4 mb-2"><div class="text-xs font-black uppercase tracking-wider text-slate-400">Holidays <span class="normal-case font-normal text-slate-400">· 🇨🇦/🇺🇸 greetings only reach customers in that country — 🌐 reach everyone. Flip on the ones you want.</span></div><button onclick="autoAddCustom('holidays')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">+ Add holiday</button></div>
     <div class="space-y-2">${rows || '<div class="text-xs text-slate-400 italic">No holidays.</div>'}</div>
     <button onclick="autoSaveHolidays(this)" class="mt-3 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save holidays</button>
     <span id="am-hol-msg" class="hidden text-xs ml-2"></span></div>`;
@@ -10496,12 +10562,12 @@ async function autoHolAi(i, btn, presetInstr) {
 function autoAddHolidayRow() {
   const name = prompt('Holiday name (e.g. Thanksgiving)'); if (!name) return;
   const date = prompt('Date as MM-DD (e.g. 10-13)'); if (!date || !/^\d{2}-\d{2}$/.test(date)) { showToast('Use MM-DD format', 'error'); return; }
-  __autoHol.push({ name: name.trim(), date, message: `Happy ${name.trim()} from {{dealership.name}}!`, subject: `Happy ${name.trim()} from {{dealership.name}}`, enabled: true, preset: false });
+  __autoHol.push({ name: name.trim(), date, rule: null, country: 'BOTH', message: `Happy ${name.trim()} from {{dealership.name}}!`, subject: `Happy ${name.trim()} from {{dealership.name}}`, enabled: true, preset: false });
   renderHolidaysRoot();
 }
 async function autoSaveHolidays(btn) {
   __autoHol.forEach((h, i) => { const el = document.getElementById(`am-hol-${i}`); if (el) h.message = el.value; });
-  const holidays = __autoHol.map(h => ({ name: h.name, date: h.date, enabled: h.enabled, message: h.message, subject: h.subject }));
+  const holidays = __autoHol.map(h => ({ name: h.name, date: h.date, rule: h.rule || null, country: h.country || 'BOTH', enabled: h.enabled, message: h.message, subject: h.subject }));
   const msg = document.getElementById('am-hol-msg'); const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
   try { const d = await apiSendJson('/automation/settings', 'PUT', { holidays }); __autoCfg.settings = d.settings; if (msg) { msg.textContent = '✓ Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); } }
   catch (e) { if (msg) { msg.textContent = e.message; msg.className = 'text-xs ml-2 text-red-500'; msg.classList.remove('hidden'); } }

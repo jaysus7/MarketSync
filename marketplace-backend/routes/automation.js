@@ -508,9 +508,75 @@ export async function runPrecheck(limit = 500) {
   return { checked: (soon || []).length, cancelled, paused }
 }
 
+// ── Floating-holiday date math ───────────────────────────────────────────────
+// Many holidays aren't a fixed MM-DD (Thanksgiving, Labour/Labor Day, Victoria
+// Day, Family Day, Good Friday…). We store an optional `rule` and resolve the
+// real date for the current year so greetings never drift year to year.
+function _pad2(n) { return String(n).padStart(2, '0') }
+function _mmddOf(dt) { return `${_pad2(dt.getUTCMonth() + 1)}-${_pad2(dt.getUTCDate())}` }
+function easterSunday(year) { // Anonymous Gregorian computus (UTC)
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25)
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const month = Math.floor((h + l - 7 * m + 114) / 31)          // 3=Mar, 4=Apr
+  const day = ((h + l - 7 * m + 114) % 31) + 1
+  return new Date(Date.UTC(year, month - 1, day))
+}
+function nthWeekday(year, month, weekday, n) { // month 1-12, weekday 0=Sun..6=Sat, n 1-5
+  const first = new Date(Date.UTC(year, month - 1, 1))
+  const shift = (weekday - first.getUTCDay() + 7) % 7
+  return new Date(Date.UTC(year, month - 1, 1 + shift + (n - 1) * 7))
+}
+function lastWeekday(year, month, weekday) {
+  const last = new Date(Date.UTC(year, month, 0))              // last day of the month
+  const shift = (last.getUTCDay() - weekday + 7) % 7
+  return new Date(Date.UTC(year, month - 1, last.getUTCDate() - shift))
+}
+function mondayBefore(year, month, day) {                       // latest Monday strictly before month-day
+  const dt = new Date(Date.UTC(year, month - 1, day))
+  let back = (dt.getUTCDay() + 6) % 7                           // days back to this week's Monday
+  if (back === 0) back = 7                                      // strictly before → previous Monday
+  return new Date(Date.UTC(year, month - 1, day - back))
+}
+function resolveHolidayMMDD(h, year) {
+  const rule = h && h.rule ? String(h.rule) : ''
+  if (!rule) return String(h && h.date || '').slice(0, 5)
+  const p = rule.split(':')
+  try {
+    if (p[0] === 'nth') return _mmddOf(nthWeekday(year, +p[3], +p[1], +p[2]))
+    if (p[0] === 'last') return _mmddOf(lastWeekday(year, +p[2], +p[1]))
+    if (p[0] === 'monbefore') { const [mm, dd] = p[1].split('-').map(Number); return _mmddOf(mondayBefore(year, mm, dd)) }
+    if (p[0] === 'easter') { const e = easterSunday(year); e.setUTCDate(e.getUTCDate() + (+p[1] || 0)); return _mmddOf(e) }
+  } catch {}
+  return String(h && h.date || '').slice(0, 5)
+}
+
+// ── Contact geo → country, so a US customer never gets Canada's October
+// Thanksgiving (and a CA customer never gets US November Thanksgiving). Falls
+// back to the dealership's own country/province when the contact has no address.
+const US_STATE_SET = new Set(['al', 'ak', 'az', 'ar', 'ca', 'co', 'ct', 'de', 'fl', 'ga', 'hi', 'id', 'il', 'in', 'ia', 'ks', 'ky', 'la', 'me', 'md', 'ma', 'mi', 'mn', 'ms', 'mo', 'mt', 'ne', 'nv', 'nh', 'nj', 'nm', 'ny', 'nc', 'nd', 'oh', 'ok', 'or', 'pa', 'ri', 'sc', 'sd', 'tn', 'tx', 'ut', 'vt', 'va', 'wa', 'wv', 'wi', 'wy', 'dc'])
+const CA_PROV_SET = new Set(['ab', 'bc', 'mb', 'nb', 'nl', 'ns', 'nt', 'nu', 'on', 'pe', 'qc', 'sk', 'yt'])
+function normCountry(v) {
+  const c = String(v || '').toLowerCase().trim()
+  if (!c) return null
+  if (/(^us$|^usa$|united states|america)/.test(c)) return 'US'
+  if (/(^ca$|^can$|canada)/.test(c)) return 'CA'
+  return null
+}
+function contactCountry(c, fallback) {
+  return normCountry(c.country)
+    || (US_STATE_SET.has(String(c.province || '').toLowerCase().trim()) ? 'US' : null)
+    || (CA_PROV_SET.has(String(c.province || '').toLowerCase().trim()) ? 'CA' : null)
+    || (/^[a-z]\d[a-z]/i.test(String(c.postal_code || '').trim()) ? 'CA' : null)
+    || (/^\d{5}(-\d{4})?$/.test(String(c.postal_code || '').trim()) ? 'US' : null)
+    || fallback || null
+}
+
 // Daily scan: birthdays + configured holidays across all dealerships.
 async function runDaily() {
-  const { data: dealers } = await supabaseAdmin.from('dealerships').select('id, automation_settings, site_slug')
+  const { data: dealers } = await supabaseAdmin.from('dealerships').select('id, automation_settings, site_slug, province, country')
   const today = new Date(); const mmdd = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   let birthdays = 0, holidays = 0
   for (const d of (dealers || [])) {
@@ -523,17 +589,22 @@ async function runDaily() {
       const b = String(c.birthday).slice(5, 10) // MM-DD from YYYY-MM-DD
       if (b === mmdd) { await enqueueForTrigger(d.id, 'birthday', { contactId: c.id, repId: c.assigned_rep }); birthdays++ }
     }
-    // Holidays — dealer-configured [{name, date:'MM-DD', enabled, message, subject}].
-    const todaysHolidays = (s.holidays || []).filter(h => h.enabled !== false && String(h.date || '').slice(0, 5) === mmdd)
+    // Holidays — dealer-configured [{name, date:'MM-DD', rule, country, enabled, …}].
+    // Floating dates resolve by rule for the current year; each greeting only goes
+    // to customers in its country so nobody gets the wrong nation's Thanksgiving.
+    const year = today.getFullYear()
+    const todaysHolidays = (s.holidays || []).filter(h => h.enabled !== false && resolveHolidayMMDD(h, year) === mmdd)
     if (todaysHolidays.length) {
-      const { data: emailable } = await supabaseAdmin.from('contacts').select('id, assigned_rep, consent_email, dnc, opt_out').eq('dealership_id', d.id).not('email', 'is', null)
-      const year = today.getFullYear()
+      const { data: emailable } = await supabaseAdmin.from('contacts').select('id, assigned_rep, consent_email, dnc, opt_out, country, province, postal_code').eq('dealership_id', d.id).not('email', 'is', null)
+      const dealerFallback = normCountry(d.country) || (US_STATE_SET.has(String(d.province || '').toLowerCase().trim()) ? 'US' : CA_PROV_SET.has(String(d.province || '').toLowerCase().trim()) ? 'CA' : null)
       const mmddInt = (today.getMonth() + 1) * 100 + today.getDate()
       for (const h of todaysHolidays) {
+        const only = (h.country === 'CA' || h.country === 'US') ? h.country : null   // null = everyone
         const context = { vars: { 'holiday.name': h.name || 'the holidays' }, body_override: h.message || null, subject_override: h.subject || null }
         const markerOverride = year * 10000 + mmddInt   // one per holiday-date per year
         for (const c of (emailable || [])) {
           if (c.dnc || c.opt_out || c.consent_email === false) continue
+          if (only && contactCountry(c, dealerFallback) !== only) continue   // geo-gate country-specific greetings
           await enqueueForTrigger(d.id, 'holiday', { contactId: c.id, repId: c.assigned_rep, context, markerOverride }); holidays++
         }
       }
@@ -689,12 +760,14 @@ export function registerAutomation(app) {
     if (b.business_start !== undefined) s.business_start = Math.max(0, Math.min(23, parseInt(b.business_start) || 0))
     if (b.business_end !== undefined) s.business_end = Math.max(0, Math.min(24, parseInt(b.business_end) || 19))
     if (b.enabled !== undefined) s.enabled = !!b.enabled
-    if (Array.isArray(b.holidays)) s.holidays = b.holidays.slice(0, 40).map(h => ({
+    if (Array.isArray(b.holidays)) s.holidays = b.holidays.slice(0, 60).map(h => ({
       name: String(h.name || '').slice(0, 60), date: String(h.date || '').slice(0, 5),
+      rule: /^(nth|last|monbefore|easter):/.test(String(h.rule || '')) ? String(h.rule).slice(0, 40) : null,
+      country: (h.country === 'CA' || h.country === 'US') ? h.country : 'BOTH',
       enabled: h.enabled !== false,
       subject: h.subject ? String(h.subject).slice(0, 200) : null,
       message: h.message ? String(h.message).slice(0, 3000) : null,
-    })).filter(h => h.name && /^\d{2}-\d{2}$/.test(h.date))
+    })).filter(h => h.name && (/^\d{2}-\d{2}$/.test(h.date) || h.rule))
     await supabaseAdmin.from('dealerships').update({ automation_settings: s }).eq('id', req.dealershipId)
     res.json({ ok: true, settings: dealerSettings({ automation_settings: s }) })
   })
