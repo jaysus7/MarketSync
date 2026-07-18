@@ -562,6 +562,7 @@ async function initializeDashboardEcosystem() {
         if (page === 'inventory' && btn.dataset.invmode) __inventoryMode = btn.dataset.invmode;
         if (page === 'profile' && tab) __settingsTab = tab;
         switchPage(page);
+        btn.blur();   // drop the focus outline so it doesn't linger on the old item
       });
     });
     setupMobileMoreMenu();
@@ -715,13 +716,20 @@ function switchPage(pageId) {
     el.classList.toggle('hidden', el.dataset.pageContent !== pageId);
   });
   document.querySelectorAll('#dashboard-nav .nav-item, #nav-vin-sticker, #nav-inv-intel, #nav-ai-vision').forEach(btn => {
-    const active = btn.id === 'nav-inv-intel' ? pageId === 'inv-intel'
+    let active = btn.id === 'nav-inv-intel' ? pageId === 'inv-intel'
                  : btn.id === 'nav-vin-sticker'? pageId === 'vin-sticker'
                  : btn.id === 'nav-ai-vision' ? pageId === 'ai-vision'
                  // Marketplace (facebook) and Inventory List (manual) share data-page
                  // "inventory" — disambiguate by mode so only the active one highlights.
                  : btn.dataset.page === pageId
                    && (pageId !== 'inventory' || !btn.dataset.invmode || btn.dataset.invmode === __inventoryMode);
+    // The Customers page has three nav leaves that all share data-page="crm"
+    // (Add Customer, Search Customers, My Customer Database). Only the one matching
+    // the current view should light up — otherwise they all highlight together.
+    if (active && pageId === 'crm') {
+      if (btn.dataset.crmAction === 'add') active = false;                       // Add is an action, not a view
+      else if (btn.dataset.crmView) active = (btn.dataset.crmView === 'all') === !!__crmSearchAll;
+    }
     btn.classList.toggle('bg-indigo-100', active);
     btn.classList.toggle('dark:bg-indigo-950/50', active);
     btn.classList.toggle('text-indigo-700', active);
@@ -776,8 +784,77 @@ function switchPage(pageId) {
 
 // ── Trade Appraisal ──────────────────────────────────────────────────────────
 let __apprWired = false;
+// ── VIN barcode scanner (camera) ─────────────────────────────────────────────
+// Reads the Code 39 / Code 128 / Data-Matrix VIN barcode printed on the driver's
+// door jamb or lower windshield using the browser's built-in BarcodeDetector
+// (Chromium desktop + Android Chrome). On a match it fills the target input,
+// fires an `input` event, and runs the optional afterFill(vin) callback.
+function cleanVin(raw) {
+  const s = String(raw || '').toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, ''); // VINs exclude I/O/Q
+  const m = s.match(/[A-HJ-NPR-Z0-9]{17}/);
+  return m ? m[0] : null;
+}
+async function openVinScanner(targetId, afterFill) {
+  const target = document.getElementById(targetId);
+  if (!('BarcodeDetector' in window)) {
+    showToast('Barcode scanning isn’t supported on this browser — type the VIN, or try Chrome on your phone.', 'error');
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+  } catch {
+    showToast('Camera access was blocked. Allow the camera to scan a VIN.', 'error');
+    return;
+  }
+  let formats = ['code_39', 'code_128', 'data_matrix', 'qr_code'];
+  try { const sup = await BarcodeDetector.getSupportedFormats(); const f = formats.filter(x => sup.includes(x)); formats = f.length ? f : sup; } catch {}
+  const detector = new BarcodeDetector({ formats });
+  const ov = document.createElement('div');
+  ov.className = 'fixed inset-0 z-[80] bg-black/90 flex flex-col items-center justify-center p-4';
+  ov.innerHTML = `
+    <div class="relative w-full max-w-md">
+      <video autoplay playsinline muted class="w-full rounded-xl bg-black"></video>
+      <div class="absolute inset-x-6 top-1/2 -translate-y-1/2 h-24 border-2 border-emerald-400 rounded-lg pointer-events-none"></div>
+    </div>
+    <p class="text-white/80 text-sm mt-3 text-center">Point the camera at the VIN barcode<br><span class="text-white/50 text-xs">on the driver’s door jamb or lower windshield</span></p>
+    <button id="vinscan-cancel" class="mt-4 bg-white/15 hover:bg-white/25 text-white text-sm font-bold px-5 py-2.5 rounded-lg">Cancel</button>`;
+  document.body.appendChild(ov);
+  const video = ov.querySelector('video');
+  video.srcObject = stream;
+  let stopped = false;
+  const stop = () => { if (stopped) return; stopped = true; stream.getTracks().forEach(t => t.stop()); ov.remove(); };
+  ov.querySelector('#vinscan-cancel').onclick = stop;
+  ov.addEventListener('click', (e) => { if (e.target === ov) stop(); });
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const codes = await detector.detect(video);
+      for (const c of codes) {
+        const vin = cleanVin(c.rawValue);
+        if (vin) {
+          if (target) { target.value = vin; target.dispatchEvent(new Event('input', { bubbles: true })); }
+          if (navigator.vibrate) navigator.vibrate(60);
+          stop();
+          showToast('VIN scanned: ' + vin, 'success');
+          if (typeof afterFill === 'function') afterFill(vin);
+          return;
+        }
+      }
+    } catch {}
+    requestAnimationFrame(tick);
+  };
+  video.onloadedmetadata = () => requestAnimationFrame(tick);
+}
+window.openVinScanner = openVinScanner;
+// Small camera "Scan" button markup that drives openVinScanner for a given input.
+function vinScanBtn(targetId, afterFillExpr = '') {
+  return `<button type="button" title="Scan VIN barcode" onclick="openVinScanner('${targetId}'${afterFillExpr ? ', ' + afterFillExpr : ''})" class="flex items-center gap-1 text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-2.5 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10"/></svg>Scan</button>`;
+}
+
 let __apprData = null;   // last appraisal result, for the PDF export
 let __apprDealId = null; // id of the saved trade_appraisals record (for updates)
+let __apprContactId = null; // CRM contact linked to this appraisal (via "Search customers")
 let __apprDecodedSpecs = null; // engine/trans/drivetrain/body/fuel from the last VIN decode
 let __apprSalesperson = null;  // salesperson name for the CURRENT deal (record's creator, or logged-in)
 let __apprBranding = null;     // { logo_url, primary_color, ... } for PDF branding
@@ -798,6 +875,18 @@ function initAppraisal() {
   };
   lookupBtn?.addEventListener('click', runVinLookup);
   lookupInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runVinLookup(); } });
+
+  // Customer search — pull an existing CRM customer into the appraisal, or start new.
+  const custSearch = $('appr-cust-search');
+  if (custSearch) {
+    let t = null;
+    custSearch.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => apprSearchCustomers(custSearch.value), 220); });
+    custSearch.addEventListener('focus', () => { if (custSearch.value.trim().length >= 2) apprSearchCustomers(custSearch.value); });
+    document.addEventListener('click', (e) => {
+      const box = $('appr-cust-results');
+      if (box && !box.contains(e.target) && e.target !== custSearch) box.classList.add('hidden');
+    });
+  }
 
   // OEM factory docs (no AI) — decode for the build, then pull the factory PDF.
   const oemMsg = (t, err) => { const el = $('appr-oem-msg'); if (el) { el.textContent = t; el.className = 'text-xs ' + (err ? 'text-rose-500' : 'text-slate-400'); } };
@@ -907,6 +996,65 @@ function initAppraisal() {
   initApprDeal();
 }
 
+// ── Appraisal ⇄ CRM customer link ────────────────────────────────────────────
+async function apprSearchCustomers(q) {
+  const box = document.getElementById('appr-cust-results');
+  if (!box) return;
+  q = (q || '').trim();
+  if (q.length < 2) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  try {
+    const d = await apiGetJson(`/crm/contacts?q=${encodeURIComponent(q)}&limit=8`, { retries: 1 });
+    const rows = d.contacts || [];
+    if (!rows.length) {
+      box.innerHTML = `<div class="px-3 py-2.5 text-xs text-slate-400 italic">No match — fill the fields below to add a new customer.</div>`;
+    } else {
+      box.innerHTML = rows.map(c => {
+        const name = esc(c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Customer');
+        const sub = [c.phone || c.phone_mobile, c.email].filter(Boolean).map(esc).join(' · ');
+        return `<button type="button" onclick='apprPickCustomer(${JSON.stringify(c).replace(/'/g, "&#39;")})' class="w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800 last:border-0">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">${name}</div>
+          ${sub ? `<div class="text-xs text-slate-400">${sub}</div>` : ''}</button>`;
+      }).join('');
+    }
+    box.classList.remove('hidden');
+  } catch (e) { box.classList.add('hidden'); }
+}
+function apprPickCustomer(c) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+  const nameParts = (c.full_name || '').trim().split(/\s+/);
+  set('cust-first', c.first_name || nameParts[0] || '');
+  set('cust-last', c.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : ''));
+  set('cust-home-phone', c.phone_home || '');
+  set('cust-mobile-phone', c.phone_mobile || c.phone || '');
+  set('cust-email', c.email || '');
+  set('cust-address', c.address || '');
+  set('cust-postal', c.postal_code || '');
+  __apprContactId = c.id || null;
+  const badge = document.getElementById('appr-cust-linked');
+  if (badge) { badge.classList.remove('hidden'); badge.classList.add('inline-flex'); }
+  const nm = document.getElementById('appr-cust-linked-name');
+  if (nm) nm.textContent = c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Linked';
+  const box = document.getElementById('appr-cust-results'); if (box) box.classList.add('hidden');
+  const search = document.getElementById('appr-cust-search'); if (search) search.value = '';
+  showToast('Customer linked to this appraisal', 'success');
+}
+function apprUnlinkCustomer() {
+  __apprContactId = null;
+  const badge = document.getElementById('appr-cust-linked');
+  if (badge) { badge.classList.add('hidden'); badge.classList.remove('inline-flex'); }
+}
+// "New customer" — clear the linked contact + customer fields to start fresh.
+function apprClearCustomer() {
+  apprUnlinkCustomer();
+  ['cust-first', 'cust-last', 'cust-home-phone', 'cust-mobile-phone', 'cust-email', 'cust-address', 'cust-postal']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const box = document.getElementById('appr-cust-results'); if (box) box.classList.add('hidden');
+  const search = document.getElementById('appr-cust-search'); if (search) { search.value = ''; search.focus(); }
+}
+window.apprPickCustomer = apprPickCustomer;
+window.apprUnlinkCustomer = apprUnlinkCustomer;
+window.apprClearCustomer = apprClearCustomer;
+
 function apprTile(label, value, sub) {
   return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
     <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${esc(label)}</div>
@@ -934,6 +1082,9 @@ function resetAppraisal() {
   document.querySelectorAll('#appr-features input[type=checkbox]').forEach(c => { c.checked = false; });
   // Wipe state → next appraisal is a brand-new record, attributed to the logged-in rep.
   __apprData = null; __apprDealId = null; __apprDecodedSpecs = null; __apprSalesperson = null;
+  apprUnlinkCustomer();
+  const csr = document.getElementById('appr-cust-results'); if (csr) csr.classList.add('hidden');
+  const cs = document.getElementById('appr-cust-search'); if (cs) cs.value = '';
   document.getElementById('appr-vin')?.focus();
   if (typeof showToast === 'function') showToast('Cleared — ready for a new appraisal', 'info');
 }
@@ -1729,12 +1880,10 @@ async function crmQuickStatus(ev, id) {
   catch (e) { showToast(e.message, 'error'); }
   finally { sel.disabled = false; }
 }
-// Lightweight sold-source prompt (managers can also leave it blank).
-function askSoldSource() {
-  const opts = ['Website', 'Website Chat', 'Facebook Marketplace', 'Walk-in', 'Phone', 'Referral', 'Repeat', 'Other'];
-  const ans = prompt(`Where did this sale come from?\nType one of: ${opts.join(', ')}\n(or leave blank to skip)`, '');
-  return (ans || '').trim().slice(0, 60) || null;
-}
+// Sold-source is no longer prompted on the Sold click (too disruptive). The ROI
+// "sales by source" report falls back to the contact's existing lead source, and it
+// can still be set on the contact record directly.
+function askSoldSource() { return null; }
 window.crmQuickStatus = crmQuickStatus;
 
 // ── Contact detail modal ─────────────────────────────────────────────────────
@@ -2249,6 +2398,7 @@ async function crmOpenForm(id) {
     ${sect('Trade vehicle (decode from VIN)')}
     <div class="flex gap-2">
       ${inp('crm-f-tradevin', __crmTradeDecoded?.vin, '17-char VIN', 'flex-1 uppercase')}
+      ${vinScanBtn('crm-f-tradevin', '() => crmDecodeTrade()')}
       <button type="button" onclick="crmDecodeTrade()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Decode</button>
     </div>
     <div class="grid grid-cols-4 gap-2">
@@ -4079,7 +4229,7 @@ function deskRenderForm(contactId) {
             ${fld('Trim', txt('dk-veh-trim', veh.trim, 'LT'))}
             ${fld('Mileage', txt('dk-veh-mileage', veh.mileage, 'km', 'number'))}
             ${fld('Colour', txt('dk-veh-color', veh.color, ''))}
-            ${fld('VIN', txt('dk-veh-vin', veh.vin, '17-digit VIN'))}
+            ${fld('VIN', `<div class="flex gap-1">${txt('dk-veh-vin', veh.vin, '17-digit VIN')}${vinScanBtn('dk-veh-vin')}</div>`)}
             ${fld('Stock #', txt('dk-veh-stock', veh.stock, ''))}
             ${fld('Sale type', `<select id="dk-sale_type" class="${iCls}">${['Retail', 'Wholesale', 'Fleet', 'Lease return'].map(o => `<option ${((d.sale_type || 'Retail') === o) ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}
           </div>
@@ -4360,8 +4510,31 @@ async function openCreditApp(contactId) {
     : { year: dv('dk-veh-year'), make: dv('dk-veh-make'), model: dv('dk-veh-model'), trim: dv('dk-veh-trim'), vin: dv('dk-veh-vin'), mileage: dv('dk-veh-mileage'), stock: dv('dk-veh-stock'), inventory_id: __deskDeal.inventory_id || null };
   const fin = (app?.financing && Object.keys(app.financing).length) ? app.financing
     : { selling_price: rnd(c.sellingPrice), tax_amount: rnd(c.taxAmount), fees_total: rnd(c.feesTotal), trade_value: rnd(c.tradeValue), trade_payoff: rnd(c.tradePayoff), down_payment: rnd(c.down), rebate: rnd(c.rebate), amount_financed: rnd(c.amountFinanced), apr: c.apr, term: c.term, payment_freq: c.freq, payment: rnd(c.payment), first_payment_date: d.first_payment_date, lender: d.finance_company, program: d.program };
-  const A = app?.applicant || {}, CO = app?.co_applicant || null;
+  let A = app?.applicant || {};
+  const CO = app?.co_applicant || null;
   const hasCo = !!CO;
+  // New application → prefill the applicant with everything we already have on file for
+  // this customer (name, phones, email, address) so the F&I manager isn't re-typing it.
+  if (!A.first && !A.last) {
+    try {
+      const cr = await apiGetJson(`/deals/customer?id=${encodeURIComponent(contactId)}`, { retries: 1 });
+      const b = cr?.contact || {};
+      A = {
+        ...A,
+        first: A.first || b.first_name || '',
+        last: A.last || b.last_name || '',
+        email: A.email || b.email || '',
+        phone: A.phone || b.phone_mobile || b.phone || '',
+        phone_home: A.phone_home || b.phone_home || '',
+        address: {
+          street: b.address || '', city: b.city || '',
+          province: b.province || '', postal: b.postal_code || '',
+          ...(A.address || {}),
+        },
+        employment: A.employment || {}, other_income: A.other_income || {},
+      };
+    } catch {}
+  }
 
   const CI = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-900 dark:text-white';
   const F = (label, inner) => `<label class="block"><span class="block text-[10.5px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">${label}</span>${inner}</label>`;
@@ -5115,6 +5288,7 @@ const SETTINGS_TAB_SECTIONS = {
   aiboost: ['ai-boost-section', 'inv-intel-section'],
   group: ['groups-settings-section'],
   dealermgmt: ['crm-dms-card', 'dealer-features-card', 'dealer-docs-card', 'desk-fees-card', 'guardrail-settings-section'],
+  integrations: ['integrations-section'],
   security: ['security-section'],
 };
 function settingsTab(tab) {
@@ -5147,8 +5321,302 @@ function settingsTab(tab) {
     if (isAdmin) loadDealerManagementMatrix();
   }
   if (tab === 'dealermgmt') { loadDealerFeatures(); loadDeskFeeSettings(); loadDealerDocs(); }
+  if (tab === 'integrations') loadIntegrations();
 }
 window.settingsTab = settingsTab;
+
+// ── Integrations Hub ─────────────────────────────────────────────────────────
+// Lists every connectable service. "Webhooks" is the live outbound glue — a dealer
+// pastes a URL + optional signing secret and picks which events to send; the rest
+// are the gated F&I / accounting rails, shown as coming-soon until certified.
+let __integrationsCache = null;
+async function loadIntegrations() {
+  const host = document.getElementById('integrations-list');
+  if (!host) return;
+  host.innerHTML = '<div class="py-10 text-center text-sm text-slate-400 italic">Loading…</div>';
+  try {
+    const data = await apiGetJson('/integrations', { retries: 1 });
+    __integrationsCache = data;
+    renderIntegrations(data);
+  } catch (e) {
+    host.innerHTML = `<div class="py-8 text-center text-sm text-rose-500">${esc(e.message || 'Could not load integrations')}</div>`;
+  }
+}
+// A coloured badge + glyph per provider (CSP-safe emoji — no external logos).
+const INTEGRATION_ICONS = {
+  webhook:         { emoji: '🔗', bg: 'bg-violet-100 dark:bg-violet-950/40' },
+  twilio:          { emoji: '💬', bg: 'bg-rose-100 dark:bg-rose-950/40' },
+  quickbooks:      { emoji: '📗', bg: 'bg-emerald-100 dark:bg-emerald-950/40' },
+  xero:            { emoji: '🔷', bg: 'bg-sky-100 dark:bg-sky-950/40' },
+  google_business: { emoji: '⭐', bg: 'bg-amber-100 dark:bg-amber-950/40' },
+  carfax:          { emoji: '🚗', bg: 'bg-indigo-100 dark:bg-indigo-950/40' },
+  routeone:        { emoji: '🏦', bg: 'bg-slate-100 dark:bg-slate-800' },
+  dealertrack:     { emoji: '🏦', bg: 'bg-slate-100 dark:bg-slate-800' },
+};
+function integrationIcon(provider) {
+  const i = INTEGRATION_ICONS[provider] || { emoji: '🔌', bg: 'bg-slate-100 dark:bg-slate-800' };
+  return `<div class="w-10 h-10 rounded-lg ${i.bg} flex items-center justify-center text-xl flex-shrink-0" aria-hidden="true">${i.emoji}</div>`;
+}
+// Short human blurb per category so the section reads as a map, not a dump.
+const CATEGORY_BLURB = {
+  Automation: 'Push MarketSync events anywhere — Zapier, Make, or your own app.',
+  Messaging: 'Send texts from your own number.',
+  Accounting: 'Sync sold-deal and F&I income to your books.',
+  'F&I': 'Credit and vehicle-history rails (enabled once certified).',
+  Marketing: 'Reviews, listings, and your online presence.',
+  Other: '',
+};
+function renderIntegrations(data) {
+  const host = document.getElementById('integrations-list');
+  if (!host) return;
+  const providers = data.providers || [];
+  const events = data.webhook_events || [];
+  const connected = providers.filter(p => isIntegrationConnected(p)).length;
+  const liveAvail = providers.filter(p => p.live).length;
+  // Group by category, in a sensible order.
+  const order = ['Automation', 'Messaging', 'Accounting', 'Marketing', 'F&I', 'Other'];
+  const byCat = {};
+  providers.forEach(p => { (byCat[p.category] = byCat[p.category] || []).push(p); });
+  const cats = Object.keys(byCat).sort((a, b) => (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 99 : order.indexOf(b)));
+  // Within a category: live first, then connected first.
+  const rank = p => (p.live ? 0 : 10) + (isIntegrationConnected(p) ? -1 : 0);
+  const summary = `<div class="flex items-center gap-4 mb-4 text-xs">
+    <span class="inline-flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-300"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>${connected} connected</span>
+    <span class="inline-flex items-center gap-1.5 font-semibold text-slate-500 dark:text-slate-400"><span class="w-2 h-2 rounded-full bg-slate-400"></span>${liveAvail} available to connect</span>
+  </div>`;
+  host.innerHTML = summary + cats.map(cat => `
+    <div class="mb-6">
+      <div class="mb-2">
+        <h3 class="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">${esc(cat)}</h3>
+        ${CATEGORY_BLURB[cat] ? `<p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">${esc(CATEGORY_BLURB[cat])}</p>` : ''}
+      </div>
+      <div class="space-y-3">${byCat[cat].slice().sort((a, b) => rank(a) - rank(b)).map(p => p.provider === 'webhook' ? webhookCard(p, events) : p.provider === 'twilio' ? twilioCard(p) : (p.oauth && p.live) ? oauthCard(p) : providerCard(p)).join('')}</div>
+    </div>`).join('');
+  if (!data.pii_ready) {
+    host.insertAdjacentHTML('afterbegin', `<div class="mb-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300">Encryption key not set — signing secrets and credentials can't be stored until <code>PII_ENCRYPTION_KEY</code> is configured on the server.</div>`);
+  }
+}
+function isIntegrationConnected(p) {
+  if (!p.enabled) return false;
+  const m = p.lender_code_map || {};
+  // Connected when a secret is stored OR the non-secret config that makes it work is set.
+  return !!(p.configured || m.url || m.from || m.realm_id || m.tenant_id || m.connected_at);
+}
+function statusPill(p) {
+  if (!p.live) return '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">Coming soon</span>';
+  if (isIntegrationConnected(p)) return '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Connected</span>';
+  return '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">Available</span>';
+}
+function providerCard(p) {
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 flex items-start gap-3 opacity-75">
+    ${integrationIcon(p.provider)}
+    <div class="min-w-0">
+      <div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm text-slate-900 dark:text-white">${esc(p.label)}</span>${statusPill(p)}</div>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${esc(p.description)}</p>
+    </div>
+  </div>`;
+}
+function webhookCard(p, events) {
+  const cfg = p.lender_code_map || {};
+  const url = cfg.url || '';
+  const subscribed = Array.isArray(cfg.events) ? cfg.events : [];
+  const evBoxes = events.map(ev => {
+    const on = !subscribed.length || subscribed.includes(ev);
+    return `<label class="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 mr-3 mb-1">
+      <input type="checkbox" class="wh-ev accent-indigo-600" value="${esc(ev)}" ${on ? 'checked' : ''}> ${esc(ev)}</label>`;
+  }).join('');
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4">
+    <div class="flex items-start gap-3 mb-3">
+      ${integrationIcon(p.provider)}
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm text-slate-900 dark:text-white">${esc(p.label)}</span>${statusPill(p)}</div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${esc(p.description)}</p>
+      </div>
+      <label class="inline-flex items-center cursor-pointer flex-shrink-0">
+        <input id="wh-enabled" type="checkbox" class="sr-only peer" ${p.enabled ? 'checked' : ''}>
+        <div class="relative w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-checked:bg-emerald-500 rounded-full transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition peer-checked:after:translate-x-4"></div>
+      </label>
+    </div>
+    <div class="space-y-2.5">
+      <div>
+        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Endpoint URL</label>
+        <input id="wh-url" type="url" value="${esc(url)}" placeholder="https://hooks.zapier.com/…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Signing secret <span class="font-normal text-slate-400">(optional — signs each request as <code>X-MarketSync-Signature</code>)</span></label>
+        <input id="wh-secret" type="password" placeholder="${p.configured ? '•••••••• (saved — leave blank to keep)' : 'Leave blank for none'}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Events to send</label>
+        <div>${evBoxes}</div>
+      </div>
+      <div class="flex items-center gap-2 pt-1">
+        <button onclick="saveWebhook(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save</button>
+        <button onclick="testWebhook(this)" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-lg transition">Send test</button>
+        ${p.configured || p.enabled ? '<button onclick="disconnectWebhook(this)" class="ml-auto text-xs text-rose-500 hover:text-rose-400 font-semibold">Disconnect</button>' : ''}
+      </div>
+    </div>
+  </div>`;
+}
+async function saveWebhook(btn) {
+  const url = (document.getElementById('wh-url')?.value || '').trim();
+  const secret = (document.getElementById('wh-secret')?.value || '').trim();
+  const enabled = !!document.getElementById('wh-enabled')?.checked;
+  const all = [...document.querySelectorAll('.wh-ev')];
+  const checked = all.filter(c => c.checked).map(c => c.value);
+  // Empty list = all events; only send a subset when the user unchecked some.
+  const evs = checked.length === all.length ? [] : checked;
+  if (enabled && !/^https?:\/\//i.test(url)) return showToast('Enter a valid https:// URL', 'error');
+  const payload = { enabled, lender_code_map: { url, events: evs } };
+  if (secret) payload.credentials = { secret };
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await apiSendJson('/integrations/webhook', 'PUT', payload);
+    btn.textContent = 'Saved ✓'; showToast('Webhook saved', 'success');
+    setTimeout(() => loadIntegrations(), 700);
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
+}
+async function testWebhook(btn) {
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await apiSendJson('/integrations/webhook/test', 'POST', {});
+    btn.textContent = 'Sent ✓'; showToast('Test event sent to your endpoint', 'success');
+  } catch (e) { showToast(e.message || 'Could not send test — save & enable a URL first', 'error'); }
+  setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
+}
+async function disconnectWebhook(btn) {
+  if (!confirm('Disconnect this webhook? The URL and secret will be removed.')) return;
+  btn.disabled = true;
+  try { await apiSendJson('/integrations/webhook', 'DELETE'); showToast('Webhook disconnected', 'success'); loadIntegrations(); }
+  catch (e) { btn.disabled = false; showToast(e.message || 'Could not disconnect', 'error'); }
+}
+// Twilio (bring-your-own account) — SID + token stored encrypted, from-number in
+// lender_code_map. When connected, all automated texts send from the dealer's number.
+function twilioCard(p) {
+  const cfg = p.lender_code_map || {};
+  const from = cfg.from || '';
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4">
+    <div class="flex items-start gap-3 mb-3">
+      ${integrationIcon(p.provider)}
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm text-slate-900 dark:text-white">${esc(p.label)}</span>${statusPill(p)}</div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${esc(p.description)}</p>
+      </div>
+      <label class="inline-flex items-center cursor-pointer flex-shrink-0">
+        <input id="tw-enabled" type="checkbox" class="sr-only peer" ${p.enabled ? 'checked' : ''}>
+        <div class="relative w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-checked:bg-emerald-500 rounded-full transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition peer-checked:after:translate-x-4"></div>
+      </label>
+    </div>
+    <div class="space-y-2.5">
+      <div>
+        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Account SID</label>
+        <input id="tw-sid" type="text" autocomplete="off" placeholder="${p.configured ? '•••••••• (saved — leave blank to keep)' : 'ACxxxxxxxxxxxxxxxx'}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Auth Token</label>
+        <input id="tw-token" type="password" autocomplete="off" placeholder="${p.configured ? '•••••••• (saved — leave blank to keep)' : 'Your Twilio auth token'}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">From number <span class="font-normal text-slate-400">(your Twilio number, E.164)</span></label>
+        <input id="tw-from" type="tel" value="${esc(from)}" placeholder="+15195551234" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div class="flex items-center gap-2 pt-1">
+        <button onclick="saveTwilio(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save</button>
+        <button onclick="testTwilio(this)" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-lg transition">Send test text</button>
+        ${p.configured || p.enabled ? '<button onclick="disconnectTwilio(this)" class="ml-auto text-xs text-rose-500 hover:text-rose-400 font-semibold">Disconnect</button>' : ''}
+      </div>
+      <p class="text-[11px] text-slate-400 dark:text-slate-500">Until you connect this, automated texts send from the shared MarketSync number.</p>
+    </div>
+  </div>`;
+}
+async function saveTwilio(btn) {
+  const sid = (document.getElementById('tw-sid')?.value || '').trim();
+  const token = (document.getElementById('tw-token')?.value || '').trim();
+  const from = (document.getElementById('tw-from')?.value || '').trim();
+  const enabled = !!document.getElementById('tw-enabled')?.checked;
+  if (enabled && !from) return showToast('Enter your Twilio from-number', 'error');
+  // SID + token both come as a pair; require both when setting for the first time.
+  if ((sid && !token) || (!sid && token)) return showToast('Enter both the SID and the auth token', 'error');
+  const payload = { enabled, lender_code_map: { from } };
+  if (sid && token) payload.credentials = { account_sid: sid, auth_token: token };
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await apiSendJson('/integrations/twilio', 'PUT', payload);
+    btn.textContent = 'Saved ✓'; showToast('Twilio settings saved', 'success');
+    setTimeout(() => loadIntegrations(), 700);
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
+}
+async function testTwilio(btn) {
+  const to = prompt('Send a test text to which number? (E.164, e.g. +15195551234)', '');
+  if (!to) return;
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await apiSendJson('/integrations/twilio/test', 'POST', { to: to.trim() });
+    btn.textContent = 'Sent ✓'; showToast('Test text sent', 'success');
+  } catch (e) { showToast(e.message || 'Could not send — save & enable first', 'error'); }
+  setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
+}
+async function disconnectTwilio(btn) {
+  if (!confirm('Disconnect Twilio? Automated texts will go back to the shared MarketSync number.')) return;
+  btn.disabled = true;
+  try { await apiSendJson('/integrations/twilio', 'DELETE'); showToast('Twilio disconnected', 'success'); loadIntegrations(); }
+  catch (e) { btn.disabled = false; showToast(e.message || 'Could not disconnect', 'error'); }
+}
+// OAuth connector card (QuickBooks, Xero, Google Business). "Connect" bounces to the
+// provider's consent screen; once linked we show when + Test / Disconnect. One set of
+// handlers drives every OAuth provider via its `provider` key.
+function oauthCard(p) {
+  const connected = p.configured && p.enabled;
+  const cfg = p.lender_code_map || {};
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4">
+    <div class="flex items-start gap-3">
+      ${integrationIcon(p.provider)}
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm text-slate-900 dark:text-white">${esc(p.label)}</span>${statusPill(p)}</div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${esc(p.description)}</p>
+        ${connected && cfg.connected_at ? `<p class="text-[11px] text-slate-400 mt-1">Connected ${new Date(cfg.connected_at).toLocaleDateString()}${cfg.tenant_name ? ' · ' + esc(cfg.tenant_name) : ''}.</p>` : ''}
+        <div class="flex items-center gap-2 mt-3">
+          ${connected
+            ? `<button onclick="testOAuth('${p.provider}', this)" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-lg transition">Test connection</button>
+               <button onclick="disconnectOAuth('${p.provider}', '${esc(p.label)}', this)" class="ml-auto text-xs text-rose-500 hover:text-rose-400 font-semibold">Disconnect</button>`
+            : `<button onclick="connectOAuth('${p.provider}', this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Connect ${esc(p.label)}</button>`}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+async function connectOAuth(provider, btn) {
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Opening…';
+  try {
+    const d = await apiGetJson(`/integrations/${provider}/connect`, { retries: 1 });
+    if (d.url) { window.location.href = d.url; return; }   // full-page redirect into the provider's consent screen
+    throw new Error('Could not start the connection.');
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not connect', 'error'); }
+}
+async function testOAuth(provider, btn) {
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    const d = await apiSendJson(`/integrations/${provider}/test`, 'POST', {});
+    btn.textContent = 'Connected ✓'; showToast(d.company || 'Connection is healthy', 'success');
+  } catch (e) { showToast(e.message || 'Connection check failed', 'error'); }
+  setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
+}
+async function disconnectOAuth(provider, label, btn) {
+  if (!confirm(`Disconnect ${label}? MarketSync will stop syncing to it.`)) return;
+  btn.disabled = true;
+  try { await apiSendJson(`/integrations/${provider}`, 'DELETE'); showToast(`${label} disconnected`, 'success'); loadIntegrations(); }
+  catch (e) { btn.disabled = false; showToast(e.message || 'Could not disconnect', 'error'); }
+}
+window.loadIntegrations = loadIntegrations;
+window.saveWebhook = saveWebhook;
+window.testWebhook = testWebhook;
+window.disconnectWebhook = disconnectWebhook;
+window.saveTwilio = saveTwilio;
+window.testTwilio = testTwilio;
+window.disconnectTwilio = disconnectTwilio;
+window.connectOAuth = connectOAuth;
+window.testOAuth = testOAuth;
+window.disconnectOAuth = disconnectOAuth;
 
 // ── Dealer details for documents (Settings › Dealer Management) ──────────────
 // Same legal identifiers the desk uses on the bill of sale — edited here anytime.
@@ -7800,6 +8268,7 @@ function openVehicleForm(vehicle) {
     </div>
     <div class="flex gap-2">
       ${inp('veh-vin', v.vin, '17-char VIN (optional — auto-fills specs)', 'flex-1 uppercase')}
+      ${vinScanBtn('veh-vin', '() => vehDecode()')}
       <button type="button" onclick="vehDecode()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Decode</button>
     </div>
     <div class="grid grid-cols-4 gap-2">
@@ -13400,6 +13869,25 @@ async function startVinStickerTrial() {
   } catch {}
 })();
 
+// Handle return from any integration OAuth consent screen (QuickBooks, Xero, Google).
+(() => {
+  const params = new URLSearchParams(window.location.search);
+  const provider = params.get('integration');
+  if (!provider) return;
+  const status = params.get('status');
+  const msg = params.get('msg');
+  const LABELS = { quickbooks: 'QuickBooks', xero: 'Xero', google_business: 'Google Business' };
+  const label = LABELS[provider] || 'Integration';
+  history.replaceState({}, '', window.location.pathname);
+  const show = () => {
+    if (typeof showToast !== 'function') { setTimeout(show, 400); return; }
+    if (status === 'connected') showToast(`${label} connected ✓`, 'success');
+    else showToast(msg || `${label} connection failed`, 'error');
+    if (typeof switchPage === 'function') { switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('integrations'); }, 250); }
+  };
+  show();
+})();
+
 // Handle return from Stripe Checkout for Inventory Intelligence
 (async () => {
   const params = new URLSearchParams(window.location.search);
@@ -14654,10 +15142,15 @@ function renderAiDockMessages() {
   if (!aiDockMessages.length) {
     const intro = document.createElement('div');
     intro.className = 'text-slate-500 dark:text-slate-400';
+    const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+    // Managers get the cross-data "brain" prompts; reps get lot/lead prompts.
+    const suggestions = isMgr
+      ? ['How are we doing this month?', "Who's my top salesperson?", 'Who should I call today?', 'How are leads converting?', 'Which units are aging 60+ days?']
+      : ['Which units are aging 60+ days?', 'What should I restock?', 'How many leads need follow-up?', 'Anything priced off market?'];
     intro.innerHTML =
-      '<div class="mb-3 leading-relaxed">Hi 👋 Ask me anything about your store — I can see your live inventory, leads and pricing.</div>' +
+      '<div class="mb-3 leading-relaxed">Hi 👋 I\'m MarketSync — I can see your whole store live: inventory, leads, sales, F&amp;I, commissions, reconditioning and today\'s tasks. Ask me anything.</div>' +
       '<div class="flex flex-wrap gap-1.5">' +
-      ['Which units are aging 60+ days?', 'What should I restock?', 'How many leads need follow-up?', 'Anything priced off market?']
+      suggestions
         .map(s => `<button type="button" data-ai-suggest="${s}" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">${s}</button>`)
         .join('') +
       '</div>';
@@ -14971,6 +15464,7 @@ async function apprSaveDeal() {
     appraisal: __apprData?.appraisal ? { ...__apprData.appraisal } : null,
     currency: __apprData?.currency || null,
     disposition: deal.disposition, customer: deal.customer, disclosure: deal.disclosure,
+    contact_id: __apprContactId || undefined,
     notify,
     salesperson_name: (document.getElementById('appr-salesperson-input')?.value || '').trim() || null,
   };
@@ -15273,6 +15767,12 @@ async function loadAppraisalRecord(id) {
     });
     setv('disc-notes', disc.notes || '');
     __apprDealId = row.id;
+    // Restore the linked-customer badge if this appraisal is tied to a CRM contact.
+    __apprContactId = row.contact_id || null;
+    const linkBadge = document.getElementById('appr-cust-linked');
+    if (linkBadge) { linkBadge.classList.toggle('hidden', !__apprContactId); linkBadge.classList.toggle('inline-flex', !!__apprContactId); }
+    const linkName = document.getElementById('appr-cust-linked-name');
+    if (linkName && __apprContactId) linkName.textContent = [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Linked';
     __apprSalesperson = row.salesperson_name || null;  // print the record's salesperson, not the viewer
     const spEl = document.getElementById('appr-salesperson-input');
     if (spEl) spEl.value = row.salesperson_name || '';

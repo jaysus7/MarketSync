@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { emitWebhook } from '../webhooks.js'
+import { ensureGetReadyCard } from './recon.js'
 
 async function buildUserStats(userId) {
   const countOf = async (status) => {
@@ -1368,6 +1370,17 @@ export function registerRoutes(app) {
       if (m.inv === 'sold') invPatch.sold_at = now
       if (m.inv === 'available') invPatch.sold_at = null
       await supabaseAdmin.from('inventory').update(invPatch).eq('id', deal.inventory_id).eq('dealership_id', req.dealershipId)
+      // Sold → make sure the car shows on the Cleanup/get-ready board. Marking sold
+      // is enough; the F&I "Approve" step is optional. (Delivered leaves the board.)
+      if (m.deal === 'sold') {
+        await ensureGetReadyCard(req.dealershipId, { inventoryId: deal.inventory_id, dealId: deal.id })
+      }
+    }
+    // Fire outbound webhooks on the milestone transitions (glue for accounting/Zapier).
+    if (m.deal === 'sold' || m.deal === 'delivered') {
+      emitWebhook(req.dealershipId, m.deal === 'delivered' ? 'deal.delivered' : 'deal.sold', {
+        deal_id: deal.id, contact_id: contactId, inventory_id: deal.inventory_id || null, at: now,
+      })
     }
     res.json({ ok: true, deal_status: m.deal, vehicle_status: m.inv })
   })
@@ -1422,11 +1435,37 @@ export function registerRoutes(app) {
     if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const contactId = String(req.query.contact_id || '')
     if (!contactId) return res.json({ ok: true, rows: [] })
-    const { data } = await supabaseAdmin.from('trade_appraisals')
-      .select('id, year, make, model, trim, vin, mileage, color, suggested_offer, retail_median, created_at')
-      .eq('dealership_id', req.dealershipId).eq('contact_id', contactId)
+    const cols = 'id, year, make, model, trim, vin, mileage, color, suggested_offer, retail_median, created_at, contact_id, customer'
+    // Primary match: appraisals explicitly linked to this contact.
+    const { data: linked } = await supabaseAdmin.from('trade_appraisals')
+      .select(cols).eq('dealership_id', req.dealershipId).eq('contact_id', contactId)
       .order('created_at', { ascending: false }).limit(10)
-    res.json({ ok: true, rows: data || [] })
+    const rows = [...(linked || [])]
+    // Fallback: an appraisal may have been saved before the contact existed (or under a
+    // separate contact record for the same person) — match on the customer's email/phone
+    // captured on the appraisal so it still pulls into the deal.
+    const { data: c } = await supabaseAdmin.from('contacts')
+      .select('email, phone, phone_mobile').eq('id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
+    const email = (c?.email || '').trim().toLowerCase()
+    const phone = (c?.phone || c?.phone_mobile || '').replace(/\D/g, '')
+    if (email || phone) {
+      const { data: recent } = await supabaseAdmin.from('trade_appraisals')
+        .select(cols).eq('dealership_id', req.dealershipId)
+        .order('created_at', { ascending: false }).limit(200)
+      const seen = new Set(rows.map(r => r.id))
+      for (const a of (recent || [])) {
+        if (seen.has(a.id)) continue
+        const cust = a.customer || {}
+        const aEmail = String(cust.email || '').trim().toLowerCase()
+        const aPhone = String(cust.mobile_phone || cust.phone || cust.home_phone || '').replace(/\D/g, '')
+        if ((email && aEmail && aEmail === email) || (phone && aPhone && aPhone === phone)) {
+          rows.push(a); seen.add(a.id)
+          if (rows.length >= 10) break
+        }
+      }
+    }
+    // Strip the customer blob from the response (only needed for matching above).
+    res.json({ ok: true, rows: rows.map(({ customer, ...r }) => r) })
   })
 
   // Search this dealer's inventory for the vehicle section (VIN / stock / name).
