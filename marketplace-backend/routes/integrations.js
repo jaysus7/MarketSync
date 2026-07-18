@@ -10,7 +10,10 @@ import { emitWebhook, WEBHOOK_EVENTS } from '../webhooks.js'
 import { sendDealerSms, invalidateTwilioCache } from './automation.js'
 import { qboConfigured, qboAuthorizeUrl, signState, verifyState, qboExchangeCode, qboEnsureToken, qboCompanyName } from '../providers/quickbooks.js'
 import { OAUTH_PROVIDERS, oauthConfigured, oauthAuthorizeUrl, oauthExchangeCode, oauthEnsureToken, oauthAfterToken, oauthTest, signState as signOAuthState, verifyState as verifyOAuthState } from '../providers/oauth.js'
+import { qboConfigured, qboAuthorizeUrl, qboExchangeCode, qboEnsureToken, qboCompanyName } from '../providers/quickbooks.js'
+import { signState, verifyState } from '../providers/oauth.js'
 
+// ... the rest of your route handler code goes here
 /**
  * The Integrations Hub catalog. Each entry is a connectable service. `live: true`
  * means it works today (webhooks are our own outbound "glue" — no partner needed);
