@@ -15163,8 +15163,8 @@ function renderAiDockMessages() {
     const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     // Managers get the cross-data "brain" prompts; reps get lot/lead prompts.
     const suggestions = isMgr
-      ? ['How are we doing this month?', "Who's my top salesperson?", 'Who should I call today?', 'How are leads converting?', 'Which units are aging 60+ days?']
-      : ['Which units are aging 60+ days?', 'What should I restock?', 'How many leads need follow-up?', 'Anything priced off market?'];
+      ? ['What should I focus on today?', 'Are we up or down vs last month?', "Who's my top salesperson?", 'Why did leads change this month?', 'Which cars should I discount or wholesale?']
+      : ['What should I focus on today?', 'Which units are aging 60+ days?', 'How many leads need follow-up?', 'Anything priced off market?'];
     intro.innerHTML =
       '<div class="mb-3 leading-relaxed">Hi 👋 I\'m MarketSync — I can see your whole store live: inventory, leads, sales, F&amp;I, commissions, reconditioning and today\'s tasks. Ask me anything.</div>' +
       '<div class="flex flex-wrap gap-1.5">' +
