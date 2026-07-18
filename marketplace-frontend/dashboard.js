@@ -9245,6 +9245,11 @@ function renderWebsitePage() {
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Professional dealership site anyone can edit. Add sections, no code required.</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
+        <!-- Editor mode toggle: Classic section-cards vs Live drag-and-drop preview. -->
+        <div class="inline-flex rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden text-xs font-bold" title="Switch between the classic section editor and the live drag-and-drop builder">
+          <button onclick="setBuilderMode('classic')" class="px-3 py-2 transition ${__builderMode !== 'live' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Classic</button>
+          <button onclick="setBuilderMode('live')" class="px-3 py-2 transition ${__builderMode === 'live' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Live ✨</button>
+        </div>
         ${url ? `<a href="${url}" target="_blank" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">View site ↗</a>` : ''}
         <label class="flex items-center gap-1.5 text-sm font-bold"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Published</label>
         <button onclick="switchPage('website-settings')" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">Settings</button>
@@ -9256,12 +9261,104 @@ function renderWebsitePage() {
   renderWsBody();
 }
 function wsTab(t) { __wsTab = t; renderWebsitePage(); }   // re-render header+tabs so the active underline moves
+// Editor mode: 'classic' (section cards) or 'live' (WYSIWYG drag + live preview).
+// Persisted per user; the classic builder is always kept as an option.
+let __builderMode = (() => { try { return localStorage.getItem('ms_builder_mode') || 'classic'; } catch { return 'classic'; } })();
+function setBuilderMode(m) {
+  __builderMode = (m === 'live') ? 'live' : 'classic';
+  try { localStorage.setItem('ms_builder_mode', __builderMode); } catch {}
+  __livePreviewReady = false;
+  if (document.getElementById('website-root')) { __wsTab = 'builder'; renderWebsitePage(); }
+  else renderWsBody();
+}
+window.setBuilderMode = setBuilderMode;
+
+// ── Live (WYSIWYG) builder ───────────────────────────────────────────────────
+// A side-by-side editor: the dealer's actual site in a preview iframe on the left,
+// the section palette + reorderable list on the right. Edits post to the iframe via
+// postMessage and render instantly (never saved until "Save"). Clicking a section in
+// the preview jumps to its editor. Uses the SAME __siteSections model as Classic, so
+// both editors are fully interchangeable.
+let __livePreviewReady = false, __liveMsgWired = false, __livePushTimer = null;
+function livePreviewPush() {
+  if (__builderMode !== 'live') return;
+  const ifr = document.getElementById('ws-preview-frame');
+  if (!ifr || !ifr.contentWindow || !__livePreviewReady) return;
+  clearTimeout(__livePushTimer);
+  __livePushTimer = setTimeout(() => {
+    try {
+      wsFlushTarget();
+      const c = __siteCfg.content || {};
+      const site = {
+        sections: __homeSections, pages: __sitePages, builtins: __siteBuiltins, staff: __siteStaff,
+        primary_color: c.primary_color, secondary_color: c.secondary_color,
+        tagline: c.tagline, about: c.about, hero_url: c.hero_url, logo_url: c.logo_url,
+      };
+      let view = 'home';
+      if (typeof __wsTarget === 'string' && __wsTarget.startsWith('b:')) { const k = __wsTarget.slice(2); view = k === 'contact' ? 'inquiry' : k; }
+      else if (typeof __wsTarget === 'number' && __sitePages[__wsTarget]) view = 'page:' + (__sitePages[__wsTarget].slug || '');
+      ifr.contentWindow.postMessage({ type: 'ms-preview-apply', site, view }, '*');
+    } catch {}
+  }, 140);
+}
+window.livePreviewPush = livePreviewPush;
+function wireLiveMessages() {
+  if (__liveMsgWired) return; __liveMsgWired = true;
+  window.addEventListener('message', (ev) => {
+    const m = ev.data || {};
+    if (m.type === 'ms-preview-ready') { __livePreviewReady = true; livePreviewPush(); }
+    else if (m.type === 'ms-preview-click' && typeof m.index === 'number') {
+      const box = document.getElementById('ws-sections'); if (!box) return;
+      const card = box.children[m.index]; if (!card) return;
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-2', 'dark:ring-offset-slate-900', 'rounded-xl');
+      setTimeout(() => card.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-2', 'dark:ring-offset-slate-900', 'rounded-xl'), 1800);
+    }
+  });
+}
+function renderLiveBuilder(body) {
+  wireLiveMessages();
+  __livePreviewReady = false;
+  const slug = __siteCfg?.site_slug;
+  if (!slug) {
+    body.innerHTML = `<div class="mt-6 text-sm text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center">Name your site address first (Settings → site address) to use the live preview.<br>You can keep building now in <button onclick="setBuilderMode('classic')" class="text-indigo-600 font-bold">Classic mode ↩</button>.</div>`;
+    return;
+  }
+  const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>📄 ${esc(p.title || 'Untitled page')}</option>`).join('');
+  const builtinOpts = BUILTIN_META.filter(([k]) => (__siteBuiltins[k]?.enabled !== false)).map(([k, label]) => `<option value="b:${k}" ${__wsTarget === 'b:' + k ? 'selected' : ''}>🧩 ${esc((__siteBuiltins[k] && __siteBuiltins[k].label) || label)} — top section</option>`).join('');
+  const palette = SEC_ORDER.map(t => `<button onclick="addSection('${t}')" class="text-left text-xs font-semibold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 hover:border-indigo-400 transition">+ ${SEC_META[t].label}</button>`).join('');
+  body.innerHTML = `
+    <div class="flex items-center gap-2 mt-4 mb-2 flex-wrap">
+      <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Editing:</span>
+      <select onchange="wsSetTarget(this.value)" class="text-sm font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
+        <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>🏠 Home page</option>${pageOpts}${builtinOpts ? `<optgroup label="Built-in pages">${builtinOpts}</optgroup>` : ''}
+      </select>
+      <span class="text-[11px] text-indigo-500 dark:text-indigo-400 font-semibold flex-1">Live preview — click a section in the preview to jump to its editor. Edits show instantly; hit <b>Save</b> to publish.</span>
+    </div>
+    <div class="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
+      <div class="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white shadow-sm" style="height:78vh">
+        <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1" class="w-full h-full border-0" title="Live site preview"></iframe>
+      </div>
+      <div class="lg:sticky lg:top-4 self-start space-y-3" style="max-height:78vh;overflow:auto">
+        <div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">+ Add section</div>
+          <div class="grid grid-cols-2 gap-1.5">${palette}</div>
+        </div>
+        <div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Sections — drag to reorder</div>
+          <div id="ws-sections" class="space-y-2"></div>
+        </div>
+      </div>
+    </div>`;
+  renderWsSections();
+}
 function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
   if (__wsTab === 'design') { body.innerHTML = wsDesign(); return; }
   if (__wsTab === 'pages') { body.innerHTML = wsPages(); renderMenuList(); return; }
   if (__wsTab === 'team') { body.innerHTML = wsTeam(); renderSiteStaff(); return; }
   if (__wsTab === 'settings') { body.innerHTML = wsSettings(); __siteWidgets = Array.isArray(__siteCfg?.content?.widgets) ? __siteCfg.content.widgets.slice() : []; renderSiteWidgets(); return; }
+  if (__wsTab === 'builder' && __builderMode === 'live') { renderLiveBuilder(body); return; }
   // Builder
   const palette = SEC_ORDER.map(t => `<button onclick="addSection('${t}')" class="text-left text-xs font-semibold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:border-indigo-400">+ ${SEC_META[t].label}</button>`).join('');
   const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>📄 ${esc(p.title || 'Untitled page')}</option>`).join('');
@@ -9305,6 +9402,7 @@ function renderWsBody() {
   renderWsSections();
 }
 function renderWsSections() {
+  if (__builderMode === 'live') livePreviewPush();   // keep the live preview in sync on any structural change
   const box = document.getElementById('ws-sections'); if (!box) return;
   if (!__siteSections.length) { box.innerHTML = '<div class="text-sm text-slate-400 italic border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center">No sections yet. Add one from the right →<br><span class="text-xs">(If you leave this empty, your site uses the default layout.)</span></div>'; return; }
   box.innerHTML = __siteSections.map((sec, i) => `
@@ -9374,7 +9472,7 @@ function wsField(i, sec, [key, label, type]) {
   else input = `<input value="${esc(v || '')}" oninput="setSec(${i},'${key}',this.value)" class="${cls}">`;
   return `<div class="${wide}">${lbl}${input}</div>`;
 }
-function setSec(i, key, val) { if (__siteSections[i]) { __siteSections[i].settings = __siteSections[i].settings || {}; __siteSections[i].settings[key] = val; } }
+function setSec(i, key, val) { if (__siteSections[i]) { __siteSections[i].settings = __siteSections[i].settings || {}; __siteSections[i].settings[key] = val; if (__builderMode === 'live') livePreviewPush(); } }
 function setSecFaq(i, key, text) { const items = text.split('\n').map(l => { const [q, ...a] = l.split('::'); return { q: (q || '').trim(), a: a.join('::').trim() }; }).filter(x => x.q); setSec(i, key, items); }
 function setSecReviews(i, key, text) { const items = text.split('\n').map(l => { const p = l.split('::'); const author = (p[0] || '').trim(); const rating = Math.max(1, Math.min(5, parseInt(p[1]) || 5)); const body = p.slice(2).join('::').trim(); return { author, rating, text: body }; }).filter(x => x.author || x.text); setSec(i, key, items); }
 function setSecCards(i, key, text) { const items = text.split('\n').map(l => { const [t, ...d] = l.split('::'); return { title: (t || '').trim(), text: d.join('::').trim() }; }).filter(x => x.title || x.text); setSec(i, key, items); }
