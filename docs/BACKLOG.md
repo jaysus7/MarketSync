@@ -153,13 +153,18 @@ and the concierge system prompt now frames MarketSync as "the smartest person at
 dealership."
 
 Still to deepen:
-- [ ] Which cars should I discount today? / wholesale / send to auction (needs the
-      market-comp layer joined per-unit into the report, not just aging).
+- [x] Which cars should I discount / wholesale / send to auction today? — `pricing`
+      topic: per-unit actions from days-on-lot, off-market price flags and missing
+      prices (discount / wholesale / auction / add-price / refresh). Done 2026-07-18.
+      (A live market-comp per-unit layer would sharpen the reprice target further.)
 - [x] Why did leads drop this month? (period-over-period trend) — `trends` topic.
+- [x] Equity-based "who to call" — `equity` topic reuses the Equity Radar engine to
+      rank delivered customers in positive-equity / lease-maturing positions with
+      phone + rep + tier. Done 2026-07-18.
 - [ ] Which marketing campaign made money? (marketing ROI attribution — no spend data yet)
-- [ ] Equity/service-based "who to call" (today it's task/appointment based; equity mining
-      exists separately and could feed in).
-- [ ] Proactive digests (push the morning briefing instead of waiting to be asked).
+- [ ] Proactive digests (push the morning briefing instead of waiting to be asked) —
+      needs a scheduled job + push/email delivery; the `priorities`/`trends` topics are
+      the content, delivery is the remaining piece.
 
 ---
 

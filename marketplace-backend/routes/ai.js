@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware.js'
 import { marketcheckMarket, marketcheckListings, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing, marketcheckDecodeVin, marketcheckPredictPrice, marketcheckMarketStats } from '../marketcheck.js'
 import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, assistantDailyAllowed, recordAssistantChat, ASSISTANT_DAILY_LIMIT, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
 import { findOrCreateContact } from './crm.js'
+import { buildEquityRadar } from './equity.js'
 import { createNotification, createNotifications } from '../notifications.js'
 import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
 import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
@@ -87,8 +88,8 @@ const ASSISTANT_TOOLS = [
   },
   {
     name: 'dealership_report',
-    description: "Pull THIS dealership's own live operating data. Use for anything about the store's own numbers or people: sales & units this month, gross, F&I, commissions, which salesperson is ahead or needs coaching, lead volume/sources/conversion, unworked leads, aging inventory, reconditioning/cleanup status, overdue tasks, today's appointments, who to call today, and recent trade appraisals. Two power topics: 'trends' compares this period to the prior one (sales this month vs last, leads last 30d vs the 30 before, and which lead sources rose or fell — use for 'are we up or down / why did leads drop'); 'priorities' returns a ranked what-to-do-today list (uncontacted leads, overdue tasks, aging units to discount or wholesale, cars flagged off-market, stalled reconditioning, sold deals awaiting delivery — use for 'what should I focus on / what needs attention'). Prefer this over guessing. Use 'overview' for a general 'how are we doing'.",
-    input_schema: { type: 'object', properties: { topic: { type: 'string', enum: ['overview', 'sales', 'commissions', 'reps', 'leads', 'inventory', 'recon', 'tasks', 'appraisals', 'trends', 'priorities'], description: 'Which slice of the dealership to report on.' } }, required: ['topic'] },
+    description: "Pull THIS dealership's own live operating data. Use for anything about the store's own numbers or people: sales & units this month, gross, F&I, commissions, which salesperson is ahead or needs coaching, lead volume/sources/conversion, unworked leads, aging inventory, reconditioning/cleanup status, overdue tasks, today's appointments, who to call today, and recent trade appraisals. Power topics: 'trends' compares this period to the prior one (sales this month vs last, leads last 30d vs the 30 before, which lead sources rose or fell — use for 'are we up or down / why did leads drop'); 'priorities' returns a ranked what-to-do-today list; 'pricing' returns per-unit price/aging actions — which specific cars to discount, wholesale, or send to auction (days-on-lot, off-market flags, missing prices — use for 'which cars should I discount/wholesale today'); 'equity' returns the who-to-call upgrade list — delivered customers now in a positive-equity or lease-maturing position, ranked by equity (use for 'who can I put in a new car / who to call for an upgrade / lease pull-ahead'). Prefer this over guessing. Use 'overview' for a general 'how are we doing'.",
+    input_schema: { type: 'object', properties: { topic: { type: 'string', enum: ['overview', 'sales', 'commissions', 'reps', 'leads', 'inventory', 'recon', 'tasks', 'appraisals', 'trends', 'priorities', 'pricing', 'equity'], description: 'Which slice of the dealership to report on.' } }, required: ['topic'] },
   },
 ]
 
@@ -98,7 +99,7 @@ const ASSISTANT_TOOLS = [
 // / who do I call today" from real numbers. Queried on demand (a tool) so it never
 // bloats an ordinary chat turn. Everything is scoped to the dealership; bounded with
 // limits so it stays fast and cheap.
-const REPORT_TOPICS = ['overview', 'sales', 'commissions', 'reps', 'leads', 'inventory', 'recon', 'tasks', 'appraisals', 'trends', 'priorities']
+const REPORT_TOPICS = ['overview', 'sales', 'commissions', 'reps', 'leads', 'inventory', 'recon', 'tasks', 'appraisals', 'trends', 'priorities', 'pricing', 'equity']
 async function buildDealershipReport(dealershipId, topicRaw, { isMgr = true } = {}) {
   let topic = REPORT_TOPICS.includes(topicRaw) ? topicRaw : 'overview'
   // Reps can't pull the finance/per-rep views — steer them to leads for those asks.
@@ -115,7 +116,7 @@ async function buildDealershipReport(dealershipId, topicRaw, { isMgr = true } = 
   const sum = (arr, f) => arr.reduce((s, x) => s + (Number(f(x)) || 0), 0)
 
   // Roster for name resolution (used by several sections).
-  const needRoster = ['overview', 'sales', 'commissions', 'reps', 'leads'].includes(topic)
+  const needRoster = ['overview', 'sales', 'commissions', 'reps', 'leads', 'equity'].includes(topic)
   let staff = []
   if (needRoster) {
     const r = await supabaseAdmin.from('profiles').select('id, full_name, display_name, role, active').eq('dealership_id', dealershipId)
@@ -310,6 +311,62 @@ async function buildDealershipReport(dealershipId, topicRaw, { isMgr = true } = 
     }
     const rank = { high: 0, medium: 1, low: 2 }
     out.priorities = actions.length ? actions.sort((a, b) => rank[a.priority] - rank[b.priority]) : [{ priority: 'low', area: 'all', action: 'Nothing urgent — lot, leads, recon and tasks are current.' }]
+  }
+
+  // Pricing: per-unit "what to do with this car" — discount / wholesale / auction /
+  // fix listing — from days-on-lot, recent off-market price flags, and missing prices.
+  if (topic === 'pricing') {
+    const { data: inv } = await supabaseAdmin.from('inventory')
+      .select('id, year, make, model, trim, price, created_at, lot_date, status').eq('dealership_id', dealershipId).eq('status', 'available').limit(2000)
+    const list = inv || []
+    const age = v => { const ref = v.lot_date || v.created_at; return ref ? Math.floor((now - new Date(ref)) / 86400000) : 0 }
+    // Recent off-market price flags (from the pricing engine's activity log), keyed by unit.
+    const { data: acts } = await supabaseAdmin.from('ai_activity')
+      .select('inventory_id, price_flagged, created_at').eq('dealership_id', dealershipId).eq('price_flagged', true).order('created_at', { ascending: false }).limit(500)
+    const flaggedIds = new Set((acts || []).filter(a => a.inventory_id && (now - new Date(a.created_at)) < 14 * 86400000).map(a => a.inventory_id))
+    const label = v => [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')
+    const rec = v => {
+      const a = age(v)
+      if (!v.price || Number(v.price) === 0) return { action: 'add a price', why: 'no price set — invisible to shoppers filtering by price', priority: 'high' }
+      if (a >= 90) return { action: 'wholesale / auction', why: `${a} days on lot — carrying cost is eating the gross`, priority: 'high' }
+      if (flaggedIds.has(v.id)) return { action: 'reprice to market', why: 'flagged as priced above the live market', priority: 'high' }
+      if (a >= 60) return { action: 'price drop', why: `${a} days on lot — a reduction now beats a bigger cut later`, priority: 'medium' }
+      if (a >= 45) return { action: 'watch / refresh', why: `${a} days — refresh photos/copy and consider a small drop`, priority: 'low' }
+      return null
+    }
+    const scored = list.map(v => ({ v, a: age(v), r: rec(v) })).filter(x => x.r)
+    const pr = { high: 0, medium: 1, low: 2 }
+    scored.sort((a, b) => pr[a.r.priority] - pr[b.r.priority] || b.a - a.a)
+    out.pricing = {
+      available: list.length,
+      action_count: scored.length,
+      wholesale_candidates: scored.filter(x => x.r.action.startsWith('wholesale')).length,
+      discount_candidates: scored.filter(x => x.r.action === 'price drop' || x.r.action === 'reprice to market').length,
+      units: scored.slice(0, 20).map(x => ({ vehicle: label(x.v), days_on_lot: x.a, price: money(x.v.price), action: x.r.action, why: x.r.why, priority: x.r.priority })),
+    }
+    if (!scored.length) out.pricing.note = 'No pricing action needed right now — nothing aged or flagged off-market.'
+  }
+
+  // Equity: the "who to call" upgrade list — delivered customers in a positive-equity
+  // or lease-maturing position, ranked by equity (reuses the Equity Radar engine).
+  if (topic === 'equity') {
+    if (!isMgr) return JSON.stringify({ restricted: true, message: 'The equity / upgrade radar is a manager view. Ask your manager, or ask me about your own leads and tasks.' })
+    try {
+      const { items } = await buildEquityRadar(dealershipId)
+      out.equity = {
+        opportunities: items.length,
+        high_equity: items.filter(i => /high equity/i.test(i.tier || '')).length,
+        lease_maturing: items.filter(i => i.months_remaining != null && i.months_remaining <= 6).length,
+        who_to_call: items.slice(0, 15).map(i => ({
+          who: i.name, phone: i.reachable ? (i.phone || null) : null, reachable: i.reachable,
+          current_vehicle: i.vehicle, equity: money(i.equity), tier: i.tier,
+          months_remaining: i.months_remaining ?? null, rep: i.assigned_rep ? nm(i.assigned_rep) : 'Unassigned',
+        })),
+      }
+      if (!items.length) out.equity.note = 'No equity opportunities yet — add lease/finance details on delivered customers to populate the radar.'
+    } catch (e) {
+      out.equity = { error: 'Could not compute the equity radar right now.' }
+    }
   }
 
   return JSON.stringify(out).slice(0, 4500)

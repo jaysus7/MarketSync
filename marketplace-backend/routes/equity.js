@@ -177,6 +177,34 @@ async function loadLeasedRows(dealershipId, onlyLeased) {
   return list.map(o => ({ o, c: cById[o.customer_id] || null, v: vById[o.vehicle_id] || null }))
 }
 
+// Shared radar builder — the tiered opportunity list of delivered customers who are
+// in a positive-equity or lease-maturing position. Reused by the /equity/radar route
+// and by the AI brain's `equity` "who to call" report.
+export async function buildEquityRadar(dealershipId) {
+  const { data: d } = await supabaseAdmin.from('dealerships').select('automation_settings, province, country').eq('id', dealershipId).maybeSingle()
+  const s = equitySettings(d)
+  const rows = await loadLeasedRows(dealershipId, false)
+  const items = []
+  for (const { o, c, v } of rows) {
+    if (!c) continue
+    if (!hasDealData(o)) continue
+    if (OPEN_DEAL.has(String(c.status || '').toLowerCase())) continue
+    const calc = computeDeal(o, s)
+    if (!(calc.wholesaleEst > 0)) continue
+    if (!inRadar(calc, s)) continue
+    items.push({
+      id: o.id, customer_id: o.customer_id, name: c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Unknown',
+      phone: c.phone || null, assigned_rep: c.assigned_rep || null, reachable: !c.opt_out && !c.dnc,
+      vehicle: v ? [v.year, v.make, v.model].filter(Boolean).join(' ') : '—', vin: v?.vin || null,
+      deal_type: calc.deal_type,
+      months_remaining: calc.monthsRemaining, est_mileage: calc.estMileage, wholesale: calc.wholesaleEst, payoff: calc.payoffEst,
+      equity: calc.equity, tier: calc.tier,
+    })
+  }
+  items.sort((a, b) => b.equity - a.equity || (a.months_remaining ?? 99) - (b.months_remaining ?? 99))
+  return { items, settings: s }
+}
+
 export function registerEquity(app) {
   const cronOk = (req) => (req.headers['x-cron-secret'] || '').trim() === (process.env.CRON_SECRET || '').trim() && !!process.env.CRON_SECRET
 
@@ -341,28 +369,8 @@ export function registerEquity(app) {
   // ── Equity radar (the tiered opportunity list) ──────────────────────────────
   app.get('/equity/radar', requireAuth, async (req, res) => {
     if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
-    const { data: d } = await supabaseAdmin.from('dealerships').select('automation_settings, province, country').eq('id', req.dealershipId).maybeSingle()
-    const s = equitySettings(d)
-    const rows = await loadLeasedRows(req.dealershipId, false)
-    const items = []
-    for (const { o, c, v } of rows) {
-      if (!c) continue
-      if (!hasDealData(o)) continue                                        // nothing entered yet
-      if (OPEN_DEAL.has(String(c.status || '').toLowerCase())) continue   // kill switch: skip live deals
-      const calc = computeDeal(o, s)
-      if (!(calc.wholesaleEst > 0)) continue                              // no value basis to estimate from
-      if (!inRadar(calc, s)) continue
-      items.push({
-        id: o.id, customer_id: o.customer_id, name: c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Unknown',
-        phone: c.phone || null, assigned_rep: c.assigned_rep || null, reachable: !c.opt_out && !c.dnc,
-        vehicle: v ? [v.year, v.make, v.model].filter(Boolean).join(' ') : '—', vin: v?.vin || null,
-        deal_type: calc.deal_type,
-        months_remaining: calc.monthsRemaining, est_mileage: calc.estMileage, wholesale: calc.wholesaleEst, payoff: calc.payoffEst,
-        equity: calc.equity, tier: calc.tier,
-      })
-    }
-    items.sort((a, b) => b.equity - a.equity || (a.months_remaining ?? 99) - (b.months_remaining ?? 99))
-    res.json({ radar: items, settings: s })
+    const { items, settings } = await buildEquityRadar(req.dealershipId)
+    res.json({ radar: items, settings })
   })
 
   // ── Start a pull-ahead (compliant enqueue + high-priority task) ─────────────
