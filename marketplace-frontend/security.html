@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6366F1">
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/favicon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <script>
+      function checkSystemTheme(){ if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); }
+      checkSystemTheme();
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', checkSystemTheme);
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .sync-color { color: #6366F1; }
+        .gradient-text { background: linear-gradient(135deg, #A78BFA 0%, #6366F1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        html { font-size: 17px; scroll-behavior: smooth; scroll-padding-top: 96px; }
+        @media (max-width:640px){ html { font-size: 16px; } }
+    </style>
+    <title>Security &amp; Data Protection — MarketSync</title>
+    <meta name="description" content="How MarketSync protects your dealership's data: AES-256 field-level encryption for sensitive PII, TLS in transit, per-dealership isolation, role-based access, audited access to sensitive records, signed integrations, and Stripe-handled payments.">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://marketsync.link/security.html">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Security &amp; Data Protection — MarketSync">
+    <meta property="og:description" content="Encryption, isolation, access control and auditing — how MarketSync keeps dealership and customer data safe.">
+    <meta property="og:url" content="https://marketsync.link/security.html">
+</head>
+<body class="bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-gray-200 antialiased">
+
+    <div class="w-full bg-indigo-600/10 border-b border-indigo-500/20 py-2 text-center text-sm font-medium text-indigo-600 dark:text-indigo-400">30-day free trial · No credit card required</div>
+    <header class="sticky top-0 z-40 bg-slate-50/80 dark:bg-[#0B0F19]/80 backdrop-blur-md border-b border-slate-200/60 dark:border-gray-800/60">
+      <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <a href="/" class="flex items-center space-x-3"><span class="text-3xl font-normal text-slate-900 dark:text-white">|</span><span class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Market<span class="sync-color">Sync</span></span></a>
+        <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-600 dark:text-gray-400" aria-label="Primary">
+            <a href="https://marketsync.link/#what-is-it" class="hover:text-indigo-600 dark:hover:text-white transition">What is it?</a>
+            <a href="https://marketsync.link/workflow.html" class="hover:text-indigo-600 dark:hover:text-white transition">Workflow</a>
+            <a href="https://marketsync.link/features.html" class="hover:text-indigo-600 dark:hover:text-white transition">Features</a>
+            <a href="https://marketsync.link/compare.html" class="hover:text-indigo-600 dark:hover:text-white transition">Compare</a>
+            <a href="https://marketsync.link/#pricing" class="hover:text-indigo-600 dark:hover:text-white transition">Pricing</a>
+            <a href="https://marketsync.link/faq.html" class="hover:text-indigo-600 dark:hover:text-white transition">FAQ</a>
+        </nav>
+        <div class="flex items-center space-x-3">
+            <a href="https://marketsync.link/login.html" class="hidden sm:inline-flex text-sm font-semibold text-slate-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-white px-3 py-2 transition">Log in</a>
+            <a href="https://marketsync.link/register.html" class="hidden sm:inline-flex bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">Sign up free</a>
+            <button id="ms-menu-btn" type="button" class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-gray-800 text-slate-700 dark:text-gray-300" aria-label="Open menu" aria-expanded="false" aria-controls="ms-mobile-menu" onclick="msToggleMenu()"><i class="fa-solid fa-bars text-lg" id="ms-menu-icon"></i></button>
+        </div>
+      </div>
+      <nav id="ms-mobile-menu" class="md:hidden hidden border-t border-slate-200/60 dark:border-gray-800/60 bg-slate-50 dark:bg-[#0B0F19] px-6 py-4 space-y-1 text-sm font-medium text-slate-600 dark:text-gray-400" aria-label="Mobile">
+        <a href="https://marketsync.link/workflow.html" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition">Workflow</a>
+        <a href="https://marketsync.link/features.html" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition">Features</a>
+        <a href="https://marketsync.link/compare.html" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition">Compare</a>
+        <a href="https://marketsync.link/#pricing" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition">Pricing</a>
+        <a href="https://marketsync.link/faq.html" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition">FAQ</a>
+      </nav>
+    </header>
+
+    <main>
+    <!-- Hero -->
+    <section class="max-w-4xl mx-auto px-6 pt-16 pb-8 text-center">
+        <p class="text-sm font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-4"><i class="fa-solid fa-shield-halved mr-2"></i>Security &amp; Data Protection</p>
+        <h1 class="text-4xl sm:text-5xl font-black tracking-tight leading-[1.1] mb-5 text-slate-900 dark:text-white">Your dealership's data, <span class="gradient-text">locked down</span>.</h1>
+        <p class="text-lg text-slate-600 dark:text-gray-400 max-w-2xl mx-auto">Deals, credit applications, customer records and trade files are some of the most sensitive data a dealership holds. Here's exactly how MarketSync protects it — in plain language.</p>
+    </section>
+
+    <!-- Pillars -->
+    <section class="max-w-6xl mx-auto px-6 py-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+            <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-lg mb-3"><i class="fa-solid fa-lock"></i></div>
+            <h3 class="font-bold text-slate-900 dark:text-white mb-1">Encrypted in transit</h3>
+            <p class="text-sm text-slate-600 dark:text-gray-400">Every request between your browser, our app and the database runs over TLS (HTTPS). Nothing moves in the clear.</p>
+        </div>
+        <div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+            <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-lg mb-3"><i class="fa-solid fa-key"></i></div>
+            <h3 class="font-bold text-slate-900 dark:text-white mb-1">Field-level encryption</h3>
+            <p class="text-sm text-slate-600 dark:text-gray-400">The most sensitive fields — SIN/SSN and date of birth on credit apps, plus any vendor credentials — are encrypted with <strong>AES-256-GCM</strong> before they're stored, on top of the database's own at-rest encryption.</p>
+        </div>
+        <div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+            <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-lg mb-3"><i class="fa-solid fa-building-lock"></i></div>
+            <h3 class="font-bold text-slate-900 dark:text-white mb-1">Per-dealership isolation</h3>
+            <p class="text-sm text-slate-600 dark:text-gray-400">Every record is scoped to your store. One dealership can never see another's inventory, customers, deals or numbers.</p>
+        </div>
+        <div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+            <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-lg mb-3"><i class="fa-solid fa-user-shield"></i></div>
+            <h3 class="font-bold text-slate-900 dark:text-white mb-1">Role-based access</h3>
+            <p class="text-sm text-slate-600 dark:text-gray-400">Owners, managers and salespeople see only what their role allows. Gross, commissions and store-wide numbers stay with management.</p>
+        </div>
+        <div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+            <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-lg mb-3"><i class="fa-solid fa-clipboard-list"></i></div>
+            <h3 class="font-bold text-slate-900 dark:text-white mb-1">Audited sensitive access</h3>
+            <p class="text-sm text-slate-600 dark:text-gray-400">Whenever an encrypted SIN or DOB is revealed, we log who did it and when — so there's an accountability trail on the data that matters most.</p>
+        </div>
+        <div class="bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800 rounded-2xl p-6">
+            <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-lg mb-3"><i class="fa-solid fa-credit-card"></i></div>
+            <h3 class="font-bold text-slate-900 dark:text-white mb-1">Payments handled by Stripe</h3>
+            <p class="text-sm text-slate-600 dark:text-gray-400">Card details go straight to Stripe (PCI-DSS Level 1). MarketSync never sees or stores a card number.</p>
+        </div>
+    </section>
+
+    <!-- Deep dive -->
+    <section class="max-w-3xl mx-auto px-6 py-12 space-y-10">
+        <div>
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white mb-3">Sensitive personal information</h2>
+            <p class="text-slate-600 dark:text-gray-300 leading-relaxed">Credit applications require the most sensitive data a customer will ever hand you. On MarketSync, the SIN/SSN and date of birth are encrypted with AES-256-GCM using a dedicated encryption key that is <strong>separate</strong> from the database, so a database copy alone can't reveal them. The system <strong>fails closed</strong>: if the encryption key isn't present, MarketSync refuses to store the data rather than save it unprotected. In the interface these fields are masked, and revealing one is explicitly logged.</p>
+        </div>
+        <div>
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white mb-3">Consent, captured</h2>
+            <p class="text-slate-600 dark:text-gray-300 leading-relaxed">A credit application can't move to a lender without the customer's authorization on record. MarketSync timestamps that consent so there's a clear record before any credit is pulled.</p>
+        </div>
+        <div>
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white mb-3">Integrations you control</h2>
+            <p class="text-slate-600 dark:text-gray-300 leading-relaxed">When you connect a tool — QuickBooks, Xero, Twilio, a webhook — you authorize it, and you can disconnect it any time. Access tokens are stored encrypted. Outbound webhooks are signed with an HMAC-SHA256 signature so the receiving system can verify the message genuinely came from MarketSync and wasn't tampered with. You choose which events flow out.</p>
+        </div>
+        <div>
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white mb-3">Infrastructure &amp; availability</h2>
+            <p class="text-slate-600 dark:text-gray-300 leading-relaxed">MarketSync runs on managed cloud infrastructure with encryption at rest on the database and regular automated backups. Application servers and the database are operated by established providers with their own physical and network security controls.</p>
+        </div>
+        <div>
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white mb-3">Privacy &amp; compliance</h2>
+            <p class="text-slate-600 dark:text-gray-300 leading-relaxed">We build to align with Canadian privacy law (PIPEDA) and applicable provincial regulations, and we're actively hardening our controls toward formal SOC 2 readiness. We're happy to walk security-conscious dealer groups through our current posture — just reach out.</p>
+        </div>
+    </section>
+
+    <!-- Responsible disclosure -->
+    <section class="max-w-3xl mx-auto px-6 pb-16">
+        <div class="rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/60 dark:bg-indigo-950/30 p-6 sm:p-8">
+            <h2 class="text-xl font-black text-slate-900 dark:text-white mb-2"><i class="fa-solid fa-bug-slash mr-2 text-indigo-600 dark:text-indigo-400"></i>Report a security issue</h2>
+            <p class="text-slate-600 dark:text-gray-300 leading-relaxed mb-4">Found something that looks off? We want to hear about it. Email our team and we'll respond quickly. Please give us a reasonable window to investigate and fix before any public disclosure.</p>
+            <a href="mailto:security@marketsync.link" class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition">security@marketsync.link <i class="fa-solid fa-arrow-right text-xs"></i></a>
+        </div>
+    </section>
+    </main>
+
+    <footer class="max-w-7xl mx-auto px-6 py-12 mt-12 border-t border-slate-200 dark:border-gray-900 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-slate-500">
+        <div><p>© 2026 MarketSync Technologies Inc. All rights reserved.</p></div>
+        <div class="flex flex-wrap items-center justify-center gap-6 font-medium text-slate-600 dark:text-gray-400">
+            <a href="https://marketsync.link/features.html" class="hover:text-slate-900 dark:hover:text-white transition">Features</a>
+            <a href="https://marketsync.link/compare.html" class="hover:text-slate-900 dark:hover:text-white transition">Compare</a>
+            <a href="https://marketsync.link/upgrade.html" class="hover:text-slate-900 dark:hover:text-white transition">Pricing</a>
+            <a href="https://marketsync.link/faq.html" class="hover:text-slate-900 dark:hover:text-white transition">FAQ</a>
+            <a href="https://marketsync.link/security.html" class="text-indigo-600 dark:text-white transition">Security</a>
+            <a href="https://marketsync.link/support.html" class="hover:text-slate-900 dark:hover:text-white transition">Support</a>
+        </div>
+    </footer>
+    <script>
+        function msToggleMenu(){ const m=document.getElementById('ms-mobile-menu'),b=document.getElementById('ms-menu-btn'),i=document.getElementById('ms-menu-icon'); const o=!m.classList.contains('hidden'); m.classList.toggle('hidden'); b.setAttribute('aria-expanded',String(!o)); i.className=o?'fa-solid fa-bars text-lg':'fa-solid fa-xmark text-lg'; }
+    </script>
+</body>
+</html>
