@@ -94,9 +94,11 @@ These are done in code + DB but need one-time ops before they run in production:
 The provider abstractions + encrypted credential storage are built; these flip on once
 certified. All run in **manual/export mode** today.
 
-- [ ] **Integrations Settings UI** — a Settings card to enter/stage the Carfax /
-      RouteOne / Dealertrack credentials (the `/integrations` API + encrypted store
-      exist; there's no form yet). Do this when you start certifying with one.
+- [x] **Integrations Settings UI** — Carfax / RouteOne / Dealertrack now render a
+      credentials form in the Integrations Hub ("Manual mode" pill). The dealer stages
+      credentials now (secret fields encrypted into `credentials_enc`, non-secret into
+      `lender_code_map`); they flip to a native pull once certified with no re-entry.
+      Done 2026-07-18 (`fniCredsCard` / `saveFniCreds`; catalog `manual` + `fields`).
 - [ ] **Carfax** live native pull (VHR / lien / valuation) — replace the manual
       deep-link + attach with a real `CarfaxCanadaProvider` (`providers/history.js`).
 - [ ] **RouteOne** live credit submit + decision polling — real provider behind

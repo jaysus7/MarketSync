@@ -5497,7 +5497,7 @@ const CATEGORY_BLURB = {
   Automation: 'Push MarketSync events anywhere — Zapier, Make, or your own app.',
   Messaging: 'Send texts from your own number.',
   Accounting: 'Sync sold-deal and F&I income to your books.',
-  'F&I': 'Credit and vehicle-history rails (enabled once certified).',
+  'F&I': 'Credit and vehicle-history rails — stage your credentials now; live pull activates once certified.',
   Marketing: 'Reviews, listings, and your online presence.',
   Other: '',
 };
@@ -5525,7 +5525,7 @@ function renderIntegrations(data) {
         <h3 class="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">${esc(cat)}</h3>
         ${CATEGORY_BLURB[cat] ? `<p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">${esc(CATEGORY_BLURB[cat])}</p>` : ''}
       </div>
-      <div class="space-y-3">${byCat[cat].slice().sort((a, b) => rank(a) - rank(b)).map(p => p.provider === 'webhook' ? webhookCard(p, events) : p.provider === 'twilio' ? twilioCard(p) : (p.oauth && p.live) ? oauthCard(p) : providerCard(p)).join('')}</div>
+      <div class="space-y-3">${byCat[cat].slice().sort((a, b) => rank(a) - rank(b)).map(p => p.provider === 'webhook' ? webhookCard(p, events) : p.provider === 'twilio' ? twilioCard(p) : (p.oauth && p.live) ? oauthCard(p) : (p.manual && Array.isArray(p.fields)) ? fniCredsCard(p) : providerCard(p)).join('')}</div>
     </div>`).join('');
   if (!data.pii_ready) {
     host.insertAdjacentHTML('afterbegin', `<div class="mb-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300">Encryption key not set — signing secrets and credentials can't be stored until <code>PII_ENCRYPTION_KEY</code> is configured on the server.</div>`);
@@ -5538,9 +5538,10 @@ function isIntegrationConnected(p) {
   return !!(p.configured || m.url || m.from || m.realm_id || m.tenant_id || m.connected_at);
 }
 function statusPill(p) {
-  if (!p.live) return '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">Coming soon</span>';
   if (isIntegrationConnected(p)) return '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Connected</span>';
-  return '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">Available</span>';
+  if (p.live) return '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">Available</span>';
+  if (p.manual) return '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">Manual mode</span>';
+  return '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">Coming soon</span>';
 }
 function providerCard(p) {
   return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 flex items-start gap-3 opacity-75">
@@ -5551,6 +5552,74 @@ function providerCard(p) {
     </div>
   </div>`;
 }
+// Manual-mode credential card for the gated F&I rails (Carfax / RouteOne /
+// Dealertrack). The dealer stages credentials now — stored encrypted, used in
+// manual/export mode today, flipping to a native pull once we're DSP-certified.
+// Secret fields never come back from the server (we only learn `configured`).
+function fniCredsCard(p) {
+  const cfg = p.lender_code_map || {};
+  const fields = (p.fields || []).map(f => {
+    const id = `fni-${p.provider}-${f.key}`;
+    if (f.secret) {
+      const ph = p.configured ? '•••••••• (saved — leave blank to keep)' : (f.placeholder || '');
+      return `<div>
+        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">${esc(f.label)}</label>
+        <input id="${id}" data-secret="1" type="password" autocomplete="off" placeholder="${esc(ph)}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+      </div>`;
+    }
+    return `<div>
+      <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">${esc(f.label)}</label>
+      <input id="${id}" data-secret="0" type="text" autocomplete="off" value="${esc(cfg[f.key] || '')}" placeholder="${esc(f.placeholder || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+    </div>`;
+  }).join('');
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4" data-fni="${esc(p.provider)}">
+    <div class="flex items-start gap-3 mb-3">
+      ${integrationIcon(p.provider)}
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm text-slate-900 dark:text-white">${esc(p.label)}</span>${statusPill(p)}</div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${esc(p.description)}</p>
+        ${isIntegrationConnected(p) && cfg.connected_at ? `<p class="text-[11px] text-slate-400 mt-1">Credentials stored ${new Date(cfg.connected_at).toLocaleDateString()}.</p>` : ''}
+      </div>
+      <label class="inline-flex items-center cursor-pointer flex-shrink-0">
+        <input id="fni-${esc(p.provider)}-enabled" type="checkbox" class="sr-only peer" ${p.enabled ? 'checked' : ''}>
+        <div class="relative w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-checked:bg-emerald-500 rounded-full transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition peer-checked:after:translate-x-4"></div>
+      </label>
+    </div>
+    <div class="space-y-2.5">
+      ${fields}
+      <div class="flex items-center gap-2 pt-1">
+        <button onclick="saveFniCreds('${esc(p.provider)}', this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Save</button>
+        ${p.configured || p.enabled ? `<button onclick="disconnectOAuth('${esc(p.provider)}', '${esc(p.label)}', this)" class="ml-auto text-xs text-rose-500 hover:text-rose-400 font-semibold">Disconnect</button>` : ''}
+      </div>
+      <p class="text-[11px] text-amber-600 dark:text-amber-400/90">Stored securely (encrypted). Used in manual/export mode today — MarketSync flips this to a native in-deal pull the moment we're certified with ${esc(p.label)}, with no re-entry needed.</p>
+    </div>
+  </div>`;
+}
+async function saveFniCreds(provider, btn) {
+  const card = btn.closest('[data-fni]'); if (!card) return;
+  const enabled = !!card.querySelector(`#fni-${provider}-enabled`)?.checked;
+  const lender_code_map = {}; const credentials = {};
+  card.querySelectorAll('input[data-secret]').forEach(el => {
+    const key = el.id.replace(`fni-${provider}-`, '');
+    const val = (el.value || '').trim();
+    if (el.dataset.secret === '1') { if (val) credentials[key] = val; }
+    else lender_code_map[key] = val;
+  });
+  // Keep the connected date once creds exist so the card can show it.
+  const already = (__integrationsCache?.providers || []).find(x => x.provider === provider);
+  const hasSecret = already?.configured || Object.keys(credentials).length;
+  if (enabled && !hasSecret) return showToast('Enter your credentials before enabling.', 'error');
+  if (hasSecret && !lender_code_map.connected_at) lender_code_map.connected_at = (already?.lender_code_map?.connected_at) || new Date().toISOString();
+  const payload = { enabled, lender_code_map };
+  if (Object.keys(credentials).length) payload.credentials = credentials;
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await apiSendJson(`/integrations/${provider}`, 'PUT', payload);
+    btn.textContent = 'Saved ✓'; showToast('Credentials saved', 'success');
+    setTimeout(() => loadIntegrations(), 700);
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
+}
+window.saveFniCreds = saveFniCreds;
 function webhookCard(p, events) {
   const cfg = p.lender_code_map || {};
   const url = cfg.url || '';

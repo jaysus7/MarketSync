@@ -17,11 +17,31 @@ import { OAUTH_PROVIDERS, oauthConfigured, oauthAuthorizeUrl, oauthExchangeCode,
  * `live: false` are the gated F&I / history rails whose credential store + provider
  * abstraction exist but that flip on only once we're DSP-certified with the partner.
  */
+// `manual: true` + `fields` describe a credential form the dealer can fill in now:
+// creds are stored encrypted and used in manual/export mode today (deep-link + upload),
+// then flip to a native pull the moment we're DSP-certified with that partner — no
+// re-entry needed. Each field: { key, label, placeholder, secret }. Secret fields are
+// encrypted into credentials_enc; non-secret ones are kept in lender_code_map (so the
+// UI can show "connected as dealer #123" without ever exposing the secret).
 const CATALOG = {
   webhook:         { category: 'Automation',  label: 'Webhooks / Zapier',    live: true,  desc: 'Send MarketSync events (new lead, deal sold, delivered) to any URL — Zapier, Make, a spreadsheet, your own app.' },
-  carfax:          { category: 'F&I',         label: 'CARFAX Canada',        live: false, desc: 'Vehicle history reports, liens and valuations pulled natively into the deal.' },
-  routeone:        { category: 'F&I',         label: 'RouteOne',             live: false, desc: 'Submit credit applications to lenders and pull decisions.' },
-  dealertrack:     { category: 'F&I',         label: 'Dealertrack',          live: false, desc: 'Dealertrack DealTransfer credit submission.' },
+  carfax:          { category: 'F&I',         label: 'CARFAX Canada',        live: false, manual: true, desc: 'Vehicle history reports, liens and valuations. Stage your credentials now; native in-deal pull activates once certified.',
+    fields: [
+      { key: 'account_number', label: 'Account / Dealer #', placeholder: 'e.g. 100xxxxx', secret: false },
+      { key: 'api_key',        label: 'API key / password', placeholder: 'Your CARFAX API key', secret: true },
+    ] },
+  routeone:        { category: 'F&I',         label: 'RouteOne',             live: false, manual: true, desc: 'Submit credit applications to lenders and pull decisions. Stage your credentials now; live submit activates once certified.',
+    fields: [
+      { key: 'dealer_id', label: 'RouteOne Dealer ID', placeholder: 'e.g. RO-123456', secret: false },
+      { key: 'username',  label: 'Username',            placeholder: 'RouteOne username', secret: false },
+      { key: 'password',  label: 'Password',            placeholder: 'RouteOne password', secret: true },
+    ] },
+  dealertrack:     { category: 'F&I',         label: 'Dealertrack',          live: false, manual: true, desc: 'Dealertrack DealTransfer credit submission. Stage your credentials now; live submit activates once certified.',
+    fields: [
+      { key: 'dealer_id',  label: 'Dealertrack Dealer ID',  placeholder: 'e.g. 5-digit dealer #', secret: false },
+      { key: 'partner_id', label: 'Partner / Integration ID', placeholder: 'Assigned by Dealertrack', secret: false },
+      { key: 'password',   label: 'Password / API secret',  placeholder: 'Dealertrack secret', secret: true },
+    ] },
   quickbooks:      { category: 'Accounting',  label: 'QuickBooks Online',    live: false, oauth: true, desc: 'Connect your QuickBooks Online company to sync sold-deal and F&I income.' },
   xero:            { category: 'Accounting',  label: 'Xero',                 live: false, oauth: true, desc: 'Connect your Xero organisation to sync sold-deal and F&I income.' },
   google_business: { category: 'Marketing',   label: 'Google Business',      live: false, oauth: true, desc: 'Connect your Google Business Profile to post inventory and request reviews.' },
@@ -54,6 +74,8 @@ export function registerIntegrations(app) {
         description: meta.desc || '',
         live,
         oauth: !!meta.oauth,
+        manual: !!meta.manual,                        // connectable now via a credentials form (manual/export mode)
+        fields: Array.isArray(meta.fields) ? meta.fields : null,
         enabled: !!r?.enabled,
         status: r?.status || 'not_connected',
         configured: !!r?.credentials_enc,             // has a stored secret (never the secret itself)
