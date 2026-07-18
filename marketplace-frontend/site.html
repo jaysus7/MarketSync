@@ -1080,7 +1080,7 @@
       const bar=document.createElement('div'); bar.className='ms-secbar';
       bar.style.cssText='position:absolute;top:8px;right:8px;z-index:60;display:flex;gap:4px;background:rgba(15,23,42,.92);border-radius:9px;padding:4px;box-shadow:0 6px 16px rgba(0,0,0,.35)';
       const mk=(label,action,bg,fg)=>{ const b=document.createElement('button'); b.textContent=label; b.style.cssText=`width:28px;height:28px;border:0;border-radius:7px;background:${bg||'#fff'};color:${fg||'#0f172a'};font-weight:800;cursor:pointer;font-size:14px;line-height:1`; b.addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); post({type:'ms-preview-action',action,index:i}); }); return b; };
-      bar.appendChild(mk('↑','up')); bar.appendChild(mk('↓','down')); bar.appendChild(mk('✎','edit'));
+      bar.appendChild(mk('＋','add-below','#6366f1','#fff')); bar.appendChild(mk('↑','up')); bar.appendChild(mk('↓','down')); bar.appendChild(mk('✎','edit'));
       bar.appendChild(mk('✕','delete','#ef4444','#fff'));
       child.appendChild(bar);
     }

@@ -9302,6 +9302,8 @@ function livePreviewPush() {
   }, 140);
 }
 window.livePreviewPush = livePreviewPush;
+function cancelInsert() { __pendingInsertAt = null; const h = document.getElementById('ws-insert-hint'); if (h) h.classList.add('hidden'); }
+window.cancelInsert = cancelInsert;
 function wireLiveMessages() {
   if (__liveMsgWired) return; __liveMsgWired = true;
   const flashCard = (i) => {
@@ -9327,6 +9329,14 @@ function wireLiveMessages() {
       else if (m.action === 'down') moveSection(m.index, 1);
       else if (m.action === 'delete') delSection(m.index);
       else if (m.action === 'edit') flashCard(m.index);
+      else if (m.action === 'add-below') {
+        __pendingInsertAt = m.index + 1;
+        const hint = document.getElementById('ws-insert-hint');
+        if (hint) hint.classList.remove('hidden');
+        const pal = document.getElementById('ws-palette');
+        if (pal) { pal.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); pal.classList.add('ring-2', 'ring-indigo-400', 'rounded-lg'); setTimeout(() => pal.classList.remove('ring-2', 'ring-indigo-400', 'rounded-lg'), 2000); }
+        if (typeof showToast === 'function') showToast('Pick a section to insert here →', 'info');
+      }
     }
   });
 }
@@ -9354,8 +9364,9 @@ function renderLiveBuilder(body) {
         <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1" class="w-full h-full border-0" title="Live site preview"></iframe>
       </div>
       <div class="lg:sticky lg:top-4 self-start space-y-3" style="max-height:78vh;overflow:auto">
-        <div>
+        <div id="ws-palette">
           <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">+ Add section</div>
+          <div id="ws-insert-hint" class="hidden text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-md px-2 py-1 mb-1.5">Inserting at the chosen spot — pick a section. <button onclick="cancelInsert()" class="underline">cancel</button></div>
           <div class="grid grid-cols-2 gap-1.5">${palette}</div>
         </div>
         <div>
@@ -9503,7 +9514,19 @@ function setPageStyle(key, val, rerender) {
   }
 }
 window.setPageStyle = setPageStyle;
-function addSection(type) { __siteSections.push({ id: 's' + Date.now().toString(36), type, settings: {} }); renderWsSections(); }
+let __pendingInsertAt = null;   // live builder: insert the next-added section at this index (from an on-canvas "＋")
+function addSection(type) {
+  const sec = { id: 's' + Date.now().toString(36), type, settings: {} };
+  if (__pendingInsertAt != null && __pendingInsertAt >= 0 && __pendingInsertAt <= __siteSections.length) {
+    __siteSections.splice(__pendingInsertAt, 0, sec);
+    __pendingInsertAt = null;
+    const hint = document.getElementById('ws-insert-hint'); if (hint) hint.classList.add('hidden');
+    if (__builderMode === 'live' && typeof showToast === 'function') showToast('Section inserted', 'success');
+  } else {
+    __siteSections.push(sec);
+  }
+  renderWsSections();
+}
 function moveSection(i, dir) { const j = i + dir; if (j < 0 || j >= __siteSections.length) return; const [s] = __siteSections.splice(i, 1); __siteSections.splice(j, 0, s); renderWsSections(); }
 function dupSection(i) { __siteSections.splice(i + 1, 0, JSON.parse(JSON.stringify(__siteSections[i]))); renderWsSections(); }
 function delSection(i) { __siteSections.splice(i, 1); renderWsSections(); }
