@@ -85,9 +85,175 @@ const ASSISTANT_TOOLS = [
     description: 'Live market stats — active listing count, median price, and average days-on-market — for a make/model (optionally a year/trim). Use for "how is X selling / days on market / demand / is it hot or stale".',
     input_schema: { type: 'object', properties: { make: { type: 'string' }, model: { type: 'string' }, year: { type: 'number' }, trim: { type: 'string' } }, required: ['make', 'model'] },
   },
+  {
+    name: 'dealership_report',
+    description: "Pull THIS dealership's own live operating data. Use for anything about the store's own numbers or people: sales & units this month, gross, F&I, commissions, which salesperson is ahead or needs coaching, lead volume/sources/conversion, unworked leads, aging inventory, reconditioning/cleanup status, overdue tasks, today's appointments, who to call today, and recent trade appraisals. Prefer this over guessing. Choose the topic that best fits; use 'overview' for a general 'how are we doing' question.",
+    input_schema: { type: 'object', properties: { topic: { type: 'string', enum: ['overview', 'sales', 'commissions', 'reps', 'leads', 'inventory', 'recon', 'tasks', 'appraisals'], description: 'Which slice of the dealership to report on.' } }, required: ['topic'] },
+  },
 ]
 
-async function runAssistantTool(name, input, { dealershipId, isOwner, isUS }) {
+// ── The MarketSync "brain": live operating report from THIS store's own data ──
+// One place that joins sales, commissions, leads, inventory, reconditioning, tasks
+// and appraisals so the assistant can answer "how are we doing / who needs coaching
+// / who do I call today" from real numbers. Queried on demand (a tool) so it never
+// bloats an ordinary chat turn. Everything is scoped to the dealership; bounded with
+// limits so it stays fast and cheap.
+const REPORT_TOPICS = ['overview', 'sales', 'commissions', 'reps', 'leads', 'inventory', 'recon', 'tasks', 'appraisals']
+async function buildDealershipReport(dealershipId, topicRaw, { isMgr = true } = {}) {
+  let topic = REPORT_TOPICS.includes(topicRaw) ? topicRaw : 'overview'
+  // Reps can't pull the finance/per-rep views — steer them to leads for those asks.
+  const FINANCE_TOPICS = ['sales', 'commissions', 'reps']
+  if (!isMgr && FINANCE_TOPICS.includes(topic)) {
+    return JSON.stringify({ restricted: true, message: 'Sales, commission and per-rep figures are visible to managers only. Ask your manager, or ask me about leads, inventory, reconditioning or your tasks.' })
+  }
+  const now = Date.now()
+  const d = new Date()
+  const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).toISOString()
+  const d30 = new Date(now - 30 * 86400000).toISOString()
+  const todayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59).toISOString()
+  const money = n => Math.round(Number(n) || 0)
+  const sum = (arr, f) => arr.reduce((s, x) => s + (Number(f(x)) || 0), 0)
+
+  // Roster for name resolution (used by several sections).
+  const needRoster = ['overview', 'sales', 'commissions', 'reps', 'leads'].includes(topic)
+  let staff = []
+  if (needRoster) {
+    const r = await supabaseAdmin.from('profiles').select('id, full_name, display_name, role, active').eq('dealership_id', dealershipId)
+    staff = r.data || []
+  }
+  const nm = id => { const p = staff.find(x => x.id === id); return p ? (p.display_name || p.full_name || 'Rep') : 'Unassigned' }
+  const out = { topic, as_of: new Date().toISOString().slice(0, 10) }
+
+  // Sales / commissions / per-rep all derive from the same sold-deal pull.
+  // Managers only — a rep's 'overview' omits the financial block entirely.
+  if (isMgr && ['overview', 'sales', 'commissions', 'reps'].includes(topic)) {
+    const { data: deals } = await supabaseAdmin.from('deals')
+      .select('deal_status, selling_price, vehicle_commission, fni_commission, fni_products, created_by, sold_at, delivered_at, created_at')
+      .eq('dealership_id', dealershipId).in('deal_status', ['sold', 'delivered']).limit(1000)
+    const soldMTD = (deals || []).filter(x => (x.sold_at || x.created_at) >= monthStart)
+    out.sales = {
+      units_sold_mtd: soldMTD.length,
+      delivered_mtd: soldMTD.filter(x => x.deal_status === 'delivered').length,
+      revenue_mtd: money(sum(soldMTD, x => x.selling_price)),
+      vehicle_commission_mtd: money(sum(soldMTD, x => x.vehicle_commission)),
+      fni_commission_mtd: money(sum(soldMTD, x => x.fni_commission)),
+      fni_penetration_mtd: soldMTD.length ? Math.round(100 * soldMTD.filter(x => x.fni_products && String(x.fni_products).trim()).length / soldMTD.length) + '%' : 'n/a',
+    }
+    if (['overview', 'commissions', 'reps'].includes(topic)) {
+      const byRep = {}
+      for (const x of soldMTD) {
+        const k = x.created_by || 'unassigned'
+        byRep[k] = byRep[k] || { units: 0, rev: 0, veh: 0, fni: 0 }
+        byRep[k].units++; byRep[k].rev += Number(x.selling_price) || 0
+        byRep[k].veh += Number(x.vehicle_commission) || 0; byRep[k].fni += Number(x.fni_commission) || 0
+      }
+      out.by_rep_mtd = Object.entries(byRep).sort((a, b) => b[1].units - a[1].units).slice(0, 12)
+        .map(([id, s]) => ({ rep: id === 'unassigned' ? 'Unassigned' : nm(id), units: s.units, revenue: money(s.rev), commission: money(s.veh + s.fni), fni_commission: money(s.fni) }))
+    }
+  }
+
+  if (['overview', 'leads'].includes(topic)) {
+    const { data: leads } = await supabaseAdmin.from('leads')
+      .select('source, status, adf_sent_at, created_at, contact_id').eq('dealership_id', dealershipId).gte('created_at', d30).limit(2000)
+    const L = leads || []
+    const bySource = {}
+    for (const l of L) { const k = l.source || 'Unknown'; bySource[k] = (bySource[k] || 0) + 1 }
+    // Conversion: how many of these lead contacts are now sold/delivered.
+    const cids = [...new Set(L.map(l => l.contact_id).filter(Boolean))]
+    let soldFromLeads = 0
+    if (cids.length) {
+      const { data: cs } = await supabaseAdmin.from('contacts').select('id, status').in('id', cids)
+      const soldSet = new Set((cs || []).filter(c => ['sold', 'fni', 'delivered'].includes(c.status)).map(c => c.id))
+      soldFromLeads = soldSet.size
+    }
+    out.leads_30d = {
+      total: L.length,
+      waiting_on_delivery: L.filter(l => !l.adf_sent_at).length,
+      by_source: Object.entries(bySource).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([s, n]) => ({ source: s, count: n })),
+      converted_to_sold: soldFromLeads,
+      conversion_rate: L.length ? Math.round(100 * soldFromLeads / L.length) + '%' : 'n/a',
+    }
+    // Unworked leads: contacts still uncontacted with an open speed-to-lead task overdue.
+    const { data: unworked } = await supabaseAdmin.from('contacts')
+      .select('id, assigned_rep, status').eq('dealership_id', dealershipId).eq('status', 'uncontacted').gte('created_at', d30).limit(500)
+    out.leads_30d.uncontacted = (unworked || []).length
+    out.leads_30d.unassigned = (unworked || []).filter(c => !c.assigned_rep).length
+  }
+
+  if (['overview', 'inventory'].includes(topic)) {
+    const { data: inv } = await supabaseAdmin.from('inventory')
+      .select('year, make, model, price, image_urls, photo_score, created_at, lot_date').eq('dealership_id', dealershipId).eq('status', 'available').limit(2000)
+    const list = inv || []
+    const pc = v => Array.isArray(v.image_urls) ? v.image_urls.filter(Boolean).length : 0
+    const aged = list.filter(v => { const ref = v.lot_date || v.created_at; return ref && (now - new Date(ref)) > 60 * 86400000 })
+    out.inventory = {
+      available: list.length,
+      aged_60plus: aged.length,
+      aged_examples: aged.slice(0, 10).map(v => [v.year, v.make, v.model].filter(Boolean).join(' ')),
+      thin_photos: list.filter(v => pc(v) < 4 || (v.photo_score != null && v.photo_score < 50)).length,
+      missing_price: list.filter(v => !v.price || Number(v.price) === 0).length,
+    }
+  }
+
+  if (['overview', 'recon'].includes(topic)) {
+    const { data: recon } = await supabaseAdmin.from('recon')
+      .select('stage, stage_since, delivery_at, deal_id, inventory:inventory_id(year, make, model, status)').eq('dealership_id', dealershipId).limit(500)
+    const R = (recon || []).filter(r => r.inventory)
+    const byStage = {}
+    for (const r of R) { byStage[r.stage] = (byStage[r.stage] || 0) + 1 }
+    const stalled = R.filter(r => r.stage_since && (now - new Date(r.stage_since)) > 3 * 86400000)
+    const getReady = R.filter(r => r.deal_id || r.delivery_at)
+    out.reconditioning = {
+      in_recon: R.length,
+      by_stage: byStage,
+      stalled_3plus_days: stalled.length,
+      get_ready_for_delivery: getReady.length,
+      get_ready_examples: getReady.slice(0, 10).map(r => [r.inventory.year, r.inventory.make, r.inventory.model].filter(Boolean).join(' ')),
+    }
+  }
+
+  if (['overview', 'tasks'].includes(topic)) {
+    const nowIso = new Date().toISOString()
+    const { data: tasks } = await supabaseAdmin.from('crm_tasks')
+      .select('title, type, due_at, done, assigned_to, contact_id').eq('dealership_id', dealershipId).eq('done', false).lte('due_at', todayEnd).order('due_at', { ascending: true }).limit(200)
+    const T = tasks || []
+    const overdue = T.filter(t => t.due_at && t.due_at < nowIso)
+    out.tasks = {
+      open_due_today_or_earlier: T.length,
+      overdue: overdue.length,
+      appointments_today: T.filter(t => t.type === 'appointment').length,
+      // Who to call today — a short actionable list (contact names resolved).
+    }
+    const cids = [...new Set(T.slice(0, 40).map(t => t.contact_id).filter(Boolean))]
+    let cName = {}
+    if (cids.length) {
+      const { data: cs } = await supabaseAdmin.from('contacts').select('id, full_name').in('id', cids)
+      cName = Object.fromEntries((cs || []).map(c => [c.id, c.full_name || 'Customer']))
+    }
+    out.tasks.top = T.slice(0, 12).map(t => ({ who: t.contact_id ? (cName[t.contact_id] || 'Customer') : '—', task: t.title || t.type, due: t.due_at ? t.due_at.slice(0, 10) : null, overdue: !!(t.due_at && t.due_at < nowIso) }))
+  }
+
+  if (['overview', 'appraisals'].includes(topic)) {
+    const { data: appr } = await supabaseAdmin.from('trade_appraisals')
+      .select('make, model, year, suggested_offer, disposition, created_at').eq('dealership_id', dealershipId).gte('created_at', d30).order('created_at', { ascending: false }).limit(200)
+    const A = appr || []
+    out.appraisals_30d = {
+      count: A.length,
+      total_suggested_offers: money(sum(A, x => x.suggested_offer)),
+      wholesale: A.filter(x => x.disposition === 'wholesale').length,
+      recent: A.slice(0, 8).map(x => ({ vehicle: [x.year, x.make, x.model].filter(Boolean).join(' '), offer: money(x.suggested_offer) })),
+    }
+  }
+
+  return JSON.stringify(out).slice(0, 3500)
+}
+
+async function runAssistantTool(name, input, { dealershipId, isOwner, isUS, isMgr }) {
+  // The dealership report reads our OWN database — never gated by MarketCheck.
+  if (name === 'dealership_report') {
+    try { return await buildDealershipReport(dealershipId, input?.topic, { isMgr: !!isMgr }) }
+    catch (e) { console.warn('[assistant] dealership_report failed:', e.message); return 'Could not pull that report right now.' }
+  }
   if (!marketcheckEnabled()) return 'Live market data (MarketCheck) is not configured on this account.'
   if (!(await marketcheckAllowed(dealershipId, isOwner))) return 'The market-data lookup limit has been reached for now — try again later.'
   try {
@@ -4506,6 +4672,23 @@ Units 60d+ on lot: ${stale}`
       .order('created_at', { ascending: false }).limit(400)
     const priceFlags = (acts || []).filter(a => a.price_flagged && (now - new Date(a.created_at)) < 2 * 86400000).length
 
+    // Month-to-date sales pulse — so simple "how are we doing" questions are answered
+    // instantly; the dealership_report tool handles per-rep/commission/lead deep dives.
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+    const { data: soldDeals } = await supabaseAdmin.from('deals')
+      .select('deal_status, selling_price, sold_at, created_at')
+      .eq('dealership_id', req.dealershipId).in('deal_status', ['sold', 'delivered']).limit(1000)
+    const soldMTD = (soldDeals || []).filter(x => (x.sold_at || x.created_at) >= monthStart)
+    const revMTD = soldMTD.reduce((s, x) => s + (Number(x.selling_price) || 0), 0)
+    // Open, due-today-or-overdue tasks — the "what needs attention" pulse.
+    const nowIso = new Date().toISOString()
+    const { data: dueTasks } = await supabaseAdmin.from('crm_tasks')
+      .select('due_at').eq('dealership_id', req.dealershipId).eq('done', false).lte('due_at', nowIso).limit(500)
+    const overdueCount = (dueTasks || []).length
+    // Cars sitting in reconditioning / get-ready.
+    const { count: reconCount } = await supabaseAdmin.from('recon')
+      .select('id', { count: 'exact', head: true }).eq('dealership_id', req.dealershipId)
+
     const loc = [dealer?.city, dealer?.province, dealer?.country].filter(Boolean).join(', ')
     const facts = [
       `Dealership: ${dealer?.name || 'this dealership'}${loc ? ` (${loc})` : ''}.`,
@@ -4514,17 +4697,21 @@ Units 60d+ on lot: ${stale}`
       `Aging 60+ days: ${aged.length}${agedSample ? ` (e.g. ${agedSample})` : ''}.`,
       `Weak/thin photos: ${lowPhotos}. Missing price: ${noPrice}. Priced off market (last 2 days): ${priceFlags}.`,
       `Leads last 7 days: ${leads7}, of which ${leadsWaiting} still need follow-up.`,
+      `Sales month-to-date: ${soldMTD.length} sold${revMTD ? ` ($${Math.round(revMTD).toLocaleString()} revenue)` : ''}. Cars in reconditioning/get-ready: ${reconCount || 0}. Open tasks due/overdue: ${overdueCount}.`,
     ].join('\n')
 
-    const system = `You are MarketSync's in-dashboard assistant for a car dealership admin/GM. You do three things: (1) answer questions about how MarketSync works, what's included, and pricing, using the PRODUCT GUIDE; (2) answer questions about THIS store using the LIVE SNAPSHOT; and (3) pull live market data with your tools — decode a VIN, predict a fair price for a VIN, or get a market snapshot (listing count, median price, days-on-market) for a make/model. Use a tool only when it clearly helps answer the question, and never guess a VIN — ask for it. Keep answers short and practical — a couple of sentences or a tight list, no headings, no fluff. Never invent numbers beyond the snapshot or tool results, and when quoting product prices note they should confirm exact pricing on the upgrade/billing screen. Today: ${new Date().toISOString().slice(0, 10)}.\n\n${PRODUCT_KB}\n\nLIVE SNAPSHOT (this dealership, right now):\n${facts}`
+    const system = `You are MarketSync — the smartest person at this car dealership. You are a sharp GM/analyst who knows this store's whole operation: inventory, leads, sales, F&I, commissions, reconditioning, tasks and appointments. You do four things: (1) answer how MarketSync works, what's included, and pricing, from the PRODUCT GUIDE; (2) answer about THIS store from the LIVE SNAPSHOT; (3) for any deeper question about the store's own numbers or people — units/gross/commissions this month, who's ahead or needs coaching, lead volume/sources/conversion, unworked leads, reconditioning status, overdue tasks, who to call today, recent trades — call the dealership_report tool with the right topic and answer from real data (don't guess); (4) pull live MARKET data — decode a VIN, predict a price for a VIN, or a market snapshot for a make/model. Use a tool whenever it sharpens the answer; never guess a VIN — ask for it. Be direct and specific: lead with the number, then one crisp takeaway or recommended action. Keep it tight — a couple of sentences or a short list, no headings, no fluff. Never invent numbers beyond the snapshot or tool results; when quoting product prices, note they should confirm exact pricing on the billing screen. Today: ${new Date().toISOString().slice(0, 10)}.\n\n${PRODUCT_KB}\n\nLIVE SNAPSHOT (this dealership, right now):\n${facts}`
 
     const isUS = /^(us|usa|united states)$/i.test((dealer?.country || '').trim())
+    // Finance topics of the dealership report (revenue, per-rep commissions) are
+    // manager-only; a rep asking gets the non-financial slices.
+    const isMgrRole = isOwner || ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 
     try {
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
       const convo = messages.slice()
       const call = () => Promise.race([
-        anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 700, system, tools: ASSISTANT_TOOLS, messages: convo }),
+        anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 1000, system, tools: ASSISTANT_TOOLS, messages: convo }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 25000)),
       ])
       // Tool-use loop: run any tools the model asks for, feed the results back,
@@ -4535,7 +4722,7 @@ Units 60d+ on lot: ${stale}`
         const toolResults = []
         for (const block of response.content || []) {
           if (block.type === 'tool_use') {
-            const result = await runAssistantTool(block.name, block.input || {}, { dealershipId: req.dealershipId, isOwner, isUS })
+            const result = await runAssistantTool(block.name, block.input || {}, { dealershipId: req.dealershipId, isOwner, isUS, isMgr: isMgrRole })
             toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result })
           }
         }

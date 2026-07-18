@@ -90,18 +90,21 @@ certified. All run in **manual/export mode** today.
 
 ## 4. The "AI dealership brain" (biggest differentiator per the advisor)
 
-"Ask MarketSync" exists (answers from inventory/leads). The deeper cross-data assistant is
-not built — one place that answers, from ALL the dealership data:
+**Shipped (v1):** "Ask MarketSync" is now cross-data. Beyond the live inventory/lead
+snapshot it can call a `dealership_report` tool that joins **sales, gross, F&I,
+commissions, per-rep leaderboard, lead volume/sources/conversion, unworked leads,
+reconditioning status, overdue tasks, today's appointments (who to call today), and
+recent trade appraisals** — all from the store's own data, manager-gated on the
+financial slices. The base snapshot also carries a month-to-date sales pulse.
 
-- [ ] Which cars should I discount today? / cars to wholesale / send to auction / feature
-- [ ] Which salesperson needs coaching?
-- [ ] Why did leads drop this month?
-- [ ] Which marketing campaign made money? (marketing ROI attribution)
-- [ ] Which customers should we call today? (equity + service + follow-up prioritized)
-- [ ] Which trades should we buy this week?
-
-Needs a data/insight layer that joins CRM + inventory + marketing + reviews + (later)
-service, feeding a reasoning prompt.
+Still to deepen:
+- [ ] Which cars should I discount today? / wholesale / send to auction (needs the
+      market-comp layer joined per-unit into the report, not just aging).
+- [ ] Why did leads drop this month? (period-over-period trend, not just current counts)
+- [ ] Which marketing campaign made money? (marketing ROI attribution — no spend data yet)
+- [ ] Equity/service-based "who to call" (today it's task/appointment based; equity mining
+      exists separately and could feed in).
+- [ ] Proactive digests (push the morning briefing instead of waiting to be asked).
 
 ---
 

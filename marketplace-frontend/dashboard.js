@@ -15002,10 +15002,15 @@ function renderAiDockMessages() {
   if (!aiDockMessages.length) {
     const intro = document.createElement('div');
     intro.className = 'text-slate-500 dark:text-slate-400';
+    const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+    // Managers get the cross-data "brain" prompts; reps get lot/lead prompts.
+    const suggestions = isMgr
+      ? ['How are we doing this month?', "Who's my top salesperson?", 'Who should I call today?', 'How are leads converting?', 'Which units are aging 60+ days?']
+      : ['Which units are aging 60+ days?', 'What should I restock?', 'How many leads need follow-up?', 'Anything priced off market?'];
     intro.innerHTML =
-      '<div class="mb-3 leading-relaxed">Hi 👋 Ask me anything about your store — I can see your live inventory, leads and pricing.</div>' +
+      '<div class="mb-3 leading-relaxed">Hi 👋 I\'m MarketSync — I can see your whole store live: inventory, leads, sales, F&amp;I, commissions, reconditioning and today\'s tasks. Ask me anything.</div>' +
       '<div class="flex flex-wrap gap-1.5">' +
-      ['Which units are aging 60+ days?', 'What should I restock?', 'How many leads need follow-up?', 'Anything priced off market?']
+      suggestions
         .map(s => `<button type="button" data-ai-suggest="${s}" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">${s}</button>`)
         .join('') +
       '</div>';
