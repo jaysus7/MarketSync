@@ -4468,7 +4468,9 @@ function deskCollect(contactId) {
   const clean = (arr, amtKey) => arr.map(r => ({ name: (r.name || '').trim(), [amtKey]: Number(r[amtKey]) || 0 })).filter(r => r.name || r[amtKey]);
   const fees = __deskFees.map(r => ({ name: (r.name || '').trim(), amount: Number(r.amount) || 0, taxable: r.taxable !== false })).filter(r => r.name || r.amount);
   const d = {
-    contact_id: contactId, deal_status: 'working', inventory_id: __deskDeal.inventory_id || null,
+    // Preserve the deal's current lifecycle status — a plain Save must never knock a
+    // Sold/Delivered deal back to Working (that also dropped it from Cleanup).
+    contact_id: contactId, deal_status: __deskDeal?.deal_status || 'working', inventory_id: __deskDeal.inventory_id || null,
     retail: num('dk-retail'), rebate_before_tax: num('dk-rebate_before_tax'), adjustment: num('dk-adjustment'),
     selling_price: num('dk-selling_price'),
     sale_type: val('dk-sale_type'), program: val('dk-program'), co_buyer: val('dk-co_buyer'),

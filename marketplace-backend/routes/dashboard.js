@@ -1326,6 +1326,11 @@ export function registerRoutes(app) {
         vehiclePending = true
       }
     }
+    // If this deal is already sold (not delivered), make sure it's on the Cleanup /
+    // get-ready board — saving a sold deal must never drop the car off it.
+    if (data?.inventory_id && data.deal_status === 'sold') {
+      await ensureGetReadyCard(req.dealershipId, { inventoryId: data.inventory_id, dealId: data.id })
+    }
     let salesperson = null
     if (row.created_by) {
       const { data: rep } = await supabaseAdmin.from('profiles').select('full_name, registration_id').eq('id', row.created_by).maybeSingle()
