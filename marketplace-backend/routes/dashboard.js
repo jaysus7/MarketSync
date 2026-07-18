@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { emitWebhook } from '../webhooks.js'
 import { ensureGetReadyCard } from './recon.js'
+import { syncDealToAccounting } from '../providers/accounting.js'
 
 async function buildUserStats(userId) {
   const countOf = async (status) => {
@@ -1387,6 +1388,9 @@ export function registerRoutes(app) {
         deal_id: deal.id, contact_id: contactId, inventory_id: deal.inventory_id || null, at: now,
       })
     }
+    // On delivery, book the deal into the dealer's accounting system if they've
+    // connected one and opted into auto-sync (idempotent, fire-and-forget).
+    if (m.deal === 'delivered') syncDealToAccounting(req.dealershipId, deal.id)
     res.json({ ok: true, deal_status: m.deal, vehicle_status: m.inv })
   })
 

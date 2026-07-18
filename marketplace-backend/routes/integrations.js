@@ -146,6 +146,24 @@ export function registerIntegrations(app) {
     }
   })
 
+  // Toggle "auto-post income on delivery" for a connected accounting provider.
+  // Merges into lender_code_map so the stored tokens/tenant are preserved.
+  app.put('/integrations/:provider/autosync', requireAuth, async (req, res) => {
+    const provider = String(req.params.provider || '')
+    if (!['quickbooks', 'xero'].includes(provider)) return res.status(400).json({ error: 'Not an accounting provider' })
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+    const { data: row } = await supabaseAdmin.from('dealer_integrations')
+      .select('lender_code_map, credentials_enc').eq('dealership_id', req.dealershipId).eq('provider', provider).maybeSingle()
+    if (!row?.credentials_enc) return res.status(400).json({ error: 'Connect it first.' })
+    const map = { ...(row.lender_code_map || {}), autosync: !!req.body?.autosync }
+    const { error } = await supabaseAdmin.from('dealer_integrations')
+      .update({ lender_code_map: map, updated_at: new Date().toISOString() })
+      .eq('dealership_id', req.dealershipId).eq('provider', provider)
+    if (error) return res.status(500).json({ error: 'Save failed' })
+    res.json({ ok: true, autosync: map.autosync })
+  })
+
   // ── Generic OAuth2 connectors (Xero, Google Business) ───────────────────────
   // Same flow as QuickBooks, driven by the provider registry in providers/oauth.js.
   // Registered after the QuickBooks-specific routes so those win for `quickbooks`.

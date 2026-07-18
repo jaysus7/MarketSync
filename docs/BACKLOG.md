@@ -25,9 +25,14 @@ _Last updated: 2026-07-17_
 - **Integrations Hub polished:** connected/available summary, category sections with
   blurbs, per-provider icons, live-first ordering, unified Connected/Available/Coming-
   soon states across webhook, Twilio, and all OAuth connectors.
-- Follow-up: **push sold-deal + F&I income into QuickBooks** on deal.delivered
-  (create a SalesReceipt/Invoice). Needs per-dealer account/item mapping in QBO — the
-  connector + token plumbing are done; this is the actual sync layer.
+- **Accounting income sync — built** (`providers/accounting.js`). On deal **delivered**
+  (desk status + F&I "Delivered"), the deal is booked into the connected accounting
+  system: **QuickBooks** SalesReceipt (auto-ensures a "Vehicle Sale (MarketSync)" item
+  against the first income account + the customer) or **Xero** ACCREC invoice (account
+  code 200). Safe by design: **opt-in per dealer** ("Auto-post income on delivery"
+  toggle, off by default), **idempotent** (`deals.accounting_synced_at`), fire-and-forget.
+  ⚠️ Not yet exercised against a live QBO/Xero sandbox — verify item/account mapping
+  before a dealer turns autosync on in production.
 - **Twilio SMS — LIVE (bring-your-own account).** A dealer stores their own Twilio
   SID + token (encrypted) and from-number; when connected, every automated text sends
   from their own A2P-registered number instead of the shared MarketSync number.

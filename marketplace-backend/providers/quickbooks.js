@@ -127,3 +127,63 @@ export async function qboCompanyName({ accessToken, realmId }) {
   const j = await qboApiGet(`companyinfo/${realmId}`, { accessToken, realmId })
   return j?.CompanyInfo?.CompanyName || null
 }
+
+// POST a QBO API resource.
+export async function qboApiPost(path, body, { accessToken, realmId }) {
+  const url = `${apiBase()}/v3/company/${realmId}/${path.replace(/^\//, '')}?minorversion=70`
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body), signal: AbortSignal.timeout(15000),
+  })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(j?.Fault?.Error?.[0]?.Message || `QuickBooks API error ${r.status}`)
+  return j
+}
+
+// A small query helper (QBO uses a SQL-ish query endpoint).
+async function qboQuery(q, ctx) {
+  const j = await qboApiGet(`query?query=${encodeURIComponent(q)}`, ctx)
+  return j?.QueryResponse || {}
+}
+
+// Find (or create) the income account + service item we book vehicle sales against,
+// so a SalesReceipt line has a valid ItemRef. Cached-free but cheap (1-2 calls).
+async function qboEnsureItem(ctx) {
+  const existing = await qboQuery("select Id from Item where Name = 'Vehicle Sale (MarketSync)'", ctx)
+  if (existing.Item?.[0]?.Id) return existing.Item[0].Id
+  const inc = await qboQuery("select Id from Account where AccountType = 'Income' maxresults 1", ctx)
+  const incomeId = inc.Account?.[0]?.Id
+  if (!incomeId) throw new Error('No income account found in QuickBooks to book sales against.')
+  const created = await qboApiPost('item', {
+    Name: 'Vehicle Sale (MarketSync)', Type: 'Service',
+    IncomeAccountRef: { value: incomeId },
+  }, ctx)
+  return created?.Item?.Id
+}
+
+async function qboEnsureCustomer(name, ctx) {
+  const safe = String(name || 'Customer').replace(/'/g, "\\'").slice(0, 100)
+  const existing = await qboQuery(`select Id from Customer where DisplayName = '${safe}'`, ctx)
+  if (existing.Customer?.[0]?.Id) return existing.Customer[0].Id
+  const created = await qboApiPost('customer', { DisplayName: safe }, ctx)
+  return created?.Customer?.Id
+}
+
+// Book a sold/delivered deal as a QBO SalesReceipt. Returns the created doc id.
+export async function qboCreateSalesReceipt({ customerName, amount, memo, docNumber }, ctx) {
+  if (!(Number(amount) > 0)) throw new Error('Deal total must be greater than zero to sync.')
+  const [itemId, customerId] = await Promise.all([qboEnsureItem(ctx), qboEnsureCustomer(customerName, ctx)])
+  const receipt = await qboApiPost('salesreceipt', {
+    CustomerRef: { value: customerId },
+    DocNumber: docNumber ? String(docNumber).slice(0, 21) : undefined,
+    PrivateNote: memo ? String(memo).slice(0, 4000) : undefined,
+    Line: [{
+      Amount: Math.round(Number(amount) * 100) / 100,
+      DetailType: 'SalesItemLineDetail',
+      Description: memo || 'Vehicle sale',
+      SalesItemLineDetail: { ItemRef: { value: itemId }, Qty: 1, UnitPrice: Math.round(Number(amount) * 100) / 100 },
+    }],
+  }, ctx)
+  return receipt?.SalesReceipt?.Id || null
+}
