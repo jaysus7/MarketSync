@@ -4598,6 +4598,7 @@ async function openCreditApp(contactId) {
         <button data-submit class="text-sm font-bold text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Submit to lender</button>
       </div>
       <div class="flex items-center gap-2">
+        <button data-pdf class="text-sm font-bold text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Print / PDF</button>
         <button data-export class="text-sm font-bold text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Export XML</button>
         <button data-save class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg">Save</button>
       </div>
@@ -4658,6 +4659,12 @@ async function openCreditApp(contactId) {
     } catch (e) { showToast(e.message || 'Export failed', 'error'); }
     btn.disabled = false;
   });
+  modal.querySelector('[data-pdf]').addEventListener('click', () => {
+    // Build the printable application from the live form state (reflects unsaved
+    // edits; only includes SIN/DOB if they were revealed/typed into the form).
+    try { creditAppPrintDoc(collect()); }
+    catch (e) { showToast(e.message || 'Could not open the print view', 'error'); }
+  });
   modal.querySelector('[data-submit]').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget; btn.disabled = true; btn.textContent = 'Submitting…';
     try {
@@ -4671,6 +4678,123 @@ async function openCreditApp(contactId) {
   });
 }
 window.openCreditApp = openCreditApp;
+
+// Printable credit application → opens a clean print window (Print / Save as PDF).
+// Built from the live form object so it reflects unsaved edits; SIN/DOB appear only
+// if they were revealed/typed into the form (otherwise shown as "on file").
+function creditAppPrintDoc(d) {
+  d = d || {};
+  const esc2 = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const dealer = esc2(profileContext?.dealershipName || 'Dealership');
+  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const money = v => { const n = Number(v); return Number.isFinite(n) && String(v).trim() !== '' ? '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'; };
+  const val = v => (v == null || String(v).trim() === '') ? '—' : esc2(v);
+  // A labelled field cell.
+  const cell = (label, v, wide) => `<div class="cell${wide ? ' wide' : ''}"><span class="lbl">${label}</span><span class="val">${v}</span></div>`;
+  const tenure = o => { const y = o?.years, m = o?.months; if (!y && !m) return '—'; return `${y ? y + ' yr' : ''}${y && m ? ' ' : ''}${m ? m + ' mo' : ''}`.trim(); };
+
+  const personBlock = (title, p) => {
+    if (!p) return '';
+    const ad = p.address || {}, em = p.employment || {}, oi = p.other_income || {};
+    const sin = title.startsWith('Applicant') ? d.applicant_sin : d.co_sin;
+    const dob = title.startsWith('Applicant') ? d.applicant_dob : d.co_dob;
+    return `
+    <div class="sec">
+      <h2>${title}</h2>
+      <div class="grid">
+        ${cell('First name', val(p.first))}${cell('Middle', val(p.middle))}${cell('Last name', val(p.last))}
+        ${cell('SIN', sin ? val(sin) : '•••• on file')}${cell('Date of birth', dob ? val(dob) : '•••• on file')}${cell('Marital status', val(p.marital))}
+        ${cell('Email', val(p.email))}${cell('Cell phone', val(p.phone))}${cell('Home phone', val(p.phone_home))}
+      </div>
+      <h3>Residence</h3>
+      <div class="grid">
+        ${cell('Street', val(ad.street), true)}${cell('City', val(ad.city))}
+        ${cell('Province', val(ad.province))}${cell('Postal', val(ad.postal))}${cell('Status', val(ad.status))}
+        ${cell('Monthly payment', money(ad.payment))}${cell('Time at address', tenure(ad))}
+      </div>
+      <h3>Employment &amp; income</h3>
+      <div class="grid">
+        ${cell('Employer', val(em.employer), true)}${cell('Occupation', val(em.occupation))}
+        ${cell('Status', val(em.status))}${cell('Work phone', val(em.phone))}${cell('Time employed', tenure(em))}
+        ${cell('Gross monthly income', money(em.income_monthly))}${cell('Other income', money(oi.amount))}${cell('Other income source', val(oi.source))}
+      </div>
+    </div>`;
+  };
+
+  const veh = d.vehicle || {}, fin = d.financing || {};
+  const vehicleBlock = `
+    <div class="sec">
+      <h2>Vehicle</h2>
+      <div class="grid">
+        ${cell('Year', val(veh.year))}${cell('Make', val(veh.make))}${cell('Model', val(veh.model))}${cell('Trim', val(veh.trim))}
+        ${cell('VIN', val(veh.vin), true)}${cell('Mileage', val(veh.mileage))}${cell('Stock #', val(veh.stock))}
+      </div>
+    </div>`;
+  const financeBlock = `
+    <div class="sec">
+      <h2>Financing</h2>
+      <div class="grid">
+        ${cell('Lender', val(fin.lender))}${cell('Program', val(fin.program))}${cell('Selling price', money(fin.selling_price))}${cell('Tax', money(fin.tax_amount))}
+        ${cell('Fees', money(fin.fees_total))}${cell('Trade allowance', money(fin.trade_value))}${cell('Trade payoff', money(fin.trade_payoff))}${cell('Cash down', money(fin.down_payment))}
+        ${cell('Rebate', money(fin.rebate))}${cell('Amount financed', money(fin.amount_financed))}${cell('APR', fin.apr ? esc2(fin.apr) + '%' : '—')}${cell('Term', fin.term ? esc2(fin.term) + ' mo' : '—')}
+        ${cell('Frequency', val(fin.payment_freq))}${cell('Payment', money(fin.payment))}${cell('First payment', val(fin.first_payment_date))}
+      </div>
+    </div>`;
+
+  const consentBlock = `
+    <div class="sec consent">
+      <h2>Consent &amp; authorization</h2>
+      <p>The applicant${d.co_applicant ? ' and co-applicant' : ''} authorize ${dealer} and its lenders to obtain a consumer credit report and to verify the information provided in this application. ${d.consent ? '<b>Consent acknowledged electronically.</b>' : 'Consent must be provided by signature below.'}</p>
+      <div class="sign">
+        <div class="sigline"><span>Applicant signature</span><span>Date</span></div>
+        ${d.co_applicant ? '<div class="sigline"><span>Co-applicant signature</span><span>Date</span></div>' : ''}
+      </div>
+    </div>`;
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Credit Application — ${dealer}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: #0f172a; margin: 0; padding: 32px; font-size: 12px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 16px; }
+    .head h1 { font-size: 20px; margin: 0; color: #1e3a8a; }
+    .head .sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .head .meta { text-align: right; font-size: 11px; color: #475569; }
+    .sec { margin-bottom: 14px; break-inside: avoid; }
+    .sec h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #fff; background: #1e3a8a; padding: 4px 8px; margin: 0 0 8px; border-radius: 3px; }
+    .sec h3 { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #64748b; margin: 8px 0 4px; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px 10px; }
+    .cell { border-bottom: 1px solid #e2e8f0; padding: 2px 0 3px; min-height: 30px; }
+    .cell.wide { grid-column: span 2; }
+    .cell .lbl { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; font-weight: 700; }
+    .cell .val { display: block; font-size: 12px; color: #0f172a; min-height: 14px; }
+    .consent p { font-size: 11px; line-height: 1.5; color: #334155; }
+    .sign { margin-top: 22px; }
+    .sigline { display: flex; gap: 24px; margin-top: 26px; }
+    .sigline span { border-top: 1px solid #0f172a; padding-top: 3px; font-size: 10px; color: #64748b; }
+    .sigline span:first-child { flex: 2; } .sigline span:last-child { flex: 1; }
+    .foot { margin-top: 18px; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 6px; }
+    .printbar { position: fixed; top: 10px; right: 10px; }
+    .printbar button { background: #1e3a8a; color: #fff; border: 0; padding: 8px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; }
+    @media print { .printbar { display: none; } body { padding: 0; } }
+  </style></head><body>
+    <div class="printbar"><button onclick="window.print()">🖨 Print / Save as PDF</button></div>
+    <div class="head">
+      <div><h1>${dealer}</h1><div class="sub">Credit Application</div></div>
+      <div class="meta">Date: ${today}</div>
+    </div>
+    ${personBlock('Applicant', d.applicant)}
+    ${d.co_applicant ? personBlock('Co-applicant', d.co_applicant) : ''}
+    ${vehicleBlock}
+    ${financeBlock}
+    ${consentBlock}
+    <div class="foot">Generated by MarketSync · ${today}. This document contains confidential personal financial information — handle per your privacy policy.</div>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Allow pop-ups to open the printable application.', 'error'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+window.creditAppPrintDoc = creditAppPrintDoc;
 
 function deskCompute(d) {
   const n = (v) => Number(v) || 0;

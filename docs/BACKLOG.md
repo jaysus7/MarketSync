@@ -116,8 +116,11 @@ certified. All run in **manual/export mode** today.
       subscription leads show "Vehicle" with no car; optional cleanup.
 - [ ] **"MarketSync Leads" view** in the dashboard — a filter so chatbot-sourced /
       website DR leads are visible at a glance (they land in CRM now, just not filtered).
-- [ ] Credit-app: co-applicant references, previous address/employment (<2 yr), and a
-      print/PDF of the application (XML export exists; PDF is client-side TODO).
+- [x] Credit-app **print/PDF** — "Print / PDF" button on the credit-application modal
+      renders a clean printable application (applicant/co-applicant/vehicle/financing +
+      signature lines) from the live form and opens the browser print dialog
+      (`creditAppPrintDoc`). SIN/DOB print only if revealed. Done 2026-07-18.
+- [ ] Credit-app: co-applicant references, previous address/employment (<2 yr).
 
 ---
 
