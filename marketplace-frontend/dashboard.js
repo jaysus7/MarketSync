@@ -552,6 +552,8 @@ async function initializeDashboardEcosystem() {
         // book ("My Customer Database"), or opened straight into the Add form.
         if (page === 'crm') {
           __crmStatusFilter = btn.dataset.filter === 'sold' ? 'sold,fni,delivered' : '';
+          __crmSourceFilter = '';   // start each CRM view unfiltered by source
+
           __crmInitRep = btn.dataset.crmView === 'mine' ? (profileContext?.id || '') : '';
           // "Search Customers" spans the whole dealership; "My Customer Database" is the rep's own.
           __crmSearchAll = btn.dataset.crmView === 'all';
@@ -1732,9 +1734,21 @@ let __crmCanSeeAll = false;
 let __crmStatusFilter = '';   // set by the "Sold Customers" nav leaf (comma list)
 let __crmInitRep = '';        // "My Customer Database" nav leaf pre-filters to the current user
 let __crmSearchAll = false;   // "Search Customers" leaf spans the whole dealership (all reps)
+let __crmSourceFilter = '';   // 'marketsync' = only leads from our own website + AI chat + DR shells
 let __crmPendingAdd = false;  // "Add Customer" nav leaf opens the New-contact form on load
 const crmIsSoldView = () => !!__crmStatusFilter;
 function crmClearStatusFilter() { __crmStatusFilter = ''; crmLoadContacts(); }
+// "MarketSync leads" chip — toggle to only leads from our own website + AI chat + DR shells.
+function crmToggleMarketSync() {
+  __crmSourceFilter = __crmSourceFilter === 'marketsync' ? '' : 'marketsync';
+  const chip = document.getElementById('crm-ms-chip');
+  if (chip) {
+    const on = __crmSourceFilter === 'marketsync';
+    chip.className = `inline-flex items-center gap-1.5 text-sm font-bold px-3 py-2 rounded-lg border transition ${on ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-indigo-300'}`;
+  }
+  crmRefreshContacts();
+}
+window.crmToggleMarketSync = crmToggleMarketSync;
 window.crmClearStatusFilter = crmClearStatusFilter;
 // Retitle the shared CRM page depending on whether we're on Customers or the
 // Sold Customers view (both live on the same page container).
@@ -1765,6 +1779,7 @@ async function crmLoadContacts() {
         <input id="crm-search" placeholder="${crmIsSoldView() ? 'Search sold customers — name, email, phone…' : 'Search ALL contacts — name, email, phone…'}" oninput="crmSearchDebounced()" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm">
       </div>
       <span id="crm-repfilter"></span>
+      ${crmIsSoldView() ? '' : `<button id="crm-ms-chip" onclick="crmToggleMarketSync()" title="Show only leads from your MarketSync website + AI chat" class="inline-flex items-center gap-1.5 text-sm font-bold px-3 py-2 rounded-lg border transition ${__crmSourceFilter === 'marketsync' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-indigo-300'}">✨ MarketSync leads</button>`}
     </div>
     <div id="crm-list" class="py-10 text-center text-sm text-slate-400 italic">Loading contacts…</div>`;
   crmRefreshContacts();
@@ -1781,6 +1796,7 @@ async function crmRefreshContacts() {
   if (rep) params.set('rep', rep);
   if (__crmSearchAll && !rep) params.set('scope', 'all');   // whole-dealership browse for Search Customers
   if (__crmStatusFilter) params.set('status', __crmStatusFilter);
+  if (__crmSourceFilter) params.set('source', __crmSourceFilter);
   try {
     const d = await apiGetJson(`/crm/contacts${params.toString() ? `?${params}` : ''}`);
     const list = document.getElementById('crm-list');

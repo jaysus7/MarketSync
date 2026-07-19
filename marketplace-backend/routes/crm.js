@@ -134,6 +134,7 @@ export function registerCrm(app) {
     // Strip PostgREST-significant chars so a comma/paren in the query can't break the or() filter.
     const q = String(req.query.q || '').trim().replace(/[(),]/g, ' ').trim()
     const status = String(req.query.status || '').trim()
+    const source = String(req.query.source || '').trim()
     const repFilter = String(req.query.rep || '').trim()
     const scopeAll = String(req.query.scope || '').trim() === 'all'   // "Search Customers" = whole dealership
     const limit = Math.min(500, Math.max(1, parseInt(req.query.limit) || 200))
@@ -150,6 +151,13 @@ export function registerCrm(app) {
     // "By rep" filter — managers only (a rep can't browse another rep's whole book).
     if (repFilter && dealer) query = query.eq('assigned_rep', repFilter)
     if (status) { const list = status.split(',').map(s => s.trim()).filter(Boolean); query = list.length > 1 ? query.in('status', list) : query.eq('status', list[0]) }
+    // Source filter — `marketsync` expands to every lead that came through our own
+    // website + AI chat + digital-retailing shells (vs. third-party CRM/marketplace feeds).
+    if (source) {
+      const MS = ['Website', 'Website Chat', 'Trade-In', 'Credit Application', 'Build & Price', 'Reserve / Deposit', 'Payment Quote']
+      const list = source === 'marketsync' ? MS : source.split(',').map(s => s.trim()).filter(Boolean)
+      if (list.length) query = list.length > 1 ? query.in('source', list) : query.eq('source', list[0])
+    }
     if (q) query = query.or(`full_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,phone_mobile.ilike.%${q}%,company_name.ilike.%${q}%`)
     const { data, error } = await query
     if (error) return res.status(500).json({ error: error.message })

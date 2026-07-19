@@ -116,8 +116,10 @@ certified. All run in **manual/export mode** today.
       dealer's account** (consumer payment, not the subscription Stripe we have).
 - [ ] **Filter subscription-type deals out of the F&I worklist** — the JMS demo
       subscription leads show "Vehicle" with no car; optional cleanup.
-- [ ] **"MarketSync Leads" view** in the dashboard — a filter so chatbot-sourced /
-      website DR leads are visible at a glance (they land in CRM now, just not filtered).
+- [x] **"MarketSync Leads" view** — a "✨ MarketSync leads" toggle chip on the Customers
+      page filters to leads that came through our own website + AI chat + DR shells
+      (Website, Website Chat, Trade-In, Credit Application, Build & Price, Reserve/Deposit,
+      Payment Quote). Backend `/crm/contacts?source=marketsync`. Done 2026-07-18.
 - [x] Credit-app **print/PDF** — "Print / PDF" button on the credit-application modal
       renders a clean printable application (applicant/co-applicant/vehicle/financing +
       signature lines) from the live form and opens the browser print dialog
