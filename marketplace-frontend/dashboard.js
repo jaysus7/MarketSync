@@ -3895,6 +3895,131 @@ async function loadSalesAnalysis() {
 function salesAnalysisRange(v) { __salesAnalysisRange = v; loadSalesAnalysis(); }
 window.salesAnalysisRange = salesAnalysisRange;
 
+// ── Marketing ROI — which ad channel paid off (managers) ────────────────────────
+let __mktRoiRange = '90';
+let __mktAvgGross = 3500;
+let __mktSpendPeriod = null;   // 'YYYY-MM' being edited (defaults to current month)
+const MKT_CHANNELS = ['Facebook Marketplace', 'AutoTrader', 'CarGurus', 'Kijiji', 'Google', 'Social', 'Website', 'Referral', 'Walk-in', 'Phone'];
+function mktCurrentPeriod() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+async function loadMarketingRoi() {
+  const root = document.getElementById('marketing-roi');
+  if (!root) return;
+  const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+  if (!isMgr) { root.innerHTML = ''; return; }
+  if (!__mktSpendPeriod) __mktSpendPeriod = mktCurrentPeriod();
+  let d, spendRows = [];
+  try { d = await apiGetJson(`/marketing/roi?range=${__mktRoiRange}&avg_gross=${__mktAvgGross}`, { retries: 1 }); }
+  catch { root.innerHTML = ''; return; }
+  try { spendRows = (await apiGetJson(`/marketing/spend?period=${__mktSpendPeriod}`, { retries: 1 })).spend || []; } catch {}
+  const money = n => n != null ? '$' + Number(n).toLocaleString() : '—';
+  const compact = n => n == null ? '—' : (n >= 1e6 ? '$' + (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? '$' + Math.round(n / 1e3) + 'k' : '$' + Math.round(n || 0));
+  const rangeBtn = (v, label) => `<button onclick="mktRoiRange('${v}')" class="px-3 py-1.5 text-xs font-bold rounded-lg border ${__mktRoiRange === v ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}">${label}</button>`;
+
+  const spendByChannel = {}; for (const s of spendRows) spendByChannel[s.channel] = s.amount;
+  // Channels to offer in the editor: the standard set + any the ROI report detected.
+  const detected = (d.rows || []).map(r => r.channel).filter(c => c && c !== 'Unattributed');
+  const editorChannels = [...new Set([...MKT_CHANNELS, ...detected])];
+
+  const roiPill = (pct) => {
+    if (pct == null) return '<span class="text-slate-400">—</span>';
+    const cls = pct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
+    return `<span class="font-black tabular-nums ${cls}">${pct >= 0 ? '+' : ''}${pct}%</span>`;
+  };
+  const bestChannel = (d.rows || []).filter(r => r.spend > 0 && r.roi_pct != null).sort((a, b) => b.roi_pct - a.roi_pct)[0];
+
+  const tableRows = (d.rows || []).filter(r => r.leads || r.sales || r.spend).map(r => `<tr class="border-t border-slate-100 dark:border-slate-800">
+      <td class="py-2 pr-2 font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">${esc(r.channel)}${bestChannel && r.channel === bestChannel.channel ? ' <span class="text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 align-middle">best ROI</span>' : ''}</td>
+      <td class="py-2 px-2 text-right tabular-nums text-slate-600 dark:text-slate-300">${r.spend ? money(r.spend) : '—'}</td>
+      <td class="py-2 px-2 text-right tabular-nums text-slate-600 dark:text-slate-300">${r.leads || '—'}</td>
+      <td class="py-2 px-2 text-right tabular-nums text-slate-600 dark:text-slate-300">${r.sales || '—'}</td>
+      <td class="py-2 px-2 text-right tabular-nums text-slate-500 hidden sm:table-cell">${r.cost_per_lead != null ? money(r.cost_per_lead) : '—'}</td>
+      <td class="py-2 px-2 text-right tabular-nums text-slate-500 hidden sm:table-cell">${r.cost_per_sale != null ? money(r.cost_per_sale) : '—'}</td>
+      <td class="py-2 px-2 text-right tabular-nums text-slate-600 dark:text-slate-300 hidden md:table-cell">${r.revenue ? compact(r.revenue) : '—'}</td>
+      <td class="py-2 pl-2 text-right">${roiPill(r.roi_pct)}</td>
+    </tr>`).join('') || '<tr><td colspan="8" class="py-4 text-center text-xs text-slate-400 italic">No leads, sales or spend in range yet.</td></tr>';
+
+  const t = d.totals || {};
+  const totalRow = `<tr class="border-t-2 border-slate-200 dark:border-slate-700 font-black text-slate-900 dark:text-white">
+      <td class="py-2 pr-2">Total</td>
+      <td class="py-2 px-2 text-right tabular-nums">${money(t.spend)}</td>
+      <td class="py-2 px-2 text-right tabular-nums">${t.leads || 0}</td>
+      <td class="py-2 px-2 text-right tabular-nums">${t.sales || 0}</td>
+      <td class="py-2 px-2 text-right tabular-nums hidden sm:table-cell">${t.cost_per_lead != null ? money(t.cost_per_lead) : '—'}</td>
+      <td class="py-2 px-2 text-right tabular-nums hidden sm:table-cell">${t.cost_per_sale != null ? money(t.cost_per_sale) : '—'}</td>
+      <td class="py-2 px-2 text-right tabular-nums hidden md:table-cell">${compact(t.revenue)}</td>
+      <td class="py-2 pl-2 text-right">${roiPill(t.roi_pct)}</td>
+    </tr>`;
+
+  const editor = editorChannels.map(c => `<div class="flex items-center gap-2">
+      <span class="flex-1 min-w-0 truncate text-sm text-slate-600 dark:text-slate-300">${esc(c)}</span>
+      <div class="relative">
+        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+        <input type="number" min="0" step="1" value="${spendByChannel[c] != null ? spendByChannel[c] : ''}" placeholder="0"
+          onchange="mktSaveSpend('${esc(c)}', this.value, this)"
+          class="w-28 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg pl-6 pr-2 py-1.5 text-sm text-right tabular-nums">
+      </div>
+    </div>`).join('');
+
+  root.innerHTML = `
+    <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+      <div><h2 class="text-xl font-black text-slate-900 dark:text-white">Marketing ROI</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Which channels paid off — spend vs leads, sales & gross, last ${d.range_days} days.</p></div>
+      <div class="flex gap-1.5">${rangeBtn('30', '30d')}${rangeBtn('90', '90d')}${rangeBtn('180', '6mo')}${rangeBtn('365', '1y')}</div>
+    </div>
+    ${!d.has_spend ? `<div class="rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900 px-4 py-3 mb-4 text-sm text-indigo-800 dark:text-indigo-200">Add your monthly ad spend per channel below to unlock cost-per-lead, cost-per-sale and ROI. Leads and sales by channel are already tracked from your CRM — no tagging needed.</div>` : ''}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 overflow-x-auto">
+        <table class="w-full text-sm min-w-[560px]">
+          <thead><tr class="text-[10px] uppercase tracking-wider text-slate-400">
+            <th class="text-left font-bold pb-1">Channel</th>
+            <th class="text-right font-bold pb-1 px-2">Spend</th>
+            <th class="text-right font-bold pb-1 px-2">Leads</th>
+            <th class="text-right font-bold pb-1 px-2">Sales</th>
+            <th class="text-right font-bold pb-1 px-2 hidden sm:table-cell">$/lead</th>
+            <th class="text-right font-bold pb-1 px-2 hidden sm:table-cell">$/sale</th>
+            <th class="text-right font-bold pb-1 px-2 hidden md:table-cell">Revenue</th>
+            <th class="text-right font-bold pb-1 pl-2">ROI</th>
+          </tr></thead>
+          <tbody>${tableRows}${totalRow}</tbody>
+        </table>
+        <div class="flex items-center gap-2 mt-3 flex-wrap">
+          <label class="text-[11px] text-slate-500 dark:text-slate-400">Assumed gross per sale
+            <span class="relative inline-block ml-1"><span class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+            <input type="number" min="0" step="100" value="${__mktAvgGross}" onchange="mktSetAvgGross(this.value)" class="w-24 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg pl-5 pr-2 py-1 text-xs text-right tabular-nums"></span>
+          </label>
+          <span class="text-[11px] text-slate-400">ROI = (sales × assumed gross − spend) ÷ spend. Revenue is real (sum of selling prices).</span>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-sm font-bold text-slate-900 dark:text-white">Monthly ad spend</div>
+        </div>
+        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Month</label>
+        <input type="month" value="${__mktSpendPeriod}" max="${mktCurrentPeriod()}" onchange="mktSetSpendPeriod(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm mb-3">
+        <div class="space-y-2">${editor}</div>
+        <p class="text-[11px] text-slate-400 mt-3">Enter what you spent on each channel that month. Blank = $0. The report sums spend across the months in your selected range.</p>
+      </div>
+    </div>`;
+}
+function mktRoiRange(v) { __mktRoiRange = v; loadMarketingRoi(); }
+function mktSetAvgGross(v) { const n = Number(v); if (Number.isFinite(n) && n >= 0) { __mktAvgGross = n; loadMarketingRoi(); } }
+function mktSetSpendPeriod(v) { if (/^\d{4}-\d{2}$/.test(v)) { __mktSpendPeriod = v; loadMarketingRoi(); } }
+async function mktSaveSpend(channel, value, el) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) { showToast('Enter a valid amount', 'error'); return; }
+  if (el) el.disabled = true;
+  try {
+    await apiSendJson('/marketing/spend', 'PUT', { channel, period: __mktSpendPeriod, amount });
+    if (el) { el.classList.add('ring-2', 'ring-emerald-400'); setTimeout(() => el.classList.remove('ring-2', 'ring-emerald-400'), 900); }
+    loadMarketingRoi();
+  } catch (e) { showToast(e.message || 'Could not save spend', 'error'); }
+  if (el) el.disabled = false;
+}
+window.mktRoiRange = mktRoiRange;
+window.mktSetAvgGross = mktSetAvgGross;
+window.mktSetSpendPeriod = mktSetSpendPeriod;
+window.mktSaveSpend = mktSaveSpend;
+
 // ── Custom report builder + Sold-per-rep report (managers) ───────────────────
 // The 40-column "sold deals" layout, in the exact order requested. `#` (row index)
 // is rendered separately; `salesperson` is appended as a trailing convenience column.
@@ -4518,6 +4643,7 @@ function deskRenderForm(contactId) {
             ${fld('State / Province (auto tax)', `<select id="dk-tax_province" onchange="deskSetJurisdiction()" class="${iCls}"><option value="">— Select —</option>${Object.entries((DESK_TAX[d.tax_country || 'CA'] || DESK_TAX.CA).regions).map(([code, r]) => `<option value="${code}" ${d.tax_province === code ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select>`)}
             ${fld('Tax rate % (total)', `<input id="dk-tax_rate" type="number" step="0.001" value="${rate}" oninput="deskRenderSummary()" class="${iCls}">`)}
             <div class="flex items-end pb-2"><label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"><input type="checkbox" id="dk-tax_on_difference" ${taxOnDiff ? 'checked' : ''} onchange="deskRenderSummary()" class="rounded"> Tax on the difference</label></div>
+            <p id="dk-tax-hint" class="col-span-2 text-[11px] text-slate-400 dark:text-slate-500 -mt-1">Pick a state/province to auto-fill the rate. For U.S. deals the rate is <b>state + average local/county</b> — edit it for the buyer's exact jurisdiction.</p>
           </div>`)}
 
         <details class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden mb-4">
@@ -5115,20 +5241,24 @@ function deskCompute(d) {
 // HST, itemised on the bill of sale). U.S. entries are the STATE base rate — add your
 // local/county rate and verify the vehicle-specific rate + trade-in rule.
 const US_STATE_TAX = [
-  // code, name, state base rate %, trade-in credit? (true = tax on difference)
-  ['AL', 'Alabama', 2, true], ['AK', 'Alaska', 0, true], ['AZ', 'Arizona', 5.6, true], ['AR', 'Arkansas', 6.5, true],
-  ['CA', 'California', 7.25, false], ['CO', 'Colorado', 2.9, true], ['CT', 'Connecticut', 6.35, true], ['DE', 'Delaware', 0, true],
-  ['DC', 'District of Columbia', 6, false], ['FL', 'Florida', 6, true], ['GA', 'Georgia', 6.6, true], ['HI', 'Hawaii', 4, false],
-  ['ID', 'Idaho', 6, true], ['IL', 'Illinois', 6.25, true], ['IN', 'Indiana', 7, true], ['IA', 'Iowa', 5, true],
-  ['KS', 'Kansas', 6.5, true], ['KY', 'Kentucky', 6, false], ['LA', 'Louisiana', 4.45, true], ['ME', 'Maine', 5.5, true],
-  ['MD', 'Maryland', 6, false], ['MA', 'Massachusetts', 6.25, true], ['MI', 'Michigan', 6, false], ['MN', 'Minnesota', 6.5, true],
-  ['MS', 'Mississippi', 5, true], ['MO', 'Missouri', 4.225, true], ['MT', 'Montana', 0, true], ['NE', 'Nebraska', 5.5, true],
-  ['NV', 'Nevada', 6.85, true], ['NH', 'New Hampshire', 0, true], ['NJ', 'New Jersey', 6.625, true], ['NM', 'New Mexico', 4, true],
-  ['NY', 'New York', 4, true], ['NC', 'North Carolina', 3, true], ['ND', 'North Dakota', 5, true], ['OH', 'Ohio', 5.75, true],
-  ['OK', 'Oklahoma', 4.5, true], ['OR', 'Oregon', 0, true], ['PA', 'Pennsylvania', 6, true], ['RI', 'Rhode Island', 7, true],
-  ['SC', 'South Carolina', 5, true], ['SD', 'South Dakota', 4, true], ['TN', 'Tennessee', 7, true], ['TX', 'Texas', 6.25, true],
-  ['UT', 'Utah', 6.1, true], ['VT', 'Vermont', 6, true], ['VA', 'Virginia', 4.15, false], ['WA', 'Washington', 6.5, true],
-  ['WV', 'West Virginia', 6, true], ['WI', 'Wisconsin', 5, true], ['WY', 'Wyoming', 4, true],
+  // code, name, state base rate %, trade-in credit? (true = tax on difference), avg local/county add-on %
+  // The 5th column is the state's AVERAGE combined local (county+city) sales-tax rate
+  // (Tax Foundation). It's an editable estimate so US deals default to a realistic
+  // combined rate instead of the bare state base — the exact local rate depends on the
+  // buyer's registration address and should be confirmed per deal.
+  ['AL', 'Alabama', 4, true, 5.29], ['AK', 'Alaska', 0, true, 1.82], ['AZ', 'Arizona', 5.6, true, 2.80], ['AR', 'Arkansas', 6.5, true, 2.95],
+  ['CA', 'California', 7.25, false, 1.57], ['CO', 'Colorado', 2.9, true, 4.91], ['CT', 'Connecticut', 6.35, true, 0], ['DE', 'Delaware', 0, true, 0],
+  ['DC', 'District of Columbia', 6, false, 0], ['FL', 'Florida', 6, true, 1.00], ['GA', 'Georgia', 4, true, 3.38], ['HI', 'Hawaii', 4, false, 0.50],
+  ['ID', 'Idaho', 6, true, 0.02], ['IL', 'Illinois', 6.25, true, 2.60], ['IN', 'Indiana', 7, true, 0], ['IA', 'Iowa', 6, true, 0.94],
+  ['KS', 'Kansas', 6.5, true, 2.25], ['KY', 'Kentucky', 6, false, 0], ['LA', 'Louisiana', 4.45, true, 5.11], ['ME', 'Maine', 5.5, true, 0],
+  ['MD', 'Maryland', 6, false, 0], ['MA', 'Massachusetts', 6.25, true, 0], ['MI', 'Michigan', 6, false, 0], ['MN', 'Minnesota', 6.875, true, 0.66],
+  ['MS', 'Mississippi', 7, true, 0.06], ['MO', 'Missouri', 4.225, true, 4.09], ['MT', 'Montana', 0, true, 0], ['NE', 'Nebraska', 5.5, true, 1.47],
+  ['NV', 'Nevada', 6.85, true, 1.39], ['NH', 'New Hampshire', 0, true, 0], ['NJ', 'New Jersey', 6.625, true, 0], ['NM', 'New Mexico', 4.875, true, 2.72],
+  ['NY', 'New York', 4, true, 4.53], ['NC', 'North Carolina', 4.75, true, 2.25], ['ND', 'North Dakota', 5, true, 2.04], ['OH', 'Ohio', 5.75, true, 1.49],
+  ['OK', 'Oklahoma', 4.5, true, 4.49], ['OR', 'Oregon', 0, true, 0], ['PA', 'Pennsylvania', 6, true, 0.34], ['RI', 'Rhode Island', 7, true, 0],
+  ['SC', 'South Carolina', 6, true, 1.50], ['SD', 'South Dakota', 4.2, true, 1.91], ['TN', 'Tennessee', 7, true, 2.55], ['TX', 'Texas', 6.25, true, 1.95],
+  ['UT', 'Utah', 4.85, true, 1.15], ['VT', 'Vermont', 6, true, 0.36], ['VA', 'Virginia', 4.3, false, 0.47], ['WA', 'Washington', 6.5, true, 2.87],
+  ['WV', 'West Virginia', 6, true, 0.57], ['WI', 'Wisconsin', 5, true, 0.44], ['WY', 'Wyoming', 4, true, 1.44],
 ];
 const DESK_TAX = {
   CA: { label: 'Canada', regions: {
@@ -5146,8 +5276,15 @@ const DESK_TAX = {
     SK: { label: 'Saskatchewan', comp: [['GST', 5, 'diff'], ['PST', 6, 'diff']] },
     YT: { label: 'Yukon', comp: [['GST', 5, 'diff']] },
   } },
-  US: { label: 'United States', regions: Object.fromEntries(US_STATE_TAX.map(([c, n, r, credit]) =>
-    [c, { label: n, comp: [['Sales tax', r, credit ? 'diff' : 'full']] }])) },
+  // US: state tax + an average local/county line (both on the same base). The local
+  // line is an editable estimate — override the combined rate per deal for the buyer's
+  // exact jurisdiction.
+  US: { label: 'United States', regions: Object.fromEntries(US_STATE_TAX.map(([c, n, r, credit, local]) => {
+    const base = credit ? 'diff' : 'full';
+    const comp = [['State tax', r, base]];
+    if (local > 0) comp.push(['Local (avg)', local, base]);
+    return [c, { label: n, comp }];
+  })) },
 };
 function deskTaxComps(country, region) {
   const j = DESK_TAX[country]; const r = j && j.regions[region];
@@ -6626,6 +6763,7 @@ function loadReports() {
   loadExecutiveRoi();
   loadInventoryMix();
   loadSalesAnalysis();
+  loadMarketingRoi();
   loadReportBuilder();
 }
 

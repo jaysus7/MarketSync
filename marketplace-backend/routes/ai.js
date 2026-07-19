@@ -5,6 +5,7 @@ import { marketcheckMarket, marketcheckListings, marketcheckEnabled, marketcheck
 import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, assistantDailyAllowed, recordAssistantChat, ASSISTANT_DAILY_LIMIT, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
 import { findOrCreateContact } from './crm.js'
 import { buildEquityRadar } from './equity.js'
+import { buildMarketingRoi } from './marketing.js'
 import { createNotification, createNotifications } from '../notifications.js'
 import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
 import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
@@ -88,7 +89,7 @@ const ASSISTANT_TOOLS = [
   },
   {
     name: 'dealership_report',
-    description: "Pull THIS dealership's own live operating data. Use for anything about the store's own numbers or people: sales & units this month, gross, F&I, commissions, which salesperson is ahead or needs coaching, lead volume/sources/conversion, unworked leads, aging inventory, reconditioning/cleanup status, overdue tasks, today's appointments, who to call today, and recent trade appraisals. Power topics: 'trends' compares this period to the prior one (sales this month vs last, leads last 30d vs the 30 before, which lead sources rose or fell — use for 'are we up or down / why did leads drop'); 'priorities' returns a ranked what-to-do-today list; 'pricing' returns per-unit price/aging actions — which specific cars to discount, wholesale, or send to auction (days-on-lot, off-market flags, missing prices — use for 'which cars should I discount/wholesale today'); 'equity' returns the who-to-call upgrade list — delivered customers now in a positive-equity or lease-maturing position, ranked by equity (use for 'who can I put in a new car / who to call for an upgrade / lease pull-ahead'). Prefer this over guessing. Use 'overview' for a general 'how are we doing'.",
+    description: "Pull THIS dealership's own live operating data. Use for anything about the store's own numbers or people: sales & units this month, gross, F&I, commissions, which salesperson is ahead or needs coaching, lead volume/sources/conversion, unworked leads, aging inventory, reconditioning/cleanup status, overdue tasks, today's appointments, who to call today, and recent trade appraisals. Power topics: 'trends' compares this period to the prior one (sales this month vs last, leads last 30d vs the 30 before, which lead sources rose or fell — use for 'are we up or down / why did leads drop'); 'priorities' returns a ranked what-to-do-today list; 'pricing' returns per-unit price/aging actions — which specific cars to discount, wholesale, or send to auction (days-on-lot, off-market flags, missing prices — use for 'which cars should I discount/wholesale today'); 'equity' returns the who-to-call upgrade list — delivered customers now in a positive-equity or lease-maturing position, ranked by equity (use for 'who can I put in a new car / who to call for an upgrade / lease pull-ahead'); 'marketing_roi' returns which advertising channel paid off — spend vs leads, sales, cost-per-lead, cost-per-sale, revenue and ROI per channel (use for 'which campaign made money / where should I spend my ad budget / what's my cost per lead'). Prefer this over guessing. Use 'overview' for a general 'how are we doing'.",
     input_schema: { type: 'object', properties: { topic: { type: 'string', enum: ['overview', 'sales', 'commissions', 'reps', 'leads', 'inventory', 'recon', 'tasks', 'appraisals', 'trends', 'priorities', 'pricing', 'equity'], description: 'Which slice of the dealership to report on.' } }, required: ['topic'] },
   },
 ]
@@ -99,7 +100,7 @@ const ASSISTANT_TOOLS = [
 // / who do I call today" from real numbers. Queried on demand (a tool) so it never
 // bloats an ordinary chat turn. Everything is scoped to the dealership; bounded with
 // limits so it stays fast and cheap.
-const REPORT_TOPICS = ['overview', 'sales', 'commissions', 'reps', 'leads', 'inventory', 'recon', 'tasks', 'appraisals', 'trends', 'priorities', 'pricing', 'equity']
+const REPORT_TOPICS = ['overview', 'sales', 'commissions', 'reps', 'leads', 'inventory', 'recon', 'tasks', 'appraisals', 'trends', 'priorities', 'pricing', 'equity', 'marketing_roi']
 async function buildDealershipReport(dealershipId, topicRaw, { isMgr = true } = {}) {
   let topic = REPORT_TOPICS.includes(topicRaw) ? topicRaw : 'overview'
   // Reps can't pull the finance/per-rep views — steer them to leads for those asks.
@@ -366,6 +367,30 @@ async function buildDealershipReport(dealershipId, topicRaw, { isMgr = true } = 
       if (!items.length) out.equity.note = 'No equity opportunities yet — add lease/finance details on delivered customers to populate the radar.'
     } catch (e) {
       out.equity = { error: 'Could not compute the equity radar right now.' }
+    }
+  }
+
+  if (topic === 'marketing_roi') {
+    if (!isMgr) return JSON.stringify({ restricted: true, message: 'Marketing ROI is a manager view. Ask your manager, or ask me about your own leads and tasks.' })
+    try {
+      const roi = await buildMarketingRoi(dealershipId, { days: 90 })
+      if (!roi.has_spend) {
+        out.marketing_roi = { note: 'No ad spend entered yet, so ROI can\'t be computed. The dealer can add monthly spend per channel under Reports → Marketing ROI; leads and sales by channel are still shown there.', channels_by_sales: roi.rows.slice(0, 8).map(r => ({ channel: r.channel, leads: r.leads, sales: r.sales, revenue: money(r.revenue) })) }
+      } else {
+        const withSpend = roi.rows.filter(r => r.spend > 0)
+        out.marketing_roi = {
+          window: 'last 90 days', avg_gross_assumption: money(roi.avg_gross),
+          total_spend: money(roi.totals.spend), total_sales: roi.totals.sales, total_est_gross: money(roi.totals.est_gross), blended_roi_pct: roi.totals.roi_pct,
+          best_channel: withSpend.slice().sort((a, b) => (b.roi_pct ?? -1e9) - (a.roi_pct ?? -1e9))[0]?.channel || null,
+          by_channel: roi.rows.slice(0, 10).map(r => ({
+            channel: r.channel, spend: money(r.spend), leads: r.leads, sales: r.sales,
+            cost_per_lead: r.cost_per_lead, cost_per_sale: r.cost_per_sale,
+            revenue: money(r.revenue), est_gross: money(r.est_gross), roi_pct: r.roi_pct,
+          })),
+        }
+      }
+    } catch (e) {
+      out.marketing_roi = { error: 'Could not compute marketing ROI right now.' }
     }
   }
 
