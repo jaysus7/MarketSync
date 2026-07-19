@@ -127,6 +127,59 @@ export async function oauthEnsureToken(p, creds) {
 export async function oauthAfterToken(p, creds) { const c = REG[p]; return c.afterToken ? c.afterToken(creds) : {} }
 export async function oauthTest(p, creds, cfg) { const c = REG[p]; return c.test ? c.test(creds, cfg) : 'Connected' }
 
+// ── Google Business Profile: post to a location's feed ──────────────────────────
+// Best-effort publish of a "local post" (new arrival / offer / update) to the
+// dealer's Google Business Profile. The Business Profile APIs require Google to
+// approve MarketSync's project for the mybusiness endpoints — until that grant
+// lands, every attempt here fails and we return { staged: true } so the caller can
+// fall back to assisted posting (copy the text, open GBP). The moment Google
+// approves, this same code path publishes for real with no other change.
+//
+// Returns { ok:true, name } on a real publish, or { staged:true, reason } when the
+// API isn't reachable/approved yet.
+export async function gbpFindLocation(accessToken) {
+  // accounts → locations. Either call 404s/403s until the APIs are approved.
+  const ar = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
+    headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(12000),
+  })
+  const aj = await ar.json().catch(() => ({}))
+  if (!ar.ok) throw new Error(aj?.error?.message || `accounts ${ar.status}`)
+  const account = (aj.accounts || [])[0]
+  if (!account?.name) throw new Error('No Google Business account found on this login.')
+  const lr = await fetch(`https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations?readMask=name,title&pageSize=1`, {
+    headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(12000),
+  })
+  const lj = await lr.json().catch(() => ({}))
+  if (!lr.ok) throw new Error(lj?.error?.message || `locations ${lr.status}`)
+  const loc = (lj.locations || [])[0]
+  if (!loc?.name) throw new Error('No location found on this Google Business account.')
+  // localPosts live under the v4 accounts/{a}/locations/{l} path.
+  return { account: account.name, location: loc.name, title: loc.title || '' }
+}
+
+export async function gbpCreatePost(creds, { summary, cta, ctaUrl, mediaUrl } = {}) {
+  const text = String(summary || '').trim()
+  if (!text) return { staged: true, reason: 'Nothing to post.' }
+  try {
+    const { account, location } = await gbpFindLocation(creds.access_token)
+    const locId = String(location).split('/').pop()
+    const parent = `${account}/locations/${locId}`
+    const body = { languageCode: 'en', summary: text.slice(0, 1500), topicType: 'STANDARD' }
+    if (cta && ctaUrl) body.callToAction = { actionType: cta, url: ctaUrl }
+    if (mediaUrl) body.media = [{ mediaFormat: 'PHOTO', sourceUrl: mediaUrl }]
+    const r = await fetch(`https://mybusiness.googleapis.com/v4/${parent}/localPosts`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${creds.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body), signal: AbortSignal.timeout(15000),
+    })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(j?.error?.message || `localPosts ${r.status}`)
+    return { ok: true, name: j?.name || null }
+  } catch (e) {
+    return { staged: true, reason: e.message || 'Google Business posting API not yet available.' }
+  }
+}
+
 // Book a sold/delivered deal as a Xero ACCREC invoice. Returns the InvoiceID.
 // AccountCode 200 is Xero's default "Sales" revenue account.
 export async function xeroCreateInvoice({ customerName, amount, memo }, { accessToken, tenantId }) {

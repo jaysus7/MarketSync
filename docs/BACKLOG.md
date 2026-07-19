@@ -232,7 +232,15 @@ Still to deepen:
       (AutoTrader, CarGurus, Kijiji Autos, Google Merchant, Facebook) added to the
       Syndication card — each hands the dealer the right feed URL + copy button +
       the exact portal steps. Done 2026-07-19.
-- [ ] **Google Business Profile** posting + review request automation — the GBP OAuth
-      connector exists (Phase 2); still to build: auto-post new arrivals/specials to GBP
-      and trigger review requests through it (review cards + links already on the site).
+- [x] **Google Business Profile** posting — AI post composer shipped (staged). The
+      Google Business card now carries a "Compose a post" modal: pick a type (new
+      arrival / special / general update) and optional vehicle, "Write with AI"
+      drafts the post (`/integrations/google_business/compose`, AI-Boost gated), then
+      Publish attempts the Business Profile localPosts API with the dealer's connected
+      token (`/integrations/google_business/post` → `gbpCreatePost`). Until Google
+      approves API access it returns `{staged:true}` and the UI falls back to
+      copy-text + open Google Business — flips to true one-click publish with no code
+      change once approved (same pattern as the F&I connectors). Done 2026-07-19.
+      Review requests already trigger through the delivery drip (review cards + links
+      on the site).
 - [ ] SMS/voice via **Twilio** (confirm current coverage vs. what's live)

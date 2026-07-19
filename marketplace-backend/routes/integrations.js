@@ -9,8 +9,12 @@ import { encryptJson, decryptJson, piiConfigured } from '../crypto-pii.js'
 import { emitWebhook, WEBHOOK_EVENTS } from '../webhooks.js'
 import { sendDealerSms, invalidateTwilioCache } from './automation.js'
 import { qboConfigured, qboAuthorizeUrl, signState, verifyState, qboExchangeCode, qboEnsureToken, qboCompanyName } from '../providers/quickbooks.js'
-import { OAUTH_PROVIDERS, oauthConfigured, oauthAuthorizeUrl, oauthExchangeCode, oauthEnsureToken, oauthAfterToken, oauthTest, signState as signOAuthState, verifyState as verifyOAuthState } from '../providers/oauth.js'
+import { OAUTH_PROVIDERS, oauthConfigured, oauthAuthorizeUrl, oauthExchangeCode, oauthEnsureToken, oauthAfterToken, oauthTest, gbpCreatePost, signState as signOAuthState, verifyState as verifyOAuthState } from '../providers/oauth.js'
 import { stripeDepositsConfigured } from './deposits.js'
+import Anthropic from '@anthropic-ai/sdk'
+import { aiAllowed, recordUsage } from '../usage.js'
+
+const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 
 /**
  * The Integrations Hub catalog. Each entry is a connectable service. `live: true`
@@ -287,5 +291,86 @@ export function registerIntegrations(app) {
       .eq('dealership_id', req.dealershipId).eq('provider', provider)
     if (provider === 'twilio') invalidateTwilioCache(req.dealershipId)
     res.json({ ok: true })
+  })
+
+  // ── Google Business Profile posts ───────────────────────────────────────────
+  // AI-write a Google Business post (new arrival / offer / update), optionally about
+  // a specific vehicle. Gated to AI Boost, same as the other AI writers.
+  app.post('/integrations/google_business/compose', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const { data: dealer } = await supabaseAdmin.from('dealerships')
+      .select('name, ai_tone, ai_boost_active, city, province').eq('id', req.dealershipId).maybeSingle()
+    if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
+    if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI is not configured on this account.' })
+    if (!(await aiAllowed(req.dealershipId, isOwner))) return res.status(429).json({ error: 'Monthly AI limit reached — resets next month.' })
+
+    const b = req.body || {}
+    const kind = ['new_arrival', 'special', 'update'].includes(b.kind) ? b.kind : 'update'
+    let vehLine = ''
+    if (b.inventory_id) {
+      const { data: v } = await supabaseAdmin.from('inventory')
+        .select('year, make, model, trim, price, mileage, exterior_color, body_style, fuel_type')
+        .eq('dealership_id', req.dealershipId).eq('id', b.inventory_id).maybeSingle()
+      if (v) {
+        const bits = [[v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')]
+        if (v.exterior_color) bits.push(v.exterior_color)
+        if (v.mileage) bits.push(`${Number(v.mileage).toLocaleString()} km`)
+        if (v.price) bits.push(`$${Number(v.price).toLocaleString()}`)
+        vehLine = `The post is about this vehicle: ${bits.filter(Boolean).join(', ')}.`
+      }
+    }
+    const loc = [dealer?.city, dealer?.province].filter(Boolean).join(', ')
+    const tone = dealer?.ai_tone === 'friendly' ? 'warm and welcoming' : dealer?.ai_tone === 'aggressive' ? 'energetic and deal-focused' : 'confident and professional'
+    const kindHint = {
+      new_arrival: 'announce a fresh arrival on the lot and invite a test drive',
+      special: 'promote a limited-time offer or price on inventory and create urgency',
+      update: 'share a friendly dealership update that keeps the profile active and encourages a visit',
+    }[kind]
+    const prompt = `You are writing a Google Business Profile post for ${dealer?.name || 'a car dealership'}${loc ? ' in ' + loc : ''}. Tone: ${tone}.
+Write a single Google Business post that will ${kindHint}. ${vehLine}
+Rules: 1 short paragraph, roughly 30–80 words, plain text only (no markdown, no hashtags-spam — at most one relevant emoji), end with a light call to action. Do NOT invent prices, financing terms, or specs that were not given. Output only the post text.`
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const msg = await Promise.race([
+        anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 300, temperature: 1, messages: [{ role: 'user', content: prompt }] }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000)),
+      ])
+      const textOut = (msg.content?.[0]?.text || '').trim()
+      if (!textOut) return res.status(502).json({ error: 'AI returned nothing — try again.' })
+      recordUsage(req.dealershipId, { ai: 1 })
+      res.json({ ok: true, text: textOut })
+    } catch (e) {
+      res.status(502).json({ error: e.message === 'timeout' ? 'AI timed out — try again.' : 'AI is temporarily unavailable — try again.' })
+    }
+  })
+
+  // Publish a Google Business post. Attempts the Business Profile API with the
+  // dealer's connected token; when Google hasn't approved the API for our project
+  // yet it returns { staged:true } so the UI can fall back to assisted posting
+  // (copy the text, open Google Business). No change needed here once approved.
+  app.post('/integrations/google_business/post', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+    const text = String(req.body?.text || '').trim()
+    if (!text) return res.status(400).json({ error: 'Write the post text first.' })
+    const { data: row } = await supabaseAdmin.from('dealer_integrations')
+      .select('credentials_enc').eq('dealership_id', req.dealershipId).eq('provider', 'google_business').maybeSingle()
+    if (!row?.credentials_enc) return res.json({ staged: true, reason: 'Connect Google Business first, then MarketSync can publish for you.' })
+    try {
+      let creds = decryptJson(row.credentials_enc)
+      const ensured = await oauthEnsureToken('google_business', creds)
+      if (ensured.refreshed) {
+        creds = ensured.creds
+        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), updated_at: new Date().toISOString() })
+          .eq('dealership_id', req.dealershipId).eq('provider', 'google_business')
+      }
+      const cta = req.body?.cta_url ? { cta: 'LEARN_MORE', ctaUrl: String(req.body.cta_url).slice(0, 300) } : {}
+      const result = await gbpCreatePost(creds, { summary: text, mediaUrl: req.body?.media_url || null, ...cta })
+      res.json(result)
+    } catch (e) {
+      res.json({ staged: true, reason: e.message || 'Could not reach Google Business — copy the post and add it manually for now.' })
+    }
   })
 }

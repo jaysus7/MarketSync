@@ -5757,7 +5757,7 @@ function renderIntegrations(data) {
         <h3 class="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">${esc(cat)}</h3>
         ${CATEGORY_BLURB[cat] ? `<p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">${esc(CATEGORY_BLURB[cat])}</p>` : ''}
       </div>
-      <div class="space-y-3">${byCat[cat].slice().sort((a, b) => rank(a) - rank(b)).map(p => p.provider === 'webhook' ? webhookCard(p, events) : p.provider === 'twilio' ? twilioCard(p) : (p.deposits && p.live) ? depositsCard(p) : (p.oauth && p.live) ? oauthCard(p) : (p.manual && Array.isArray(p.fields)) ? fniCredsCard(p) : providerCard(p)).join('')}</div>
+      <div class="space-y-3">${byCat[cat].slice().sort((a, b) => rank(a) - rank(b)).map(p => p.provider === 'webhook' ? webhookCard(p, events) : p.provider === 'twilio' ? twilioCard(p) : p.provider === 'google_business' ? googleBusinessCard(p) : (p.deposits && p.live) ? depositsCard(p) : (p.oauth && p.live) ? oauthCard(p) : (p.manual && Array.isArray(p.fields)) ? fniCredsCard(p) : providerCard(p)).join('')}</div>
     </div>`).join('');
   if (!data.pii_ready) {
     host.insertAdjacentHTML('afterbegin', `<div class="mb-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300">Encryption key not set — signing secrets and credentials can't be stored until <code>PII_ENCRYPTION_KEY</code> is configured on the server.</div>`);
@@ -6137,6 +6137,129 @@ async function disconnectTwilio(btn) {
 // OAuth connector card (QuickBooks, Xero, Google Business). "Connect" bounces to the
 // provider's consent screen; once linked we show when + Test / Disconnect. One set of
 // handlers drives every OAuth provider via its `provider` key.
+// Google Business Profile gets its own card: the standard OAuth connect flow (when
+// the app is provisioned) PLUS an always-available AI post composer. The composer
+// works in "assisted" mode today — write the post with AI, copy it, open Google
+// Business — and flips to one-click publish the moment Google approves API access,
+// mirroring how the F&I connectors stage credentials before certification.
+function googleBusinessCard(p) {
+  const connected = p.configured && p.enabled;
+  const cfg = p.lender_code_map || {};
+  let connectRow;
+  if (!p.live) {
+    connectRow = `<p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2">One-click publish activates once Google approves MarketSync's Business Profile access. Until then, use the composer below to write a post and post it in a couple of clicks.</p>`;
+  } else if (connected) {
+    connectRow = `<div class="flex items-center gap-2 mt-3">
+        <button onclick="testOAuth('${p.provider}', this)" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-lg transition">Test connection</button>
+        <button onclick="disconnectOAuth('${p.provider}', '${esc(p.label)}', this)" class="ml-auto text-xs text-rose-500 hover:text-rose-400 font-semibold">Disconnect</button>
+      </div>`;
+  } else {
+    connectRow = `<div class="flex items-center gap-2 mt-3">
+        <button onclick="connectOAuth('${p.provider}', this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Connect ${esc(p.label)}</button>
+      </div>`;
+  }
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4">
+    <div class="flex items-start gap-3">
+      ${integrationIcon(p.provider)}
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm text-slate-900 dark:text-white">${esc(p.label)}</span>${statusPill(p)}</div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${esc(p.description)}</p>
+        ${connected && cfg.connected_at ? `<p class="text-[11px] text-slate-400 mt-1">Connected ${new Date(cfg.connected_at).toLocaleDateString()}.</p>` : ''}
+        ${connectRow}
+        <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <button onclick="openGbpComposer()" class="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold px-4 py-2 rounded-lg transition">✍️ Compose a post</button>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Let AI write a Google Business post for a new arrival, a special, or a general update.</p>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Google Business post composer modal ─────────────────────────────────────────
+async function openGbpComposer() {
+  const gbLive = !!(__integrationsCache?.providers || []).find(p => p.provider === 'google_business' && p.configured && p.enabled);
+  let inv = [];
+  try { inv = await apiGetJson('/inventory/all', { retries: 1 }); } catch {}
+  const vehOpts = (inv || [])
+    .filter(v => String(v.status || 'available').toLowerCase() === 'available')
+    .slice(0, 300)
+    .map(v => `<option value="${v.id}">${esc([v.year, v.make, v.model, v.trim].filter(Boolean).join(' '))}${v.price ? ' — $' + Number(v.price).toLocaleString() : ''}</option>`).join('');
+  const inp = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+  crmOverlay(`<div class="p-5">
+    <div class="flex items-center justify-between mb-1"><div class="text-lg font-black text-slate-900 dark:text-white">✍️ Compose a Google Business post</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">Let AI draft a post for your Google Business Profile, then publish or copy it over.</p>
+    <div class="space-y-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Post type</label>
+          <select id="gbp-kind" class="${inp}">
+            <option value="new_arrival">🚗 New arrival</option>
+            <option value="special">🏷️ Special offer</option>
+            <option value="update" selected>📣 General update</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">About a vehicle (optional)</label>
+          <select id="gbp-veh" class="${inp}">
+            <option value="">— No specific vehicle —</option>${vehOpts}
+          </select>
+        </div>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400">Post text</label>
+          <button onclick="gbpWrite(this)" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">✨ Write with AI</button>
+        </div>
+        <textarea id="gbp-text" rows="6" placeholder="Write your post, or hit “Write with AI” to draft one." class="${inp}"></textarea>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="gbpCopy(this)" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-lg transition">Copy text</button>
+        <a href="https://business.google.com/posts" target="_blank" rel="noopener" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-lg transition">Open Google Business ↗</a>
+        <button onclick="gbpPublish(this)" class="ml-auto bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold px-4 py-2 rounded-lg transition">${gbLive ? 'Publish to Google' : 'Publish'}</button>
+      </div>
+      <p class="text-[11px] text-slate-400 dark:text-slate-500">${gbLive ? 'Publishing posts straight to your connected Google Business Profile.' : 'One-click publish activates once Google approves API access. For now, “Publish” checks the connection — copy the text and paste it into Google Business.'}</p>
+    </div>
+  </div>`, 'max-w-lg');
+}
+async function gbpWrite(btn) {
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Writing…';
+  try {
+    const d = await apiSendJson('/integrations/google_business/compose', 'POST', {
+      kind: document.getElementById('gbp-kind')?.value || 'update',
+      inventory_id: document.getElementById('gbp-veh')?.value || null,
+    });
+    if (d.text) { document.getElementById('gbp-text').value = d.text; showToast('Draft ready — tweak it and publish', 'success'); }
+    else throw new Error('AI returned nothing');
+  } catch (e) { showToast(e.message || 'Could not write the post', 'error'); }
+  btn.disabled = false; btn.textContent = orig;
+}
+async function gbpCopy(btn) {
+  const t = document.getElementById('gbp-text')?.value.trim();
+  if (!t) { showToast('Write the post first', 'error'); return; }
+  try { await navigator.clipboard.writeText(t); const o = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = o, 1400); }
+  catch { showToast('Could not copy — select the text manually', 'error'); }
+}
+async function gbpPublish(btn) {
+  const t = document.getElementById('gbp-text')?.value.trim();
+  if (!t) { showToast('Write the post first', 'error'); return; }
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Publishing…';
+  try {
+    const d = await apiSendJson('/integrations/google_business/post', 'POST', { text: t });
+    if (d.ok) { showToast('Posted to Google Business ✓', 'success'); btn.closest('.fixed')?.remove(); }
+    else {
+      // Staged fallback: copy the text and open Google Business for a manual paste.
+      try { await navigator.clipboard.writeText(t); } catch {}
+      showToast(d.reason ? d.reason + ' Text copied — paste it in Google Business.' : 'Text copied — paste it in Google Business.', 'info');
+      window.open('https://business.google.com/posts', '_blank', 'noopener');
+    }
+  } catch (e) { showToast(e.message || 'Could not publish', 'error'); }
+  btn.disabled = false; btn.textContent = orig;
+}
+window.openGbpComposer = openGbpComposer;
+window.gbpWrite = gbpWrite;
+window.gbpCopy = gbpCopy;
+window.gbpPublish = gbpPublish;
+
 function oauthCard(p) {
   const connected = p.configured && p.enabled;
   const cfg = p.lender_code_map || {};
