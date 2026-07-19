@@ -1922,6 +1922,7 @@ async function openCrmContact(id) {
 }
 function crmDetailHtml(d) {
   const c = d.contact;
+  crmIndexTranscripts(d.timeline);   // stash any saved AI/marketplace transcripts for the viewer
   const initials = (c.full_name || '?').split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
   const openTasks = (d.tasks || []).filter(t => !t.done);
   return `
@@ -1965,6 +1966,38 @@ function crmDetailHtml(d) {
     </div>
   </div>`;
 }
+// Registry of saved AI/marketplace transcripts on the open contact, keyed by comm id,
+// so the "View AI conversation" button can open a modal without another round-trip.
+let __chatTx = {};
+function crmIndexTranscripts(timeline) {
+  __chatTx = {};
+  for (const t of (timeline || [])) {
+    if (t.kind === 'comm' && t.id && t.meta && t.meta.kind === 'ai_chat' && Array.isArray(t.meta.transcript)) {
+      __chatTx[t.id] = { transcript: t.meta.transcript, source: t.meta.source || 'other', at: t.at };
+    }
+  }
+}
+function openChatTx(id) {
+  const rec = __chatTx[id]; if (!rec) return showToast('Conversation not found', 'error');
+  const SRC = { website: 'Website AI chat', marketplace: 'Marketplace conversation', sms: 'Text conversation', other: 'AI conversation' };
+  const bubbles = rec.transcript.map(m => {
+    const mine = m.role === 'assistant';   // the dealership/AI side
+    return `<div class="flex ${mine ? 'justify-start' : 'justify-end'}">
+      <div class="max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${mine ? 'bg-indigo-50 dark:bg-indigo-950/40 text-slate-800 dark:text-slate-100 rounded-tl-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-tr-sm'}">
+        <div class="text-[10px] font-bold uppercase tracking-wide mb-0.5 ${mine ? 'text-indigo-500 dark:text-indigo-300' : 'text-slate-400'}">${mine ? '🤖 AI' : 'Customer'}</div>
+        <div class="whitespace-pre-wrap">${esc(m.content)}</div>
+      </div></div>`;
+  }).join('');
+  crmOverlay(`<div class="p-5">
+    <div class="flex items-center justify-between mb-1">
+      <div><div class="text-lg font-black text-slate-900 dark:text-white">${SRC[rec.source] || 'AI conversation'}</div>
+        <div class="text-xs text-slate-400">${rec.transcript.length} messages${rec.at ? ' · ' + esc(crmWhen(rec.at)) : ''} — this is what the AI told the customer.</div></div>
+      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="mt-3 space-y-2 max-h-[65vh] overflow-y-auto pr-1">${bubbles}</div>
+  </div>`, 'max-w-lg');
+}
+window.openChatTx = openChatTx;
 // ── Attachments: photos, videos & files reps add to a customer ───────────────
 function crmFileSize(n) { if (!n) return ''; return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
 function crmAttachmentTile(a, contactId) {
@@ -2057,8 +2090,22 @@ function crmTimelineItem(t, cid) {
   const chIco = { call: 'phone', sms: 'chat', email: 'mail', note: 'note' };
   let head = '', bodyTxt = t.body || '', reply = '', iconName = 'note';
   if (t.kind === 'comm') {
+    // Saved AI/marketplace transcript → show a "View AI conversation" opener.
+    if (t.meta && t.meta.kind === 'ai_chat' && t.id) {
+      const SRC = { website: 'Website AI chat', marketplace: 'Marketplace conversation', sms: 'Text conversation', other: 'AI conversation' };
+      const n = Array.isArray(t.meta.transcript) ? t.meta.transcript.length : 0;
+      return `<div class="flex gap-2.5">
+        <div class="w-7 flex-shrink-0 flex justify-center pt-0.5 text-indigo-500">${msIco('chat', 'w-4 h-4')}</div>
+        <div class="min-w-0 flex-1 border-l-2 border-slate-100 dark:border-slate-800 pl-3 pb-1">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">🤖 ${esc(SRC[t.meta.source] || 'AI conversation')}</div>
+          <div class="text-sm text-slate-600 dark:text-slate-300 mt-0.5">${n} message${n === 1 ? '' : 's'} with the AI concierge.</div>
+          <button onclick="openChatTx('${t.id}')" class="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">${msIco('chat', 'w-3 h-3')} View AI conversation</button>
+          <div class="text-[11px] text-slate-400 mt-0.5">${esc(crmWhen(t.at))}</div>
+        </div>
+      </div>`;
+    }
     iconName = chIco[t.channel] || 'note';
-    const label = { call: 'Call', sms: 'Text', email: 'Email', note: 'Note', system: 'System' }[t.channel] || 'Note';
+    const label = { call: 'Call', sms: 'Text', email: 'Email', note: 'Note', system: 'System', chat: 'Chat' }[t.channel] || 'Note';
     const dir = t.direction === 'in' ? ' (inbound)' : t.direction === 'out' ? ' (outbound)' : '';
     head = `${label}${dir}${t.subject ? ` — ${esc(t.subject)}` : ''}`;
     // Reply to an inbound customer message right from the timeline.

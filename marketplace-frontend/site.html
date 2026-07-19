@@ -1034,8 +1034,10 @@
       if(!name&&!phone&&!email){ alert('Add a name, phone, or email.'); return; }
       btn.disabled=true;
       const transcript=CHAT.filter(m=>m.who==='me').map(m=>m.text).slice(-6).join(' · ').slice(0,1500);
+      // Full structured transcript (both sides) so the dealer can read exactly what the AI said.
+      const chat_transcript=CHAT.filter(m=>m.who==='me'||m.who==='bot').map(m=>({role:m.who==='me'?'user':'assistant',content:String(m.text||'').slice(0,2000)})).slice(-60);
       try{
-        await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({form_type:'chat',name,phone,email,message:'From website chat: '+transcript})});
+        await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({form_type:'chat',name,phone,email,message:'From website chat: '+transcript,chat_transcript})});
         CHAT_CAPTURED=true;
         document.getElementById('ms-chat-capture').style.display='none';
         chatPush('bot',`Thanks${name?' '+name:''}! A product advisor will reach out shortly. Anything else I can help with in the meantime?`);

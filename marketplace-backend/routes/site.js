@@ -466,6 +466,25 @@ export function registerSite(app) {
           } catch (err) { console.warn('[site] credit draft failed:', err.message) }
         }
 
+        // AI website chat → save the full transcript on the customer record so the
+        // rep can read exactly what the concierge said. Shows as a "View AI
+        // conversation" link on the contact's timeline.
+        if (formType === 'chat' && Array.isArray(b.chat_transcript) && b.chat_transcript.length) {
+          try {
+            const tx = b.chat_transcript
+              .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+              .slice(-60).map(m => ({ role: m.role, content: m.content.trim().slice(0, 2000) }))
+            if (tx.length) {
+              await supabaseAdmin.from('communications').insert({
+                dealership_id: d.id, contact_id: contactId, channel: 'chat', direction: 'in',
+                subject: 'Website AI chat',
+                body: `AI website chat — ${tx.length} message${tx.length === 1 ? '' : 's'}. Open to read the full conversation.`,
+                meta: { kind: 'ai_chat', source: 'website', transcript: tx },
+              })
+            }
+          } catch (err) { console.warn('[site] chat transcript save failed:', err.message) }
+        }
+
         // High-intent alerts for reserve / deposit requests.
         if (formType === 'reserve') {
           await createNotification({

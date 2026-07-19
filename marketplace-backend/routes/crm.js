@@ -229,7 +229,7 @@ export function registerCrm(app) {
 
     // Merge into one time-ordered timeline.
     const timeline = []
-    for (const c of (comms || [])) timeline.push({ kind: 'comm', at: c.occurred_at, channel: c.channel, direction: c.direction, subject: c.subject, body: c.body, rep: reps[c.rep_id] || null, meta: c.meta })
+    for (const c of (comms || [])) timeline.push({ kind: 'comm', id: c.id, at: c.occurred_at, channel: c.channel, direction: c.direction, subject: c.subject, body: c.body, rep: reps[c.rep_id] || null, meta: c.meta })
     for (const l of (leads || [])) {
       const v = vehicles[l.inventory_id]
       timeline.push({ kind: 'lead', at: l.created_at, source: l.source, status: l.status, body: l.comments,
@@ -347,6 +347,30 @@ export function registerCrm(app) {
     })
     // A logged inbound reply (call/text/email from the customer) freezes automation.
     if (direction === 'in' && channel !== 'note') freezeSequences(contact.id, 'customer_replied')
+    res.json({ ok: true, comm })
+  })
+
+  // Save an AI/marketplace conversation transcript onto a contact so the team can
+  // read exactly what was said. Used by the website concierge and available to the
+  // marketplace/extension path. Stored as a 'chat' communication with meta.transcript.
+  app.post('/crm/contacts/:id/chat-log', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: contact } = await supabaseAdmin.from('contacts')
+      .select('id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!contact) return res.status(404).json({ error: 'Contact not found' })
+    const b = req.body || {}
+    const tx = Array.isArray(b.transcript) ? b.transcript
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+      .slice(-80).map(m => ({ role: m.role, content: m.content.trim().slice(0, 2000) })) : []
+    if (!tx.length) return res.status(400).json({ error: 'transcript required' })
+    const source = ['website', 'marketplace', 'sms', 'other'].includes(b.source) ? b.source : 'other'
+    const label = { website: 'Website AI chat', marketplace: 'Marketplace conversation', sms: 'Text conversation', other: 'AI conversation' }[source]
+    const comm = await logComm({
+      dealershipId: req.dealershipId, contactId: contact.id, channel: 'chat', direction: 'in',
+      subject: b.subject ? String(b.subject).slice(0, 120) : label,
+      body: `${label} — ${tx.length} message${tx.length === 1 ? '' : 's'}. Open to read the full conversation.`,
+      repId: req.user.id, meta: { kind: 'ai_chat', source, transcript: tx },
+    })
     res.json({ ok: true, comm })
   })
 
