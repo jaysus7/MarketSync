@@ -25,9 +25,12 @@ export function registerRoutes(app) {
       email_signature: req.profile.email_signature || null,
       email_reply_to: req.profile.email_reply_to || null,
       dealership: req.profile.dealerships,
-      // The internal MarketSync workspace (JMS Automotive) gets the owner-only
-      // Demo ↔ MarketSync dashboard switch.
-      is_marketsync: (req.profile.dealerships?.name === 'JMS Automotive'),
+      // The MarketSync owner gets the owner-only Demo ↔ MarketSync dashboard switch.
+      // Keyed off the owner email (robust to workspace renames), with a name fallback.
+      is_marketsync: (
+        (!!process.env.OWNER_EMAIL && (req.user.email || '').toLowerCase() === process.env.OWNER_EMAIL.toLowerCase())
+        || ['JMS Automotive', 'MarketSync'].includes(req.profile.dealerships?.name)
+      ),
     })
   })
 

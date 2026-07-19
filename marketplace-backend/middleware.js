@@ -72,7 +72,10 @@ export async function requireAuth(req, res, next) {
     // dashboard into a sandboxed demo dealership (seeded fake cars/customers) without
     // touching their real MarketSync data. Gated to the JMS Automotive owner + an
     // explicit header, and scoped by dealership_id like everything else.
-    if (req.headers['x-act-demo'] === '1' && profile.dealerships?.name === 'JMS Automotive') {
+    const ownerEmail = (process.env.OWNER_EMAIL || '').toLowerCase()
+    const isMsOwner = (ownerEmail && (user.email || '').toLowerCase() === ownerEmail)
+      || ['JMS Automotive', 'MarketSync'].includes(profile.dealerships?.name)
+    if (req.headers['x-act-demo'] === '1' && isMsOwner) {
       const demoId = await resolveDemoDealership()
       if (demoId) { req.dealershipId = demoId; req.isDemo = true }
     }

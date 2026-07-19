@@ -13,7 +13,8 @@ import { bustDemoDealerCache } from '../middleware.js'
 
 const DEMO_NAME = 'MarketSync Automotive'
 const OLD_DEMO_NAME = 'MarketSync Demo'   // migrate any earlier-seeded demo workspace
-const isOwner = (req) => req.profile?.dealerships?.name === 'JMS Automotive'
+const isOwner = (req) => (!!process.env.OWNER_EMAIL && (req.user?.email || '').toLowerCase() === process.env.OWNER_EMAIL.toLowerCase())
+  || ['JMS Automotive', 'MarketSync'].includes(req.profile?.dealerships?.name)
 
 // Demo customers across the full pipeline so the stage stepper has material.
 const CUSTOMERS = [

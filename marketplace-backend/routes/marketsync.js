@@ -47,7 +47,13 @@ export function registerMarketsync(app) {
   let _jms = null, _jmsAt = 0
   async function jms() {
     if (_jms && Date.now() - _jmsAt < 10 * 60 * 1000) return _jms
-    const { data: d } = await supabaseAdmin.from('dealerships').select('id').eq('name', 'JMS Automotive').maybeSingle()
+    // Resolve the MarketSync ops workspace by name (either the seed name or a
+    // renamed 'MarketSync'), else via the owner-email profile's dealership.
+    let { data: d } = await supabaseAdmin.from('dealerships').select('id').in('name', ['JMS Automotive', 'MarketSync']).limit(1).maybeSingle()
+    if (!d?.id && process.env.OWNER_EMAIL) {
+      const { data: op } = await supabaseAdmin.from('profiles').select('dealership_id').ilike('email', process.env.OWNER_EMAIL).not('dealership_id', 'is', null).limit(1).maybeSingle()
+      if (op?.dealership_id) d = { id: op.dealership_id }
+    }
     let ownerId = null
     if (d?.id) {
       const { data: p } = await supabaseAdmin.from('profiles').select('id').eq('dealership_id', d.id)
@@ -251,7 +257,8 @@ export function registerMarketsync(app) {
     }
   })
 
-  const ownerOnly = (req) => req.profile?.dealerships?.name === 'JMS Automotive'
+  const ownerOnly = (req) => (!!process.env.OWNER_EMAIL && (req.user?.email || '').toLowerCase() === process.env.OWNER_EMAIL.toLowerCase())
+    || ['JMS Automotive', 'MarketSync'].includes(req.profile?.dealerships?.name)
 
   // ── OWNER: MarketSync dashboard insights — leads + revenue potential ────────
   app.get('/marketsync/insights', requireAuth, async (req, res) => {

@@ -392,7 +392,7 @@ async function marketsyncCleanup(btn) {
 window.marketsyncCleanup = marketsyncCleanup;
 // Reveal the switch + apply the saved mode once we know this is the MarketSync owner.
 function initDashModeForOwner() {
-  const isOwner = profileContext?.is_marketsync === true || profileContext?.dealership?.name === 'JMS Automotive';
+  const isOwner = profileContext?.is_marketsync === true || ['JMS Automotive', 'MarketSync'].includes(profileContext?.dealership?.name);
   if (!isOwner) return;
   document.documentElement.setAttribute('data-dash-owner', '1');
   applyDashMode(__dashMode);
