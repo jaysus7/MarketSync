@@ -227,8 +227,11 @@ Still to deepen:
       per-dealer CSV + XML inventory feeds (`/syndication/:slug/inventory.csv|.xml`)
       the dealer hands to each platform's portal; auto-current, 30-min cache. Dashboard
       "Listing Syndication" card surfaces + copies the feed URLs. Done 2026-07-18
-      (routes/syndication.js). Next: a Google-vehicle-listings-specific feed shape +
-      per-platform field mapping if a platform rejects the generic feed.
+      (routes/syndication.js). Google-vehicle-listings feed shape added
+      (/syndication/:slug/google.xml). Per-platform **step-by-step setup modals**
+      (AutoTrader, CarGurus, Kijiji Autos, Google Merchant, Facebook) added to the
+      Syndication card — each hands the dealer the right feed URL + copy button +
+      the exact portal steps. Done 2026-07-19.
 - [ ] **Google Business Profile** posting + review request automation — the GBP OAuth
       connector exists (Phase 2); still to build: auto-post new arrivals/specials to GBP
       and trigger review requests through it (review cards + links already on the site).

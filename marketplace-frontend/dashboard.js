@@ -5767,9 +5767,11 @@ function renderIntegrations(data) {
   host.insertAdjacentHTML('beforeend', '<div id="synd-card" class="mb-6"></div>');
   loadSyndicationCard();
 }
+let __syndCfg = null;
 async function loadSyndicationCard() {
   const host = document.getElementById('synd-card'); if (!host) return;
   let cfg; try { cfg = await apiGetJson('/syndication/config', { retries: 1 }); } catch { host.remove(); return; }
+  __syndCfg = cfg;
   const copyBtn = (url) => `<button onclick="copySyndUrl(this,'${esc(url)}')" class="shrink-0 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Copy</button>`;
   const row = (label, url) => `<div class="flex items-center gap-2">
       <span class="text-[11px] font-bold uppercase tracking-wide text-slate-400 w-10">${label}</span>
@@ -5784,6 +5786,12 @@ async function loadSyndicationCard() {
          ${row('XML', cfg.xml_url)}
          ${cfg.google_url ? row('Google', cfg.google_url) : ''}
          <p class="text-[11px] text-slate-400 dark:text-slate-500">Most classifieds accept the CSV or XML. Use the <b>Google</b> feed for Google Merchant Center / Vehicle ads.</p>
+         <div class="pt-1">
+           <div class="text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">Step-by-step setup</div>
+           <div class="flex flex-wrap gap-1.5">
+             ${['autotrader', 'cargurus', 'kijiji', 'google', 'facebook'].map(p => `<button onclick="syndicationGuide('${p}')" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-950/40 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg transition">${SYND_GUIDES[p].name} →</button>`).join('')}
+           </div>
+         </div>
        </div>`
     : `<p class="text-xs text-slate-500 dark:text-slate-400">${esc(cfg.reason || 'Publish your website to turn on syndication feeds.')}</p>`;
   host.innerHTML = `
@@ -5807,6 +5815,90 @@ async function copySyndUrl(btn, url) {
   catch { showToast('Copy failed — select the text and copy manually', 'error'); }
 }
 window.copySyndUrl = copySyndUrl;
+
+// Per-platform step-by-step setup for the syndication feeds. `feed` = which of the
+// dealer's feed URLs to hand that platform; `link` opens the platform's portal.
+const SYND_GUIDES = {
+  autotrader: {
+    name: 'AutoTrader', emoji: '🚗', feed: 'xml', link: 'https://www.autotrader.ca/dealers/',
+    intro: 'AutoTrader / Trader.ca pulls your inventory from a feed URL managed by your account rep.',
+    steps: [
+      'Copy your <b>XML feed URL</b> below.',
+      'Sign in to your AutoTrader / Trader Portal dealer account (or email your AutoTrader account rep).',
+      'Go to <b>Inventory → Feeds</b> (or ask your rep to add a new inventory feed source).',
+      'Paste your XML feed URL as the source and set the fetch to <b>daily</b>.',
+      'Save. Your first sync usually appears within 24 hours, then stays current automatically.',
+    ],
+    note: 'No feed option in your portal? Email the URL to your AutoTrader rep — they can onboard it for you.',
+  },
+  cargurus: {
+    name: 'CarGurus', emoji: '📈', feed: 'csv', link: 'https://www.cargurus.com/Cars/dealers/',
+    intro: 'CarGurus ingests inventory from a daily feed — add it in the Dealer Dashboard or send it to onboarding.',
+    steps: [
+      'Copy your <b>CSV feed URL</b> below.',
+      'Sign in to the <b>CarGurus Dealer Dashboard</b>.',
+      'Open <b>Inventory → Inventory settings / Data feed</b>.',
+      'Add a new feed source and paste your CSV feed URL (schedule: daily).',
+      'Save — or email the URL to CarGurus dealer onboarding and they’ll validate + ingest it.',
+    ],
+    note: 'CarGurus validates the first feed manually; it can take a business day to appear.',
+  },
+  kijiji: {
+    name: 'Kijiji Autos', emoji: '🇨🇦', feed: 'xml', link: 'https://www.kijijiautos.ca/',
+    intro: 'Kijiji Autos onboards dealer inventory through a feed via your Kijiji account manager.',
+    steps: [
+      'Copy your <b>XML feed URL</b> below.',
+      'Contact your Kijiji Autos account manager (or Kijiji dealer support).',
+      'Give them your XML feed URL as your inventory feed source.',
+      'They configure a daily pull — your live inventory then flows in automatically.',
+    ],
+    note: 'Kijiji Autos feeds are set up by their team; there isn’t a self-serve feed box today.',
+  },
+  google: {
+    name: 'Google Vehicle Listings', emoji: '🔎', feed: 'google', link: 'https://merchants.google.com/',
+    intro: 'Google Merchant Center / Vehicle ads pull a scheduled feed you add yourself.',
+    steps: [
+      'Copy your <b>Google feed URL</b> below.',
+      'Open <b>Google Merchant Center</b> (create a free account if you don’t have one).',
+      'Go to <b>Products → Feeds → +</b> to add a primary feed.',
+      'Choose <b>Scheduled fetch</b>, paste your Google feed URL, and set it to fetch <b>daily</b>.',
+      'Save. Google validates the feed, then your vehicles appear in Vehicle listings.',
+    ],
+    note: 'Vehicle ads may require enabling the vehicle-listings program in Merchant Center for your region.',
+  },
+  facebook: {
+    name: 'Facebook Marketplace', emoji: '📘', feed: null, link: 'https://marketsync.link/facebook-marketplace-poster.html',
+    intro: 'Facebook Marketplace works through the MarketSync Chrome extension — no feed needed.',
+    steps: [
+      'Install the <b>MarketSync Chrome extension</b> (top-right “Install extension”).',
+      'Open Facebook Marketplace and click the extension.',
+      'Pick a vehicle — title, price, photos and description fill in automatically.',
+      'Click <b>Post</b>. MarketSync tracks who posted and who sold for the leaderboard.',
+    ],
+    note: 'This is the one channel that isn’t a feed — Facebook doesn’t allow automated dealer feeds for Marketplace.',
+  },
+};
+function syndicationGuide(key) {
+  const g = SYND_GUIDES[key]; if (!g) return;
+  const cfg = __syndCfg || {};
+  const feedUrl = g.feed ? cfg[g.feed + '_url'] : null;
+  const steps = g.steps.map((s, i) => `<li class="flex gap-2.5"><span class="shrink-0 w-5 h-5 rounded-full bg-indigo-600 text-white text-[11px] font-black flex items-center justify-center">${i + 1}</span><span class="text-sm text-slate-700 dark:text-slate-200 pt-0.5">${s}</span></li>`).join('');
+  crmOverlay(`<div class="p-5">
+    <div class="flex items-center justify-between mb-1">
+      <div class="text-lg font-black text-slate-900 dark:text-white">${g.emoji} Add your inventory to ${esc(g.name)}</div>
+      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">${esc(g.intro)}</p>
+    ${feedUrl ? `<div class="flex items-center gap-2 mb-4">
+      <input readonly value="${esc(feedUrl)}" onclick="this.select()" class="flex-1 min-w-0 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-600 dark:text-slate-300">
+      <button onclick="copySyndUrl(this,'${esc(feedUrl)}')" class="shrink-0 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Copy feed URL</button>
+    </div>` : ''}
+    <ol class="space-y-2.5">${steps}</ol>
+    ${g.note ? `<p class="text-[11px] text-slate-400 dark:text-slate-500 mt-4 border-t border-slate-100 dark:border-slate-800 pt-3">💡 ${esc(g.note)}</p>` : ''}
+    <div class="mt-4"><a href="${esc(g.link)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-sm font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg">Open ${esc(g.name)} →</a></div>
+  </div>`, 'max-w-lg');
+}
+window.syndicationGuide = syndicationGuide;
 function isIntegrationConnected(p) {
   if (!p.enabled) return false;
   const m = p.lender_code_map || {};
