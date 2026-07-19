@@ -19,6 +19,7 @@ import {
   computeDailyDigest,
 } from './ai-helpers.js'
 import { registerAiPricing } from './ai-pricing.js'
+import { SMART_MODEL } from '../aiModels.js'
 
 
 export function registerAI(app) {
@@ -1042,7 +1043,7 @@ Adjusted retail value for this vehicle: ${cur} $${retailMid.toLocaleString()}.${
 Wholesale value (ACV): ${cur} $${tradeValue.toLocaleString()} — about ${Math.round(tradeRatio * 100)}% of retail, in line with trade/wholesale valuation tools like AutoTrader.` : ''}
 ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.toLocaleString()} — the retail value less ${cur} $${recon.toLocaleString()} reconditioning and a ${cur} $${targetGross.toLocaleString()} target gross, in line with trade-value tools like AutoTrader.`
         const msg = await Promise.race([
-          anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 220, messages: [{ role: 'user', content: prompt }] }),
+          anthropic.messages.create({ model: SMART_MODEL, max_tokens: 220, messages: [{ role: 'user', content: prompt }] }),
           new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 20000)),
         ])
         ai_summary = (msg?.content?.[0]?.text || '').trim() || null
@@ -2578,7 +2579,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
       const convo = messages.slice()
       const call = () => Promise.race([
-        anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 1000, system, tools: ASSISTANT_TOOLS, messages: convo }),
+        anthropic.messages.create({ model: SMART_MODEL, max_tokens: 1000, system, tools: ASSISTANT_TOOLS, messages: convo }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 25000)),
       ])
       // Tool-use loop: run any tools the model asks for, feed the results back,
