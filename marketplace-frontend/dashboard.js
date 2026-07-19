@@ -291,6 +291,15 @@ function applyDashMode(mode) {
   __dashMode = mode === 'marketsync' ? 'marketsync' : 'demo';
   document.documentElement.setAttribute('data-dash-mode', __dashMode);
   document.querySelectorAll('#ms-mode-switch button').forEach(b => b.setAttribute('data-on', b.dataset.mode === __dashMode ? '1' : '0'));
+  // In MarketSync mode "Sales" is a direct page (the F&I/subscriptions list), not a
+  // collapsible group — point its header at the page and open it.
+  const salesHead = document.getElementById('nav-sales-head');
+  if (salesHead) {
+    salesHead.onclick = __dashMode === 'marketsync'
+      ? () => { if (typeof switchPage === 'function') switchPage('fni'); }
+      : () => { if (typeof toggleNavGroup === 'function') toggleNavGroup('sales'); };
+  }
+  if (__dashMode === 'marketsync') { try { renderMarketsyncInsights(); } catch (e) {} }
 }
 function setDashMode(mode) {
   applyDashMode(mode);
@@ -319,6 +328,68 @@ async function demoStepStage(id, dir, cur) {
   catch (e) { showToast(e.message || 'Could not update', 'error'); }
 }
 window.demoStepStage = demoStepStage;
+
+// MarketSync dashboard: leads (from the website + chatbot) + revenue potential across
+// the five price points. Rendered into #ms-insights; only visible in MarketSync mode.
+async function renderMarketsyncInsights() {
+  const host = document.getElementById('ms-insights');
+  if (!host || document.documentElement.getAttribute('data-dash-mode') !== 'marketsync') return;
+  host.innerHTML = '<div class="py-16 text-center text-sm text-violet-400 italic">Loading MarketSync insights…</div>';
+  let d;
+  try { d = await apiGetJson('/marketsync/insights', { retries: 1 }); } catch (e) { host.innerHTML = `<div class="py-10 text-center text-sm text-rose-500">${esc(e.message || 'Could not load')}</div>`; return; }
+  const money = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
+  const open = d.open || 0, total = d.total || 0;
+  const tile = (label, val, sub) => `<div class="rounded-xl border border-violet-200 dark:border-violet-900/60 bg-white dark:bg-slate-900 p-4">
+    <div class="text-2xl font-black text-violet-700 dark:text-violet-300">${val}</div>
+    <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mt-0.5">${label}</div>${sub ? `<div class="text-[11px] text-slate-400 mt-0.5">${sub}</div>` : ''}</div>`;
+  const rows = (d.price_points || []).map(p => {
+    const perCust = p.monthly, moPot = perCust * open, yr = moPot * 12;
+    return `<tr class="border-b border-violet-100 dark:border-violet-950/60">
+      <td class="py-2 pr-3 font-bold text-slate-800 dark:text-slate-100">${esc(p.label)}</td>
+      <td class="py-2 px-3 text-right text-slate-600 dark:text-slate-300">${money(perCust)}/mo</td>
+      <td class="py-2 px-3 text-right font-semibold text-violet-700 dark:text-violet-300">${money(moPot)}/mo</td>
+      <td class="py-2 pl-3 text-right font-black text-violet-800 dark:text-violet-200">${money(yr)}/yr</td>
+    </tr>`;
+  }).join('');
+  const srcRows = (d.by_source || []).map(s => `<div class="flex items-center justify-between text-sm py-1"><span class="text-slate-600 dark:text-slate-300">${esc(s.source)}</span><span class="font-bold text-slate-800 dark:text-slate-100">${s.count}</span></div>`).join('') || '<div class="text-sm text-slate-400 italic">No leads yet.</div>';
+  host.innerHTML = `
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">MarketSync</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Leads from your website + chatbot, and what they're worth across the five price points.</p></div>
+      <button onclick="marketsyncCleanup(this)" class="text-xs font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 border border-violet-200 dark:border-violet-900 rounded-lg px-3 py-2">Remove sample leads</button>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+      ${tile('Total leads', total)}
+      ${tile('Open pipeline', open, 'not yet closed')}
+      ${tile('Won', d.won || 0)}
+      ${tile('New · 30 days', d.new_30d || 0)}
+    </div>
+    <div class="rounded-xl border border-violet-200 dark:border-violet-900/60 bg-white dark:bg-slate-900 p-5 mt-4">
+      <h2 class="text-lg font-black text-slate-900 dark:text-white">Revenue potential</h2>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">If your <b>${open}</b> open lead${open === 1 ? '' : 's'} converted at each price point — per customer, monthly recurring, and annual run-rate.</p>
+      <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead><tr class="text-[11px] uppercase tracking-wide text-slate-400 border-b border-violet-100 dark:border-violet-950/60">
+          <th class="text-left py-1.5 pr-3">Price point</th><th class="text-right py-1.5 px-3">Per customer</th><th class="text-right py-1.5 px-3">Pipeline / mo</th><th class="text-right py-1.5 pl-3">Pipeline / yr</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <p class="text-[11px] text-slate-400 mt-3">Monthly = per-customer price × open leads. Annual = monthly × 12.</p>
+    </div>
+    <div class="rounded-xl border border-violet-200 dark:border-violet-900/60 bg-white dark:bg-slate-900 p-5 mt-4">
+      <h2 class="text-base font-black text-slate-900 dark:text-white mb-2">Where leads come from</h2>
+      ${srcRows}
+    </div>`;
+}
+window.renderMarketsyncInsights = renderMarketsyncInsights;
+async function marketsyncCleanup(btn) {
+  if (!confirm('Remove the sample MarketSync leads (keeps Sean Agostino) and put his demo on the calendar?')) return;
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Cleaning…';
+  try {
+    const d = await apiSendJson('/marketsync/cleanup', 'POST', {});
+    showToast(`Removed ${d.removed || 0} sample lead(s)${d.sean_appointment ? " · Sean's demo added to the calendar" : ''}`, 'success');
+    renderMarketsyncInsights();
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Cleanup failed', 'error'); }
+}
+window.marketsyncCleanup = marketsyncCleanup;
 // Reveal the switch + apply the saved mode once we know this is the MarketSync owner.
 function initDashModeForOwner() {
   const isOwner = profileContext?.is_marketsync === true || profileContext?.dealership?.name === 'JMS Automotive';

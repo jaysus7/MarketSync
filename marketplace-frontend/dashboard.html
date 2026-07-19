@@ -67,12 +67,13 @@
     html[data-dash-mode="marketsync"] #grp-sales [data-page="equity"],
     html[data-dash-mode="marketsync"] #grp-sales [data-page="desk"],
     html[data-dash-mode="marketsync"] #nav-appraisal,
+    html[data-dash-mode="marketsync"] #nav-fni-deals,
+    html[data-dash-mode="marketsync"] #chev-sales,
     html[data-dash-mode="marketsync"] #nav-desk { display: none !important; }
-    /* Keep the CRM + Sales groups open, and force-show Leads + F&I. */
-    html[data-dash-mode="marketsync"] #grp-crm,
-    html[data-dash-mode="marketsync"] #grp-sales { display: block !important; }
-    html[data-dash-mode="marketsync"] #nav-leads-sales,
-    html[data-dash-mode="marketsync"] #nav-fni-deals { display: flex !important; }
+    /* Keep the CRM group open + force-show Leads. Sales becomes a direct page link
+       (JS points the header at the F&I/Sales page and hides the F&I sub-item). */
+    html[data-dash-mode="marketsync"] #grp-crm { display: block !important; }
+    html[data-dash-mode="marketsync"] #nav-leads-sales { display: flex !important; }
     /* Trimmed Settings tabs in MarketSync mode (hide vehicle-specific tabs). */
     html[data-dash-mode="marketsync"] #settings-tabs [data-stab="branding"],
     html[data-dash-mode="marketsync"] #settings-tabs [data-stab="language"],
@@ -100,8 +101,30 @@
     html[data-dash-mode="marketsync"] .dark\:bg-indigo-950\/40{background-color:rgba(46,16,101,.4)!important}
     html[data-dash-mode="marketsync"] .dark\:text-indigo-300{color:#c4b5fd!important}
     html[data-dash-mode="marketsync"] .dark\:text-indigo-400{color:#a78bfa!important}
-    html[data-dash-mode="marketsync"] [aria-current="page"]{background-color:#f5f3ff!important;color:#6d28d9!important}
-    html[data-dash-mode="marketsync"].dark [aria-current="page"]{background-color:rgba(76,29,149,.35)!important;color:#c4b5fd!important}
+    html[data-dash-mode="marketsync"] [aria-current="page"]{background-color:#ede9fe!important;color:#6d28d9!important}
+    html[data-dash-mode="marketsync"].dark [aria-current="page"]{background-color:rgba(76,29,149,.4)!important;color:#c4b5fd!important}
+    /* Deeper purple identity: tint the page, card borders, primary buttons + focus. */
+    html[data-dash-mode="marketsync"] body,
+    html[data-dash-mode="marketsync"] .bg-slate-50{background-color:#faf8ff!important}
+    html[data-dash-mode="marketsync"].dark body,
+    html[data-dash-mode="marketsync"].dark .bg-slate-950{background-color:#0f0a1e!important}
+    html[data-dash-mode="marketsync"] .border-slate-200{border-color:#e7e0fb!important}
+    html[data-dash-mode="marketsync"].dark .border-slate-800{border-color:#2e1065!important}
+    html[data-dash-mode="marketsync"].dark .bg-slate-900{background-color:#160f2b!important}
+    html[data-dash-mode="marketsync"] .bg-white{background-color:#fffdff!important}
+    /* Buttons: primary violet with depth; secondary chips get a violet wash. */
+    html[data-dash-mode="marketsync"] .bg-slate-100{background-color:#f1ecfe!important}
+    html[data-dash-mode="marketsync"].dark .bg-slate-800{background-color:#241a45!important}
+    html[data-dash-mode="marketsync"] button.bg-indigo-600,
+    html[data-dash-mode="marketsync"] a.bg-indigo-600{box-shadow:0 1px 2px rgba(124,58,237,.35),0 4px 12px -2px rgba(124,58,237,.35)!important}
+    html[data-dash-mode="marketsync"] .text-slate-400{color:#8b7fb0!important}
+    /* The mode switch sits on a stronger purple in MarketSync mode. */
+    html[data-dash-mode="marketsync"] #ms-mode-switch{background:#ede9fe}
+    html[data-dash-mode="marketsync"].dark #ms-mode-switch{background:#2e1065}
+    /* Dashboard reflects MarketSync leads: show only the MarketSync panel there. */
+    #ms-insights{display:none}
+    html[data-dash-mode="marketsync"] #ms-insights{display:block}
+    html[data-dash-mode="marketsync"] [data-page-content="insights"] > *:not(#ms-insights){display:none!important}
     /* The mode switch pills. */
     #ms-mode-switch{align-items:center;gap:2px;background:#eef2f7;border-radius:9px;padding:3px;margin:0 0 8px}
     html.dark #ms-mode-switch{background:#1e293b}
@@ -625,7 +648,7 @@
         <div id="nav-desktop" class="hidden md:flex md:flex-col md:w-full md:space-y-0.5">
           <!-- Owner-only workspace switch: vehicle-dealer Demo ↔ running MarketSync. -->
           <div id="ms-mode-switch" role="tablist" aria-label="Workspace mode">
-            <button type="button" data-mode="demo" data-on="1" onclick="setDashMode('demo')">🚗 Demo</button>
+            <button type="button" data-mode="demo" data-on="1" onclick="setDashMode('demo')">🚗 MarketSync Automotive</button>
             <button type="button" data-mode="marketsync" onclick="setDashMode('marketsync')">🟣 MarketSync</button>
           </div>
           <button id="ms-demo-reset" type="button" onclick="demoReset()" title="Reset the demo dealership to its starting data">↻ Reset demo data</button>
@@ -675,7 +698,7 @@
           <!-- ─── Sales (appraisals, F&I, cleanup, equity, desking) ─── -->
           <div class="nav-group" data-group="sales">
             <div class="flex items-center">
-              <button type="button" onclick="toggleNavGroup('sales')" title="Sales" class="flex-1 flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+              <button type="button" id="nav-sales-head" onclick="toggleNavGroup('sales')" title="Sales" class="flex-1 flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
                 <svg class="w-4 h-4 flex-shrink-0 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <span>Sales</span>
               </button>
@@ -922,6 +945,9 @@
 
       <!-- ───────── INSIGHTS PAGE ───────── -->
       <div data-page-content="insights" class="page-content space-y-8">
+
+      <!-- MarketSync mode: the dashboard is the SaaS lead + revenue view, not vehicle metrics. -->
+      <div id="ms-insights"></div>
 
       <!-- Loading skeleton — visible until JS resolves the profile and hides it -->
       <div id="insights-skeleton" class="space-y-4">
@@ -2897,7 +2923,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260719b"></script>
+  <script src="dashboard.js?v=20260719c"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

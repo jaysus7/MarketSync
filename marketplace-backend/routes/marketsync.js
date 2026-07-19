@@ -12,7 +12,16 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
+import { requireAuth } from '../middleware.js'
 import { rateLimit } from '../security.js'
+
+const PRICE_POINTS = [
+  { key: 'starter', label: 'Starter', monthly: 999 },
+  { key: 'growth', label: 'Growth', monthly: 1499 },
+  { key: 'pro', label: 'Pro', monthly: 1999 },
+  { key: 'fb_solo', label: 'Facebook — Solo', monthly: 79 },
+  { key: 'fb_dealer', label: 'Facebook — Dealer', monthly: 499 },
+]
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const KB_PATH = path.resolve(__dirname, '../data/marketsync-kb.md')
@@ -239,6 +248,84 @@ export function registerMarketsync(app) {
     } catch (e) {
       console.warn('[marketsync] booking failed:', e.message)
       res.status(500).json({ error: 'Could not book that time — please try again.' })
+    }
+  })
+
+  const ownerOnly = (req) => req.profile?.dealerships?.name === 'JMS Automotive'
+
+  // ── OWNER: MarketSync dashboard insights — leads + revenue potential ────────
+  app.get('/marketsync/insights', requireAuth, async (req, res) => {
+    if (!ownerOnly(req)) return res.status(403).json({ error: 'Not available.' })
+    const { dealershipId } = await jms()
+    if (!dealershipId) return res.json({ price_points: PRICE_POINTS, total: 0, open: 0, won: 0, new_30d: 0, by_source: [], by_stage: {} })
+    const { data: contacts } = await supabaseAdmin.from('contacts')
+      .select('status, source, created_at').eq('dealership_id', dealershipId).limit(5000)
+    const C = contacts || []
+    const d30 = new Date(Date.now() - 30 * 86400000).toISOString()
+    const OPEN = new Set(['uncontacted', 'contacted', 'appointment', 'followup'])
+    const WON = new Set(['sold', 'fni', 'delivered'])
+    const byStage = {}, bySource = {}
+    for (const c of C) { const s = c.status || 'uncontacted'; byStage[s] = (byStage[s] || 0) + 1; const src = c.source || 'Unknown'; bySource[src] = (bySource[src] || 0) + 1 }
+    res.json({
+      price_points: PRICE_POINTS,
+      total: C.length,
+      open: C.filter(c => OPEN.has(c.status)).length,
+      won: C.filter(c => WON.has(c.status)).length,
+      new_30d: C.filter(c => (c.created_at || '') >= d30).length,
+      by_stage: byStage,
+      by_source: Object.entries(bySource).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([source, count]) => ({ source, count })),
+    })
+  })
+
+  // ── OWNER: remove the sample/seed MarketSync leads, keep the real ones ──────
+  // Deletes the fake seed contacts (the .example addresses) + their deals/tasks/
+  // notes, then makes sure any real "Sean Agostino" lead has an appointment on the
+  // calendar so it shows up.
+  app.post('/marketsync/cleanup', requireAuth, async (req, res) => {
+    if (!ownerOnly(req)) return res.status(403).json({ error: 'Not available.' })
+    const { dealershipId, ownerId } = await jms()
+    if (!dealershipId) return res.status(400).json({ error: 'Workspace not ready.' })
+    try {
+      // 1) Fake seed leads use .example emails — remove them + their child rows.
+      const { data: fake } = await supabaseAdmin.from('contacts')
+        .select('id').eq('dealership_id', dealershipId).ilike('email', '%.example')
+      const ids = (fake || []).map(c => c.id)
+      let removed = 0
+      if (ids.length) {
+        for (const t of ['deals', 'crm_tasks', 'communications']) await supabaseAdmin.from(t).delete().in('contact_id', ids)
+        await supabaseAdmin.from('contacts').delete().in('id', ids)
+        removed = ids.length
+      }
+      // 2) Ensure Sean Agostino has an appointment on the calendar.
+      const { data: sean } = await supabaseAdmin.from('contacts')
+        .select('id, full_name, assigned_rep, status').eq('dealership_id', dealershipId)
+        .or('full_name.ilike.%Sean Agostino%,full_name.ilike.%Agostino%').limit(1).maybeSingle()
+      let appt = false
+      if (sean) {
+        const { data: existing } = await supabaseAdmin.from('crm_tasks')
+          .select('id').eq('contact_id', sean.id).eq('type', 'appointment').limit(1)
+        if (!existing || !existing.length) {
+          // Next weekday at ~10am ET (15:00 UTC).
+          const w = new Date(); w.setUTCDate(w.getUTCDate() + 1); w.setUTCHours(15, 0, 0, 0)
+          if (w.getUTCDay() === 6) w.setUTCDate(w.getUTCDate() + 2); else if (w.getUTCDay() === 0) w.setUTCDate(w.getUTCDate() + 1)
+          const meetUrl = `https://meet.jit.si/MarketSync-agostino-${Math.random().toString(36).slice(2, 8)}`
+          await supabaseAdmin.from('crm_tasks').insert({
+            dealership_id: dealershipId, contact_id: sean.id, assigned_to: sean.assigned_rep || ownerId, created_by: ownerId,
+            title: `Demo — Sean Agostino (Sean's Autocare)`, type: 'appointment', due_at: w.toISOString(),
+          })
+          await supabaseAdmin.from('communications').insert({
+            dealership_id: dealershipId, contact_id: sean.id, channel: 'note', direction: 'internal',
+            subject: 'Demo booked', body: `${new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' }).format(w)} (30 min)\nVideo: ${meetUrl}`,
+            meta: { kind: 'appointment', meet_url: meetUrl, when: w.toISOString(), duration_min: 30 },
+          })
+          await supabaseAdmin.from('contacts').update({ status: 'appointment' }).eq('id', sean.id)
+          appt = true
+        }
+      }
+      res.json({ ok: true, removed, sean_appointment: appt })
+    } catch (e) {
+      console.warn('[marketsync] cleanup failed:', e.message)
+      res.status(500).json({ error: 'Cleanup failed.' })
     }
   })
 }

@@ -11,7 +11,8 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { bustDemoDealerCache } from '../middleware.js'
 
-const DEMO_NAME = 'MarketSync Demo'
+const DEMO_NAME = 'MarketSync Automotive'
+const OLD_DEMO_NAME = 'MarketSync Demo'   // migrate any earlier-seeded demo workspace
 const isOwner = (req) => req.profile?.dealerships?.name === 'JMS Automotive'
 
 // Demo customers across the full pipeline so the stage stepper has material.
@@ -36,8 +37,11 @@ const VEHICLES = [
 ]
 
 async function ensureDemoDealership() {
-  const { data: found } = await supabaseAdmin.from('dealerships').select('id').eq('name', DEMO_NAME).maybeSingle()
+  let { data: found } = await supabaseAdmin.from('dealerships').select('id').eq('name', DEMO_NAME).maybeSingle()
   if (found) { bustDemoDealerCache(found.id); return found.id }
+  // Migrate the earlier 'MarketSync Demo' workspace to the new name if it exists.
+  const { data: old } = await supabaseAdmin.from('dealerships').select('id').eq('name', OLD_DEMO_NAME).maybeSingle()
+  if (old) { await supabaseAdmin.from('dealerships').update({ name: DEMO_NAME }).eq('id', old.id); bustDemoDealerCache(old.id); return old.id }
   const farFuture = new Date(Date.now() + 100 * 365 * 86400000).toISOString()
   const { data, error } = await supabaseAdmin.from('dealerships').insert({
     name: DEMO_NAME, website_url: 'https://marketsync.link', billing_status: 'ACTIVE',
