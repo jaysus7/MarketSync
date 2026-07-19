@@ -49,7 +49,7 @@ const CATALOG = {
     ] },
   quickbooks:      { category: 'Accounting',  label: 'QuickBooks Online',    live: false, oauth: true, desc: 'Connect your QuickBooks Online company to sync sold-deal and F&I income.' },
   xero:            { category: 'Accounting',  label: 'Xero',                 live: false, oauth: true, desc: 'Connect your Xero organisation to sync sold-deal and F&I income.' },
-  google_business: { category: 'Marketing',   label: 'Google Business',      live: false, oauth: true, desc: 'Connect your Google Business Profile to post inventory and request reviews.' },
+  google_business: { category: 'Marketing',   label: 'Google Business',      live: false, oauth: true, desc: 'Let AI write Google Business posts for new arrivals, specials and updates — post them today, one-click auto-publish once Google approves access.' },
   twilio:          { category: 'Messaging',   label: 'Twilio SMS',           live: true,  desc: 'Bring your own Twilio account so automated texts send from your own A2P-registered number.' },
   stripe_deposits: { category: 'Payments',    label: 'Online Deposits (Stripe)', deposits: true, desc: 'Take a real, refundable "reserve this vehicle" deposit on your website — paid straight into your own Stripe account.' },
 }

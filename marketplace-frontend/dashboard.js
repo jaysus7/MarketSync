@@ -5793,7 +5793,13 @@ async function loadSyndicationCard() {
            </div>
          </div>
        </div>`
-    : `<p class="text-xs text-slate-500 dark:text-slate-400">${esc(cfg.reason || 'Publish your website to turn on syndication feeds.')}</p>`;
+    : `<div class="space-y-2.5">
+         <p class="text-xs text-slate-500 dark:text-slate-400">A syndication feed is one live web link that holds all your in-stock vehicles. You paste it into AutoTrader, Kijiji, Google and the rest <b>once</b> — from then on they pull straight from MarketSync, so every new car, price change and sold unit updates on those sites automatically. No re-listing, no double entry.</p>
+         <div class="rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 px-3 py-2 text-[11px] text-slate-500 dark:text-slate-400">
+           <b class="text-slate-600 dark:text-slate-300">To switch it on:</b> the feed link is built from your public website address, so publish your MarketSync site first. Go to <b>Website</b> in the left menu, pick your address, and hit Publish — this card turns into live feed links the moment you do.
+         </div>
+         <button onclick="switchPage('website')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg transition">Set up my website →</button>
+       </div>`;
   host.innerHTML = `
     <div class="mb-2">
       <h3 class="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Listing Syndication</h3>
@@ -6145,9 +6151,17 @@ async function disconnectTwilio(btn) {
 function googleBusinessCard(p) {
   const connected = p.configured && p.enabled;
   const cfg = p.lender_code_map || {};
+  // The AI post composer works today (assisted: write → copy → post), so this card
+  // is never "coming soon". Pill reflects the real state: Connected, Available to
+  // auto-publish (OAuth app provisioned), or Ready (composer/assisted posting).
+  const pill = connected
+    ? '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Connected</span>'
+    : p.live
+      ? '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">Available</span>'
+      : '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Ready</span>';
   let connectRow;
   if (!p.live) {
-    connectRow = `<p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2">One-click publish activates once Google approves MarketSync's Business Profile access. Until then, use the composer below to write a post and post it in a couple of clicks.</p>`;
+    connectRow = `<p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2">The AI post composer works right now — write a post and add it to Google Business in a couple of clicks. One-click auto-publish switches on once Google approves MarketSync's Business Profile access.</p>`;
   } else if (connected) {
     connectRow = `<div class="flex items-center gap-2 mt-3">
         <button onclick="testOAuth('${p.provider}', this)" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-lg transition">Test connection</button>
@@ -6162,7 +6176,7 @@ function googleBusinessCard(p) {
     <div class="flex items-start gap-3">
       ${integrationIcon(p.provider)}
       <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm text-slate-900 dark:text-white">${esc(p.label)}</span>${statusPill(p)}</div>
+        <div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm text-slate-900 dark:text-white">${esc(p.label)}</span>${pill}</div>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${esc(p.description)}</p>
         ${connected && cfg.connected_at ? `<p class="text-[11px] text-slate-400 mt-1">Connected ${new Date(cfg.connected_at).toLocaleDateString()}.</p>` : ''}
         ${connectRow}
