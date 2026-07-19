@@ -200,7 +200,23 @@ Still to deepen:
 - [x] Equity-based "who to call" — `equity` topic reuses the Equity Radar engine to
       rank delivered customers in positive-equity / lease-maturing positions with
       phone + rep + tier. Done 2026-07-18.
-- [ ] Which marketing campaign made money? (marketing ROI attribution — no spend data yet)
+- [x] Which marketing campaign made money? — Marketing ROI attribution shipped.
+      Reports → Marketing ROI joins keyed-in monthly spend (marketing_spend table)
+      with leads/attributed sales/revenue by channel → cost-per-lead, cost-per-sale,
+      est. gross, ROI. `marketing_roi` dealership_report topic. Done 2026-07-19.
+- [x] Live market-comp per-unit reprice targets — the `pricing` topic pulls a live
+      MarketCheck median for the top reprice candidates and names a target + how far
+      above/below market each unit sits. Done 2026-07-19.
+- [x] AI persona/style settings (internal + customer) + knowledge-base upload —
+      Settings → AI; feeds both the internal assistant and the website chat.
+      Done 2026-07-19.
+- [x] Natural-language bulk outreach — `/ai/bulk/plan` + `/ai/bulk/execute`: plain-
+      English → structured filter + drafted message → reviewed preview → confirmed
+      send (consent-enforced, capped, logged). "Bulk message" on the CRM page.
+      Done 2026-07-19.
+- [x] Proactive WEEKLY briefing — AI-written recap (WoW units/revenue/leads/
+      appraisals + what to fix), configurable day/email/focus in Automation settings.
+      Done 2026-07-19. ⚠️ OPS: schedule a daily POST to `/cron/weekly-briefing`.
 - [x] Proactive morning briefing — `runMorningDigest()` pushes a "what needs attention
       today" summary (uncontacted leads, overdue tasks, aging units, appointments, sold-
       awaiting-delivery + a sales/lead pulse) to managers in-app, and by email when the
