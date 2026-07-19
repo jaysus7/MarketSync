@@ -11291,6 +11291,66 @@ async function autoSubmitCustom(bucket, btn) {
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
 }
 // Custom holiday greeting — a proper modal (replaces the old double prompt).
+// ── Natural-language bulk outreach (managers) ───────────────────────────────────
+// Type what you want ("text everyone uncontacted 3+ days about our sale"); AI drafts
+// the message + audience; you review the count + sample, tweak, then confirm the send.
+let __bulkPlan = null;
+function openBulkOutreach() {
+  __bulkPlan = null;
+  const inp = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+  crmOverlay(`<div class="p-5">
+    <div class="flex items-center justify-between mb-1"><div class="text-lg font-black text-slate-900 dark:text-white">⚡ Bulk message</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">Describe who to reach and what to say — in plain English. Nothing sends until you review and confirm.</p>
+    <textarea id="bulk-instruction" rows="2" placeholder="e.g. Text everyone we haven't contacted in 3 days about our weekend sale event" class="${inp}"></textarea>
+    <div class="flex flex-wrap gap-1.5 mt-2">
+      ${['Text uncontacted leads from the last 7 days','Email positive-equity customers about upgrading','Text customers with a lease maturing in 6 months','Email everyone who came from Facebook this month'].map(s => `<button onclick="document.getElementById('bulk-instruction').value=this.textContent;" class="text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-violet-100 dark:hover:bg-violet-950/40 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-lg">${s}</button>`).join('')}
+    </div>
+    <button onclick="bulkPlan(this)" class="mt-3 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Preview audience →</button>
+    <div id="bulk-result" class="mt-4"></div>
+  </div>`, 'max-w-xl');
+}
+async function bulkPlan(btn) {
+  const instruction = document.getElementById('bulk-instruction')?.value.trim();
+  if (!instruction) { showToast('Describe who to reach and what to say', 'error'); return; }
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Thinking…';
+  const box = document.getElementById('bulk-result');
+  try {
+    const d = await apiSendJson('/ai/bulk/plan', 'POST', { instruction });
+    __bulkPlan = d;
+    const inp = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+    box.innerHTML = `
+      <div class="rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-3 space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-xs font-bold uppercase tracking-wide text-violet-600 dark:text-violet-400">${d.channel === 'sms' ? '💬 Text message' : '✉️ Email'}</span>
+          <span class="text-xs font-black ${d.audience_count ? 'text-slate-700 dark:text-slate-200' : 'text-rose-500'}">${d.audience_count} recipient${d.audience_count === 1 ? '' : 's'}${d.audience_count > d.capped ? ` (first ${d.capped} will send)` : ''}</span>
+        </div>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400">${esc(d.summary)}</p>
+        ${d.sample?.length ? `<p class="text-[11px] text-slate-400">e.g. ${d.sample.map(s => esc(s.name)).join(', ')}</p>` : ''}
+        ${d.channel === 'email' ? `<div><label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Subject</label><input id="bulk-subject" class="${inp}" value="${esc(d.subject || '')}"></div>` : ''}
+        <div><label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Message (edit before sending — {{first_name}} personalizes)</label><textarea id="bulk-message" rows="4" class="${inp}">${esc(d.message)}</textarea></div>
+      </div>
+      ${d.audience_count ? `<button onclick="bulkSend(this)" class="mt-3 w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-4 py-2.5 rounded-lg transition">Send to ${Math.min(d.audience_count, d.capped)} customer${Math.min(d.audience_count, d.capped) === 1 ? '' : 's'} →</button>`
+        : `<p class="mt-3 text-xs text-slate-400 italic">No one matches that (after consent/opt-out filtering). Try a broader ask.</p>`}`;
+  } catch (e) { box.innerHTML = `<p class="text-xs text-rose-500">${esc(e.message || 'Could not build that')}</p>`; }
+  btn.disabled = false; btn.textContent = orig;
+}
+async function bulkSend(btn) {
+  if (!__bulkPlan) return;
+  const message = document.getElementById('bulk-message')?.value.trim();
+  const subject = document.getElementById('bulk-subject')?.value.trim() || __bulkPlan.subject;
+  if (!message) { showToast('Message is empty', 'error'); return; }
+  if (!confirm(`Send this ${__bulkPlan.channel === 'sms' ? 'text' : 'email'} to ${Math.min(__bulkPlan.audience_count, __bulkPlan.capped)} customer(s)?`)) return;
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const d = await apiSendJson('/ai/bulk/execute', 'POST', { channel: __bulkPlan.channel, filter: __bulkPlan.filter, message, subject });
+    showToast(`Sent ${d.sent}${d.failed ? `, ${d.failed} failed` : ''} ✓`, d.failed ? 'info' : 'success');
+    btn.closest('.fixed')?.remove();
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Send failed', 'error'); }
+}
+window.openBulkOutreach = openBulkOutreach;
+window.bulkPlan = bulkPlan;
+window.bulkSend = bulkSend;
+
 function autoAddHolidayModal() {
   const lbl = t => `<label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${t}</label>`;
   const inp = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
