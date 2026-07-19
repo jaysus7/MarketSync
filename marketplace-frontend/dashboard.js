@@ -1,4 +1,25 @@
 const API = 'https://vehicle-marketplace-s0e4.onrender.com';
+
+// Wrap fetch so EVERY call to our API carries the demo-workspace header when the
+// owner is in Demo mode — keeps all pages (even those using raw fetch) consistently
+// scoped to the sandboxed demo dealership. No-op for non-API URLs and other users.
+(function () {
+  const _fetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    try {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (url.indexOf(API) === 0 &&
+          document.documentElement.getAttribute('data-dash-owner') === '1' &&
+          document.documentElement.getAttribute('data-dash-mode') === 'demo') {
+        init = init || {};
+        const h = new Headers(init.headers || (typeof input !== 'string' && input.headers) || {});
+        h.set('X-Act-Demo', '1');
+        init = { ...init, headers: h };
+      }
+    } catch (e) {}
+    return _fetch(input, init);
+  };
+})();
 // Carfax Canada report link by VIN. Swap to your dealer badge/report URL if you
 // wire the Carfax account (the VIN is appended, URL-encoded).
 const CARFAX_BASE = 'https://www.carfax.ca/vehicle-history-reports?vin=';
@@ -80,6 +101,16 @@ function msIco(name, cls) {
 // return a 502/503/504 for ~30–60s while it wakes. We retry those (and network
 // errors) a few times with backoff, and surface the real status/message on final
 // failure instead of a generic "could not load".
+// In owner Demo mode, scope every API call to the sandboxed demo workspace via a
+// header the backend honors only for the MarketSync owner. Read from the DOM so it
+// works regardless of when the mode variables initialize.
+function actHeaders() {
+  try {
+    if (document.documentElement.getAttribute('data-dash-owner') === '1' &&
+        document.documentElement.getAttribute('data-dash-mode') === 'demo') return { 'X-Act-Demo': '1' };
+  } catch (e) {}
+  return {};
+}
 async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}) {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -87,7 +118,7 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
       const r = await fetch(`${API}${path}`, {
-        headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}` },
+        headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, ...actHeaders() },
         signal: ctrl.signal,
         cache: 'no-store',   // avoid 304s that Response.ok treats as a failure
       });
@@ -129,7 +160,7 @@ async function apiSendJson(path, method = 'POST', body = null, { timeoutMs = 200
   try {
     const r = await fetch(`${API}${path}`, {
       method,
-      headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, 'Content-Type': 'application/json', ...actHeaders() },
       body: body != null ? JSON.stringify(body) : undefined,
       signal: ctrl.signal,
     });
@@ -264,14 +295,30 @@ function applyDashMode(mode) {
 function setDashMode(mode) {
   applyDashMode(mode);
   localStorage.setItem('ms_dash_mode', __dashMode);
-  // Don't strand the user on a now-hidden page.
-  if (__dashMode === 'marketsync') {
-    const cur = document.querySelector('.page-content:not(.hidden)')?.getAttribute('data-page-content');
-    if (typeof switchPage === 'function' && (!cur || !MS_ALLOWED_PAGES.has(cur))) switchPage('insights');
+  // Full reload so every page re-fetches under the new workspace header cleanly.
+  if (__dashMode === 'demo') {
+    if (typeof showToast === 'function') showToast('Loading demo workspace…', 'info');
+    apiSendJson('/demo/seed', 'POST', {}).catch(() => {}).finally(() => location.reload());
+  } else {
+    location.reload();
   }
-  if (typeof showToast === 'function') showToast(__dashMode === 'marketsync' ? '🟣 MarketSync workspace' : '🚗 Demo dealership', 'success');
 }
 window.setDashMode = setDashMode;
+async function demoReset() {
+  if (!confirm('Reset the demo dealership back to its starting data? Your real MarketSync data is untouched.')) return;
+  try { await apiSendJson('/demo/reset', 'POST', {}); showToast('Demo reset', 'success'); location.reload(); }
+  catch (e) { showToast(e.message || 'Could not reset', 'error'); }
+}
+window.demoReset = demoReset;
+// Walk a demo customer forward/back through the pipeline for a live demo.
+const DEMO_STAGES = ['uncontacted', 'contacted', 'appointment', 'sold', 'fni', 'delivered'];
+async function demoStepStage(id, dir, cur) {
+  let i = DEMO_STAGES.indexOf(cur); if (i < 0) i = 0;
+  i = Math.max(0, Math.min(DEMO_STAGES.length - 1, i + (dir === 'next' ? 1 : -1)));
+  try { await apiSendJson(`/crm/contacts/${id}`, 'PUT', { status: DEMO_STAGES[i] }); if (typeof openCrmContact === 'function') openCrmContact(id); }
+  catch (e) { showToast(e.message || 'Could not update', 'error'); }
+}
+window.demoStepStage = demoStepStage;
 // Reveal the switch + apply the saved mode once we know this is the MarketSync owner.
 function initDashModeForOwner() {
   const isOwner = profileContext?.is_marketsync === true || profileContext?.dealership?.name === 'JMS Automotive';
@@ -1978,6 +2025,16 @@ function crmDetailHtml(d) {
     <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex-shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <div class="p-5 space-y-4">
+    ${document.documentElement.getAttribute('data-dash-mode') === 'demo' ? `
+    <div class="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-3 py-2">
+      <span class="text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">Demo</span>
+      <span class="text-xs text-slate-600 dark:text-slate-300">Walk this deal along the pipeline:</span>
+      <div class="ml-auto flex items-center gap-1.5">
+        <button onclick="demoStepStage('${c.id}','prev','${esc(c.status || 'uncontacted')}')" class="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-black text-slate-600 dark:text-slate-200" title="Previous stage">◀</button>
+        <span class="text-xs font-bold text-slate-700 dark:text-slate-200 min-w-[84px] text-center">${esc(crmChipText(c.status))}</span>
+        <button onclick="demoStepStage('${c.id}','next','${esc(c.status || 'uncontacted')}')" class="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-black text-slate-600 dark:text-slate-200" title="Next stage">▶</button>
+      </div>
+    </div>` : ''}
     <div class="flex flex-wrap gap-2">
       ${c.email && !c.dnc && c.consent_email !== false ? `<button onclick="crmEmailForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>Email</button>` : ''}
       ${c.phone ? `<a href="tel:${esc(c.phone)}" onclick="crmQuickLog('${c.id}','call')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>Call</a>` : ''}

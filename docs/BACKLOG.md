@@ -38,6 +38,17 @@ _Last updated: 2026-07-18_
   API via the existing Google OAuth connector.)
 - **MarketSync-leads filter fix** — demo/marketing leads (source 'MarketSync …',
   'Demo …') now show under the filter (prefix-matched).
+- **Native test-drive booking on dealer sites** — "Book a test drive" on each vehicle
+  → routed to a rep, on the dealer's CRM calendar, video link + emails.
+- **Owner Demo ↔ MarketSync dashboard** — a page-level workspace switch (owner only).
+  MarketSync mode = purple theme + trimmed nav/Settings on the real MarketSync (JMS)
+  workspace. Demo mode = a SEPARATE seeded demo dealership (routes/demo.js: fake
+  cars + customers across every stage) reached via an owner-only X-Act-Demo header
+  (middleware) + a global fetch wrapper, with a per-contact "walk the deal
+  forward/back" stepper and a Reset-demo control. Anything built on the dealer side
+  shows in Demo automatically. Remaining: deeper MarketSync-specific page content
+  (e.g., Sales→MRR analytics) — today the MarketSync workspace's deals are already
+  subscription-type so the Sales/F&I page reads correctly.
 
 ## ✅ Phase 2 (Integrations — "the glue") — shipped earlier
 
