@@ -9,6 +9,7 @@ import { buildMarketingRoi } from './marketing.js'
 import { createNotification, createNotifications } from '../notifications.js'
 import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
 import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
+import { lookupPlate, plateLookupConfigured } from '../providers/plateLookup.js'
 
 const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 
@@ -696,6 +697,8 @@ export function registerAI(app) {
       // Photo tools: is a branded background set, and is the AI cutout provider keyed?
       photo_background_url: data.photo_background_url || null,
       background_provider_ready: !!process.env.REMOVEBG_API_KEY,
+      // Trade appraisal: is a plate→VIN provider provisioned? (hides the plate UI if not)
+      plate_lookup_ready: plateLookupConfigured(),
     })
   })
 
@@ -1390,6 +1393,19 @@ Return ONLY the ${field === 'pitch' ? 'sales pitch' : 'description'} — no prea
       res.json({ ok: true, vin, ...out })
     } catch (e) {
       res.status(502).json({ error: e.name === 'TimeoutError' ? 'VIN service timed out — try again or enter details manually.' : e.message })
+    }
+  })
+
+  // License-plate → VIN for trade appraisals. Uses whichever plate-decode provider
+  // is provisioned (CarsXE / Vehicle Databases); returns a VIN the appraisal then
+  // decodes normally. 503 when no provider is set so the UI can say "enter the VIN".
+  app.post('/ai/plate-decode', requireAuth, async (req, res) => {
+    if (!plateLookupConfigured()) return res.status(503).json({ error: 'Plate lookup isn’t set up on this account yet — enter the VIN instead.', not_configured: true })
+    try {
+      const out = await lookupPlate({ plate: req.body?.plate, region: req.body?.region, country: req.body?.country })
+      res.json({ ok: true, ...out })
+    } catch (e) {
+      res.status(e.notConfigured ? 503 : 422).json({ error: e.message || 'Could not look up that plate.' })
     }
   })
 

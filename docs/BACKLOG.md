@@ -168,7 +168,12 @@ certified. All run in **manual/export mode** today.
       (Avalara / TaxJar or a maintained table).
 - [ ] **CA split edge cases** — luxury-vehicle PST brackets (e.g. BC tiered PST) and any
       province where GST vs PST bases differ from the "trade reduces both" default.
-- [ ] **License-plate → VIN** lookup for trade appraisal (VIN-only today).
+- [x] **License-plate → VIN** lookup for trade appraisal. "Look up by plate" on the
+      appraisal (plate + state/province) resolves the VIN and runs the normal decode.
+      providers/plateLookup.js supports CarsXE (`CARSXE_API_KEY`) or Vehicle Databases
+      (`VEHICLE_DATABASES_API_KEY`); route POST /ai/plate-decode. The UI only appears
+      when a provider key is set (`plate_lookup_ready` in /ai/config) so it's never a
+      dead button. ⚠️ OPS: set one of those API keys to turn it on. Done 2026-07-19.
 
 ---
 

@@ -951,22 +951,27 @@ function cleanVin(raw) {
   const m = s.match(/[A-HJ-NPR-Z0-9]{17}/);
   return m ? m[0] : null;
 }
+// ZXing is our cross-browser fallback decoder — the native BarcodeDetector isn't
+// available on iOS (every iPhone browser, incl. "Chrome", is WebKit) or older
+// browsers. Loaded lazily from a CDN only the first time a scan is started.
+let __zxingPromise = null;
+function loadZXing() {
+  if (window.ZXing?.BrowserMultiFormatReader) return Promise.resolve(window.ZXing);
+  if (__zxingPromise) return __zxingPromise;
+  __zxingPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js';
+    s.onload = () => (window.ZXing?.BrowserMultiFormatReader ? resolve(window.ZXing) : reject(new Error('zxing missing')));
+    s.onerror = () => { __zxingPromise = null; reject(new Error('zxing load failed')); };
+    document.head.appendChild(s);
+  });
+  return __zxingPromise;
+}
 async function openVinScanner(targetId, afterFill) {
   const target = document.getElementById(targetId);
-  if (!('BarcodeDetector' in window)) {
-    showToast('Barcode scanning isn’t supported on this browser — type the VIN, or try Chrome on your phone.', 'error');
-    return;
-  }
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
-  } catch {
-    showToast('Camera access was blocked. Allow the camera to scan a VIN.', 'error');
-    return;
-  }
-  let formats = ['code_39', 'code_128', 'data_matrix', 'qr_code'];
-  try { const sup = await BarcodeDetector.getSupportedFormats(); const f = formats.filter(x => sup.includes(x)); formats = f.length ? f : sup; } catch {}
-  const detector = new BarcodeDetector({ formats });
+  if (!navigator.mediaDevices?.getUserMedia) { showToast('This browser can’t open the camera — type the VIN instead.', 'error'); return; }
+  if (!window.isSecureContext) { showToast('Camera scanning needs a secure (https) page — type the VIN instead.', 'error'); return; }
+
   const ov = document.createElement('div');
   ov.className = 'fixed inset-0 z-[80] bg-black/90 flex flex-col items-center justify-center p-4';
   ov.innerHTML = `
@@ -978,31 +983,61 @@ async function openVinScanner(targetId, afterFill) {
     <button id="vinscan-cancel" class="mt-4 bg-white/15 hover:bg-white/25 text-white text-sm font-bold px-5 py-2.5 rounded-lg">Cancel</button>`;
   document.body.appendChild(ov);
   const video = ov.querySelector('video');
-  video.srcObject = stream;
-  let stopped = false;
-  const stop = () => { if (stopped) return; stopped = true; stream.getTracks().forEach(t => t.stop()); ov.remove(); };
+
+  let stopped = false, cleanup = () => {};
+  const stop = () => { if (stopped) return; stopped = true; try { cleanup(); } catch {} ov.remove(); };
   ov.querySelector('#vinscan-cancel').onclick = stop;
   ov.addEventListener('click', (e) => { if (e.target === ov) stop(); });
-  const tick = async () => {
+  const onVin = (vin) => {
     if (stopped) return;
-    try {
-      const codes = await detector.detect(video);
-      for (const c of codes) {
-        const vin = cleanVin(c.rawValue);
-        if (vin) {
-          if (target) { target.value = vin; target.dispatchEvent(new Event('input', { bubbles: true })); }
-          if (navigator.vibrate) navigator.vibrate(60);
-          stop();
-          showToast('VIN scanned: ' + vin, 'success');
-          if (typeof afterFill === 'function') afterFill(vin);
-          return;
-        }
-      }
-    } catch {}
-    requestAnimationFrame(tick);
+    if (target) { target.value = vin; target.dispatchEvent(new Event('input', { bubbles: true })); }
+    if (navigator.vibrate) navigator.vibrate(60);
+    stop();
+    showToast('VIN scanned: ' + vin, 'success');
+    if (typeof afterFill === 'function') afterFill(vin);
   };
-  video.onloadedmetadata = () => requestAnimationFrame(tick);
+
+  // Fast path: native BarcodeDetector (Chromium desktop + Android Chrome).
+  if ('BarcodeDetector' in window) {
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } }); }
+    catch { stop(); showToast('Camera access was blocked — allow the camera, then try again.', 'error'); return; }
+    cleanup = () => stream.getTracks().forEach(t => t.stop());
+    video.srcObject = stream;
+    let formats = ['code_39', 'code_128', 'data_matrix', 'qr_code'];
+    try { const sup = await BarcodeDetector.getSupportedFormats(); const f = formats.filter(x => sup.includes(x)); formats = f.length ? f : sup; } catch {}
+    const detector = new BarcodeDetector({ formats });
+    const tick = async () => {
+      if (stopped) return;
+      try {
+        const codes = await detector.detect(video);
+        for (const c of codes) { const vin = cleanVin(c.rawValue); if (vin) { onVin(vin); return; } }
+      } catch {}
+      requestAnimationFrame(tick);
+    };
+    video.onloadedmetadata = () => requestAnimationFrame(tick);
+    return;
+  }
+
+  // Fallback: ZXing — works on iPhone (Safari/Chrome) and any browser without BarcodeDetector.
+  let ZX;
+  try { ZX = await loadZXing(); }
+  catch { stop(); showToast('Scanner couldn’t load — check your connection, or type the VIN.', 'error'); return; }
+  if (stopped) return;
+  try {
+    const reader = new ZX.BrowserMultiFormatReader();
+    cleanup = () => { try { reader.reset(); } catch {} };
+    await reader.decodeFromConstraints({ video: { facingMode: { ideal: 'environment' } } }, video, (result) => {
+      if (!result) return;
+      const vin = cleanVin(result.getText());
+      if (vin) onVin(vin);
+    });
+  } catch {
+    stop();
+    showToast('Camera access was blocked, or scanning isn’t available here — type the VIN.', 'error');
+  }
 }
+window.loadZXing = loadZXing;
 window.openVinScanner = openVinScanner;
 // Small camera "Scan" button markup that drives openVinScanner for a given input.
 function vinScanBtn(targetId, afterFillExpr = '') {
@@ -1016,7 +1051,46 @@ let __apprDecodedSpecs = null; // engine/trans/drivetrain/body/fuel from the las
 let __apprSalesperson = null;  // salesperson name for the CURRENT deal (record's creator, or logged-in)
 let __apprBranding = null;     // { logo_url, primary_color, ... } for PDF branding
 let __apprDealerInfo = null;   // { city, province, postal_code, country } for PDF header
+// License-plate → VIN on the appraisal. Regions come from the same US/CA tables the
+// desk deal uses. On success it fills the VIN and triggers the normal decode.
+function apprPlateFillRegions() {
+  const country = document.getElementById('appr-plate-country')?.value || 'US';
+  const sel = document.getElementById('appr-plate-region');
+  if (!sel) return;
+  const codes = country === 'CA'
+    ? Object.keys((typeof DESK_TAX !== 'undefined' && DESK_TAX.CA?.regions) || {})
+    : (typeof US_STATE_TAX !== 'undefined' ? US_STATE_TAX.map(([c]) => c) : []);
+  sel.innerHTML = '<option value="">State</option>' + codes.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+async function apprPlateLookup(btn) {
+  const plate = (document.getElementById('appr-plate')?.value || '').trim().toUpperCase();
+  const region = document.getElementById('appr-plate-region')?.value || '';
+  const country = document.getElementById('appr-plate-country')?.value || 'US';
+  const msg = document.getElementById('appr-plate-msg');
+  const show = (t, err) => { if (msg) { msg.textContent = t; msg.className = 'text-xs mt-1.5 ' + (err ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'); msg.classList.remove('hidden'); } };
+  if (!plate) { show('Enter a plate number', true); return; }
+  if (!region) { show('Pick the state/province', true); return; }
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Looking up…';
+  try {
+    const d = await apiSendJson('/ai/plate-decode', 'POST', { plate, region, country });
+    const vinInput = document.getElementById('appr-vin');
+    if (vinInput && d.vin) vinInput.value = d.vin;
+    show(`Found VIN ${d.vin} — decoding…`);
+    document.getElementById('appr-decode')?.click();   // fill fields + comps via the existing decode
+  } catch (e) {
+    show(e.message || 'Could not look up that plate', true);
+  }
+  btn.disabled = false; btn.textContent = orig;
+}
+window.apprPlateFillRegions = apprPlateFillRegions;
+window.apprPlateLookup = apprPlateLookup;
+
 function initAppraisal() {
+  apprPlateFillRegions();       // (re)populate the plate region dropdown each visit
+  // Reveal the plate → VIN block only if a plate-decode provider is provisioned.
+  apiGetJson('/ai/config', { retries: 1 }).then(cfg => {
+    if (cfg?.plate_lookup_ready) document.getElementById('appr-plate-block')?.classList.remove('hidden');
+  }).catch(() => {});
   if (__apprWired) return;      // switchPage calls this each visit; wire once
   const $ = (id) => document.getElementById(id);
   const decodeBtn = $('appr-decode'), runBtn = $('appr-run'), result = $('appr-result');
