@@ -9,6 +9,7 @@ import { createNotification } from '../notifications.js'
 import { aiAllowed, recordUsage } from '../usage.js'
 import { rateLimit, getClientIp, consumeQuota } from '../security.js'
 import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '../chatGuard.js'
+import { runAutoResponder } from '../autoresponder.js'
 import { depositConfigForSite } from './deposits.js'
 
 const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
@@ -411,6 +412,9 @@ export function registerSite(app) {
         // Auto-assign + notify, then kick off the speed-to-lead sequence with the routed rep.
         const routed = await routeAndNotifyLead(d.id, { contactId, vehicleId: inventory_id || null, name, source: source })
         enqueueForTrigger(d.id, 'internet_lead', { contactId, vehicleId: inventory_id || null, repId: routed?.assignee || null })
+        // Instant AI first-touch (dealer opt-in: off/draft/auto). Fire-and-forget so
+        // the customer's submit returns immediately; the reply follows within seconds.
+        runAutoResponder(d.id, { contactId, name, email, phone, source, vehicleId: inventory_id || null, repId: routed?.assignee || null }).catch(() => {})
 
         // Trade-in leads: hand the rep an instant ballpark range so they have an
         // answer to quote back — internal only, never shown on the site. They can

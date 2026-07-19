@@ -536,6 +536,26 @@
                 <p class="text-[11px] text-slate-400">Cost and gross are internal — they never appear on any customer estimate, bill of sale or email.</p>
               </div>
 
+              <!-- Instant AI lead auto-responder -->
+              <div class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Instant lead auto-responder</label>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">When a new website lead comes in, AI sends a personalized first reply within seconds — the #1 driver of close rate.</p>
+                <div class="grid grid-cols-2 gap-2">
+                  <div><label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Mode</label>
+                    <select id="ai-ar-mode" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white">
+                      <option value="off">Off</option>
+                      <option value="draft">Draft — AI writes it, rep reviews &amp; sends</option>
+                      <option value="auto">Auto — AI writes &amp; sends instantly</option>
+                    </select></div>
+                  <div><label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Channel</label>
+                    <select id="ai-ar-channel" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5 text-sm text-slate-900 dark:text-white">
+                      <option value="email">Email</option>
+                      <option value="sms">Text (SMS — needs Twilio)</option>
+                    </select></div>
+                </div>
+                <p class="text-[11px] text-slate-400">Respects consent &amp; opt-out, needs AI Boost, and only fires on real inbound leads (never on imports). Uses your customer-facing chat style &amp; knowledge base.</p>
+              </div>
+
               <button id="ai-config-save-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition">Save AI Settings</button>
             </div>
           </div>
@@ -3012,7 +3032,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260719r"></script>
+  <script src="dashboard.js?v=20260719s"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

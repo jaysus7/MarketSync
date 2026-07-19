@@ -14407,6 +14407,8 @@ function renderAIBoostSection(cfg) {
     const kbName = document.getElementById('ai-kb-name'); if (kbName) kbName.textContent = cfg.ai_knowledge_name ? `Loaded: ${cfg.ai_knowledge_name}` : '';
     const costEn = document.getElementById('ai-cost-enabled'); if (costEn) costEn.checked = !!cfg.cost_tracking_enabled;
     const costRep = document.getElementById('ai-cost-rep'); if (costRep) costRep.checked = !!cfg.cost_rep_visible;
+    const arMode = document.getElementById('ai-ar-mode'); if (arMode) arMode.value = cfg.autoresponder_mode || 'off';
+    const arCh = document.getElementById('ai-ar-channel'); if (arCh) arCh.value = cfg.autoresponder_channel || 'email';
   } else {
     badge.textContent = 'Not Active';
     badge.className = 'text-xs font-bold px-2 py-0.5 rounded-full border border-slate-500 bg-slate-800 text-slate-400';
@@ -14565,6 +14567,8 @@ function setupAIBoostListeners() {
       ai_knowledge: document.getElementById('ai-knowledge')?.value.trim() || null,
       cost_tracking_enabled: !!document.getElementById('ai-cost-enabled')?.checked,
       cost_rep_visible: !!document.getElementById('ai-cost-rep')?.checked,
+      autoresponder_mode: document.getElementById('ai-ar-mode')?.value || 'off',
+      autoresponder_channel: document.getElementById('ai-ar-channel')?.value || 'email',
     };
 
     try {
