@@ -965,23 +965,31 @@
       <!-- ───────── REPORTS PAGE (managers) ───────── -->
       <!-- The three manager reports are stacked here, plus the Sold-per-rep report
            and a custom report builder. Manager-gated (nav revealed in JS). -->
-      <div data-page-content="reports" class="page-content hidden space-y-10">
+      <div data-page-content="reports" class="page-content hidden space-y-6">
         <div>
           <h1 class="text-2xl font-black text-slate-900 dark:text-white">Reports</h1>
-          <p class="text-sm text-slate-500 dark:text-slate-400">Your store's numbers — pull a stock report or build your own.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Every number in the store — pick a report, or build your own.</p>
         </div>
 
-        <!-- Custom report builder — pick who/what with dropdowns -->
-        <div id="report-builder"></div>
+        <!-- Report category picker — rendered by renderReportTabs() -->
+        <div id="reports-tabs" class="flex flex-wrap gap-1.5"></div>
 
-        <!-- Executive ROI dashboard (managers) — injected by loadExecutiveRoi() -->
-        <div id="exec-roi"></div>
-        <!-- Inventory mix & aging report (managers) — injected by loadInventoryMix() -->
-        <div id="inv-mix"></div>
-        <!-- Sales analysis report (managers) — injected by loadSalesAnalysis() -->
-        <div id="sales-analysis"></div>
-        <!-- Marketing ROI report (managers) — injected by loadMarketingRoi() -->
-        <div id="marketing-roi"></div>
+        <!-- Overview: the original always-on report sections -->
+        <div id="reports-overview" class="space-y-10">
+          <!-- Custom report builder — pick who/what with dropdowns -->
+          <div id="report-builder"></div>
+          <!-- Executive ROI dashboard (managers) — injected by loadExecutiveRoi() -->
+          <div id="exec-roi"></div>
+          <!-- Inventory mix & aging report (managers) — injected by loadInventoryMix() -->
+          <div id="inv-mix"></div>
+          <!-- Sales analysis report (managers) — injected by loadSalesAnalysis() -->
+          <div id="sales-analysis"></div>
+          <!-- Marketing ROI report (managers) — injected by loadMarketingRoi() -->
+          <div id="marketing-roi"></div>
+        </div>
+
+        <!-- Deep reports (sales, F&I, leads, reps, appraisals, service, activity, customers) -->
+        <div id="reports-dynamic" class="hidden"></div>
       </div>
 
       <!-- ───────── DESK A DEAL PAGE (managers) ───────── -->
@@ -2996,7 +3004,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260719o"></script>
+  <script src="dashboard.js?v=20260719p"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

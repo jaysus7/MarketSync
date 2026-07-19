@@ -6871,12 +6871,106 @@ window.teamDeleteStaff = teamDeleteStaff;
 // Reports page — stacks the three manager reports + the sold-per-rep report and
 // the custom report builder. Called from switchPage('reports').
 function loadReports() {
-  loadExecutiveRoi();
-  loadInventoryMix();
-  loadSalesAnalysis();
-  loadMarketingRoi();
-  loadReportBuilder();
+  renderReportTabs();
+  if (__rptTab === 'overview') {
+    loadExecutiveRoi();
+    loadInventoryMix();
+    loadSalesAnalysis();
+    loadMarketingRoi();
+    loadReportBuilder();
+  } else {
+    loadDeepReport(__rptTab);
+  }
 }
+
+// ── Deep reports hub ─────────────────────────────────────────────────────────
+let __rptTab = 'overview';
+let __rptRange = '90';
+const REPORT_DEFS = [
+  { key: 'overview', label: '📊 Overview' },
+  { key: 'sales', label: '🚗 Sales' },
+  { key: 'fni', label: '💰 F&I' },
+  { key: 'leads', label: '📥 Leads & sources' },
+  { key: 'reps', label: '🏆 Rep scorecard' },
+  { key: 'appraisals', label: '🔑 Appraisals' },
+  { key: 'service', label: '🔧 Service' },
+  { key: 'activity', label: '📞 Activity' },
+  { key: 'customers', label: '👥 Customers' },
+];
+function renderReportTabs() {
+  const host = document.getElementById('reports-tabs'); if (!host) return;
+  host.innerHTML = REPORT_DEFS.map(d => `<button onclick="reportsTab('${d.key}')" class="px-3 py-1.5 text-xs font-bold rounded-lg border transition ${__rptTab === d.key ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}">${d.label}</button>`).join('');
+}
+function reportsTab(key) {
+  __rptTab = key;
+  renderReportTabs();
+  const overview = document.getElementById('reports-overview');
+  const dyn = document.getElementById('reports-dynamic');
+  if (key === 'overview') {
+    overview?.classList.remove('hidden'); dyn?.classList.add('hidden');
+    loadExecutiveRoi(); loadInventoryMix(); loadSalesAnalysis(); loadMarketingRoi(); loadReportBuilder();
+  } else {
+    overview?.classList.add('hidden'); dyn?.classList.remove('hidden');
+    loadDeepReport(key);
+  }
+}
+function rptRange(v) { __rptRange = v; loadDeepReport(__rptTab); }
+window.reportsTab = reportsTab;
+window.rptRange = rptRange;
+
+// One generic renderer for all deep reports: stat tiles from `summary`, a table
+// for every array field the endpoint returns. Keeps the 8 reports consistent.
+const RPT_MONEY_HINT = /(revenue|price|offer|commission|gross|amount|value)/i;
+function rptFmtVal(k, v) {
+  if (v == null) return '—';
+  if (typeof v === 'number') {
+    if (/pct|percent|rate/i.test(k)) return v + '%';
+    if (RPT_MONEY_HINT.test(k)) return '$' + Number(v).toLocaleString();
+    return Number(v).toLocaleString();
+  }
+  return esc(String(v));
+}
+function rptLabel(k) { return k.replace(/_/g, ' ').replace(/\bpct\b/i, '%').replace(/\bfni\b/i, 'F&I').replace(/^\w/, c => c.toUpperCase()); }
+function rptTable(title, rows) {
+  if (!Array.isArray(rows) || !rows.length) return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-sm font-bold text-slate-900 dark:text-white mb-1">${esc(title)}</div><div class="text-xs text-slate-400 italic">No data in range.</div></div>`;
+  const cols = Object.keys(rows[0]);
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 overflow-x-auto">
+    <div class="text-sm font-bold text-slate-900 dark:text-white mb-2">${esc(title)}</div>
+    <table class="w-full text-sm min-w-[420px]"><thead><tr class="text-[10px] uppercase tracking-wider text-slate-400">${cols.map((c, i) => `<th class="pb-1 ${i === 0 ? 'text-left' : 'text-right px-2'}">${esc(rptLabel(c))}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r => `<tr class="border-t border-slate-100 dark:border-slate-800">${cols.map((c, i) => `<td class="py-1.5 ${i === 0 ? 'text-left font-semibold text-slate-700 dark:text-slate-200' : 'text-right px-2 tabular-nums text-slate-600 dark:text-slate-300'}">${rptFmtVal(c, r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>
+  </div>`;
+}
+async function loadDeepReport(key) {
+  const host = document.getElementById('reports-dynamic'); if (!host) return;
+  const def = REPORT_DEFS.find(d => d.key === key);
+  host.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading report…</div>';
+  let d;
+  try { d = await apiGetJson(`/reports/${key}?range=${__rptRange}`, { retries: 1 }); }
+  catch (e) { host.innerHTML = `<p class="text-sm text-rose-500">${esc(e.message || 'Could not load report')}</p>`; return; }
+  const rangeBtn = (v, l) => `<button onclick="rptRange('${v}')" class="px-3 py-1.5 text-xs font-bold rounded-lg border ${__rptRange === v ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}">${l}</button>`;
+  // Stat tiles from summary (special-case funnel).
+  let tiles = '';
+  if (d.summary && typeof d.summary === 'object') {
+    tiles = `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">${Object.entries(d.summary).map(([k, v]) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${esc(rptLabel(k))}</div><div class="text-2xl font-black text-slate-900 dark:text-white mt-1 tabular-nums">${rptFmtVal(k, v)}</div></div>`).join('')}</div>`;
+  }
+  // Funnel (leads report) as its own bar strip.
+  let funnel = '';
+  if (d.funnel) {
+    const f = d.funnel; const max = Math.max(1, ...Object.values(f));
+    funnel = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-sm font-bold text-slate-900 dark:text-white mb-2">Lead funnel</div>${['new', 'contacted', 'appointment', 'sold'].map(s => `<div class="flex items-center gap-2 text-sm py-0.5"><div class="w-24 text-slate-600 dark:text-slate-300 capitalize">${s}</div><div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden"><div class="h-full bg-indigo-500 rounded-full" style="width:${Math.round((f[s] / max) * 100)}%"></div></div><div class="w-10 text-right font-bold tabular-nums">${f[s] || 0}</div></div>`).join('')}</div>`;
+  }
+  // Any array fields → tables.
+  const tables = Object.entries(d).filter(([k, v]) => Array.isArray(v)).map(([k, v]) => rptTable(rptLabel(k), v)).join('');
+  host.innerHTML = `
+    <div class="flex items-center justify-between gap-3 flex-wrap mb-1">
+      <div><h2 class="text-xl font-black text-slate-900 dark:text-white">${esc((def?.label || key).replace(/^\S+\s/, ''))}</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Last ${d.range_days} days.</p></div>
+      <div class="flex gap-1.5">${rangeBtn('30', '30d')}${rangeBtn('90', '90d')}${rangeBtn('180', '6mo')}${rangeBtn('365', '1y')}</div>
+    </div>
+    ${tiles}${funnel ? '<div class="mt-4">' + funnel + '</div>' : ''}
+    <div class="grid grid-cols-1 ${tables.length > 700 ? 'lg:grid-cols-2' : ''} gap-4 mt-4">${tables}</div>`;
+}
+window.loadDeepReport = loadDeepReport;
 
 async function loadInsights() {
   loadSyncHealth();

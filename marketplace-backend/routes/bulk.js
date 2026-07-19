@@ -197,9 +197,9 @@ Request: "${instruction}"`
         sent++
         // Log to the customer timeline so reps see the outreach.
         await supabaseAdmin.from('communications').insert({
-          dealership_id: req.dealershipId, contact_id: r.id, type: channel, direction: 'out',
+          dealership_id: req.dealershipId, contact_id: r.id, channel, direction: 'out',
           subject: channel === 'email' ? (subject || null) : null, body,
-          occurred_at: nowIso, created_by: req.user?.id || null,
+          occurred_at: nowIso, rep_id: req.user?.id || null,
           meta: { kind: 'bulk_ai', by: req.user?.email || null },
         })
       } catch { failed++ }
