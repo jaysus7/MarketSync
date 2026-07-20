@@ -71,6 +71,7 @@
     html[data-dash-mode="marketsync"] #header-appraise-btn,
     html[data-dash-mode="marketsync"] #idscan-btn,
     html[data-dash-mode="marketsync"] #nav-commissions,
+    html[data-dash-mode="marketsync"] #grp-accounting-wrap,
     html[data-dash-mode="marketsync"] #fb-post-btn,
     html[data-dash-mode="marketsync"] .nav-group[data-group="service"] { display: none !important; }
     /* Report rail in MarketSync mode: hide the vehicle / F&I reports — MarketSync
@@ -844,11 +845,32 @@
             <span>Reports</span>
           </button>
 
-          <!-- Commissions (all sales roles; reps see their own, managers see the team + plans) -->
-          <button type="button" id="nav-commissions" data-page="commissions" title="Commissions" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <!-- Commissions — reps track their own earnings. Managers use Accounting → Commissions,
+               so this standalone entry is hidden for managers in JS. -->
+          <button type="button" id="nav-commissions" data-page="commissions" title="My commission" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 1v8m0 0v1"/><circle cx="12" cy="12" r="9"/></svg>
-            <span>Commissions</span>
+            <span>My commission</span>
           </button>
+
+          <!-- ─── Accounting (managers; revealed in JS) ─── -->
+          <div class="nav-group hidden" id="grp-accounting-wrap" data-group="accounting" data-admin-nav>
+            <div class="flex items-center">
+              <button type="button" onclick="toggleNavGroup('accounting')" title="Accounting" class="flex-1 flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <svg class="w-4 h-4 flex-shrink-0 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m-6 4h6m-6 4h4"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg>
+                <span>Accounting</span>
+              </button>
+              <button type="button" onclick="toggleNavGroup('accounting')" aria-label="Toggle Accounting" class="px-2 py-2 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg id="chev-accounting" class="w-3.5 h-3.5 transition-transform -rotate-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
+            </div>
+            <div id="grp-accounting" class="nav-group-body space-y-0.5 mt-0.5 hidden">
+              <button type="button" onclick="acctGo('insights')" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Insights</button>
+              <button type="button" onclick="acctGo('reconciliation')" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Reconciliation</button>
+              <button type="button" onclick="acctGo('bank')" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Bank account</button>
+              <button type="button" onclick="switchPage('commissions')" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Commissions</button>
+              <button type="button" onclick="acctGo('expenses')" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Expenses</button>
+              <button type="button" onclick="acctGo('reports')" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Reports</button>
+              <button type="button" onclick="acctGo('settings')" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Settings</button>
+            </div>
+          </div>
 
           <!-- ─── Website (admin) ─── -->
           <div class="nav-group" data-group="web" data-admin-nav>
@@ -1029,6 +1051,11 @@
       <!-- Commissions — reps see their own earnings; managers get Team + Plans tabs. -->
       <div data-page-content="commissions" class="page-content hidden space-y-6">
         <div id="commissions-root"></div>
+      </div>
+
+      <!-- Accounting — daily ledger, reconciliation, chart of accounts, P&L (managers). -->
+      <div data-page-content="accounting" class="page-content hidden space-y-6">
+        <div id="accounting-root"></div>
       </div>
 
       <div data-page-content="reports" class="page-content hidden space-y-6">
@@ -3120,7 +3147,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260720p"></script>
+  <script src="dashboard.js?v=20260720q"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

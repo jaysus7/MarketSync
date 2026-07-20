@@ -698,6 +698,10 @@ async function initializeDashboardEcosystem() {
       document.getElementById('nav-reports')?.classList.remove('hidden');
       document.getElementById('nav-reports-m')?.classList.remove('hidden');
       document.getElementById('nav-desk')?.classList.remove('hidden');
+      // Managers get the Accounting group; their commission lives under it, so hide
+      // the standalone "My commission" entry for them.
+      document.getElementById('grp-accounting-wrap')?.classList.remove('hidden');
+      document.getElementById('nav-commissions')?.classList.add('hidden');
     }
     // Hide team-only nav items (Leaderboard) for solo reps — nothing to rank
     if (isSolo || !inDealership) {
@@ -709,7 +713,7 @@ async function initializeDashboardEcosystem() {
     // Intelligence, Website, Equity, Automation, Reports, Desking, Appraisals)
     // and the dealer Settings tabs would otherwise show. Hide them explicitly.
     if (isSolo) {
-      document.querySelectorAll('.nav-group[data-group="ii"], .nav-group[data-group="web"], .nav-group[data-group="sales"], [data-page="equity"], [data-page="automation"], #nav-reports, #nav-reports-m, #nav-desk, #nav-appraisal')
+      document.querySelectorAll('.nav-group[data-group="ii"], .nav-group[data-group="web"], .nav-group[data-group="sales"], [data-page="equity"], [data-page="automation"], #nav-reports, #nav-reports-m, #nav-desk, #nav-appraisal, #grp-accounting-wrap')
         .forEach(el => el.classList.add('hidden'));
       // Dealer-only Settings tabs + their section cards.
       ['team', 'branding', 'aiboost', 'group', 'dealermgmt'].forEach(t =>
@@ -989,6 +993,7 @@ function switchPage(pageId) {
   if (pageId === 'ai-vision') loadAiVisionPage();
   if (pageId === 'reports') loadReports();
   if (pageId === 'commissions') loadCommissionsPage();
+  if (pageId === 'accounting') loadAccountingPage();
   if (pageId === 'desk') loadDeskDeal();
   if (pageId === 'crm') loadCrmPage();
   if (pageId === 'leads') loadLeadsPage();
@@ -7525,6 +7530,282 @@ async function teamDeleteStaff(id) {
 window.teamAddStaff = teamAddStaff;
 window.teamDeleteStaff = teamDeleteStaff;
 
+// ── Accounting page ──────────────────────────────────────────────────────────
+// Managers/accounting. The deal + F&I auto-post income; accounting adds the day's
+// expenses; a daily reconciliation flags anything off (and emails when it is).
+let __acctState = { tab: 'reconciliation', date: null, accounts: [] };
+const ACCT_TABS = [['insights', 'Insights'], ['reconciliation', 'Reconciliation'], ['bank', 'Bank account'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['settings', 'Settings']];
+function acctToday() { return __acctState.date || new Date().toISOString().slice(0, 10); }
+function acctMonth() { return acctToday().slice(0, 7); }
+function loadAccountingPage(goTab) {
+  if (goTab) __acctState.tab = goTab;
+  const root = document.getElementById('accounting-root'); if (!root) return;
+  const tab = (id, label) => `<button onclick="acctSetTab('${id}')" class="px-3 py-1.5 rounded-lg text-sm font-bold transition ${__acctState.tab === id ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
+  root.innerHTML = `
+    <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Accounting</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Deals &amp; F&amp;I post themselves — add the day's expenses and close the books. Reconciliation runs daily and alerts you when something's off.</p></div>
+    <div class="flex flex-wrap gap-1.5">${ACCT_TABS.map(([id, l]) => tab(id, l)).join('')}</div>
+    <div id="acct-body" class="pt-1"><div class="text-sm text-slate-400">Loading…</div></div>`;
+  const map = { insights: acctLoadInsights, reconciliation: acctLoadToday, bank: acctLoadBank, expenses: acctLoadExpenses, reports: acctLoadReportsDetail, settings: acctLoadSettings };
+  (map[__acctState.tab] || acctLoadToday)();
+}
+function acctSetTab(t) { __acctState.tab = t; loadAccountingPage(); }
+function acctSetDate(d) { __acctState.date = d; acctLoadToday(); }
+// Nav sub-item → jump to the Accounting page on a specific tab.
+function acctGo(tab) { __acctState.tab = tab; switchPage('accounting'); }
+window.loadAccountingPage = loadAccountingPage; window.acctSetTab = acctSetTab; window.acctSetDate = acctSetDate; window.acctGo = acctGo;
+
+async function acctLoadToday() {
+  const body = document.getElementById('acct-body'); if (!body) return;
+  body.innerHTML = '<div class="text-sm text-slate-400">Loading…</div>';
+  try {
+    const [acc, entriesR, recon] = await Promise.all([
+      __acctState.accounts.length ? Promise.resolve({ accounts: __acctState.accounts }) : apiGetJson('/accounting/accounts'),
+      apiGetJson(`/accounting/entries?from=${acctToday()}&to=${acctToday()}`),
+      apiSendJson('/accounting/reconcile', 'POST', { date: acctToday(), alert: false }),
+    ]);
+    __acctState.accounts = acc.accounts || __acctState.accounts;
+    const entries = entriesR.entries || [];
+    const r = recon.reconciliation || {};
+    const acctName = (id) => (__acctState.accounts.find(a => a.id === id) || {}).name || '—';
+    const off = r.status === 'off';
+    const banner = `<div class="rounded-xl p-4 ${off ? 'bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800' : 'bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800'}">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div><div class="font-black ${off ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}">${off ? '⚠ Books don’t reconcile' : '✓ Day balances'}</div>
+          <div class="text-[12px] text-slate-600 dark:text-slate-400 mt-0.5">${esc(r.detail?.note || '')}</div></div>
+        <button onclick="acctLoadToday()" class="text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg">Re-run</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3 text-center">
+        ${[['Delivered', r.deals_delivered || 0], ['Income posted', commMoney(r.income_posted)], ['Deposits in', commMoney(r.recorded_cash)], ['Expenses', commMoney(r.expenses_total)], ['Variance', commMoney(r.variance)]].map(([l, v]) => `<div class="bg-white/70 dark:bg-slate-900/50 rounded-lg py-2"><div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">${l}</div><div class="font-black text-slate-900 dark:text-white">${v}</div></div>`).join('')}
+      </div></div>`;
+    const expenseAccts = __acctState.accounts.filter(a => a.category === 'expense' && a.active);
+    const addExpense = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+      <div class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">Add an expense / entry</div>
+      <div class="grid sm:grid-cols-5 gap-2 items-end">
+        <div class="sm:col-span-1"><label class="block text-[11px] font-semibold text-slate-500 mb-1">Account</label>
+          <select id="acct-e-account" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm">${expenseAccts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></div>
+        <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Amount ($)</label><input id="acct-e-amount" type="number" step="1" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm"></div>
+        <div class="sm:col-span-2"><label class="block text-[11px] font-semibold text-slate-500 mb-1">Description</label><input id="acct-e-desc" type="text" placeholder="Vendor / memo" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm"></div>
+        <div><button onclick="acctAddEntry(this)" class="w-full text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Add</button></div>
+      </div></div>`;
+    const rows = entries.map(e => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
+      <td class="px-3 py-2">${acctName(e.account_id)}</td>
+      <td class="px-3 py-2 text-slate-500">${esc(e.description || '')}</td>
+      <td class="px-3 py-2"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${e.source === 'manual' ? 'bg-slate-100 dark:bg-slate-800 text-slate-500' : 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300'}">${e.source === 'manual' ? 'manual' : 'auto'}</span></td>
+      <td class="px-3 py-2 text-right font-bold ${e.direction === 'out' ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'}">${e.direction === 'out' ? '-' : '+'}${commMoney(e.amount)}</td>
+      <td class="px-3 py-2 text-right">${e.source === 'manual' ? `<button onclick="acctDelEntry('${e.id}')" class="text-rose-400 hover:text-rose-500 text-xs">Delete</button>` : ''}</td>
+    </tr>`).join('');
+    body.innerHTML = `
+      <div class="flex items-center gap-2 mb-3"><input type="date" value="${acctToday()}" onchange="acctSetDate(this.value)" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></div>
+      ${banner}
+      <div class="mt-4">${addExpense}</div>
+      <div class="mt-4 overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+        <table class="w-full text-sm min-w-[560px]"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">
+          <th class="px-3 py-2">Account</th><th class="px-3 py-2">Description</th><th class="px-3 py-2">Type</th><th class="px-3 py-2 text-right">Amount</th><th class="px-3 py-2"></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" class="px-3 py-6 text-center text-slate-400">No entries for this day yet.</td></tr>'}</tbody></table></div>`;
+  } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load the day.')}</div>`; }
+}
+async function acctAddEntry(btn) {
+  const account_id = document.getElementById('acct-e-account')?.value;
+  const amount = parseFloat(document.getElementById('acct-e-amount')?.value || '0');
+  const description = document.getElementById('acct-e-desc')?.value || '';
+  if (!amount) { showToast('Enter an amount', 'error'); return; }
+  btn.disabled = true;
+  try { await apiSendJson('/accounting/entries', 'POST', { account_id, amount, description, direction: 'out', entry_date: acctToday() }); showToast('Entry added', 'success'); acctLoadToday(); }
+  catch (e) { btn.disabled = false; showToast(e.message || 'Could not add', 'error'); }
+}
+async function acctDelEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  try { await apiSendJson(`/accounting/entries/${id}`, 'DELETE'); acctLoadToday(); } catch (e) { showToast(e.message, 'error'); }
+}
+window.acctAddEntry = acctAddEntry; window.acctDelEntry = acctDelEntry;
+
+async function acctLoadInsights() {
+  const body = document.getElementById('acct-body'); if (!body) return;
+  try {
+    const d = await apiGetJson(`/accounting/report?month=${acctMonth()}`);
+    const lineRows = (arr) => arr.length ? arr.map(l => `<div class="flex justify-between text-sm py-1 border-b border-slate-100 dark:border-slate-800/60 last:border-0"><span>${esc(l.name)}</span><span class="font-semibold">${commMoney(l.total)}</span></div>`).join('') : '<div class="text-sm text-slate-400 py-2">Nothing yet.</div>';
+    body.innerHTML = `
+      <div class="flex items-center gap-2 mb-3"><input type="month" value="${acctMonth()}" onchange="__acctState.date=this.value+'-01'; acctLoadInsights()" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></div>
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Income</div><div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${commMoney(d.income)}</div></div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Expenses</div><div class="text-2xl font-black text-rose-500 mt-1">${commMoney(d.expense)}</div></div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Net</div><div class="text-2xl font-black mt-1">${commMoney(d.net)}</div></div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="font-bold mb-2">Income</div>${lineRows(d.income_lines || [])}</div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="font-bold mb-2">Expenses</div>${lineRows(d.expense_lines || [])}</div>
+      </div>`;
+  } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; }
+}
+let __acctAccountsTarget = 'acct-body';
+async function acctLoadAccounts(target) {
+  __acctAccountsTarget = target || 'acct-body';
+  const body = document.getElementById(__acctAccountsTarget); if (!body) return;
+  try {
+    const d = await apiGetJson('/accounting/accounts');
+    __acctState.accounts = d.accounts || [];
+    const cat = (c) => ({ income: 'Income', expense: 'Expense', asset: 'Asset', liability: 'Liability', equity: 'Equity' }[c] || c);
+    const rows = __acctState.accounts.map(a => `<tr class="border-b border-slate-100 dark:border-slate-800/60 ${a.active ? '' : 'opacity-50'}">
+      <td class="px-3 py-2 font-mono text-xs">${esc(a.code || '')}</td>
+      <td class="px-3 py-2 font-semibold">${esc(a.name)}</td>
+      <td class="px-3 py-2 text-slate-500">${cat(a.category)}${a.system_key ? ' · auto' : ''}</td>
+      <td class="px-3 py-2 text-right"><button onclick="acctToggleAccount('${a.id}', ${a.active ? 'false' : 'true'})" class="text-xs font-bold text-slate-500 hover:text-slate-700">${a.active ? 'Deactivate' : 'Activate'}</button>${a.system_key ? '' : ` <button onclick="acctDelAccount('${a.id}')" class="text-xs font-bold text-rose-400 hover:text-rose-500 ml-2">Delete</button>`}</td>
+    </tr>`).join('');
+    body.innerHTML = `
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mb-4">
+        <div class="text-sm font-bold mb-2">Add an account</div>
+        <div class="grid sm:grid-cols-4 gap-2 items-end">
+          <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Code</label><input id="acct-a-code" type="text" placeholder="6500" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm"></div>
+          <div class="sm:col-span-1"><label class="block text-[11px] font-semibold text-slate-500 mb-1">Name</label><input id="acct-a-name" type="text" placeholder="Detailing" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm"></div>
+          <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Category</label><select id="acct-a-cat" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm"><option value="expense">Expense</option><option value="income">Income</option><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option></select></div>
+          <div><button onclick="acctAddAccount(this)" class="w-full text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Add</button></div>
+        </div></div>
+      <div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+        <table class="w-full text-sm min-w-[520px]"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800"><th class="px-3 py-2">Code</th><th class="px-3 py-2">Name</th><th class="px-3 py-2">Category</th><th class="px-3 py-2"></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; }
+}
+async function acctAddAccount(btn) {
+  const name = document.getElementById('acct-a-name')?.value.trim();
+  const category = document.getElementById('acct-a-cat')?.value;
+  const code = document.getElementById('acct-a-code')?.value.trim();
+  if (!name) { showToast('Name the account', 'error'); return; }
+  btn.disabled = true;
+  try { await apiSendJson('/accounting/accounts', 'POST', { name, category, code }); showToast('Account added', 'success'); acctLoadAccounts(__acctAccountsTarget); }
+  catch (e) { btn.disabled = false; showToast(e.message || 'Could not add', 'error'); }
+}
+async function acctToggleAccount(id, active) { try { await apiSendJson(`/accounting/accounts/${id}`, 'PUT', { active }); acctLoadAccounts(__acctAccountsTarget); } catch (e) { showToast(e.message, 'error'); } }
+async function acctDelAccount(id) { if (!confirm('Delete this account?')) return; try { await apiSendJson(`/accounting/accounts/${id}`, 'DELETE'); acctLoadAccounts(__acctAccountsTarget); } catch (e) { showToast(e.message, 'error'); } }
+window.acctAddAccount = acctAddAccount; window.acctToggleAccount = acctToggleAccount; window.acctDelAccount = acctDelAccount;
+
+// Expenses — where accounting adds the day's costs; lists the month's expenses.
+async function acctLoadExpenses() {
+  const body = document.getElementById('acct-body'); if (!body) return;
+  try {
+    const from = acctMonth() + '-01';
+    const [acc, entriesR] = await Promise.all([
+      __acctState.accounts.length ? Promise.resolve({ accounts: __acctState.accounts }) : apiGetJson('/accounting/accounts'),
+      apiGetJson(`/accounting/entries?from=${from}&to=${acctMonth()}-31`),
+    ]);
+    __acctState.accounts = acc.accounts || __acctState.accounts;
+    const expenseAccts = __acctState.accounts.filter(a => a.category === 'expense' && a.active);
+    const acctName = (id) => (__acctState.accounts.find(a => a.id === id) || {}).name || '—';
+    const expenses = (entriesR.entries || []).filter(e => e.direction === 'out');
+    const total = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const rows = expenses.map(e => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
+      <td class="px-3 py-2">${e.entry_date}</td><td class="px-3 py-2">${acctName(e.account_id)}</td><td class="px-3 py-2 text-slate-500">${esc(e.description || '')}</td>
+      <td class="px-3 py-2 text-right font-bold text-rose-500">${commMoney(e.amount)}</td>
+      <td class="px-3 py-2 text-right">${e.source === 'manual' ? `<button onclick="acctDelEntry2('${e.id}')" class="text-rose-400 hover:text-rose-500 text-xs">Delete</button>` : ''}</td></tr>`).join('');
+    body.innerHTML = `
+      <div class="flex items-center gap-2 mb-3"><input type="month" value="${acctMonth()}" onchange="__acctState.date=this.value+'-01'; acctLoadExpenses()" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"><span class="text-sm text-slate-500">Total: <b>${commMoney(total)}</b></span></div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mb-4">
+        <div class="text-sm font-bold mb-2">Add an expense</div>
+        <div class="grid sm:grid-cols-5 gap-2 items-end">
+          <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Date</label><input id="acct-x-date" type="date" value="${acctToday()}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm"></div>
+          <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Account</label><select id="acct-x-account" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm">${expenseAccts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></div>
+          <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Amount ($)</label><input id="acct-x-amount" type="number" step="1" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm"></div>
+          <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Description</label><input id="acct-x-desc" type="text" placeholder="Vendor / memo" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm"></div>
+          <div><button onclick="acctAddExpense(this)" class="w-full text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Add</button></div>
+        </div></div>
+      <div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+        <table class="w-full text-sm min-w-[620px]"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800"><th class="px-3 py-2">Date</th><th class="px-3 py-2">Account</th><th class="px-3 py-2">Description</th><th class="px-3 py-2 text-right">Amount</th><th class="px-3 py-2"></th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="px-3 py-6 text-center text-slate-400">No expenses this month.</td></tr>'}</tbody></table></div>`;
+  } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; }
+}
+async function acctAddExpense(btn) {
+  const account_id = document.getElementById('acct-x-account')?.value;
+  const amount = parseFloat(document.getElementById('acct-x-amount')?.value || '0');
+  if (!amount) { showToast('Enter an amount', 'error'); return; }
+  btn.disabled = true;
+  try { await apiSendJson('/accounting/entries', 'POST', { account_id, amount, description: document.getElementById('acct-x-desc')?.value || '', direction: 'out', entry_date: document.getElementById('acct-x-date')?.value || acctToday() }); showToast('Expense added', 'success'); acctLoadExpenses(); }
+  catch (e) { btn.disabled = false; showToast(e.message || 'Could not add', 'error'); }
+}
+async function acctDelEntry2(id) { if (!confirm('Delete this expense?')) return; try { await apiSendJson(`/accounting/entries/${id}`, 'DELETE'); acctLoadExpenses(); } catch (e) { showToast(e.message, 'error'); } }
+window.acctAddExpense = acctAddExpense; window.acctDelEntry2 = acctDelEntry2;
+
+// Bank account — Plaid slots in here (phase 3); config-gated placeholder for now.
+async function acctLoadBank() {
+  const body = document.getElementById('acct-body'); if (!body) return;
+  body.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 max-w-2xl text-center">
+    <div class="w-12 h-12 mx-auto rounded-xl bg-teal-100 dark:bg-teal-950/40 flex items-center justify-center text-2xl mb-3">🏦</div>
+    <div class="text-lg font-black text-slate-900 dark:text-white">Connect your bank</div>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4">Link your dealership bank account to pull daily transactions and match them against recorded deals, deposits and expenses — so reconciliation catches anything the books miss.</p>
+    <button disabled class="text-sm font-bold bg-slate-200 dark:bg-slate-800 text-slate-500 px-5 py-2.5 rounded-lg cursor-not-allowed">Connect with Plaid — coming soon</button>
+    <p class="text-[11px] text-slate-400 mt-3">Reconciliation already runs daily on your deal + accounting data; the bank feed adds a third cross-check.</p>
+  </div>`;
+}
+
+// Reports — the month's full ledger + reconciliation history, with CSV export.
+async function acctLoadReportsDetail() {
+  const body = document.getElementById('acct-body'); if (!body) return;
+  try {
+    const [acc, entriesR, recons] = await Promise.all([
+      __acctState.accounts.length ? Promise.resolve({ accounts: __acctState.accounts }) : apiGetJson('/accounting/accounts'),
+      apiGetJson(`/accounting/entries?from=${acctMonth()}-01&to=${acctMonth()}-31`),
+      apiGetJson(`/accounting/reconciliations?month=${acctMonth()}`),
+    ]);
+    __acctState.accounts = acc.accounts || __acctState.accounts;
+    const acctName = (id) => (__acctState.accounts.find(a => a.id === id) || {}).name || '—';
+    window.__acctEntries = entriesR.entries || [];
+    const entRows = (entriesR.entries || []).map(e => `<tr class="border-b border-slate-100 dark:border-slate-800/60"><td class="px-3 py-2">${e.entry_date}</td><td class="px-3 py-2">${acctName(e.account_id)}</td><td class="px-3 py-2 text-slate-500">${esc(e.description || '')}</td><td class="px-3 py-2">${e.source}</td><td class="px-3 py-2 text-right font-semibold ${e.direction === 'out' ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'}">${e.direction === 'out' ? '-' : '+'}${commMoney(e.amount)}</td></tr>`).join('');
+    const recRows = (recons.reconciliations || []).map(r => `<tr class="border-b border-slate-100 dark:border-slate-800/60"><td class="px-3 py-2">${r.recon_date}</td><td class="px-3 py-2">${r.status === 'off' ? '<span class="text-rose-500 font-bold">Off</span>' : '<span class="text-emerald-600 dark:text-emerald-400 font-bold">Balanced</span>'}</td><td class="px-3 py-2 text-right">${commMoney(r.income_posted)}</td><td class="px-3 py-2 text-right">${commMoney(r.expenses_total)}</td><td class="px-3 py-2 text-right">${commMoney(r.recorded_cash)}</td><td class="px-3 py-2 text-right">${commMoney(r.variance)}</td></tr>`).join('');
+    body.innerHTML = `
+      <div class="flex items-center gap-2 mb-3"><input type="month" value="${acctMonth()}" onchange="__acctState.date=this.value+'-01'; acctLoadReportsDetail()" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"><button onclick="acctExportCsv()" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg">Export CSV</button></div>
+      <div class="mb-4"><div class="font-bold mb-1">Reconciliation history</div>
+        <div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl"><table class="w-full text-sm min-w-[560px]"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800"><th class="px-3 py-2">Date</th><th class="px-3 py-2">Status</th><th class="px-3 py-2 text-right">Income</th><th class="px-3 py-2 text-right">Expenses</th><th class="px-3 py-2 text-right">Deposits</th><th class="px-3 py-2 text-right">Variance</th></tr></thead><tbody>${recRows || '<tr><td colspan="6" class="px-3 py-6 text-center text-slate-400">No reconciliations yet.</td></tr>'}</tbody></table></div></div>
+      <div><div class="font-bold mb-1">Ledger — ${acctMonth()}</div>
+        <div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl"><table class="w-full text-sm min-w-[620px]"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800"><th class="px-3 py-2">Date</th><th class="px-3 py-2">Account</th><th class="px-3 py-2">Description</th><th class="px-3 py-2">Source</th><th class="px-3 py-2 text-right">Amount</th></tr></thead><tbody>${entRows || '<tr><td colspan="5" class="px-3 py-6 text-center text-slate-400">No entries this month.</td></tr>'}</tbody></table></div></div>`;
+  } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; }
+}
+function acctExportCsv() {
+  const rows = window.__acctEntries || [];
+  const acctName = (id) => (__acctState.accounts.find(a => a.id === id) || {}).name || '';
+  const lines = [['Date', 'Account', 'Description', 'Source', 'Direction', 'Amount']].concat(rows.map(e => [e.entry_date, acctName(e.account_id), (e.description || '').replace(/"/g, '""'), e.source, e.direction, e.amount]));
+  const csv = lines.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `ledger-${acctMonth()}.csv`; a.click();
+}
+window.acctLoadBank = acctLoadBank; window.acctLoadReportsDetail = acctLoadReportsDetail; window.acctExportCsv = acctExportCsv;
+window.acctLoadInsights = acctLoadInsights; window.acctLoadExpenses = acctLoadExpenses;
+
+async function acctLoadSettings() {
+  const body = document.getElementById('acct-body'); if (!body) return;
+  try {
+    const { settings: s } = await apiGetJson('/accounting/settings');
+    body.innerHTML = `<div class="space-y-6">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4 max-w-2xl">
+      <div class="text-sm font-black uppercase tracking-wider text-slate-400">Reconciliation alerts</div>
+      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Accounting team emails (comma-separated)</label>
+        <input id="acct-s-acc" type="text" value="${esc((s.accounting_emails || []).join(', '))}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">GM / owner emails (comma-separated)</label>
+        <input id="acct-s-gm" type="text" value="${esc((s.gm_emails || []).join(', '))}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <p class="text-[11px] text-slate-400">These addresses get an email whenever a day doesn't reconcile.</p>
+      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Variance tolerance ($)</label>
+        <input id="acct-s-tol" type="number" step="1" value="${s.tolerance}" class="w-32 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <label class="flex items-center gap-2 text-sm font-semibold"><input id="acct-s-autopost" type="checkbox" ${s.auto_post ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Auto-post delivered deals &amp; deposits to the ledger</label>
+      <label class="flex items-center gap-2 text-sm font-semibold"><input id="acct-s-enabled" type="checkbox" ${s.enabled ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Run the daily reconciliation</label>
+      <div class="pt-1"><button onclick="acctSaveSettings(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg">Save</button></div>
+      </div>
+      <div><div class="text-sm font-black uppercase tracking-wider text-slate-400 mb-2">Chart of accounts</div><div id="acct-accounts-box"><div class="text-sm text-slate-400">Loading…</div></div></div>
+      <div><div class="text-sm font-black uppercase tracking-wider text-slate-400 mb-2">Commission structure</div><div id="acct-comm-box"><div class="text-sm text-slate-400">Loading…</div></div></div>
+    </div>`;
+    acctLoadAccounts('acct-accounts-box');
+    __commPlansTarget = 'acct-comm-box';
+    commLoadPlans();
+  } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; }
+}
+async function acctSaveSettings(btn) {
+  const payload = {
+    accounting_emails: document.getElementById('acct-s-acc')?.value || '',
+    gm_emails: document.getElementById('acct-s-gm')?.value || '',
+    tolerance: parseFloat(document.getElementById('acct-s-tol')?.value || '25'),
+    auto_post: document.getElementById('acct-s-autopost')?.checked,
+    enabled: document.getElementById('acct-s-enabled')?.checked,
+  };
+  btn.disabled = true;
+  try { await apiSendJson('/accounting/settings', 'PUT', payload); showToast('Saved', 'success'); btn.disabled = false; }
+  catch (e) { btn.disabled = false; showToast(e.message || 'Could not save', 'error'); }
+}
+window.acctSaveSettings = acctSaveSettings;
+
 // ── Commissions page ─────────────────────────────────────────────────────────
 // Reps see their own earnings (status, clawback reasons, bonuses); managers get a
 // team rollup and the plan builder. All figures come from the commission engine.
@@ -7543,6 +7824,7 @@ function commStatusPill(s) {
 function loadCommissionsPage() {
   if (!__commState.tab) __commState.tab = commIsMgr() ? 'team' : 'mine';
   if (!commIsMgr() && __commState.tab !== 'mine') __commState.tab = 'mine';
+  if (__commState.tab === 'plans') __commState.tab = 'team';   // structure now lives in Accounting → Settings
   const root = document.getElementById('commissions-root');
   if (!root) return;
   const tab = (id, label) => `<button onclick="commSetTab('${id}')" class="px-3 py-1.5 rounded-lg text-sm font-bold transition ${__commState.tab === id ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
@@ -7556,12 +7838,12 @@ function loadCommissionsPage() {
     </div>
     <div class="flex flex-wrap gap-1.5">
       ${tab('mine', 'My commission')}
-      ${commIsMgr() ? tab('team', 'Team') + tab('plans', 'Plans') : ''}
+      ${commIsMgr() ? tab('team', 'Team') : ''}
     </div>
     <div id="comm-body" class="pt-1"><div class="text-sm text-slate-400">Loading…</div></div>`;
+  __commPlansTarget = 'comm-body';
   if (__commState.tab === 'mine') commLoadMine();
-  else if (__commState.tab === 'team') commLoadTeam();
-  else commLoadPlans();
+  else commLoadTeam();
 }
 function commSetTab(t) { __commState.tab = t; loadCommissionsPage(); }
 function commSetMonth(m) { __commState.month = m; loadCommissionsPage(); }
@@ -7697,8 +7979,9 @@ window.commMarkPaidMonth = commMarkPaidMonth; window.commAddAdjustment = commAdd
 
 // ── Plans tab ────────────────────────────────────────────────────────────────
 let __commPlans = [], __commReps = [];
+let __commPlansTarget = 'comm-body';   // where the plan builder renders (Commissions or Accounting → Settings)
 async function commLoadPlans() {
-  const body = document.getElementById('comm-body'); if (!body) return;
+  const body = document.getElementById(__commPlansTarget) || document.getElementById('comm-body'); if (!body) return;
   try {
     const d = await apiGetJson('/commissions/plans');
     __commPlans = d.plans || []; __commReps = d.reps || [];
