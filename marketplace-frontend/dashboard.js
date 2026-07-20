@@ -6275,25 +6275,61 @@ const DESK_DOC_CSS = `
 // ── Native e-signature: send the desk's own document out for a legal e-sign ──
 // Reuses the exact bill-of-sale / estimate HTML the desk already renders, so the
 // customer signs the same paper the rep sees. Never includes internal-only cost.
-async function deskEsign(contactId, kind) {
+function deskEsign(contactId, kind) {
   const doc = deskPrint(kind || 'bill', { returnHtml: true });
   if (!doc) return;   // deskPrint already toasted (e.g. no selling price yet)
   const b = __deskBuyer || {};
   const signerName = b.full_name || [b.first_name, b.last_name].filter(Boolean).join(' ') || '';
   const signerEmail = b.email || '';
-  const email = window.prompt('Email the secure signing link to the customer?\n(Leave the address to email it, or clear it to just copy the link.)', signerEmail);
-  if (email === null) return;   // cancelled
+  crmOverlay(`<div class="p-5 space-y-4">
+    <div class="flex items-center justify-between">
+      <div><div class="text-lg font-black text-slate-900 dark:text-white">Send for e-signature</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400">${esc(doc.title)}</div></div>
+      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 p-3 flex items-center gap-3">
+      <svg class="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+      <div class="text-xs text-emerald-800 dark:text-emerald-200">The customer opens a secure link, reviews the document, and signs on any device. You'll get the signed copy with a certificate.</div>
+    </div>
+    <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Customer name</label>
+      <input id="esign-name" value="${esc(signerName)}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+    <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Email <span class="font-normal text-slate-400">(for a text-only send, leave blank and copy the link)</span></label>
+      <input id="esign-email" type="email" value="${esc(signerEmail)}" placeholder="name@email.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+    <div id="esign-modal-result" class="hidden"></div>
+    <div class="flex justify-end gap-2 pt-1">
+      <button onclick="deskEsignSubmit('${contactId || ''}','${kind || 'bill'}','copy', this)" class="text-sm font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg">Create &amp; copy link</button>
+      <button onclick="deskEsignSubmit('${contactId || ''}','${kind || 'bill'}','send', this)" class="text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg">Email the link</button>
+    </div>
+  </div>`, 'max-w-lg');
+}
+async function deskEsignSubmit(contactId, kind, mode, btn) {
+  const doc = deskPrint(kind || 'bill', { returnHtml: true });
+  if (!doc) { btn.closest('.fixed')?.remove(); return; }
+  const name = document.getElementById('esign-name')?.value.trim() || '';
+  const email = mode === 'send' ? (document.getElementById('esign-email')?.value.trim() || '') : '';
+  if (mode === 'send' && !/.+@.+\..+/.test(email)) { showToast('Enter a valid email, or use “Create & copy link”.', 'error'); return; }
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Creating…';
   try {
-    showToast('Creating signing request…', 'info');
     const r = await apiSendJson('/esign/create', 'POST', {
       doc_html: doc.html, doc_title: doc.title, doc_type: doc.doc_type,
       contact_id: contactId || __deskContactId || null,
       deal_id: (__deskDeal && __deskDeal.id) || null,
-      signer_name: signerName, signer_email: (email || '').trim(),
+      signer_name: name, signer_email: email,
     });
-    esignShowLink(r.url, !!(email || '').trim());
-  } catch (e) { showToast(e.message || 'Could not create the signing request', 'error'); }
+    const box = document.getElementById('esign-modal-result');
+    if (box) {
+      box.classList.remove('hidden');
+      box.innerHTML = `<div class="rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 p-2">
+        <div class="text-[11px] font-semibold text-slate-500 mb-1">${email ? 'Emailed — you can also share this link:' : 'Secure signing link:'}</div>
+        <div class="flex gap-1.5"><input readonly value="${esc(r.url)}" onclick="this.select()" class="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5 text-xs">
+        <button onclick="navigator.clipboard.writeText('${esc(r.url)}');showToast('Link copied','success')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded">Copy</button></div></div>`;
+    }
+    if (mode === 'copy') { try { await navigator.clipboard.writeText(r.url); } catch {} }
+    showToast(email ? 'Signing link emailed' : 'Signing link ready', 'success');
+    btn.disabled = false; btn.textContent = orig;
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not create the signing request', 'error'); }
 }
+window.deskEsignSubmit = deskEsignSubmit;
 
 function esignShowLink(url, emailed) {
   const wrap = document.createElement('div');
@@ -6572,7 +6608,11 @@ function renderIntegrations(data) {
         <h3 class="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">${esc(cat)}</h3>
         ${CATEGORY_BLURB[cat] ? `<p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">${esc(CATEGORY_BLURB[cat])}</p>` : ''}
       </div>
-      <div class="space-y-3">${byCat[cat].slice().sort((a, b) => rank(a) - rank(b)).map(p => p.provider === 'webhook' ? webhookCard(p, events) : p.provider === 'twilio' ? twilioCard(p) : p.provider === 'google_business' ? googleBusinessCard(p) : (p.provider === 'square_deposits' && p.live) ? squareCard(p) : (p.deposits && p.live) ? depositsCard(p) : (p.oauth && p.live) ? oauthCard(p) : (p.manual && Array.isArray(p.fields)) ? fniCredsCard(p) : providerCard(p)).join('')}</div>
+      <div class="space-y-3">${byCat[cat].slice().sort((a, b) => rank(a) - rank(b)).map(p => {
+        const card = p.provider === 'webhook' ? webhookCard(p, events) : p.provider === 'twilio' ? twilioCard(p) : p.provider === 'google_business' ? googleBusinessCard(p) : (p.provider === 'square_deposits' && p.live) ? squareCard(p) : (p.deposits && p.live) ? depositsCard(p) : (p.oauth && p.live) ? oauthCard(p) : (p.manual && Array.isArray(p.fields)) ? fniCredsCard(p) : providerCard(p);
+        // Grey out anything not set up yet; full colour on hover so it's still usable.
+        return isIntegrationConnected(p) ? card : `<div class="opacity-60 hover:opacity-100 transition-opacity">${card}</div>`;
+      }).join('')}</div>
     </div>`).join('');
   if (!data.pii_ready) {
     host.insertAdjacentHTML('afterbegin', `<div class="mb-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300">Encryption key not set — signing secrets and credentials can't be stored until <code>PII_ENCRYPTION_KEY</code> is configured on the server.</div>`);
@@ -6803,7 +6843,7 @@ function statusPill(p) {
   return '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">Coming soon</span>';
 }
 function providerCard(p) {
-  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 flex items-start gap-3 opacity-75">
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 flex items-start gap-3">
     ${integrationIcon(p.provider)}
     <div class="min-w-0">
       <div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm text-slate-900 dark:text-white">${esc(p.label)}</span>${statusPill(p)}</div>
