@@ -1,0 +1,35 @@
+name: CI — audit & sanity
+
+# Guards the codebase on every push / PR to main:
+#  • fails the build if a HIGH or CRITICAL dependency advisory appears
+#    (this is what would have caught the ws DoS before it hit the default branch)
+#  • sanity-checks that every backend source file parses
+# Kept intentionally fast and dependency-light so it never blocks a hotfix.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: marketplace-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: marketplace-backend/package-lock.json
+      - name: Install (locked)
+        run: npm ci
+      - name: Audit — fail on high/critical
+        run: npm audit --audit-level=high --omit=dev
+      - name: Syntax-check all backend sources
+        run: |
+          find . -path ./node_modules -prune -o -name '*.js' -print \
+            | xargs -r -n1 node --check
