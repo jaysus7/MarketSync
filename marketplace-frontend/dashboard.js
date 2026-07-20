@@ -2979,9 +2979,9 @@ async function idvSetProvider(provider) {
 window.idvFillProvider = idvFillProvider; window.idvSetProvider = idvSetProvider;
 window.crmScanLicense = crmScanLicense;
 window.idvStart = idvStart; window.idvRefresh = idvRefresh;
-// Header "Identity scan" button — opens a fresh contact and immediately fires the
-// licence camera scan. After saving, the contact record offers the full Stripe
-// Identity (ID + selfie/liveness) check.
+// Header "Add customer" button — opens a fresh contact and immediately fires the
+// licence camera scan so the AI fills in all the details. After saving, the contact
+// record offers the full ID + selfie verification (Persona / Stripe Identity).
 async function identityScan() {
   try { await crmOpenForm(); } catch (e) { showToast(e.message || 'Could not open the form', 'error'); return; }
   setTimeout(() => { try { crmScanLicense(); } catch (e) {} }, 200);
