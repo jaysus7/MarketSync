@@ -14,7 +14,66 @@ import { stripe, supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { audit, AuditAction } from '../audit.js'
 
-const configured = () => !!process.env.STRIPE_SECRET_KEY
+// Two interchangeable identity providers, chosen by env so the customer-facing flow
+// (a hosted link + a polled status) is identical either way:
+//   Stripe Identity  — STRIPE_SECRET_KEY
+//   Persona          — PERSONA_API_KEY (+ PERSONA_TEMPLATE_ID)   ← cheaper / more regions
+// Set IDENTITY_PROVIDER to force one; otherwise we prefer Stripe, then Persona.
+const stripeConfigured = () => !!process.env.STRIPE_SECRET_KEY
+const personaConfigured = () => !!(process.env.PERSONA_API_KEY && process.env.PERSONA_TEMPLATE_ID)
+function identityProvider() {
+  const pref = String(process.env.IDENTITY_PROVIDER || '').toLowerCase()
+  if (pref === 'persona' && personaConfigured()) return 'persona'
+  if (pref === 'stripe' && stripeConfigured()) return 'stripe'
+  if (stripeConfigured()) return 'stripe'
+  if (personaConfigured()) return 'persona'
+  return null
+}
+const configured = () => identityProvider() !== null
+
+const PERSONA_BASE = 'https://api.withpersona.com/api/v1'
+const PERSONA_VERSION = '2023-01-05'
+async function personaFetch(path, opts = {}) {
+  const r = await fetch(`${PERSONA_BASE}${path}`, {
+    ...opts,
+    headers: { Authorization: `Bearer ${process.env.PERSONA_API_KEY}`, 'Persona-Version': PERSONA_VERSION, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+  })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(j.errors?.[0]?.title || j.errors?.[0]?.detail || 'Persona request failed')
+  return j
+}
+// Create a Persona inquiry for a contact and return a one-time hosted link.
+async function personaStart(contactId, returnUrl) {
+  const created = await personaFetch('/inquiries', {
+    method: 'POST',
+    body: JSON.stringify({ data: { attributes: { 'inquiry-template-id': process.env.PERSONA_TEMPLATE_ID, 'reference-id': `dep_${contactId}`, 'redirect-uri': returnUrl } } }),
+  })
+  const id = created.data?.id
+  if (!id) throw new Error('Persona did not return an inquiry id.')
+  let url = null
+  try {
+    const link = await personaFetch(`/inquiries/${id}/generate-one-time-link`, { method: 'POST' })
+    url = link.meta?.['one-time-link'] || link.data?.attributes?.['one-time-link'] || null
+  } catch { /* fall back to the standard hosted URL below */ }
+  if (!url) url = `https://withpersona.com/verify?inquiry-id=${encodeURIComponent(id)}`
+  return { id, url }
+}
+// Map a Persona inquiry to our status vocabulary + a non-sensitive summary.
+async function personaStatus(inquiryId) {
+  const j = await personaFetch(`/inquiries/${inquiryId}`)
+  const a = j.data?.attributes || {}
+  const raw = String(a.status || '').toLowerCase()
+  let status = 'pending'
+  if (raw === 'approved' || raw === 'completed') status = 'verified'
+  else if (raw === 'declined' || raw === 'failed' || raw === 'expired') status = 'requires_input'
+  else if (raw === 'pending') status = 'processing'
+  const name = [a['name-first'], a['name-last']].filter(Boolean).join(' ') || null
+  const dob = a.birthdate || null
+  const report = status === 'verified'
+    ? { name, dob, document_type: 'document', selfie_matched: true, provider: 'persona' }
+    : (status === 'requires_input' ? { last_error: `Verification ${raw}. Ask the customer to try again.`, provider: 'persona' } : null)
+  return { status, report }
+}
 
 export function registerIdentity(app) {
   app.get('/identity/config', requireAuth, (req, res) => res.json({ ok: true, configured: configured() }))
@@ -27,21 +86,30 @@ export function registerIdentity(app) {
     const { data: contact } = await supabaseAdmin.from('contacts')
       .select('id, full_name, email').eq('id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!contact) return res.status(404).json({ error: 'Customer not found' })
+    const provider = identityProvider()
+    const returnUrl = `${FRONTEND_URL.replace(/\/$/, '')}/dashboard.html?idv=done&contact=${encodeURIComponent(contactId)}`
     try {
-      const vs = await stripe.identity.verificationSessions.create({
-        type: 'document',
-        metadata: { dealership_id: req.dealershipId, contact_id: contactId },
-        options: { document: { require_matching_selfie: true, require_live_capture: true } },
-        return_url: `${FRONTEND_URL.replace(/\/$/, '')}/dashboard.html?idv=done&contact=${encodeURIComponent(contactId)}`,
-      })
+      let sessionId, url
+      if (provider === 'persona') {
+        const inq = await personaStart(contactId, returnUrl)
+        sessionId = inq.id; url = inq.url
+      } else {
+        const vs = await stripe.identity.verificationSessions.create({
+          type: 'document',
+          metadata: { dealership_id: req.dealershipId, contact_id: contactId },
+          options: { document: { require_matching_selfie: true, require_live_capture: true } },
+          return_url: returnUrl,
+        })
+        sessionId = vs.id; url = vs.url
+      }
       await supabaseAdmin.from('contacts').update({
-        id_verification_session: vs.id, id_verification_status: 'pending', id_verified_at: null, id_verification_report: null,
+        id_verification_session: sessionId, id_verification_status: 'pending', id_verified_at: null,
+        id_verification_report: { provider },
       }).eq('id', contactId)
-      audit(req, AuditAction.CONFIG_UPDATED, { id_verification_started: contactId })
-      res.json({ ok: true, url: vs.url, status: vs.status })
+      audit(req, AuditAction.CONFIG_UPDATED, { id_verification_started: contactId, provider })
+      res.json({ ok: true, url, status: 'pending' })
     } catch (e) {
-      // Most common: Identity not enabled on the account.
-      const msg = /not.*enabled|activate|identity/i.test(e.message || '')
+      const msg = provider === 'stripe' && /not.*enabled|activate|identity/i.test(e.message || '')
         ? 'Turn on Stripe Identity in your Stripe dashboard (Settings → Identity) to use verification.'
         : (e.message || 'Could not start verification.')
       res.status(400).json({ error: msg })
@@ -60,24 +128,30 @@ export function registerIdentity(app) {
     if (!contact.id_verification_session || !configured()) {
       return res.json({ ok: true, status: contact.id_verification_status || 'unstarted', verified_at: contact.id_verified_at, report: contact.id_verification_report })
     }
+    const provider = contact.id_verification_report?.provider || identityProvider()
     try {
-      const vs = await stripe.identity.verificationSessions.retrieve(contact.id_verification_session)
-      const status = vs.status  // requires_input | processing | verified | canceled
-      const patch = { id_verification_status: status }
-      let report = contact.id_verification_report
-      if (status === 'verified') {
-        patch.id_verified_at = contact.id_verified_at || new Date().toISOString()
-        // Pull a non-sensitive summary (name + document type + selfie match), not the images.
-        try {
-          const full = await stripe.identity.verificationSessions.retrieve(contact.id_verification_session, { expand: ['verified_outputs'] })
-          const vo = full.verified_outputs || {}
-          report = { name: [vo.first_name, vo.last_name].filter(Boolean).join(' ') || null, dob: vo.dob ? `${vo.dob.year}-${String(vo.dob.month).padStart(2, '0')}-${String(vo.dob.day).padStart(2, '0')}` : null, document_type: vo.id_number_type || 'document', selfie_matched: true }
-          patch.id_verification_report = report
-        } catch {}
-      } else if (status === 'requires_input' && vs.last_error) {
-        report = { ...(report || {}), last_error: vs.last_error.reason || 'Verification needs another attempt.' }
-        patch.id_verification_report = report
+      let status, report = contact.id_verification_report
+      const patch = {}
+      if (provider === 'persona') {
+        const r = await personaStatus(contact.id_verification_session)
+        status = r.status
+        if (r.report) report = { ...(report || {}), ...r.report }
+      } else {
+        const vs = await stripe.identity.verificationSessions.retrieve(contact.id_verification_session)
+        status = vs.status  // requires_input | processing | verified | canceled
+        if (status === 'verified') {
+          try {
+            const full = await stripe.identity.verificationSessions.retrieve(contact.id_verification_session, { expand: ['verified_outputs'] })
+            const vo = full.verified_outputs || {}
+            report = { name: [vo.first_name, vo.last_name].filter(Boolean).join(' ') || null, dob: vo.dob ? `${vo.dob.year}-${String(vo.dob.month).padStart(2, '0')}-${String(vo.dob.day).padStart(2, '0')}` : null, document_type: vo.id_number_type || 'document', selfie_matched: true, provider: 'stripe' }
+          } catch {}
+        } else if (status === 'requires_input' && vs.last_error) {
+          report = { ...(report || {}), last_error: vs.last_error.reason || 'Verification needs another attempt.' }
+        }
       }
+      patch.id_verification_status = status
+      patch.id_verification_report = report
+      if (status === 'verified') patch.id_verified_at = contact.id_verified_at || new Date().toISOString()
       await supabaseAdmin.from('contacts').update(patch).eq('id', contactId)
       res.json({ ok: true, status, verified_at: patch.id_verified_at || contact.id_verified_at, report })
     } catch (e) {
