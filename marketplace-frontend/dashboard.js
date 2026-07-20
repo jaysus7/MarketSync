@@ -7727,7 +7727,8 @@ async function commLoadPlans() {
 }
 function commPlanCard(p) {
   const f = p.config?.front || {}, b = p.config?.back || {};
-  const desc = `${f.method === 'flat' ? commMoney(f.flat) + '/unit' : f.method === 'percent' ? (f.percent || 0) + '% gross' : `greater of ${f.percent || 0}% gross or ${commMoney(f.flat)}`}${f.pack ? ` · $${f.pack} pack` : ''} · F&I ${b.method === 'flat' ? commMoney(b.flat) : (b.percent || 0) + '%'}`;
+  const packTxt = f.pack ? ` · ${f.pack_type === 'percent' ? (f.pack + '%') : ('$' + f.pack)} pack` : '';
+  const desc = `${f.method === 'flat' ? commMoney(f.flat) + '/unit' : f.method === 'percent' ? (f.percent || 0) + '% gross' : `greater of ${f.percent || 0}% gross or ${commMoney(f.flat)}`}${packTxt} · F&I ${b.method === 'flat' ? commMoney(b.flat) : (b.percent || 0) + '%'}`;
   return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2">
     <div class="min-w-0"><div class="font-bold text-slate-900 dark:text-white flex items-center gap-2">${esc(p.name)}${p.is_default ? '<span class="text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 px-1.5 py-0.5 rounded-full">Default</span>' : ''}${p.active ? '' : '<span class="text-[10px] text-slate-400">(inactive)</span>'}</div>
       <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">${desc}</div></div>
@@ -7760,9 +7761,16 @@ function commEditPlan(id) {
           </select></div>
         <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">% of gross</label>${inp('pl-fpercent', f.percent, '25')}</div>
         <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Flat / mini ($)</label>${inp('pl-fflat', f.flat, '250')}</div>
-        <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Pack ($)</label>${inp('pl-fpack', f.pack, '500')}</div>
+        <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Pack</label>
+          <div class="flex gap-1.5">
+            ${inp('pl-fpack', f.pack, '500')}
+            <select id="pl-fpacktype" class="w-16 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm">
+              <option value="flat" ${(f.pack_type || 'flat') === 'flat' ? 'selected' : ''}>$</option>
+              <option value="percent" ${f.pack_type === 'percent' ? 'selected' : ''}>%</option>
+            </select>
+          </div></div>
       </div>
-      <p class="text-[11px] text-slate-400 mt-1">Gross = selling price − vehicle cost − pack (cost stays internal; never shown to customers).</p>
+      <p class="text-[11px] text-slate-400 mt-1">Gross = selling price − vehicle cost − pack (a flat $ or a % of selling price). Cost stays internal; never shown to customers.</p>
     </div>
     <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
       <div class="text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Back-end (F&amp;I)</div>
@@ -7811,7 +7819,7 @@ function commCollectConfig() {
     amount: parseFloat(r.querySelector('.cb-amount').value) || 0,
   })).filter(x => x.threshold > 0 && x.amount > 0);
   return {
-    front: { method: val('pl-fmethod'), percent: num('pl-fpercent'), flat: num('pl-fflat'), pack: num('pl-fpack') },
+    front: { method: val('pl-fmethod'), percent: num('pl-fpercent'), flat: num('pl-fflat'), pack: num('pl-fpack'), pack_type: val('pl-fpacktype') || 'flat' },
     back: { method: val('pl-bmethod'), percent: num('pl-bpercent'), flat: num('pl-bflat') },
     spiff_per_deal: num('pl-spiff'), bonuses,
   };

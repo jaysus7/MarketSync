@@ -48,7 +48,9 @@ export function computeCommission(deal, planConfig, override) {
   const back = cfg.back || {}
   const price = n(deal.selling_price)
   const hasCost = deal.cost != null && n(deal.cost) > 0
-  const pack = n(front.pack)
+  // Pack is what the store keeps off the top before the rep's %. It can be a flat
+  // dollar amount or a percentage of the selling price.
+  const pack = (front.pack_type === 'percent') ? round2(price * (n(front.pack) / 100)) : n(front.pack)
   const frontGross = hasCost ? Math.max(0, price - n(deal.cost) - pack) : null
   const pct = frontGross != null ? frontGross * (n(front.percent) / 100) : 0
   const flat = n(front.flat)
