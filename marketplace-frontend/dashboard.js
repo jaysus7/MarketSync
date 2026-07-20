@@ -3684,6 +3684,42 @@ async function loadPipelinePage() {
 let __apptData = [];            // all appointments from the API
 let __apptCanManageAll = false;
 let __apptMonth = new Date();   // the month currently displayed (day ignored)
+let __apptView = 'calendar';    // 'calendar' | 'list'
+function renderAppts() { if (__apptView === 'list') renderApptListView(); else renderApptCalendar(); }
+function apptSetView(v) { __apptView = v; renderAppts(); }
+window.apptSetView = apptSetView;
+// A Calendar / List segmented toggle shared by the appointment views.
+function apptViewToggle() {
+  const b = (v, label) => `<button onclick="apptSetView('${v}')" class="text-xs font-bold px-3 h-8 rounded-lg border transition ${__apptView === v ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800'}">${label}</button>`;
+  return `<div class="inline-flex gap-1">${b('calendar', 'Calendar')}${b('list', 'List')}</div>`;
+}
+// List view of appointments (upcoming first, then past), clickable for detail.
+function renderApptListView() {
+  const root = document.getElementById('appointments-root'); if (!root) return;
+  const sorted = __apptData.slice().sort((a, b) => new Date(a.appointment_at) - new Date(b.appointment_at));
+  const upcoming = sorted.filter(a => !a.past);
+  const past = sorted.filter(a => a.past).reverse();
+  const row = (a, idx) => {
+    const dt = new Date(a.appointment_at);
+    return `<button data-appt-idx="${idx}" class="w-full text-left flex items-center gap-3 px-3 py-2.5 border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+      <div class="w-14 flex-shrink-0 text-center"><div class="text-[11px] font-bold uppercase text-slate-400">${dt.toLocaleString(undefined, { month: 'short' })}</div><div class="text-lg font-black leading-none ${a.past ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400'}">${dt.getDate()}</div></div>
+      <div class="min-w-0 flex-1"><div class="font-semibold text-slate-900 dark:text-white truncate">${esc(a.label || 'Appointment')}</div><div class="text-xs text-slate-500 dark:text-slate-400">${dt.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}${a.customer_name ? ' · ' + esc(a.customer_name) : ''}${a.rep_name && __apptCanManageAll ? ' · ' + esc(a.rep_name) : ''}</div></div>
+      ${a.past ? '<span class="text-[10px] text-slate-400">past</span>' : ''}
+    </button>`;
+  };
+  const section = (title, arr, offset) => arr.length ? `<div class="text-[11px] font-black uppercase tracking-wider text-slate-400 px-3 pt-3 pb-1">${title}</div>${arr.map((a, i) => row(a, __apptData.indexOf(a))).join('')}` : '';
+  root.innerHTML = `
+    <div class="mb-4 flex items-center justify-between flex-wrap gap-3">
+      <div><h2 class="text-xl font-bold text-slate-900 dark:text-white">Appointments</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">${__apptCanManageAll ? 'Every appointment your reps have booked' : 'Your booked appointments'}.</p></div>
+      <div class="flex items-center gap-1.5">${apptViewToggle()}<button id="appt-add" class="inline-flex items-center gap-1.5 text-xs font-bold px-3 h-8 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition">＋ Add appointment</button></div>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+      ${upcoming.length || past.length ? section('Upcoming', upcoming) + section('Past', past) : '<div class="py-10 text-center text-sm text-slate-400 italic">No appointments yet.</div>'}
+    </div>`;
+  document.getElementById('appt-add')?.addEventListener('click', () => apptAddForm(null));
+  root.querySelectorAll('[data-appt-idx]').forEach(btn => btn.addEventListener('click', () => openApptDetail(__apptData[Number(btn.dataset.apptIdx)])));
+}
 const __apptDayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`; };
 
 async function loadAppointmentsPage() {
@@ -3704,7 +3740,7 @@ async function loadAppointmentsPage() {
   // Jump to the month of the soonest upcoming appointment on first load.
   const nextUp = __apptData.find(a => !a.past) || __apptData[0];
   __apptMonth = nextUp ? new Date(nextUp.appointment_at) : new Date();
-  renderApptCalendar();
+  renderAppts();
 }
 
 function renderApptCalendar() {
@@ -3757,7 +3793,8 @@ function renderApptCalendar() {
         <h2 class="text-xl font-bold text-slate-900 dark:text-white">Appointments</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">${__apptCanManageAll ? 'Every appointment your reps have booked' : 'Your booked appointments'} — tap one for details.</p>
       </div>
-      <div class="flex items-center gap-1.5">
+      <div class="flex items-center gap-1.5 flex-wrap">
+        ${apptViewToggle()}
         <button id="appt-prev" class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Previous month"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg></button>
         <div class="text-sm font-bold text-slate-800 dark:text-slate-200 min-w-[140px] text-center">${monthName}</div>
         <button id="appt-next" class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Next month"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
@@ -13114,10 +13151,37 @@ async function saveServiceSettings(btn) {
   catch (e) { if (msg) { msg.textContent = e.message; msg.className = 'text-xs ml-2 text-rose-500'; msg.classList.remove('hidden'); } }
   finally { btn.disabled = false; btn.textContent = 'Save service settings'; }
 }
+let __svcApptData = [];
+let __svcApptView = 'calendar';   // 'calendar' | 'list'
+let __svcApptMonth = new Date();
+function svcApptSetView(v) { __svcApptView = v; renderSvcAppts(); }
+window.svcApptSetView = svcApptSetView;
+function svcApptViewToggle() {
+  const b = (v, label) => `<button onclick="svcApptSetView('${v}')" class="text-xs font-bold px-3 h-8 rounded-lg border transition ${__svcApptView === v ? 'bg-teal-600 text-white border-teal-600' : 'border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800'}">${label}</button>`;
+  return `<div class="inline-flex gap-1">${b('calendar', 'Calendar')}${b('list', 'List')}</div>`;
+}
 async function loadServiceAppointments() {
   const root = document.getElementById('service-appointments-root'); if (!root) return;
+  root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading service appointments…</div>';
   let d; try { d = await apiGetJson('/service/appointments', { retries: 1 }); } catch { root.innerHTML = '<p class="text-sm text-rose-500">Could not load service appointments.</p>'; return; }
-  const appts = d.appointments || [];
+  __svcApptData = d.appointments || [];
+  const nextUp = __svcApptData.find(a => a.when && !a.done) || __svcApptData.find(a => a.when);
+  __svcApptMonth = nextUp && nextUp.when ? new Date(nextUp.when) : new Date();
+  renderSvcAppts();
+}
+function renderSvcAppts() { if (__svcApptView === 'list') renderSvcApptList(); else renderSvcApptCalendar(); }
+function svcApptHeader() {
+  return `<div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+      <div><h2 class="text-xl font-black text-slate-900 dark:text-white">Service appointments</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Every service visit, attached to the customer's record.</p></div>
+      <div class="flex items-center gap-1.5 flex-wrap">${svcApptViewToggle()}
+        <button onclick="openServiceBooking()" class="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold px-4 h-8 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>Book service</button>
+      </div>
+    </div>`;
+}
+function renderSvcApptList() {
+  const root = document.getElementById('service-appointments-root'); if (!root) return;
+  const appts = __svcApptData;
   const now = Date.now();
   const upcoming = appts.filter(a => !a.done && (!a.when || new Date(a.when).getTime() >= now - 3600000));
   const past = appts.filter(a => a.done || (a.when && new Date(a.when).getTime() < now - 3600000));
@@ -13130,17 +13194,65 @@ async function loadServiceAppointments() {
       ${a.contact_id ? `<button onclick="switchPage('crm'); openCrmContact('${a.contact_id}')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0">View</button>` : ''}
       ${!a.done ? `<button onclick="serviceApptDone('${a.id}', this)" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg shrink-0">Done</button>` : '<span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold shrink-0">✓ Done</span>'}
     </div>`;
-  root.innerHTML = `
-    <div class="flex items-center justify-between gap-3 flex-wrap">
-      <div><h2 class="text-xl font-black text-slate-900 dark:text-white">Service appointments</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Every service visit, attached to the customer's record.</p></div>
-      <button onclick="openServiceBooking()" class="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>Book service</button>
-    </div>
+  root.innerHTML = svcApptHeader() + `
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
       <div class="px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-400 bg-slate-50 dark:bg-slate-950/50">Upcoming (${upcoming.length})</div>
       ${upcoming.length ? upcoming.map(row).join('') : '<div class="py-8 text-center text-xs text-slate-400 italic">No upcoming service appointments.</div>'}
       ${past.length ? `<div class="px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-400 bg-slate-50 dark:bg-slate-950/50">Past / done (${past.length})</div>${past.slice(0, 50).map(row).join('')}` : ''}
     </div>`;
+}
+function renderSvcApptCalendar() {
+  const root = document.getElementById('service-appointments-root'); if (!root) return;
+  const now = Date.now();
+  const byDay = {};
+  __svcApptData.forEach(a => {
+    if (!a.when) return;
+    const x = new Date(a.when); const k = `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`;
+    (byDay[k] = byDay[k] || []).push(a);
+  });
+  const noTime = __svcApptData.filter(a => !a.when && !a.done);
+  const view = new Date(__svcApptMonth.getFullYear(), __svcApptMonth.getMonth(), 1);
+  const monthName = view.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  const firstDow = view.getDay();
+  const daysInMonth = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+  const td = new Date(); const todayKey = `${td.getFullYear()}-${td.getMonth()}-${td.getDate()}`;
+  const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) cells.push('<div class="bg-slate-50/60 dark:bg-slate-900/40 min-h-[92px]"></div>');
+  for (let day = 1; day <= daysInMonth; day++) {
+    const k = `${view.getFullYear()}-${view.getMonth()}-${day}`;
+    const items = (byDay[k] || []).sort((a, b) => new Date(a.when) - new Date(b.when));
+    const isToday = k === todayKey;
+    const chips = items.slice(0, 3).map(a => {
+      const t = new Date(a.when).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      const done = a.done || new Date(a.when).getTime() < now - 3600000;
+      const cls = done ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300';
+      const label = `${a.customer || 'Service'}${a.service_type ? ' · ' + a.service_type : ''}`;
+      return `<div class="w-full truncate text-[10px] font-semibold px-1.5 py-1 rounded ${cls}" title="${esc(t + ' · ' + label)}">${esc(t)} ${esc(a.customer || 'Service')}</div>`;
+    }).join('');
+    const more = items.length > 3 ? `<div class="text-[10px] text-slate-400 px-1.5">+${items.length - 3} more</div>` : '';
+    cells.push(`
+      <div class="bg-white dark:bg-slate-900 min-h-[92px] p-1.5 flex flex-col gap-1 ${isToday ? 'ring-2 ring-inset ring-teal-400' : ''}">
+        <span class="text-[11px] font-bold ${isToday ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'}">${day}</span>
+        ${chips}${more}
+      </div>`);
+  }
+  while (cells.length % 7 !== 0) cells.push('<div class="bg-slate-50/60 dark:bg-slate-900/40 min-h-[92px]"></div>');
+  root.innerHTML = svcApptHeader() + `
+    <div class="mb-3 flex items-center gap-1.5 flex-wrap">
+      <button id="svc-appt-prev" class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Previous month"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg></button>
+      <div class="text-sm font-bold text-slate-800 dark:text-slate-200 min-w-[140px] text-center">${monthName}</div>
+      <button id="svc-appt-next" class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Next month"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+      <button id="svc-appt-today" class="text-xs font-bold px-3 h-8 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Today</button>
+    </div>
+    <div class="grid grid-cols-7 gap-px bg-slate-200 dark:bg-slate-800 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
+      ${dow.map(d => `<div class="bg-slate-50 dark:bg-slate-950 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 py-2">${d}</div>`).join('')}
+      ${cells.join('')}
+    </div>
+    ${noTime.length ? `<div class="mt-3 text-[11px] text-slate-400 italic">${noTime.length} appointment${noTime.length > 1 ? 's' : ''} with no time set — see the List view.</div>` : ''}`;
+  document.getElementById('svc-appt-prev')?.addEventListener('click', () => { __svcApptMonth = new Date(view.getFullYear(), view.getMonth() - 1, 1); renderSvcApptCalendar(); });
+  document.getElementById('svc-appt-next')?.addEventListener('click', () => { __svcApptMonth = new Date(view.getFullYear(), view.getMonth() + 1, 1); renderSvcApptCalendar(); });
+  document.getElementById('svc-appt-today')?.addEventListener('click', () => { __svcApptMonth = new Date(); renderSvcApptCalendar(); });
 }
 async function serviceApptDone(id, btn) {
   btn.disabled = true; btn.textContent = '…';
