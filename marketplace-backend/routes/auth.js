@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware.js'
 import { validatePassword, rateLimit, getClientIp, generateRecoveryCodes, hashRecoveryCode } from '../security.js'
 import { maybeAlertSuspiciousLogin } from '../securityAlerts.js'
 import { audit, AuditAction } from '../audit.js'
+import { recordReferralSignup } from './affiliate.js'
 import {
   beginPasskeyRegistration, finishPasskeyRegistration,
   beginPasskeyLogin, finishPasskeyLogin,
@@ -167,7 +168,7 @@ export function registerRoutes(app) {
   // 3 registrations per IP per hour — stops bot-driven sign-up abuse
   app.post('/auth/register', rateLimit('register', 3, 60 * 60 * 1000), async (req, res) => {
     const { accountRole, fullName, email, password, dealershipName, websiteUrl, feeds,
-            newsletterConsent, termsAccepted } = req.body
+            newsletterConsent, termsAccepted, affiliateCode } = req.body
 
     if (!email || !password || !fullName || !accountRole) {
       return res.status(400).json({ error: 'Missing required registration fields' })
@@ -295,6 +296,10 @@ export function registerRoutes(app) {
           })
         if (profileError) throw profileError
       }
+
+      // Affiliate attribution — if they arrived via a ?ref link, stamp the dealership
+      // and open a referral for the affiliate (best-effort; never blocks signup).
+      if (affiliateCode) { try { await recordReferralSignup({ code: affiliateCode, dealershipId: createdDealershipId, email, name: dealershipName || fullName }) } catch {} }
 
       // Deliver the confirmation email now that the account is fully set up.
       const emailed = await sendVerificationEmail({ email, actionLink: confirmActionLink, name: fullName })

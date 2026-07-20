@@ -10,6 +10,7 @@ import {
 } from './billing-emails.js'
 import { createNotification } from '../notifications.js'
 import { handleDepositCheckout } from './deposits.js'
+import { accrueAffiliateCommission } from './affiliate.js'
 
 // Inventory Intelligence price ID — accept the canonical name OR the
 // STRIPE_INVENTORY_INTELLIGANCE name used in the current Render environment,
@@ -267,6 +268,9 @@ export function registerRoutes(app) {
               linkPage: 'settings',
             })
           }
+          // Affiliate: accrue the referring affiliate's commission on this payment
+          // (idempotent on the invoice id; no-op when the dealer wasn't referred).
+          if (dealer?.id) await accrueAffiliateCommission({ dealershipId: dealer.id, amountCents: invoice.amount_paid, currency: invoice.currency, extRef: invoice.id })
           break
         }
 

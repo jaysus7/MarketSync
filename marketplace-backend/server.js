@@ -43,6 +43,7 @@ import { registerSquare } from './routes/square.js'
 import { registerCommissions } from './routes/commissions.js'
 import { registerAccounting } from './routes/accounting.js'
 import { registerPlaid } from './routes/plaid.js'
+import { registerAffiliate } from './routes/affiliate.js'
 
 const app = express()
 const PORT = process.env.PORT || 10000
@@ -110,6 +111,7 @@ registerIdentity(app)
 registerCommissions(app)
 registerAccounting(app)
 registerPlaid(app)
+registerAffiliate(app)
 
 app.use((err, req, res, next) => {
   console.error('Unhandled Express error:', {
