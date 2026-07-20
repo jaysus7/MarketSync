@@ -30,6 +30,31 @@ function identityProvider() {
   return null
 }
 const configured = () => identityProvider() !== null
+const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
+
+// Which providers this server can actually use right now (keys present).
+function availableProviders() {
+  const a = []
+  if (stripeConfigured()) a.push('stripe')
+  if (personaConfigured()) a.push('persona')
+  return a
+}
+const PROVIDER_LABELS = { stripe: 'Stripe Identity', persona: 'Persona' }
+
+// A dealer may pin a provider (stored on a dealer_integrations 'identity' row); we honour
+// it only if that provider is configured, else fall back to the env default.
+async function dealerProviderPref(dealershipId) {
+  const { data } = await supabaseAdmin.from('dealer_integrations')
+    .select('lender_code_map').eq('dealership_id', dealershipId).eq('provider', 'identity').maybeSingle()
+  return data?.lender_code_map?.provider || null
+}
+async function resolveProvider(dealershipId) {
+  const avail = availableProviders()
+  if (!avail.length) return null
+  const pref = await dealerProviderPref(dealershipId)
+  if (pref && avail.includes(pref)) return pref
+  return identityProvider()
+}
 
 const PERSONA_BASE = 'https://api.withpersona.com/api/v1'
 const PERSONA_VERSION = '2023-01-05'
@@ -76,7 +101,29 @@ async function personaStatus(inquiryId) {
 }
 
 export function registerIdentity(app) {
-  app.get('/identity/config', requireAuth, (req, res) => res.json({ ok: true, configured: configured() }))
+  app.get('/identity/config', requireAuth, async (req, res) => {
+    const available = availableProviders()
+    const selected = req.dealershipId ? await resolveProvider(req.dealershipId) : identityProvider()
+    res.json({
+      ok: true, configured: configured(), available,
+      providers: available.map(p => ({ value: p, label: PROVIDER_LABELS[p] || p })),
+      selected,
+    })
+  })
+
+  // Managers pin which verification provider this dealership uses (only among the ones
+  // the server actually has keys for). Stored on a dealer_integrations 'identity' row.
+  app.put('/identity/provider', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+    const provider = String(req.body?.provider || '').toLowerCase()
+    if (!availableProviders().includes(provider)) return res.status(400).json({ error: 'That verification provider isn’t available.' })
+    await supabaseAdmin.from('dealer_integrations').upsert({
+      dealership_id: req.dealershipId, provider: 'identity', enabled: true, status: 'configured',
+      lender_code_map: { provider }, updated_at: new Date().toISOString(),
+    }, { onConflict: 'dealership_id,provider' })
+    res.json({ ok: true, selected: provider })
+  })
 
   app.post('/identity/start', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
@@ -86,7 +133,7 @@ export function registerIdentity(app) {
     const { data: contact } = await supabaseAdmin.from('contacts')
       .select('id, full_name, email').eq('id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!contact) return res.status(404).json({ error: 'Customer not found' })
-    const provider = identityProvider()
+    const provider = await resolveProvider(req.dealershipId)
     const returnUrl = `${FRONTEND_URL.replace(/\/$/, '')}/dashboard.html?idv=done&contact=${encodeURIComponent(contactId)}`
     try {
       let sessionId, url
@@ -128,7 +175,7 @@ export function registerIdentity(app) {
     if (!contact.id_verification_session || !configured()) {
       return res.json({ ok: true, status: contact.id_verification_status || 'unstarted', verified_at: contact.id_verified_at, report: contact.id_verification_report })
     }
-    const provider = contact.id_verification_report?.provider || identityProvider()
+    const provider = contact.id_verification_report?.provider || await resolveProvider(req.dealershipId)
     try {
       let status, report = contact.id_verification_report
       const patch = {}

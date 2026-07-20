@@ -2830,6 +2830,7 @@ async function crmOpenForm(id) {
     <div class="flex gap-2 justify-end pt-1"><button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-4 py-2">Cancel</button>
       <button onclick="crmSaveContact(this, ${id ? `'${id}'` : 'null'})" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">${id ? 'Save' : 'Create'}</button></div>
   </div>`, 'max-w-2xl');
+  if (id) idvFillProvider();
 }
 function crmToggleCompany(isCo) { const r = document.getElementById('crm-company-row'); if (r) r.classList.toggle('hidden', !isCo); }
 
@@ -2905,7 +2906,8 @@ function idvBlock(c) {
       <div class="flex items-center justify-between gap-2">
         <div>
           <div class="flex items-center gap-2"><span class="text-sm font-bold text-slate-800 dark:text-slate-100">Government ID + selfie</span> <span id="idv-badge">${idvBadge(status, c.id_verified_at)}</span></div>
-          <div class="text-[11px] text-slate-500 dark:text-slate-400">Verified by Stripe Identity — the customer photographs their ID and takes a selfie. Images stay with Stripe.</div>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400">The customer photographs their ID and takes a selfie; images stay with the verification provider.</div>
+          <div id="idv-provider-slot" class="mt-1"></div>
           <div id="idv-summary">${summary}${lastErr}</div>
         </div>
         <div class="flex flex-col gap-1.5 shrink-0">
@@ -2950,6 +2952,25 @@ async function idvRefresh(contactId) {
     if (r.status === 'verified') { showToast('Identity verified', 'success'); const l = document.getElementById('idv-link'); if (l) l.classList.add('hidden'); }
   } catch (e) { if (badge) badge.innerHTML = idvBadge('requires_input'); showToast(e.message || 'Could not check status', 'error'); }
 }
+// Verification-provider picker (managers only, shown when >1 provider is configured
+// server-side). Cached so opening a contact doesn't re-fetch every time.
+let __idvConfig = null;
+async function idvEnsureConfig() { if (!__idvConfig) { try { __idvConfig = await apiGetJson('/identity/config'); } catch { __idvConfig = { available: [] }; } } return __idvConfig; }
+async function idvFillProvider() {
+  const slot = document.getElementById('idv-provider-slot'); if (!slot) return;
+  const cfg = await idvEnsureConfig();
+  const opts = cfg.providers || [];
+  if (opts.length < 2) return;  // nothing to choose
+  slot.innerHTML = `<label class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">Provider:
+    <select onchange="idvSetProvider(this.value)" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-[11px] font-bold text-slate-700 dark:text-slate-200">
+      ${opts.map(o => `<option value="${esc(o.value)}" ${cfg.selected === o.value ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
+    </select></label>`;
+}
+async function idvSetProvider(provider) {
+  try { const r = await apiSendJson('/identity/provider', 'PUT', { provider }); if (__idvConfig) __idvConfig.selected = r.selected; showToast('Verification provider updated', 'success'); }
+  catch (e) { showToast(e.message || 'Could not update provider', 'error'); }
+}
+window.idvFillProvider = idvFillProvider; window.idvSetProvider = idvSetProvider;
 window.crmScanLicense = crmScanLicense;
 window.idvStart = idvStart; window.idvRefresh = idvRefresh;
 // Header "Identity scan" button — opens a fresh contact and immediately fires the
