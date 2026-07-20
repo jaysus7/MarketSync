@@ -16,7 +16,7 @@
   <link rel="apple-touch-icon" href="/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Privacy Policy — MarketSync</title>
-  <meta name="description" content="The MarketSync Privacy Policy: what data we collect, how we use it, and your choices. The Chrome extension never reads your Facebook messages, posts, or friends list.">
+  <meta name="description" content="The MarketSync Privacy Policy: what data we collect, how we use it, how we share it, and your choices — across the dashboard, website builder, CRM, AI features, and Chrome extension.">
   <link rel="canonical" href="https://marketsync.link/privacy-policy.html">
   <style id="word-break-mobile-css">@media (max-width: 640px) { body { word-wrap: break-word; overflow-wrap: anywhere; } code { white-space: pre-wrap; word-break: break-all; } }</style>
   <script>tailwind = { config: { darkMode: 'media' } }</script>
@@ -33,7 +33,10 @@
         <span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>
         <span class="text-xl font-black tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
       </a>
-      <a href="index.html" class="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">← Back to home</a>
+      <div class="flex items-center gap-5">
+        <a href="terms.html" class="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">Terms</a>
+        <a href="index.html" class="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">← Back to home</a>
+      </div>
     </div>
   </nav>
 
@@ -48,67 +51,165 @@
   <article class="max-w-3xl mx-auto px-6 pb-24 space-y-10 leading-relaxed text-slate-700 dark:text-slate-300">
 
     <section class="space-y-3">
-      <p>This Privacy Policy describes how MarketSync ("we", "our", or "us") collects, uses, and discloses information when you use our Chrome Browser Extension (the "Extension"). We are committed to protecting user privacy and ensuring complete compliance with the Google Chrome Web Store Developer Program Policies, including the Single Purpose and Limited Use rules.</p>
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">1. Introduction</h2>
+      <p>MarketSync ("MarketSync", "we", "our", or "us") respects your privacy and is committed to protecting the personal information and business information entrusted to us. This Privacy Policy explains how we collect, use, disclose, store, and protect information when you access or use:</p>
+      <ul class="space-y-1.5 list-disc pl-6 marker:text-indigo-500">
+        <li>the MarketSync website;</li>
+        <li>MarketSync dashboard;</li>
+        <li>Chrome browser extension;</li>
+        <li>dealership management tools;</li>
+        <li>inventory management tools;</li>
+        <li>CRM features;</li>
+        <li>website builder;</li>
+        <li>AI-powered features;</li>
+        <li>communication tools;</li>
+        <li>integrations;</li>
+        <li>related services.</li>
+      </ul>
+      <p>Together, these services are referred to as the "Service." By accessing or using MarketSync, you acknowledge that you have reviewed this Privacy Policy.</p>
     </section>
 
     <section class="space-y-3">
-      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">1. Single Purpose &amp; Scope</h2>
-      <p>MarketSync is built with a single, narrow purpose: to automate inventory cross-listing by parsing active product details from user-selected source inventory tabs and localizing/formatting that data to sync directly into destination marketplace forms. This policy applies strictly to data processed via the Extension.</p>
-    </section>
-
-    <section class="space-y-3">
-      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">2. Information We Collect and Process</h2>
-      <p>To fulfill its single purpose, the Extension accesses and processes the following data categories under strict authorization limits:</p>
-      <ul class="space-y-2 list-disc pl-6 marker:text-indigo-500">
-        <li><span class="font-semibold text-slate-900 dark:text-white">Website Content:</span> When explicitly triggered by clicking the extension icon, MarketSync parses text, images, and structure metrics (DOM data) from your active tab (e.g., source inventory systems or e-commerce pages) to generate matching inventory profiles.</li>
-        <li><span class="font-semibold text-slate-900 dark:text-white">Authentication Information:</span> If you connect the Extension to a central MarketSync account dashboard, encrypted session credentials or API tokens are securely managed to maintain your authenticated state.</li>
-        <li><span class="font-semibold text-slate-900 dark:text-white">Local Storage Data:</span> The extension utilizes local browser storage (<code class="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-900 dark:text-white">chrome.storage</code>) to save user configuration preferences, custom field mapping keys, and local operation logs.</li>
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">2. Who This Policy Applies To</h2>
+      <p>This Privacy Policy applies to:</p>
+      <ul class="space-y-1.5 list-disc pl-6 marker:text-indigo-500">
+        <li>dealership owners;</li>
+        <li>dealership employees;</li>
+        <li>sales representatives;</li>
+        <li>administrators;</li>
+        <li>website visitors;</li>
+        <li>customers;</li>
+        <li>leads and contacts stored by MarketSync users;</li>
+        <li>individuals interacting with websites or communications created through MarketSync.</li>
       </ul>
     </section>
 
     <section class="space-y-3">
-      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">3. How We Use Information</h2>
-      <p>We process your data strictly to execute requested features. Specifically, data is utilized to:</p>
-      <ul class="space-y-2 list-disc pl-6 marker:text-indigo-500">
-        <li>Map relevant inventory text and images into your targeted e-commerce or listing marketplace forms.</li>
-        <li>Maintain your localized custom settings and user authentication credentials.</li>
-        <li>Generate exportable sync logs and local CSV/JSON inventory backups when explicitly requested via the user interface.</li>
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">3. Information We Collect</h2>
+      <p>We collect information necessary to provide, maintain, secure, and improve the Service. The information collected depends on how you use MarketSync.</p>
+
+      <h3 class="text-base font-bold text-slate-900 dark:text-white mt-4">3.1 Account Information</h3>
+      <p>When creating an account, we may collect: name; email address; phone number; company name; dealership information; job title; billing information; login credentials; and account preferences.</p>
+
+      <h3 class="text-base font-bold text-slate-900 dark:text-white mt-4">3.2 Dealership Information</h3>
+      <p>Dealership customers may provide: dealership name; location information; inventory feeds; vehicle information; employee accounts; sales information; website content; marketing materials; and business settings.</p>
+
+      <h3 class="text-base font-bold text-slate-900 dark:text-white mt-4">3.3 Vehicle Inventory Data</h3>
+      <p>MarketSync may process: VIN numbers; year; make; model; trim; mileage; pricing; vehicle descriptions; photos; videos; specifications; vehicle history information; inventory status; and availability information. MarketSync processes this information solely to provide inventory management, publishing, reporting, and related dealership services.</p>
+
+      <h3 class="text-base font-bold text-slate-900 dark:text-white mt-4">3.4 Customer and Lead Information</h3>
+      <p>Where Customer uses MarketSync CRM or communication features, MarketSync may process: customer names; phone numbers; email addresses; inquiries; messages; appointment information; communication history; sales notes; lead status; and assigned salesperson information. The dealership using MarketSync remains responsible for ensuring it has appropriate legal authority and consent to collect and process customer information.</p>
+
+      <h3 class="text-base font-bold text-slate-900 dark:text-white mt-4">3.5 Website Data</h3>
+      <p>Where MarketSync provides website-building functionality, we may process: website content; images; logos; dealership information; inventory listings; forms; visitor submissions; and analytics information.</p>
+
+      <h3 class="text-base font-bold text-slate-900 dark:text-white mt-4">3.6 Extension Data</h3>
+      <p>The MarketSync Chrome Extension may process: inventory information displayed on authorized pages; website page content; images; user-selected information; browser configuration settings; extension preferences; and authentication information. The Extension only accesses information necessary to perform requested functionality. See Section 18 for the Extension's Single Purpose &amp; Limited Use commitments.</p>
+
+      <h3 class="text-base font-bold text-slate-900 dark:text-white mt-4">3.7 Payment Information</h3>
+      <p>Payments are processed through third-party payment providers. MarketSync may receive limited payment-related information such as: subscription status; billing history; transaction identifiers; and payment confirmation information. MarketSync does not store complete credit card numbers.</p>
+
+      <h3 class="text-base font-bold text-slate-900 dark:text-white mt-4">3.8 Technical Information</h3>
+      <p>We may automatically collect: IP addresses; browser type; operating system; device information; usage activity; error logs; security information; and performance data. This information helps us maintain security, troubleshoot issues, improve reliability, and analyze usage.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">4. How We Use Information</h2>
+      <p>MarketSync uses information to:</p>
+      <p><span class="font-semibold text-slate-900 dark:text-white">Provide the Service</span> — including managing accounts; synchronizing inventory; publishing listings; operating CRM features; generating reports; creating websites; and providing AI features.</p>
+      <p><span class="font-semibold text-slate-900 dark:text-white">Improve the Service</span> — including improving software; developing new features; identifying bugs; improving user experience; and enhancing security.</p>
+      <p><span class="font-semibold text-slate-900 dark:text-white">Communications</span> — to provide account notices; respond to support requests; send service updates; provide billing information; and communicate important changes. Marketing communications will be handled according to applicable laws.</p>
+      <p><span class="font-semibold text-slate-900 dark:text-white">Security and Fraud Prevention</span> — to detect suspicious activity; protect accounts; prevent misuse; and investigate security incidents.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">5. AI Processing</h2>
+      <p>MarketSync may use artificial intelligence systems to provide features including vehicle descriptions; marketing content; reports; recommendations; summaries; and analytics. Information processed by AI systems may include inventory information; dealership information; customer-provided content; and user instructions.</p>
+      <p>AI-generated outputs may not always be accurate. MarketSync does not use Customer Data to make decisions regarding credit approval; lending eligibility; insurance eligibility; or employment decisions. Users remain responsible for reviewing AI-generated content before use.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">6. How We Share Information</h2>
+      <p>MarketSync does not sell personal information. We may share information with trusted service providers necessary to operate the Service. Examples include:</p>
+      <ul class="space-y-1.5 list-disc pl-6 marker:text-indigo-500">
+        <li><span class="font-semibold text-slate-900 dark:text-white">Infrastructure Providers</span> — hosting; storage; databases; backups; security.</li>
+        <li><span class="font-semibold text-slate-900 dark:text-white">Payment Providers</span> — subscription billing; payment processing.</li>
+        <li><span class="font-semibold text-slate-900 dark:text-white">Communication Providers</span> — email delivery; SMS messaging; phone services.</li>
+        <li><span class="font-semibold text-slate-900 dark:text-white">AI Providers</span> — to provide AI-powered functionality.</li>
+        <li><span class="font-semibold text-slate-900 dark:text-white">Third-Party Integrations</span> — including Meta/Facebook; Google; inventory providers; CRM systems; dealership systems.</li>
+        <li><span class="font-semibold text-slate-900 dark:text-white">Legal Requirements</span> — where required by law; court order; government request; or legal proceedings.</li>
       </ul>
     </section>
 
     <section class="space-y-3">
-      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">4. Chrome Web Store Compliance</h2>
-      <div class="bg-indigo-50 dark:bg-indigo-950/30 border-l-4 border-indigo-500 p-5 rounded-r-lg">
-        <p class="text-slate-800 dark:text-slate-200 mb-3">In accordance with the Chrome Web Store Developer Program Policies, MarketSync certifies the following handling mandates:</p>
-        <ul class="space-y-2 list-disc pl-6 marker:text-indigo-500 text-slate-700 dark:text-slate-300">
-          <li><span class="font-semibold text-slate-900 dark:text-white">No Sale or Transfer:</span> We do not sell or transfer user data to third parties, outside of the approved operational use cases explicitly required to fulfill the syncing action.</li>
-          <li><span class="font-semibold text-slate-900 dark:text-white">Purpose Limitation:</span> We do not use or transfer user data for any purposes completely unrelated to the core single purpose of cross-listing automation.</li>
-          <li><span class="font-semibold text-slate-900 dark:text-white">No Credit Scoring:</span> We absolutely do not use or transfer user data to determine consumer creditworthiness or for lending evaluation purposes.</li>
-        </ul>
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">7. Customer Data Ownership</h2>
+      <p>MarketSync does not claim ownership of Customer Data. Customer retains ownership of inventory; customer records; leads; uploaded files; website content; and dealership information. MarketSync processes Customer Data only as necessary to provide the Service.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">8. Dealership Responsibilities</h2>
+      <p>Dealership customers are responsible for obtaining required consent; complying with privacy laws; maintaining accurate records; properly handling customer information; and ensuring employees have appropriate access. MarketSync is a technology provider and does not determine how dealerships comply with applicable laws.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">9. Data Security</h2>
+      <p>MarketSync uses reasonable safeguards designed to protect information. Security measures may include encryption; access controls; authentication systems; monitoring; backups; and security updates. However, no internet-based system can guarantee absolute security.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">10. Data Retention</h2>
+      <p>MarketSync retains information only as long as reasonably necessary to provide services; maintain accounts; comply with legal obligations; resolve disputes; enforce agreements; and maintain security. Customers may request deletion of information subject to legal and operational requirements.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">11. Third-Party Services</h2>
+      <p>MarketSync integrates with third-party services. Those providers operate under their own privacy policies. MarketSync is not responsible for third-party privacy practices; third-party security; or third-party data handling. Users should review applicable third-party policies.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">12. International Data Processing</h2>
+      <p>MarketSync may process information using service providers located in different jurisdictions. By using the Service, you acknowledge that information may be transferred and processed outside your province, state, or country.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">13. Children's Privacy</h2>
+      <p>MarketSync is intended for business users. The Service is not designed for individuals under eighteen (18) years of age. MarketSync does not knowingly collect personal information from children.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">14. Your Privacy Rights</h2>
+      <p>Depending on your jurisdiction, you may have rights regarding your information, including access; correction; deletion; restriction of processing; and withdrawal of consent where applicable. Requests may be submitted using the contact information below.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">15. Cookies and Tracking</h2>
+      <p>MarketSync may use cookies; analytics tools; performance monitoring; and authentication technologies. These technologies help us maintain sessions; improve performance; understand usage; and protect accounts.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">16. Changes to This Privacy Policy</h2>
+      <p>MarketSync may update this Privacy Policy periodically. Changes may occur due to legal requirements; new features; security improvements; or operational changes. Updated policies will be posted with a revised effective date.</p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">17. Contact Information</h2>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-6">
+        <p class="text-slate-700 dark:text-slate-300 mb-3">Questions regarding this Privacy Policy may be directed to:</p>
+        <p class="font-semibold text-slate-900 dark:text-white">MarketSync — Privacy Support</p>
+        <p class="text-slate-600 dark:text-slate-400">Email: <a href="mailto:support@jasonmassie.ca" class="text-indigo-600 dark:text-indigo-400 hover:underline">support@jasonmassie.ca</a></p>
       </div>
     </section>
 
     <section class="space-y-3">
-      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">5. Data Retention and Security</h2>
-      <p>Data parsed dynamically from web pages via the <code class="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-900 dark:text-white">activeTab</code> and <code class="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-900 dark:text-white">scripting</code> APIs is ephemeral and handled in short-lived runtime memory. It is not permanently cataloged or cached on external remote infrastructure unless you explicitly initiate an external cloud sync profile. Local adjustments stay stored securely within your local sandboxed Chrome profile via the browser's native security frameworks.</p>
-    </section>
-
-    <section class="space-y-3">
-      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">6. Third-Party Websites and API Targets</h2>
-      <p>The Extension interacts directly with third-party marketplaces (such as Facebook Marketplace, eBay, or other e-commerce targets) via automation scripts or user-configured APIs. This Privacy Policy governs only MarketSync's data operations. We encourage you to review the privacy protocols and developer agreements of any recipient platform where you execute listings.</p>
-    </section>
-
-    <section class="space-y-3">
-      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">7. Changes to This Policy</h2>
-      <p>We may modify this privacy policy periodically to reflect operational, security, or regulatory adjustments. Any updates will be pushed directly within new extension builds and posted transparently to our Chrome Web Store listing page.</p>
-    </section>
-
-    <section class="space-y-3">
-      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">8. Contact Us</h2>
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-6">
-        <p class="text-slate-700 dark:text-slate-300 mb-3">If you have any questions or require clarification regarding our data practices, please contact us directly at:</p>
-        <p class="font-semibold text-slate-900 dark:text-white">MarketSync Support</p>
-        <p class="text-slate-600 dark:text-slate-400">Email: <a href="mailto:support@jasonmassie.ca" class="text-indigo-600 dark:text-indigo-400 hover:underline">support@jasonmassie.ca</a></p>
+      <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">18. Chrome Extension — Single Purpose &amp; Limited Use</h2>
+      <p>The MarketSync Chrome Extension is built with a single, narrow purpose: to automate inventory cross-listing by parsing active product details from user-selected source inventory tabs and localizing/formatting that data to sync into destination marketplace forms. Data parsed dynamically from web pages via the <code class="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-900 dark:text-white">activeTab</code> and <code class="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-900 dark:text-white">scripting</code> APIs is ephemeral and handled in short-lived runtime memory; local preferences are stored securely within your sandboxed Chrome profile via <code class="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-900 dark:text-white">chrome.storage</code>.</p>
+      <div class="bg-indigo-50 dark:bg-indigo-950/30 border-l-4 border-indigo-500 p-5 rounded-r-lg">
+        <p class="text-slate-800 dark:text-slate-200 mb-3">In accordance with the Chrome Web Store Developer Program Policies, MarketSync certifies the following handling mandates:</p>
+        <ul class="space-y-2 list-disc pl-6 marker:text-indigo-500 text-slate-700 dark:text-slate-300">
+          <li><span class="font-semibold text-slate-900 dark:text-white">No Sale or Transfer:</span> We do not sell or transfer user data to third parties, outside of the approved operational use cases explicitly required to fulfill the syncing action.</li>
+          <li><span class="font-semibold text-slate-900 dark:text-white">Purpose Limitation:</span> We do not use or transfer user data for any purposes unrelated to the core single purpose of cross-listing automation.</li>
+          <li><span class="font-semibold text-slate-900 dark:text-white">No Credit Scoring:</span> We do not use or transfer user data to determine consumer creditworthiness or for lending evaluation purposes.</li>
+        </ul>
       </div>
     </section>
 

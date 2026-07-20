@@ -167,7 +167,7 @@ export function registerRoutes(app) {
   // 3 registrations per IP per hour — stops bot-driven sign-up abuse
   app.post('/auth/register', rateLimit('register', 3, 60 * 60 * 1000), async (req, res) => {
     const { accountRole, fullName, email, password, dealershipName, websiteUrl, feeds,
-            newsletterConsent } = req.body
+            newsletterConsent, termsAccepted } = req.body
 
     if (!email || !password || !fullName || !accountRole) {
       return res.status(400).json({ error: 'Missing required registration fields' })
@@ -209,6 +209,12 @@ export function registerRoutes(app) {
         ? { newsletter_consent_at: new Date().toISOString(), newsletter_consent_ip: getClientIp(req) }
         : {}
 
+      // Terms & Privacy acceptance — required at sign-up. Stamp when + from where so
+      // we have a defensible record that this user agreed to the legal terms.
+      const terms = termsAccepted === true
+        ? { terms_accepted_at: new Date().toISOString(), terms_accepted_ip: getClientIp(req) }
+        : {}
+
       if (accountRole === 'dealer_admin') {
         const { data: dealership, error: dealerError } = await supabaseAdmin
           .from('dealerships')
@@ -236,7 +242,8 @@ export function registerRoutes(app) {
             role: 'DEALER_ADMIN',
             account_role: accountRole,
             price_tier: 'DEALER',
-            ...newsletter
+            ...newsletter,
+            ...terms
           })
         if (profileError) throw profileError
 
@@ -283,7 +290,8 @@ export function registerRoutes(app) {
             price_tier: 'SOLO_INDIVIDUAL',
             billing_status: 'TRIALING',
             trial_ends_at: trialEndsAt,
-            ...newsletter
+            ...newsletter,
+            ...terms
           })
         if (profileError) throw profileError
       }
