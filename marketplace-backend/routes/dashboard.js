@@ -4,6 +4,7 @@ import { emitWebhook } from '../webhooks.js'
 import { ensureGetReadyCard } from './recon.js'
 import { syncDealToAccounting } from '../providers/accounting.js'
 import { recomputeDealCommission, clawbackDealCommission } from './commissions.js'
+import { postDealToLedger } from './accounting.js'
 
 async function buildUserStats(userId) {
   const countOf = async (status) => {
@@ -1424,7 +1425,7 @@ export function registerRoutes(app) {
     }
     // On delivery, book the deal into the dealer's accounting system if they've
     // connected one and opted into auto-sync (idempotent, fire-and-forget).
-    if (m.deal === 'delivered') syncDealToAccounting(req.dealershipId, deal.id)
+    if (m.deal === 'delivered') { syncDealToAccounting(req.dealershipId, deal.id); postDealToLedger(req.dealershipId, deal.id) }
     // Commission: recompute on sold/delivered; auto-clawback when a closed deal is
     // unwound back to "working" (with a reason the rep can see).
     try {

@@ -17,6 +17,7 @@ import { requireAuth } from '../middleware.js'
 import { createNotification } from '../notifications.js'
 import { findOrCreateContact } from './crm.js'
 import { squareStatus, squareCreateDepositLink } from '../providers/square.js'
+import { postDepositToLedger } from './accounting.js'
 
 const PROVIDER = 'stripe_deposits'
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
@@ -97,6 +98,8 @@ export async function stampDepositPaid({ dealershipId, contactId, leadId, amount
     body: `${amountStr} paid to reserve ${vehicle}. Confirm the hold and follow up.`,
     linkPage: 'crm', targetUserId: repId || null,
   })
+  // Post the deposit to the accounting ledger (idempotent on the payment ref).
+  postDepositToLedger(dealershipId, { contactId, amountCents, ref: paymentRef, date: new Date().toISOString() })
 }
 
 export async function handleDepositCheckout(session) {
