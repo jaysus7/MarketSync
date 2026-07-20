@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Affiliate Program — MarketSync</title>
+  <meta name="description" content="Earn recurring commission for every dealership you refer to MarketSync. Join the affiliate program.">
+  <link rel="canonical" href="https://marketsync.link/affiliates.html">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind = { config: { darkMode: 'media' } }</script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 antialiased">
+  <nav class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="index.html" class="font-black text-lg text-slate-900 dark:text-white">Market<span class="text-indigo-600">Sync</span></a>
+      <a href="affiliate.html" class="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Affiliate login →</a>
+    </div>
+  </nav>
+
+  <header class="max-w-4xl mx-auto px-6 pt-16 pb-8 text-center">
+    <div class="inline-block text-xs font-black uppercase tracking-widest text-indigo-500 mb-3">Affiliate Program</div>
+    <h1 class="text-4xl md:text-5xl font-black text-slate-900 dark:text-white leading-tight">Refer dealerships. Earn recurring income.</h1>
+    <p class="text-lg text-slate-600 dark:text-slate-400 mt-4 max-w-2xl mx-auto">Send dealers to MarketSync with your link and earn a share of every subscription they pay — month after month. No caps, real-time tracking, paid out on your schedule.</p>
+    <div class="mt-8 flex items-center justify-center gap-3">
+      <a href="#join" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-indigo-600/30 transition">Become an affiliate</a>
+      <a href="affiliate.html" class="font-bold px-6 py-3 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-900 transition">I already have an account</a>
+    </div>
+  </header>
+
+  <!-- Commission structure -->
+  <section class="max-w-4xl mx-auto px-6 py-8">
+    <div class="grid md:grid-cols-3 gap-4" id="commission-cards">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center">
+        <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400" id="rate-pct">25%</div>
+        <div class="font-bold text-slate-900 dark:text-white mt-1">Recurring commission</div>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Of every referred dealer's subscription — paid to you each month.</p>
+      </div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center">
+        <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400" id="rate-months">12</div>
+        <div class="font-bold text-slate-900 dark:text-white mt-1">Months paid out</div>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">You keep earning on each dealer for a full year after they join.</p>
+      </div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center">
+        <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400">∞</div>
+        <div class="font-bold text-slate-900 dark:text-white mt-1">No referral cap</div>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Refer as many dealerships as you like — commission stacks.</p>
+      </div>
+    </div>
+
+    <div class="mt-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6">
+      <h2 class="text-xl font-black text-slate-900 dark:text-white mb-4">How it works</h2>
+      <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+        <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Sign up below and get your unique referral link.</span></li>
+        <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Share it with dealerships. When they sign up through your link, they're tagged to you automatically.</span></li>
+        <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Every time that dealer pays their subscription, you earn <span id="rate-inline" class="font-bold">25%</span> — tracked live in your affiliate dashboard.</span></li>
+        <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">4</span><span class="flex-1">Get paid to the payout email on file. Watch pending, approved and paid totals in real time.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Signup -->
+  <section id="join" class="max-w-md mx-auto px-6 py-10">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-7 shadow-xl">
+      <h2 class="text-2xl font-black text-slate-900 dark:text-white mb-1">Join the program</h2>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mb-5">Free to join. You'll get your link the moment you sign up.</p>
+      <div id="signup-error" class="hidden bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-sm rounded-lg px-3 py-2 mb-3"></div>
+      <form id="signup-form" class="space-y-3">
+        <div><label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Your name</label>
+          <input id="s-name" type="text" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+        <div><label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Email</label>
+          <input id="s-email" type="email" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+        <div><label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Password</label>
+          <input id="s-password" type="password" required minlength="12" placeholder="At least 12 characters" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+        <button type="submit" id="s-submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-lg transition">Create affiliate account</button>
+      </form>
+      <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">Already an affiliate? <a href="affiliate.html" class="text-indigo-600 dark:text-indigo-400 hover:underline">Sign in</a></p>
+    </div>
+  </section>
+
+  <footer class="border-t border-slate-200 dark:border-slate-800 py-8 text-center text-xs text-slate-400">&copy; 2026 MarketSync</footer>
+
+  <script>
+    const API = 'https://vehicle-marketplace-s0e4.onrender.com';
+    // Show the live commission structure.
+    fetch(`${API}/affiliate/public-config`).then(r => r.json()).then(c => {
+      if (c && c.rate_pct != null) {
+        document.getElementById('rate-pct').textContent = c.rate_pct + '%';
+        document.getElementById('rate-inline').textContent = c.rate_pct + '%';
+        document.getElementById('rate-months').textContent = c.rate_months;
+      }
+    }).catch(() => {});
+
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('s-submit'); const err = document.getElementById('signup-error');
+      err.classList.add('hidden'); btn.disabled = true; btn.textContent = 'Creating…';
+      try {
+        const res = await fetch(`${API}/affiliate/signup`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: document.getElementById('s-name').value.trim(), email: document.getElementById('s-email').value.trim(), password: document.getElementById('s-password').value }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not sign up.');
+        if (data.access_token) { localStorage.setItem('aff_token', data.access_token); if (data.refresh_token) localStorage.setItem('aff_refresh', data.refresh_token); location.href = 'affiliate.html'; return; }
+        location.href = 'affiliate.html';
+      } catch (e2) { err.textContent = e2.message; err.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Create affiliate account'; }
+    });
+  </script>
+</body>
+</html>

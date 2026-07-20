@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Affiliate Dashboard — MarketSync</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind = { config: { darkMode: 'media' } }</script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 antialiased">
+  <nav class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="index.html" class="font-black text-lg text-slate-900 dark:text-white">Market<span class="text-indigo-600">Sync</span> <span class="text-sm font-bold text-slate-400">Affiliate</span></a>
+      <button id="logout-btn" onclick="affLogout()" class="hidden text-sm font-bold text-slate-500 hover:text-rose-500">Log out</button>
+    </div>
+  </nav>
+
+  <!-- Login (shown when no token) -->
+  <div id="login-view" class="hidden max-w-md mx-auto px-6 py-16">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-7 shadow-xl">
+      <h1 class="text-2xl font-black text-slate-900 dark:text-white mb-1">Affiliate sign in</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mb-5">Access your referrals and earnings.</p>
+      <div id="login-error" class="hidden bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-sm rounded-lg px-3 py-2 mb-3"></div>
+      <form id="login-form" class="space-y-3">
+        <div><label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Email</label>
+          <input id="l-email" type="email" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+        <div><label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Password</label>
+          <input id="l-password" type="password" required class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+        <button type="submit" id="l-submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-lg transition">Sign in</button>
+      </form>
+      <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">Not an affiliate yet? <a href="affiliates.html" class="text-indigo-600 dark:text-indigo-400 hover:underline">Join the program</a></p>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dash-view" class="hidden max-w-5xl mx-auto px-6 py-8 space-y-6">
+    <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Your affiliate dashboard</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400" id="greeting"></p></div>
+
+    <!-- Referral link -->
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Your referral link</div>
+      <div class="flex gap-2">
+        <input id="ref-link" readonly onclick="this.select()" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+        <button onclick="affCopyLink(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 rounded-lg">Copy</button>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-1">Share this link. Dealers who sign up through it are credited to you, and you earn <span id="rate-note" class="font-bold"></span>.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Referrals</div><div id="st-total" class="text-2xl font-black mt-1">0</div></div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Paying</div><div id="st-active" class="text-2xl font-black mt-1 text-emerald-600 dark:text-emerald-400">0</div></div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Pending</div><div id="st-pending" class="text-2xl font-black mt-1 text-amber-600 dark:text-amber-400">$0</div></div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Lifetime earned</div><div id="st-total-earn" class="text-2xl font-black mt-1">$0</div></div>
+    </div>
+
+    <!-- Referrals -->
+    <div>
+      <h2 class="text-lg font-black text-slate-900 dark:text-white mb-2">Referrals</h2>
+      <div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+        <table class="w-full text-sm min-w-[520px]"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800"><th class="px-3 py-2">Dealership</th><th class="px-3 py-2">Status</th><th class="px-3 py-2">Joined</th><th class="px-3 py-2">First paid</th></tr></thead>
+        <tbody id="ref-rows"></tbody></table>
+      </div>
+    </div>
+
+    <!-- Commissions -->
+    <div>
+      <h2 class="text-lg font-black text-slate-900 dark:text-white mb-2">Commissions</h2>
+      <div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+        <table class="w-full text-sm min-w-[520px]"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800"><th class="px-3 py-2">Date</th><th class="px-3 py-2">Source</th><th class="px-3 py-2">Status</th><th class="px-3 py-2 text-right">Amount</th></tr></thead>
+        <tbody id="comm-rows"></tbody></table>
+      </div>
+    </div>
+
+    <!-- Payout -->
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 max-w-md">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Payout email</div>
+      <div class="flex gap-2">
+        <input id="payout-email" type="email" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+        <button onclick="affSavePayout(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 rounded-lg">Save</button>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-1">Where we send your affiliate payouts.</p>
+    </div>
+  </div>
+
+  <script>
+    const API = 'https://vehicle-marketplace-s0e4.onrender.com';
+    const money = (n) => (Number(n) < 0 ? '-$' : '$') + Math.abs(Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let token = localStorage.getItem('aff_token');
+
+    function show(view) { document.getElementById('login-view').classList.toggle('hidden', view !== 'login'); document.getElementById('dash-view').classList.toggle('hidden', view !== 'dash'); document.getElementById('logout-btn').classList.toggle('hidden', view !== 'dash'); }
+    function affLogout() { localStorage.removeItem('aff_token'); localStorage.removeItem('aff_refresh'); token = null; show('login'); }
+    function affCopyLink(btn) { navigator.clipboard.writeText(document.getElementById('ref-link').value); btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy', 1200); }
+
+    async function affApi(path, opts = {}) {
+      const res = await fetch(`${API}${path}`, { ...opts, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) } });
+      if (res.status === 401 || res.status === 403) { affLogout(); throw new Error('Please sign in again.'); }
+      const data = await res.json(); if (!res.ok) throw new Error(data.error || 'Request failed'); return data;
+    }
+
+    async function loadDashboard() {
+      try {
+        const me = await affApi('/affiliate/me');
+        show('dash');
+        document.getElementById('greeting').textContent = `Signed in as ${me.name || me.email} · code ${me.code}`;
+        document.getElementById('ref-link').value = me.link;
+        document.getElementById('rate-note').textContent = `${me.rate_pct}% for ${me.rate_months} months`;
+        document.getElementById('st-total').textContent = me.counts.total;
+        document.getElementById('st-active').textContent = me.counts.active;
+        document.getElementById('st-pending').textContent = money(me.earnings.pending);
+        document.getElementById('st-total-earn').textContent = money(me.earnings.total);
+        document.getElementById('payout-email').value = me.payout_email || '';
+        const [refs, comms] = await Promise.all([affApi('/affiliate/referrals'), affApi('/affiliate/commissions')]);
+        const badge = (s) => { const m = { active: 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300', trialing: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300', signed_up: 'bg-slate-100 dark:bg-slate-800 text-slate-500', churned: 'bg-rose-100 dark:bg-rose-950/40 text-rose-600', pending: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300', approved: 'bg-sky-100 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300', paid: 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' }; return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${m[s] || 'bg-slate-100 dark:bg-slate-800 text-slate-500'}">${esc(s)}</span>`; };
+        document.getElementById('ref-rows').innerHTML = (refs.referrals || []).map(r => `<tr class="border-b border-slate-100 dark:border-slate-800/60"><td class="px-3 py-2">${esc(r.name || r.email || '—')}</td><td class="px-3 py-2">${badge(r.status)}</td><td class="px-3 py-2 text-slate-500">${r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}</td><td class="px-3 py-2 text-slate-500">${r.first_paid_at ? new Date(r.first_paid_at).toLocaleDateString() : '—'}</td></tr>`).join('') || '<tr><td colspan="4" class="px-3 py-6 text-center text-slate-400">No referrals yet — share your link to get started.</td></tr>';
+        document.getElementById('comm-rows').innerHTML = (comms.commissions || []).map(c => `<tr class="border-b border-slate-100 dark:border-slate-800/60"><td class="px-3 py-2">${c.period || (c.created_at ? new Date(c.created_at).toLocaleDateString() : '')}</td><td class="px-3 py-2 text-slate-500">${esc(c.source)}</td><td class="px-3 py-2">${badge(c.status)}</td><td class="px-3 py-2 text-right font-bold">${money(c.amount)}</td></tr>`).join('') || '<tr><td colspan="4" class="px-3 py-6 text-center text-slate-400">No commissions yet.</td></tr>';
+      } catch (e) { if (token) { /* token invalid handled in affApi */ } show('login'); }
+    }
+    async function affSavePayout(btn) {
+      btn.disabled = true;
+      try { await affApi('/affiliate/payout', { method: 'PUT', body: JSON.stringify({ payout_email: document.getElementById('payout-email').value.trim() }) }); btn.textContent = 'Saved'; setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1200); }
+      catch (e) { btn.disabled = false; alert(e.message); }
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('l-submit'); const err = document.getElementById('login-error');
+      err.classList.add('hidden'); btn.disabled = true; btn.textContent = 'Signing in…';
+      try {
+        const res = await fetch(`${API}/affiliate/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: document.getElementById('l-email').value.trim(), password: document.getElementById('l-password').value }) });
+        const data = await res.json(); if (!res.ok) throw new Error(data.error || 'Sign in failed.');
+        token = data.access_token; localStorage.setItem('aff_token', token); if (data.refresh_token) localStorage.setItem('aff_refresh', data.refresh_token);
+        loadDashboard();
+      } catch (e2) { err.textContent = e2.message; err.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Sign in'; }
+    });
+
+    if (token) loadDashboard(); else show('login');
+  </script>
+</body>
+</html>

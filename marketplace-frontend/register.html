@@ -157,6 +157,8 @@
 
   <script>
     const API = 'https://vehicle-marketplace-s0e4.onrender.com';
+    // Remember an affiliate referral code from ?ref=CODE so it survives navigation.
+    try { const _r = new URLSearchParams(location.search).get('ref'); if (_r) localStorage.setItem('ms_ref', _r.trim().toUpperCase()); } catch {}
     let currentStep = 1;
     let isDealerAdmin = true; // mirrors the accountRole radio state
 
@@ -288,7 +290,9 @@
         newsletterConsent: document.getElementById('newsletter-consent').checked === true,
         // Record explicit agreement to the legal terms (timestamped for our records).
         termsAccepted: true,
-        termsAcceptedAt: new Date().toISOString()
+        termsAcceptedAt: new Date().toISOString(),
+        // Affiliate attribution — carried from a ?ref=CODE link (persisted below).
+        affiliateCode: (localStorage.getItem('ms_ref') || new URLSearchParams(location.search).get('ref') || '').trim().toUpperCase() || null
       };
 
       try {
