@@ -5,9 +5,10 @@
  * they authenticate against the `affiliates` table via `requireAffiliate` (no profile
  * / dealership required).
  *
- * Defaults (per-affiliate, editable): 25% of the referred dealer's subscription for
- * the first 12 months. Commission accrues when the dealer actually PAYS — the billing
- * webhook calls accrueAffiliateCommission() on each successful payment.
+ * Defaults (per-affiliate, editable): 8% of the referred dealer's subscription for the
+ * life of the customer (no time cap — rate_months = 0 means it never expires).
+ * Commission accrues when the dealer actually PAYS — the billing webhook calls
+ * accrueAffiliateCommission() on each successful payment.
  *
  * Attribution: a referral link carries ?ref=<code>. On dealer signup the code is
  * stamped on the dealership (dealerships.affiliate_code) and an affiliate_referrals
@@ -23,8 +24,9 @@ const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCa
 const isAdmin = (req) => (req.user?.email || '').toLowerCase() === OWNER_EMAIL || req.profile?.is_marketsync === true
 
 // Program defaults (a new affiliate inherits these; the owner can tune per-affiliate).
-const DEFAULT_RATE_PCT = Number(process.env.AFFILIATE_RATE_PCT) || 25
-const DEFAULT_RATE_MONTHS = Number(process.env.AFFILIATE_RATE_MONTHS) || 12
+const DEFAULT_RATE_PCT = Number(process.env.AFFILIATE_RATE_PCT) || 8
+// 0 = for the life of the customer (no earning-window cutoff).
+const DEFAULT_RATE_MONTHS = Number.isFinite(Number(process.env.AFFILIATE_RATE_MONTHS)) ? Number(process.env.AFFILIATE_RATE_MONTHS) : 0
 const DEFAULT_BOUNTY = Number(process.env.AFFILIATE_BOUNTY) || 0
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100

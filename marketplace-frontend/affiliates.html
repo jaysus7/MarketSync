@@ -32,14 +32,14 @@
   <section class="max-w-4xl mx-auto px-6 py-8">
     <div class="grid md:grid-cols-3 gap-4" id="commission-cards">
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center">
-        <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400" id="rate-pct">25%</div>
+        <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400" id="rate-pct">8%</div>
         <div class="font-bold text-slate-900 dark:text-white mt-1">Recurring commission</div>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Of every referred dealer's subscription — paid to you each month.</p>
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center">
-        <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400" id="rate-months">12</div>
-        <div class="font-bold text-slate-900 dark:text-white mt-1">Months paid out</div>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">You keep earning on each dealer for a full year after they join.</p>
+        <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400" id="rate-months">For life</div>
+        <div class="font-bold text-slate-900 dark:text-white mt-1">Life of the customer</div>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">You keep earning for as long as that dealer stays with MarketSync — no time cap.</p>
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center">
         <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400">∞</div>
@@ -87,7 +87,8 @@
       if (c && c.rate_pct != null) {
         document.getElementById('rate-pct').textContent = c.rate_pct + '%';
         document.getElementById('rate-inline').textContent = c.rate_pct + '%';
-        document.getElementById('rate-months').textContent = c.rate_months;
+        // rate_months === 0 means "for the life of the customer" (no cap).
+        document.getElementById('rate-months').textContent = Number(c.rate_months) > 0 ? c.rate_months : 'For life';
       }
     }).catch(() => {});
 

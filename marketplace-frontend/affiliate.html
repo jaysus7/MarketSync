@@ -107,7 +107,7 @@
         show('dash');
         document.getElementById('greeting').textContent = `Signed in as ${me.name || me.email} · code ${me.code}`;
         document.getElementById('ref-link').value = me.link;
-        document.getElementById('rate-note').textContent = `${me.rate_pct}% for ${me.rate_months} months`;
+        document.getElementById('rate-note').textContent = Number(me.rate_months) > 0 ? `${me.rate_pct}% for ${me.rate_months} months` : `${me.rate_pct}% for the life of the customer`;
         document.getElementById('st-total').textContent = me.counts.total;
         document.getElementById('st-active').textContent = me.counts.active;
         document.getElementById('st-pending').textContent = money(me.earnings.pending);

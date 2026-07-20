@@ -7678,7 +7678,7 @@ async function loadAffiliatesAdmin() {
     const rows = (d.affiliates || []).map(a => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
       <td class="px-3 py-2"><div class="font-semibold">${esc(a.name || a.email)}</div><div class="text-[11px] text-slate-400">${esc(a.email)} · <span class="font-mono">${esc(a.code)}</span></div></td>
       <td class="px-3 py-2 text-center">${a.referrals} <span class="text-slate-400">/ ${a.active} paying</span></td>
-      <td class="px-3 py-2 text-center">${a.rate_pct}% · ${a.rate_months}mo</td>
+      <td class="px-3 py-2 text-center">${a.rate_pct}% · ${Number(a.rate_months) > 0 ? a.rate_months + 'mo' : 'life'}</td>
       <td class="px-3 py-2 text-right text-amber-600 dark:text-amber-400">${commMoney(a.pending)}</td>
       <td class="px-3 py-2 text-right text-emerald-600 dark:text-emerald-400">${commMoney(a.paid)}</td>
       <td class="px-3 py-2 text-center">${badge(a.status)}</td>
