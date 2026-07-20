@@ -126,16 +126,20 @@ export async function recomputeDealCommission(dealershipId, dealId) {
   }
   const backAmt = computeBackAmount(deal, backCfg)
 
-  // Split the front between the salesperson and a co-rep.
+  // Split a deal: the F&I manager's cut (below) is separate, but everything the
+  // SELLING side earns — front, the salesperson's back share, and the spiff — is
+  // divided between the two reps by the split %. e.g. 30 → co-rep gets 30%, the
+  // primary salesperson keeps 70%.
   const coId = (deal.split_deal && deal.split_rep_id && deal.split_rep_id !== salespersonId) ? deal.split_rep_id : null
   const splitPct = coId ? Math.min(100, Math.max(0, deal.split_pct != null ? n(deal.split_pct) : 50)) : 0
-  const frontCo = round2(front * splitPct / 100)
-  const frontSales = round2(front - frontCo)
 
-  // Distribute the back between the salesperson and the F&I manager.
+  // Distribute the back between the salesperson (selling side) and the F&I manager.
   let backSales = backAmt, backMgr = 0
   if (fniMgrId && backTo === 'fni_manager') { backMgr = backAmt; backSales = 0 }
   else if (fniMgrId && backTo === 'split') { const p = Math.min(100, Math.max(0, n(plan.config?.back_fni_pct))); backMgr = round2(backAmt * p / 100); backSales = round2(backAmt - backMgr) }
+
+  const p = splitPct / 100
+  const coFront = round2(front * p), coBack = round2(backSales * p), coSpiff = round2(spiff * p)
 
   // Merge into one line per rep, keyed by role (unique per deal).
   const lines = {}
@@ -144,8 +148,8 @@ export async function recomputeDealCommission(dealershipId, dealId) {
     if (lines[repId]) { lines[repId].front += f; lines[repId].back += bk; lines[repId].spiff += sp }
     else lines[repId] = { rep_id: repId, role, front: f, back: bk, spiff: sp }
   }
-  add(salespersonId, 'salesperson', frontSales, backSales, spiff)
-  add(coId, 'co_salesperson', frontCo, 0, 0)
+  add(salespersonId, 'salesperson', round2(front - coFront), round2(backSales - coBack), round2(spiff - coSpiff))
+  add(coId, 'co_salesperson', coFront, coBack, coSpiff)
   add(fniMgrId, 'fni_manager', 0, backMgr, 0)
 
   const period = (deal.delivered_at || deal.sold_at || new Date().toISOString()).slice(0, 10)

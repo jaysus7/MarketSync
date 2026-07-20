@@ -5156,7 +5156,7 @@ function deskRenderForm(contactId) {
             ${fld('Vehicle commission <span class="normal-case font-normal text-slate-400">(auto from the plan)</span>', txt('dk-vehicle_commission', d.vehicle_commission, '0', 'number'))}
             ${fld('F&amp;I commission <span class="normal-case font-normal text-slate-400">(auto from the plan)</span>', txt('dk-fni_commission', d.fni_commission, '0', 'number'))}
             ${fld('Split with', deskRepSelect('dk-split_rep_id', d.split_rep_id, '— none —'))}
-            ${fld('Split % to co-rep', txt('dk-split_pct', d.split_pct != null ? d.split_pct : 50, '50', 'number'))}
+            ${fld('Split % to co-rep <span class="normal-case font-normal text-slate-400">(their share of the sales commission)</span>', txt('dk-split_pct', d.split_pct != null ? d.split_pct : 50, '50', 'number'))}
             <div class="col-span-2 grid grid-cols-2 gap-2 pt-1">
               <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="dk-google_review" ${d.google_review ? 'checked' : ''} class="rounded"> Google review</label>
               <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="dk-gm_survey" ${d.gm_survey ? 'checked' : ''} class="rounded"> GM survey done</label>
