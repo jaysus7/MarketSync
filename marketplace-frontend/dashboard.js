@@ -5018,9 +5018,18 @@ async function deskPickCustomer(id) {
     if (deal.selling_price == null && v.price) deal.selling_price = v.price;
     if (!deal.inventory_id && v.id) deal.inventory_id = v.id;
   }
+  await crmEnsureLookups();   // reps for the F&I-manager / split-with pickers
   deskRenderForm(id);
 }
 
+// A dealership-roster dropdown for the desk (F&I manager, split-with). Stores the
+// rep's profile id so commission attributes correctly; the name is saved alongside
+// for the printed docs.
+function deskRepSelect(id, selectedId, blankLabel) {
+  const cls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+  const reps = __crmReps || [];
+  return `<select id="${id}" class="${cls}"><option value="">${esc(blankLabel || '—')}</option>${reps.map(r => `<option value="${r.id}" ${selectedId === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`;
+}
 function deskRenderForm(contactId) {
   const wrap = document.getElementById('desk-form');
   if (!wrap) return;
@@ -5140,13 +5149,14 @@ function deskRenderForm(contactId) {
           <summary class="px-5 py-3 cursor-pointer text-sm font-black text-slate-900 dark:text-white">Internal — F&amp;I tracking &amp; delivery</summary>
           <div class="p-5 grid grid-cols-2 gap-3">
             ${(__deskDealer.costOn && (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) || __deskDealer.costRepVisible)) ? fld('Vehicle cost <span class="normal-case font-normal text-slate-400">(internal — never shown to customers)</span>', `<input id="dk-cost" type="text" inputmode="decimal" data-money value="${d.cost == null ? '' : msFmtMoney(d.cost)}" placeholder="0.00" oninput="deskRenderSummary()" class="${iCls}">`) : ''}
-            ${fld('F&amp;I manager', txt('dk-fni_manager', d.fni_manager, 'Name'))}
+            ${fld('F&amp;I manager <span class="normal-case font-normal text-slate-400">(gets F&amp;I commission if the plan pays them)</span>', deskRepSelect('dk-fni_manager_id', d.fni_manager_id, '— none —'))}
             ${fld('Delivery date', txt('dk-delivery_date', d.delivery_date, '', 'date'))}
             ${fld('Delivery time', txt('dk-delivery_time', d.delivery_time, '', 'time'))}
             ${fld('Plates', `<select id="dk-plates" class="${iCls}"><option value="">—</option>${['New', 'Transfer'].map(o => `<option ${d.plates === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}
-            ${fld('Vehicle commission', txt('dk-vehicle_commission', d.vehicle_commission, '0', 'number'))}
-            ${fld('F&amp;I commission', txt('dk-fni_commission', d.fni_commission, '0', 'number'))}
-            ${fld('Split with', txt('dk-split_with', d.split_with, 'Rep name'))}
+            ${fld('Vehicle commission <span class="normal-case font-normal text-slate-400">(auto from the plan)</span>', txt('dk-vehicle_commission', d.vehicle_commission, '0', 'number'))}
+            ${fld('F&amp;I commission <span class="normal-case font-normal text-slate-400">(auto from the plan)</span>', txt('dk-fni_commission', d.fni_commission, '0', 'number'))}
+            ${fld('Split with', deskRepSelect('dk-split_rep_id', d.split_rep_id, '— none —'))}
+            ${fld('Split % to co-rep', txt('dk-split_pct', d.split_pct != null ? d.split_pct : 50, '50', 'number'))}
             <div class="col-span-2 grid grid-cols-2 gap-2 pt-1">
               <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="dk-google_review" ${d.google_review ? 'checked' : ''} class="rounded"> Google review</label>
               <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="dk-gm_survey" ${d.gm_survey ? 'checked' : ''} class="rounded"> GM survey done</label>
@@ -5336,12 +5346,16 @@ function deskCollect(contactId) {
     vehicle: { year: val('dk-veh-year'), make: val('dk-veh-make'), model: val('dk-veh-model'), trim: val('dk-veh-trim'), vin: val('dk-veh-vin'), mileage: num('dk-veh-mileage'), color: val('dk-veh-color'), stock: val('dk-veh-stock') },
     // F&I tracking
     cost: num('dk-cost'),   // internal vehicle cost (only present when the field is shown; backend ignores it unless cost tracking is on)
-    fni_manager: val('dk-fni_manager'), delivery_date: val('dk-delivery_date'), delivery_time: val('dk-delivery_time'), plates: val('dk-plates'),
-    vehicle_commission: num('dk-vehicle_commission'), fni_commission: num('dk-fni_commission'), split_with: val('dk-split_with'), notes: val('dk-notes'),
+    delivery_date: val('dk-delivery_date'), delivery_time: val('dk-delivery_time'), plates: val('dk-plates'),
+    vehicle_commission: num('dk-vehicle_commission'), fni_commission: num('dk-fni_commission'), notes: val('dk-notes'),
     google_review: chk('dk-google_review'), gm_survey: chk('dk-gm_survey'), fni_gross_1500: chk('dk-fni_gross_1500'), split_deal: chk('dk-split_deal'),
+    // Commission attribution — store the rep IDs plus their names for the printed docs.
+    fni_manager_id: val('dk-fni_manager_id') || null, split_rep_id: val('dk-split_rep_id') || null, split_pct: num('dk-split_pct'),
+    fni_manager: deskRepName(val('dk-fni_manager_id')), split_with: deskRepName(val('dk-split_rep_id')),
   };
   return d;
 }
+function deskRepName(id) { if (!id) return null; const r = (__crmReps || []).find(x => x.id === id); return r ? r.name : null; }
 // ── Credit application ───────────────────────────────────────────────────────
 // Full lender-grade applicant/co-applicant/employment/financing capture. SIN & DOB
 // are encrypted server-side; masks show without decrypting; export produces the
@@ -7867,7 +7881,7 @@ function commDealsTable(s, mgr) {
       <thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">
         <th class="px-3 py-2">Deal</th><th class="px-3 py-2">Customer</th><th class="px-3 py-2 text-right">Front</th><th class="px-3 py-2 text-right">Back (F&amp;I)</th><th class="px-3 py-2 text-right">Total</th><th class="px-3 py-2">Status</th>${mgr ? '<th class="px-3 py-2"></th>' : ''}</tr></thead>
       <tbody>${s.deals.map(d => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
-        <td class="px-3 py-2 font-mono text-xs">#${d.deal_number || '—'}</td>
+        <td class="px-3 py-2 font-mono text-xs">#${d.deal_number || '—'}${d.role && d.role !== 'salesperson' ? `<span class="ml-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">${d.role === 'fni_manager' ? 'F&I' : 'Split'}</span>` : ''}</td>
         <td class="px-3 py-2">${esc(d.customer || '—')}</td>
         <td class="px-3 py-2 text-right">${commMoney(d.front)}</td>
         <td class="px-3 py-2 text-right">${commMoney(d.back)}</td>
@@ -8066,6 +8080,16 @@ function commEditPlan(id) {
         <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">% of F&amp;I</label>${inp('pl-bpercent', b.percent, '5')}</div>
         <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Flat ($)</label>${inp('pl-bflat', b.flat, '0')}</div>
       </div>
+      <div class="grid sm:grid-cols-2 gap-3 mt-3">
+        <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">F&amp;I commission goes to</label>
+          <select id="pl-backto" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+            <option value="salesperson" ${(c.back_to || 'salesperson') === 'salesperson' ? 'selected' : ''}>Salesperson</option>
+            <option value="fni_manager" ${c.back_to === 'fni_manager' ? 'selected' : ''}>F&amp;I manager</option>
+            <option value="split" ${c.back_to === 'split' ? 'selected' : ''}>Split (F&amp;I manager + salesperson)</option>
+          </select></div>
+        <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">F&amp;I manager share % (if split)</label>${inp('pl-backfnipct', c.back_fni_pct, '100')}</div>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-1">When paid to the F&amp;I manager, their own plan's F&amp;I rate is used if they have one. Pick the F&amp;I manager on the deal desk.</p>
     </div>
     <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
       <div class="grid sm:grid-cols-2 gap-3">
@@ -8104,6 +8128,7 @@ function commCollectConfig() {
   return {
     front: { method: val('pl-fmethod'), percent: num('pl-fpercent'), flat: num('pl-fflat'), pack: num('pl-fpack'), pack_type: val('pl-fpacktype') || 'flat' },
     back: { method: val('pl-bmethod'), percent: num('pl-bpercent'), flat: num('pl-bflat') },
+    back_to: val('pl-backto') || 'salesperson', back_fni_pct: num('pl-backfnipct'),
     spiff_per_deal: num('pl-spiff'), bonuses,
   };
 }

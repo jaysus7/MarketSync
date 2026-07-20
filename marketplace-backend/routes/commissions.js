@@ -93,32 +93,83 @@ async function planForDeal(dealershipId, repId) {
   return def ? { id: def.id, config: def.config || {} } : null
 }
 
-// Recompute + persist a deal's commission. Called after every deal save and on
-// status changes. No-ops (leaves any manual figures alone) until the store has a
-// plan. Never resurrects a clawed-back line.
+// F&I (back-end) amount from a given back config.
+function computeBackAmount(deal, backCfg) {
+  const fniGross = (Array.isArray(deal.fni_items) ? deal.fni_items : []).reduce((s, x) => s + n(x?.price), 0)
+  return round2((backCfg?.method === 'flat') ? n(backCfg?.flat) : fniGross * (n(backCfg?.percent) / 100))
+}
+
+// Recompute + persist a deal's commission across everyone who earns on it: the
+// salesperson (front + maybe back + spiff), a co-rep on a split (front share), and
+// the F&I manager (back, when the plan pays them). No-ops until the store has a plan;
+// never resurrects a clawed-back line. Writes the deal's front/back totals back so
+// the existing reports/leaderboard stay in sync.
 export async function recomputeDealCommission(dealershipId, dealId) {
   const { data: deal } = await supabaseAdmin.from('deals')
-    .select('id, created_by, selling_price, cost, fni_items, commission_override, deal_status, sold_at, delivered_at, funded_at')
+    .select('id, created_by, selling_price, cost, fni_items, commission_override, deal_status, sold_at, delivered_at, funded_at, split_deal, split_rep_id, split_pct, fni_manager_id')
     .eq('id', dealId).eq('dealership_id', dealershipId).maybeSingle()
   if (!deal) return null
-  const plan = await planForDeal(dealershipId, deal.created_by)
+  const salespersonId = deal.created_by || null
+  const plan = await planForDeal(dealershipId, salespersonId)
   if (!plan) return null   // no plan configured → leave manual commission values untouched
-  const calc = computeCommission(deal, plan.config, deal.commission_override)
-  const period = (deal.delivered_at || deal.sold_at || new Date().toISOString()).slice(0, 10)
 
-  const { data: existing } = await supabaseAdmin.from('deal_commissions').select('id, status').eq('deal_id', dealId).maybeSingle()
-  if (existing?.status === 'clawed_back') return calc   // don't recompute a reversed deal
-  const row = {
-    dealership_id: dealershipId, deal_id: dealId, rep_id: deal.created_by || null, plan_id: plan.id,
-    front_amount: calc.front_amount, back_amount: calc.back_amount, spiff_amount: calc.spiff_amount,
-    total: calc.total, breakdown: calc.breakdown, period, updated_at: new Date().toISOString(),
+  const calc = computeCommission(deal, plan.config, deal.commission_override)   // front + spiff from the deal's plan
+  const front = calc.front_amount, spiff = calc.spiff_amount
+
+  // Back attribution + amount (the F&I manager may be on their own plan).
+  const backTo = plan.config?.back_to || 'salesperson'
+  const fniMgrId = (deal.fni_manager_id && deal.fni_manager_id !== salespersonId) ? deal.fni_manager_id : null
+  let backCfg = plan.config?.back
+  if (fniMgrId && (backTo === 'fni_manager' || backTo === 'split')) {
+    const mgrPlan = await planForDeal(dealershipId, fniMgrId)
+    if (mgrPlan?.config?.back) backCfg = mgrPlan.config.back
   }
-  if (existing) await supabaseAdmin.from('deal_commissions').update(row).eq('id', existing.id)
-  else await supabaseAdmin.from('deal_commissions').insert({ ...row, status: 'pending' })
+  const backAmt = computeBackAmount(deal, backCfg)
 
-  // Keep the deal's denormalised commission fields in sync so existing reports,
-  // the leaderboard and the AI all reflect the computed numbers.
-  await supabaseAdmin.from('deals').update({ vehicle_commission: calc.front_amount, fni_commission: calc.back_amount }).eq('id', dealId)
+  // Split the front between the salesperson and a co-rep.
+  const coId = (deal.split_deal && deal.split_rep_id && deal.split_rep_id !== salespersonId) ? deal.split_rep_id : null
+  const splitPct = coId ? Math.min(100, Math.max(0, deal.split_pct != null ? n(deal.split_pct) : 50)) : 0
+  const frontCo = round2(front * splitPct / 100)
+  const frontSales = round2(front - frontCo)
+
+  // Distribute the back between the salesperson and the F&I manager.
+  let backSales = backAmt, backMgr = 0
+  if (fniMgrId && backTo === 'fni_manager') { backMgr = backAmt; backSales = 0 }
+  else if (fniMgrId && backTo === 'split') { const p = Math.min(100, Math.max(0, n(plan.config?.back_fni_pct))); backMgr = round2(backAmt * p / 100); backSales = round2(backAmt - backMgr) }
+
+  // Merge into one line per rep, keyed by role (unique per deal).
+  const lines = {}
+  const add = (repId, role, f, bk, sp) => {
+    if (!repId || (f === 0 && bk === 0 && sp === 0)) return
+    if (lines[repId]) { lines[repId].front += f; lines[repId].back += bk; lines[repId].spiff += sp }
+    else lines[repId] = { rep_id: repId, role, front: f, back: bk, spiff: sp }
+  }
+  add(salespersonId, 'salesperson', frontSales, backSales, spiff)
+  add(coId, 'co_salesperson', frontCo, 0, 0)
+  add(fniMgrId, 'fni_manager', 0, backMgr, 0)
+
+  const period = (deal.delivered_at || deal.sold_at || new Date().toISOString()).slice(0, 10)
+  const { data: existingRows } = await supabaseAdmin.from('deal_commissions').select('id, role, status').eq('deal_id', dealId)
+  const existing = Object.fromEntries((existingRows || []).map(r => [r.role, r]))
+  const keepRoles = new Set()
+  for (const L of Object.values(lines)) {
+    keepRoles.add(L.role)
+    const prev = existing[L.role]
+    if (prev?.status === 'clawed_back') continue   // don't recompute a reversed line
+    const row = {
+      dealership_id: dealershipId, deal_id: dealId, rep_id: L.rep_id, plan_id: plan.id, role: L.role,
+      front_amount: round2(L.front), back_amount: round2(L.back), spiff_amount: round2(L.spiff),
+      total: round2(L.front + L.back + L.spiff), breakdown: calc.breakdown, period, updated_at: new Date().toISOString(),
+    }
+    if (prev) await supabaseAdmin.from('deal_commissions').update(row).eq('id', prev.id)
+    else await supabaseAdmin.from('deal_commissions').insert({ ...row, status: 'pending' })
+  }
+  // Remove role lines that no longer apply (e.g. split/F&I manager cleared), unless already clawed back.
+  for (const r of (existingRows || [])) {
+    if (!keepRoles.has(r.role) && r.status !== 'clawed_back') await supabaseAdmin.from('deal_commissions').delete().eq('id', r.id)
+  }
+
+  await supabaseAdmin.from('deals').update({ vehicle_commission: round2(frontSales + frontCo), fni_commission: round2(backSales + backMgr) }).eq('id', dealId)
   return calc
 }
 
@@ -174,7 +225,7 @@ async function repSummary(dealershipId, repId, monthISO) {
       deal_id: r.deal_id, deal_number: d.deal_number || null,
       customer: custById[d.contact_id] || null, selling_price: d.selling_price != null ? Number(d.selling_price) : null,
       front: Number(r.front_amount), back: Number(r.back_amount), spiff: Number(r.spiff_amount), total: Number(r.total),
-      status: r.status, reason: r.reason || null, period: r.period,
+      status: r.status, reason: r.reason || null, period: r.period, role: r.role || 'salesperson',
     }
   }).sort((a, b) => (b.period || '').localeCompare(a.period || ''))
 
