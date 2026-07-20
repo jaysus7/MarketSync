@@ -8092,6 +8092,15 @@ function commEditPlan(id) {
       <p class="text-[11px] text-slate-400 mt-1">When paid to the F&amp;I manager, their own plan's F&amp;I rate is used if they have one. Pick the F&amp;I manager on the deal desk.</p>
     </div>
     <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+      <div class="text-xs font-black uppercase tracking-wider text-slate-400 mb-2">What a split deal divides</div>
+      <div class="flex flex-wrap gap-4">
+        <label class="inline-flex items-center gap-2 text-sm font-semibold"><input id="pl-split-front" type="checkbox" ${(c.split_covers?.front !== false) ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Front-end</label>
+        <label class="inline-flex items-center gap-2 text-sm font-semibold"><input id="pl-split-back" type="checkbox" ${(c.split_covers?.back !== false) ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">F&amp;I / back-end</label>
+        <label class="inline-flex items-center gap-2 text-sm font-semibold"><input id="pl-split-spiff" type="checkbox" ${(c.split_covers?.spiff !== false) ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Per-deal bonus / spiff</label>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-1">The co-rep's split % applies to the ticked pieces. <b>Volume bonuses are never split</b> — each rep earns their own from their own units/gross.</p>
+    </div>
+    <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
       <div class="grid sm:grid-cols-2 gap-3">
         <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Spiff per deal ($)</label>${inp('pl-spiff', c.spiff_per_deal, '0')}</div>
       </div>
@@ -8129,6 +8138,7 @@ function commCollectConfig() {
     front: { method: val('pl-fmethod'), percent: num('pl-fpercent'), flat: num('pl-fflat'), pack: num('pl-fpack'), pack_type: val('pl-fpacktype') || 'flat' },
     back: { method: val('pl-bmethod'), percent: num('pl-bpercent'), flat: num('pl-bflat') },
     back_to: val('pl-backto') || 'salesperson', back_fni_pct: num('pl-backfnipct'),
+    split_covers: { front: !!document.getElementById('pl-split-front')?.checked, back: !!document.getElementById('pl-split-back')?.checked, spiff: !!document.getElementById('pl-split-spiff')?.checked },
     spiff_per_deal: num('pl-spiff'), bonuses,
   };
 }

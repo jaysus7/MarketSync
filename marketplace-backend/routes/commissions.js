@@ -138,8 +138,14 @@ export async function recomputeDealCommission(dealershipId, dealId) {
   if (fniMgrId && backTo === 'fni_manager') { backMgr = backAmt; backSales = 0 }
   else if (fniMgrId && backTo === 'split') { const p = Math.min(100, Math.max(0, n(plan.config?.back_fni_pct))); backMgr = round2(backAmt * p / 100); backSales = round2(backAmt - backMgr) }
 
+  // A dealer chooses which per-deal components a split divides (front, F&I/back,
+  // per-deal spiff). Volume bonuses are NEVER split — each rep earns their own from
+  // their own units/gross (computed in the summaries), so they aren't touched here.
+  const sc = plan.config?.split_covers || {}
   const p = splitPct / 100
-  const coFront = round2(front * p), coBack = round2(backSales * p), coSpiff = round2(spiff * p)
+  const coFront = sc.front === false ? 0 : round2(front * p)
+  const coBack = sc.back === false ? 0 : round2(backSales * p)
+  const coSpiff = sc.spiff === false ? 0 : round2(spiff * p)
 
   // Merge into one line per rep, keyed by role (unique per deal).
   const lines = {}
