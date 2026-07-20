@@ -4886,6 +4886,8 @@ function deskRenderForm(contactId) {
             <button onclick="deskPrint('bill')" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-sm font-bold px-3 py-2.5 rounded-lg transition">Bill of sale</button>
           </div>
           <button onclick="openCreditApp('${contactId}')" class="w-full inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-3 py-2.5 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Credit application</button>
+          <button onclick="deskEsign('${contactId}','bill')" class="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-3 py-2.5 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>Send for e-signature</button>
+          <button onclick="openEsignStatus('${contactId}')" class="w-full text-center text-xs font-semibold text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition py-1">View signature status →</button>
         </div>
       </div>
     </div>`;
@@ -5704,7 +5706,7 @@ async function deskSaveDealer(btn) {
 }
 
 // ── Printed documents: Estimate + OMVIC-style Bill of Sale ───────────────────
-function deskPrint(kind) {
+function deskPrint(kind, opts = {}) {
   const d = deskCollect(null);
   const c = deskCompute(d);
   if (!(c.sellingPrice > 0)) { showToast('Enter a selling price first', 'error'); return; }
@@ -5784,6 +5786,7 @@ function deskPrint(kind) {
       <div class="sec"><div class="sech">Price information</div>${priceInfo}</div>
       ${financeTerms}
       <p class="mut" style="margin-top:12px">This is a working estimate prepared for the customer's convenience and is <b>not a contract or an offer to sell</b>. Prices, taxes, fees, rates and availability are subject to change and to final verification. Figures assume approved credit.</p>`;
+    if (opts.returnHtml) return { title: 'Purchase Estimate', doc_type: 'estimate', html: inner };
     if (typeof apprPrintWindow === 'function') apprPrintWindow('Purchase Estimate', inner);
     return;
   }
@@ -5926,7 +5929,9 @@ function deskPrint(kind) {
   // Page 6 — a Customer Copy of the face sheet (identical page 1, tagged).
   const page6 = `<div class="page"><div class="copytag">CUSTOMER COPY</div>${face}${foot(6)}</div>`;
   const inner = `<style>${DESK_DOC_CSS}</style><div class="page">${face}${foot(1)}</div>${page2}${page3}${page4}${page5}${page6}`;
-  if (typeof apprPrintWindow === 'function') apprPrintWindow(condLabel + ' Motor Vehicle Purchase Agreement', inner);
+  const billTitle = condLabel + ' Motor Vehicle Purchase Agreement';
+  if (opts.returnHtml) return { title: billTitle, doc_type: 'bill_of_sale', html: inner };
+  if (typeof apprPrintWindow === 'function') apprPrintWindow(billTitle, inner);
   else { const w = window.open('', '_blank'); if (w) { w.document.write(`<html><head><title>Bill of Sale</title></head><body>${inner}</body></html>`); w.document.close(); } }
 }
 
@@ -5969,6 +5974,113 @@ const DESK_DOC_CSS = `
   .copytag{text-align:right;font-size:11px;font-weight:900;letter-spacing:.08em;color:#64748b;border:1px solid #cbd5e1;border-radius:4px;padding:2px 8px;align-self:flex-end;margin-bottom:4px}
 `;
 
+// ── Native e-signature: send the desk's own document out for a legal e-sign ──
+// Reuses the exact bill-of-sale / estimate HTML the desk already renders, so the
+// customer signs the same paper the rep sees. Never includes internal-only cost.
+async function deskEsign(contactId, kind) {
+  const doc = deskPrint(kind || 'bill', { returnHtml: true });
+  if (!doc) return;   // deskPrint already toasted (e.g. no selling price yet)
+  const b = __deskBuyer || {};
+  const signerName = b.full_name || [b.first_name, b.last_name].filter(Boolean).join(' ') || '';
+  const signerEmail = b.email || '';
+  const email = window.prompt('Email the secure signing link to the customer?\n(Leave the address to email it, or clear it to just copy the link.)', signerEmail);
+  if (email === null) return;   // cancelled
+  try {
+    showToast('Creating signing request…', 'info');
+    const r = await apiSendJson('/esign/create', 'POST', {
+      doc_html: doc.html, doc_title: doc.title, doc_type: doc.doc_type,
+      contact_id: contactId || __deskContactId || null,
+      deal_id: (__deskDeal && __deskDeal.id) || null,
+      signer_name: signerName, signer_email: (email || '').trim(),
+    });
+    esignShowLink(r.url, !!(email || '').trim());
+  } catch (e) { showToast(e.message || 'Could not create the signing request', 'error'); }
+}
+
+function esignShowLink(url, emailed) {
+  const wrap = document.createElement('div');
+  wrap.className = 'fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4';
+  wrap.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+    <div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 text-xl">✍️</div>
+      <div><div class="font-bold text-slate-900 dark:text-white">Signing link ready</div><div class="text-xs text-slate-500 dark:text-slate-400">${emailed ? 'Emailed to the customer. You can also copy it below.' : 'Copy the link and text/email it to the customer.'}</div></div></div>
+    <input id="esign-link-in" readonly value="${esc(url)}" class="w-full text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200">
+    <div class="flex gap-2 mt-4">
+      <button id="esign-copy" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2.5 rounded-lg">Copy link</button>
+      <button id="esign-close" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2.5 rounded-lg">Done</button>
+    </div></div>`;
+  document.body.appendChild(wrap);
+  const close = () => wrap.remove();
+  wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+  wrap.querySelector('#esign-close').onclick = close;
+  wrap.querySelector('#esign-copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(url); } catch { const i = wrap.querySelector('#esign-link-in'); i.select(); document.execCommand('copy'); }
+    showToast('Link copied', 'success');
+  };
+}
+
+// A lightweight status board for signing requests (optionally filtered to one customer).
+async function openEsignStatus(contactId) {
+  const wrap = document.createElement('div');
+  wrap.className = 'fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4';
+  wrap.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800"><div class="font-bold text-slate-900 dark:text-white">E-signature status</div><button id="es-x" class="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button></div>
+    <div id="es-body" class="p-5 overflow-y-auto text-sm text-slate-500 dark:text-slate-400">Loading…</div></div>`;
+  document.body.appendChild(wrap);
+  const close = () => wrap.remove();
+  wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+  wrap.querySelector('#es-x').onclick = close;
+  const body = wrap.querySelector('#es-body');
+  try {
+    const r = await apiGetJson('/esign', { retries: 1 });
+    let reqs = r.requests || [];
+    if (contactId) reqs = reqs.filter(x => x.contact_id === contactId);
+    if (!reqs.length) { body.innerHTML = '<div class="text-center py-8">No signing requests yet. Use “Send for e-signature” on the desk to create one.</div>'; return; }
+    const badge = (s) => {
+      const map = { signed: ['Signed', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'], viewed: ['Viewed', 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'], sent: ['Sent', 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'], declined: ['Declined', 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'], void: ['Void', 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'] };
+      const [t, cls] = map[s] || [s, 'bg-slate-100 text-slate-600'];
+      return `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full ${cls}">${t}</span>`;
+    };
+    body.innerHTML = reqs.map(x => {
+      const when = x.signed_at ? 'Signed ' + new Date(x.signed_at).toLocaleString('en-US') : 'Created ' + new Date(x.created_at).toLocaleDateString('en-US');
+      return `<div class="flex items-center justify-between gap-3 py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
+        <div class="min-w-0"><div class="font-semibold text-slate-800 dark:text-slate-100 truncate">${esc(x.doc_title || 'Document')}</div>
+          <div class="text-xs text-slate-400">${esc(x.signer_name || x.signer_email || '—')} · ${esc(when)}</div></div>
+        <div class="flex items-center gap-2 shrink-0">${badge(x.status)}
+          ${x.status === 'signed' ? `<button onclick="openEsignDetail('${x.id}')" class="text-xs font-bold text-indigo-600 hover:text-indigo-500">View</button>` : `<button onclick="esignCopyLink('${esc(x.url)}')" class="text-xs font-bold text-indigo-600 hover:text-indigo-500">Copy link</button>`}</div>
+      </div>`;
+    }).join('');
+  } catch (e) { body.innerHTML = `<div class="text-red-500 py-6">${esc(e.message || 'Could not load signing requests')}</div>`; }
+}
+
+async function esignCopyLink(url) {
+  try { await navigator.clipboard.writeText(url); } catch {}
+  showToast('Link copied', 'success');
+}
+
+// Open the signed document + signature image + audit trail (the record of signing).
+async function openEsignDetail(id) {
+  try {
+    const r = await apiGetJson(`/esign/${encodeURIComponent(id)}/detail`, { retries: 1 });
+    const req = r.request || {};
+    const audit = (req.audit || []).map(a => `${esc(a.event)} — ${a.at ? new Date(a.at).toLocaleString('en-US') : ''}${a.ip ? ' · IP ' + esc(a.ip) : ''}`).join('<br>');
+    const cert = `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;border:1px solid #cbd5e1;border-radius:10px;padding:16px;margin:16px 0;background:#f8fafc;color:#0f172a">
+      <div style="font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:#475569;margin-bottom:8px">Signature certificate</div>
+      <div style="font-size:13px;line-height:1.7">
+        <b>Signed by:</b> ${esc(req.signature_name || '—')}<br>
+        <b>Signed at:</b> ${req.signed_at ? new Date(req.signed_at).toLocaleString('en-US') : '—'}<br>
+        <b>IP address:</b> ${esc(req.signed_ip || '—')}<br>
+        <b>Device:</b> ${esc(req.signed_ua || '—')}<br>
+        <b>Consent:</b> ${esc(req.consent_text || '')}
+      </div>
+      ${req.signature_image ? `<div style="margin-top:12px"><div style="font-size:12px;color:#64748b;margin-bottom:4px">Drawn signature</div><img src="${esc(req.signature_image)}" alt="signature" style="max-width:320px;border:1px solid #e2e8f0;border-radius:6px;background:#fff"></div>` : ''}
+      ${audit ? `<div style="margin-top:12px"><div style="font-size:12px;color:#64748b;margin-bottom:4px">Audit trail</div><div style="font-size:12px;color:#334155;line-height:1.6">${audit}</div></div>` : ''}
+    </div>`;
+    const html = `<div style="max-width:820px;margin:0 auto;padding:20px">${cert}${req.doc_html || ''}</div>`;
+    if (typeof apprPrintWindow === 'function') apprPrintWindow('Signed: ' + (req.doc_title || 'Document'), html);
+    else { const w = window.open('', '_blank'); if (w) { w.document.write(`<html><head><title>Signed document</title></head><body>${html}</body></html>`); w.document.close(); } }
+  } catch (e) { showToast(e.message || 'Could not open the signed document', 'error'); }
+}
+
 // Open the Desk-a-deal page focused on one customer (from a CRM row).
 function openDeskForContact(contactId) { __deskContactId = contactId; switchPage('desk'); }
 window.loadDeskDeal = loadDeskDeal;
@@ -5985,6 +6097,10 @@ window.deskSave = deskSave;
 window.deskSetStatus = deskSetStatus;
 window.deskSaveDealer = deskSaveDealer;
 window.deskPrint = deskPrint;
+window.deskEsign = deskEsign;
+window.openEsignStatus = openEsignStatus;
+window.openEsignDetail = openEsignDetail;
+window.esignCopyLink = esignCopyLink;
 window.openDeskForContact = openDeskForContact;
 
 // ── Settings hub: tab-filter the profile page into named sections ────────────
