@@ -327,6 +327,24 @@ let profileContext = null;
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
 const MS_ALLOWED_PAGES = new Set(['insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin']);
+
+// ── Facebook-only tier ───────────────────────────────────────────────────────
+// A dealer who pays for Facebook posting alone sees only the Facebook posting hub
+// (inventory in facebook mode) + the leaderboard. Driven by cfg.fb_only from
+// /ai/config; the sidebar is stripped via html[data-dash-tier="fb"] CSS.
+let __fbOnly = false;
+// The leaderboard panel lives on the Dashboard (insights) — in fb tier the insights
+// page is stripped by CSS to just the leaderboard, so 'insights' is the leaderboard.
+const FB_ONLY_PAGES = new Set(['inventory', 'insights', 'profile']);
+function applyFbOnlyMode() {
+  if (__fbOnly) document.documentElement.setAttribute('data-dash-tier', 'fb');
+  else document.documentElement.removeAttribute('data-dash-tier');
+  if (!__fbOnly) return;
+  // Land on the Facebook posting hub — the feature they pay for.
+  __inventoryMode = 'facebook';
+  if (typeof switchPage === 'function') switchPage('inventory');
+}
+window.applyFbOnlyMode = applyFbOnlyMode;
 // In MarketSync mode the Reports hub shows only the SaaS-relevant reports (no
 // vehicle inventory, F&I, appraisals or service — MarketSync sells software).
 const MS_REPORT_KEYS = new Set(['leads', 'marketing', 'appointments', 'activity', 'customers', 'reps']);
@@ -936,6 +954,8 @@ function switchPage(pageId) {
     __autoTab = pageId === 'auto-holidays' ? 'holidays' : pageId === 'auto-delivery' ? 'delivery' : 'leads';
     pageId = 'automation-builder';
   }
+  // Facebook-only tier: only the Facebook hub, leaderboard and settings are reachable.
+  if (__fbOnly && !FB_ONLY_PAGES.has(pageId)) { __inventoryMode = 'facebook'; pageId = 'inventory'; }
 
   // Accounting has one container but each nav leaf (acct-insights, acct-tax, …) is
   // its own "page" — map those to the shared accounting container.
@@ -15998,6 +16018,9 @@ async function loadAIBoostSection() {
     __vinStickerActive = !!cfg.vin_sticker_active;           // = Inventory Intelligence tier
     __aiDocsActive = !!cfg.ai_docs_active;                   // generated docs = AI Boost
     __invIntelActive = !!cfg.inv_intel_active;
+    // Facebook-only tier strips the dashboard to the Facebook hub + leaderboard.
+    __fbOnly = !!cfg.fb_only;
+    applyFbOnlyMode();
     // Trial countdown badge on the ✦ Upgrades icon during the 30-day full-access window.
     updateTrialBadge(cfg.full_access ? (cfg.trial_days_left || 0) : 0);
     // Photo tools state (branded background + AI cutout provider) for the add-vehicle form.

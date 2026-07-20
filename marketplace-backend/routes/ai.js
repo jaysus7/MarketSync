@@ -30,7 +30,7 @@ export function registerAI(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data, error } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, vin_sticker_active, inv_intel_active, ai_vision_active, ai_boost_paid, inv_intel_paid, full_access_until, photo_background_url, country, province, city, postal_code, daily_digest_enabled, legal_name, street_address, phone, fax, hst_number, omvic_reg, plan, desk_fees, ai_assistant_name, ai_internal_style, ai_customer_style, ai_knowledge, ai_knowledge_name, cost_tracking_enabled, cost_rep_visible, autoresponder_mode, autoresponder_channel')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, vin_sticker_active, inv_intel_active, ai_vision_active, ai_boost_paid, inv_intel_paid, full_access_until, photo_background_url, country, province, city, postal_code, daily_digest_enabled, legal_name, street_address, phone, fax, hst_number, omvic_reg, plan, fb_only, desk_fees, ai_assistant_name, ai_internal_style, ai_customer_style, ai_knowledge, ai_knowledge_name, cost_tracking_enabled, cost_rep_visible, autoresponder_mode, autoresponder_channel')
       .eq('id', req.dealershipId)
       .single()
     if (error) return res.status(500).json({ error: error.message })
@@ -71,6 +71,9 @@ export function registerAI(app) {
       full_access: fullAccess,           // in the 30-day everything-on window
       full_access_until: data.full_access_until,
       trial_days_left: trialDaysLeft,
+      // Facebook-only tier: strip the dashboard to the Facebook hub + leaderboard.
+      // Owners and dealers still inside the 30-day everything-on window see it all.
+      fb_only: !isOwner && !fullAccess && !!data.fb_only,
       // Photo tools: is a branded background set, and is the AI cutout provider keyed?
       photo_background_url: data.photo_background_url || null,
       background_provider_ready: !!process.env.REMOVEBG_API_KEY,
