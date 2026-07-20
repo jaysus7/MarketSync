@@ -7736,17 +7736,84 @@ async function acctAddExpense(btn) {
 async function acctDelEntry2(id) { if (!confirm('Delete this expense?')) return; try { await apiSendJson(`/accounting/entries/${id}`, 'DELETE'); acctLoadExpenses(); } catch (e) { showToast(e.message, 'error'); } }
 window.acctAddExpense = acctAddExpense; window.acctDelEntry2 = acctDelEntry2;
 
-// Bank account — Plaid slots in here (phase 3); config-gated placeholder for now.
+// Bank account — link a bank via Plaid; transactions feed the daily reconciliation.
+function plaidEnsureScript() {
+  return new Promise((resolve, reject) => {
+    if (window.Plaid) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
+    s.onload = () => resolve(); s.onerror = () => reject(new Error('Could not load Plaid.'));
+    document.head.appendChild(s);
+  });
+}
 async function acctLoadBank() {
   const body = document.getElementById('acct-body'); if (!body) return;
-  body.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 max-w-2xl text-center">
-    <div class="w-12 h-12 mx-auto rounded-xl bg-teal-100 dark:bg-teal-950/40 flex items-center justify-center text-2xl mb-3">🏦</div>
-    <div class="text-lg font-black text-slate-900 dark:text-white">Connect your bank</div>
-    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4">Link your dealership bank account to pull daily transactions and match them against recorded deals, deposits and expenses — so reconciliation catches anything the books miss.</p>
-    <button disabled class="text-sm font-bold bg-slate-200 dark:bg-slate-800 text-slate-500 px-5 py-2.5 rounded-lg cursor-not-allowed">Connect with Plaid — coming soon</button>
-    <p class="text-[11px] text-slate-400 mt-3">Reconciliation already runs daily on your deal + accounting data; the bank feed adds a third cross-check.</p>
-  </div>`;
+  body.innerHTML = '<div class="text-sm text-slate-400">Loading…</div>';
+  try {
+    const st = await apiGetJson('/plaid/status');
+    if (!st.configured) {
+      body.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 max-w-2xl text-center">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-teal-100 dark:bg-teal-950/40 flex items-center justify-center text-2xl mb-3">🏦</div>
+        <div class="text-lg font-black text-slate-900 dark:text-white">Connect your bank</div>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-3">Bank linking isn't switched on for this server yet. Once it is, link your dealership account here to add a bank cross-check to daily reconciliation.</p>
+        <button disabled class="text-sm font-bold bg-slate-200 dark:bg-slate-800 text-slate-500 px-5 py-2.5 rounded-lg cursor-not-allowed">Connect with Plaid</button></div>`;
+      return;
+    }
+    if (!st.connected) {
+      body.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 max-w-2xl text-center">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-teal-100 dark:bg-teal-950/40 flex items-center justify-center text-2xl mb-3">🏦</div>
+        <div class="text-lg font-black text-slate-900 dark:text-white">Connect your bank</div>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4">Securely link your dealership bank via Plaid. We pull daily transactions and match money in against your recorded deposits — so reconciliation catches anything the books miss. Read-only; you can disconnect anytime.</p>
+        <button onclick="plaidConnect(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg">Connect with Plaid</button></div>`;
+      return;
+    }
+    const tx = await apiGetJson('/plaid/transactions').catch(() => ({ transactions: [] }));
+    const rows = (tx.transactions || []).slice(0, 50).map(t => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
+      <td class="px-3 py-2">${t.txn_date}</td><td class="px-3 py-2">${esc(t.name || '')}${t.pending ? ' <span class="text-[10px] text-amber-500">pending</span>' : ''}</td>
+      <td class="px-3 py-2 text-slate-500">${esc(t.category || '')}</td>
+      <td class="px-3 py-2 text-right font-bold ${t.direction === 'in' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}">${t.direction === 'in' ? '+' : '-'}${commMoney(t.amount)}</td></tr>`).join('');
+    body.innerHTML = `
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <div><div class="font-black text-slate-900 dark:text-white flex items-center gap-2">🏦 ${esc(st.institution_name || 'Bank connected')}</div>
+          <div class="text-[12px] text-slate-500 dark:text-slate-400">${(st.accounts || []).map(a => esc(a.name) + (a.mask ? ` ••${esc(a.mask)}` : '')).join(' · ') || 'Linked'}${st.last_sync ? ` · synced ${new Date(st.last_sync).toLocaleString()}` : ''}</div></div>
+        <div class="flex items-center gap-2">
+          <button onclick="plaidSync(this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg">Sync now</button>
+          <button onclick="plaidDisconnect(this)" class="text-xs font-bold text-rose-500 hover:text-rose-400">Disconnect</button>
+        </div></div>
+      <div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+        <table class="w-full text-sm min-w-[600px]"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800"><th class="px-3 py-2">Date</th><th class="px-3 py-2">Description</th><th class="px-3 py-2">Category</th><th class="px-3 py-2 text-right">Amount</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="4" class="px-3 py-6 text-center text-slate-400">No transactions yet — press Sync now.</td></tr>'}</tbody></table></div>`;
+  } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load bank status.')}</div>`; }
 }
+async function plaidConnect(btn) {
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Opening…';
+  try {
+    await plaidEnsureScript();
+    const { link_token } = await apiSendJson('/plaid/link-token', 'POST', {});
+    if (!link_token) throw new Error('Could not start bank linking.');
+    const handler = window.Plaid.create({
+      token: link_token,
+      onSuccess: async (public_token) => {
+        try { await apiSendJson('/plaid/exchange', 'POST', { public_token }); showToast('Bank linked', 'success'); acctLoadBank(); }
+        catch (e) { showToast(e.message || 'Could not link the bank', 'error'); }
+      },
+      onExit: () => { btn.disabled = false; btn.textContent = orig; },
+    });
+    handler.open();
+  } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not connect', 'error'); }
+}
+async function plaidSync(btn) {
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Syncing…';
+  try { const r = await apiSendJson('/plaid/sync', 'POST', {}); showToast(`Synced ${r.synced || 0} transactions`, 'success'); acctLoadBank(); }
+  catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Sync failed', 'error'); }
+}
+async function plaidDisconnect(btn) {
+  if (!confirm('Disconnect your bank? Reconciliation will stop using the bank feed.')) return;
+  btn.disabled = true;
+  try { await apiSendJson('/plaid/disconnect', 'POST', {}); showToast('Bank disconnected', 'success'); acctLoadBank(); }
+  catch (e) { btn.disabled = false; showToast(e.message || 'Could not disconnect', 'error'); }
+}
+window.plaidConnect = plaidConnect; window.plaidSync = plaidSync; window.plaidDisconnect = plaidDisconnect;
 
 // Reports — the month's full ledger + reconciliation history, with CSV export.
 async function acctLoadReportsDetail() {
