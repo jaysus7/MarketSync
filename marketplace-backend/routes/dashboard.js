@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware.js'
 import { emitWebhook } from '../webhooks.js'
 import { ensureGetReadyCard } from './recon.js'
 import { syncDealToAccounting } from '../providers/accounting.js'
+import { recomputeDealCommission, clawbackDealCommission } from './commissions.js'
 
 async function buildUserStats(userId) {
   const countOf = async (status) => {
@@ -1368,6 +1369,8 @@ export function registerRoutes(app) {
       const { data: rep } = await supabaseAdmin.from('profiles').select('full_name, registration_id').eq('id', row.created_by).maybeSingle()
       if (rep) salesperson = { name: rep.full_name || null, registration_id: rep.registration_id || null }
     }
+    // Auto-compute this deal's commission from the rep's plan (no-op until a plan exists).
+    if (data?.id) { try { await recomputeDealCommission(req.dealershipId, data.id) } catch (e) { console.warn('[commission] recompute failed:', e.message) } }
     res.json({ ok: true, deal: data, customer_number: customerNumber, salesperson, vehicle_pending: vehiclePending })
   })
 
@@ -1422,6 +1425,12 @@ export function registerRoutes(app) {
     // On delivery, book the deal into the dealer's accounting system if they've
     // connected one and opted into auto-sync (idempotent, fire-and-forget).
     if (m.deal === 'delivered') syncDealToAccounting(req.dealershipId, deal.id)
+    // Commission: recompute on sold/delivered; auto-clawback when a closed deal is
+    // unwound back to "working" (with a reason the rep can see).
+    try {
+      if (m.deal === 'working') await clawbackDealCommission(req.dealershipId, deal.id, 'Deal unwound')
+      else await recomputeDealCommission(req.dealershipId, deal.id)
+    } catch (e) { console.warn('[commission] status hook failed:', e.message) }
     res.json({ ok: true, deal_status: m.deal, vehicle_status: m.inv })
   })
 
