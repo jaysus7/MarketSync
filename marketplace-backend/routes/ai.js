@@ -10,6 +10,7 @@ import { createNotification, createNotifications } from '../notifications.js'
 import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
 import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
 import { lookupPlate, plateLookupConfigured } from '../providers/plateLookup.js'
+import { audit, AuditAction } from '../audit.js'
 import {
   OWNER_EMAIL, attachOemStickerToInventory, LANG_NAME, langName,
   PRODUCT_KB, ASSISTANT_TOOLS, REPORT_TOPICS,
@@ -134,6 +135,15 @@ export function registerAI(app) {
       .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, country, province, city, postal_code, daily_digest_enabled, legal_name, street_address, phone, fax, hst_number, omvic_reg, desk_fees, ai_internal_style, ai_customer_style, ai_knowledge, ai_knowledge_name, cost_tracking_enabled, cost_rep_visible, autoresponder_mode, autoresponder_channel')
       .single()
     if (error) return res.status(500).json({ error: error.message })
+    // Audit sensitive setting changes — especially the internal-cost visibility flags.
+    const changed = Object.keys(update)
+    if (changed.length) audit(req, AuditAction.CONFIG_UPDATED, { fields: changed })
+    if (req.body.cost_tracking_enabled !== undefined || req.body.cost_rep_visible !== undefined) {
+      audit(req, AuditAction.COST_VISIBILITY_CHANGED, {
+        cost_tracking_enabled: !!data.cost_tracking_enabled,
+        cost_rep_visible: !!data.cost_rep_visible,
+      })
+    }
     res.json(data)
   })
 

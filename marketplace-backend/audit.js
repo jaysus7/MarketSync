@@ -72,6 +72,17 @@ export const AuditAction = Object.freeze({
   LISTING_SOLD:           'listing.sold',
   LISTING_DELETED:        'listing.deleted',
 
+  // E-signature
+  ESIGN_SENT:             'esign.sent',
+
+  // Deal-cost visibility & AI/config changes (sensitive dealership settings)
+  CONFIG_UPDATED:         'config.updated',
+  COST_VISIBILITY_CHANGED:'config.cost_visibility_changed',
+
+  // Data exports (who pulled the customer/inventory book)
+  LEADS_EXPORTED:         'leads.exported',
+  INVENTORY_EXPORTED:     'inventory.exported',
+
   // Admin / system
   ADMIN_DATA_EXPORT:      'admin.data_export',
 })

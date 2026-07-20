@@ -13074,6 +13074,9 @@ async function initSecurityPanel() {
   // Add passkey button
   document.getElementById('add-passkey-btn')?.addEventListener('click', registerNewPasskey);
 
+  // Dealership activity log — admins/owners only.
+  initAuditLog();
+
   document.getElementById('show-sessions-btn')?.addEventListener('click', () => {
     const panel = document.getElementById('sessions-panel');
     const wasHidden = panel.classList.contains('hidden');
@@ -13172,6 +13175,88 @@ function showBackupCodes(codes) {
       panel.classList.add('hidden');
     }
   };
+}
+
+// ── Dealership activity log (admins/owners) ─────────────────────────────────
+// A plain-language view of the audit trail — who changed cost visibility, sent a
+// document for signature, exported the customer book, changed a teammate's role.
+const AUDIT_LABELS = {
+  'user.login': ['Signed in', '🔑'], 'user.login_failed': ['Failed sign-in', '⚠️'], 'user.logout': ['Signed out', '🔒'],
+  'user.register': ['Account created', '🆕'], 'user.password_changed': ['Password changed', '🔑'],
+  'user.mfa_enrolled': ['Turned on 2-step login', '🛡️'], 'user.mfa_disabled': ['Turned off 2-step login', '🛡️'],
+  'user.passkey_registered': ['Added a passkey', '🔐'], 'user.passkey_deleted': ['Removed a passkey', '🔐'],
+  'user.sessions_revoked': ['Signed out all devices', '🔒'],
+  'team.member_invited': ['Invited / changed a teammate', '👥'], 'team.member_removed': ['Removed a teammate', '👥'],
+  'profile.updated': ['Updated their profile', '✏️'], 'profile.avatar_uploaded': ['Changed their photo', '🖼️'],
+  'config.updated': ['Changed dealership settings', '⚙️'], 'config.cost_visibility_changed': ['Changed cost visibility', '💵'],
+  'esign.sent': ['Sent a document to e-sign', '✍️'],
+  'leads.exported': ['Exported the leads list', '📤'], 'inventory.exported': ['Exported inventory', '📤'],
+  'admin.data_export': ['Exported data', '📤'],
+  'billing.subscription_created': ['Started a subscription', '💳'], 'billing.subscription_cancelled': ['Cancelled a subscription', '💳'],
+  'billing.subscription_updated': ['Updated billing', '💳'],
+};
+function auditLabel(action) { return AUDIT_LABELS[action] || [action, '•']; }
+
+async function initAuditLog() {
+  const block = document.getElementById('audit-log-block');
+  if (!block) return;
+  const isAdmin = ['DEALER_ADMIN', 'OWNER'].includes(profileContext?.role);
+  if (!isAdmin) { block.classList.add('hidden'); return; }
+  block.classList.remove('hidden');
+  const btn = document.getElementById('show-audit-btn');
+  const panel = document.getElementById('audit-panel');
+  let loaded = false;
+  btn?.addEventListener('click', () => {
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden') && !loaded) { loaded = true; loadAuditLog(); }
+  });
+  document.getElementById('audit-filter')?.addEventListener('change', (e) => loadAuditLog(e.target.value));
+}
+
+async function loadAuditLog(action) {
+  const list = document.getElementById('audit-list');
+  if (!list) return;
+  list.innerHTML = 'Loading…';
+  try {
+    const qs = action ? `?limit=200&action=${encodeURIComponent(action)}` : '?limit=200';
+    const data = await apiGetJson(`/audit-log${qs}`, { retries: 1 });
+    const entries = data.entries || [];
+    // Populate the filter dropdown once (from the unfiltered pull).
+    if (!action) {
+      const sel = document.getElementById('audit-filter');
+      if (sel && sel.options.length <= 1) {
+        const actions = [...new Set(entries.map(e => e.action))].sort();
+        actions.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = auditLabel(a)[0]; sel.appendChild(o); });
+      }
+    }
+    if (!entries.length) { list.innerHTML = '<p class="text-slate-500 italic">Nothing logged yet.</p>'; return; }
+    list.innerHTML = entries.map(e => {
+      const [label, icon] = auditLabel(e.action);
+      const when = new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      const detail = auditMetaDetail(e);
+      return `<div class="flex items-start gap-2 py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+        <span class="shrink-0">${icon}</span>
+        <div class="min-w-0 flex-1">
+          <div class="text-slate-800 dark:text-slate-100"><span class="font-semibold">${esc(e.actor_email || 'System')}</span> · ${esc(label)}</div>
+          ${detail ? `<div class="text-slate-400">${esc(detail)}</div>` : ''}
+          <div class="text-slate-400">${esc(when)}${e.ip ? ' · ' + esc(e.ip) : ''}</div>
+        </div></div>`;
+    }).join('');
+  } catch (e) { list.innerHTML = `<p class="text-red-500">${esc(e.message || 'Could not load the activity log')}</p>`; }
+}
+
+// Turn the stored meta JSON into a short human sentence for the common actions.
+function auditMetaDetail(e) {
+  const m = e.meta || {};
+  try {
+    if (e.action === 'config.cost_visibility_changed') return `Tracking ${m.cost_tracking_enabled ? 'ON' : 'OFF'}, reps ${m.cost_rep_visible ? 'can' : 'cannot'} see cost`;
+    if (e.action === 'config.updated' && Array.isArray(m.fields)) return 'Changed: ' + m.fields.join(', ');
+    if (e.action === 'esign.sent') return [m.doc_title, m.signer_email].filter(Boolean).join(' → ');
+    if (e.action === 'leads.exported') return `${m.count || 0} rows (${m.scope || ''})`;
+    if (e.action === 'inventory.exported') return `${m.count || 0} vehicles`;
+    if (e.action === 'team.member_invited') return m.new_role ? `New role: ${m.new_role}` : (m.invited_email || '');
+  } catch {}
+  return '';
 }
 
 // ── Passkeys (fingerprint / face / hardware key) ────────────────────────────

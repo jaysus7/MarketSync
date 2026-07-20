@@ -17,6 +17,7 @@ import crypto from 'node:crypto'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { rateLimit, getClientIp } from '../security.js'
+import { audit, AuditAction } from '../audit.js'
 
 const CONSENT ='By signing electronically, I agree that my electronic signature is the legal equivalent of my handwritten signature and that I have reviewed this document.'
 const signUrl = (token) => `${FRONTEND_URL.replace(/\/$/, '')}/esign.html?t=${token}`
@@ -57,6 +58,7 @@ export function registerEsign(app) {
         occurred_at: new Date().toISOString(), rep_id: req.user?.id || null, meta: { kind: 'esign_sent', esign_id: data.id },
       }).catch(() => {})
     }
+    audit(req, AuditAction.ESIGN_SENT, { esign_id: data.id, doc_title: row.doc_title, doc_type: row.doc_type, signer_email: signer_email || null, contact_id: b.contact_id || null })
     res.json({ ok: true, id: data.id, token, url })
   })
 

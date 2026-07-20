@@ -2,6 +2,7 @@ import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { findOrCreateContact } from './crm.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
+import { audit, AuditAction } from '../audit.js'
 
 const xmlEsc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]))
 
@@ -292,6 +293,7 @@ export function registerLeads(app) {
       rep: reps[assignedByContact[l.contact_id] || l.created_by] || '',
       created_at: l.created_at,
     }))
+    audit(req, AuditAction.LEADS_EXPORTED, { count: rows.length, scope: dealerLevel ? 'dealership' : 'own' })
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', `attachment; filename="leads-${new Date().toISOString().slice(0, 10)}.csv"`)
     res.send(toCsv(rows))

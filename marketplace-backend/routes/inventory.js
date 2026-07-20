@@ -2,6 +2,7 @@ import { supabaseAdmin, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { createNotifications } from '../notifications.js'
 import { runInventorySync, syncProgress } from '../sync/engine.js'
+import { audit, AuditAction } from '../audit.js'
 import multer from 'multer'
 import sharp from 'sharp'
 
@@ -369,6 +370,7 @@ export function registerRoutes(app) {
     const { data } = await supabaseAdmin.from('inventory')
       .select(CSV_COLS.filter(c => c !== 'image_urls').join(', ') + ', image_urls')
       .eq('dealership_id', req.dealershipId).is('archived_at', null).order('created_at', { ascending: false })
+    audit(req, AuditAction.INVENTORY_EXPORTED, { count: (data || []).length })
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', `attachment; filename="inventory-${new Date().toISOString().slice(0, 10)}.csv"`)
     res.send(toCsv(data || []))
