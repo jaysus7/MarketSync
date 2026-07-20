@@ -1251,7 +1251,7 @@ function isLeadBoxFeed(feed) {
 // Build LeadBox's verified VDP URL: {origin}/view/{condition}-{year}-{make}-{model}-{id}/
 // (lowercased, non-alphanumeric runs → single hyphen). The trailing id is LeadBox's
 // internal vehicle `id` field — NOT the stock number. Returns null if any slug part
-// is missing so callers can fall back. Verified against live wellandchev.com listings.
+// is missing so callers can fall back. Verified against live LeadBox dealer listings.
 function buildLeadBoxVdpUrl(feedUrl, vehicle) {
   const origin = typeof feedUrl === 'string' && feedUrl.includes('/wp-content')
     ? feedUrl.split('/wp-content')[0]

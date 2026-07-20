@@ -10358,7 +10358,7 @@ function siteSettingsFields(cfg) {
       </div>` : ''}
       <div class="flex items-center gap-2">
         <div class="flex-1">${lbl('Site address (letters, numbers, dashes)')}
-          <div class="flex items-center gap-1 text-sm"><span class="text-xs text-slate-400 whitespace-nowrap">…/site.html?d=</span>${inp('site-slug', cfg.site_slug, 'welland-chev', 'flex-1')}</div>
+          <div class="flex items-center gap-1 text-sm"><span class="text-xs text-slate-400 whitespace-nowrap">…/site.html?d=</span>${inp('site-slug', cfg.site_slug, 'your-dealership', 'flex-1')}</div>
         </div>
         <label class="flex items-center gap-1.5 text-sm font-bold mt-4 whitespace-nowrap"><input id="site-pub" type="checkbox" ${cfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Published</label>
       </div>
@@ -10393,9 +10393,9 @@ function siteSettingsFields(cfg) {
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">How your site shows in Google and when shared. Leave blank to auto-generate from your name, city and About.</p>
       <div class="space-y-2">
         <div class="flex justify-end -mb-1"><button type="button" onclick="aiSiteMeta(this)" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500">✨ AI write title + meta</button></div>
-        <div>${lbl('Page title (Google tab, ~60 chars)')}${inp('seo-title', c.seo_title, 'Welland Chevrolet Buick GMC | New & Used in Welland', 'w-full')}</div>
-        <div>${lbl('Meta description (~155 chars)')}${ta('seo-desc', c.seo_description, 'Shop new and used Chevrolet, Buick & GMC in Welland. Build & price, get financing, value your trade.', 2)}</div>
-        <div>${lbl('Keywords (comma separated, optional)')}${inp('seo-keywords', c.seo_keywords, 'Chevrolet Welland, used trucks Niagara, GMC dealer', 'w-full')}</div>
+        <div>${lbl('Page title (Google tab, ~60 chars)')}${inp('seo-title', c.seo_title, 'Your Dealership | New & Used Cars, Trucks & SUVs', 'w-full')}</div>
+        <div>${lbl('Meta description (~155 chars)')}${ta('seo-desc', c.seo_description, 'Shop new and used vehicles at your dealership. Build & price, get financing, and value your trade — all online.', 2)}</div>
+        <div>${lbl('Keywords (comma separated, optional)')}${inp('seo-keywords', c.seo_keywords, 'used cars near me, trucks for sale, car dealership', 'w-full')}</div>
         <div>${lbl('Social share image')}<div class="flex gap-1">${inp('seo-image', c.seo_image, 'Paste URL or upload (falls back to hero)', 'flex-1')}<input id="seo-image-file" type="file" accept="image/*" class="hidden" onchange="uploadSiteImage('seo-image', this.files[0])"><button type="button" onclick="document.getElementById('seo-image-file').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Upload</button></div></div>
       </div>
     </div>
@@ -12189,7 +12189,7 @@ function autoEmailSetupHtml(s) {
     <div class="text-sm font-black text-slate-900 dark:text-white mb-1">Email setup</div>
     <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Send automated emails from your own professional address so replies land in your inbox and every message is logged to the customer's timeline.</p>
     <div class="grid sm:grid-cols-2 gap-2">
-      <div>${lbl('From name')}${inp('ae-from-name', e.from_name, 'Welland Chevrolet Sales')}</div>
+      <div>${lbl('From name')}${inp('ae-from-name', e.from_name, 'Your Dealership Sales')}</div>
       <div>${lbl('From email (dealership general)')}${inp('ae-from', e.from, 'sales@yourdealer.com', 'email')}</div>
       <div>${lbl('Reply-to (optional)')}${inp('ae-reply', e.reply_to, 'leads@yourdealer.com', 'email')}</div>
     </div>
