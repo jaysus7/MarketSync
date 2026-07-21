@@ -20,6 +20,65 @@
         .guide-body h3 { scroll-margin-top: 96px; }
         .guide-phase { scroll-margin-top: 96px; }
         .toc-link.active { color: #6366F1; font-weight: 700; }
+        /* ── Illustrative UI mockups (renders) — stylized, swap for a screenshot later ── */
+        .mock{border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 10px 30px -18px rgba(2,6,23,.4);margin:1.25rem 0}
+        .dark .mock{border-color:#1f2a3d;background:#0f1626;box-shadow:0 14px 34px -18px rgba(0,0,0,.7)}
+        .mock-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#f1f5f9;border-bottom:1px solid #e2e8f0}
+        .dark .mock-bar{background:#131a2c;border-color:#1f2a3d}
+        .mock-bar i{width:10px;height:10px;border-radius:50%;background:#cbd5e1;display:inline-block}
+        .dark .mock-bar i{background:#33415a}
+        .mock-bar b{margin-left:8px;font-size:11px;font-weight:600;color:#94a3b8;letter-spacing:.02em}
+        .mock-in{padding:14px}
+        .mock-cap{font-size:12px;font-style:italic;color:#94a3b8;margin:-0.4rem 0 1.4rem;padding-left:2px}
+        .mock-cap i{margin-right:5px}
+        .mk-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+        .mk-col{display:flex;flex-direction:column;gap:8px}
+        .mk-btn{font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;background:#eef2ff;color:#4f46e5;border:1px solid #e0e7ff;white-space:nowrap}
+        .dark .mk-btn{background:#1e1b3a;color:#a5b4fc;border-color:#312e63}
+        .mk-btn.p{background:#4f46e5;color:#fff;border-color:#4f46e5}
+        .mk-btn.g{background:#059669;color:#fff;border-color:#059669}
+        .mk-btn.o{background:#ea580c;color:#fff;border-color:#ea580c}
+        .mk-btn.t{background:#0d9488;color:#fff;border-color:#0d9488}
+        .mk-btn.gray{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
+        .dark .mk-btn.gray{background:#131a2c;color:#9fb0cc;border-color:#22304a}
+        .mk-pill{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:999px;background:#e2e8f0;color:#475569}
+        .dark .mk-pill{background:#26314a;color:#9fb0cc}
+        .mk-pill.amber{background:#fef3c7;color:#b45309}.dark .mk-pill.amber{background:#3a2c12;color:#f0c266}
+        .mk-pill.green{background:#d1fae5;color:#047857}.dark .mk-pill.green{background:#0f2a1e;color:#4ade80}
+        .mk-pill.indigo{background:#e0e7ff;color:#4338ca}.dark .mk-pill.indigo{background:#221d47;color:#a5b4fc}
+        .mk-pill.rose{background:#ffe4e6;color:#be123c}.dark .mk-pill.rose{background:#3a1720;color:#fb7185}
+        .mk-card{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff}
+        .dark .mk-card{border-color:#22304a;background:#131a2c}
+        .mk-tile{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#f8fafc;text-align:center;flex:1;min-width:88px}
+        .dark .mk-tile{border-color:#22304a;background:#0b111e}
+        .mk-tile .n{font-size:20px;font-weight:800;color:#4f46e5;line-height:1.1}
+        .dark .mk-tile .n{color:#a5b4fc}
+        .mk-tile .n.g{color:#059669}.dark .mk-tile .n.g{color:#4ade80}
+        .mk-tile .n.r{color:#e11d48}.dark .mk-tile .n.r{color:#fb7185}
+        .mk-tile .l{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:700;margin-top:2px}
+        .mk-mut{color:#94a3b8;font-size:12px}
+        .mk-nav{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:600;min-width:120px}
+        .mk-nav span{padding:6px 10px;border-radius:7px;color:#475569}
+        .dark .mk-nav span{color:#9fb0cc}
+        .mk-nav span.on{background:#eef2ff;color:#4f46e5}
+        .dark .mk-nav span.on{background:#1e1b3a;color:#a5b4fc}
+        .mk-h{font-size:13px;font-weight:800;color:#0f172a;margin-bottom:6px}
+        .dark .mk-h{color:#e6edf7}
+        .mk-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;padding-bottom:8px;margin-bottom:10px}
+        .dark .mk-tabs{border-color:#22304a}
+        .mk-tabs span{font-size:11px;font-weight:700;padding:4px 9px;border-radius:7px;color:#64748b}
+        .mk-tabs span.on{background:#4f46e5;color:#fff}
+        .mk-stage{flex:1;min-width:70px;border:1px solid #e2e8f0;border-radius:8px;padding:6px 4px;text-align:center;font-size:10px;font-weight:700;color:#475569;background:#f8fafc}
+        .dark .mk-stage{border-color:#22304a;background:#0b111e;color:#9fb0cc}
+        .mk-stage.on{border-color:#4f46e5;background:#eef2ff;color:#4338ca}
+        .dark .mk-stage.on{background:#1e1b3a;color:#a5b4fc}
+        .mk-stage.done{border-color:#059669;background:#ecfdf5;color:#047857}
+        .dark .mk-stage.done{background:#0f2a1e;color:#4ade80}
+        .mk-line{height:8px;border-radius:4px;background:#e2e8f0}.dark .mk-line{background:#22304a}
+        .mk-thumb{width:46px;height:34px;border-radius:6px;background:linear-gradient(135deg,#c7d2fe,#a5b4fc);flex:0 0 auto}
+        .dark .mk-thumb{background:linear-gradient(135deg,#312e63,#4338ca)}
+        .mk-av{width:30px;height:30px;border-radius:50%;background:#e0e7ff;color:#4338ca;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+        .dark .mk-av{background:#221d47;color:#a5b4fc}
     </style>
     <title>How to Use MarketSync — Complete Feature Guide for Car Dealers</title>
     <meta name="description" content="Step-by-step guide to every MarketSync feature: Facebook Marketplace posting, inventory sync, AI listing copy, trade-in appraisals with disclosure PDFs, Carfax, VIN decoding, window stickers, Inventory Intelligence, Turn Rate, the Ask MarketSync AI assistant, multilingual listings, dealer groups, CRM, calendar sync, e-signature, marketing ROI and reporting.">
@@ -77,6 +136,7 @@
         <p class="text-sm font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-3">Complete How-To Guide</p>
         <h1 class="text-4xl sm:text-5xl font-black tracking-tight leading-[1.1] mb-5 text-slate-900 dark:text-white">How to use <span class="gradient-text">every MarketSync feature</span></h1>
         <p class="text-lg text-slate-600 dark:text-gray-400 max-w-2xl mx-auto">Follow it top to bottom as a rollout timeline — set up, fill your lot, get leads, close deals, keep customers, then measure it all. Each colour matches the matching section in your dashboard menu.</p>
+        <p class="text-xs text-slate-400 dark:text-gray-500 max-w-2xl mx-auto mt-4"><i class="fa-solid fa-image mr-1.5"></i>The screen illustrations below are simplified renders to show layout &amp; where to click — your live screens carry your real dealership data.</p>
     </section>
 
     <div class="max-w-7xl mx-auto px-6 pb-20 grid lg:grid-cols-[260px_minmax(0,1fr)] gap-10">
@@ -138,6 +198,10 @@
           <a href="#security" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">34. Security &amp; activity log</a>
           <a href="#language" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">35. Change your language</a>
           <a href="#features" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">36. Turn features on/off</a>
+
+          <p class="text-[11px] font-black uppercase tracking-widest text-green-600 dark:text-green-500 mt-3 mb-1">Money &amp; books</p>
+          <a href="#commissions" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">37. Commissions &amp; pay plans</a>
+          <a href="#accounting" class="toc-link block py-1 text-slate-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-white transition">38. Accounting</a>
         </nav>
       </aside>
 
@@ -156,6 +220,24 @@
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">The first account at a rooftop becomes the <strong>Owner / Dealer Admin</strong>. From <strong>Profile &amp; Settings</strong> you can invite salespeople and managers by email.</span></li>
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Each teammate signs in at <a href="https://marketsync.link/login.html" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">the login page</a> and lands on their own dashboard. The left menu is your navigation; the top bar stays fixed as you scroll.</span></li>
           </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>MarketSync · Dashboard</b></div>
+            <div class="mock-in mk-row" style="align-items:flex-start;gap:16px">
+              <div class="mk-nav">
+                <span class="on">📊 Dashboard</span><span>👥 CRM</span><span>🚗 Sales</span><span>🔧 Service</span><span>🧠 Inventory Intelligence</span><span>🌐 Website</span><span>⚙️ Automation</span><span>💵 Accounting</span><span>📈 Reports</span>
+              </div>
+              <div style="flex:1;min-width:180px">
+                <div class="mk-h">Good morning 👋</div>
+                <div class="mk-row" style="margin-bottom:10px">
+                  <div class="mk-tile"><div class="n g">12</div><div class="l">Units MTD</div></div>
+                  <div class="mk-tile"><div class="n">37</div><div class="l">New leads</div></div>
+                  <div class="mk-tile"><div class="n">68%</div><div class="l">&lt;5-min reply</div></div>
+                </div>
+                <div class="mk-card"><div class="mk-h">🏆 Leaderboard</div><div class="mk-row" style="justify-content:space-between"><span class="mk-mut">🥇 Dana · 6 units</span><span class="mk-mut">🥈 Sam · 4</span><span class="mk-mut">🥉 Alex · 3</span></div></div>
+              </div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>The left menu is your whole navigation — colour-coded by area, collapsed by default. It's the map for this entire guide.</p>
           <div class="mt-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 px-4 py-3 text-sm text-indigo-800 dark:text-indigo-200"><i class="fa-solid fa-circle-info mr-2"></i>Roles matter: <strong>Owner</strong>, <strong>Dealer Admin</strong> and <strong>Manager</strong> see team-wide tools (leaderboard, appraisals, reports, settings). Salespeople see their own work.</div>
         </section>
 
@@ -279,6 +361,29 @@
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1"><strong>Appointments</strong> is a month calendar; book one from a customer's record and it shows here. <strong>Tasks</strong> is your follow-up queue — automation drops tasks here so nothing slips.</span></li>
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">4</span><span class="flex-1">On the activity timeline, tap <strong>↩ Reply</strong> on an inbound message to answer by email (sends) or log a text/call reply.</span></li>
           </ol>
+          <p class="text-slate-600 dark:text-gray-300 mt-5 mb-2 font-semibold">The pipeline: every customer sits on one of these stages, and you nudge them right.</p>
+          <div class="mock"><div class="mock-in mk-row" style="gap:5px">
+            <div class="mk-stage on">Uncontacted</div><div class="mk-stage">Contacted</div><div class="mk-stage">Appointment</div><div class="mk-stage">Sold</div><div class="mk-stage">F&amp;I</div><div class="mk-stage done">Delivered</div>
+          </div></div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Sold and Delivered are set automatically when you finish the deal on the Sales side (§18) — the CRM stage always stays in sync.</p>
+          <p class="text-slate-600 dark:text-gray-300 mt-4 mb-2 font-semibold">One customer card holds the whole history:</p>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Customer · Jordan Lee</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="justify-content:space-between;margin-bottom:10px">
+                <div class="mk-row"><div class="mk-av">JL</div><div><div class="mk-h" style="margin:0">Jordan Lee</div><span class="mk-mut">jordan@email.com · (555) 200-1180</span></div></div>
+                <div class="mk-row"><span class="mk-pill amber">Appointment</span><span class="mk-pill indigo">Sales</span></div>
+              </div>
+              <div class="mk-row" style="margin-bottom:10px"><span class="mk-btn p">✉ Email</span><span class="mk-btn">📞 Call</span><span class="mk-btn">💬 Text</span><span class="mk-btn">＋ Task</span><span class="mk-btn">📅 Book appt</span><span class="mk-btn o">🖥 Desk a deal</span></div>
+              <div class="mk-card" style="margin-bottom:8px"><div class="mk-h">Facts</div><div class="mk-mut">Trade: 2019 RAV4 · 78,000 km &nbsp;·&nbsp; Wants: 2023 CX-5 &nbsp;·&nbsp; Source: Facebook</div></div>
+              <div class="mk-card"><div class="mk-h">Activity timeline</div>
+                <div class="mk-mut">🤖 Website AI chat — 6 messages &nbsp;·&nbsp; today</div>
+                <div class="mk-mut">📞 Called — left voicemail &nbsp;·&nbsp; 2h ago</div>
+                <div class="mk-mut">✅ Task: follow up on financing &nbsp;·&nbsp; due tomorrow</div>
+              </div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Managers see a purple <strong>Desk a deal</strong> button here; the timeline even keeps full transcripts of any website/Facebook AI chat.</p>
         </section>
 
         <section>
@@ -344,6 +449,26 @@
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Print a clean <strong>estimate</strong> or a full <strong>bill of sale</strong>, add F&amp;I products, fees and commissions, and set delivery details.</span></li>
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">4</span><span class="flex-1">Saved values flow straight into the sold-deals report and its CSV export.</span></li>
           </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Desk a deal · Jordan Lee</b></div>
+            <div class="mock-in mk-row" style="align-items:flex-start;gap:14px">
+              <div class="mk-col" style="flex:1;min-width:180px">
+                <div class="mk-card"><div class="mk-h">Vehicle</div><div class="mk-mut">2023 Mazda CX-5 GT · $38,900</div></div>
+                <div class="mk-card"><div class="mk-h">Trade-in <span class="mk-pill">tax on difference ✓</span></div><div class="mk-mut">2019 RAV4 · allowance $18,500</div></div>
+                <div class="mk-card"><div class="mk-h">Fees · Add-ons · F&amp;I</div><div class="mk-mut">Licensing, dealer fee · warranty, GAP</div></div>
+              </div>
+              <div class="mk-col" style="flex:0 0 180px">
+                <div class="mk-card" style="text-align:center;background:#4f46e5;color:#fff;border-color:#4f46e5"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;opacity:.85">Est. payment</div><div style="font-size:24px;font-weight:800">$412<span style="font-size:12px">/mo</span></div><div style="font-size:10px;opacity:.8">7.99% · 60 mo · OAC</div></div>
+                <div class="mk-row"><span class="mk-btn gray">🖨 Estimate</span><span class="mk-btn gray">📄 Bill of sale</span></div>
+                <span class="mk-btn g" style="text-align:center">✍ Send for e-signature</span>
+              </div>
+            </div>
+            <div style="padding:0 14px 14px">
+              <div class="mk-h" style="margin-bottom:6px">Deal status — one button updates everything</div>
+              <div class="mk-row" style="gap:5px"><div class="mk-stage on">Working</div><div class="mk-stage">Pending credit</div><div class="mk-stage">Sold</div><div class="mk-stage done">Delivered ✓</div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Marking <strong>Sold</strong> moves the customer to your Sold list and updates the car; marking <strong>Delivered</strong> posts the income to Accounting and pays the rep's commission — automatically.</p>
         </section>
 
         <section>
@@ -397,7 +522,17 @@
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Open <strong>Service</strong> in the menu for its settings, an appointments area, and equity mining.</span></li>
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Book service appointments against the same customer records as sales — a contact can be tagged as a <strong>sales</strong> and/or <strong>service</strong> customer.</span></li>
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Customers can book online, and bookings appear on the calendar (and sync to Google/Outlook if connected).</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">4</span><span class="flex-1">In <strong>Service → Settings</strong>, build your <strong>service menu</strong> (oil change, tires, brakes…), hours and desk email. Appointments switch between a <strong>Calendar</strong> and a <strong>List</strong>; tick jobs <strong>Done</strong> as they finish.</span></li>
           </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Service · Appointments</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="justify-content:space-between;margin-bottom:10px"><div class="mk-h" style="margin:0">This week</div><div class="mk-row"><span class="mk-btn t">Calendar</span><span class="mk-btn gray">List</span><span class="mk-btn t">＋ Book service</span></div></div>
+              <div class="mk-card" style="margin-bottom:6px"><div class="mk-row" style="justify-content:space-between"><span>Mon 9:00 · Jordan Lee</span><span class="mk-row"><span class="mk-pill green">Oil change</span><span class="mk-btn g">Done</span></span></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>Tue 1:30 · Priya S.</span><span class="mk-row"><span class="mk-pill">Brakes</span><span class="mk-btn gray">View</span></span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Same customer record as their car purchase — a buyer becomes a service customer for years.</p>
         </section>
 
         <section>
@@ -416,6 +551,16 @@
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1"><strong>Sales-rep tasks</strong> — turn on Next-Day, 30-Day and 90-Day follow-ups. These drop a task on the lead's assigned rep (in CRM → Tasks) instead of messaging the customer. Off by default.</span></li>
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Set global bits (Google review link, referral bonus, service URL, house numbers, business hours) once and every template uses them.</span></li>
           </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Automation · Builder</b></div>
+            <div class="mock-in">
+              <div class="mk-tabs"><span class="on">New Lead Follow-ups</span><span>Delivery Follow-ups</span><span>Holidays</span></div>
+              <div class="mk-card" style="margin-bottom:6px"><div class="mk-row" style="justify-content:space-between"><span>⚡ Instant · Text — &ldquo;Thanks for reaching out, {{first_name}}!&rdquo;</span><span class="mk-pill green">On</span></div></div>
+              <div class="mk-card" style="margin-bottom:6px"><div class="mk-row" style="justify-content:space-between"><span>+1 day · Email — follow-up with the vehicle</span><span class="mk-pill green">On</span></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>+3 days · Rep task — call the lead</span><span class="mk-pill amber">Task</span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Three buckets fire on real events — a new lead, a delivery, a holiday/birthday. Merge tags like <code>{{first_name}}</code> fill in each customer. Flip &ldquo;Engine on&rdquo; in Settings to run it all.</p>
         </section>
 
         <!-- ═══════ PHASE 7 ═══════ -->
@@ -472,7 +617,17 @@
           <ol class="space-y-3 text-slate-700 dark:text-gray-300">
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Managers see a <strong>Dealership insights</strong> block right on the Dashboard: units &amp; gross, appointment show-rate and e-sign completion tiles.</span></li>
             <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">Below that: a Marketing-ROI snapshot and the full CRM/lead insights panel — lead volume &amp; trend, sources, pipeline funnel, conversion and a rep leaderboard.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">The <strong>Executive summary</strong> answers &ldquo;is this paying off?&rdquo; in one screen — pick 7 / 30 / 90 days or 1 year, and export to CSV. It includes a <strong>sales-by-salesperson</strong> table so you coach with facts.</span></li>
           </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Dashboard · Executive summary</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="justify-content:space-between;margin-bottom:10px"><div class="mk-h" style="margin:0">Last 30 days</div><div class="mk-row"><span class="mk-btn gray">7d</span><span class="mk-btn p">30d</span><span class="mk-btn gray">90d</span><span class="mk-btn gray">1y</span><span class="mk-btn gray">⬇ CSV</span></div></div>
+              <div class="mk-row" style="margin-bottom:10px"><div class="mk-tile"><div class="n g">$412k</div><div class="l">Revenue</div></div><div class="mk-tile"><div class="n">37</div><div class="l">New leads</div></div><div class="mk-tile"><div class="n g">68%</div><div class="l">&lt;5-min reply</div></div><div class="mk-tile"><div class="n">14%</div><div class="l">Conversion</div></div></div>
+              <div class="mk-card"><div class="mk-h">Sales by salesperson</div><div class="mk-mut">🥇 Dana · 6 · 82% &lt;5min &nbsp;·&nbsp; 🥈 Sam · 4 &nbsp;·&nbsp; 🥉 Alex · 3</div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Two habits make these numbers honest: answer leads fast, and pick a &ldquo;sold source&rdquo; when you mark a deal delivered.</p>
         </section>
 
         <section>
@@ -533,6 +688,48 @@
           </ol>
         </section>
 
+        <!-- ═══════ PHASE 10 ═══════ -->
+        <div class="guide-phase flex items-center gap-3 border-l-4 border-green-500 pl-4 py-1 pt-4">
+          <div><p class="text-[11px] font-black uppercase tracking-widest text-green-600 dark:text-green-500">Phase 10</p><h2 class="text-xl font-black text-slate-900 dark:text-white">Money &amp; the books</h2></div>
+        </div>
+
+        <section>
+          <h3 id="commissions" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-green-600 dark:text-green-500">37.</span> Commissions &amp; pay plans</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">Pay is calculated from the deal automatically — no spreadsheets, no month-end arguments. Reps see their own; managers see the team.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1">Set a <strong>pay plan</strong> — a % of gross, a flat amount, or the greater of the two — globally or per vehicle. Add F&amp;I pay for the F&amp;I manager, and <strong>split deals</strong> between two reps.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1">When a deal is <strong>delivered</strong> (§18), MarketSync computes every commission line — salesperson, co-sell split, F&amp;I — and posts it to the rep's <strong>My commission</strong> page.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1">Commission is <strong>earned</strong> when the deal funds/pays, and can be <strong>clawed back</strong> if a deal unwinds. Bonuses and clawbacks show right on the rep's profile.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>My commission</b></div>
+            <div class="mock-in">
+              <div class="mk-row" style="margin-bottom:10px"><div class="mk-tile"><div class="n g">$4,820</div><div class="l">Earned MTD</div></div><div class="mk-tile"><div class="n">$1,150</div><div class="l">Pending</div></div><div class="mk-tile"><div class="n">6</div><div class="l">Deals</div></div></div>
+              <div class="mk-card"><div class="mk-row" style="justify-content:space-between"><span>2023 CX-5 · Jordan Lee</span><span class="mk-row"><span class="mk-pill green">Funded</span><b>$780</b></span></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Reps watch their paycheque build in real time; managers get the whole team's numbers under Accounting.</p>
+        </section>
+
+        <section>
+          <h3 id="accounting" class="text-2xl font-black text-slate-900 dark:text-white mb-2"><span class="text-green-600 dark:text-green-500">38.</span> Accounting — it mostly runs itself</h3>
+          <p class="text-slate-600 dark:text-gray-300 mb-5">Delivered deals, F&amp;I income, tax and deposits <strong>post themselves</strong> to the ledger. Your team only types in expenses. Every day the books check themselves and email you if something's off.</p>
+          <ol class="space-y-3 text-slate-700 dark:text-gray-300">
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">1</span><span class="flex-1"><strong>Reconciliation</strong> — a green &ldquo;Day balances&rdquo; or red &ldquo;Books don't reconcile&rdquo; banner, plus income, deposits, expenses and variance for the day.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">2</span><span class="flex-1"><strong>Bank account</strong> — link your bank (read-only) via Plaid so the daily check runs against real money. <strong>Expenses</strong> — the one tab your team fills in.</span></li>
+            <li class="flex gap-3"><span class="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center">3</span><span class="flex-1"><strong>Tax</strong> shows collected vs paid vs owing (auto-filled from deals). <strong>Reports</strong> gives the full ledger + CSV export. <strong>Settings</strong> sets alert emails, tolerance, and the auto-post switches.</span></li>
+          </ol>
+          <div class="mock">
+            <div class="mock-bar"><i></i><i></i><i></i><b>Accounting</b></div>
+            <div class="mock-in">
+              <div class="mk-tabs"><span class="on">Reconciliation</span><span>Insights</span><span>Bank</span><span>Expenses</span><span>Tax</span><span>Reports</span><span>Settings</span></div>
+              <div class="mk-card" style="border-color:#059669;background:#ecfdf5;margin-bottom:10px"><div class="mk-h" style="color:#047857">✓ Day balances</div><span class="mk-mut">variance $0.00</span></div>
+              <div class="mk-row"><div class="mk-tile"><div class="n">3</div><div class="l">Delivered</div></div><div class="mk-tile"><div class="n g">$9,400</div><div class="l">Income</div></div><div class="mk-tile"><div class="n">$1,200</div><div class="l">Deposits</div></div><div class="mk-tile"><div class="n r">$640</div><div class="l">Expenses</div></div></div>
+            </div>
+          </div>
+          <p class="mock-cap"><i class="fa-solid fa-image"></i>Seven tabs run the back office — but the day-to-day is just glancing at the green banner and adding the odd bill.</p>
+        </section>
+
         <!-- CTA -->
         <div class="rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 px-8 py-12 text-center shadow-xl shadow-indigo-500/20">
             <h2 class="text-3xl font-black tracking-tight text-white mb-3">Ready to put it to work?</h2>
@@ -553,6 +750,7 @@
             <a href="https://marketsync.link/faq.html" class="hover:text-slate-900 dark:hover:text-white transition">FAQ</a>
             <a href="https://marketsync.link/security.html" class="hover:text-slate-900 dark:hover:text-white transition">Security</a>
             <a href="https://marketsync.link/support.html" class="hover:text-slate-900 dark:hover:text-white transition">Support</a>
+            <a href="https://marketsync.link/affiliates.html" class="hover:text-slate-900 dark:hover:text-white transition">Become an affiliate</a>
         </div>
     </footer>
     <script>
