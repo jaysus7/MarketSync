@@ -376,16 +376,9 @@ function applyStaffRoleNav(role) {
   return true;
 }
 
-// ── First-run setup wizards ──────────────────────────────────────────────────
-// Each workspace tab can pop a short wizard the first time it's opened, so the
-// page's essentials (sales tax, service booking, CRM connections…) are filled in
-// before the user leans on it. Fully skippable — but nudged. "Done" or "Skip" is
-// remembered per dealership+user in localStorage; a tab whose config already
-// exists is treated as done and never nags.
-const __wizKey = (page) => `ms_wiz_${(profileContext?.dealership?.id || 'x')}_${(user?.id || 'u')}_${page}`;
-function wizSeen(page) { try { const v = localStorage.getItem(__wizKey(page)); return v === 'done' || v === 'skip'; } catch { return true; } }
-function wizMark(page, val) { try { localStorage.setItem(__wizKey(page), val); } catch {} }
-
+// ── Setup step forms ─────────────────────────────────────────────────────────
+// The form definitions used by the Guided Setup Center below — one tiny form per
+// config-backed step. Each has a `load` (prefill), `fields`, and `save`.
 const SETUP_WIZARDS = {
   accounting: {
     title: 'Set up Accounting', icon: '🧾',
@@ -421,20 +414,6 @@ const SETUP_WIZARDS = {
     ],
     save: async (v) => { await apiSendJson('/service/config', 'PUT', { enabled: !!v.enabled, hours: v.hours, desk_email: v.desk_email, duration_min: v.duration_min }); if (typeof loadServiceSettings === 'function') loadServiceSettings(); },
   },
-  crm: {
-    title: 'Connect your CRM', icon: '💬',
-    intro: 'Hook up texting, calendar and email so every lead lands in one place. Connect what you need now — you can always add the rest later under Settings → Integrations.',
-    roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER'],
-    isConfigured: async () => false,   // a guided intro; offered once, never forced
-    linksHtml: () => `<div class="space-y-2">
-      ${[['💬', 'Texting (Twilio)', 'Two-way SMS with customers, right from a lead.'], ['📅', 'Calendar sync', 'Appointments flow to your Google / Outlook calendar.'], ['🔌', 'All integrations', 'Email, deposits, DMS and more.']].map(x => `
-      <button onclick="wizGoIntegrations()" class="w-full flex items-center gap-3 text-left bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 transition">
-        <span class="text-xl">${x[0]}</span>
-        <span class="min-w-0"><span class="block text-sm font-bold text-slate-900 dark:text-white">${x[1]}</span><span class="block text-[11px] text-slate-500 dark:text-slate-400">${x[2]}</span></span>
-        <svg class="w-4 h-4 ml-auto text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-      </button>`).join('')}
-    </div>`,
-  },
   website: {
     title: 'Set up your website', icon: '🌐',
     intro: 'Claim your web address, add a tagline, pick your brand colour, and go live. You can fine-tune everything later in the Website builder.',
@@ -467,78 +446,177 @@ const SETUP_WIZARDS = {
       if (typeof loadInventoryFeeds === 'function') { loadInventoryFeeds(); loadInventoryCatalog?.(); }
     },
   },
-  automation: {
-    title: 'Turn on follow-ups', icon: '⚡',
-    intro: 'MarketSync can text and email your leads on autopilot — instant new-lead replies, holiday touches, and post-delivery check-ins. Open the builder to switch on your first sequence.',
-    roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER'],
-    isConfigured: async () => false,   // a guided intro; offered once, never forced
-    linksHtml: () => `<div class="space-y-2">
-      ${[['💬', 'New-lead follow-ups', 'Auto-reply the moment a lead lands, then nudge until they answer.'], ['🎉', 'Holiday & delivery touches', 'Stay in front of customers all year, hands-free.']].map(x => `
-      <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5">
-        <span class="text-xl">${x[0]}</span>
-        <span class="min-w-0"><span class="block text-sm font-bold text-slate-900 dark:text-white">${x[1]}</span><span class="block text-[11px] text-slate-500 dark:text-slate-400">${x[2]}</span></span>
-      </div>`).join('')}
-      <button onclick="wizGoPage('automation', 'automation-builder')" class="w-full flex items-center justify-center gap-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-lg transition">Open the automation builder<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-    </div>`,
-  },
 };
 
-// Called from switchPage when a wizard-backed tab is opened.
-async function maybeRunSetupWizard(page) {
-  const w = SETUP_WIZARDS[page];
-  if (!w || wizSeen(page)) return;
-  if (Array.isArray(w.roles) && !w.roles.includes(profileContext?.role)) return;
-  try { if (w.isConfigured && await w.isConfigured()) { wizMark(page, 'done'); return; } } catch {}
-  openSetupWizard(page);
+// ── Guided Setup Center ──────────────────────────────────────────────────────
+// One place that walks a dealer through every essential, step by step, until
+// nothing's left. A progress bar lives in the sidebar and disappears the moment
+// setup is complete. Each step (a) knows whether it's DONE from live config and
+// (b) takes the user EXACTLY to where they finish it. Form steps re-open the
+// Center on save so the user flows straight to the next step.
+const MGR_SET = ['DEALER_ADMIN', 'OWNER', 'MANAGER'];
+const __setupAckKey = (id) => `ms_setup_ack_${(profileContext?.dealership?.id || 'x')}_${id}`;
+function setupAck(id) { try { return localStorage.getItem(__setupAckKey(id)) === '1'; } catch { return false; } }
+function setSetupAck(id) { try { localStorage.setItem(__setupAckKey(id), '1'); } catch {} }
+
+// One live snapshot feeds every step's done-check. Fetched once; refresh after a step.
+let __setupSnap = null;
+async function loadSetupSnapshot(force) {
+  if (__setupSnap && !force) return __setupSnap;
+  const jget = async (u) => { try { return await apiGetJson(u); } catch { return null; } };
+  const feedsP = fetch(`${API}/inventory-feeds`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []).catch(() => []);
+  const [feeds, site, acct, svc, integ, cal] = await Promise.all([
+    feedsP, jget('/dealership/site'), jget('/accounting/settings'), jget('/service/config'), jget('/integrations'), jget('/calendar/status'),
+  ]);
+  __setupSnap = {
+    feeds: Array.isArray(feeds) ? feeds : [],
+    site: site || {}, acct: acct?.settings || {}, svc: svc?.settings || {},
+    twilio: ((integ && integ.providers) || []).find(p => p.provider === 'twilio') || null,
+    cal: cal || { providers: [] },
+  };
+  return __setupSnap;
 }
 
-async function openSetupWizard(page) {
-  const w = SETUP_WIZARDS[page];
-  let cur = {};
-  try { if (w.load) cur = (await w.load()) || {}; } catch {}
+// The steps. Order = the order we walk people through.
+const SETUP_STEPS = [
+  { id: 'inventory', icon: '🚗', label: 'Add your inventory', desc: 'Pull every vehicle in from your website or a feed — automatically.', roles: MGR_SET, done: s => s.feeds.length > 0, run: () => runSetupForm('inventory') },
+  { id: 'website', icon: '🌐', label: 'Set up your website', desc: 'Claim your web address, add your look, and go live.', roles: MGR_SET, done: s => !!(s.site.site_published || s.site.site_slug), run: () => runSetupForm('website') },
+  { id: 'texting', icon: '💬', label: 'Connect texting', desc: 'Text customers right from a lead (Twilio).', roles: MGR_SET, done: s => !!(s.twilio && isIntegrationConnected(s.twilio)), run: () => setupGoIntegration('twilio') },
+  { id: 'calendar', icon: '📅', label: 'Connect your calendar', desc: 'Appointments sync to Google or Outlook — both ways.', roles: MGR_SET, done: s => (s.cal.providers || []).some(p => p.connected), run: () => setupGoIntegration('calendar') },
+  { id: 'accounting', icon: '🧾', label: 'Set up sales tax', desc: 'So every deal posts to the books correctly.', roles: [...MGR_SET, 'ACCOUNTING'], done: s => !!(s.acct.tax_number || (s.acct.accounting_emails || []).length), run: () => runSetupForm('accounting') },
+  { id: 'service', icon: '🔧', label: 'Turn on service booking', desc: 'Let customers book service from your website.', roles: [...MGR_SET, 'SERVICE'], done: s => !!s.svc.enabled, run: () => runSetupForm('service') },
+  { id: 'automation', icon: '⚡', label: 'Turn on follow-ups', desc: 'Auto-text and email your leads on autopilot.', roles: MGR_SET, done: () => false, run: () => { setSetupAck('automation'); setupCloseAll(); switchPage('automation-builder'); showToast('Flip on a sequence to finish this step', 'info'); } },
+];
+function setupStepsFor(role) { return SETUP_STEPS.filter(s => s.roles.includes(role)); }
+function setupStepDone(step, snap) { return setupAck(step.id) || !!(step.done && step.done(snap)); }
+function setupCloseAll() { document.querySelectorAll('.fixed').forEach(el => { if (el.dataset.setup) el.remove(); }); }
+
+// The compact progress bar at the top of the sidebar. Vanishes when all done.
+async function renderSetupBar() {
+  const host = document.getElementById('setup-bar-host'); if (!host) return;
+  const steps = setupStepsFor(profileContext?.role);
+  if (!steps.length) { host.innerHTML = ''; return; }
+  let snap; try { snap = await loadSetupSnapshot(); } catch { return; }
+  const done = steps.filter(s => setupStepDone(s, snap)).length, total = steps.length;
+  if (done >= total) { host.innerHTML = ''; return; }
+  const pct = Math.round(done / total * 100);
+  host.innerHTML = `<button onclick="openSetupCenter()" title="Finish setting up" class="w-full text-left rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2 mb-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition">
+    <div class="flex items-center justify-between gap-2"><span class="text-[12px] font-black text-indigo-700 dark:text-indigo-300">🚀 Finish setup</span><span class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 shrink-0">${done}/${total}</span></div>
+    <div class="h-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 overflow-hidden mt-1.5"><div class="h-full bg-indigo-600 rounded-full transition-all duration-500" style="width:${pct}%"></div></div>
+  </button>`;
+}
+
+// The full checklist. Click any step to go do it; the next one is highlighted.
+async function openSetupCenter() {
+  setupCloseAll();
+  const steps = setupStepsFor(profileContext?.role);
+  if (!steps.length) return;
+  // Force-refresh so a connection just made on the Integrations page shows as done.
+  let snap; try { snap = await loadSetupSnapshot(true); } catch { snap = { feeds: [], site: {}, acct: {}, svc: {}, cal: { providers: [] } }; }
+  renderSetupBar();
+  const states = steps.map(s => ({ s, done: setupStepDone(s, snap) }));
+  const done = states.filter(x => x.done).length, total = states.length, pct = Math.round(done / total * 100);
+  const nextIdx = states.findIndex(x => !x.done);
+  const allDone = done === total;
+  const rows = states.map((x, i) => {
+    const isNext = i === nextIdx;
+    const ring = x.done ? 'border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20'
+      : isNext ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/30 ring-2 ring-indigo-200 dark:ring-indigo-800'
+        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50';
+    const badge = x.done ? 'bg-emerald-500 text-white' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700';
+    const tag = x.done ? '<span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">✓ Done</span>'
+      : isNext ? '<span class="text-[11px] font-black text-indigo-600 dark:text-indigo-400 shrink-0">Start →</span>'
+        : '<span class="text-[11px] font-bold text-slate-400 shrink-0">To&nbsp;do</span>';
+    return `<button onclick="setupRun('${x.s.id}')" class="w-full flex items-center gap-3 text-left rounded-xl border px-3 py-3 transition ${ring}">
+      <span class="w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0 ${badge}">${x.done ? '✓' : x.s.icon}</span>
+      <span class="min-w-0 flex-1"><span class="block text-sm font-bold text-slate-900 dark:text-white">${esc(x.s.label)}</span><span class="block text-[11px] text-slate-500 dark:text-slate-400">${esc(x.s.desc)}</span></span>
+      ${tag}
+    </button>`;
+  }).join('');
+  crmOverlay(`<div class="p-5 space-y-4" data-setup-body>
+    <div class="flex items-start justify-between gap-3">
+      <div><div class="text-lg font-black text-slate-900 dark:text-white">${allDone ? "You're all set! 🎉" : "Let's set up MarketSync"}</div>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">${allDone ? 'Every essential is configured. You can close this.' : "A few quick steps and you're ready to sell. Do them in any order — we keep your place, and you can stop any time."}</p></div>
+      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div><div class="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1"><span>${done} of ${total} done</span><span>${pct}%</span></div>
+      <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full ${allDone ? 'bg-emerald-500' : 'bg-indigo-600'} rounded-full transition-all duration-500" style="width:${pct}%"></div></div></div>
+    <div class="space-y-2">${rows}</div>
+    ${allDone
+      ? `<button onclick="this.closest('.fixed').remove()" class="w-full text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg transition">Done</button>`
+      : `<button onclick="setupRun('${states[nextIdx].s.id}')" class="w-full flex items-center justify-center gap-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-lg transition">Continue setup — ${esc(states[nextIdx].s.label)}<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>`}
+  </div>`, 'max-w-md').dataset.setup = '1';
+}
+function setupRun(id) { const s = SETUP_STEPS.find(x => x.id === id); if (s) s.run(); }
+
+// Refresh everything after a step and flow straight to the next one.
+async function afterSetupStep() {
+  try { await loadSetupSnapshot(true); } catch {}
+  renderSetupBar();
+  openSetupCenter();
+}
+
+// Form-based steps (inventory/website/accounting/service): a tiny form, then
+// back to the Center to continue.
+async function runSetupForm(id) {
+  setupCloseAll();
+  const w = SETUP_WIZARDS[id]; if (!w) return;
+  let cur = {}; try { if (w.load) cur = (await w.load()) || {}; } catch {}
   const ic = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
   const fieldHtml = (f) => {
-    const v = cur[f.key], id = `wiz-${f.key}`;
+    const v = cur[f.key], fid = `wiz-${f.key}`;
     let input;
-    if (f.type === 'checkbox') input = `<label class="flex items-center gap-2 text-sm ${ic}"><input id="${id}" type="checkbox" class="accent-indigo-600" ${v ? 'checked' : ''}>${esc(f.checkboxLabel || 'Yes')}</label>`;
-    else if (f.type === 'select') input = `<select id="${id}" class="${ic}">${f.options.map(o => `<option value="${o[0]}" ${String(v) === o[0] ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select>`;
-    else input = `<input id="${id}" type="${f.type || 'text'}" value="${esc(Array.isArray(v) ? v.join(', ') : (v ?? ''))}" placeholder="${esc(f.placeholder || '')}" class="${ic}">`;
-    return `<div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${esc(f.label)}</label>${input}${f.hint ? `<p class="text-[11px] text-slate-400 mt-1">${esc(f.hint)}</p>` : ''}</div>`;
+    if (f.type === 'checkbox') input = `<label class="flex items-center gap-2 text-sm ${ic}"><input id="${fid}" type="checkbox" class="accent-indigo-600" ${v ? 'checked' : ''}>${esc(f.checkboxLabel || 'Yes')}</label>`;
+    else if (f.type === 'select') input = `<select id="${fid}" class="${ic}">${f.options.map(o => `<option value="${o[0]}" ${String(v) === o[0] ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select>`;
+    else input = `<input id="${fid}" type="${f.type || 'text'}" value="${esc(Array.isArray(v) ? v.join(', ') : (v ?? ''))}" placeholder="${esc(f.placeholder || '')}" class="${ic}">`;
+    return `<div><label class="block text-[12px] font-semibold text-slate-600 dark:text-slate-300 mb-1">${esc(f.label)}</label>${input}${f.hint ? `<p class="text-[11px] text-slate-400 mt-1">${esc(f.hint)}</p>` : ''}</div>`;
   };
-  const body = w.linksHtml ? w.linksHtml() : `<div class="space-y-3">${w.fields.map(fieldHtml).join('')}</div>`;
-  const primary = w.fields
-    ? `<button onclick="wizSave('${page}', this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save &amp; finish</button>`
-    : `<button onclick="wizFinish('${page}', this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Done</button>`;
-  crmOverlay(`<div class="p-5 space-y-4">
+  crmOverlay(`<div class="p-5 space-y-4" data-setup-body>
     <div class="flex items-start gap-3">
+      <button onclick="openSetupCenter()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0 mt-0.5" title="Back to all steps"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg></button>
       <div class="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950/50 flex items-center justify-center text-xl shrink-0">${w.icon || '🛠️'}</div>
       <div class="min-w-0"><div class="text-lg font-black text-slate-900 dark:text-white">${esc(w.title)}</div>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">${esc(w.intro)}</p></div>
     </div>
-    ${body}
-    <div class="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 mt-1 -mx-5 px-5">
-      <button onclick="wizSkip('${page}', this)" class="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 py-2 mt-3">Skip for now</button>
-      <span class="text-[11px] text-amber-600 dark:text-amber-400 mt-3">Recommended — better not to skip.</span>
+    <div class="space-y-3">${w.fields.map(fieldHtml).join('')}</div>
+    <div class="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+      <button onclick="openSetupCenter()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 px-2 py-2">← All steps</button>
       <div class="flex-1"></div>
-      <div class="mt-3">${primary}</div>
+      <button onclick="setupSaveForm('${id}', this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save &amp; continue</button>
     </div>
-  </div>`, 'max-w-lg');
+  </div>`, 'max-w-lg').dataset.setup = '1';
 }
-async function wizSave(page, btn) {
-  const w = SETUP_WIZARDS[page]; const v = {};
+async function setupSaveForm(id, btn) {
+  const w = SETUP_WIZARDS[id]; const v = {};
   (w.fields || []).forEach(f => {
     const el = document.getElementById(`wiz-${f.key}`); if (!el) return;
     v[f.key] = f.type === 'checkbox' ? el.checked : (f.type === 'number' ? (parseInt(el.value) || undefined) : (el.value || '').trim());
   });
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
-  try { await w.save(v); wizMark(page, 'done'); showToast('Setup saved ✓', 'success'); btn.closest('.fixed')?.remove(); }
+  try { await w.save(v); showToast('Saved ✓', 'success'); await afterSetupStep(); }
   catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
 }
-function wizSkip(page, btn) { wizMark(page, 'skip'); btn.closest('.fixed')?.remove(); }
-function wizFinish(page, btn) { wizMark(page, 'done'); btn.closest('.fixed')?.remove(); }
-function wizGoIntegrations() { document.querySelector('.fixed')?.remove(); wizMark('crm', 'done'); switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('integrations'); }, 250); }
-function wizGoPage(wizKey, page) { document.querySelector('.fixed')?.remove(); wizMark(wizKey, 'done'); switchPage(page); }
-Object.assign(window, { wizSave, wizSkip, wizFinish, wizGoIntegrations, wizGoPage });
+// Integration steps: land the user EXACTLY on the right card, pulsed.
+function setupGoIntegration(which) {
+  setupCloseAll();
+  __focusIntegration = which;   // 'twilio' → Twilio card · 'calendar' → calendar sync card
+  switchPage('profile');
+  setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('integrations'); }, 200);
+}
+let __focusIntegration = null;
+// After the Integrations tab renders, scroll to + flash the targeted card.
+function focusIntegrationCard() {
+  if (!__focusIntegration) return;
+  const sel = __focusIntegration === 'calendar' ? '#calsync-card' : `[data-provider="${__focusIntegration}"]`;
+  __focusIntegration = null;
+  setTimeout(() => {
+    const el = document.querySelector(sel); if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('setup-flash');
+    setTimeout(() => el.classList.remove('setup-flash'), 2600);
+  }, 400);
+}
+Object.assign(window, { openSetupCenter, setupRun, setupSaveForm, renderSetupBar });
 
 // ── Facebook-only tier ───────────────────────────────────────────────────────
 // A dealer who pays for Facebook posting alone sees only the Facebook posting hub
@@ -980,6 +1058,20 @@ async function initializeDashboardEcosystem() {
     applyStaffRoleNav(role);
     document.getElementById('insights-skeleton')?.classList.add('hidden');
 
+    // Guided setup: show the sidebar progress bar, and on the very first login for
+    // this dealership walk them straight into the Setup Center if anything's unset.
+    try {
+      renderSetupBar();
+      const introKey = `ms_setup_intro_${profileContext?.dealership?.id || 'x'}`;
+      if (!localStorage.getItem(introKey)) {
+        setTimeout(async () => {
+          const steps = setupStepsFor(role); if (!steps.length) return;
+          let snap; try { snap = await loadSetupSnapshot(); } catch { return; }
+          if (steps.some(s => !setupStepDone(s, snap))) { localStorage.setItem(introKey, '1'); openSetupCenter(); }
+        }, 900);
+      }
+    } catch (e) {}
+
     // Team leaderboard is for actual teams (admin + reps in a real dealership).
     // Solo reps / no-team users have nothing to rank against on a team, so we hide
     // the team panel entirely — they only get the Global Leaderboard below.
@@ -1268,15 +1360,6 @@ function switchPage(pageId) {
   if (pageId === 'equity') loadEquityPage();
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
 
-  // First-run setup wizard for the tab just opened (accounting/service/crm). Fires
-  // once per dealership+user, after the page has had a beat to render.
-  const wk = contentKey === 'accounting' ? 'accounting'
-    : (pageId === 'service-appointments' || pageId === 'service-settings') ? 'service'
-    : pageId === 'crm' ? 'crm'
-    : (pageId === 'website' || pageId === 'website-settings') ? 'website'
-    : pageId === 'inventory' ? 'inventory'
-    : (pageId === 'automation' || pageId === 'automation-builder') ? 'automation' : null;
-  if (wk) setTimeout(() => { try { maybeRunSetupWizard(wk); } catch (e) {} }, 200);
 }
 
 // ── Trade Appraisal ──────────────────────────────────────────────────────────
@@ -3684,6 +3767,17 @@ function setupMobileMoreMenu() {
     list.className = 'space-y-1.5';   // stacked full-width groups (was a 2-col grid)
     list.innerHTML = '';
     const mk = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+    // Guided-setup progress at the very top of the mobile menu (uses the cached
+    // snapshot; hidden once complete) so the "status bar on the nav" shows on phones too.
+    (() => {
+      const steps = setupStepsFor(profileContext?.role);
+      if (!steps.length || !__setupSnap) return;
+      const dn = steps.filter(s => setupStepDone(s, __setupSnap)).length, tot = steps.length;
+      if (dn >= tot) return;
+      const b = mk(`<button class="w-full text-left rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2.5"><div class="flex items-center justify-between"><span class="text-sm font-black text-indigo-700 dark:text-indigo-300">🚀 Finish setup</span><span class="text-xs font-bold text-indigo-600 dark:text-indigo-400">${dn}/${tot}</span></div><div class="h-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 overflow-hidden mt-1.5"><div class="h-full bg-indigo-600 rounded-full" style="width:${Math.round(dn / tot * 100)}%"></div></div></button>`);
+      b.addEventListener('click', () => { close(); openSetupCenter(); });
+      list.appendChild(b);
+    })();
     // A single tappable destination row (fires the desktop nav item's own click).
     const leafRow = (src, sub) => {
       const label = src.getAttribute('title') || src.querySelector('span:last-child')?.textContent || (src.textContent || '').trim();
@@ -6931,7 +7025,8 @@ function renderIntegrations(data) {
       <div class="space-y-3">${byCat[cat].slice().sort((a, b) => rank(a) - rank(b)).map(p => {
         const card = p.provider === 'webhook' ? webhookCard(p, events) : p.provider === 'twilio' ? twilioCard(p) : p.provider === 'google_business' ? googleBusinessCard(p) : p.provider === 'square_deposits' ? squareCard(p) : (p.deposits && p.live) ? depositsCard(p) : (p.oauth && p.live) ? oauthCard(p) : (p.manual && Array.isArray(p.fields)) ? fniCredsCard(p) : providerCard(p);
         // Grey out anything not set up yet; full colour on hover so it's still usable.
-        return isIntegrationConnected(p) ? card : `<div class="opacity-60 hover:opacity-100 transition-opacity">${card}</div>`;
+        const inner = isIntegrationConnected(p) ? card : `<div class="opacity-60 hover:opacity-100 transition-opacity">${card}</div>`;
+        return `<div data-provider="${esc(p.provider)}">${inner}</div>`;   // anchor for guided-setup focus
       }).join('')}</div>
     </div>`).join('');
   if (!data.pii_ready) {
@@ -6944,6 +7039,8 @@ function renderIntegrations(data) {
   // card the dealer hands to each platform. Loaded async so the hub renders instantly.
   host.insertAdjacentHTML('beforeend', '<div id="synd-card" class="mb-6"></div>');
   loadSyndicationCard();
+  // Guided setup sent us here to finish a specific integration — scroll to + flash it.
+  if (typeof focusIntegrationCard === 'function') focusIntegrationCard();
 }
 let __syndCfg = null;
 async function loadSyndicationCard() {

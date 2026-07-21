@@ -201,6 +201,9 @@
     .ai-accordion-body { display: none; }
     .ai-accordion-open .ai-accordion-body { display: block; }
     .ai-accordion-open .ai-chevron { transform: rotate(180deg); }
+    /* Guided setup: pulse the integration card we sent the user to finish. */
+    @keyframes setupFlash { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } 30% { box-shadow: 0 0 0 4px rgba(99,102,241,.45); } }
+    .setup-flash { animation: setupFlash 1.3s ease-in-out 2; border-radius: 0.5rem; }
   </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
@@ -770,6 +773,9 @@
             <button type="button" data-mode="marketsync" onclick="setDashMode('marketsync')">🟣 MarketSync</button>
           </div>
           <button id="ms-demo-reset" type="button" onclick="demoReset()" title="Reset the demo dealership to its starting data">↻ Reset demo data</button>
+
+          <!-- Guided-setup progress bar (populated by renderSetupBar; hidden when complete) -->
+          <div id="setup-bar-host"></div>
 
           <!-- Dashboard -->
           <button type="button" data-page="insights" title="Dashboard" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -3190,7 +3196,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260721l"></script>
+  <script src="dashboard.js?v=20260721m"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
