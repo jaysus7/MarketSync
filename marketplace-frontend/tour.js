@@ -12,68 +12,106 @@
     const btn = document.querySelector(`#dashboard-nav [data-page="${page}"]`);
     if (btn) btn.click();
   };
+  // Expand a collapsed left-nav group so its items are targetable.
+  const openGroup = (id) => {
+    document.getElementById('grp-' + id)?.classList.remove('hidden');
+    document.getElementById('chev-' + id)?.classList.remove('-rotate-90');
+  };
 
   const STEPS = [
     {
       target: null,
-      title: '👋 Welcome to MarketSync',
-      body: `This 60-second tour shows you how to turn your dealer inventory into Facebook Marketplace listings — and keep them in sync automatically. You can skip anytime.`
+      title: '👋 Welcome — the full tour',
+      body: `A quick guided walk through everything MarketSync does — from posting cars to closing deals, service, automation and your books. It'll move you between pages as it goes. Skip anytime, and replay it later from the <b>Tour</b> button.`
     },
     {
       target: '#dashboard-nav',
       title: 'Your control center',
-      body: `Everything lives here — <b>Dashboard</b>, <b>Facebook</b> posting, <b>CRM</b>, <b>Reports</b> and more. Sections are colour-coded and start collapsed: click a name to open its page, or the arrow to expand its items. Your <b>Settings</b> are behind the gear icon, top-right.`
+      body: `Everything lives in this left menu — colour-coded by area and collapsed by default. Click a section name to open its page, or the arrow to expand its items. Your <b>Settings</b> are behind the gear icon, top-right.`
     },
     {
       target: '#feeds-panel',
       before: () => goPage('inventory'),
-      title: '1. Connect your dealer website',
-      body: `Your dealership inventory feed lives here. MarketSync auto-syncs every vehicle — year, make, model, price, mileage and photos — so you never re-type a listing. Hit <b>Sync Now</b> to pull the latest.`
-    },
-    {
-      target: '#catalog-search',
-      before: () => goPage('inventory'),
-      title: '2. Find any synced car',
-      body: `Every vehicle we pull in shows up in your catalog below. Use this search box to jump to a specific car by make, model, VIN or stock #.`
+      title: 'Build your inventory',
+      body: `Your inventory <b>auto-syncs</b> from your website feed or a CSV — year, make, model, price, mileage and photos — so you never re-type a car. Hit <b>Sync Now</b> to pull the latest; sold cars drop off automatically.`
     },
     {
       target: '#install-ext-btn',
       before: () => goPage('inventory'),
-      title: '3. Post with the Chrome extension',
-      body: `Install the <b>MarketSync</b> Chrome extension and sign in once. Open it on Facebook, pick a car, and click <b>Post</b> — it fills out the entire Marketplace listing for you. The extension also has a <b>search bar</b> beside the New / Used / Demo filters.`
+      title: 'Post to Facebook in seconds',
+      body: `Install the <b>MarketSync</b> Chrome extension and sign in once. On Facebook, pick a car and click <b>Post</b> — it fills the whole Marketplace listing. Mark a car <b>Sold</b> and it clears the Facebook listing for you too.`
     },
     {
-      target: '#catalog-status',
-      before: () => goPage('inventory'),
-      title: '4. Sold? It clears Facebook for you ✨',
-      body: `When you mark a car <b>Sold</b>, the extension automatically marks that listing <b>Sold on Facebook</b>. <b>Delete</b> a vehicle and it's <b>removed from Facebook Marketplace</b> too — no more stale listings. (Runs while Chrome is open and you're signed into Facebook.)`
-    },
-    {
-      target: '#logout-btn',
-      title: '5. One login, everywhere',
-      body: `Sign in once and the dashboard and the extension stay logged in together. Sign out here and you're signed out of both.`
-    },
-    {
-      target: '#dashboard-nav [data-page="leaderboard"]',
-      before: () => { document.getElementById('grp-fb')?.classList.remove('hidden'); document.getElementById('chev-fb')?.classList.remove('-rotate-90'); goPage('leaderboard'); },
-      title: '6. Track your wins',
-      body: `Every listing and sale earns points. The <b>Global Leaderboard</b> ranks you against every dealer and rep on MarketSync (everyone else stays anonymous) — so even solo reps can see how they stack up.`
-    },
-    {
-      target: '#dashboard-nav [data-page="crm"]',
-      before: () => goPage('crm'),
-      title: '7. Your CRM & deals',
-      body: `The <b>CRM</b> keeps every customer, lead, appointment and task in one place — with a month <b>calendar</b> and auto follow-up <b>tasks</b>. Managers also get <b>Reports</b> (red) and can <b>Desk a deal</b> right from a sold customer.`
-    },
-    {
-      target: '#header-settings',
-      title: '8. Settings & features',
-      body: `The gear icon opens <b>Settings</b> — your team, branding, billing and add-ons, all in tabs. Under <b>Dealer Management → Features</b> you can turn any paid feature on or off for the whole store.`
+      target: '#nav-inv-intel',
+      before: () => { openGroup('ii'); },
+      title: 'Inventory Intelligence — the price brain',
+      body: `Know the live market price of every car. <b>Scan</b> your whole lot for mispriced units (red flags), see <b>hot/cold</b> tags and <b>days-to-sell</b>, decode any VIN, and pull factory window stickers &amp; Carfax. <span style="opacity:.8">(Paid add-on / free trial.)</span>`
     },
     {
       target: null,
-      title: "🎉 You're all set",
-      body: `Connect a feed, install the extension, and start posting. You can replay this tour anytime from the <b>Tour</b> button. Happy selling!`
+      title: 'AI does the busywork',
+      body: `<b>AI Boost</b> writes your listings, scores your photos (0–100) and picks the best cover, drafts replies to shopper leads, and can chat with customers on your website all night — every ✨ button across the app. You set its name and tone in Settings.`
+    },
+    {
+      target: '#dashboard-nav [data-page="crm"]',
+      before: () => { openGroup('crm'); goPage('crm'); },
+      title: 'CRM — every customer, one card',
+      body: `Leads, appointments, tasks and full history live on one record per person. Each customer moves along a pipeline — <b>Uncontacted → Contacted → Appointment → Sold → Delivered</b> — and auto follow-up tasks keep anyone from slipping.`
+    },
+    {
+      target: '#idscan-btn',
+      title: 'Add a customer by scanning their licence',
+      body: `Tap <b>Add customer</b> up top to scan a driver's licence — it fills in the name, address and details for you. You can also run a full ID + selfie verification from the customer's record.`
+    },
+    {
+      target: '#header-desk-btn',
+      title: 'Desk a deal',
+      body: `Build the whole deal — vehicle, trade (tax on the difference), fees, add-ons, F&amp;I, tax and monthly payment. Print an <b>estimate</b> or <b>bill of sale</b>, or <b>send it for e-signature</b>. Then one button — <b>Delivered</b> — updates the customer, the car, the books and the rep's commission.`
+    },
+    {
+      target: '#dashboard-nav [data-page="service-appointments"]',
+      before: () => { openGroup('service'); goPage('service-appointments'); },
+      title: 'Service keeps them for years',
+      body: `Book oil changes, tires and repairs against the <b>same customer record</b> as their purchase — calendar or list. <b>Equity Mining</b> here flags past buyers ready to trade up: the easiest next sale.`
+    },
+    {
+      target: '#dashboard-nav [data-page="automation-builder"]',
+      before: () => { openGroup('auto'); goPage('automation-builder'); },
+      title: 'Automation that never sleeps',
+      body: `Set up follow-up <b>touches</b> once and they fire by themselves — new-lead chases, delivery thank-you + review &amp; referral asks, and holiday/birthday notes. Flip <b>Engine on</b> and it runs for years.`
+    },
+    {
+      target: '#dashboard-nav [data-page="website"]',
+      before: () => { openGroup('web'); goPage('website'); },
+      title: 'Your dealer website',
+      body: `A drag-and-drop builder made of <b>blocks</b> — hero, featured inventory, specials, reviews, payment calculator and more. Your synced stock and an AI chat appear automatically. Set your colours and hit <b>Publish</b>.`
+    },
+    {
+      target: '#nav-reports',
+      before: () => goPage('reports'),
+      title: 'Reports & the Executive summary',
+      body: `Managers get a deep report for every area plus a one-screen <b>Executive summary</b> — revenue, lead speed, conversion and <b>sales by salesperson</b> — for any date range, exportable to CSV.`
+    },
+    {
+      target: '#grp-accounting-wrap',
+      before: () => { openGroup('accounting'); },
+      title: 'Accounting — mostly automatic',
+      body: `Delivered deals, F&amp;I, tax and deposits <b>post themselves</b> to the ledger; your team only types in expenses. Each day the books check themselves (and email you if something's off), with tax and CSV reports built in.`
+    },
+    {
+      target: '#nav-commissions',
+      title: 'Commissions, calculated for you',
+      body: `Pay plans (% of gross, flat, or greater-of), F&amp;I pay and split deals are computed automatically the moment a deal is delivered — reps watch their pay build on <b>My commission</b>; managers see the whole team.`
+    },
+    {
+      target: '#header-settings',
+      title: 'Settings & features',
+      body: `The gear icon opens <b>Settings</b> — team, branding, billing &amp; add-ons, AI voice, integrations and security, all in tabs. Under <b>Dealer Management → Features</b> you can turn any paid area on or off store-wide.`
+    },
+    {
+      target: null,
+      title: "🎉 That's the whole platform",
+      body: `Replay this tour anytime from the <b>Tour</b> button, and open the <a href="/guide.html" target="_blank" rel="noopener">full step-by-step guide</a> for screen-by-screen detail on any feature. Happy selling!`
     }
   ];
 
@@ -97,6 +135,7 @@
       .ms-tour-card h3{margin:0 0 10px;font-size:21px;font-weight:800;color:#fff;line-height:1.25;}
       .ms-tour-card p{margin:0 0 18px;font-size:16px;line-height:1.6;color:#cbd5e1;}
       .ms-tour-card b{color:#fff;}
+      .ms-tour-card a{color:#a5b4fc;text-decoration:underline;font-weight:700;}
       .ms-tour-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;}
       .ms-tour-dots{display:flex;gap:6px;margin-bottom:14px;}
       .ms-tour-dot{width:7px;height:7px;border-radius:99px;background:#334155;}
