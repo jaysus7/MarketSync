@@ -399,7 +399,13 @@ const SETUP_WIZARDS = {
       { key: 'tax_frequency', label: 'How often do you remit?', type: 'select', options: [['monthly', 'Monthly'], ['quarterly', 'Quarterly'], ['annual', 'Annual']] },
       { key: 'accounting_emails', label: 'Accounting email(s)', placeholder: 'books@yourdealer.com', hint: 'Where reconciliation alerts go. Separate several with commas.' },
     ],
-    save: async (v) => { await apiSendJson('/accounting/settings', 'PUT', { tax_label: v.tax_label, tax_number: v.tax_number, tax_frequency: v.tax_frequency, accounting_emails: v.accounting_emails }); if (typeof loadAccountingPage === 'function') loadAccountingPage(); },
+    // Merge onto the current settings — the PUT rebuilds the whole object, so we
+    // must send back the fields the wizard doesn't touch (tolerance, gm_emails…).
+    save: async (v) => {
+      let cur = {}; try { cur = (await apiGetJson('/accounting/settings')).settings || {}; } catch {}
+      await apiSendJson('/accounting/settings', 'PUT', { ...cur, tax_label: v.tax_label, tax_number: v.tax_number, tax_frequency: v.tax_frequency, accounting_emails: v.accounting_emails });
+      if (typeof loadAccountingPage === 'function') loadAccountingPage();
+    },
   },
   service: {
     title: 'Set up Service', icon: '🔧',
@@ -427,6 +433,52 @@ const SETUP_WIZARDS = {
         <span class="min-w-0"><span class="block text-sm font-bold text-slate-900 dark:text-white">${x[1]}</span><span class="block text-[11px] text-slate-500 dark:text-slate-400">${x[2]}</span></span>
         <svg class="w-4 h-4 ml-auto text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
       </button>`).join('')}
+    </div>`,
+  },
+  website: {
+    title: 'Set up your website', icon: '🌐',
+    intro: 'Claim your web address, add a tagline, pick your brand colour, and go live. You can fine-tune everything later in the Website builder.',
+    roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER'],
+    load: async () => (await apiGetJson('/dealership/site')) || {},
+    isConfigured: async () => { try { const s = await apiGetJson('/dealership/site'); return !!(s && (s.site_published || s.site_slug)); } catch { return false; } },
+    fields: [
+      { key: 'site_slug', label: 'Your web address', placeholder: 'your-dealership', hint: 'Becomes marketsync.site/your-dealership. Letters, numbers and dashes.' },
+      { key: 'tagline', label: 'Tagline', placeholder: 'Quality used vehicles, no pressure.' },
+      { key: 'primary_color', label: 'Brand colour', type: 'color' },
+      { key: 'site_published', label: 'Go live', type: 'checkbox', checkboxLabel: 'Publish my site now' },
+    ],
+    // PUT merges (only sends the keys we set), so a partial save is safe.
+    save: async (v) => { await apiSendJson('/dealership/site', 'PUT', { site_slug: v.site_slug, tagline: v.tagline, primary_color: v.primary_color, site_published: !!v.site_published }); if (typeof loadWebsiteSettings === 'function') { __wsTab = 'settings'; loadWebsitePage(); } },
+  },
+  inventory: {
+    title: 'Connect your inventory', icon: '🚗',
+    intro: "Paste a link to your inventory — your website's used-cars page or an existing feed — and we'll pull every vehicle in automatically. This can take 10–30 seconds while we detect the platform.",
+    roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER'],
+    isConfigured: async () => { try { const r = await fetch(`${API}/inventory-feeds`, { headers: { Authorization: `Bearer ${token}` } }); const feeds = r.ok ? await r.json() : []; return Array.isArray(feeds) && feeds.length > 0; } catch { return false; } },
+    fields: [
+      { key: 'feed_url', label: 'Inventory / feed URL', placeholder: 'https://yourdealership.com/inventory', hint: 'Your public inventory page works — no special feed needed. Leave blank to add it later.' },
+    ],
+    save: async (v) => {
+      const url = (v.feed_url || '').trim();
+      if (!url) return;   // nothing entered — just finish; they can add one on the Inventory page
+      const r = await fetch(`${API}/inventory-feeds`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ feed_url: url, feed_type: 'auto' }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Could not connect that link — you can try again on the Inventory page.');
+      if (typeof loadInventoryFeeds === 'function') { loadInventoryFeeds(); loadInventoryCatalog?.(); }
+    },
+  },
+  automation: {
+    title: 'Turn on follow-ups', icon: '⚡',
+    intro: 'MarketSync can text and email your leads on autopilot — instant new-lead replies, holiday touches, and post-delivery check-ins. Open the builder to switch on your first sequence.',
+    roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER'],
+    isConfigured: async () => false,   // a guided intro; offered once, never forced
+    linksHtml: () => `<div class="space-y-2">
+      ${[['💬', 'New-lead follow-ups', 'Auto-reply the moment a lead lands, then nudge until they answer.'], ['🎉', 'Holiday & delivery touches', 'Stay in front of customers all year, hands-free.']].map(x => `
+      <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5">
+        <span class="text-xl">${x[0]}</span>
+        <span class="min-w-0"><span class="block text-sm font-bold text-slate-900 dark:text-white">${x[1]}</span><span class="block text-[11px] text-slate-500 dark:text-slate-400">${x[2]}</span></span>
+      </div>`).join('')}
+      <button onclick="wizGoPage('automation', 'automation-builder')" class="w-full flex items-center justify-center gap-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-lg transition">Open the automation builder<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
     </div>`,
   },
 };
@@ -485,7 +537,8 @@ async function wizSave(page, btn) {
 function wizSkip(page, btn) { wizMark(page, 'skip'); btn.closest('.fixed')?.remove(); }
 function wizFinish(page, btn) { wizMark(page, 'done'); btn.closest('.fixed')?.remove(); }
 function wizGoIntegrations() { document.querySelector('.fixed')?.remove(); wizMark('crm', 'done'); switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('integrations'); }, 250); }
-Object.assign(window, { wizSave, wizSkip, wizFinish, wizGoIntegrations });
+function wizGoPage(wizKey, page) { document.querySelector('.fixed')?.remove(); wizMark(wizKey, 'done'); switchPage(page); }
+Object.assign(window, { wizSave, wizSkip, wizFinish, wizGoIntegrations, wizGoPage });
 
 // ── Facebook-only tier ───────────────────────────────────────────────────────
 // A dealer who pays for Facebook posting alone sees only the Facebook posting hub
@@ -1219,7 +1272,10 @@ function switchPage(pageId) {
   // once per dealership+user, after the page has had a beat to render.
   const wk = contentKey === 'accounting' ? 'accounting'
     : (pageId === 'service-appointments' || pageId === 'service-settings') ? 'service'
-    : pageId === 'crm' ? 'crm' : null;
+    : pageId === 'crm' ? 'crm'
+    : (pageId === 'website' || pageId === 'website-settings') ? 'website'
+    : pageId === 'inventory' ? 'inventory'
+    : (pageId === 'automation' || pageId === 'automation-builder') ? 'automation' : null;
   if (wk) setTimeout(() => { try { maybeRunSetupWizard(wk); } catch (e) {} }, 200);
 }
 
