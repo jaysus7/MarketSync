@@ -11,7 +11,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { enqueueForTrigger } from './automation.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
+const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'SERVICE'].includes(req.profile?.role)
 const OPEN_DEAL = new Set(['appointment', 'sold', 'fni', 'turnover'])
 const num = (x) => { const n = Number(x); return Number.isFinite(n) ? n : null }
 const US_STATES = new Set(['al', 'ak', 'az', 'ar', 'ca', 'co', 'ct', 'de', 'fl', 'ga', 'hi', 'id', 'il', 'in', 'ia', 'ks', 'ky', 'la', 'me', 'md', 'ma', 'mi', 'mn', 'ms', 'mo', 'mt', 'ne', 'nv', 'nh', 'nj', 'nm', 'ny', 'nc', 'nd', 'oh', 'ok', 'or', 'pa', 'ri', 'sc', 'sd', 'tn', 'tx', 'ut', 'vt', 'va', 'wa', 'wv', 'wi', 'wy'])

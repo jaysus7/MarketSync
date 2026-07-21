@@ -9,7 +9,7 @@ import { ensureGetReadyCard } from './recon.js'
 import { emitWebhook } from '../webhooks.js'
 import { syncDealToAccounting } from '../providers/accounting.js'
 
-const MGR = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
+const MGR = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI']
 const isMgr = (req) => MGR.includes(req.profile?.role)
 const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 

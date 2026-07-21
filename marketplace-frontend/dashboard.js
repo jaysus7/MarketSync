@@ -328,6 +328,54 @@ let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'market
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
 const MS_ALLOWED_PAGES = new Set(['insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin']);
 
+// ── Specialized dealership sub-roles ─────────────────────────────────────────
+// Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
+// of these narrow roles. Each sees ONLY its own workspace (plus CRM where noted):
+//   FNI        → the complete Sales + CRM workspace (deals, appraisals, F&I, cleanup)
+//   SERVICE    → the Service tabs + CRM
+//   ACCOUNTING → the Accounting tabs + CRM
+//   CLEANUP    → the Cleanup (recon) board only
+// `groups` = the nav-group data-group ids they may see; `pages` = every data-page
+// value reachable (used to hide stray items and to gate switchPage); `home` = the
+// page they land on. Profile stays reachable for everyone (password, photo, etc.).
+const STAFF_ROLE_NAV = {
+  FNI:        { groups: ['crm', 'sales'],       pages: ['insights', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'fni', 'recon', 'desk', 'profile'], home: 'crm' },
+  SERVICE:    { groups: ['crm', 'service'],      pages: ['crm', 'tasks', 'appointments', 'service-appointments', 'equity', 'service-settings', 'profile'], home: 'service-appointments' },
+  ACCOUNTING: { groups: ['crm', 'accounting'],   pages: ['crm', 'tasks', 'appointments', 'acct-insights', 'acct-reconciliation', 'acct-bank', 'commissions', 'acct-expenses', 'acct-tax', 'acct-reports', 'acct-settings', 'profile'], home: 'acct-insights' },
+  CLEANUP:    { groups: ['sales'],               pages: ['recon', 'profile'], home: 'recon' },
+};
+const STAFF_ROLE_LABELS = { FNI: 'F&I', SERVICE: 'Service', ACCOUNTING: 'Accounting', CLEANUP: 'Cleanup' };
+// Roles allowed to desk/appraise/work a deal from a CRM card (managers + F&I).
+const SALES_ROLES = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'];
+let __staffAllowedPages = null;   // Set of reachable data-page values, or null for full-access roles
+let __staffHome = null;           // landing page for a staff role
+
+// Restrict the sidebar to a specialized role's workspace. Runs once, late in init
+// (after the generic role hides), so its reveal of an otherwise admin-only group
+// (Service / Accounting) is the final word. Returns true if a staff role applied.
+function applyStaffRoleNav(role) {
+  const cfg = STAFF_ROLE_NAV[role];
+  if (!cfg) return false;
+  const allowGroups = new Set(cfg.groups);
+  const allowPages = new Set(cfg.pages);
+  __staffAllowedPages = allowPages;
+  __staffHome = cfg.home;
+  document.documentElement.setAttribute('data-staff-role', role.toLowerCase());
+  // Show only the allowed nav groups (this un-hides Service/Accounting, which are
+  // data-admin-nav and were hidden for this non-admin role a moment ago).
+  document.querySelectorAll('#dashboard-nav .nav-group').forEach(g => {
+    g.classList.toggle('hidden', !allowGroups.has(g.dataset.group));
+  });
+  // Any nav item (either bar) is visible only if its page is in the allow-set.
+  document.querySelectorAll('#dashboard-nav .nav-item[data-page]').forEach(it => {
+    it.classList.toggle('hidden', !allowPages.has(it.dataset.page));
+  });
+  // Open the groups so their items are visible without a click.
+  cfg.groups.forEach(gid => document.getElementById('grp-' + gid)?.classList.remove('hidden'));
+  document.getElementById('grp-accounting-wrap')?.classList.toggle('hidden', !allowGroups.has('accounting'));
+  return true;
+}
+
 // ── Facebook-only tier ───────────────────────────────────────────────────────
 // A dealer who pays for Facebook posting alone sees only the Facebook posting hub
 // (inventory in facebook mode) + the leaderboard. Driven by cfg.fb_only from
@@ -639,7 +687,7 @@ async function initializeDashboardEcosystem() {
     // Route Workspace Rendering Logic based on Account Role
     const role = profileContext.role || 'SALES_REP'; // Standard safe fallback role assignment
     const isPersonalForPill = profileContext.dealership?.is_personal === true;
-    const rolePillLabel = (role === 'SALES_REP' && isPersonalForPill) ? 'SOLO_REP' : role;
+    const rolePillLabel = (role === 'SALES_REP' && isPersonalForPill) ? 'SOLO_REP' : (STAFF_ROLE_LABELS[role] || role);
     document.getElementById('ui-role-pill').textContent = rolePillLabel;
 
     // Hide dealer-only profile fields for sales reps
@@ -744,6 +792,18 @@ async function initializeDashboardEcosystem() {
       __settingsTab = 'account';
     }
 
+    // Specialized sub-roles (F&I / Service / Accounting / Cleanup) are not admins,
+    // so the dealer-management Settings tabs don't apply to them either — leave only
+    // the personal Account tab (name, password, photo). The sidebar itself is locked
+    // to their workspace later by applyStaffRoleNav().
+    if (STAFF_ROLE_NAV[role]) {
+      ['team', 'branding', 'aiboost', 'group', 'dealermgmt'].forEach(t =>
+        document.querySelector(`#settings-tabs [data-stab="${t}"]`)?.classList.add('hidden'));
+      ['settings-team', 'prof-branding-section', 'ai-boost-section', 'inv-intel-section', 'groups-settings-section', 'guardrail-settings-section']
+        .forEach(id => document.getElementById(id)?.classList.add('hidden'));
+      __settingsTab = 'account';
+    }
+
     // All role-based hide rules above have run. Reveal the page now (the head CSS
     // kept role-gated items hidden until this point, so nothing dealer-only ever
     // flashed for a solo rep). This happens synchronously after the hides, so the
@@ -751,6 +811,9 @@ async function initializeDashboardEcosystem() {
     document.body.classList.add('ms-role-ready');
     personalizeSalesNav();
     syncNavGroupVisibility();
+    // Final word for specialized sub-roles: lock the sidebar to their workspace.
+    // Runs after the generic hides so it can reveal an otherwise admin-only group.
+    applyStaffRoleNav(role);
     document.getElementById('insights-skeleton')?.classList.add('hidden');
 
     // Team leaderboard is for actual teams (admin + reps in a real dealership).
@@ -959,6 +1022,10 @@ function switchPage(pageId) {
   }
   // Facebook-only tier: only the Facebook hub, leaderboard and settings are reachable.
   if (__fbOnly && !FB_ONLY_PAGES.has(pageId)) { __inventoryMode = 'facebook'; pageId = 'inventory'; }
+
+  // Specialized staff role (F&I, Service, Accounting, Cleanup): anything outside
+  // their workspace bounces to their home page. Guards deep links & stale nav too.
+  if (__staffAllowedPages && !__staffAllowedPages.has(pageId)) { pageId = __staffHome; }
 
   // Accounting has one container but each nav leaf (acct-insights, acct-tax, …) is
   // its own "page" — map those to the shared accounting container.
@@ -2324,10 +2391,10 @@ function crmDetailHtml(d) {
       <button onclick="crmTaskForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg">Add task</button>
       <button onclick="crmOpenForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg">Edit</button>
       <button onclick="crmApptForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>Book appointment</button>
-      ${['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) ? `<button onclick='openServiceBooking(${JSON.stringify({ contact_id: c.id, name: c.full_name || '', email: c.email || '', phone: phone || '' }).replace(/'/g, "&#39;")})' class="flex items-center gap-1.5 text-xs font-bold bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 hover:bg-teal-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63"/></svg>Book service</button>` : ''}
-      ${['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) ? `<button onclick="openDeskForContact('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold ${d.deal ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-purple-600 hover:bg-purple-500'} text-white px-3 py-1.5 rounded-lg transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>${d.deal ? 'View deal' + (d.deal.deal_number ? ' #' + d.deal.deal_number : '') : 'Desk a deal'}</button>` : ''}
-      ${(['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) && __invIntelActive) ? `<button onclick='apprFromContact(${JSON.stringify({ id: c.id, full_name: c.full_name || '', first_name: c.first_name || '', last_name: c.last_name || '', email: c.email || '', phone: c.phone || '', phone_mobile: c.phone_mobile || '', phone_home: c.phone_home || '', address: c.address || '', postal_code: c.postal_code || '' }).replace(/'/g, "&#39;")})' class="flex items-center gap-1.5 text-xs font-bold bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Appraise a vehicle</button>` : ''}
-      ${c.status === 'delivered' && ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) ? `<button onclick="crmLeaseForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M4 10v10h16V10M9 21v-6h6v6"/></svg>Deal / equity</button>` : ''}
+      ${[...SALES_ROLES, 'SERVICE'].includes(profileContext?.role) ? `<button onclick='openServiceBooking(${JSON.stringify({ contact_id: c.id, name: c.full_name || '', email: c.email || '', phone: phone || '' }).replace(/'/g, "&#39;")})' class="flex items-center gap-1.5 text-xs font-bold bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 hover:bg-teal-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63"/></svg>Book service</button>` : ''}
+      ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="openDeskForContact('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold ${d.deal ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-purple-600 hover:bg-purple-500'} text-white px-3 py-1.5 rounded-lg transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>${d.deal ? 'View deal' + (d.deal.deal_number ? ' #' + d.deal.deal_number : '') : 'Desk a deal'}</button>` : ''}
+      ${(SALES_ROLES.includes(profileContext?.role) && __invIntelActive) ? `<button onclick='apprFromContact(${JSON.stringify({ id: c.id, full_name: c.full_name || '', first_name: c.first_name || '', last_name: c.last_name || '', email: c.email || '', phone: c.phone || '', phone_mobile: c.phone_mobile || '', phone_home: c.phone_home || '', address: c.address || '', postal_code: c.postal_code || '' }).replace(/'/g, "&#39;")})' class="flex items-center gap-1.5 text-xs font-bold bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Appraise a vehicle</button>` : ''}
+      ${c.status === 'delivered' && SALES_ROLES.includes(profileContext?.role) ? `<button onclick="crmLeaseForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M4 10v10h16V10M9 21v-6h6v6"/></svg>Deal / equity</button>` : ''}
     </div>
     ${c.notes ? `<div class="text-xs bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-950/40 rounded-lg p-3 text-slate-700 dark:text-slate-300">${esc(c.notes)}</div>` : ''}
     ${crmDetailFacts(c, d)}
@@ -8848,7 +8915,7 @@ function openRepEdit(id) {
     </div>
     <label class="flex items-center gap-2 text-sm"><input id="re-active" type="checkbox" class="accent-indigo-600" ${m.active !== false ? 'checked' : ''}>Active (uncheck to pause lead assignment &amp; rep sends)</label>
     <div class="border-t border-slate-200 dark:border-slate-700 pt-3 flex flex-wrap items-center gap-2">
-      ${(!isSelf && !isAdmin && viewerAdmin) ? `<button onclick="repEditRole('${m.id}', '${isManager ? 'SALES_REP' : 'MANAGER'}', this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">${isManager ? 'Make Rep' : 'Make Manager'}</button>` : ''}
+      ${(!isSelf && !isAdmin && viewerAdmin) ? `<div class="flex items-center gap-1.5"><label class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Role</label><select id="re-role" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-2 py-2 rounded-lg">${[['SALES_REP', 'Sales rep'], ['MANAGER', 'Manager'], ['FNI', 'F&I'], ['SERVICE', 'Service'], ['ACCOUNTING', 'Accounting'], ['CLEANUP', 'Cleanup']].map(o => `<option value="${o[0]}" ${m.role === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select><button onclick="repEditRole('${m.id}', document.getElementById('re-role').value, this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">Set</button></div>` : ''}
       ${(!isSelf && viewerAdmin) ? `<button onclick="repEditPassword('${m.id}', this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">Reset password</button>` : ''}
       ${(!isSelf && !isAdmin) ? `<button onclick="repEditRemove('${m.id}','${esc(m.full_name || 'this rep')}')" class="text-xs font-bold text-rose-600 hover:text-rose-500 px-2 py-2">Remove</button>` : ''}
       <div class="flex-1"></div>

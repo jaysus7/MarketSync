@@ -236,8 +236,13 @@ export function registerRoutes(app) {
       return res.status(403).json({ error: 'Only a dealer admin can change roles' })
     }
     const { role } = req.body || {}
-    if (!['MANAGER', 'SALES_REP'].includes(role)) {
-      return res.status(400).json({ error: "role must be 'MANAGER' or 'SALES_REP'" })
+    // MANAGER = full dealer access. SALES_REP = standard rep. The specialized
+    // sub-roles (FNI / SERVICE / ACCOUNTING / CLEANUP) each see only their own
+    // workspace; none carries admin power, so they map to the 'sales_rep'
+    // account_role and are gated per-domain on the API side.
+    const ASSIGNABLE = ['MANAGER', 'SALES_REP', 'FNI', 'SERVICE', 'ACCOUNTING', 'CLEANUP']
+    if (!ASSIGNABLE.includes(role)) {
+      return res.status(400).json({ error: `role must be one of ${ASSIGNABLE.join(', ')}` })
     }
     if (req.params.id === req.user.id) return res.status(400).json({ error: 'Cannot change your own role' })
 

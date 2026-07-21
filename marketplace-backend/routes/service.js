@@ -15,8 +15,8 @@ import { createNotification } from '../notifications.js'
 import { rateLimit } from '../security.js'
 import { syncAppointmentOut } from './calendar.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
-const isDealerLevel = (p) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(p?.role)
+const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'SERVICE'].includes(req.profile?.role)
+const isDealerLevel = (p) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'SERVICE'].includes(p?.role)
 const DEFAULT_TYPES = ['Oil change', 'Tire change / rotation', 'Brakes', 'Diagnostic', 'Scheduled maintenance', 'Recall', 'Detailing', 'Other']
 
 function serviceSettings(dealer) {

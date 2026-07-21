@@ -10,7 +10,9 @@ import multer from 'multer'
 const attachUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 60 * 1024 * 1024, files: 10 } })
 const attachKind = (mime) => /^image\//.test(mime) ? 'image' : /^video\//.test(mime) ? 'video' : 'file'
 
-const DEALER_LEVEL = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
+// Dealer-level CRM (sees the whole customer book, not just their own). Managers,
+// plus the specialized F&I / Service / Accounting roles whose jobs span every deal.
+const DEALER_LEVEL = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI', 'SERVICE', 'ACCOUNTING']
 const isDealerLevel = (req) => DEALER_LEVEL.includes(req.profile?.role)
 const digits = (s) => String(s || '').replace(/\D/g, '')
 

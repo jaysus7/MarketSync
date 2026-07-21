@@ -19,7 +19,7 @@ import { requireAuth } from '../middleware.js'
 import { sendEmail } from '../securityAlerts.js'
 import { plaidConfigured, plaidStatus, bankTotalsForDay, syncTransactions } from '../providers/plaid.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
+const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
 const money = (x) => '$' + (Number(x) || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })
