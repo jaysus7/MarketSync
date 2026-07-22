@@ -10,6 +10,7 @@ import multer from 'multer'
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { createNotification } from '../notifications.js'
+import { RECON_STAGES, KIND_TO_STAGE, ensureReconCard } from './recon.js'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 const KINDS = ['Detail', 'Fuel', 'Plates', 'Safety', 'Wash', 'Photos', 'Parts', 'Transport', 'Call', 'Deliver', 'Other']
@@ -21,6 +22,37 @@ const stamp = (actor, action, detail) => ({ at: new Date().toISOString(), actor:
 // Anyone in a dealership can use the board — it's shared ops. Managers see/assign
 // everything; a rep or detailer sees the board too (they need their own tasks).
 const inDealer = (req) => !!req.dealershipId
+
+// Match a task's VIN/stock to an inventory unit (so it can join the Cleanup board).
+async function resolveInventory(dealershipId, { vin, stock_number }) {
+  if (!vin && !stock_number) return null
+  try {
+    let q = supabaseAdmin.from('inventory').select('id').eq('dealership_id', dealershipId).is('archived_at', null)
+    if (vin && stock_number) q = q.or(`vin.eq.${vin},stocknumber.eq.${stock_number}`)
+    else if (vin) q = q.eq('vin', vin)
+    else q = q.eq('stocknumber', stock_number)
+    const { data } = await q.limit(1).maybeSingle()
+    return data?.id || null
+  } catch { return null }
+}
+
+// When a get-ready task is completed, advance the car's Cleanup stage to match
+// (forward only) — e.g. finishing "Detail" moves the unit to the Detail stage.
+async function syncTaskToRecon(dealershipId, task, actorId) {
+  const target = task?.inventory_id && KIND_TO_STAGE[task.kind]
+  if (!target) return
+  try {
+    await ensureReconCard(dealershipId, task.inventory_id)
+    const { data: card } = await supabaseAdmin.from('recon').select('stage').eq('dealership_id', dealershipId).eq('inventory_id', task.inventory_id).maybeSingle()
+    const curIdx = RECON_STAGES.indexOf(card?.stage || 'arrived')
+    const tgtIdx = RECON_STAGES.indexOf(target)
+    if (tgtIdx > curIdx) {
+      const now = new Date().toISOString()
+      await supabaseAdmin.from('recon').update({ stage: target, stage_since: now, updated_at: now, done_at: target === 'frontline' ? now : null })
+        .eq('dealership_id', dealershipId).eq('inventory_id', task.inventory_id)
+    }
+  } catch (e) { console.warn('[dealer-tasks] syncTaskToRecon failed:', e.message) }
+}
 
 // The standard get-ready checklist auto-created when a deal is sold/desked.
 const DEAL_TASK_TEMPLATE = [
@@ -47,7 +79,7 @@ export async function ensureDealTasks(dealershipId, { dealId, inventoryId = null
     const rows = DEAL_TASK_TEMPLATE.map(t => ({
       dealership_id: dealershipId, created_by: createdBy, deal_id: dealId, auto: true,
       title: t.title, kind: t.kind, priority: t.priority, status: 'todo',
-      due_date: dueDate || null, vin, stock_number: stock, contact_id: contactId, contact_name,
+      due_date: dueDate || null, vin, stock_number: stock, inventory_id: inventoryId || null, contact_id: contactId, contact_name,
       events: [{ at: now, actor: createdBy, action: 'created', detail: 'auto (desked deal)' }],
     }))
     await supabaseAdmin.from('dealer_tasks').insert(rows)
@@ -130,9 +162,15 @@ export function registerDealerTasks(app) {
     if (!guard(req, res)) return
     const f = fieldsFrom(req.body || {})
     if (!f.title) return res.status(400).json({ error: 'Title required' })
+    // Every task must be tied to a vehicle (VIN and/or stock #) and a customer.
+    if (!f.vin && !f.stock_number) return res.status(400).json({ error: 'Add a VIN or stock number so the task is tied to a vehicle.' })
+    if (!f.contact_id && !f.contact_name) return res.status(400).json({ error: 'Add the customer this task is for.' })
+    // Link to an inventory unit when the VIN/stock matches, and put it on the Cleanup board.
+    f.inventory_id = await resolveInventory(req.dealershipId, f)
     const row = { dealership_id: req.dealershipId, created_by: req.user?.id || null, ...f, events: [stamp(req.user?.id, 'created', null)] }
     const { data, error } = await supabaseAdmin.from('dealer_tasks').insert(row).select().single()
     if (error) return res.status(500).json({ error: error.message })
+    if (data.inventory_id) { await ensureReconCard(req.dealershipId, data.inventory_id); if (data.status === 'done') await syncTaskToRecon(req.dealershipId, data, req.user?.id) }
     if (data.assignee_id && data.assignee_id !== req.user?.id) {
       await createNotification({ dealershipId: req.dealershipId, type: 'task', title: `New task: ${data.title}`, body: [data.kind, data.stock_number || data.vin, data.due_date ? 'due ' + data.due_date : ''].filter(Boolean).join(' · '), linkPage: 'taskboard', targetUserId: data.assignee_id })
     }
@@ -144,15 +182,22 @@ export function registerDealerTasks(app) {
     const { data: cur } = await supabaseAdmin.from('dealer_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!cur) return res.status(404).json({ error: 'Not found' })
     const f = fieldsFrom(req.body || {})
+    // Re-link to inventory if the VIN/stock changed.
+    if (f.vin !== undefined || f.stock_number !== undefined) {
+      f.inventory_id = await resolveInventory(req.dealershipId, { vin: f.vin ?? cur.vin, stock_number: f.stock_number ?? cur.stock_number })
+    }
     const events = (Array.isArray(cur.events) ? cur.events.slice(-49) : [])
     const patch = { ...f, updated_at: new Date().toISOString() }
+    const nowDone = f.status === 'done' && cur.status !== 'done'
     // Completing the task stamps who/when.
-    if (f.status === 'done' && cur.status !== 'done') { patch.completed_at = new Date().toISOString(); patch.completed_by = req.user?.id || null; events.push(stamp(req.user?.id, 'completed', null)) }
+    if (nowDone) { patch.completed_at = new Date().toISOString(); patch.completed_by = req.user?.id || null; events.push(stamp(req.user?.id, 'completed', null)) }
     else if (f.status && f.status !== cur.status) events.push(stamp(req.user?.id, 'status', f.status))
     else events.push(stamp(req.user?.id, 'edited', null))
     patch.events = events
     const { data, error } = await supabaseAdmin.from('dealer_tasks').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().single()
     if (error) return res.status(500).json({ error: error.message })
+    // Two-way Cleanup sync: completing a get-ready task advances the car's stage.
+    if (nowDone) await syncTaskToRecon(req.dealershipId, data, req.user?.id)
     // Notify a newly-assigned person.
     if (f.assignee_id && f.assignee_id !== cur.assignee_id && f.assignee_id !== req.user?.id) {
       await createNotification({ dealershipId: req.dealershipId, type: 'task', title: `Task assigned: ${data.title}`, body: [data.kind, data.stock_number || data.vin].filter(Boolean).join(' · '), linkPage: 'taskboard', targetUserId: f.assignee_id })

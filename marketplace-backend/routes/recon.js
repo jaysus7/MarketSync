@@ -6,6 +6,23 @@ import { requireAuth } from '../middleware.js'
 
 // Ordered recon stages. 'frontline' is terminal (unit is ready to post/sell).
 export const RECON_STAGES = ['arrived', 'mechanical', 'parts', 'detail', 'photos', 'frontline']
+// Task Board kind → the recon stage that finishing that task represents. Lets the
+// two boards drive each other: completing a task advances the car's cleanup stage,
+// and advancing the cleanup stage completes the matching tasks.
+export const KIND_TO_STAGE = { Safety: 'mechanical', Parts: 'parts', Detail: 'detail', Photos: 'photos', Deliver: 'frontline' }
+
+// Ensure a plain recon/cleanup card exists for a vehicle (starts at 'arrived').
+// Used so a Task Board task tied to an inventory unit shows up on the Cleanup board.
+export async function ensureReconCard(dealershipId, inventoryId) {
+  if (!dealershipId || !inventoryId) return null
+  const now = new Date().toISOString()
+  try {
+    await supabaseAdmin.from('recon').upsert({
+      dealership_id: dealershipId, inventory_id: inventoryId, stage: 'arrived',
+      started_at: now, stage_since: now, updated_at: now,
+    }, { onConflict: 'inventory_id', ignoreDuplicates: true })
+  } catch (e) { console.warn('[recon] ensureReconCard failed:', e.message) }
+}
 const STAGE_LABELS = {
   arrived: 'Arrived', mechanical: 'Mechanical / Safety', parts: 'Parts',
   detail: 'Detail', photos: 'Photos', frontline: 'Frontline-Ready',
@@ -119,6 +136,18 @@ export function registerRecon(app) {
         }
       })
 
+    // Attach each card's open Task Board tasks so the Cleanup schedule shows them.
+    const cardInvIds = cards.map(c => c.inventory_id)
+    if (cardInvIds.length) {
+      const { data: tks } = await supabaseAdmin.from('dealer_tasks')
+        .select('id, inventory_id, title, kind, status, assignee_name, due_date, priority')
+        .eq('dealership_id', req.dealershipId).in('inventory_id', cardInvIds).neq('status', 'done')
+        .order('due_date', { ascending: true, nullsFirst: false }).limit(500)
+      const grouped = {}
+      for (const t of (tks || [])) { (grouped[t.inventory_id] = grouped[t.inventory_id] || []).push(t) }
+      for (const c of cards) c.tasks = grouped[c.inventory_id] || []
+    }
+
     // Available units not yet in recon (so the manager can pull them onto the board).
     const { data: avail } = await supabaseAdmin
       .from('inventory')
@@ -172,6 +201,17 @@ export function registerRecon(app) {
       .from('recon').update(patch)
       .eq('inventory_id', inventory_id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    // Sync the Task Board: advancing a car's cleanup stage completes its get-ready
+    // tasks up to and including that stage (Detail stage → Safety/Parts/Detail done).
+    try {
+      const stageIdx = RECON_STAGES.indexOf(stage)
+      const doneKinds = Object.keys(KIND_TO_STAGE).filter(k => RECON_STAGES.indexOf(KIND_TO_STAGE[k]) <= stageIdx)
+      if (doneKinds.length) {
+        await supabaseAdmin.from('dealer_tasks')
+          .update({ status: 'done', completed_at: now, completed_by: req.user?.id || null, updated_at: now })
+          .eq('dealership_id', req.dealershipId).eq('inventory_id', inventory_id).in('kind', doneKinds).neq('status', 'done')
+      }
+    } catch (e) { console.warn('[recon] task sync failed:', e.message) }
     res.json({ ok: true, stage })
   })
 
@@ -231,6 +271,14 @@ export function registerRecon(app) {
       .from('recon').update(patch)
       .eq('inventory_id', req.params.inventory_id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    // Car fully cleaned up → close out its remaining get-ready tasks on the Task Board.
+    if (allDone) {
+      try {
+        await supabaseAdmin.from('dealer_tasks')
+          .update({ status: 'done', completed_at: now, completed_by: req.user?.id || null, updated_at: now })
+          .eq('dealership_id', req.dealershipId).eq('inventory_id', req.params.inventory_id).neq('status', 'done')
+      } catch (e) { console.warn('[recon] checklist task sync failed:', e.message) }
+    }
     res.json({ ok: true, checklist, all_done: allDone })
   })
 

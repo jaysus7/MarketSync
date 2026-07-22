@@ -8562,6 +8562,7 @@ async function loadTaskBoard() {
               ${e.assignee_name ? `<span class="inline-flex items-center gap-1">${svgIcon('user', 'w-3 h-3')}${esc(e.assignee_name)}</span>` : ''}
               ${e.due_date ? `<span class="inline-flex items-center gap-1 ${overdue ? 'text-rose-500 font-bold' : ''}">${svgIcon('calendar', 'w-3 h-3')}${e.due_date}${overdue ? ' (overdue)' : ''}</span>` : ''}
               ${(Array.isArray(e.photos) && e.photos.length) ? `<span class="inline-flex items-center gap-0.5">${svgIcon('paperclip', 'w-3 h-3')}${e.photos.length}</span>` : ''}
+              ${e.inventory_id ? `<span class="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 font-semibold">${svgIcon('wrench', 'w-3 h-3')}Cleanup</span>` : ''}
             </div>
           </div>
         </div>
@@ -8615,10 +8616,11 @@ async function taskModal(id, prefill) {
     </div>
     <div class="grid sm:grid-cols-3 gap-2">
       <div>${lbl('Assign to')}<select id="task-assignee" class="${ic}"><option value="">Unassigned</option>${team.map(t => `<option value="${t.id}" ${e.assignee_id === t.id ? 'selected' : ''}>${esc(t.full_name || t.display_name || '')}</option>`).join('')}</select></div>
-      <div>${lbl('Stock #')}<input id="task-stock" value="${esc(e.stock_number || '')}" class="${ic}"></div>
-      <div>${lbl('VIN')}<input id="task-vin" value="${esc(e.vin || '')}" class="${ic}"></div>
+      <div>${lbl('Stock #<span class="text-rose-500">*</span>')}<input id="task-stock" value="${esc(e.stock_number || '')}" class="${ic}"></div>
+      <div>${lbl('VIN<span class="text-rose-500">*</span>')}<input id="task-vin" value="${esc(e.vin || '')}" class="${ic}"></div>
     </div>
-    <div>${lbl('Customer (optional)')}<input id="task-contact" value="${esc(e.contact_name || '')}" placeholder="Name" class="${ic}"></div>
+    <p class="text-[11px] text-slate-400 -mt-1">A VIN or stock number is required — it links the task to the vehicle and the Cleanup board.</p>
+    <div>${lbl('Customer <span class="text-rose-500">*</span>')}<input id="task-contact" value="${esc(e.contact_name || '')}" placeholder="Name" class="${ic}"></div>
     <div>${lbl('Notes')}<textarea id="task-notes" rows="2" class="${ic}">${esc(e.notes || '')}</textarea></div>
     <div>
       <div class="flex items-center justify-between mb-1"><span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Photos</span>
@@ -8649,6 +8651,9 @@ async function taskPhotoPick(file) {
 function tVal(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
 async function taskSave(id, btn) {
   const title = tVal('task-title'); if (!title) { showToast('Enter a task', 'error'); return; }
+  // Every task must be tied to a vehicle (VIN or stock #) and a customer.
+  if (!tVal('task-vin') && !tVal('task-stock')) { showToast('Add a VIN or stock number so the task is tied to a vehicle', 'error'); document.getElementById('task-stock')?.focus(); return; }
+  if (!tVal('task-contact')) { showToast('Add the customer this task is for', 'error'); document.getElementById('task-contact')?.focus(); return; }
   const assignee_id = tVal('task-assignee') || null;
   const body = {
     title, kind: tVal('task-kind') || null, priority: tVal('task-priority') || 'normal', status: tVal('task-status') || 'todo',
@@ -11201,7 +11206,7 @@ function renderReconBoard() {
       <td class="py-2.5 px-3"><div class="flex items-center gap-2">${img}<div class="min-w-0"><div class="text-sm font-semibold text-slate-900 dark:text-white truncate">${esc(c.label)}</div><div class="text-[11px] text-slate-400">${c.stocknumber ? '#' + esc(c.stocknumber) : ''}</div></div></div></td>
       <td class="py-2.5 px-3 text-sm font-semibold ${d.cls} whitespace-nowrap">${d.txt}</td>
       <td class="py-2.5 px-3 text-sm text-slate-600 dark:text-slate-300">${c.salesperson_name ? esc(c.salesperson_name) : '<span class="text-slate-400">—</span>'}</td>
-      <td class="py-2.5 px-3 text-sm">${tot ? `<span class="font-bold ${ready ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}">${done}/${tot}</span>` : '<span class="text-slate-400">No list</span>'}</td>
+      <td class="py-2.5 px-3 text-sm">${tot ? `<span class="font-bold ${ready ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}">${done}/${tot}</span>` : '<span class="text-slate-400">No list</span>'}${(c.tasks && c.tasks.length) ? `<span class="ml-1.5 text-[10px] font-bold text-teal-600 dark:text-teal-400">+${c.tasks.length} task${c.tasks.length === 1 ? '' : 's'}</span>` : ''}</td>
       <td class="py-2.5 px-3">${ready ? '<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">Ready</span>' : '<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">In progress</span>'}</td>
       <td class="py-2.5 px-3 text-right whitespace-nowrap"><span class="text-indigo-500 text-xs font-bold">Stock card ›</span></td>
     </tr>`;
@@ -11262,6 +11267,11 @@ function openReconCard(inventoryId) {
           <button data-chk-add class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Add</button>
         </div>
       </div>
+      ${(c.tasks && c.tasks.length) ? `<div>
+        <label class="block text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">Get-ready tasks · from the Task Board</label>
+        <div data-recon-tasks></div>
+        <p class="text-[11px] text-slate-400 mt-1">Checking one here also completes it on the manager Task Board.</p>
+      </div>` : ''}
       <div>
         <label class="block text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">Special notes</label>
         <textarea data-notes rows="3" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" placeholder="Anything the cleanup / service team should know…">${esc(c.notes || '')}</textarea>
@@ -11269,6 +11279,24 @@ function openReconCard(inventoryId) {
     </div>
   </div>`;
   document.body.appendChild(modal);
+
+  // Get-ready tasks for this car — checking one completes it on the Task Board,
+  // which in turn advances this card's cleanup stage (two-way sync).
+  const taskBox = modal.querySelector('[data-recon-tasks]');
+  if (taskBox) {
+    const renderTasks = () => {
+      taskBox.innerHTML = (c.tasks || []).map(t => `<label class="flex items-center gap-2 py-1.5 border-b border-slate-100 dark:border-slate-800/60">
+        <input type="checkbox" data-rtask="${t.id}" class="accent-emerald-600 w-4 h-4 flex-shrink-0">
+        <span class="text-sm flex-1 text-slate-700 dark:text-slate-200">${esc(t.title)}${t.kind ? ` · ${esc(t.kind)}` : ''}${t.assignee_name ? ` · ${esc(t.assignee_name)}` : ''}</span>
+      </label>`).join('') || '<div class="text-xs text-slate-400 italic py-1">All get-ready tasks done.</div>';
+      taskBox.querySelectorAll('[data-rtask]').forEach(cb => cb.addEventListener('change', async () => {
+        cb.disabled = true;
+        try { await apiSendJson(`/dealer-tasks/${cb.dataset.rtask}`, 'PUT', { status: 'done' }); c.tasks = (c.tasks || []).filter(x => x.id !== cb.dataset.rtask); dirty = true; renderTasks(); showToast('Task completed', 'success'); }
+        catch (e) { cb.checked = false; cb.disabled = false; showToast(e.message || 'Could not complete', 'error'); }
+      }));
+    };
+    renderTasks();
+  }
 
   const chkBox = modal.querySelector('[data-checklist]');
   const renderChk = () => {
