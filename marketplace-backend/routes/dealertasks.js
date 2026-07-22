@@ -1,0 +1,136 @@
+/**
+ * Dealer Task Management — the shared operational board that replaces whiteboards,
+ * sticky notes and group texts. Detail, fuel, plates, safety, photos, order parts,
+ * book transport, deliver… Each task has an assignee, due date, priority, status,
+ * notes, photos, and can link to a VIN/stock # and a customer. Assigning a task
+ * notifies the person. Distinct from CRM follow-up tasks (sales-cadence on a
+ * contact); this is get-the-car-ready operations across every department.
+ */
+import multer from 'multer'
+import { supabaseAdmin } from '../shared.js'
+import { requireAuth } from '../middleware.js'
+import { createNotification } from '../notifications.js'
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
+const KINDS = ['Detail', 'Fuel', 'Plates', 'Safety', 'Wash', 'Photos', 'Parts', 'Transport', 'Call', 'Deliver', 'Other']
+const PRIORITIES = ['low', 'normal', 'high', 'urgent']
+const STATUSES = ['todo', 'in_progress', 'blocked', 'done']
+const today = () => new Date().toISOString().slice(0, 10)
+const stamp = (actor, action, detail) => ({ at: new Date().toISOString(), actor: actor || null, action, detail: detail || null })
+
+// Anyone in a dealership can use the board — it's shared ops. Managers see/assign
+// everything; a rep or detailer sees the board too (they need their own tasks).
+const inDealer = (req) => !!req.dealershipId
+
+function fieldsFrom(b) {
+  const out = {}
+  const str = (k, max = 200) => { if (b[k] !== undefined) out[k] = b[k] === null ? null : String(b[k]).trim().slice(0, max) || null }
+  str('title', 200); str('notes', 4000); str('vin', 20); str('stock_number', 40); str('contact_name', 120); str('assignee_name', 120)
+  if (b.kind !== undefined) out.kind = KINDS.includes(b.kind) ? b.kind : (String(b.kind || '').slice(0, 40) || null)
+  if (b.priority !== undefined) out.priority = PRIORITIES.includes(b.priority) ? b.priority : 'normal'
+  if (b.status !== undefined) out.status = STATUSES.includes(b.status) ? b.status : 'todo'
+  if (b.due_date !== undefined) out.due_date = /^\d{4}-\d{2}-\d{2}$/.test(b.due_date || '') ? b.due_date : null
+  if (b.assignee_id !== undefined) out.assignee_id = b.assignee_id || null
+  if (b.contact_id !== undefined) out.contact_id = b.contact_id || null
+  if (Array.isArray(b.photos)) out.photos = b.photos.filter(u => typeof u === 'string').slice(0, 20)
+  return out
+}
+
+export function registerDealerTasks(app) {
+  const guard = (req, res) => { if (!inDealer(req)) { res.status(400).json({ error: 'No dealership' }); return false } return true }
+
+  app.get('/dealer-tasks/options', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ ok: true, kinds: KINDS, priorities: PRIORITIES, statuses: STATUSES })
+  })
+
+  // List with filters. `mine=1` limits to the caller; otherwise the whole board.
+  app.get('/dealer-tasks', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const q = req.query
+    let query = supabaseAdmin.from('dealer_tasks').select('*').eq('dealership_id', req.dealershipId)
+    if (q.status) query = query.eq('status', String(q.status))
+    if (q.assignee_id) query = query.eq('assignee_id', String(q.assignee_id))
+    if (q.mine === '1') query = query.eq('assignee_id', req.user.id)
+    if (q.kind) query = query.eq('kind', String(q.kind))
+    if (q.priority) query = query.eq('priority', String(q.priority))
+    if (q.vin) query = query.ilike('vin', `%${String(q.vin)}%`)
+    if (q.q) query = query.or(`title.ilike.%${String(q.q)}%,notes.ilike.%${String(q.q)}%,vin.ilike.%${String(q.q)}%,stock_number.ilike.%${String(q.q)}%,contact_name.ilike.%${String(q.q)}%`)
+    // Open first (todo/in_progress/blocked), newest due first; done last.
+    query = query.order('status', { ascending: true }).order('due_date', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false }).limit(1000)
+    const { data, error } = await query
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, tasks: data || [] })
+  })
+
+  // Quick counts for the dashboard "Today's priorities" / nav badge.
+  app.get('/dealer-tasks/summary', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data } = await supabaseAdmin.from('dealer_tasks').select('status, due_date, assignee_id').eq('dealership_id', req.dealershipId).neq('status', 'done').limit(2000)
+    const rows = data || []; const t = today()
+    res.json({ ok: true,
+      open: rows.length,
+      overdue: rows.filter(r => r.due_date && r.due_date < t).length,
+      due_today: rows.filter(r => r.due_date === t).length,
+      mine_open: rows.filter(r => r.assignee_id === req.user.id).length,
+    })
+  })
+
+  app.post('/dealer-tasks/upload-photo', requireAuth, upload.single('file'), async (req, res) => {
+    if (!guard(req, res)) return
+    if (!req.file || !(req.file.mimetype || '').startsWith('image/')) return res.status(400).json({ error: 'Upload an image' })
+    const ext = (req.file.mimetype.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
+    const path = `${req.dealershipId}/tasks/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const { error } = await supabaseAdmin.storage.from('vehicle-pdfs').upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: true })
+    if (error) return res.status(500).json({ error: 'Upload failed' })
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-pdfs').getPublicUrl(path)
+    res.json({ ok: true, url: publicUrl })
+  })
+
+  app.get('/dealer-tasks/:id', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data } = await supabaseAdmin.from('dealer_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!data) return res.status(404).json({ error: 'Not found' })
+    res.json({ ok: true, task: data })
+  })
+
+  app.post('/dealer-tasks', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const f = fieldsFrom(req.body || {})
+    if (!f.title) return res.status(400).json({ error: 'Title required' })
+    const row = { dealership_id: req.dealershipId, created_by: req.user?.id || null, ...f, events: [stamp(req.user?.id, 'created', null)] }
+    const { data, error } = await supabaseAdmin.from('dealer_tasks').insert(row).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    if (data.assignee_id && data.assignee_id !== req.user?.id) {
+      await createNotification({ dealershipId: req.dealershipId, type: 'task', title: `New task: ${data.title}`, body: [data.kind, data.stock_number || data.vin, data.due_date ? 'due ' + data.due_date : ''].filter(Boolean).join(' · '), linkPage: 'taskboard', targetUserId: data.assignee_id })
+    }
+    res.json({ ok: true, task: data })
+  })
+
+  app.put('/dealer-tasks/:id', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: cur } = await supabaseAdmin.from('dealer_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!cur) return res.status(404).json({ error: 'Not found' })
+    const f = fieldsFrom(req.body || {})
+    const events = (Array.isArray(cur.events) ? cur.events.slice(-49) : [])
+    const patch = { ...f, updated_at: new Date().toISOString() }
+    // Completing the task stamps who/when.
+    if (f.status === 'done' && cur.status !== 'done') { patch.completed_at = new Date().toISOString(); patch.completed_by = req.user?.id || null; events.push(stamp(req.user?.id, 'completed', null)) }
+    else if (f.status && f.status !== cur.status) events.push(stamp(req.user?.id, 'status', f.status))
+    else events.push(stamp(req.user?.id, 'edited', null))
+    patch.events = events
+    const { data, error } = await supabaseAdmin.from('dealer_tasks').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    // Notify a newly-assigned person.
+    if (f.assignee_id && f.assignee_id !== cur.assignee_id && f.assignee_id !== req.user?.id) {
+      await createNotification({ dealershipId: req.dealershipId, type: 'task', title: `Task assigned: ${data.title}`, body: [data.kind, data.stock_number || data.vin].filter(Boolean).join(' · '), linkPage: 'taskboard', targetUserId: f.assignee_id })
+    }
+    res.json({ ok: true, task: data })
+  })
+
+  app.delete('/dealer-tasks/:id', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    await supabaseAdmin.from('dealer_tasks').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    res.json({ ok: true })
+  })
+}

@@ -339,10 +339,10 @@ const MS_ALLOWED_PAGES = new Set(['insights', 'crm', 'tasks', 'appointments', 'l
 // value reachable (used to hide stray items and to gate switchPage); `home` = the
 // page they land on. Profile stays reachable for everyone (password, photo, etc.).
 const STAFF_ROLE_NAV = {
-  FNI:        { groups: ['crm', 'sales'],       pages: ['insights', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'fni', 'recon', 'desk', 'profile'], home: 'crm' },
-  SERVICE:    { groups: ['crm', 'service'],      pages: ['crm', 'tasks', 'appointments', 'service-appointments', 'equity', 'service-settings', 'profile'], home: 'service-appointments' },
-  ACCOUNTING: { groups: ['crm', 'accounting'],   pages: ['crm', 'tasks', 'appointments', 'acct-insights', 'acct-reconciliation', 'acct-bank', 'commissions', 'acct-expenses', 'acct-budget', 'acct-tax', 'acct-reports', 'acct-settings', 'profile'], home: 'acct-insights' },
-  CLEANUP:    { groups: ['sales'],               pages: ['recon', 'profile'], home: 'recon' },
+  FNI:        { groups: ['crm', 'sales'],       pages: ['insights', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'fni', 'recon', 'desk', 'taskboard', 'profile'], home: 'crm' },
+  SERVICE:    { groups: ['crm', 'service'],      pages: ['crm', 'tasks', 'appointments', 'service-appointments', 'equity', 'service-settings', 'taskboard', 'profile'], home: 'service-appointments' },
+  ACCOUNTING: { groups: ['crm', 'accounting'],   pages: ['crm', 'tasks', 'appointments', 'acct-insights', 'acct-reconciliation', 'acct-bank', 'commissions', 'acct-expenses', 'acct-budget', 'acct-tax', 'acct-reports', 'acct-settings', 'taskboard', 'profile'], home: 'acct-insights' },
+  CLEANUP:    { groups: ['sales'],               pages: ['recon', 'taskboard', 'profile'], home: 'recon' },
 };
 const STAFF_ROLE_LABELS = { FNI: 'F&I', SERVICE: 'Service', ACCOUNTING: 'Accounting', CLEANUP: 'Cleanup' };
 // Roles allowed to desk/appraise/work a deal from a CRM card (managers + F&I).
@@ -1067,6 +1067,9 @@ async function initializeDashboardEcosystem() {
     applyStaffRoleNav(role);
     document.getElementById('insights-skeleton')?.classList.add('hidden');
 
+    // Overdue-task badge on the Task Board nav item.
+    try { if (typeof taskUpdateBadge === 'function') taskUpdateBadge(); } catch (e) {}
+
     // Guided setup: show the sidebar progress bar, and on the very first login for
     // this dealership walk them straight into the Setup Center if anything's unset.
     try {
@@ -1368,6 +1371,7 @@ function switchPage(pageId) {
   if (pageId === 'fni') loadFniPage();
   if (pageId === 'equity') loadEquityPage();
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
+  if (pageId === 'taskboard') loadTaskBoard();
 
 }
 
@@ -8472,6 +8476,157 @@ async function expRunReport(type, btn) {
   } catch (e) { out.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; }
 }
 Object.assign(window, { expSetFilter, expModal, expSave, expReceiptPick, expApprove, expReject, expMarkReimb, expDelete, expExport, expReports, expRunReport, expGenerateRecurring });
+
+// ── Dealer Task Board ────────────────────────────────────────────────────────
+// The shared operational board: detail, fuel, plates, safety, photos, parts,
+// transport, deliver… assignee + due + priority + status + photos, linked to a
+// VIN/stock and a customer. Replaces the whiteboard and the group texts.
+let __taskState = { filters: {}, options: null };
+const TASK_COLS = [['todo', 'To do'], ['in_progress', 'In progress'], ['blocked', 'Blocked'], ['done', 'Done']];
+const TASK_PRI = { urgent: 'border-l-rose-500', high: 'border-l-amber-500', normal: 'border-l-slate-300 dark:border-l-slate-600', low: 'border-l-slate-200 dark:border-l-slate-700' };
+const TASK_KIND_ICON = { Detail: '✨', Fuel: '⛽', Plates: '🔖', Safety: '🛡️', Wash: '🚿', Photos: '📸', Parts: '🔧', Transport: '🚚', Call: '📞', Deliver: '🔑', Other: '📋' };
+function taskTeamName(id) { const t = expTeam().find(x => x.id === id); return t ? (t.full_name || t.display_name || '') : ''; }
+async function loadTaskBoard() {
+  const root = document.getElementById('taskboard-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading…</div>';
+  try {
+    const f = __taskState.filters;
+    const qs = new URLSearchParams();
+    ['status', 'assignee_id', 'kind', 'q'].forEach(k => { if (f[k]) qs.set(k, f[k]); });
+    if (f.mine) qs.set('mine', '1');
+    const [opts, list] = await Promise.all([
+      __taskState.options ? Promise.resolve(__taskState.options) : apiGetJson('/dealer-tasks/options'),
+      apiGetJson('/dealer-tasks?' + qs.toString()),
+    ]);
+    __taskState.options = opts;
+    const tasks = list.tasks || [];
+    const team = expTeam();
+    const t0 = acctToday();
+    const card = (e) => {
+      const overdue = e.due_date && e.due_date < t0 && e.status !== 'done';
+      const icon = TASK_KIND_ICON[e.kind] || '📋';
+      const veh = e.stock_number || e.vin;
+      return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${TASK_PRI[e.priority] || TASK_PRI.normal} rounded-lg p-2.5 mb-2 cursor-pointer hover:shadow-sm" onclick="taskModal('${e.id}')">
+        <div class="flex items-start gap-2">
+          <span class="text-base leading-none mt-0.5">${icon}</span>
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-bold text-slate-900 dark:text-white truncate">${esc(e.title)}</div>
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              ${e.kind ? `<span>${esc(e.kind)}</span>` : ''}
+              ${veh ? `<span class="font-mono">${esc(veh)}</span>` : ''}
+              ${e.contact_name ? `<span>· ${esc(e.contact_name)}</span>` : ''}
+              ${e.assignee_name ? `<span>· 👤 ${esc(e.assignee_name)}</span>` : ''}
+              ${e.due_date ? `<span class="${overdue ? 'text-rose-500 font-bold' : ''}">· 📅 ${e.due_date}${overdue ? ' (overdue)' : ''}</span>` : ''}
+              ${(Array.isArray(e.photos) && e.photos.length) ? `<span>· 📎${e.photos.length}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 mt-2" onclick="event.stopPropagation()">
+          ${e.status !== 'done' ? `<button onclick="taskSetStatus('${e.id}','done')" class="text-[11px] font-bold text-emerald-600 hover:text-emerald-500">✓ Done</button>` : `<button onclick="taskSetStatus('${e.id}','todo')" class="text-[11px] font-bold text-slate-400 hover:text-slate-600">↺ Reopen</button>`}
+          ${e.status === 'todo' ? `<button onclick="taskSetStatus('${e.id}','in_progress')" class="text-[11px] font-bold text-indigo-500 hover:text-indigo-600">▶ Start</button>` : ''}
+        </div>
+      </div>`;
+    };
+    const cols = TASK_COLS.map(([st, label]) => {
+      const items = tasks.filter(t => t.status === st);
+      return `<div class="flex-1 min-w-[220px]">
+        <div class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2 flex items-center justify-between"><span>${label}</span><span class="text-slate-300 dark:text-slate-600">${items.length}</span></div>
+        <div>${items.map(card).join('') || '<div class="text-[11px] text-slate-400 italic px-1">—</div>'}</div>
+      </div>`;
+    }).join('');
+    const teamOpts = team.map(t => `<option value="${t.id}" ${f.assignee_id === t.id ? 'selected' : ''}>${esc(t.full_name || t.display_name || '')}</option>`).join('');
+    const kindQuick = ['Detail', 'Fuel', 'Plates', 'Safety', 'Photos', 'Transport', 'Deliver'].map(k => `<button onclick="taskModal(null, {kind:'${k}', title:'${k}'})" class="text-[11px] font-bold bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-slate-700 dark:text-slate-200 px-2.5 py-1 rounded-full">${TASK_KIND_ICON[k]} ${k}</button>`).join('');
+    root.innerHTML = `
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Task Board</h1><p class="text-sm text-slate-500 dark:text-slate-400">Every job to get a car ready — assigned, tracked, done. Detail, fuel, plates, transport, delivery and more.</p></div>
+      <div class="flex flex-wrap items-center gap-2">
+        <input value="${esc(f.q || '')}" oninput="clearTimeout(window.__taskQT); window.__taskQT=setTimeout(()=>taskSetFilter('q', this.value), 400)" placeholder="Search title, VIN, customer…" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm flex-1 min-w-[160px]">
+        <select onchange="taskSetFilter('assignee_id', this.value)" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm"><option value="">Anyone</option>${teamOpts}</select>
+        <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-600 dark:text-slate-300"><input type="checkbox" ${f.mine ? 'checked' : ''} onchange="taskSetFilter('mine', this.checked?'1':'')" class="accent-indigo-600">Mine</label>
+        <div class="flex-1"></div>
+        <button onclick="taskModal()" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">+ New task</button>
+      </div>
+      <div class="flex flex-wrap gap-1.5">${kindQuick}</div>
+      <div class="flex flex-col md:flex-row gap-4">${cols}</div>`;
+    taskUpdateBadge();
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+}
+function taskSetFilter(k, v) { __taskState.filters[k] = v || undefined; loadTaskBoard(); }
+async function taskModal(id, prefill) {
+  let e = { priority: 'normal', status: 'todo', due_date: acctToday(), photos: [], ...(prefill || {}) };
+  if (id) { try { const d = await apiGetJson(`/dealer-tasks/${id}`); e = d.task || e; } catch { showToast('Could not load', 'error'); return; } }
+  const opts = __taskState.options || { kinds: [], priorities: [], statuses: [] };
+  const team = expTeam();
+  const ic = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+  const lbl = (t) => `<label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${t}</label>`;
+  const sel = (id2, list, cur, blank) => `<select id="${id2}" class="${ic}">${blank ? `<option value="">${blank}</option>` : ''}${list.map(o => `<option value="${esc(o)}" ${cur === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+  const photos = Array.isArray(e.photos) ? e.photos : [];
+  crmOverlay(`<div class="p-5 space-y-3" data-task>
+    <div class="flex items-center justify-between"><div class="text-lg font-black text-slate-900 dark:text-white">${id ? 'Task' : 'New task'}</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div>${lbl('Task')}<input id="task-title" value="${esc(e.title || '')}" placeholder="e.g. Detail and photograph" class="${ic}"></div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div>${lbl('Type')}${sel('task-kind', opts.kinds, e.kind, '—')}</div>
+      <div>${lbl('Priority')}${sel('task-priority', opts.priorities, e.priority || 'normal')}</div>
+      <div>${lbl('Status')}${sel('task-status', opts.statuses, e.status || 'todo')}</div>
+      <div>${lbl('Due')}<input id="task-due" type="date" value="${esc(e.due_date || '')}" class="${ic}"></div>
+    </div>
+    <div class="grid sm:grid-cols-3 gap-2">
+      <div>${lbl('Assign to')}<select id="task-assignee" class="${ic}"><option value="">Unassigned</option>${team.map(t => `<option value="${t.id}" ${e.assignee_id === t.id ? 'selected' : ''}>${esc(t.full_name || t.display_name || '')}</option>`).join('')}</select></div>
+      <div>${lbl('Stock #')}<input id="task-stock" value="${esc(e.stock_number || '')}" class="${ic}"></div>
+      <div>${lbl('VIN')}<input id="task-vin" value="${esc(e.vin || '')}" class="${ic}"></div>
+    </div>
+    <div>${lbl('Customer (optional)')}<input id="task-contact" value="${esc(e.contact_name || '')}" placeholder="Name" class="${ic}"></div>
+    <div>${lbl('Notes')}<textarea id="task-notes" rows="2" class="${ic}">${esc(e.notes || '')}</textarea></div>
+    <div>
+      <div class="flex items-center justify-between mb-1"><span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Photos</span>
+        <input id="task-photo-file" type="file" accept="image/*" capture="environment" class="hidden" onchange="taskPhotoPick(this.files[0])">
+        <button onclick="document.getElementById('task-photo-file').click()" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">+ Add photo</button></div>
+      <div id="task-photos" class="flex flex-wrap gap-1.5">${photos.map(u => `<a href="${esc(u)}" target="_blank"><img src="${esc(u)}" class="w-14 h-14 object-cover rounded-lg border border-slate-200 dark:border-slate-700"></a>`).join('')}</div>
+      <input type="hidden" id="task-photos-json" value='${esc(JSON.stringify(photos))}'>
+    </div>
+    <div class="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+      ${id ? `<button onclick="taskDelete('${id}')" class="text-xs font-bold text-rose-500 hover:text-rose-400 px-2 py-2">Delete</button>` : ''}
+      <div class="flex-1"></div>
+      <button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-3 py-2">Cancel</button>
+      <button onclick="taskSave('${id || ''}', this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save</button>
+    </div>
+  </div>`, 'max-w-xl');
+}
+async function taskPhotoPick(file) {
+  if (!file) return; showToast('Uploading…', 'info');
+  try {
+    const fd = new FormData(); fd.append('file', file);
+    const r = await fetch(`${API}/dealer-tasks/upload-photo`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+    const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Upload failed');
+    const inp = document.getElementById('task-photos-json'); const arr = JSON.parse(inp.value || '[]'); arr.push(d.url); inp.value = JSON.stringify(arr);
+    const wrap = document.getElementById('task-photos'); wrap.insertAdjacentHTML('beforeend', `<a href="${esc(d.url)}" target="_blank"><img src="${esc(d.url)}" class="w-14 h-14 object-cover rounded-lg border border-slate-200 dark:border-slate-700"></a>`);
+    showToast('Photo added ✓', 'success');
+  } catch (e) { showToast(e.message || 'Could not upload', 'error'); }
+}
+function tVal(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+async function taskSave(id, btn) {
+  const title = tVal('task-title'); if (!title) { showToast('Enter a task', 'error'); return; }
+  const assignee_id = tVal('task-assignee') || null;
+  const body = {
+    title, kind: tVal('task-kind') || null, priority: tVal('task-priority') || 'normal', status: tVal('task-status') || 'todo',
+    due_date: tVal('task-due') || null, assignee_id, assignee_name: assignee_id ? taskTeamName(assignee_id) : null,
+    stock_number: tVal('task-stock') || null, vin: tVal('task-vin') || null, contact_name: tVal('task-contact') || null,
+    notes: tVal('task-notes') || null, photos: JSON.parse(document.getElementById('task-photos-json')?.value || '[]'),
+  };
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  try { if (id) await apiSendJson(`/dealer-tasks/${id}`, 'PUT', body); else await apiSendJson('/dealer-tasks', 'POST', body); showToast('Saved ✓', 'success'); btn.closest('.fixed')?.remove(); loadTaskBoard(); }
+  catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
+}
+async function taskSetStatus(id, status) { try { await apiSendJson(`/dealer-tasks/${id}`, 'PUT', { status }); loadTaskBoard(); } catch (e) { showToast(e.message, 'error'); } }
+async function taskDelete(id) { if (!confirm('Delete this task?')) return; try { await apiSendJson(`/dealer-tasks/${id}`, 'DELETE'); document.querySelector('[data-task]')?.closest('.fixed')?.remove(); loadTaskBoard(); } catch (e) { showToast(e.message, 'error'); } }
+async function taskUpdateBadge() {
+  try {
+    const s = await apiGetJson('/dealer-tasks/summary');
+    const b = document.getElementById('taskboard-badge'); if (!b) return;
+    const n = s.overdue || 0;
+    if (n > 0) { b.textContent = n; b.classList.remove('hidden'); } else b.classList.add('hidden');
+  } catch {}
+}
+Object.assign(window, { taskSetFilter, taskModal, taskSave, taskSetStatus, taskDelete, taskPhotoPick });
 
 // Budget — a monthly spending target per expense category, tracked against actual spend.
 async function acctLoadBudget() {

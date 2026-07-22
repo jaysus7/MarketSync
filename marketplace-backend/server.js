@@ -43,6 +43,7 @@ import { registerSquare } from './routes/square.js'
 import { registerCommissions } from './routes/commissions.js'
 import { registerAccounting } from './routes/accounting.js'
 import { registerExpenses } from './routes/expenses.js'
+import { registerDealerTasks } from './routes/dealertasks.js'
 import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
 
@@ -112,6 +113,7 @@ registerIdentity(app)
 registerCommissions(app)
 registerAccounting(app)
 registerExpenses(app)
+registerDealerTasks(app)
 registerPlaid(app)
 registerAffiliate(app)
 
