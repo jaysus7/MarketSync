@@ -134,6 +134,10 @@ async function runSystemStep(dealershipId, instance, step, ctx) {
       await createNotification({ dealershipId, type: 'task', title: step.name, body: [ctx.contactName, ctx.stock || ctx.vin].filter(Boolean).join(' · '), linkPage: 'crm' }).catch(() => {})
       break
     case 'create_exception':
+      // An `unless_event` config makes this an SLA timer ("escalate unless contacted
+      // within N minutes"). Timers are honored by the Stage 6 scanner, not fired
+      // immediately here — otherwise every new lead would raise an instant exception.
+      if (step.config?.unless_event) { await logTimeline({ dealershipId, eventName: 'workflow.sla_armed', entityType: entity.type, entityId: entity.id, summary: `SLA armed: ${step.name}`, department: step.department }); break }
       await raiseException(dealershipId, { kind: step.config?.kind || 'workflow', entityType: entity.type, entityId: entity.id, department: step.department, description: step.name })
       break
     case 'request_approval':
@@ -155,7 +159,7 @@ async function runSystemStep(dealershipId, instance, step, ctx) {
   }
 }
 
-async function raiseException(dealershipId, { kind, entityType, entityId, department = null, description = null, severity = 'medium' }) {
+export async function raiseException(dealershipId, { kind, entityType, entityId, department = null, description = null, severity = 'medium' }) {
   try {
     await supabaseAdmin.from('exceptions').insert({ dealership_id: dealershipId, kind, entity_type: entityType, entity_id: entityId, department, description, severity })
   } catch (e) {

@@ -1,6 +1,7 @@
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, EXTENSION_URL, BACKEND_URL } from '../shared.js'
 import { runInventorySync, syncAllDealerships, sweepStaleExtensionFeeds } from '../sync/engine.js'
 import { runDripCampaign, verifyUnsubToken } from '../drip.js'
+import { scanExceptions } from './workflow-scan.js'
 
 function runDrip(trigger) {
   return runDripCampaign({
@@ -127,6 +128,17 @@ export function registerRoutes(app) {
   setTimeout(() => cleanupExpiredSoldListings(), 5 * 60 * 1000)
   setInterval(() => cleanupExpiredSoldListings(), 24 * 60 * 60 * 1000)
   console.log('🧹 Sold listing cleanup scheduled (daily, 14-day retention)')
+
+  // ── Workflow exception scanner ──────────────────────────────────────────────
+  // Sweeps for time-based problems (stalled recon, sold-not-delivered, overdue
+  // tasks) and auto-resolves ones that have cleared. Feeds the Operations
+  // dashboard. Hourly by default; set EXC_SCAN_HOURS=0 to disable.
+  const EXC_SCAN_HOURS = Number(process.env.EXC_SCAN_HOURS ?? 1)
+  if (EXC_SCAN_HOURS > 0) {
+    setTimeout(() => scanExceptions('boot'), 6 * 60 * 1000)
+    setInterval(() => scanExceptions('interval'), EXC_SCAN_HOURS * 60 * 60 * 1000)
+    console.log(`🚦 Workflow exception scanner scheduled every ${EXC_SCAN_HOURS}h (set EXC_SCAN_HOURS=0 to disable)`)
+  }
 
   const DRIP_INTERVAL_HOURS = Number(process.env.DRIP_INTERVAL_HOURS || 24)
   if (DRIP_INTERVAL_HOURS > 0) {
