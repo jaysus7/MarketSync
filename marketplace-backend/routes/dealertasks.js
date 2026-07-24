@@ -14,9 +14,14 @@ import { RECON_STAGES, KIND_TO_STAGE, ensureReconCard } from './recon.js'
 import { notifyTaskCompleted } from './workflow.js'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
-const KINDS = ['Detail', 'Fuel', 'Plates', 'Safety', 'Wash', 'Photos', 'Parts', 'Transport', 'Call', 'Deliver', 'Other']
+// Get-ready kinds (vehicle prep) + internal-ops kinds (service, lot attendant,
+// facilities, errands) — the board is for ALL dealership work, not just sold cars.
+const KINDS = ['Detail', 'Fuel', 'Plates', 'Safety', 'Wash', 'Photos', 'Parts', 'Transport', 'Call', 'Deliver', 'Service', 'Lot', 'Inspection', 'Facilities', 'Errand', 'Other']
 const PRIORITIES = ['low', 'normal', 'high', 'urgent']
 const STATUSES = ['todo', 'in_progress', 'blocked', 'done']
+// Departments a task can belong to. Internal work (Service/Lot/Facilities/etc.)
+// routes by department and needs no customer or vehicle.
+const DEPARTMENTS = ['Cleanup', 'Service', 'Lot', 'Sales', 'Parts', 'Marketing', 'Accounting', 'F&I', 'Management']
 const today = () => new Date().toISOString().slice(0, 10)
 const stamp = (actor, action, detail) => ({ at: new Date().toISOString(), actor: actor || null, action, detail: detail || null })
 
@@ -97,6 +102,7 @@ function fieldsFrom(b) {
   if (b.due_date !== undefined) out.due_date = /^\d{4}-\d{2}-\d{2}$/.test(b.due_date || '') ? b.due_date : null
   if (b.assignee_id !== undefined) out.assignee_id = b.assignee_id || null
   if (b.contact_id !== undefined) out.contact_id = b.contact_id || null
+  if (b.department !== undefined) out.department = DEPARTMENTS.includes(b.department) ? b.department : (String(b.department || '').slice(0, 40) || null)
   if (Array.isArray(b.photos)) out.photos = b.photos.filter(u => typeof u === 'string').slice(0, 20)
   return out
 }
@@ -106,7 +112,7 @@ export function registerDealerTasks(app) {
 
   app.get('/dealer-tasks/options', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    res.json({ ok: true, kinds: KINDS, priorities: PRIORITIES, statuses: STATUSES })
+    res.json({ ok: true, kinds: KINDS, priorities: PRIORITIES, statuses: STATUSES, departments: DEPARTMENTS })
   })
 
   // List with filters. `mine=1` limits to the caller; otherwise the whole board.
@@ -119,6 +125,7 @@ export function registerDealerTasks(app) {
     if (q.mine === '1') query = query.eq('assignee_id', req.user.id)
     if (q.kind) query = query.eq('kind', String(q.kind))
     if (q.priority) query = query.eq('priority', String(q.priority))
+    if (q.department) query = query.eq('department', String(q.department))
     // Entity filters — power the Operations "Next Action" panel for one record.
     if (q.deal_id) query = query.eq('deal_id', String(q.deal_id))
     if (q.inventory_id) query = query.eq('inventory_id', String(q.inventory_id))
@@ -167,9 +174,16 @@ export function registerDealerTasks(app) {
     if (!guard(req, res)) return
     const f = fieldsFrom(req.body || {})
     if (!f.title) return res.status(400).json({ error: 'Title required' })
-    // Every task must be tied to a vehicle (VIN and/or stock #) and a customer.
-    if (!f.vin && !f.stock_number) return res.status(400).json({ error: 'Add a VIN or stock number so the task is tied to a vehicle.' })
-    if (!f.contact_id && !f.contact_name) return res.status(400).json({ error: 'Add the customer this task is for.' })
+    // A task must anchor to SOMETHING so it never floats free: a vehicle (VIN/stock),
+    // a customer, or a department (internal work — service, lot attendant, facilities,
+    // errands — which has neither a customer nor a car). Not every task is a sold-car
+    // prep task; internal dealership work runs through the same board.
+    const hasVehicle = !!(f.vin || f.stock_number)
+    const hasCustomer = !!(f.contact_id || f.contact_name)
+    const hasDept = !!f.department
+    if (!hasVehicle && !hasCustomer && !hasDept) {
+      return res.status(400).json({ error: 'Tie the task to a vehicle, a customer, or a department (for internal work).' })
+    }
     // Link to an inventory unit when the VIN/stock matches, and put it on the Cleanup board.
     f.inventory_id = await resolveInventory(req.dealershipId, f)
     const row = { dealership_id: req.dealershipId, created_by: req.user?.id || null, ...f, events: [stamp(req.user?.id, 'created', null)] }

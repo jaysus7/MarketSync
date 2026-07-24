@@ -8615,17 +8615,20 @@ async function taskModal(id, prefill) {
     <div>${lbl('Task')}<input id="task-title" value="${esc(e.title || '')}" placeholder="e.g. Detail and photograph" class="${ic}"></div>
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
       <div>${lbl('Type')}${sel('task-kind', opts.kinds, e.kind, '—')}</div>
+      <div>${lbl('Department')}${sel('task-department', opts.departments || [], e.department, '—')}</div>
       <div>${lbl('Priority')}${sel('task-priority', opts.priorities, e.priority || 'normal')}</div>
       <div>${lbl('Status')}${sel('task-status', opts.statuses, e.status || 'todo')}</div>
-      <div>${lbl('Due')}<input id="task-due" type="date" value="${esc(e.due_date || '')}" class="${ic}"></div>
     </div>
     <div class="grid sm:grid-cols-3 gap-2">
       <div>${lbl('Assign to')}<select id="task-assignee" class="${ic}"><option value="">Unassigned</option>${team.map(t => `<option value="${t.id}" ${e.assignee_id === t.id ? 'selected' : ''}>${esc(t.full_name || t.display_name || '')}</option>`).join('')}</select></div>
-      <div>${lbl('Stock #<span class="text-rose-500">*</span>')}<input id="task-stock" value="${esc(e.stock_number || '')}" class="${ic}"></div>
-      <div>${lbl('VIN<span class="text-rose-500">*</span>')}<input id="task-vin" value="${esc(e.vin || '')}" class="${ic}"></div>
+      <div>${lbl('Due')}<input id="task-due" type="date" value="${esc(e.due_date || '')}" class="${ic}"></div>
+      <div>${lbl('Stock #')}<input id="task-stock" value="${esc(e.stock_number || '')}" class="${ic}"></div>
     </div>
-    <p class="text-[11px] text-slate-400 -mt-1">A VIN or stock number is required — it links the task to the vehicle and the Cleanup board.</p>
-    <div>${lbl('Customer <span class="text-rose-500">*</span>')}<input id="task-contact" value="${esc(e.contact_name || '')}" placeholder="Name" class="${ic}"></div>
+    <div class="grid sm:grid-cols-2 gap-2">
+      <div>${lbl('VIN')}<input id="task-vin" value="${esc(e.vin || '')}" class="${ic}"></div>
+      <div>${lbl('Customer')}<input id="task-contact" value="${esc(e.contact_name || '')}" placeholder="Name" class="${ic}"></div>
+    </div>
+    <p class="text-[11px] text-slate-400 -mt-1">Tie the task to a vehicle, a customer, or a department. Internal work (service, lot, facilities) just needs a department.</p>
     <div>${lbl('Notes')}<textarea id="task-notes" rows="2" class="${ic}">${esc(e.notes || '')}</textarea></div>
     <div>
       <div class="flex items-center justify-between mb-1"><span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Photos</span>
@@ -8656,13 +8659,16 @@ async function taskPhotoPick(file) {
 function tVal(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
 async function taskSave(id, btn) {
   const title = tVal('task-title'); if (!title) { showToast('Enter a task', 'error'); return; }
-  // Every task must be tied to a vehicle (VIN or stock #) and a customer.
-  if (!tVal('task-vin') && !tVal('task-stock')) { showToast('Add a VIN or stock number so the task is tied to a vehicle', 'error'); document.getElementById('task-stock')?.focus(); return; }
-  if (!tVal('task-contact')) { showToast('Add the customer this task is for', 'error'); document.getElementById('task-contact')?.focus(); return; }
+  // A task must anchor to a vehicle, a customer, OR a department (internal work).
+  const hasVehicle = !!(tVal('task-vin') || tVal('task-stock'));
+  const hasCustomer = !!tVal('task-contact');
+  const hasDept = !!tVal('task-department');
+  if (!hasVehicle && !hasCustomer && !hasDept) { showToast('Tie the task to a vehicle, a customer, or a department', 'error'); document.getElementById('task-department')?.focus(); return; }
   const assignee_id = tVal('task-assignee') || null;
   const body = {
     title, kind: tVal('task-kind') || null, priority: tVal('task-priority') || 'normal', status: tVal('task-status') || 'todo',
     due_date: tVal('task-due') || null, assignee_id, assignee_name: assignee_id ? taskTeamName(assignee_id) : null,
+    department: tVal('task-department') || null,
     stock_number: tVal('task-stock') || null, vin: tVal('task-vin') || null, contact_name: tVal('task-contact') || null,
     notes: tVal('task-notes') || null, photos: JSON.parse(document.getElementById('task-photos-json')?.value || '[]'),
   };
