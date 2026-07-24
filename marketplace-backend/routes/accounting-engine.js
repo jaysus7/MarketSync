@@ -44,6 +44,7 @@ const ACCOUNT_DEFS = {
   commission_payable:  { code: '2300', name: 'Commission Payable',    category: 'liability' },
   payroll_payable:     { code: '2400', name: 'Payroll Payable',       category: 'liability' },
   customer_deposits:   { code: '2500', name: 'Customer Deposits',     category: 'liability' },
+  trade_allowance:     { code: '2600', name: 'Trade Allowance',        category: 'liability' },
   // Equity
   retained_earnings:   { code: '3000', name: 'Retained Earnings',     category: 'equity' },
   // Revenue
@@ -145,7 +146,7 @@ async function postDealDelivered(dealershipId, dealId) {
   const cost = (dlr?.cost_tracking_enabled && deal.cost != null) ? n(deal.cost) : 0
   const arTotal = round2(price + fniGross + tax)
   const refs = { ref_deal_id: deal.id, ref_vehicle_id: deal.inventory_id || null, ref_contact_id: deal.contact_id || null }
-  await postByRule(dealershipId, 'vehicle_delivered', {
+  return postByRule(dealershipId, 'vehicle_delivered', {
     ar_total: arTotal, selling_price: price, fni_gross: fniGross, tax, cost,
     __source: 'deal', __reference: deal.id, __date: (deal.delivered_at || new Date().toISOString()).slice(0, 10), __refs: refs,
   })
@@ -156,31 +157,62 @@ async function postCommissionCalculated(dealershipId, dealId) {
     .select('total, status, period').eq('dealership_id', dealershipId).eq('deal_id', dealId)
   const active = (lines || []).filter(l => l.status !== 'clawed_back')
   const total = round2(active.reduce((s, l) => s + n(l.total), 0))
-  if (total <= 0) return
+  if (total <= 0) return null
   const date = active[0]?.period || new Date().toISOString().slice(0, 10)
-  await postByRule(dealershipId, 'commission_calculated', {
+  return postByRule(dealershipId, 'commission_calculated', {
     commission_total: total, __source: 'commission', __reference: dealId, __date: date, __refs: { ref_deal_id: dealId },
   })
 }
 
-// ── Event Listener — subscribes to the bus; maps events → posting rules ──────
+// Map one bus event to its posting handler → returns { handler, journalId } or null
+// when the event isn't a financial one. Amounts for A5 events come from the payload.
+async function routeFinancialEvent(event) {
+  const did = event.dealership_id
+  const p = event.payload || {}
+  const e = event.entity_id
+  switch (event.event_name) {
+    case 'deal.status_changed':
+      if (event.to_state !== 'delivered') return null
+      return { handler: 'vehicle_delivered', journalId: await postDealDelivered(did, e) }
+    case 'commission.calculated':
+      return { handler: 'commission_calculated', journalId: await postCommissionCalculated(did, p.deal_id || e) }
+    case 'commission.paid':
+      return { handler: 'commission_paid', journalId: await postByRule(did, 'commission_paid', { commission_total: n(p.amount), __source: 'commission_pay', __reference: p.ref || e, __date: event.created_at, __refs: { ref_deal_id: p.deal_id || null } }) }
+    case 'deposit.paid': {
+      const cents = n(p.amount_cents); if (cents <= 0) return null
+      return { handler: 'deposit_received', journalId: await postByRule(did, 'deposit_received', { deposit_amount: round2(cents / 100), __source: 'deposit', __reference: p.payment_ref || e, __date: event.created_at, __refs: { ref_contact_id: e } }) }
+    }
+    case 'vehicle.acquired':
+      return { handler: 'vehicle_acquired', journalId: await postByRule(did, 'vehicle_acquired', { amount: n(p.amount), __source: 'acquisition', __reference: e, __date: event.created_at, __refs: { ref_vehicle_id: e } }) }
+    case 'recon.cost':
+      return { handler: 'recon_cost', journalId: await postByRule(did, 'recon_cost', { amount: n(p.amount), __source: 'recon', __reference: p.ref || `${e}:${event.id}`, __date: event.created_at, __refs: { ref_vehicle_id: e, ref_vendor_id: p.vendor_id || null } }) }
+    case 'trade.received':
+      return { handler: 'trade_received', journalId: await postByRule(did, 'trade_received', { amount: n(p.amount), __source: 'trade', __reference: p.ref || e, __date: event.created_at, __refs: { ref_vehicle_id: p.inventory_id || null, ref_deal_id: p.deal_id || null } }) }
+    case 'funding.received':
+      return { handler: 'funding_received', journalId: await postByRule(did, 'funding_received', { amount: n(p.amount), __source: 'funding', __reference: p.ref || p.deal_id || e, __date: event.created_at, __refs: { ref_deal_id: p.deal_id || e } }) }
+    case 'service.closed':
+      return { handler: 'service_closed', journalId: await postByRule(did, 'service_closed', { revenue: n(p.revenue), cost: n(p.cost), __source: 'service', __reference: p.ro_id || e, __date: event.created_at, __refs: { ref_vehicle_id: p.inventory_id || null, ref_contact_id: p.contact_id || null } }) }
+    default:
+      return null
+  }
+}
+
+// ── Event Listener — subscribes to the bus; routes + logs for replay ─────────
 async function onFinancialEvent(event) {
   if (!event?.dealership_id || event.payload?.engine) return
-  const did = event.dealership_id
   try {
-    if (event.event_name === 'deal.status_changed' && event.to_state === 'delivered') {
-      await postDealDelivered(did, event.entity_id)
-    } else if (event.event_name === 'commission.calculated') {
-      await postCommissionCalculated(did, event.payload?.deal_id || event.entity_id)
-    } else if (event.event_name === 'deposit.paid') {
-      const cents = n(event.payload?.amount_cents)
-      if (cents > 0) await postByRule(did, 'deposit_received', {
-        deposit_amount: round2(cents / 100), __source: 'deposit',
-        __reference: event.payload?.payment_ref || event.entity_id, __date: event.created_at,
-        __refs: { ref_contact_id: event.entity_id },
-      })
-    }
-  } catch (e) { console.warn('[accounting-engine] listener failed:', e.message) }
+    const result = await routeFinancialEvent(event)
+    if (!result) return   // not a financial event
+    // Record the event→journal mapping so a bug can be fixed and the event replayed.
+    await supabaseAdmin.from('accounting_event_log').insert({
+      dealership_id: event.dealership_id, event_id: event.id || null, event_name: event.event_name,
+      processed_by: result.handler, journal_entry_id: result.journalId || null,
+      status: result.journalId ? 'processed' : 'skipped',
+    })
+  } catch (e) {
+    console.warn('[accounting-engine] listener failed:', e.message)
+    try { await supabaseAdmin.from('accounting_event_log').insert({ dealership_id: event.dealership_id, event_id: event.id || null, event_name: event.event_name, status: 'error', error: String(e.message).slice(0, 500) }) } catch {}
+  }
 }
 
 // ── HTTP surface — journals + trial balance (reports read from the ledger) ───
@@ -197,6 +229,30 @@ export function registerAccountingEngine(app) {
     const byEntry = {}
     for (const l of lines) (byEntry[l.journal_entry_id] ||= []).push(l)
     res.json({ entries: (entries || []).map(e => ({ ...e, lines: byEntry[e.id] || [] })) })
+  })
+
+  // Event → journal audit log (which event produced which journal; replay history).
+  app.get('/accounting/event-log', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    const { data } = await supabaseAdmin.from('accounting_event_log').select('*')
+      .eq('dealership_id', req.dealershipId).order('processed_at', { ascending: false }).limit(200)
+    res.json({ log: data || [] })
+  })
+
+  // Replay a stored event → regenerate its accounting safely (postings are idempotent
+  // per source+reference+event, so replaying returns the existing journal, not a dup).
+  app.post('/accounting/replay/:eventId', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    const { data: event } = await supabaseAdmin.from('events').select('*')
+      .eq('id', req.params.eventId).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!event) return res.status(404).json({ error: 'event not found' })
+    const result = await routeFinancialEvent(event)
+    await supabaseAdmin.from('accounting_event_log').insert({
+      dealership_id: req.dealershipId, event_id: event.id, event_name: event.event_name,
+      processed_by: (result?.handler || 'replay') + ' (replay)', journal_entry_id: result?.journalId || null,
+      status: result?.journalId ? 'processed' : 'skipped',
+    })
+    res.json({ ok: true, handler: result?.handler || null, journal_entry_id: result?.journalId || null })
   })
 
   // Trial balance — computed purely from journal_lines (never edited balances).

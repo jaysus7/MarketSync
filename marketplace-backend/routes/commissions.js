@@ -20,6 +20,7 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { emitEvent } from './events.js'
 
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
@@ -362,13 +363,24 @@ export function registerCommissions(app) {
   app.post('/commissions/mark-paid', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
-    let q = supabaseAdmin.from('deal_commissions').update({ status: 'paid', updated_at: new Date().toISOString() })
-      .eq('dealership_id', req.dealershipId).eq('status', 'earned')
-    if (req.body?.rep_id) q = q.eq('rep_id', String(req.body.rep_id))
-    if (req.body?.month) { const b = new Date(req.body.month + '-01T00:00:00Z'); q = q.gte('period', monthStart(b).toISOString().slice(0, 10)).lt('period', monthEnd(b).toISOString().slice(0, 10)) }
-    const { error } = await q
+    // Select the rows first so we know the total being paid (for the accounting event).
+    let sel = supabaseAdmin.from('deal_commissions').select('id, total').eq('dealership_id', req.dealershipId).eq('status', 'earned')
+    if (req.body?.rep_id) sel = sel.eq('rep_id', String(req.body.rep_id))
+    if (req.body?.month) { const b = new Date(req.body.month + '-01T00:00:00Z'); sel = sel.gte('period', monthStart(b).toISOString().slice(0, 10)).lt('period', monthEnd(b).toISOString().slice(0, 10)) }
+    const { data: toPay } = await sel
+    const ids = (toPay || []).map(r => r.id)
+    const total = Math.round((toPay || []).reduce((s, r) => s + (Number(r.total) || 0), 0) * 100) / 100
+    if (!ids.length) return res.json({ ok: true, paid: 0 })
+    const { error } = await supabaseAdmin.from('deal_commissions').update({ status: 'paid', updated_at: new Date().toISOString() }).in('id', ids)
     if (error) return res.status(500).json({ error: error.message })
-    res.json({ ok: true })
+    // Emit so the accounting engine posts the pay-run journal (DR Commission Payable /
+    // CR Cash). The commission calc itself is untouched — this just books the payout.
+    if (total > 0) emitEvent({
+      dealershipId: req.dealershipId, eventName: 'commission.paid', entityType: 'deal', entityId: ids[0],
+      summary: `Commission pay run — $${total.toLocaleString('en-US')}`, department: 'Accounting', createdBy: req.user?.id || null,
+      payload: { amount: total, ref: `payrun:${new Date().toISOString().slice(0, 10)}:${req.body?.rep_id || 'all'}:${req.body?.month || 'all'}` },
+    })
+    res.json({ ok: true, paid: total })
   })
 
   // Manual clawback on a specific deal (repair came back, chargeback, unwound).
