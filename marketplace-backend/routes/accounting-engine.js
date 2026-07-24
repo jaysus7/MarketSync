@@ -209,6 +209,26 @@ export function registerAccountingEngine(app) {
     res.json({ rows, total_debit: totDr, total_credit: totCr, balanced: totDr === totCr })
   })
 
+  // Dashboard cards — MTD P&L + cumulative balance-sheet positions (from journals).
+  app.get('/accounting/summary', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    const now = new Date()
+    const from = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`
+    const [mtd, all] = await Promise.all([accountBalances(req.dealershipId, { from }), accountBalances(req.dealershipId, {})])
+    const catCr = (rows, cat) => round2(rows.filter(a => a.category === cat).reduce((s, a) => s + (a.credit - a.debit), 0))
+    const catDr = (rows, cat) => round2(rows.filter(a => a.category === cat).reduce((s, a) => s + (a.debit - a.credit), 0))
+    const keyDr = (rows, key) => { const a = rows.find(x => x.system_key === key); return a ? round2(a.debit - a.credit) : 0 }
+    const keyCr = (rows, key) => { const a = rows.find(x => x.system_key === key); return a ? round2(a.credit - a.debit) : 0 }
+    const revenue = catCr(mtd, 'income'), cogs = catDr(mtd, 'cogs'), expense = catDr(mtd, 'expense')
+    const grossProfit = round2(revenue - cogs), netIncome = round2(grossProfit - expense)
+    res.json({
+      month: from.slice(0, 7),
+      revenue_mtd: revenue, gross_profit_mtd: grossProfit, expenses_mtd: expense, net_income_mtd: netIncome,
+      cash: keyDr(all, 'cash'), accounts_receivable: keyDr(all, 'accounts_receivable'),
+      accounts_payable: keyCr(all, 'accounts_payable'), inventory_value: keyDr(all, 'inventory'),
+    })
+  })
+
   // Income statement — revenue − COGS − expense (from journals, optional date range).
   app.get('/accounting/income-statement', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
@@ -253,7 +273,7 @@ export function registerAccountingEngine(app) {
 
 // Per-account debit/credit totals from journal_lines (optional ?from & ?to on entry_date).
 async function accountBalances(dealershipId, query = {}) {
-  const { data: accts } = await supabaseAdmin.from('gl_accounts').select('id, name, code, category').eq('dealership_id', dealershipId)
+  const { data: accts } = await supabaseAdmin.from('gl_accounts').select('id, name, code, category, system_key').eq('dealership_id', dealershipId)
   // Date filter joins through journal_entries.entry_date when a range is given.
   let entryIds = null
   if (query.from || query.to) {

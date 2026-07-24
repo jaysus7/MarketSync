@@ -8074,8 +8074,8 @@ window.teamDeleteStaff = teamDeleteStaff;
 // ── Accounting page ──────────────────────────────────────────────────────────
 // Managers/accounting. The deal + F&I auto-post income; accounting adds the day's
 // expenses; a daily reconciliation flags anything off (and emails when it is).
-let __acctState = { tab: 'reconciliation', date: null, accounts: [] };
-const ACCT_TABS = [['insights', 'Insights'], ['reconciliation', 'Reconciliation'], ['bank', 'Bank account'], ['expenses', 'Expenses'], ['budget', 'Budget'], ['tax', 'Tax'], ['reports', 'Reports'], ['settings', 'Settings']];
+let __acctState = { tab: 'financials', date: null, accounts: [], finSub: 'overview' };
+const ACCT_TABS = [['financials', 'Financials'], ['insights', 'Insights'], ['reconciliation', 'Reconciliation'], ['bank', 'Bank account'], ['expenses', 'Expenses'], ['budget', 'Budget'], ['tax', 'Tax'], ['reports', 'Reports'], ['settings', 'Settings']];
 function acctToday() { return __acctState.date || new Date().toISOString().slice(0, 10); }
 function acctMonth() { return acctToday().slice(0, 7); }
 function loadAccountingPage(goTab) {
@@ -8087,14 +8087,122 @@ function loadAccountingPage(goTab) {
       <p class="text-sm text-slate-500 dark:text-slate-400">Deals &amp; F&amp;I post themselves — add the day's expenses and close the books. Reconciliation runs daily and alerts you when something's off.</p></div>
     <div class="flex flex-wrap gap-1.5">${ACCT_TABS.map(([id, l]) => tab(id, l)).join('')}</div>
     <div id="acct-body" class="pt-1"><div class="text-sm text-slate-400">Loading…</div></div>`;
-  const map = { insights: acctLoadInsights, reconciliation: acctLoadToday, bank: acctLoadBank, expenses: acctLoadExpenses, budget: acctLoadBudget, tax: acctLoadTax, reports: acctLoadReportsDetail, settings: acctLoadSettings };
-  (map[__acctState.tab] || acctLoadToday)();
+  const map = { financials: acctLoadFinancials, insights: acctLoadInsights, reconciliation: acctLoadToday, bank: acctLoadBank, expenses: acctLoadExpenses, budget: acctLoadBudget, tax: acctLoadTax, reports: acctLoadReportsDetail, settings: acctLoadSettings };
+  (map[__acctState.tab] || acctLoadFinancials)();
 }
 function acctSetTab(t) { __acctState.tab = t; loadAccountingPage(); }
 function acctSetDate(d) { __acctState.date = d; acctLoadToday(); }
 // Nav sub-item → jump to the Accounting page on a specific tab.
 function acctGo(tab) { __acctState.tab = tab; switchPage('accounting'); }
 window.loadAccountingPage = loadAccountingPage; window.acctSetTab = acctSetTab; window.acctSetDate = acctSetDate; window.acctGo = acctGo;
+
+// ── Financials — the journal-driven accounting dashboard + statements ─────────
+// Every number here reads from journal_entries/journal_lines (double-entry), never
+// from balances that were edited. Sub-views: Overview cards, Journal, Trial Balance,
+// Income Statement, Balance Sheet.
+const FIN_SUBS = [['overview', 'Overview'], ['journal', 'Journal'], ['trial', 'Trial Balance'], ['income', 'Income Statement'], ['balance', 'Balance Sheet']];
+function acctFinSub(s) { __acctState.finSub = s; acctLoadFinancials(); }
+window.acctFinSub = acctFinSub;
+const finMoney = (x) => (Number(x) < 0 ? '-$' : '$') + Math.abs(Number(x) || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+
+async function acctLoadFinancials() {
+  const body = document.getElementById('acct-body'); if (!body) return;
+  const sub = __acctState.finSub || 'overview';
+  const subTabs = FIN_SUBS.map(([id, l]) => `<button onclick="acctFinSub('${id}')" class="px-2.5 py-1 rounded-lg text-[13px] font-bold transition ${sub === id ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${l}</button>`).join('');
+  body.innerHTML = `<div class="flex flex-wrap gap-1.5 mb-4">${subTabs}</div><div id="fin-body"><div class="text-sm text-slate-400">Loading…</div></div>`;
+  const el = document.getElementById('fin-body');
+  try {
+    if (sub === 'overview') return acctFinOverview(el);
+    if (sub === 'journal') return acctFinJournal(el);
+    if (sub === 'trial') return acctFinTrial(el);
+    if (sub === 'income') return acctFinIncome(el);
+    if (sub === 'balance') return acctFinBalance(el);
+  } catch (e) { el.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load.')}</div>`; }
+}
+
+async function acctFinOverview(el) {
+  const s = await apiGetJson('/accounting/summary');
+  const card = (label, val, tone) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+    <div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">${label}</div>
+    <div class="text-2xl font-black mt-1 ${tone || 'text-slate-900 dark:text-white'}">${finMoney(val)}</div></div>`;
+  el.innerHTML = `
+    <div class="text-[11px] text-slate-400 mb-2">Month to date · ${esc(s.month || '')} · all figures from the double-entry ledger</div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      ${card('Revenue MTD', s.revenue_mtd)}
+      ${card('Gross Profit MTD', s.gross_profit_mtd, 'text-emerald-600 dark:text-emerald-400')}
+      ${card('Expenses MTD', s.expenses_mtd, 'text-amber-600 dark:text-amber-400')}
+      ${card('Net Income MTD', s.net_income_mtd, (Number(s.net_income_mtd) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'))}
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+      ${card('Cash Position', s.cash)}
+      ${card('Accounts Receivable', s.accounts_receivable)}
+      ${card('Accounts Payable', s.accounts_payable, 'text-amber-600 dark:text-amber-400')}
+      ${card('Inventory Value', s.inventory_value)}
+    </div>`;
+}
+
+async function acctFinJournal(el) {
+  const d = await apiGetJson('/accounting/journal');
+  const entries = d.entries || [];
+  if (!entries.length) { el.innerHTML = `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">No journal entries yet. They post automatically as deals deliver, deposits land, and commissions calculate.</div>`; return; }
+  el.innerHTML = entries.map(e => `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 mb-2">
+      <div class="flex items-center justify-between text-[13px]">
+        <div class="font-bold text-slate-800 dark:text-slate-200">${esc(e.entry_date)} · ${esc(e.source)}${e.reference ? ' · ' + esc(String(e.reference).slice(0, 8)) : ''}</div>
+        <div class="text-[11px] text-slate-400">${esc(e.event_name || '')}</div>
+      </div>
+      <table class="w-full text-[13px] mt-2"><tbody>
+        ${(e.lines || []).map(l => `<tr class="border-t border-slate-100 dark:border-slate-800/60">
+          <td class="py-1 text-slate-600 dark:text-slate-300">${esc(l.memo || '')}</td>
+          <td class="py-1 text-right tabular-nums ${Number(l.debit) ? '' : 'text-slate-300 dark:text-slate-700'}">${Number(l.debit) ? finMoney(l.debit) : '—'}</td>
+          <td class="py-1 text-right tabular-nums ${Number(l.credit) ? '' : 'text-slate-300 dark:text-slate-700'}">${Number(l.credit) ? finMoney(l.credit) : '—'}</td>
+        </tr>`).join('')}
+      </tbody></table>
+    </div>`).join('');
+}
+
+async function acctFinTrial(el) {
+  const d = await apiGetJson('/accounting/trial-balance');
+  const rows = (d.rows || []).sort((a, b) => String(a.code).localeCompare(String(b.code)));
+  el.innerHTML = `<div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+    <table class="w-full text-sm"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">
+      <th class="px-3 py-2">Account</th><th class="px-3 py-2 text-right">Debit</th><th class="px-3 py-2 text-right">Credit</th></tr></thead>
+    <tbody>${rows.map(r => `<tr class="border-b border-slate-100 dark:border-slate-800/60"><td class="px-3 py-2">${esc(r.code || '')} ${esc(r.name)}</td><td class="px-3 py-2 text-right tabular-nums">${r.debit ? finMoney(r.debit) : '—'}</td><td class="px-3 py-2 text-right tabular-nums">${r.credit ? finMoney(r.credit) : '—'}</td></tr>`).join('') || '<tr><td colspan="3" class="px-3 py-8 text-center text-slate-400">No postings yet.</td></tr>'}</tbody>
+    <tfoot><tr class="border-t-2 border-slate-300 dark:border-slate-700 font-black"><td class="px-3 py-2">Total ${d.balanced ? '<span class="text-emerald-500 text-[11px] font-bold ml-1">✓ balanced</span>' : '<span class="text-rose-500 text-[11px] font-bold ml-1">✕ off</span>'}</td><td class="px-3 py-2 text-right tabular-nums">${finMoney(d.total_debit)}</td><td class="px-3 py-2 text-right tabular-nums">${finMoney(d.total_credit)}</td></tr></tfoot>
+    </table></div>`;
+}
+
+async function acctFinIncome(el) {
+  const now = new Date(); const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const d = await apiGetJson(`/accounting/income-statement?from=${from}`);
+  const section = (title, lines, total, tone) => `
+    <div class="flex items-center justify-between text-[11px] uppercase font-bold tracking-wider text-slate-400 mt-3 mb-1">${title}<span>${finMoney(total)}</span></div>
+    ${(lines || []).map(l => `<div class="flex items-center justify-between text-[13px] py-0.5"><span class="text-slate-600 dark:text-slate-300">${esc(l.name)}</span><span class="tabular-nums">${finMoney(l.amount)}</span></div>`).join('')}`;
+  el.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 max-w-xl">
+    <div class="text-[11px] text-slate-400 mb-1">Month to date · ${esc(from.slice(0, 7))}</div>
+    ${section('Revenue', d.revenue_lines, d.revenue)}
+    ${section('Cost of sales', d.cogs_lines, d.cogs)}
+    <div class="flex items-center justify-between font-bold border-t border-slate-200 dark:border-slate-800 mt-2 pt-2">Gross profit<span class="tabular-nums text-emerald-600 dark:text-emerald-400">${finMoney(d.gross_profit)}</span></div>
+    ${section('Expenses', d.expense_lines, d.expense)}
+    <div class="flex items-center justify-between font-black text-lg border-t-2 border-slate-300 dark:border-slate-700 mt-2 pt-2">Net income<span class="tabular-nums ${Number(d.net_income) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">${finMoney(d.net_income)}</span></div>
+  </div>`;
+}
+
+async function acctFinBalance(el) {
+  const d = await apiGetJson('/accounting/balance-sheet');
+  const section = (title, lines, total) => `
+    <div class="flex items-center justify-between text-[11px] uppercase font-bold tracking-wider text-slate-400 mt-3 mb-1">${title}<span>${finMoney(total)}</span></div>
+    ${(lines || []).map(l => `<div class="flex items-center justify-between text-[13px] py-0.5"><span class="text-slate-600 dark:text-slate-300">${esc(l.name)}</span><span class="tabular-nums">${finMoney(l.amount)}</span></div>`).join('')}`;
+  el.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 max-w-xl">
+    ${section('Assets', d.asset_lines, d.assets)}
+    ${section('Liabilities', d.liability_lines, d.liabilities)}
+    ${section('Equity', d.equity_lines, d.equity - d.net_income)}
+    <div class="flex items-center justify-between text-[13px] py-0.5"><span class="text-slate-600 dark:text-slate-300">Net income (current)</span><span class="tabular-nums">${finMoney(d.net_income)}</span></div>
+    <div class="flex items-center justify-between font-black border-t-2 border-slate-300 dark:border-slate-700 mt-2 pt-2">Liabilities + Equity<span class="tabular-nums">${finMoney(d.liabilities + d.equity)}</span></div>
+    <div class="text-[11px] mt-2 ${d.balanced ? 'text-emerald-500' : 'text-rose-500'} font-bold">${d.balanced ? '✓ Balance sheet balances' : '✕ Out of balance — check journals'}</div>
+  </div>`;
+}
+window.acctLoadFinancials = acctLoadFinancials;
 
 // ── Affiliates admin (MarketSync owner) ──────────────────────────────────────
 async function loadAffiliatesAdmin() {
