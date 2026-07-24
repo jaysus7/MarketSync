@@ -8100,7 +8100,7 @@ window.loadAccountingPage = loadAccountingPage; window.acctSetTab = acctSetTab; 
 // Every number here reads from journal_entries/journal_lines (double-entry), never
 // from balances that were edited. Sub-views: Overview cards, Journal, Trial Balance,
 // Income Statement, Balance Sheet.
-const FIN_SUBS = [['overview', 'Overview'], ['journal', 'Journal'], ['trial', 'Trial Balance'], ['income', 'Income Statement'], ['balance', 'Balance Sheet']];
+const FIN_SUBS = [['overview', 'Overview'], ['forecast', 'Forecast'], ['journal', 'Journal'], ['trial', 'Trial Balance'], ['income', 'Income Statement'], ['balance', 'Balance Sheet'], ['periods', 'Period Close']];
 function acctFinSub(s) { __acctState.finSub = s; acctLoadFinancials(); }
 window.acctFinSub = acctFinSub;
 const finMoney = (x) => (Number(x) < 0 ? '-$' : '$') + Math.abs(Number(x) || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
@@ -8117,6 +8117,8 @@ async function acctLoadFinancials() {
     if (sub === 'trial') return acctFinTrial(el);
     if (sub === 'income') return acctFinIncome(el);
     if (sub === 'balance') return acctFinBalance(el);
+    if (sub === 'forecast') return acctFinForecast(el);
+    if (sub === 'periods') return acctFinPeriods(el);
   } catch (e) { el.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load.')}</div>`; }
 }
 
@@ -8202,6 +8204,60 @@ async function acctFinBalance(el) {
     <div class="text-[11px] mt-2 ${d.balanced ? 'text-emerald-500' : 'text-rose-500'} font-bold">${d.balanced ? '✓ Balance sheet balances' : '✕ Out of balance — check journals'}</div>
   </div>`;
 }
+async function acctFinForecast(el) {
+  const d = await apiGetJson('/accounting/forecast');
+  const a = d.actual || {}, p = d.pipeline || {}, f = d.forecast || {};
+  const card = (label, val, tone) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+    <div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">${label}</div>
+    <div class="text-2xl font-black mt-1 ${tone || 'text-slate-900 dark:text-white'}">${finMoney(val)}</div></div>`;
+  el.innerHTML = `
+    <div class="text-[11px] text-slate-400 mb-2">Projected month-end · ${esc(d.month || '')}</div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      ${card('Forecast Revenue', f.revenue)}
+      ${card('Forecast Gross', f.gross_profit, 'text-emerald-600 dark:text-emerald-400')}
+      ${card('Forecast Payroll', f.payroll, 'text-amber-600 dark:text-amber-400')}
+      ${card('Forecast Net', f.net_income, (Number(f.net_income) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'))}
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Sold, undelivered</div><div class="text-2xl font-black mt-1">${p.sold_undelivered || 0}</div></div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Open deals</div><div class="text-2xl font-black mt-1">${p.open_deals || 0}</div></div>
+      ${card('Expected gross (pipeline)', p.expected_gross)}
+      ${card('Expected commission', p.expected_commission, 'text-amber-600 dark:text-amber-400')}
+    </div>
+    <div class="mt-3 text-[12px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
+      Posted MTD so far: revenue ${finMoney(a.revenue)} · gross ${finMoney(a.gross_profit)} · expenses ${finMoney(a.expense)}.
+      <div class="mt-1 text-slate-400">${esc(d.note || '')}</div>
+    </div>`;
+}
+
+async function acctFinPeriods(el) {
+  const d = await apiGetJson('/accounting/periods');
+  const flow = d.flow || [];
+  const label = (s) => ({ open: 'Open', manager_approved: 'Manager approved', controller_approved: 'Controller approved', closed: 'Closed', locked: 'Locked' }[s] || s);
+  const nextOf = (s) => { const i = flow.indexOf(s); return (i >= 0 && i < flow.length - 1) ? flow[i + 1] : null; };
+  const rows = (d.periods || []).map(pr => {
+    const nx = nextOf(pr.status);
+    const btn = nx ? `<button onclick="acctPeriodAdvance('${pr.period}')" class="text-[12px] font-bold text-white px-3 py-1.5 rounded-lg ${nx === 'locked' ? 'bg-rose-600 hover:bg-rose-500' : 'bg-indigo-600 hover:bg-indigo-500'}">${nx === 'locked' ? 'Lock period' : '→ ' + label(nx)}</button>` : `<span class="text-[11px] font-bold text-rose-500 flex items-center gap-1">${svgIcon('shield', 'w-3.5 h-3.5')}Locked</span>`;
+    const tone = pr.status === 'locked' ? 'text-rose-500' : pr.status === 'closed' ? 'text-amber-500' : 'text-slate-500';
+    return `<tr class="border-b border-slate-100 dark:border-slate-800/60">
+      <td class="px-3 py-2 font-bold">${esc(pr.period)}</td>
+      <td class="px-3 py-2"><span class="font-semibold ${tone}">${label(pr.status)}</span></td>
+      <td class="px-3 py-2 text-right">${btn}</td></tr>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="text-[12px] text-slate-500 dark:text-slate-400 mb-3">Close the books each month: Open → Manager approved → Controller approved → Closed → Locked. After lock, no posting or edits — corrections are reversing journal entries only.</div>
+    <div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl max-w-2xl">
+      <table class="w-full text-sm"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">
+        <th class="px-3 py-2">Period</th><th class="px-3 py-2">Status</th><th class="px-3 py-2 text-right">Action</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="3" class="px-3 py-8 text-center text-slate-400">No periods yet.</td></tr>'}</tbody></table></div>`;
+}
+async function acctPeriodAdvance(period) {
+  const flowNext = { open: 'manager approved', manager_approved: 'controller approved', controller_approved: 'closed', closed: 'locked' };
+  if (!confirm(`Advance ${period}? This moves the period forward and, once locked, prevents any further posting.`)) return;
+  try { const r = await apiSendJson('/accounting/periods/advance', 'POST', { period }); showToast(`Period ${period} → ${r.status}`, 'success'); acctLoadFinancials(); }
+  catch (e) { showToast(e.message || 'Could not advance', 'error'); }
+}
+window.acctFinForecast = acctFinForecast; window.acctFinPeriods = acctFinPeriods; window.acctPeriodAdvance = acctPeriodAdvance;
 window.acctLoadFinancials = acctLoadFinancials;
 
 // ── Affiliates admin (MarketSync owner) ──────────────────────────────────────

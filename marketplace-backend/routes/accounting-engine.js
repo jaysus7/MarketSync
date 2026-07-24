@@ -325,7 +325,72 @@ export function registerAccountingEngine(app) {
       equity_lines: bucket('equity').map(a => ({ ...a, amount: round2(a.credit - a.debit) })).filter(a => a.amount),
     })
   })
+
+  // ── A6 Period Close: open → manager_approved → controller_approved → closed → locked
+  app.get('/accounting/periods', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    const now = new Date(); const cur = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
+    // Ensure the current month exists so there's always something to act on.
+    await supabaseAdmin.from('accounting_periods').upsert({ dealership_id: req.dealershipId, period: cur }, { onConflict: 'dealership_id,period', ignoreDuplicates: true })
+    const { data } = await supabaseAdmin.from('accounting_periods').select('*').eq('dealership_id', req.dealershipId).order('period', { ascending: false }).limit(36)
+    res.json({ periods: data || [], flow: PERIOD_FLOW, current: cur })
+  })
+
+  // Advance a period one step (or lock it). Managers/admins only.
+  app.post('/accounting/periods/advance', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
+    const period = String(req.body?.period || '')
+    if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ error: 'period must be YYYY-MM' })
+    const { data: row } = await supabaseAdmin.from('accounting_periods').select('*').eq('dealership_id', req.dealershipId).eq('period', period).maybeSingle()
+    const cur = row?.status || 'open'
+    const idx = PERIOD_FLOW.indexOf(cur)
+    if (idx < 0 || idx >= PERIOD_FLOW.length - 1) return res.status(400).json({ error: `Period is already ${cur}` })
+    const next = PERIOD_FLOW[idx + 1]
+    const approvals = { ...(row?.approvals || {}), [next]: { by: req.user?.id || null, at: new Date().toISOString() } }
+    const patch = { dealership_id: req.dealershipId, period, status: next, approvals, updated_at: new Date().toISOString() }
+    if (next === 'locked') { patch.locked_at = new Date().toISOString(); patch.locked_by = req.user?.id || null }
+    await supabaseAdmin.from('accounting_periods').upsert(patch, { onConflict: 'dealership_id,period' })
+    res.json({ ok: true, status: next })
+  })
+
+  // ── A8 Forecast: project month-end from open deals + posted journals + pipeline.
+  app.get('/accounting/forecast', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    const did = req.dealershipId
+    const now = new Date(); const from = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`
+    // Posted MTD actuals from journals
+    const acc = await accountBalances(did, { from })
+    const catCr = (cat) => round2(acc.filter(a => a.category === cat).reduce((s, a) => s + (a.credit - a.debit), 0))
+    const catDr = (cat) => round2(acc.filter(a => a.category === cat).reduce((s, a) => s + (a.debit - a.credit), 0))
+    const actualRevenue = catCr('income'), actualCogs = catDr('cogs'), actualExpense = catDr('expense')
+    // Sold-but-not-delivered pipeline (expected to close this month)
+    const [{ data: soldDeals }, { data: pendingComm }, { data: openDeals }] = await Promise.all([
+      supabaseAdmin.from('deals').select('selling_price, cost, fni_items').eq('dealership_id', did).eq('deal_status', 'sold').limit(2000),
+      supabaseAdmin.from('deal_commissions').select('total, status').eq('dealership_id', did).in('status', ['pending', 'earned']).limit(5000),
+      supabaseAdmin.from('deals').select('id').eq('dealership_id', did).in('deal_status', ['working', 'pending_credit']).limit(2000),
+    ])
+    const expectedGross = round2((soldDeals || []).reduce((s, d) => {
+      const price = n(d.selling_price), cost = n(d.cost)
+      const fni = (Array.isArray(d.fni_items) ? d.fni_items : []).reduce((a, x) => a + n(x?.price), 0)
+      return s + Math.max(0, price - cost) + fni
+    }, 0))
+    const expectedCommission = round2((pendingComm || []).reduce((s, c) => s + n(c.total), 0))
+    const projectedRevenue = round2(actualRevenue + (soldDeals || []).reduce((s, d) => s + n(d.selling_price), 0))
+    const projectedGross = round2((actualRevenue - actualCogs) + expectedGross)
+    const projectedExpense = round2(actualExpense + expectedCommission)
+    const projectedNet = round2(projectedGross - projectedExpense)
+    res.json({
+      month: from.slice(0, 7),
+      actual: { revenue: actualRevenue, gross_profit: round2(actualRevenue - actualCogs), expense: actualExpense },
+      pipeline: { sold_undelivered: (soldDeals || []).length, open_deals: (openDeals || []).length, expected_gross: expectedGross, expected_commission: expectedCommission },
+      forecast: { revenue: projectedRevenue, gross_profit: projectedGross, expense: projectedExpense, payroll: expectedCommission, net_income: projectedNet },
+      note: 'Projection = posted MTD actuals + sold-but-undelivered pipeline. Grows more accurate as A5 event coverage (acquisition, recon, service) fills in.',
+    })
+  })
 }
+
+const PERIOD_FLOW = ['open', 'manager_approved', 'controller_approved', 'closed', 'locked']
 
 // Per-account debit/credit totals from journal_lines (optional ?from & ?to on entry_date).
 async function accountBalances(dealershipId, query = {}) {
