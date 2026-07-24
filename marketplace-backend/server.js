@@ -46,6 +46,7 @@ import { registerExpenses } from './routes/expenses.js'
 import { registerDealerTasks } from './routes/dealertasks.js'
 import { registerEvents } from './routes/events.js'
 import { registerWorkflow } from './routes/workflow.js'
+import { registerActionExecutor } from './routes/action-executor.js'
 import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
 
@@ -118,6 +119,7 @@ registerExpenses(app)
 registerDealerTasks(app)
 registerEvents(app)
 registerWorkflow(app)
+registerActionExecutor(app)
 registerPlaid(app)
 registerAffiliate(app)
 

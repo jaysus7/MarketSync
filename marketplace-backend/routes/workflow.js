@@ -58,7 +58,7 @@ async function matchTemplates(dealershipId, event) {
 // Resolve the deal / vehicle / customer ids reachable from an event, plus display
 // fields used to keep the task board and vehicle timeline aligned.
 async function resolveContext(event) {
-  const ctx = { dealId: null, inventoryId: null, contactId: null, vin: null, stock: null, contactName: null }
+  const ctx = { dealId: null, inventoryId: null, contactId: null, vin: null, stock: null, contactName: null, contactEmail: null, contactPhone: null }
   const did = event.dealership_id
   try {
     if (event.entity_type === 'deal') {
@@ -71,7 +71,7 @@ async function resolveContext(event) {
       ctx.inventoryId = event.entity_id
     }
     if (ctx.inventoryId) { const { data: v } = await supabaseAdmin.from('inventory').select('vin, stock_number').eq('id', ctx.inventoryId).maybeSingle(); ctx.vin = v?.vin || null; ctx.stock = v?.stock_number || null }
-    if (ctx.contactId) { const { data: c } = await supabaseAdmin.from('contacts').select('full_name').eq('id', ctx.contactId).maybeSingle(); ctx.contactName = c?.full_name || null }
+    if (ctx.contactId) { const { data: c } = await supabaseAdmin.from('contacts').select('full_name, email, phone').eq('id', ctx.contactId).maybeSingle(); ctx.contactName = c?.full_name || null; ctx.contactEmail = c?.email || null; ctx.contactPhone = c?.phone || null }
   } catch (e) { console.warn('[workflow] resolveContext failed:', e.message) }
   return ctx
 }
@@ -130,9 +130,6 @@ async function runSystemStep(dealershipId, instance, step, ctx) {
       await logTimeline({ dealershipId, eventName: 'state.updated', entityType: entity.type, entityId: entity.id, summary: `State → ${to}`, department: step.department, toState: to })
       break
     }
-    case 'send_notification':
-      await createNotification({ dealershipId, type: 'task', title: step.name, body: [ctx.contactName, ctx.stock || ctx.vin].filter(Boolean).join(' · '), linkPage: 'crm' }).catch(() => {})
-      break
     case 'create_exception':
       // An `unless_event` config makes this an SLA timer ("escalate unless contacted
       // within N minutes"). Timers are honored by the Stage 6 scanner, not fired
@@ -143,19 +140,49 @@ async function runSystemStep(dealershipId, instance, step, ctx) {
     case 'request_approval':
       await raiseException(dealershipId, { kind: 'approval_waiting', entityType: entity.type, entityId: entity.id, department: step.department, description: step.name, severity: 'high' })
       break
-    // Already posted by the delivery path (dashboard.js postDealToLedger / recomputeDealCommission);
-    // re-posting here would double-count, so these are timeline-only in the engine.
+    // Internal side-effects handled elsewhere (delivery path posts ledger/commission
+    // idempotently; timers arrive with the scanner) — timeline-only in the engine.
     case 'post_ledger':
     case 'post_commission':
-    case 'send_sms':
-    case 'send_email':
-    case 'system_vin_decode':
-    case 'system_carfax':
     case 'add_timeline':
-    case 'wait':   // timers arrive in Stage 6 (automation/scheduler)
-    default:
+    case 'wait':
       await logTimeline({ dealershipId, eventName: `workflow.${step.action_type}`, entityType: entity.type, entityId: entity.id, summary: step.name, department: step.department })
       break
+    // External side-effects go through the retry-safe action executor (Stage 4).
+    // send_notification is routed too so every outbound action lands in one ledger.
+    default: {
+      const { dispatchAction, isExecutableAction } = await import('./action-executor.js')
+      if (isExecutableAction(step.action_type)) {
+        const payload = buildActionPayload(step, ctx, entity)
+        await dispatchAction({
+          dealershipId, actionType: step.action_type, payload,
+          workflowInstanceId: instance.id, workflowStepId: step.id,
+          entityType: entity.type, entityId: entity.id,
+        })
+      } else {
+        await logTimeline({ dealershipId, eventName: `workflow.${step.action_type}`, entityType: entity.type, entityId: entity.id, summary: step.name, department: step.department })
+      }
+      break
+    }
+  }
+}
+
+// Translate a workflow step + entity context into an executor payload.
+function buildActionPayload(step, ctx, entity) {
+  const c = step.config || {}
+  switch (step.action_type) {
+    case 'send_notification': case 'notification':
+      return { ntype: c.ntype || 'task', title: c.title || step.name, body: c.body || [ctx.contactName, ctx.stock || ctx.vin].filter(Boolean).join(' · '), linkPage: c.linkPage || 'crm', targetUserId: c.targetUserId || null }
+    case 'send_email': case 'email':
+      return { to: c.to || ctx.contactEmail || null, subject: c.subject || step.name, html: c.html || c.body || '', text: c.text || '' }
+    case 'send_sms': case 'sms':
+      return { to: c.to || ctx.contactPhone || null, body: c.body || step.name }
+    case 'system_vin_decode': case 'vin_decode':
+      return { max: c.max || 10, inventoryId: ctx.inventoryId || null }
+    case 'webhook':
+      return { event: c.event || `workflow.${entity.type}`, data: { entity_type: entity.type, entity_id: entity.id, ...(c.data || {}) } }
+    default:
+      return { ...c }
   }
 }
 

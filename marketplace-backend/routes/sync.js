@@ -2,6 +2,7 @@ import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, EXTENSION_URL, BACKEND
 import { runInventorySync, syncAllDealerships, sweepStaleExtensionFeeds } from '../sync/engine.js'
 import { runDripCampaign, verifyUnsubToken } from '../drip.js'
 import { scanExceptions } from './workflow-scan.js'
+import { retryDueActions } from './action-executor.js'
 
 function runDrip(trigger) {
   return runDripCampaign({
@@ -138,6 +139,15 @@ export function registerRoutes(app) {
     setTimeout(() => scanExceptions('boot'), 6 * 60 * 1000)
     setInterval(() => scanExceptions('interval'), EXC_SCAN_HOURS * 60 * 60 * 1000)
     console.log(`🚦 Workflow exception scanner scheduled every ${EXC_SCAN_HOURS}h (set EXC_SCAN_HOURS=0 to disable)`)
+  }
+
+  // ── Action executor retry worker ────────────────────────────────────────────
+  // Re-drives failed system_action_runs whose backoff has elapsed. Every few
+  // minutes so transient provider failures recover quickly. ACTION_RETRY_MIN=0 off.
+  const ACTION_RETRY_MIN = Number(process.env.ACTION_RETRY_MIN ?? 5)
+  if (ACTION_RETRY_MIN > 0) {
+    setInterval(() => retryDueActions(), ACTION_RETRY_MIN * 60 * 1000)
+    console.log(`🔁 Action executor retry worker scheduled every ${ACTION_RETRY_MIN}m (set ACTION_RETRY_MIN=0 to disable)`)
   }
 
   const DRIP_INTERVAL_HOURS = Number(process.env.DRIP_INTERVAL_HOURS || 24)
