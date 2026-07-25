@@ -93,50 +93,8 @@
 
     <div id="error-box" class="hidden mb-4 p-3 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200 text-xs rounded text-center"></div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <!-- SOLO -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-8 flex flex-col">
-        <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Solo Sales Rep</div>
-        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-1">$79 <span class="text-sm font-medium text-slate-500">/ month</span></h3>
-        <p class="text-xs text-slate-500 mb-6">For independent reps working solo or across multiple dealers.</p>
-        <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300 mb-8 flex-1">
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Personal inventory sync</li>
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Chrome extension auto-poster</li>
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Mark sold + listing tracking</li>
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Personal performance dashboard</li>
-        </ul>
-        <button onclick="handleUpgrade('SOLO', this)" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-bold py-3 rounded transition">Start 30-day free trial</button>
-      </div>
-
-      <!-- DEALER -->
-      <div class="bg-white dark:bg-slate-900 border border-indigo-600 rounded-lg p-8 flex flex-col relative">
-        <span class="absolute -top-3 right-6 bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">Most popular</span>
-        <div class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-2">Dealer Plan</div>
-        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-1">$499 <span class="text-sm font-medium text-slate-500">/ month</span></h3>
-        <p class="text-xs text-slate-500 mb-6">Full team: dealership admin + unlimited sales reps on one plan.</p>
-        <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300 mb-8 flex-1">
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Everything in Solo</li>
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Invite + manage unlimited sales reps</li>
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Team performance insights + drill-downs</li>
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Multiple inventory feeds (new / used / demo)</li>
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Reps don't pay — billed once at the dealership level</li>
-        </ul>
-        <button onclick="handleUpgrade('DEALER', this)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded transition">Start 30-day free trial</button>
-      </div>
-
-      <!-- AI CHATBOT ONLY -->
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-8 flex flex-col">
-        <div class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-2">AI Chatbot only</div>
-        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-1">Add-on <span class="text-sm font-medium text-slate-500">/ month</span></h3>
-        <p class="text-xs text-slate-500 mb-6">Just the AI sales chatbot — embed it on your existing site (LeadBox, eDealer, WordPress, anywhere).</p>
-        <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300 mb-8 flex-1">
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> 24/7 AI sales chat on any website</li>
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Answers from your live inventory</li>
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Captures leads into MarketSync CRM</li>
-          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> One script tag — no site rebuild</li>
-        </ul>
-        <button onclick="handleChatbot(this)" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded transition">Start 30-day free trial</button>
-      </div>
+    <div id="plan-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="col-span-full text-center text-sm text-slate-400 py-10">Loading plans…</div>
     </div>
 
     <p class="text-xs text-slate-500 text-center mt-8">
@@ -147,68 +105,77 @@
   <script>
     const API = 'https://vehicle-marketplace-s0e4.onrender.com';
 
-    async function handleUpgrade(type, btn) {
-      const errBox = document.getElementById('error-box');
-      errBox.classList.add('hidden');
-      const originalText = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'Connecting to billing...';
+    // Package copy (features + tagline). Amounts + currency come live from the API.
+    const PKG_META = {
+      starter: { tagline: 'Core dealership platform to get selling.', popular: false, features: ['Inventory sync + Marketplace posting', 'CRM, leads & task board', 'Deal desk + bill of sale', 'Team + performance dashboards'] },
+      growth:  { tagline: 'Adds the AI + intelligence layer.', popular: true, features: ['Everything in Starter', 'AI Boost — listings, replies, window stickers', 'Inventory Intelligence + AI Vision', 'Pricing insights & market reports'] },
+      pro:     { tagline: 'The full operating system.', popular: false, features: ['Everything in Growth', 'Equity mining + executive dashboard', 'Accounting, commissions & forecasting', 'Priority support'] },
+    };
+    const CHATBOT = { key: 'ai_chatbot', label: 'AI Chatbot only', amount: 499, tagline: 'Just the AI sales chatbot — embed it on your existing site (LeadBox, eDealer, WordPress, anywhere).', features: ['24/7 AI sales chat on any website', 'Answers from your live inventory', 'Captures leads into MarketSync CRM', 'One script tag — no site rebuild'] };
 
-      const token = localStorage.getItem('token');
-      if (!token) {
-        window.location.href = `register.html?plan=${type}`;
-        return;
-      }
+    const errBox = () => document.getElementById('error-box');
+    function showErr(msg) { const e = errBox(); e.textContent = msg; e.classList.remove('hidden'); }
 
-      try {
-        const res = await fetch(`${API}/billing/checkout`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({})
-        });
-        const data = await res.json();
-        if (data.url) {
-          window.location.href = data.url;
-          return;
-        }
-        throw new Error(data.error || 'Could not start checkout');
-      } catch (err) {
-        errBox.textContent = err.message;
-        errBox.classList.remove('hidden');
-        btn.disabled = false;
-        btn.textContent = originalText;
-      }
+    function card({ key, label, price, tagline, features, popular, accent }) {
+      const border = popular ? 'border-indigo-600' : 'border-slate-200 dark:border-slate-800';
+      const btnCls = accent === 'emerald'
+        ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+        : popular ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
+        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white';
+      const labelCls = accent === 'emerald' ? 'text-emerald-600 dark:text-emerald-400' : popular ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400';
+      return `<div class="bg-white dark:bg-slate-900 border ${border} rounded-lg p-7 flex flex-col relative">
+        ${popular ? '<span class="absolute -top-3 right-6 bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">Most popular</span>' : ''}
+        <div class="text-xs font-bold uppercase tracking-wider ${labelCls} mb-2">${label}</div>
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-1">${price} <span class="text-sm font-medium text-slate-500">/ month</span></h3>
+        <p class="text-xs text-slate-500 mb-6">${tagline}</p>
+        <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300 mb-8 flex-1">
+          ${features.map(f => `<li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> ${f}</li>`).join('')}
+        </ul>
+        <button data-plan="${key}" class="w-full ${btnCls} font-bold py-3 rounded transition">Start 30-day free trial</button>
+      </div>`;
     }
 
-    // Standalone AI Chatbot add-on — a dealer can buy just the chatbot to embed on
-    // their existing site (LeadBox / eDealer / etc.), without a full MarketSync plan.
-    async function handleChatbot(btn) {
-      const errBox = document.getElementById('error-box');
-      errBox.classList.add('hidden');
-      const originalText = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'Connecting to billing...';
-      const token = localStorage.getItem('token');
-      if (!token) { window.location.href = 'register.html?plan=ai_chatbot'; return; }
+    async function renderPlans() {
+      const grid = document.getElementById('plan-grid');
+      let packages = [], currency = 'USD', symbol = '$';
       try {
-        const res = await fetch(`${API}/billing/subscribe-ai-chatbot`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({}),
-        });
+        const r = await fetch(`${API}/billing/packages`);
+        const d = await r.json();
+        packages = d.packages || []; currency = d.currency || 'USD'; symbol = d.symbol || '$';
+      } catch {}
+      // Order Starter → Growth → Pro; fall back to fixed prices if the API has none.
+      const order = ['starter', 'growth', 'pro'];
+      const byKey = Object.fromEntries(packages.map(p => [p.key, p]));
+      const pkgCards = order.filter(k => byKey[k] || PKG_META[k]).map(k => {
+        const p = byKey[k] || {}; const meta = PKG_META[k] || { features: [], tagline: '' };
+        const amt = p.amount != null ? p.amount : ({ starter: 999, growth: 1499, pro: 1999 })[k];
+        return card({ key: k, label: (p.label || k), price: `${p.symbol || symbol}${amt}`, tagline: meta.tagline, features: meta.features, popular: !!meta.popular });
+      });
+      const chatCard = card({ key: CHATBOT.key, label: CHATBOT.label, price: `${symbol}${CHATBOT.amount}`, tagline: CHATBOT.tagline, features: CHATBOT.features, accent: 'emerald' });
+      grid.innerHTML = pkgCards.join('') + chatCard;
+      grid.querySelectorAll('button[data-plan]').forEach(b => b.addEventListener('click', () => startCheckout(b.dataset.plan, b)));
+    }
+
+    async function startCheckout(plan, btn) {
+      errBox().classList.add('hidden');
+      const original = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Connecting to billing...';
+      const token = localStorage.getItem('token');
+      if (!token) { window.location.href = `register.html?plan=${plan}`; return; }
+      const isChatbot = plan === 'ai_chatbot';
+      const url = isChatbot ? `${API}/billing/subscribe-ai-chatbot` : `${API}/billing/subscribe-package`;
+      const body = isChatbot ? {} : { package: plan };
+      try {
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(body) });
         const data = await res.json();
         if (data.url) { window.location.href = data.url; return; }
         throw new Error(data.error || 'Could not start checkout');
       } catch (err) {
-        errBox.textContent = err.message;
-        errBox.classList.remove('hidden');
-        btn.disabled = false;
-        btn.textContent = originalText;
+        showErr(err.message); btn.disabled = false; btn.textContent = original;
       }
     }
+
+    renderPlans();
   </script>
 
     <!-- MarketSync sales assistant — grounded in the site knowledge base -->
