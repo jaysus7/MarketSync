@@ -88,12 +88,12 @@
         <span class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
       </a>
       <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-3">Choose your plan</h1>
-      <p class="text-sm text-slate-500 dark:text-slate-400">30 days free on either plan. Cancel anytime.</p>
+      <p id="upgrade-sub" class="text-sm text-slate-500 dark:text-slate-400">Your free trial has ended — pick a plan to keep going. Cancel anytime.</p>
     </div>
 
     <div id="error-box" class="hidden mb-4 p-3 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200 text-xs rounded text-center"></div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <!-- SOLO -->
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-8 flex flex-col">
         <div class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Solo Sales Rep</div>
@@ -122,6 +122,20 @@
           <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Reps don't pay — billed once at the dealership level</li>
         </ul>
         <button onclick="handleUpgrade('DEALER', this)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded transition">Start 30-day free trial</button>
+      </div>
+
+      <!-- AI CHATBOT ONLY -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-8 flex flex-col">
+        <div class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-2">AI Chatbot only</div>
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-1">Add-on <span class="text-sm font-medium text-slate-500">/ month</span></h3>
+        <p class="text-xs text-slate-500 mb-6">Just the AI sales chatbot — embed it on your existing site (LeadBox, eDealer, WordPress, anywhere).</p>
+        <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300 mb-8 flex-1">
+          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> 24/7 AI sales chat on any website</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Answers from your live inventory</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> Captures leads into MarketSync CRM</li>
+          <li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> One script tag — no site rebuild</li>
+        </ul>
+        <button onclick="handleChatbot(this)" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded transition">Start 30-day free trial</button>
       </div>
     </div>
 
@@ -160,6 +174,33 @@
           window.location.href = data.url;
           return;
         }
+        throw new Error(data.error || 'Could not start checkout');
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    }
+
+    // Standalone AI Chatbot add-on — a dealer can buy just the chatbot to embed on
+    // their existing site (LeadBox / eDealer / etc.), without a full MarketSync plan.
+    async function handleChatbot(btn) {
+      const errBox = document.getElementById('error-box');
+      errBox.classList.add('hidden');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Connecting to billing...';
+      const token = localStorage.getItem('token');
+      if (!token) { window.location.href = 'register.html?plan=ai_chatbot'; return; }
+      try {
+        const res = await fetch(`${API}/billing/subscribe-ai-chatbot`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        if (data.url) { window.location.href = data.url; return; }
         throw new Error(data.error || 'Could not start checkout');
       } catch (err) {
         errBox.textContent = err.message;

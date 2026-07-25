@@ -23,6 +23,7 @@ function addonKeyForPrice(priceId) {
   if (priceId === process.env.STRIPE_AI_BOOST_PRICE_ID)    return 'ai_boost'
   if (priceId === process.env.STRIPE_VIN_STICKER_PRICE_ID) return 'vin_sticker'
   if (priceId === process.env.STRIPE_AI_VISION_PRICE_ID)   return 'ai_vision'
+  if (priceId === process.env.STRIPE_AI_CHATBOT_PRICE_ID)  return 'ai_chatbot'
   if (INV_INTEL_PRICE_ID && priceId === INV_INTEL_PRICE_ID) return 'inv_intel'
   return null
 }
@@ -35,6 +36,7 @@ function colsForAddon(key, active) {
   if (key === 'ai_boost')    return { ai_boost_active: active, ai_boost_paid: active }
   if (key === 'vin_sticker') return { vin_sticker_active: active }
   if (key === 'ai_vision')   return { ai_vision_active: active }
+  if (key === 'ai_chatbot')  return { ai_chatbot_active: active, ai_chatbot_paid: active }
   if (key === 'inv_intel')   return { inv_intel_active: active, inv_intel_paid: active }
   return {}
 }
@@ -334,6 +336,7 @@ export function registerRoutes(app) {
       ai_boost:    'STRIPE_AI_BOOST_PRICE_ID',
       vin_sticker: 'STRIPE_VIN_STICKER_PRICE_ID',
       ai_vision:   'STRIPE_AI_VISION_PRICE_ID',
+      ai_chatbot:  'STRIPE_AI_CHATBOT_PRICE_ID',
       inv_intel:   'STRIPE_INV_INTEL_PRICE_ID',
     }[addonKey]
 
@@ -392,6 +395,7 @@ export function registerRoutes(app) {
 
   // ── Add-on subscription endpoints ─────────────────────────────────────────
   app.post('/billing/subscribe-ai-boost',    requireAuth, (req, res) => createAddonCheckout(req, res, 'ai_boost'))
+  app.post('/billing/subscribe-ai-chatbot',  requireAuth, (req, res) => createAddonCheckout(req, res, 'ai_chatbot'))
   app.post('/billing/subscribe-inv-intel',   requireAuth, (req, res) => createAddonCheckout(req, res, 'inv_intel'))
   // Retired add-ons — VIN & Brochure (OEM) is now core; AI Vision + generated docs
   // are part of AI Boost. Point any stale clients at AI Boost.
@@ -472,6 +476,7 @@ export function registerRoutes(app) {
   })
 
   app.get('/billing/ai-boost-verify',    requireAuth, (req, res) => verifyAddonSession(req, res, 'ai_boost'))
+  app.get('/billing/ai-chatbot-verify',  requireAuth, (req, res) => verifyAddonSession(req, res, 'ai_chatbot'))
   app.get('/billing/vin-sticker-verify', requireAuth, (req, res) => verifyAddonSession(req, res, 'vin_sticker'))
   app.get('/billing/inv-intel-verify',   requireAuth, (req, res) => verifyAddonSession(req, res, 'inv_intel'))
   app.get('/billing/ai-vision-verify',   requireAuth, (req, res) => verifyAddonSession(req, res, 'ai_vision'))
