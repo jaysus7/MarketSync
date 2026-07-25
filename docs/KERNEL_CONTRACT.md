@@ -133,11 +133,18 @@ If unclear, the architecture — not the feature — needs refinement.
 
 Honest state of the code vs. this contract:
 - ✅ Events, workflow, executor, timeline, accounting, exceptions, retry, replay.
-- ◑ **Direct cross-engine reads to retire:** the accounting engine reads `deals` /
-  `deal_commissions` / `inventory` directly; `dashboard.js` calls
-  `recomputeDealCommission()` / `syncDealToAccounting()` directly. → wrap in read APIs
-  + events.
-- ◑ **Configuration Engine** not yet unified (config is scattered). → build next.
+- ✅ **Configuration Engine** built (`config-engine.js`, `getConfig`/`setConfig`,
+  catalog) — first consumer wired (site chat default tone).
+- ✅ **Commission Engine decoupled:** it now SUBSCRIBES to `deal.status_changed`
+  (recompute/clawback + emit `commission.calculated`) instead of being called by the
+  deal desk. `dashboard.js` no longer calls `recomputeDealCommission`/clawback on the
+  status path.
+- ◑ **Remaining direct calls to retire:** `dashboard.js` `/reports/deal` (create path)
+  still calls `recomputeDealCommission()` on save (data-freshness, not a transition) —
+  route via a `deal.updated` event later; `syncDealToAccounting()` (external
+  integration, fire-and-forget) → move to an integration-engine subscriber. The
+  accounting engine still reads `deals`/`deal_commissions`/`inventory` directly →
+  wrap in read APIs.
 - ◑ **Tool registry** not yet formalized (executor registry is the template).
 - ◑ **Durable bus** (see §3 debt).
 

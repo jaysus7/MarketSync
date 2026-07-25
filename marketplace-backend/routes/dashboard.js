@@ -5,7 +5,7 @@ import { ensureGetReadyCard } from './recon.js'
 import { ensureDealTasks } from './dealertasks.js'
 import { emitEvent } from './events.js'
 import { syncDealToAccounting } from '../providers/accounting.js'
-import { recomputeDealCommission, clawbackDealCommission } from './commissions.js'
+import { recomputeDealCommission } from './commissions.js'
 
 async function buildUserStats(userId) {
   const countOf = async (status) => {
@@ -1453,22 +1453,9 @@ export function registerRoutes(app) {
     // listener posts balanced double-entry journals from the deal.status_changed:
     // delivered event above. Journals are now the single posting path.
     if (m.deal === 'delivered') { syncDealToAccounting(req.dealershipId, deal.id) }
-    // Commission: recompute on sold/delivered; auto-clawback when a closed deal is
-    // unwound back to "working" (with a reason the rep can see).
-    try {
-      if (m.deal === 'working') await clawbackDealCommission(req.dealershipId, deal.id, 'Deal unwound')
-      else await recomputeDealCommission(req.dealershipId, deal.id)
-    } catch (e) { console.warn('[commission] status hook failed:', e.message) }
-    // Emit AFTER the comp engine runs so the accounting engine's listener sees the
-    // final deal_commissions total and posts the commission journal (DR expense /
-    // CR payable). The comp calculation itself is unchanged — it just emits now.
-    if (m.deal === 'delivered') {
-      emitEvent({
-        dealershipId: req.dealershipId, eventName: 'commission.calculated', entityType: 'deal', entityId: deal.id,
-        summary: 'Commission calculated', department: 'Accounting', createdBy: req.user?.id || null,
-        payload: { deal_id: deal.id },
-      })
-    }
+    // Commission recompute/clawback + the commission.calculated accounting event are
+    // now handled by the Commission Engine, which SUBSCRIBES to the deal.status_changed
+    // event emitted above (kernel contract: no direct cross-engine calls).
     res.json({ ok: true, deal_status: m.deal, vehicle_status: m.inv })
   })
 

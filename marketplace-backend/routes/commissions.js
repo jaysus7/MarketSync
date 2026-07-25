@@ -20,7 +20,7 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
-import { emitEvent } from './events.js'
+import { emitEvent, onEvent } from './events.js'
 
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
@@ -191,6 +191,26 @@ export async function clawbackDealCommission(dealershipId, dealId, reason) {
     .eq('deal_id', dealId).eq('dealership_id', dealershipId)
 }
 
+// Kernel-contract conformance: the Commission Engine SUBSCRIBES to deal state
+// changes rather than being called directly by the deal desk. On a status change it
+// recomputes (or claws back), and on delivery it emits commission.calculated AFTER
+// the recompute completes — so the accounting engine's listener reads the final
+// deal_commissions totals (no race). The calculation logic itself is unchanged.
+async function onDealStatusEvent(event) {
+  if (event?.event_name !== 'deal.status_changed' || event.payload?.engine) return
+  const did = event.dealership_id, dealId = event.entity_id, to = event.to_state
+  try {
+    if (to === 'working') { await clawbackDealCommission(did, dealId, 'Deal unwound'); return }
+    await recomputeDealCommission(did, dealId)
+    if (to === 'delivered') {
+      emitEvent({
+        dealershipId: did, eventName: 'commission.calculated', entityType: 'deal', entityId: dealId,
+        summary: 'Commission calculated', department: 'Accounting', payload: { deal_id: dealId },
+      })
+    }
+  } catch (e) { console.warn('[commission] deal event failed:', e.message) }
+}
+
 // Volume bonus from a plan's tiers, given the rep's period units + gross. Pays the
 // single highest tier met per basis (units, gross), summed across bases.
 function volumeBonus(planConfig, units, gross) {
@@ -268,6 +288,8 @@ async function repSummary(dealershipId, repId, monthISO) {
 }
 
 export function registerCommissions(app) {
+  onEvent(onDealStatusEvent)   // subscribe the Commission Engine to deal state changes
+
   // ── Plans (managers) ────────────────────────────────────────────────────────
   app.get('/commissions/plans', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
