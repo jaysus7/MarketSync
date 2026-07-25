@@ -8,6 +8,7 @@ import { routeAndNotifyLead } from '../lead-routing.js'
 import { createNotification } from '../notifications.js'
 import { aiAllowed, recordUsage } from '../usage.js'
 import { rateLimit, getClientIp, consumeQuota } from '../security.js'
+import { getConfig } from './config-engine.js'
 import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '../chatGuard.js'
 import { runAutoResponder } from '../autoresponder.js'
 import { depositConfigForSite } from './deposits.js'
@@ -646,7 +647,11 @@ export function registerSite(app) {
       facts += `\nService department: ${svc.enabled ? 'books service online' : 'by phone'}${types ? ` — offers ${types}` : ''}${svc.hours ? `. Service hours: ${String(svc.hours).slice(0, 200)}` : ''}.`
     }
     const kb = [String(b.site_chat_kb || '').trim(), String(aiCfg?.ai_knowledge || '').trim()].filter(Boolean).join('\n\n').slice(0, 12000)
-    const instr = [String(aiCfg?.ai_customer_style || '').trim(), String(b.site_chat_instructions || '').trim()].filter(Boolean).join('\n\n').slice(0, 4000)
+    // Default AI tone comes from the Configuration Engine (ai_personality); a dealer's
+    // own per-site style still wins when set. Non-disruptive: only used as a fallback.
+    const aiPersona = await getConfig(d.id, 'ai_personality', null)
+    const defaultTone = aiPersona?.tone ? `Tone: ${aiPersona.tone}.` : ''
+    const instr = [String(aiCfg?.ai_customer_style || '').trim(), String(b.site_chat_instructions || '').trim()].filter(Boolean).join('\n\n').slice(0, 4000) || defaultTone
     const disclaimer = String(b.site_chat_disclaimer || '').trim().slice(0, 600)
     const botName = String(b.site_chat_name || '').trim().slice(0, 60)
     const system = `You are ${botName ? `${botName}, the friendly online sales concierge` : 'the friendly online sales concierge'} for ${d.name}, a car dealership${loc ? ` in ${loc}` : ''}.${botName ? ` If a shopper asks your name, say you're ${botName}.` : ''} Help shoppers find a vehicle, answer questions about the inventory below, and guide them toward the next step: booking a test drive, getting pre-approved for financing, or valuing their trade. Be warm, concise (2–4 sentences), and never pushy.
