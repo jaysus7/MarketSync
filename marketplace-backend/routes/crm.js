@@ -127,6 +127,16 @@ async function ensureFollowupTask(dealershipId, contact, actingUserId) {
   } catch (e) { console.warn('[crm] ensureFollowupTask failed:', e.message) }
 }
 
+// Published read API for the Customer Engine — other engines (AI, accounting, …) get
+// a contact via this, never by reading the contacts table directly (kernel contract §4).
+export async function getContact(dealershipId, id) {
+  if (!dealershipId || !id) return null
+  const { data } = await supabaseAdmin.from('contacts')
+    .select('id, full_name, email, phone, phone_mobile, status, source, assigned_rep, tags, customer_number, last_activity_at')
+    .eq('id', id).eq('dealership_id', dealershipId).maybeSingle()
+  return data || null
+}
+
 export function registerCrm(app) {
   // ── Contacts list / search ────────────────────────────────────────────────
   // Browsing scope: reps see only contacts they own/created; managers see all and

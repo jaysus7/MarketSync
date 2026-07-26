@@ -49,6 +49,7 @@ import { registerWorkflow } from './routes/workflow.js'
 import { registerActionExecutor } from './routes/action-executor.js'
 import { registerAccountingEngine } from './routes/accounting-engine.js'
 import { registerConfigEngine } from './routes/config-engine.js'
+import { registerAiEngine } from './routes/ai-engine.js'
 import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
 
@@ -124,6 +125,7 @@ registerWorkflow(app)
 registerActionExecutor(app)
 registerAccountingEngine(app)
 registerConfigEngine(app)
+registerAiEngine(app)
 registerPlaid(app)
 registerAffiliate(app)
 
