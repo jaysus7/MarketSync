@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat</title>
+  <style>
+    :root { --accent: #4f46e5; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f8fafc; }
+    .wrap { display: flex; flex-direction: column; height: 100vh; }
+    .hd { background: var(--accent); color: #fff; padding: 14px 16px; font-weight: 700; font-size: 15px; }
+    .hd small { display: block; font-weight: 500; opacity: .85; font-size: 12px; margin-top: 2px; }
+    .msgs { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .b { max-width: 82%; padding: 9px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; }
+    .u { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+    .a { align-self: flex-start; background: #fff; color: #1e293b; border: 1px solid #e2e8f0; border-bottom-left-radius: 4px; }
+    .typing { align-self: flex-start; color: #94a3b8; font-size: 13px; padding: 4px 12px; }
+    .ft { padding: 10px; border-top: 1px solid #e2e8f0; background: #fff; display: flex; gap: 8px; }
+    .ft input { flex: 1; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 12px; font-size: 14px; outline: none; }
+    .ft input:focus { border-color: var(--accent); }
+    .ft button { border: 0; background: var(--accent); color: #fff; border-radius: 10px; padding: 0 14px; font-weight: 700; cursor: pointer; }
+    .ft button:disabled { opacity: .5; cursor: default; }
+    .off { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; color: #64748b; padding: 24px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hd" id="hd">Chat<small id="hd-sub">We usually reply in seconds</small></div>
+    <div class="msgs" id="msgs"></div>
+    <div class="ft" id="ft" style="display:none;">
+      <input id="inp" placeholder="Type a message…" autocomplete="off">
+      <button id="send">Send</button>
+    </div>
+    <div class="off" id="off" style="display:none;">Chat isn't available right now.</div>
+  </div>
+  <script>
+    var API = 'https://vehicle-marketplace-s0e4.onrender.com';
+    var params = new URLSearchParams(location.search);
+    var dealer = params.get('dealer') || '';
+    var LS_CONV = 'msc_conv_' + dealer, LS_VIS = 'msc_vis_' + dealer;
+    var convId = localStorage.getItem(LS_CONV) || null;
+    var visTok = localStorage.getItem(LS_VIS) || null;
+    var msgsEl = document.getElementById('msgs');
+    var inp = document.getElementById('inp'), sendBtn = document.getElementById('send');
+
+    function esc(t){ var d=document.createElement('div'); d.textContent=t==null?'':String(t); return d.innerHTML; }
+    function bubble(text, who){ var el=document.createElement('div'); el.className='b '+(who==='user'?'u':'a'); el.innerHTML=esc(text); msgsEl.appendChild(el); msgsEl.scrollTop=msgsEl.scrollHeight; return el; }
+    function typing(on){ var t=document.getElementById('typing'); if(on){ if(!t){ t=document.createElement('div'); t.id='typing'; t.className='typing'; t.textContent='…'; msgsEl.appendChild(t); msgsEl.scrollTop=msgsEl.scrollHeight; } } else if(t){ t.remove(); } }
+
+    async function init(){
+      if(!dealer){ document.getElementById('off').style.display='flex'; return; }
+      try{
+        var cfg = await (await fetch(API+'/ai/widget/config?dealer='+encodeURIComponent(dealer))).json();
+        if(!cfg.enabled){ document.getElementById('off').style.display='flex'; return; }
+        document.getElementById('hd').firstChild.textContent = cfg.name ? cfg.name : 'Chat';
+        document.getElementById('ft').style.display='flex';
+        bubble(cfg.greeting || 'Hi! How can I help you find your next vehicle?', 'ai');
+        inp.focus();
+      }catch(e){ document.getElementById('off').style.display='flex'; }
+    }
+
+    async function send(){
+      var text = inp.value.trim(); if(!text) return;
+      inp.value=''; sendBtn.disabled=true; bubble(text,'user'); typing(true);
+      try{
+        var r = await fetch(API+'/ai/widget/chat', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ dealer: dealer, message: text, conversation_id: convId, visitor_token: visTok, website: document.referrer || null }) });
+        var d = await r.json(); typing(false);
+        if(d.conversation_id){ convId=d.conversation_id; localStorage.setItem(LS_CONV,convId); }
+        if(d.visitor_token){ visTok=d.visitor_token; localStorage.setItem(LS_VIS,visTok); }
+        bubble(d.reply || "Thanks — someone will follow up shortly.", 'ai');
+      }catch(e){ typing(false); bubble("Sorry, something went wrong. Please try again.", 'ai'); }
+      sendBtn.disabled=false; inp.focus();
+    }
+    sendBtn.onclick = send;
+    inp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); send(); } });
+    init();
+  </script>
+</body>
+</html>

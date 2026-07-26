@@ -1421,6 +1421,7 @@ function switchPage(pageId) {
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
   if (pageId === 'taskboard') loadTaskBoard();
   if (pageId === 'operations') loadOperationsPage();
+  if (pageId === 'ai-inbox') loadAiInbox();
 
 }
 
@@ -9022,6 +9023,88 @@ async function opsOpenEntity(type, id, label) {
   </div>`;
 }
 Object.assign(window, { loadOperationsPage, opsResolveException, opsOpenEntity });
+
+// ══ AI Chat inbox — live AI conversations + the embeddable widget snippet ═════
+const AI_SCORE_TONE = (s) => s >= 80 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' : s >= 50 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+async function loadAiInbox() {
+  const root = document.getElementById('ai-inbox-root'); if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading…</div>`;
+  let convos = [], embed = null;
+  try {
+    const [c, e] = await Promise.all([
+      apiGetJson('/ai/conversations').catch(() => ({ conversations: [] })),
+      apiGetJson('/ai/widget/embed').catch(() => null),
+    ]);
+    convos = c.conversations || []; embed = e;
+  } catch { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">Could not load AI chat.</div>`; return; }
+
+  const rows = convos.length ? convos.map(c => `
+    <button onclick="aiOpenConversation('${c.id}')" class="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-sm transition">
+      <span class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 grid place-items-center text-slate-500">${svgIcon('chat','w-5 h-5')}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2"><span class="text-sm font-bold text-slate-900 dark:text-white truncate">${esc(c.summary ? c.summary.split('\n')[0].slice(0,60) : (c.source || 'Website chat'))}</span>
+          ${c.status === 'handoff' ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">needs human</span>' : ''}</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">${esc(c.website || c.source || '')} · ${opsRelTime(c.last_message_at)}</div>
+      </div>
+      <span class="text-[11px] font-bold px-2 py-1 rounded-lg ${AI_SCORE_TONE(c.lead_score||0)}">${c.lead_score||0}</span>
+    </button>`).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">No AI conversations yet. Add the widget to your site to start capturing leads 24/7.</div>`;
+
+  const snippet = embed?.snippet || '';
+  root.innerHTML = `
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">AI Chat</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Live AI conversations from your website + widget. The AI answers from inventory, captures leads, and hands off when needed.</p></div>
+      <button onclick="loadAiInbox()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1">${svgIcon('refresh','w-4 h-4')}Refresh</button>
+    </div>
+    ${snippet ? `<div class="rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/30 p-4">
+      <div class="text-sm font-black text-slate-800 dark:text-slate-200 mb-1">Add the chatbot to any site</div>
+      <p class="text-[12px] text-slate-500 dark:text-slate-400 mb-2">Paste this one line into your LeadBox, eDealer, WordPress, or any website (before &lt;/body&gt;).</p>
+      <div class="flex items-center gap-2">
+        <code id="ai-embed-code" class="flex-1 text-[11px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 overflow-x-auto whitespace-nowrap">${esc(snippet)}</code>
+        <button onclick="aiCopyEmbed()" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg flex-shrink-0">Copy</button>
+      </div>
+    </div>` : ''}
+    <div class="grid gap-2">${rows}</div>`;
+}
+function aiCopyEmbed() {
+  const el = document.getElementById('ai-embed-code'); if (!el) return;
+  navigator.clipboard?.writeText(el.textContent).then(() => showToast('Snippet copied ✓', 'success')).catch(() => showToast('Copy failed', 'error'));
+}
+async function aiOpenConversation(id) {
+  const overlay = crmOverlay(`<div class="p-5"><div class="text-sm text-slate-400 py-16 text-center">Loading…</div></div>`, 'max-w-2xl');
+  const panel = overlay.firstElementChild;
+  let convo = null, messages = [], memory = [];
+  try { const d = await apiGetJson(`/ai/conversations/${id}`); convo = d.conversation; messages = d.messages || []; memory = d.memory || []; } catch { if (panel) panel.innerHTML = '<div class="p-6 text-rose-500 text-sm">Could not load.</div>'; return; }
+  if (!panel || !overlay.isConnected) return;
+  const bubbles = messages.map(m => `<div class="flex ${m.role === 'user' ? 'justify-start' : 'justify-end'}">
+    <div class="max-w-[80%] px-3 py-2 rounded-2xl text-[13px] ${m.role === 'user' ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200' : 'bg-indigo-600 text-white'}">${esc(m.message)}</div></div>`).join('');
+  const memHtml = memory.length ? `<div class="flex flex-wrap gap-1.5 mb-3">${memory.map(m => `<span class="text-[11px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(m.memory_type)}: ${esc(m.value)}</span>`).join('')}</div>` : '';
+  panel.innerHTML = `<div class="p-5 space-y-3">
+    <div class="flex items-center justify-between">
+      <div class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">AI Conversation <span class="text-[11px] font-bold px-2 py-0.5 rounded-lg ${AI_SCORE_TONE(convo.lead_score||0)}">score ${convo.lead_score||0}</span></div>
+      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    ${convo.summary ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2 whitespace-pre-wrap">${esc(convo.summary)}</div>` : ''}
+    ${memHtml}
+    <div class="space-y-2 max-h-80 overflow-y-auto p-1">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
+    <div class="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+      ${convo.status !== 'handoff' ? `<button onclick="aiSetConvStatus('${id}','handoff',this)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Take over</button>` : `<button onclick="aiSetConvStatus('${id}','active',this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg">Return to AI</button>`}
+      <button onclick="aiSummarize('${id}',this)" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">Summarize</button>
+      <div class="flex-1"></div>
+      <button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-3 py-2">Close</button>
+    </div></div>`;
+}
+async function aiSetConvStatus(id, status, btn) {
+  if (btn) btn.disabled = true;
+  try { await apiSendJson(`/ai/conversations/${id}/status`, 'POST', { status }); showToast(status === 'handoff' ? 'You have taken over' : 'Returned to AI', 'success'); document.querySelector('.fixed')?.remove(); loadAiInbox(); }
+  catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) btn.disabled = false; }
+}
+async function aiSummarize(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Summarizing…'; }
+  try { await apiSendJson(`/ai/conversations/${id}/summarize`, 'POST'); showToast('Summary saved ✓', 'success'); aiOpenConversation(id); }
+  catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Summarize'; } }
+}
+Object.assign(window, { loadAiInbox, aiCopyEmbed, aiOpenConversation, aiSetConvStatus, aiSummarize });
 
 // Budget — a monthly spending target per expense category, tracked against actual spend.
 async function acctLoadBudget() {

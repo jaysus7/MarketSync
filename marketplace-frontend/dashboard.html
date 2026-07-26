@@ -830,6 +830,12 @@
             <span>Operations</span><span id="operations-badge" class="hidden ml-auto text-[10px] font-black bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none"></span>
           </button>
 
+          <!-- ─── AI Chat inbox (live AI conversations + embed) — managers/admins ─── -->
+          <button type="button" data-page="ai-inbox" title="AI Chat" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.7 9.7 0 01-4-.85L3 21l1.85-4.5A8 8 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            <span>AI Chat</span><span id="ai-inbox-badge" class="hidden ml-auto text-[10px] font-black bg-emerald-500 text-white rounded-full px-1.5 py-0.5 leading-none"></span>
+          </button>
+
           <!-- ─── Sales (appraisals, F&I, cleanup, equity, desking) ─── -->
           <div class="nav-group" data-group="sales">
             <div class="flex items-center">
@@ -1118,6 +1124,11 @@
       <!-- Operations — workflow exceptions dashboard + entity timeline lookup (managers). -->
       <div data-page-content="operations" class="page-content hidden space-y-6">
         <div id="operations-root"></div>
+      </div>
+
+      <!-- AI Chat inbox — live AI conversations + the embeddable widget snippet. -->
+      <div data-page-content="ai-inbox" class="page-content hidden space-y-6">
+        <div id="ai-inbox-root"></div>
       </div>
 
       <!-- Accounting — daily ledger, reconciliation, chart of accounts, P&L (managers). -->
@@ -3219,7 +3230,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260723d"></script>
+  <script src="dashboard.js?v=20260723e"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

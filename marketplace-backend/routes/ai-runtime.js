@@ -13,13 +13,14 @@
  * later back an MCP server for external agents.
  */
 import Anthropic from '@anthropic-ai/sdk'
-import { supabaseAdmin } from '../shared.js'
+import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { emitEvent } from './events.js'
 import { getConfig } from './config-engine.js'
 import { getContact, findOrCreateContact } from './crm.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
 import { assistantDailyAllowed, recordAssistantChat, aiAllowed, recordUsage } from '../usage.js'
+import { rateLimit } from '../security.js'
 import {
   startOrContinueConversation, saveMessage, getHistory, assembleContext, saveMemory,
 } from './ai-engine.js'
@@ -214,7 +215,46 @@ export async function summarizeConversation(dealershipId, conversationId) {
   } catch (e) { console.warn('[ai-runtime] summarize failed:', e.message); return null }
 }
 
+// Public chat entry (widget). Resolves/creates the conversation for an anonymous
+// visitor token, then runs the same runtime as the authenticated path.
+export async function publicChat({ dealershipId, conversationId, visitorToken, message, website, source = 'widget' }) {
+  let conversation = null
+  if (conversationId) {
+    const { data } = await supabaseAdmin.from('ai_conversations').select('*').eq('id', conversationId).eq('dealership_id', dealershipId).maybeSingle()
+    conversation = data
+  }
+  if (!conversation) conversation = await startOrContinueConversation(dealershipId, { visitorToken, website, source })
+  if (!conversation) return null
+  return runChat({ dealershipId, conversation, contactId: conversation.contact_id, userText: message, isOwner: false })
+}
+
 export function registerAiRuntime(app) {
+  // ── Public widget endpoints (embeddable on any site via the iframe loader) ──
+  // Keyed by the dealership's public id, gated by the ai_chatbot entitlement, and
+  // IP rate-limited. No auth — these back marketsync-chat.js on third-party sites.
+  app.get('/ai/widget/config', rateLimit('widgetcfg', 60, 60000), async (req, res) => {
+    const dealer = String(req.query.dealer || '')
+    if (!dealer) return res.status(400).json({ enabled: false, error: 'dealer required' })
+    const { data: d } = await supabaseAdmin.from('dealerships').select('id, name, ai_chatbot_active').eq('id', dealer).maybeSingle()
+    if (!d) return res.json({ enabled: false })
+    const persona = await getConfig(d.id, 'ai_personality', {})
+    res.json({ enabled: !!d.ai_chatbot_active, name: d.name, greeting: persona?.greeting || 'Hi! How can I help you find your next vehicle?' })
+  })
+
+  app.post('/ai/widget/chat', rateLimit('widgetchat', 20, 60000), async (req, res) => {
+    const dealer = String(req.body?.dealer || '')
+    const message = String(req.body?.message || '').trim()
+    if (!dealer || !message) return res.status(400).json({ error: 'dealer and message required' })
+    const { data: d } = await supabaseAdmin.from('dealerships').select('id, ai_chatbot_active').eq('id', dealer).maybeSingle()
+    if (!d || !d.ai_chatbot_active) return res.status(403).json({ error: 'chatbot_not_enabled' })
+    if (!(await aiAllowed(d.id, false))) return res.status(429).json({ error: 'busy' })
+    const visitorToken = String(req.body?.visitor_token || '') || ('v_' + Math.random().toString(36).slice(2) + Date.now().toString(36))
+    const out = await publicChat({ dealershipId: d.id, conversationId: req.body?.conversation_id || null, visitorToken, message, website: req.body?.website || null })
+    if (!out) return res.status(500).json({ error: 'chat failed' })
+    res.json({ ...out, visitor_token: visitorToken })
+  })
+
+
   // Authenticated chat (internal testing + logged-in surfaces). The public,
   // CORS-gated widget endpoint lands in Phase 3 on top of the same runtime.
   app.post('/ai/chat', requireAuth, async (req, res) => {
@@ -233,6 +273,14 @@ export function registerAiRuntime(app) {
     if (!conversation) return res.status(500).json({ error: 'could not start conversation' })
     const out = await runChat({ dealershipId: req.dealershipId, conversation, contactId: req.body?.contact_id || null, userText: text, isOwner })
     res.json(out)
+  })
+
+  // The dealer's copy-paste embed snippet for LeadBox / eDealer / any site.
+  app.get('/ai/widget/embed', requireAuth, (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    const origin = FRONTEND_URL || 'https://marketsync.link'
+    const snippet = `<script src="${origin}/marketsync-chat.js" data-dealer="${req.dealershipId}"></script>`
+    res.json({ dealer_id: req.dealershipId, snippet })
   })
 
   // Generate/refresh a conversation summary into the CRM.
