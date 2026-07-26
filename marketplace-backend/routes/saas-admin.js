@@ -8,7 +8,7 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
-import { resolveProducts } from './profile.js'
+import { resolveProducts, saasCan, saasRoleOf, SAAS_ROLES, SAAS_PERMISSIONS } from './profile.js'
 
 const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 const isOwner = (req) => (req.user?.email || '').toLowerCase() === OWNER_EMAIL || req.profile?.is_marketsync === true
@@ -20,10 +20,15 @@ const trialingStatus = (s) => (s || '').toUpperCase() === 'TRIALING'
 const dunningStatus = (s) => ['INACTIVE', 'PAST_DUE'].includes((s || '').toUpperCase())
 
 export function registerSaasAdmin(app) {
-  const guard = (req, res) => { if (!isOwner(req)) { res.status(403).json({ error: 'Owner access required' }); return false } return true }
+  // Permission gate: owner (or staff whose role grants `perm`). Reads use
+  // 'view_customers'; staff management requires being the owner.
+  const need = (perm) => (req, res) => {
+    if (saasCan(req, perm)) return true
+    res.status(403).json({ error: 'Insufficient permission' }); return false
+  }
 
   app.get('/saas/overview', requireAuth, async (req, res) => {
-    if (!guard(req, res)) return
+    if (!need('view_customers')(req, res)) return
     const [{ data: dealers }, { data: profiles }] = await Promise.all([
       supabaseAdmin.from('dealerships').select('id, name, is_personal, billing_status, trial_ends_at, plan, products, created_at').order('created_at', { ascending: false }).limit(2000),
       supabaseAdmin.from('profiles').select('id, dealership_id, billing_status, trial_ends_at').limit(8000),
@@ -73,7 +78,7 @@ export function registerSaasAdmin(app) {
   // a health score, and a next action, derived from real usage (the event spine)
   // + billing. No CRM tables needed; this reads what accounts actually did.
   app.get('/saas/customers', requireAuth, async (req, res) => {
-    if (!guard(req, res)) return
+    if (!need('view_pipeline')(req, res)) return
     const since = new Date(Date.now() - 30 * 86400000).toISOString()
     const [{ data: dealers }, { data: profiles }, { data: events }] = await Promise.all([
       supabaseAdmin.from('dealerships').select('id, name, is_personal, billing_status, trial_ends_at, products, created_at').limit(2000),
@@ -151,5 +156,36 @@ export function registerSaasAdmin(app) {
     for (const r of rows) (byStage[r.stage] = byStage[r.stage] || []).push(r)
     for (const s of STAGES) byStage[s].sort((x, y) => x.health - y.health)   // most at-risk first
     res.json({ stages: STAGES, by_stage: byStage, counts: Object.fromEntries(STAGES.map(s => [s, byStage[s].length])) })
+  })
+
+  // ── Employees + permissions (owner-only) ────────────────────────────────────
+  const ownerOnly = (req, res) => { if (saasRoleOf(req) === 'owner') return true; res.status(403).json({ error: 'Owner access required' }); return false }
+
+  // List MarketSync staff (anyone with a saas_role) + the role→permission matrix.
+  app.get('/saas/employees', requireAuth, async (req, res) => {
+    if (!ownerOnly(req, res)) return
+    const { data } = await supabaseAdmin.from('profiles').select('id, full_name, saas_role').not('saas_role', 'is', null).limit(200)
+    const staff = (data || []).map(p => ({ id: p.id, name: p.full_name || '—', saas_role: p.saas_role, permissions: SAAS_PERMISSIONS[p.saas_role] || [] }))
+    res.json({ roles: SAAS_ROLES, permissions_matrix: SAAS_PERMISSIONS, staff })
+  })
+
+  // Set (or clear) a user's staff role. Assign by user id, or promote by email.
+  app.post('/saas/employees/role', requireAuth, async (req, res) => {
+    if (!ownerOnly(req, res)) return
+    const role = req.body?.saas_role
+    if (role != null && role !== '' && !SAAS_ROLES.includes(role)) return res.status(400).json({ error: 'invalid role' })
+    // Never let the owner strip their own owner status via this tool.
+    let targetId = req.body?.user_id || null
+    if (!targetId && req.body?.email) {
+      // Resolve a profile by the auth user's email (profiles has no email col; go via auth).
+      const { data: list } = await supabaseAdmin.auth.admin.listUsers()
+      const u = (list?.users || []).find(x => (x.email || '').toLowerCase() === String(req.body.email).toLowerCase())
+      if (!u) return res.status(404).json({ error: 'no user with that email' })
+      targetId = u.id
+    }
+    if (!targetId) return res.status(400).json({ error: 'user_id or email required' })
+    const { error } = await supabaseAdmin.from('profiles').update({ saas_role: role || null }).eq('id', targetId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, user_id: targetId, saas_role: role || null })
   })
 }

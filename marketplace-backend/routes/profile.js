@@ -20,6 +20,25 @@ export function resolveProducts(dealer) {
   return PRODUCT_KEYS.some(k => p[k]) ? p : { dealer_os: true }
 }
 
+// ── MarketSync staff roles + permissions (the saas_admin workspace's access model) ──
+// Permissions are config-as-code, derived from the role. The platform owner is always
+// 'owner' (all permissions) regardless of the profiles.saas_role column.
+export const SAAS_ROLES = ['owner', 'sales', 'support', 'marketing', 'developer']
+export const SAAS_PERMISSIONS = {
+  owner:     ['*'],
+  sales:     ['view_customers', 'view_pipeline', 'view_revenue', 'create_trial', 'extend_trial'],
+  support:   ['view_customers', 'view_pipeline', 'extend_trial', 'reset_password', 'impersonate'],
+  marketing: ['view_customers', 'view_pipeline', 'marketing', 'affiliates', 'website'],
+  developer: ['view_customers', 'products', 'settings', 'logs'],
+}
+export function saasRoleOf(req) {
+  if ((req?.user?.email || '').toLowerCase() === OWNER_EMAIL) return 'owner'
+  const r = req?.profile?.saas_role
+  return SAAS_ROLES.includes(r) ? r : null
+}
+export function saasPerms(req) { const r = saasRoleOf(req); return r ? (SAAS_PERMISSIONS[r] || []) : [] }
+export function saasCan(req, perm) { const p = saasPerms(req); return p.includes('*') || p.includes(perm) }
+
 export function registerRoutes(app) {
   app.get('/auth/me', requireAuth, async (req, res) => {
     // The MarketSync owner gets the owner-only Demo ↔ MarketSync dashboard switch.
@@ -59,6 +78,9 @@ export function registerRoutes(app) {
       products: resolveProducts(req.profile.dealerships),
       // Which workspace this login opens into (see resolver above).
       workspace,
+      // MarketSync staff role + derived permissions (only meaningful in saas_admin).
+      saas_role: saasRoleOf(req),
+      saas_permissions: saasPerms(req),
     })
   })
 

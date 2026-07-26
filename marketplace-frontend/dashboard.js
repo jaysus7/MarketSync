@@ -374,7 +374,7 @@ let profileContext = null;
 // html[data-dash-mode] attribute). Persisted per-browser.
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
+const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'saas-employees', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -853,6 +853,7 @@ function initDashModeForOwner() {
   document.getElementById('nav-owner-users')?.classList.remove('hidden');
   document.getElementById('nav-saas-command')?.classList.remove('hidden');   // SaaS Command Center
   document.getElementById('nav-saas-customers')?.classList.remove('hidden'); // Customer Pipeline
+  document.getElementById('nav-saas-employees')?.classList.remove('hidden'); // Employees + permissions
   applyDashMode(__dashMode);
   // In MarketSync (SaaS) mode the owner lands on the SaaS Command Center — revenue,
   // trials, churn — not a dealership dashboard.
@@ -1476,6 +1477,7 @@ function switchPage(pageId) {
   if (pageId === 'command') loadCommandCenter();
   if (pageId === 'saas-command') loadSaasCommand();
   if (pageId === 'saas-customers') loadSaasCustomers();
+  if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'solo-home') loadSoloHome();
   if (pageId === 'operations') loadOperationsPage();
   if (pageId === 'service-ros') loadServiceRosPage();
@@ -9089,6 +9091,66 @@ async function loadSaasCustomers() {
     <div class="overflow-x-auto pb-2"><div class="flex gap-4 min-w-max">${cols}</div></div>`;
 }
 window.loadSaasCustomers = loadSaasCustomers;
+
+// ══ Employees + permissions — MarketSync staff (owner-only) ═══════════════════
+async function loadSaasEmployees() {
+  const root = document.getElementById('saas-employees-root');
+  if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading employees…</div>`;
+  let d;
+  try { d = await apiGetJson('/saas/employees'); }
+  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
+  const roles = d.roles || [];
+  const matrix = d.permissions_matrix || {};
+  const roleOpts = (sel) => roles.map(r => `<option value="${r}" ${r === sel ? 'selected' : ''}>${esc(r)}</option>`).join('');
+  const staff = (d.staff || []).map(s => `
+    <tr class="border-t border-slate-100 dark:border-slate-800">
+      <td class="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">${esc(s.name)}</td>
+      <td class="px-3 py-2">
+        <select onchange="saasSetRole('${s.id}', this.value)" class="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px]">${roleOpts(s.saas_role)}</select>
+      </td>
+      <td class="px-3 py-2 text-[11px] text-slate-400">${(s.permissions || []).map(p => esc(p)).join(', ')}</td>
+      <td class="px-3 py-2 text-right"><button onclick="saasSetRole('${s.id}','')" class="text-[11px] font-bold text-rose-500 hover:text-rose-600">Remove</button></td>
+    </tr>`).join('') || `<tr><td colspan="4" class="px-3 py-8 text-center text-slate-400 text-sm">No staff yet — add one by email below.</td></tr>`;
+  const matrixRows = roles.map(r => `
+    <div class="flex flex-wrap items-start gap-2 py-1.5 border-t border-slate-100 dark:border-slate-800/60">
+      <span class="w-24 flex-shrink-0 text-[12px] font-black uppercase text-slate-600 dark:text-slate-300">${esc(r)}</span>
+      <span class="flex flex-wrap gap-1">${(matrix[r] || []).map(p => `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${p === '*' ? 'ALL' : esc(p)}</span>`).join('')}</span>
+    </div>`).join('');
+  root.innerHTML = `
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Employees</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">MarketSync staff + what each role can do. Owner-only.</p></div>
+      <button onclick="switchPage('saas-command')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-200">← HQ</button>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
+      <table class="w-full text-sm min-w-[560px]">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">Name</th><th class="px-3 py-2">Role</th><th class="px-3 py-2">Permissions</th><th class="px-3 py-2"></th></tr></thead>
+        <tbody>${staff}</tbody>
+      </table>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-wrap items-end gap-2">
+      <div><label class="text-[11px] text-slate-400 font-bold">Add staff by email</label><input id="saas-emp-email" placeholder="teammate@marketsync.link" class="w-64 mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+      <div><label class="text-[11px] text-slate-400 font-bold">Role</label><select id="saas-emp-role" class="mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${roleOpts('support')}</select></div>
+      <button onclick="saasAddEmployee()" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold transition">Add</button>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Permission matrix</div>
+      ${matrixRows}
+    </div>`;
+}
+async function saasSetRole(userId, role) {
+  try { await apiSendJson('/saas/employees/role', 'POST', { user_id: userId, saas_role: role }); showToast('Updated ✓', 'success'); loadSaasEmployees(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function saasAddEmployee() {
+  const email = document.getElementById('saas-emp-email').value.trim();
+  const role = document.getElementById('saas-emp-role').value;
+  if (!email) return showToast('Email required', 'error');
+  try { await apiSendJson('/saas/employees/role', 'POST', { email, saas_role: role }); showToast('Staff added ✓', 'success'); loadSaasEmployees(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+Object.assign(window, { loadSaasEmployees, saasSetRole, saasAddEmployee });
 
 // ══ Command Center — DealerOS home: today's operations + live exceptions ══════
 async function loadCommandCenter() {
