@@ -374,7 +374,7 @@ let profileContext = null;
 // html[data-dash-mode] attribute). Persisted per-browser.
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
+const MS_ALLOWED_PAGES = new Set(['command', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -1180,7 +1180,10 @@ async function initializeDashboardEcosystem() {
       });
     });
     setupMobileMoreMenu();
-    switchPage('insights');
+    // DealerOS: managers/admins land on the Command Center (today's operations +
+    // exceptions); reps keep the Dashboard as home.
+    const __mgrHome = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+    switchPage(__mgrHome ? 'command' : 'insights');
     applyFeatureFlags();   // hide nav for features the dealer switched off
 
     // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
@@ -1422,6 +1425,7 @@ function switchPage(pageId) {
   if (pageId === 'equity') loadEquityPage();
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
   if (pageId === 'taskboard') loadTaskBoard();
+  if (pageId === 'command') loadCommandCenter();
   if (pageId === 'operations') loadOperationsPage();
   if (pageId === 'service-ros') loadServiceRosPage();
   if (pageId === 'service-parts') loadServicePartsPage();
@@ -8882,6 +8886,82 @@ function opsRelTime(iso) {
   if (s < 604800) return Math.floor(s / 86400) + 'd ago';
   return d.toLocaleDateString();
 }
+
+// ══ Command Center — DealerOS home: today's operations + live exceptions ══════
+async function loadCommandCenter() {
+  const root = document.getElementById('command-root');
+  if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading command center…</div>`;
+  let d;
+  try { d = await apiGetJson('/command-center'); }
+  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">Couldn't load: ${esc(e.message)}</div>`; return; }
+  const t = d.tiles || {};
+  const exceptions = d.exceptions || [];
+  const badge = document.getElementById('command-badge');
+  if (badge) { const n = d.exception_count || 0; if (n) { badge.textContent = n; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
+
+  // A tile: big number, label, click → jump to the owning page. `attention` tints
+  // it amber/rose when the count is non-zero (something to act on).
+  const tile = (label, val, page, attention) => {
+    const hot = attention && val > 0;
+    return `<button onclick="switchPage('${page}')" class="text-left bg-white dark:bg-slate-900 border rounded-xl px-4 py-4 transition hover:shadow-md ${hot ? 'border-amber-300 dark:border-amber-800' : 'border-slate-200 dark:border-slate-800'}">
+      <div class="text-3xl font-black ${hot ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100'}">${val}</div>
+      <div class="text-[12px] font-bold text-slate-500 dark:text-slate-400 mt-1">${esc(label)}</div>
+    </button>`;
+  };
+
+  const exCards = exceptions.length ? exceptions.slice(0, 12).map(x => {
+    const sev = OPS_SEV[x.severity] || OPS_SEV.medium;
+    return `<div class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-sm transition cursor-pointer" onclick="opsOpenEntity('${x.entity_type}','${x.entity_id}')">
+      <span class="mt-1.5 w-2 h-2 rounded-full ${sev.dot} flex-shrink-0"></span>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-sm font-bold text-slate-900 dark:text-white">${esc(OPS_KIND_LABEL[x.kind] || x.kind)}</span>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${sev.chip}">${esc(x.severity)}</span>
+          ${x.department ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${esc(x.department)}</span>` : ''}
+        </div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${esc(x.description || '')}</div>
+      </div>
+      <button onclick="event.stopPropagation(); cmdResolveException('${x.id}')" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 px-2 py-1 flex-shrink-0">Resolve</button>
+    </div>`;
+  }).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center gap-2">${svgIcon('check', 'w-6 h-6 text-emerald-400')}Nothing needs attention. Every workflow is on track.</div>`;
+
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  root.innerHTML = `
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-white">${greet}</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Today's operations across every department — problems first.</p>
+      </div>
+      <button onclick="loadCommandCenter()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1">${svgIcon('refresh','w-4 h-4')}Refresh</button>
+    </div>
+    <div>
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's Operations</div>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        ${tile('Leads waiting', t.leads_waiting ?? 0, 'leads', true)}
+        ${tile('Deals in progress', t.deals_in_progress ?? 0, 'desk', false)}
+        ${tile('Deliveries today', t.deliveries_today ?? 0, 'fni', false)}
+        ${tile('Recon delays', t.recon_delays ?? 0, 'recon', true)}
+        ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-ros', true)}
+      </div>
+    </div>
+    <div>
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Exceptions ${exceptions.length ? `· ${exceptions.length}` : ''}</div>
+      <div class="space-y-2">${exCards}</div>
+    </div>
+    <div>
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">AI Insights</div>
+      <div class="p-4 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-900 bg-indigo-50/40 dark:bg-indigo-950/20 text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
+        ${svgIcon('sparkles','w-5 h-5 text-indigo-400')} Inventory-aging, F&I-penetration, and pace insights arrive here with the AI Employee layer.
+      </div>
+    </div>`;
+}
+async function cmdResolveException(id) {
+  try { await apiSendJson(`/exceptions/${id}/resolve`, 'POST'); showToast('Resolved ✓', 'success'); loadCommandCenter(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+Object.assign(window, { loadCommandCenter, cmdResolveException });
 
 async function loadOperationsPage() {
   const root = document.getElementById('operations-root');

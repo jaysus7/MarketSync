@@ -54,6 +54,7 @@ import { registerAiRuntime } from './routes/ai-runtime.js'
 import { registerIntegrationEngine } from './routes/integration-engine.js'
 import { registerServiceEngine } from './routes/service-engine.js'
 import { registerOwnerAdmin } from './routes/owner-admin.js'
+import { registerCommandCenter } from './routes/command-center.js'
 import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
 
@@ -134,6 +135,7 @@ registerAiRuntime(app)
 registerIntegrationEngine(app)
 registerServiceEngine(app)
 registerOwnerAdmin(app)
+registerCommandCenter(app)
 registerPlaid(app)
 registerAffiliate(app)
 
