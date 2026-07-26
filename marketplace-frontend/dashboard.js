@@ -746,6 +746,10 @@ function applyProductNav(products) {
   if (home) { if (home === 'inventory') __inventoryMode = 'facebook'; if (typeof switchPage === 'function') switchPage(home); }
 }
 window.applyProductNav = applyProductNav;
+// Facebook products get a simplified CRM (customers + leads only — no deal desk /
+// accounting affordances inside CRM).
+function simpleCrmActive() { return /facebook/.test(document.documentElement.getAttribute('data-product') || ''); }
+window.simpleCrmActive = simpleCrmActive;
 // In MarketSync mode the Reports hub shows only the SaaS-relevant reports (no
 // vehicle inventory, F&I, appraisals or service — MarketSync sells software).
 const MS_REPORT_KEYS = new Set(['leads', 'marketing', 'appointments', 'activity', 'customers', 'reps']);
@@ -3929,7 +3933,7 @@ function setupMobileMoreMenu() {
     // admins get Desk a deal + Settings right at the top of the menu.
     const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     const quick = [];
-    if (isAdmin) quick.push(['desk', 'Desk a deal']);
+    if (isAdmin && !simpleCrmActive()) quick.push(['desk', 'Desk a deal']);
     quick.push(['profile', 'Settings']);
     if (quick.length) {
       const wrap = mk('<div class="grid grid-cols-2 gap-1.5"></div>');
@@ -5273,7 +5277,7 @@ function rbRenderTable() {
   const rows = __rbData?.rows || [];
   const cols = rbActiveCols();
   if (!rows.length) { rr.innerHTML = `<div class="text-sm text-slate-400 italic px-4 py-6">No ${src.noun}s match these filters.</div>`; return; }
-  const dealCol = src.hasDeal;
+  const dealCol = src.hasDeal && !simpleCrmActive();
   const head = `<th class="py-2 px-3 text-right sticky left-0 bg-slate-50 dark:bg-slate-950">#</th>` +
     (dealCol ? `<th class="py-2 px-3"></th>` : '') +
     cols.map(c => `<th class="py-2 px-3 whitespace-nowrap ${c.blank ? 'text-slate-400' : ''}">${esc(c.label)}</th>`).join('');
