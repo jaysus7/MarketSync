@@ -204,7 +204,8 @@
     #nav-desktop > .nav-group[data-group="web"]     { order:15; border-left-color:#a855f7; }  /* Marketing/Website — purple */
     #nav-desktop > [data-page="delivery"]  { order:16; border-left-color:#65a30d; }  /* Delivery — lime */
     #nav-desktop > [data-page="ai-inbox"]  { order:17; border-left-color:#22c55e; }  /* AI Chat — green */
-    #nav-desktop > .nav-group[data-group="service"] { order:17; border-left-color:#14b8a6; }  /* Service & Parts — teal */
+    #nav-desktop > .nav-group[data-group="service"] { order:17; border-left-color:#14b8a6; }  /* Service — teal */
+    #nav-desktop > .nav-group[data-group="parts"]   { order:18; border-left-color:#f97316; }  /* Parts — orange */
     #nav-desktop > #grp-accounting-wrap    { order:18; border-left-color:#3b82f6; }  /* Accounting — blue */
     #nav-desktop > #nav-reports            { order:19; border-left-color:#ef4444; }  /* Reports — red */
     #nav-desktop > [data-page="operations"]{ order:20; border-left-color:#f97316; }  /* Operations — orange */
@@ -961,9 +962,22 @@
             </div>
             <div id="grp-service" class="nav-group-body space-y-0.5 mt-0.5 hidden">
               <button type="button" data-page="service-ros" title="Repair Orders" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Repair Orders</button>
-              <button type="button" data-page="service-parts" title="Parts" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Parts</button>
               <button type="button" data-page="service-appointments" title="Service appointments" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Appointments</button>
               <button type="button" data-page="service-settings" title="Service settings" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Settings</button>
+            </div>
+          </div>
+
+          <!-- ─── Parts (inventory + stock) — its own department ─── -->
+          <div class="nav-group" data-group="parts" data-admin-nav>
+            <div class="flex items-center">
+              <button type="button" onclick="toggleNavGroup('parts')" title="Parts" class="flex-1 flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <svg class="w-4 h-4 flex-shrink-0 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
+                <span>Parts</span>
+              </button>
+              <button type="button" onclick="toggleNavGroup('parts')" aria-label="Toggle Parts" class="px-2 py-2 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg id="chev-parts" class="w-3.5 h-3.5 transition-transform -rotate-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
+            </div>
+            <div id="grp-parts" class="nav-group-body space-y-0.5 mt-0.5 hidden">
+              <button type="button" data-page="service-parts" title="Parts inventory" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Parts Inventory</button>
             </div>
           </div>
 
@@ -1035,7 +1049,7 @@
             <div class="flex items-center">
               <button type="button" onclick="toggleNavGroup('web')" title="Website" class="flex-1 flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
                 <svg class="w-4 h-4 flex-shrink-0 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path stroke-linecap="round" d="M3 9h18M7 4v5"/></svg>
-                <span>Website</span>              </button>
+                <span>Marketing</span>              </button>
               <button type="button" onclick="toggleNavGroup('web')" aria-label="Toggle Website" class="px-2 py-2 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg id="chev-web" class="w-3.5 h-3.5 transition-transform -rotate-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
             </div>
             <div id="grp-web" class="nav-group-body space-y-0.5 mt-0.5 hidden">
