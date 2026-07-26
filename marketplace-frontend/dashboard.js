@@ -700,12 +700,12 @@ window.applyFbOnlyMode = applyFbOnlyMode;
 // each price point, powerful as they upgrade. The union applies when a dealer holds
 // several products (e.g. Facebook Dealer + AI Chatbot).
 const PRODUCT_PAGES = {
-  facebook_solo:   ['insights', 'inventory', 'leads', 'crm', 'profile'],
-  facebook_dealer: ['insights', 'inventory', 'leads', 'crm', 'reports', 'commissions', 'sales-team', 'profile'],
+  facebook_solo:   ['solo-home', 'inventory', 'leads', 'crm', 'profile'],
+  facebook_dealer: ['solo-home', 'inventory', 'leads', 'crm', 'reports', 'commissions', 'sales-team', 'profile'],
   ai_chatbot:      ['ai-inbox', 'crm', 'leads', 'profile'],
   dealer_os:       null,   // null = full access, no restriction
 };
-const PRODUCT_HOME = { facebook_solo: 'inventory', facebook_dealer: 'inventory', ai_chatbot: 'ai-inbox' };
+const PRODUCT_HOME = { facebook_solo: 'solo-home', facebook_dealer: 'solo-home', ai_chatbot: 'ai-inbox' };
 let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
 
 function applyProductNav(products) {
@@ -722,6 +722,9 @@ function applyProductNav(products) {
   document.querySelectorAll('#dashboard-nav .nav-item[data-page]').forEach(it => {
     if (!allow.has(it.dataset.page)) it.classList.add('hidden');
   });
+  // Reveal product-home nav buttons that ship hidden-by-default (so DealerOS never
+  // sees them) but belong to this product's set.
+  document.querySelectorAll('#dashboard-nav .nav-item[data-page="solo-home"]').forEach(it => it.classList.toggle('hidden', !allow.has('solo-home')));
   // Collapse any group left with no visible leaf.
   document.querySelectorAll('#nav-desktop .nav-group').forEach(g => {
     const anyVisible = [...g.querySelectorAll('.nav-group-body .nav-item[data-page]')].some(it => allow.has(it.dataset.page));
@@ -1467,6 +1470,7 @@ function switchPage(pageId) {
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
   if (pageId === 'taskboard') loadTaskBoard();
   if (pageId === 'command') loadCommandCenter();
+  if (pageId === 'solo-home') loadSoloHome();
   if (pageId === 'operations') loadOperationsPage();
   if (pageId === 'service-ros') loadServiceRosPage();
   if (pageId === 'service-parts') loadServicePartsPage();
@@ -8927,6 +8931,53 @@ function opsRelTime(iso) {
   if (s < 604800) return Math.floor(s / 86400) + 'd ago';
   return d.toLocaleDateString();
 }
+
+// ══ Facebook Solo/Dealer — Marketplace Performance home ══════════════════════
+async function loadSoloHome() {
+  const root = document.getElementById('solo-home-root');
+  if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading your marketplace…</div>`;
+  let d;
+  try { d = await apiGetJson('/marketplace/summary'); }
+  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">Couldn't load: ${esc(e.message)}</div>`; return; }
+  const num = (v) => v == null ? '—' : Number(v).toLocaleString();
+  const resp = d.avg_response_min == null ? '—'
+    : d.avg_response_min < 60 ? `${d.avg_response_min} min`
+    : `${(d.avg_response_min / 60).toFixed(1)} hr`;
+  // Big hero tile + supporting tiles. Views/Messages show "—" until an FB insights
+  // sync is connected (we never fabricate those numbers).
+  const tile = (label, val, sub, accent) => `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4">
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
+      <div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${val}</div>
+      ${sub ? `<div class="text-[11px] text-slate-400 mt-0.5">${esc(sub)}</div>` : ''}
+    </div>`;
+  const pending = (d.views == null || d.messages == null)
+    ? `<div class="text-[12px] text-slate-400 flex items-center gap-2 px-1">${svgIcon('info','w-4 h-4')}Views &amp; messages appear once your Facebook account is connected in Settings.</div>` : '';
+  root.innerHTML = `
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-white">Facebook Marketplace</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Your listing performance — last ${d.window_days || 30} days.</p>
+      </div>
+      <button onclick="__inventoryMode='facebook'; switchPage('inventory')" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition">Post Inventory</button>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      ${tile('Vehicles Posted', num(d.posted), 'live now', 'text-blue-600 dark:text-blue-400')}
+      ${tile('Views', num(d.views), 'from Facebook')}
+      ${tile('Messages', num(d.messages), 'from Facebook')}
+      ${tile('Leads', num(d.leads), 'captured')}
+      ${tile('Sold', num(d.sold), 'this month', 'text-emerald-600 dark:text-emerald-400')}
+      ${tile('Avg response', resp, 'to a lead')}
+    </div>
+    ${pending}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <button onclick="__inventoryMode='facebook'; switchPage('inventory')" class="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 hover:shadow-md transition"><div class="font-bold text-slate-800 dark:text-slate-100">My Inventory</div><div class="text-[12px] text-slate-400">Manage &amp; refresh listings</div></button>
+      <button onclick="switchPage('leads')" class="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 hover:shadow-md transition"><div class="font-bold text-slate-800 dark:text-slate-100">My Leads</div><div class="text-[12px] text-slate-400">Reply &amp; book appointments</div></button>
+      <button onclick="switchPage('profile')" class="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 hover:shadow-md transition"><div class="font-bold text-slate-800 dark:text-slate-100">Settings</div><div class="text-[12px] text-slate-400">Facebook, profile, billing</div></button>
+    </div>`;
+}
+window.loadSoloHome = loadSoloHome;
 
 // ══ Command Center — DealerOS home: today's operations + live exceptions ══════
 async function loadCommandCenter() {

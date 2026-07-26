@@ -55,6 +55,7 @@ import { registerIntegrationEngine } from './routes/integration-engine.js'
 import { registerServiceEngine } from './routes/service-engine.js'
 import { registerOwnerAdmin } from './routes/owner-admin.js'
 import { registerCommandCenter } from './routes/command-center.js'
+import { registerMarketplaceHome } from './routes/marketplace-home.js'
 import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
 
@@ -136,6 +137,7 @@ registerIntegrationEngine(app)
 registerServiceEngine(app)
 registerOwnerAdmin(app)
 registerCommandCenter(app)
+registerMarketplaceHome(app)
 registerPlaid(app)
 registerAffiliate(app)
 
