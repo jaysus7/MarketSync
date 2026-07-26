@@ -374,7 +374,7 @@ let profileContext = null;
 // html[data-dash-mode] attribute). Persisted per-browser.
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['command', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
+const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -851,11 +851,11 @@ function initDashModeForOwner() {
   document.documentElement.setAttribute('data-dash-owner', '1');
   // Reveal the owner-only platform console (all accounts + billing/engine controls).
   document.getElementById('nav-owner-users')?.classList.remove('hidden');
+  document.getElementById('nav-saas-command')?.classList.remove('hidden');   // SaaS Command Center
   applyDashMode(__dashMode);
-  if (__dashMode === 'marketsync') {
-    const cur = document.querySelector('.page-content:not(.hidden)')?.getAttribute('data-page-content');
-    if (typeof switchPage === 'function' && cur && !MS_ALLOWED_PAGES.has(cur)) switchPage('insights');
-  }
+  // In MarketSync (SaaS) mode the owner lands on the SaaS Command Center — revenue,
+  // trials, churn — not a dealership dashboard.
+  if (__dashMode === 'marketsync' && typeof switchPage === 'function') switchPage('saas-command');
 }
 
 // Page permission flags (set after profile loads, read by switchPage to mirror panels into Insights)
@@ -1226,7 +1226,10 @@ async function initializeDashboardEcosystem() {
     // DealerOS: managers/admins land on the Command Center (today's operations +
     // exceptions); reps keep the Dashboard as home.
     const __mgrHome = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    switchPage(__mgrHome ? 'command' : 'insights');
+    // SaaS Admin in MarketSync mode → the company command center; otherwise the
+    // dealership Command Center (managers) or the rep Dashboard.
+    if (profileContext?.workspace === 'saas_admin' && __dashMode === 'marketsync') switchPage('saas-command');
+    else switchPage(__mgrHome ? 'command' : 'insights');
     applyFeatureFlags();   // hide nav for features the dealer switched off
     applyProductNav(profileContext?.products);   // entitlement-driven front door (overrides landing for non-OS products)
 
@@ -1470,6 +1473,7 @@ function switchPage(pageId) {
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
   if (pageId === 'taskboard') loadTaskBoard();
   if (pageId === 'command') loadCommandCenter();
+  if (pageId === 'saas-command') loadSaasCommand();
   if (pageId === 'solo-home') loadSoloHome();
   if (pageId === 'operations') loadOperationsPage();
   if (pageId === 'service-ros') loadServiceRosPage();
@@ -8978,6 +8982,63 @@ async function loadSoloHome() {
     </div>`;
 }
 window.loadSoloHome = loadSoloHome;
+
+// ══ MarketSync HQ — SaaS Command Center (revenue-first company OS home) ═══════
+async function loadSaasCommand() {
+  const root = document.getElementById('saas-command-root');
+  if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading MarketSync HQ…</div>`;
+  let d;
+  try { d = await apiGetJson('/saas/overview'); }
+  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
+  const money0 = (v) => '$' + Math.round(Number(v) || 0).toLocaleString();
+  const card = (label, val, accent) => `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4">
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
+      <div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${val}</div>
+    </div>`;
+  const trials = (d.trials || []).map(t => {
+    const prods = Object.keys(t.products || {}).filter(k => t.products[k]).length;
+    const warn = t.days_left != null && t.days_left <= 5;
+    return `<button onclick="switchPage('owner-users')" class="w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+      <span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(t.name || 'Account')}</span>
+      <span class="text-[12px] ${warn ? 'text-rose-500 font-bold' : 'text-slate-400'} whitespace-nowrap">${t.days_left == null ? 'trial' : t.days_left + 'd left'} · ${prods} product${prods === 1 ? '' : 's'}</span>
+    </button>`;
+  }).join('') || '<div class="text-sm text-slate-400 py-4 text-center">No active trials.</div>';
+  const top = (d.top_accounts || []).map(a => `<div class="flex items-center justify-between text-sm py-1.5 border-t border-slate-100 dark:border-slate-800/60"><span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(a.name || 'Account')}</span><span class="font-bold text-slate-800 dark:text-slate-100">${money0(a.mrr)}/mo</span></div>`).join('') || '<div class="text-sm text-slate-400 py-2">No paying accounts yet.</div>';
+  root.innerHTML = `
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">MarketSync HQ</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Your SaaS command center — revenue, trials, and account health.</p></div>
+      <div class="flex gap-2">
+        <button onclick="switchPage('owner-users')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-200">All accounts →</button>
+        <button onclick="loadSaasCommand()" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200">Refresh</button>
+      </div>
+    </div>
+    <div>
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Revenue</div>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        ${card('MRR', money0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
+        ${card('ARR', money0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
+        ${card('Active Customers', (d.active_customers || 0).toLocaleString())}
+        ${card('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
+        ${card('Churn Risk', (d.churn_risk || 0).toLocaleString(), (d.churn_risk ? 'text-rose-600 dark:text-rose-400' : ''))}
+        ${card('New This Month', (d.new_this_month || 0).toLocaleString())}
+      </div>
+      <div class="text-[11px] text-slate-400 mt-1">MRR estimated from product entitlements across ${d.total_accounts || 0} accounts.</div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div>
+        <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Trials — closest to expiry</div>
+        <div class="space-y-1.5">${trials}</div>
+      </div>
+      <div>
+        <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Top accounts by MRR</div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2">${top}</div>
+      </div>
+    </div>`;
+}
+window.loadSaasCommand = loadSaasCommand;
 
 // ══ Command Center — DealerOS home: today's operations + live exceptions ══════
 async function loadCommandCenter() {
