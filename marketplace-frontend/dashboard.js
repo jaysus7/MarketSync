@@ -1494,6 +1494,7 @@ function switchPage(pageId) {
   if (pageId === 'saas-customers') loadSaasCustomers();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'config') loadConfigHub();
+  if (pageId === 'delivery') loadDeliveryQueue();
   if (pageId === 'solo-home') loadSoloHome();
   if (pageId === 'ai-home') loadAiHome();
   if (pageId === 'sales-team' && typeof loadDealerManagementMatrix === 'function') { try { loadDealerManagementMatrix(); } catch {} }
@@ -9004,6 +9005,52 @@ async function loadSoloHome() {
     </div>`;
 }
 window.loadSoloHome = loadSoloHome;
+
+// ══ Delivery — Sold Vehicle Queue (workflow engine made visible) ══════════════
+async function loadDeliveryQueue() {
+  const root = document.getElementById('delivery-root');
+  if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading delivery queue…</div>`;
+  let d;
+  try { d = await apiGetJson('/delivery/queue'); }
+  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
+  const queue = d.queue || [];
+  const badge = document.getElementById('delivery-badge');
+  if (badge) { if (queue.length) { badge.textContent = queue.length; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
+  const cards = queue.map(v => {
+    const checks = v.checklist.map(c => `
+      <label class="flex items-center gap-2 text-[13px] cursor-pointer py-0.5">
+        <input type="checkbox" ${c.done ? 'checked' : ''} onchange="deliveryToggle('${v.id}','${c.key}',this.checked)" class="w-4 h-4 rounded border-slate-300 text-lime-600 focus:ring-lime-500">
+        <span class="${c.done ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}">${esc(c.label)}</span>
+      </label>`).join('');
+    return `<div class="bg-white dark:bg-slate-900 border ${v.ready ? 'border-lime-300 dark:border-lime-800' : 'border-slate-200 dark:border-slate-800'} rounded-xl p-4 space-y-3">
+      <div class="flex items-start justify-between gap-2">
+        <div><div class="font-black text-slate-800 dark:text-slate-100">${esc(v.vehicle)}</div>
+          <div class="text-[12px] text-slate-500">${esc(v.customer)}${v.stock ? ' · Stock ' + esc(v.stock) : ''}${v.deal_number ? ' · Deal ' + esc(v.deal_number) : ''}</div></div>
+        ${v.ready ? '<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-lime-100 text-lime-700 dark:bg-lime-950/50 dark:text-lime-300">READY</span>' : ''}
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">${checks}</div>
+      <button onclick="deliveryComplete('${v.id}')" ${v.ready ? '' : 'disabled'} class="w-full px-4 py-2 rounded-lg text-white text-sm font-bold transition ${v.ready ? 'bg-lime-600 hover:bg-lime-500' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed'}">Mark delivered → post to accounting</button>
+    </div>`;
+  }).join('') || `<div class="p-8 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">No vehicles awaiting delivery. Sold deals land here for prep.</div>`;
+  root.innerHTML = `
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Delivery</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Sold vehicles being prepped for pickup. Complete the checklist, then deliver.</p></div>
+      <button onclick="loadDeliveryQueue()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Refresh</button>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div>`;
+}
+async function deliveryToggle(id, key, done) {
+  try { await apiSendJson(`/delivery/${id}/checklist`, 'POST', { key, done }); loadDeliveryQueue(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function deliveryComplete(id) {
+  if (!confirm('Mark this vehicle delivered? This posts the sale to accounting and pays commission.')) return;
+  try { await apiSendJson(`/delivery/${id}/deliver`, 'POST'); showToast('Delivered ✓', 'success'); loadDeliveryQueue(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+Object.assign(window, { loadDeliveryQueue, deliveryToggle, deliveryComplete });
 
 // ══ Configuration hub — surfaces the Configuration Engine (managers) ══════════
 const CONFIG_META = {

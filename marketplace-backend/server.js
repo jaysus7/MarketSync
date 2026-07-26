@@ -57,6 +57,7 @@ import { registerOwnerAdmin } from './routes/owner-admin.js'
 import { registerCommandCenter } from './routes/command-center.js'
 import { registerMarketplaceHome } from './routes/marketplace-home.js'
 import { registerSaasAdmin } from './routes/saas-admin.js'
+import { registerDelivery } from './routes/delivery.js'
 import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
 
@@ -140,6 +141,7 @@ registerOwnerAdmin(app)
 registerCommandCenter(app)
 registerMarketplaceHome(app)
 registerSaasAdmin(app)
+registerDelivery(app)
 registerPlaid(app)
 registerAffiliate(app)
 

@@ -200,7 +200,8 @@
     #nav-desktop > .nav-group[data-group="sales"]   { order:13; border-left-color:#f59e0b; }  /* Sales — amber */
     #nav-desktop > .nav-group[data-group="ii"]      { order:14; border-left-color:#06b6d4; }  /* Inventory — cyan */
     #nav-desktop > .nav-group[data-group="web"]     { order:15; border-left-color:#a855f7; }  /* Marketing/Website — purple */
-    #nav-desktop > [data-page="ai-inbox"]  { order:16; border-left-color:#22c55e; }  /* AI Chat — green */
+    #nav-desktop > [data-page="delivery"]  { order:16; border-left-color:#65a30d; }  /* Delivery — lime */
+    #nav-desktop > [data-page="ai-inbox"]  { order:17; border-left-color:#22c55e; }  /* AI Chat — green */
     #nav-desktop > .nav-group[data-group="service"] { order:17; border-left-color:#14b8a6; }  /* Service & Parts — teal */
     #nav-desktop > #grp-accounting-wrap    { order:18; border-left-color:#3b82f6; }  /* Accounting — blue */
     #nav-desktop > #nav-reports            { order:19; border-left-color:#ef4444; }  /* Reports — red */
@@ -902,6 +903,12 @@
             <span>All Users</span>
           </button>
 
+          <!-- ─── Delivery (sold vehicle queue) — managers/admins ─── -->
+          <button type="button" data-page="delivery" data-admin-nav title="Delivery" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-lime-600 dark:text-lime-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg>
+            <span>Delivery</span><span id="delivery-badge" class="hidden ml-auto text-[10px] font-black bg-lime-600 text-white rounded-full px-1.5 py-0.5 leading-none"></span>
+          </button>
+
           <!-- ─── AI Chat inbox (live AI conversations + embed) — managers/admins ─── -->
           <button type="button" data-page="ai-inbox" title="AI Chat" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.7 9.7 0 01-4-.85L3 21l1.85-4.5A8 8 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
@@ -1215,6 +1222,10 @@
 
       <div data-page-content="operations" class="page-content hidden space-y-6">
         <div id="operations-root"></div>
+      </div>
+
+      <div data-page-content="delivery" class="page-content hidden space-y-6">
+        <div id="delivery-root"></div>
       </div>
 
       <div data-page-content="service-ros" class="page-content hidden space-y-6">
@@ -3349,7 +3360,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260726l"></script>
+  <script src="dashboard.js?v=20260726m"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
