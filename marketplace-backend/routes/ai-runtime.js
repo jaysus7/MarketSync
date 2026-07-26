@@ -9,8 +9,10 @@
  *   4. persists the assistant reply, re-scores the lead, and (on capture/intent)
  *      creates the CRM lead + notifies the rep — all through engine APIs
  *
- * Tools are MCP-shaped ({ name, description, input_schema }) so the same registry can
- * later back an MCP server for external agents.
+ * Tools live in the shared Agent Tool Registry (tool-registry.js, kernel contract §5),
+ * MCP-shaped ({ name, description, input_schema }) and scoped to the 'sales_chat'
+ * surface — so the same registry can back an MCP server for external agents, and other
+ * engines can add their own tools without touching this file.
  */
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
@@ -24,13 +26,17 @@ import { rateLimit } from '../security.js'
 import {
   startOrContinueConversation, saveMessage, getHistory, assembleContext, saveMemory,
 } from './ai-engine.js'
+import { registerTool, toolDefs, callTool } from './tool-registry.js'
 
 const MODEL = 'claude-haiku-4-5-20251001'
+const SURFACE = 'sales_chat'   // the agent surface the customer-facing chatbot runs on
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 
-// ── Tool registry — every tool wraps an engine API; handlers get (args, ctx) ──
-// ctx = { dealershipId, conversation, contactRef } (contactRef.id mutable on capture)
-const TOOLS = [
+// ── Sales-chat tools — every tool wraps an engine API; handlers get (args, ctx) ──
+// ctx = { dealershipId, conversation, contactRef } (contactRef.id mutable on capture).
+// These are registered into the shared Agent Tool Registry (kernel contract §5) on
+// the 'sales_chat' surface, so the same registry can also back an MCP server later.
+const SALES_TOOLS = [
   {
     name: 'search_inventory',
     description: "Search the dealership's live inventory. Use whenever the shopper asks about a vehicle, price, availability, or a body style. Only vehicles returned here exist — never invent stock.",
@@ -111,8 +117,9 @@ const TOOLS = [
     },
   },
 ]
-const TOOL_BY_NAME = Object.fromEntries(TOOLS.map(t => [t.name, t]))
-const TOOL_DEFS = TOOLS.map(({ name, description, input_schema }) => ({ name, description, input_schema }))
+// Register every sales-chat tool into the shared registry (side effect on import, so
+// runChat/publicChat work whether or not registerAiRuntime has run yet).
+SALES_TOOLS.forEach(t => registerTool({ ...t, surface: SURFACE }))
 
 // ── Deterministic lead score (0–100) from conversation signals ───────────────
 function scoreConversation(messages, memory, captured) {
@@ -172,8 +179,9 @@ async function runChat({ dealershipId, conversation, contactId, userText, isOwne
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   let replyText = ''
   try {
+    const tools = toolDefs(SURFACE)
     for (let hop = 0; hop < 5; hop++) {
-      const resp = await anthropic.messages.create({ model: MODEL, max_tokens: 700, system, tools: TOOL_DEFS, messages })
+      const resp = await anthropic.messages.create({ model: MODEL, max_tokens: 700, system, tools, messages })
       const toolUses = (resp.content || []).filter(b => b.type === 'tool_use')
       const textPart = (resp.content || []).filter(b => b.type === 'text').map(b => b.text).join(' ').trim()
       if (textPart) replyText = textPart
@@ -181,9 +189,9 @@ async function runChat({ dealershipId, conversation, contactId, userText, isOwne
       messages.push({ role: 'assistant', content: resp.content })
       const results = []
       for (const tu of toolUses) {
-        let out
-        try { out = await (TOOL_BY_NAME[tu.name]?.handler(tu.input || {}, ctx) ?? { error: 'unknown tool' }) }
-        catch (e) { out = { error: String(e.message).slice(0, 300) } }
+        // Dispatch through the registry: it enforces the surface, never throws, and
+        // returns an { error } object the model can read and recover from.
+        const out = await callTool(tu.name, tu.input || {}, ctx, { surface: SURFACE })
         results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out) })
       }
       messages.push({ role: 'user', content: results })
@@ -273,6 +281,12 @@ export function registerAiRuntime(app) {
     if (!conversation) return res.status(500).json({ error: 'could not start conversation' })
     const out = await runChat({ dealershipId: req.dealershipId, conversation, contactId: req.body?.contact_id || null, userText: text, isOwner })
     res.json(out)
+  })
+
+  // Introspection: the tools the sales-chat agent exposes (MCP-shaped). Backs future
+  // MCP discovery + lets the UI show what the assistant can do.
+  app.get('/ai/tools', requireAuth, (req, res) => {
+    res.json({ surface: SURFACE, tools: toolDefs(SURFACE) })
   })
 
   // The dealer's copy-paste embed snippet for LeadBox / eDealer / any site.

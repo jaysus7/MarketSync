@@ -161,6 +161,12 @@ Honest state of the code vs. this contract:
   in-process path stays for latency and stamps `dispatched_at`; the poller
   re-dispatches any row emitted but never stamped (crash mid-flight). History is
   backfilled at migration time, so the poller only ever sees post-deploy events.
-- ◑ **Tool registry** not yet formalized (executor registry is the template).
+- ✅ **Tool registry formalized:** `tool-registry.js` holds MCP-shaped tools
+  (`registerTool` / `toolDefs` / `callTool`), the agent-facing twin of the executor
+  registry. Tools are scoped to a `surface` (the sales chatbot runs on `sales_chat`);
+  `callTool` enforces the surface, never throws, and can audit to the timeline. The AI
+  runtime's six tools now register into it; `GET /ai/tools` introspects. Any engine
+  adds agent capabilities via `registerTool` — no bespoke dispatch.
 
-Conformance work closes ◑ items. No new engine ships until it meets §8.
+**All ◑ conformance items are now closed.** Conformance work closes ◑ items. No new
+engine ships until it meets §8.
