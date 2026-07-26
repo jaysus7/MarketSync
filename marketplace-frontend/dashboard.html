@@ -188,6 +188,29 @@
   </style>
   <style id="ms-font-bump">html{font-size:17px}@media (max-width:640px){html{font-size:16px}}</style>
   <style>.chip{display:inline-flex;align-items:center;font-size:0.7rem;padding:1px 7px;border-radius:999px;background:rgb(241 245 249);color:rgb(71 85 105);border:1px solid rgb(226 232 240);white-space:nowrap}.dark .chip{background:rgb(30 41 59);color:rgb(148 163 184);border-color:rgb(51 65 85)}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}.scrollbar-none::-webkit-scrollbar{display:none}</style>
+  <!-- DealerOS department layer: order the desktop sidebar top-to-bottom by department
+       and give each a color stripe. Pure CSS over the flex column (#nav-desktop) — it
+       reorders without moving any DOM, so all role-gating / feature-flag / group-toggle
+       wiring (which keys off ids + data-group, not position) keeps working untouched. -->
+  <style>
+    #nav-desktop > .nav-group, #nav-desktop > .nav-item{ border-left:3px solid transparent; border-top-left-radius:.45rem; border-bottom-left-radius:.45rem; }
+    #nav-desktop > [data-page="command"]   { order:10; border-left-color:#6366f1; }  /* Command Center — indigo */
+    #nav-desktop > [data-page="insights"]  { order:11; }                              /* Dashboard */
+    #nav-desktop > .nav-group[data-group="crm"]     { order:12; border-left-color:#10b981; }  /* CRM — emerald */
+    #nav-desktop > .nav-group[data-group="sales"]   { order:13; border-left-color:#f59e0b; }  /* Sales — amber */
+    #nav-desktop > .nav-group[data-group="ii"]      { order:14; border-left-color:#06b6d4; }  /* Inventory — cyan */
+    #nav-desktop > .nav-group[data-group="web"]     { order:15; border-left-color:#a855f7; }  /* Marketing/Website — purple */
+    #nav-desktop > [data-page="ai-inbox"]  { order:16; border-left-color:#22c55e; }  /* AI Chat — green */
+    #nav-desktop > .nav-group[data-group="service"] { order:17; border-left-color:#14b8a6; }  /* Service & Parts — teal */
+    #nav-desktop > #grp-accounting-wrap    { order:18; border-left-color:#3b82f6; }  /* Accounting — blue */
+    #nav-desktop > #nav-reports            { order:19; border-left-color:#ef4444; }  /* Reports — red */
+    #nav-desktop > [data-page="operations"]{ order:20; border-left-color:#f97316; }  /* Operations — orange */
+    #nav-desktop > [data-page="taskboard"] { order:21; border-left-color:#f43f5e; }  /* Task Board — rose */
+    #nav-desktop > #nav-commissions        { order:22; border-left-color:#10b981; }  /* Commissions — emerald */
+    #nav-desktop > .nav-group[data-group="auto"]    { order:23; border-left-color:#64748b; }  /* Automation — slate */
+    #nav-desktop > #nav-affiliates         { order:24; border-left-color:#8b5cf6; }  /* Affiliates (owner) — violet */
+    #nav-desktop > #nav-owner-users        { order:25; border-left-color:#d946ef; }  /* All Users (owner) — fuchsia */
+  </style>
   <!-- Google Translate widget: hide its injected top banner so it can't shove the fixed shell down -->
   <style>
     .goog-te-banner-frame, .skiptranslate > iframe { display: none !important; }
@@ -893,7 +916,7 @@
               <button type="button" id="nav-inv-intel" title="Inventory Intelligence" class="hidden flex-1 flex items-center justify-between gap-2 px-3 py-2 rounded font-bold transition text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
                 <span id="nav-inv-intel-label" class="flex items-center gap-2.5">
                   <svg class="w-4 h-4 flex-shrink-0 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
-                  <span>Inv. Intelligence</span>
+                  <span>Inventory</span>
                 </span>
                 <span class="flex items-center gap-1 flex-shrink-0">
                   <span id="nav-inv-intel-pill" class="hidden text-[9px] font-black uppercase tracking-wider bg-violet-600 text-white px-1.5 py-0.5 rounded-full leading-none">Trial</span>
