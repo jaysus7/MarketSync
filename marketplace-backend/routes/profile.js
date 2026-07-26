@@ -22,6 +22,26 @@ export function resolveProducts(dealer) {
 
 export function registerRoutes(app) {
   app.get('/auth/me', requireAuth, async (req, res) => {
+    // The MarketSync owner gets the owner-only Demo ↔ MarketSync dashboard switch.
+    // Keyed off the owner email (robust to workspace renames), with a name fallback.
+    const isMarketsync = (
+      (!!process.env.OWNER_EMAIL && (req.user.email || '').toLowerCase() === process.env.OWNER_EMAIL.toLowerCase())
+      || ['JMS Automotive', 'MarketSync'].includes(req.profile.dealerships?.name)
+    )
+    // Workspace resolution (universal identity layer): one login → the top-level
+    // experience this person belongs to. Same engines underneath, different front door.
+    //   saas_admin → MarketSync's own back office (owner/staff)
+    //   affiliate  → partner portal (they authenticate as a dealership user too, but
+    //                if they also hold an affiliates row we surface it)
+    //   dealer     → a dealership workspace (DealerOS or a purchased product)
+    let workspace = 'dealer'
+    if (isMarketsync) workspace = 'saas_admin'
+    else {
+      try {
+        const { data: aff } = await supabaseAdmin.from('affiliates').select('id, status').eq('user_id', req.user.id).maybeSingle()
+        if (aff && aff.status !== 'suspended') workspace = 'affiliate'
+      } catch { /* affiliates table optional — default stays 'dealer' */ }
+    }
     res.json({
       id: req.user.id,
       email: req.user.email,
@@ -34,14 +54,11 @@ export function registerRoutes(app) {
       email_signature: req.profile.email_signature || null,
       email_reply_to: req.profile.email_reply_to || null,
       dealership: req.profile.dealerships,
-      // The MarketSync owner gets the owner-only Demo ↔ MarketSync dashboard switch.
-      // Keyed off the owner email (robust to workspace renames), with a name fallback.
-      is_marketsync: (
-        (!!process.env.OWNER_EMAIL && (req.user.email || '').toLowerCase() === process.env.OWNER_EMAIL.toLowerCase())
-        || ['JMS Automotive', 'MarketSync'].includes(req.profile.dealerships?.name)
-      ),
+      is_marketsync: isMarketsync,
       // Product entitlements → the frontend builds the sidebar + landing from these.
       products: resolveProducts(req.profile.dealerships),
+      // Which workspace this login opens into (see resolver above).
+      workspace,
     })
   })
 
