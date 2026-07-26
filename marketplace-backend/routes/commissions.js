@@ -191,18 +191,31 @@ export async function clawbackDealCommission(dealershipId, dealId, reason) {
     .eq('deal_id', dealId).eq('dealership_id', dealershipId)
 }
 
-// Kernel-contract conformance: the Commission Engine SUBSCRIBES to deal state
-// changes rather than being called directly by the deal desk. On a status change it
-// recomputes (or claws back), and on delivery it emits commission.calculated AFTER
-// the recompute completes — so the accounting engine's listener reads the final
-// deal_commissions totals (no race). The calculation logic itself is unchanged.
-async function onDealStatusEvent(event) {
-  if (event?.event_name !== 'deal.status_changed' || event.payload?.engine) return
+// Published read API — other engines get a deal's commission via this, never by
+// reading deal_commissions directly (kernel contract §4). Returns the payable total
+// (excluding clawed-back lines) + the per-rep lines.
+export async function getCommissionResult(dealershipId, dealId) {
+  const { data } = await supabaseAdmin.from('deal_commissions')
+    .select('rep_id, role, total, status, period').eq('dealership_id', dealershipId).eq('deal_id', dealId)
+  const lines = (data || []).filter(l => l.status !== 'clawed_back')
+  const total = Math.round(lines.reduce((s, l) => s + (Number(l.total) || 0), 0) * 100) / 100
+  return { total, lines, period: lines[0]?.period || null }
+}
+
+// Kernel-contract conformance: the Commission Engine SUBSCRIBES to deal events
+// rather than being called directly by the deal desk. It recomputes on any save
+// (deal.saved) or status change, claws back on unwind, and on delivery emits
+// commission.calculated AFTER the recompute completes — so the accounting engine's
+// listener reads final deal_commissions totals (no race). The calc logic is unchanged.
+async function onDealEvent(event) {
+  if (event?.payload?.engine) return
+  const name = event?.event_name
+  if (name !== 'deal.status_changed' && name !== 'deal.saved') return
   const did = event.dealership_id, dealId = event.entity_id, to = event.to_state
   try {
-    if (to === 'working') { await clawbackDealCommission(did, dealId, 'Deal unwound'); return }
+    if (name === 'deal.status_changed' && to === 'working') { await clawbackDealCommission(did, dealId, 'Deal unwound'); return }
     await recomputeDealCommission(did, dealId)
-    if (to === 'delivered') {
+    if (name === 'deal.status_changed' && to === 'delivered') {
       emitEvent({
         dealershipId: did, eventName: 'commission.calculated', entityType: 'deal', entityId: dealId,
         summary: 'Commission calculated', department: 'Accounting', payload: { deal_id: dealId },
@@ -288,7 +301,7 @@ async function repSummary(dealershipId, repId, monthISO) {
 }
 
 export function registerCommissions(app) {
-  onEvent(onDealStatusEvent)   // subscribe the Commission Engine to deal state changes
+  onEvent(onDealEvent)   // subscribe the Commission Engine to deal save + state-change events
 
   // ── Plans (managers) ────────────────────────────────────────────────────────
   app.get('/commissions/plans', requireAuth, async (req, res) => {

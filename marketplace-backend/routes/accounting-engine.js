@@ -19,6 +19,7 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { onEvent } from './events.js'
+import { getCommissionResult } from './commissions.js'
 
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
@@ -153,12 +154,11 @@ async function postDealDelivered(dealershipId, dealId) {
 }
 
 async function postCommissionCalculated(dealershipId, dealId) {
-  const { data: lines } = await supabaseAdmin.from('deal_commissions')
-    .select('total, status, period').eq('dealership_id', dealershipId).eq('deal_id', dealId)
-  const active = (lines || []).filter(l => l.status !== 'clawed_back')
-  const total = round2(active.reduce((s, l) => s + n(l.total), 0))
+  // Read the commission via the Commission Engine's published API, not deal_commissions
+  // directly (kernel contract §4 — no reaching into another engine's tables).
+  const { total, period } = await getCommissionResult(dealershipId, dealId)
   if (total <= 0) return null
-  const date = active[0]?.period || new Date().toISOString().slice(0, 10)
+  const date = period || new Date().toISOString().slice(0, 10)
   return postByRule(dealershipId, 'commission_calculated', {
     commission_total: total, __source: 'commission', __reference: dealId, __date: date, __refs: { ref_deal_id: dealId },
   })

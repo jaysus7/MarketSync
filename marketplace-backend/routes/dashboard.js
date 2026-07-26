@@ -5,7 +5,6 @@ import { ensureGetReadyCard } from './recon.js'
 import { ensureDealTasks } from './dealertasks.js'
 import { emitEvent } from './events.js'
 import { syncDealToAccounting } from '../providers/accounting.js'
-import { recomputeDealCommission } from './commissions.js'
 
 async function buildUserStats(userId) {
   const countOf = async (status) => {
@@ -1384,8 +1383,15 @@ export function registerRoutes(app) {
       const { data: rep } = await supabaseAdmin.from('profiles').select('full_name, registration_id').eq('id', row.created_by).maybeSingle()
       if (rep) salesperson = { name: rep.full_name || null, registration_id: rep.registration_id || null }
     }
-    // Auto-compute this deal's commission from the rep's plan (no-op until a plan exists).
-    if (data?.id) { try { await recomputeDealCommission(req.dealershipId, data.id) } catch (e) { console.warn('[commission] recompute failed:', e.message) } }
+    // Commission is recomputed by the Commission Engine, which subscribes to this
+    // deal.saved event (kernel contract: no direct cross-engine calls).
+    if (data?.id) {
+      emitEvent({
+        dealershipId: req.dealershipId, eventName: 'deal.saved', entityType: 'deal', entityId: data.id,
+        summary: 'Deal saved', department: 'Sales', createdBy: req.user?.id || null,
+        payload: { contact_id: contactId, inventory_id: data.inventory_id || null },
+      })
+    }
     res.json({ ok: true, deal: data, customer_number: customerNumber, salesperson, vehicle_pending: vehiclePending })
   })
 

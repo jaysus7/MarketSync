@@ -135,16 +135,16 @@ Honest state of the code vs. this contract:
 - ✅ Events, workflow, executor, timeline, accounting, exceptions, retry, replay.
 - ✅ **Configuration Engine** built (`config-engine.js`, `getConfig`/`setConfig`,
   catalog) — first consumer wired (site chat default tone).
-- ✅ **Commission Engine decoupled:** it now SUBSCRIBES to `deal.status_changed`
-  (recompute/clawback + emit `commission.calculated`) instead of being called by the
-  deal desk. `dashboard.js` no longer calls `recomputeDealCommission`/clawback on the
-  status path.
-- ◑ **Remaining direct calls to retire:** `dashboard.js` `/reports/deal` (create path)
-  still calls `recomputeDealCommission()` on save (data-freshness, not a transition) —
-  route via a `deal.updated` event later; `syncDealToAccounting()` (external
-  integration, fire-and-forget) → move to an integration-engine subscriber. The
-  accounting engine still reads `deals`/`deal_commissions`/`inventory` directly →
-  wrap in read APIs.
+- ✅ **Commission Engine fully decoupled:** it SUBSCRIBES to `deal.saved` and
+  `deal.status_changed` (recompute/clawback + emit `commission.calculated`). The deal
+  desk (`dashboard.js`) no longer imports or calls the Commission Engine at all — it
+  only emits events. Published read API `getCommissionResult(dealer, dealId)` added.
+- ✅ **Accounting reads commission via API:** the accounting engine calls
+  `getCommissionResult()` instead of reading `deal_commissions` raw.
+- ◑ **Remaining direct calls to retire:** `syncDealToAccounting()` (external
+  integration, fire-and-forget) → move to an integration-engine subscriber; the
+  accounting engine still reads the CORE objects `deals` / `inventory` directly for a
+  delivered deal's numbers → wrap in `getDeal()` / `getVehicle()` read APIs.
 - ◑ **Tool registry** not yet formalized (executor registry is the template).
 - ◑ **Durable bus** (see §3 debt).
 
