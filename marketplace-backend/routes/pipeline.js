@@ -112,7 +112,10 @@ export function registerPipeline(app) {
     let taskQ = supabaseAdmin.from('crm_tasks')
       .select('id, contact_id, assigned_to, title, due_at')
       .eq('dealership_id', req.dealershipId).eq('type', 'appointment').not('due_at', 'is', null)
-      .not('category', 'eq', 'service')   // service appointments live in their own Service area
+      // Sales appointments only. Service appts (category='service') live in the Service
+      // area. Sales appts are created with a NULL category, and PostgREST's not.eq drops
+      // NULLs — so match NULL OR any non-service category explicitly.
+      .or('category.is.null,category.neq.service')
       .order('due_at', { ascending: true }).limit(1000)
     if (!isDealerLevel(req.profile)) taskQ = taskQ.eq('assigned_to', req.user.id)
     const { data: apptTasks } = await taskQ
