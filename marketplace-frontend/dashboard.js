@@ -823,7 +823,7 @@ async function renderMarketsyncInsights() {
       <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">MarketSync</h1>
         <p class="text-sm text-slate-500 dark:text-slate-400">Leads from your website + chatbot, and what they're worth across the five price points.</p></div>
       <div class="flex items-center gap-2">
-        <a href="/marketsync-guide.html" target="_blank" rel="noopener" class="text-xs font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 border border-violet-200 dark:border-violet-900 rounded-lg px-3 py-2">📘 Owner guide</a>
+        <a href="/marketsync-guide.html" target="_blank" rel="noopener" class="text-xs font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 border border-violet-200 dark:border-violet-900 rounded-lg px-3 py-2">Owner guide</a>
         <button onclick="marketsyncCleanup(this)" class="text-xs font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 border border-violet-200 dark:border-violet-900 rounded-lg px-3 py-2">Remove sample leads</button>
       </div>
     </div>
@@ -2833,7 +2833,7 @@ function openChatTx(id) {
     const mine = m.role === 'assistant';   // the dealership/AI side
     return `<div class="flex ${mine ? 'justify-start' : 'justify-end'}">
       <div class="max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${mine ? 'bg-indigo-50 dark:bg-indigo-950/40 text-slate-800 dark:text-slate-100 rounded-tl-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-tr-sm'}">
-        <div class="text-[10px] font-bold uppercase tracking-wide mb-0.5 ${mine ? 'text-indigo-500 dark:text-indigo-300' : 'text-slate-400'}">${mine ? '🤖 AI' : 'Customer'}</div>
+        <div class="text-[10px] font-bold uppercase tracking-wide mb-0.5 ${mine ? 'text-indigo-500 dark:text-indigo-300' : 'text-slate-400'}">${mine ? svgIcon('sparkles', 'w-3 h-3 inline-block -mt-0.5') + ' AI' : 'Customer'}</div>
         <div class="whitespace-pre-wrap">${esc(m.content)}</div>
       </div></div>`;
   }).join('');
@@ -2953,7 +2953,7 @@ function crmTimelineItem(t, cid) {
       return `<div class="flex gap-2.5">
         <div class="w-7 flex-shrink-0 flex justify-center pt-0.5 text-indigo-500">${msIco('chat', 'w-4 h-4')}</div>
         <div class="min-w-0 flex-1 border-l-2 border-slate-100 dark:border-slate-800 pl-3 pb-1">
-          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">🤖 ${esc(SRC[t.meta.source] || 'AI conversation')}</div>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">${svgIcon('sparkles', 'w-4 h-4 text-indigo-500')}${esc(SRC[t.meta.source] || 'AI conversation')}</div>
           <div class="text-sm text-slate-600 dark:text-slate-300 mt-0.5">${n} message${n === 1 ? '' : 's'} with the AI concierge.</div>
           <button onclick="openChatTx('${t.id}')" class="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">${msIco('chat', 'w-3 h-3')} View AI conversation</button>
           <div class="text-[11px] text-slate-400 mt-0.5">${esc(crmWhen(t.at))}</div>
@@ -7696,9 +7696,9 @@ async function openGbpComposer() {
         <div>
           <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Post type</label>
           <select id="gbp-kind" class="${inp}">
-            <option value="new_arrival">🚗 New arrival</option>
+            <option value="new_arrival">New arrival</option>
             <option value="special">🏷️ Special offer</option>
-            <option value="update" selected>📣 General update</option>
+            <option value="update" selected>General update</option>
           </select>
         </div>
         <div>
@@ -9203,7 +9203,7 @@ async function aiHomeOverview(body, tab) {
   const tile = (label, val, accent) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4"><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div><div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${(val ?? 0).toLocaleString()}</div></div>`;
   const conv = (d.recent || []).map(c => `
     <button onclick="aiOpenConversation('${c.id}')" class="w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
-      <span class="min-w-0 flex-1 truncate text-[13px] text-slate-700 dark:text-slate-200">${c.captured ? '👤 Lead captured' : 'Visitor'}${c.website ? ' · ' + esc(String(c.website).replace(/^https?:\/\//, '').slice(0, 30)) : ''}</span>
+      <span class="min-w-0 flex-1 truncate text-[13px] text-slate-700 dark:text-slate-200">${c.captured ? svgIcon('user', 'w-3.5 h-3.5 inline-block -mt-0.5 text-emerald-500') + ' Lead captured' : 'Visitor'}${c.website ? ' · ' + esc(String(c.website).replace(/^https?:\/\//, '').slice(0, 30)) : ''}</span>
       <span class="flex items-center gap-2 flex-shrink-0">
         ${c.status === 'handoff' ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">Handoff</span>' : ''}
         <span class="text-[11px] font-black ${c.score >= 80 ? 'text-rose-600 dark:text-rose-400' : c.score >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}">${c.score}</span>
@@ -10765,17 +10765,17 @@ let __rptTab = 'overview';
 let __rptRange = '90';
 const REPORT_DEFS = [
   { key: 'overview', label: 'Overview' },
-  { key: 'sales', label: '🚗 Sales' },
-  { key: 'fni', label: '💰 F&I' },
-  { key: 'leads', label: '📥 Leads & sources' },
-  { key: 'reps', label: '🏆 Rep scorecard' },
-  { key: 'appraisals', label: '🔑 Appraisals' },
-  { key: 'appointments', label: '📅 Appointments' },
-  { key: 'service', label: '🔧 Service' },
-  { key: 'esign', label: '✍️ E-signatures' },
-  { key: 'marketing', label: '📣 Marketing ROI' },
-  { key: 'activity', label: '📞 Activity' },
-  { key: 'customers', label: '👥 Customers' },
+  { key: 'sales', label: 'Sales' },
+  { key: 'fni', label: 'F&I' },
+  { key: 'leads', label: 'Leads & sources' },
+  { key: 'reps', label: 'Rep scorecard' },
+  { key: 'appraisals', label: 'Appraisals' },
+  { key: 'appointments', label: 'Appointments' },
+  { key: 'service', label: 'Service' },
+  { key: 'esign', label: 'E-signatures' },
+  { key: 'marketing', label: 'Marketing ROI' },
+  { key: 'activity', label: 'Activity' },
+  { key: 'customers', label: 'Customers' },
 ];
 function renderReportTabs() {
   const host = document.getElementById('reports-tabs'); if (!host) return;
@@ -14528,7 +14528,7 @@ function renderLiveBuilder(body) {
     <div class="flex items-center gap-2 mt-4 mb-2 flex-wrap">
       <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Editing:</span>
       <select onchange="wsSetTarget(this.value)" class="text-sm font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
-        <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>🏠 Home page</option>${pageOpts}${builtinOpts ? `<optgroup label="Built-in pages">${builtinOpts}</optgroup>` : ''}
+        <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home page</option>${pageOpts}${builtinOpts ? `<optgroup label="Built-in pages">${builtinOpts}</optgroup>` : ''}
       </select>
       <span class="text-[11px] text-indigo-500 dark:text-indigo-400 font-semibold flex-1">Live preview — click a section in the preview to jump to its editor. Edits show instantly; hit <b>Save</b> to publish.</span>
     </div>
@@ -14565,7 +14565,7 @@ function renderWsBody() {
     <div class="flex items-center gap-2 mt-4 mb-2 flex-wrap">
       <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Editing:</span>
       <select onchange="wsSetTarget(this.value)" class="text-sm font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
-        <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>🏠 Home page</option>${pageOpts}${builtinOpts ? `<optgroup label="Built-in pages — add a hero/intro on top">${builtinOpts}</optgroup>` : ''}
+        <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home page</option>${pageOpts}${builtinOpts ? `<optgroup label="Built-in pages — add a hero/intro on top">${builtinOpts}</optgroup>` : ''}
       </select>
       <button onclick="wsTab('pages')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add / manage pages</button>
       <span class="text-[11px] text-slate-400 flex-1">${(__sitePages || []).length ? 'Pick a page to build it — its own hero, CTAs and sections, just like home.' : 'Only Home so far. Add pages in the Pages tab, then pick them here to customize.'}</span>
@@ -14853,8 +14853,8 @@ function aiMenu(ev, i, key, kind) {
   if (kind === 'faq') acts = [['faq', 'Generate FAQ']];
   else {
     acts = [['boost', '✨ Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite']];
-    if (AI_TITLE_KINDS.includes(kind)) acts.push(['title', '🎯 SEO title + hook']);
-    if (AI_RICH_KINDS.includes(kind)) acts.push(['links', '🔗 Add links']);
+    if (AI_TITLE_KINDS.includes(kind)) acts.push(['title', 'SEO title + hook']);
+    if (AI_RICH_KINDS.includes(kind)) acts.push(['links', 'Add links']);
   }
   const m = document.createElement('div');
   m.className = 'ai-menu fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[170px]';
@@ -14889,7 +14889,7 @@ function siteInternalLinks() {
 function aiAboutMenu(ev) {
   ev.stopPropagation();
   document.querySelectorAll('.ai-menu').forEach(m => m.remove());
-  const acts = [['boost', '✨ Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite'], ['links', '🔗 Add links']];
+  const acts = [['boost', '✨ Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite'], ['links', 'Add links']];
   const m = document.createElement('div');
   m.className = 'ai-menu fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[170px]';
   const r = ev.currentTarget.getBoundingClientRect();
@@ -15607,7 +15607,7 @@ function openServiceBooking(prefill) {
   const types = (__serviceCfg?.service_types) || ['Oil change', 'Tire change / rotation', 'Brakes', 'Diagnostic', 'Scheduled maintenance', 'Recall', 'Detailing', 'Other'];
   const inp = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
   crmOverlay(`<div class="p-5">
-    <div class="flex items-center justify-between mb-3"><div class="text-lg font-black text-slate-900 dark:text-white">🔧 Book service</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="flex items-center justify-between mb-3"><div class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">${svgIcon('wrench', 'w-5 h-5 text-teal-600')} Book service</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="space-y-3">
       <div><label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Customer name</label><input id="svcb-name" class="${inp}" placeholder="Full name" value="${esc(prefill?.name || '')}"></div>
       <div class="grid grid-cols-2 gap-2">
@@ -16448,7 +16448,7 @@ function renderCatalog() {
             const makeModel = `${v.make} ${v.model}`.toLowerCase()
             const gtag = 'inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm'
             const hotColdTag = __aiBoostActive
-              ? (__hotMakeModels.has(makeModel) ? `<span class="${gtag} bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30">🔥 Hot</span>`
+              ? (__hotMakeModels.has(makeModel) ? `<span class="${gtag} bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30">${svgIcon('flame', 'w-3 h-3 inline-block -mt-0.5')} Hot</span>`
                 : __coldMakeModels.has(makeModel) ? `<span class="${gtag} bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30">❄️ Cold</span>`
                 : '')
               : ''
@@ -19356,7 +19356,7 @@ function renderAiVisionResults(data) {
     const flags = (v.flags || []).map(f => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">${esc(f)}</span>`).join(' ');
     const thumb = v.thumb
       ? `<img src="${esc(v.thumb)}" alt="" class="w-14 h-14 rounded object-cover flex-shrink-0 bg-slate-100 dark:bg-slate-800">`
-      : `<div class="w-14 h-14 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-lg flex-shrink-0">🚗</div>`;
+      : `<div class="w-14 h-14 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 flex-shrink-0">${svgIcon('car', 'w-6 h-6')}</div>`;
     return `
       <div class="px-5 py-3.5 flex items-center gap-3.5">
         ${thumb}

@@ -797,10 +797,10 @@
         <div id="nav-desktop" class="hidden md:flex md:flex-col md:w-full md:space-y-0.5">
           <!-- Owner-only workspace switch: vehicle-dealer Demo ↔ running MarketSync. -->
           <div id="ms-mode-switch" role="tablist" aria-label="Workspace mode">
-            <button type="button" data-mode="demo" data-on="1" onclick="setDashMode('demo')">🚗 MarketSync Automotive</button>
-            <button type="button" data-mode="marketsync" onclick="setDashMode('marketsync')">🟣 MarketSync</button>
+            <button type="button" data-mode="demo" data-on="1" onclick="setDashMode('demo')">MarketSync Automotive</button>
+            <button type="button" data-mode="marketsync" onclick="setDashMode('marketsync')">MarketSync</button>
           </div>
-          <button id="ms-demo-reset" type="button" onclick="demoReset()" title="Reset the demo dealership to its starting data">↻ Reset demo data</button>
+          <button id="ms-demo-reset" type="button" onclick="demoReset()" title="Reset the demo dealership to its starting data"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Reset demo data</button>
 
           <!-- Guided-setup progress bar (populated by renderSetupBar; hidden when complete) -->
           <div id="setup-bar-host"></div>
@@ -1629,7 +1629,7 @@
           <!-- Segment pill row (AI Boost only — hidden until caches load) -->
           <div class="flex flex-wrap gap-1.5 hidden" id="catalog-segment-pills">
             <button data-seg="all"  class="catalog-segment-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition">All</button>
-            <button data-seg="hot"  class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">🔥 Hot</button>
+            <button data-seg="hot"  class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Hot</button>
             <button data-seg="cold" class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">❄️ Cold</button>
           </div>
           <!-- hidden select kept for JS compatibility -->
@@ -2166,7 +2166,7 @@
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div class="bg-white dark:bg-slate-800/60 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4">
                   <div class="flex items-center gap-2 mb-3">
-                    <span class="text-base">🔥</span>
+                    <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z"/></svg>
                     <span class="text-sm font-bold text-slate-900 dark:text-white">Top 5 Hot Vehicles</span>
                     <span class="text-xs text-slate-400">Low stock · selling fast</span>
                   </div>
@@ -2370,7 +2370,7 @@
             <div class="ai-accordion-body divide-y divide-slate-100 dark:divide-slate-800">
               <div class="flex items-start gap-3.5 px-5 py-4">
                 <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
-                  <span class="text-base">🔥</span>
+                  <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z"/></svg>
                 </div>
                 <div class="min-w-0">
                   <div class="text-sm font-bold text-slate-900 dark:text-white">Hot &amp; Cold Vehicle Detection</div>
@@ -2424,7 +2424,7 @@
               </div>
               <div class="flex items-start gap-3.5 px-5 py-4">
                 <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
-                  <span class="text-base">📦</span>
+                  <svg class="w-4 h-4 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
                 </div>
                 <div class="min-w-0">
                   <div class="text-sm font-bold text-slate-900 dark:text-white">Stocking Recommendations</div>
@@ -2469,7 +2469,7 @@
               </div>
               <div class="flex items-start gap-3.5 px-5 py-4">
                 <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
-                  <span class="text-base">📊</span>
+                  <svg class="w-4 h-4 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
                 </div>
                 <div class="min-w-0">
                   <div class="text-sm font-bold text-slate-900 dark:text-white">vAuto-Style Market Price Report</div>
@@ -3395,7 +3395,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260726p"></script>
+  <script src="dashboard.js?v=20260726q"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
