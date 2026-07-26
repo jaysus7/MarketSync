@@ -387,8 +387,8 @@ const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', '
 // value reachable (used to hide stray items and to gate switchPage); `home` = the
 // page they land on. Profile stays reachable for everyone (password, photo, etc.).
 const STAFF_ROLE_NAV = {
-  FNI:        { groups: ['crm', 'sales'],       pages: ['insights', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'fni', 'recon', 'desk', 'taskboard', 'profile'], home: 'crm' },
-  SERVICE:    { groups: ['crm', 'service'],      pages: ['crm', 'tasks', 'appointments', 'service-appointments', 'equity', 'service-settings', 'taskboard', 'profile'], home: 'service-appointments' },
+  FNI:        { groups: ['crm', 'sales', 'acquisition'], pages: ['insights', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'fni', 'recon', 'desk', 'taskboard', 'profile'], home: 'crm' },
+  SERVICE:    { groups: ['crm', 'service', 'acquisition'], pages: ['crm', 'tasks', 'appointments', 'service-appointments', 'equity', 'service-settings', 'taskboard', 'profile'], home: 'service-appointments' },
   ACCOUNTING: { groups: ['crm', 'accounting'],   pages: ['crm', 'tasks', 'appointments', 'acct-insights', 'acct-reconciliation', 'acct-bank', 'commissions', 'acct-expenses', 'acct-budget', 'acct-tax', 'acct-reports', 'acct-settings', 'taskboard', 'profile'], home: 'acct-insights' },
   CLEANUP:    { groups: ['sales'],               pages: ['recon', 'taskboard', 'profile'], home: 'recon' },
 };
