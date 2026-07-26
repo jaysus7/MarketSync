@@ -50,6 +50,7 @@ import { registerActionExecutor } from './routes/action-executor.js'
 import { registerAccountingEngine } from './routes/accounting-engine.js'
 import { registerConfigEngine } from './routes/config-engine.js'
 import { registerAiEngine } from './routes/ai-engine.js'
+import { registerAiRuntime } from './routes/ai-runtime.js'
 import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
 
@@ -126,6 +127,7 @@ registerActionExecutor(app)
 registerAccountingEngine(app)
 registerConfigEngine(app)
 registerAiEngine(app)
+registerAiRuntime(app)
 registerPlaid(app)
 registerAffiliate(app)
 
