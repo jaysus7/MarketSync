@@ -374,7 +374,7 @@ let profileContext = null;
 // html[data-dash-mode] attribute). Persisted per-browser.
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
+const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -852,6 +852,7 @@ function initDashModeForOwner() {
   // Reveal the owner-only platform console (all accounts + billing/engine controls).
   document.getElementById('nav-owner-users')?.classList.remove('hidden');
   document.getElementById('nav-saas-command')?.classList.remove('hidden');   // SaaS Command Center
+  document.getElementById('nav-saas-customers')?.classList.remove('hidden'); // Customer Pipeline
   applyDashMode(__dashMode);
   // In MarketSync (SaaS) mode the owner lands on the SaaS Command Center — revenue,
   // trials, churn — not a dealership dashboard.
@@ -1474,6 +1475,7 @@ function switchPage(pageId) {
   if (pageId === 'taskboard') loadTaskBoard();
   if (pageId === 'command') loadCommandCenter();
   if (pageId === 'saas-command') loadSaasCommand();
+  if (pageId === 'saas-customers') loadSaasCustomers();
   if (pageId === 'solo-home') loadSoloHome();
   if (pageId === 'operations') loadOperationsPage();
   if (pageId === 'service-ros') loadServiceRosPage();
@@ -9011,6 +9013,7 @@ async function loadSaasCommand() {
       <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">MarketSync HQ</h1>
         <p class="text-sm text-slate-500 dark:text-slate-400">Your SaaS command center — revenue, trials, and account health.</p></div>
       <div class="flex gap-2">
+        <button onclick="switchPage('saas-customers')" class="px-3 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold transition">Pipeline →</button>
         <button onclick="switchPage('owner-users')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-200">All accounts →</button>
         <button onclick="loadSaasCommand()" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200">Refresh</button>
       </div>
@@ -9039,6 +9042,53 @@ async function loadSaasCommand() {
     </div>`;
 }
 window.loadSaasCommand = loadSaasCommand;
+
+// ══ Customer Pipeline — SaaS retention board (stage + health + next action) ═══
+const SAAS_STAGE_LABEL = { lead: 'Lead', trial_started: 'Trial Started', activated: 'Activated', paid: 'Paid', expanded: 'Expanded', churn_risk: 'Churn Risk', cancelled: 'Cancelled' };
+const saasHealthColor = (h) => h >= 70 ? 'bg-emerald-500' : h >= 40 ? 'bg-amber-500' : 'bg-rose-500';
+async function loadSaasCustomers() {
+  const root = document.getElementById('saas-customers-root');
+  if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading pipeline…</div>`;
+  let d;
+  try { d = await apiGetJson('/saas/customers'); }
+  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
+  const cardOf = (a) => `
+    <button onclick="switchPage('owner-users')" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 hover:shadow-md transition space-y-1.5">
+      <div class="flex items-center justify-between gap-2">
+        <span class="font-bold text-slate-800 dark:text-slate-100 text-[13px] truncate">${esc(a.name || 'Account')}</span>
+        <span class="text-[11px] font-black ${a.health >= 70 ? 'text-emerald-600 dark:text-emerald-400' : a.health >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}">${a.health}%</span>
+      </div>
+      <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full ${saasHealthColor(a.health)}" style="width:${a.health}%"></div></div>
+      <div class="flex items-center justify-between text-[11px] text-slate-400">
+        <span>${a.engines_used} engine${a.engines_used === 1 ? '' : 's'} · ${a.last_activity_days == null ? 'no activity' : a.last_activity_days + 'd ago'}</span>
+        ${a.trial_days_left != null ? `<span class="${a.trial_days_left <= 5 ? 'text-rose-500 font-bold' : ''}">${a.trial_days_left}d trial</span>` : ''}
+      </div>
+      <div class="text-[11px] font-semibold text-fuchsia-600 dark:text-fuchsia-400">→ ${esc(a.next_action)}</div>
+    </button>`;
+  const cols = (d.stages || []).map(s => {
+    const list = (d.by_stage[s] || []);
+    const tint = s === 'churn_risk' ? 'text-rose-600 dark:text-rose-400' : s === 'paid' || s === 'expanded' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400';
+    return `<div class="flex-shrink-0 w-64">
+      <div class="flex items-center justify-between mb-2 px-1">
+        <span class="text-[12px] font-black uppercase tracking-wide ${tint}">${esc(SAAS_STAGE_LABEL[s] || s)}</span>
+        <span class="text-[11px] font-bold text-slate-400">${list.length}</span>
+      </div>
+      <div class="space-y-2">${list.map(cardOf).join('') || '<div class="text-[12px] text-slate-400 italic px-1 py-3">—</div>'}</div>
+    </div>`;
+  }).join('');
+  root.innerHTML = `
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Customer Pipeline</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Every account by stage, with a health score and next action — from real 30-day usage.</p></div>
+      <div class="flex gap-2">
+        <button onclick="switchPage('saas-command')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-200">← HQ</button>
+        <button onclick="loadSaasCustomers()" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200">Refresh</button>
+      </div>
+    </div>
+    <div class="overflow-x-auto pb-2"><div class="flex gap-4 min-w-max">${cols}</div></div>`;
+}
+window.loadSaasCustomers = loadSaasCustomers;
 
 // ══ Command Center — DealerOS home: today's operations + live exceptions ══════
 async function loadCommandCenter() {
