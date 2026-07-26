@@ -1493,6 +1493,7 @@ function switchPage(pageId) {
   if (pageId === 'saas-command') loadSaasCommand();
   if (pageId === 'saas-customers') loadSaasCustomers();
   if (pageId === 'saas-employees') loadSaasEmployees();
+  if (pageId === 'config') loadConfigHub();
   if (pageId === 'solo-home') loadSoloHome();
   if (pageId === 'ai-home') loadAiHome();
   if (pageId === 'sales-team' && typeof loadDealerManagementMatrix === 'function') { try { loadDealerManagementMatrix(); } catch {} }
@@ -9003,6 +9004,64 @@ async function loadSoloHome() {
     </div>`;
 }
 window.loadSoloHome = loadSoloHome;
+
+// ══ Configuration hub — surfaces the Configuration Engine (managers) ══════════
+const CONFIG_META = {
+  crm_integration:   { label: 'CRM Integration',    desc: 'How captured leads sync out to your CRM (method, lead email, webhook).' },
+  accounting:        { label: 'Accounting',         desc: 'Auto-post delivered deals to the ledger + cost tracking.' },
+  service:           { label: 'Service & Parts',    desc: 'Labor rate, tax, shop supplies, parts markup, RO prefix.' },
+  ai_knowledge:      { label: 'AI Knowledge Base',  desc: 'Facts the chatbot answers from (hours, financing, specials…).' },
+  ai_personality:    { label: 'AI Personality',     desc: 'Chatbot greeting + tone.' },
+  notification_rules:{ label: 'Notification Rules', desc: 'Alert thresholds (e.g. hot-lead score).' },
+};
+const cfgLabel = (k) => CONFIG_META[k]?.label || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+async function loadConfigHub() {
+  const root = document.getElementById('config-root');
+  if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading configuration…</div>`;
+  let d;
+  try { d = await apiGetJson('/config'); }
+  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
+  const keys = (d.keys || []).sort((a, b) => cfgLabel(a.key).localeCompare(cfgLabel(b.key)));
+  const structured = d.structured || [];
+  const cards = keys.map(k => {
+    const meta = CONFIG_META[k.key];
+    const json = JSON.stringify(k.value ?? {}, null, 2);
+    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-2">
+      <div class="flex items-center justify-between gap-2">
+        <div><span class="font-bold text-slate-800 dark:text-slate-100">${esc(cfgLabel(k.key))}</span>
+          ${k.customized ? '<span class="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">Customized</span>' : '<span class="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">Default</span>'}</div>
+        <code class="text-[11px] text-slate-400">${esc(k.key)}</code>
+      </div>
+      ${meta ? `<p class="text-[12px] text-slate-500">${esc(meta.desc)}</p>` : ''}
+      <textarea id="cfg-${esc(k.key)}" rows="${Math.min(12, json.split('\n').length + 1)}" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-[12px] font-mono">${esc(json)}</textarea>
+      <div class="flex gap-2">
+        <button onclick="cfgSave('${esc(k.key)}')" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-[13px] font-bold transition">Save</button>
+        ${k.customized ? `<button onclick="cfgReset('${esc(k.key)}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200">Reset to default</button>` : ''}
+      </div>
+    </div>`;
+  }).join('') || '<div class="text-sm text-slate-400">No configuration keys yet.</div>';
+  const structRows = structured.map(s => `<div class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">${esc(s.label)}</span><span class="text-[11px] text-slate-400">${s.count} rule${s.count === 1 ? '' : 's'} · ${esc(s.editor)}</span></div>`).join('');
+  root.innerHTML = `
+    <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Configuration</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Every dealer-configurable setting, one place. Blank/unset keys inherit the global default.</p></div>
+    ${structured.length ? `<div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Structured domains</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${structRows}</div></div>` : ''}
+    <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Settings</div><div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${cards}</div></div>`;
+}
+async function cfgSave(key) {
+  const el = document.getElementById('cfg-' + key);
+  let value;
+  try { value = JSON.parse(el.value); }
+  catch { return showToast('Invalid JSON — check the formatting', 'error'); }
+  try { await apiSendJson('/config/' + encodeURIComponent(key), 'PUT', { value }); showToast('Saved ✓', 'success'); loadConfigHub(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function cfgReset(key) {
+  if (!confirm('Reset this setting to the global default?')) return;
+  try { await apiSendJson('/config/' + encodeURIComponent(key), 'DELETE'); showToast('Reset ✓', 'success'); loadConfigHub(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+Object.assign(window, { loadConfigHub, cfgSave, cfgReset });
 
 // ══ AI Employee — AI Chatbot product home (stats · conversations · KB · settings) ══
 let __aiHomeTab = 'overview';
