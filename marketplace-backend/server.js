@@ -58,6 +58,7 @@ import { registerCommandCenter } from './routes/command-center.js'
 import { registerMarketplaceHome } from './routes/marketplace-home.js'
 import { registerSaasAdmin } from './routes/saas-admin.js'
 import { registerDelivery } from './routes/delivery.js'
+import { registerPublicApi } from './routes/public-api.js'
 import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
 
@@ -142,6 +143,7 @@ registerCommandCenter(app)
 registerMarketplaceHome(app)
 registerSaasAdmin(app)
 registerDelivery(app)
+registerPublicApi(app)
 registerPlaid(app)
 registerAffiliate(app)
 

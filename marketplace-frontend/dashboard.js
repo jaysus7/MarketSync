@@ -1494,6 +1494,7 @@ function switchPage(pageId) {
   if (pageId === 'saas-customers') loadSaasCustomers();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'config') loadConfigHub();
+  if (pageId === 'api-keys') loadApiKeys();
   if (pageId === 'delivery') loadDeliveryQueue();
   if (pageId === 'solo-home') loadSoloHome();
   if (pageId === 'ai-home') loadAiHome();
@@ -9109,6 +9110,68 @@ async function cfgReset(key) {
   catch (e) { showToast(e.message, 'error'); }
 }
 Object.assign(window, { loadConfigHub, cfgSave, cfgReset });
+
+// ══ API & MCP — developer access (managers) ══════════════════════════════════
+async function loadApiKeys() {
+  const root = document.getElementById('api-keys-root');
+  if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading…</div>`;
+  let keys = [];
+  try { keys = (await apiGetJson('/api-keys')).keys || []; }
+  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
+  const base = (typeof API !== 'undefined' && API) ? API : '';
+  const rows = keys.map(k => `
+    <tr class="border-t border-slate-100 dark:border-slate-800">
+      <td class="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">${esc(k.name || 'API key')}</td>
+      <td class="px-3 py-2 font-mono text-[12px] text-slate-400">${esc(k.key_prefix || '')}</td>
+      <td class="px-3 py-2 text-[11px] text-slate-400">${k.last_used_at ? 'used ' + new Date(k.last_used_at).toLocaleDateString() : 'never used'}</td>
+      <td class="px-3 py-2 text-right">${k.revoked_at ? '<span class="text-[11px] text-rose-500 font-bold">revoked</span>' : `<button onclick="apiRevokeKey('${k.id}')" class="text-[11px] font-bold text-rose-500 hover:text-rose-600">Revoke</button>`}</td>
+    </tr>`).join('') || `<tr><td colspan="4" class="px-3 py-8 text-center text-slate-400 text-sm">No keys yet — generate one to start.</td></tr>`;
+  root.innerHTML = `
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">API &amp; MCP</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Give external tools + AI agents secure access to your MarketSync data.</p></div>
+      <button onclick="apiGenerateKey()" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Generate key</button>
+    </div>
+    <div id="api-new-key"></div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
+      <table class="w-full text-sm min-w-[520px]">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">Name</th><th class="px-3 py-2">Key</th><th class="px-3 py-2">Last used</th><th class="px-3 py-2"></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+      <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Endpoints</div>
+      <p class="text-[13px] text-slate-500">Authenticate with <code class="text-[12px]">Authorization: Bearer YOUR_KEY</code>.</p>
+      <pre class="text-[12px] font-mono bg-slate-50 dark:bg-slate-950 rounded-lg p-3 overflow-x-auto">GET  ${esc(base)}/api/v1/inventory
+GET  ${esc(base)}/api/v1/leads
+POST ${esc(base)}/api/v1/leads      {"name","email"|"phone"}
+GET  ${esc(base)}/api/v1/tools       # MCP tool list
+POST ${esc(base)}/api/v1/mcp         {"method":"tools/call","params":{"name","arguments"}}</pre>
+      <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide pt-1">MCP</div>
+      <p class="text-[13px] text-slate-500">Point an MCP client at <code class="text-[12px]">${esc(base)}/api/v1/mcp</code> with your key. Tools: <code class="text-[12px]">search_inventory</code>, <code class="text-[12px]">create_lead</code>.</p>
+    </div>`;
+}
+async function apiGenerateKey() {
+  const name = prompt('Name this key (e.g. "Zapier", "Website bot"):', 'API key');
+  if (name == null) return;
+  try {
+    const r = await apiSendJson('/api-keys', 'POST', { name });
+    await loadApiKeys();   // rebuild the list first, then reveal the raw key once
+    const box = document.getElementById('api-new-key');
+    if (box) box.innerHTML = `<div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-xl p-4 space-y-2">
+      <div class="text-[13px] font-bold text-amber-800 dark:text-amber-300">Copy your key now — it won't be shown again.</div>
+      <div class="flex gap-2"><input readonly value="${esc(r.key)}" class="flex-1 px-3 py-2 rounded-lg border border-amber-300 dark:border-amber-800 bg-white dark:bg-slate-900 text-[12px] font-mono">
+      <button onclick="navigator.clipboard.writeText('${esc(r.key)}').then(()=>showToast('Copied ✓','success'))" class="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold">Copy</button></div>
+    </div>`;
+  } catch (e) { showToast(e.message, 'error'); }
+}
+async function apiRevokeKey(id) {
+  if (!confirm('Revoke this key? Anything using it will stop working immediately.')) return;
+  try { await apiSendJson(`/api-keys/${id}/revoke`, 'POST'); showToast('Revoked ✓', 'success'); loadApiKeys(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+Object.assign(window, { loadApiKeys, apiGenerateKey, apiRevokeKey });
 
 // ══ AI Employee — AI Chatbot product home (stats · conversations · KB · settings) ══
 let __aiHomeTab = 'overview';
