@@ -1301,7 +1301,9 @@ async function initializeDashboardEcosystem() {
 // (entitlement still governs access; this is a visibility preference on top).
 let __featureFlags = null;
 const FEATURE_NAV = {
-  website: '.nav-group[data-group="web"]',
+  // Target the website leaves, not the whole Marketing group — the group also holds
+  // Marketplace + AI Chat, which the website toggle must not hide.
+  website: '[data-page="website"], [data-page="website-settings"]',
   automation: '[data-page="automation"]',
   equity: '[data-page="equity"]',
   inv_intel: '.nav-group[data-group="ii"]',

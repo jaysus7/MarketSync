@@ -203,7 +203,6 @@
     #nav-desktop > .nav-group[data-group="ii"]      { order:14; border-left-color:#06b6d4; }  /* Inventory — cyan */
     #nav-desktop > .nav-group[data-group="web"]     { order:15; border-left-color:#a855f7; }  /* Marketing/Website — purple */
     #nav-desktop > [data-page="delivery"]  { order:16; border-left-color:#65a30d; }  /* Delivery — lime */
-    #nav-desktop > [data-page="ai-inbox"]  { order:17; border-left-color:#22c55e; }  /* AI Chat — green */
     #nav-desktop > .nav-group[data-group="service"] { order:17; border-left-color:#14b8a6; }  /* Service — teal */
     #nav-desktop > .nav-group[data-group="parts"]   { order:18; border-left-color:#f97316; }  /* Parts — orange */
     #nav-desktop > #grp-accounting-wrap    { order:18; border-left-color:#3b82f6; }  /* Accounting — blue */
@@ -913,11 +912,6 @@
             <span>Delivery</span><span id="delivery-badge" class="hidden ml-auto text-[10px] font-black bg-lime-600 text-white rounded-full px-1.5 py-0.5 leading-none"></span>
           </button>
 
-          <!-- ─── AI Chat inbox (live AI conversations + embed) — managers/admins ─── -->
-          <button type="button" data-page="ai-inbox" title="AI Chat" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.7 9.7 0 01-4-.85L3 21l1.85-4.5A8 8 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-            <span>AI Chat</span><span id="ai-inbox-badge" class="hidden ml-auto text-[10px] font-black bg-emerald-500 text-white rounded-full px-1.5 py-0.5 leading-none"></span>
-          </button>
 
           <!-- ─── Acquisition (buying: appraisals + equity mining) ─── -->
           <div class="nav-group" data-group="acquisition" data-admin-nav>
@@ -1054,8 +1048,10 @@
               <button type="button" onclick="toggleNavGroup('web')" aria-label="Toggle Website" class="px-2 py-2 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg id="chev-web" class="w-3.5 h-3.5 transition-transform -rotate-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
             </div>
             <div id="grp-web" class="nav-group-body space-y-0.5 mt-0.5 hidden">
-              <button type="button" data-page="website" title="Builder" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Builder</button>
-              <button type="button" data-page="website-settings" title="Website Settings" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Settings</button>
+              <button type="button" data-page="inventory" data-invmode="facebook" title="Facebook Marketplace" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Marketplace</button>
+              <button type="button" data-page="ai-inbox" title="AI Chat leads" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>AI Chat<span id="ai-inbox-badge" class="hidden ml-auto text-[10px] font-black bg-emerald-500 text-white rounded-full px-1.5 py-0.5 leading-none"></span></button>
+              <button type="button" data-page="website" title="Builder" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Website Builder</button>
+              <button type="button" data-page="website-settings" title="Website Settings" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Website Settings</button>
             </div>
           </div>
 
@@ -3399,7 +3395,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260726o"></script>
+  <script src="dashboard.js?v=20260726p"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
