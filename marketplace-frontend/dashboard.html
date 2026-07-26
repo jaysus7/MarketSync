@@ -806,6 +806,12 @@
             <span>Command Center</span><span id="command-badge" class="hidden ml-auto text-[10px] font-black bg-rose-500 text-white rounded-full px-1.5 py-0.5 leading-none"></span>
           </button>
 
+          <!-- AI Chatbot home — AI Chatbot product workspace (revealed by product) -->
+          <button type="button" id="nav-ai-home" data-page="ai-home" title="AI Employee" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.7 9.7 0 01-4-.85L3 21l1.85-4.5A8 8 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            <span>AI Employee</span>
+          </button>
+
           <!-- Marketplace home — Facebook Solo/Dealer product workspace (revealed by product) -->
           <button type="button" id="nav-solo-home" data-page="solo-home" title="Marketplace" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
@@ -1195,6 +1201,10 @@
 
       <div data-page-content="solo-home" class="page-content hidden space-y-6">
         <div id="solo-home-root"></div>
+      </div>
+
+      <div data-page-content="ai-home" class="page-content hidden space-y-6">
+        <div id="ai-home-root"></div>
       </div>
 
       <div data-page-content="operations" class="page-content hidden space-y-6">
@@ -3329,7 +3339,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260726i"></script>
+  <script src="dashboard.js?v=20260726j"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

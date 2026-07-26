@@ -704,11 +704,11 @@ const PRODUCT_PAGES = {
   facebook_solo:   ['solo-home', 'insights', 'inventory', 'crm', 'profile'],
   // Dealer: same, plus rep management (add reps, insights, make managers). No accounting/reports.
   facebook_dealer: ['solo-home', 'insights', 'inventory', 'crm', 'sales-team', 'profile'],
-  // AI Chatbot: only the AI chatbot workspace + settings.
-  ai_chatbot:      ['ai-inbox', 'profile'],
+  // AI Chatbot: only the AI chatbot workspace (stats + conversations + KB + settings).
+  ai_chatbot:      ['ai-home', 'profile'],
   dealer_os:       null,   // null = full access, no restriction
 };
-const PRODUCT_HOME = { facebook_solo: 'solo-home', facebook_dealer: 'solo-home', ai_chatbot: 'ai-inbox' };
+const PRODUCT_HOME = { facebook_solo: 'solo-home', facebook_dealer: 'solo-home', ai_chatbot: 'ai-home' };
 // Facebook products reuse the fb tier CSS so the Dashboard/Insights page renders as
 // just the leaderboard (no full dealer dashboard).
 const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
@@ -733,7 +733,7 @@ function applyProductNav(products) {
   });
   // Reveal nav buttons that ship hidden-by-default (so DealerOS never sees them) but
   // belong to this product's set.
-  ['solo-home', 'sales-team'].forEach(pg => {
+  ['solo-home', 'sales-team', 'ai-home'].forEach(pg => {
     document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${pg}"]`).forEach(it => it.classList.toggle('hidden', !allow.has(pg)));
   });
   // Collapse any group left with no visible leaf.
@@ -1490,6 +1490,7 @@ function switchPage(pageId) {
   if (pageId === 'saas-customers') loadSaasCustomers();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'solo-home') loadSoloHome();
+  if (pageId === 'ai-home') loadAiHome();
   if (pageId === 'sales-team' && typeof loadDealerManagementMatrix === 'function') { try { loadDealerManagementMatrix(); } catch {} }
   if (pageId === 'operations') loadOperationsPage();
   if (pageId === 'service-ros') loadServiceRosPage();
@@ -8998,6 +8999,102 @@ async function loadSoloHome() {
     </div>`;
 }
 window.loadSoloHome = loadSoloHome;
+
+// ══ AI Employee — AI Chatbot product home (stats · conversations · KB · settings) ══
+let __aiHomeTab = 'overview';
+async function loadAiHome(tab) {
+  const root = document.getElementById('ai-home-root');
+  if (!root) return;
+  if (tab) __aiHomeTab = tab;
+  const t = __aiHomeTab;
+  const tabBtn = (key, label) => `<button onclick="loadAiHome('${key}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${t === key ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${esc(label)}</button>`;
+  root.innerHTML = `
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Your AI Employee</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Your website chatbot — capturing and qualifying leads around the clock.</p></div>
+    </div>
+    <div class="flex flex-wrap gap-2">${tabBtn('overview', 'Overview')}${tabBtn('conversations', 'Conversations')}${tabBtn('knowledge', 'Knowledge Base')}${tabBtn('settings', 'Settings')}</div>
+    <div id="ai-home-body"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
+  const body = document.getElementById('ai-home-body');
+  try {
+    if (t === 'knowledge') return aiHomeKnowledge(body);
+    if (t === 'settings') return aiHomeSettings(body);
+    return aiHomeOverview(body, t);   // overview + conversations share the data fetch
+  } catch (e) { body.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message)}</div>`; }
+}
+async function aiHomeOverview(body, tab) {
+  const d = await apiGetJson('/ai/home');
+  const s = d.stats || {};
+  const tile = (label, val, accent) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4"><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div><div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${(val ?? 0).toLocaleString()}</div></div>`;
+  const conv = (d.recent || []).map(c => `
+    <button onclick="aiOpenConversation('${c.id}')" class="w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+      <span class="min-w-0 flex-1 truncate text-[13px] text-slate-700 dark:text-slate-200">${c.captured ? '👤 Lead captured' : 'Visitor'}${c.website ? ' · ' + esc(String(c.website).replace(/^https?:\/\//, '').slice(0, 30)) : ''}</span>
+      <span class="flex items-center gap-2 flex-shrink-0">
+        ${c.status === 'handoff' ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">Handoff</span>' : ''}
+        <span class="text-[11px] font-black ${c.score >= 80 ? 'text-rose-600 dark:text-rose-400' : c.score >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}">${c.score}</span>
+      </span>
+    </button>`).join('') || '<div class="text-sm text-slate-400 py-6 text-center">No conversations yet — add the chatbot to your site (Settings).</div>';
+  const showAll = tab === 'conversations';
+  body.innerHTML = `
+    ${showAll ? '' : `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      ${tile('Conversations', s.conversations, 'text-emerald-600 dark:text-emerald-400')}
+      ${tile('Leads Captured', s.leads_captured)}
+      ${tile('Hot Leads', s.hot_leads, 'text-rose-600 dark:text-rose-400')}
+      ${tile('After Hours', s.after_hours, 'text-indigo-600 dark:text-indigo-400')}
+    </div>`}
+    <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">${showAll ? 'All conversations' : 'Recent conversations'}</div>
+    <div class="space-y-1.5">${conv}</div>`;
+}
+async function aiHomeKnowledge(body) {
+  const { knowledge: k } = await apiGetJson('/ai/knowledge');
+  const field = (id, label, val, ph) => `<div><label class="text-[12px] font-bold text-slate-500">${esc(label)}</label><textarea id="${id}" rows="2" placeholder="${esc(ph)}" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${esc(val || '')}</textarea></div>`;
+  body.innerHTML = `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3 max-w-2xl">
+      <p class="text-[13px] text-slate-500">The AI answers customer questions from this — keep it accurate.</p>
+      ${field('ai-kb-hours', 'Hours', k?.hours, 'Mon–Fri 9–6, Sat 10–4, closed Sunday')}
+      ${field('ai-kb-financing', 'Financing', k?.financing, 'We work with all credit types; $0 down options available.')}
+      ${field('ai-kb-trade', 'Trade-ins', k?.trade_in, 'We appraise any trade — bring it by or send photos.')}
+      ${field('ai-kb-specials', 'Current specials', k?.specials, 'This month: 0% APR on select models.')}
+      ${field('ai-kb-policies', 'Policies', k?.policies, 'Return policy, warranty, delivery, etc.')}
+      <button onclick="aiHomeSaveKnowledge()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save knowledge</button>
+    </div>`;
+}
+async function aiHomeSaveKnowledge() {
+  const body = {
+    hours: document.getElementById('ai-kb-hours').value, financing: document.getElementById('ai-kb-financing').value,
+    trade_in: document.getElementById('ai-kb-trade').value, specials: document.getElementById('ai-kb-specials').value,
+    policies: document.getElementById('ai-kb-policies').value,
+  };
+  try { await apiSendJson('/ai/knowledge', 'PUT', body); showToast('Knowledge saved ✓', 'success'); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function aiHomeSettings(body) {
+  const [embed, persona] = await Promise.all([
+    apiGetJson('/ai/widget/embed').catch(() => ({})),
+    apiGetJson('/ai/personality').catch(() => ({ personality: {} })),
+  ]);
+  const p = persona.personality || {};
+  body.innerHTML = `
+    <div class="space-y-4 max-w-2xl">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-2">
+        <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Install on your website</div>
+        <p class="text-[13px] text-slate-500">Paste this one line before &lt;/body&gt; on your site (LeadBox, eDealer, WordPress, anywhere).</p>
+        <textarea readonly rows="2" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-[12px] font-mono">${esc(embed.snippet || '')}</textarea>
+        <button onclick="aiCopyEmbed()" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Copy snippet</button>
+      </div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+        <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Personality</div>
+        <div><label class="text-[12px] font-bold text-slate-500">Greeting</label><input id="ai-p-greeting" value="${esc(p.greeting || '')}" placeholder="Hi! How can I help you find your next vehicle?" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+        <div><label class="text-[12px] font-bold text-slate-500">Tone</label><input id="ai-p-tone" value="${esc(p.tone || '')}" placeholder="warm, concise, never pushy" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+        <button onclick="aiHomeSavePersonality()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save personality</button>
+      </div>
+    </div>`;
+}
+async function aiHomeSavePersonality() {
+  try { await apiSendJson('/ai/personality', 'PUT', { greeting: document.getElementById('ai-p-greeting').value, tone: document.getElementById('ai-p-tone').value }); showToast('Saved ✓', 'success'); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality });
 
 // ══ MarketSync HQ — SaaS Command Center (revenue-first company OS home) ═══════
 async function loadSaasCommand() {

@@ -18,7 +18,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { emitEvent } from './events.js'
-import { getConfig } from './config-engine.js'
+import { getConfig, setConfig } from './config-engine.js'
 import { getContact, findOrCreateContact } from './crm.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
 import { assistantDailyAllowed, recordAssistantChat, aiAllowed, recordUsage } from '../usage.js'
@@ -157,11 +157,19 @@ async function rescoreLead(ctx, messages, memory) {
 async function buildSystem(dealershipId, ctx, contextBundle) {
   const { data: d } = await supabaseAdmin.from('dealerships').select('name, city, province, country').eq('id', dealershipId).maybeSingle()
   const persona = await getConfig(dealershipId, 'ai_personality', {})
+  const kb = await getConfig(dealershipId, 'ai_knowledge', {})
   const mem = (contextBundle.memory || []).map(m => `- ${m.memory_type}: ${m.value}`).join('\n')
   const profile = contextBundle.profile ? `Known customer: ${contextBundle.profile.full_name || ''} (${contextBundle.profile.status || 'lead'}).` : 'Visitor not yet identified.'
+  // Dealer-authored knowledge base — the AI answers hours/policies/financing/etc. from this.
+  const kbLines = [
+    kb?.hours && `Hours: ${kb.hours}`, kb?.financing && `Financing: ${kb.financing}`,
+    kb?.trade_in && `Trade-ins: ${kb.trade_in}`, kb?.specials && `Current specials: ${kb.specials}`,
+    kb?.policies && `Policies: ${kb.policies}`,
+  ].filter(Boolean).join('\n')
   return `You are the AI sales concierge for ${d?.name || 'the dealership'}${d?.city ? ' in ' + d.city : ''}. ${persona?.tone ? 'Tone: ' + persona.tone + '.' : 'Be warm, concise, never pushy.'}
 Help the shopper find a vehicle, answer from live inventory (use search_inventory — never invent stock or prices), and move them toward a test drive, financing, or a trade value.
 As soon as they share a name + phone/email, call create_lead. Remember durable facts with save_memory. If they want a human or are ready to negotiate, call request_human. Keep replies to 2–4 sentences.
+${kbLines ? `\nDealership info (answer from this, don't invent):\n${kbLines}` : ''}
 ${profile}${mem ? `\nWhat we remember about them:\n${mem}` : ''}
 Today: ${new Date().toISOString().slice(0, 10)}.`
 }
@@ -287,6 +295,56 @@ export function registerAiRuntime(app) {
   // MCP discovery + lets the UI show what the assistant can do.
   app.get('/ai/tools', requireAuth, (req, res) => {
     res.json({ surface: SURFACE, tools: toolDefs(SURFACE) })
+  })
+
+  // ── AI Chatbot product home: stats + recent conversations ───────────────────
+  app.get('/ai/home', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    const since = new Date(Date.now() - 30 * 86400000).toISOString()
+    const { data } = await supabaseAdmin.from('ai_conversations')
+      .select('id, contact_id, lead_score, status, created_at, website')
+      .eq('dealership_id', req.dealershipId).gte('created_at', since).order('created_at', { ascending: false }).limit(1000)
+    const rows = data || []
+    const afterHours = rows.filter(r => { const h = new Date(r.created_at).getHours(); return h < 8 || h >= 18 }).length
+    res.json({
+      stats: {
+        conversations: rows.length,
+        leads_captured: rows.filter(r => r.contact_id).length,
+        hot_leads: rows.filter(r => (r.lead_score || 0) >= 80).length,
+        after_hours: afterHours,
+      },
+      recent: rows.slice(0, 10).map(r => ({ id: r.id, score: r.lead_score || 0, status: r.status || 'open', captured: !!r.contact_id, website: r.website || null, at: r.created_at })),
+    })
+  })
+
+  // Knowledge base the AI answers from (hours/policies/financing/trade/specials).
+  app.get('/ai/knowledge', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    res.json({ knowledge: await getConfig(req.dealershipId, 'ai_knowledge', {}) })
+  })
+  app.put('/ai/knowledge', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    const b = req.body || {}
+    const value = {
+      hours: String(b.hours || '').slice(0, 2000), financing: String(b.financing || '').slice(0, 2000),
+      trade_in: String(b.trade_in || '').slice(0, 2000), specials: String(b.specials || '').slice(0, 2000),
+      policies: String(b.policies || '').slice(0, 4000),
+    }
+    try { await setConfig(req.dealershipId, 'ai_knowledge', value, req); res.json({ ok: true, knowledge: value }) }
+    catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // AI personality + greeting (used by the widget + system prompt).
+  app.get('/ai/personality', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    res.json({ personality: await getConfig(req.dealershipId, 'ai_personality', {}) })
+  })
+  app.put('/ai/personality', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    const b = req.body || {}
+    const value = { tone: String(b.tone || '').slice(0, 200), greeting: String(b.greeting || '').slice(0, 400) }
+    try { await setConfig(req.dealershipId, 'ai_personality', value, req); res.json({ ok: true, personality: value }) }
+    catch (e) { res.status(500).json({ error: e.message }) }
   })
 
   // The dealer's copy-paste embed snippet for LeadBox / eDealer / any site.
