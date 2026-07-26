@@ -51,6 +51,7 @@ import { registerAccountingEngine } from './routes/accounting-engine.js'
 import { registerConfigEngine } from './routes/config-engine.js'
 import { registerAiEngine } from './routes/ai-engine.js'
 import { registerAiRuntime } from './routes/ai-runtime.js'
+import { registerIntegrationEngine } from './routes/integration-engine.js'
 import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
 
@@ -128,6 +129,7 @@ registerAccountingEngine(app)
 registerConfigEngine(app)
 registerAiEngine(app)
 registerAiRuntime(app)
+registerIntegrationEngine(app)
 registerPlaid(app)
 registerAffiliate(app)
 

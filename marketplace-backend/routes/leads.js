@@ -4,6 +4,7 @@ import { findOrCreateContact } from './crm.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
 import { audit, AuditAction } from '../audit.js'
 import { emitEvent } from './events.js'
+import { getConfig } from './config-engine.js'
 
 const xmlEsc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]))
 
@@ -42,7 +43,7 @@ function parseCsv(text) {
 
 // Build a standard ADF (Auto-lead Data Format) XML document that any dealer CRM
 // can ingest. https://www.adfxml.info/
-function buildAdf(lead, vehicle, dealerName, rep) {
+export function buildAdf(lead, vehicle, dealerName, rep) {
   const now = new Date().toISOString()
   const nameParts = String(lead.name || 'Unknown').trim()
   // Salesperson attribution: most CRMs (VinSolutions, DealerSocket, Elead) read the
@@ -389,35 +390,14 @@ export function registerLeads(app) {
       }
     } catch (e) { console.warn('[leads] contact link failed:', e.message) }
 
-    // Deliver to the CRM via ADF email when configured.
-    const { data: dealer } = await supabaseAdmin
-      .from('dealerships').select('name, crm_adf_email').eq('id', req.dealershipId).maybeSingle()
-    // The salesperson who logged the lead — attached to the ADF for CRM attribution.
-    const { data: repProfile } = await supabaseAdmin
-      .from('profiles').select('full_name, display_name, phone').eq('id', req.user.id).maybeSingle()
-    const rep = {
-      name: repProfile?.full_name || repProfile?.display_name || '',
-      email: req.user?.email || '',
-      phone: repProfile?.phone || '',
-    }
-    let delivered = false
-    if (dealer?.crm_adf_email && resend) {
-      const adf = buildAdf(lead, vehicle, dealer.name, rep)
-      try {
-        await resend.emails.send({
-          from: EMAIL_FROM,
-          to: dealer.crm_adf_email,
-          subject: `ADF Lead${vehicle ? ' — ' + [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ') : ''}`,
-          text: adf,
-          attachments: [{ filename: 'lead.adf.xml', content: Buffer.from(adf).toString('base64') }],
-        })
-        await supabaseAdmin.from('leads').update({ adf_sent_at: new Date().toISOString(), status: 'sent' }).eq('id', lead.id)
-        delivered = true
-      } catch (e) {
-        await supabaseAdmin.from('leads').update({ adf_error: e.message }).eq('id', lead.id)
-      }
-    }
-    res.json({ ok: true, lead, delivered, crm_configured: !!dealer?.crm_adf_email })
+    // Outbound CRM delivery is handled by the Integration Engine, which subscribes to
+    // the lead.created event emitted above and delivers via the dealer's configured
+    // method (ADF email / webhook / CRM API / Chrome extension), deduped so it fires
+    // once. Here we only report whether an outbound method is configured.
+    const cfg = await getConfig(req.dealershipId, 'crm_integration', {})
+    const { data: dealer } = await supabaseAdmin.from('dealerships').select('crm_adf_email').eq('id', req.dealershipId).maybeSingle()
+    const configured = (!!cfg?.method && cfg.method !== 'none') || !!dealer?.crm_adf_email
+    res.json({ ok: true, lead, delivered: configured, crm_configured: configured })
   })
 
   // Dealer admins set/clear the CRM's ADF intake email.
