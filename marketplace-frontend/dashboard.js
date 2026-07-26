@@ -1421,6 +1421,8 @@ function switchPage(pageId) {
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
   if (pageId === 'taskboard') loadTaskBoard();
   if (pageId === 'operations') loadOperationsPage();
+  if (pageId === 'service-ros') loadServiceRosPage();
+  if (pageId === 'service-parts') loadServicePartsPage();
   if (pageId === 'ai-inbox') loadAiInbox();
 
 }
@@ -9023,6 +9025,287 @@ async function opsOpenEntity(type, id, label) {
   </div>`;
 }
 Object.assign(window, { loadOperationsPage, opsResolveException, opsOpenEntity });
+
+// ══ Service & Parts Engine UI — repair orders + parts stock ═══════════════════
+let __svcRoFilter = '';
+let __svcParts = [];   // cached catalog for the add-line part picker
+const svcMoney = (v) => '$' + (Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const SVC_STATUSES = ['open', 'in_progress', 'awaiting_parts', 'ready', 'closed', 'canceled'];
+const svcStatusLabel = (s) => ({ open: 'Open', in_progress: 'In Progress', awaiting_parts: 'Awaiting Parts', ready: 'Ready', closed: 'Closed', canceled: 'Canceled' }[s] || s);
+const svcStatusChip = (s) => {
+  const c = { open: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300', in_progress: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300', awaiting_parts: 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300', ready: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300', closed: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400', canceled: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' }[s] || 'bg-slate-100 text-slate-600';
+  return `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full ${c}">${esc(svcStatusLabel(s))}</span>`;
+};
+
+async function loadServiceRosPage() {
+  const root = document.getElementById('service-ros-root');
+  if (!root) return;
+  root.innerHTML = '<div class="text-slate-400 text-sm p-6">Loading repair orders…</div>';
+  try {
+    const [sum, list] = await Promise.all([
+      apiGetJson('/service-engine/summary').catch(() => ({})),
+      apiGetJson('/service-engine/ros' + (__svcRoFilter ? '?status=' + encodeURIComponent(__svcRoFilter) : '')),
+    ]);
+    const ros = list.ros || [];
+    const stat = (label, val) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3"><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div><div class="text-xl font-black text-slate-800 dark:text-slate-100 mt-0.5">${val}</div></div>`;
+    const tab = (key, label) => `<button onclick="svcRoFilter('${key}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${__svcRoFilter === key ? 'bg-teal-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${esc(label)}</button>`;
+    const rows = ros.map(r => `
+      <tr class="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer" onclick="svcOpenRo('${r.id}')">
+        <td class="px-3 py-2 font-bold text-slate-700 dark:text-slate-200">${esc(r.ro_number || '—')}</td>
+        <td class="px-3 py-2 text-slate-600 dark:text-slate-300">${esc(r.vehicle_desc || (r.vin ? 'VIN ' + r.vin : '—'))}</td>
+        <td class="px-3 py-2">${svcStatusChip(r.status)}</td>
+        <td class="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-200">${svcMoney(r.total)}</td>
+        <td class="px-3 py-2 text-slate-400 text-[12px] whitespace-nowrap">${r.opened_at ? new Date(r.opened_at).toLocaleDateString() : ''}</td>
+      </tr>`).join('') || `<tr><td colspan="5" class="px-3 py-10 text-center text-slate-400 text-sm">No repair orders${__svcRoFilter ? ' in this state' : ' yet'}.</td></tr>`;
+    root.innerHTML = `
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-xl font-black text-slate-800 dark:text-slate-100">Repair Orders</h1>
+        <button onclick="svcNewRoForm()" class="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold transition">+ New RO</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${stat('Open ROs', sum.open_ros ?? 0)}${stat('Closed', sum.closed_ros ?? 0)}${stat('Revenue', svcMoney(sum.revenue))}${stat('Gross', svcMoney(sum.gross))}
+      </div>
+      <div class="flex flex-wrap gap-2">
+        ${tab('', 'All')}${['open', 'in_progress', 'awaiting_parts', 'ready', 'closed'].map(s => tab(s, svcStatusLabel(s))).join('')}
+      </div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
+        <table class="w-full text-sm min-w-[560px]">
+          <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">RO #</th><th class="px-3 py-2">Vehicle</th><th class="px-3 py-2">Status</th><th class="px-3 py-2 text-right">Total</th><th class="px-3 py-2">Opened</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch (e) { root.innerHTML = `<div class="text-rose-500 text-sm p-6">Couldn't load: ${esc(e.message)}</div>`; }
+}
+function svcRoFilter(k) { __svcRoFilter = k; loadServiceRosPage(); }
+
+async function svcNewRoForm() {
+  const root = document.getElementById('service-ros-root');
+  if (!root) return;
+  root.innerHTML = `
+    <button onclick="loadServiceRosPage()" class="text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">← Back</button>
+    <h1 class="text-xl font-black text-slate-800 dark:text-slate-100 mt-2">New Repair Order</h1>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 max-w-xl space-y-3">
+      <div>
+        <label class="text-[12px] font-bold text-slate-500">Customer (optional)</label>
+        <input id="svc-ro-cust" oninput="svcCustSearch(this.value)" placeholder="Search customer by name/phone/email" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
+        <input type="hidden" id="svc-ro-cust-id">
+        <div id="svc-ro-cust-results" class="mt-1 space-y-1"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-[12px] font-bold text-slate-500">Vehicle</label><input id="svc-ro-veh" placeholder="2019 Honda Civic" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+        <div><label class="text-[12px] font-bold text-slate-500">VIN</label><input id="svc-ro-vin" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-[12px] font-bold text-slate-500">Odometer</label><input id="svc-ro-odo" type="number" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+      </div>
+      <div><label class="text-[12px] font-bold text-slate-500">Complaint / concern</label><textarea id="svc-ro-complaint" rows="2" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></textarea></div>
+      <button onclick="svcCreateRo()" class="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold transition">Open RO</button>
+    </div>`;
+}
+let __svcCustTimer = null;
+function svcCustSearch(q) {
+  clearTimeout(__svcCustTimer);
+  const box = document.getElementById('svc-ro-cust-results');
+  if (!q || q.trim().length < 2) { if (box) box.innerHTML = ''; return; }
+  __svcCustTimer = setTimeout(async () => {
+    try {
+      const r = await apiGetJson('/deals/customers?q=' + encodeURIComponent(q.trim()));
+      box.innerHTML = (r.rows || []).slice(0, 6).map(c => `<button onclick="svcPickCust('${c.id}','${esc((c.name || '').replace(/'/g, ' '))}')" class="block w-full text-left px-3 py-1.5 rounded-lg text-[13px] bg-slate-50 dark:bg-slate-800 hover:bg-teal-50 dark:hover:bg-teal-950/40">${esc(c.name)}${c.phone ? ' · ' + esc(c.phone) : ''}</button>`).join('');
+    } catch {}
+  }, 300);
+}
+function svcPickCust(id, name) {
+  document.getElementById('svc-ro-cust-id').value = id;
+  document.getElementById('svc-ro-cust').value = name;
+  document.getElementById('svc-ro-cust-results').innerHTML = `<div class="text-[12px] text-teal-600 font-bold">✓ ${esc(name)}</div>`;
+}
+async function svcCreateRo() {
+  const body = {
+    contact_id: document.getElementById('svc-ro-cust-id').value || null,
+    vehicle_desc: document.getElementById('svc-ro-veh').value.trim() || null,
+    vin: document.getElementById('svc-ro-vin').value.trim() || null,
+    odometer: document.getElementById('svc-ro-odo').value ? Number(document.getElementById('svc-ro-odo').value) : null,
+    complaint: document.getElementById('svc-ro-complaint').value.trim() || null,
+  };
+  try { const r = await apiSendJson('/service-engine/ros', 'POST', body); showToast('RO ' + (r.ro?.ro_number || '') + ' opened ✓', 'success'); svcOpenRo(r.ro.id); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+
+async function svcOpenRo(id) {
+  const root = document.getElementById('service-ros-root');
+  if (!root) return;
+  root.innerHTML = '<div class="text-slate-400 text-sm p-6">Loading RO…</div>';
+  try {
+    const [res] = await Promise.all([apiGetJson('/service-engine/ros/' + id)]);
+    if (!__svcParts.length) { try { __svcParts = (await apiGetJson('/service-engine/parts')).parts || []; } catch {} }
+    const ro = res.ro, cust = res.customer;
+    const closed = ro.status === 'closed' || ro.status === 'canceled';
+    const lineRows = (ro.lines || []).map(l => `
+      <tr class="border-t border-slate-100 dark:border-slate-800">
+        <td class="px-3 py-2"><span class="text-[11px] font-bold uppercase text-slate-400">${esc(l.line_type)}</span></td>
+        <td class="px-3 py-2 text-slate-600 dark:text-slate-300">${esc(l.description || '')}</td>
+        <td class="px-3 py-2 text-right">${Number(l.qty)}</td>
+        <td class="px-3 py-2 text-right">${svcMoney(l.total)}</td>
+        <td class="px-3 py-2 text-right">${closed ? '' : `<button onclick="svcRemoveLine('${ro.id}','${l.id}')" class="text-rose-500 hover:text-rose-600 text-xs font-bold">Remove</button>`}</td>
+      </tr>`).join('') || `<tr><td colspan="5" class="px-3 py-6 text-center text-slate-400 text-sm">No lines yet.</td></tr>`;
+    const partOpts = __svcParts.map(p => `<option value="${p.id}" data-price="${p.price}">${esc(p.part_number)} — ${esc(p.description || '')} (${p.qty_on_hand} on hand)</option>`).join('');
+    const statusOpts = SVC_STATUSES.filter(s => s !== 'closed').map(s => `<option value="${s}" ${ro.status === s ? 'selected' : ''}>${esc(svcStatusLabel(s))}</option>`).join('');
+    root.innerHTML = `
+      <button onclick="loadServiceRosPage()" class="text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">← All ROs</button>
+      <div class="flex flex-wrap items-center justify-between gap-3 mt-2">
+        <div><h1 class="text-xl font-black text-slate-800 dark:text-slate-100">RO ${esc(ro.ro_number || '')}</h1>
+          <div class="text-sm text-slate-500 mt-0.5">${esc(ro.vehicle_desc || ro.vin || '')}${cust ? ' · ' + esc(cust.name) : ''}</div></div>
+        <div class="flex items-center gap-2">${svcStatusChip(ro.status)}</div>
+      </div>
+      ${ro.complaint ? `<div class="text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 rounded-lg px-3 py-2"><span class="font-bold">Concern:</span> ${esc(ro.complaint)}</div>` : ''}
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
+        <table class="w-full text-sm min-w-[520px]">
+          <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">Type</th><th class="px-3 py-2">Description</th><th class="px-3 py-2 text-right">Qty</th><th class="px-3 py-2 text-right">Total</th><th class="px-3 py-2"></th></tr></thead>
+          <tbody>${lineRows}</tbody>
+          <tfoot><tr class="border-t-2 border-slate-200 dark:border-slate-700"><td colspan="3" class="px-3 py-2 text-right font-bold text-slate-500">Total (incl. tax)</td><td class="px-3 py-2 text-right font-black text-slate-800 dark:text-slate-100">${svcMoney(ro.total)}</td><td></td></tr></tfoot>
+        </table>
+      </div>
+      ${closed ? '' : `
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
+        <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Add line</div>
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
+          <div><label class="text-[11px] text-slate-400 font-bold">Type</label>
+            <select id="svc-line-type" onchange="svcLineTypeChanged()" class="w-full mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"><option value="labor">Labor</option><option value="part">Part</option><option value="sublet">Sublet</option><option value="fee">Fee</option></select></div>
+          <div id="svc-line-part-wrap" class="hidden md:col-span-2"><label class="text-[11px] text-slate-400 font-bold">Part</label>
+            <select id="svc-line-part" onchange="svcLinePartChanged()" class="w-full mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"><option value="">— pick —</option>${partOpts}</select></div>
+          <div id="svc-line-desc-wrap" class="md:col-span-2"><label class="text-[11px] text-slate-400 font-bold">Description</label><input id="svc-line-desc" class="w-full mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+          <div id="svc-line-hours-wrap"><label class="text-[11px] text-slate-400 font-bold">Hours</label><input id="svc-line-hours" type="number" step="0.1" class="w-full mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+          <div><label class="text-[11px] text-slate-400 font-bold">Qty</label><input id="svc-line-qty" type="number" value="1" class="w-full mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+          <div><label class="text-[11px] text-slate-400 font-bold">Unit price</label><input id="svc-line-price" type="number" step="0.01" class="w-full mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+        </div>
+        <button onclick="svcAddLine('${ro.id}')" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Add line</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <select id="svc-ro-status" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${statusOpts}</select>
+        <button onclick="svcSetStatus('${ro.id}')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold transition">Update status</button>
+        <button onclick="svcCloseRo('${ro.id}')" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition ml-auto">Close RO → post to accounting</button>
+      </div>`}`;
+    svcLineTypeChanged();
+  } catch (e) { root.innerHTML = `<div class="text-rose-500 text-sm p-6">Couldn't load RO: ${esc(e.message)}</div>`; }
+}
+function svcLineTypeChanged() {
+  const t = document.getElementById('svc-line-type')?.value;
+  if (!t) return;
+  document.getElementById('svc-line-part-wrap').classList.toggle('hidden', t !== 'part');
+  document.getElementById('svc-line-hours-wrap').classList.toggle('hidden', t !== 'labor');
+}
+function svcLinePartChanged() {
+  const sel = document.getElementById('svc-line-part');
+  const opt = sel?.selectedOptions?.[0];
+  if (opt && opt.dataset.price) document.getElementById('svc-line-price').value = opt.dataset.price;
+}
+async function svcAddLine(roId) {
+  const type = document.getElementById('svc-line-type').value;
+  const body = {
+    line_type: type,
+    description: document.getElementById('svc-line-desc').value.trim() || null,
+    qty: Number(document.getElementById('svc-line-qty').value) || 1,
+    hours: type === 'labor' && document.getElementById('svc-line-hours').value ? Number(document.getElementById('svc-line-hours').value) : null,
+    unit_price: document.getElementById('svc-line-price').value ? Number(document.getElementById('svc-line-price').value) : 0,
+    part_id: type === 'part' ? (document.getElementById('svc-line-part').value || null) : null,
+  };
+  if (type === 'part' && !body.part_id) return showToast('Pick a part', 'error');
+  try { await apiSendJson(`/service-engine/ros/${roId}/lines`, 'POST', body); svcOpenRo(roId); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function svcRemoveLine(roId, lineId) {
+  try { await apiSendJson(`/service-engine/ros/${roId}/lines/${lineId}`, 'DELETE'); svcOpenRo(roId); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function svcSetStatus(roId) {
+  const status = document.getElementById('svc-ro-status').value;
+  try { await apiSendJson(`/service-engine/ros/${roId}/status`, 'POST', { status }); showToast('Status updated ✓', 'success'); svcOpenRo(roId); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function svcCloseRo(roId) {
+  if (!confirm('Close this RO? Parts will be drawn from stock and the sale posted to accounting.')) return;
+  try { await apiSendJson(`/service-engine/ros/${roId}/close`, 'POST'); showToast('RO closed & posted ✓', 'success'); svcOpenRo(roId); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+
+async function loadServicePartsPage() {
+  const root = document.getElementById('service-parts-root');
+  if (!root) return;
+  root.innerHTML = '<div class="text-slate-400 text-sm p-6">Loading parts…</div>';
+  try {
+    const list = await apiGetJson('/service-engine/parts');
+    __svcParts = list.parts || [];
+    const rows = __svcParts.map(p => {
+      const low = Number(p.reorder_point) > 0 && Number(p.qty_on_hand) <= Number(p.reorder_point);
+      return `<tr class="border-t border-slate-100 dark:border-slate-800">
+        <td class="px-3 py-2 font-bold text-slate-700 dark:text-slate-200">${esc(p.part_number)}</td>
+        <td class="px-3 py-2 text-slate-600 dark:text-slate-300">${esc(p.description || '')}</td>
+        <td class="px-3 py-2 text-slate-400">${esc(p.bin || '')}</td>
+        <td class="px-3 py-2 text-right ${low ? 'text-rose-600 font-black' : ''}">${Number(p.qty_on_hand)}${low ? ' ⚠' : ''}</td>
+        <td class="px-3 py-2 text-right">${svcMoney(p.cost)}</td>
+        <td class="px-3 py-2 text-right">${svcMoney(p.price)}</td>
+        <td class="px-3 py-2 text-right whitespace-nowrap">
+          <button onclick="svcReceive('${p.id}','${esc(p.part_number)}')" class="text-teal-600 hover:text-teal-500 text-xs font-bold">Receive</button>
+          <button onclick="svcAdjust('${p.id}','${esc(p.part_number)}')" class="text-slate-500 hover:text-slate-700 text-xs font-bold ml-2">Adjust</button>
+        </td></tr>`;
+    }).join('') || `<tr><td colspan="7" class="px-3 py-10 text-center text-slate-400 text-sm">No parts yet — add one.</td></tr>`;
+    root.innerHTML = `
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-xl font-black text-slate-800 dark:text-slate-100">Parts Inventory</h1>
+        <button onclick="svcAddPartForm()" class="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold transition">+ Add Part</button>
+      </div>
+      <div id="svc-part-form"></div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
+        <table class="w-full text-sm min-w-[620px]">
+          <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">Part #</th><th class="px-3 py-2">Description</th><th class="px-3 py-2">Bin</th><th class="px-3 py-2 text-right">On hand</th><th class="px-3 py-2 text-right">Cost</th><th class="px-3 py-2 text-right">Price</th><th class="px-3 py-2 text-right">Actions</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch (e) { root.innerHTML = `<div class="text-rose-500 text-sm p-6">Couldn't load: ${esc(e.message)}</div>`; }
+}
+function svcAddPartForm() {
+  const box = document.getElementById('svc-part-form');
+  if (!box) return;
+  box.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
+    <div><label class="text-[11px] text-slate-400 font-bold">Part #</label><input id="svc-p-num" class="w-full mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+    <div class="md:col-span-2"><label class="text-[11px] text-slate-400 font-bold">Description</label><input id="svc-p-desc" class="w-full mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+    <div><label class="text-[11px] text-slate-400 font-bold">Bin</label><input id="svc-p-bin" class="w-full mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+    <div><label class="text-[11px] text-slate-400 font-bold">Cost</label><input id="svc-p-cost" type="number" step="0.01" class="w-full mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+    <div><label class="text-[11px] text-slate-400 font-bold">Price</label><input id="svc-p-price" type="number" step="0.01" class="w-full mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+    <div><label class="text-[11px] text-slate-400 font-bold">Reorder pt</label><input id="svc-p-reorder" type="number" class="w-full mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+    <button onclick="svcAddPart()" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Save part</button>
+  </div>`;
+}
+async function svcAddPart() {
+  const body = {
+    part_number: document.getElementById('svc-p-num').value.trim(),
+    description: document.getElementById('svc-p-desc').value.trim() || null,
+    bin: document.getElementById('svc-p-bin').value.trim() || null,
+    cost: Number(document.getElementById('svc-p-cost').value) || 0,
+    price: Number(document.getElementById('svc-p-price').value) || 0,
+    reorder_point: Number(document.getElementById('svc-p-reorder').value) || 0,
+  };
+  if (!body.part_number) return showToast('Part # required', 'error');
+  try { await apiSendJson('/service-engine/parts', 'POST', body); showToast('Part saved ✓', 'success'); loadServicePartsPage(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function svcReceive(id, num) {
+  const qty = prompt(`Receive how many of ${num}?`, '1');
+  if (qty == null) return;
+  try { await apiSendJson(`/service-engine/parts/${id}/receive`, 'POST', { qty: Number(qty) }); showToast('Received ✓', 'success'); loadServicePartsPage(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function svcAdjust(id, num) {
+  const qty = prompt(`Adjust ${num} by (use a negative number to reduce):`, '0');
+  if (qty == null) return;
+  try { await apiSendJson(`/service-engine/parts/${id}/adjust`, 'POST', { qty: Number(qty) }); showToast('Adjusted ✓', 'success'); loadServicePartsPage(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+Object.assign(window, {
+  loadServiceRosPage, svcRoFilter, svcNewRoForm, svcCustSearch, svcPickCust, svcCreateRo, svcOpenRo,
+  svcLineTypeChanged, svcLinePartChanged, svcAddLine, svcRemoveLine, svcSetStatus, svcCloseRo,
+  loadServicePartsPage, svcAddPartForm, svcAddPart, svcReceive, svcAdjust,
+});
 
 // ══ AI Chat inbox — live AI conversations + the embeddable widget snippet ═════
 const AI_SCORE_TONE = (s) => s >= 80 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' : s >= 50 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';

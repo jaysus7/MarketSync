@@ -866,6 +866,8 @@
               <button type="button" onclick="toggleNavGroup('service')" aria-label="Toggle Service" class="px-2 py-2 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg id="chev-service" class="w-3.5 h-3.5 transition-transform -rotate-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
             </div>
             <div id="grp-service" class="nav-group-body space-y-0.5 mt-0.5 hidden">
+              <button type="button" data-page="service-ros" title="Repair Orders" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Repair Orders</button>
+              <button type="button" data-page="service-parts" title="Parts" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Parts</button>
               <button type="button" data-page="service-appointments" title="Service appointments" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Appointments</button>
               <button type="button" data-page="equity" title="Equity Mining" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Equity Mining</button>
               <button type="button" data-page="service-settings" title="Service settings" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Settings</button>
@@ -1124,6 +1126,14 @@
       <!-- Operations — workflow exceptions dashboard + entity timeline lookup (managers). -->
       <div data-page-content="operations" class="page-content hidden space-y-6">
         <div id="operations-root"></div>
+      </div>
+
+      <div data-page-content="service-ros" class="page-content hidden space-y-6">
+        <div id="service-ros-root"></div>
+      </div>
+
+      <div data-page-content="service-parts" class="page-content hidden space-y-6">
+        <div id="service-parts-root"></div>
       </div>
 
       <!-- AI Chat inbox — live AI conversations + the embeddable widget snippet. -->
@@ -3230,7 +3240,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260723e"></script>
+  <script src="dashboard.js?v=20260726a"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
