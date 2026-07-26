@@ -59,6 +59,16 @@ async function buildUserStats(userId) {
   }
 }
 
+// Published read API for the Deal Engine — other engines get a deal via this, never
+// by reading the deals table directly (kernel contract §4).
+export async function getDeal(dealershipId, id) {
+  if (!dealershipId || !id) return null
+  const { data } = await supabaseAdmin.from('deals')
+    .select('id, deal_number, selling_price, cost, fni_items, tax_amount, deal_status, sold_at, delivered_at, funded_at, inventory_id, contact_id')
+    .eq('id', id).eq('dealership_id', dealershipId).maybeSingle()
+  return data || null
+}
+
 export function registerRoutes(app) {
   // ── Per-dealer feature toggles ───────────────────────────────────────────
   // Managers hide paid features they don't use. Nav gates on this + entitlement.

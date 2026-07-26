@@ -141,10 +141,13 @@ Honest state of the code vs. this contract:
   only emits events. Published read API `getCommissionResult(dealer, dealId)` added.
 - ✅ **Accounting reads commission via API:** the accounting engine calls
   `getCommissionResult()` instead of reading `deal_commissions` raw.
+- ✅ **Deal read API:** `getDeal(dealer, id)` published on the Deal Engine; the
+  accounting engine reads the delivered deal through it, not the `deals` table.
 - ◑ **Remaining direct calls to retire:** `syncDealToAccounting()` (external
-  integration, fire-and-forget) → move to an integration-engine subscriber; the
-  accounting engine still reads the CORE objects `deals` / `inventory` directly for a
-  delivered deal's numbers → wrap in `getDeal()` / `getVehicle()` read APIs.
+  provider integration, fire-and-forget) → move to an integration-engine subscriber;
+  the accounting engine still reads `dealerships` (a Core object) for its own
+  auto_post / cost_tracking settings → route via a Core/Config read later (lowest
+  priority — a dealer reading its own settings).
 - ◑ **Tool registry** not yet formalized (executor registry is the template).
 - ◑ **Durable bus** (see §3 debt).
 

@@ -20,6 +20,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { onEvent } from './events.js'
 import { getCommissionResult } from './commissions.js'
+import { getDeal } from './dashboard.js'
 
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
@@ -135,9 +136,7 @@ export async function postByRule(dealershipId, eventName, ctx = {}) {
 
 // ── Context builders (compute amount tokens from real records) ───────────────
 async function postDealDelivered(dealershipId, dealId) {
-  const { data: deal } = await supabaseAdmin.from('deals')
-    .select('id, deal_number, selling_price, cost, fni_items, tax_amount, delivered_at, inventory_id, contact_id')
-    .eq('id', dealId).eq('dealership_id', dealershipId).maybeSingle()
+  const deal = await getDeal(dealershipId, dealId)   // Deal Engine read API, not a raw table read
   if (!deal) return
   const { data: dlr } = await supabaseAdmin.from('dealerships').select('accounting_settings, cost_tracking_enabled').eq('id', dealershipId).maybeSingle()
   if (dlr?.accounting_settings?.auto_post === false) return
