@@ -11,6 +11,15 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 *
 // opted in to marketing emails during signup. Drop the file into Resend/Mailchimp/etc.
 const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 
+// Which MarketSync product(s) this dealership has. Empty → full DealerOS (so existing
+// accounts and personal workspaces keep everything). The frontend generates the nav +
+// landing screen from this.
+export const PRODUCT_KEYS = ['facebook_solo', 'facebook_dealer', 'ai_chatbot', 'dealer_os']
+export function resolveProducts(dealer) {
+  const p = (dealer && typeof dealer.products === 'object' && dealer.products) ? dealer.products : {}
+  return PRODUCT_KEYS.some(k => p[k]) ? p : { dealer_os: true }
+}
+
 export function registerRoutes(app) {
   app.get('/auth/me', requireAuth, async (req, res) => {
     res.json({
@@ -31,6 +40,8 @@ export function registerRoutes(app) {
         (!!process.env.OWNER_EMAIL && (req.user.email || '').toLowerCase() === process.env.OWNER_EMAIL.toLowerCase())
         || ['JMS Automotive', 'MarketSync'].includes(req.profile.dealerships?.name)
       ),
+      // Product entitlements → the frontend builds the sidebar + landing from these.
+      products: resolveProducts(req.profile.dealerships),
     })
   })
 

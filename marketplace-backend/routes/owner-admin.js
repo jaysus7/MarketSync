@@ -12,8 +12,10 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { PRODUCT_KEYS, resolveProducts } from './profile.js'
 
 const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+const PRODUCT_LABELS = { facebook_solo: 'Facebook Solo', facebook_dealer: 'Facebook Dealer', ai_chatbot: 'AI Chatbot', dealer_os: 'DealerOS' }
 const isOwner = (req) => (req.user?.email || '').toLowerCase() === OWNER_EMAIL || req.profile?.is_marketsync === true
 
 // The engine/entitlement flags the owner can toggle per dealership (column → label).
@@ -52,7 +54,7 @@ export function registerOwnerAdmin(app) {
     if (!guard(req, res)) return
     const flagCols = ENGINE_FLAGS.map(f => f.key).join(', ')
     const [{ data: dealers }, { data: profiles }] = await Promise.all([
-      supabaseAdmin.from('dealerships').select(`id, name, is_personal, billing_status, trial_ends_at, plan, created_at, ${flagCols}`).order('created_at', { ascending: false }).limit(1000),
+      supabaseAdmin.from('dealerships').select(`id, name, is_personal, billing_status, trial_ends_at, plan, created_at, products, ${flagCols}`).order('created_at', { ascending: false }).limit(1000),
       supabaseAdmin.from('profiles').select('id, full_name, role, dealership_id, billing_status, trial_ends_at').limit(5000),
     ])
     const byDealer = {}
@@ -62,10 +64,26 @@ export function registerOwnerAdmin(app) {
       return {
         id: d.id, name: d.name, is_personal: !!d.is_personal, plan: d.plan || null,
         billing_status: d.billing_status || null, trial_ends_at: d.trial_ends_at || null, created_at: d.created_at,
-        engines, users: (byDealer[d.id] || []).map(u => ({ id: u.id, name: u.full_name || '—', role: u.role, billing_status: u.billing_status || null, trial_ends_at: u.trial_ends_at || null })),
+        engines, products: resolveProducts(d),
+        users: (byDealer[d.id] || []).map(u => ({ id: u.id, name: u.full_name || '—', role: u.role, billing_status: u.billing_status || null, trial_ends_at: u.trial_ends_at || null })),
       }
     })
-    res.json({ engine_flags: ENGINE_FLAGS, billing_statuses: BILLING_STATUSES, accounts })
+    res.json({ engine_flags: ENGINE_FLAGS, billing_statuses: BILLING_STATUSES, product_labels: PRODUCT_LABELS, accounts })
+  })
+
+  // Toggle a product entitlement (facebook_solo / facebook_dealer / ai_chatbot /
+  // dealer_os) on a dealership — this is what switches their front door.
+  app.post('/owner/dealership/:id/products', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const key = String(req.body?.key || '')
+    if (!PRODUCT_KEYS.includes(key)) return res.status(400).json({ error: 'unknown product key' })
+    const active = !!req.body?.active
+    const { data: row } = await supabaseAdmin.from('dealerships').select('products').eq('id', req.params.id).maybeSingle()
+    const products = (row?.products && typeof row.products === 'object') ? { ...row.products } : {}
+    if (active) products[key] = true; else delete products[key]
+    const { error } = await supabaseAdmin.from('dealerships').update({ products }).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, products: resolveProducts({ products }) })
   })
 
   // Toggle one engine/entitlement flag on a dealership.

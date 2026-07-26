@@ -692,6 +692,46 @@ function applyFbOnlyMode() {
   if (typeof switchPage === 'function') switchPage('inventory');
 }
 window.applyFbOnlyMode = applyFbOnlyMode;
+
+// ── Product experience layer (entitlement-driven nav) ────────────────────────
+// Same kernel + engines underneath; the sidebar + landing are generated from the
+// dealership's products (from /auth/me). DealerOS (or no product set) = full nav.
+// A non-OS product exposes only its department set — MarketSync feels simple at
+// each price point, powerful as they upgrade. The union applies when a dealer holds
+// several products (e.g. Facebook Dealer + AI Chatbot).
+const PRODUCT_PAGES = {
+  facebook_solo:   ['insights', 'inventory', 'leads', 'crm', 'profile'],
+  facebook_dealer: ['insights', 'inventory', 'leads', 'crm', 'reports', 'commissions', 'sales-team', 'profile'],
+  ai_chatbot:      ['ai-inbox', 'crm', 'leads', 'profile'],
+  dealer_os:       null,   // null = full access, no restriction
+};
+const PRODUCT_HOME = { facebook_solo: 'inventory', facebook_dealer: 'inventory', ai_chatbot: 'ai-inbox' };
+let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
+
+function applyProductNav(products) {
+  products = products || {};
+  // DealerOS (or nothing set) → the full department sidebar; clear any restriction.
+  if (products.dealer_os) { __productAllowedPages = null; document.documentElement.removeAttribute('data-product'); return; }
+  const active = Object.keys(PRODUCT_PAGES).filter(k => products[k] && PRODUCT_PAGES[k]);
+  if (!active.length) { __productAllowedPages = null; return; }
+  const allow = new Set(['profile']);
+  active.forEach(k => (PRODUCT_PAGES[k] || []).forEach(p => allow.add(p)));
+  __productAllowedPages = allow;
+  document.documentElement.setAttribute('data-product', active.join(' '));
+  // Hide every nav item (desktop + mobile) whose page isn't in this product's set.
+  document.querySelectorAll('#dashboard-nav .nav-item[data-page]').forEach(it => {
+    if (!allow.has(it.dataset.page)) it.classList.add('hidden');
+  });
+  // Collapse any group left with no visible leaf.
+  document.querySelectorAll('#nav-desktop .nav-group').forEach(g => {
+    const anyVisible = [...g.querySelectorAll('.nav-group-body .nav-item[data-page]')].some(it => allow.has(it.dataset.page));
+    g.classList.toggle('hidden', !anyVisible);
+  });
+  // Land on this product's home screen.
+  const home = PRODUCT_HOME[active[0]];
+  if (home) { if (home === 'inventory') __inventoryMode = 'facebook'; if (typeof switchPage === 'function') switchPage(home); }
+}
+window.applyProductNav = applyProductNav;
 // In MarketSync mode the Reports hub shows only the SaaS-relevant reports (no
 // vehicle inventory, F&I, appraisals or service — MarketSync sells software).
 const MS_REPORT_KEYS = new Set(['leads', 'marketing', 'appointments', 'activity', 'customers', 'reps']);
@@ -1185,6 +1225,7 @@ async function initializeDashboardEcosystem() {
     const __mgrHome = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     switchPage(__mgrHome ? 'command' : 'insights');
     applyFeatureFlags();   // hide nav for features the dealer switched off
+    applyProductNav(profileContext?.products);   // entitlement-driven front door (overrides landing for non-OS products)
 
     // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
     initGlobalLeaderboard();
@@ -9393,6 +9434,7 @@ Object.assign(window, {
 // ══ Owner / Platform console — all accounts + billing/engine controls ═════════
 let __ownerAccounts = [];
 let __ownerFlags = [];
+let __ownerProductLabels = { facebook_solo: 'Facebook Solo', facebook_dealer: 'Facebook Dealer', ai_chatbot: 'AI Chatbot', dealer_os: 'DealerOS' };
 let __ownerSearch = '';
 const ownerBillChip = (s) => {
   const map = { ACTIVE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300', TRIALING: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300', INACTIVE: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300', PAST_DUE: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' };
@@ -9413,6 +9455,7 @@ async function loadOwnerUsersPage() {
     const d = await apiGetJson('/owner/accounts');
     __ownerAccounts = d.accounts || [];
     __ownerFlags = d.engine_flags || [];
+    if (d.product_labels) __ownerProductLabels = d.product_labels;
     renderOwnerUsers();
   } catch (e) { root.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message)}</div>`; }
 }
@@ -9427,6 +9470,11 @@ function renderOwnerUsers() {
     const engines = __ownerFlags.map(f => {
       const on = !!a.engines[f.key];
       return `<button onclick="ownerToggleEngine('${a.id}','${f.key}',${!on})" class="text-[11px] font-bold px-2.5 py-1 rounded-full transition ${on ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}">${on ? '● ' : '○ '}${esc(f.label)}</button>`;
+    }).join('');
+    const prod = a.products || {};
+    const products = Object.keys(__ownerProductLabels).map(k => {
+      const on = !!prod[k];
+      return `<button onclick="ownerToggleProduct('${a.id}','${k}',${!on})" class="text-[11px] font-bold px-2.5 py-1 rounded-full transition ${on ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}">${on ? '● ' : '○ '}${esc(__ownerProductLabels[k])}</button>`;
     }).join('');
     // Personal workspaces bill on the profile; normal accounts on the dealership.
     const oneUser = a.is_personal && a.users?.length === 1 ? a.users[0] : null;
@@ -9459,6 +9507,7 @@ function renderOwnerUsers() {
           <button onclick="${billTarget},'trial7')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300">+7d trial</button>
           <button onclick="${billTarget},'block')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-rose-600 text-white hover:bg-rose-500">Block</button>
         </div>
+        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Product (front door)</div><div class="flex flex-wrap gap-1.5">${products}</div></div>
         <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Engines</div><div class="flex flex-wrap gap-1.5">${engines}</div></div>
         <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-0.5">Users</div>${users}</div>
       </div>`;
@@ -9482,6 +9531,14 @@ async function ownerToggleEngine(dealerId, key, active) {
     renderOwnerUsers();
   } catch (e) { showToast(e.message, 'error'); }
 }
+async function ownerToggleProduct(dealerId, key, active) {
+  try {
+    const r = await apiSendJson(`/owner/dealership/${dealerId}/products`, 'POST', { key, active });
+    const acc = __ownerAccounts.find(a => a.id === dealerId);
+    if (acc) acc.products = r.products || acc.products;
+    renderOwnerUsers();
+  } catch (e) { showToast(e.message, 'error'); }
+}
 async function ownerBill(kind, id, action) {
   const body = action === 'comp' ? { clear_trial: true }
     : action === 'trial30' ? { trial_days: 30 }
@@ -9494,7 +9551,7 @@ async function ownerBill(kind, id, action) {
     loadOwnerUsersPage();
   } catch (e) { showToast(e.message, 'error'); }
 }
-Object.assign(window, { loadOwnerUsersPage, ownerSearch, ownerToggleEngine, ownerBill });
+Object.assign(window, { loadOwnerUsersPage, ownerSearch, ownerToggleEngine, ownerToggleProduct, ownerBill });
 
 // ══ AI Chat inbox — live AI conversations + the embeddable widget snippet ═════
 const AI_SCORE_TONE = (s) => s >= 80 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' : s >= 50 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
@@ -17799,6 +17856,7 @@ async function loadAIBoostSection() {
     // Paint the nav "Paid" badges: green when the dealer is entitled, grey when not.
     applyPaidBadges();
     applyFeatureFlags();   // re-hide any feature the dealer switched off (e.g. Appraisals)
+    applyProductNav(profileContext?.products);   // keep the product front door applied after config load
     // Reveal the floating AI assistant dock for entitled dealers (owner exempt).
     updateAiDockVisibility();
     applyAssistantName(cfg.ai_assistant_name);
