@@ -700,12 +700,18 @@ window.applyFbOnlyMode = applyFbOnlyMode;
 // each price point, powerful as they upgrade. The union applies when a dealer holds
 // several products (e.g. Facebook Dealer + AI Chatbot).
 const PRODUCT_PAGES = {
-  facebook_solo:   ['solo-home', 'inventory', 'leads', 'crm', 'profile'],
-  facebook_dealer: ['solo-home', 'inventory', 'leads', 'crm', 'reports', 'commissions', 'sales-team', 'profile'],
-  ai_chatbot:      ['ai-inbox', 'crm', 'leads', 'profile'],
+  // Solo: marketplace home + leaderboard + the inventory pull + a simple CRM + settings.
+  facebook_solo:   ['solo-home', 'insights', 'inventory', 'crm', 'profile'],
+  // Dealer: same, plus rep management (add reps, insights, make managers). No accounting/reports.
+  facebook_dealer: ['solo-home', 'insights', 'inventory', 'crm', 'sales-team', 'profile'],
+  // AI Chatbot: only the AI chatbot workspace + settings.
+  ai_chatbot:      ['ai-inbox', 'profile'],
   dealer_os:       null,   // null = full access, no restriction
 };
 const PRODUCT_HOME = { facebook_solo: 'solo-home', facebook_dealer: 'solo-home', ai_chatbot: 'ai-inbox' };
+// Facebook products reuse the fb tier CSS so the Dashboard/Insights page renders as
+// just the leaderboard (no full dealer dashboard).
+const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
 let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
 
 function applyProductNav(products) {
@@ -718,13 +724,18 @@ function applyProductNav(products) {
   active.forEach(k => (PRODUCT_PAGES[k] || []).forEach(p => allow.add(p)));
   __productAllowedPages = allow;
   document.documentElement.setAttribute('data-product', active.join(' '));
+  // Facebook products render the Dashboard/Insights page as just the leaderboard (reuse
+  // the existing fb-tier CSS). AI/other products don't.
+  if (active.some(k => FB_PRODUCTS.has(k))) document.documentElement.setAttribute('data-dash-tier', 'fb');
   // Hide every nav item (desktop + mobile) whose page isn't in this product's set.
   document.querySelectorAll('#dashboard-nav .nav-item[data-page]').forEach(it => {
     if (!allow.has(it.dataset.page)) it.classList.add('hidden');
   });
-  // Reveal product-home nav buttons that ship hidden-by-default (so DealerOS never
-  // sees them) but belong to this product's set.
-  document.querySelectorAll('#dashboard-nav .nav-item[data-page="solo-home"]').forEach(it => it.classList.toggle('hidden', !allow.has('solo-home')));
+  // Reveal nav buttons that ship hidden-by-default (so DealerOS never sees them) but
+  // belong to this product's set.
+  ['solo-home', 'sales-team'].forEach(pg => {
+    document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${pg}"]`).forEach(it => it.classList.toggle('hidden', !allow.has(pg)));
+  });
   // Collapse any group left with no visible leaf.
   document.querySelectorAll('#nav-desktop .nav-group').forEach(g => {
     const anyVisible = [...g.querySelectorAll('.nav-group-body .nav-item[data-page]')].some(it => allow.has(it.dataset.page));
@@ -1479,6 +1490,7 @@ function switchPage(pageId) {
   if (pageId === 'saas-customers') loadSaasCustomers();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'solo-home') loadSoloHome();
+  if (pageId === 'sales-team' && typeof loadDealerManagementMatrix === 'function') { try { loadDealerManagementMatrix(); } catch {} }
   if (pageId === 'operations') loadOperationsPage();
   if (pageId === 'service-ros') loadServiceRosPage();
   if (pageId === 'service-parts') loadServicePartsPage();
