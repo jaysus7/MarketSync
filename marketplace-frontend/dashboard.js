@@ -374,7 +374,7 @@ let profileContext = null;
 // html[data-dash-mode] attribute). Persisted per-browser.
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin']);
+const MS_ALLOWED_PAGES = new Set(['insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -806,6 +806,8 @@ function initDashModeForOwner() {
   const isOwner = profileContext?.is_marketsync === true || ['JMS Automotive', 'MarketSync'].includes(profileContext?.dealership?.name);
   if (!isOwner) return;
   document.documentElement.setAttribute('data-dash-owner', '1');
+  // Reveal the owner-only platform console (all accounts + billing/engine controls).
+  document.getElementById('nav-owner-users')?.classList.remove('hidden');
   applyDashMode(__dashMode);
   if (__dashMode === 'marketsync') {
     const cur = document.querySelector('.page-content:not(.hidden)')?.getAttribute('data-page-content');
@@ -1423,6 +1425,7 @@ function switchPage(pageId) {
   if (pageId === 'operations') loadOperationsPage();
   if (pageId === 'service-ros') loadServiceRosPage();
   if (pageId === 'service-parts') loadServicePartsPage();
+  if (pageId === 'owner-users') loadOwnerUsersPage();
   if (pageId === 'ai-inbox') loadAiInbox();
 
 }
@@ -9306,6 +9309,112 @@ Object.assign(window, {
   svcLineTypeChanged, svcLinePartChanged, svcAddLine, svcRemoveLine, svcSetStatus, svcCloseRo,
   loadServicePartsPage, svcAddPartForm, svcAddPart, svcReceive, svcAdjust,
 });
+
+// ══ Owner / Platform console — all accounts + billing/engine controls ═════════
+let __ownerAccounts = [];
+let __ownerFlags = [];
+let __ownerSearch = '';
+const ownerBillChip = (s) => {
+  const map = { ACTIVE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300', TRIALING: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300', INACTIVE: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300', PAST_DUE: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' };
+  return `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full ${map[s] || 'bg-slate-100 text-slate-500 dark:bg-slate-800'}">${esc(s || '—')}</span>`;
+};
+const ownerTrialTxt = (t) => {
+  if (!t) return '';
+  const d = new Date(t), now = new Date();
+  const days = Math.round((d - now) / 86400000);
+  return `<span class="text-[11px] ${days < 0 ? 'text-rose-500 font-bold' : 'text-slate-400'}">trial ${days < 0 ? 'expired' : 'ends'} ${d.toLocaleDateString()}${days >= 0 ? ` (${days}d)` : ''}</span>`;
+};
+
+async function loadOwnerUsersPage() {
+  const root = document.getElementById('owner-users-root');
+  if (!root) return;
+  root.innerHTML = '<div class="text-slate-400 text-sm p-6">Loading accounts…</div>';
+  try {
+    const d = await apiGetJson('/owner/accounts');
+    __ownerAccounts = d.accounts || [];
+    __ownerFlags = d.engine_flags || [];
+    renderOwnerUsers();
+  } catch (e) { root.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message)}</div>`; }
+}
+function ownerSearch(v) { __ownerSearch = (v || '').toLowerCase(); renderOwnerUsers(); }
+function renderOwnerUsers() {
+  const root = document.getElementById('owner-users-root');
+  if (!root) return;
+  const q = __ownerSearch;
+  const list = __ownerAccounts.filter(a => !q || (a.name || '').toLowerCase().includes(q) || (a.users || []).some(u => (u.name || '').toLowerCase().includes(q)));
+  const totalUsers = __ownerAccounts.reduce((s, a) => s + (a.users?.length || 0), 0);
+  const cards = list.map(a => {
+    const engines = __ownerFlags.map(f => {
+      const on = !!a.engines[f.key];
+      return `<button onclick="ownerToggleEngine('${a.id}','${f.key}',${!on})" class="text-[11px] font-bold px-2.5 py-1 rounded-full transition ${on ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}">${on ? '● ' : '○ '}${esc(f.label)}</button>`;
+    }).join('');
+    // Personal workspaces bill on the profile; normal accounts on the dealership.
+    const oneUser = a.is_personal && a.users?.length === 1 ? a.users[0] : null;
+    const billTarget = oneUser ? `ownerBill('user','${oneUser.id}'` : `ownerBill('dealer','${a.id}'`;
+    const effStatus = oneUser ? oneUser.billing_status : a.billing_status;
+    const effTrial = oneUser ? oneUser.trial_ends_at : a.trial_ends_at;
+    const users = (a.users || []).map(u => `
+      <div class="flex flex-wrap items-center gap-2 text-[13px] py-1 border-t border-slate-100 dark:border-slate-800/60">
+        <span class="font-semibold text-slate-700 dark:text-slate-200">${esc(u.name)}</span>
+        <span class="text-[11px] text-slate-400">${esc(u.role || '')}</span>
+        ${ownerBillChip(u.billing_status)}${ownerTrialTxt(u.trial_ends_at)}
+        <span class="ml-auto flex gap-1">
+          <button onclick="ownerBill('user','${u.id}','comp')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100">Comp</button>
+          <button onclick="ownerBill('user','${u.id}','trial30')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200">+30d</button>
+          <button onclick="ownerBill('user','${u.id}','block')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100">Block</button>
+        </span>
+      </div>`).join('') || '<div class="text-[12px] text-slate-400 py-1">No users.</div>';
+    return `
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="font-black text-slate-800 dark:text-slate-100">${esc(a.name || 'Account')}</span>
+          ${a.is_personal ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300">PERSONAL</span>' : ''}
+          ${a.plan ? `<span class="text-[11px] text-slate-400">${esc(a.plan)}</span>` : ''}
+          ${ownerBillChip(effStatus)}${ownerTrialTxt(effTrial)}
+          <span class="ml-auto text-[11px] text-slate-400">${a.users?.length || 0} user(s)</span>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <button onclick="${billTarget},'comp')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500">Comp (indefinite)</button>
+          <button onclick="${billTarget},'trial30')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-500">+30d trial</button>
+          <button onclick="${billTarget},'trial7')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300">+7d trial</button>
+          <button onclick="${billTarget},'block')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-rose-600 text-white hover:bg-rose-500">Block</button>
+        </div>
+        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Engines</div><div class="flex flex-wrap gap-1.5">${engines}</div></div>
+        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-0.5">Users</div>${users}</div>
+      </div>`;
+  }).join('') || '<div class="text-slate-400 text-sm p-6">No accounts match.</div>';
+  root.innerHTML = `
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div><h1 class="text-xl font-black text-slate-800 dark:text-slate-100">All Users &amp; Accounts</h1>
+        <div class="text-sm text-slate-500">${__ownerAccounts.length} accounts · ${totalUsers} users</div></div>
+      <div class="flex gap-2">
+        <input oninput="ownerSearch(this.value)" value="${esc(__ownerSearch)}" placeholder="Search account or user…" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
+        <button onclick="loadOwnerUsersPage()" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200">Refresh</button>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${cards}</div>`;
+}
+async function ownerToggleEngine(dealerId, key, active) {
+  try {
+    await apiSendJson(`/owner/dealership/${dealerId}/engines`, 'POST', { key, active });
+    const acc = __ownerAccounts.find(a => a.id === dealerId);
+    if (acc) acc.engines[key] = active;
+    renderOwnerUsers();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+async function ownerBill(kind, id, action) {
+  const body = action === 'comp' ? { clear_trial: true }
+    : action === 'trial30' ? { trial_days: 30 }
+    : action === 'trial7' ? { trial_days: 7 }
+    : action === 'block' ? { billing_status: 'INACTIVE' } : {};
+  if (action === 'block' && !confirm('Block this account? They will be locked out until reactivated.')) return;
+  try {
+    await apiSendJson(`/owner/${kind === 'user' ? 'user' : 'dealership'}/${id}/billing`, 'POST', body);
+    showToast('Updated ✓', 'success');
+    loadOwnerUsersPage();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+Object.assign(window, { loadOwnerUsersPage, ownerSearch, ownerToggleEngine, ownerBill });
 
 // ══ AI Chat inbox — live AI conversations + the embeddable widget snippet ═════
 const AI_SCORE_TONE = (s) => s >= 80 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' : s >= 50 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
