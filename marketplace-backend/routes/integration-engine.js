@@ -19,6 +19,7 @@ import { getConfig, setConfig } from './config-engine.js'
 import { getContact } from './crm.js'
 import { buildAdf } from './leads.js'
 import { emitWebhook } from '../webhooks.js'
+import { syncDealToAccounting } from '../providers/accounting.js'
 
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 
@@ -110,8 +111,20 @@ async function onLeadCreated(event) {
   } catch (e) { console.warn('[integration] onLeadCreated failed:', e.message) }
 }
 
+// Subscribe to deal delivery — book the sale into the dealer's external accounting
+// system (QuickBooks/Xero) if they've connected + opted in. This is outbound
+// integration, so it belongs to this engine, not the deal desk. syncDealToAccounting
+// is idempotent (deals.accounting_synced_at guards it), so a bus replay is safe.
+async function onDealDelivered(event) {
+  if (event?.event_name !== 'deal.status_changed' || event.payload?.engine) return
+  if (event.to_state !== 'delivered' && event.payload?.to !== 'delivered') return
+  try { await syncDealToAccounting(event.dealership_id, event.entity_id) }
+  catch (e) { console.warn('[integration] onDealDelivered failed:', e.message) }
+}
+
 export function registerIntegrationEngine(app) {
-  onEvent(onLeadCreated)   // subscribe the Integration Engine to captured leads
+  onEvent(onLeadCreated)     // subscribe the Integration Engine to captured leads
+  onEvent(onDealDelivered)   // subscribe to deal delivery → external accounting sync
 
   app.get('/integration/config', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })

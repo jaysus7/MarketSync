@@ -7,7 +7,7 @@ import { requireAuth } from '../middleware.js'
 import { sendEmail } from '../securityAlerts.js'
 import { ensureGetReadyCard } from './recon.js'
 import { emitWebhook } from '../webhooks.js'
-import { syncDealToAccounting } from '../providers/accounting.js'
+import { emitEvent } from './events.js'
 
 const MGR = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI']
 const isMgr = (req) => MGR.includes(req.profile?.role)
@@ -296,7 +296,14 @@ export function registerFni(app) {
     if (deal.contact_id) await supabaseAdmin.from('contacts').update({ status: 'delivered', updated_at: now })
       .eq('id', deal.contact_id).eq('dealership_id', req.dealershipId)
     emitWebhook(req.dealershipId, 'deal.delivered', { deal_id: deal.id, contact_id: deal.contact_id || null, inventory_id: deal.inventory_id || null, at: now })
-    syncDealToAccounting(req.dealershipId, deal.id)   // book to QuickBooks/Xero if opted in
+    // Emit to the spine so every engine reacts uniformly: the Accounting Engine posts
+    // the delivery journal, the Commission Engine calculates, and the Integration Engine
+    // syncs to external books. No direct cross-engine calls (kernel contract §3/§4).
+    emitEvent({
+      dealershipId: req.dealershipId, eventName: 'deal.status_changed', entityType: 'deal', entityId: deal.id,
+      summary: 'Deal marked delivered', toState: 'delivered', department: 'F&I', createdBy: req.user?.id || null,
+      payload: { contact_id: deal.contact_id || null, inventory_id: deal.inventory_id || null, action: 'fni_delivered' },
+    })
     res.json({ ok: true })
   })
 

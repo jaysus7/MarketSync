@@ -21,6 +21,21 @@ import { requireAuth } from '../middleware.js'
 import { onEvent } from './events.js'
 import { getCommissionResult } from './commissions.js'
 import { getDeal } from './dashboard.js'
+import { getConfig } from './config-engine.js'
+
+// Dealer accounting settings, read through the Configuration Engine (contract §6:
+// dealer-specific behavior comes from config, not hardcoded/raw-table reads). Falls
+// back to the legacy dealerships.accounting_settings / cost_tracking_enabled columns
+// so dealers who never set the config key keep their current behavior.
+async function getAccountingSettings(dealershipId) {
+  const cfg = await getConfig(dealershipId, 'accounting', null)
+  if (cfg && typeof cfg === 'object') {
+    return { autoPost: cfg.auto_post !== false, costTracking: !!cfg.cost_tracking }
+  }
+  const { data: dlr } = await supabaseAdmin.from('dealerships')
+    .select('accounting_settings, cost_tracking_enabled').eq('id', dealershipId).maybeSingle()
+  return { autoPost: dlr?.accounting_settings?.auto_post !== false, costTracking: !!dlr?.cost_tracking_enabled }
+}
 
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
@@ -138,12 +153,12 @@ export async function postByRule(dealershipId, eventName, ctx = {}) {
 async function postDealDelivered(dealershipId, dealId) {
   const deal = await getDeal(dealershipId, dealId)   // Deal Engine read API, not a raw table read
   if (!deal) return
-  const { data: dlr } = await supabaseAdmin.from('dealerships').select('accounting_settings, cost_tracking_enabled').eq('id', dealershipId).maybeSingle()
-  if (dlr?.accounting_settings?.auto_post === false) return
+  const settings = await getAccountingSettings(dealershipId)   // Config Engine, not a raw dealerships read
+  if (!settings.autoPost) return
   const price = n(deal.selling_price)
   const fniGross = (Array.isArray(deal.fni_items) ? deal.fni_items : []).reduce((s, x) => s + n(x?.price), 0)
   const tax = n(deal.tax_amount)
-  const cost = (dlr?.cost_tracking_enabled && deal.cost != null) ? n(deal.cost) : 0
+  const cost = (settings.costTracking && deal.cost != null) ? n(deal.cost) : 0
   const arTotal = round2(price + fniGross + tax)
   const refs = { ref_deal_id: deal.id, ref_vehicle_id: deal.inventory_id || null, ref_contact_id: deal.contact_id || null }
   return postByRule(dealershipId, 'vehicle_delivered', {

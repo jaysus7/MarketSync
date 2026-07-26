@@ -44,7 +44,7 @@ import { registerCommissions } from './routes/commissions.js'
 import { registerAccounting } from './routes/accounting.js'
 import { registerExpenses } from './routes/expenses.js'
 import { registerDealerTasks } from './routes/dealertasks.js'
-import { registerEvents } from './routes/events.js'
+import { registerEvents, startEventDispatcher } from './routes/events.js'
 import { registerWorkflow } from './routes/workflow.js'
 import { registerActionExecutor } from './routes/action-executor.js'
 import { registerAccountingEngine } from './routes/accounting-engine.js'
@@ -132,6 +132,10 @@ registerAiRuntime(app)
 registerIntegrationEngine(app)
 registerPlaid(app)
 registerAffiliate(app)
+
+// Durable event bus: start the catch-up poller AFTER every engine has registered
+// its onEvent subscribers, so a replayed event reaches all of them.
+startEventDispatcher()
 
 app.use((err, req, res, next) => {
   console.error('Unhandled Express error:', {

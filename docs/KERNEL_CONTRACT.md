@@ -66,13 +66,17 @@ Rules:
 - A subscriber that produces financial or external effects must be **idempotent**
   (dedupe on a natural key) so replay is safe.
 
-### Known kernel debt (tracked, not hidden)
-The bus is **in-process** (`onEvent` subscribers in one Node process). The `events`
-row persists and accounting has a replay log, but a non-accounting subscriber that
-had not run when the process restarts is not retried. Accepted for v1. The frozen
-upgrade path (does not change the contract above): a durable outbox/poller over the
-`events` table, or a queue, feeding the same `onEvent` handlers. Engines must not
-assume in-memory delivery guarantees beyond "best effort + replay for money."
+### Durability (at-least-once across restarts)
+Delivery is best-effort in-process **plus** a durable catch-up layer. `emitEvent`
+inserts the `events` row, fans out to `onEvent` subscribers in-process (low latency),
+then stamps `events.dispatched_at`. A poller (`startEventDispatcher`, started once
+after all engines register) re-dispatches any row that was emitted but never stamped
+(the process crashed mid-flight), giving **at-least-once** delivery. Because
+subscribers with financial/external effects are idempotent (dedupe on a natural key),
+a replay is always safe. Existing history is backfilled with `dispatched_at` at
+migration time, so the poller only ever processes post-deploy events — it never
+re-runs the whole table. This is single-process; a multi-instance deployment needs
+`SELECT … FOR UPDATE SKIP LOCKED` claiming (the poller's query is the seam for it).
 
 ## 4. Read APIs (how engines query each other)
 
@@ -143,12 +147,20 @@ Honest state of the code vs. this contract:
   `getCommissionResult()` instead of reading `deal_commissions` raw.
 - ✅ **Deal read API:** `getDeal(dealer, id)` published on the Deal Engine; the
   accounting engine reads the delivered deal through it, not the `deals` table.
-- ◑ **Remaining direct calls to retire:** `syncDealToAccounting()` (external
-  provider integration, fire-and-forget) → move to an integration-engine subscriber;
-  the accounting engine still reads `dealerships` (a Core object) for its own
-  auto_post / cost_tracking settings → route via a Core/Config read later (lowest
-  priority — a dealer reading its own settings).
+- ✅ **Direct cross-engine calls retired:** `syncDealToAccounting()` is now an
+  **Integration Engine subscriber** to `deal.status_changed:delivered` (idempotent,
+  fire-and-forget) — the deal desk and the F&I delivery path no longer call it. The
+  F&I delivery path now emits `deal.status_changed:delivered` too, so accounting,
+  commissions, and external sync fire uniformly regardless of which UI delivered the
+  deal (previously F&I-delivered deals skipped the journal + commission).
+- ✅ **Accounting settings via Config:** the accounting engine reads
+  `getConfig(dealer,'accounting')` (auto_post / cost_tracking), falling back to the
+  legacy `dealerships` columns — no longer a primary raw-table read.
+- ✅ **Durable bus:** `events.dispatched_at` + a catch-up poller
+  (`startEventDispatcher`) give at-least-once delivery across restarts. The live
+  in-process path stays for latency and stamps `dispatched_at`; the poller
+  re-dispatches any row emitted but never stamped (crash mid-flight). History is
+  backfilled at migration time, so the poller only ever sees post-deploy events.
 - ◑ **Tool registry** not yet formalized (executor registry is the template).
-- ◑ **Durable bus** (see §3 debt).
 
 Conformance work closes ◑ items. No new engine ships until it meets §8.

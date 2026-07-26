@@ -4,7 +4,6 @@ import { emitWebhook } from '../webhooks.js'
 import { ensureGetReadyCard } from './recon.js'
 import { ensureDealTasks } from './dealertasks.js'
 import { emitEvent } from './events.js'
-import { syncDealToAccounting } from '../providers/accounting.js'
 
 async function buildUserStats(userId) {
   const countOf = async (status) => {
@@ -1464,11 +1463,10 @@ export function registerRoutes(app) {
       summary: `Deal marked ${m.deal}`, toState: m.deal, department: 'Sales', createdBy: req.user?.id || null,
       payload: { contact_id: contactId, inventory_id: deal.inventory_id || null, action },
     })
-    // On delivery, sync to any connected external accounting system (QuickBooks etc.).
-    // The internal ledger is NO LONGER posted here — the accounting engine's event
-    // listener posts balanced double-entry journals from the deal.status_changed:
-    // delivered event above. Journals are now the single posting path.
-    if (m.deal === 'delivered') { syncDealToAccounting(req.dealershipId, deal.id) }
+    // Both the internal ledger AND any external accounting sync (QuickBooks/Xero) now
+    // hang off the deal.status_changed:delivered event above — the Accounting Engine
+    // posts balanced double-entry journals and the Integration Engine SUBSCRIBES to
+    // push the sale to the connected books. No direct cross-engine calls here.
     // Commission recompute/clawback + the commission.calculated accounting event are
     // now handled by the Commission Engine, which SUBSCRIBES to the deal.status_changed
     // event emitted above (kernel contract: no direct cross-engine calls).

@@ -25,6 +25,47 @@ function dispatch(event) {
   }
 }
 
+// ── Durable bus (outbox/poller over the `events` table) ──────────────────────
+// The live path above is best-effort in-process delivery. `events.dispatched_at`
+// makes it at-least-once across restarts: emitEvent stamps the row once it has
+// fanned out, and a catch-up poller re-dispatches any row that was emitted but
+// never stamped (the process crashed mid-flight). Subscribers must be idempotent
+// (contract §3), so a replay is always safe. Existing history is backfilled with
+// dispatched_at at migration time, so the poller only ever sees post-deploy rows.
+function markDispatched(id) {
+  supabaseAdmin.from('events').update({ dispatched_at: new Date().toISOString() }).eq('id', id)
+    .then(({ error }) => { if (error) console.error('[events] markDispatched failed:', error.message) },
+          err => console.error('[events] markDispatched failed:', err?.message || err))
+}
+
+let draining = false
+async function drainPending() {
+  if (draining) return
+  draining = true
+  try {
+    // Only rows older than the grace window (so we never race the live emit path)
+    // and newer than the floor (never storm the whole table) are eligible.
+    const graceIso = new Date(Date.now() - 60_000).toISOString()
+    const floorIso = new Date(Date.now() - 24 * 3600_000).toISOString()
+    const { data: rows, error } = await supabaseAdmin.from('events').select('*')
+      .is('dispatched_at', null).lt('created_at', graceIso).gt('created_at', floorIso)
+      .order('created_at', { ascending: true }).limit(200)
+    if (error) throw error
+    for (const row of rows || []) { dispatch(row); markDispatched(row.id) }
+  } catch (err) {
+    console.error('[events] drainPending failed:', err?.message || err)
+  } finally { draining = false }
+}
+
+// Start the durable catch-up poller. Call ONCE at startup, AFTER every engine has
+// registered its onEvent handlers, so a replayed event reaches all subscribers.
+export function startEventDispatcher() {
+  drainPending()                                   // startup catch-up (crash recovery)
+  const t = setInterval(drainPending, 30_000)      // steady-state insurance
+  if (typeof t.unref === 'function') t.unref()
+  return t
+}
+
 /**
  * Write one event to the unified spine. Returns the row, or null on any failure.
  * @param {object} e
@@ -59,7 +100,8 @@ export async function emitEvent({
       created_by: createdBy,
     }).select().single()
     if (error) throw error
-    dispatch(data)   // fan out to the workflow engine (detached, non-blocking)
+    dispatch(data)          // fan out in-process (detached, non-blocking)
+    markDispatched(data.id)  // durable-bus watermark: this row has been dispatched
     return data
   } catch (err) {
     console.error('[events] emitEvent failed:', err?.message || err)
