@@ -869,10 +869,12 @@ function initDashModeForOwner() {
   document.getElementById('nav-saas-command')?.classList.remove('hidden');   // SaaS Command Center
   document.getElementById('nav-saas-customers')?.classList.remove('hidden'); // Customer Pipeline
   document.getElementById('nav-saas-employees')?.classList.remove('hidden'); // Employees + permissions
-  applyDashMode(__dashMode);
-  // In MarketSync (SaaS) mode the owner lands on the SaaS Command Center — revenue,
-  // trials, churn — not a dealership dashboard.
-  if (__dashMode === 'marketsync' && typeof switchPage === 'function') switchPage('saas-command');
+  // The demo dealership workspace has been retired — the owner runs the MarketSync
+  // SaaS business only, so force the SaaS back office and land on the HQ.
+  __dashMode = 'marketsync';
+  localStorage.setItem('ms_dash_mode', 'marketsync');
+  applyDashMode('marketsync');
+  if (typeof switchPage === 'function') switchPage('saas-command');
 }
 
 // Page permission flags (set after profile loads, read by switchPage to mirror panels into Insights)
@@ -1245,7 +1247,7 @@ async function initializeDashboardEcosystem() {
     const __mgrHome = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     // SaaS Admin in MarketSync mode → the company command center; otherwise the
     // dealership Command Center (managers) or the rep Dashboard.
-    if (profileContext?.workspace === 'saas_admin' && __dashMode === 'marketsync') switchPage('saas-command');
+    if (__dashMode === 'marketsync' && (profileContext?.workspace === 'saas_admin' || document.documentElement.getAttribute('data-dash-owner') === '1')) switchPage('saas-command');
     else switchPage(__mgrHome ? 'command' : 'insights');
     applyFeatureFlags();   // hide nav for features the dealer switched off
     applyProductNav(profileContext?.products);   // entitlement-driven front door (overrides landing for non-OS products)
@@ -1532,7 +1534,22 @@ window.deptGo = deptGo;
 // legacy tree is hidden, not removed, so all its gating still drives which
 // departments/pages are reachable). Reps, product tiers, Facebook-only and
 // MarketSync owner mode keep the legacy nav untouched — zero regression.
+// The MarketSync owner's SaaS back office is its own flat department list —
+// the company operating system, not a dealership.
+const SAAS_DEPARTMENTS = {
+  hq:         { label: 'MarketSync HQ',    icon: 'chart',    accent: 'fuchsia', pages: [{ page: 'saas-command', label: 'HQ' }] },
+  pipeline:   { label: 'Customer Pipeline', icon: 'chart',   accent: 'fuchsia', pages: [{ page: 'saas-customers', label: 'Pipeline' }] },
+  employees:  { label: 'Employees',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'saas-employees', label: 'Employees' }] },
+  accounts:   { label: 'All Users',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'owner-users', label: 'Accounts' }] },
+  affiliates: { label: 'Affiliates',       icon: 'trophy',   accent: 'amber',   pages: [{ page: 'affiliates-admin', label: 'Affiliates' }] },
+  settings:   { label: 'Settings',         icon: 'user',     accent: 'indigo',  always: true, pages: [{ page: 'profile', label: 'Settings' }] },
+};
 let __deptNavBuilt = false;
+let __deptRegistry = DEPARTMENTS;   // which department set the flat nav is showing
+function marketsyncOwnerMode() {
+  return document.documentElement.getAttribute('data-dash-owner') === '1'
+    && document.documentElement.getAttribute('data-dash-mode') === 'marketsync';
+}
 function deptNavEligible(role) {
   return ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)
     && !__fbOnly
@@ -1558,16 +1575,19 @@ function deptVisible(dept) {
 function renderDeptNav(role) {
   const navRoot = document.getElementById('nav-desktop');
   if (!navRoot) return;
-  if (!deptNavEligible(role)) { navRoot.classList.remove('dept-mode'); document.getElementById('dept-nav')?.remove(); __deptNavBuilt = false; return; }
+  // Owner in the SaaS back office → the SaaS departments; a dealer manager in full
+  // DealerOS → the dealership departments; anyone else → the legacy nav.
+  const registry = marketsyncOwnerMode() ? SAAS_DEPARTMENTS : (deptNavEligible(role) ? DEPARTMENTS : null);
+  if (!registry) { navRoot.classList.remove('dept-mode'); document.getElementById('dept-nav')?.remove(); __deptNavBuilt = false; return; }
+  __deptRegistry = registry;
   let host = document.getElementById('dept-nav');
   if (!host) {
     host = document.createElement('div'); host.id = 'dept-nav'; host.className = 'space-y-0.5 mb-1';
-    // Sit below the owner controls (mode switch, demo reset, setup bar) if present.
-    const anchor = document.getElementById('setup-bar-host') || document.getElementById('ms-demo-reset') || document.getElementById('ms-mode-switch');
+    const anchor = document.getElementById('setup-bar-host');   // sit below the setup bar if present
     if (anchor && anchor.parentElement === navRoot) navRoot.insertBefore(host, anchor.nextSibling);
     else navRoot.insertBefore(host, navRoot.firstChild);
   }
-  host.innerHTML = Object.entries(DEPARTMENTS).filter(([, d]) => deptVisible(d)).map(([id, d]) => {
+  host.innerHTML = Object.entries(registry).filter(([, d]) => deptVisible(d)).map(([id, d]) => {
     const A = ENGINE_ACCENTS[d.accent] || ENGINE_ACCENTS.indigo;
     return `<button type="button" data-dept="${id}" onclick="deptOpen('${id}')" title="${esc(d.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="${A.text} flex-shrink-0">${svgIcon(d.icon || 'dot', 'w-4 h-4')}</span><span>${esc(d.label)}</span></button>`;
   }).join('');
@@ -1577,7 +1597,7 @@ function renderDeptNav(role) {
 }
 window.renderDeptNav = renderDeptNav;
 function deptOpen(id) {
-  const d = DEPARTMENTS[id]; if (!d) return;
+  const d = __deptRegistry[id]; if (!d) return;
   __activeDept = id;
   const home = deptHomePage(d);
   if (home.invmode) __inventoryMode = home.invmode;
@@ -1586,8 +1606,9 @@ function deptOpen(id) {
 window.deptOpen = deptOpen;
 function highlightDeptNav(pageId) {
   if (!__deptNavBuilt) return;
-  const deptId = (__activeDept && DEPARTMENTS[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
-               : Object.keys(DEPARTMENTS).find(d => DEPARTMENTS[d].pages.some(p => p.page === pageId));
+  const reg = __deptRegistry;
+  const deptId = (__activeDept && reg[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
+               : Object.keys(reg).find(d => reg[d].pages.some(p => p.page === pageId));
   document.querySelectorAll('#dept-nav .dept-nav-item').forEach(b => {
     const on = b.dataset.dept === deptId;
     b.classList.toggle('bg-indigo-100', on); b.classList.toggle('dark:bg-indigo-950/50', on);

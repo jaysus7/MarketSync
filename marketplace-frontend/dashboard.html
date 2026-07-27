@@ -799,13 +799,6 @@
 
         <!-- ═══════ DESKTOP grouped sidebar ═══════ -->
         <div id="nav-desktop" class="hidden md:flex md:flex-col md:w-full md:space-y-0.5">
-          <!-- Owner-only workspace switch: vehicle-dealer Demo ↔ running MarketSync. -->
-          <div id="ms-mode-switch" role="tablist" aria-label="Workspace mode">
-            <button type="button" data-mode="demo" data-on="1" onclick="setDashMode('demo')">MarketSync Automotive</button>
-            <button type="button" data-mode="marketsync" onclick="setDashMode('marketsync')">MarketSync</button>
-          </div>
-          <button id="ms-demo-reset" type="button" onclick="demoReset()" title="Reset the demo dealership to its starting data"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Reset demo data</button>
-
           <!-- Guided-setup progress bar (populated by renderSetupBar; hidden when complete) -->
           <div id="setup-bar-host"></div>
 
@@ -3404,7 +3397,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260727h"></script>
+  <script src="dashboard.js?v=20260727i"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
