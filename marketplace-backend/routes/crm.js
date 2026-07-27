@@ -269,7 +269,7 @@ export function registerCrm(app) {
     if (contact.interest_inventory_id) {
       const { data: iv } = await supabaseAdmin.from('inventory')
         .select('year, make, model, trim, price, stocknumber').eq('id', contact.interest_inventory_id).maybeSingle()
-      if (iv) interest_vehicle_label = { label: [iv.year, iv.make, iv.model, iv.trim].filter(Boolean).join(' '), price: iv.price, stocknumber: iv.stocknumber }
+      if (iv) interest_vehicle_label = { label: [iv.year, iv.make, iv.model, iv.trim].filter(Boolean).join(' '), price: iv.price, stocknumber: iv.stocknumber, inventory_id: contact.interest_inventory_id }
     } else if (contact.interest_vehicle) {
       const v = contact.interest_vehicle
       interest_vehicle_label = { label: [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || null }

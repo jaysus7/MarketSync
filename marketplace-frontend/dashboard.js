@@ -3239,10 +3239,18 @@ function crmVehicleCards(c, d) {
   const wants = d.interest_vehicle_label;
   if (wants && wants.label) {
     const canDesk = canEditContact(c) && SALES_ROLES.includes(profileContext?.role);
+    // If the interest is pinned to a real stock unit, link straight to it (VDP) —
+    // opens the Inventory catalog filtered to its stock #, like the stocking recs.
+    const vdp = (wants.inventory_id && (wants.stocknumber || wants.inventory_id))
+      ? `<a href="#" onclick="switchPage('inventory');const s=document.getElementById('catalog-search');if(s){s.value='${esc(wants.stocknumber || wants.inventory_id)}';renderCatalog();}return false;" class="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline">${wants.stocknumber ? '#' + esc(wants.stocknumber) : 'View unit'} →</a>`
+      : '';
     cards.push(`<div class="flex-1 min-w-[220px] bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900 rounded-xl p-3">
       <div class="text-[10px] font-black uppercase tracking-wider text-indigo-500 mb-1 flex items-center gap-1">${svgIcon('car', 'w-3.5 h-3.5')}Wants to buy</div>
       <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(wants.label)}</div>
-      ${wants.price ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">$${Number(wants.price).toLocaleString()}</div>` : ''}
+      <div class="flex items-center gap-2 flex-wrap">
+        ${wants.price ? `<span class="text-[12px] text-slate-500 dark:text-slate-400">$${Number(wants.price).toLocaleString()}</span>` : ''}
+        ${vdp}
+      </div>
       ${canDesk ? `<button onclick="openDeskForContact('${c.id}')" class="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">${d.deal ? 'View deal' : 'Desk a deal'}</button>` : ''}
     </div>`);
   }
