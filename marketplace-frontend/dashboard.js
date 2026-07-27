@@ -17159,18 +17159,34 @@ function applyInventoryMode() {
   const feeds = document.getElementById('feeds-panel');
   const title = document.getElementById('catalog-title');
   const sub = document.getElementById('catalog-sub');
-  // Feed sync lives only under Facebook. The source is fixed by mode (no user-facing
-  // toggle) — each page shows exactly its own feed.
-  if (feeds) feeds.classList.toggle('hidden', !facebook);
+  // The feed/sync panel is no longer a permanent fixture — it's revealed on demand
+  // by the "Sync Inventory" button (toggleFeedsPanel). Keep it hidden on every mode
+  // switch so DealerOS dealers see a clean catalog, not the raw feed.
+  if (feeds) feeds.classList.add('hidden');
   __catalogSourceFilter = facebook ? 'synced' : 'mine';
   if (title) title.textContent = facebook ? 'Inventory Catalog' : 'Inventory List';
   if (sub) sub.textContent = facebook
     ? 'Feed-synced stock, ready to post on Facebook Marketplace.'
     : 'Your own stock — manually added vehicles & trade appraisals won.';
+  applyInventoryProductGating();
   // Re-render if the catalog is already loaded; first open loads it via page init.
   if (typeof __catalogCache !== 'undefined' && __catalogCache && document.getElementById('catalog-list')) renderCatalog();
 }
 window.applyInventoryMode = applyInventoryMode;
+// Reveal/hide the feed panel on demand (Sync Inventory button).
+function toggleFeedsPanel() {
+  const f = document.getElementById('feeds-panel'); if (!f) return;
+  const willShow = f.classList.contains('hidden');
+  f.classList.toggle('hidden', !willShow);
+  if (willShow) f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+window.toggleFeedsPanel = toggleFeedsPanel;
+// Facebook products (Solo/Dealer) sync only — no raw manual add / CSV import.
+function applyInventoryProductGating() {
+  const fb = /facebook/.test(document.documentElement.getAttribute('data-product') || '');
+  document.querySelectorAll('.inv-raw-add').forEach(el => el.classList.toggle('hidden', fb));
+}
+window.applyInventoryProductGating = applyInventoryProductGating;
 
 // A vehicle the dealer entered themselves: manually added, imported, or acquired
 // from a trade appraisal. Everything else came in from a synced website feed.
