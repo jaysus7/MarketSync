@@ -143,6 +143,36 @@
     ],
   };
 
+  // Product-specific tours. The full STEPS above is the DealerOS walkthrough; each
+  // product sells a different thing, so it gets its own short tour. The MarketSync
+  // owner gets a SaaS-back-office tour. Missing targets fall back to a centered card.
+  const AI_TOUR = [
+    { target: null, title: '👋 Welcome to your AI Employee', body: `Your AI chats with website visitors 24/7 — answering questions, capturing leads and booking appointments. Let's get it live.` },
+    { target: '#dashboard-nav [data-page="ai-home"]', before: () => goPage('ai-home'), title: 'Set it up here', body: `Give your assistant a <b>name, greeting and tone</b>, then <b>teach it about your store</b> — hours, financing, inventory. Everything it needs to answer like your best rep.` },
+    { target: '#dashboard-nav [data-page="ai-inbox"]', before: () => goPage('ai-inbox'), title: 'Go live + watch conversations', body: `Copy the <b>website snippet</b> and paste it into your site — the chat is instantly live. Every conversation, lead score and booked appointment shows up right here.` },
+    { target: null, title: "That's it", body: `Replay this anytime from the <b>Tour</b> button. Your AI does the rest.` },
+  ];
+  const FB_TOUR = [
+    { target: null, title: '👋 Welcome to MarketSync', body: `Post your inventory to Facebook Marketplace in one click and track every lead. Let's get you posting.` },
+    { target: '#dashboard-nav [data-page="inventory"]', before: () => goPage('inventory'), title: 'Add your inventory', body: `Pull your vehicles in from your <b>website or a CSV</b> — year, make, model, price, photos. Sold cars drop off automatically.` },
+    { target: '#install-ext-btn', before: () => goPage('inventory'), title: 'Post to Facebook in seconds', body: `Install the <b>MarketSync Chrome extension</b>, pick a car and click <b>Post</b> — it fills the whole Marketplace listing. Mark a car <b>Sold</b> and it clears the post too.` },
+    { target: null, title: 'Track your results', body: `Your <b>Dashboard</b> shows the leaderboard and how your listings are performing. Replay this tour anytime from the <b>Tour</b> button.` },
+  ];
+  const SAAS_TOUR = [
+    { target: null, title: '👋 Welcome to MarketSync HQ', body: `This is your company operating system — revenue, customers, employees and partners, all in one place.` },
+    { target: '#dept-nav', title: 'Your departments', body: `Everything lives in this menu: <b>MarketSync HQ</b> (revenue &amp; trials), <b>Customer Pipeline</b>, <b>Employees</b>, <b>All Users</b> and <b>Affiliates</b>.` },
+    { target: null, title: 'Revenue at a glance', body: `HQ shows <b>MRR, ARR, customers (paying + trial), churn risk</b> and expiring trials — the whole business in one screen.` },
+  ];
+  function pickTour() {
+    const owner = document.documentElement.getAttribute('data-dash-owner') === '1'
+      && document.documentElement.getAttribute('data-dash-mode') === 'marketsync';
+    if (owner) return SAAS_TOUR;
+    const prod = document.documentElement.getAttribute('data-product') || '';
+    if (/facebook/.test(prod)) return FB_TOUR;
+    if (/ai_chatbot/.test(prod)) return AI_TOUR;
+    return STEPS;   // full DealerOS
+  }
+
   let idx = 0;
   let activeSteps = STEPS;   // the full tour by default; area tours swap this in
   let isFullTour = true;     // only the full tour records "seen" so it stops auto-running
@@ -404,7 +434,7 @@
   // Tour button passes a click event — not an array — so it still runs the full tour.
   function start(steps) {
     const custom = Array.isArray(steps) && steps.length;
-    activeSteps = custom ? steps : STEPS;
+    activeSteps = custom ? steps : pickTour();   // main tour is product-aware; area tours pass their own steps
     isFullTour = !custom;
     idx = 0;
     buildUI();
@@ -439,7 +469,18 @@
     }
     let done = false;
     try { done = localStorage.getItem(DONE_KEY) === '1'; } catch {}
-    if (!done) setTimeout(start, 900);
+    // Auto-run once for new users — but wait until the product/workspace is resolved
+    // (ms-role-ready is set after role/product gating) so pickTour() chooses the
+    // right tour for AI / Facebook / SaaS accounts instead of the DealerOS default.
+    if (!done) {
+      let tries = 0;
+      const ready = () => document.body.classList.contains('ms-role-ready')
+        || document.documentElement.hasAttribute('data-product')
+        || document.documentElement.getAttribute('data-dash-owner') === '1';
+      const t = setInterval(() => {
+        if (ready() || ++tries > 20) { clearInterval(t); start(); }
+      }, 300);
+    }
   }
 
   if (document.readyState === 'loading') {

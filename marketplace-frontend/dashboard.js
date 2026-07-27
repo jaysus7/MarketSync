@@ -535,7 +535,42 @@ const SETUP_STEPS = [
   { id: 'service', icon: 'wrench', label: 'Turn on service booking', desc: 'Let customers book service from your website.', roles: [...MGR_SET, 'SERVICE'], tour: 'service', done: s => !!s.svc.enabled, run: () => runSetupForm('service') },
   { id: 'automation', icon: 'bolt', label: 'Turn on follow-ups', desc: 'Auto-text and email your leads on autopilot.', roles: MGR_SET, tour: 'automation', done: () => false, run: () => { setSetupAck('automation'); setupCloseAll(); switchPage('automation-builder'); showToast('Flip on a sequence to finish this step', 'info'); } },
 ];
-function setupStepsFor(role) { return SETUP_STEPS.filter(s => s.roles.includes(role)); }
+// Product-specific onboarding. Each product sells a different job-to-be-done, so
+// the startup wizard walks a different path. DealerOS (full) keeps the role-based
+// SETUP_STEPS above; the MarketSync owner gets no dealer wizard at all.
+const PRODUCT_SETUP_STEPS = {
+  ai_chatbot: [
+    { id: 'ai-personality', icon: 'sparkles', label: "Set your AI's voice", desc: 'Name your assistant and set its greeting and tone.', done: () => setupAck('ai-personality'), run: () => { setSetupAck('ai-personality'); setupCloseAll(); switchPage('ai-home'); } },
+    { id: 'ai-knowledge', icon: 'chat', label: 'Teach it about your store', desc: 'Hours, financing, specials — what it should know when it answers.', done: () => setupAck('ai-knowledge'), run: () => { setSetupAck('ai-knowledge'); setupCloseAll(); switchPage('ai-home'); } },
+    { id: 'ai-install', icon: 'globe', label: 'Add the chat to your website', desc: 'Copy the snippet and paste it into your site — it goes live instantly.', done: () => setupAck('ai-install'), run: () => { setSetupAck('ai-install'); setupCloseAll(); switchPage('ai-inbox'); } },
+  ],
+  facebook_solo: [
+    { id: 'fb-extension', icon: 'download', label: 'Install the Chrome extension', desc: 'It posts a full Marketplace listing in one click.', done: () => setupAck('fb-extension'), run: () => { setSetupAck('fb-extension'); setupCloseAll(); applyExtensionVisibility(); showToast('Use “Install extension” at the top right to add it', 'info'); } },
+    { id: 'fb-inventory', icon: 'car', label: 'Add your inventory', desc: 'Pull your vehicles in from your website or a CSV.', done: s => (s.feeds || []).length > 0, run: () => { setupCloseAll(); __inventoryMode = 'manual'; switchPage('inventory'); } },
+    { id: 'fb-post', icon: 'rocket', label: 'Post your first car', desc: 'Pick a vehicle and post it to Facebook Marketplace.', done: () => setupAck('fb-post'), run: () => { setSetupAck('fb-post'); setupCloseAll(); __inventoryMode = 'facebook'; switchPage('inventory'); } },
+  ],
+  facebook_dealer: [
+    { id: 'fb-extension', icon: 'download', label: 'Install the Chrome extension', desc: 'It posts a full Marketplace listing in one click.', done: () => setupAck('fb-extension'), run: () => { setSetupAck('fb-extension'); setupCloseAll(); applyExtensionVisibility(); showToast('Use “Install extension” at the top right to add it', 'info'); } },
+    { id: 'fb-inventory', icon: 'car', label: 'Add your inventory', desc: 'Pull your vehicles in from your website or a CSV.', done: s => (s.feeds || []).length > 0, run: () => { setupCloseAll(); __inventoryMode = 'manual'; switchPage('inventory'); } },
+    { id: 'reps', icon: 'user', label: 'Add your sales reps', desc: 'Invite your team, see their insights, and set managers.', done: () => setupAck('reps'), run: () => { setSetupAck('reps'); setupCloseAll(); switchPage('sales-team'); } },
+    { id: 'fb-post', icon: 'rocket', label: 'Post your first car', desc: 'Pick a vehicle and post it to Facebook Marketplace.', done: () => setupAck('fb-post'), run: () => { setSetupAck('fb-post'); setupCloseAll(); __inventoryMode = 'facebook'; switchPage('inventory'); } },
+  ],
+};
+// Which onboarding path applies right now (product entitlement / workspace).
+function currentProductKey() {
+  if (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode()) return 'marketsync';
+  const prod = document.documentElement.getAttribute('data-product') || '';
+  if (/facebook_dealer/.test(prod)) return 'facebook_dealer';
+  if (/facebook_solo/.test(prod)) return 'facebook_solo';
+  if (/ai_chatbot/.test(prod)) return 'ai_chatbot';
+  return 'dealer_os';
+}
+function setupStepsFor(role) {
+  const p = currentProductKey();
+  if (p === 'marketsync') return [];                          // owner SaaS — no dealer setup wizard
+  if (PRODUCT_SETUP_STEPS[p]) return PRODUCT_SETUP_STEPS[p];  // AI / Facebook tiers
+  return SETUP_STEPS.filter(s => s.roles.includes(role));     // full DealerOS
+}
 function setupStepDone(step, snap) { return setupAck(step.id) || !!(step.done && step.done(snap)); }
 function setupCloseAll() { document.querySelectorAll('.fixed').forEach(el => { if (el.dataset.setup) el.remove(); }); }
 
@@ -601,7 +636,7 @@ async function openSetupCenter() {
       : `<button onclick="setupRun('${states[nextIdx].s.id}')" class="w-full flex items-center justify-center gap-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-lg transition">Continue setup — ${esc(states[nextIdx].s.label)}<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>`}
   </div>`, 'max-w-md').dataset.setup = '1';
 }
-function setupRun(id) { const s = SETUP_STEPS.find(x => x.id === id); if (s) s.run(); }
+function setupRun(id) { const s = setupStepsFor(profileContext?.role).find(x => x.id === id); if (s) s.run(); }
 // Close the Setup overlay and run that spot's short guided tour.
 function setupTour(tourId) { setupCloseAll(); if (typeof startAreaTour === 'function') startAreaTour(tourId); }
 
@@ -1254,6 +1289,7 @@ async function initializeDashboardEcosystem() {
     // Flatten the left nav to departments for the full DealerOS manager/admin view
     // (runs after all gating so it derives visibility from the settled nav).
     renderDeptNav(profileContext?.role);
+    applyExtensionVisibility();   // hide the FB extension CTA for SaaS / AI-only accounts
 
     // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
     initGlobalLeaderboard();
@@ -11612,20 +11648,36 @@ document.addEventListener('click', (e) => {
 
 document.addEventListener('DOMContentLoaded', syncRangePillsUI);
 
-// Install-extension CTA: sits at the top of the dashboard until the user dismisses
-// it, then stays hidden forever (persisted in localStorage).
-document.addEventListener('DOMContentLoaded', () => {
+// The Chrome extension is only for posting to Facebook Marketplace, so its CTA +
+// header button only make sense for Facebook products and full DealerOS. The
+// MarketSync owner (SaaS back office) and AI-Chatbot-only accounts never post to
+// Facebook, so they should never see the install prompt.
+function extensionRelevant() {
+  if (marketsyncOwnerMode()) return false;              // owner's SaaS back office
+  const prod = document.documentElement.getAttribute('data-product') || '';
+  if (!prod) return true;                                // full DealerOS uses FB posting
+  return /facebook/.test(prod);                          // product-restricted → only FB tiers
+}
+// Decide the install-extension CTA visibility once the product/workspace is known.
+function applyExtensionVisibility() {
   const banner = document.getElementById('ext-cta-banner');
   const headerBtn = document.getElementById('ext-header-btn');
+  if (!extensionRelevant()) { banner?.classList.add('hidden'); headerBtn?.classList.add('hidden'); return; }
   let dismissed = false;
   try { dismissed = localStorage.getItem('ms_ext_cta_dismissed') === '1'; } catch {}
   // Not dismissed → big banner at the top. Dismissed → compact "Install extension"
-  // button beside Tour in the header (stays there forever).
-  const applyDismissed = () => { banner?.classList.add('hidden'); headerBtn?.classList.remove('hidden'); };
-  if (dismissed) applyDismissed();
+  // button beside Tour in the header.
+  if (dismissed) { banner?.classList.add('hidden'); headerBtn?.classList.remove('hidden'); }
   else { banner?.classList.remove('hidden'); headerBtn?.classList.add('hidden'); }
+}
+window.applyExtensionVisibility = applyExtensionVisibility;
+// Wire the dismiss action once; visibility itself is driven by applyExtensionVisibility
+// (called from init after the product/workspace is resolved), so nothing flashes for
+// non-Facebook accounts.
+document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('ext-cta-dismiss')?.addEventListener('click', () => {
-    applyDismissed();
+    document.getElementById('ext-cta-banner')?.classList.add('hidden');
+    document.getElementById('ext-header-btn')?.classList.remove('hidden');
     try { localStorage.setItem('ms_ext_cta_dismissed', '1'); } catch {}
   });
 });
@@ -18969,6 +19021,7 @@ async function loadAIBoostSection() {
     applyFeatureFlags();   // re-hide any feature the dealer switched off (e.g. Appraisals)
     applyProductNav(profileContext?.products);   // keep the product front door applied after config load
     renderDeptNav(profileContext?.role);   // rebuild the department nav once feature flags settle
+    applyExtensionVisibility();
     // Reveal the floating AI assistant dock for entitled dealers (owner exempt).
     updateAiDockVisibility();
     applyAssistantName(cfg.ai_assistant_name);
