@@ -172,6 +172,10 @@
        list (#dept-nav). Hide every legacy child except the owner controls, the
        setup bar, and the department list itself. Reversible: remove .dept-mode. */
     #nav-desktop.dept-mode > *:not(#dept-nav):not(#ms-mode-switch):not(#ms-demo-reset):not(#setup-bar-host){display:none!important}
+    /* Pre-decision state: hide the legacy tree until renderDeptNav picks the mode, so
+       the hardcoded sidebar never flashes before the department nav loads. Cleared by
+       renderDeptNav (removes .nav-init) once the correct nav is in place. */
+    #nav-desktop.nav-init > *:not(#dept-nav):not(#ms-mode-switch):not(#ms-demo-reset):not(#setup-bar-host){display:none!important}
     /* The mode switch pills. */
     #ms-mode-switch{align-items:center;gap:2px;background:#eef2f7;border-radius:9px;padding:3px;margin:0 0 8px}
     html.dark #ms-mode-switch{background:#1e293b}
@@ -833,7 +837,7 @@
         </button>
 
         <!-- ═══════ DESKTOP grouped sidebar ═══════ -->
-        <div id="nav-desktop" class="hidden md:flex md:flex-col md:w-full md:space-y-0.5">
+        <div id="nav-desktop" class="nav-init hidden md:flex md:flex-col md:w-full md:space-y-0.5">
           <!-- Guided-setup progress bar (populated by renderSetupBar; hidden when complete) -->
           <div id="setup-bar-host"></div>
 
@@ -3325,7 +3329,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260729s"></script>
+  <script src="dashboard.js?v=20260729t"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

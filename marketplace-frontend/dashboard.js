@@ -1562,6 +1562,9 @@ const DEPARTMENTS = {
     label: 'Marketing', icon: 'megaphone', accent: 'fuchsia',
     pages: [
       { page: 'website', label: 'Website' },
+      // Facebook Marketplace posts the SAME inventory as the website/manual list —
+      // one inventory pool, viewed in 'facebook' mode. Lives under Marketing.
+      { page: 'inventory', label: 'Facebook Marketplace', invmode: 'facebook' },
       { page: 'ai-inbox', label: 'AI Chat' },
       { page: 'automation', label: 'Automation' },
       { page: 'leaderboard', label: 'Leaderboard' },
@@ -1650,8 +1653,15 @@ function marketsyncOwnerMode() {
     && document.documentElement.getAttribute('data-dash-mode') === 'marketsync';
 }
 function deptNavEligible(role) {
-  return ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)
+  // The department (DealerOS) nav is the ONE nav for every dealership user — reps
+  // included. Each department/page is filtered to what that user can actually see
+  // (deptVisible / deptPageVisible respect role + solo + feature-flag gating), so a
+  // rep simply gets fewer departments. Excluded only for the tiers that run their
+  // own nav: specialized staff workspaces, Facebook-only, restricted products, and
+  // the MarketSync back office.
+  return !!role
     && !__fbOnly
+    && !__staffAllowedPages
     && document.documentElement.getAttribute('data-dash-mode') !== 'marketsync'
     && __productAllowedPages == null;
 }
@@ -1677,6 +1687,9 @@ function renderDeptNav(role) {
   // Owner in the SaaS back office → the SaaS departments; a dealer manager in full
   // DealerOS → the dealership departments; anyone else → the legacy nav.
   const registry = marketsyncOwnerMode() ? SAAS_DEPARTMENTS : (deptNavEligible(role) ? DEPARTMENTS : null);
+  // The mode is now decided — reveal the sidebar (clears the pre-nav hidden state
+  // so the legacy tree never flashes before the department nav for eligible users).
+  navRoot.classList.remove('nav-init');
   if (!registry) { navRoot.classList.remove('dept-mode'); document.getElementById('dept-nav')?.remove(); __deptNavBuilt = false; return; }
   __deptRegistry = registry;
   let host = document.getElementById('dept-nav');
