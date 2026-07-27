@@ -1582,7 +1582,7 @@ const SAAS_DEPARTMENTS = {
   employees:  { label: 'Employees',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'saas-employees', label: 'Employees' }] },
   accounts:   { label: 'All Users',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'owner-users', label: 'Accounts' }] },
   affiliates: { label: 'Affiliates',       icon: 'trophy',   accent: 'amber',   pages: [{ page: 'affiliates-admin', label: 'Affiliates' }] },
-  accounting: { label: 'Accounting',       icon: 'currency', accent: 'emerald', always: true, pages: [{ page: 'accounting', label: 'Accounting' }] },
+  accounting: { label: 'Accounting',       icon: 'currency', accent: 'emerald', always: true, pages: [{ page: 'saas-accounting', label: 'Accounting' }] },
   settings:   { label: 'Settings',         icon: 'user',     accent: 'indigo',  always: true, pages: [{ page: 'profile', label: 'Settings' }] },
 };
 let __deptNavBuilt = false;
@@ -1757,6 +1757,7 @@ function switchPage(pageId) {
   if (pageId === 'saas-command') loadSaasCommand();
   if (pageId === 'saas-customers') loadSaasCustomers();
   if (pageId === 'saas-employees') loadSaasEmployees();
+  if (pageId === 'saas-accounting') loadSaasAccounting();
   if (pageId === 'config') loadConfigHub();
   if (pageId === 'api-keys') loadApiKeys();
   if (pageId === 'delivery') loadDeliveryQueue();
@@ -9968,6 +9969,92 @@ ENGINES['saas-employees'] = {
   },
 };
 function loadSaasEmployees() { renderEngine('saas-employees'); }
+
+// ══ SaaS Accounting — MarketSync's own P&L (recurring revenue + program cost) ══
+ENGINES['saas-accounting'] = {
+  rootId: 'saas-accounting-root', title: 'Accounting', subtitle: "MarketSync's books — recurring revenue and program cost",
+  icon: 'currency', accent: 'emerald',
+  fetch: () => apiGetJson('/saas/accounting'),
+  quickActions: [
+    { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
+    { label: 'Affiliates', icon: 'trophy', onclick: "switchPage('affiliates-admin')" },
+  ],
+  nextActions: (d) => {
+    const out = [];
+    if (d?.affiliate?.pending) out.push({ label: `${engMoney0(d.affiliate.pending)} affiliate commissions owed`, icon: 'currency', tone: 'text-amber-500', onclick: "switchPage('affiliates-admin')" });
+    return out;
+  },
+  tabs: {
+    overview(body, d) {
+      const netTone = (d.net_mrr || 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
+      body.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          ${engKpi('MRR', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('ARR', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Program cost /mo', engMoney0(d.monthly_expense), 'text-rose-600 dark:text-rose-400')}
+          ${engKpi('Net MRR', engMoney0(d.net_mrr), netTone)}
+          ${engKpi('Net margin', (d.net_margin || 0) + '%', netTone)}
+          ${engKpi('New MRR (mo)', engMoney0(d.new_mrr_this_month), 'text-indigo-600 dark:text-indigo-400')}
+        </div>
+        ${engCard('This month', `<div class="text-[13px] text-slate-600 dark:text-slate-300 space-y-1.5">
+          <div class="flex items-center justify-between"><span>Recurring revenue (MRR)</span><span class="font-bold text-emerald-600 dark:text-emerald-400">${engMoney0(d.mrr)}</span></div>
+          <div class="flex items-center justify-between"><span>Affiliate program cost</span><span class="font-bold text-rose-600 dark:text-rose-400">− ${engMoney0(d.monthly_expense)}</span></div>
+          <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-1.5 mt-1.5"><span class="font-black text-slate-800 dark:text-slate-100">Net recurring</span><span class="font-black ${netTone}">${engMoney0(d.net_mrr)}</span></div>
+        </div>`)}
+        <div class="text-[12px] text-slate-400">Revenue is recognised from live product entitlements across ${(d.paying || 0).toLocaleString()} paying accounts (${(d.trials || 0).toLocaleString()} in trial). Cash settlement reconciles in Stripe.</div>`;
+    },
+    work(body, d) {   // "Revenue" — MRR by product
+      const rows = (d.revenue_by_product || []).filter(p => p.accounts > 0 || p.mrr > 0);
+      const total = d.mrr || 0;
+      const list = rows.length ? rows.map(p => `
+        <div class="flex items-center gap-2 text-[13px] py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+          <span class="w-36 flex-shrink-0 font-semibold text-slate-700 dark:text-slate-200">${esc(p.label)}</span>
+          <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full bg-emerald-500" style="width:${total ? Math.round(p.mrr / total * 100) : 0}%"></span></span>
+          <span class="w-16 text-right text-[12px] text-slate-400">${p.accounts} acct${p.accounts === 1 ? '' : 's'}</span>
+          <span class="w-20 text-right font-bold text-slate-800 dark:text-slate-100">${engMoney0(p.mrr)}</span>
+        </div>`).join('') : engEmpty('No recurring revenue yet.');
+      body.innerHTML = `
+        ${engCard('Recurring revenue by product', list)}
+        ${engCard('Growth', `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          ${engKpi('MRR', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('New this month', engMoney0(d.new_mrr_this_month), 'text-indigo-600 dark:text-indigo-400')}
+          ${engKpi('Paying', (d.paying || 0).toLocaleString())}
+          ${engKpi('Trials', (d.trials || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
+        </div>`)}`;
+    },
+    insights(body, d) {   // Expenses — affiliate program
+      const a = d.affiliate || {};
+      body.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          ${engKpi('Owed now', engMoney0(a.pending), a.pending ? 'text-amber-600 dark:text-amber-400' : '')}
+          ${engKpi('Paid this month', engMoney0(a.paid_this_month), 'text-rose-600 dark:text-rose-400')}
+          ${engKpi('Accrued this month', engMoney0(a.accrued_this_month))}
+          ${engKpi('Paid all-time', engMoney0(a.paid))}
+        </div>
+        ${engCard('Affiliate program', `<div class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
+          <p>Affiliate commissions are MarketSync's recurring cost of acquisition — a share of the subscription revenue referred accounts generate. Paying out posts the amount as a MarketSync expense.</p>
+          <button onclick="switchPage('affiliates-admin')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Manage affiliates &amp; payouts →</button>
+        </div>`)}
+        <div class="text-[12px] text-slate-400">Other operating expenses (infrastructure, payroll, Stripe fees) aren't itemised here yet — they'd come from a connected expense feed or Stripe.</div>`;
+    },
+    automation(body) {
+      body.innerHTML = engCard('Revenue &amp; cost automation', `<ul class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
+        <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span>MRR is recomputed live from product entitlements every time you open this page — no manual bookkeeping.</span></li>
+        <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span>Affiliate commissions accrue automatically when a referred account pays, and post as an expense when you pay them out.</span></li>
+      </ul>`);
+    },
+    settings(body) {
+      body.innerHTML = engCard('Accounting settings', `<div class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
+        <p>Recurring revenue is estimated from published product prices (Facebook Solo $79, Facebook Dealer $499, AI Chatbot $499, DealerOS $499). Actual cash and fees settle in Stripe.</p>
+        <p class="text-[12px] text-slate-400">To itemise infrastructure/payroll/Stripe fees as expenses here, connect an expense feed — tell me and I'll wire it in.</p>
+      </div>`);
+    },
+  },
+  tabLabels: { work: 'Revenue', insights: 'Expenses' },
+};
+function loadSaasAccounting() { renderEngine('saas-accounting'); }
+window.loadSaasAccounting = loadSaasAccounting;
+
 // Refresh whichever SaaS-roles surface is on screen — the Employees engine or the
 // Settings → Team panel.
 function refreshSaasRoles() {

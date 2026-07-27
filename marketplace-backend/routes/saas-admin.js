@@ -168,6 +168,63 @@ export function registerSaasAdmin(app) {
     res.json({ stages: STAGES, by_stage: byStage, counts: Object.fromEntries(STAGES.map(s => [s, byStage[s].length])) })
   })
 
+  // ── SaaS Accounting — MarketSync's OWN books (recurring revenue + program cost) ──
+  // Recurring revenue is recognised from live product entitlements (the same basis
+  // as HQ's MRR); the affiliate program is the recurring cost of goods. This is the
+  // company P&L, not a dealership ledger.
+  app.get('/saas/accounting', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
+    const [{ data: dealers }, { data: profiles }, { data: comms }] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('id, name, is_personal, billing_status, trial_ends_at, products, created_at').limit(2000),
+      supabaseAdmin.from('profiles').select('dealership_id, billing_status, trial_ends_at').limit(8000),
+      supabaseAdmin.from('affiliate_commissions').select('amount, status, created_at').limit(20000),
+    ])
+    const profByDealer = {}
+    for (const p of profiles || []) { (profByDealer[p.dealership_id] = profByDealer[p.dealership_id] || []).push(p) }
+
+    // Recurring revenue by product + counts.
+    const byProduct = {}; for (const k of Object.keys(PRODUCT_MRR)) byProduct[k] = { mrr: 0, accounts: 0 }
+    let mrr = 0, paying = 0, trials = 0, newMrrThisMonth = 0, churnRisk = 0
+    for (const d of (dealers || [])) {
+      let status = d.billing_status, trialEnds = d.trial_ends_at
+      if (d.is_personal) { const u = (profByDealer[d.id] || [])[0]; if (u) { status = u.billing_status; trialEnds = u.trial_ends_at } }
+      const products = resolveProducts(d)
+      const acctMrr = Object.keys(PRODUCT_MRR).reduce((s, k) => s + (products[k] ? PRODUCT_MRR[k] : 0), 0)
+      const futureTrial = trialEnds && new Date(trialEnds) > new Date()
+      if (activeStatus(status)) {
+        paying++; mrr += acctMrr
+        for (const k of Object.keys(PRODUCT_MRR)) if (products[k]) { byProduct[k].mrr += PRODUCT_MRR[k]; byProduct[k].accounts++ }
+        if (d.created_at && new Date(d.created_at) >= monthStart) newMrrThisMonth += acctMrr
+      } else if (dunningStatus(status)) { churnRisk++ }
+      else if (trialingStatus(status) || futureTrial) { if (futureTrial) trials++; else churnRisk++ }
+    }
+
+    // Affiliate program = recurring cost of goods.
+    const num = (v) => Number(v) || 0
+    let affPending = 0, affPaid = 0, affPaidThisMonth = 0, affAccruedThisMonth = 0
+    for (const c of (comms || [])) {
+      const amt = num(c.amount), thisMonth = c.created_at && new Date(c.created_at) >= monthStart
+      if (c.status === 'paid') { affPaid += amt; if (thisMonth) affPaidThisMonth += amt }
+      else { affPending += amt; if (thisMonth) affAccruedThisMonth += amt }   // pending/approved = owed
+    }
+    // This month's affiliate cost against revenue (paid out + newly accrued).
+    const monthlyExpense = Math.round((affPaidThisMonth + affAccruedThisMonth) * 100) / 100
+    const netMrr = Math.round((mrr - monthlyExpense) * 100) / 100
+
+    const PRODUCT_LABELS = { facebook_solo: 'Facebook Solo', facebook_dealer: 'Facebook Dealer', ai_chatbot: 'AI Chatbot', dealer_os: 'DealerOS' }
+    res.json({
+      currency: 'USD',
+      mrr, arr: mrr * 12, gross_mrr: mrr,
+      revenue_by_product: Object.keys(PRODUCT_MRR).map(k => ({ key: k, label: PRODUCT_LABELS[k] || k, mrr: byProduct[k].mrr, accounts: byProduct[k].accounts })),
+      paying, trials, new_mrr_this_month: newMrrThisMonth, churn_risk: churnRisk,
+      affiliate: { pending: Math.round(affPending * 100) / 100, paid: Math.round(affPaid * 100) / 100, paid_this_month: Math.round(affPaidThisMonth * 100) / 100, accrued_this_month: Math.round(affAccruedThisMonth * 100) / 100 },
+      monthly_expense: monthlyExpense,
+      net_mrr: netMrr,
+      net_margin: mrr ? Math.round(netMrr / mrr * 100) : 0,
+    })
+  })
+
   // ── Employees + permissions (owner-only) ────────────────────────────────────
   const ownerOnly = (req, res) => { if (saasRoleOf(req) === 'owner') return true; res.status(403).json({ error: 'Owner access required' }); return false }
 
