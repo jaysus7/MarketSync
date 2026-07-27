@@ -5747,10 +5747,16 @@ async function loadReportBuilder() {
             <h2 class="text-xl font-black text-slate-900 dark:text-white">Custom report</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">Choose who and what with dropdowns, then export.</p>
           </div>
-          <button id="rb-export" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition inline-flex items-center gap-1.5">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
-            Export CSV
-          </button>
+          <div class="flex items-center gap-2">
+            <button id="rb-print" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-lg transition inline-flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
+              Print / PDF
+            </button>
+            <button id="rb-export" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition inline-flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+              Export CSV
+            </button>
+          </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <label class="block"><span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Report</span>
@@ -5784,7 +5790,7 @@ async function loadReportBuilder() {
             <input type="checkbox" id="rb-hideblank" class="rounded"> Hide columns we don't capture yet
           </label>
         </div>
-        <div id="rb-result" class="overflow-x-auto -mx-4 sm:mx-0"></div>
+        <div id="rb-result" class="overflow-auto max-h-[65vh] rounded-lg border border-slate-200 dark:border-slate-800"></div>
       </div>`;
     root.querySelector('#rb-source').addEventListener('change', e => { __rbSource = e.target.value; rbSyncControls(); rbRenderColMenu(); rbFetch(); });
     root.querySelector('#rb-rep').addEventListener('change', e => { __rbRep = e.target.value; rbFetch(); });
@@ -5792,6 +5798,7 @@ async function loadReportBuilder() {
     root.querySelector('#rb-range').addEventListener('change', e => { __rbRange = e.target.value; rbFetch(); });
     root.querySelector('#rb-hideblank').addEventListener('change', e => { __rbHideBlank = e.target.checked; rbRenderTable(); });
     root.querySelector('#rb-export').addEventListener('click', rbExportCsv);
+    root.querySelector('#rb-print').addEventListener('click', rbPrint);
     rbSyncControls();
     rbRenderColMenu();
   }
@@ -5879,6 +5886,33 @@ function rbExportCsv() {
   a.href = url; a.download = `${RB_SOURCES[__rbSource].file()}-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+// Print / Save-as-PDF: opens a clean, print-styled copy of the current report and
+// triggers the browser's print dialog (which offers Save as PDF).
+function rbPrint() {
+  const rows = __rbData?.rows || [];
+  const cols = rbActiveCols();
+  const title = (RB_SOURCES[__rbSource]?.label || 'Report');
+  const esc2 = (s) => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const head = ['#', ...cols.map(c => c.label)].map(h => `<th>${esc2(h)}</th>`).join('');
+  const body = rows.map((r, i) => `<tr><td>${i + 1}</td>${cols.map(c => `<td>${esc2(rbFmt(r[c.key], c.type))}</td>`).join('')}</tr>`).join('');
+  const dealer = (profileContext?.dealershipName || 'MarketSync');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc2(title)}</title>
+    <style>
+      body{font:13px -apple-system,Segoe UI,Roboto,sans-serif;color:#0f172a;margin:24px}
+      h1{font-size:18px;margin:0 0 2px} .sub{color:#64748b;font-size:12px;margin:0 0 16px}
+      table{border-collapse:collapse;width:100%} th,td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left;font-size:12px}
+      th{background:#f1f5f9;text-transform:uppercase;font-size:10px;letter-spacing:.04em;color:#475569}
+      tr:nth-child(even) td{background:#f8fafc}
+      @media print{body{margin:0}}
+    </style></head><body>
+    <h1>${esc2(title)}</h1>
+    <p class="sub">${esc2(dealer)} · ${rows.length} rows · ${new Date().toLocaleString()}</p>
+    <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+    <script>window.onload=function(){window.print();}<\/script></body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Allow pop-ups to print the report', 'error'); return; }
+  w.document.write(html); w.document.close();
 }
 window.loadReportBuilder = loadReportBuilder;
 
