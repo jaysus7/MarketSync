@@ -9285,7 +9285,7 @@ async function loadSoloHome() {
       ${tile('Views', num(d.views), 'from Facebook')}
       ${tile('Messages', num(d.messages), 'from Facebook')}
       ${tile('Leads', num(d.leads), 'captured', '', "switchPage('leads')")}
-      ${tile('Sold', num(d.sold), 'this month', 'text-emerald-600 dark:text-emerald-400', "__inventoryMode='facebook'; switchPage('inventory')")}
+      ${tile('Sold via Marketplace', num(d.sold), 'last 30 days', 'text-emerald-600 dark:text-emerald-400', "__inventoryMode='facebook'; switchPage('inventory')")}
       ${tile('Avg response', resp, 'to a lead')}
     </div>
     ${pending}
