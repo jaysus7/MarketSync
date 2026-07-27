@@ -109,12 +109,16 @@ const ASSISTANT_TOOLS = [
   },
   {
     name: 'propose_action',
-    description: "Propose an action for the user to CONFIRM (never executed automatically). Use when the user asks you to DO something, not just report. Two actions: 'create_task' — add a follow-up/reminder task for the user (give a clear title and optional due_hours); 'bulk_outreach' — text or email a group of customers described in plain English (put the full request in `instruction`, e.g. 'text everyone uncontacted for 3 days about our weekend sale'). After proposing, tell the user in one short sentence what you set up and that they can confirm it. Do NOT claim it's done — it only happens once they confirm.",
+    description: "Propose an action for the user to CONFIRM (never executed automatically). Use when the user asks you to DO something, not just report. Actions: 'create_task' — add a follow-up/reminder task (give a clear title and optional due_hours); 'bulk_outreach' — text/email a group of customers described in plain English (put the full request in `instruction`); 'book_appointment' — book an appointment for a specific customer (give `customer` = their name, `when_iso` = the exact date-time in ISO 8601 you compute from their request and today's date, and an optional `note`); 'reassign_lead' — hand a customer to a different salesperson (give `customer` = their name and `to_rep` = the salesperson's name). After proposing, tell the user in one short sentence what you set up and that they can confirm it. Do NOT claim it's done — it only happens once they confirm.",
     input_schema: { type: 'object', properties: {
-      action: { type: 'string', enum: ['create_task', 'bulk_outreach'] },
+      action: { type: 'string', enum: ['create_task', 'bulk_outreach', 'book_appointment', 'reassign_lead'] },
       title: { type: 'string', description: 'create_task: the task title' },
       due_hours: { type: 'number', description: 'create_task: hours from now the task is due (optional)' },
       instruction: { type: 'string', description: 'bulk_outreach: the full plain-English outreach request' },
+      customer: { type: 'string', description: 'book_appointment / reassign_lead: the customer name (or phone/email) to match' },
+      when_iso: { type: 'string', description: 'book_appointment: the appointment date-time in ISO 8601 (compute from the request + today\'s date)' },
+      note: { type: 'string', description: 'book_appointment: optional note for the appointment' },
+      to_rep: { type: 'string', description: 'reassign_lead: the salesperson to reassign the customer to (name)' },
     }, required: ['action'] },
   },
 ]

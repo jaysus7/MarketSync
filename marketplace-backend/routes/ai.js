@@ -2757,7 +2757,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
     ].join('\n')
 
     const assistantName = (dealer?.ai_assistant_name || '').trim() || 'MarketSync'
-    const system = `You are ${assistantName} — the smartest person at this car dealership. You are a sharp GM/analyst who knows this store's whole operation: inventory, leads, sales, F&I, commissions, reconditioning, tasks and appointments. You do four things: (1) answer how MarketSync works, what's included, and pricing, from the PRODUCT GUIDE; (2) answer about THIS store from the LIVE SNAPSHOT; (3) for any deeper question about the store's own numbers or people — units/gross/commissions this month, who's ahead or needs coaching, lead volume/sources/conversion, unworked leads, reconditioning status, overdue tasks, who to call today, recent trades, whether we're trending up or down vs last period, what to prioritize today, which cars to discount or wholesale and the reprice target, who to call for an upgrade or lease pull-ahead, or which ad channel is paying off — call the dealership_report tool with the right topic ('trends', 'priorities', 'pricing', 'equity', 'marketing_roi', and the rest) and answer from real data (don't guess); (4) pull live MARKET data — decode a VIN, predict a price for a VIN, or a market snapshot for a make/model; (5) DO things when asked — add a follow-up task/reminder, or text/email a group of customers — via the propose_action tool, which ALWAYS asks the user to confirm before anything runs (never say it's done; say you've set it up for their confirmation). For a SPECIFIC named customer — "what's the status on <name>", "who's handling <name>", "has anyone followed up with <name>", or a phone/email — call the customer_lookup tool and answer from their real record; don't guess. For a SPECIFIC vehicle on the lot — a stock number, VIN, or "the <year make model>" (days on lot, price, is it priced right) — call the inventory_lookup tool. Use a tool whenever it sharpens the answer; never guess a VIN — ask for it. Be direct and specific: lead with the number, then one crisp takeaway or recommended action. Keep it tight — a couple of sentences or a short list, no headings, no fluff. Never invent numbers beyond the snapshot or tool results; when quoting product prices, note they should confirm exact pricing on the billing screen. Today: ${new Date().toISOString().slice(0, 10)}.\n\n${PRODUCT_KB}\n\nLIVE SNAPSHOT (this dealership, right now):\n${facts}`
+    const system = `You are ${assistantName} — the smartest person at this car dealership. You are a sharp GM/analyst who knows this store's whole operation: inventory, leads, sales, F&I, commissions, reconditioning, tasks and appointments. You do four things: (1) answer how MarketSync works, what's included, and pricing, from the PRODUCT GUIDE; (2) answer about THIS store from the LIVE SNAPSHOT; (3) for any deeper question about the store's own numbers or people — units/gross/commissions this month, who's ahead or needs coaching, lead volume/sources/conversion, unworked leads, reconditioning status, overdue tasks, who to call today, recent trades, whether we're trending up or down vs last period, what to prioritize today, which cars to discount or wholesale and the reprice target, who to call for an upgrade or lease pull-ahead, or which ad channel is paying off — call the dealership_report tool with the right topic ('trends', 'priorities', 'pricing', 'equity', 'marketing_roi', and the rest) and answer from real data (don't guess); (4) pull live MARKET data — decode a VIN, predict a price for a VIN, or a market snapshot for a make/model; (5) DO things when asked — add a follow-up task/reminder, text/email a group of customers, book an appointment for a customer (compute the exact ISO date-time from their request and today's date), or reassign a customer to another salesperson — via the propose_action tool, which ALWAYS asks the user to confirm before anything runs (never say it's done; say you've set it up for their confirmation). For a SPECIFIC named customer — "what's the status on <name>", "who's handling <name>", "has anyone followed up with <name>", or a phone/email — call the customer_lookup tool and answer from their real record; don't guess. For a SPECIFIC vehicle on the lot — a stock number, VIN, or "the <year make model>" (days on lot, price, is it priced right) — call the inventory_lookup tool. Use a tool whenever it sharpens the answer; never guess a VIN — ask for it. Be direct and specific: lead with the number, then one crisp takeaway or recommended action. Keep it tight — a couple of sentences or a short list, no headings, no fluff. Never invent numbers beyond the snapshot or tool results; when quoting product prices, note they should confirm exact pricing on the billing screen. Today: ${new Date().toISOString().slice(0, 10)}.\n\n${PRODUCT_KB}\n\nLIVE SNAPSHOT (this dealership, right now):\n${facts}`
       // Dealer-set voice/style for the internal assistant, plus their uploaded knowledge base.
       + (dealer?.ai_internal_style ? `\n\nHOUSE STYLE (follow this voice for your answers): ${dealer.ai_internal_style}` : '')
       + (dealer?.ai_knowledge ? `\n\nDEALERSHIP KNOWLEDGE BASE${dealer.ai_knowledge_name ? ` (${dealer.ai_knowledge_name})` : ''} — treat as authoritative for this store's own policies/processes:\n${dealer.ai_knowledge}` : '')
@@ -2792,11 +2792,14 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
               // Never execute here — capture the proposal + tell the model it's pending
               // the user's confirmation. The frontend renders a confirm button.
               const a = block.input || {}
-              const act = a.action === 'bulk_outreach' ? 'bulk_outreach' : a.action === 'create_task' ? 'create_task' : null
-              if (act === 'create_task' && String(a.title || '').trim()) {
+              if (a.action === 'create_task' && String(a.title || '').trim()) {
                 proposedAction = { action: 'create_task', title: String(a.title).trim().slice(0, 200), due_hours: Number(a.due_hours) > 0 ? Math.min(8760, Number(a.due_hours)) : null }
-              } else if (act === 'bulk_outreach' && String(a.instruction || '').trim() && isMgrRole) {
+              } else if (a.action === 'bulk_outreach' && String(a.instruction || '').trim() && isMgrRole) {
                 proposedAction = { action: 'bulk_outreach', instruction: String(a.instruction).trim().slice(0, 500) }
+              } else if (a.action === 'book_appointment' && String(a.customer || '').trim() && String(a.when_iso || '').trim()) {
+                proposedAction = { action: 'book_appointment', customer: String(a.customer).trim().slice(0, 120), when_iso: String(a.when_iso).trim().slice(0, 40), note: String(a.note || '').trim().slice(0, 300) || null }
+              } else if (a.action === 'reassign_lead' && String(a.customer || '').trim() && String(a.to_rep || '').trim() && isMgrRole) {
+                proposedAction = { action: 'reassign_lead', customer: String(a.customer).trim().slice(0, 120), to_rep: String(a.to_rep).trim().slice(0, 120) }
               }
               result = proposedAction ? 'Proposed to the user — awaiting their confirmation. Do not say it is done.' : 'Could not stage that action (missing details or not permitted).'
             } else {
@@ -2816,6 +2819,71 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
       res.json({ reply: reply || 'Ready when you are — confirm below to run it.', action: proposedAction })
     } catch (e) {
       res.status(502).json({ error: aiErrorMessage(e) })
+    }
+  })
+
+  // POST /ai/assistant/action — execute an action the assistant PROPOSED, only after
+  // the user clicked confirm in the dock. Server-side + strict matching so a fuzzy
+  // name can never silently mutate the wrong record. create_task / bulk_outreach are
+  // handled client-side; this covers book_appointment + reassign_lead.
+  app.post('/ai/assistant/action', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isMgr = isOwner || ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
+    const a = req.body || {}
+    // Resolve exactly one contact for a name/phone/email, else a clear disambiguation error.
+    const findContact = async (q) => {
+      const s = String(q || '').trim()
+      if (s.length < 2) return { error: 'Tell me which customer.' }
+      const like = `%${s.replace(/[%,]/g, ' ').trim()}%`
+      const { data } = await supabaseAdmin.from('contacts')
+        .select('id, full_name, first_name, last_name, assigned_rep')
+        .eq('dealership_id', req.dealershipId)
+        .or(`full_name.ilike.${like},first_name.ilike.${like},last_name.ilike.${like},email.ilike.${like},phone.ilike.${like},phone_mobile.ilike.${like}`)
+        .limit(6)
+      const rows = data || []
+      if (!rows.length) return { error: `No customer found matching "${s}".` }
+      if (rows.length > 1) return { error: `Several customers match "${s}" — open their record to pick the right one.` }
+      return { contact: rows[0] }
+    }
+    const nameOf = (c) => c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'customer'
+    try {
+      if (a.action === 'book_appointment') {
+        const when = new Date(a.when_iso)
+        if (!a.when_iso || isNaN(when.getTime())) return res.status(400).json({ error: "I couldn't read that appointment time — try again with a clearer date/time." })
+        const r = await findContact(a.customer); if (r.error) return res.status(409).json({ error: r.error })
+        const name = nameOf(r.contact)
+        const title = `Appointment — ${name}${a.note ? ': ' + String(a.note).slice(0, 120) : ''}`
+        const { error } = await supabaseAdmin.from('crm_tasks').insert({
+          dealership_id: req.dealershipId, contact_id: r.contact.id,
+          assigned_to: r.contact.assigned_rep || req.user.id, created_by: req.user.id,
+          title, type: 'appointment', due_at: when.toISOString(),
+        })
+        if (error) return res.status(500).json({ error: error.message })
+        return res.json({ ok: true, message: `Appointment booked for ${name} on ${when.toLocaleString('en-US')}.` })
+      }
+      if (a.action === 'reassign_lead') {
+        if (!isMgr) return res.status(403).json({ error: 'Only managers can reassign leads.' })
+        const r = await findContact(a.customer); if (r.error) return res.status(409).json({ error: r.error })
+        const repQ = String(a.to_rep || '').trim()
+        if (repQ.length < 2) return res.status(400).json({ error: 'Tell me which salesperson to reassign to.' })
+        const like = `%${repQ.replace(/[%,]/g, ' ').trim()}%`
+        const { data: reps } = await supabaseAdmin.from('profiles')
+          .select('id, full_name, display_name').eq('dealership_id', req.dealershipId)
+          .or(`full_name.ilike.${like},display_name.ilike.${like}`).limit(6)
+        const rl = reps || []
+        if (!rl.length) return res.status(409).json({ error: `No salesperson found matching "${repQ}".` })
+        if (rl.length > 1) return res.status(409).json({ error: `Several people match "${repQ}" — be more specific.` })
+        const rep = rl[0]
+        const name = nameOf(r.contact), repName = rep.display_name || rep.full_name || 'the rep'
+        const { error } = await supabaseAdmin.from('contacts').update({ assigned_rep: rep.id })
+          .eq('id', r.contact.id).eq('dealership_id', req.dealershipId)
+        if (error) return res.status(500).json({ error: error.message })
+        return res.json({ ok: true, message: `${name} reassigned to ${repName}.` })
+      }
+      return res.status(400).json({ error: 'Unknown action.' })
+    } catch (e) {
+      return res.status(500).json({ error: e.message || 'Could not complete that action.' })
     }
   })
 }

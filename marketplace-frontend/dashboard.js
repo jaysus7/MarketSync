@@ -22963,9 +22963,11 @@ function renderAiDockMessages() {
     // Agentic action: a confirm chip under the assistant bubble (nothing runs until clicked).
     if (m.role === 'assistant' && m.action && !m.action_done) {
       const a = m.action;
-      const label = a.action === 'create_task'
-        ? `✓ Create task: "${a.title}"${a.due_hours ? ` (due in ${a.due_hours}h)` : ''}`
-        : a.action === 'bulk_outreach' ? `✉️ Set up: "${a.instruction}"` : 'Confirm';
+      let label = 'Confirm';
+      if (a.action === 'create_task') label = `✓ Create task: "${a.title}"${a.due_hours ? ` (due in ${a.due_hours}h)` : ''}`;
+      else if (a.action === 'bulk_outreach') label = `✉️ Set up: "${a.instruction}"`;
+      else if (a.action === 'book_appointment') { let w = a.when_iso; try { w = new Date(a.when_iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch {} label = `📅 Book appointment — ${a.customer} (${w})`; }
+      else if (a.action === 'reassign_lead') label = `🔄 Reassign ${a.customer} → ${a.to_rep}`;
       const wrap = document.createElement('div');
       wrap.className = 'mt-1.5 flex items-center gap-2';
       wrap.innerHTML = `<button onclick="aiDockRunAction(${idx})" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg">${esc(label)}</button><button onclick="aiDockCancelAction(${idx})" class="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">Cancel</button>`;
@@ -23029,6 +23031,12 @@ async function aiDockRunAction(idx) {
       m.action_done = 'handoff';
       closeAiDock();
       openBulkOutreach(a.instruction);
+    } else if (a.action === 'book_appointment' || a.action === 'reassign_lead') {
+      // Server executes these with strict matching; show its message back in the thread.
+      const r = await apiSendJson('/ai/assistant/action', 'POST', a);
+      m.action_done = 'done';
+      aiDockMessages.push({ role: 'assistant', content: r.message || 'Done ✓' });
+      showToast(r.message || 'Done ✓', 'success');
     }
   } catch (e) { showToast(e.message || 'Could not do that', 'error'); return; }
   renderAiDockMessages();
