@@ -22945,8 +22945,9 @@ function renderAiDockMessages() {
       suggestions
         .map(s => `<button type="button" data-ai-suggest="${s}" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">${s}</button>`)
         .join('') +
-      // Customer lookup needs a name, so this chip pre-fills the box instead of sending.
+      // Lookups need a name/stock #, so these chips pre-fill the box instead of sending.
       `<button type="button" data-ai-fill="What's the status on " class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">Look up a customer…</button>` +
+      `<button type="button" data-ai-fill="What's the story on stock #" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">Look up a vehicle…</button>` +
       '</div>';
     box.appendChild(intro);
   }
