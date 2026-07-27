@@ -6865,13 +6865,25 @@ function deskRenderSummary() {
       ${(c.tradeValue || c.tradePayoff) ? row('Net trade', (c.tradeEquity >= 0 ? '−' : '+') + deskM(Math.abs(c.tradeEquity))) : ''}
       ${row('Amount financed', deskM(c.amountFinanced), true)}
       ${c.balloon ? row('Balloon / residual', deskM(c.balloon)) : ''}
-      ${(__deskDealer?.costOn && Number(d.cost) > 0) ? `
+      ${(__deskDealer?.costOn && Number(d.cost) > 0) ? (() => {
+        const cost = Number(d.cost);
+        const frontGross = c.sellingPrice - cost;
+        const backGross = (c.fniTotal || 0) + (c.reserve || 0);
+        const totalGross = frontGross + backGross;
+        return `
       <div class="mt-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-3 py-2 space-y-1">
         <div class="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">Internal — not shown to customer</div>
-        ${row('Vehicle cost', deskM(Number(d.cost)))}
-        ${row('Front gross', deskM(c.sellingPrice - Number(d.cost)), true)}
-        ${c.fniTotal ? row('Total gross (incl F&I)', deskM(c.sellingPrice - Number(d.cost) + c.fniTotal), true) : ''}
-      </div>` : ''}
+        ${row('Vehicle cost', deskM(cost))}
+        <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold pt-1">Front-end</div>
+        ${row('Front gross', deskM(frontGross), true)}
+        ${(c.fniTotal || c.reserve) ? `<div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold pt-1">Back-end (F&amp;I)</div>` : ''}
+        ${c.fniTotal ? row('F&I products', deskM(c.fniTotal)) : ''}
+        ${c.reserve ? row('Finance reserve', deskM(c.reserve)) : ''}
+        ${(c.fniTotal || c.reserve) ? row('Back gross', deskM(backGross), true) : ''}
+        <div class="border-t border-amber-200 dark:border-amber-900 my-1"></div>
+        ${row('Total gross', deskM(totalGross), true)}
+        ${c.fniTotal ? `<p class="text-[9.5px] text-amber-600/80 dark:text-amber-400/70 leading-snug">F&amp;I shown at retail — subtract product cost for true back gross.</p>` : ''}
+      </div>`; })() : ''}
     </div>
     ${c.isLease ? `
     <div class="mt-3 bg-violet-600 text-white rounded-lg px-4 py-3">
