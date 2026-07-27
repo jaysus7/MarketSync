@@ -1505,46 +1505,52 @@ window.openLeaderboardOnDash = openLeaderboardOnDash;
 // Single-workspace departments (Executive, admin) use the in-body 5-tab shell
 // instead; those pages are intentionally NOT listed here.
 // ═══════════════════════════════════════════════════════════════════════════
+// `mgr:true` (department or page) = managers/owners/admins only. `roles:[...]` = an
+// explicit allow-list. Nothing set = everyone in the dealership (reps included).
+// A sales rep therefore sees Sales, Detail/Cleanup and Marketing — with the
+// manager/analyst pages inside them hidden — and nothing else. Settings isn't a
+// department; the header gear owns it.
 const DEPARTMENTS = {
   executive: {
-    label: 'Daily Briefing', icon: 'chart', accent: 'indigo',
+    label: 'Daily Briefing', icon: 'chart', accent: 'indigo', mgr: true,
     pages: [{ page: 'command', label: 'Daily Briefing' }],
   },
   sales: {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
       { page: 'insights', label: 'Dashboard' },
-      { page: 'leads', label: 'Opportunities' },
       { page: 'crm', label: 'Customers' },
-      { page: 'tasks', label: 'Tasks' },
       { page: 'appointments', label: 'Appointments' },
+      { page: 'tasks', label: 'Tasks' },
       { page: 'inventory', label: 'Inventory', invmode: 'manual' },
-      { page: 'inv-intel', label: 'Inventory Intelligence' },
-      { page: 'market', label: 'Market' },
       { page: 'appraisal', label: 'Appraisals' },
       { page: 'equity', label: 'Equity Mining' },
-      { page: 'delivery', label: 'Deliveries' },
-      { page: 'reports', label: 'Reports' },
+      // Manager/analyst-only slices — hidden from a sales rep.
+      { page: 'leads', label: 'Opportunities', mgr: true },
+      { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true },
+      { page: 'market', label: 'Market', mgr: true },
+      { page: 'delivery', label: 'Deliveries', mgr: true },
+      { page: 'reports', label: 'Reports', mgr: true },
     ],
   },
   fni: {
     // Desk-a-deal isn't a tab — it's launched per customer (header button, CRM card,
     // and the Deals list), so F&I is a single Deals workspace.
-    label: 'F&I', icon: 'shield', accent: 'indigo',
+    label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
     pages: [
       { page: 'fni', label: 'Deals' },
     ],
   },
   service: {
-    label: 'Service', icon: 'wrench', accent: 'sky',
+    label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
+    // Service Settings lives under the header gear now, not as a department tab.
     pages: [
       { page: 'service-ros', label: 'Repair Orders' },
       { page: 'service-appointments', label: 'Appointments' },
-      { page: 'service-settings', label: 'Settings' },
     ],
   },
   parts: {
-    label: 'Parts', icon: 'gem', accent: 'amber',
+    label: 'Parts', icon: 'gem', accent: 'amber', mgr: true,
     pages: [{ page: 'service-parts', label: 'Parts Inventory' }],
   },
   cleanup: {
@@ -1555,23 +1561,24 @@ const DEPARTMENTS = {
     // The Accounting page already renders its own rich top menu (Financials,
     // Insights, Reconciliation, Tax, …), so it's a single-page department — that
     // native menu IS the "menus on top", no second tab row stacked over it.
-    label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap',
+    label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
     pages: [{ page: 'accounting', label: 'Accounting' }],
   },
   marketing: {
     label: 'Marketing', icon: 'megaphone', accent: 'fuchsia',
     pages: [
-      { page: 'website', label: 'Website' },
+      // Reps only see Facebook Marketplace here — everything else is manager-only.
       // Facebook Marketplace posts the SAME inventory as the website/manual list —
-      // one inventory pool, viewed in 'facebook' mode. Lives under Marketing.
+      // one inventory pool, viewed in 'facebook' mode.
       { page: 'inventory', label: 'Facebook Marketplace', invmode: 'facebook' },
-      { page: 'ai-inbox', label: 'AI Chat' },
-      { page: 'automation', label: 'Automation' },
-      { page: 'leaderboard', label: 'Leaderboard' },
+      { page: 'website', label: 'Website', mgr: true },
+      { page: 'ai-inbox', label: 'AI Chat', mgr: true },
+      { page: 'automation', label: 'Automation', mgr: true },
+      { page: 'leaderboard', label: 'Leaderboard', mgr: true },
     ],
   },
   administration: {
-    label: 'Administration', icon: 'shield', accent: 'indigo',
+    label: 'Administration', icon: 'shield', accent: 'indigo', mgr: true,
     pages: [
       { page: 'operations', label: 'Operations' },
       { page: 'taskboard', label: 'Task Board' },
@@ -1580,11 +1587,16 @@ const DEPARTMENTS = {
       { page: 'owner-users', label: 'All Users' },
     ],
   },
-  settings: {
-    label: 'Settings', icon: 'user', accent: 'indigo', always: true,
-    pages: [{ page: 'profile', label: 'Settings' }],
-  },
 };
+// Role gate for a department or page spec: explicit `roles` list wins, else `mgr`
+// means managers/owners/admins only, else everyone in the dealership.
+const DEPT_MGR_ROLES = ['DEALER_ADMIN', 'OWNER', 'MANAGER'];
+function deptRoleOk(spec) {
+  if (!spec) return true;
+  if (Array.isArray(spec.roles)) return spec.roles.includes(profileContext?.role);
+  if (spec.mgr) return DEPT_MGR_ROLES.includes(profileContext?.role);
+  return true;
+}
 let __activeDept = null;
 let __currentPage = null;
 // Is a page reachable for this user? Respect the per-item gating that product /
@@ -1610,7 +1622,7 @@ function renderDeptTabbar(pageId) {
   if (!deptId) { __activeDept = null; return hide(); }
   __activeDept = deptId;
   const dept = DEPARTMENTS[deptId];
-  const pages = dept.pages.filter(p => deptPageVisible(p.page));
+  const pages = dept.pages.filter(deptPageAllowed);
   if (pages.length <= 1) return hide();   // nothing to move between → no tab-bar
   const A = ENGINE_ACCENTS[dept.accent] || ENGINE_ACCENTS.indigo;
   const tabs = pages.map(p => {
@@ -1665,17 +1677,21 @@ function deptNavEligible(role) {
     && document.documentElement.getAttribute('data-dash-mode') !== 'marketsync'
     && __productAllowedPages == null;
 }
-function deptHomePage(dept) { return dept.pages.find(p => deptPageVisible(p.page)) || dept.pages[0]; }
-// A page "counts" toward department visibility only if it has a real nav item
-// that isn't gated off — pages without their own nav item (e.g. accounting) fall
-// through to the department's `probe`/`always` so they don't force the dept to show.
+// A page the current user may actually open: role-allowed AND not entitlement/flag hidden.
+function deptPageAllowed(p) { return deptRoleOk(p) && deptPageVisible(p.page); }
+function deptHomePage(dept) { return dept.pages.find(deptPageAllowed) || dept.pages.find(deptRoleOk) || dept.pages[0]; }
+// A page "counts" toward department visibility only if the user's role may see it AND
+// it has a real nav item that isn't gated off — pages without their own nav item
+// (e.g. accounting) fall through to the department's `probe`/`always`.
 function deptHasRealPage(dept) {
   return dept.pages.some(p => {
+    if (!deptRoleOk(p)) return false;
     const els = document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${p.page}"]`);
     return els.length && [...els].some(el => !el.classList.contains('hidden') && !el.classList.contains('ff-off'));
   });
 }
 function deptVisible(dept) {
+  if (!deptRoleOk(dept)) return false;   // role gate first (managers-only departments)
   if (dept.always) return true;
   if (deptHasRealPage(dept)) return true;
   if (dept.probe) { const el = document.querySelector(dept.probe); if (el && !el.classList.contains('hidden')) return true; }
@@ -4580,7 +4596,7 @@ function setupMobileMoreMenu() {
         if (!deptVisible(d)) return;
         const A = ENGINE_ACCENTS[d.accent] || ENGINE_ACCENTS.indigo;
         const svg = svgIcon(d.icon || 'dot', 'w-5 h-5');
-        const pages = d.pages.filter(p => deptPageVisible(p.page));
+        const pages = d.pages.filter(deptPageAllowed);
         const go = (p) => { close(); if (p && p.invmode) __inventoryMode = p.invmode; switchPage((p || d.pages[0]).page); };
         // Single-page department → one tappable row (matches the desktop dept button).
         if (pages.length <= 1) {
