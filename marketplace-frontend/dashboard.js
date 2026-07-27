@@ -1396,6 +1396,66 @@ function openLeaderboardOnDash() {
 }
 window.openLeaderboardOnDash = openLeaderboardOnDash;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Departments — the user-facing navigation unit. A department groups several
+// existing pages; when you're on one of its pages, the others appear as tabs
+// at the top of the content (renderDeptTabbar). Engines stay behind the wall:
+// a department's pages are quietly powered by whatever engines they need.
+// Single-workspace departments (Executive, admin) use the in-body 5-tab shell
+// instead; those pages are intentionally NOT listed here.
+// ═══════════════════════════════════════════════════════════════════════════
+const DEPARTMENTS = {
+  sales: {
+    label: 'Sales', icon: 'currency', accent: 'amber',
+    pages: [
+      { page: 'insights', label: 'Dashboard' },
+      { page: 'leads', label: 'Opportunities' },
+      { page: 'crm', label: 'Customers' },
+      { page: 'inventory', label: 'Inventory', invmode: 'manual' },
+      { page: 'delivery', label: 'Deliveries' },
+      { page: 'reports', label: 'Reports' },
+    ],
+  },
+};
+let __activeDept = null;
+// Is a page reachable for this user? Respect the per-item gating that product /
+// role / feature flags apply by toggling the `hidden` class on nav items.
+function deptPageVisible(pg) {
+  if (__staffAllowedPages && !__staffAllowedPages.has(pg)) return false;
+  const els = document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${pg}"]`);
+  if (!els.length) return true;   // no nav item (e.g. sub-view) — don't over-filter
+  return [...els].some(el => !el.classList.contains('hidden'));
+}
+function renderDeptTabbar(pageId) {
+  const bar = document.getElementById('dept-tabbar');
+  if (!bar) return;
+  const hide = () => { bar.classList.add('hidden'); bar.innerHTML = ''; };
+  if (__fbOnly) { __activeDept = null; return hide(); }   // stripped Facebook-only tier
+  // Sticky: keep the current department if it owns this page, else find the owner.
+  let deptId = (__activeDept && DEPARTMENTS[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
+             : Object.keys(DEPARTMENTS).find(d => DEPARTMENTS[d].pages.some(p => p.page === pageId));
+  if (!deptId) { __activeDept = null; return hide(); }
+  __activeDept = deptId;
+  const dept = DEPARTMENTS[deptId];
+  const pages = dept.pages.filter(p => deptPageVisible(p.page));
+  if (pages.length <= 1) return hide();   // nothing to move between → no tab-bar
+  const A = ENGINE_ACCENTS[dept.accent] || ENGINE_ACCENTS.indigo;
+  const tabs = pages.map(p => {
+    const on = p.page === pageId && (!p.invmode || p.invmode === __inventoryMode);
+    return `<button onclick="deptGo('${p.page}'${p.invmode ? `,'${p.invmode}'` : ''})" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition ${on ? A.text + ' border-current' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}">${esc(p.label)}</button>`;
+  }).join('');
+  bar.innerHTML = `
+    <div class="flex items-center gap-2 mb-1">
+      <span class="w-7 h-7 rounded-lg ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0">${svgIcon(dept.icon || 'dot', 'w-4 h-4')}</span>
+      <span class="text-sm font-black text-slate-900 dark:text-white">${esc(dept.label)}</span>
+    </div>
+    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">${tabs}</div>`;
+  bar.classList.remove('hidden');
+}
+// Navigate to a department page (handles the inventory view-mode tabs).
+function deptGo(page, invmode) { if (invmode) __inventoryMode = invmode; switchPage(page); }
+window.deptGo = deptGo;
+
 function switchPage(pageId) {
   ensurePanelsInOriginalLocations();
 
@@ -1507,6 +1567,7 @@ function switchPage(pageId) {
   if (pageId === 'owner-users') loadOwnerUsersPage();
   if (pageId === 'ai-inbox') loadAiInbox();
 
+  renderDeptTabbar(pageId);
 }
 
 // ── Trade Appraisal ──────────────────────────────────────────────────────────

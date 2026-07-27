@@ -1105,6 +1105,11 @@
            wrapper caps the readable content width so nothing sprawls edge-to-edge. -->
       <div class="w-full md:max-w-[1450px]">
 
+      <!-- Department tab-bar — when the active page belongs to a multi-page
+           department (Sales, Service, …), its sibling pages appear here as tabs.
+           Populated by renderDeptTabbar() in switchPage; hidden otherwise. -->
+      <div id="dept-tabbar" class="hidden mb-5"></div>
+
       <!-- Extension CTA — sits at the top of the dashboard (all pages) until dismissed.
            Dismissal is remembered forever (localStorage), then a compact "Install
            extension" button appears beside Tour in the header. -->
@@ -3395,7 +3400,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260727b"></script>
+  <script src="dashboard.js?v=20260727c"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
