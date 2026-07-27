@@ -12,6 +12,8 @@ import { getConfig } from './config-engine.js'
 import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '../chatGuard.js'
 import { runAutoResponder } from '../autoresponder.js'
 import { depositConfigForSite } from './deposits.js'
+import { toolDefs, callTool } from './tool-registry.js'
+import { startOrContinueConversation } from './ai-engine.js'
 
 const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
@@ -659,7 +661,9 @@ export function registerSite(app) {
 RULES:
 - Only discuss vehicles from the INVENTORY list. Never invent stock, prices, VINs, or specs. If something isn't listed, say you'll have an advisor confirm and offer to take their info.
 - Quote prices exactly as listed; if a unit shows "call for price", invite them to enquire.
-- When the shopper shows buying intent (a specific vehicle, financing, a test drive, a trade value), invite them to leave their name and phone/email so a product advisor can follow up, and end that message with the token [CAPTURE].
+- You have TOOLS — use them to actually do things, don't just describe them: search_inventory (available, pending, sold, or newly-arrived vehicles — never invent stock), dealership_info (hours, address, phone, financing, how many vehicles are in stock), calculate_payment, book_appointment (book a SALES test-drive/visit or a SERVICE appointment once you have their name + phone/email and a date/time — compute the ISO date-time from what they say), create_lead (capture them the moment you have a name + phone/email), save_memory, and request_human (pull in a real person — set department to sales, service or parts — for anything complicated, especially parts or tricky service bookings).
+- Talk like a real member of the team and carry the conversation naturally. Prefer completing the task (book it, capture them, hand off) over telling them to call.
+- If you need their contact info and haven't captured it yet, ask for their name + phone/email and end that message with the token [CAPTURE].
 - Keep it about ${d.name}. Don't mention other dealers or that you are an AI model. Today: ${new Date().toISOString().slice(0, 10)}.${instr ? `
 
 DEALER INSTRUCTIONS (how this dealership wants you to answer — follow these, but never break the RULES above):
@@ -676,20 +680,50 @@ ${facts}
 INVENTORY (${list.length} in stock):
 ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its vehicles, pricing, financing, trades, test drives, service, hours and location`, 'the inventory above, financing, trade-ins, booking a test drive or service visit, and the dealership\'s hours/location/contact')
 
+    // A conversation handle so the agentic tools (book_appointment, create_lead,
+    // request_human, save_memory) can persist to the CRM / timeline / AI Chat home.
+    // The visitor token is echoed back so follow-up turns continue the same thread.
+    const visitorToken = String(req.body?.visitor_token || '') || ('v_' + Math.random().toString(36).slice(2) + Date.now().toString(36))
+    let conversation = null
+    if (req.body?.conversation_id) {
+      const { data } = await supabaseAdmin.from('ai_conversations').select('*').eq('id', req.body.conversation_id).eq('dealership_id', d.id).maybeSingle()
+      conversation = data
+    }
+    if (!conversation) { try { conversation = await startOrContinueConversation(d.id, { visitorToken, website: `site:${slug}`, source: 'site' }) } catch {} }
+    const ctx = { dealershipId: d.id, conversation: conversation || { id: null }, contactRef: { id: conversation?.contact_id || null } }
+
     try {
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-      const response = await Promise.race([
-        anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, system, messages }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 20000)),
-      ])
-      let reply = (response?.content || []).filter(x => x.type === 'text').map(x => x.text).join('\n').trim()
-      const capture = /\[CAPTURE\]/i.test(reply)
+      const tools = toolDefs('sales_chat')
+      let reply = ''
+      // Agentic tool loop — the concierge can search inventory, look up store facts,
+      // book sales/service appointments, capture leads and hand off to a human.
+      for (let hop = 0; hop < 5; hop++) {
+        const resp = await Promise.race([
+          anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 600, system, tools, messages }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 22000)),
+        ])
+        const toolUses = (resp.content || []).filter(x => x.type === 'tool_use')
+        const textPart = (resp.content || []).filter(x => x.type === 'text').map(x => x.text).join('\n').trim()
+        if (textPart) reply = textPart
+        if (resp.stop_reason !== 'tool_use' || !toolUses.length) break
+        messages.push({ role: 'assistant', content: resp.content })
+        const results = []
+        for (const tu of toolUses) {
+          const out = await callTool(tu.name, tu.input || {}, ctx, { surface: 'sales_chat' })
+          results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out) })
+        }
+        messages.push({ role: 'user', content: results })
+      }
+      const captureTok = /\[CAPTURE\]/i.test(reply)
       reply = reply.replace(/\[CAPTURE\]/ig, '').trim()
-      if (!reply) return res.json({ reply: CHAT_FALLBACK, capture: true })
+      // Only show the lead form when we still need contact info (no lead captured yet).
+      const capture = captureTok && !ctx.contactRef.id
+      if (!reply) return res.json({ reply: CHAT_FALLBACK, capture: true, conversation_id: conversation?.id || null, visitor_token: visitorToken })
       recordUsage(d.id, { ai: 1 })
-      res.json({ reply, capture })
+      res.json({ reply, capture, conversation_id: conversation?.id || null, visitor_token: visitorToken })
     } catch (e) {
-      res.json({ reply: CHAT_FALLBACK, capture: true })
+      res.json({ reply: CHAT_FALLBACK, capture: true, conversation_id: conversation?.id || null, visitor_token: visitorToken })
     }
   })
 

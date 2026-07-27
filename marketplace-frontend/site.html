@@ -1020,8 +1020,10 @@
       inp.value=''; chatPush('me',text); CHAT_BUSY=true; chatTyping(true);
       try{
         const msgs=CHAT.filter(m=>m.who==='me'||m.who==='bot').slice(-8).map(m=>({role:m.who==='me'?'user':'assistant',content:m.text}));
-        const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs})});
+        const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,conversation_id:window.MS_CHAT_CONV||null,visitor_token:window.MS_CHAT_VTOK||null})});
         const d=await r.json().catch(()=>({}));
+        if(d.conversation_id) window.MS_CHAT_CONV=d.conversation_id;
+        if(d.visitor_token) window.MS_CHAT_VTOK=d.visitor_token;
         chatTyping(false);
         chatPush('bot',d.reply||"Sorry, I didn't catch that — could you rephrase?");
         if(d.capture&&!CHAT_CAPTURED) document.getElementById('ms-chat-capture').style.display='block';

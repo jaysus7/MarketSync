@@ -21,6 +21,7 @@ import { emitEvent } from './events.js'
 import { getConfig, setConfig } from './config-engine.js'
 import { getContact, findOrCreateContact } from './crm.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
+import { createNotification } from '../notifications.js'
 import { assistantDailyAllowed, recordAssistantChat, aiAllowed, recordUsage } from '../usage.js'
 import { rateLimit } from '../security.js'
 import {
@@ -39,19 +40,26 @@ const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const SALES_TOOLS = [
   {
     name: 'search_inventory',
-    description: "Search the dealership's live inventory. Use whenever the shopper asks about a vehicle, price, availability, or a body style. Only vehicles returned here exist — never invent stock.",
+    description: "Search the dealership's live inventory. Use whenever the shopper asks about a vehicle, price, availability, a body style, what's new in, or whether something sold. status: 'available' (default), 'pending' (sale in progress), 'sold' (recently sold), 'arriving' (newest arrivals), or 'any'. Only vehicles returned here exist — never invent stock or prices.",
     input_schema: { type: 'object', properties: {
       query: { type: 'string', description: 'make, model, body style, or keywords' },
       max_price: { type: 'number' }, min_year: { type: 'number' },
+      status: { type: 'string', description: "available | pending | sold | arriving | any" },
     } },
     async handler(a, ctx) {
-      let q = supabaseAdmin.from('inventory').select('id, year, make, model, trim, price, mileage, stock_number, vin, status, image_urls')
-        .eq('dealership_id', ctx.dealershipId).is('archived_at', null).neq('status', 'sold').limit(8)
+      const status = String(a.status || 'available').toLowerCase()
+      let q = supabaseAdmin.from('inventory')
+        .select('id, year, make, model, trim, price, mileage, stocknumber, vin, status, exterior_color, lot_date, created_at, sold_at')
+        .eq('dealership_id', ctx.dealershipId).is('archived_at', null).limit(8)
+      if (status === 'sold') q = q.eq('status', 'sold').order('sold_at', { ascending: false, nullsFirst: false })
+      else if (status === 'pending') q = q.eq('status', 'pending')
+      else if (status === 'arriving' || status === 'new') q = q.eq('status', 'available').order('lot_date', { ascending: false, nullsFirst: false })
+      else if (status !== 'any') q = q.eq('status', 'available')
       if (a.max_price) q = q.lte('price', a.max_price)
       if (a.min_year) q = q.gte('year', a.min_year)
       if (a.query) q = q.or(`make.ilike.%${a.query}%,model.ilike.%${a.query}%,trim.ilike.%${a.query}%`)
       const { data } = await q
-      return (data || []).map(v => ({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, price: v.price, mileage: v.mileage, stock: v.stock_number }))
+      return (data || []).map(v => ({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, price: v.price, mileage: v.mileage, stock: v.stocknumber, color: v.exterior_color, status: v.status }))
     },
   },
   {
@@ -107,13 +115,87 @@ const SALES_TOOLS = [
     },
   },
   {
-    name: 'request_human',
-    description: 'Hand the conversation to a human salesperson. Call when the shopper explicitly asks for a person, or is ready to buy/negotiate.',
-    input_schema: { type: 'object', properties: { reason: { type: 'string' } } },
+    name: 'book_appointment',
+    description: "Book an appointment for the customer — a SALES test-drive/visit or a SERVICE appointment. You need their name and a phone or email (capture it first if unknown) and the date/time. Compute when_iso as a full ISO 8601 timestamp from what they say and today's date. For complicated parts or service the assistant can't schedule, use request_human instead.",
+    input_schema: { type: 'object', properties: {
+      department: { type: 'string', description: "'sales' or 'service'" },
+      when_iso: { type: 'string', description: 'appointment date-time in ISO 8601' },
+      name: { type: 'string' }, phone: { type: 'string' }, email: { type: 'string' },
+      vehicle: { type: 'string', description: 'vehicle of interest, or the car to service' },
+      note: { type: 'string' },
+    }, required: ['department', 'when_iso'] },
     async handler(a, ctx) {
+      const dept = a.department === 'service' ? 'service' : 'sales'
+      const when = new Date(a.when_iso)
+      if (!a.when_iso || isNaN(when.getTime())) return { ok: false, reason: 'need_valid_time' }
+      let contactId = ctx.contactRef.id
+      if (!contactId) {
+        if (!a.name || (!a.phone && !a.email)) return { ok: false, reason: 'need_name_and_contact' }
+        contactId = await findOrCreateContact({ dealershipId: ctx.dealershipId, name: a.name, email: a.email, phone: a.phone, source: 'AI Chat' })
+        if (!contactId) return { ok: false }
+        ctx.contactRef.id = contactId
+        await supabaseAdmin.from('ai_conversations').update({ contact_id: contactId }).eq('id', ctx.conversation.id)
+        routeAndNotifyLead(ctx.dealershipId, { contactId, vehicleId: null, name: a.name, source: 'AI Chat' }).catch(() => {})
+      }
+      const label = dept === 'service' ? 'Service' : 'Sales'
+      const title = `${label} appointment${a.vehicle ? ' — ' + String(a.vehicle).slice(0, 80) : ''}${a.note ? ' · ' + String(a.note).slice(0, 120) : ''}`
+      const { data: task, error } = await supabaseAdmin.from('crm_tasks').insert({
+        dealership_id: ctx.dealershipId, contact_id: contactId, type: 'appointment', category: dept,
+        title, due_at: when.toISOString(),
+      }).select('id').maybeSingle()
+      if (error) return { ok: false, reason: 'could_not_book' }
+      if (dept === 'service') supabaseAdmin.from('contacts').update({ service_customer: true }).eq('id', contactId).then(() => {}, () => {})
+      emitEvent({ dealershipId: ctx.dealershipId, eventName: 'appointment.booked', entityType: 'customer', entityId: contactId, summary: `AI booked a ${dept} appointment for ${when.toLocaleString('en-US')}`, department: label, payload: { conversation_id: ctx.conversation.id, when: when.toISOString(), task_id: task?.id || null } })
+      createNotification({ dealershipId: ctx.dealershipId, type: 'appointment', title: `📅 New ${label} appointment (AI chat)`, body: `${when.toLocaleString('en-US')} — booked by your website assistant.`, linkPage: dept === 'service' ? 'service-appointments' : 'appointments' }).catch(() => {})
+      return { ok: true, department: dept, when: when.toISOString() }
+    },
+  },
+  {
+    name: 'dealership_info',
+    description: "Get the dealership's key facts: hours, address, phone, financing/specials, the departments you can help with, and a quick inventory snapshot (available, new arrivals, recently sold). Use for 'are you open', 'where are you', 'what's your number', 'how many trucks do you have', 'anything new in'.",
+    input_schema: { type: 'object', properties: {} },
+    async handler(a, ctx) {
+      const [{ data: d }, kb] = await Promise.all([
+        supabaseAdmin.from('dealerships').select('name, phone, street_address, city, province').eq('id', ctx.dealershipId).maybeSingle(),
+        getConfig(ctx.dealershipId, 'ai_knowledge', {}),
+      ])
+      const now = Date.now()
+      const { data: inv } = await supabaseAdmin.from('inventory').select('status, lot_date, created_at, sold_at').eq('dealership_id', ctx.dealershipId).is('archived_at', null).limit(5000)
+      const list = inv || []
+      const avail = list.filter(v => v.status === 'available')
+      return {
+        name: d?.name || null,
+        phone: d?.phone || null,
+        address: [d?.street_address, d?.city, d?.province].filter(Boolean).join(', ') || null,
+        hours: kb?.hours || null, financing: kb?.financing || null, specials: kb?.specials || null,
+        departments: ['Sales', 'Service', 'Parts'],
+        inventory: {
+          available: avail.length,
+          pending: list.filter(v => v.status === 'pending').length,
+          new_arrivals_14d: avail.filter(v => (v.lot_date || v.created_at) && (now - new Date(v.lot_date || v.created_at)) < 14 * 86400000).length,
+          sold_last_30d: list.filter(v => v.status === 'sold' && v.sold_at && (now - new Date(v.sold_at)) < 30 * 86400000).length,
+        },
+      }
+    },
+  },
+  {
+    name: 'request_human',
+    description: "Hand off to a real person on the team. Use when the shopper asks for a human, is ready to buy/negotiate, or has a complicated PARTS or SERVICE need you can't schedule yourself. Set department to 'sales', 'service' or 'parts'. Pass name/phone/email if you have them so the team can call back.",
+    input_schema: { type: 'object', properties: {
+      department: { type: 'string', description: "'sales' | 'service' | 'parts'" },
+      reason: { type: 'string' }, name: { type: 'string' }, phone: { type: 'string' }, email: { type: 'string' },
+    } },
+    async handler(a, ctx) {
+      const dept = ['service', 'parts'].includes(a.department) ? a.department : 'sales'
+      const label = dept === 'parts' ? 'Parts' : dept === 'service' ? 'Service' : 'Sales'
+      if (!ctx.contactRef.id && a.name && (a.phone || a.email)) {
+        const cid = await findOrCreateContact({ dealershipId: ctx.dealershipId, name: a.name, email: a.email, phone: a.phone, source: 'AI Chat' })
+        if (cid) { ctx.contactRef.id = cid; await supabaseAdmin.from('ai_conversations').update({ contact_id: cid }).eq('id', ctx.conversation.id) }
+      }
       await supabaseAdmin.from('ai_conversations').update({ status: 'handoff' }).eq('id', ctx.conversation.id)
-      emitEvent({ dealershipId: ctx.dealershipId, eventName: 'ai.handoff_requested', entityType: ctx.contactRef.id ? 'customer' : 'conversation', entityId: ctx.contactRef.id || ctx.conversation.id, summary: `Customer asked for a human${a.reason ? ' — ' + a.reason : ''}`, department: 'Sales', payload: { conversation_id: ctx.conversation.id } })
-      return { ok: true }
+      emitEvent({ dealershipId: ctx.dealershipId, eventName: 'ai.handoff_requested', entityType: ctx.contactRef.id ? 'customer' : 'conversation', entityId: ctx.contactRef.id || ctx.conversation.id, summary: `${label} help requested${a.reason ? ' — ' + a.reason : ''}`, department: label, payload: { conversation_id: ctx.conversation.id, department: dept } })
+      createNotification({ dealershipId: ctx.dealershipId, type: 'handoff', title: `🙋 ${label} help needed (AI chat)`, body: a.reason ? String(a.reason).slice(0, 160) : 'A website visitor asked for a human.', linkPage: 'crm' }).catch(() => {})
+      return { ok: true, department: dept }
     },
   },
 ]
@@ -155,7 +237,7 @@ async function rescoreLead(ctx, messages, memory) {
 
 // ── System prompt (grounded in dealer + config personality) ──────────────────
 async function buildSystem(dealershipId, ctx, contextBundle) {
-  const { data: d } = await supabaseAdmin.from('dealerships').select('name, city, province, country').eq('id', dealershipId).maybeSingle()
+  const { data: d } = await supabaseAdmin.from('dealerships').select('name, city, province, country, phone, street_address').eq('id', dealershipId).maybeSingle()
   const persona = await getConfig(dealershipId, 'ai_personality', {})
   const kb = await getConfig(dealershipId, 'ai_knowledge', {})
   const mem = (contextBundle.memory || []).map(m => `- ${m.memory_type}: ${m.value}`).join('\n')
@@ -166,12 +248,40 @@ async function buildSystem(dealershipId, ctx, contextBundle) {
     kb?.trade_in && `Trade-ins: ${kb.trade_in}`, kb?.specials && `Current specials: ${kb.specials}`,
     kb?.policies && `Policies: ${kb.policies}`,
   ].filter(Boolean).join('\n')
-  return `You are the AI sales concierge for ${d?.name || 'the dealership'}${d?.city ? ' in ' + d.city : ''}. ${persona?.tone ? 'Tone: ' + persona.tone + '.' : 'Be warm, concise, never pushy.'}
-Help the shopper find a vehicle, answer from live inventory (use search_inventory — never invent stock or prices), and move them toward a test drive, financing, or a trade value.
-As soon as they share a name + phone/email, call create_lead. Remember durable facts with save_memory. If they want a human or are ready to negotiate, call request_human. Keep replies to 2–4 sentences.
+  const contact = [
+    d?.phone && `Phone: ${d.phone}`,
+    (d?.street_address || d?.city) && `Address: ${[d.street_address, d.city, d.province].filter(Boolean).join(', ')}`,
+  ].filter(Boolean).join('\n')
+  // Team roster (first names) so the assistant can speak to who's on staff.
+  let team = ''
+  try {
+    const { data: reps } = await supabaseAdmin.from('profiles').select('full_name, display_name').eq('dealership_id', dealershipId).limit(40)
+    const names = (reps || []).map(r => String(r.display_name || r.full_name || '').trim().split(/\s+/)[0]).filter(Boolean)
+    if (names.length) team = `On our team: ${[...new Set(names)].slice(0, 12).join(', ')}.`
+  } catch {}
+  // A quick live inventory pulse so it can answer "how big is your lot / anything new" instantly.
+  let invLine = ''
+  try {
+    const now = Date.now()
+    const { data: inv } = await supabaseAdmin.from('inventory').select('status, lot_date, created_at').eq('dealership_id', dealershipId).is('archived_at', null).limit(5000)
+    const list = inv || []; const avail = list.filter(v => v.status === 'available')
+    const arrivals = avail.filter(v => (v.lot_date || v.created_at) && (now - new Date(v.lot_date || v.created_at)) < 14 * 86400000).length
+    invLine = `Inventory right now: ${avail.length} available${arrivals ? `, ${arrivals} new in the last 2 weeks` : ''}. Use search_inventory for the actual vehicles.`
+  } catch {}
+  return `You are the AI concierge for ${d?.name || 'the dealership'}${d?.city ? ' in ' + d.city : ''} — talk like a friendly, sharp human on the team, not a bot. ${persona?.tone ? 'Tone: ' + persona.tone + '.' : 'Warm, natural and concise; never pushy or robotic.'}
+You genuinely help with everything and complete tasks rather than just describing them:
+- Find the right vehicle from LIVE inventory (search_inventory — covers what's available, pending, newly arrived, and recently sold; never invent stock or prices).
+- Answer hours / location / phone / financing / specials and how big the lot is (dealership_info).
+- Book SALES test-drives/visits and SERVICE appointments (book_appointment — get their name + phone/email and the date/time, then actually book it and confirm).
+- Estimate payments (calculate_payment) and take trade info.
+- Pull in a real person for anything complicated — especially parts or tricky service (request_human with the right department: sales, service or parts).
+Capture the shopper as a lead (create_lead) the moment you have a name + phone/email. Remember durable facts (save_memory). Ask one question at a time, keep replies to a couple of natural sentences, and carry the conversation like a real person would.
+${contact ? '\n' + contact : ''}
 ${kbLines ? `\nDealership info (answer from this, don't invent):\n${kbLines}` : ''}
+${invLine ? '\n' + invLine : ''}
+${team ? '\n' + team : ''}
 ${profile}${mem ? `\nWhat we remember about them:\n${mem}` : ''}
-Today: ${new Date().toISOString().slice(0, 10)}.`
+When booking, compute the exact ISO 8601 date-time from what they say relative to today. Today: ${new Date().toISOString().slice(0, 10)}.`
 }
 
 // ── The chat runtime — persist, assemble, agentic tool loop, score ───────────
