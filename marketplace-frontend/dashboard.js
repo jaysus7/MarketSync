@@ -3976,7 +3976,8 @@ async function crmSaveContact(btn, id) {
 function crmTaskTypeMeta(type) {
   if (type === 'lead_followup') return { label: 'New lead', border: 'border-orange-500', badge: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300' };
   if (type === 'delivery_followup') return { label: 'Delivery', border: 'border-emerald-500', badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' };
-  return { label: type || 'follow-up', border: 'border-slate-200 dark:border-slate-700', badge: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' };
+  if (type === 'appointment') return { label: 'Appointment', border: 'border-violet-500', badge: 'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300' };
+  return { label: 'Follow-up', border: 'border-sky-500', badge: 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300' };
 }
 async function crmLoadTasks() {
   const body = document.getElementById('tasks-root');
@@ -3989,10 +3990,12 @@ async function crmLoadTasks() {
     if (!el) return;   // user navigated away mid-fetch
     if (!tasks.length) { el.className = ''; el.innerHTML = '<div class="py-16 text-center text-sm text-slate-400">No open tasks. Add follow-ups from a contact.</div>'; return; }
     el.className = '';
-    // Legend for the two automated task journeys.
+    // Legend for the task journeys shown here.
     const legend = `<div class="flex flex-wrap items-center gap-3 mb-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
       <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>New-lead follow-up</span>
+      <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span>Follow-up</span>
       <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>Delivery follow-up</span>
+      <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-violet-500"></span>Appointment</span>
     </div>`;
     el.innerHTML = legend + `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl divide-y divide-slate-100 dark:divide-slate-800">
       ${tasks.map(t => {
