@@ -3262,7 +3262,7 @@ function crmVehicleCards(c, d) {
       <div class="text-[10px] font-black uppercase tracking-wider text-amber-500 mb-1 flex items-center gap-1">${svgIcon('tag', 'w-3.5 h-3.5')}Trade-in</div>
       <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(label || 'Trade vehicle')}</div>
       ${sub ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(sub)}</div>` : ''}
-      ${(tv.appraisal_id && SALES_ROLES.includes(profileContext?.role)) ? `<button onclick="switchPage('appraisal')" class="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200">View appraisal</button>` : ''}
+      ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="switchPage('appraisal')" class="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200">${tv.appraisal_id ? 'View appraisal' : 'Appraise car'}</button>` : ''}
     </div>`);
   }
   if (!cards.length) return '';
