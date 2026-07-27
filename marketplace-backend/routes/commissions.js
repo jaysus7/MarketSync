@@ -435,6 +435,37 @@ export function registerCommissions(app) {
     res.json({ ok: true, ...(await repSummary(req.dealershipId, req.user.id, req.query.month || null)) })
   })
 
+  // Live estimate for the deal desk: given the current draft (selling price, cost,
+  // F&I items, and who's on the deal), return what the front/back/spiff commission
+  // WOULD be under the applicable plan — without saving anything. Powers the desk's
+  // auto-filled "Vehicle commission" / "F&I commission" fields. Returns has_plan:false
+  // (not an error) when the store hasn't set up a plan yet, so the desk stays manual.
+  app.post('/commissions/preview', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const b = req.body || {}
+    const salespersonId = b.rep_id || req.user?.id || null
+    const plan = await planForDeal(req.dealershipId, salespersonId)
+    if (!plan) return res.json({ ok: true, has_plan: false })
+    const fniItems = Array.isArray(b.fni_items)
+      ? b.fni_items.map(x => ({ price: n(x?.price) })).filter(x => x.price)
+      : []
+    const deal = { selling_price: n(b.selling_price), cost: b.cost, fni_items: fniItems }
+    const calc = computeCommission(deal, plan.config, null)
+    // Where does the back-end commission land? If an F&I manager is set and the plan
+    // pays them, the salesperson's F&I field shows 0 (it's the manager's line).
+    const backTo = plan.config?.back_to || 'salesperson'
+    const fniMgrId = (b.fni_manager_id && b.fni_manager_id !== salespersonId) ? b.fni_manager_id : null
+    let salesBack = calc.back_amount
+    if (fniMgrId && backTo === 'fni_manager') salesBack = 0
+    else if (fniMgrId && backTo === 'split') { const p = Math.min(100, Math.max(0, n(plan.config?.back_fni_pct))); salesBack = round2(calc.back_amount - round2(calc.back_amount * p / 100)) }
+    res.json({
+      ok: true, has_plan: true,
+      vehicle_commission: round2(calc.front_amount + calc.spiff_amount),
+      fni_commission: salesBack,
+      breakdown: calc.breakdown,
+    })
+  })
+
   // A specific rep (managers).
   app.get('/commissions/rep/:repId', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })

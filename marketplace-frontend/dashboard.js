@@ -5847,6 +5847,8 @@ let __deskCustomerNumber = null;  // per-dealership customer #
 let __deskSalesperson = null;     // { name, registration_id } — the rep on this deal
 let __deskAddons = [], __deskFni = [], __deskFees = [];
 let __deskSearchTimer = null, __deskVehTimer = null;
+let __deskCommTouched = false;    // rep manually edited a commission field → stop auto-filling
+let __deskCommTimer = null;       // debounce the commission-preview call
 
 const DESK_DEFAULT_APR = 9.99;   // auto-filled rate (editable); financing is stored, not submitted
 const deskM = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -6013,6 +6015,7 @@ const DESK_FNI_ROLES = ['FNI', 'DEALER_ADMIN', 'OWNER', 'MANAGER'];
 function deskRenderForm(contactId) {
   const wrap = document.getElementById('desk-form');
   if (!wrap) return;
+  __deskCommTouched = false;   // fresh render — let the plan auto-fill commission again
   const d = __deskDeal || {};
   const b = __deskBuyer || {};
   const veh = d.vehicle || {};
@@ -6133,8 +6136,8 @@ function deskRenderForm(contactId) {
             ${fld('Delivery date', txt('dk-delivery_date', d.delivery_date, '', 'date'))}
             ${fld('Delivery time', txt('dk-delivery_time', d.delivery_time, '', 'time'))}
             ${fld('Plates', `<select id="dk-plates" class="${iCls}"><option value="">—</option>${['New', 'Transfer'].map(o => `<option ${d.plates === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}
-            ${fld('Vehicle commission <span class="normal-case font-normal text-slate-400">(auto from the plan)</span>', txt('dk-vehicle_commission', d.vehicle_commission, '0', 'number'))}
-            ${fld('F&amp;I commission <span class="normal-case font-normal text-slate-400">(auto from the plan)</span>', txt('dk-fni_commission', d.fni_commission, '0', 'number'))}
+            ${fld('Vehicle commission <span class="normal-case font-normal text-slate-400">(auto from the plan)</span>', `<input id="dk-vehicle_commission" type="number" value="${d.vehicle_commission == null ? '' : d.vehicle_commission}" placeholder="0" oninput="deskCommTouch()" class="${iCls}">`)}
+            ${fld('F&amp;I commission <span class="normal-case font-normal text-slate-400">(auto from the plan)</span>', `<input id="dk-fni_commission" type="number" value="${d.fni_commission == null ? '' : d.fni_commission}" placeholder="0" oninput="deskCommTouch()" class="${iCls}">`)}
             ${fld('Split with', deskRepSelect('dk-split_rep_id', d.split_rep_id, '— none —'))}
             ${fld('Split % to co-rep <span class="normal-case font-normal text-slate-400">(their share of the sales commission)</span>', txt('dk-split_pct', d.split_pct != null ? d.split_pct : 50, '50', 'number'))}
             <div class="col-span-2 grid grid-cols-2 gap-2 pt-1">
@@ -6902,7 +6905,35 @@ function deskRenderSummary() {
       <div class="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-bold">Due on delivery</div><div class="font-black text-emerald-700 dark:text-emerald-300">${deskM(c.dueOnDelivery)}</div></div>
     </div>
     <p class="text-[10px] text-slate-400 mt-2 leading-snug">Estimate only, on approved credit. Rate is an example, not a lender commitment. Tax auto-filled from the selected jurisdiction (U.S. = state base rate — add local/county rate); verify vehicle-specific rates and trade-in rules before contract.</p>`;
+  deskScheduleCommPreview();
 }
+// The rep touched a commission field → respect the manual number, stop auto-filling.
+function deskCommTouch() { __deskCommTouched = true; }
+window.deskCommTouch = deskCommTouch;
+// Debounced live commission estimate. Asks the backend what the plan would pay on
+// the current draft and drops it into the Vehicle/F&I commission fields — unless the
+// rep has manually overridden them. Silent no-op when the store has no plan.
+function deskScheduleCommPreview() {
+  clearTimeout(__deskCommTimer);
+  __deskCommTimer = setTimeout(deskPreviewCommission, 500);
+}
+async function deskPreviewCommission() {
+  if (__deskCommTouched) return;
+  const veh = document.getElementById('dk-vehicle_commission');
+  const fni = document.getElementById('dk-fni_commission');
+  if (!veh && !fni) return;
+  const d = deskCollect(null);
+  try {
+    const r = await apiSendJson('/commissions/preview', 'POST', {
+      selling_price: d.selling_price, cost: d.cost,
+      fni_items: d.fni_items, fni_manager_id: d.fni_manager_id,
+    });
+    if (!r?.has_plan || __deskCommTouched) return;   // re-check: rep may have typed while we waited
+    if (veh) veh.value = r.vehicle_commission != null ? r.vehicle_commission : '';
+    if (fni) fni.value = r.fni_commission != null ? r.fni_commission : '';
+  } catch {}
+}
+window.deskPreviewCommission = deskPreviewCommission;
 // Retail/MSRP → Selling price: keep the selling-price input in sync as the manager
 // types Retail, before-tax rebate or adjustment (matches a DMS deal screen).
 function deskPriceRecalc() {
