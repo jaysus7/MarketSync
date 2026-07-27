@@ -8346,40 +8346,9 @@ window.acctFinForecast = acctFinForecast; window.acctFinPeriods = acctFinPeriods
 window.acctLoadFinancials = acctLoadFinancials;
 
 // ── Affiliates admin (MarketSync owner) ──────────────────────────────────────
-async function loadAffiliatesAdmin() {
-  const root = document.getElementById('affadmin-root'); if (!root) return;
-  root.innerHTML = '<div class="text-sm text-slate-400">Loading…</div>';
-  try {
-    const d = await apiGetJson('/affiliate/admin/list');
-    const t = d.totals || {};
-    const badge = (s) => `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${s === 'active' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'bg-rose-100 dark:bg-rose-950/40 text-rose-600'}">${esc(s)}</span>`;
-    const rows = (d.affiliates || []).map(a => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
-      <td class="px-3 py-2"><div class="font-semibold">${esc(a.name || a.email)}</div><div class="text-[11px] text-slate-400">${esc(a.email)} · <span class="font-mono">${esc(a.code)}</span></div></td>
-      <td class="px-3 py-2 text-center">${a.referrals} <span class="text-slate-400">/ ${a.active} paying</span></td>
-      <td class="px-3 py-2 text-center">${a.rate_pct}% · ${Number(a.rate_months) > 0 ? a.rate_months + 'mo' : 'life'}</td>
-      <td class="px-3 py-2 text-right text-amber-600 dark:text-amber-400">${commMoney(a.pending)}</td>
-      <td class="px-3 py-2 text-right text-emerald-600 dark:text-emerald-400">${commMoney(a.paid)}</td>
-      <td class="px-3 py-2 text-center">${badge(a.status)}</td>
-      <td class="px-3 py-2 text-right whitespace-nowrap">
-        <button onclick='affAdminEdit(${JSON.stringify(a)})' class="text-xs font-bold text-indigo-600 hover:text-indigo-500">Edit</button>
-        ${a.pending > 0 ? `<button onclick="affAdminPay('${a.id}', ${a.pending})" class="text-xs font-bold text-emerald-600 hover:text-emerald-500 ml-2">Pay out</button>` : ''}
-      </td></tr>`).join('');
-    root.innerHTML = `
-      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Affiliates</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Manage your referral partners, their rates, and payouts. Affiliates sign up at <a href="affiliates.html" target="_blank" class="text-indigo-600 dark:text-indigo-400 hover:underline">marketsync.link/affiliates</a>.</p></div>
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Affiliates</div><div class="text-2xl font-black mt-1">${t.affiliates || 0}</div></div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Referrals</div><div class="text-2xl font-black mt-1">${t.referrals || 0}</div></div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Paying</div><div class="text-2xl font-black mt-1 text-emerald-600 dark:text-emerald-400">${t.active || 0}</div></div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Owed (pending)</div><div class="text-2xl font-black mt-1 text-amber-600 dark:text-amber-400">${commMoney(t.pending)}</div></div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Paid out</div><div class="text-2xl font-black mt-1">${commMoney(t.paid)}</div></div>
-      </div>
-      <div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
-        <table class="w-full text-sm min-w-[760px]"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">
-          <th class="px-3 py-2">Affiliate</th><th class="px-3 py-2 text-center">Referrals</th><th class="px-3 py-2 text-center">Rate</th><th class="px-3 py-2 text-right">Pending</th><th class="px-3 py-2 text-right">Paid</th><th class="px-3 py-2 text-center">Status</th><th class="px-3 py-2"></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-400">No affiliates yet. Share the program page to get your first partners.</td></tr>'}</tbody></table></div>`;
-  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load affiliates.')}</div>`; }
-}
+// Affiliates admin renders through the Engine Shell (registered after the shell
+// framework loads, below). This thin wrapper is what switchPage calls.
+function loadAffiliatesAdmin() { renderEngine('affiliates-admin'); }
 function affAdminEdit(a) {
   crmOverlay(`<div class="p-5 space-y-3">
     <div class="text-lg font-black text-slate-900 dark:text-white">${esc(a.name || a.email)}</div>
@@ -9271,76 +9240,238 @@ async function aiHomeSavePersonality() {
 }
 Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality });
 
-// ══ MarketSync HQ — SaaS Command Center (revenue-first company OS home) ═══════
-async function loadSaasCommand() {
-  const root = document.getElementById('saas-command-root');
-  if (!root) return;
-  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading MarketSync HQ…</div>`;
-  let d;
-  try { d = await apiGetJson('/saas/overview'); }
-  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
-  const money0 = (v) => '$' + Math.round(Number(v) || 0).toLocaleString();
-  const card = (label, val, accent) => `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4">
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
-      <div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${val}</div>
-    </div>`;
-  const trials = (d.trials || []).map(t => {
-    const prods = Object.keys(t.products || {}).filter(k => t.products[k]).length;
-    const warn = t.days_left != null && t.days_left <= 5;
-    return `<button onclick="switchPage('owner-users')" class="w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
-      <span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(t.name || 'Account')}</span>
-      <span class="text-[12px] ${warn ? 'text-rose-500 font-bold' : 'text-slate-400'} whitespace-nowrap">${t.days_left == null ? 'trial' : t.days_left + 'd left'} · ${prods} product${prods === 1 ? '' : 's'}</span>
-    </button>`;
-  }).join('') || '<div class="text-sm text-slate-400 py-4 text-center">No active trials.</div>';
-  const top = (d.top_accounts || []).map(a => `<div class="flex items-center justify-between text-sm py-1.5 border-t border-slate-100 dark:border-slate-800/60"><span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(a.name || 'Account')}</span><span class="font-bold text-slate-800 dark:text-slate-100">${money0(a.mrr)}/mo</span></div>`).join('') || '<div class="text-sm text-slate-400 py-2">No paying accounts yet.</div>';
-  root.innerHTML = `
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">MarketSync HQ</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Your SaaS command center — revenue, trials, and account health.</p></div>
-      <div class="flex gap-2">
-        <button onclick="switchPage('saas-customers')" class="px-3 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold transition">Pipeline →</button>
-        <button onclick="switchPage('owner-users')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-200">All accounts →</button>
-        <button onclick="loadSaasCommand()" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200">Refresh</button>
-      </div>
-    </div>
-    <div>
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Revenue</div>
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        ${card('MRR', money0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
-        ${card('ARR', money0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
-        ${card('Active Customers', (d.active_customers || 0).toLocaleString())}
-        ${card('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
-        ${card('Churn Risk', (d.churn_risk || 0).toLocaleString(), (d.churn_risk ? 'text-rose-600 dark:text-rose-400' : ''))}
-        ${card('New This Month', (d.new_this_month || 0).toLocaleString())}
-      </div>
-      <div class="text-[11px] text-slate-400 mt-1">MRR estimated from product entitlements across ${d.total_accounts || 0} accounts.</div>
-    </div>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <div>
-        <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Trials — closest to expiry</div>
-        <div class="space-y-1.5">${trials}</div>
-      </div>
-      <div>
-        <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Top accounts by MRR</div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2">${top}</div>
-      </div>
-    </div>`;
+// ═══════════════════════════════════════════════════════════════════════════
+// Engine UI Framework — every engine renders inside one reusable shell that
+// enforces the 3-second-rule layout:
+//   ┌ header (icon · title · Refresh) ────────────────────────────────────┐
+//   │ tab bar:  Overview · Work · Insights · Automation · Settings         │
+//   │ ┌ body (active tab's workspace) ──────────┐ ┌ right rail ──────────┐ │
+//   │ │  what needs attention / what's happening│ │ AI · Next · Quick    │ │
+//   │ └─────────────────────────────────────────┘ └──────────────────────┘ │
+//   └─────────────────────────────────────────────────────────────────────┘
+// Engines declare WHAT each tab shows (a render fn); the shell owns the chrome.
+// ═══════════════════════════════════════════════════════════════════════════
+const ENGINE_TAB_ORDER = ['overview', 'work', 'insights', 'automation', 'settings'];
+const ENGINE_TAB_LABEL = { overview: 'Overview', work: 'Work', insights: 'Insights', automation: 'Automation', settings: 'Settings' };
+const ENGINE_ACCENTS = {
+  fuchsia: { text: 'text-fuchsia-600 dark:text-fuchsia-400', bg: 'bg-fuchsia-50 dark:bg-fuchsia-950/40', solid: 'bg-fuchsia-600 hover:bg-fuchsia-500' },
+  indigo:  { text: 'text-indigo-600 dark:text-indigo-400',   bg: 'bg-indigo-50 dark:bg-indigo-950/40',   solid: 'bg-indigo-600 hover:bg-indigo-500' },
+  sky:     { text: 'text-sky-600 dark:text-sky-400',         bg: 'bg-sky-50 dark:bg-sky-950/40',         solid: 'bg-sky-600 hover:bg-sky-500' },
+  emerald: { text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', solid: 'bg-emerald-600 hover:bg-emerald-500' },
+  amber:   { text: 'text-amber-600 dark:text-amber-400',     bg: 'bg-amber-50 dark:bg-amber-950/40',     solid: 'bg-amber-600 hover:bg-amber-500' },
+};
+const ENGINES = {};                 // engineId -> config (registered below)
+const ENGINE_STATE = {};            // engineId -> active tab id
+const ENGINE_DATA = {};             // engineId -> memoized fetch result
+
+// Shared building blocks so every engine's tabs look identical.
+function engKpi(label, val, tone) {
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3.5">
+    <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
+    <div class="text-2xl font-black mt-1 ${tone || 'text-slate-800 dark:text-slate-100'}">${val}</div>
+  </div>`;
 }
+function engCard(title, inner, extra) {
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 ${extra || ''}">
+    ${title ? `<div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">${esc(title)}</div>` : ''}${inner}</div>`;
+}
+function engEmpty(msg) { return `<div class="text-sm text-slate-400 py-8 text-center">${esc(msg)}</div>`; }
+function engBar(segments) {   // segments: [{pct,cls,label}]
+  const bar = segments.filter(s => s.pct > 0).map(s => `<div class="${s.cls}" style="width:${s.pct}%" title="${esc(s.label || '')}"></div>`).join('');
+  const legend = segments.map(s => `<span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400"><span class="w-2 h-2 rounded-full ${s.cls}"></span>${esc(s.label)}</span>`).join('');
+  return `<div class="h-2.5 rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-800">${bar}</div><div class="flex flex-wrap gap-x-3 gap-y-1 mt-2">${legend}</div>`;
+}
+
+async function engineData(engineId, force) {
+  const eng = ENGINES[engineId];
+  if (!eng || !eng.fetch) return null;
+  if (!force && ENGINE_DATA[engineId] !== undefined) return ENGINE_DATA[engineId];
+  ENGINE_DATA[engineId] = await eng.fetch();
+  return ENGINE_DATA[engineId];
+}
+
+// Switch to a tab within an engine (re-uses cached data unless `force`).
+async function engineTab(engineId, tab, force) {
+  const eng = ENGINES[engineId]; if (!eng) return;
+  ENGINE_STATE[engineId] = tab;
+  document.querySelectorAll(`[data-engine-tabbar="${engineId}"] [data-engine-tab]`).forEach(b => {
+    const on = b.dataset.engineTab === tab;
+    b.classList.toggle('border-current', on);
+    b.classList.toggle('text-slate-900', on);
+    b.classList.toggle('dark:text-white', on);
+    b.classList.toggle('border-transparent', !on);
+    b.classList.toggle('text-slate-400', !on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  const body = document.querySelector(`[data-engine-body="${engineId}"]`);
+  if (!body) return;
+  body.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading…</div>`;
+  try {
+    const d = await engineData(engineId, force);
+    await eng.tabs[tab]?.(body, d, eng);
+    const rail = document.querySelector(`[data-engine-rail="${engineId}"]`);
+    if (rail) rail.innerHTML = engineRail(eng, d);
+  } catch (e) {
+    body.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e?.message || e)}</div>`;
+  }
+}
+window.engineTab = engineTab;
+
+// Persistent right rail — AI Assistant · Next Actions · Quick Actions. Engines
+// supply nextActions(d)/quickActions; the rail owns the chrome. Only real,
+// wired actions are shown (no fabricated timelines).
+function engineRail(eng, d) {
+  const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
+  const sec = (title, icon, inner) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
+    <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-slate-400 mb-2">${svgIcon(icon, 'w-3.5 h-3.5')}${esc(title)}</div>${inner}</div>`;
+  const ai = sec('AI Assistant', 'sparkles',
+    `<p class="text-[12px] text-slate-500 dark:text-slate-400 mb-2">Ask about ${esc(eng.title)} — trends, next steps, anything.</p>
+     <button onclick="switchPage('ai-home')" class="w-full text-[13px] font-bold ${A.solid} text-white rounded-lg px-3 py-1.5 transition">Ask AI</button>`);
+  const na = (eng.nextActions ? eng.nextActions(d) : []) || [];
+  const naHtml = na.length
+    ? na.map(a => `<button onclick="${a.onclick || ''}" class="w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <span class="mt-0.5 ${a.tone || 'text-slate-400'}">${svgIcon(a.icon || 'chevronRight', 'w-3.5 h-3.5')}</span>
+        <span class="text-[12px] font-semibold text-slate-700 dark:text-slate-200">${esc(a.label)}</span></button>`).join('')
+    : `<div class="text-[12px] text-slate-400">Nothing needs attention.</div>`;
+  const qa = (eng.quickActions || []).map(q =>
+    `<button onclick="${q.onclick}" class="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${svgIcon(q.icon || 'bolt', 'w-3.5 h-3.5 ' + A.text)}${esc(q.label)}</button>`
+  ).join('') || '<div class="text-[12px] text-slate-400">—</div>';
+  return ai + sec('Next Actions', 'check', naHtml) + sec('Quick Actions', 'bolt', qa);
+}
+
+// Build the engine shell frame into its root, then render the active tab.
+function renderEngine(engineId) {
+  const eng = ENGINES[engineId]; if (!eng) return;
+  const root = document.getElementById(eng.rootId); if (!root) return;
+  const tab = ENGINE_STATE[engineId] || 'overview';
+  const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
+  const tabBtn = (t) => `<button data-engine-tab="${t}" role="tab" onclick="engineTab('${engineId}','${t}')"
+    class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 ${A.text}">${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</button>`;
+  root.innerHTML = `
+    <div class="flex items-start justify-between flex-wrap gap-3 mb-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0">${svgIcon(eng.icon || 'chart', 'w-5 h-5')}</div>
+        <div>
+          <h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">${esc(eng.title)}</h1>
+          <p class="text-[13px] text-slate-500 dark:text-slate-400">${esc(eng.subtitle || '')}</p>
+        </div>
+      </div>
+      <button onclick="renderEngine('${engineId}')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition">${svgIcon('refresh', 'w-3.5 h-3.5')}Refresh</button>
+    </div>
+    <div data-engine-tabbar="${engineId}" role="tablist" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
+      ${ENGINE_TAB_ORDER.map(tabBtn).join('')}
+    </div>
+    <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-5 items-start">
+      <div data-engine-body="${engineId}" class="min-w-0 space-y-5"></div>
+      <aside data-engine-rail="${engineId}" class="space-y-3 xl:sticky xl:top-4"></aside>
+    </div>`;
+  engineTab(engineId, tab, true);   // full render always refetches
+}
+window.renderEngine = renderEngine;
+
+// Product monthly prices (client mirror of the server PRODUCT_MRR) for MRR mix.
+const ENGINE_PRODUCT_MRR = { facebook_solo: 79, facebook_dealer: 499, ai_chatbot: 499, dealer_os: 499 };
+const ENGINE_PRODUCT_LABEL = { facebook_solo: 'Facebook Solo', facebook_dealer: 'Facebook Dealer', ai_chatbot: 'AI Chatbot', dealer_os: 'DealerOS' };
+const engMoney0 = (v) => '$' + Math.round(Number(v) || 0).toLocaleString();
+
+// ══ MarketSync HQ — SaaS Command Center (revenue-first company OS home) ═══════
+// Trial row (shared by HQ Work tab + rail).
+function hqTrialRow(t) {
+  const prods = Object.keys(t.products || {}).filter(k => t.products[k]).length;
+  const warn = t.days_left != null && t.days_left <= 5;
+  return `<button onclick="switchPage('owner-users')" class="w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+    <span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(t.name || 'Account')}</span>
+    <span class="text-[12px] ${warn ? 'text-rose-500 font-bold' : 'text-slate-400'} whitespace-nowrap">${t.days_left == null ? 'trial' : t.days_left + 'd left'} · ${prods} product${prods === 1 ? '' : 's'}</span>
+  </button>`;
+}
+ENGINES['saas-command'] = {
+  rootId: 'saas-command-root', title: 'MarketSync HQ', subtitle: 'Revenue, trials, and account health',
+  icon: 'chart', accent: 'fuchsia',
+  fetch: () => apiGetJson('/saas/overview'),
+  quickActions: [
+    { label: 'Open Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" },
+    { label: 'All accounts', icon: 'user', onclick: "switchPage('owner-users')" },
+    { label: 'Employees', icon: 'user', onclick: "switchPage('saas-employees')" },
+  ],
+  nextActions: (d) => {
+    const out = [];
+    if (d?.churn_risk) out.push({ label: `${d.churn_risk} account${d.churn_risk === 1 ? '' : 's'} at churn risk`, icon: 'flame', tone: 'text-rose-500', onclick: "switchPage('saas-customers')" });
+    const soon = (d?.trials || []).filter(t => t.days_left != null && t.days_left <= 5).length;
+    if (soon) out.push({ label: `${soon} trial${soon === 1 ? '' : 's'} expiring within 5 days`, icon: 'calendar', tone: 'text-amber-500', onclick: "switchPage('owner-users')" });
+    return out;
+  },
+  tabs: {
+    overview(body, d) {
+      const activePct = d.total_accounts ? Math.round((d.active_customers || 0) / d.total_accounts * 100) : 0;
+      body.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          ${engKpi('MRR', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('ARR', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Active', (d.active_customers || 0).toLocaleString())}
+          ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
+          ${engKpi('Churn Risk', (d.churn_risk || 0).toLocaleString(), d.churn_risk ? 'text-rose-600 dark:text-rose-400' : '')}
+          ${engKpi('New This Month', (d.new_this_month || 0).toLocaleString())}
+        </div>
+        <div class="text-[11px] text-slate-400 -mt-2">MRR estimated from product entitlements across ${(d.total_accounts || 0).toLocaleString()} accounts.</div>
+        ${engCard('Account status', engBar([
+          { pct: activePct, cls: 'bg-emerald-500', label: `Active (${d.active_customers || 0})` },
+          { pct: d.total_accounts ? Math.round((d.trial_accounts || 0) / d.total_accounts * 100) : 0, cls: 'bg-blue-500', label: `Trial (${d.trial_accounts || 0})` },
+          { pct: d.total_accounts ? Math.round((d.churn_risk || 0) / d.total_accounts * 100) : 0, cls: 'bg-rose-500', label: `At risk (${d.churn_risk || 0})` },
+        ]))}`;
+    },
+    work(body, d) {
+      const trials = (d.trials || []).map(hqTrialRow).join('') || engEmpty('No active trials.');
+      const top = (d.top_accounts || []).map(a => `<div class="flex items-center justify-between text-sm py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(a.name || 'Account')}</span><span class="font-bold text-slate-800 dark:text-slate-100">${engMoney0(a.mrr)}/mo</span></div>`).join('') || engEmpty('No paying accounts yet.');
+      body.innerHTML = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Trials — closest to expiry</div><div class="space-y-1.5">${trials}</div></div>
+        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Top accounts by MRR</div>${engCard('', top, 'py-2')}</div>
+      </div>`;
+    },
+    insights(body, d) {
+      // MRR mix across the paying accounts we can see (top_accounts).
+      const mix = {};
+      for (const a of (d.top_accounts || [])) for (const k of Object.keys(a.products || {})) if (a.products[k] && ENGINE_PRODUCT_MRR[k]) mix[k] = (mix[k] || 0) + ENGINE_PRODUCT_MRR[k];
+      const mixTotal = Object.values(mix).reduce((s, v) => s + v, 0);
+      const mixRows = Object.keys(ENGINE_PRODUCT_MRR).filter(k => mix[k]).map(k => `
+        <div class="flex items-center gap-2 text-[13px] py-1">
+          <span class="w-32 flex-shrink-0 text-slate-600 dark:text-slate-300 font-semibold">${esc(ENGINE_PRODUCT_LABEL[k])}</span>
+          <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full bg-fuchsia-500" style="width:${mixTotal ? Math.round(mix[k] / mixTotal * 100) : 0}%"></span></span>
+          <span class="w-20 text-right font-bold text-slate-700 dark:text-slate-200">${engMoney0(mix[k])}</span>
+        </div>`).join('') || engEmpty('No paying products yet.');
+      body.innerHTML = `
+        ${engCard('MRR by product · across top accounts', mixRows)}
+        ${engCard('Growth', `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          ${engKpi('New this month', (d.new_this_month || 0).toLocaleString())}
+          ${engKpi('Active', (d.active_customers || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
+          ${engKpi('ARR', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
+        </div>`)}
+        <div class="text-[12px] text-slate-400">Cohort retention curves need historical MRR snapshots — that time-series isn't captured yet, so it's intentionally omitted rather than estimated.</div>`;
+    },
+    automation(body) {
+      body.innerHTML = engCard('Trial &amp; onboarding automation', `
+        <ul class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
+          <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span><b>30-day trial</b> — new accounts start trialing; the drip engine schedules the onboarding + expiry sequence automatically.</span></li>
+          <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span><b>Expiry reminders</b> run as the trial nears its end, and expired trials surface here as churn risk.</span></li>
+          <li class="flex items-start gap-2">${svgIcon('bolt', 'w-4 h-4 text-slate-400 mt-0.5')}<span>Sequence timing is managed in the drip service; per-account overrides live in <button onclick="switchPage('owner-users')" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">All Accounts</button>.</span></li>
+        </ul>`);
+    },
+    settings(body) {
+      body.innerHTML = engCard('HQ settings', `
+        <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Global defaults, branding, and platform parameters live in the Configuration hub.</p>
+        <button onclick="switchPage('config')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Open Configuration →</button>`);
+    },
+  },
+};
+function loadSaasCommand() { renderEngine('saas-command'); }
 window.loadSaasCommand = loadSaasCommand;
 
 // ══ Customer Pipeline — SaaS retention board (stage + health + next action) ═══
 const SAAS_STAGE_LABEL = { lead: 'Lead', trial_started: 'Trial Started', activated: 'Activated', paid: 'Paid', expanded: 'Expanded', churn_risk: 'Churn Risk', cancelled: 'Cancelled' };
 const saasHealthColor = (h) => h >= 70 ? 'bg-emerald-500' : h >= 40 ? 'bg-amber-500' : 'bg-rose-500';
-async function loadSaasCustomers() {
-  const root = document.getElementById('saas-customers-root');
-  if (!root) return;
-  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading pipeline…</div>`;
-  let d;
-  try { d = await apiGetJson('/saas/customers'); }
-  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
-  const cardOf = (a) => `
-    <button onclick="switchPage('owner-users')" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 hover:shadow-md transition space-y-1.5">
+// Pipeline account card (shared).
+function pipeCard(a) {
+  return `<button onclick="switchPage('owner-users')" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 hover:shadow-md transition space-y-1.5">
       <div class="flex items-center justify-between gap-2">
         <span class="font-bold text-slate-800 dark:text-slate-100 text-[13px] truncate">${esc(a.name || 'Account')}</span>
         <span class="text-[11px] font-black ${a.health >= 70 ? 'text-emerald-600 dark:text-emerald-400' : a.health >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}">${a.health}%</span>
@@ -9352,77 +9483,174 @@ async function loadSaasCustomers() {
       </div>
       <div class="text-[11px] font-semibold text-fuchsia-600 dark:text-fuchsia-400">→ ${esc(a.next_action)}</div>
     </button>`;
-  const cols = (d.stages || []).map(s => {
-    const list = (d.by_stage[s] || []);
-    const tint = s === 'churn_risk' ? 'text-rose-600 dark:text-rose-400' : s === 'paid' || s === 'expanded' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400';
-    return `<div class="flex-shrink-0 w-64">
-      <div class="flex items-center justify-between mb-2 px-1">
-        <span class="text-[12px] font-black uppercase tracking-wide ${tint}">${esc(SAAS_STAGE_LABEL[s] || s)}</span>
-        <span class="text-[11px] font-bold text-slate-400">${list.length}</span>
-      </div>
-      <div class="space-y-2">${list.map(cardOf).join('') || '<div class="text-[12px] text-slate-400 italic px-1 py-3">—</div>'}</div>
-    </div>`;
-  }).join('');
-  root.innerHTML = `
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Customer Pipeline</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Every account by stage, with a health score and next action — from real 30-day usage.</p></div>
-      <div class="flex gap-2">
-        <button onclick="switchPage('saas-command')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-200">← HQ</button>
-        <button onclick="loadSaasCustomers()" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200">Refresh</button>
-      </div>
-    </div>
-    <div class="overflow-x-auto pb-2"><div class="flex gap-4 min-w-max">${cols}</div></div>`;
 }
+const pipeAllRows = (d) => (d.stages || []).flatMap(s => d.by_stage[s] || []);
+ENGINES['saas-customers'] = {
+  rootId: 'saas-customers-root', title: 'Customer Pipeline', subtitle: 'Every account by stage, health score, and next action',
+  icon: 'chart', accent: 'fuchsia',
+  fetch: () => apiGetJson('/saas/customers'),
+  quickActions: [
+    { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
+    { label: 'All accounts', icon: 'user', onclick: "switchPage('owner-users')" },
+  ],
+  nextActions: (d) => {
+    const risk = (d?.counts?.churn_risk || 0);
+    const out = [];
+    if (risk) out.push({ label: `${risk} account${risk === 1 ? '' : 's'} in Churn Risk`, icon: 'flame', tone: 'text-rose-500', onclick: "engineTab('saas-customers','work')" });
+    const activated = (d?.counts?.activated || 0);
+    if (activated) out.push({ label: `${activated} activated trial${activated === 1 ? '' : 's'} ready to convert`, icon: 'check', tone: 'text-emerald-500', onclick: "engineTab('saas-customers','work')" });
+    return out;
+  },
+  tabs: {
+    overview(body, d) {
+      const rows = pipeAllRows(d);
+      const total = rows.length;
+      const paid = (d.counts?.paid || 0) + (d.counts?.expanded || 0);
+      const trials = (d.counts?.trial_started || 0) + (d.counts?.activated || 0);
+      const convBase = paid + trials + (d.counts?.churn_risk || 0);
+      const conv = convBase ? Math.round(paid / convBase * 100) : 0;
+      body.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          ${engKpi('Accounts', total.toLocaleString())}
+          ${engKpi('Paid + Expanded', paid.toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Conversion', conv + '%', 'text-fuchsia-600 dark:text-fuchsia-400')}
+          ${engKpi('Churn Risk', (d.counts?.churn_risk || 0).toLocaleString(), d.counts?.churn_risk ? 'text-rose-600 dark:text-rose-400' : '')}
+        </div>
+        ${engCard('Stage distribution', (d.stages || []).map(s => {
+          const n = (d.counts?.[s] || 0);
+          return `<div class="flex items-center gap-2 text-[13px] py-1">
+            <span class="w-28 flex-shrink-0 text-slate-600 dark:text-slate-300 font-semibold">${esc(SAAS_STAGE_LABEL[s] || s)}</span>
+            <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full ${s === 'churn_risk' ? 'bg-rose-500' : s === 'paid' || s === 'expanded' ? 'bg-emerald-500' : 'bg-fuchsia-400'}" style="width:${total ? Math.round(n / total * 100) : 0}%"></span></span>
+            <span class="w-8 text-right font-bold text-slate-700 dark:text-slate-200">${n}</span></div>`;
+        }).join(''))}`;
+    },
+    work(body, d) {
+      const cols = (d.stages || []).map(s => {
+        const list = (d.by_stage[s] || []);
+        const tint = s === 'churn_risk' ? 'text-rose-600 dark:text-rose-400' : s === 'paid' || s === 'expanded' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400';
+        return `<div class="flex-shrink-0 w-60">
+          <div class="flex items-center justify-between mb-2 px-1"><span class="text-[12px] font-black uppercase tracking-wide ${tint}">${esc(SAAS_STAGE_LABEL[s] || s)}</span><span class="text-[11px] font-bold text-slate-400">${list.length}</span></div>
+          <div class="space-y-2">${list.map(pipeCard).join('') || '<div class="text-[12px] text-slate-400 italic px-1 py-3">—</div>'}</div>
+        </div>`;
+      }).join('');
+      body.innerHTML = `<div class="overflow-x-auto pb-2"><div class="flex gap-4 min-w-max">${cols}</div></div>`;
+    },
+    insights(body, d) {
+      const rows = pipeAllRows(d);
+      const buckets = { healthy: 0, at_risk: 0, critical: 0 };
+      let sum = 0, adoptSum = 0;
+      for (const r of rows) { sum += r.health; adoptSum += (r.engines_used || 0); if (r.health >= 70) buckets.healthy++; else if (r.health >= 40) buckets.at_risk++; else buckets.critical++; }
+      const avg = rows.length ? Math.round(sum / rows.length) : 0;
+      const avgAdopt = rows.length ? (adoptSum / rows.length).toFixed(1) : '0';
+      body.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          ${engKpi('Avg health', avg + '%', avg >= 70 ? 'text-emerald-600 dark:text-emerald-400' : avg >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400')}
+          ${engKpi('Healthy ≥70', buckets.healthy.toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('At risk 40–69', buckets.at_risk.toLocaleString(), 'text-amber-600 dark:text-amber-400')}
+          ${engKpi('Critical <40', buckets.critical.toLocaleString(), 'text-rose-600 dark:text-rose-400')}
+        </div>
+        ${engCard('Health distribution', engBar([
+          { pct: rows.length ? Math.round(buckets.healthy / rows.length * 100) : 0, cls: 'bg-emerald-500', label: `Healthy (${buckets.healthy})` },
+          { pct: rows.length ? Math.round(buckets.at_risk / rows.length * 100) : 0, cls: 'bg-amber-500', label: `At risk (${buckets.at_risk})` },
+          { pct: rows.length ? Math.round(buckets.critical / rows.length * 100) : 0, cls: 'bg-rose-500', label: `Critical (${buckets.critical})` },
+        ]))}
+        ${engCard('Adoption', `<div class="text-[13px] text-slate-600 dark:text-slate-300">Accounts use <b class="text-slate-800 dark:text-slate-100">${avgAdopt}</b> engines on average over the last 30 days.</div>`)}`;
+    },
+    automation(body) {
+      body.innerHTML = engCard('Retention automation', `
+        <ul class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
+          <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span>Stages, health, and next actions are recomputed from the live event spine on every load — no manual upkeep.</span></li>
+          <li class="flex items-start gap-2">${svgIcon('bolt', 'w-4 h-4 text-slate-400 mt-0.5')}<span>Automated health-drop alerts are not yet wired; churn-risk accounts surface here and in HQ so they can be worked manually.</span></li>
+        </ul>`);
+    },
+    settings(body) {
+      body.innerHTML = engCard('Health score &amp; stage rules', `
+        <div class="text-[13px] text-slate-600 dark:text-slate-300 space-y-3">
+          <div><div class="font-bold text-slate-800 dark:text-slate-100 mb-1">Health score (0–100)</div>
+            <ul class="space-y-1"><li>• Adoption breadth — up to <b>45 pts</b> (engines touched, capped at 5)</li>
+            <li>• Recency — up to <b>35 pts</b> (≤3d = full, decaying to 0 past 30d)</li>
+            <li>• Billing standing — <b>20 pts</b> active · <b>12 pts</b> trialing</li></ul></div>
+          <div><div class="font-bold text-slate-800 dark:text-slate-100 mb-1">Stages</div>
+            <p>Lead → Trial Started → Activated → Paid → Expanded, with Churn Risk and Cancelled derived from billing status + 30-day activity.</p></div>
+          <p class="text-[12px] text-slate-400">These weights are defined server-side in the SaaS Admin engine; editing them from the UI isn't exposed yet.</p>
+        </div>`);
+    },
+  },
+};
+function loadSaasCustomers() { renderEngine('saas-customers'); }
 window.loadSaasCustomers = loadSaasCustomers;
 
 // ══ Employees + permissions — MarketSync staff (owner-only) ═══════════════════
-async function loadSaasEmployees() {
-  const root = document.getElementById('saas-employees-root');
-  if (!root) return;
-  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading employees…</div>`;
-  let d;
-  try { d = await apiGetJson('/saas/employees'); }
-  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
-  const roles = d.roles || [];
-  const matrix = d.permissions_matrix || {};
-  const roleOpts = (sel) => roles.map(r => `<option value="${r}" ${r === sel ? 'selected' : ''}>${esc(r)}</option>`).join('');
-  const staff = (d.staff || []).map(s => `
-    <tr class="border-t border-slate-100 dark:border-slate-800">
-      <td class="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">${esc(s.name)}</td>
-      <td class="px-3 py-2">
-        <select onchange="saasSetRole('${s.id}', this.value)" class="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px]">${roleOpts(s.saas_role)}</select>
-      </td>
-      <td class="px-3 py-2 text-[11px] text-slate-400">${(s.permissions || []).map(p => esc(p)).join(', ')}</td>
-      <td class="px-3 py-2 text-right"><button onclick="saasSetRole('${s.id}','')" class="text-[11px] font-bold text-rose-500 hover:text-rose-600">Remove</button></td>
-    </tr>`).join('') || `<tr><td colspan="4" class="px-3 py-8 text-center text-slate-400 text-sm">No staff yet — add one by email below.</td></tr>`;
-  const matrixRows = roles.map(r => `
-    <div class="flex flex-wrap items-start gap-2 py-1.5 border-t border-slate-100 dark:border-slate-800/60">
-      <span class="w-24 flex-shrink-0 text-[12px] font-black uppercase text-slate-600 dark:text-slate-300">${esc(r)}</span>
-      <span class="flex flex-wrap gap-1">${(matrix[r] || []).map(p => `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${p === '*' ? 'ALL' : esc(p)}</span>`).join('')}</span>
-    </div>`).join('');
-  root.innerHTML = `
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Employees</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">MarketSync staff + what each role can do. Owner-only.</p></div>
-      <button onclick="switchPage('saas-command')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-200">← HQ</button>
-    </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
-      <table class="w-full text-sm min-w-[560px]">
-        <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">Name</th><th class="px-3 py-2">Role</th><th class="px-3 py-2">Permissions</th><th class="px-3 py-2"></th></tr></thead>
-        <tbody>${staff}</tbody>
-      </table>
-    </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-wrap items-end gap-2">
-      <div><label class="text-[11px] text-slate-400 font-bold">Add staff by email</label><input id="saas-emp-email" placeholder="teammate@marketsync.link" class="w-64 mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
-      <div><label class="text-[11px] text-slate-400 font-bold">Role</label><select id="saas-emp-role" class="mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${roleOpts('support')}</select></div>
-      <button onclick="saasAddEmployee()" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold transition">Add</button>
-    </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Permission matrix</div>
-      ${matrixRows}
-    </div>`;
-}
+const empRoleOpts = (roles, sel) => (roles || []).map(r => `<option value="${r}" ${r === sel ? 'selected' : ''}>${esc(r)}</option>`).join('');
+ENGINES['saas-employees'] = {
+  rootId: 'saas-employees-root', title: 'Employees', subtitle: 'MarketSync staff and what each role can do',
+  icon: 'user', accent: 'fuchsia',
+  fetch: () => apiGetJson('/saas/employees'),
+  quickActions: [
+    { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
+    { label: 'All accounts', icon: 'user', onclick: "switchPage('owner-users')" },
+  ],
+  tabs: {
+    overview(body, d) {
+      const staff = d.staff || [];
+      const byRole = {};
+      for (const s of staff) byRole[s.saas_role] = (byRole[s.saas_role] || 0) + 1;
+      body.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          ${engKpi('Staff', staff.length.toLocaleString())}
+          ${engKpi('Roles', (d.roles || []).length.toLocaleString())}
+          ${engKpi('Owners', (byRole.owner || 0).toLocaleString(), 'text-fuchsia-600 dark:text-fuchsia-400')}
+        </div>
+        ${engCard('Headcount by role', (d.roles || []).map(r => `<div class="flex items-center justify-between text-[13px] py-1 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold uppercase text-slate-600 dark:text-slate-300">${esc(r)}</span><span class="font-bold text-slate-800 dark:text-slate-100">${byRole[r] || 0}</span></div>`).join(''))}`;
+    },
+    work(body, d) {
+      const roles = d.roles || [];
+      const staff = (d.staff || []).map(s => `
+        <tr class="border-t border-slate-100 dark:border-slate-800">
+          <td class="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">${esc(s.name)}</td>
+          <td class="px-3 py-2"><select onchange="saasSetRole('${s.id}', this.value)" class="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px]">${empRoleOpts(roles, s.saas_role)}</select></td>
+          <td class="px-3 py-2 text-[11px] text-slate-400">${(s.permissions || []).map(p => esc(p)).join(', ')}</td>
+          <td class="px-3 py-2 text-right"><button onclick="saasSetRole('${s.id}','')" class="text-[11px] font-bold text-rose-500 hover:text-rose-600">Remove</button></td>
+        </tr>`).join('') || `<tr><td colspan="4" class="px-3 py-8 text-center text-slate-400 text-sm">No staff yet — add one by email below.</td></tr>`;
+      body.innerHTML = `
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
+          <table class="w-full text-sm min-w-[560px]">
+            <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">Name</th><th class="px-3 py-2">Role</th><th class="px-3 py-2">Permissions</th><th class="px-3 py-2"></th></tr></thead>
+            <tbody>${staff}</tbody>
+          </table>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-wrap items-end gap-2">
+          <div><label class="text-[11px] text-slate-400 font-bold">Add staff by email</label><input id="saas-emp-email" placeholder="teammate@marketsync.link" class="w-64 mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+          <div><label class="text-[11px] text-slate-400 font-bold">Role</label><select id="saas-emp-role" class="mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${empRoleOpts(roles, 'support')}</select></div>
+          <button onclick="saasAddEmployee()" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold transition">Add</button>
+        </div>`;
+    },
+    insights(body, d) {
+      const staff = d.staff || [];
+      const byRole = {};
+      for (const s of staff) byRole[s.saas_role] = (byRole[s.saas_role] || 0) + 1;
+      const total = staff.length;
+      body.innerHTML = engCard('Team composition', (d.roles || []).map(r => `
+        <div class="flex items-center gap-2 text-[13px] py-1">
+          <span class="w-24 flex-shrink-0 uppercase font-semibold text-slate-600 dark:text-slate-300">${esc(r)}</span>
+          <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full bg-fuchsia-500" style="width:${total ? Math.round((byRole[r] || 0) / total * 100) : 0}%"></span></span>
+          <span class="w-8 text-right font-bold text-slate-700 dark:text-slate-200">${byRole[r] || 0}</span></div>`).join('') || engEmpty('No staff yet.'));
+    },
+    automation(body) {
+      body.innerHTML = engCard('Staff automation', `<p class="text-[13px] text-slate-600 dark:text-slate-300">Role changes take effect immediately across every engine's permission gate. Automated onboarding sequences for new staff aren't configured yet.</p>`);
+    },
+    settings(body, d) {
+      const matrix = d.permissions_matrix || {};
+      const matrixRows = (d.roles || []).map(r => `
+        <div class="flex flex-wrap items-start gap-2 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+          <span class="w-24 flex-shrink-0 text-[12px] font-black uppercase text-slate-600 dark:text-slate-300">${esc(r)}</span>
+          <span class="flex flex-wrap gap-1">${(matrix[r] || []).map(p => `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${p === '*' ? 'ALL' : esc(p)}</span>`).join('')}</span>
+        </div>`).join('');
+      body.innerHTML = engCard('Permission matrix', matrixRows + `<p class="text-[12px] text-slate-400 mt-2">Roles and their permissions are defined server-side; assign them per person on the Work tab.</p>`);
+    },
+  },
+};
+function loadSaasEmployees() { renderEngine('saas-employees'); }
 async function saasSetRole(userId, role) {
   try { await apiSendJson('/saas/employees/role', 'POST', { user_id: userId, saas_role: role }); showToast('Updated ✓', 'success'); loadSaasEmployees(); }
   catch (e) { showToast(e.message, 'error'); }
@@ -9955,88 +10183,139 @@ const ownerTrialTxt = (t) => {
   return `<span class="text-[11px] ${days < 0 ? 'text-rose-500 font-bold' : 'text-slate-400'}">trial ${days < 0 ? 'expired' : 'ends'} ${d.toLocaleDateString()}${days >= 0 ? ` (${days}d)` : ''}</span>`;
 };
 
-async function loadOwnerUsersPage() {
-  const root = document.getElementById('owner-users-root');
-  if (!root) return;
-  root.innerHTML = '<div class="text-slate-400 text-sm p-6">Loading accounts…</div>';
-  try {
+// One account card (billing + product/engine toggles + users).
+function ownerAccountCard(a) {
+  const engines = __ownerFlags.map(f => {
+    const on = !!a.engines[f.key];
+    return `<button onclick="ownerToggleEngine('${a.id}','${f.key}',${!on})" class="text-[11px] font-bold px-2.5 py-1 rounded-full transition ${on ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}">${on ? '● ' : '○ '}${esc(f.label)}</button>`;
+  }).join('');
+  const prod = a.products || {};
+  const products = Object.keys(__ownerProductLabels).map(k => {
+    const on = !!prod[k];
+    return `<button onclick="ownerToggleProduct('${a.id}','${k}',${!on})" class="text-[11px] font-bold px-2.5 py-1 rounded-full transition ${on ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}">${on ? '● ' : '○ '}${esc(__ownerProductLabels[k])}</button>`;
+  }).join('');
+  const oneUser = a.is_personal && a.users?.length === 1 ? a.users[0] : null;
+  const billTarget = oneUser ? `ownerBill('user','${oneUser.id}'` : `ownerBill('dealer','${a.id}'`;
+  const effStatus = oneUser ? oneUser.billing_status : a.billing_status;
+  const effTrial = oneUser ? oneUser.trial_ends_at : a.trial_ends_at;
+  const users = (a.users || []).map(u => `
+    <div class="flex flex-wrap items-center gap-2 text-[13px] py-1 border-t border-slate-100 dark:border-slate-800/60">
+      <span class="font-semibold text-slate-700 dark:text-slate-200">${esc(u.name)}</span>
+      <span class="text-[11px] text-slate-400">${esc(u.role || '')}</span>
+      ${ownerBillChip(u.billing_status)}${ownerTrialTxt(u.trial_ends_at)}
+      <span class="ml-auto flex gap-1">
+        <button onclick="ownerBill('user','${u.id}','comp')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100">Comp</button>
+        <button onclick="ownerBill('user','${u.id}','trial30')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200">+30d</button>
+        <button onclick="ownerBill('user','${u.id}','block')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100">Block</button>
+      </span>
+    </div>`).join('') || '<div class="text-[12px] text-slate-400 py-1">No users.</div>';
+  return `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="font-black text-slate-800 dark:text-slate-100">${esc(a.name || 'Account')}</span>
+        ${a.is_personal ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300">PERSONAL</span>' : ''}
+        ${a.plan ? `<span class="text-[11px] text-slate-400">${esc(a.plan)}</span>` : ''}
+        ${ownerBillChip(effStatus)}${ownerTrialTxt(effTrial)}
+        <span class="ml-auto text-[11px] text-slate-400">${a.users?.length || 0} user(s)</span>
+      </div>
+      <div class="flex flex-wrap gap-1.5">
+        <button onclick="${billTarget},'comp')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500">Comp (indefinite)</button>
+        <button onclick="${billTarget},'trial30')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-500">+30d trial</button>
+        <button onclick="${billTarget},'trial7')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300">+7d trial</button>
+        <button onclick="${billTarget},'block')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-rose-600 text-white hover:bg-rose-500">Block</button>
+      </div>
+      <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Product (front door)</div><div class="flex flex-wrap gap-1.5">${products}</div></div>
+      <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Engines</div><div class="flex flex-wrap gap-1.5">${engines}</div></div>
+      <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-0.5">Users</div>${users}</div>
+    </div>`;
+}
+function ownerFilteredAccounts() {
+  const q = __ownerSearch;
+  return __ownerAccounts.filter(a => !q || (a.name || '').toLowerCase().includes(q) || (a.users || []).some(u => (u.name || '').toLowerCase().includes(q)));
+}
+// Re-render just the account cards into the Work tab (used by toggles + search).
+function ownerRenderCards() {
+  const host = document.getElementById('owner-work-cards');
+  if (!host) return;
+  const cards = ownerFilteredAccounts().map(ownerAccountCard).join('') || '<div class="text-slate-400 text-sm p-6">No accounts match.</div>';
+  host.innerHTML = cards;
+}
+function ownerSearch(v) { __ownerSearch = (v || '').toLowerCase(); ownerRenderCards(); }
+
+ENGINES['owner-users'] = {
+  rootId: 'owner-users-root', title: 'All Users & Accounts', subtitle: 'Every account — provision products, engines, and billing',
+  icon: 'user', accent: 'fuchsia', tabLabels: { work: 'Accounts' },
+  fetch: async () => {
     const d = await apiGetJson('/owner/accounts');
     __ownerAccounts = d.accounts || [];
     __ownerFlags = d.engine_flags || [];
     if (d.product_labels) __ownerProductLabels = d.product_labels;
-    renderOwnerUsers();
-  } catch (e) { root.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message)}</div>`; }
-}
-function ownerSearch(v) { __ownerSearch = (v || '').toLowerCase(); renderOwnerUsers(); }
-function renderOwnerUsers() {
-  const root = document.getElementById('owner-users-root');
-  if (!root) return;
-  const q = __ownerSearch;
-  const list = __ownerAccounts.filter(a => !q || (a.name || '').toLowerCase().includes(q) || (a.users || []).some(u => (u.name || '').toLowerCase().includes(q)));
-  const totalUsers = __ownerAccounts.reduce((s, a) => s + (a.users?.length || 0), 0);
-  const cards = list.map(a => {
-    const engines = __ownerFlags.map(f => {
-      const on = !!a.engines[f.key];
-      return `<button onclick="ownerToggleEngine('${a.id}','${f.key}',${!on})" class="text-[11px] font-bold px-2.5 py-1 rounded-full transition ${on ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}">${on ? '● ' : '○ '}${esc(f.label)}</button>`;
-    }).join('');
-    const prod = a.products || {};
-    const products = Object.keys(__ownerProductLabels).map(k => {
-      const on = !!prod[k];
-      return `<button onclick="ownerToggleProduct('${a.id}','${k}',${!on})" class="text-[11px] font-bold px-2.5 py-1 rounded-full transition ${on ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}">${on ? '● ' : '○ '}${esc(__ownerProductLabels[k])}</button>`;
-    }).join('');
-    // Personal workspaces bill on the profile; normal accounts on the dealership.
-    const oneUser = a.is_personal && a.users?.length === 1 ? a.users[0] : null;
-    const billTarget = oneUser ? `ownerBill('user','${oneUser.id}'` : `ownerBill('dealer','${a.id}'`;
-    const effStatus = oneUser ? oneUser.billing_status : a.billing_status;
-    const effTrial = oneUser ? oneUser.trial_ends_at : a.trial_ends_at;
-    const users = (a.users || []).map(u => `
-      <div class="flex flex-wrap items-center gap-2 text-[13px] py-1 border-t border-slate-100 dark:border-slate-800/60">
-        <span class="font-semibold text-slate-700 dark:text-slate-200">${esc(u.name)}</span>
-        <span class="text-[11px] text-slate-400">${esc(u.role || '')}</span>
-        ${ownerBillChip(u.billing_status)}${ownerTrialTxt(u.trial_ends_at)}
-        <span class="ml-auto flex gap-1">
-          <button onclick="ownerBill('user','${u.id}','comp')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100">Comp</button>
-          <button onclick="ownerBill('user','${u.id}','trial30')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200">+30d</button>
-          <button onclick="ownerBill('user','${u.id}','block')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100">Block</button>
-        </span>
-      </div>`).join('') || '<div class="text-[12px] text-slate-400 py-1">No users.</div>';
-    return `
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="font-black text-slate-800 dark:text-slate-100">${esc(a.name || 'Account')}</span>
-          ${a.is_personal ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300">PERSONAL</span>' : ''}
-          ${a.plan ? `<span class="text-[11px] text-slate-400">${esc(a.plan)}</span>` : ''}
-          ${ownerBillChip(effStatus)}${ownerTrialTxt(effTrial)}
-          <span class="ml-auto text-[11px] text-slate-400">${a.users?.length || 0} user(s)</span>
+    return d;
+  },
+  quickActions: [
+    { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
+    { label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" },
+  ],
+  tabs: {
+    overview(body) {
+      const accts = __ownerAccounts;
+      const totalUsers = accts.reduce((s, a) => s + (a.users?.length || 0), 0);
+      const S = (a) => { const u = a.is_personal && a.users?.length === 1 ? a.users[0] : null; return String((u ? u.billing_status : a.billing_status) || '').toUpperCase(); };
+      let active = 0, trial = 0, pastdue = 0, personal = 0;
+      for (const a of accts) { const s = S(a); if (s === 'ACTIVE') active++; else if (s === 'TRIALING') trial++; else if (s === 'PAST_DUE' || s === 'INACTIVE') pastdue++; if (a.is_personal) personal++; }
+      body.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          ${engKpi('Accounts', accts.length.toLocaleString())}
+          ${engKpi('Users', totalUsers.toLocaleString())}
+          ${engKpi('Active', active.toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Trialing', trial.toLocaleString(), 'text-blue-600 dark:text-blue-400')}
+          ${engKpi('Past due', pastdue.toLocaleString(), pastdue ? 'text-rose-600 dark:text-rose-400' : '')}
+          ${engKpi('Personal', personal.toLocaleString())}
         </div>
-        <div class="flex flex-wrap gap-1.5">
-          <button onclick="${billTarget},'comp')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500">Comp (indefinite)</button>
-          <button onclick="${billTarget},'trial30')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-500">+30d trial</button>
-          <button onclick="${billTarget},'trial7')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300">+7d trial</button>
-          <button onclick="${billTarget},'block')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-rose-600 text-white hover:bg-rose-500">Block</button>
+        ${engCard('Billing status', engBar([
+          { pct: accts.length ? Math.round(active / accts.length * 100) : 0, cls: 'bg-emerald-500', label: `Active (${active})` },
+          { pct: accts.length ? Math.round(trial / accts.length * 100) : 0, cls: 'bg-blue-500', label: `Trialing (${trial})` },
+          { pct: accts.length ? Math.round(pastdue / accts.length * 100) : 0, cls: 'bg-rose-500', label: `Past due / blocked (${pastdue})` },
+        ]))}`;
+    },
+    work(body) {
+      body.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="text-sm text-slate-500">${__ownerAccounts.length} accounts · ${__ownerAccounts.reduce((s, a) => s + (a.users?.length || 0), 0)} users</div>
+          <input oninput="ownerSearch(this.value)" value="${esc(__ownerSearch)}" placeholder="Search account or user…" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
         </div>
-        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Product (front door)</div><div class="flex flex-wrap gap-1.5">${products}</div></div>
-        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Engines</div><div class="flex flex-wrap gap-1.5">${engines}</div></div>
-        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-0.5">Users</div>${users}</div>
-      </div>`;
-  }).join('') || '<div class="text-slate-400 text-sm p-6">No accounts match.</div>';
-  root.innerHTML = `
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div><h1 class="text-xl font-black text-slate-800 dark:text-slate-100">All Users &amp; Accounts</h1>
-        <div class="text-sm text-slate-500">${__ownerAccounts.length} accounts · ${totalUsers} users</div></div>
-      <div class="flex gap-2">
-        <input oninput="ownerSearch(this.value)" value="${esc(__ownerSearch)}" placeholder="Search account or user…" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
-        <button onclick="loadOwnerUsersPage()" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200">Refresh</button>
-      </div>
-    </div>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${cards}</div>`;
-}
+        <div id="owner-work-cards" class="grid grid-cols-1 lg:grid-cols-2 gap-3"></div>`;
+      ownerRenderCards();
+    },
+    insights(body) {
+      const accts = __ownerAccounts;
+      const prodCounts = {};
+      for (const k of Object.keys(__ownerProductLabels)) prodCounts[k] = accts.filter(a => a.products && a.products[k]).length;
+      const engCounts = {};
+      for (const f of __ownerFlags) engCounts[f.key] = accts.filter(a => a.engines && a.engines[f.key]).length;
+      const barRow = (label, n) => `<div class="flex items-center gap-2 text-[13px] py-1">
+        <span class="w-40 flex-shrink-0 text-slate-600 dark:text-slate-300 font-semibold truncate">${esc(label)}</span>
+        <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full bg-indigo-500" style="width:${accts.length ? Math.round(n / accts.length * 100) : 0}%"></span></span>
+        <span class="w-8 text-right font-bold text-slate-700 dark:text-slate-200">${n}</span></div>`;
+      body.innerHTML = `
+        ${engCard('Product adoption', Object.keys(__ownerProductLabels).map(k => barRow(__ownerProductLabels[k], prodCounts[k])).join(''))}
+        ${engCard('Engine adoption', __ownerFlags.map(f => barRow(f.label, engCounts[f.key])).join(''))}`;
+    },
+    automation(body) {
+      body.innerHTML = engCard('Provisioning', `<p class="text-[13px] text-slate-600 dark:text-slate-300">Paid subscriptions provision products and engines automatically via Stripe webhooks. The toggles on the Accounts tab are manual overrides — use them to comp an account, extend a trial, or grant an engine outside of billing.</p>`);
+    },
+    settings(body) {
+      body.innerHTML = engCard('Engine flags', `<div class="text-[13px] text-slate-600 dark:text-slate-300"><p class="mb-2">These entitlements can be toggled per account on the Accounts tab:</p><div class="flex flex-wrap gap-1.5">${__ownerFlags.map(f => `<span class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${esc(f.label)}</span>`).join('')}</div><p class="text-[12px] text-slate-400 mt-3">Stripe price IDs and plan limits are configured via environment variables on the server.</p></div>`);
+    },
+  },
+};
+function loadOwnerUsersPage() { renderEngine('owner-users'); }
 async function ownerToggleEngine(dealerId, key, active) {
   try {
     await apiSendJson(`/owner/dealership/${dealerId}/engines`, 'POST', { key, active });
     const acc = __ownerAccounts.find(a => a.id === dealerId);
     if (acc) acc.engines[key] = active;
-    renderOwnerUsers();
+    ownerRenderCards();
   } catch (e) { showToast(e.message, 'error'); }
 }
 async function ownerToggleProduct(dealerId, key, active) {
@@ -10044,7 +10323,7 @@ async function ownerToggleProduct(dealerId, key, active) {
     const r = await apiSendJson(`/owner/dealership/${dealerId}/products`, 'POST', { key, active });
     const acc = __ownerAccounts.find(a => a.id === dealerId);
     if (acc) acc.products = r.products || acc.products;
-    renderOwnerUsers();
+    ownerRenderCards();
   } catch (e) { showToast(e.message, 'error'); }
 }
 async function ownerBill(kind, id, action) {
@@ -10060,6 +10339,77 @@ async function ownerBill(kind, id, action) {
   } catch (e) { showToast(e.message, 'error'); }
 }
 Object.assign(window, { loadOwnerUsersPage, ownerSearch, ownerToggleEngine, ownerToggleProduct, ownerBill });
+
+// ══ Affiliates — referral partners, rates, and payouts (owner) ════════════════
+const affBadge = (s) => `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${s === 'active' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'bg-rose-100 dark:bg-rose-950/40 text-rose-600'}">${esc(s)}</span>`;
+function affRow(a) {
+  return `<tr class="border-b border-slate-100 dark:border-slate-800/60">
+    <td class="px-3 py-2"><div class="font-semibold">${esc(a.name || a.email)}</div><div class="text-[11px] text-slate-400">${esc(a.email)} · <span class="font-mono">${esc(a.code)}</span></div></td>
+    <td class="px-3 py-2 text-center">${a.referrals} <span class="text-slate-400">/ ${a.active} paying</span></td>
+    <td class="px-3 py-2 text-center">${a.rate_pct}% · ${Number(a.rate_months) > 0 ? a.rate_months + 'mo' : 'life'}</td>
+    <td class="px-3 py-2 text-right text-amber-600 dark:text-amber-400">${commMoney(a.pending)}</td>
+    <td class="px-3 py-2 text-right text-emerald-600 dark:text-emerald-400">${commMoney(a.paid)}</td>
+    <td class="px-3 py-2 text-center">${affBadge(a.status)}</td>
+    <td class="px-3 py-2 text-right whitespace-nowrap">
+      <button onclick='affAdminEdit(${JSON.stringify(a)})' class="text-xs font-bold text-indigo-600 hover:text-indigo-500">Edit</button>
+      ${a.pending > 0 ? `<button onclick="affAdminPay('${a.id}', ${a.pending})" class="text-xs font-bold text-emerald-600 hover:text-emerald-500 ml-2">Pay out</button>` : ''}
+    </td></tr>`;
+}
+ENGINES['affiliates-admin'] = {
+  rootId: 'affadmin-root', title: 'Affiliates', subtitle: 'Referral partners, their rates, and payouts',
+  icon: 'trophy', accent: 'amber',
+  fetch: () => apiGetJson('/affiliate/admin/list'),
+  quickActions: [
+    { label: 'Program page', icon: 'globe', onclick: "window.open('affiliates.html','_blank')" },
+    { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
+  ],
+  nextActions: (d) => {
+    const owed = (d?.affiliates || []).filter(a => a.pending > 0).length;
+    return owed ? [{ label: `${owed} affiliate${owed === 1 ? '' : 's'} owed a payout`, icon: 'currency', tone: 'text-amber-500', onclick: "engineTab('affiliates-admin','work')" }] : [];
+  },
+  tabs: {
+    overview(body, d) {
+      const t = d.totals || {};
+      body.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+          ${engKpi('Affiliates', (t.affiliates || 0).toLocaleString())}
+          ${engKpi('Referrals', (t.referrals || 0).toLocaleString())}
+          ${engKpi('Paying', (t.active || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Owed', commMoney(t.pending), 'text-amber-600 dark:text-amber-400')}
+          ${engKpi('Paid out', commMoney(t.paid))}
+        </div>
+        <p class="text-[13px] text-slate-500 dark:text-slate-400">Affiliates sign up at <a href="affiliates.html" target="_blank" class="text-indigo-600 dark:text-indigo-400 hover:underline">marketsync.link/affiliates</a>.</p>`;
+    },
+    work(body, d) {
+      const rows = (d.affiliates || []).map(affRow).join('');
+      body.innerHTML = `<div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+        <table class="w-full text-sm min-w-[760px]"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">
+          <th class="px-3 py-2">Affiliate</th><th class="px-3 py-2 text-center">Referrals</th><th class="px-3 py-2 text-center">Rate</th><th class="px-3 py-2 text-right">Pending</th><th class="px-3 py-2 text-right">Paid</th><th class="px-3 py-2 text-center">Status</th><th class="px-3 py-2"></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-400">No affiliates yet. Share the program page to get your first partners.</td></tr>'}</tbody></table></div>`;
+    },
+    insights(body, d) {
+      const affs = (d.affiliates || []).slice().sort((a, b) => (b.paid + b.pending) - (a.paid + a.pending));
+      const totalRef = affs.reduce((s, a) => s + (a.referrals || 0), 0);
+      const totalPaying = affs.reduce((s, a) => s + (a.active || 0), 0);
+      const conv = totalRef ? Math.round(totalPaying / totalRef * 100) : 0;
+      const top = affs.slice(0, 8).map(a => `<div class="flex items-center justify-between text-[13px] py-1 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(a.name || a.email)}</span><span class="font-bold text-slate-800 dark:text-slate-100">${commMoney((a.paid || 0) + (a.pending || 0))}</span></div>`).join('') || engEmpty('No affiliates yet.');
+      body.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          ${engKpi('Referrals → paying', conv + '%', 'text-amber-600 dark:text-amber-400')}
+          ${engKpi('Total referrals', totalRef.toLocaleString())}
+          ${engKpi('Paying customers', totalPaying.toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
+        </div>
+        ${engCard('Top affiliates by earnings', top)}`;
+    },
+    automation(body) {
+      body.innerHTML = engCard('Commission automation', `<p class="text-[13px] text-slate-600 dark:text-slate-300">Commissions accrue automatically when a referred account pays, using each affiliate's rate and duration. Paying out posts the amount as a MarketSync expense in Accounting.</p>`);
+    },
+    settings(body) {
+      body.innerHTML = engCard('Program settings', `<div class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2"><p>Each affiliate's commission % and duration (months, or lifetime) are set per partner — edit them on the Affiliates tab.</p><p class="text-[12px] text-slate-400">The public sign-up page is <a href="affiliates.html" target="_blank" class="text-indigo-600 dark:text-indigo-400 hover:underline">affiliates.html</a>.</p></div>`);
+    },
+  },
+};
+window.loadAffiliatesAdmin = loadAffiliatesAdmin;
 
 // ══ AI Chat inbox — live AI conversations + the embeddable widget snippet ═════
 const AI_SCORE_TONE = (s) => s >= 80 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' : s >= 50 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
