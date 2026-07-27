@@ -18680,7 +18680,7 @@ const UPGRADE_PLANS = {
       'Lot Average Report — your lot vs the market',
       'Hot / cold detection, turn rate & health scores',
       'Duplicate VIN detection & automated repricing rules',
-      'Competitor lot monitoring',
+      'Direct competition monitoring',
       'VIN decoder, recalls & factory window stickers',
     ],
   },
