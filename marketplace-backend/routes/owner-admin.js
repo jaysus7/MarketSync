@@ -10,7 +10,7 @@
  *    profile's billing there. So the console exposes both targets.
  *  - Engines/entitlements are always per-dealership columns.
  */
-import { supabaseAdmin } from '../shared.js'
+import { supabaseAdmin, sendEmail, emailHealth } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { PRODUCT_KEYS, resolveProducts } from './profile.js'
 
@@ -48,6 +48,28 @@ export function registerOwnerAdmin(app) {
     if (!isOwner(req)) { res.status(403).json({ error: 'Owner access required' }); return false }
     return true
   }
+
+  // ── Email diagnostic (owner) — surfaces WHY email may not be sending ─────────
+  // Reports the config (is the key present? which sending domain?) and can fire a
+  // real test send so Resend's actual error (e.g. "domain not verified") is visible.
+  app.get('/owner/email/health', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json(emailHealth())
+  })
+  app.post('/owner/email/test', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const to = String(req.body?.to || req.user?.email || '').trim()
+    if (!to) return res.status(400).json({ error: 'no recipient — pass { to } or have an email on your account' })
+    const r = await sendEmail({
+      to,
+      subject: 'MarketSync email test ✓',
+      html: `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:480px;margin:0 auto;padding:8px">
+        <h2 style="margin:0 0 8px">Email is working</h2>
+        <p style="color:#334155;line-height:1.6;margin:0">If you're reading this, MarketSync can deliver email — transactional messages, drip follow-ups and alerts will go out.</p>
+        <p style="color:#94a3b8;font-size:12px;margin:12px 0 0">Sent ${new Date().toLocaleString('en-US')}</p></div>`,
+    })
+    res.json({ ...emailHealth(), sent_to: to, ...r })   // always 200; ok/error in the body
+  })
 
   // Every account (dealership) + its users + engine/billing state.
   app.get('/owner/accounts', requireAuth, async (req, res) => {

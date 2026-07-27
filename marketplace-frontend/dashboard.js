@@ -9777,9 +9777,12 @@ ENGINES['saas-command'] = {
         </ul>`);
     },
     settings(body) {
-      body.innerHTML = engCard('HQ settings', `
-        <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Global defaults, branding, and platform parameters live in the Configuration hub.</p>
-        <button onclick="switchPage('config')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Open Configuration →</button>`);
+      body.innerHTML = `
+        ${engCard('HQ settings', `
+          <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Global defaults, branding, and platform parameters live in the Configuration hub.</p>
+          <button onclick="switchPage('config')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Open Configuration →</button>`)}
+        <div id="hq-email-health">${engCard('Email delivery', '<div class="text-sm text-slate-400 py-2">Checking…</div>')}</div>`;
+      loadEmailHealth();
     },
   },
 };
@@ -10056,6 +10059,47 @@ ENGINES['saas-accounting'] = {
 };
 function loadSaasAccounting() { renderEngine('saas-accounting'); }
 window.loadSaasAccounting = loadSaasAccounting;
+
+// ══ Email delivery diagnostic (owner) — pinpoints why email may be failing ════
+async function loadEmailHealth() {
+  const host = document.getElementById('hq-email-health'); if (!host) return;
+  let h;
+  try { h = await apiGetJson('/owner/email/health'); }
+  catch (e) { host.innerHTML = engCard('Email delivery', `<div class="text-sm text-rose-500">${esc(e.message || 'Could not check email.')}</div>`); return; }
+  const ok = !!h.configured;
+  const dot = ok ? 'bg-emerald-500' : 'bg-rose-500';
+  const status = ok
+    ? `<span class="text-emerald-600 dark:text-emerald-400 font-bold">API key detected</span>`
+    : `<span class="text-rose-600 dark:text-rose-400 font-bold">No API key — email is disabled</span>`;
+  host.innerHTML = engCard('Email delivery', `
+    <div class="space-y-2 text-[13px] text-slate-600 dark:text-slate-300">
+      <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full ${dot}"></span>${status}</div>
+      <div class="flex items-center justify-between"><span>Sending address</span><span class="font-mono text-[12px] text-slate-700 dark:text-slate-200">${esc(h.from || '—')}</span></div>
+      <div class="flex items-center justify-between"><span>Sending domain</span><span class="font-mono text-[12px] text-slate-700 dark:text-slate-200">${esc(h.from_domain || '—')}</span></div>
+      ${!ok ? `<p class="text-[12px] text-rose-500">Set <span class="font-mono">RESEND_API_KEY</span> on the backend (and verify the sending domain in Resend) to enable email.</p>` : ''}
+      <div class="flex items-center gap-2 pt-1">
+        <button onclick="emailSendTest(this)" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">Send test email</button>
+        <span id="email-test-result" class="text-[12px]"></span>
+      </div>
+      <p class="text-[12px] text-slate-400">The test send surfaces the exact provider error (e.g. a domain that isn't verified) so a delivery problem is never invisible.</p>
+    </div>`);
+}
+window.loadEmailHealth = loadEmailHealth;
+async function emailSendTest(btn) {
+  const out = document.getElementById('email-test-result');
+  if (btn) btn.disabled = true;
+  if (out) { out.className = 'text-[12px] text-slate-400'; out.textContent = 'Sending…'; }
+  try {
+    const r = await apiSendJson('/owner/email/test', 'POST', {});
+    if (out) {
+      if (r.ok) { out.className = 'text-[12px] text-emerald-600 dark:text-emerald-400 font-bold'; out.textContent = `Sent to ${r.sent_to} ✓`; }
+      else { out.className = 'text-[12px] text-rose-600 dark:text-rose-400 font-bold'; out.textContent = r.error || 'Failed'; }
+    }
+  } catch (e) {
+    if (out) { out.className = 'text-[12px] text-rose-600 dark:text-rose-400 font-bold'; out.textContent = e.message || 'Failed'; }
+  } finally { if (btn) btn.disabled = false; }
+}
+window.emailSendTest = emailSendTest;
 
 // Refresh whichever SaaS-roles surface is on screen — the Employees engine or the
 // Settings → Team panel.

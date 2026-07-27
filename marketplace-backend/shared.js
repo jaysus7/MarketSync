@@ -10,6 +10,40 @@ import { Resend } from 'resend'
 export const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 export const EMAIL_FROM = process.env.EMAIL_FROM || 'MarketSync <noreply@marketsync.link>'
 
+// Central mailer. Every failure mode is made explicit and LOGGED (most call sites
+// used to swallow errors, which is why a mis-configured key or an unverified
+// sending domain looked like "no emails going through" with nothing in the logs).
+// Returns { ok, error, id } — callers may ignore it, but the reason is always logged.
+export async function sendEmail({ to, subject, html, from, replyTo, cc, bcc, tags } = {}) {
+  if (!resend) { const error = 'RESEND_API_KEY not set — email is disabled'; console.error('[email]', error); return { ok: false, error } }
+  if (!to || !subject) { const error = 'email requires `to` and `subject`'; console.error('[email]', error, { to, subject }); return { ok: false, error } }
+  try {
+    const payload = { from: from || EMAIL_FROM, to, subject, html: html || '' }
+    if (replyTo) payload.replyTo = replyTo
+    if (cc) payload.cc = cc
+    if (bcc) payload.bcc = bcc
+    if (tags) payload.tags = tags
+    const r = await resend.emails.send(payload)
+    if (r?.error) { console.error('[email] send failed:', r.error?.message || r.error, '→', to); return { ok: false, error: r.error?.message || String(r.error) } }
+    return { ok: true, id: r?.data?.id || null }
+  } catch (e) {
+    console.error('[email] send threw:', e?.message || e, '→', to)
+    return { ok: false, error: e?.message || String(e) }
+  }
+}
+
+// Config snapshot for the owner's email diagnostic (no secrets returned).
+export function emailHealth() {
+  const m = /<([^>]+)>/.exec(EMAIL_FROM)
+  const addr = (m ? m[1] : EMAIL_FROM).trim()
+  return {
+    configured: !!resend,
+    key_present: !!process.env.RESEND_API_KEY,
+    from: EMAIL_FROM,
+    from_domain: addr.includes('@') ? addr.split('@')[1] : null,
+  }
+}
+
 // Public frontend host used for password reset links, email verification, Stripe
 // redirects, etc. This MUST be the static-site domain (marketsync.link) — NOT this
 // backend's own URL.
