@@ -771,7 +771,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
             ? `Strong seller — ${s.sold} sold recently with only ${inStock.count} now in stock. Restock to keep up with demand.`
             : `Sold ${s.sold} recently but none currently in stock — a proven mover worth re-acquiring.`,
           priority: s.sold >= 3 ? 'high' : (s.sold >= 2 ? 'medium' : 'low'),
-          existing_units: inStock ? inStock.units.slice(0, 3).map(u => ({ id: u.id, stocknumber: u.stocknumber })) : []
+          existing_units: inStock ? inStock.units.map(u => ({ id: u.id, stocknumber: u.stocknumber })) : []
         })
         if (out.length >= 5) return out
       }
@@ -785,7 +785,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
           make, model, year_range: 'recent',
           reason: `A core model on your lot (${d.count} in stock). Keep it stocked — it's a consistent fit for your buyers.`,
           priority: 'low',
-          existing_units: d.units.slice(0, 3).map(u => ({ id: u.id, stocknumber: u.stocknumber }))
+          existing_units: d.units.map(u => ({ id: u.id, stocknumber: u.stocknumber }))
         })
         if (out.length >= 5) return out
       }
@@ -838,6 +838,14 @@ Return ONLY valid JSON array (no markdown):
     // returned nothing usable.
     if (!Array.isArray(recommendations) || !recommendations.length) {
       recommendations = buildFallback()
+    }
+
+    // Attach the FULL matching in-stock list per recommendation (the AI prompt only
+    // saw a sample, so re-fill from the complete stock map) — all stock #s, linkable.
+    for (const r of recommendations) {
+      const k = `${r.make}|${r.model}`
+      const units = stockMap[k]?.units || []
+      r.existing_units = units.map(u => ({ id: u.id, stocknumber: u.stocknumber }))
     }
 
     const generated_at = new Date().toISOString()
