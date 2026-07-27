@@ -15118,7 +15118,13 @@ async function vehDelete(id) {
     if (typeof loadInventoryCatalog === 'function') loadInventoryCatalog();
   } catch (e) { showToast(e.message, 'error'); }
 }
-function editVehicle(id) { const v = (typeof __catalogCache !== 'undefined' ? __catalogCache : []).find(x => x.id === id); if (v) openVehicleForm(v); }
+async function editVehicle(id) {
+  const cached = (typeof __catalogCache !== 'undefined' ? __catalogCache : []).find(x => x.id === id);
+  if (cached) { openVehicleForm(cached); return; }
+  // Not in the inventory-page cache (e.g. opened from the health panel) — fetch it.
+  try { const v = await apiGetJson(`/inventory/${id}`, { retries: 1 }); openVehicleForm(v.vehicle || v); }
+  catch { showToast('Could not open that unit', 'error'); }
+}
 
 // ── Inventory CSV import / export ────────────────────────────────────────────
 async function invExportCsv(btn) {
@@ -22350,6 +22356,11 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
           })()}
           ${v.issues.length ? `<div class="flex flex-wrap gap-1">${issueList}</div>` : '<div class="text-emerald-500 text-xs font-semibold">✓ No issues</div>'}
+          <div class="mt-3 flex justify-end">
+            <button onclick="event.stopPropagation(); editVehicle('${v.id}')" class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Open stock card to fix →
+            </button>
+          </div>
         </div>`
 
       return `<tr class="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition border-t border-slate-100 dark:border-slate-800" onclick="
