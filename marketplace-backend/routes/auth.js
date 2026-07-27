@@ -199,6 +199,13 @@ export function registerRoutes(app) {
       createdUserId = authData.user.id
       confirmActionLink = authData.properties?.action_link || null
 
+      // Auto-confirm the email so the account can sign in immediately. The
+      // confirmation email is a welcome/nice-to-have, NOT a gate — this keeps
+      // sign-up and sign-in working even when email delivery is down (e.g. the
+      // sending domain isn't verified in Resend yet).
+      try { await supabaseAdmin.auth.admin.updateUserById(createdUserId, { email_confirm: true }) }
+      catch (e) { console.error('[register] auto-confirm failed:', e?.message || e) }
+
       // 30-day free trial: full account access AND every add-on switched on. When
       // it ends, add-ons drop to whatever the dealer actually paid for (see the
       // expiry sweep in /ai/config + /cron/expire-full-access).

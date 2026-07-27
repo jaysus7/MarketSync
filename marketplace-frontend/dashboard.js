@@ -10067,21 +10067,39 @@ async function loadEmailHealth() {
   try { h = await apiGetJson('/owner/email/health'); }
   catch (e) { host.innerHTML = engCard('Email delivery', `<div class="text-sm text-rose-500">${esc(e.message || 'Could not check email.')}</div>`); return; }
   const ok = !!h.configured;
-  const dot = ok ? 'bg-emerald-500' : 'bg-rose-500';
-  const status = ok
-    ? `<span class="text-emerald-600 dark:text-emerald-400 font-bold">API key detected</span>`
-    : `<span class="text-rose-600 dark:text-rose-400 font-bold">No API key — email is disabled</span>`;
+  const domStatus = h.from_domain_status;                 // 'verified' | 'pending' | null
+  const verified = domStatus === 'verified';
+  const dot = !ok ? 'bg-rose-500' : verified ? 'bg-emerald-500' : 'bg-amber-500';
+  const status = !ok
+    ? `<span class="text-rose-600 dark:text-rose-400 font-bold">No API key — email is disabled</span>`
+    : verified
+      ? `<span class="text-emerald-600 dark:text-emerald-400 font-bold">Ready — ${esc(h.from_domain)} is verified</span>`
+      : `<span class="text-amber-600 dark:text-amber-400 font-bold">Key OK, but ${esc(h.from_domain)} is not verified on this key's account</span>`;
+  // Domains this backend key can actually send from.
+  const domRows = Array.isArray(h.domains)
+    ? (h.domains.length
+        ? h.domains.map(d => `<div class="flex items-center justify-between text-[12px] py-0.5"><span class="font-mono text-slate-700 dark:text-slate-200">${esc(d.name)}</span><span class="font-bold ${d.status === 'verified' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">${esc(d.status || '—')}</span></div>`).join('')
+        : `<div class="text-[12px] text-rose-500">This API key's account has <b>no domains</b> — it's a different account than where you verified marketsync.link.</div>`)
+    : (h.domains_error ? `<div class="text-[12px] text-slate-400">Couldn't list domains: ${esc(h.domains_error)}</div>` : '');
+  // Diagnosis when configured but the sending domain isn't verified on this key.
+  const mismatch = ok && !verified;
   host.innerHTML = engCard('Email delivery', `
     <div class="space-y-2 text-[13px] text-slate-600 dark:text-slate-300">
       <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full ${dot}"></span>${status}</div>
       <div class="flex items-center justify-between"><span>Sending address</span><span class="font-mono text-[12px] text-slate-700 dark:text-slate-200">${esc(h.from || '—')}</span></div>
-      <div class="flex items-center justify-between"><span>Sending domain</span><span class="font-mono text-[12px] text-slate-700 dark:text-slate-200">${esc(h.from_domain || '—')}</span></div>
-      ${!ok ? `<p class="text-[12px] text-rose-500">Set <span class="font-mono">RESEND_API_KEY</span> on the backend (and verify the sending domain in Resend) to enable email.</p>` : ''}
+      ${Array.isArray(h.domains) ? `<div class="pt-1"><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Domains this key can send from</div>${domRows}</div>` : ''}
+      ${mismatch ? `<div class="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2.5 text-[12px] text-amber-800 dark:text-amber-200">
+        <b>${esc(h.from_domain)} isn't verified on the key the server is using.</b> You verified it 4 days ago — but on a different Resend account/team. Fix either way:
+        <ol class="list-decimal ml-4 mt-1 space-y-0.5">
+          <li>Confirm which Resend account holds the verified <span class="font-mono">${esc(h.from_domain)}</span> (resend.com/domains).</li>
+          <li>Create an API key <b>in that same account</b> and set it as <span class="font-mono">RESEND_API_KEY</span> on the backend, <b>or</b> re-verify the domain in the account this key belongs to.</li>
+          <li>Redeploy, then click <b>Send test email</b> again.</li>
+        </ol></div>` : ''}
+      ${!ok ? `<p class="text-[12px] text-rose-500">Set <span class="font-mono">RESEND_API_KEY</span> on the backend to enable email.</p>` : ''}
       <div class="flex items-center gap-2 pt-1">
         <button onclick="emailSendTest(this)" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">Send test email</button>
         <span id="email-test-result" class="text-[12px]"></span>
       </div>
-      <p class="text-[12px] text-slate-400">The test send surfaces the exact provider error (e.g. a domain that isn't verified) so a delivery problem is never invisible.</p>
     </div>`);
 }
 window.loadEmailHealth = loadEmailHealth;

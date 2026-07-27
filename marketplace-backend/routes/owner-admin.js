@@ -10,7 +10,7 @@
  *    profile's billing there. So the console exposes both targets.
  *  - Engines/entitlements are always per-dealership columns.
  */
-import { supabaseAdmin, sendEmail, emailHealth } from '../shared.js'
+import { supabaseAdmin, sendEmail, emailHealth, resend } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { PRODUCT_KEYS, resolveProducts } from './profile.js'
 
@@ -54,7 +54,20 @@ export function registerOwnerAdmin(app) {
   // real test send so Resend's actual error (e.g. "domain not verified") is visible.
   app.get('/owner/email/health', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    res.json(emailHealth())
+    const health = emailHealth()
+    // Ask Resend (with the backend's OWN key) which domains it can actually send
+    // from + their status. If the sending domain isn't here as "verified", the key
+    // belongs to a different Resend account/team than where it was verified.
+    let domains = null, domains_error = null
+    if (resend) {
+      try {
+        const r = await resend.domains.list()
+        const list = r?.data?.data || r?.data || []
+        domains = (Array.isArray(list) ? list : []).map(d => ({ name: d.name, status: d.status, region: d.region }))
+      } catch (e) { domains_error = e?.message || String(e) }
+    }
+    const match = domains && health.from_domain ? domains.find(d => d.name === health.from_domain) : null
+    res.json({ ...health, domains, domains_error, from_domain_status: match?.status || null })
   })
   app.post('/owner/email/test', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
