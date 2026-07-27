@@ -1249,6 +1249,9 @@ async function initializeDashboardEcosystem() {
     else switchPage(__mgrHome ? 'command' : 'insights');
     applyFeatureFlags();   // hide nav for features the dealer switched off
     applyProductNav(profileContext?.products);   // entitlement-driven front door (overrides landing for non-OS products)
+    // Flatten the left nav to departments for the full DealerOS manager/admin view
+    // (runs after all gating so it derives visibility from the settled nav).
+    renderDeptNav(profileContext?.role);
 
     // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
     initGlobalLeaderboard();
@@ -1405,13 +1408,23 @@ window.openLeaderboardOnDash = openLeaderboardOnDash;
 // instead; those pages are intentionally NOT listed here.
 // ═══════════════════════════════════════════════════════════════════════════
 const DEPARTMENTS = {
+  executive: {
+    label: 'Executive', icon: 'chart', accent: 'indigo',
+    pages: [{ page: 'command', label: 'Executive' }],
+  },
   sales: {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
       { page: 'insights', label: 'Dashboard' },
       { page: 'leads', label: 'Opportunities' },
       { page: 'crm', label: 'Customers' },
+      { page: 'tasks', label: 'Tasks' },
+      { page: 'appointments', label: 'Appointments' },
       { page: 'inventory', label: 'Inventory', invmode: 'manual' },
+      { page: 'inv-intel', label: 'Pricing' },
+      { page: 'market', label: 'Market' },
+      { page: 'appraisal', label: 'Appraisals' },
+      { page: 'equity', label: 'Equity' },
       { page: 'delivery', label: 'Deliveries' },
       { page: 'reports', label: 'Reports' },
     ],
@@ -1431,8 +1444,16 @@ const DEPARTMENTS = {
       { page: 'service-settings', label: 'Settings' },
     ],
   },
+  parts: {
+    label: 'Parts', icon: 'gem', accent: 'amber',
+    pages: [{ page: 'service-parts', label: 'Parts Inventory' }],
+  },
+  cleanup: {
+    label: 'Detail / Cleanup', icon: 'droplet', accent: 'sky',
+    pages: [{ page: 'recon', label: 'Cleanup' }],
+  },
   accounting: {
-    label: 'Accounting', icon: 'currency', accent: 'emerald',
+    label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap',
     pages: [
       { page: 'accounting', label: 'Ledger' },
       { page: 'commissions', label: 'Commissions' },
@@ -1449,19 +1470,29 @@ const DEPARTMENTS = {
   administration: {
     label: 'Administration', icon: 'shield', accent: 'indigo',
     pages: [
+      { page: 'operations', label: 'Operations' },
+      { page: 'taskboard', label: 'Task Board' },
       { page: 'config', label: 'Configuration' },
       { page: 'api-keys', label: 'API Keys' },
+      { page: 'owner-users', label: 'All Users' },
     ],
+  },
+  settings: {
+    label: 'Settings', icon: 'user', accent: 'indigo',
+    pages: [{ page: 'profile', label: 'Settings' }],
   },
 };
 let __activeDept = null;
+let __currentPage = null;
 // Is a page reachable for this user? Respect the per-item gating that product /
 // role / feature flags apply by toggling the `hidden` class on nav items.
 function deptPageVisible(pg) {
   if (__staffAllowedPages && !__staffAllowedPages.has(pg)) return false;
   const els = document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${pg}"]`);
   if (!els.length) return true;   // no nav item (e.g. sub-view) — don't over-filter
-  return [...els].some(el => !el.classList.contains('hidden'));
+  // A page is reachable only if a nav item for it is neither role/entitlement-hidden
+  // (`hidden`) nor feature-flag-off (`ff-off`).
+  return [...els].some(el => !el.classList.contains('hidden') && !el.classList.contains('ff-off'));
 }
 function renderDeptTabbar(pageId) {
   const bar = document.getElementById('dept-tabbar');
@@ -1494,6 +1525,66 @@ function renderDeptTabbar(pageId) {
 // Navigate to a department page (handles the inventory view-mode tabs).
 function deptGo(page, invmode) { if (invmode) __inventoryMode = invmode; switchPage(page); }
 window.deptGo = deptGo;
+
+// ── Flat department LEFT nav ─────────────────────────────────────────────────
+// The legacy left nav is a deep, mode-aware tree. For the full DealerOS
+// manager/admin experience we replace it with a flat department list (the
+// legacy tree is hidden, not removed, so all its gating still drives which
+// departments/pages are reachable). Reps, product tiers, Facebook-only and
+// MarketSync owner mode keep the legacy nav untouched — zero regression.
+let __deptNavBuilt = false;
+function deptNavEligible(role) {
+  return ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)
+    && !__fbOnly
+    && document.documentElement.getAttribute('data-dash-mode') !== 'marketsync'
+    && __productAllowedPages == null;
+}
+function deptHomePage(dept) { return dept.pages.find(p => deptPageVisible(p.page)) || dept.pages[0]; }
+function deptVisible(dept) {
+  if (dept.pages.some(p => deptPageVisible(p.page))) return true;
+  if (dept.probe) { const el = document.querySelector(dept.probe); if (el && !el.classList.contains('hidden')) return true; }
+  return false;
+}
+function renderDeptNav(role) {
+  const navRoot = document.getElementById('nav-desktop');
+  if (!navRoot) return;
+  if (!deptNavEligible(role)) { navRoot.classList.remove('dept-mode'); document.getElementById('dept-nav')?.remove(); __deptNavBuilt = false; return; }
+  let host = document.getElementById('dept-nav');
+  if (!host) {
+    host = document.createElement('div'); host.id = 'dept-nav'; host.className = 'space-y-0.5 mb-1';
+    // Sit below the owner controls (mode switch, demo reset, setup bar) if present.
+    const anchor = document.getElementById('setup-bar-host') || document.getElementById('ms-demo-reset') || document.getElementById('ms-mode-switch');
+    if (anchor && anchor.parentElement === navRoot) navRoot.insertBefore(host, anchor.nextSibling);
+    else navRoot.insertBefore(host, navRoot.firstChild);
+  }
+  host.innerHTML = Object.entries(DEPARTMENTS).filter(([, d]) => deptVisible(d)).map(([id, d]) => {
+    const A = ENGINE_ACCENTS[d.accent] || ENGINE_ACCENTS.indigo;
+    return `<button type="button" data-dept="${id}" onclick="deptOpen('${id}')" title="${esc(d.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="${A.text} flex-shrink-0">${svgIcon(d.icon || 'dot', 'w-4 h-4')}</span><span>${esc(d.label)}</span></button>`;
+  }).join('');
+  navRoot.classList.add('dept-mode');
+  __deptNavBuilt = true;
+  if (__currentPage) highlightDeptNav(__currentPage);
+}
+window.renderDeptNav = renderDeptNav;
+function deptOpen(id) {
+  const d = DEPARTMENTS[id]; if (!d) return;
+  __activeDept = id;
+  const home = deptHomePage(d);
+  if (home.invmode) __inventoryMode = home.invmode;
+  switchPage(home.page);
+}
+window.deptOpen = deptOpen;
+function highlightDeptNav(pageId) {
+  if (!__deptNavBuilt) return;
+  const deptId = (__activeDept && DEPARTMENTS[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
+               : Object.keys(DEPARTMENTS).find(d => DEPARTMENTS[d].pages.some(p => p.page === pageId));
+  document.querySelectorAll('#dept-nav .dept-nav-item').forEach(b => {
+    const on = b.dataset.dept === deptId;
+    b.classList.toggle('bg-indigo-100', on); b.classList.toggle('dark:bg-indigo-950/50', on);
+    b.classList.toggle('text-indigo-700', on); b.classList.toggle('dark:text-indigo-300', on);
+    b.classList.toggle('text-slate-700', !on); b.classList.toggle('dark:text-slate-300', !on);
+  });
+}
 
 function switchPage(pageId) {
   ensurePanelsInOriginalLocations();
@@ -1606,7 +1697,9 @@ function switchPage(pageId) {
   if (pageId === 'owner-users') loadOwnerUsersPage();
   if (pageId === 'ai-inbox') loadAiInbox();
 
+  __currentPage = pageId;
   renderDeptTabbar(pageId);
+  highlightDeptNav(pageId);
 }
 
 // ── Trade Appraisal ──────────────────────────────────────────────────────────
@@ -18844,6 +18937,7 @@ async function loadAIBoostSection() {
     applyPaidBadges();
     applyFeatureFlags();   // re-hide any feature the dealer switched off (e.g. Appraisals)
     applyProductNav(profileContext?.products);   // keep the product front door applied after config load
+    renderDeptNav(profileContext?.role);   // rebuild the department nav once feature flags settle
     // Reveal the floating AI assistant dock for entitled dealers (owner exempt).
     updateAiDockVisibility();
     applyAssistantName(cfg.ai_assistant_name);

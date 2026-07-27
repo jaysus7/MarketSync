@@ -169,6 +169,10 @@
     #ms-insights{display:none}
     html[data-dash-mode="marketsync"] #ms-insights{display:block}
     html[data-dash-mode="marketsync"] [data-page-content="insights"] > *:not(#ms-insights){display:none!important}
+    /* Department mode: the legacy deep nav tree is replaced by a flat department
+       list (#dept-nav). Hide every legacy child except the owner controls, the
+       setup bar, and the department list itself. Reversible: remove .dept-mode. */
+    #nav-desktop.dept-mode > *:not(#dept-nav):not(#ms-mode-switch):not(#ms-demo-reset):not(#setup-bar-host){display:none!important}
     /* The mode switch pills. */
     #ms-mode-switch{align-items:center;gap:2px;background:#eef2f7;border-radius:9px;padding:3px;margin:0 0 8px}
     html.dark #ms-mode-switch{background:#1e293b}
@@ -3400,7 +3404,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260727e"></script>
+  <script src="dashboard.js?v=20260727f"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
