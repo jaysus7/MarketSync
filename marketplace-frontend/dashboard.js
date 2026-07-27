@@ -909,6 +909,10 @@ function initDashModeForOwner() {
   __dashMode = 'marketsync';
   localStorage.setItem('ms_dash_mode', 'marketsync');
   applyDashMode('marketsync');
+  // Dealer-only Settings tabs don't apply to the SaaS owner (Team becomes SaaS
+  // roles via renderSettingsSaasRoles). Hide the purely dealership ones.
+  ['group', 'branding', 'aiboost', 'dealermgmt'].forEach(t =>
+    document.querySelector(`#settings-tabs [data-stab="${t}"]`)?.classList.add('hidden'));
   if (typeof switchPage === 'function') switchPage('saas-command');
 }
 
@@ -1578,6 +1582,7 @@ const SAAS_DEPARTMENTS = {
   employees:  { label: 'Employees',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'saas-employees', label: 'Employees' }] },
   accounts:   { label: 'All Users',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'owner-users', label: 'Accounts' }] },
   affiliates: { label: 'Affiliates',       icon: 'trophy',   accent: 'amber',   pages: [{ page: 'affiliates-admin', label: 'Affiliates' }] },
+  accounting: { label: 'Accounting',       icon: 'currency', accent: 'emerald', always: true, pages: [{ page: 'accounting', label: 'Accounting' }] },
   settings:   { label: 'Settings',         icon: 'user',     accent: 'indigo',  always: true, pages: [{ page: 'profile', label: 'Settings' }] },
 };
 let __deptNavBuilt = false;
@@ -7344,22 +7349,74 @@ function settingsTab(tab) {
     panel.classList.toggle('is-multi', shown.length > 1);
   });
   if (tab === 'team') {
-    loadSettingsTeam(document.getElementById('team-picker')?.value || 'sales');
-    // Bring the full login/role management + lead-routing setup into Settings →
-    // Team so it's all in one place (they used to live on a separate page). The
-    // nodes are moved (not cloned), so their existing IDs + wiring keep working.
-    const host = document.getElementById('settings-team');
-    const dv = document.getElementById('dealer-view-panel');
-    const lr = document.getElementById('lead-routing-card');
-    const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    if (host && dv && isAdmin) { dv.classList.remove('hidden'); if (dv.parentElement !== host) host.appendChild(dv); }
-    if (host && lr && isAdmin && lr.parentElement !== host) host.appendChild(lr);
-    if (isAdmin) loadDealerManagementMatrix();
+    // MarketSync owner: the "Team" here is MarketSync staff with SaaS roles, not a
+    // dealership sales team — render the SaaS roles manager instead.
+    if (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode()) {
+      renderSettingsSaasRoles();
+    } else {
+      loadSettingsTeam(document.getElementById('team-picker')?.value || 'sales');
+      // Bring the full login/role management + lead-routing setup into Settings →
+      // Team so it's all in one place (they used to live on a separate page). The
+      // nodes are moved (not cloned), so their existing IDs + wiring keep working.
+      const host = document.getElementById('settings-team');
+      const dv = document.getElementById('dealer-view-panel');
+      const lr = document.getElementById('lead-routing-card');
+      const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+      if (host && dv && isAdmin) { dv.classList.remove('hidden'); if (dv.parentElement !== host) host.appendChild(dv); }
+      if (host && lr && isAdmin && lr.parentElement !== host) host.appendChild(lr);
+      if (isAdmin) loadDealerManagementMatrix();
+    }
   }
   if (tab === 'dealermgmt') { loadDealerFeatures(); loadDeskFeeSettings(); loadDealerDocs(); }
   if (tab === 'integrations') loadIntegrations();
 }
 window.settingsTab = settingsTab;
+
+// MarketSync owner's Settings → Team = SaaS staff + roles (owner/sales/support/
+// marketing/developer) with the permission matrix — not a dealership sales team.
+// Renders into #settings-team, hiding the dealer team markup while active.
+async function renderSettingsSaasRoles() {
+  const host = document.getElementById('settings-team'); if (!host) return;
+  Array.from(host.children).forEach(c => { if (c.id !== 'settings-saas-roles') c.classList.add('hidden'); });
+  let panel = document.getElementById('settings-saas-roles');
+  if (!panel) { panel = document.createElement('div'); panel.id = 'settings-saas-roles'; host.prepend(panel); }
+  panel.classList.remove('hidden');
+  panel.innerHTML = `<div class="text-sm text-slate-400 py-6 text-center">Loading team…</div>`;
+  let d;
+  try { d = await apiGetJson('/saas/employees'); }
+  catch (e) { panel.innerHTML = `<div class="text-sm text-rose-500 py-6 text-center">${esc(e.message || 'Could not load team.')}</div>`; return; }
+  const roles = d.roles || [], matrix = d.permissions_matrix || {};
+  const staff = (d.staff || []).map(s => `
+    <tr class="border-t border-slate-100 dark:border-slate-800">
+      <td class="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">${esc(s.name)}</td>
+      <td class="px-3 py-2"><select onchange="saasSetRole('${s.id}', this.value)" class="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px]">${empRoleOpts(roles, s.saas_role)}</select></td>
+      <td class="px-3 py-2 text-[11px] text-slate-400">${(s.permissions || []).map(p => esc(p)).join(', ')}</td>
+      <td class="px-3 py-2 text-right"><button onclick="saasSetRole('${s.id}','')" class="text-[11px] font-bold text-rose-500 hover:text-rose-600">Remove</button></td>
+    </tr>`).join('') || `<tr><td colspan="4" class="px-3 py-8 text-center text-slate-400 text-sm">No staff yet — add one by email below.</td></tr>`;
+  const matrixRows = roles.map(r => `
+    <div class="flex flex-wrap items-start gap-2 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <span class="w-24 flex-shrink-0 text-[12px] font-black uppercase text-slate-600 dark:text-slate-300">${esc(r)}</span>
+      <span class="flex flex-wrap gap-1">${(matrix[r] || []).map(p => `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${p === '*' ? 'ALL' : esc(p)}</span>`).join('')}</span>
+    </div>`).join('');
+  panel.innerHTML = `
+    <div class="mb-3"><h3 class="text-sm font-black text-slate-800 dark:text-slate-100">MarketSync team &amp; roles</h3>
+      <p class="text-[12px] text-slate-500 dark:text-slate-400">Your staff and what each SaaS role can do. Owner-only.</p></div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
+      <table class="w-full text-sm min-w-[560px]">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">Name</th><th class="px-3 py-2">Role</th><th class="px-3 py-2">Permissions</th><th class="px-3 py-2"></th></tr></thead>
+        <tbody>${staff}</tbody>
+      </table>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-wrap items-end gap-2 mt-3">
+      <div><label class="text-[11px] text-slate-400 font-bold">Add staff by email</label><input id="saas-emp-email" placeholder="teammate@marketsync.link" class="w-64 mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+      <div><label class="text-[11px] text-slate-400 font-bold">Role</label><select id="saas-emp-role" class="mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${empRoleOpts(roles, 'support')}</select></div>
+      <button onclick="saasAddEmployee()" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold transition">Add</button>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mt-3">
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Permission matrix</div>${matrixRows}
+    </div>`;
+}
+window.renderSettingsSaasRoles = renderSettingsSaasRoles;
 
 // ── Integrations Hub ─────────────────────────────────────────────────────────
 // Lists every connectable service. "Webhooks" is the live outbound glue — a dealer
@@ -9911,15 +9968,22 @@ ENGINES['saas-employees'] = {
   },
 };
 function loadSaasEmployees() { renderEngine('saas-employees'); }
+// Refresh whichever SaaS-roles surface is on screen — the Employees engine or the
+// Settings → Team panel.
+function refreshSaasRoles() {
+  const settingsPanel = document.getElementById('settings-saas-roles');
+  if (settingsPanel && !settingsPanel.classList.contains('hidden')) renderSettingsSaasRoles();
+  else loadSaasEmployees();
+}
 async function saasSetRole(userId, role) {
-  try { await apiSendJson('/saas/employees/role', 'POST', { user_id: userId, saas_role: role }); showToast('Updated ✓', 'success'); loadSaasEmployees(); }
+  try { await apiSendJson('/saas/employees/role', 'POST', { user_id: userId, saas_role: role }); showToast('Updated ✓', 'success'); refreshSaasRoles(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 async function saasAddEmployee() {
   const email = document.getElementById('saas-emp-email').value.trim();
   const role = document.getElementById('saas-emp-role').value;
   if (!email) return showToast('Email required', 'error');
-  try { await apiSendJson('/saas/employees/role', 'POST', { email, saas_role: role }); showToast('Staff added ✓', 'success'); loadSaasEmployees(); }
+  try { await apiSendJson('/saas/employees/role', 'POST', { email, saas_role: role }); showToast('Staff added ✓', 'success'); refreshSaasRoles(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 Object.assign(window, { loadSaasEmployees, saasSetRole, saasAddEmployee });
