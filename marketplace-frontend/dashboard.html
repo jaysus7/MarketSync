@@ -990,7 +990,7 @@
             </div>
             <div id="grp-ii" class="nav-group-body space-y-0.5 mt-0.5 hidden">
               <button type="button" data-page="inventory" data-invmode="manual" title="Inventory List" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Inventory List</button>
-              <button type="button" data-page="inv-intel" title="Price + Stock Recommendations" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Price + Stock Recommendations</button>
+              <button type="button" data-page="inv-intel" title="Inventory Intelligence" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Inventory Intelligence</button>
               <button type="button" data-page="market" title="Market &amp; Competitors" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Market &amp; Competitors</button>
             </div>
           </div>
@@ -2260,7 +2260,7 @@
           <!-- ── Pricing & Acquisition section header ──────────────────────── -->
           <div class="pt-2">
             <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span class="w-1.5 h-4 rounded-full bg-orange-500 flex-shrink-0"></span> Price + Stock Recommendations
+              <span class="w-1.5 h-4 rounded-full bg-orange-500 flex-shrink-0"></span> Inventory Intelligence
             </h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 ml-3.5">Auto-flag stale, overpriced units and get AI recommendations on what to stock next.</p>
           </div>
@@ -2540,21 +2540,6 @@
         <div class="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_360px]">
           <div class="space-y-6 min-w-0">
 
-        <!-- Card: standalone VIN decode report — opens the full specs & recall modal -->
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Decode VIN report <span class="normal-case font-normal text-slate-400">(view full specs &amp; recalls — opens a report, doesn't change the fields)</span></label>
-          <div class="flex gap-2">
-            <input id="appr-vin-lookup" maxlength="17" placeholder="Enter a VIN to decode" class="flex-1 uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
-            <button type="button" onclick="openVinScanner('appr-vin-lookup', () => document.getElementById('appr-vin-lookup-btn').click())" title="Scan VIN barcode" class="flex items-center gap-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-bold px-3 py-2 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10"/></svg>Scan</button>
-            <button id="appr-vin-lookup-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Decode VIN</button>
-          </div>
-          <div class="flex flex-wrap items-center gap-2 mt-2">
-            <button id="appr-oem-sticker" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">OEM Window Sticker</button>
-            <button id="appr-oem-brochure" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">OEM Brochure</button>
-            <span id="appr-oem-msg" class="text-xs text-slate-400"></span>
-          </div>
-        </div>
-
         <!-- Card: the appraisal form -->
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
           <!-- License plate → VIN (optional; shown only when a plate-decode provider is provisioned) -->
@@ -2579,6 +2564,12 @@
             <div id="appr-vin-decoded" class="hidden mt-2 flex items-start gap-2 text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-lg px-3 py-2">
               <svg class="w-4 h-4 flex-shrink-0 mt-px" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
               <span><span class="font-bold">Decoded:</span> <span id="appr-vin-decoded-text"></span> — this only identifies the vehicle. Add mileage and click <span class="font-semibold">Appraise</span>; the value comes from live market comps, not the VIN.</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 mt-2">
+              <button type="button" id="appr-view-decode" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 transition">View full VIN decode</button>
+              <button type="button" id="appr-oem-sticker" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">OEM Window Sticker</button>
+              <button type="button" id="appr-oem-brochure" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">OEM Brochure</button>
+              <span id="appr-oem-msg" class="text-xs text-slate-400"></span>
             </div>
           </div>
 
@@ -3295,7 +3286,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260728x"></script>
+  <script src="dashboard.js?v=20260728y"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

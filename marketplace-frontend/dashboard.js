@@ -1463,9 +1463,9 @@ const DEPARTMENTS = {
       { page: 'tasks', label: 'Tasks' },
       { page: 'appointments', label: 'Appointments' },
       { page: 'inventory', label: 'Inventory', invmode: 'manual' },
-      { page: 'inv-intel', label: 'Price + Stock' },
+      { page: 'inv-intel', label: 'Inventory Intelligence' },
       { page: 'market', label: 'Market' },
-      { page: 'appraisal', label: 'Trades' },
+      { page: 'appraisal', label: 'Appraisals' },
       { page: 'equity', label: 'Equity Mining' },
       { page: 'delivery', label: 'Deliveries' },
       { page: 'reports', label: 'Reports' },
@@ -2000,14 +2000,14 @@ function initAppraisal() {
   __apprWired = true;
 
   // Standalone VIN decoder — pops the same full specs & recall modal as Inventory.
-  const lookupBtn = $('appr-vin-lookup-btn'), lookupInput = $('appr-vin-lookup');
+  // "View full VIN decode" reads the appraisal's VIN field and opens the rich
+  // specs + recall report (same modal Inventory uses).
   const runVinLookup = () => {
-    const vin = (lookupInput?.value || '').trim().toUpperCase();
-    if (vin.length !== 17) { showToast('Enter a 17-character VIN', 'error'); return; }
+    const vin = ($('appr-vin')?.value || '').trim().toUpperCase();
+    if (vin.length !== 17) { showToast('Decode or enter a 17-character VIN first', 'error'); return; }
     openVinDecode(null, vin);
   };
-  lookupBtn?.addEventListener('click', runVinLookup);
-  lookupInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runVinLookup(); } });
+  $('appr-view-decode')?.addEventListener('click', runVinLookup);
 
   // Customer search — pull an existing CRM customer into the appraisal, or start new.
   const custSearch = $('appr-cust-search');
@@ -22364,13 +22364,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const mileNote = v.mileage != null
         ? Number(v.mileage).toLocaleString() + (v.mileage_ratio != null ? (v.mileage_ratio <= 1.0 ? ' · below avg' : v.mileage_ratio <= 1.25 ? ' · slightly high' : ' · high for age') : '')
         : null;
+      // Each row shows the ACTUAL value (days, km, price…) + how much it's worth of
+      // the 100-pt score (its max = its weight), with the bar coloured by the score.
+      const money0 = (n) => n != null ? '$' + Number(n).toLocaleString() : '—';
+      const priceActual = v.price > 0 ? money0(v.price) + (priceNote ? ' · ' + priceNote : '') : 'No price';
+      const mileActual = v.mileage > 0 ? (mileNote || Number(v.mileage).toLocaleString()) : 'No mileage';
       const segments = [
-        { label: 'Photos',      val: b.photos,      max: 30, icon: 'camera' },
-        { label: 'Days on lot', val: b.days,         max: 25, icon: 'calendar' },
-        { label: 'Price',       val: b.price,        max: 15, icon: 'currency', note: priceNote },
-        { label: 'Mileage',     val: b.mileage,      max: 10, icon: 'hashtag', note: mileNote },
-        { label: 'Description', val: b.description,  max: 10, icon: 'document' },
-        { label: 'VIN decode',  val: b.fields,       max: 10, icon: 'check' },
+        { label: 'Photos',      val: b.photos,      max: 30, icon: 'camera',   actual: `${v.photos || 0} photo${v.photos === 1 ? '' : 's'}` },
+        { label: 'Days on lot', val: b.days,         max: 25, icon: 'calendar', actual: `${v.days}d on lot` },
+        { label: 'Price',       val: b.price,        max: 15, icon: 'currency', actual: priceActual },
+        { label: 'Mileage',     val: b.mileage,      max: 10, icon: 'hashtag',  actual: mileActual },
+        { label: 'Description', val: b.description,  max: 10, icon: 'document', actual: b.description >= 10 ? 'Written' : 'Short / missing' },
+        { label: 'VIN decode',  val: b.fields,       max: 10, icon: 'check',    actual: b.fields >= 10 ? 'Decoded' : 'Incomplete' },
       ].filter(s => s.val != null)
 
       const breakdownId = `hbd-${idx}`
@@ -22380,9 +22385,14 @@ document.addEventListener('DOMContentLoaded', () => {
             ${segments.map(s => {
               const pct = Math.round((s.val / s.max) * 100)
               const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400'
-              return `<div>
-                <div class="flex justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                  <span class="inline-flex items-center gap-1">${svgIcon(s.icon, 'w-3 h-3')}${s.label}${s.note ? `<span class="font-normal text-slate-400">· ${esc(s.note)}</span>` : ''}</span><span>${s.val}/${s.max}</span>
+              const valColor = pct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : pct >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500'
+              return `<div title="Worth ${s.max}% of the health score">
+                <div class="flex justify-between items-baseline text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1 gap-2">
+                  <span class="inline-flex items-center gap-1">${svgIcon(s.icon, 'w-3 h-3')}${s.label}</span>
+                  <span class="text-[9px] font-bold uppercase tracking-wide text-slate-300 dark:text-slate-600">worth ${s.max}%</span>
+                </div>
+                <div class="flex justify-between items-baseline mb-1 gap-2">
+                  <span class="text-[12px] font-bold ${valColor} truncate">${esc(s.actual)}</span>
                 </div>
                 <div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
                   <div class="h-1.5 rounded-full ${barColor}" style="width:${pct}%"></div>
