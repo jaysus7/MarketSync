@@ -13907,14 +13907,64 @@ let __fniTab = 'worklist';
 function fniSwitchTab(tab) {
   __fniTab = tab;
   if (tab === 'reports') renderFniReports();
+  else if (tab === 'esign') renderFniEsign();
   else renderFniPage();
 }
 window.fniSwitchTab = fniSwitchTab;
 
 function fniTabsHtml() {
   const btn = (id, label) => `<button onclick="fniSwitchTab('${id}')" class="px-3 py-1.5 rounded-lg text-sm font-bold transition ${__fniTab === id ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}">${label}</button>`;
-  return `<div class="inline-flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl mb-4">${btn('worklist', 'Worklist')}${btn('reports', 'Reports')}</div>`;
+  return `<div class="inline-flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl mb-4">${btn('worklist', 'Worklist')}${btn('esign', 'E-signatures')}${btn('reports', 'Reports')}</div>`;
 }
+
+// E-signatures tab — every signing request across the store, in one place under F&I.
+// (The per-deal view is still on the desk; this is the whole pipeline.)
+async function renderFniEsign() {
+  const root = document.getElementById('fni-root');
+  if (!root) return;
+  root.innerHTML = `${fniTabsHtml()}<div class="py-12 text-center text-sm text-slate-400 italic">Loading signing requests…</div>`;
+  let reqs = [];
+  try { const r = await apiGetJson('/esign', { retries: 1 }); reqs = r.requests || []; }
+  catch (e) { root.innerHTML = `${fniTabsHtml()}<div class="py-12 text-center text-sm text-red-400">Could not load signing requests: ${esc(e.message)}<br><button onclick="renderFniEsign()" class="mt-3 text-indigo-500 font-bold">Retry</button></div>`; return; }
+  const badge = (s) => {
+    const map = { signed: ['Signed', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'], viewed: ['Viewed', 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'], sent: ['Sent', 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'], declined: ['Declined', 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'], void: ['Void', 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'] };
+    const [t, cls] = map[s] || [s || '—', 'bg-slate-100 text-slate-600'];
+    return `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full ${cls}">${t}</span>`;
+  };
+  const counts = reqs.reduce((m, x) => { m[x.status] = (m[x.status] || 0) + 1; return m; }, {});
+  const chip = (label, n, cls) => `<span class="text-[11px] font-bold px-2.5 py-1 rounded-full ${cls}">${label} ${n || 0}</span>`;
+  const rowsHtml = reqs.length ? reqs.map(x => {
+    const when = x.signed_at ? 'Signed ' + new Date(x.signed_at).toLocaleString('en-US') : 'Created ' + new Date(x.created_at).toLocaleDateString('en-US');
+    const action = x.status === 'signed'
+      ? `<button onclick="openEsignDetail('${x.id}')" class="text-xs font-bold text-indigo-600 hover:text-indigo-500">View</button>`
+      : `<button onclick="esignCopyLink('${esc(x.url || '')}')" class="text-xs font-bold text-indigo-600 hover:text-indigo-500">Copy link</button>`;
+    const openDeal = x.contact_id ? `<button onclick="openDeskForContact('${esc(x.contact_id)}')" class="text-xs font-bold text-slate-500 hover:text-indigo-500 ml-3">Open deal</button>` : '';
+    return `<tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40">
+      <td class="py-2.5 px-3"><div class="text-sm font-semibold text-slate-800 dark:text-slate-100">${esc(x.doc_title || 'Document')}</div></td>
+      <td class="py-2.5 px-3 text-sm text-slate-600 dark:text-slate-300">${esc(x.signer_name || x.signer_email || '—')}</td>
+      <td class="py-2.5 px-3 whitespace-nowrap">${badge(x.status)}</td>
+      <td class="py-2.5 px-3 text-sm text-slate-500 dark:text-slate-400 whitespace-nowrap">${esc(when)}</td>
+      <td class="py-2.5 px-3 text-right whitespace-nowrap">${action}${openDeal}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="py-10 text-center text-sm text-slate-400 italic">No signing requests yet. Use “Send for e-signature” on a deal to create one.</td></tr>';
+  root.innerHTML = `
+    ${fniTabsHtml()}
+    <div class="flex items-center gap-2 flex-wrap mb-3">
+      ${chip('Awaiting', (counts.sent || 0) + (counts.viewed || 0), 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300')}
+      ${chip('Signed', counts.signed, 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300')}
+      ${chip('Declined', counts.declined, 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300')}
+      <span class="ml-auto text-xs text-slate-500 dark:text-slate-400">${reqs.length} total</span>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto"><table class="w-full text-left min-w-[680px]">
+        <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wider">
+          <th class="py-3 px-3">Document</th><th class="py-3 px-3">Signer</th><th class="py-3 px-3">Status</th><th class="py-3 px-3">When</th><th class="py-3 px-3 text-right">Action</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table></div>
+    </div>`;
+}
+window.renderFniEsign = renderFniEsign;
 
 function renderFniPage() {
   const root = document.getElementById('fni-root');
