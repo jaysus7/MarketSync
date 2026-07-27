@@ -9263,12 +9263,13 @@ async function loadSoloHome() {
     : `${(d.avg_response_min / 60).toFixed(1)} hr`;
   // Big hero tile + supporting tiles. Views/Messages show "—" until an FB insights
   // sync is connected (we never fabricate those numbers).
-  const tile = (label, val, sub, accent) => `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4">
+  // A stat tile. When `onclick` is supplied it renders as a button that drills in.
+  const tile = (label, val, sub, accent, onclick) => `
+    <${onclick ? 'button' : 'div'} ${onclick ? `onclick="${onclick}"` : ''} class="block text-left w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4 ${onclick ? 'hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition cursor-pointer' : ''}">
       <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
       <div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${val}</div>
       ${sub ? `<div class="text-[11px] text-slate-400 mt-0.5">${esc(sub)}</div>` : ''}
-    </div>`;
+    </${onclick ? 'button' : 'div'}>`;
   const pending = (d.views == null || d.messages == null)
     ? `<div class="text-[12px] text-slate-400 flex items-center gap-2 px-1">${svgIcon('info','w-4 h-4')}Views &amp; messages appear once your Facebook account is connected in Settings.</div>` : '';
   root.innerHTML = `
@@ -9280,11 +9281,11 @@ async function loadSoloHome() {
       <button onclick="__inventoryMode='facebook'; switchPage('inventory')" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition">Post Inventory</button>
     </div>
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-      ${tile('Vehicles Posted', num(d.posted), 'live now', 'text-blue-600 dark:text-blue-400')}
+      ${tile('Vehicles Posted', num(d.posted), 'live now — view inventory', 'text-blue-600 dark:text-blue-400', "__inventoryMode='facebook'; switchPage('inventory')")}
       ${tile('Views', num(d.views), 'from Facebook')}
       ${tile('Messages', num(d.messages), 'from Facebook')}
-      ${tile('Leads', num(d.leads), 'captured')}
-      ${tile('Sold', num(d.sold), 'this month', 'text-emerald-600 dark:text-emerald-400')}
+      ${tile('Leads', num(d.leads), 'captured', '', "switchPage('leads')")}
+      ${tile('Sold', num(d.sold), 'this month', 'text-emerald-600 dark:text-emerald-400', "__inventoryMode='facebook'; switchPage('inventory')")}
       ${tile('Avg response', resp, 'to a lead')}
     </div>
     ${pending}
