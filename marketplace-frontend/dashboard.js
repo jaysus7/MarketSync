@@ -9665,77 +9665,106 @@ async function saasAddEmployee() {
 Object.assign(window, { loadSaasEmployees, saasSetRole, saasAddEmployee });
 
 // ══ Command Center — DealerOS home: today's operations + live exceptions ══════
-async function loadCommandCenter() {
-  const root = document.getElementById('command-root');
-  if (!root) return;
-  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading command center…</div>`;
-  let d;
-  try { d = await apiGetJson('/command-center'); }
-  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">Couldn't load: ${esc(e.message)}</div>`; return; }
-  const t = d.tiles || {};
-  const exceptions = d.exceptions || [];
-  const badge = document.getElementById('command-badge');
-  if (badge) { const n = d.exception_count || 0; if (n) { badge.textContent = n; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
-
-  // A tile: big number, label, click → jump to the owning page. `attention` tints
-  // it amber/rose when the count is non-zero (something to act on).
-  const tile = (label, val, page, attention) => {
-    const hot = attention && val > 0;
-    return `<button onclick="switchPage('${page}')" class="text-left bg-white dark:bg-slate-900 border rounded-xl px-4 py-4 transition hover:shadow-md ${hot ? 'border-amber-300 dark:border-amber-800' : 'border-slate-200 dark:border-slate-800'}">
-      <div class="text-3xl font-black ${hot ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100'}">${val}</div>
-      <div class="text-[12px] font-bold text-slate-500 dark:text-slate-400 mt-1">${esc(label)}</div>
-    </button>`;
-  };
-
-  const exCards = exceptions.length ? exceptions.slice(0, 12).map(x => {
-    const sev = OPS_SEV[x.severity] || OPS_SEV.medium;
-    return `<div class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-sm transition cursor-pointer" onclick="opsOpenEntity('${x.entity_type}','${x.entity_id}')">
-      <span class="mt-1.5 w-2 h-2 rounded-full ${sev.dot} flex-shrink-0"></span>
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-sm font-bold text-slate-900 dark:text-white">${esc(OPS_KIND_LABEL[x.kind] || x.kind)}</span>
-          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${sev.chip}">${esc(x.severity)}</span>
-          ${x.department ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${esc(x.department)}</span>` : ''}
-        </div>
-        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${esc(x.description || '')}</div>
+// Exception card (shared by Executive Work tab + Operations).
+function execExceptionCard(x) {
+  const sev = OPS_SEV[x.severity] || OPS_SEV.medium;
+  return `<div class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-sm transition cursor-pointer" onclick="opsOpenEntity('${x.entity_type}','${x.entity_id}')">
+    <span class="mt-1.5 w-2 h-2 rounded-full ${sev.dot} flex-shrink-0"></span>
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-sm font-bold text-slate-900 dark:text-white">${esc(OPS_KIND_LABEL[x.kind] || x.kind)}</span>
+        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${sev.chip}">${esc(x.severity)}</span>
+        ${x.department ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${esc(x.department)}</span>` : ''}
       </div>
-      <button onclick="event.stopPropagation(); cmdResolveException('${x.id}')" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 px-2 py-1 flex-shrink-0">Resolve</button>
-    </div>`;
-  }).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center gap-2">${svgIcon('check', 'w-6 h-6 text-emerald-400')}Nothing needs attention. Every workflow is on track.</div>`;
-
-  const hour = new Date().getHours();
-  const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  root.innerHTML = `
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div>
-        <h1 class="text-2xl font-black text-slate-900 dark:text-white">${greet}</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Today's operations across every department — problems first.</p>
-      </div>
-      <button onclick="loadCommandCenter()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1">${svgIcon('refresh','w-4 h-4')}Refresh</button>
+      <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${esc(x.description || '')}</div>
     </div>
-    <div>
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's Operations</div>
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        ${tile('Leads waiting', t.leads_waiting ?? 0, 'leads', true)}
-        ${tile('Deals in progress', t.deals_in_progress ?? 0, 'desk', false)}
-        ${tile('Deliveries today', t.deliveries_today ?? 0, 'fni', false)}
-        ${tile('Recon delays', t.recon_delays ?? 0, 'recon', true)}
-        ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-ros', true)}
-      </div>
-    </div>
-    <div>
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Exceptions ${exceptions.length ? `· ${exceptions.length}` : ''}</div>
-      <div class="space-y-2">${exCards}</div>
-    </div>
-    <div>
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">AI Insights</div>
-      <div class="p-4 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-900 bg-indigo-50/40 dark:bg-indigo-950/20 text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
-        ${svgIcon('sparkles','w-5 h-5 text-indigo-400')} Inventory-aging, F&I-penetration, and pace insights arrive here with the AI Employee layer.
-      </div>
-    </div>`;
+    <button onclick="event.stopPropagation(); cmdResolveException('${x.id}')" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 px-2 py-1 flex-shrink-0">Resolve</button>
+  </div>`;
 }
+// Executive department — the whole business at a glance; uses every engine.
+ENGINES['command'] = {
+  rootId: 'command-root', title: 'Executive', subtitle: "Today's operations across every department — problems first",
+  icon: 'chart', accent: 'indigo', tabLabels: { work: 'Needs Attention' },
+  fetch: async () => {
+    const [cc, ev] = await Promise.all([
+      apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
+      apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
+    ]);
+    const badge = document.getElementById('command-badge');
+    if (badge) { const n = cc.exception_count || 0; if (n) { badge.textContent = n; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
+    return { cc, events: ev.events || [] };
+  },
+  quickActions: [
+    { label: 'Reports', icon: 'chart', onclick: "switchPage('reports')" },
+    { label: 'Task Board', icon: 'clipboard', onclick: "switchPage('taskboard')" },
+    { label: 'Operations', icon: 'bolt', onclick: "switchPage('operations')" },
+  ],
+  nextActions: (d) => (d.cc.exceptions || []).slice(0, 4).map(x => ({
+    label: `${OPS_KIND_LABEL[x.kind] || x.kind}${x.department ? ' · ' + x.department : ''}`,
+    icon: 'shield', tone: (OPS_SEV[x.severity] || {}).text || 'text-amber-500',
+    onclick: `opsOpenEntity('${x.entity_type}','${x.entity_id}')`,
+  })),
+  tabs: {
+    overview(body, d) {
+      const t = d.cc.tiles || {};
+      const tile = (label, val, page, attention) => {
+        const hot = attention && val > 0;
+        return `<button onclick="switchPage('${page}')" class="text-left bg-white dark:bg-slate-900 border rounded-xl px-4 py-4 transition hover:shadow-md ${hot ? 'border-amber-300 dark:border-amber-800' : 'border-slate-200 dark:border-slate-800'}">
+          <div class="text-3xl font-black ${hot ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100'}">${val}</div>
+          <div class="text-[12px] font-bold text-slate-500 dark:text-slate-400 mt-1">${esc(label)}</div></button>`;
+      };
+      const hour = new Date().getHours();
+      const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+      body.innerHTML = `
+        <div class="text-lg font-black text-slate-900 dark:text-white">${greet}</div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's operations</div>
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            ${tile('Leads waiting', t.leads_waiting ?? 0, 'leads', true)}
+            ${tile('Deals in progress', t.deals_in_progress ?? 0, 'desk', false)}
+            ${tile('Deliveries today', t.deliveries_today ?? 0, 'fni', false)}
+            ${tile('Recon delays', t.recon_delays ?? 0, 'recon', true)}
+            ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-ros', true)}
+          </div>
+        </div>
+        ${engCard('Needs attention', `<div class="text-[13px] text-slate-600 dark:text-slate-300">${(d.cc.exceptions || []).length ? `<b class="text-slate-900 dark:text-white">${(d.cc.exceptions || []).length}</b> item${(d.cc.exceptions || []).length === 1 ? '' : 's'} across departments — see the Needs Attention tab.` : 'Every workflow is on track.'}</div>`)}`;
+    },
+    work(body, d) {
+      const ex = d.cc.exceptions || [];
+      const exCards = ex.length ? ex.slice(0, 20).map(execExceptionCard).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center gap-2">${svgIcon('check', 'w-6 h-6 text-emerald-400')}Nothing needs attention. Every workflow is on track.</div>`;
+      const feed = (d.events || []).length ? d.events.map(e => `
+        <button onclick="opsOpenEntity('${e.entity_type}','${e.entity_id}')" class="w-full text-left flex items-start gap-2.5 px-1 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition">
+          <span class="mt-0.5 text-slate-400">${svgIcon(ENTITY_ICON[e.entity_type] || 'dot', 'w-4 h-4')}</span>
+          <div class="min-w-0 flex-1"><div class="text-[13px] text-slate-700 dark:text-slate-200 truncate">${esc(e.summary || e.event_name)}</div><div class="text-[11px] text-slate-400">${esc(e.event_name)} · ${opsRelTime(e.created_at)}</div></div>
+        </button>`).join('') : `<div class="text-sm text-slate-400 py-6 text-center">No recent activity.</div>`;
+      body.innerHTML = `<div class="grid lg:grid-cols-2 gap-6">
+        <div class="space-y-2.5"><div class="flex items-center gap-2 text-sm font-black text-slate-800 dark:text-slate-200">${svgIcon('shield', 'w-4 h-4 text-amber-500')}Needs attention <span class="text-xs font-bold text-slate-400">${ex.length}</span></div>${exCards}</div>
+        <div class="space-y-1"><div class="flex items-center gap-2 text-sm font-black text-slate-800 dark:text-slate-200 mb-1.5">${svgIcon('bolt', 'w-4 h-4 text-indigo-500')}Live activity</div><div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 max-h-[70vh] overflow-y-auto">${feed}</div></div>
+      </div>`;
+    },
+    insights(body) {
+      body.innerHTML = engCard('Executive insights', `
+        <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Cross-department performance lives in Reports and the sales dashboard.</p>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="switchPage('reports')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Open Reports →</button>
+          <button onclick="switchPage('insights')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Sales Dashboard →</button>
+        </div>`);
+    },
+    automation(body) {
+      body.innerHTML = engCard('Automation', `<p class="text-[13px] text-slate-600 dark:text-slate-300">The workflow engine watches every department and raises the exceptions on the Needs Attention tab automatically. Configure cadences and follow-up rules in <button onclick="switchPage('automation')" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Automation</button>, or see the full stream in <button onclick="switchPage('operations')" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Operations</button>.</p>`);
+    },
+    settings(body) {
+      body.innerHTML = engCard('Settings', `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Company-wide defaults and access live in Configuration and Administration.</p>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="switchPage('config')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Configuration →</button>
+          <button onclick="switchPage('owner-users')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">All Users & Accounts →</button>
+        </div>`);
+    },
+  },
+};
+function loadCommandCenter() { renderEngine('command'); }
 async function cmdResolveException(id) {
-  try { await apiSendJson(`/exceptions/${id}/resolve`, 'POST'); showToast('Resolved ✓', 'success'); loadCommandCenter(); }
+  try { await apiSendJson(`/exceptions/${id}/resolve`, 'POST'); showToast('Resolved ✓', 'success'); renderEngine('command'); }
   catch (e) { showToast(e.message, 'error'); }
 }
 Object.assign(window, { loadCommandCenter, cmdResolveException });
