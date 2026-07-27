@@ -543,6 +543,9 @@ async function marketMedianForScan({ vehicle, dealer, isUS, dealershipId, isOwne
       params: {
         make: vehicle.make, model: vehicle.model, year: Number(vehicle.year),
         trim: vehicle.trim || '', mileage: vehicle.mileage ? Number(vehicle.mileage) : null,
+        // Geo-scope like the appraisal: start local (200 km) and let marketcheckMarket
+        // widen to province/state → national when the local comp set is too thin.
+        zip: dealer?.postal_code || null, radius: 200, state: dealer?.province || null,
         isUS,
       },
     })

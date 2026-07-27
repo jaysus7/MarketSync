@@ -263,7 +263,10 @@ Only choose "raise" or "lower" when the price should actually change. When comps
         dealershipId: req.dealershipId, isOwner: _prIsOwner, allowLive: true,
         params: {
           make: vehicle.make, model: vehicle.model, year: Number(vehicle.year),
-          trim: vehicle.trim || '', mileage: vehicleMileage, isUS,
+          trim: vehicle.trim || '', mileage: vehicleMileage,
+          // Same geo ladder as the appraisal/scan: 200 km → province/state → national.
+          zip: dealer?.postal_code || null, radius: 200, state: dealer?.province || null,
+          isUS,
         },
       })
       if (mc && mc.median_price) {

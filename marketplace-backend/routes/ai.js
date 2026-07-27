@@ -984,7 +984,7 @@ Return ONLY the ${field === 'pitch' ? 'sales pitch' : 'description'} — no prea
     // Cached + metered via the cost layer (shared with the scan & price report).
     const { data: market } = await getMarketData({
       dealershipId: req.dealershipId, isOwner, allowLive: true,
-      params: { make, model, year, trim, mileage, drivetrain, engine, zip, radius, isUS },
+      params: { make, model, year, trim, mileage, drivetrain, engine, zip, radius, state: dealer?.province || null, isUS },
     })
 
     const vehicle = { year, make, model, trim: trim || null, mileage, drivetrain, engine, vin: (b.vin ? String(b.vin).trim().toUpperCase() : null) }
