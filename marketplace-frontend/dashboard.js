@@ -6227,7 +6227,10 @@ function deskPickVehicle(json) {
   const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
   set('dk-veh-year', v.year); set('dk-veh-make', v.make); set('dk-veh-model', v.model); set('dk-veh-trim', v.trim);
   set('dk-veh-mileage', v.mileage); set('dk-veh-color', v.color); set('dk-veh-vin', v.vin); set('dk-veh-stock', v.stock);
-  if (v.price != null) set('dk-selling_price', v.price);
+  // Fill Retail/MSRP from the unit's price and let the selling price derive
+  // (Retail − rebate + adjustment) instead of dropping the price straight into
+  // "selling price".
+  if (v.price != null) { set('dk-retail', msFmtMoney(v.price)); if (typeof deskPriceRecalc === 'function') deskPriceRecalc(); }
   const vs = document.getElementById('desk-veh-search'); if (vs) vs.value = '';
   deskUpdateLinkBadge();
   deskRenderSummary();
