@@ -3564,7 +3564,7 @@ async function crmOpenForm(id) {
     <div>${lbl('Street address')}${inp('crm-f-address', c.address, 'Street address', 'w-full')}</div>
     <div class="grid grid-cols-3 gap-2">
       <div>${lbl('City')}${inp('crm-f-city', c.city, 'City', 'w-full')}</div>
-      <div>${lbl('Province / State')}${inp('crm-f-province', c.province, 'ON', 'w-full')}</div>
+      <div>${lbl('Province / State')}${inp('crm-f-province', c.province || (window.__dealerLocale?.province || ''), 'ON', 'w-full')}</div>
       <div>${lbl('Postal / ZIP')}${inp('crm-f-postal', c.postal_code, 'A1A 1A1', 'w-full')}</div>
     </div>
     ${sect('Identification')}
@@ -19262,6 +19262,9 @@ async function loadAIBoostSection() {
     updateReportRailVisibility();
     // Stash dealership location for the appraisal PDFs' header.
     __apprDealerInfo = { city: cfg.city, province: cfg.province, postal_code: cfg.postal_code, country: cfg.country };
+    // Localization defaults — new customer/appraisal forms inherit the dealer's
+    // country/province instead of hardcoded ON/US.
+    window.__dealerLocale = { country: (cfg.country || 'CA').toUpperCase(), province: cfg.province || '' };
     __aiVisionActive = !!cfg.ai_vision_active;               // = AI Boost
     renderAiVisionNav();
     __aiBoostConfigLoaded = true;
