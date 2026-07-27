@@ -22314,7 +22314,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { label: 'Price',       val: b.price,        max: 15, icon: 'currency' },
         { label: 'Mileage',     val: b.mileage,      max: 10, icon: 'hashtag' },
         { label: 'Description', val: b.description,  max: 10, icon: 'document' },
-        { label: 'Fields',      val: b.fields,       max: 10, icon: 'check' },
+        { label: 'VIN decode',  val: b.fields,       max: 10, icon: 'check' },
       ].filter(s => s.val != null)
 
       const breakdownId = `hbd-${idx}`
@@ -22349,9 +22349,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<div class="mb-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 p-2.5">
               <div class="flex justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
                 <span class="flex items-center gap-1"><svg viewBox="0 0 24 24" width="12" height="12" class="inline-block flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg> AI Vision — Photo Quality</span>
-                <span>${ps}/100</span>
+                <span>${ps}%</span>
               </div>
               <div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-1.5 rounded-full ${barColor}" style="width:${ps}%"></div></div>
+              <div class="text-[10px] text-slate-400 mt-1">AI-rated photo quality (lighting, framing, clarity) — aim for 80%+. Click “Score photos” to (re)run it.</div>
               ${flags.length ? `<div class="flex flex-wrap gap-1 mt-1.5">${flags.map(f => `<span class="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">${esc(f)}</span>`).join('')}</div>` : '<div class="text-[10px] text-emerald-500 font-semibold mt-1.5">✓ Photos look good</div>'}
             </div>`;
           })()}
