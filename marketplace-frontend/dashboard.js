@@ -22308,11 +22308,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const vehicleLine = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')
 
       // Score bar segments
+      // Human notes for the market-aware metrics.
+      const priceNote = v.price_vs_market_pct != null
+        ? (v.price_vs_market_pct >= -3 ? 'priced to market' : `${Math.abs(v.price_vs_market_pct)}% under market`)
+        : null;
+      const mileNote = v.mileage != null
+        ? Number(v.mileage).toLocaleString() + (v.mileage_ratio != null ? (v.mileage_ratio <= 1.0 ? ' · below avg' : v.mileage_ratio <= 1.25 ? ' · slightly high' : ' · high for age') : '')
+        : null;
       const segments = [
         { label: 'Photos',      val: b.photos,      max: 30, icon: 'camera' },
         { label: 'Days on lot', val: b.days,         max: 25, icon: 'calendar' },
-        { label: 'Price',       val: b.price,        max: 15, icon: 'currency' },
-        { label: 'Mileage',     val: b.mileage,      max: 10, icon: 'hashtag' },
+        { label: 'Price',       val: b.price,        max: 15, icon: 'currency', note: priceNote },
+        { label: 'Mileage',     val: b.mileage,      max: 10, icon: 'hashtag', note: mileNote },
         { label: 'Description', val: b.description,  max: 10, icon: 'document' },
         { label: 'VIN decode',  val: b.fields,       max: 10, icon: 'check' },
       ].filter(s => s.val != null)
@@ -22326,7 +22333,7 @@ document.addEventListener('DOMContentLoaded', () => {
               const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400'
               return `<div>
                 <div class="flex justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                  <span class="inline-flex items-center gap-1">${svgIcon(s.icon, 'w-3 h-3')}${s.label}</span><span>${s.val}/${s.max}</span>
+                  <span class="inline-flex items-center gap-1">${svgIcon(s.icon, 'w-3 h-3')}${s.label}${s.note ? `<span class="font-normal text-slate-400">· ${esc(s.note)}</span>` : ''}</span><span>${s.val}/${s.max}</span>
                 </div>
                 <div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
                   <div class="h-1.5 rounded-full ${barColor}" style="width:${pct}%"></div>

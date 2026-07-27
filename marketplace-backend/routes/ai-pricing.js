@@ -853,12 +853,17 @@ Return ONLY valid JSON array (no markdown):
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships')
-      .select('inv_intel_active, name')
+      .select('inv_intel_active, name, country')
       .eq('id', req.dealershipId)
       .single()
 
     const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
     if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence not active' })
+
+    // Distance unit + expected-annual-distance for the mileage-vs-market check.
+    const cRaw = (dealer?.country || '').trim().toUpperCase()
+    const isUsMkt = cRaw === 'US' || cRaw === 'USA' || cRaw === 'UNITED STATES'
+    const annualDist = isUsMkt ? 12000 : 20000   // mi/yr vs km/yr — typical odometer pace
 
     const since90  = new Date(Date.now() -  90 * 86400000).toISOString()
     const since30  = new Date(Date.now() -  30 * 86400000).toISOString()
@@ -885,6 +890,20 @@ Return ONLY valid JSON array (no markdown):
     ])
 
     const vehicles = available || []
+
+    // Latest market median per vehicle (from the most recent Inventory Scan) — used
+    // to score price health (priced up to market = green).
+    const marketMed = {}
+    try {
+      const { data: mrows } = await supabaseAdmin
+        .from('ai_activity')
+        .select('inventory_id, price_median, created_at')
+        .eq('dealership_id', req.dealershipId)
+        .not('price_median', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(4000)
+      for (const a of (mrows || [])) { if (a.inventory_id && marketMed[a.inventory_id] == null) marketMed[a.inventory_id] = Number(a.price_median) }
+    } catch {}
 
     // ── 1. Duplicate VIN detection ─────────────────────────────────────────
     const vinCount = {}
@@ -958,11 +977,26 @@ Return ONLY valid JSON array (no markdown):
       const days = Math.round((now - new Date(v.created_at).getTime()) / 86400000)
       const daysScore = days < 15 ? 25 : days < 30 ? 20 : days < 60 ? 10 : days < 90 ? 5 : 0
 
-      // Price set (15 pts)
-      const priceScore = v.price > 0 ? 15 : 0
+      // Price (15 pts) — market-aware when we have a scan median: reward pricing UP
+      // to market. Under-market leaves money on the table; way under scores lowest.
+      // No market data → fall back to "is a price set".
+      const mkt = marketMed[v.id]
+      let priceScore, pricePct = null
+      if (!(v.price > 0)) priceScore = 0
+      else if (mkt > 0) {
+        pricePct = Math.round(((v.price - mkt) / mkt) * 1000) / 10   // +ve = above market
+        priceScore = pricePct >= -3 ? 15 : pricePct >= -15 ? 10 : 5   // at/above=green, mild under, deep under
+      } else priceScore = 15
 
-      // Mileage set (10 pts)
-      const mileageScore = v.mileage > 0 ? 10 : 0
+      // Mileage (10 pts) — vs the expected odometer for the vehicle's age
+      // (~annualDist/yr). At/below expected = green, slightly over = amber, high = red.
+      let mileageScore, mileageRatio = null
+      const ageYrs = v.year ? Math.max(0.5, (new Date().getFullYear() - Number(v.year)) + 0.5) : null
+      if (!(v.mileage > 0)) mileageScore = (v.condition || '').toLowerCase() === 'new' ? 10 : 0
+      else if (ageYrs) {
+        mileageRatio = v.mileage / (ageYrs * annualDist)
+        mileageScore = mileageRatio <= 1.0 ? 10 : mileageRatio <= 1.25 ? 6 : 2
+      } else mileageScore = 10
 
       // Description (10 pts)
       const descScore = (v.description || '').trim().length > 50 ? 10 : 0
@@ -988,11 +1022,17 @@ Return ONLY valid JSON array (no markdown):
         photo_flags: Array.isArray(v.photo_flags) ? v.photo_flags : [],
         photo_checked_at: v.photo_checked_at ?? null,
         score,
+        mileage: v.mileage || null,
+        price_vs_market_pct: pricePct,
+        market_median: mkt || null,
+        mileage_ratio: mileageRatio != null ? Math.round(mileageRatio * 100) / 100 : null,
         breakdown: { photos: photoScore, days: daysScore, price: priceScore, mileage: mileageScore, description: descScore, fields: completeScore },
         issues: [
           photoCount === 0 && 'No photos',
           !(v.price > 0) && 'No price',
-          !(v.mileage > 0) && 'No mileage',
+          (pricePct != null && pricePct < -15) && `Underpriced ${Math.abs(pricePct)}% vs market`,
+          !(v.mileage > 0) && (v.condition || '').toLowerCase() !== 'new' && 'No mileage',
+          (mileageRatio != null && mileageRatio > 1.25) && 'High mileage for age',
           !(v.description?.trim().length > 50) && 'Short/no description',
           days >= 60 && `${days}d on lot`,
         ].filter(Boolean),
