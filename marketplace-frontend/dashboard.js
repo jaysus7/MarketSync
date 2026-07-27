@@ -6003,11 +6003,13 @@ async function deskPickCustomer(id) {
 // A dealership-roster dropdown for the desk (F&I manager, split-with). Stores the
 // rep's profile id so commission attributes correctly; the name is saved alongside
 // for the printed docs.
-function deskRepSelect(id, selectedId, blankLabel) {
+function deskRepSelect(id, selectedId, blankLabel, filterFn) {
   const cls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
-  const reps = __crmReps || [];
+  const reps = (__crmReps || []).filter(r => !filterFn || filterFn(r));
   return `<select id="${id}" class="${cls}"><option value="">${esc(blankLabel || '—')}</option>${reps.map(r => `<option value="${r.id}" ${selectedId === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`;
 }
+// F&I manager dropdown only lists people who can carry F&I (F&I role + managers/admins).
+const DESK_FNI_ROLES = ['FNI', 'DEALER_ADMIN', 'OWNER', 'MANAGER'];
 function deskRenderForm(contactId) {
   const wrap = document.getElementById('desk-form');
   if (!wrap) return;
@@ -6106,7 +6108,7 @@ function deskRenderForm(contactId) {
             ${fld('Program', txt('dk-program', d.program, 'e.g. Finance rates'))}
             ${fld('APR / sell rate %', `<input id="dk-apr" type="number" step="0.01" value="${apr}" oninput="deskRenderSummary()" class="${iCls}">`)}
             ${fld('Buy rate % (reserve)', `<input id="dk-buy_rate" type="number" step="0.01" value="${d.buy_rate == null ? '' : d.buy_rate}" placeholder="lender buy rate" oninput="deskRenderSummary()" class="${iCls}">`)}
-            ${fld('Term (months)', `<input id="dk-term" type="number" value="${d.term == null ? 60 : d.term}" oninput="deskRenderSummary()" class="${iCls}">`)}
+            ${fld('Term (months)', `<select id="dk-term" onchange="deskRenderSummary()" class="${iCls}">${[24, 36, 48, 60, 72, 84, 96].map(t => `<option value="${t}" ${(d.term == null ? 60 : d.term) == t ? 'selected' : ''}>${t}</option>`).join('')}</select>`)}
             ${fld('Payment frequency', `<select id="dk-payment_freq" onchange="deskRenderSummary()" class="${iCls}">${[['monthly', 'Monthly'], ['biweekly', 'Bi-weekly'], ['weekly', 'Weekly']].map(([v, l]) => `<option value="${v}" ${((d.payment_freq || 'monthly') === v) ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
             ${fld('1st payment date', txt('dk-first_payment_date', d.first_payment_date, '', 'date'))}
             ${fld('No-interest deferral (days)', `<input id="dk-deferral_days" type="number" value="${d.deferral_days == null ? '' : d.deferral_days}" placeholder="0" oninput="deskRenderSummary()" class="${iCls}">`)}
@@ -6127,7 +6129,7 @@ function deskRenderForm(contactId) {
           <summary class="px-5 py-3 cursor-pointer text-sm font-black text-slate-900 dark:text-white">Internal — F&amp;I tracking &amp; delivery</summary>
           <div class="p-5 grid grid-cols-2 gap-3">
             ${(__deskDealer.costOn && (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) || __deskDealer.costRepVisible)) ? fld('Vehicle cost <span class="normal-case font-normal text-slate-400">(internal — never shown to customers)</span>', `<input id="dk-cost" type="text" inputmode="decimal" data-money value="${d.cost == null ? '' : msFmtMoney(d.cost)}" placeholder="0.00" oninput="deskRenderSummary()" class="${iCls}">`) : ''}
-            ${fld('F&amp;I manager <span class="normal-case font-normal text-slate-400">(gets F&amp;I commission if the plan pays them)</span>', deskRepSelect('dk-fni_manager_id', d.fni_manager_id, '— none —'))}
+            ${fld('F&amp;I manager <span class="normal-case font-normal text-slate-400">(gets F&amp;I commission if the plan pays them)</span>', deskRepSelect('dk-fni_manager_id', d.fni_manager_id, '— none —', r => DESK_FNI_ROLES.includes(r.role)))}
             ${fld('Delivery date', txt('dk-delivery_date', d.delivery_date, '', 'date'))}
             ${fld('Delivery time', txt('dk-delivery_time', d.delivery_time, '', 'time'))}
             ${fld('Plates', `<select id="dk-plates" class="${iCls}"><option value="">—</option>${['New', 'Transfer'].map(o => `<option ${d.plates === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}
