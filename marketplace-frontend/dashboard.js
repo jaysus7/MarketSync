@@ -20150,6 +20150,32 @@ function renderAiAssistantMgmt(cfg) {
 }
 window.renderAiAssistantMgmt = renderAiAssistantMgmt;
 
+// Manager review of recent "Ask MarketSync" transcripts (who asked what, when).
+async function openAiHistory() {
+  const ov = crmOverlay('<div id="ai-hist-body" class="p-5"><div class="py-10 text-center text-sm text-slate-400 italic">Loading chat history…</div></div>', 'max-w-2xl');
+  const body = () => ov.querySelector('#ai-hist-body');
+  let chats = [];
+  try { const r = await apiGetJson('/ai/assistant/history?limit=100', { retries: 1 }); chats = r.chats || []; }
+  catch (e) { if (body()) body().innerHTML = `<div class="py-10 text-center text-sm text-red-400">${esc(e.message || 'Could not load history')}</div>`; return; }
+  const fmt = (iso) => { try { return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch { return ''; } };
+  const rows = chats.length ? chats.map(c => `
+    <div class="py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
+      <div class="flex items-center justify-between gap-2 mb-1">
+        <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">${esc(c.user_name || 'Someone')}</span>
+        <span class="text-[11px] text-slate-400">${esc(fmt(c.created_at))}${Array.isArray(c.tools) && c.tools.length ? ' · ' + esc(c.tools.join(', ')) : ''}</span>
+      </div>
+      <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 whitespace-pre-wrap break-words">${esc(c.question || '')}</div>
+      ${c.answer ? `<div class="text-sm text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-wrap break-words">${esc(c.answer)}</div>` : ''}
+    </div>`).join('') : '<div class="py-10 text-center text-sm text-slate-400 italic">No assistant questions logged yet.</div>';
+  if (body()) body().innerHTML = `
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-lg font-black text-slate-900 dark:text-white">Assistant chat history</h3>
+      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <div class="max-h-[65vh] overflow-y-auto">${rows}</div>`;
+}
+window.openAiHistory = openAiHistory;
+
 // Fill the AI usage panel: today's assistant questions + this month's AI/market ops.
 async function loadAiUsage() {
   const panel = document.getElementById('ai-usage-panel');

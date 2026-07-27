@@ -2783,10 +2783,12 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
       let response = await call()
       let guard = 0
       let proposedAction = null   // agentic: an action the user must confirm before it runs
+      const usedTools = []        // tool names the model called this turn (for the transcript log)
       while (response?.stop_reason === 'tool_use' && guard++ < 4) {
         const toolResults = []
         for (const block of response.content || []) {
           if (block.type === 'tool_use') {
+            if (block.name) usedTools.push(block.name)
             let result
             if (block.name === 'propose_action') {
               // Never execute here — capture the proposal + tell the model it's pending
@@ -2816,6 +2818,16 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
       if (!reply && !proposedAction) return res.status(502).json({ error: 'No reply generated. Try rephrasing.' })
       recordUsage(req.dealershipId, { ai: 1 })       // monthly AI quota + global budget
       recordAssistantChat(req.dealershipId)          // today's per-dealer assistant cap
+      // Persist the exchange for manager review (best-effort; never blocks the reply).
+      const lastQ = messages[messages.length - 1]?.content || ''
+      supabaseAdmin.from('ai_assistant_chats').insert({
+        dealership_id: req.dealershipId,
+        user_id: req.user.id || null,
+        user_name: req.profile?.full_name || req.profile?.display_name || (req.user.email || null),
+        question: String(lastQ).slice(0, 2000),
+        answer: (reply || (proposedAction ? '[proposed an action to confirm]' : '')).slice(0, 4000),
+        tools: [...new Set(usedTools)],
+      }).then(() => {}, () => {})
       res.json({ reply: reply || 'Ready when you are — confirm below to run it.', action: proposedAction })
     } catch (e) {
       res.status(502).json({ error: aiErrorMessage(e) })
@@ -2885,5 +2897,21 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
     } catch (e) {
       return res.status(500).json({ error: e.message || 'Could not complete that action.' })
     }
+  })
+
+  // GET /ai/assistant/history — recent Ask MarketSync transcripts for manager review.
+  app.get('/ai/assistant/history', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isMgr = isOwner || ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
+    if (!isMgr) return res.status(403).json({ error: 'Manager access required' })
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50))
+    const { data, error } = await supabaseAdmin.from('ai_assistant_chats')
+      .select('id, user_name, question, answer, tools, created_at')
+      .eq('dealership_id', req.dealershipId)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, chats: data || [] })
   })
 }

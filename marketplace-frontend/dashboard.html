@@ -623,6 +623,10 @@
                   <p class="text-[11px] text-slate-400 mb-2">Turn off any tool the assistant shouldn't use. With everything off it still answers from your live data and knowledge base.</p>
                   <div id="ai-tools-list" class="space-y-2"></div>
                 </div>
+                <div class="pt-1">
+                  <button type="button" onclick="openAiHistory()" class="text-xs font-bold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">View chat history →</button>
+                  <p class="text-[11px] text-slate-400 mt-0.5">See what your team has been asking the assistant.</p>
+                </div>
               </div>
 
               <!-- AI usage — today's assistant questions + this month's AI/market ops -->
@@ -3318,7 +3322,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260729q"></script>
+  <script src="dashboard.js?v=20260729r"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
