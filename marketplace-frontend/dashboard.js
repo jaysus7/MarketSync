@@ -717,15 +717,14 @@ Object.assign(window, { openSetupCenter, setupRun, setupSaveForm, setupTour, ren
 let __fbOnly = false;
 // The leaderboard panel lives on the Dashboard (insights) — in fb tier the insights
 // page is stripped by CSS to just the leaderboard, so 'insights' is the leaderboard.
-const FB_ONLY_PAGES = new Set(['inventory', 'insights', 'profile']);
+const FB_ONLY_PAGES = new Set(['inventory', 'leaderboard', 'insights', 'profile']);
 function applyFbOnlyMode() {
   if (__fbOnly) document.documentElement.setAttribute('data-dash-tier', 'fb');
   else document.documentElement.removeAttribute('data-dash-tier');
   applyMobileQuickRow();   // trim the mobile bottom bar to the fb page set
   if (!__fbOnly) return;
-  // Land on the Facebook posting hub — the feature they pay for.
-  __inventoryMode = 'facebook';
-  if (typeof switchPage === 'function') switchPage('inventory');
+  // Land on the Leaderboard (the fb tier's home) — no separate dashboard.
+  if (typeof switchPage === 'function') switchPage('leaderboard');
 }
 window.applyFbOnlyMode = applyFbOnlyMode;
 
@@ -736,15 +735,16 @@ window.applyFbOnlyMode = applyFbOnlyMode;
 // each price point, powerful as they upgrade. The union applies when a dealer holds
 // several products (e.g. Facebook Dealer + AI Chatbot).
 const PRODUCT_PAGES = {
-  // Solo: marketplace home + leaderboard + the inventory pull + a simple CRM + settings.
-  facebook_solo:   ['solo-home', 'insights', 'inventory', 'crm', 'profile'],
-  // Dealer: same, plus rep management (add reps, insights, make managers). No accounting/reports.
-  facebook_dealer: ['solo-home', 'insights', 'inventory', 'crm', 'sales-team', 'profile'],
+  // Solo: leaderboard home + the Facebook inventory pull + a simple CRM + settings.
+  // (No separate "dashboard" — the leaderboard IS the home for the Facebook tiers.)
+  facebook_solo:   ['leaderboard', 'inventory', 'crm', 'profile'],
+  // Dealer: same, plus rep management (add reps, make managers). No accounting/reports.
+  facebook_dealer: ['leaderboard', 'inventory', 'crm', 'sales-team', 'profile'],
   // AI Chatbot: only the AI chatbot workspace (stats + conversations + KB + settings).
   ai_chatbot:      ['ai-home', 'profile'],
   dealer_os:       null,   // null = full access, no restriction
 };
-const PRODUCT_HOME = { facebook_solo: 'solo-home', facebook_dealer: 'solo-home', ai_chatbot: 'ai-home' };
+const PRODUCT_HOME = { facebook_solo: 'leaderboard', facebook_dealer: 'leaderboard', ai_chatbot: 'ai-home' };
 // Facebook products reuse the fb tier CSS so the Dashboard/Insights page renders as
 // just the leaderboard (no full dealer dashboard).
 const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
@@ -803,21 +803,20 @@ window.applyMobileQuickRow = applyMobileQuickRow;
 // null for the full-OS experience (which uses the department / legacy renderers).
 function restrictedNavPages() {
   if (__fbOnly) return [
+    { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
     { page: 'inventory', label: 'Facebook Marketplace', invmode: 'facebook', icon: 'megaphone' },
-    { page: 'insights', label: 'Leaderboard', icon: 'trophy' },
     { page: 'profile', label: 'Settings', icon: 'user' },
   ];
   if (__productAllowedPages) {
     const meta = {
       'ai-home':    { label: 'AI Employee', icon: 'sparkles' },
-      'solo-home':  { label: 'Marketplace', icon: 'megaphone' },
-      insights:     { label: 'Dashboard', icon: 'chart' },
-      inventory:    { label: 'Inventory', icon: 'car', invmode: 'facebook' },
+      leaderboard:  { label: 'Leaderboard', icon: 'trophy' },
+      inventory:    { label: 'Facebook Marketplace', icon: 'megaphone', invmode: 'facebook' },
       crm:          { label: 'Customers', icon: 'user' },
       'sales-team': { label: 'My Team', icon: 'user' },
       profile:      { label: 'Settings', icon: 'user' },
     };
-    const order = ['ai-home', 'solo-home', 'insights', 'inventory', 'crm', 'sales-team', 'profile'];
+    const order = ['ai-home', 'leaderboard', 'inventory', 'crm', 'sales-team', 'profile'];
     const pages = order.filter(p => __productAllowedPages.has(p))
       .map(p => ({ page: p, label: meta[p]?.label || p, icon: meta[p]?.icon || 'dot', invmode: meta[p]?.invmode }));
     // Settings is always reachable even if it isn't in the explicit product set.
@@ -1616,6 +1615,7 @@ function renderDeptTabbar(pageId) {
   if (!bar) return;
   const hide = () => { bar.classList.add('hidden'); bar.innerHTML = ''; };
   if (__fbOnly) { __activeDept = null; return hide(); }   // stripped Facebook-only tier
+  if (__productAllowedPages) { __activeDept = null; return hide(); }   // restricted product tiers use their flat nav, no dept tab-bar
   // MarketSync owner mode uses the SaaS departments, not the dealership ones.
   if (document.documentElement.getAttribute('data-dash-mode') === 'marketsync') { __activeDept = null; return hide(); }
   // Sticky: keep the current department if it owns this page, else find the owner.
@@ -1708,7 +1708,28 @@ function renderDeptNav(role) {
   // The mode is now decided — reveal the sidebar (clears the pre-nav hidden state
   // so the legacy tree never flashes before the department nav for eligible users).
   navRoot.classList.remove('nav-init');
-  if (!registry) { navRoot.classList.remove('dept-mode'); document.getElementById('dept-nav')?.remove(); __deptNavBuilt = false; return; }
+  if (!registry) {
+    // Restricted product / Facebook tiers: render their nav from the same registry
+    // the mobile menu uses (restrictedNavPages) — a flat page list — so desktop and
+    // mobile are one source of truth and there's no hardcoded sidebar.
+    const rp = restrictedNavPages();
+    if (rp && rp.length) {
+      __deptRegistry = null;   // flat page list, not a department registry
+      let host = document.getElementById('dept-nav');
+      if (!host) {
+        host = document.createElement('div'); host.id = 'dept-nav'; host.className = 'space-y-0.5 mb-1';
+        const anchor = document.getElementById('setup-bar-host');
+        if (anchor && anchor.parentElement === navRoot) navRoot.insertBefore(host, anchor.nextSibling);
+        else navRoot.insertBefore(host, navRoot.firstChild);
+      }
+      host.innerHTML = rp.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="deptGo('${p.page}'${p.invmode ? `,'${p.invmode}'` : ''})" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`).join('');
+      navRoot.classList.add('dept-mode');
+      __deptNavBuilt = true;
+      if (__currentPage) highlightDeptNav(__currentPage);
+      return;
+    }
+    navRoot.classList.remove('dept-mode'); document.getElementById('dept-nav')?.remove(); __deptNavBuilt = false; return;
+  }
   __deptRegistry = registry;
   let host = document.getElementById('dept-nav');
   if (!host) {
@@ -1737,6 +1758,16 @@ window.deptOpen = deptOpen;
 function highlightDeptNav(pageId) {
   if (!__deptNavBuilt) return;
   const reg = __deptRegistry;
+  // Restricted tiers render a FLAT page list (no dept registry): highlight by data-page.
+  if (!reg) {
+    document.querySelectorAll('#dept-nav .dept-nav-item').forEach(b => {
+      const on = b.dataset.page === pageId;
+      b.classList.toggle('bg-indigo-100', on); b.classList.toggle('dark:bg-indigo-950/50', on);
+      b.classList.toggle('text-indigo-700', on); b.classList.toggle('dark:text-indigo-300', on);
+      b.classList.toggle('text-slate-700', !on); b.classList.toggle('dark:text-slate-300', !on);
+    });
+    return;
+  }
   const deptId = (__activeDept && reg[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
                : Object.keys(reg).find(d => reg[d].pages.some(p => p.page === pageId));
   document.querySelectorAll('#dept-nav .dept-nav-item').forEach(b => {
@@ -5240,12 +5271,10 @@ function ensurePanelsInOriginalLocations() {
   const st = document.getElementById('dealer-view-panel');
   const pc = document.getElementById('profile-card');
 
-  // The full Team+Global leaderboard is a Marketing-department page (its own
-  // container). The Facebook-only tier is the exception — there the dashboard IS
-  // the leaderboard, so the panel stays in the dashboard slot for that tier.
-  const lbWrap = __fbOnly
-    ? (document.getElementById('dash-leaderboard-slot') || document.querySelector('[data-page-content="leaderboard"]'))
-    : (document.querySelector('[data-page-content="leaderboard"]') || document.getElementById('dash-leaderboard-slot'));
+  // The Team+Global leaderboard lives on its own 'leaderboard' page for everyone —
+  // the Marketing tab (DealerOS) and the home for the Facebook / fb-only tiers. Keeping
+  // it in that one container means it loads wherever the nav points at 'leaderboard'.
+  const lbWrap = document.querySelector('[data-page-content="leaderboard"]') || document.getElementById('dash-leaderboard-slot');
   const tiWrap = document.querySelector('[data-page-content="team-insights"]');
   const stWrap = document.querySelector('[data-page-content="sales-team"]');
   const pcWrap = document.querySelector('[data-page-content="profile"]');
