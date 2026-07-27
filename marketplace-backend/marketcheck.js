@@ -15,8 +15,15 @@
 
 const BASE = 'https://mc-api.marketcheck.com/v2'
 
+// Resolve the API key: primary env var, then a BACKUP slot. Lets the owner rotate
+// keys or drop in a second account (e.g. when the primary hits its plan cap)
+// without a code change — set MARKETCHECK_API_KEY_BACKUP.
+export function mcKey() {
+  return process.env.MARKETCHECK_API_KEY || process.env.MARKETCHECK_API_KEY_BACKUP || ''
+}
+
 export function marketcheckEnabled() {
-  return !!process.env.MARKETCHECK_API_KEY
+  return !!mcKey()
 }
 
 /**
@@ -24,10 +31,10 @@ export function marketcheckEnabled() {
  * Returns { configured, ok, sample_found?, status?, error? }.
  */
 export async function marketcheckPing() {
-  if (!process.env.MARKETCHECK_API_KEY) return { configured: false, ok: false }
+  if (!mcKey()) return { configured: false, ok: false }
   try {
     const params = new URLSearchParams({
-      api_key: process.env.MARKETCHECK_API_KEY,
+      api_key: mcKey(),
       rows: '0', car_type: 'used', make: 'Chevrolet', model: 'Silverado', stats: 'price',
     })
     const r = await fetch(`${BASE}/search/car/active?${params.toString()}`, {
@@ -48,7 +55,7 @@ export async function marketcheckPing() {
  * Returns { listing_count, avg_price, min_price, max_price, platform } or null.
  */
 export async function marketcheckCompetitorStats({ url, isUS }) {
-  const key = process.env.MARKETCHECK_API_KEY
+  const key = mcKey()
   if (!key || !url) return null
   let domain = ''
   try { domain = new URL(url).hostname.replace(/^www\./i, '').toLowerCase() } catch { return null }
@@ -155,7 +162,7 @@ function provinceFromPostal(postal) {
 }
 
 export async function marketcheckMarket({ make, model, year, trim, mileage, drivetrain, engine, zip, radius, state, isUS = false } = {}) {
-  const key = process.env.MARKETCHECK_API_KEY
+  const key = mcKey()
   if (!key || !make || !model || !year) return null
 
   const wantDrive = normalizeDrivetrain(drivetrain)
@@ -335,7 +342,7 @@ export async function marketcheckMarket({ make, model, year, trim, mileage, driv
  * listings:[{price,miles,city,region,dealer,dom,sold_date,vdp_url,source}] } or null.
  */
 export async function marketcheckSoldListings({ make, model, year, trim, drivetrain, engine, zip, radius, mileage, isUS = false } = {}) {
-  const key = process.env.MARKETCHECK_API_KEY
+  const key = mcKey()
   if (!key || !make || !model || !year) return null
   if (process.env.MARKETCHECK_SOLD_DISABLED === '1') return null   // kill-switch if plan lacks it
   const path = process.env.MARKETCHECK_SOLD_PATH || '/search/car/recents'
@@ -481,7 +488,7 @@ export async function marketcheckSoldListings({ make, model, year, trim, drivetr
  * miles, city, region, dealer}] } or null. Broadens like marketcheckMarket.
  */
 export async function marketcheckListings({ make, model, year, trim, mileage, isUS = false, rows = 50 } = {}) {
-  const key = process.env.MARKETCHECK_API_KEY
+  const key = mcKey()
   if (!key || !make || !model || !year) return null
   const path = '/search/car/active'
   const base = () => {
@@ -526,7 +533,7 @@ export async function marketcheckListings({ make, model, year, trim, mileage, is
  * fall back to NHTSA.
  */
 export async function marketcheckDecodeVin(vin) {
-  const key = process.env.MARKETCHECK_API_KEY
+  const key = mcKey()
   const v = String(vin || '').trim().toUpperCase()
   if (!key || v.length !== 17) return null
   try {
@@ -544,7 +551,7 @@ export async function marketcheckDecodeVin(vin) {
  * metered call. Returns { predicted, low, high, confidence } or null.
  */
 export async function marketcheckPredictPrice({ vin, miles } = {}) {
-  const key = process.env.MARKETCHECK_API_KEY
+  const key = mcKey()
   const v = String(vin || '').trim().toUpperCase()
   if (!key || v.length !== 17) return null
   try {
@@ -575,7 +582,7 @@ export async function marketcheckPredictPrice({ vin, miles } = {}) {
  * { count, price:{median,mean,min,max}, dom:{median,mean}, miles:{median} } or null.
  */
 export async function marketcheckMarketStats({ make, model, year, trim, zip, radius, isUS = false } = {}) {
-  const key = process.env.MARKETCHECK_API_KEY
+  const key = mcKey()
   if (!key || !make || !model) return null
   try {
     const p = new URLSearchParams({
