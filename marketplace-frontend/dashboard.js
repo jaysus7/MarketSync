@@ -6310,13 +6310,16 @@ function deskRenderForm(contactId) {
         ${card('Fees', `<div id="desk-fees"></div>
           <button type="button" onclick="deskAddLine('fee')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add a fee</button>`, 'Uncheck “taxable” for government passthroughs like licensing.')}
 
-        ${card('Insurance', `<div class="grid grid-cols-2 gap-3">
-            ${fld('Company', txt('dk-ins-company', ins.company, ''))}
-            ${fld('Policy #', txt('dk-ins-policy', ins.policy, ''))}
-            ${fld('Agent / broker', txt('dk-ins-agent', ins.agent, ''))}
-            ${fld('Agent phone', txt('dk-ins-phone', ins.phone, '', 'tel'))}
-            ${fld('Binder / expiry', txt('dk-ins-expiry', ins.expiry, '', 'date'))}
-          </div>`)}
+        ${card('Insurance', `<details ${(ins.company || ins.policy || ins.agent || ins.phone || ins.expiry) ? 'open' : ''} class="group">
+            <summary class="cursor-pointer list-none text-sm font-bold text-indigo-600 dark:text-indigo-400 select-none inline-flex items-center gap-1.5"><span class="group-open:hidden">＋ Add insurance details</span><span class="hidden group-open:inline">Insurance details</span></summary>
+            <div class="grid grid-cols-2 gap-3 mt-3">
+              ${fld('Company', txt('dk-ins-company', ins.company, ''))}
+              ${fld('Policy #', txt('dk-ins-policy', ins.policy, ''))}
+              ${fld('Agent / broker', txt('dk-ins-agent', ins.agent, ''))}
+              ${fld('Agent phone', txt('dk-ins-phone', ins.phone, '', 'tel'))}
+              ${fld('Binder / expiry', txt('dk-ins-expiry', ins.expiry, '', 'date'))}
+            </div>
+          </details>`, 'Optional — fills onto the bill of sale and the customer card.')}
 
         ${card('Finance terms', `<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             ${fld('Deal type', `<select id="dk-deal_type" class="${iCls}">${['Finance', 'Lease', 'Cash'].map(o => `<option ${d.deal_type === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}
