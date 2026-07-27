@@ -1468,6 +1468,8 @@ function renderDeptTabbar(pageId) {
   if (!bar) return;
   const hide = () => { bar.classList.add('hidden'); bar.innerHTML = ''; };
   if (__fbOnly) { __activeDept = null; return hide(); }   // stripped Facebook-only tier
+  // MarketSync owner mode uses the SaaS departments, not the dealership ones.
+  if (document.documentElement.getAttribute('data-dash-mode') === 'marketsync') { __activeDept = null; return hide(); }
   // Sticky: keep the current department if it owns this page, else find the owner.
   let deptId = (__activeDept && DEPARTMENTS[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
              : Object.keys(DEPARTMENTS).find(d => DEPARTMENTS[d].pages.some(p => p.page === pageId));
