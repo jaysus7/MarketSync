@@ -1777,6 +1777,32 @@ function switchPage(pageId) {
 
 // ── Trade Appraisal ──────────────────────────────────────────────────────────
 let __apprWired = false;
+let __apprDefaults = { recon: 1200, gross: 2500 };   // manager-set appraisal defaults
+let __apprCanEditDefaults = false;
+// Manager-only control to set the store's default recon + target gross (persists to
+// the dealership; every new appraisal starts from these).
+function renderApprDefaultsControl() {
+  const slot = document.getElementById('appr-defaults-slot'); if (!slot) return;
+  if (!__apprCanEditDefaults) { slot.innerHTML = ''; return; }
+  const iC = 'w-24 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-right tabular-nums';
+  slot.innerHTML = `<div class="mt-1 flex items-center gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400">
+    <span class="font-semibold">Store defaults:</span>
+    <span class="inline-flex items-center gap-1">Recon $<input id="appr-def-recon" type="number" min="0" value="${__apprDefaults.recon}" class="${iC}"></span>
+    <span class="inline-flex items-center gap-1">Target gross $<input id="appr-def-gross" type="number" min="0" value="${__apprDefaults.gross}" class="${iC}"></span>
+    <button onclick="saveApprDefaults()" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Save defaults</button>
+    <span class="text-slate-400">— applied to every new appraisal.</span>
+  </div>`;
+}
+async function saveApprDefaults() {
+  const recon = Number(document.getElementById('appr-def-recon')?.value);
+  const gross = Number(document.getElementById('appr-def-gross')?.value);
+  try {
+    await apiSendJson('/ai/config', 'PUT', { appraisal_recon_default: recon, appraisal_gross_default: gross });
+    __apprDefaults = { recon: Number.isFinite(recon) ? recon : 1200, gross: Number.isFinite(gross) ? gross : 2500 };
+    showToast('Appraisal defaults saved', 'success');
+  } catch (e) { showToast(e.message || 'Could not save', 'error'); }
+}
+window.saveApprDefaults = saveApprDefaults;
 // ── VIN barcode scanner (camera) ─────────────────────────────────────────────
 // Reads the Code 39 / Code 128 / Data-Matrix VIN barcode printed on the driver's
 // door jamb or lower windshield using the browser's built-in BarcodeDetector
@@ -1958,6 +1984,14 @@ function initAppraisal() {
   // Reveal the plate → VIN block only if a plate-decode provider is provisioned.
   apiGetJson('/ai/config', { retries: 1 }).then(cfg => {
     if (cfg?.plate_lookup_ready) document.getElementById('appr-plate-block')?.classList.remove('hidden');
+    // Manager-set appraisal defaults (recon + target gross); fall back to 1200/2500.
+    __apprDefaults = { recon: cfg?.appraisal_recon_default ?? 1200, gross: cfg?.appraisal_gross_default ?? 2500 };
+    __apprCanEditDefaults = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+    // Seed the fields now if they're still on the app defaults.
+    const rc = document.getElementById('appr-recon'), gr = document.getElementById('appr-gross');
+    if (rc && (rc.value === '' || rc.value === '1200')) rc.value = __apprDefaults.recon;
+    if (gr && (gr.value === '' || gr.value === '2500')) gr.value = __apprDefaults.gross;
+    renderApprDefaultsControl();
   }).catch(() => {});
   if (__apprWired) return;      // switchPage calls this each visit; wire once
   const $ = (id) => document.getElementById(id);
@@ -2171,7 +2205,7 @@ function resetAppraisal() {
    'cust-first', 'cust-last', 'cust-home-phone', 'cust-mobile-phone', 'cust-email', 'cust-postal', 'cust-address', 'disc-notes'
   ].forEach(id => set(id));
   set('appr-condition', 'good'); set('appr-drivetrain', ''); set('appr-radius', '250'); set('appr-accident', 'none');
-  set('appr-recon', '1200'); set('appr-gross', '2500');
+  set('appr-recon', String(__apprDefaults?.recon ?? 1200)); set('appr-gross', String(__apprDefaults?.gross ?? 2500));
   document.getElementById('appr-vin-decoded')?.classList.add('hidden');
   set('appr-vin-decoded-text');
   const res = document.getElementById('appr-result'); if (res) res.innerHTML = '';
