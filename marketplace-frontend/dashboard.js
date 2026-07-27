@@ -1453,11 +1453,11 @@ const DEPARTMENTS = {
     pages: [{ page: 'recon', label: 'Cleanup' }],
   },
   accounting: {
+    // The Accounting page already renders its own rich top menu (Financials,
+    // Insights, Reconciliation, Tax, …), so it's a single-page department — that
+    // native menu IS the "menus on top", no second tab row stacked over it.
     label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap',
-    pages: [
-      { page: 'accounting', label: 'Ledger' },
-      { page: 'commissions', label: 'Commissions' },
-    ],
+    pages: [{ page: 'accounting', label: 'Accounting' }],
   },
   marketing: {
     label: 'Marketing', icon: 'megaphone', accent: 'fuchsia',
@@ -1478,7 +1478,7 @@ const DEPARTMENTS = {
     ],
   },
   settings: {
-    label: 'Settings', icon: 'user', accent: 'indigo',
+    label: 'Settings', icon: 'user', accent: 'indigo', always: true,
     pages: [{ page: 'profile', label: 'Settings' }],
   },
 };
@@ -1540,8 +1540,18 @@ function deptNavEligible(role) {
     && __productAllowedPages == null;
 }
 function deptHomePage(dept) { return dept.pages.find(p => deptPageVisible(p.page)) || dept.pages[0]; }
+// A page "counts" toward department visibility only if it has a real nav item
+// that isn't gated off — pages without their own nav item (e.g. accounting) fall
+// through to the department's `probe`/`always` so they don't force the dept to show.
+function deptHasRealPage(dept) {
+  return dept.pages.some(p => {
+    const els = document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${p.page}"]`);
+    return els.length && [...els].some(el => !el.classList.contains('hidden') && !el.classList.contains('ff-off'));
+  });
+}
 function deptVisible(dept) {
-  if (dept.pages.some(p => deptPageVisible(p.page))) return true;
+  if (dept.always) return true;
+  if (deptHasRealPage(dept)) return true;
   if (dept.probe) { const el = document.querySelector(dept.probe); if (el && !el.classList.contains('hidden')) return true; }
   return false;
 }
