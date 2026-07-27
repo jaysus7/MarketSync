@@ -108,16 +108,25 @@ export function registerRoutes(app) {
     // dealership and tallied in memory (bounded), then merged into each rep's row.
     // Each is independently guarded — a failure in one must never blank the board.
     const WON = ['sold', 'fni', 'delivered']
-    const [{ data: wonContacts }, { data: apprRows }] = await Promise.all([
+    const DEAL_UNITS = ['sold', 'delivered']
+    const [{ data: wonContacts }, { data: apprRows }, { data: dealRows }] = await Promise.all([
       supabaseAdmin.from('contacts')
         .select('assigned_rep, status').eq('dealership_id', req.dealershipId)
         .in('status', WON).limit(50000).then(r => ({ data: r.data || [] }), () => ({ data: [] })),
       supabaseAdmin.from('trade_appraisals')
         .select('created_by').eq('dealership_id', req.dealershipId).limit(50000).then(r => ({ data: r.data || [] }), () => ({ data: [] })),
+      // Desked deals that became units — for the internal sales-performance board:
+      // real F&I gross (sum of each deal's fni_items) and units, by the deal's rep.
+      supabaseAdmin.from('deals')
+        .select('created_by, deal_status, fni_items').eq('dealership_id', req.dealershipId)
+        .in('deal_status', DEAL_UNITS).limit(50000).then(r => ({ data: r.data || [] }), () => ({ data: [] })),
     ])
-    const dealsByRep = new Map(), apprByRep = new Map()
+    const dealsByRep = new Map(), apprByRep = new Map(), fniGrossByRep = new Map(), unitsByRep = new Map()
     for (const c of (wonContacts || [])) if (c.assigned_rep) dealsByRep.set(c.assigned_rep, (dealsByRep.get(c.assigned_rep) || 0) + 1)
     for (const a of (apprRows || [])) if (a.created_by) apprByRep.set(a.created_by, (apprByRep.get(a.created_by) || 0) + 1)
+    const money = (v) => { if (typeof v === 'number') return isFinite(v) ? v : 0; const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isFinite(n) ? n : 0 }
+    const dealFniGross = (d) => { let g = 0; for (const it of (Array.isArray(d.fni_items) ? d.fni_items : [])) if (it && typeof it === 'object') g += money(it.price ?? it.amount ?? it.total); return g }
+    for (const d of (dealRows || [])) { if (!d.created_by) continue; fniGrossByRep.set(d.created_by, (fniGrossByRep.get(d.created_by) || 0) + dealFniGross(d)); unitsByRep.set(d.created_by, (unitsByRep.get(d.created_by) || 0) + 1) }
 
     const rows = await Promise.all(members.map(async (m) => {
       const { count: posted } = await supabaseAdmin
@@ -141,6 +150,8 @@ export function registerRoutes(app) {
         sold_listings: sold || 0,
         deals_closed: dealsByRep.get(m.id) || 0,
         appraisals: apprByRep.get(m.id) || 0,
+        units_sold: unitsByRep.get(m.id) || 0,
+        fni_gross: Math.round(fniGrossByRep.get(m.id) || 0),
         recent_logins: recentLogins || 0,
         conversion_rate: (total || 0) > 0
           ? Math.round(((sold || 0) / (total || 0)) * 100)
@@ -165,6 +176,8 @@ export function registerRoutes(app) {
     const totalSold = rows.reduce((s, r) => s + r.sold_listings, 0)
     const totalDeals = rows.reduce((s, r) => s + r.deals_closed, 0)
     const totalAppraisals = rows.reduce((s, r) => s + r.appraisals, 0)
+    const totalFniGross = rows.reduce((s, r) => s + (r.fni_gross || 0), 0)
+    const totalUnits = rows.reduce((s, r) => s + (r.units_sold || 0), 0)
 
     res.json({
       ranking,
@@ -173,6 +186,8 @@ export function registerRoutes(app) {
       team_total_sold: totalSold,
       team_total_deals: totalDeals,
       team_total_appraisals: totalAppraisals,
+      team_total_fni_gross: totalFniGross,
+      team_total_units: totalUnits,
       team_conversion_rate: totalListings > 0
         ? Math.round((totalSold / totalListings) * 100)
         : 0

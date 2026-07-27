@@ -1249,9 +1249,13 @@ async function initializeDashboardEcosystem() {
     __canSeeTeamInsights = isAdmin;
     __canSeeSalesTeam = isAdmin;
 
-    // The Dashboard now hosts the leaderboard + dealer-level insight bundles.
-    // Populate them once role flags are known (loadInsights already ran earlier).
-    if (__canSeeLeaderboard && typeof loadLeaderboard === 'function') { try { loadLeaderboard(); } catch {} }
+    // The Dashboard hosts the internal sales-performance board (real deals: sold +
+    // F&I + appraisals). The full Team+Global "teaser" board is a Marketing page.
+    // Facebook-only tier is the exception — its dashboard IS the full board.
+    if (__canSeeLeaderboard) {
+      if (__fbOnly) { try { loadLeaderboard(); } catch {} }
+      else { try { loadInternalBoard(); } catch {} }
+    }
     if (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role) && typeof loadDealerDash === 'function') {
       document.getElementById('dealer-dash')?.classList.remove('hidden');
       loadDealerDash();
@@ -1433,10 +1437,16 @@ window.personalizeSalesNav = personalizeSalesNav;
 function postToFacebook() { __inventoryMode = 'facebook'; switchPage('inventory'); }
 window.postToFacebook = postToFacebook;
 
-// The rank chip + old leaderboard deep links land on the Dashboard and scroll to
-// the leaderboard, which now lives there.
+// The rank chip + old leaderboard deep links open the full Team+Global board.
+// It's a Marketing-department page now (except the Facebook-only tier, where it
+// still lives on the dashboard).
 function openLeaderboardOnDash() {
-  switchPage('insights');
+  if (__fbOnly) {
+    switchPage('insights');
+    setTimeout(() => { try { document.getElementById('leaderboard-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {} }, 120);
+    return;
+  }
+  switchPage('leaderboard');
   setTimeout(() => { try { document.getElementById('leaderboard-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {} }, 120);
 }
 window.openLeaderboardOnDash = openLeaderboardOnDash;
@@ -1508,6 +1518,7 @@ const DEPARTMENTS = {
       { page: 'website', label: 'Website' },
       { page: 'ai-inbox', label: 'AI Chat' },
       { page: 'automation', label: 'Automation' },
+      { page: 'leaderboard', label: 'Leaderboard' },
     ],
   },
   administration: {
@@ -5132,8 +5143,12 @@ function ensurePanelsInOriginalLocations() {
   const st = document.getElementById('dealer-view-panel');
   const pc = document.getElementById('profile-card');
 
-  // Leaderboard now lives on the Dashboard, not its own page.
-  const lbWrap = document.getElementById('dash-leaderboard-slot') || document.querySelector('[data-page-content="leaderboard"]');
+  // The full Team+Global leaderboard is a Marketing-department page (its own
+  // container). The Facebook-only tier is the exception — there the dashboard IS
+  // the leaderboard, so the panel stays in the dashboard slot for that tier.
+  const lbWrap = __fbOnly
+    ? (document.getElementById('dash-leaderboard-slot') || document.querySelector('[data-page-content="leaderboard"]'))
+    : (document.querySelector('[data-page-content="leaderboard"]') || document.getElementById('dash-leaderboard-slot'));
   const tiWrap = document.querySelector('[data-page-content="team-insights"]');
   const stWrap = document.querySelector('[data-page-content="sales-team"]');
   const pcWrap = document.querySelector('[data-page-content="profile"]');
@@ -13120,6 +13135,65 @@ async function loadLeaderboard() {
     body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-red-500 italic">Failed to load leaderboard.</td></tr>`;
   }
 }
+
+// ── Internal sales-performance board (Dashboard) ─────────────────────────────
+// The SECOND, internal leaderboard: ranks reps by REAL deals — units sold, F&I
+// gross, and appraisals. No Facebook-posting points (that competitive/teaser
+// board lives under Marketing). Rendered into the dashboard's leaderboard slot.
+async function loadInternalBoard() {
+  const slot = document.getElementById('dash-leaderboard-slot');
+  if (!slot) return;
+  slot.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6"><div class="text-center text-sm text-slate-400 italic py-8">Loading sales performance…</div></div>`;
+  let data;
+  try {
+    const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error('failed');
+    data = await res.json();
+  } catch { slot.innerHTML = ''; return; }
+  const soldOf = (r) => (r.units_sold || r.deals_closed || 0);
+  const scoreOf = (r) => soldOf(r) * 500 + (r.appraisals || 0) * 50 + Math.round((r.fni_gross || 0) / 100);
+  const ranking = (data.ranking || []).slice()
+    .map(r => ({ ...r, _sold: soldOf(r), _score: scoreOf(r) }))
+    .sort((a, b) => b._score - a._score || b._sold - a._sold || (b.fni_gross || 0) - (a.fni_gross || 0) || String(a.name || '').localeCompare(String(b.name || '')))
+    .map((r, i) => ({ ...r, _rank: i + 1 }));
+  const money = (n) => '$' + Number(n || 0).toLocaleString();
+  const stat = (label, val) => `<div class="flex-1 min-w-[110px]"><div class="text-2xl font-black text-slate-900 dark:text-white tabular-nums">${val}</div><div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${label}</div></div>`;
+  const medal = (rank) => rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span class="text-slate-400 font-mono">${rank}</span>`;
+  const selfId = (typeof user !== 'undefined' && user) ? user.id : null;
+  const rows = ranking.length ? ranking.map(r => {
+    const me = r.id === selfId;
+    return `<tr class="border-b border-slate-100 dark:border-slate-800/60 ${me ? 'bg-indigo-50/60 dark:bg-indigo-950/30' : ''}">
+      <td class="py-2.5 px-3 text-center w-12">${medal(r._rank)}</td>
+      <td class="py-2.5 px-3"><span class="text-sm font-semibold text-slate-800 dark:text-slate-100">${esc(r.name || '—')}</span>${me ? '<span class="ml-1.5 text-[10px] font-bold text-indigo-500">YOU</span>' : ''}</td>
+      <td class="py-2.5 px-3 text-right tabular-nums font-bold text-slate-900 dark:text-white">${r._sold}</td>
+      <td class="py-2.5 px-3 text-right tabular-nums text-slate-700 dark:text-slate-200">${money(r.fni_gross)}</td>
+      <td class="py-2.5 px-3 text-right tabular-nums text-slate-700 dark:text-slate-200">${r.appraisals || 0}</td>
+      <td class="py-2.5 px-3 text-right tabular-nums font-bold text-indigo-600 dark:text-indigo-400">${r._score.toLocaleString()}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="py-10 text-center text-sm text-slate-400 italic">No sales activity yet.</td></tr>';
+  slot.innerHTML = `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+      <div class="flex items-start justify-between gap-3 flex-wrap px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <div class="flex items-center gap-2"><span class="text-amber-500">${svgIcon('trophy', 'w-5 h-5')}</span><h3 class="text-base font-black text-slate-900 dark:text-white">Sales performance</h3></div>
+          <p class="text-xs text-slate-400 mt-0.5">Real deals — units sold, F&amp;I gross, and appraisals.</p>
+        </div>
+        <button onclick="switchPage('leaderboard')" class="text-xs font-bold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 whitespace-nowrap">Full leaderboard →</button>
+      </div>
+      <div class="flex flex-wrap gap-4 px-5 py-4 border-b border-slate-100 dark:border-slate-800/60">
+        ${stat('Units sold', data.team_total_units ?? 0)}
+        ${stat('F&amp;I gross', money(data.team_total_fni_gross))}
+        ${stat('Appraisals', data.team_total_appraisals ?? 0)}
+      </div>
+      <div class="overflow-x-auto"><table class="w-full text-left min-w-[520px]">
+        <thead><tr class="text-slate-500 dark:text-slate-400 uppercase text-[11px] tracking-wider border-b border-slate-200 dark:border-slate-800">
+          <th class="py-2.5 px-3 text-center w-12">#</th><th class="py-2.5 px-3">Rep</th><th class="py-2.5 px-3 text-right">Sold</th><th class="py-2.5 px-3 text-right">F&amp;I gross</th><th class="py-2.5 px-3 text-right">Appraisals</th><th class="py-2.5 px-3 text-right">Score</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+}
+window.loadInternalBoard = loadInternalBoard;
 
 // ── Badges everywhere: the always-on header rank/tier chip ────────────────────
 // Reflects the signed-in rep's live tier + rank on every page. Fed from a ranking
