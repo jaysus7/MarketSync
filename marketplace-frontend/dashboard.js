@@ -1416,6 +1416,43 @@ const DEPARTMENTS = {
       { page: 'reports', label: 'Reports' },
     ],
   },
+  fni: {
+    label: 'F&I', icon: 'shield', accent: 'indigo',
+    pages: [
+      { page: 'fni', label: 'Deals' },
+      { page: 'desk', label: 'Desk a Deal' },
+    ],
+  },
+  service: {
+    label: 'Service', icon: 'wrench', accent: 'sky',
+    pages: [
+      { page: 'service-ros', label: 'Repair Orders' },
+      { page: 'service-appointments', label: 'Appointments' },
+      { page: 'service-settings', label: 'Settings' },
+    ],
+  },
+  accounting: {
+    label: 'Accounting', icon: 'currency', accent: 'emerald',
+    pages: [
+      { page: 'accounting', label: 'Ledger' },
+      { page: 'commissions', label: 'Commissions' },
+    ],
+  },
+  marketing: {
+    label: 'Marketing', icon: 'megaphone', accent: 'fuchsia',
+    pages: [
+      { page: 'website', label: 'Website' },
+      { page: 'ai-inbox', label: 'AI Chat' },
+      { page: 'automation', label: 'Automation' },
+    ],
+  },
+  administration: {
+    label: 'Administration', icon: 'shield', accent: 'indigo',
+    pages: [
+      { page: 'config', label: 'Configuration' },
+      { page: 'api-keys', label: 'API Keys' },
+    ],
+  },
 };
 let __activeDept = null;
 // Is a page reachable for this user? Respect the per-item gating that product /
