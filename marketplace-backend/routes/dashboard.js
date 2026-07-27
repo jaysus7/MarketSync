@@ -1143,17 +1143,34 @@ export function registerRoutes(app) {
     const medianDts = dtsAll.length ? dtsAll[Math.floor(dtsAll.length / 2)] : null
     const totalValue = sold.reduce((s, v) => s + (num(v.price) || 0), 0)
 
-    // Turn rate: how fast the lot recycles. Needs the current live-lot count.
-    const { count: liveUnits } = await supabaseAdmin.from('inventory')
-      .select('id', { count: 'exact', head: true })
-      .eq('dealership_id', req.dealershipId).is('archived_at', null).neq('status', 'sold')
-    const live = liveUnits || 0
+    // Turn rate: how fast the lot recycles. Needs the current live-lot count,
+    // split Used / New / Demo (certified counts as Used).
+    const condOf = (c) => { const x = (c || '').toLowerCase(); return x === 'new' ? 'new' : x === 'demo' ? 'demo' : 'used' }
+    const { data: liveRows } = await supabaseAdmin.from('inventory')
+      .select('condition')
+      .eq('dealership_id', req.dealershipId).is('archived_at', null).neq('status', 'sold').limit(50000)
+    const liveByCond = { used: 0, new: 0, demo: 0 }
+    for (const r of (liveRows || [])) liveByCond[condOf(r.condition)]++
+    const soldByCond = { used: 0, new: 0, demo: 0 }
+    for (const v of sold) soldByCond[condOf(v.condition)]++
+    const live = (liveRows || []).length
     const dailyRate = sold.length / days                       // units sold per day in the window
     const salesPerMonth = Math.round(dailyRate * 30 * 10) / 10 // one-decimal monthly pace
     // Inventory turns per year = annual sales pace ÷ units on the ground.
     const turnsPerYear = live > 0 ? Math.round((dailyRate * 365 / live) * 10) / 10 : null
     // Days of supply = how long the current lot lasts at the recent sales pace.
     const daysSupply = dailyRate > 0 ? Math.round(live / dailyRate) : null
+    // Per-condition turn: same maths scoped to each vehicle class.
+    const turnFor = (k) => {
+      const dr = soldByCond[k] / days, lv = liveByCond[k]
+      return {
+        label: k === 'used' ? 'Used' : k === 'new' ? 'New' : 'Demo',
+        live: lv, sold: soldByCond[k],
+        sales_per_month: Math.round(dr * 30 * 10) / 10,
+        turns_per_year: lv > 0 ? Math.round((dr * 365 / lv) * 10) / 10 : null,
+        days_supply: dr > 0 ? Math.round(lv / dr) : null,
+      }
+    }
 
     res.json({
       ok: true, range_days: days, distance_unit: unit,
@@ -1167,6 +1184,7 @@ export function registerRoutes(app) {
         turns_per_year: turnsPerYear,
         days_supply: daysSupply,
       },
+      turn_by_condition: ['used', 'new', 'demo'].map(turnFor).filter(t => t.live > 0 || t.sold > 0),
       by_days_to_sell: groupBy(dtsBucket, ['0–30', '31–60', '61–90', '90+', 'Unknown']),
       by_color: groupBy(v => (v.exterior_color || '').trim() || 'Unspecified').slice(0, 12),
       by_mileage: groupBy(kmBucket, ['Under 50k', '50–100k', '100–150k', '150k+', 'Unknown']),

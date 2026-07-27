@@ -5351,14 +5351,28 @@ async function loadSalesAnalysis() {
       const t = (label, value, sub, cls = 'text-slate-900 dark:text-white') => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
         <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${label}</div>
         <div class="text-2xl font-black ${cls} mt-1">${value}</div>${sub ? `<div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${sub}</div>` : ''}</div>`;
+      const byCond = Array.isArray(d.turn_by_condition) ? d.turn_by_condition : [];
+      const condCard = (c) => {
+        const sc = c.days_supply == null ? 'text-slate-900 dark:text-white'
+          : c.days_supply <= 60 ? 'text-emerald-600 dark:text-emerald-400'
+          : c.days_supply <= 90 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400';
+        return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${c.label}</div>
+          <div class="text-2xl font-black mt-1 ${sc}">${c.days_supply != null ? c.days_supply + 'd' : '—'}<span class="text-xs font-semibold text-slate-400 ml-1">supply</span></div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${c.live} live · ${c.sales_per_month}/mo · ${c.turns_per_year != null ? c.turns_per_year + '×/yr' : '—'}</div>
+        </div>`;
+      };
       return `
       <div class="mb-1 text-sm font-bold text-slate-900 dark:text-white">Turn rate <span class="font-normal text-slate-400 text-xs">— how fast the lot recycles at this pace</span></div>
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <p class="text-[11px] text-slate-400 mb-2 max-w-3xl">How quickly you sell through what's on the ground. <b>Days of supply</b> = how long today's lot lasts at your recent sales pace (lower is faster — aim under 60). <b>Turns/year</b> = how many times the lot fully recycles. Use it to decide what to stock more (fast turners) or discount (slow movers).</p>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
         ${t('Sales / month', s.sales_per_month != null ? s.sales_per_month : '—', 'recent pace')}
         ${t('Days of supply', s.days_supply != null ? s.days_supply + 'd' : '—', `${s.live_units} live units`, supplyCls)}
         ${t('Turns / year', s.turns_per_year != null ? s.turns_per_year + '×' : '—', 'inventory turns')}
         ${t('Live units', s.live_units, 'on the ground now')}
-      </div>`;
+      </div>
+      ${byCond.length ? `<div class="mb-1 text-[11px] uppercase tracking-wider text-slate-400 font-bold">By type</div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">${byCond.map(condCard).join('')}</div>` : ''}`;
     })()}
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mb-3">
       <div class="flex items-center justify-between mb-2"><div class="text-sm font-bold text-slate-900 dark:text-white">Days to sell</div><div class="text-[10px] uppercase tracking-wider text-slate-400 w-24 text-right">value</div></div>
@@ -5379,6 +5393,7 @@ function salesAnalysisCsv() {
   const grp = (arr) => (arr || []).map(i => [i.key, i.count, i.avg_price ?? '', i.avg_days_to_sell ?? '']);
   const s = [
     { title: `Sales analysis — last ${d.range_days} days`, headers: ['Metric', 'Value'], rows: [['Units sold', d.summary.units_sold], ['Gross value', d.summary.total_value], ['Avg days to sell', d.summary.avg_days_to_sell], ['Median days to sell', d.summary.median_days_to_sell], ['Sales per month', d.summary.sales_per_month ?? ''], ['Days of supply', d.summary.days_supply ?? ''], ['Turns per year', d.summary.turns_per_year ?? ''], ['Live units', d.summary.live_units ?? '']] },
+    { title: 'Turn rate by type', headers: ['Type', 'Live', 'Sold', 'Sales/mo', 'Days supply', 'Turns/yr'], rows: (d.turn_by_condition || []).map(c => [c.label, c.live, c.sold, c.sales_per_month, c.days_supply ?? '', c.turns_per_year ?? '']) },
     { title: 'Days to sell', headers: ['Band', 'Count', 'Value'], rows: (d.by_days_to_sell || []).map(i => [i.key, i.count, i.value]) },
     { title: 'By colour', headers: ['Colour', 'Sold', 'Avg price', 'Avg days'], rows: grp(d.by_color) },
     { title: `By mileage (${d.distance_unit || ''})`, headers: ['Band', 'Sold', 'Avg price', 'Avg days'], rows: grp(d.by_mileage) },
