@@ -22945,6 +22945,8 @@ function renderAiDockMessages() {
       suggestions
         .map(s => `<button type="button" data-ai-suggest="${s}" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">${s}</button>`)
         .join('') +
+      // Customer lookup needs a name, so this chip pre-fills the box instead of sending.
+      `<button type="button" data-ai-fill="What's the status on " class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">Look up a customer…</button>` +
       '</div>';
     box.appendChild(intro);
   }
@@ -23075,7 +23077,13 @@ function initAiDock() {
   });
   document.getElementById('ai-dock-messages')?.addEventListener('click', (e) => {
     const chip = e.target.closest('[data-ai-suggest]');
-    if (chip) sendAiDock(chip.getAttribute('data-ai-suggest'));
+    if (chip) { sendAiDock(chip.getAttribute('data-ai-suggest')); return; }
+    // Fill chips pre-load the input (e.g. customer lookup needs a name typed in).
+    const fill = e.target.closest('[data-ai-fill]');
+    if (fill) {
+      const input = document.getElementById('ai-dock-input');
+      if (input) { input.value = fill.getAttribute('data-ai-fill'); input.focus(); input.dispatchEvent(new Event('input')); }
+    }
   });
 }
 document.addEventListener('DOMContentLoaded', initAiDock);
