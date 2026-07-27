@@ -3309,6 +3309,8 @@ async function crmSaveLog(id) {
   const channel = document.getElementById('crm-log-channel')?.value || 'note';
   const subject = document.getElementById('crm-log-subject')?.value || '';
   const body = document.getElementById('crm-log-body')?.value || '';
+  // A call / text / email touch must carry a note (audit): reps log what happened.
+  if (channel !== 'note' && !body.trim()) { showToast(`Add a note about the ${channel === 'sms' ? 'text' : channel}`, 'error'); return; }
   if (!body.trim() && !subject.trim()) { showToast('Add a note', 'error'); return; }
   try { await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel, subject, body, direction: channel === 'note' ? 'internal' : 'out' }); showToast('Logged', 'success'); openCrmContact(id); }
   catch (e) { showToast(e.message, 'error'); }
@@ -3347,10 +3349,50 @@ async function crmSendReply(id, channel) {
 window.crmReplyForm = crmReplyForm;
 window.crmSendReply = crmSendReply;
 
-async function crmQuickLog(id, channel) {
-  // Fired when a rep taps Call/Text — auto-logs the touch so the timeline stays honest.
-  try { await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel, direction: 'out', body: channel === 'call' ? 'Called (tap-to-dial)' : 'Texted (tap-to-message)' }); } catch {}
+// Fired when a rep taps Call/Text — opens a wrap-up so the touch is logged WITH a
+// required note (and, for calls, the time spent). A live timer runs while the call
+// is in progress; "Use timer" stamps the elapsed duration.
+let __crmCallTimer = null;
+function crmQuickLog(id, channel) {
+  const isCall = channel === 'call';
+  crmDetailFormSlot(`<div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2">
+    <div class="flex items-center justify-between">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500">${isCall ? 'Call wrap-up' : 'Text wrap-up'}</div>
+      ${isCall ? `<div class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400" id="crm-call-timer" data-start="${Date.now()}">0:00</div>` : ''}
+    </div>
+    ${isCall ? `<div class="flex items-center gap-2"><label class="text-xs text-slate-500">Duration</label><input id="crm-call-dur" type="text" placeholder="e.g. 5m" class="w-24 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm"><button type="button" onclick="crmCallStamp()" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">Use timer</button></div>` : ''}
+    <textarea id="crm-ql-note" rows="2" placeholder="Add a note (required) — what happened?" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></textarea>
+    <div class="flex gap-2 justify-end"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
+      <button onclick="crmQuickLogSave('${id}','${channel}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Log ${isCall ? 'call' : 'text'}</button></div>
+  </div>`);
+  if (isCall) crmStartCallTimer();
 }
+function crmStartCallTimer() {
+  clearInterval(__crmCallTimer);
+  __crmCallTimer = setInterval(() => {
+    const el = document.getElementById('crm-call-timer');
+    if (!el) { clearInterval(__crmCallTimer); return; }   // form closed → stop
+    const s = Math.floor((Date.now() - Number(el.dataset.start)) / 1000);
+    el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }, 1000);
+}
+function crmCallStamp() {
+  const el = document.getElementById('crm-call-timer'), d = document.getElementById('crm-call-dur');
+  if (!el || !d) return;
+  const s = Math.floor((Date.now() - Number(el.dataset.start)) / 1000);
+  d.value = s < 60 ? `${s}s` : `${Math.round(s / 60)}m`;
+}
+async function crmQuickLogSave(id, channel) {
+  const note = (document.getElementById('crm-ql-note')?.value || '').trim();
+  if (!note) { showToast('Add a note before saving', 'error'); return; }
+  let body = note;
+  if (channel === 'call') { const dur = (document.getElementById('crm-call-dur')?.value || '').trim(); body = dur ? `Call (${dur}) — ${note}` : `Call — ${note}`; }
+  else if (channel === 'sms') body = `Text — ${note}`;
+  clearInterval(__crmCallTimer);
+  try { await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel, direction: 'out', body }); showToast('Logged', 'success'); openCrmContact(id); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+Object.assign(window, { crmQuickLog, crmStartCallTimer, crmCallStamp, crmQuickLogSave });
 function crmEmailForm(id) {
   crmDetailFormSlot(`<div class="bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-900 rounded-lg p-3 space-y-2">
     <div class="text-[11px] font-bold uppercase tracking-wider text-indigo-500">Send email</div>
