@@ -1463,7 +1463,7 @@ const DEPARTMENTS = {
       { page: 'tasks', label: 'Tasks' },
       { page: 'appointments', label: 'Appointments' },
       { page: 'inventory', label: 'Inventory', invmode: 'manual' },
-      { page: 'inv-intel', label: 'Pricing' },
+      { page: 'inv-intel', label: 'Price + Stock' },
       { page: 'market', label: 'Market' },
       { page: 'appraisal', label: 'Trades' },
       { page: 'equity', label: 'Equity Mining' },
