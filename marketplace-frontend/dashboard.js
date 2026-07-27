@@ -18115,11 +18115,14 @@ function applyInventoryMode() {
   // by the "Sync Inventory" button (toggleFeedsPanel). Keep it hidden on every mode
   // switch so DealerOS dealers see a clean catalog, not the raw feed.
   if (feeds) feeds.classList.add('hidden');
-  __catalogSourceFilter = facebook ? 'synced' : 'mine';
+  // Sales "Inventory List" shows the WHOLE lot (synced + manually added + won trades)
+  // so it includes the Facebook inventory — one shared pool. The Facebook Marketplace
+  // view keeps the synced set that's ready to post.
+  __catalogSourceFilter = facebook ? 'synced' : 'all';
   if (title) title.textContent = facebook ? 'Inventory Catalog' : 'Inventory List';
   if (sub) sub.textContent = facebook
     ? 'Feed-synced stock, ready to post on Facebook Marketplace.'
-    : 'Your own stock — manually added vehicles & trade appraisals won.';
+    : 'Your whole lot — Facebook-synced, manually added, and won trade appraisals.';
   applyInventoryProductGating();
   // Re-render if the catalog is already loaded; first open loads it via page init.
   if (typeof __catalogCache !== 'undefined' && __catalogCache && document.getElementById('catalog-list')) renderCatalog();
@@ -20312,12 +20315,15 @@ async function loadAIBoostSection() {
     __bgProviderReady = !!cfg.background_provider_ready;
     // Trade Appraisal is part of the Inventory Intelligence add-on — hide otherwise.
     document.getElementById('nav-appraisal')?.classList.toggle('hidden', !__invIntelActive);
-    // Header "Appraise a vehicle" quick-launch — shown for managers (same as Desk a
-    // deal) once Inventory Intelligence is active.
+    // Header quick-launch (Desk a deal + Appraise): for every sales user — reps
+    // included — on the full DealerOS. Not the Facebook-only / restricted-product /
+    // MarketSync-owner / specialized-staff tiers (those run their own workspaces).
+    const canQuickSell = !__fbOnly && !__productAllowedPages && !__staffAllowedPages && !marketsyncOwnerMode();
+    const deskHdr = document.getElementById('header-desk-btn');
+    if (deskHdr) { deskHdr.classList.toggle('hidden', !canQuickSell); deskHdr.classList.toggle('inline-flex', canQuickSell); }
     const apprHdr = document.getElementById('header-appraise-btn');
     if (apprHdr) {
-      const deskShown = !document.getElementById('header-desk-btn')?.classList.contains('hidden');
-      const showAppr = __invIntelActive && deskShown;
+      const showAppr = canQuickSell && __invIntelActive;
       apprHdr.classList.toggle('hidden', !showAppr);
       apprHdr.classList.toggle('inline-flex', showAppr);
     }
