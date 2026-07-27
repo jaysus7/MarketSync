@@ -208,12 +208,14 @@ export function registerReports(app) {
       .select('created_by, created_at, acquired_at, suggested_offer, currency').eq('dealership_id', req.dealershipId).gte('created_at', startIso).limit(20000)
     const rows = apprs || []
     const acquired = rows.filter(r => r.acquired_at)
+    // Capital deployed on trades = total suggested offer on the units actually acquired.
+    const acquiredValue = sum(acquired, r => r.suggested_offer)
     const byRep = {}
-    for (const r of rows) { const k = r.created_by || 'unassigned'; byRep[k] = byRep[k] || { appraised: 0, acquired: 0, offer: 0 }; byRep[k].appraised++; if (r.acquired_at) byRep[k].acquired++; byRep[k].offer += Number(r.suggested_offer) || 0 }
+    for (const r of rows) { const k = r.created_by || 'unassigned'; byRep[k] = byRep[k] || { appraised: 0, acquired: 0, offer: 0, acqValue: 0 }; byRep[k].appraised++; if (r.acquired_at) { byRep[k].acquired++; byRep[k].acqValue += Number(r.suggested_offer) || 0 } byRep[k].offer += Number(r.suggested_offer) || 0 }
     res.json({
       ok: true, range_days: days,
-      summary: { appraised: rows.length, acquired: acquired.length, acquisition_rate_pct: pct(acquired.length, rows.length), avg_offer: rows.length ? money(sum(rows, r => r.suggested_offer) / rows.length) : 0 },
-      by_rep: Object.entries(byRep).sort((a, b) => b[1].appraised - a[1].appraised).map(([id, v]) => ({ rep: id === 'unassigned' ? 'Unassigned' : nameOf(id), appraised: v.appraised, acquired: v.acquired, acquisition_rate_pct: pct(v.acquired, v.appraised), avg_offer: v.appraised ? money(v.offer / v.appraised) : 0 })),
+      summary: { appraised: rows.length, acquired: acquired.length, acquisition_rate_pct: pct(acquired.length, rows.length), avg_offer: rows.length ? money(sum(rows, r => r.suggested_offer) / rows.length) : 0, acquired_value: money(acquiredValue) },
+      by_rep: Object.entries(byRep).sort((a, b) => b[1].appraised - a[1].appraised).map(([id, v]) => ({ rep: id === 'unassigned' ? 'Unassigned' : nameOf(id), appraised: v.appraised, acquired: v.acquired, acquisition_rate_pct: pct(v.acquired, v.appraised), avg_offer: v.appraised ? money(v.offer / v.appraised) : 0, acquired_value: money(v.acqValue) })),
     })
   })
 
