@@ -2087,6 +2087,14 @@ function initAppraisal() {
     finally { decodeBtn.disabled = false; decodeBtn.textContent = orig; }
   });
 
+  // Auto-decode the moment a full 17-char VIN is entered/scanned — the appraiser
+  // shouldn't have to click Decode. Fires once per VIN.
+  let __apprLastAutoVin = '';
+  $('appr-vin')?.addEventListener('input', () => {
+    const vin = ($('appr-vin').value || '').trim().toUpperCase();
+    if (vin.length === 17 && vin !== __apprLastAutoVin) { __apprLastAutoVin = vin; decodeBtn.click(); }
+  });
+
   runBtn.addEventListener('click', async () => {
     const num = (id) => ($(id).value || '').replace(/[^0-9.]/g, '');
     const body = {
