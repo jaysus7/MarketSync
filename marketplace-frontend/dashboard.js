@@ -3845,7 +3845,7 @@ function idvBlock(c) {
     ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Matched: ${esc(rep.name || '')}${rep.dob ? ` · DOB ${esc(rep.dob)}` : ''}${rep.selfie_matched ? ' · selfie matched' : ''}</div>` : '';
   const lastErr = status === 'requires_input' && rep.last_error
     ? `<div class="text-[11px] text-rose-500 mt-1">${esc(rep.last_error)}</div>` : '';
-  return `${sect('Identity verification')}
+  return `<div class="text-[11px] font-black uppercase tracking-wider text-indigo-500 pt-1">Identity verification</div>
     <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3">
       <div class="flex items-center justify-between gap-2">
         <div>
