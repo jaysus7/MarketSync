@@ -614,6 +614,17 @@
                 </div>
               </div>
 
+              <!-- AI assistant — capabilities & access (management controls) -->
+              <div id="ai-assistant-mgmt" class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-3 hidden">
+                <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Assistant access</label>
+                <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai-assistant-reps" class="accent-indigo-600 w-4 h-4">Let sales reps use “Ask MarketSync” (managers always can)</label>
+                <div>
+                  <div class="text-[11px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Assistant capabilities</div>
+                  <p class="text-[11px] text-slate-400 mb-2">Turn off any tool the assistant shouldn't use. With everything off it still answers from your live data and knowledge base.</p>
+                  <div id="ai-tools-list" class="space-y-2"></div>
+                </div>
+              </div>
+
               <!-- AI usage — today's assistant questions + this month's AI/market ops -->
               <div id="ai-usage-panel" class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-3 hidden">
                 <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Usage</label>
@@ -3307,7 +3318,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260729m"></script>
+  <script src="dashboard.js?v=20260729n"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

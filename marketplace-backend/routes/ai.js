@@ -23,6 +23,16 @@ import { registerAiPricing } from './ai-pricing.js'
 import { SMART_MODEL } from '../aiModels.js'
 
 
+// Friendly labels for the assistant's tools, for the AI management page toggles.
+// Names must match ASSISTANT_TOOLS; unknown names are ignored by the PUT validator.
+const ASSISTANT_TOOL_CATALOG = [
+  { name: 'dealership_report', label: 'Dealership data & reports', desc: "Answer from the store's own numbers — sales, gross, F&I, per-rep, leads, aging, priorities, pricing, equity, marketing ROI." },
+  { name: 'market_snapshot', label: 'Live market snapshot', desc: 'Active listing count, median price and days-on-market for a make/model (uses market data).' },
+  { name: 'decode_vin', label: 'VIN decode', desc: 'Decode a 17-character VIN into a full spec sheet.' },
+  { name: 'predict_price', label: 'Price prediction', desc: 'Model-comparable predicted retail price + confidence band for a VIN (uses market data).' },
+  { name: 'propose_action', label: 'Take actions (with confirmation)', desc: 'Let the assistant set up a task or a bulk text/email — always requires the user to confirm before anything runs.' },
+]
+
 export function registerAI(app) {
   registerAiPricing(app)   // inventory-intelligence / pricing / vision / competitor routes
   // GET /ai/config — returns dealership's AI config
@@ -30,7 +40,7 @@ export function registerAI(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data, error } = await supabaseAdmin
       .from('dealerships')
-      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, vin_sticker_active, inv_intel_active, ai_vision_active, ai_boost_paid, inv_intel_paid, full_access_until, photo_background_url, country, province, city, postal_code, daily_digest_enabled, legal_name, street_address, phone, fax, hst_number, omvic_reg, plan, fb_only, desk_fees, ai_assistant_name, ai_internal_style, ai_customer_style, ai_knowledge, ai_knowledge_name, cost_tracking_enabled, cost_rep_visible, autoresponder_mode, autoresponder_channel, appraisal_recon_default, appraisal_gross_default')
+      .select('ai_boost_active, ai_tone, ai_required_fields, ai_manager_email, vin_sticker_active, inv_intel_active, ai_vision_active, ai_boost_paid, inv_intel_paid, full_access_until, photo_background_url, country, province, city, postal_code, daily_digest_enabled, legal_name, street_address, phone, fax, hst_number, omvic_reg, plan, fb_only, desk_fees, ai_assistant_name, ai_internal_style, ai_customer_style, ai_knowledge, ai_knowledge_name, ai_tools_disabled, ai_assistant_reps, cost_tracking_enabled, cost_rep_visible, autoresponder_mode, autoresponder_channel, appraisal_recon_default, appraisal_gross_default')
       .eq('id', req.dealershipId)
       .single()
     if (error) return res.status(500).json({ error: error.message })
@@ -79,6 +89,10 @@ export function registerAI(app) {
       background_provider_ready: !!process.env.REMOVEBG_API_KEY,
       // Trade appraisal: is a plate→VIN provider provisioned? (hides the plate UI if not)
       plate_lookup_ready: plateLookupConfigured(),
+      // Assistant management: the tools that can be toggled, with friendly labels.
+      ai_tools_catalog: ASSISTANT_TOOL_CATALOG,
+      ai_tools_disabled: Array.isArray(data.ai_tools_disabled) ? data.ai_tools_disabled : [],
+      ai_assistant_reps: data.ai_assistant_reps !== false,
     })
   })
 
@@ -137,6 +151,15 @@ export function registerAI(app) {
     if (req.body.ai_customer_style !== undefined) update.ai_customer_style = (req.body.ai_customer_style || '').toString().trim().slice(0, 2000) || null
     if (req.body.ai_knowledge !== undefined) update.ai_knowledge = (req.body.ai_knowledge || '').toString().trim().slice(0, 12000) || null
     if (req.body.ai_knowledge_name !== undefined) update.ai_knowledge_name = (req.body.ai_knowledge_name || '').toString().trim().slice(0, 200) || null
+    // Assistant capability controls (management page): which tools are turned off
+    // (validated against the real tool set), and whether sales reps may use it.
+    if (req.body.ai_tools_disabled !== undefined) {
+      const valid = new Set(ASSISTANT_TOOLS.map(t => t.name))
+      update.ai_tools_disabled = Array.isArray(req.body.ai_tools_disabled)
+        ? [...new Set(req.body.ai_tools_disabled.filter(n => valid.has(n)))]
+        : []
+    }
+    if (req.body.ai_assistant_reps !== undefined) update.ai_assistant_reps = !!req.body.ai_assistant_reps
     // Deal-desk fee schedule set by management: [{name, amount, taxable, locked}].
     // `locked` fees can't be edited per-deal on the desk; unlocked ones can.
     if (req.body.desk_fees !== undefined) {
@@ -2642,11 +2665,16 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships')
-      .select('name, ai_boost_active, inv_intel_active, city, province, country, ai_assistant_name, ai_internal_style, ai_knowledge, ai_knowledge_name')
+      .select('name, ai_boost_active, inv_intel_active, city, province, country, ai_assistant_name, ai_internal_style, ai_knowledge, ai_knowledge_name, ai_tools_disabled, ai_assistant_reps')
       .eq('id', req.dealershipId).maybeSingle()
 
     const entitled = isOwner || !!dealer?.ai_boost_active || !!dealer?.inv_intel_active
     if (!entitled) return res.status(403).json({ error: 'The AI assistant needs AI Boost or Inventory Intelligence.' })
+    // Access control: the dealer can restrict the assistant to managers only.
+    const isMgrRoleGate = isOwner || ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
+    if (!isMgrRoleGate && dealer?.ai_assistant_reps === false) {
+      return res.status(403).json({ error: 'The AI assistant is limited to managers at your dealership.' })
+    }
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI is not configured.' })
     if (!(await aiAllowed(req.dealershipId, isOwner))) {
       return res.status(429).json({ error: 'AI usage limit reached for this month.' })
@@ -2740,8 +2768,12 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
     try {
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
       const convo = messages.slice()
+      // Honour the dealer's tool toggles (management page). Even with every tool off,
+      // the assistant still answers from the live snapshot + knowledge base.
+      const disabledTools = new Set(Array.isArray(dealer?.ai_tools_disabled) ? dealer.ai_tools_disabled : [])
+      const activeTools = ASSISTANT_TOOLS.filter(t => !disabledTools.has(t.name))
       const call = () => Promise.race([
-        anthropic.messages.create({ model: SMART_MODEL, max_tokens: 1000, system, tools: ASSISTANT_TOOLS, messages: convo }),
+        anthropic.messages.create({ model: SMART_MODEL, max_tokens: 1000, system, tools: activeTools, messages: convo }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 25000)),
       ])
       // Tool-use loop: run any tools the model asks for, feed the results back,

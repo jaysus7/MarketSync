@@ -20129,6 +20129,27 @@ function applyPaidBadges() {
   });
 }
 
+// Render the assistant management controls: reps-access toggle + per-tool checkboxes.
+// Reads the catalog + current disabled list from /ai/config (cfg passed in).
+function renderAiAssistantMgmt(cfg) {
+  const panel = document.getElementById('ai-assistant-mgmt');
+  if (!panel) return;
+  const reps = document.getElementById('ai-assistant-reps');
+  if (reps) reps.checked = cfg.ai_assistant_reps !== false;
+  const list = document.getElementById('ai-tools-list');
+  const catalog = Array.isArray(cfg.ai_tools_catalog) ? cfg.ai_tools_catalog : [];
+  const disabled = new Set(Array.isArray(cfg.ai_tools_disabled) ? cfg.ai_tools_disabled : []);
+  if (list) {
+    list.innerHTML = catalog.map(t => `
+      <label class="flex items-start gap-2.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2 cursor-pointer">
+        <input type="checkbox" data-ai-tool="${esc(t.name)}" ${disabled.has(t.name) ? '' : 'checked'} class="accent-indigo-600 w-4 h-4 mt-0.5">
+        <span class="min-w-0"><span class="block text-sm font-semibold text-slate-700 dark:text-slate-200">${esc(t.label || t.name)}</span><span class="block text-[11px] text-slate-400">${esc(t.desc || '')}</span></span>
+      </label>`).join('');
+  }
+  panel.classList.remove('hidden');
+}
+window.renderAiAssistantMgmt = renderAiAssistantMgmt;
+
 // Fill the AI usage panel: today's assistant questions + this month's AI/market ops.
 async function loadAiUsage() {
   const panel = document.getElementById('ai-usage-panel');
@@ -20275,6 +20296,7 @@ function renderAIBoostSection(cfg) {
     const costRep = document.getElementById('ai-cost-rep'); if (costRep) costRep.checked = !!cfg.cost_rep_visible;
     const arMode = document.getElementById('ai-ar-mode'); if (arMode) arMode.value = cfg.autoresponder_mode || 'off';
     const arCh = document.getElementById('ai-ar-channel'); if (arCh) arCh.value = cfg.autoresponder_channel || 'email';
+    renderAiAssistantMgmt(cfg);   // capabilities + access toggles
     loadAiUsage();   // fill the usage panel (today's assistant + monthly AI/market)
   } else {
     badge.textContent = 'Not Active';
@@ -20438,6 +20460,13 @@ function setupAIBoostListeners() {
       autoresponder_mode: document.getElementById('ai-ar-mode')?.value || 'off',
       autoresponder_channel: document.getElementById('ai-ar-channel')?.value || 'email',
     };
+    // Assistant capabilities/access — only send when the panel is actually shown
+    // (entitled), so a non-entitled save can't blank the tool list or reps access.
+    const mgmt = document.getElementById('ai-assistant-mgmt');
+    if (mgmt && !mgmt.classList.contains('hidden')) {
+      payload.ai_assistant_reps = !!document.getElementById('ai-assistant-reps')?.checked;
+      payload.ai_tools_disabled = [...document.querySelectorAll('#ai-tools-list [data-ai-tool]')].filter(el => !el.checked).map(el => el.dataset.aiTool);
+    }
 
     try {
       const res = await fetch(`${API}/ai/config`, {
