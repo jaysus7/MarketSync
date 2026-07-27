@@ -3308,6 +3308,16 @@ function crmVehicleCards(c, d) {
       ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="switchPage('appraisal')" class="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200">${tv.appraisal_id ? 'View appraisal' : 'Appraise car'}</button>` : ''}
     </div>`);
   }
+  // Insurance — pulled from the deal once F&I fills it on the desk.
+  const insr = d.deal?.insurance;
+  if (insr && (insr.company || insr.policy || insr.agent || insr.phone || insr.expiry)) {
+    const line = [insr.policy ? 'Policy ' + insr.policy : '', insr.agent || '', insr.phone || '', insr.expiry ? 'exp ' + insr.expiry : ''].filter(Boolean).join(' · ');
+    cards.push(`<div class="flex-1 min-w-[220px] bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900 rounded-xl p-3">
+      <div class="text-[10px] font-black uppercase tracking-wider text-emerald-500 mb-1 flex items-center gap-1">${svgIcon('shield', 'w-3.5 h-3.5')}Insurance</div>
+      <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(insr.company || 'On file')}</div>
+      ${line ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(line)}</div>` : ''}
+    </div>`);
+  }
   if (!cards.length) return '';
   return `<div class="flex flex-wrap gap-3">${cards.join('')}</div>`;
 }

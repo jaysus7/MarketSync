@@ -107,7 +107,9 @@ export function registerService(app) {
       service_type: serviceType, due_at: when.toISOString(),
     }).select('*').single()
     if (error) return res.status(500).json({ error: error.message })
-    await supabaseAdmin.from('contacts').update({ service_customer: true, updated_at: new Date().toISOString() }).eq('id', contactId)
+    // The appointment is booked — the follow-on updates are best-effort and must not
+    // fail the request (a hiccup here was surfacing as a generic "internal error").
+    await supabaseAdmin.from('contacts').update({ service_customer: true, updated_at: new Date().toISOString() }).eq('id', contactId).then(() => {}, () => {})
     await supabaseAdmin.from('communications').insert({
       dealership_id: req.dealershipId, contact_id: contactId, channel: 'note', direction: 'internal',
       subject: 'Service appointment booked', body: `${serviceType} · ${when.toLocaleString('en-US')}${notes ? '\nNotes: ' + notes : ''}`,

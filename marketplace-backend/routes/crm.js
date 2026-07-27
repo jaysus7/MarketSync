@@ -233,7 +233,7 @@ export function registerCrm(app) {
       supabaseAdmin.from('crm_tasks').select('*').eq('contact_id', contact.id).order('due_at', { ascending: true, nullsFirst: false }),
       supabaseAdmin.from('crm_attachments').select('id, url, filename, content_type, size, kind, uploaded_by, created_at').eq('contact_id', contact.id).order('created_at', { ascending: false }).then(r => r, () => ({ data: [] })),
       // A worked deal for this customer (if any) — powers the "View deal / Desk a deal" button.
-      supabaseAdmin.from('deals').select('deal_number, deal_status').eq('contact_id', contact.id).eq('dealership_id', req.dealershipId).maybeSingle().then(r => r, () => ({ data: null })),
+      supabaseAdmin.from('deals').select('deal_number, deal_status, insurance').eq('contact_id', contact.id).eq('dealership_id', req.dealershipId).maybeSingle().then(r => r, () => ({ data: null })),
     ])
 
     // Resolve vehicle labels for pinned leads.
