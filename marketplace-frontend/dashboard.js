@@ -5263,6 +5263,25 @@ async function loadSalesAnalysis() {
       ${stat('Avg days to sell', d.summary.avg_days_to_sell != null ? d.summary.avg_days_to_sell + 'd' : '—', '')}
       ${stat('Median days to sell', d.summary.median_days_to_sell != null ? d.summary.median_days_to_sell + 'd' : '—', '')}
     </div>
+    ${(() => {
+      const s = d.summary;
+      if (s.live_units == null) return '';
+      const supplyCls = s.days_supply == null ? 'text-slate-900 dark:text-white'
+        : s.days_supply <= 60 ? 'text-emerald-600 dark:text-emerald-400'
+        : s.days_supply <= 90 ? 'text-amber-600 dark:text-amber-400'
+        : 'text-rose-600 dark:text-rose-400';
+      const t = (label, value, sub, cls = 'text-slate-900 dark:text-white') => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+        <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${label}</div>
+        <div class="text-2xl font-black ${cls} mt-1">${value}</div>${sub ? `<div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${sub}</div>` : ''}</div>`;
+      return `
+      <div class="mb-1 text-sm font-bold text-slate-900 dark:text-white">Turn rate <span class="font-normal text-slate-400 text-xs">— how fast the lot recycles at this pace</span></div>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        ${t('Sales / month', s.sales_per_month != null ? s.sales_per_month : '—', 'recent pace')}
+        ${t('Days of supply', s.days_supply != null ? s.days_supply + 'd' : '—', `${s.live_units} live units`, supplyCls)}
+        ${t('Turns / year', s.turns_per_year != null ? s.turns_per_year + '×' : '—', 'inventory turns')}
+        ${t('Live units', s.live_units, 'on the ground now')}
+      </div>`;
+    })()}
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mb-3">
       <div class="flex items-center justify-between mb-2"><div class="text-sm font-bold text-slate-900 dark:text-white">Days to sell</div><div class="text-[10px] uppercase tracking-wider text-slate-400 w-24 text-right">value</div></div>
       ${dtsHtml}
@@ -5281,7 +5300,7 @@ function salesAnalysisCsv() {
   const d = __salesAnalysisData; if (!d) return;
   const grp = (arr) => (arr || []).map(i => [i.key, i.count, i.avg_price ?? '', i.avg_days_to_sell ?? '']);
   const s = [
-    { title: `Sales analysis — last ${d.range_days} days`, headers: ['Metric', 'Value'], rows: [['Units sold', d.summary.units_sold], ['Gross value', d.summary.total_value], ['Avg days to sell', d.summary.avg_days_to_sell], ['Median days to sell', d.summary.median_days_to_sell]] },
+    { title: `Sales analysis — last ${d.range_days} days`, headers: ['Metric', 'Value'], rows: [['Units sold', d.summary.units_sold], ['Gross value', d.summary.total_value], ['Avg days to sell', d.summary.avg_days_to_sell], ['Median days to sell', d.summary.median_days_to_sell], ['Sales per month', d.summary.sales_per_month ?? ''], ['Days of supply', d.summary.days_supply ?? ''], ['Turns per year', d.summary.turns_per_year ?? ''], ['Live units', d.summary.live_units ?? '']] },
     { title: 'Days to sell', headers: ['Band', 'Count', 'Value'], rows: (d.by_days_to_sell || []).map(i => [i.key, i.count, i.value]) },
     { title: 'By colour', headers: ['Colour', 'Sold', 'Avg price', 'Avg days'], rows: grp(d.by_color) },
     { title: `By mileage (${d.distance_unit || ''})`, headers: ['Band', 'Sold', 'Avg price', 'Avg days'], rows: grp(d.by_mileage) },

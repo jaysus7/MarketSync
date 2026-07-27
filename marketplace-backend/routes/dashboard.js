@@ -1143,6 +1143,18 @@ export function registerRoutes(app) {
     const medianDts = dtsAll.length ? dtsAll[Math.floor(dtsAll.length / 2)] : null
     const totalValue = sold.reduce((s, v) => s + (num(v.price) || 0), 0)
 
+    // Turn rate: how fast the lot recycles. Needs the current live-lot count.
+    const { count: liveUnits } = await supabaseAdmin.from('inventory')
+      .select('id', { count: 'exact', head: true })
+      .eq('dealership_id', req.dealershipId).is('archived_at', null).neq('status', 'sold')
+    const live = liveUnits || 0
+    const dailyRate = sold.length / days                       // units sold per day in the window
+    const salesPerMonth = Math.round(dailyRate * 30 * 10) / 10 // one-decimal monthly pace
+    // Inventory turns per year = annual sales pace ÷ units on the ground.
+    const turnsPerYear = live > 0 ? Math.round((dailyRate * 365 / live) * 10) / 10 : null
+    // Days of supply = how long the current lot lasts at the recent sales pace.
+    const daysSupply = dailyRate > 0 ? Math.round(live / dailyRate) : null
+
     res.json({
       ok: true, range_days: days, distance_unit: unit,
       summary: {
@@ -1150,6 +1162,10 @@ export function registerRoutes(app) {
         total_value: Math.round(totalValue),
         avg_days_to_sell: dtsAll.length ? Math.round(dtsAll.reduce((a, b) => a + b, 0) / dtsAll.length) : null,
         median_days_to_sell: medianDts,
+        live_units: live,
+        sales_per_month: salesPerMonth,
+        turns_per_year: turnsPerYear,
+        days_supply: daysSupply,
       },
       by_days_to_sell: groupBy(dtsBucket, ['0–30', '31–60', '61–90', '90+', 'Unknown']),
       by_color: groupBy(v => (v.exterior_color || '').trim() || 'Unspecified').slice(0, 12),
