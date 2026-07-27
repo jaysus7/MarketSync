@@ -1472,10 +1472,11 @@ const DEPARTMENTS = {
     ],
   },
   fni: {
+    // Desk-a-deal isn't a tab — it's launched per customer (header button, CRM card,
+    // and the Deals list), so F&I is a single Deals workspace.
     label: 'F&I', icon: 'shield', accent: 'indigo',
     pages: [
       { page: 'fni', label: 'Deals' },
-      { page: 'desk', label: 'Desk a Deal' },
     ],
   },
   service: {
@@ -13847,7 +13848,10 @@ function renderFniPage() {
     ${fniTabsHtml()}
     <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
       <input id="fni-search" placeholder="Search customer, vehicle, stock #, deal #…" class="flex-1 min-w-[220px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
-      <span class="text-xs text-slate-500 dark:text-slate-400">${deals.length} in the pipeline</span>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-slate-500 dark:text-slate-400">${deals.length} in the pipeline</span>
+        ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="openDeskForContact(null)" class="inline-flex items-center gap-1.5 text-sm font-bold bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>Desk a deal</button>` : ''}
+      </div>
     </div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
       <div class="overflow-x-auto"><table class="w-full text-left min-w-[760px]">
