@@ -1573,7 +1573,9 @@ const DEPARTMENTS = {
       { page: 'inventory', label: 'Facebook Marketplace', invmode: 'facebook' },
       { page: 'website', label: 'Website', mgr: true },
       { page: 'ai-inbox', label: 'AI Chat', mgr: true },
-      { page: 'automation', label: 'Automation', mgr: true },
+      // The builder holds the email/text templates (New Lead, Delivery, Holidays);
+      // the settings page (engine on/off, email setup) is reached from within it.
+      { page: 'automation-builder', label: 'Automation', mgr: true },
       { page: 'leaderboard', label: 'Leaderboard', mgr: true },
     ],
   },
@@ -17532,7 +17534,7 @@ function renderAutomationSettings() {
     <div class="flex items-start justify-between gap-3 flex-wrap">
       <div>
         <h2 class="text-xl font-bold text-slate-900 dark:text-white">Automation settings</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">The engine, your professional email setup, and global settings. Manage the actual touches under <span class="font-semibold">Holidays</span>, <span class="font-semibold">New Lead Follow-ups</span> and <span class="font-semibold">Delivery Follow-ups</span>.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">The engine, your professional email setup, and global settings. Manage the actual touches — the email &amp; text templates — under <button onclick="switchPage('automation-builder')" class="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">New Lead, Delivery &amp; Holiday follow-ups &rarr;</button></p>
       </div>
       <label class="flex items-center gap-1.5 text-sm font-bold"><input type="checkbox" ${s.enabled !== false ? 'checked' : ''} onchange="autoToggleEngine(this.checked)" class="accent-indigo-600 w-4 h-4">Engine on</label>
     </div>
@@ -17562,7 +17564,8 @@ async function loadAutoBuilderPage() {
   const tabsEl = document.getElementById('auto-builder-tabs');
   if (!tabsEl) return;
   const tab = (id, label) => `<button onclick="autoTab('${id}')" class="px-4 py-2 text-sm font-bold border-b-2 transition ${__autoTab === id ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">${label}</button>`;
-  tabsEl.innerHTML = tab('leads', 'New Lead Follow-ups') + tab('delivery', 'Delivery Follow-ups') + tab('holidays', 'Holidays');
+  tabsEl.innerHTML = tab('leads', 'New Lead Follow-ups') + tab('delivery', 'Delivery Follow-ups') + tab('holidays', 'Holidays')
+    + `<button onclick="switchPage('automation')" class="ml-auto px-3 py-2 text-sm font-bold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap">⚙ Settings</button>`;
   const roots = { leads: 'auto-leads-root', delivery: 'auto-delivery-root', holidays: 'auto-holidays-root' };
   Object.entries(roots).forEach(([k, id]) => document.getElementById(id)?.classList.toggle('hidden', k !== __autoTab));
   if (__autoTab === 'delivery') await loadAutoDelivery();
