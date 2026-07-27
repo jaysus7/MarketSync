@@ -6124,6 +6124,7 @@ function deskRenderForm(contactId) {
           <div class="mt-2 flex items-center gap-2 flex-wrap">
             <select id="desk-fni-picker" onchange="deskAddFniFromCatalog(this.value); this.value='';" class="${iCls} text-xs"><option value="">＋ Add from catalog…</option></select>
             <button type="button" onclick="deskAddLine('fni')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add manually</button>
+            ${['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) ? `<button type="button" onclick="openFniCatalogManager()" class="ml-auto text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">Manage catalog &amp; lenders</button>` : ''}
           </div>`, 'Warranty, GAP, appearance protection, etc. Taxable. Financing is arranged through your lender program.')}
 
         ${card('Fees', `<div id="desk-fees"></div>
@@ -6303,6 +6304,105 @@ function deskLenderPicked(name) {
   hint.textContent = parts.join(' · ');
 }
 window.deskLenderPicked = deskLenderPicked;
+
+// ── F&I catalog manager (managers) ───────────────────────────────────────────
+// Modal to CRUD F&I products (with cost + retail) and lenders (with buy rate).
+let __fniMgr = { products: [], lenders: [] };
+async function openFniCatalogManager() {
+  if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role)) return;
+  const ov = crmOverlay(`<div id="fni-mgr-body" class="p-5"><div class="py-10 text-center text-sm text-slate-400 italic">Loading catalog…</div></div>`, 'max-w-3xl');
+  ov.dataset.fniMgr = '1';
+  await fniMgrReload();
+}
+window.openFniCatalogManager = openFniCatalogManager;
+async function fniMgrReload() {
+  try {
+    const [p, l] = await Promise.all([
+      apiGetJson('/fni/products', { retries: 1 }).catch(() => ({ products: [] })),
+      apiGetJson('/fni/lenders', { retries: 1 }).catch(() => ({ lenders: [] })),
+    ]);
+    __fniMgr = { products: p.products || [], lenders: l.lenders || [] };
+  } catch { __fniMgr = { products: [], lenders: [] }; }
+  fniMgrRender();
+  // Keep the open desk's picker/datalist in sync with catalog edits.
+  if (document.getElementById('desk-fni-picker')) deskLoadCatalog();
+}
+function fniMgrRender() {
+  const body = document.getElementById('fni-mgr-body'); if (!body) return;
+  const iCls = 'bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm';
+  const money = n => n != null ? '$' + Number(n).toLocaleString() : '—';
+  const prodRow = (p) => `<tr class="border-t border-slate-100 dark:border-slate-800">
+    <td class="py-1.5 pr-2 font-semibold text-slate-700 dark:text-slate-200">${esc(p.name)}${p.category ? `<span class="block text-[11px] text-slate-400">${esc(p.category)}</span>` : ''}</td>
+    <td class="py-1.5 px-2 text-right tabular-nums text-slate-500">${money(p.cost)}</td>
+    <td class="py-1.5 px-2 text-right tabular-nums text-slate-700 dark:text-slate-200">${money(p.retail_default)}</td>
+    <td class="py-1.5 pl-2 text-right"><button onclick="fniMgrDelProduct('${p.id}')" class="text-rose-500 hover:text-rose-600 text-xs font-bold">Remove</button></td></tr>`;
+  const lendRow = (l) => `<tr class="border-t border-slate-100 dark:border-slate-800">
+    <td class="py-1.5 pr-2 font-semibold text-slate-700 dark:text-slate-200">${esc(l.name)}${l.tier ? `<span class="block text-[11px] text-slate-400">${esc(l.tier)}</span>` : ''}</td>
+    <td class="py-1.5 px-2 text-right tabular-nums text-slate-700 dark:text-slate-200">${l.base_rate != null ? l.base_rate + '%' : '—'}</td>
+    <td class="py-1.5 pl-2 text-right"><button onclick="fniMgrDelLender('${l.id}')" class="text-rose-500 hover:text-rose-600 text-xs font-bold">Remove</button></td></tr>`;
+  body.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-black text-slate-900 dark:text-white">F&amp;I catalog &amp; lenders</h3>
+      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <div class="mb-6">
+      <div class="text-sm font-bold text-slate-900 dark:text-white mb-2">F&amp;I products</div>
+      <table class="w-full text-sm mb-2"><thead><tr class="text-[10px] uppercase tracking-wider text-slate-400"><th class="text-left pb-1">Product</th><th class="text-right px-2 pb-1">Cost</th><th class="text-right px-2 pb-1">Retail</th><th></th></tr></thead>
+        <tbody>${__fniMgr.products.map(prodRow).join('') || '<tr><td colspan="4" class="py-3 text-center text-slate-400 italic text-xs">No products yet.</td></tr>'}</tbody></table>
+      <div class="flex flex-wrap items-end gap-2 bg-slate-50 dark:bg-slate-950/50 rounded-lg p-2.5">
+        <input id="fni-np-name" placeholder="Name (e.g. Extended warranty)" class="${iCls} flex-1 min-w-[160px]">
+        <input id="fni-np-cat" placeholder="Category" class="${iCls} w-28">
+        <input id="fni-np-cost" type="text" inputmode="decimal" placeholder="Cost" class="${iCls} w-24 text-right">
+        <input id="fni-np-retail" type="text" inputmode="decimal" placeholder="Retail" class="${iCls} w-24 text-right">
+        <button onclick="fniMgrAddProduct()" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">Add</button>
+      </div>
+    </div>
+    <div>
+      <div class="text-sm font-bold text-slate-900 dark:text-white mb-2">Lenders <span class="font-normal text-slate-400 text-xs">— buy rate powers the Lender-by-Rate order on the desk</span></div>
+      <table class="w-full text-sm mb-2"><thead><tr class="text-[10px] uppercase tracking-wider text-slate-400"><th class="text-left pb-1">Lender</th><th class="text-right px-2 pb-1">Buy rate</th><th></th></tr></thead>
+        <tbody>${__fniMgr.lenders.map(lendRow).join('') || '<tr><td colspan="3" class="py-3 text-center text-slate-400 italic text-xs">No lenders yet.</td></tr>'}</tbody></table>
+      <div class="flex flex-wrap items-end gap-2 bg-slate-50 dark:bg-slate-950/50 rounded-lg p-2.5">
+        <input id="fni-nl-name" placeholder="Lender (e.g. TD Auto Finance)" class="${iCls} flex-1 min-w-[160px]">
+        <input id="fni-nl-tier" placeholder="Tier" class="${iCls} w-24">
+        <input id="fni-nl-rate" type="number" step="0.01" placeholder="Rate %" class="${iCls} w-24 text-right">
+        <button onclick="fniMgrAddLender()" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">Add</button>
+      </div>
+    </div>`;
+}
+async function fniMgrAddProduct() {
+  const name = document.getElementById('fni-np-name')?.value.trim();
+  if (!name) { showToast('Product name required', 'error'); return; }
+  try {
+    await apiSendJson('/fni/products', 'POST', {
+      name, category: document.getElementById('fni-np-cat')?.value.trim() || null,
+      cost: msNum(document.getElementById('fni-np-cost')?.value), retail_default: msNum(document.getElementById('fni-np-retail')?.value),
+    });
+    await fniMgrReload();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.fniMgrAddProduct = fniMgrAddProduct;
+async function fniMgrDelProduct(id) {
+  try { await apiSendJson(`/fni/products/${id}`, 'DELETE'); await fniMgrReload(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+window.fniMgrDelProduct = fniMgrDelProduct;
+async function fniMgrAddLender() {
+  const name = document.getElementById('fni-nl-name')?.value.trim();
+  if (!name) { showToast('Lender name required', 'error'); return; }
+  try {
+    await apiSendJson('/fni/lenders', 'POST', {
+      name, tier: document.getElementById('fni-nl-tier')?.value.trim() || null,
+      base_rate: msNum(document.getElementById('fni-nl-rate')?.value),
+    });
+    await fniMgrReload();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.fniMgrAddLender = fniMgrAddLender;
+async function fniMgrDelLender(id) {
+  try { await apiSendJson(`/fni/lenders/${id}`, 'DELETE'); await fniMgrReload(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+window.fniMgrDelLender = fniMgrDelLender;
 
 // ── Inventory search for the vehicle block ───────────────────────────────────
 async function deskVehSearch(q) {
