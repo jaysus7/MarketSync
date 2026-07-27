@@ -721,6 +721,7 @@ const FB_ONLY_PAGES = new Set(['inventory', 'insights', 'profile']);
 function applyFbOnlyMode() {
   if (__fbOnly) document.documentElement.setAttribute('data-dash-tier', 'fb');
   else document.documentElement.removeAttribute('data-dash-tier');
+  applyMobileQuickRow();   // trim the mobile bottom bar to the fb page set
   if (!__fbOnly) return;
   // Land on the Facebook posting hub — the feature they pay for.
   __inventoryMode = 'facebook';
@@ -748,13 +749,14 @@ const PRODUCT_HOME = { facebook_solo: 'solo-home', facebook_dealer: 'solo-home',
 // just the leaderboard (no full dealer dashboard).
 const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
 let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
+let __productHome = null;           // Where a product-restricted tier lands / bounces to
 
 function applyProductNav(products) {
   products = products || {};
   // DealerOS (or nothing set) → the full department sidebar; clear any restriction.
-  if (products.dealer_os) { __productAllowedPages = null; document.documentElement.removeAttribute('data-product'); return; }
+  if (products.dealer_os) { __productAllowedPages = null; __productHome = null; document.documentElement.removeAttribute('data-product'); applyMobileQuickRow(); return; }
   const active = Object.keys(PRODUCT_PAGES).filter(k => products[k] && PRODUCT_PAGES[k]);
-  if (!active.length) { __productAllowedPages = null; return; }
+  if (!active.length) { __productAllowedPages = null; __productHome = null; applyMobileQuickRow(); return; }
   const allow = new Set(['profile']);
   active.forEach(k => (PRODUCT_PAGES[k] || []).forEach(p => allow.add(p)));
   __productAllowedPages = allow;
@@ -777,10 +779,54 @@ function applyProductNav(products) {
     g.classList.toggle('hidden', !anyVisible);
   });
   // Land on this product's home screen.
-  const home = PRODUCT_HOME[active[0]];
+  const home = PRODUCT_HOME[active[0]] || [...allow][0] || 'profile';
+  __productHome = home;
+  applyMobileQuickRow();   // trim the mobile bottom bar to this tier's pages
   if (home) { if (home === 'inventory') __inventoryMode = 'facebook'; if (typeof switchPage === 'function') switchPage(home); }
 }
 window.applyProductNav = applyProductNav;
+
+// Trim the mobile bottom quick-row to the current tier's allowed pages, so a
+// restricted dealer never sees a dead/leaky Home/CRM/Stock button. Full-OS dealers
+// keep the authored row. The Menu (#nav-more) is always kept reachable.
+function applyMobileQuickRow() {
+  const allowed = __fbOnly ? FB_ONLY_PAGES : (__productAllowedPages || null);
+  document.querySelectorAll('#dashboard-nav > button.nav-item[data-page]').forEach(b => {
+    if (!allowed) { return; }   // full experience — leave the authored row as-is
+    b.classList.toggle('hidden', !allowed.has(b.dataset.page));
+  });
+  if (allowed) document.getElementById('nav-more')?.classList.remove('hidden');
+}
+window.applyMobileQuickRow = applyMobileQuickRow;
+
+// The page list for a restricted tier's mobile "more" sheet (with labels/icons), or
+// null for the full-OS experience (which uses the department / legacy renderers).
+function restrictedNavPages() {
+  if (__fbOnly) return [
+    { page: 'inventory', label: 'Facebook Marketplace', invmode: 'facebook', icon: 'megaphone' },
+    { page: 'insights', label: 'Leaderboard', icon: 'trophy' },
+    { page: 'profile', label: 'Settings', icon: 'user' },
+  ];
+  if (__productAllowedPages) {
+    const meta = {
+      'ai-home':    { label: 'AI Employee', icon: 'sparkles' },
+      'solo-home':  { label: 'Marketplace', icon: 'megaphone' },
+      insights:     { label: 'Dashboard', icon: 'chart' },
+      inventory:    { label: 'Inventory', icon: 'car', invmode: 'facebook' },
+      crm:          { label: 'Customers', icon: 'user' },
+      'sales-team': { label: 'My Team', icon: 'user' },
+      profile:      { label: 'Settings', icon: 'user' },
+    };
+    const order = ['ai-home', 'solo-home', 'insights', 'inventory', 'crm', 'sales-team', 'profile'];
+    const pages = order.filter(p => __productAllowedPages.has(p))
+      .map(p => ({ page: p, label: meta[p]?.label || p, icon: meta[p]?.icon || 'dot', invmode: meta[p]?.invmode }));
+    // Settings is always reachable even if it isn't in the explicit product set.
+    if (!pages.some(p => p.page === 'profile')) pages.push({ page: 'profile', label: 'Settings', icon: 'user' });
+    return pages;
+  }
+  return null;
+}
+window.restrictedNavPages = restrictedNavPages;
 // Facebook products get a simplified CRM (customers + leads only — no deal desk /
 // accounting affordances inside CRM).
 function simpleCrmActive() { return /facebook/.test(document.documentElement.getAttribute('data-product') || ''); }
@@ -1683,6 +1729,13 @@ function switchPage(pageId) {
   }
   // Facebook-only tier: only the Facebook hub, leaderboard and settings are reachable.
   if (__fbOnly && !FB_ONLY_PAGES.has(pageId)) { __inventoryMode = 'facebook'; pageId = 'inventory'; }
+  // Product-restricted tiers (Facebook Solo/Dealer, AI Chatbot): keep them inside
+  // their page set so a stale link or hardcoded mobile button can't reach full-OS
+  // pages. 'profile' (header gear) is always allowed.
+  if (__productAllowedPages && pageId !== 'profile' && !__productAllowedPages.has(pageId)) {
+    pageId = __productHome || 'profile';
+    if (pageId === 'inventory') __inventoryMode = 'facebook';
+  }
 
   // Specialized staff role (F&I, Service, Accounting, Cleanup): anything outside
   // their workspace bounces to their home page. Guards deep links & stale nav too.
@@ -4456,6 +4509,19 @@ function setupMobileMoreMenu() {
     list.className = 'space-y-1.5';   // stacked full-width groups (was a 2-col grid)
     list.innerHTML = '';
     const mk = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+    // Restricted tiers (Facebook-only + product tiers): the desktop sidebar is
+    // stripped, so mirror exactly that tier's page set here — no legacy tree, no
+    // department cards. Settings is always reachable (this list + the header gear).
+    const restricted = restrictedNavPages();
+    if (restricted) {
+      restricted.forEach(p => {
+        const b = mk(`<button type="button" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-left"><span class="w-5 h-5 flex-shrink-0 text-indigo-500">${svgIcon(p.icon || 'dot', 'w-5 h-5')}</span><span class="truncate">${esc(p.label)}</span></button>`);
+        b.addEventListener('click', () => { close(); if (p.invmode) __inventoryMode = p.invmode; switchPage(p.page); });
+        list.appendChild(b);
+      });
+      menu.classList.remove('hidden');
+      return;
+    }
     // Guided-setup progress at the very top of the mobile menu (uses the cached
     // snapshot; hidden once complete) so the "status bar on the nav" shows on phones too.
     (() => {
