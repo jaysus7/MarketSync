@@ -49,16 +49,19 @@ export function registerSaasAdmin(app) {
       const products = resolveProducts(d)
       const accountMrr = Object.keys(PRODUCT_MRR).reduce((s, k) => s + (products[k] ? PRODUCT_MRR[k] : 0), 0)
 
+      // Anyone inside a live trial window counts as a trial customer, even if the
+      // billing_status hasn't been set to TRIALING yet (fresh sign-ups).
+      const futureTrial = trialEnds && new Date(trialEnds) > new Date()
       if (activeStatus(status)) { active++; mrr += accountMrr; topAccounts.push({ id: d.id, name: d.name, mrr: accountMrr, products }) }
-      else if (trialingStatus(status)) {
-        const expired = trialEnds && new Date(trialEnds) < new Date()
-        if (!expired) {
+      else if (dunningStatus(status)) { churnRisk++ }
+      else if (trialingStatus(status) || futureTrial) {
+        if (futureTrial) {
           trials++
-          const days = trialEnds ? Math.max(0, Math.round((new Date(trialEnds) - Date.now()) / 86400000)) : null
+          const days = Math.max(0, Math.round((new Date(trialEnds) - Date.now()) / 86400000))
           trialList.push({ id: d.id, name: d.name, days_left: days, products })
-          if (trialEnds && new Date(trialEnds).getTime() < soon) churnRisk++
-        } else { churnRisk++ }   // expired trial = at-risk / recovery
-      } else if (dunningStatus(status)) { churnRisk++ }
+          if (new Date(trialEnds).getTime() < soon) churnRisk++
+        } else { churnRisk++ }   // trialing status but the trial window has lapsed = at-risk / recovery
+      }
 
       if (d.created_at && new Date(d.created_at) >= monthStart) newThisMonth++
     }
@@ -67,6 +70,8 @@ export function registerSaasAdmin(app) {
     trialList.sort((a, b) => (a.days_left ?? 999) - (b.days_left ?? 999))
     res.json({
       mrr, arr: mrr * 12, active_customers: active, trial_accounts: trials,
+      // "Customers" includes everyone on the books — paying + in-trial.
+      customers: active + trials,
       churn_risk: churnRisk, new_this_month: newThisMonth,
       trials: trialList.slice(0, 12),
       top_accounts: topAccounts.slice(0, 8),
@@ -107,14 +112,19 @@ export function registerSaasAdmin(app) {
       const a = agg[d.id] || { count: 0, engines: new Set(), lastAt: null }
       const adoption = a.engines.size
       const lastDays = a.lastAt ? Math.floor((now - new Date(a.lastAt)) / 86400000) : null
-      const trialExpired = trialingStatus(status) && trialEnds && new Date(trialEnds) < new Date()
-      const trialDaysLeft = trialingStatus(status) && trialEnds ? Math.round((new Date(trialEnds) - now) / 86400000) : null
+      // A live trial window makes the account a trial customer even if billing_status
+      // isn't TRIALING yet (fresh sign-ups). An expired trial (status TRIALING but
+      // the window has passed) is a lapsed trial.
+      const futureTrial = trialEnds && new Date(trialEnds) > new Date()
+      const onTrial = trialingStatus(status) || futureTrial
+      const trialExpired = trialingStatus(status) && !futureTrial && trialEnds && new Date(trialEnds) < new Date()
+      const trialDaysLeft = onTrial && trialEnds ? Math.round((new Date(trialEnds) - now) / 86400000) : null
 
       // Health 0–100: adoption breadth + recency + billing standing.
       let health = 0
       health += Math.min(adoption, 5) / 5 * 45
       health += lastDays == null ? 0 : lastDays <= 3 ? 35 : lastDays <= 7 ? 28 : lastDays <= 14 ? 18 : lastDays <= 30 ? 8 : 0
-      health += activeStatus(status) ? 20 : trialingStatus(status) ? 12 : 0
+      health += activeStatus(status) ? 20 : onTrial ? 12 : 0
       health = Math.round(Math.min(100, health))
 
       // Stage on the SaaS board.
@@ -125,7 +135,7 @@ export function registerSaasAdmin(app) {
         if (lastDays == null || lastDays > 30) stage = 'churn_risk'
         else if (productCount >= 2) stage = 'expanded'
         else stage = 'paid'
-      } else if (trialingStatus(status)) {
+      } else if (onTrial) {
         if (trialExpired) stage = 'churn_risk'
         else if (adoption >= 2 && a.count >= 3) stage = 'activated'
         else stage = 'trial_started'
@@ -136,7 +146,7 @@ export function registerSaasAdmin(app) {
       if (S === 'PAST_DUE') next = 'Recover payment'
       else if (stage === 'cancelled') next = 'Win-back outreach'
       else if (trialExpired) next = 'Re-engage — trial lapsed'
-      else if (trialingStatus(status) && trialDaysLeft != null && trialDaysLeft <= 5) next = 'Convert — book demo'
+      else if (onTrial && trialDaysLeft != null && trialDaysLeft <= 5) next = 'Convert — book demo'
       else if (stage === 'trial_started') next = 'Activation outreach'
       else if (stage === 'activated') next = 'Convert to paid'
       else if (stage === 'churn_risk') next = 'Check in — usage dropped'

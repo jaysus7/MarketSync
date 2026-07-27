@@ -9630,8 +9630,8 @@ ENGINES['saas-command'] = {
       body.innerHTML = `
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           ${engKpi('MRR', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('ARR', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Active', (d.active_customers || 0).toLocaleString())}
+          ${engKpi('Customers', (d.customers ?? ((d.active_customers || 0) + (d.trial_accounts || 0))).toLocaleString(), 'text-indigo-600 dark:text-indigo-400')}
+          ${engKpi('Paying', (d.active_customers || 0).toLocaleString())}
           ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
           ${engKpi('Churn Risk', (d.churn_risk || 0).toLocaleString(), d.churn_risk ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('New This Month', (d.new_this_month || 0).toLocaleString())}
