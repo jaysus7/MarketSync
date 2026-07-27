@@ -4898,7 +4898,7 @@ async function loadExecutiveRoi() {
           <th class="py-2 px-4">Salesperson</th><th class="py-2 px-3 text-right">Sales</th><th class="py-2 px-3 text-right">Leads</th><th class="py-2 px-3 text-right">&lt; 5 min</th><th class="py-2 px-3 text-right">Follow-up</th><th class="py-2 px-3 text-right">Appraisals</th>
         </tr></thead>
         <tbody>${d.per_rep.map((r, i) => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
-          <td class="py-2.5 px-4 font-semibold text-slate-900 dark:text-white">${i < 3 ? ['🥇', '🥈', '🥉'][i] + ' ' : ''}${esc(r.name)}</td>
+          <td class="py-2.5 px-4 font-semibold text-slate-900 dark:text-white"><span class="inline-flex items-center gap-2">${i < 3 ? rankBadge(i + 1) : `<span class="inline-flex items-center justify-center w-7 h-7 text-[13px] font-black text-slate-400">${i + 1}</span>`}${esc(r.name)}</span></td>
           <td class="py-2.5 px-3 text-right font-black tabular-nums text-emerald-600 dark:text-emerald-400">${r.deals}</td>
           <td class="py-2.5 px-3 text-right tabular-nums text-slate-700 dark:text-slate-200">${r.leads}</td>
           <td class="py-2.5 px-3 text-right tabular-nums text-slate-700 dark:text-slate-200">${r.under_5min_pct}%</td>
@@ -12344,7 +12344,7 @@ function leaderboardLegendHTML() {
   const tierRows = LB_TIERS.map(t => {
     const isLegend = t.name === 'Legend';
     const marker = isLegend
-      ? '<span class="text-indigo-500">👑</span>'
+      ? `<span class="text-indigo-500">${svgIcon('trophy', 'w-3.5 h-3.5')}</span>`
       : `<span class="inline-block w-2.5 h-2.5 rounded-full" style="background:${TIER_DOT[t.name] || '#94a3b8'}"></span>`;
     return `
       <div class="flex items-center justify-between px-3 py-2.5 rounded-lg ${isLegend ? 'bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800' : 'bg-slate-50 dark:bg-slate-950/60'}">
@@ -12509,16 +12509,16 @@ function renderPodium(ranking) {
   // Visual order: 2nd · 1st · 3rd (1st is centered and tallest).
   // Always render all 3 slots — empty slots become placeholders.
   const positions = [
-    { m: ranking[1], rankNum: 2, height: 'h-24', bar: 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500', crown: '🥈' },
-    { m: ranking[0], rankNum: 1, height: 'h-32', bar: 'from-amber-300 to-amber-500',                                       crown: '👑' },
-    { m: ranking[2], rankNum: 3, height: 'h-20', bar: 'from-orange-300 to-orange-500',                                     crown: '🥉' }
+    { m: ranking[1], rankNum: 2, height: 'h-24', bar: 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500', crown: `<span class="text-slate-400">${svgIcon('star', 'w-6 h-6')}</span>` },
+    { m: ranking[0], rankNum: 1, height: 'h-32', bar: 'from-amber-300 to-amber-500',                                       crown: `<span class="text-amber-500">${svgIcon('trophy', 'w-7 h-7')}</span>` },
+    { m: ranking[2], rankNum: 3, height: 'h-20', bar: 'from-orange-300 to-orange-500',                                     crown: `<span class="text-orange-400">${svgIcon('star', 'w-6 h-6')}</span>` }
   ];
 
   el.innerHTML = positions.map(p => {
     if (!p.m) {
       return `
         <div class="flex flex-col items-center text-center opacity-40">
-          <div class="text-3xl mb-1 grayscale">${p.crown}</div>
+          <div class="mb-1 flex items-center justify-center h-8">${p.crown}</div>
           <div class="font-bold text-sm text-slate-400 italic w-full">Open</div>
           <div class="text-xs text-slate-400 mt-1 mb-2">—</div>
           <div class="w-full mt-2 rounded-t-lg bg-slate-200 dark:bg-slate-800 ${p.height} flex items-start justify-center pt-2 text-slate-400 font-black text-xl">${p.rankNum}</div>
@@ -12528,7 +12528,7 @@ function renderPodium(ranking) {
     const isMe = p.m.id === user.id;
     return `
       <div class="flex flex-col items-center text-center">
-        <div class="text-3xl mb-1">${p.crown}</div>
+        <div class="mb-1 flex items-center justify-center h-8">${p.crown}</div>
         <div class="font-bold text-sm text-slate-900 dark:text-white truncate w-full">${p.m.name}${isMe ? ' <span class="text-xs text-indigo-600 dark:text-indigo-400">(you)</span>' : ''}</div>
         <div class="inline-flex items-center gap-1 mt-1 mb-2 px-2 py-0.5 rounded-full text-xs font-bold border ${p.m.tier.cls}">
           <span>${p.m.tier.icon}</span><span>${p.m.tier.name}</span>
@@ -12568,6 +12568,20 @@ function renderYourPosition(ranking) {
   badge.innerHTML = `<span>${me.tier.icon}</span><span>${me.tier.name}</span>`;
 }
 
+// Clean rank badge (proper icon, not an emoji medal): #1 gets a trophy in a gold
+// pill, #2/#3 a number in silver/bronze, the rest a plain slate number.
+function rankBadge(rank) {
+  const map = {
+    1: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
+    2: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-200',
+    3: 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300',
+  };
+  const cls = map[rank] || 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400';
+  const inner = rank === 1 ? svgIcon('trophy', 'w-3.5 h-3.5') : String(rank);
+  return `<span class="inline-flex items-center justify-center w-7 h-7 rounded-full text-[13px] font-black ${cls}">${inner}</span>`;
+}
+window.rankBadge = rankBadge;
+
 function renderRankingTable(ranking) {
   const body = document.getElementById('leaderboard-body');
   if (!body) return;
@@ -12575,13 +12589,10 @@ function renderRankingTable(ranking) {
     body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-500 italic">No team members yet.</td></tr>`;
     return;
   }
-  const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
   body.innerHTML = ranking.map(r => {
     const isMe = r.id === user.id;
     const rowBg = isMe ? 'bg-indigo-50 dark:bg-indigo-950/30' : '';
-    const rankCell = medals[r.rank]
-      ? `<span class="text-base">${medals[r.rank]}</span>`
-      : `<span class="text-slate-500 dark:text-slate-400 font-mono">${r.rank}</span>`;
+    const rankCell = rankBadge(r.rank);
     return `
       <tr class="${rowBg} hover:bg-slate-50 dark:hover:bg-slate-900/60 transition">
         <td class="py-3 px-3">${rankCell}</td>
@@ -12617,13 +12628,13 @@ async function loadActivity() {
     }
     el.innerHTML = data.events.map(e => {
       const isSold = e.type === 'sold';
-      const icon = isSold ? '🏆' : '🚗';
       const verb = isSold ? 'sold' : 'posted';
       const accent = isSold ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400';
+      const icon = `<span class="${accent}">${svgIcon(isSold ? 'trophy' : 'car', 'w-5 h-5')}</span>`;
       const when = e.timestamp ? timeAgo(new Date(e.timestamp)) : '';
       return `
         <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2">
-          <div class="text-lg">${icon}</div>
+          <div>${icon}</div>
           <div class="flex-1 min-w-0 text-sm">
             <span class="font-semibold text-slate-900 dark:text-white">${e.user_name}</span>
             <span class="text-slate-600 dark:text-slate-400">${verb}</span>
@@ -13812,7 +13823,7 @@ function initGlobalLeaderboard() {
     tiersEl.innerHTML = LB_TIERS.map(t => {
       const isLegend = t.name === 'Legend';
       const marker = isLegend
-        ? '<span class="text-indigo-500">👑</span>'
+        ? `<span class="text-indigo-500">${svgIcon('trophy', 'w-3.5 h-3.5')}</span>`
         : `<span class="inline-block w-2 h-2 rounded-full" style="background:${TIER_DOT[t.name] || '#94a3b8'}"></span>`;
       return `<span class="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">${marker}${t.name} <span class="text-slate-400">${t.min >= 1000 ? (t.min/1000)+'k' : t.min}pts</span></span>`;
     }).join('');
@@ -13906,7 +13917,10 @@ function renderGlobalLeaderboard() {
     const top3 = rows.slice(0, 3);
     const order = [top3[1], top3[0], top3[2]].filter(Boolean); // 2nd, 1st, 3rd
     const heights = ['h-20', 'h-28', 'h-16'];
-    const medals = ['🥈', '👑', '🥉'];
+    // Winner (center, i===1) gets a trophy; the runners-up get a star.
+    const medalIcon = (i) => i === 1
+      ? `<span class="text-amber-500">${svgIcon('trophy', 'w-7 h-7')}</span>`
+      : `<span class="text-slate-400">${svgIcon('star', 'w-5 h-5')}</span>`;
     const gradients = ['from-slate-300 to-slate-400', 'from-yellow-300 to-amber-500', 'from-orange-300 to-orange-500'];
     const nums = ['2', '1', '3'];
     podiumEl.innerHTML = order.map((r, i) => {
@@ -13915,7 +13929,7 @@ function renderGlobalLeaderboard() {
         : `<div class="w-10 h-10 rounded-full bg-indigo-200 dark:bg-indigo-700 flex items-center justify-center text-indigo-700 dark:text-indigo-200 font-bold text-base mb-1 mt-1">${(r.name || '?')[0].toUpperCase()}</div>`;
       return `
         <div class="flex flex-col items-center text-center">
-          <div class="text-3xl mb-1">${medals[i]}</div>
+          <div class="mb-1 flex items-center justify-center h-8">${medalIcon(i)}</div>
           ${avatarHtml}
           <div class="font-bold text-sm text-slate-900 dark:text-white truncate w-full">${r.name}${r.isYou ? ' <span class="text-xs text-indigo-500 font-normal">(you)</span>' : ''}</div>
           <div class="text-xs font-mono text-slate-600 dark:text-slate-300 mt-1 mb-2">${(r.points || 0).toLocaleString()} pts</div>
@@ -13936,7 +13950,7 @@ function renderGlobalLeaderboard() {
   const youInList = rows.some(r => r.isYou);
   const makeRow = (r, pinned) => {
     const hl = r.isYou ? 'bg-indigo-50 dark:bg-indigo-950/40 font-semibold' : '';
-    const rank = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : `#${r.rank}`;
+    const rank = rankBadge(r.rank);
     const sep = pinned ? '<tr><td colspan="5" class="py-0"><div class="border-t-2 border-dashed border-indigo-300 dark:border-indigo-700"></div></td></tr>' : '';
     const avatarCell = r.avatar_url
       ? `<img src="${r.avatar_url}" class="w-6 h-6 rounded-full object-cover inline-block mr-1.5 align-middle border ${r.isYou ? 'border-indigo-300' : 'border-slate-300 dark:border-slate-600'}" />`
