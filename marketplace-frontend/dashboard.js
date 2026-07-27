@@ -6272,6 +6272,17 @@ function deskRenderForm(contactId) {
 
     <div class="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start">
       <div>
+        ${card('Insurance', `<details ${(ins.company || ins.policy || ins.agent || ins.phone || ins.expiry) ? 'open' : ''} class="group">
+            <summary class="cursor-pointer list-none text-sm font-bold text-indigo-600 dark:text-indigo-400 select-none inline-flex items-center gap-1.5"><span class="group-open:hidden">＋ Add insurance details</span><span class="hidden group-open:inline">Insurance details</span></summary>
+            <div class="grid grid-cols-2 gap-3 mt-3">
+              ${fld('Company', txt('dk-ins-company', ins.company, ''))}
+              ${fld('Policy #', txt('dk-ins-policy', ins.policy, ''))}
+              ${fld('Agent / broker', txt('dk-ins-agent', ins.agent, ''))}
+              ${fld('Agent phone', txt('dk-ins-phone', ins.phone, '', 'tel'))}
+              ${fld('Binder / expiry', txt('dk-ins-expiry', ins.expiry, '', 'date'))}
+            </div>
+          </details>`, 'Optional — fills onto the bill of sale and the customer card.')}
+
         ${card('Vehicle', `
           <div class="relative mb-2">
             <input id="desk-veh-search" type="text" autocomplete="off" placeholder="Search inventory by VIN, stock # or name…" class="${iCls}">
@@ -6307,30 +6318,6 @@ function deskRenderForm(contactId) {
             ${fld('Lien / payoff', money('dk-trade_payoff', d.trade_payoff))}
           </div>`, 'HST is charged on the price after the trade allowance (Ontario tax-on-the-difference). Pull the customer\'s saved appraisal to fill this in.')}
 
-        ${card('Add-ons', `<div id="desk-addons"></div>
-          <button type="button" onclick="deskAddLine('addon')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add an add-on</button>`, 'Accessories, protection packages, etc. Taxable.')}
-
-        ${card('F&amp;I products', `<div id="desk-fni"></div>
-          <div class="mt-2 flex items-center gap-2 flex-wrap">
-            <select id="desk-fni-picker" onchange="deskAddFniFromCatalog(this.value); this.value='';" class="${iCls} text-xs"><option value="">＋ Add from catalog…</option></select>
-            <button type="button" onclick="deskAddLine('fni')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add manually</button>
-            ${['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) ? `<button type="button" onclick="openFniCatalogManager()" class="ml-auto text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">Manage catalog &amp; lenders</button>` : ''}
-          </div>`, 'Warranty, GAP, appearance protection, etc. Taxable. Financing is arranged through your lender program.')}
-
-        ${card('Fees', `<div id="desk-fees"></div>
-          <button type="button" onclick="deskAddLine('fee')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add a fee</button>`, 'Uncheck “taxable” for government passthroughs like licensing.')}
-
-        ${card('Insurance', `<details ${(ins.company || ins.policy || ins.agent || ins.phone || ins.expiry) ? 'open' : ''} class="group">
-            <summary class="cursor-pointer list-none text-sm font-bold text-indigo-600 dark:text-indigo-400 select-none inline-flex items-center gap-1.5"><span class="group-open:hidden">＋ Add insurance details</span><span class="hidden group-open:inline">Insurance details</span></summary>
-            <div class="grid grid-cols-2 gap-3 mt-3">
-              ${fld('Company', txt('dk-ins-company', ins.company, ''))}
-              ${fld('Policy #', txt('dk-ins-policy', ins.policy, ''))}
-              ${fld('Agent / broker', txt('dk-ins-agent', ins.agent, ''))}
-              ${fld('Agent phone', txt('dk-ins-phone', ins.phone, '', 'tel'))}
-              ${fld('Binder / expiry', txt('dk-ins-expiry', ins.expiry, '', 'date'))}
-            </div>
-          </details>`, 'Optional — fills onto the bill of sale and the customer card.')}
-
         ${card('Finance terms', `<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             ${fld('Deal type', `<select id="dk-deal_type" class="${iCls}">${['Finance', 'Lease', 'Cash'].map(o => `<option ${d.deal_type === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}
             ${fld('Lender', `<input id="dk-finance_company" list="desk-lender-list" value="${esc(d.finance_company || '')}" placeholder="e.g. TD Auto Finance" oninput="deskLenderPicked(this.value)" class="${iCls}"><datalist id="desk-lender-list"></datalist><div id="desk-lender-hint" class="text-[11px] text-slate-400 mt-0.5"></div>`)}
@@ -6353,6 +6340,19 @@ function deskRenderForm(contactId) {
             <div class="flex items-end pb-2"><label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"><input type="checkbox" id="dk-tax_on_difference" ${taxOnDiff ? 'checked' : ''} onchange="deskRenderSummary()" class="rounded"> Tax on the difference</label></div>
             <p id="dk-tax-hint" class="col-span-2 text-[11px] text-slate-400 dark:text-slate-500 -mt-1">Pick a state/province to auto-fill the rate. For U.S. deals the rate is <b>state + average local/county</b> — edit it for the buyer's exact jurisdiction.</p>
           </div>`)}
+
+        ${card('Add-ons', `<div id="desk-addons"></div>
+          <button type="button" onclick="deskAddLine('addon')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add an add-on</button>`, 'Accessories, protection packages, etc. Taxable.')}
+
+        ${card('F&amp;I products', `<div id="desk-fni"></div>
+          <div class="mt-2 flex items-center gap-2 flex-wrap">
+            <select id="desk-fni-picker" onchange="deskAddFniFromCatalog(this.value); this.value='';" class="${iCls} text-xs"><option value="">＋ Add from catalog…</option></select>
+            <button type="button" onclick="deskAddLine('fni')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add manually</button>
+            ${['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) ? `<button type="button" onclick="openFniCatalogManager()" class="ml-auto text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">Manage catalog &amp; lenders</button>` : ''}
+          </div>`, 'Warranty, GAP, appearance protection, etc. Taxable. Financing is arranged through your lender program.')}
+
+        ${card('Fees', `<div id="desk-fees"></div>
+          <button type="button" onclick="deskAddLine('fee')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add a fee</button>`, 'Uncheck “taxable” for government passthroughs like licensing.')}
 
         <details class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden mb-4">
           <summary class="px-5 py-3 cursor-pointer text-sm font-black text-slate-900 dark:text-white">Internal — F&amp;I tracking &amp; delivery</summary>
