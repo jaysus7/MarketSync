@@ -3559,9 +3559,22 @@ async function crmSaveTask(id) {
   try { await apiSendJson('/crm/tasks', 'POST', { contact_id: id, title, type, due_at: due ? new Date(due).toISOString() : null }); showToast('Task added', 'success'); openCrmContact(id); }
   catch (e) { showToast(e.message, 'error'); }
 }
-async function crmToggleTask(taskId, done, contactId) {
-  try { await apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { done }); if (contactId) openCrmContact(contactId); else crmLoadTasks(); }
-  catch (e) { showToast(e.message, 'error'); }
+async function crmToggleTask(taskId, done, contactId, fromList) {
+  // Completing a task requires a note — it posts to the customer's timeline so the
+  // record shows WHAT happened, not just a checkmark. Un-checking needs no note.
+  const refresh = () => { if (fromList) crmLoadTasks(); else if (contactId) openCrmContact(contactId); else crmLoadTasks(); };
+  let note = null;
+  if (done) {
+    note = prompt('Add a note about this task before completing it:', '');
+    if (note == null || !note.trim()) { refresh(); return; }   // cancelled/blank → don't complete
+  }
+  try {
+    await apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { done });
+    if (done && note && note.trim() && contactId) {
+      await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Task completed', body: note.trim() });
+    }
+    refresh();   // timeline / list reflects the note immediately (no manual refresh)
+  } catch (e) { showToast(e.message, 'error'); }
 }
 // ── Lease / equity details right on the delivered customer (managers) ────────
 async function crmLeaseForm(id) {
@@ -4053,7 +4066,7 @@ async function crmLoadTasks() {
         const overdue = t.due_at && new Date(t.due_at) < Date.now();
         const meta = crmTaskTypeMeta(t.type);
         return `<div class="flex items-center gap-3 px-4 py-3 border-l-4 ${meta.border}">
-          <input type="checkbox" onchange="crmToggleTask('${t.id}', this.checked)" class="w-4 h-4 rounded accent-indigo-600 flex-shrink-0">
+          <input type="checkbox" onchange="crmToggleTask('${t.id}', this.checked, ${t.contact_id ? `'${t.contact_id}'` : 'null'}, true)" class="w-4 h-4 rounded accent-indigo-600 flex-shrink-0">
           <div class="min-w-0 flex-1">
             <div class="font-semibold text-sm text-slate-800 dark:text-slate-100 truncate">${esc(t.title)}</div>
             <div class="text-xs text-slate-400 flex flex-wrap items-center gap-1.5">${t.contact_name ? `<button onclick="openCrmContact('${t.contact_id}')" class="text-indigo-500 hover:underline">${esc(t.contact_name)}</button>` : ''}<span class="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${meta.badge}">${esc(meta.label)}</span></div>
@@ -6214,6 +6227,11 @@ function deskRenderForm(contactId) {
   const onFile = !!d.id;
   const buyerName = b.full_name || [b.first_name, b.last_name].filter(Boolean).join(' ') || 'Customer';
   const rate = d.tax_rate != null ? d.tax_rate : deskTaxRate(__deskDealer?.province, __deskDealer?.country);
+  // New deals default their jurisdiction from the dealership's settings location.
+  const _dealerCountry = (() => { const c = (__deskDealer?.country || '').trim().toUpperCase(); return (c === 'US' || c === 'USA' || c === 'UNITED STATES') ? 'US' : 'CA'; })();
+  const dkCountry = d.tax_country || _dealerCountry;
+  const _dealerProv = (__deskDealer?.province || '').trim().toUpperCase();
+  const dkProvince = d.tax_province || (DESK_TAX[dkCountry]?.regions?.[_dealerProv] ? _dealerProv : '');
   const apr = d.apr != null ? d.apr : DESK_DEFAULT_APR;
   const taxOnDiff = d.tax_on_difference !== false;   // default ON = tax on the difference
   const iCls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
@@ -6316,8 +6334,8 @@ function deskRenderForm(contactId) {
             ${fld('Cash down', money('dk-down_payment', d.down_payment))}
             ${fld('Deposit', money('dk-deposit_amount', d.deposit_amount))}
             ${fld('Rebate (after tax)', money('dk-rebate', d.rebate))}
-            ${fld('Country', `<select id="dk-tax_country" onchange="deskSetCountry()" class="${iCls}">${Object.entries(DESK_TAX).map(([code, j]) => `<option value="${code}" ${(d.tax_country || 'CA') === code ? 'selected' : ''}>${esc(j.label)}</option>`).join('')}</select>`)}
-            ${fld('State / Province (auto tax)', `<select id="dk-tax_province" onchange="deskSetJurisdiction()" class="${iCls}"><option value="">— Select —</option>${Object.entries((DESK_TAX[d.tax_country || 'CA'] || DESK_TAX.CA).regions).map(([code, r]) => `<option value="${code}" ${d.tax_province === code ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select>`)}
+            ${fld('Country', `<select id="dk-tax_country" onchange="deskSetCountry()" class="${iCls}">${Object.entries(DESK_TAX).map(([code, j]) => `<option value="${code}" ${dkCountry === code ? 'selected' : ''}>${esc(j.label)}</option>`).join('')}</select>`)}
+            ${fld('State / Province (auto tax)', `<select id="dk-tax_province" onchange="deskSetJurisdiction()" class="${iCls}"><option value="">— Select —</option>${Object.entries((DESK_TAX[dkCountry] || DESK_TAX.CA).regions).map(([code, r]) => `<option value="${code}" ${dkProvince === code ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select>`)}
             ${fld('Tax rate % (total)', `<input id="dk-tax_rate" type="number" step="0.001" value="${rate}" oninput="deskRenderSummary()" class="${iCls}">`)}
             <div class="flex items-end pb-2"><label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"><input type="checkbox" id="dk-tax_on_difference" ${taxOnDiff ? 'checked' : ''} onchange="deskRenderSummary()" class="rounded"> Tax on the difference</label></div>
             <p id="dk-tax-hint" class="col-span-2 text-[11px] text-slate-400 dark:text-slate-500 -mt-1">Pick a state/province to auto-fill the rate. For U.S. deals the rate is <b>state + average local/county</b> — edit it for the buyer's exact jurisdiction.</p>
@@ -6457,6 +6475,9 @@ window.deskAddFniFromCatalog = deskAddFniFromCatalog;
 // Show the lowest-rate lender as a nudge, and flag the picked one's rate.
 function deskLenderPicked(name) {
   const hint = document.getElementById('desk-lender-hint'); if (!hint) return;
+  // "Lender by rate" is an F&I/manager view — reps just pick the lender, they don't
+  // see the buy-rate ranking.
+  if (!DESK_FNI_ROLES.includes(profileContext?.role)) { hint.textContent = ''; return; }
   if (!__deskLenders.length) { hint.textContent = ''; return; }
   const rated = __deskLenders.filter(l => l.base_rate != null);
   const picked = name ? __deskLenders.find(l => l.name.toLowerCase() === name.trim().toLowerCase()) : null;
