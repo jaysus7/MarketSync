@@ -19378,15 +19378,23 @@ async function openLotReport() {
     const rowColor = pct => pct > 5 ? 'text-red-600 dark:text-red-400' : pct < -5 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400';
     document.getElementById('lr-rows').innerHTML = (data.vehicles || []).map(v => `
       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer" data-lr-report="${v.inventory_id}">
-        <td class="px-3 py-2 font-medium text-slate-900 dark:text-white">${esc(v.label)}</td>
+        <td class="px-3 py-2 font-medium text-slate-900 dark:text-white">
+          <div class="flex items-center gap-2">
+            <span>${esc(v.label)}</span>
+            <button type="button" data-lr-stock="${v.inventory_id}" title="Open stock card" class="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex-shrink-0"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          </div>
+        </td>
         <td class="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">${money(v.your_price)}</td>
         <td class="px-3 py-2 text-right tabular-nums text-slate-500 dark:text-slate-400">${money(v.market_avg)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-bold ${rowColor(v.pct_diff)}">${(v.pct_diff > 0 ? '+' : '') + v.pct_diff}%</td>
       </tr>`).join('');
 
-    // Click a row to open that vehicle's full price report
+    // Click a row to open that vehicle's full price report; the pencil opens the stock card.
     document.getElementById('lr-rows').querySelectorAll('[data-lr-report]').forEach(tr => {
       tr.addEventListener('click', () => { modal.classList.add('hidden'); openPriceReport(tr.dataset.lrReport); });
+    });
+    document.getElementById('lr-rows').querySelectorAll('[data-lr-stock]').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); modal.classList.add('hidden'); editVehicle(btn.dataset.lrStock); });
     });
 
     content?.classList.remove('hidden');
