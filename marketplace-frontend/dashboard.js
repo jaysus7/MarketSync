@@ -4044,7 +4044,8 @@ async function loadLeadsPage() {
     if (!l.created_at) return '<span class="text-xs text-slate-400">—</span>';
     if (l.responded_at) {
       const sec = Math.max(0, Math.round((new Date(l.responded_at) - new Date(l.created_at)) / 1000));
-      return `<span class="text-xs font-bold text-emerald-600 dark:text-emerald-400" title="Answered${l.responded_by_name ? ' by ' + esc(l.responded_by_name) : ''} in ${fmtLeadDuration(sec)}">✓ ${fmtLeadDuration(sec)}</span>`;
+      // Colour the answered time by the response goal — fast = green, slow = red.
+      return `<span class="text-xs font-bold ${leadTimeClasses(sec).join(' ')}" title="Answered${l.responded_by_name ? ' by ' + esc(l.responded_by_name) : ''} in ${fmtLeadDuration(sec)}">✓ ${fmtLeadDuration(sec)}</span>`;
     }
     return `<span class="lead-timer text-xs font-black tabular-nums" data-created="${l.created_at}" title="Live — time this lead has gone unanswered">${fmtLeadDuration(Math.max(0, Math.round((Date.now() - new Date(l.created_at)) / 1000)))}</span>`;
   };
@@ -4097,6 +4098,14 @@ async function loadLeadsPage() {
       </div>
     </div>
 
+    ${data.can_reassign ? (() => { const sla = leadSla(); return `<div class="mb-4 flex items-center gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400">
+      <span class="font-semibold">Response goal:</span>
+      <span class="inline-flex items-center gap-1">green ≤ <input type="number" min="1" value="${sla.good}" id="lead-sla-good" class="w-14 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-right tabular-nums"> min</span>
+      <span class="inline-flex items-center gap-1">amber ≤ <input type="number" min="1" value="${sla.ok}" id="lead-sla-ok" class="w-14 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-right tabular-nums"> min</span>
+      <span class="text-slate-400">(red after) —</span>
+      <button onclick="saveLeadSla(document.getElementById('lead-sla-good').value, document.getElementById('lead-sla-ok').value)" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Save</button>
+    </div>`; })() : ''}
+
     <div id="leads-metrics" class="mb-4"></div>
 
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
@@ -4141,6 +4150,24 @@ async function loadLeadsPage() {
 }
 
 // Format seconds → compact "1h 02m 45s" / "3m 12s" / "45s" (down to the second).
+// Response-time goal (minutes) → green ≤ good, amber ≤ ok, red after. Managers set
+// it on the Opportunities page; stored per dealership. Defaults 5 / 15.
+function leadSla() {
+  try { const s = JSON.parse(localStorage.getItem('ms_lead_sla_' + (profileContext?.dealership_id || 'x')) || 'null'); if (s && s.good > 0 && s.ok > 0) return s; } catch {}
+  return { good: 5, ok: 15 };
+}
+function leadTimeClasses(sec) {
+  const { good, ok } = leadSla();
+  return sec <= good * 60 ? ['text-emerald-600', 'dark:text-emerald-400']
+    : sec <= ok * 60 ? ['text-amber-600', 'dark:text-amber-400']
+    : ['text-red-500'];
+}
+function saveLeadSla(good, ok) {
+  const g = Math.max(1, Number(good) || 5), o = Math.max(g, Number(ok) || 15);
+  try { localStorage.setItem('ms_lead_sla_' + (profileContext?.dealership_id || 'x'), JSON.stringify({ good: g, ok: o })); } catch {}
+  loadLeadsPage();
+}
+window.saveLeadSla = saveLeadSla;
 function fmtLeadDuration(totalSec) {
   totalSec = Math.max(0, Math.floor(totalSec));
   const s = totalSec % 60, m = Math.floor(totalSec / 60) % 60, h = Math.floor(totalSec / 3600) % 24, d = Math.floor(totalSec / 86400);
@@ -4165,8 +4192,7 @@ function startLeadTimers() {
       const sec = Math.max(0, Math.round((Date.now() - new Date(el.dataset.created)) / 1000));
       el.textContent = fmtLeadDuration(sec);
       el.classList.remove(...COLORS);
-      const add = sec <= 300 ? ['text-emerald-600', 'dark:text-emerald-400'] : sec <= 900 ? ['text-amber-600', 'dark:text-amber-400'] : ['text-red-500'];
-      el.classList.add(...add);
+      el.classList.add(...leadTimeClasses(sec));
     });
   };
   tick();

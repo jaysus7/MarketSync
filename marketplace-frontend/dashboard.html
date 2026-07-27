@@ -1418,11 +1418,11 @@
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="metrics-strip">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
+        <button type="button" onclick="switchPage('inventory')" title="Open your inventory" class="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-sm transition cursor-pointer">
           <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Available Inventory</div>
           <div class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="metric-synced">—</div>
           <div class="text-xs text-slate-500 mt-0.5"><span id="metric-synced-total">—</span> total synced</div>
-        </div>
+        </button>
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
           <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Listings Posted</div>
           <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="metric-listings">—</div>
@@ -3411,7 +3411,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260728l"></script>
+  <script src="dashboard.js?v=20260728m"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
