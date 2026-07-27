@@ -1362,6 +1362,10 @@
         </div>
       </div>
 
+      <!-- Sales snapshot — clickable "what needs me now" tiles (managers / DealerOS).
+           Populated by loadSalesSnapshot(); each tile deep-links to its filtered view. -->
+      <div id="sales-snapshot" class="hidden"></div>
+
       <!-- Today's Briefing — AI daily operator digest (dealer admins) -->
       <div id="daily-digest" data-admin-only class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
         <div class="flex items-center gap-2 mb-2">
@@ -3407,7 +3411,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260728i"></script>
+  <script src="dashboard.js?v=20260728j"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

@@ -12006,8 +12006,55 @@ function exportReportCsv() {
 }
 window.exportReportCsv = exportReportCsv;
 
+// Sales snapshot — clickable "what needs me now" tiles at the top of the Sales
+// dashboard (managers / DealerOS). Each tile deep-links to its filtered view.
+async function loadSalesSnapshot() {
+  const el = document.getElementById('sales-snapshot');
+  if (!el) return;
+  const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+  // Only the DealerOS store dashboard — not Facebook-only tiers or MarketSync owner mode.
+  if (!isMgr || __fbOnly || document.documentElement.getAttribute('data-dash-mode') === 'marketsync') { el.className = 'hidden'; return; }
+  let d;
+  try { d = await apiGetJson('/dashboard/sales-snapshot', { retries: 1 }); }
+  catch { el.className = 'hidden'; return; }
+  if (!d || d.empty) { el.className = 'hidden'; return; }
+  // label, value, tone, target page, optional invmode, urgent-when-positive?
+  const tiles = [
+    { label: 'Unanswered leads', val: d.unanswered_leads, page: 'leads', tone: 'rose', urgent: true },
+    { label: 'Follow-ups due today', val: d.followups_today, page: 'tasks', tone: 'amber' },
+    { label: 'Overdue follow-ups', val: d.followups_overdue, page: 'tasks', tone: 'rose', urgent: true },
+    { label: 'Appointments today', val: d.appointments_today, page: 'appointments', tone: 'violet' },
+    { label: 'Deals working', val: d.deals_working, page: 'fni', tone: 'indigo' },
+    { label: 'Deliveries pending', val: d.deliveries_pending, page: 'delivery', tone: 'sky' },
+    { label: 'Sold this month', val: d.sold_this_month, page: 'reports', tone: 'emerald' },
+  ];
+  const toneCls = {
+    rose: 'text-rose-600 dark:text-rose-400', amber: 'text-amber-600 dark:text-amber-400',
+    violet: 'text-violet-600 dark:text-violet-400', indigo: 'text-indigo-600 dark:text-indigo-400',
+    sky: 'text-sky-600 dark:text-sky-400', emerald: 'text-emerald-600 dark:text-emerald-400',
+  };
+  const go = (page) => `deptGo && typeof deptGo==='function' ? deptGo('${page}') : switchPage('${page}')`;
+  el.className = 'space-y-2';
+  el.innerHTML = `
+    <div class="flex items-center gap-2">
+      <span class="text-sm font-black text-slate-900 dark:text-white">Sales snapshot</span>
+      <span class="text-xs text-slate-400">what needs you now — tap a tile</span>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+      ${tiles.map(t => {
+        const hot = t.urgent && t.val > 0;
+        return `<button type="button" onclick="${go(t.page)}" class="text-left bg-white dark:bg-slate-900 border ${hot ? 'border-rose-300 dark:border-rose-800' : 'border-slate-200 dark:border-slate-800'} rounded-xl px-3 py-2.5 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-sm transition">
+          <div class="text-2xl font-black tabular-nums ${toneCls[t.tone] || 'text-slate-900 dark:text-white'}">${t.val}</div>
+          <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight mt-0.5">${t.label}</div>
+        </button>`;
+      }).join('')}
+    </div>`;
+}
+window.loadSalesSnapshot = loadSalesSnapshot;
+
 async function loadInsights() {
   loadSyncHealth();
+  loadSalesSnapshot();
   try {
     const res = await fetch(`${API}/dashboard/insights?range=${insightsRange}`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) {

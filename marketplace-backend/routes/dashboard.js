@@ -1175,6 +1175,44 @@ export function registerRoutes(app) {
     })
   })
 
+  // ── Sales snapshot: the "what needs me now" counts for the Sales dashboard ────
+  // Live counts that each deep-link to a filtered view: unanswered leads, follow-ups
+  // due today / overdue, appointments today, deals working, deliveries pending, and
+  // units sold this month. Manager/admin scoped (dealership-wide).
+  app.get('/dashboard/sales-snapshot', requireAuth, async (req, res) => {
+    const did = req.dealershipId
+    if (!did) return res.json({ ok: true, empty: true })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+    const nowIso = now.toISOString()
+    const count = async (table, build) => {
+      try { const { count, error } = await build(supabaseAdmin.from(table).select('id', { count: 'exact', head: true }).eq('dealership_id', did)); return error ? 0 : (count || 0) }
+      catch { return 0 }
+    }
+    const [unansweredLeads, followupsToday, followupsOverdue, apptsToday, dealsWorking, deliveriesPending, soldThisMonth] = await Promise.all([
+      count('leads', q => q.is('responded_at', null)),
+      count('crm_tasks', q => q.eq('done', false).neq('type', 'appointment').gte('due_at', startOfToday).lt('due_at', endOfToday)),
+      count('crm_tasks', q => q.eq('done', false).neq('type', 'appointment').lt('due_at', startOfToday).not('due_at', 'is', null)),
+      count('crm_tasks', q => q.eq('done', false).eq('type', 'appointment').gte('due_at', startOfToday).lt('due_at', endOfToday)),
+      count('deals', q => q.in('deal_status', ['working', 'pending_credit'])),
+      count('deals', q => q.eq('deal_status', 'sold')),   // sold but not yet delivered
+      count('deals', q => q.gte('sold_at', startOfMonth)),
+    ])
+    res.json({
+      ok: true,
+      unanswered_leads: unansweredLeads,
+      followups_today: followupsToday,
+      followups_overdue: followupsOverdue,
+      appointments_today: apptsToday,
+      deals_working: dealsWorking,
+      deliveries_pending: deliveriesPending,
+      sold_this_month: soldThisMonth,
+    })
+  })
+
   // ── Sold deals report (managers) — the per-rep sold sheet + custom filters ──
   // One row per won contact (Sold/F&I/Delivered) with the customer, the vehicle of
   // interest, and delivery/ownership. F&I desk fields (manager, deposit, term,
