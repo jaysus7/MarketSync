@@ -17465,6 +17465,17 @@ function catalogAgeBadge(v) {
   const tip = `In stock ${days} day${days === 1 ? '' : 's'}${days > 90 ? ' — aged unit, prioritise moving it' : days > 60 ? ' — getting old' : ''}`;
   return `<span class="${TAG} ${cls}" title="${tip}">${days}d in stock</span>`;
 }
+// Merchandising-completeness flag — a live unit missing photos or a price won't
+// sell and hurts the lot. Universal (no add-on), and only nags on live stock.
+function catalogGapBadge(v) {
+  if (v.status === 'sold') return '';
+  const gaps = [];
+  if (!(v.image_urls && v.image_urls.length)) gaps.push('photos');
+  if (!(Number(v.price) > 0)) gaps.push('price');
+  if (!gaps.length) return '';
+  const TAG = 'inline-flex items-center text-[10px] uppercase font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm';
+  return `<span class="${TAG} bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30" title="Missing ${gaps.join(' & ')} — this unit isn't merchandising-ready">Needs ${gaps.join(' + ')}</span>`;
+}
 
 function renderCatalog() {
   const list = document.getElementById('catalog-list');
@@ -17613,6 +17624,7 @@ function renderCatalog() {
           ${conditionBadge(v.condition)}
           ${statusBadge(v.status)}
           ${catalogAgeBadge(v)}
+          ${catalogGapBadge(v)}
           ${v.awaiting_possession ? `<span class="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md border bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" title="Acquired trade — hidden from your website until the deal is delivered (possession)">⏳ Awaiting possession</span>` : ''}
           ${(() => {
             const makeModel = `${v.make} ${v.model}`.toLowerCase()
