@@ -614,6 +614,24 @@
                 </div>
               </div>
 
+              <!-- AI usage — today's assistant questions + this month's AI/market ops -->
+              <div id="ai-usage-panel" class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-3 hidden">
+                <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Usage</label>
+                <div>
+                  <div class="flex items-center justify-between text-[12px] mb-1"><span class="font-semibold text-slate-700 dark:text-slate-200">Assistant questions — today</span><span id="ai-use-asst-txt" class="text-slate-500 dark:text-slate-400 tabular-nums">—</span></div>
+                  <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div id="ai-use-asst-bar" class="h-full bg-indigo-600 rounded-full" style="width:0%"></div></div>
+                </div>
+                <div>
+                  <div class="flex items-center justify-between text-[12px] mb-1"><span class="font-semibold text-slate-700 dark:text-slate-200">AI operations — this month</span><span id="ai-use-ai-txt" class="text-slate-500 dark:text-slate-400 tabular-nums">—</span></div>
+                  <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div id="ai-use-ai-bar" class="h-full bg-emerald-600 rounded-full" style="width:0%"></div></div>
+                </div>
+                <div>
+                  <div class="flex items-center justify-between text-[12px] mb-1"><span class="font-semibold text-slate-700 dark:text-slate-200">Market lookups — this month</span><span id="ai-use-mc-txt" class="text-slate-500 dark:text-slate-400 tabular-nums">—</span></div>
+                  <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div id="ai-use-mc-bar" class="h-full bg-amber-500 rounded-full" style="width:0%"></div></div>
+                </div>
+                <p class="text-[11px] text-slate-400">Caching keeps real market usage well below the cap. Limits are soft — the assistant falls back rather than hard-stopping mid-task.</p>
+              </div>
+
               <!-- Vehicle cost & gross — internal only, never shown to customers -->
               <div class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-2">
                 <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Vehicle cost &amp; gross</label>
@@ -3289,7 +3307,7 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260729l"></script>
+  <script src="dashboard.js?v=20260729m"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

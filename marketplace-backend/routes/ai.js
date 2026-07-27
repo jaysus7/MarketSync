@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { marketcheckMarket, marketcheckListings, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing, marketcheckDecodeVin, marketcheckPredictPrice, marketcheckMarketStats } from '../marketcheck.js'
-import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, assistantDailyAllowed, recordAssistantChat, ASSISTANT_DAILY_LIMIT, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
+import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, getAssistantUsage, assistantDailyAllowed, recordAssistantChat, ASSISTANT_DAILY_LIMIT, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
 import { findOrCreateContact } from './crm.js'
 import { buildEquityRadar } from './equity.js'
 import { buildMarketingRoi } from './marketing.js'
@@ -80,6 +80,21 @@ export function registerAI(app) {
       // Trade appraisal: is a plate→VIN provider provisioned? (hides the plate UI if not)
       plate_lookup_ready: plateLookupConfigured(),
     })
+  })
+
+  // GET /ai/usage — consumption for the AI management panel. Today's assistant
+  // questions vs the daily cap + this month's AI/MarketCheck ops vs the soft quota.
+  app.get('/ai/usage', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    try {
+      const [monthly, assistant] = await Promise.all([
+        getUsage(req.dealershipId),
+        getAssistantUsage(req.dealershipId),
+      ])
+      res.json({ ok: true, assistant, monthly })
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Could not load usage' })
+    }
   })
 
   // PUT /ai/config — update dealership AI config (DEALER_ADMIN only)

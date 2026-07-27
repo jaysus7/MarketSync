@@ -220,3 +220,16 @@ export async function getUsage(dealershipId) {
     ai: { used: u.ai_calls, limit: QUOTAS.ai },
   }
 }
+
+// Today's assistant-chat usage vs the daily cap (for the AI management panel).
+// The day-keyed api_usage row's ai_calls is written only by recordAssistantChat,
+// so it counts assistant questions specifically.
+export async function getAssistantUsage(dealershipId) {
+  const d = await usageRow(dealershipId, dayPeriod())
+  return {
+    day: dayPeriod(),
+    used: d.ai_calls,
+    limit: ASSISTANT_DAILY_CAP,
+    remaining: Math.max(0, ASSISTANT_DAILY_CAP - d.ai_calls),
+  }
+}

@@ -20129,6 +20129,26 @@ function applyPaidBadges() {
   });
 }
 
+// Fill the AI usage panel: today's assistant questions + this month's AI/market ops.
+async function loadAiUsage() {
+  const panel = document.getElementById('ai-usage-panel');
+  if (!panel) return;
+  let u;
+  try { u = await apiGetJson('/ai/usage', { retries: 1 }); } catch { panel.classList.add('hidden'); return; }
+  const pct = (used, limit) => limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  const set = (barId, txtId, used, limit, suffix) => {
+    const bar = document.getElementById(barId), txt = document.getElementById(txtId);
+    const p = pct(used, limit);
+    if (bar) { bar.style.width = p + '%'; bar.classList.toggle('bg-rose-500', p >= 90); }
+    if (txt) txt.textContent = `${(used || 0).toLocaleString()} / ${(limit || 0).toLocaleString()}${suffix ? ' ' + suffix : ''}`;
+  };
+  set('ai-use-asst-bar', 'ai-use-asst-txt', u.assistant?.used, u.assistant?.limit, 'today');
+  set('ai-use-ai-bar', 'ai-use-ai-txt', u.monthly?.ai?.used, u.monthly?.ai?.limit);
+  set('ai-use-mc-bar', 'ai-use-mc-txt', u.monthly?.marketcheck?.used, u.monthly?.marketcheck?.limit);
+  panel.classList.remove('hidden');
+}
+window.loadAiUsage = loadAiUsage;
+
 async function loadAIBoostSection() {
   const section = document.getElementById('ai-boost-section');
   if (!section) return;
@@ -20255,6 +20275,7 @@ function renderAIBoostSection(cfg) {
     const costRep = document.getElementById('ai-cost-rep'); if (costRep) costRep.checked = !!cfg.cost_rep_visible;
     const arMode = document.getElementById('ai-ar-mode'); if (arMode) arMode.value = cfg.autoresponder_mode || 'off';
     const arCh = document.getElementById('ai-ar-channel'); if (arCh) arCh.value = cfg.autoresponder_channel || 'email';
+    loadAiUsage();   // fill the usage panel (today's assistant + monthly AI/market)
   } else {
     badge.textContent = 'Not Active';
     badge.className = 'text-xs font-bold px-2 py-0.5 rounded-full border border-slate-500 bg-slate-800 text-slate-400';
