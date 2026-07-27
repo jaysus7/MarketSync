@@ -17983,7 +17983,8 @@ function renderCatalog() {
       pending:   'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
       sold:      'bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/30'
     };
-    return `<span class="${TAG} ${map[s] || map.sold}">${s || 'unknown'}</span>`;
+    const tip = { available: 'Available — live and sellable', pending: 'Pending — a deal is in progress on this unit', sold: 'Sold — off the live lot' }[s] || 'Status unknown';
+    return `<span class="${TAG} ${map[s] || map.sold}" title="${tip}">${s || 'unknown'}</span>`;
   };
   const conditionBadge = (c) => {
     if (!c) return '';
@@ -17993,7 +17994,8 @@ function renderCatalog() {
       : lc === 'demo'
         ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30'
         : 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30';
-    return `<span class="${TAG} ${cls}">${c}</span>`;
+    const tip = lc === 'new' ? 'New — never registered/retailed' : lc === 'demo' ? 'Demo — dealer-driven demonstrator' : 'Used — previously owned';
+    return `<span class="${TAG} ${cls}" title="${tip}">${c}</span>`;
   };
 
   // Manager value summary (internal): retail, cost & potential gross on the live lot.
@@ -18068,8 +18070,8 @@ function renderCatalog() {
             const makeModel = `${v.make} ${v.model}`.toLowerCase()
             const gtag = 'inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm'
             const hotColdTag = __aiBoostActive
-              ? (__hotMakeModels.has(makeModel) ? `<span class="${gtag} bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30">${svgIcon('flame', 'w-3 h-3 inline-block -mt-0.5')} Hot</span>`
-                : __coldMakeModels.has(makeModel) ? `<span class="${gtag} bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30">❄️ Cold</span>`
+              ? (__hotMakeModels.has(makeModel) ? `<span class="${gtag} bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30" title="Hot — this make/model is selling fast off your lot; stock more / price with confidence">${svgIcon('flame', 'w-3 h-3 inline-block -mt-0.5')} Hot</span>`
+                : __coldMakeModels.has(makeModel) ? `<span class="${gtag} bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30" title="Cold — slow mover; consider sharper pricing or wholesaling">❄️ Cold</span>`
                 : '')
               : ''
             const healthScore = __aiBoostActive && __vehicleHealthScores[v.id] != null ? __vehicleHealthScores[v.id] : null
@@ -18077,7 +18079,7 @@ function renderCatalog() {
               const cls = healthScore >= 80 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
                 : healthScore >= 50 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
                 : 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30'
-              return `<span class="${gtag} ${cls}">⚡ ${healthScore}/100</span>`
+              return `<span class="${gtag} ${cls}" title="Merchandising health 0–100 (photos, price, mileage, description, days on lot). Open the unit to see the breakdown.">⚡ ${healthScore}/100</span>`
             })() : ''
             // Pricing action verdict (from the AI market report): green = priced right,
             // amber = underpriced (raise), red = overpriced (lower). Hidden if the price
