@@ -4931,10 +4931,28 @@ function openApptDetail(a) {
           ${a.rep ? `<div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300"><svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a7.5 7.5 0 0115 0"/></svg>Rep: ${esc(a.rep)}</div>` : ''}
         </div>
 
+        <!-- Add to calendar (Google / Outlook / .ics) -->
+        ${(() => {
+          const { g, o, ics } = crmCalLinks(a.label ? `Appointment — ${a.label}` : 'Appointment', a.appointment_at, 60, a.appointment_note || specs || 'Booked via MarketSync');
+          const b = 'inline-flex items-center gap-1.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg';
+          return `<div>
+            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Add to calendar</div>
+            <div class="flex flex-wrap gap-2">
+              <a href="${g}" target="_blank" rel="noopener" class="${b}">${msIco('calendar','w-3.5 h-3.5')} Google</a>
+              <a href="${o}" target="_blank" rel="noopener" class="${b}">${msIco('calendar','w-3.5 h-3.5')} Outlook</a>
+              <a href="${ics}" download="appointment.ics" class="${b}">${msIco('download','w-3.5 h-3.5')} .ics</a>
+            </div>
+          </div>`;
+        })()}
+
         <!-- Person / buyer info (from the rep's note) -->
         <div>
           <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Buyer / Notes</div>
-          <div class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">${a.appointment_note ? esc(a.appointment_note) : '<span class="text-slate-400 italic">No buyer details were added.</span>'}</div>
+          <div id="appt-notes-view" class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">${a.appointment_note ? esc(a.appointment_note) : '<span class="text-slate-400 italic">No buyer details were added.</span>'}</div>
+          ${a.contact_id ? `<div class="mt-2 flex gap-2">
+            <input id="appt-note-input" placeholder="Add a note…" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">
+            <button onclick="apptAddNote('${a.contact_id}')" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-700">Add note</button>
+          </div>` : ''}
         </div>
 
         <div class="flex flex-wrap gap-2 pt-1">
@@ -4949,6 +4967,21 @@ function openApptDetail(a) {
     </div>`;
   document.getElementById('appt-detail-close')?.addEventListener('click', () => modal.classList.add('hidden'));
 }
+// Add a note to the appointment's customer — posts to the CRM timeline and shows
+// it inline without closing the modal.
+async function apptAddNote(contactId) {
+  const inp = document.getElementById('appt-note-input');
+  const body = (inp?.value || '').trim();
+  if (!body) { showToast('Type a note first', 'error'); return; }
+  try {
+    await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Appointment note', body });
+    const view = document.getElementById('appt-notes-view');
+    if (view) { const p = document.createElement('div'); p.className = 'mt-1'; p.textContent = body; if (view.querySelector('.italic')) view.innerHTML = ''; view.appendChild(p); }
+    if (inp) inp.value = '';
+    showToast('Note added', 'success');
+  } catch (e) { showToast(e.message || 'Could not add note', 'error'); }
+}
+window.apptAddNote = apptAddNote;
 // Reschedule / cancel apply to appointments booked as CRM tasks (id "task:<id>").
 // Pipeline appointments are managed from the pipeline board.
 function apptRescheduleForm(taskId, currentIso) {
