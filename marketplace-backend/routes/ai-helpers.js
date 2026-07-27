@@ -98,6 +98,11 @@ const ASSISTANT_TOOLS = [
     input_schema: { type: 'object', properties: { topic: { type: 'string', enum: ['overview', 'sales', 'commissions', 'reps', 'leads', 'inventory', 'recon', 'tasks', 'appraisals', 'trends', 'priorities', 'pricing', 'equity'], description: 'Which slice of the dealership to report on.' } }, required: ['topic'] },
   },
   {
+    name: 'customer_lookup',
+    description: "Look up a SPECIFIC customer in this store's CRM by name, phone or email, and get where they stand: status, assigned rep, contact info, the vehicle they're interested in, their latest logged activity, and any deal. Use for 'what's the status on <name>', 'has anyone followed up with <name>', 'who's handling <name>', 'find <phone/email>'. For store-wide rollups (unworked leads, who to call today) use dealership_report instead.",
+    input_schema: { type: 'object', properties: { query: { type: 'string', description: "The customer's name, phone number, or email (or a fragment of it)." } }, required: ['query'] },
+  },
+  {
     name: 'propose_action',
     description: "Propose an action for the user to CONFIRM (never executed automatically). Use when the user asks you to DO something, not just report. Two actions: 'create_task' — add a follow-up/reminder task for the user (give a clear title and optional due_hours); 'bulk_outreach' — text or email a group of customers described in plain English (put the full request in `instruction`, e.g. 'text everyone uncontacted for 3 days about our weekend sale'). After proposing, tell the user in one short sentence what you set up and that they can confirm it. Do NOT claim it's done — it only happens once they confirm.",
     input_schema: { type: 'object', properties: {
@@ -442,11 +447,64 @@ async function buildDealershipReport(dealershipId, topicRaw, { isMgr = true } = 
   return JSON.stringify(out).slice(0, 4500)
 }
 
+// Look up a specific customer from THIS store's CRM and summarize where they stand
+// — status, assigned rep, contact info, the vehicle they're interested in, their
+// latest logged activity, and any deal. Scoped to the dealership; bounded queries.
+async function buildCustomerLookup(dealershipId, query) {
+  const q = String(query || '').trim()
+  if (q.length < 2) return 'Give me a name, phone number, or email to look up.'
+  const like = `%${q.replace(/[%,]/g, ' ').trim()}%`
+  const { data: rows } = await supabaseAdmin.from('contacts')
+    .select('id, full_name, first_name, last_name, email, phone, phone_mobile, status, assigned_rep, source, created_at, sold_at, interest_inventory_id')
+    .eq('dealership_id', dealershipId)
+    .or(`full_name.ilike.${like},first_name.ilike.${like},last_name.ilike.${like},email.ilike.${like},phone.ilike.${like},phone_mobile.ilike.${like}`)
+    .order('created_at', { ascending: false })
+    .limit(5)
+  if (!rows || !rows.length) return `No customer found matching "${q}".`
+
+  const ids = rows.map(r => r.id)
+  const repIds = [...new Set(rows.map(r => r.assigned_rep).filter(Boolean))]
+  const invIds = [...new Set(rows.map(r => r.interest_inventory_id).filter(Boolean))]
+  const [reps, inv, comms, deals] = await Promise.all([
+    repIds.length ? supabaseAdmin.from('profiles').select('id, full_name, display_name').in('id', repIds).then(r => r.data || [], () => []) : Promise.resolve([]),
+    invIds.length ? supabaseAdmin.from('inventory').select('id, year, make, model, trim').in('id', invIds).then(r => r.data || [], () => []) : Promise.resolve([]),
+    supabaseAdmin.from('communications').select('contact_id, channel, direction, subject, created_at').in('contact_id', ids).order('created_at', { ascending: false }).limit(60).then(r => r.data || [], () => []),
+    supabaseAdmin.from('deals').select('contact_id, deal_number, deal_status, selling_price').in('contact_id', ids).then(r => r.data || [], () => []),
+  ])
+  const repById = Object.fromEntries(reps.map(r => [r.id, r.display_name || r.full_name || '—']))
+  const invById = Object.fromEntries(inv.map(v => [v.id, [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')]))
+  const lastComm = {}; for (const c of comms) if (!lastComm[c.contact_id]) lastComm[c.contact_id] = c
+  const dealBy = {}; for (const d of deals) if (!dealBy[d.contact_id]) dealBy[d.contact_id] = d
+  const days = (iso) => { try { return Math.floor((Date.now() - new Date(iso)) / 86400000) } catch { return null } }
+
+  const lines = rows.map(r => {
+    const name = r.full_name || [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Unnamed'
+    const parts = [`${name} — status: ${r.status || 'lead'}`]
+    if (r.assigned_rep) parts.push(`rep: ${repById[r.assigned_rep] || '—'}`)
+    const contact = [r.phone || r.phone_mobile, r.email].filter(Boolean).join(', ')
+    if (contact) parts.push(`contact: ${contact}`)
+    if (r.interest_inventory_id && invById[r.interest_inventory_id]) parts.push(`interested in: ${invById[r.interest_inventory_id]}`)
+    if (r.source) parts.push(`source: ${r.source}`)
+    const lc = lastComm[r.id]
+    if (lc) { const d = days(lc.created_at); parts.push(`last activity: ${lc.direction || ''} ${lc.channel || 'note'}${lc.subject ? ' “' + String(lc.subject).slice(0, 60) + '”' : ''}${d != null ? ` (${d}d ago)` : ''}`.trim()) }
+    else { const d = days(r.created_at); parts.push(`no logged activity${d != null ? ` — created ${d}d ago` : ''}`) }
+    const dl = dealBy[r.id]
+    if (dl) parts.push(`deal: #${dl.deal_number || '?'} ${dl.deal_status || ''}${dl.selling_price ? ' $' + Number(dl.selling_price).toLocaleString() : ''}`.trim())
+    return '• ' + parts.join(' · ')
+  })
+  return `${rows.length} match${rows.length > 1 ? 'es' : ''} for "${q}":\n` + lines.join('\n')
+}
+
 async function runAssistantTool(name, input, { dealershipId, isOwner, isUS, isMgr }) {
   // The dealership report reads our OWN database — never gated by MarketCheck.
   if (name === 'dealership_report') {
     try { return await buildDealershipReport(dealershipId, input?.topic, { isMgr: !!isMgr }) }
     catch (e) { console.warn('[assistant] dealership_report failed:', e.message); return 'Could not pull that report right now.' }
+  }
+  // Customer lookup also reads our OWN CRM — never gated by MarketCheck.
+  if (name === 'customer_lookup') {
+    try { return await buildCustomerLookup(dealershipId, input?.query) }
+    catch (e) { console.warn('[assistant] customer_lookup failed:', e.message); return 'Could not look that customer up right now.' }
   }
   if (!marketcheckEnabled()) return 'Live market data (MarketCheck) is not configured on this account.'
   if (!(await marketcheckAllowed(dealershipId, isOwner))) return 'The market-data lookup limit has been reached for now — try again later.'
