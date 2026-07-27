@@ -3569,6 +3569,8 @@ function crmApptForm(id) {
       <input id="crm-appt-time" type="time" value="${defTime}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm">
       <select id="crm-appt-dur" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm"><option value="30">30 min</option><option value="60" selected>1 hr</option><option value="90">1.5 hr</option></select>
     </div>
+    <input id="crm-appt-vehicle" placeholder="Vehicle / stock # (optional)" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">
+    <textarea id="crm-appt-note" rows="2" placeholder="Notes (optional) — added to the timeline" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></textarea>
     <div class="flex gap-2 justify-end"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
       <button onclick="crmSaveAppt('${id}')" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg">Book + get calendar links</button></div>
   </div>`);
@@ -3586,13 +3588,19 @@ async function crmSaveAppt(id) {
   const date = document.getElementById('crm-appt-date')?.value;
   const time = document.getElementById('crm-appt-time')?.value || '09:00';
   const dur = Number(document.getElementById('crm-appt-dur')?.value || 60);
+  const vehicle = (document.getElementById('crm-appt-vehicle')?.value || '').trim();
+  const note = (document.getElementById('crm-appt-note')?.value || '').trim();
   if (!date) { showToast('Pick a date', 'error'); return; }
   const startIso = new Date(`${date}T${time}`).toISOString();
+  const fullTitle = vehicle ? `${title} · ${vehicle}` : title;
+  const details = ['Booked via MarketSync CRM', vehicle ? `Vehicle: ${vehicle}` : '', note].filter(Boolean).join('\n');
   try {
-    await apiSendJson('/crm/tasks', 'POST', { contact_id: id, title, type: 'appointment', due_at: startIso });
-    await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Appointment booked', body: `${title} — ${new Date(startIso).toLocaleString()}` });
+    await apiSendJson('/crm/tasks', 'POST', { contact_id: id, title: fullTitle, type: 'appointment', due_at: startIso });
+    await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Appointment booked', body: `${fullTitle} — ${new Date(startIso).toLocaleString()}` });
+    // A note typed on the appointment posts to the timeline as its own note.
+    if (note) await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Appointment note', body: note });
     await apiSendJson(`/crm/contacts/${id}`, 'PUT', { status: 'appointment' });
-    const { g, o, ics } = crmCalLinks(title, startIso, dur, 'Booked via MarketSync CRM');
+    const { g, o, ics } = crmCalLinks(fullTitle, startIso, dur, details);
     crmDetailFormSlot(`<div class="bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900 rounded-lg p-3 space-y-2">
       <div class="text-sm font-bold text-slate-800 dark:text-slate-100">Appointment booked for ${esc(new Date(startIso).toLocaleString())}</div>
       <div class="text-xs text-slate-500">Add it to your calendar:</div>
