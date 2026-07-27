@@ -17444,6 +17444,28 @@ function catalogIsMine(v) {
 }
 function catalogIsSynced(v) { return !catalogIsMine(v); }
 
+// Days-in-stock aging badge — the core lot metric, shown on every live card (no AI
+// add-on required). Bands: 0-30 fresh (green), 31-60 (amber), 61-90 (orange), 90+
+// aged (red). Sold/archived units don't age. Uses created_at (when the unit first
+// landed in our system) as the in-stock proxy.
+function catalogDaysInStock(v) {
+  if (!v.created_at) return null;
+  const d = Math.floor((Date.now() - new Date(v.created_at).getTime()) / 86400000);
+  return Number.isFinite(d) && d >= 0 ? d : null;
+}
+function catalogAgeBadge(v) {
+  if (v.status === 'sold') return '';
+  const days = catalogDaysInStock(v);
+  if (days == null) return '';
+  const TAG = 'inline-flex items-center text-[10px] uppercase font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm';
+  const cls = days <= 30 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+    : days <= 60 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+    : days <= 90 ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30'
+    : 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30';
+  const tip = `In stock ${days} day${days === 1 ? '' : 's'}${days > 90 ? ' — aged unit, prioritise moving it' : days > 60 ? ' — getting old' : ''}`;
+  return `<span class="${TAG} ${cls}" title="${tip}">${days}d in stock</span>`;
+}
+
 function renderCatalog() {
   const list = document.getElementById('catalog-list');
   const q = document.getElementById('catalog-search').value.trim().toLowerCase();
@@ -17531,17 +17553,27 @@ function renderCatalog() {
     const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     const avail = filtered.filter(v => v.status !== 'sold');
     const withCost = avail.filter(v => v.invoice_amount != null && v.price);
-    if (!isMgr || !withCost.length) { sum.className = 'hidden'; return; }
+    if (!isMgr || !avail.length) { sum.className = 'hidden'; return; }
     const totRetail = avail.reduce((s, v) => s + (Number(v.price) || 0), 0);
     const totCost = withCost.reduce((s, v) => s + (Number(v.invoice_amount) || 0), 0);
     const totGross = withCost.reduce((s, v) => s + ((Number(v.price) || 0) - (Number(v.invoice_amount) || 0)), 0);
+    // Lot health: how much of the live inventory is aging past 60 / 90 days.
+    const ages = avail.map(catalogDaysInStock).filter(d => d != null);
+    const aged60 = ages.filter(d => d > 60).length;
+    const aged90 = ages.filter(d => d > 90).length;
+    const avgAge = ages.length ? Math.round(ages.reduce((s, d) => s + d, 0) / ages.length) : null;
     const m = (n) => '$' + Math.round(n).toLocaleString();
-    const tile = (label, val, cls = 'text-slate-900 dark:text-white') => `<div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">${label}</div><div class="text-base font-black ${cls}">${val}</div></div>`;
+    const tile = (label, val, cls = 'text-slate-900 dark:text-white', tip = '') => `<div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2"${tip ? ` title="${tip}"` : ''}><div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">${label}</div><div class="text-base font-black ${cls}">${val}</div></div>`;
+    // Show cost/gross tiles only when we actually have cost data; always show units,
+    // retail, average age and the aged-unit count (the lot-health signal).
+    const costTiles = withCost.length ? (m(totCost) && (tile('Cost in stock', m(totCost)) + tile('Potential gross', (totGross >= 0 ? '' : '−') + m(Math.abs(totGross)), totGross >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'))) : '';
+    const agedCls = aged90 > 0 ? 'text-rose-600 dark:text-rose-400' : aged60 > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400';
     sum.className = 'grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3';
     sum.innerHTML = tile('Units (live)', avail.length)
       + tile('Retail value', m(totRetail))
-      + tile('Cost in stock', m(totCost))
-      + tile('Potential gross', (totGross >= 0 ? '' : '−') + m(Math.abs(totGross)), totGross >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400');
+      + (avgAge != null ? tile('Avg days in stock', avgAge + 'd', avgAge > 60 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-white') : '')
+      + tile('Aged 60d+', aged60 + (aged90 ? ` · ${aged90} over 90` : ''), agedCls, 'Live units in stock more than 60 (and 90) days — prioritise moving these')
+      + costTiles;
   })();
 
   list.innerHTML = filtered.map(v => {
@@ -17580,6 +17612,7 @@ function renderCatalog() {
         <div class="flex items-center gap-1 flex-wrap">
           ${conditionBadge(v.condition)}
           ${statusBadge(v.status)}
+          ${catalogAgeBadge(v)}
           ${v.awaiting_possession ? `<span class="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md border bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" title="Acquired trade — hidden from your website until the deal is delivered (possession)">⏳ Awaiting possession</span>` : ''}
           ${(() => {
             const makeModel = `${v.make} ${v.model}`.toLowerCase()
