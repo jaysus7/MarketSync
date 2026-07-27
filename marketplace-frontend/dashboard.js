@@ -3102,6 +3102,7 @@ function crmDetailHtml(d) {
       ${c.status === 'delivered' && SALES_ROLES.includes(profileContext?.role) ? `<button onclick="crmLeaseForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M4 10v10h16V10M9 21v-6h6v6"/></svg>Deal / equity</button>` : ''}
     </div>
     ${c.notes ? `<div class="text-xs bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-950/40 rounded-lg p-3 text-slate-700 dark:text-slate-300">${esc(c.notes)}</div>` : ''}
+    ${crmVehicleCards(c, d)}
     ${crmDetailFacts(c, d)}
     ${openTasks.length ? `<div>
       <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Open tasks</div>
@@ -3227,11 +3228,37 @@ function crmDetailFacts(c, d) {
   if (c.dl_number) fact("Driver's licence", c.dl_number + (c.dl_expiry ? ` (exp ${new Date(c.dl_expiry).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })})` : ''));
   fact('Source', c.source);
   fact('Salesperson', c.rep_name);
-  const tv = c.trade_vehicle;
-  if (tv && (tv.make || tv.vin)) fact('Trade vehicle', [tv.year, tv.make, tv.model, tv.trim].filter(Boolean).join(' ') + (tv.mileage ? ` · ${Number(tv.mileage).toLocaleString()} km` : '') + (tv.vin ? ` · VIN ${tv.vin}` : ''));
-  if (d.interest_vehicle_label?.label) fact('New car of interest', d.interest_vehicle_label.label + (d.interest_vehicle_label.price ? ` · $${Number(d.interest_vehicle_label.price).toLocaleString()}` : ''));
+  // Trade-in + desired vehicle now render as their own cards (crmVehicleCards).
   if (!rows.length) return '';
   return `<dl class="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3">${rows.join('')}</dl>`;
+}
+// Prominent cards: the vehicle they want to buy + their trade-in (pulled from the
+// appraisal). The desired-vehicle card carries the Desk-a-Deal action.
+function crmVehicleCards(c, d) {
+  const cards = [];
+  const wants = d.interest_vehicle_label;
+  if (wants && wants.label) {
+    const canDesk = canEditContact(c) && SALES_ROLES.includes(profileContext?.role);
+    cards.push(`<div class="flex-1 min-w-[220px] bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900 rounded-xl p-3">
+      <div class="text-[10px] font-black uppercase tracking-wider text-indigo-500 mb-1 flex items-center gap-1">${svgIcon('car', 'w-3.5 h-3.5')}Wants to buy</div>
+      <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(wants.label)}</div>
+      ${wants.price ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">$${Number(wants.price).toLocaleString()}</div>` : ''}
+      ${canDesk ? `<button onclick="openDeskForContact('${c.id}')" class="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">${d.deal ? 'View deal' : 'Desk a deal'}</button>` : ''}
+    </div>`);
+  }
+  const tv = c.trade_vehicle;
+  if (tv && (tv.make || tv.vin)) {
+    const label = [tv.year, tv.make, tv.model, tv.trim].filter(Boolean).join(' ');
+    const sub = [tv.mileage ? Number(tv.mileage).toLocaleString() + ' km' : '', tv.vin ? 'VIN ' + tv.vin : ''].filter(Boolean).join(' · ');
+    cards.push(`<div class="flex-1 min-w-[220px] bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900 rounded-xl p-3">
+      <div class="text-[10px] font-black uppercase tracking-wider text-amber-500 mb-1 flex items-center gap-1">${svgIcon('tag', 'w-3.5 h-3.5')}Trade-in</div>
+      <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(label || 'Trade vehicle')}</div>
+      ${sub ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(sub)}</div>` : ''}
+      ${(tv.appraisal_id && SALES_ROLES.includes(profileContext?.role)) ? `<button onclick="switchPage('appraisal')" class="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200">View appraisal</button>` : ''}
+    </div>`);
+  }
+  if (!cards.length) return '';
+  return `<div class="flex flex-wrap gap-3">${cards.join('')}</div>`;
 }
 function crmTaskRow(t, contactId) {
   const overdue = t.due_at && new Date(t.due_at) < Date.now();
