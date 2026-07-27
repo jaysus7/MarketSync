@@ -6411,7 +6411,8 @@ async function openCreditApp(contactId) {
   const sinField = (path, mask, hasVal) => `<div class="flex gap-1"><input data-f="${path}" value="" placeholder="${hasVal ? (mask || '•••• on file') + ' — reveal or re-enter' : '123-456-789'}" class="${CI}">${hasVal ? `<button type="button" data-reveal="${path}" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 px-2 rounded border border-slate-200 dark:border-slate-700 whitespace-nowrap">Reveal</button>` : ''}</div>`;
 
   const person = (pre, p, sinPath, dobPath, sinMask, hasSin, hasDob) => {
-    const ad = p.address || {}, em = p.employment || {}, oi = p.other_income || {};
+    const ad = p.address || {}, pad = p.prev_address || {}, em = p.employment || {}, oi = p.other_income || {};
+    const hasPrev = !!(pad.street || pad.city || pad.province || pad.postal);
     return `
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
       ${F('First name', IN(pre + '.first', p.first))}${F('Middle', IN(pre + '.middle', p.middle))}${F('Last name', IN(pre + '.last', p.last))}
@@ -6422,6 +6423,11 @@ async function openCreditApp(contactId) {
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
       ${F('Street', IN(pre + '.address.street', ad.street))}${F('City', IN(pre + '.address.city', ad.city))}${F('Province', IN(pre + '.address.province', ad.province))}${F('Postal', IN(pre + '.address.postal', ad.postal))}
       ${F('Status', SEL(pre + '.address.status', ['', 'Own', 'Rent', 'Live with family', 'Other'], ad.status))}${F('Monthly pmt', IN(pre + '.address.payment', ad.payment, '', true))}${F('Years', IN(pre + '.address.years', ad.years, '', true))}${F('Months', IN(pre + '.address.months', ad.months, '', true))}
+    </div>
+    <label class="flex items-center gap-2 text-[12px] font-semibold text-slate-500 dark:text-slate-400 mt-1.5"><input type="checkbox" data-prev-toggle="${pre}" ${hasPrev ? 'checked' : ''} class="rounded"> Add previous address <span class="font-normal text-slate-400">(required by lenders if under 3 years at current)</span></label>
+    <div data-prev-section="${pre}" class="${hasPrev ? '' : 'hidden'} grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
+      ${F('Prev street', IN(pre + '.prev_address.street', pad.street))}${F('Prev city', IN(pre + '.prev_address.city', pad.city))}${F('Prev province', IN(pre + '.prev_address.province', pad.province))}${F('Prev postal', IN(pre + '.prev_address.postal', pad.postal))}
+      ${F('Prev status', SEL(pre + '.prev_address.status', ['', 'Own', 'Rent', 'Live with family', 'Other'], pad.status))}${F('Years', IN(pre + '.prev_address.years', pad.years, '', true))}${F('Months', IN(pre + '.prev_address.months', pad.months, '', true))}
     </div>
     <div class="mt-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Employment &amp; income</div>
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -6475,6 +6481,10 @@ async function openCreditApp(contactId) {
   const close = () => modal.remove();
   modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('[data-x]')) close(); });
   modal.querySelector('[data-co-toggle]').addEventListener('change', e => modal.querySelector('[data-co-section]').classList.toggle('hidden', !e.target.checked));
+  modal.querySelectorAll('[data-prev-toggle]').forEach(t => t.addEventListener('change', e => {
+    const sec = modal.querySelector(`[data-prev-section="${e.target.dataset.prevToggle}"]`);
+    if (sec) sec.classList.toggle('hidden', !e.target.checked);
+  }));
 
   // Reveal a masked SIN/DOB (audited server-side) into its field.
   modal.querySelectorAll('[data-reveal]').forEach(b => b.addEventListener('click', async () => {
@@ -6498,6 +6508,10 @@ async function openCreditApp(contactId) {
       creditSetPath(out, path, val);
     });
     if (!modal.querySelector('[data-co-toggle]').checked) { out.co_applicant = null; delete out.co_sin; delete out.co_dob; }
+    // Drop previous-address blocks when their toggle is off so stale data isn't persisted.
+    modal.querySelectorAll('[data-prev-toggle]').forEach(t => {
+      if (!t.checked) { const tgt = t.dataset.prevToggle === 'co_applicant' ? out.co_applicant : out.applicant; if (tgt) tgt.prev_address = null; }
+    });
     return out;
   };
 
