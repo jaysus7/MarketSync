@@ -3008,8 +3008,38 @@ function crmOverlay(inner, maxW = 'max-w-2xl') {
   document.body.appendChild(el);
   return el;
 }
+// Can the current user make changes to this contact? Managers/admins always can;
+// a rep can edit their own book (assigned to them) or an unassigned lead — otherwise
+// it's read-only.
+function canEditContact(c) {
+  if (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role)) return true;
+  const rep = c.owner_id || c.assigned_to || c.rep_id || null;
+  const me = profileContext?.id || user?.id || null;
+  return !rep || rep === me;
+}
+// Minimize the open customer modal to a corner chip so a rep can keep it "parked"
+// while they work elsewhere, then reopen it.
+function crmMinimizeModal(btn) {
+  const overlay = btn.closest('.fixed'); if (!overlay) return;
+  const nameEl = overlay.querySelector('.text-lg.font-black');
+  const name = nameEl ? nameEl.textContent.trim() : 'Customer';
+  overlay.style.display = 'none';
+  overlay.dataset.minimized = '1';
+  document.getElementById('crm-min-chip')?.remove();
+  const chip = document.createElement('div');
+  chip.id = 'crm-min-chip';
+  chip.className = 'fixed bottom-4 right-4 z-[9997] flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl rounded-full pl-4 pr-1.5 py-1.5';
+  chip.innerHTML = `<span class="text-sm font-bold text-slate-700 dark:text-slate-200 max-w-[180px] truncate">${esc(name)}</span>
+    <button onclick="crmRestoreModal()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 px-2.5 py-1 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40">Open</button>
+    <button onclick="crmCloseMinimized()" title="Close" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 w-6 h-6 flex items-center justify-center rounded-full">×</button>`;
+  document.body.appendChild(chip);
+}
+function crmRestoreModal() { const o = document.querySelector('.fixed[data-minimized="1"]'); if (o) { o.style.display = ''; delete o.dataset.minimized; } document.getElementById('crm-min-chip')?.remove(); }
+function crmCloseMinimized() { document.querySelector('.fixed[data-minimized="1"]')?.remove(); document.getElementById('crm-min-chip')?.remove(); }
+Object.assign(window, { crmMinimizeModal, crmRestoreModal, crmCloseMinimized });
+
 async function openCrmContact(id) {
-  const ov = crmOverlay(`<div class="p-10 text-center text-sm text-slate-400 italic">Loading…</div>`);
+  const ov = crmOverlay(`<div class="p-10 text-center text-sm text-slate-400 italic">Loading…</div>`, 'max-w-4xl');
   try {
     const d = await apiGetJson(`/crm/contacts/${id}`);
     ov.querySelector('div > div').innerHTML = crmDetailHtml(d);
@@ -3018,6 +3048,7 @@ async function openCrmContact(id) {
 }
 function crmDetailHtml(d) {
   const c = d.contact;
+  const canEdit = canEditContact(c);   // read-only for reps who aren't the assigned owner
   // A callable number may live in any phone field — use the first one we find so
   // Call/Text work even when the primary `phone` is blank (e.g. appraisal leads).
   const phone = (c.phone || c.phone_mobile || c.phone_home || c.phone_work || '').trim();
@@ -3036,7 +3067,10 @@ function crmDetailHtml(d) {
         <div class="text-xs text-slate-500 dark:text-slate-400 truncate">${esc([c.email, phone].filter(Boolean).join(' · ') || 'No contact info')}</div>
       </div>
     </div>
-    <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex-shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="flex items-center gap-1 flex-shrink-0">
+      <button onclick="crmMinimizeModal(this)" title="Minimize" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M5 12h14"/></svg></button>
+      <button onclick="this.closest('.fixed').remove()" title="Close" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
   </div>
   <div class="p-5 space-y-4">
     ${document.documentElement.getAttribute('data-dash-mode') === 'demo' ? `
@@ -3049,7 +3083,8 @@ function crmDetailHtml(d) {
         <button onclick="demoStepStage('${c.id}','next','${esc(c.status || 'uncontacted')}')" class="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-black text-slate-600 dark:text-slate-200" title="Next stage">▶</button>
       </div>
     </div>` : ''}
-    <div class="flex flex-wrap gap-2">
+    ${!canEdit ? `<div class="rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 px-3 py-2 text-[12px] text-slate-500 dark:text-slate-400 flex items-center gap-2">${svgIcon('eye', 'w-4 h-4')}Read-only — you're not the assigned rep on this customer.</div>` : ''}
+    <div class="flex flex-wrap gap-2 ${!canEdit ? 'hidden' : ''}">
       ${c.email && !c.dnc && c.consent_email !== false ? `<button onclick="crmEmailForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>Email</button>` : ''}
       ${phone
         ? `<a href="tel:${esc(phone)}" onclick="crmQuickLog('${c.id}','call')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>Call</a>`
