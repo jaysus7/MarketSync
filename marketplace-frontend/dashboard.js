@@ -10237,7 +10237,7 @@ function engineRail(eng, d) {
     <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-slate-400 mb-2">${svgIcon(icon, 'w-3.5 h-3.5')}${esc(title)}</div>${inner}</div>`;
   const ai = sec('AI Assistant', 'sparkles',
     `<p class="text-[12px] text-slate-500 dark:text-slate-400 mb-2">Ask about ${esc(eng.title)} — trends, next steps, anything.</p>
-     <button onclick="switchPage('ai-home')" class="w-full text-[13px] font-bold ${A.solid} text-white rounded-lg px-3 py-1.5 transition">Ask AI</button>`);
+     <button onclick="openAiDock()" class="w-full text-[13px] font-bold ${A.solid} text-white rounded-lg px-3 py-1.5 transition">Ask AI</button>`);
   const na = (eng.nextActions ? eng.nextActions(d) : []) || [];
   const naHtml = na.length
     ? na.map(a => `<button onclick="${a.onclick || ''}" class="w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -22795,6 +22795,8 @@ function closeAiDock() {
   updateAiDockVisibility();
   updateReportRailVisibility();   // restore the reports rail
 }
+window.openAiDock = openAiDock;
+window.closeAiDock = closeAiDock;
 
 function initAiDock() {
   const btn = document.getElementById('ai-dock-btn');
