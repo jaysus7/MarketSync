@@ -41,6 +41,7 @@ import { registerAdSpend } from './routes/adspend.js'
 import { registerIdentity } from './routes/identity.js'
 import { registerSquare } from './routes/square.js'
 import { registerCommissions } from './routes/commissions.js'
+import { registerFniCatalog } from './routes/fni-catalog.js'
 import { registerAccounting } from './routes/accounting.js'
 import { registerExpenses } from './routes/expenses.js'
 import { registerDealerTasks } from './routes/dealertasks.js'
@@ -126,6 +127,7 @@ registerCalendar(app)
 registerAdSpend(app)
 registerIdentity(app)
 registerCommissions(app)
+registerFniCatalog(app)
 registerAccounting(app)
 registerExpenses(app)
 registerDealerTasks(app)

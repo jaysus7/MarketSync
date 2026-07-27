@@ -5876,6 +5876,8 @@ let __deskAddons = [], __deskFni = [], __deskFees = [];
 let __deskSearchTimer = null, __deskVehTimer = null;
 let __deskCommTouched = false;    // rep manually edited a commission field → stop auto-filling
 let __deskCommTimer = null;       // debounce the commission-preview call
+let __deskFniCatalog = [];        // F&I products catalog (from /fni/products)
+let __deskLenders = [];           // lenders (from /fni/lenders), rate-sorted
 
 const DESK_DEFAULT_APR = 9.99;   // auto-filled rate (editable); financing is stored, not submitted
 const deskM = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -6119,7 +6121,10 @@ function deskRenderForm(contactId) {
           <button type="button" onclick="deskAddLine('addon')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add an add-on</button>`, 'Accessories, protection packages, etc. Taxable.')}
 
         ${card('F&amp;I products', `<div id="desk-fni"></div>
-          <button type="button" onclick="deskAddLine('fni')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add an F&amp;I product</button>`, 'Warranty, GAP, appearance protection, etc. Taxable. Financing is arranged through your lender program.')}
+          <div class="mt-2 flex items-center gap-2 flex-wrap">
+            <select id="desk-fni-picker" onchange="deskAddFniFromCatalog(this.value); this.value='';" class="${iCls} text-xs"><option value="">＋ Add from catalog…</option></select>
+            <button type="button" onclick="deskAddLine('fni')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add manually</button>
+          </div>`, 'Warranty, GAP, appearance protection, etc. Taxable. Financing is arranged through your lender program.')}
 
         ${card('Fees', `<div id="desk-fees"></div>
           <button type="button" onclick="deskAddLine('fee')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add a fee</button>`, 'Uncheck “taxable” for government passthroughs like licensing.')}
@@ -6134,7 +6139,7 @@ function deskRenderForm(contactId) {
 
         ${card('Finance terms', `<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             ${fld('Deal type', `<select id="dk-deal_type" class="${iCls}">${['Finance', 'Lease', 'Cash'].map(o => `<option ${d.deal_type === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}
-            ${fld('Lender', txt('dk-finance_company', d.finance_company, 'e.g. TD Auto Finance'))}
+            ${fld('Lender', `<input id="dk-finance_company" list="desk-lender-list" value="${esc(d.finance_company || '')}" placeholder="e.g. TD Auto Finance" oninput="deskLenderPicked(this.value)" class="${iCls}"><datalist id="desk-lender-list"></datalist><div id="desk-lender-hint" class="text-[11px] text-slate-400 mt-0.5"></div>`)}
             ${fld('Program', txt('dk-program', d.program, 'e.g. Finance rates'))}
             ${fld('APR / sell rate %', `<input id="dk-apr" type="number" step="0.01" value="${apr}" oninput="deskRenderSummary()" class="${iCls}">`)}
             ${fld('Buy rate % (reserve)', `<input id="dk-buy_rate" type="number" step="0.01" value="${d.buy_rate == null ? '' : d.buy_rate}" placeholder="lender buy rate" oninput="deskRenderSummary()" class="${iCls}">`)}
@@ -6205,6 +6210,7 @@ function deskRenderForm(contactId) {
   deskRenderLines();
   deskRenderSummary();
   deskCheckDeposits();   // grey the Collect-deposit button until payments are connected
+  deskLoadCatalog();     // populate the F&I product picker + lender datalist
 }
 // Collect-deposit requires a connected payments account (Stripe Connect charges
 // enabled). Grey the button until then and point the rep to Integrations.
@@ -6248,6 +6254,55 @@ function deskRenderLines() {
   const f = document.getElementById('desk-fni'); if (f) f.innerHTML = __deskFni.map((r, i) => rowHtml('fni', r, i, 'price')).join('') || '<div class="text-xs text-slate-400 italic">None.</div>';
   const e = document.getElementById('desk-fees'); if (e) e.innerHTML = __deskFees.map((r, i) => rowHtml('fee', r, i, 'amount')).join('') || '<div class="text-xs text-slate-400 italic">None.</div>';
 }
+
+// ── F&I catalog + lenders (from the dealership's F&I catalog) ─────────────────
+// Loads the product menu + lender list so the desk can pick from a catalog instead
+// of free-typing. Silent no-op if the catalog is empty (dealer hasn't set one up).
+async function deskLoadCatalog() {
+  try {
+    const [p, l] = await Promise.all([
+      apiGetJson('/fni/products', { retries: 1 }).catch(() => null),
+      apiGetJson('/fni/lenders?sort=rate', { retries: 1 }).catch(() => null),
+    ]);
+    __deskFniCatalog = (p && p.products) || [];
+    __deskLenders = (l && l.lenders) || [];
+  } catch { __deskFniCatalog = []; __deskLenders = []; }
+  deskRenderCatalogControls();
+}
+function deskRenderCatalogControls() {
+  // F&I product picker options.
+  const sel = document.getElementById('desk-fni-picker');
+  if (sel) {
+    if (__deskFniCatalog.length) {
+      sel.innerHTML = '<option value="">＋ Add from catalog…</option>' +
+        __deskFniCatalog.map((p, i) => `<option value="${i}">${esc(p.name)}${p.retail_default != null ? ' — ' + msFmtMoney(p.retail_default) : ''}</option>`).join('');
+      sel.classList.remove('hidden');
+    } else { sel.classList.add('hidden'); }   // no catalog → just the manual button
+  }
+  // Lender datalist (rate-sorted) + "lowest rate" helper (the Lender-by-Rate answer).
+  const dl = document.getElementById('desk-lender-list');
+  if (dl) dl.innerHTML = __deskLenders.map(l => `<option value="${esc(l.name)}">${l.base_rate != null ? l.base_rate + '%' : ''}${l.tier ? ' · ' + esc(l.tier) : ''}</option>`).join('');
+  deskLenderPicked(document.getElementById('dk-finance_company')?.value || '');
+}
+function deskAddFniFromCatalog(idx) {
+  const p = __deskFniCatalog[Number(idx)];
+  if (!p) return;
+  __deskFni.push({ name: p.name, price: p.retail_default != null ? Number(p.retail_default) : null, cost: p.cost != null ? Number(p.cost) : null, product_id: p.id });
+  deskRenderLines(); deskRenderSummary();
+}
+window.deskAddFniFromCatalog = deskAddFniFromCatalog;
+// Show the lowest-rate lender as a nudge, and flag the picked one's rate.
+function deskLenderPicked(name) {
+  const hint = document.getElementById('desk-lender-hint'); if (!hint) return;
+  if (!__deskLenders.length) { hint.textContent = ''; return; }
+  const rated = __deskLenders.filter(l => l.base_rate != null);
+  const picked = name ? __deskLenders.find(l => l.name.toLowerCase() === name.trim().toLowerCase()) : null;
+  const parts = [];
+  if (rated.length) { const lo = rated[0]; parts.push(`Lowest rate: ${esc(lo.name)} ${lo.base_rate}%`); }
+  if (picked && picked.base_rate != null) parts.push(`${esc(picked.name)} buy rate ${picked.base_rate}%`);
+  hint.textContent = parts.join(' · ');
+}
+window.deskLenderPicked = deskLenderPicked;
 
 // ── Inventory search for the vehicle block ───────────────────────────────────
 async function deskVehSearch(q) {
@@ -6372,7 +6427,16 @@ function deskCollect(contactId) {
     buy_rate: num('dk-buy_rate'), residual_amount: num('dk-residual_amount'), mileage_allowance: num('dk-mileage_allowance'),
     finance_company: val('dk-finance_company'), first_payment_date: val('dk-first_payment_date'),
     tax_province: val('dk-tax_province'), tax_rate: num('dk-tax_rate'), tax_on_difference: chk('dk-tax_on_difference'),
-    addons: clean(__deskAddons, 'price'), fni_items: clean(__deskFni, 'price'), fees,
+    addons: clean(__deskAddons, 'price'),
+    // F&I lines keep cost + catalog product_id (when picked from the catalog) so the
+    // back-end gross is true and the deal references the product.
+    fni_items: __deskFni.map(r => {
+      const o = { name: (r.name || '').trim(), price: Number(r.price) || 0 };
+      if (r.cost != null && Number.isFinite(Number(r.cost))) o.cost = Number(r.cost);
+      if (r.product_id) o.product_id = r.product_id;
+      return o;
+    }).filter(r => r.name || r.price),
+    fees,
     insurance: { company: val('dk-ins-company'), policy: val('dk-ins-policy'), agent: val('dk-ins-agent'), phone: val('dk-ins-phone'), expiry: val('dk-ins-expiry') },
     vehicle: { year: val('dk-veh-year'), make: val('dk-veh-make'), model: val('dk-veh-model'), trim: val('dk-veh-trim'), vin: val('dk-veh-vin'), mileage: num('dk-veh-mileage'), color: val('dk-veh-color'), stock: val('dk-veh-stock') },
     // F&I tracking
@@ -6898,8 +6962,12 @@ function deskRenderSummary() {
       ${(__deskDealer?.costOn && Number(d.cost) > 0) ? (() => {
         const cost = Number(d.cost);
         const frontGross = c.sellingPrice - cost;
-        const backGross = (c.fniTotal || 0) + (c.reserve || 0);
+        // Net out F&I product cost when the lines carry it (catalog products do).
+        const fniCost = __deskFni.reduce((s, r) => s + (Number(r.cost) || 0), 0);
+        const fniGross = (c.fniTotal || 0) - fniCost;
+        const backGross = fniGross + (c.reserve || 0);
         const totalGross = frontGross + backGross;
+        const costKnown = fniCost > 0;
         return `
       <div class="mt-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-3 py-2 space-y-1">
         <div class="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">Internal — not shown to customer</div>
@@ -6908,11 +6976,12 @@ function deskRenderSummary() {
         ${row('Front gross', deskM(frontGross), true)}
         ${(c.fniTotal || c.reserve) ? `<div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold pt-1">Back-end (F&amp;I)</div>` : ''}
         ${c.fniTotal ? row('F&I products', deskM(c.fniTotal)) : ''}
+        ${costKnown ? row('− F&I product cost', '−' + deskM(fniCost)) : ''}
         ${c.reserve ? row('Finance reserve', deskM(c.reserve)) : ''}
         ${(c.fniTotal || c.reserve) ? row('Back gross', deskM(backGross), true) : ''}
         <div class="border-t border-amber-200 dark:border-amber-900 my-1"></div>
         ${row('Total gross', deskM(totalGross), true)}
-        ${c.fniTotal ? `<p class="text-[9.5px] text-amber-600/80 dark:text-amber-400/70 leading-snug">F&amp;I shown at retail — subtract product cost for true back gross.</p>` : ''}
+        ${(c.fniTotal && !costKnown) ? `<p class="text-[9.5px] text-amber-600/80 dark:text-amber-400/70 leading-snug">F&amp;I shown at retail — add product cost in the catalog for true back gross.</p>` : ''}
       </div>`; })() : ''}
     </div>
     ${c.isLease ? `
