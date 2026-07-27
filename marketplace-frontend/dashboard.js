@@ -3235,14 +3235,64 @@ function crmDetailFacts(c, d) {
 }
 function crmTaskRow(t, contactId) {
   const overdue = t.due_at && new Date(t.due_at) < Date.now();
-  const dot = t.type === 'lead_followup' ? 'bg-orange-500' : t.type === 'delivery_followup' ? 'bg-emerald-500' : '';
-  return `<div class="flex items-center gap-2 text-sm">
-    <input type="checkbox" ${t.done ? 'checked' : ''} onchange="crmToggleTask('${t.id}', this.checked, '${contactId}')" class="w-4 h-4 rounded accent-indigo-600 flex-shrink-0">
-    ${dot ? `<span class="w-2 h-2 rounded-full ${dot} flex-shrink-0" title="${t.type === 'lead_followup' ? 'New-lead follow-up' : 'Delivery follow-up'}"></span>` : ''}
-    <span class="flex-1 ${t.done ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}">${esc(t.title)}</span>
-    ${t.due_at ? `<span class="text-[11px] ${overdue && !t.done ? 'text-rose-500 font-bold' : 'text-slate-400'}">${esc(crmWhen(t.due_at))}</span>` : ''}
+  const isAppt = t.type === 'appointment';
+  const dot = t.type === 'lead_followup' ? 'bg-orange-500' : t.type === 'delivery_followup' ? 'bg-emerald-500' : isAppt ? 'bg-violet-500' : '';
+  // Appointments get outcome actions so the timeline records show / no-show / cancel,
+  // plus reschedule (opens a new date/time picker).
+  const acts = (isAppt && !t.done && contactId) ? `<div class="flex flex-wrap gap-1.5 mt-1 ml-6">
+      <button onclick="crmApptOutcome('${t.id}','${contactId}','showed')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200">Showed</button>
+      <button onclick="crmApptOutcome('${t.id}','${contactId}','no_show')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-200">No-show</button>
+      <button onclick="crmApptOutcome('${t.id}','${contactId}','cancelled')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">Cancel</button>
+      <button onclick="crmApptReschedule('${t.id}','${contactId}',${JSON.stringify(t.title || 'Appointment').replace(/"/g, '&quot;')},'${t.due_at || ''}')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200">Reschedule</button>
+    </div>` : '';
+  return `<div>
+    <div class="flex items-center gap-2 text-sm">
+      <input type="checkbox" ${t.done ? 'checked' : ''} onchange="crmToggleTask('${t.id}', this.checked, '${contactId}')" class="w-4 h-4 rounded accent-indigo-600 flex-shrink-0">
+      ${dot ? `<span class="w-2 h-2 rounded-full ${dot} flex-shrink-0" title="${isAppt ? 'Appointment' : t.type === 'lead_followup' ? 'New-lead follow-up' : 'Delivery follow-up'}"></span>` : ''}
+      <span class="flex-1 ${t.done ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}">${esc(t.title)}</span>
+      ${t.due_at ? `<span class="text-[11px] ${overdue && !t.done ? 'text-rose-500 font-bold' : 'text-slate-400'}">${esc(crmWhen(t.due_at))}</span>` : ''}
+    </div>
+    ${acts}
   </div>`;
 }
+// Appointment outcomes — mark the task resolved and record what happened on the timeline.
+async function crmApptOutcome(taskId, contactId, outcome) {
+  const map = {
+    showed:    { subject: 'Appointment — showed',    body: 'Customer showed for the appointment.' },
+    no_show:   { subject: 'Appointment — no-show',    body: 'Customer did not show (no-show).' },
+    cancelled: { subject: 'Appointment — cancelled',  body: 'Appointment cancelled.' },
+  };
+  const m = map[outcome]; if (!m) return;
+  try {
+    await apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { done: true });
+    await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', { channel: 'note', direction: 'internal', subject: m.subject, body: m.body });
+    showToast('Updated', 'success'); openCrmContact(contactId);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+function crmApptReschedule(taskId, contactId, title, dueAt) {
+  const d = dueAt ? new Date(dueAt) : new Date();
+  const dateStr = isNaN(d) ? '' : d.toISOString().slice(0, 10);
+  const timeStr = isNaN(d) ? '09:00' : d.toTimeString().slice(0, 5);
+  const iCls = 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm';
+  crmDetailFormSlot(`<div class="bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900 rounded-lg p-3 space-y-2">
+    <div class="text-sm font-bold text-slate-800 dark:text-slate-100">Reschedule appointment</div>
+    <div class="flex gap-2"><input id="crm-resch-date" type="date" value="${dateStr}" class="${iCls}"><input id="crm-resch-time" type="time" value="${timeStr}" class="${iCls}"></div>
+    <div class="flex gap-2 justify-end"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
+      <button onclick="crmApptRescheduleSave('${taskId}','${contactId}',${JSON.stringify(title || 'Appointment').replace(/"/g, '&quot;')})" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg">Save new time</button></div>
+  </div>`);
+}
+async function crmApptRescheduleSave(taskId, contactId, title) {
+  const date = document.getElementById('crm-resch-date')?.value;
+  const time = document.getElementById('crm-resch-time')?.value || '09:00';
+  if (!date) { showToast('Pick a date', 'error'); return; }
+  const iso = new Date(`${date}T${time}`).toISOString();
+  try {
+    await apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { due_at: iso });
+    await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Appointment rescheduled', body: `${title} moved to ${new Date(iso).toLocaleString()}` });
+    showToast('Rescheduled', 'success'); openCrmContact(contactId);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+Object.assign(window, { crmApptOutcome, crmApptReschedule, crmApptRescheduleSave });
 function crmTimelineItem(t, cid) {
   const chIco = { call: 'phone', sms: 'chat', email: 'mail', note: 'note' };
   let head = '', bodyTxt = t.body || '', reply = '', iconName = 'note';
