@@ -10470,33 +10470,98 @@ async function aiHomeSaveKnowledge() {
   try { await apiSendJson('/ai/knowledge', 'PUT', body); showToast('Knowledge saved ✓', 'success'); }
   catch (e) { showToast(e.message, 'error'); }
 }
+// Ready-to-use assistant personas (name + friendly illustrated headshot). The dealer
+// can pick one as a starting point or upload their own real photo.
+const AI_PERSONA_PRESETS = [
+  { name: 'Ava', hue: '#7c3aed' }, { name: 'Mia', hue: '#db2777' }, { name: 'Sofia', hue: '#e11d48' },
+  { name: 'Noah', hue: '#2563eb' }, { name: 'Liam', hue: '#0891b2' }, { name: 'Ethan', hue: '#ea580c' },
+];
+function aiPresetAvatar(name, hue) {
+  const initial = (name[0] || 'A').toUpperCase();
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${hue}'/><stop offset='1' stop-color='#0f172a'/></linearGradient></defs><rect width='100' height='100' rx='50' fill='url(%23g)'/><text x='50' y='64' font-family='system-ui,sans-serif' font-size='46' font-weight='700' fill='white' text-anchor='middle'>${initial}</text></svg>`;
+  return 'data:image/svg+xml,' + encodeURIComponent(svg).replace(/%23g/g, '%23g');
+}
+const AI_AVATAR_FALLBACK = "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='#e2e8f0'/><circle cx='50' cy='40' r='18' fill='#94a3b8'/><path d='M18 90c0-19 15-30 32-30s32 11 32 30z' fill='#94a3b8'/></svg>");
 async function aiHomeSettings(body) {
   const [embed, persona] = await Promise.all([
     apiGetJson('/ai/widget/embed').catch(() => ({})),
     apiGetJson('/ai/personality').catch(() => ({ personality: {} })),
   ]);
   const p = persona.personality || {};
+  const presetsHtml = AI_PERSONA_PRESETS.map(pr => {
+    const uri = aiPresetAvatar(pr.name, pr.hue);
+    return `<button type="button" onclick="aiPickPreset('${pr.name}','${uri.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 group">
+      <img src="${uri}" class="w-14 h-14 rounded-full ring-2 ring-transparent group-hover:ring-emerald-400 transition"><span class="text-[11px] font-semibold text-slate-500">${esc(pr.name)}</span></button>`;
+  }).join('');
   body.innerHTML = `
     <div class="space-y-4 max-w-2xl">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+        <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Assistant identity</div>
+        <div class="flex items-center gap-4">
+          <img id="ai-p-avatar-preview" src="${esc(p.avatar_url || AI_AVATAR_FALLBACK)}" class="w-20 h-20 rounded-full object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0">
+          <div class="flex-1">
+            <label class="text-[12px] font-bold text-slate-500">Assistant name</label>
+            <input id="ai-p-name" value="${esc(p.name || '')}" placeholder="e.g. Ava Miller" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
+            <p class="text-[11px] text-slate-400 mt-1">Shown in the chat header, greeting bubble and next to every reply.</p>
+          </div>
+        </div>
+        <div>
+          <div class="text-[12px] font-bold text-slate-500 mb-2">Pick a headshot template</div>
+          <div class="flex flex-wrap gap-3">${presetsHtml}</div>
+        </div>
+        <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
+          <div class="text-[12px] font-bold text-slate-500 mb-2">…or use your own photo</div>
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold cursor-pointer transition">Upload photo<input type="file" accept="image/*" class="hidden" onchange="aiUploadAvatar(this)"></label>
+            <input id="ai-p-avatar" value="${esc(p.avatar_url || '')}" oninput="document.getElementById('ai-p-avatar-preview').src=this.value||'${AI_AVATAR_FALLBACK}'" placeholder="or paste an image URL" class="flex-1 min-w-[180px] px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
+          </div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+        <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Voice</div>
+        <div><label class="text-[12px] font-bold text-slate-500">Greeting</label><input id="ai-p-greeting" value="${esc(p.greeting || '')}" placeholder="Hi! 👋 Looking for something specific? Ask me anything!" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+        <div><label class="text-[12px] font-bold text-slate-500">Tone</label><input id="ai-p-tone" value="${esc(p.tone || '')}" placeholder="warm, casual, natural — always books the appointment" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+        <button onclick="aiHomeSavePersonality(this)" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save assistant</button>
+      </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-2">
         <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Install on your website</div>
         <p class="text-[13px] text-slate-500">Paste this one line before &lt;/body&gt; on your site (LeadBox, eDealer, WordPress, anywhere).</p>
         <textarea readonly rows="2" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-[12px] font-mono">${esc(embed.snippet || '')}</textarea>
         <button onclick="aiCopyEmbed()" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Copy snippet</button>
       </div>
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
-        <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Personality</div>
-        <div><label class="text-[12px] font-bold text-slate-500">Greeting</label><input id="ai-p-greeting" value="${esc(p.greeting || '')}" placeholder="Hi! How can I help you find your next vehicle?" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
-        <div><label class="text-[12px] font-bold text-slate-500">Tone</label><input id="ai-p-tone" value="${esc(p.tone || '')}" placeholder="warm, concise, never pushy" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
-        <button onclick="aiHomeSavePersonality()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save personality</button>
-      </div>
     </div>`;
 }
-async function aiHomeSavePersonality() {
-  try { await apiSendJson('/ai/personality', 'PUT', { greeting: document.getElementById('ai-p-greeting').value, tone: document.getElementById('ai-p-tone').value }); showToast('Saved ✓', 'success'); }
-  catch (e) { showToast(e.message, 'error'); }
+function aiPickPreset(name, avatarUri) {
+  const nm = document.getElementById('ai-p-name'); if (nm && !nm.value.trim()) nm.value = name;
+  const av = document.getElementById('ai-p-avatar'); if (av) av.value = avatarUri;
+  const pv = document.getElementById('ai-p-avatar-preview'); if (pv) pv.src = avatarUri;
 }
-Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, aiFeedApply });
+async function aiUploadAvatar(input) {
+  const file = input.files && input.files[0]; if (!file) return;
+  showToast('Uploading…', 'info');
+  try {
+    const fd = new FormData(); fd.append('file', file);
+    const r = await fetch(`${API}/ai/avatar-upload`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Upload failed');
+    const av = document.getElementById('ai-p-avatar'); if (av) av.value = d.url;
+    const pv = document.getElementById('ai-p-avatar-preview'); if (pv) pv.src = d.url;
+    showToast('Photo uploaded ✓', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+async function aiHomeSavePersonality(btn) {
+  if (btn) btn.disabled = true;
+  try {
+    await apiSendJson('/ai/personality', 'PUT', {
+      name: document.getElementById('ai-p-name')?.value || '',
+      avatar_url: document.getElementById('ai-p-avatar')?.value || '',
+      greeting: document.getElementById('ai-p-greeting').value,
+      tone: document.getElementById('ai-p-tone').value,
+    });
+    showToast('Assistant saved ✓', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+  if (btn) btn.disabled = false;
+}
+Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, aiFeedApply, aiPickPreset, aiUploadAvatar });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Engine UI Framework — every engine renders inside one reusable shell that

@@ -9,10 +9,25 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f8fafc; }
     .wrap { display: flex; flex-direction: column; height: 100vh; }
-    .hd { background: var(--accent); color: #fff; padding: 14px 16px; font-weight: 700; font-size: 15px; }
-    .hd small { display: block; font-weight: 500; opacity: .85; font-size: 12px; margin-top: 2px; }
+    .hd { background: var(--accent); color: #fff; padding: 12px 14px; display: flex; align-items: center; gap: 11px; }
+    .hd img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid rgba(255,255,255,.6); }
+    .hd .nm { font-weight: 800; font-size: 16px; line-height: 1.1; }
+    .hd .st { font-size: 12px; opacity: .9; display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+    .hd .dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 2px rgba(74,222,128,.35); }
     .msgs { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-    .b { max-width: 82%; padding: 9px 12px; border-radius: 14px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
+    .brow { align-self: flex-start; display: flex; gap: 8px; align-items: flex-end; max-width: 92%; }
+    .brow img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .veh { align-self: stretch; display: flex; gap: 10px; overflow-x: auto; padding: 2px 0 4px; }
+    .veh .card { flex: 0 0 210px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,.06); }
+    .veh .card img { width: 100%; height: 120px; object-fit: cover; background: #f1f5f9; display: block; }
+    .veh .card .p { padding: 9px 11px; }
+    .veh .card .sub { font-size: 11px; color: #64748b; }
+    .veh .card .t { font-weight: 800; font-size: 13px; line-height: 1.25; color: #0f172a; margin-top: 2px; }
+    .veh .card .pr { font-weight: 900; color: var(--accent); margin-top: 6px; font-size: 15px; }
+    .veh .card .btns { display: flex; border-top: 1px solid #eef2f7; }
+    .veh .card .btns a, .veh .card .btns button { flex: 1; text-align: center; padding: 9px 4px; font-size: 12px; font-weight: 800; color: var(--accent); background: none; border: none; cursor: pointer; text-decoration: none; }
+    .veh .card .btns button { border-left: 1px solid #eef2f7; }
+    .b { max-width: 100%; padding: 9px 12px; border-radius: 14px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
     .u { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; white-space: pre-wrap; }
     .a { align-self: flex-start; background: #fff; color: #1e293b; border: 1px solid #e2e8f0; border-bottom-left-radius: 4px; }
     .a > *:first-child { margin-top: 0; }
@@ -32,17 +47,23 @@
     .ft input:focus { border-color: var(--accent); }
     .ft button { border: 0; background: var(--accent); color: #fff; border-radius: 10px; padding: 0 14px; font-weight: 700; cursor: pointer; }
     .ft button:disabled { opacity: .5; cursor: default; }
+    .brand { text-align: center; font-size: 10.5px; color: #94a3b8; padding: 6px 8px; background: #fff; border-top: 1px solid #f1f5f9; }
+    .brand b { color: #64748b; font-weight: 800; }
     .off { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; color: #64748b; padding: 24px; font-size: 14px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="hd" id="hd">Chat<small id="hd-sub">We usually reply in seconds</small></div>
+    <div class="hd" id="hd">
+      <img id="hd-av" alt="">
+      <div style="flex:1;min-width:0"><div class="nm" id="hd-nm">Chat</div><div class="st"><span class="dot"></span>Online</div></div>
+    </div>
     <div class="msgs" id="msgs"></div>
     <div class="ft" id="ft" style="display:none;">
-      <input id="inp" placeholder="Type a message…" autocomplete="off">
+      <input id="inp" placeholder="Type any question here…" autocomplete="off">
       <button id="send">Send</button>
     </div>
+    <div class="brand" id="brand" style="display:none;">Powered by <b>MarketSync</b> · AI assistant</div>
     <div class="off" id="off" style="display:none;">Chat isn't available right now.</div>
   </div>
   <script>
@@ -86,7 +107,29 @@
       flushPara(); closeList();
       return out.join('')||esc(t).replace(/\n/g,'<br>');
     }
-    function bubble(text, who){ var el=document.createElement('div'); el.className='b '+(who==='user'?'u':'a'); el.innerHTML=(who==='user')?esc(text):md(text); msgsEl.appendChild(el); msgsEl.scrollTop=msgsEl.scrollHeight; return el; }
+    var AV_FALLBACK="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23e2e8f0'/><circle cx='50' cy='40' r='18' fill='%2394a3b8'/><path d='M18 90c0-19 15-30 32-30s32 11 32 30z' fill='%2394a3b8'/></svg>";
+    var AVATAR = AV_FALLBACK;
+    function bubble(text, who){
+      if(who==='user'){ var el=document.createElement('div'); el.className='b u'; el.innerHTML=esc(text); msgsEl.appendChild(el); msgsEl.scrollTop=msgsEl.scrollHeight; return el; }
+      // AI/rep messages ride next to the concierge's headshot.
+      var row=document.createElement('div'); row.className='brow';
+      var av=document.createElement('img'); av.src=AVATAR; av.alt='';
+      var el=document.createElement('div'); el.className='b a'; el.style.flex='1'; el.innerHTML=md(text);
+      row.appendChild(av); row.appendChild(el); msgsEl.appendChild(row); msgsEl.scrollTop=msgsEl.scrollHeight; return el;
+    }
+    function money(n){ return n?'$'+Number(n).toLocaleString('en-US'):'Call for price'; }
+    // Render surfaced vehicles as swipeable cards (image 3 style).
+    function vehicleCards(vehicles){
+      if(!Array.isArray(vehicles)||!vehicles.length) return;
+      var row=document.createElement('div'); row.className='veh';
+      row.innerHTML=vehicles.map(function(v){
+        var img=v.image?'<img src="'+esc(v.image)+'" loading="lazy">':'<div style="height:120px;background:#f1f5f9"></div>';
+        var view=v.url?'<a href="'+esc(v.url)+'" target="_blank" rel="noopener">View Details</a>':'';
+        return '<div class="card">'+img+'<div class="p">'+(v.stock?'<div class="sub">Stock #'+esc(String(v.stock))+'</div>':'')+'<div class="t">'+esc(v.title||'Vehicle')+'</div><div class="pr">'+money(v.price)+'</div></div><div class="btns">'+view+'<button data-sel="'+esc(v.title||'')+'">Select</button></div></div>';
+      }).join('');
+      row.querySelectorAll('button[data-sel]').forEach(function(btn){ btn.onclick=function(){ inp.value="I'm interested in the "+btn.getAttribute('data-sel')+". Can we set up a time to see it?"; send(); }; });
+      msgsEl.appendChild(row); msgsEl.scrollTop=msgsEl.scrollHeight;
+    }
     function typing(on){ var t=document.getElementById('typing'); if(on){ if(!t){ t=document.createElement('div'); t.id='typing'; t.className='typing'; t.textContent='…'; msgsEl.appendChild(t); msgsEl.scrollTop=msgsEl.scrollHeight; } } else if(t){ t.remove(); } }
 
     async function init(){
@@ -94,8 +137,11 @@
       try{
         var cfg = await (await fetch(API+'/ai/widget/config?dealer='+encodeURIComponent(dealer))).json();
         if(!cfg.enabled){ document.getElementById('off').style.display='flex'; return; }
-        document.getElementById('hd').firstChild.textContent = cfg.name ? cfg.name : 'Chat';
+        AVATAR = cfg.avatar || AV_FALLBACK;
+        document.getElementById('hd-av').src = AVATAR;
+        document.getElementById('hd-nm').textContent = cfg.assistant_name || cfg.name || 'Chat';
         document.getElementById('ft').style.display='flex';
+        document.getElementById('brand').style.display='block';
         bubble(cfg.greeting || 'Hi! How can I help you find your next vehicle?', 'ai');
         inp.focus();
       }catch(e){ document.getElementById('off').style.display='flex'; }
@@ -111,6 +157,7 @@
         if(d.conversation_id){ convId=d.conversation_id; localStorage.setItem(LS_CONV,convId); }
         if(d.visitor_token){ visTok=d.visitor_token; localStorage.setItem(LS_VIS,visTok); }
         bubble(d.reply || "Thanks — someone will follow up shortly.", 'ai');
+        vehicleCards(d.vehicles);
       }catch(e){ typing(false); bubble("Sorry, something went wrong. Please try again.", 'ai'); }
       sendBtn.disabled=false; inp.focus();
     }

@@ -14,7 +14,7 @@ import { runAutoResponder } from '../autoresponder.js'
 import { depositConfigForSite } from './deposits.js'
 import { toolDefs, callTool } from './tool-registry.js'
 import { startOrContinueConversation, saveMessage } from './ai-engine.js'
-import { categorizeConversation } from './ai-runtime.js'
+import { categorizeConversation, formatShownVehicles } from './ai-runtime.js'
 
 const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
@@ -300,7 +300,15 @@ async function buildSiteResponse(d) {
     .map(publicVehicle)
   const roster = (team || []).filter(p => !p.hide_on_site && (p.display_name || p.full_name)).map(publicRep)
   const deposits = await depositConfigForSite(d.id).catch(() => ({ enabled: false }))
-  return { site: siteContent(d), vehicles, team: roster, count: vehicles.length, deposits }
+  // The AI concierge persona (name + headshot + greeting) is set in AI Chat → Settings
+  // (ai_personality). It drives the on-site chat bubble's identity — persona wins, with
+  // the per-site branding name as a fallback.
+  const persona = await getConfig(d.id, 'ai_personality', {}).catch(() => ({}))
+  const site = siteContent(d)
+  site.chat_name = persona?.name || site.chat_name || null
+  site.chat_avatar = persona?.avatar_url || null
+  site.chat_greeting = persona?.greeting || null
+  return { site, vehicles, team: roster, count: vehicles.length, deposits }
 }
 
 export function registerSite(app) {
@@ -657,15 +665,22 @@ export function registerSite(app) {
     const instr = [String(aiCfg?.ai_customer_style || '').trim(), String(b.site_chat_instructions || '').trim()].filter(Boolean).join('\n\n').slice(0, 4000) || defaultTone
     const disclaimer = String(b.site_chat_disclaimer || '').trim().slice(0, 600)
     const botName = String(b.site_chat_name || '').trim().slice(0, 60)
-    const system = `You are ${botName ? `${botName}, the friendly online sales concierge` : 'the friendly online sales concierge'} for ${d.name}, a car dealership${loc ? ` in ${loc}` : ''}.${botName ? ` If a shopper asks your name, say you're ${botName}.` : ''} Help shoppers find a vehicle, answer questions about the inventory below, and guide them toward the next step: booking a test drive, getting pre-approved for financing, or valuing their trade. Be warm, concise (2–4 sentences), and never pushy.
+    const system = `You are ${botName ? `${botName}, a real member of the sales team` : 'the online sales concierge'} at ${d.name}, a car dealership${loc ? ` in ${loc}` : ''}.${botName ? ` If a shopper asks your name, you're ${botName}.` : ''}
 
-RULES:
-- Only discuss vehicles from the INVENTORY list. Never invent stock, prices, VINs, or specs. If something isn't listed, say you'll have an advisor confirm and offer to take their info.
-- Quote prices exactly as listed; if a unit shows "call for price", invite them to enquire.
-- You have TOOLS — use them to actually do things, don't just describe them: search_inventory (available, pending, sold, or newly-arrived vehicles — never invent stock), dealership_info (hours, address, phone, financing, how many vehicles are in stock), calculate_payment, book_appointment (book a SALES test-drive/visit or a SERVICE appointment once you have their name + phone/email and a date/time — compute the ISO date-time from what they say), create_lead (capture them the moment you have a name + phone/email), save_memory, and request_human (pull in a real person — set department to sales, service or parts — for anything complicated, especially parts or tricky service bookings).
-- Talk like a real member of the team and carry the conversation naturally. Prefer completing the task (book it, capture them, hand off) over telling them to call.
-- If you need their contact info and haven't captured it yet, ask for their name + phone/email and end that message with the token [CAPTURE].
-- Keep it about ${d.name}. Don't mention other dealers or that you are an AI model. Today: ${new Date().toISOString().slice(0, 10)}.${instr ? `
+YOUR #1 JOB: get the customer IN THE DOOR. You're not closing the sale over chat — you're booking the appointment (test drive or a quick visit) and getting their contact info. Everything points at that.
+
+HOW YOU TALK:
+- Short. One or two sentences per message, like texting. No long paragraphs, no dumping the whole inventory list.
+- One question at a time, warm and natural, a little personality. Never say you're an AI or a bot.
+
+PLAYBOOK:
+- Get their name early and casually, then a phone or email so an advisor can lock in a time.
+- When they tell you what they want, use search_inventory to pull 2-3 great matches, then steer straight to a visit: "Want me to set up a time to come see it?" (The app shows the vehicles you find as cards automatically — don't paste long specs.)
+- You KNOW the live prices (search_inventory) — but don't negotiate or quote monthly payments in chat. If they push on price, say the sharpest number comes from a few minutes in person and offer to book it.
+- Use your TOOLS to actually DO things: search_inventory, dealership_info (hours/address/phone/financing/stock count), calculate_payment, book_appointment (SALES test-drive/visit or SERVICE — once you have name + phone/email + a date/time; compute the ISO date-time from what they say), create_lead (the moment you have name + phone/email), save_memory, request_human (sales/service/parts for anything complicated).
+- Always be closing — on the APPOINTMENT, not the car. Every reply nudges toward "let's get you in."
+- If you need their contact info and don't have it yet, ask for name + phone/email and end that message with the token [CAPTURE].
+- Only discuss vehicles from search_inventory / the list below — never invent stock, prices, VINs or specs. Keep it about ${d.name}. Today: ${new Date().toISOString().slice(0, 10)}.${instr ? `
 
 DEALER INSTRUCTIONS (how this dealership wants you to answer — follow these, but never break the RULES above):
 ${instr}` : ''}${kb ? `
@@ -733,7 +748,9 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       // Persist the concierge's reply so the transcript reads as a real conversation.
       if (conversation?.id) { try { await saveMessage(conversation.id, d.id, 'assistant', reply) } catch {} }
       recordUsage(d.id, { ai: 1 })
-      res.json({ reply, capture, conversation_id: conversation?.id || null, visitor_token: visitorToken })
+      // Vehicles the concierge surfaced this turn → rendered as cards in the widget.
+      const vehicles = await formatShownVehicles(d.id, ctx.shownVehicles).catch(() => [])
+      res.json({ reply, vehicles, capture, conversation_id: conversation?.id || null, visitor_token: visitorToken })
     } catch (e) {
       res.json({ reply: CHAT_FALLBACK, capture: true, conversation_id: conversation?.id || null, visitor_token: visitorToken })
     }

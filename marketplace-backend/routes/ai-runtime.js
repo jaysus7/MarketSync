@@ -15,6 +15,7 @@
  * engines can add their own tools without touching this file.
  */
 import Anthropic from '@anthropic-ai/sdk'
+import multer from 'multer'
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { emitEvent } from './events.js'
@@ -32,6 +33,30 @@ import { registerTool, toolDefs, callTool } from './tool-registry.js'
 const MODEL = 'claude-haiku-4-5-20251001'
 const SURFACE = 'sales_chat'   // the agent surface the customer-facing chatbot runs on
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
+const SITE_PUBLIC = process.env.SITE_PUBLIC_URL || FRONTEND_URL || 'https://marketsync.link'
+const aiAvatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 4 * 1024 * 1024 } })
+
+// Turn the vehicles the agent surfaced (ctx.shownVehicles) into rich cards for the
+// chat client: photo, title, price, stock, VIN and a deep link to the vehicle page.
+export async function formatShownVehicles(dealershipId, rows) {
+  if (!rows || !rows.length) return []
+  let base = null
+  try {
+    const { data: d } = await supabaseAdmin.from('dealerships')
+      .select('site_slug, custom_domain, custom_domain_verified').eq('id', dealershipId).maybeSingle()
+    if (d?.custom_domain && d?.custom_domain_verified) base = `https://${d.custom_domain}`
+    else if (d?.site_slug) base = `${SITE_PUBLIC.replace(/\/$/, '')}/${d.site_slug}`
+  } catch {}
+  return rows.slice(0, 12).map(v => ({
+    id: v.id,
+    title: [v.year, v.make, v.model, v.trim].filter(Boolean).join(' '),
+    price: v.price ?? null,
+    image: (Array.isArray(v.image_urls) && v.image_urls[0]) || null,
+    stock: v.stocknumber || v.stock || null,
+    vin: v.vin || null,
+    url: base ? `${base}${base.includes('?') ? '&' : '?'}v=${v.id}` : null,
+  }))
+}
 
 // ── Conversation categorization (deterministic, zero-cost) ───────────────────
 // Tags every chat by department + intent + extracted attributes so the AI Chat
@@ -115,7 +140,7 @@ const SALES_TOOLS = [
     async handler(a, ctx) {
       const status = String(a.status || 'available').toLowerCase()
       let q = supabaseAdmin.from('inventory')
-        .select('id, year, make, model, trim, price, mileage, stocknumber, vin, status, exterior_color, lot_date, created_at, sold_at')
+        .select('id, year, make, model, trim, price, mileage, stocknumber, vin, status, exterior_color, image_urls, lot_date, created_at, sold_at')
         .eq('dealership_id', ctx.dealershipId).is('archived_at', null).limit(8)
       if (status === 'sold') q = q.eq('status', 'sold').order('sold_at', { ascending: false, nullsFirst: false })
       else if (status === 'pending') q = q.eq('status', 'pending')
@@ -125,7 +150,12 @@ const SALES_TOOLS = [
       if (a.min_year) q = q.gte('year', a.min_year)
       if (a.query) q = q.or(`make.ilike.%${a.query}%,model.ilike.%${a.query}%,trim.ilike.%${a.query}%`)
       const { data } = await q
-      return (data || []).map(v => ({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, price: v.price, mileage: v.mileage, stock: v.stocknumber, color: v.exterior_color, status: v.status }))
+      const rows = data || []
+      // Stash the matches so the chat endpoints can render them as rich vehicle
+      // cards (photo + price + View Details) in the widget — dedupe, cap at 12.
+      ctx.shownVehicles = ctx.shownVehicles || []
+      for (const v of rows) { if (!ctx.shownVehicles.some(x => x.id === v.id)) ctx.shownVehicles.push(v) }
+      return rows.map(v => ({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, price: v.price, mileage: v.mileage, stock: v.stocknumber, color: v.exterior_color, status: v.status }))
     },
   },
   {
@@ -342,19 +372,25 @@ async function buildSystem(dealershipId, ctx, contextBundle) {
     const arrivals = avail.filter(v => (v.lot_date || v.created_at) && (now - new Date(v.lot_date || v.created_at)) < 14 * 86400000).length
     invLine = `Inventory right now: ${avail.length} available${arrivals ? `, ${arrivals} new in the last 2 weeks` : ''}. Use search_inventory for the actual vehicles.`
   } catch {}
-  return `You are the AI concierge for ${d?.name || 'the dealership'}${d?.city ? ' in ' + d.city : ''} — talk like a friendly, sharp human on the team, not a bot. ${persona?.tone ? 'Tone: ' + persona.tone + '.' : 'Warm, natural and concise; never pushy or robotic.'}
-You genuinely help with everything and complete tasks rather than just describing them:
-- Find the right vehicle from LIVE inventory (search_inventory — covers what's available, pending, newly arrived, and recently sold; never invent stock or prices).
-- Answer hours / location / phone / financing / specials and how big the lot is (dealership_info).
-- Book SALES test-drives/visits and SERVICE appointments (book_appointment — get their name + phone/email and the date/time, then actually book it and confirm).
-- Estimate payments (calculate_payment) and take trade info.
-- Pull in a real person for anything complicated — especially parts or tricky service (request_human with the right department: sales, service or parts).
-Capture the shopper as a lead (create_lead) the moment you have a name + phone/email. Remember durable facts (save_memory). Ask one question at a time, keep replies to a couple of natural sentences, and carry the conversation like a real person would.
+  const who = persona?.name ? `You are ${persona.name}, a real member of the sales team at ${d?.name || 'the dealership'}` : `You are the online sales concierge for ${d?.name || 'the dealership'}`
+  return `${who}${d?.city ? ' in ' + d.city : ''}. Talk like a warm, sharp human — never a bot. ${persona?.tone ? 'Tone: ' + persona.tone + '.' : 'Friendly, casual and natural.'}
 
-Formatting (your replies render as rich text in the chat, so make them easy to scan):
-- When you list vehicles, use a short bullet per vehicle with the specifics in bold, e.g. "- **2021 Toyota RAV4 XLE** — $28,995 · 42,000 km · Silver (Stock #A1234)". Always reference the concrete details from search_inventory (year, make, model, trim, price, mileage, colour, stock #) — never vague.
-- Use **bold** for the key thing in a sentence (a price, a date, a name), and blank lines between separate thoughts so it breathes.
-- Keep it tight: a lead-in line, then the list. Plain conversational text otherwise — don't over-format short answers, and never show raw symbols like asterisks as characters.
+YOUR #1 JOB: get the customer IN THE DOOR. You are not here to close the sale over chat — you are here to book the appointment (test drive or a quick visit) and capture their contact info. Everything you do points at that.
+
+HOW YOU TALK:
+- Short. One or two sentences per message, like texting. No long paragraphs, no walls of bullets, no dumping the whole inventory.
+- One question at a time. Keep it moving naturally.
+- Warm and human — a little personality, not scripted or robotic. Never say you're an AI.
+
+PLAYBOOK:
+- Get their name early, casually ("Who do I have the pleasure of chatting with?"). Then get a phone or email so a product advisor can lock in a time.
+- When they describe what they want, pull 2-3 great matches with search_inventory and show them — then immediately steer to a visit: "Want me to set up a time to come see it?"
+- You KNOW the prices (search_inventory is live) — but don't negotiate or talk monthly numbers in chat. If they push on price/payment, say the best numbers come from sitting down for a few minutes, and offer to book it: "Our team can get you the sharpest number in person — when works for you?"
+- The moment you have a name + phone/email, call create_lead. As soon as they'll commit to a time, call book_appointment and confirm it warmly.
+- Complicated parts/service questions → request_human (right department). Remember useful facts with save_memory.
+- Always be closing — on the APPOINTMENT, not the car. Every reply should nudge toward "let's get you in."
+
+Never invent stock, prices, or specs — only what search_inventory / dealership_info return. The chat renders **bold** and links, so bold a name or a date when it helps, but keep it minimal and conversational — never show raw asterisks. Don't paste vehicle specs as long text; the app shows the vehicles you find as cards automatically.
 ${contact ? '\n' + contact : ''}
 ${kbLines ? `\nDealership info (answer from this, don't invent):\n${kbLines}` : ''}
 ${invLine ? '\n' + invLine : ''}
@@ -405,7 +441,8 @@ async function runChat({ dealershipId, conversation, contactId, userText, isOwne
   await rescoreLead(ctx, allMsgs, bundle.memory)
   // Categorize the conversation (department/intent/tags) for the AI Chat dashboard feed.
   categorizeConversation(dealershipId, conversation.id, allMsgs.filter(m => m.role === 'user').map(m => m.message).join(' '), { booked: !!ctx.booked }).catch(() => {})
-  return { reply: replyText, conversation_id: conversation.id, contact_id: ctx.contactRef.id, lead_score: conversation.lead_score }
+  const vehicles = await formatShownVehicles(dealershipId, ctx.shownVehicles)
+  return { reply: replyText, vehicles, conversation_id: conversation.id, contact_id: ctx.contactRef.id, lead_score: conversation.lead_score }
 }
 
 // ── Conversation summary (structured, for CRM) ───────────────────────────────
@@ -445,7 +482,13 @@ export function registerAiRuntime(app) {
     const { data: d } = await supabaseAdmin.from('dealerships').select('id, name, ai_chatbot_active').eq('id', dealer).maybeSingle()
     if (!d) return res.json({ enabled: false })
     const persona = await getConfig(d.id, 'ai_personality', {})
-    res.json({ enabled: !!d.ai_chatbot_active, name: d.name, greeting: persona?.greeting || 'Hi! How can I help you find your next vehicle?' })
+    res.json({
+      enabled: !!d.ai_chatbot_active,
+      name: d.name,
+      assistant_name: persona?.name || null,
+      avatar: persona?.avatar_url || null,
+      greeting: persona?.greeting || 'Hi! How can I help you find your next vehicle?',
+    })
   })
 
   app.post('/ai/widget/chat', rateLimit('widgetchat', 20, 60000), async (req, res) => {
@@ -540,9 +583,28 @@ export function registerAiRuntime(app) {
   app.put('/ai/personality', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const b = req.body || {}
-    const value = { tone: String(b.tone || '').slice(0, 200), greeting: String(b.greeting || '').slice(0, 400) }
+    const prev = await getConfig(req.dealershipId, 'ai_personality', {})
+    const value = {
+      ...prev,
+      tone: String(b.tone || '').slice(0, 200),
+      greeting: String(b.greeting || '').slice(0, 400),
+      name: String(b.name || '').slice(0, 60),
+      avatar_url: String(b.avatar_url || '').slice(0, 600),
+    }
     try { await setConfig(req.dealershipId, 'ai_personality', value, req); res.json({ ok: true, personality: value }) }
     catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // Upload a custom headshot for the AI concierge (Settings → AI Chat).
+  app.post('/ai/avatar-upload', requireAuth, aiAvatarUpload.single('file'), async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    if (!req.file || !(req.file.mimetype || '').startsWith('image/')) return res.status(400).json({ error: 'Upload an image' })
+    const ext = (req.file.mimetype.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
+    const path = `${req.dealershipId}/ai-avatar/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const { error } = await supabaseAdmin.storage.from('vehicle-pdfs').upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: true })
+    if (error) return res.status(500).json({ error: 'Upload failed' })
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-pdfs').getPublicUrl(path)
+    res.json({ ok: true, url: publicUrl })
   })
 
   // The dealer's copy-paste embed snippet for LeadBox / eDealer / any site.
