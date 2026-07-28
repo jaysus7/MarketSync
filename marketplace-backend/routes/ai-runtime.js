@@ -629,8 +629,10 @@ export function registerAiRuntime(app) {
     if (!convo) return res.status(404).json({ error: 'not found' })
     const mode = String(req.body?.mode || 'human')
     let text = String(req.body?.message || '').trim().slice(0, 4000)
-    // 'draft' (or legacy 'ai') generates a suggested reply from the concierge runtime.
-    if (mode === 'draft' || mode === 'ai') {
+    // 'draft' generates a suggested reply into the rep's box (not sent). 'human' and
+    // 'ai' both SEND the rep's typed text — the only difference is who it's attributed
+    // to (the rep vs the AI avatar).
+    if (mode === 'draft') {
       try {
         const bundle = await assembleContext(req.dealershipId, { conversationId: convo.id, contactId: convo.contact_id })
         const ctx = { dealershipId: req.dealershipId, conversation: convo, contactRef: { id: convo.contact_id } }

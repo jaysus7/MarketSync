@@ -12028,6 +12028,9 @@ async function aiOpenConversation(id) {
   let convo = null, messages = [], memory = [];
   try { const d = await apiGetJson(`/ai/conversations/${id}`); convo = d.conversation; messages = d.messages || []; memory = d.memory || []; } catch { if (panel) panel.innerHTML = '<div class="p-6 text-rose-500 text-sm">Could not load.</div>'; return; }
   if (!panel || !overlay.isConnected) return;
+  // Persona name for the "Reply as" toggle (cached).
+  if (window.__aiAssistantName === undefined) { try { const pr = await apiGetJson('/ai/personality'); window.__aiAssistantName = pr.personality?.name || ''; } catch { window.__aiAssistantName = ''; } }
+  convo.assistant_name = window.__aiAssistantName || 'AI assistant';
   __aiConvo = { id, convo, messages, memory };
   const bubbles = messages.map(m => {
     const isUser = m.role === 'user';
@@ -12065,15 +12068,22 @@ async function aiOpenConversation(id) {
     ${memHtml}
     <div id="ai-convo-log" class="space-y-2 max-h-72 overflow-y-auto p-1">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
     <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-2 space-y-2">
-      <div class="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">${handoff ? svgIcon('dot', 'w-3 h-3 text-emerald-500') + ' You\'ve taken over — replying as the dealership' : 'Reply to the customer (this takes over the chat from the AI)'}</div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[11px] font-bold text-slate-500">Reply as:</span>
+        <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-[11px] font-bold">
+          <button type="button" id="ai-as-rep" onclick="aiSetReplyAs('rep')" class="px-2.5 py-1 rounded transition">👤 You (rep)</button>
+          <button type="button" id="ai-as-ai" onclick="aiSetReplyAs('ai')" class="px-2.5 py-1 rounded transition">🤖 ${esc(convo.assistant_name || 'AI assistant')}</button>
+        </div>
+      </div>
       <textarea id="ai-reply-box" rows="2" placeholder="Type your reply to the customer…" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></textarea>
       <div class="flex items-center gap-2">
-        <button onclick="aiSendReply('${id}','human',this)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Send reply</button>
-        <button onclick="aiDraftReply('${id}',this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg" title="Draft an AI reply into the box — edit it, then Send">✨ AI draft</button>
+        <button onclick="aiSendReply('${id}',null,this)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Send</button>
+        <button onclick="aiDraftReply('${id}',this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg" title="Draft a reply with AI into the box — edit it, then Send">✨ Draft with AI</button>
         ${handoff ? `<button onclick="aiSetConvStatus('${id}','active',this)" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">Hand back to AI</button>` : ''}
         <div class="flex-1"></div>
         <button onclick="aiRefreshConvo('${id}')" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2" title="Refresh">↻</button>
       </div>
+      <p class="text-[11px] text-slate-400">Sending as <b>You</b> takes over the chat from the AI. Sending as the assistant keeps the AI persona.</p>
     </div>
     <div class="flex items-center gap-1 pt-1 border-t border-slate-100 dark:border-slate-800 flex-wrap">
       <button onclick="aiPrintConversation()" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">🖨 Save / Print PDF</button>
@@ -12088,16 +12098,27 @@ async function aiOpenConversation(id) {
       <div class="flex-1"></div>
       <button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-3 py-2">Close</button>
     </div></div>`;
+  aiSetReplyAs(__aiReplyAs);   // paint the "Reply as" toggle's active state
+}
+let __aiReplyAs = 'rep';   // who the typed reply is attributed to: 'rep' or 'ai'
+function aiSetReplyAs(who) {
+  __aiReplyAs = who === 'ai' ? 'ai' : 'rep';
+  const on = 'bg-indigo-600 text-white', off = 'text-slate-600 dark:text-slate-300';
+  const rep = document.getElementById('ai-as-rep'), ai = document.getElementById('ai-as-ai');
+  if (rep) rep.className = `px-2.5 py-1 rounded transition ${__aiReplyAs === 'rep' ? on : off}`;
+  if (ai) ai.className = `px-2.5 py-1 rounded transition ${__aiReplyAs === 'ai' ? on : off}`;
 }
 async function aiSendReply(id, mode, btn) {
+  // mode null → use the "Reply as" toggle (rep = human, ai = AI avatar).
+  const sendMode = mode || (__aiReplyAs === 'ai' ? 'ai' : 'human');
   const box = document.getElementById('ai-reply-box');
-  const message = mode === 'human' ? (box?.value || '').trim() : '';
-  if (mode === 'human' && !message) { showToast('Type a reply first', 'error'); return; }
+  const message = (box?.value || '').trim();
+  if (!message) { showToast('Type a reply first', 'error'); return; }
   if (btn) btn.disabled = true;
   try {
-    await apiSendJson(`/ai/conversations/${id}/reply`, 'POST', { mode, message });
+    await apiSendJson(`/ai/conversations/${id}/reply`, 'POST', { mode: sendMode, message });
     if (box) box.value = '';
-    showToast(mode === 'ai' ? 'AI reply sent ✓' : 'Reply sent ✓', 'success');
+    showToast(sendMode === 'ai' ? 'Sent as the assistant ✓' : 'Sent as you ✓', 'success');
     aiOpenConversation(id);   // refresh transcript
   } catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) btn.disabled = false; }
 }
@@ -12157,7 +12178,7 @@ function aiCheckConvoHash() {
   if (m && typeof aiOpenConversation === 'function') aiOpenConversation(m[1]);
 }
 window.addEventListener('hashchange', aiCheckConvoHash);
-Object.assign(window, { loadAiInbox, aiCopyEmbed, aiOpenConversation, aiSetConvStatus, aiSummarize, aiSendReply, aiDraftReply, aiRefreshConvo, aiPrintConversation, aiShareConversation });
+Object.assign(window, { loadAiInbox, aiCopyEmbed, aiOpenConversation, aiSetConvStatus, aiSummarize, aiSendReply, aiSetReplyAs, aiDraftReply, aiRefreshConvo, aiPrintConversation, aiShareConversation });
 
 // Budget — a monthly spending target per expense category, tracked against actual spend.
 async function acctLoadBudget() {
