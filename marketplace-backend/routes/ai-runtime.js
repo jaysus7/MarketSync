@@ -68,7 +68,7 @@ export async function formatShownVehicles(dealershipId, rows) {
     if (d?.custom_domain && d?.custom_domain_verified) base = `https://${d.custom_domain}/?v=`
     else if (d?.site_slug) base = `${SITE_PUBLIC.replace(/\/$/, '')}/site.html?d=${encodeURIComponent(d.site_slug)}&v=`
   } catch {}
-  return rows.slice(0, 12).map(v => ({
+  return rows.slice(0, 24).map(v => ({
     id: v.id,
     title: [v.year, v.make, v.model, v.trim].filter(Boolean).join(' '),
     price: v.price ?? null,
@@ -163,7 +163,7 @@ const SALES_TOOLS = [
       const status = String(a.status || 'available').toLowerCase()
       let q = supabaseAdmin.from('inventory')
         .select('id, year, make, model, trim, price, mileage, stocknumber, vin, status, condition, exterior_color, image_urls, lot_date, created_at, sold_at')
-        .eq('dealership_id', ctx.dealershipId).is('archived_at', null).limit(8)
+        .eq('dealership_id', ctx.dealershipId).is('archived_at', null).limit(30)
       if (status === 'sold') q = q.eq('status', 'sold').order('sold_at', { ascending: false, nullsFirst: false })
       else if (status === 'pending') q = q.eq('status', 'pending')
       else if (status === 'arriving' || status === 'new') q = q.eq('status', 'available').order('lot_date', { ascending: false, nullsFirst: false })
@@ -179,9 +179,12 @@ const SALES_TOOLS = [
         const STOP = new Set(['new', 'used', 'demo', 'the', 'a', 'an', 'car', 'cars', 'vehicle', 'vehicles', 'suv', 'suvs', 'truck', 'trucks', 'sedan', 'van', 'with', 'and', 'or', 'for', 'me', 'you', 'do', 'have', 'any', 'looking', 'around', 'under', 'buy', 'price', 'want', 'need', 'like', 'in', 'stock'])
         const tokens = String(a.query).toLowerCase().split(/\s+/).map(t => t.replace(/[^a-z0-9]/g, '')).filter(Boolean)
         for (const t of tokens) {
-          if (/^(19|20)\d{2}$/.test(t)) { q = q.eq('year', parseInt(t, 10)); continue }   // a model year
+          if (/^(19|20)\d{2}s?$/.test(t)) { q = q.eq('year', parseInt(t, 10)); continue }   // a model year (incl. "2024s")
           if (t.length < 2 || STOP.has(t)) continue
-          const w = SYN[t] || t
+          let w = SYN[t] || t
+          // Stem a trailing plural "s" so "envisions" matches model "Envision",
+          // "silverados" → "Silverado", etc.
+          if (w.length > 3 && w.endsWith('s')) w = w.slice(0, -1)
           q = q.or(`make.ilike.%${w}%,model.ilike.%${w}%,trim.ilike.%${w}%`)
         }
       }
