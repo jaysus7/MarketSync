@@ -13,7 +13,7 @@ import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '.
 import { runAutoResponder } from '../autoresponder.js'
 import { depositConfigForSite } from './deposits.js'
 import { toolDefs, callTool } from './tool-registry.js'
-import { startOrContinueConversation } from './ai-engine.js'
+import { startOrContinueConversation, saveMessage } from './ai-engine.js'
 import { categorizeConversation } from './ai-runtime.js'
 
 const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
@@ -693,6 +693,10 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     if (!conversation) { try { conversation = await startOrContinueConversation(d.id, { visitorToken, website: `site:${slug}`, source: 'site' }) } catch {} }
     const ctx = { dealershipId: d.id, conversation: conversation || { id: null }, contactRef: { id: conversation?.contact_id || null } }
 
+    // Persist the shopper's turn so the dealer console's transcript (AI Chat →
+    // conversation) shows the real history. The reply is saved after the loop.
+    if (conversation?.id && lastUser) { try { await saveMessage(conversation.id, d.id, 'user', lastUser) } catch {} }
+
     try {
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
       const tools = toolDefs('sales_chat')
@@ -726,6 +730,8 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       // Only show the lead form when we still need contact info (no lead captured yet).
       const capture = captureTok && !ctx.contactRef.id
       if (!reply) return res.json({ reply: CHAT_FALLBACK, capture: true, conversation_id: conversation?.id || null, visitor_token: visitorToken })
+      // Persist the concierge's reply so the transcript reads as a real conversation.
+      if (conversation?.id) { try { await saveMessage(conversation.id, d.id, 'assistant', reply) } catch {} }
       recordUsage(d.id, { ai: 1 })
       res.json({ reply, capture, conversation_id: conversation?.id || null, visitor_token: visitorToken })
     } catch (e) {
