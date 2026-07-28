@@ -10526,7 +10526,9 @@ async function aiHomeSettings(body) {
           <div class="text-[12px] font-bold text-slate-500 mb-2">…or use your own photo</div>
           <div class="flex flex-wrap items-center gap-2">
             <label class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold cursor-pointer transition">Upload photo<input type="file" accept="image/*" class="hidden" onchange="aiUploadAvatar(this)"></label>
-            <input id="ai-p-avatar" value="${esc(p.avatar_url || '')}" oninput="document.getElementById('ai-p-avatar-preview').src=this.value||'${AI_AVATAR_FALLBACK}'" placeholder="or paste an image URL" class="flex-1 min-w-[180px] px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
+            <button type="button" onclick="aiClearAvatar()" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm font-bold">Remove photo</button>
+            <span id="ai-p-avatar-status" class="text-[12px] text-slate-400">${p.avatar_url ? 'Photo set ✓' : ''}</span>
+            <input type="hidden" id="ai-p-avatar" value="${esc(p.avatar_url || '')}">
           </div>
         </div>
       </div>
@@ -10553,11 +10555,16 @@ async function aiHomeSettings(body) {
       </div>
     </div>`;
 }
-function aiPickPreset(name, avatarUri) {
-  const nm = document.getElementById('ai-p-name'); if (nm && !nm.value.trim()) nm.value = name;
-  const av = document.getElementById('ai-p-avatar'); if (av) av.value = avatarUri;
-  const pv = document.getElementById('ai-p-avatar-preview'); if (pv) pv.src = avatarUri;
+function aiSetAvatar(uri, status) {
+  const av = document.getElementById('ai-p-avatar'); if (av) av.value = uri || '';
+  const pv = document.getElementById('ai-p-avatar-preview'); if (pv) pv.src = uri || AI_AVATAR_FALLBACK;
+  const st = document.getElementById('ai-p-avatar-status'); if (st) st.textContent = uri ? (status || 'Photo set ✓') : '';
 }
+function aiPickPreset(name, avatarUri) {
+  const nm = document.getElementById('ai-p-name'); if (nm && !nm.value.trim() && name) nm.value = name;
+  aiSetAvatar(avatarUri, 'Selected ✓');
+}
+function aiClearAvatar() { aiSetAvatar('', ''); }
 async function aiUploadAvatar(input) {
   const file = input.files && input.files[0]; if (!file) return;
   showToast('Uploading…', 'info');
@@ -10565,8 +10572,7 @@ async function aiUploadAvatar(input) {
     const fd = new FormData(); fd.append('file', file);
     const r = await fetch(`${API}/ai/avatar-upload`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Upload failed');
-    const av = document.getElementById('ai-p-avatar'); if (av) av.value = d.url;
-    const pv = document.getElementById('ai-p-avatar-preview'); if (pv) pv.src = d.url;
+    aiSetAvatar(d.url, 'Photo uploaded ✓');
     showToast('Photo uploaded ✓', 'success');
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -10594,7 +10600,7 @@ async function aiHomeSaveControls(btn) {
   } catch (e) { showToast(e.message, 'error'); }
   if (btn) btn.disabled = false;
 }
-Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, aiHomeSaveControls, aiFeedApply, aiPickPreset, aiUploadAvatar });
+Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, aiHomeSaveControls, aiFeedApply, aiPickPreset, aiUploadAvatar, aiClearAvatar });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Engine UI Framework — every engine renders inside one reusable shell that
