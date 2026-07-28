@@ -170,7 +170,21 @@ const SALES_TOOLS = [
       else if (status !== 'any') q = q.eq('status', 'available')
       if (a.max_price) q = q.lte('price', a.max_price)
       if (a.min_year) q = q.gte('year', a.min_year)
-      if (a.query) q = q.or(`make.ilike.%${a.query}%,model.ilike.%${a.query}%,trim.ilike.%${a.query}%`)
+      // Match each WORD across make/model/trim (and years against the year column) so
+      // multi-word / brand-nickname searches work — "Chevy Blazer", "2026 Envision
+      // Sport Touring", "Silverado 1500" — instead of matching the whole phrase to a
+      // single column (which found nothing and made the bot say "no stock").
+      if (a.query) {
+        const SYN = { chevy: 'chevrolet', vw: 'volkswagen', benz: 'mercedes', caddy: 'cadillac', beemer: 'bmw', bimmer: 'bmw', vette: 'corvette' }
+        const STOP = new Set(['new', 'used', 'demo', 'the', 'a', 'an', 'car', 'cars', 'vehicle', 'vehicles', 'suv', 'suvs', 'truck', 'trucks', 'sedan', 'van', 'with', 'and', 'or', 'for', 'me', 'you', 'do', 'have', 'any', 'looking', 'around', 'under', 'buy', 'price', 'want', 'need', 'like', 'in', 'stock'])
+        const tokens = String(a.query).toLowerCase().split(/\s+/).map(t => t.replace(/[^a-z0-9]/g, '')).filter(Boolean)
+        for (const t of tokens) {
+          if (/^(19|20)\d{2}$/.test(t)) { q = q.eq('year', parseInt(t, 10)); continue }   // a model year
+          if (t.length < 2 || STOP.has(t)) continue
+          const w = SYN[t] || t
+          q = q.or(`make.ilike.%${w}%,model.ilike.%${w}%,trim.ilike.%${w}%`)
+        }
+      }
       const { data } = await q
       const rows = data || []
       // Stash the matches so the chat endpoints can render them as rich vehicle
