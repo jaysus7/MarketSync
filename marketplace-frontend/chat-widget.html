@@ -47,10 +47,11 @@
     .ft input:focus { border-color: var(--accent); }
     .ft button { border: 0; background: var(--accent); color: #fff; border-radius: 10px; padding: 0 14px; font-weight: 700; cursor: pointer; }
     .ft button:disabled { opacity: .5; cursor: default; }
-    .brand { text-align: center; font-size: 10px; line-height: 1.45; color: #94a3b8; padding: 7px 10px; background: #fff; border-top: 1px solid #f1f5f9; }
-    .brand a { color: #64748b; font-weight: 700; text-decoration: underline; }
-    .brand img { height: 12px; width: auto; vertical-align: -2px; }
-    .brand .sm { font-size: 9px; color: #b6c0cc; margin-top: 1px; }
+    .brand { text-align: center; font-size: 11px; line-height: 1.5; color: #475569; padding: 8px 12px; background: #fff; border-top: 1px solid #e2e8f0; }
+    .brand a { color: var(--accent); font-weight: 700; text-decoration: underline; }
+    .brand .wm { font-weight: 800; color: #0f172a; }
+    .brand .sm { font-size: 10px; color: #64748b; margin-top: 2px; }
+    .brand .sm a { color: #475569; }
     .off { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; color: #64748b; padding: 24px; font-size: 14px; }
   </style>
 </head>
@@ -66,7 +67,7 @@
       <button id="send">Send</button>
     </div>
     <div class="brand" id="brand" style="display:none;">
-      <div>Powered by <a href="https://marketsync.link" target="_blank" rel="noopener"><img src="https://marketsync.link/logo.png" alt="MarketSync"></a>. Use is subject to MarketSync's <a href="https://marketsync.link/terms.html" target="_blank" rel="noopener">Terms</a> and <a href="https://marketsync.link/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.</div>
+      <div>Powered by <a class="wm" href="https://marketsync.link" target="_blank" rel="noopener">MarketSync</a>. Use is subject to MarketSync's <a href="https://marketsync.link/terms.html" target="_blank" rel="noopener">Terms</a> and <a href="https://marketsync.link/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.</div>
       <div class="sm">This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms of Service</a> apply.</div>
     </div>
     <div class="off" id="off" style="display:none;">Chat isn't available right now.</div>
@@ -130,7 +131,8 @@
       row.innerHTML=vehicles.map(function(v){
         var img=v.image?'<img src="'+esc(v.image)+'" loading="lazy">':'<div style="height:120px;background:#f1f5f9"></div>';
         var view=v.url?'<a href="'+esc(v.url)+'" target="_blank" rel="noopener">View Details</a>':'';
-        return '<div class="card">'+img+'<div class="p">'+(v.stock?'<div class="sub">Stock #'+esc(String(v.stock))+'</div>':'')+'<div class="t">'+esc(v.title||'Vehicle')+'</div><div class="pr">'+money(v.price)+'</div></div><div class="btns">'+view+'<button data-sel="'+esc(v.title||'')+'">Select</button></div></div>';
+        var cond=v.condition?'<span style="text-transform:capitalize;color:var(--accent);font-weight:800">'+esc(v.condition)+'</span>'+(v.stock?' · ':''):'';
+        return '<div class="card">'+img+'<div class="p"><div class="sub">'+cond+(v.stock?'Stock #'+esc(String(v.stock)):'')+'</div><div class="t">'+esc(v.title||'Vehicle')+'</div><div class="pr">'+money(v.price)+'</div></div><div class="btns">'+view+'<button data-sel="'+esc(v.title||'')+'">Select</button></div></div>';
       }).join('');
       row.querySelectorAll('button[data-sel]').forEach(function(btn){ btn.onclick=function(){ inp.value="I'm interested in the "+btn.getAttribute('data-sel')+". Can we set up a time to see it?"; send(); }; });
       msgsEl.appendChild(row); msgsEl.scrollTop=msgsEl.scrollHeight;

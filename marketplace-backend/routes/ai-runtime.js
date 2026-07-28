@@ -75,6 +75,7 @@ export async function formatShownVehicles(dealershipId, rows) {
     image: (Array.isArray(v.image_urls) && v.image_urls[0]) || null,
     stock: v.stocknumber || v.stock || null,
     vin: v.vin || null,
+    condition: v.condition || null,
     url: base ? `${base}${v.id}` : null,
   }))
 }
@@ -161,7 +162,7 @@ const SALES_TOOLS = [
     async handler(a, ctx) {
       const status = String(a.status || 'available').toLowerCase()
       let q = supabaseAdmin.from('inventory')
-        .select('id, year, make, model, trim, price, mileage, stocknumber, vin, status, exterior_color, image_urls, lot_date, created_at, sold_at')
+        .select('id, year, make, model, trim, price, mileage, stocknumber, vin, status, condition, exterior_color, image_urls, lot_date, created_at, sold_at')
         .eq('dealership_id', ctx.dealershipId).is('archived_at', null).limit(8)
       if (status === 'sold') q = q.eq('status', 'sold').order('sold_at', { ascending: false, nullsFirst: false })
       else if (status === 'pending') q = q.eq('status', 'pending')
@@ -176,7 +177,7 @@ const SALES_TOOLS = [
       // cards (photo + price + View Details) in the widget — dedupe, cap at 12.
       ctx.shownVehicles = ctx.shownVehicles || []
       for (const v of rows) { if (!ctx.shownVehicles.some(x => x.id === v.id)) ctx.shownVehicles.push(v) }
-      return rows.map(v => ({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, price: v.price, mileage: v.mileage, stock: v.stocknumber, color: v.exterior_color, status: v.status }))
+      return rows.map(v => ({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, price: v.price, mileage: v.mileage, stock: v.stocknumber, color: v.exterior_color, status: v.status, condition: v.condition || null }))
     },
   },
   {
@@ -412,6 +413,8 @@ PLAYBOOK:
 - Always be closing — on the APPOINTMENT, not the car. Every reply should nudge toward "let's get you in."
 
 Never invent stock, prices, or specs — only what search_inventory / dealership_info return. The chat renders **bold** and links, so bold a name or a date when it helps, but keep it minimal and conversational — never show raw asterisks. Don't paste vehicle specs as long text; the app shows the vehicles you find as cards automatically.
+
+CONDITION — be exact: describe a vehicle ONLY by its listed condition (New, Used, or Demo). NEVER imply newness from mileage or say things like "basically brand new", "only a few km", or "practically new" — a brand-new vehicle can legally carry delivery kilometres, so that's misleading. Don't quote kilometres on New vehicles at all; just say it's new. For Used/Demo you may mention the km. If a car's condition isn't in the data, don't guess.
 ${contact ? '\n' + contact : ''}
 ${kbLines ? `\nDealership info (answer from this, don't invent):\n${kbLines}` : ''}
 ${invLine ? '\n' + invLine : ''}
