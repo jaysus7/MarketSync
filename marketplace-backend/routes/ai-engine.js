@@ -73,10 +73,12 @@ export async function saveMessage(conversationId, dealershipId, role, message, {
   if (!conversationId || !dealershipId || !role) return null
   const { data, error } = await supabaseAdmin.from('ai_messages')
     .insert({ conversation_id: conversationId, dealership_id: dealershipId, role, message: String(message || ''), tokens, attachments })
-    .select('id').single()
+    .select('id, created_at').single()
   if (error) { console.warn('[ai-engine] saveMessage failed:', error.message); return null }
   await supabaseAdmin.from('ai_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversationId)
-  return data?.id || null
+  // Returns { id, created_at } — the timestamp lets chat clients poll for new
+  // messages (rep take-over) without re-rendering ones they already have.
+  return data || null
 }
 
 export async function getHistory(conversationId, limit = 50) {

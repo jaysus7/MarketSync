@@ -1042,6 +1042,7 @@
       p.style.display=CHAT_OPEN?'flex':'none';
       if(CHAT_OPEN){
         if(!CHAT.length){ const s=(DATA&&DATA.site)||{}; const cn=(s.chat_name||'').trim(); const greet=(s.chat_greeting||'').trim()||`Hi! 👋 ${cn?`I'm ${cn}. `:''}Looking for something specific, or want help finding the right vehicle? Ask me anything!`; chatPush('bot',greet); }
+        chatStartPoll();
         setTimeout(()=>document.getElementById('ms-chat-input')?.focus(),50);
       }
     }
@@ -1111,6 +1112,20 @@
       }).join('');
       log.appendChild(row); log.scrollTop=log.scrollHeight;
     }
+    // Poll for rep replies during a take-over so the customer sees them live.
+    function chatStartPoll(){
+      if(window.__msPollTimer||!window.MS_CHAT_CONV||!window.MS_CHAT_VTOK) return;
+      if(!window.MS_CHAT_AFTER) window.MS_CHAT_AFTER=new Date().toISOString();
+      window.__msPollTimer=setInterval(chatPollOnce,5000);
+    }
+    async function chatPollOnce(){
+      if(!CHAT_OPEN||!window.MS_CHAT_CONV||!window.MS_CHAT_VTOK) return;
+      try{
+        const u=`${API}/ai/public/messages?conversation_id=${encodeURIComponent(MS_CHAT_CONV)}&visitor_token=${encodeURIComponent(MS_CHAT_VTOK)}${MS_CHAT_AFTER?`&after=${encodeURIComponent(MS_CHAT_AFTER)}`:''}`;
+        const r=await fetch(u); const d=await r.json().catch(()=>({}));
+        (d.messages||[]).forEach(m=>{ chatPush('bot',m.message); if(m.at) window.MS_CHAT_AFTER=m.at; });
+      }catch(e){}
+    }
     // "Select" a card → drop it into the chat so the concierge can book a visit around it.
     function chatSelectVehicle(title){
       const inp=document.getElementById('ms-chat-input'); if(!inp) return;
@@ -1134,8 +1149,12 @@
         if(d.conversation_id) window.MS_CHAT_CONV=d.conversation_id;
         if(d.visitor_token) window.MS_CHAT_VTOK=d.visitor_token;
         chatTyping(false);
-        chatPush('bot',d.reply||"Sorry, I didn't catch that — could you rephrase?");
+        if(d.reply) chatPush('bot',d.reply);
+        else if(d.handoff && !window.__msHandoffNote){ window.__msHandoffNote=1; chatPush('bot',"You're now chatting with a member of our team 👋"); }
+        else if(!d.handoff) chatPush('bot',"Sorry, I didn't catch that — could you rephrase?");
         chatPushVehicles(d.vehicles);
+        if(d.reply_at) window.MS_CHAT_AFTER=d.reply_at;
+        chatStartPoll();   // pick up any rep replies (take-over) live
         if(d.capture&&!CHAT_CAPTURED) document.getElementById('ms-chat-capture').style.display='block';
       }catch(_){ chatTyping(false); chatPush('bot',"I'm having trouble connecting — please leave your info and we'll reach out."); document.getElementById('ms-chat-capture').style.display='block'; }
       CHAT_BUSY=false;

@@ -11968,33 +11968,95 @@ function aiCopyEmbed() {
   const el = document.getElementById('ai-embed-code'); if (!el) return;
   navigator.clipboard?.writeText(el.textContent).then(() => showToast('Snippet copied ✓', 'success')).catch(() => showToast('Copy failed', 'error'));
 }
+// Mirrors the backend scoreConversation() so we can explain how a lead score was
+// reached. Keep in sync with routes/ai-runtime.js:scoreConversation.
+function aiScoreFactors(messages, captured, memory) {
+  const text = (messages || []).filter(m => m.role === 'user').map(m => m.message).join(' ').toLowerCase();
+  const eng = Math.min(20, (messages || []).length * 2);
+  return [
+    { label: 'Engagement (message count)', pts: eng, on: eng > 0 },
+    { label: 'Shared contact info', pts: 25, on: !!captured },
+    { label: 'Mentioned a trade-in', pts: 12, on: /trade|trade-in|my car/.test(text) },
+    { label: 'Asked about financing / payments', pts: 15, on: /financ|payment|apr|monthly|approv|credit/.test(text) },
+    { label: 'Wants a test drive / to visit', pts: 15, on: /test drive|appointment|come in|visit|see it/.test(text) },
+    { label: 'Buying-intent language', pts: 8, on: /buy|purchase|deal|price|available|in stock/.test(text) },
+    { label: 'Named a vehicle of interest', pts: 5, on: (memory || []).some(m => m.memory_type === 'vehicle_interest') },
+  ];
+}
+let __aiConvo = null;   // last opened conversation cache (for print / share)
 async function aiOpenConversation(id) {
   const overlay = crmOverlay(`<div class="p-5"><div class="text-sm text-slate-400 py-16 text-center">Loading…</div></div>`, 'max-w-2xl');
   const panel = overlay.firstElementChild;
   let convo = null, messages = [], memory = [];
   try { const d = await apiGetJson(`/ai/conversations/${id}`); convo = d.conversation; messages = d.messages || []; memory = d.memory || []; } catch { if (panel) panel.innerHTML = '<div class="p-6 text-rose-500 text-sm">Could not load.</div>'; return; }
   if (!panel || !overlay.isConnected) return;
+  __aiConvo = { id, convo, messages, memory };
   const bubbles = messages.map(m => `<div class="flex ${m.role === 'user' ? 'justify-start' : 'justify-end'}">
-    <div class="max-w-[80%] px-3 py-2 rounded-2xl text-[13px] ${m.role === 'user' ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200' : 'bg-indigo-600 text-white'}">${esc(m.message)}</div></div>`).join('');
+    <div class="max-w-[80%] px-3 py-2 rounded-2xl text-[13px] whitespace-pre-wrap ${m.role === 'user' ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200' : 'bg-indigo-600 text-white'}">${esc(m.message)}</div></div>`).join('');
   const memHtml = memory.length ? `<div class="flex flex-wrap gap-1.5 mb-3">${memory.map(m => `<span class="text-[11px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(m.memory_type)}: ${esc(m.value)}</span>`).join('')}</div>` : '';
+  const score = convo.lead_score || 0;
+  const factors = aiScoreFactors(messages, !!convo.contact_id, memory);
+  const factorRows = factors.map(f => `<div class="flex items-center justify-between text-[12px] py-0.5">
+    <span class="flex items-center gap-1.5 ${f.on ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 line-through'}">${f.on ? svgIcon('dot', 'w-3 h-3 text-emerald-500') : ''}${esc(f.label)}</span>
+    <span class="font-bold ${f.on ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}">+${f.pts}</span></div>`).join('');
+  const handoff = convo.status === 'handoff';
   panel.innerHTML = `<div class="p-5 space-y-3">
     <div class="flex items-center justify-between">
-      <div class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">AI Conversation <span class="text-[11px] font-bold px-2 py-0.5 rounded-lg ${AI_SCORE_TONE(convo.lead_score||0)}">score ${convo.lead_score||0}</span></div>
+      <div class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">AI Conversation
+        <button onclick="document.getElementById('ai-score-explain').classList.toggle('hidden')" title="How is this scored?" class="text-[11px] font-bold px-2 py-0.5 rounded-lg ${AI_SCORE_TONE(score)}">score ${score} ⓘ</button>
+      </div>
       <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div id="ai-score-explain" class="hidden bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1.5">Lead score — how it's calculated (0–100)</div>
+      ${factorRows}
+      <div class="text-[11px] text-slate-400 mt-2">Higher = hotter. 80+ triggers a hot-lead alert to the team.</div>
     </div>
     ${convo.summary ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2 whitespace-pre-wrap">${esc(convo.summary)}</div>` : ''}
     ${memHtml}
-    <div class="space-y-2 max-h-80 overflow-y-auto p-1">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
-    <div class="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-      ${convo.status !== 'handoff' ? `<button onclick="aiSetConvStatus('${id}','handoff',this)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Take over</button>` : `<button onclick="aiSetConvStatus('${id}','active',this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg">Return to AI</button>`}
+    <div id="ai-convo-log" class="space-y-2 max-h-72 overflow-y-auto p-1">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
+    <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-2 space-y-2">
+      <div class="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">${handoff ? svgIcon('dot', 'w-3 h-3 text-emerald-500') + ' You\'ve taken over — replying as the dealership' : 'Reply to the customer (this takes over the chat from the AI)'}</div>
+      <textarea id="ai-reply-box" rows="2" placeholder="Type your reply to the customer…" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></textarea>
+      <div class="flex items-center gap-2">
+        <button onclick="aiSendReply('${id}','human',this)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Send reply</button>
+        <button onclick="aiSendReply('${id}','ai',this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg" title="Let the AI draft & send the next reply">✨ AI reply</button>
+        ${handoff ? `<button onclick="aiSetConvStatus('${id}','active',this)" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">Hand back to AI</button>` : ''}
+        <div class="flex-1"></div>
+        <button onclick="aiRefreshConvo('${id}')" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2" title="Refresh">↻</button>
+      </div>
+    </div>
+    <div class="flex items-center gap-1 pt-1 border-t border-slate-100 dark:border-slate-800 flex-wrap">
       <button onclick="aiSummarize('${id}',this)" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">Summarize</button>
+      <button onclick="aiPrintConversation()" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">🖨 Save / Print PDF</button>
+      <div class="relative">
+        <button onclick="document.getElementById('ai-share-menu').classList.toggle('hidden')" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">↗ Share</button>
+        <div id="ai-share-menu" class="hidden absolute bottom-full left-0 mb-1 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg py-1 z-10">
+          <button onclick="aiShareConversation('email')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800">✉️ Email</button>
+          <button onclick="aiShareConversation('sms')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800">💬 Text</button>
+          <button onclick="aiShareConversation('copy')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800">🔗 Copy link</button>
+        </div>
+      </div>
       <div class="flex-1"></div>
       <button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-3 py-2">Close</button>
     </div></div>`;
 }
+async function aiSendReply(id, mode, btn) {
+  const box = document.getElementById('ai-reply-box');
+  const message = mode === 'human' ? (box?.value || '').trim() : '';
+  if (mode === 'human' && !message) { showToast('Type a reply first', 'error'); return; }
+  if (btn) btn.disabled = true;
+  try {
+    await apiSendJson(`/ai/conversations/${id}/reply`, 'POST', { mode, message });
+    if (box) box.value = '';
+    showToast(mode === 'ai' ? 'AI reply sent ✓' : 'Reply sent ✓', 'success');
+    aiOpenConversation(id);   // refresh transcript
+  } catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) btn.disabled = false; }
+}
+async function aiRefreshConvo(id) { aiOpenConversation(id); }
 async function aiSetConvStatus(id, status, btn) {
   if (btn) btn.disabled = true;
-  try { await apiSendJson(`/ai/conversations/${id}/status`, 'POST', { status }); showToast(status === 'handoff' ? 'You have taken over' : 'Returned to AI', 'success'); document.querySelector('.fixed')?.remove(); loadAiInbox(); }
+  try { await apiSendJson(`/ai/conversations/${id}/status`, 'POST', { status }); showToast(status === 'handoff' ? 'You have taken over' : 'Returned to AI', 'success'); aiOpenConversation(id); }
   catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) btn.disabled = false; }
 }
 async function aiSummarize(id, btn) {
@@ -12002,7 +12064,40 @@ async function aiSummarize(id, btn) {
   try { await apiSendJson(`/ai/conversations/${id}/summarize`, 'POST'); showToast('Summary saved ✓', 'success'); aiOpenConversation(id); }
   catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Summarize'; } }
 }
-Object.assign(window, { loadAiInbox, aiCopyEmbed, aiOpenConversation, aiSetConvStatus, aiSummarize });
+function aiConvoTranscriptText() {
+  if (!__aiConvo) return '';
+  return (__aiConvo.messages || []).map(m => `${m.role === 'user' ? 'Customer' : 'Dealership'}: ${m.message}`).join('\n\n');
+}
+function aiPrintConversation() {
+  if (!__aiConvo) return;
+  const c = __aiConvo.convo || {};
+  const rows = (__aiConvo.messages || []).map(m => `<div style="margin:8px 0"><div style="font-size:11px;color:#64748b;font-weight:700">${m.role === 'user' ? 'Customer' : 'Dealership'}</div><div style="background:${m.role === 'user' ? '#f1f5f9' : '#e0e7ff'};padding:8px 12px;border-radius:10px;display:inline-block;max-width:80%;white-space:pre-wrap">${esc(m.message)}</div></div>`).join('');
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Allow pop-ups to print', 'error'); return; }
+  w.document.write(`<!doctype html><html><head><title>AI Conversation</title><meta charset="utf-8"><style>body{font-family:system-ui,sans-serif;max-width:720px;margin:24px auto;padding:0 16px;color:#0f172a}</style></head><body>
+    <h2>AI Conversation</h2>
+    <p style="color:#64748b;font-size:13px">Lead score: ${c.lead_score || 0} · ${c.department || 'general'} · ${c.lead_type || 'general'}${c.website ? ' · ' + esc(c.website) : ''}</p>
+    ${c.summary ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;white-space:pre-wrap;font-size:13px">${esc(c.summary)}</div>` : ''}
+    <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0">${rows}
+    <script>window.onload=function(){window.print()}<\/script></body></html>`);
+  w.document.close();
+}
+function aiShareConversation(how) {
+  document.getElementById('ai-share-menu')?.classList.add('hidden');
+  if (!__aiConvo) return;
+  const link = `${location.origin}${location.pathname}#ai-convo=${__aiConvo.id}`;
+  const body = aiConvoTranscriptText();
+  if (how === 'copy') { navigator.clipboard?.writeText(link).then(() => showToast('Link copied ✓', 'success')).catch(() => showToast('Copy failed', 'error')); return; }
+  if (how === 'email') { window.open(`mailto:?subject=${encodeURIComponent('AI Conversation')}&body=${encodeURIComponent(body + '\n\n' + link)}`); return; }
+  if (how === 'sms') { window.open(`sms:?&body=${encodeURIComponent('AI Conversation — ' + link)}`); return; }
+}
+// Deep link: open a conversation from a shared #ai-convo=<id> link.
+function aiCheckConvoHash() {
+  const m = (location.hash || '').match(/ai-convo=([\w-]+)/);
+  if (m && typeof aiOpenConversation === 'function') aiOpenConversation(m[1]);
+}
+window.addEventListener('hashchange', aiCheckConvoHash);
+Object.assign(window, { loadAiInbox, aiCopyEmbed, aiOpenConversation, aiSetConvStatus, aiSummarize, aiSendReply, aiRefreshConvo, aiPrintConversation, aiShareConversation });
 
 // Budget — a monthly spending target per expense category, tracked against actual spend.
 async function acctLoadBudget() {

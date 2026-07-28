@@ -143,6 +143,7 @@
         document.getElementById('ft').style.display='flex';
         document.getElementById('brand').style.display='block';
         bubble(cfg.greeting || 'Hi! How can I help you find your next vehicle?', 'ai');
+        if(convId&&visTok) startPoll();   // returning visitor — catch live rep replies
         inp.focus();
       }catch(e){ document.getElementById('off').style.display='flex'; }
     }
@@ -156,10 +157,25 @@
         var d = await r.json(); typing(false);
         if(d.conversation_id){ convId=d.conversation_id; localStorage.setItem(LS_CONV,convId); }
         if(d.visitor_token){ visTok=d.visitor_token; localStorage.setItem(LS_VIS,visTok); }
-        bubble(d.reply || "Thanks — someone will follow up shortly.", 'ai');
+        if(d.reply) bubble(d.reply,'ai');
+        else if(d.handoff && !window.__hoNote){ window.__hoNote=1; bubble("You're now chatting with a member of our team 👋",'ai'); }
+        else if(!d.handoff) bubble("Thanks — someone will follow up shortly.",'ai');
         vehicleCards(d.vehicles);
+        if(d.reply_at) widgetAfter=d.reply_at;
+        startPoll();
       }catch(e){ typing(false); bubble("Sorry, something went wrong. Please try again.", 'ai'); }
       sendBtn.disabled=false; inp.focus();
+    }
+    // Poll for rep replies during a take-over so the visitor sees them live.
+    var widgetAfter=null, pollTimer=null;
+    function startPoll(){ if(pollTimer||!convId||!visTok) return; if(!widgetAfter) widgetAfter=new Date().toISOString(); pollTimer=setInterval(pollOnce,5000); }
+    async function pollOnce(){
+      if(!convId||!visTok) return;
+      try{
+        var u=API+'/ai/public/messages?conversation_id='+encodeURIComponent(convId)+'&visitor_token='+encodeURIComponent(visTok)+(widgetAfter?'&after='+encodeURIComponent(widgetAfter):'');
+        var r=await fetch(u); var d=await r.json();
+        (d.messages||[]).forEach(function(m){ bubble(m.message,'ai'); if(m.at) widgetAfter=m.at; });
+      }catch(e){}
     }
     sendBtn.onclick = send;
     inp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); send(); } });

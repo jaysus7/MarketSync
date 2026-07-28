@@ -712,6 +712,12 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     // conversation) shows the real history. The reply is saved after the loop.
     if (conversation?.id && lastUser) { try { await saveMessage(conversation.id, d.id, 'user', lastUser) } catch {} }
 
+    // A rep has taken over — the AI stays quiet; the rep's replies reach the widget
+    // through its poller. Just acknowledge the visitor's message.
+    if (conversation?.status === 'handoff') {
+      return res.json({ reply: '', handoff: true, vehicles: [], conversation_id: conversation.id, visitor_token: visitorToken })
+    }
+
     try {
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
       const tools = toolDefs('sales_chat')
@@ -746,11 +752,12 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       const capture = captureTok && !ctx.contactRef.id
       if (!reply) return res.json({ reply: CHAT_FALLBACK, capture: true, conversation_id: conversation?.id || null, visitor_token: visitorToken })
       // Persist the concierge's reply so the transcript reads as a real conversation.
-      if (conversation?.id) { try { await saveMessage(conversation.id, d.id, 'assistant', reply) } catch {} }
+      let savedReply = null
+      if (conversation?.id) { try { savedReply = await saveMessage(conversation.id, d.id, 'assistant', reply) } catch {} }
       recordUsage(d.id, { ai: 1 })
       // Vehicles the concierge surfaced this turn → rendered as cards in the widget.
       const vehicles = await formatShownVehicles(d.id, ctx.shownVehicles).catch(() => [])
-      res.json({ reply, vehicles, capture, conversation_id: conversation?.id || null, visitor_token: visitorToken })
+      res.json({ reply, reply_at: savedReply?.created_at || null, vehicles, capture, conversation_id: conversation?.id || null, visitor_token: visitorToken })
     } catch (e) {
       res.json({ reply: CHAT_FALLBACK, capture: true, conversation_id: conversation?.id || null, visitor_token: visitorToken })
     }

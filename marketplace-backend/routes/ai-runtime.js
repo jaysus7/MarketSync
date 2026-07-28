@@ -434,7 +434,7 @@ async function runChat({ dealershipId, conversation, contactId, userText, isOwne
     replyText = "Sorry — I'm having a moment. A team member will follow up, or try again shortly."
   }
 
-  if (replyText) await saveMessage(conversation.id, dealershipId, 'assistant', replyText)
+  const saved = replyText ? await saveMessage(conversation.id, dealershipId, 'assistant', replyText) : null
   recordUsage(dealershipId, { ai: 1 }).catch(() => {})
   recordAssistantChat(dealershipId).catch(() => {})
   const allMsgs = await getHistory(conversation.id, 100)
@@ -442,7 +442,7 @@ async function runChat({ dealershipId, conversation, contactId, userText, isOwne
   // Categorize the conversation (department/intent/tags) for the AI Chat dashboard feed.
   categorizeConversation(dealershipId, conversation.id, allMsgs.filter(m => m.role === 'user').map(m => m.message).join(' '), { booked: !!ctx.booked }).catch(() => {})
   const vehicles = await formatShownVehicles(dealershipId, ctx.shownVehicles)
-  return { reply: replyText, vehicles, conversation_id: conversation.id, contact_id: ctx.contactRef.id, lead_score: conversation.lead_score }
+  return { reply: replyText, reply_at: saved?.created_at || null, vehicles, conversation_id: conversation.id, contact_id: ctx.contactRef.id, lead_score: conversation.lead_score }
 }
 
 // ── Conversation summary (structured, for CRM) ───────────────────────────────
@@ -469,6 +469,12 @@ export async function publicChat({ dealershipId, conversationId, visitorToken, m
   }
   if (!conversation) conversation = await startOrContinueConversation(dealershipId, { visitorToken, website, source })
   if (!conversation) return null
+  // A rep has taken over — don't let the AI answer over top of them. Save the
+  // visitor's message; the rep's replies reach the widget through its poller.
+  if (conversation.status === 'handoff') {
+    await saveMessage(conversation.id, dealershipId, 'user', message)
+    return { reply: '', handoff: true, vehicles: [], conversation_id: conversation.id, contact_id: conversation.contact_id, lead_score: conversation.lead_score }
+  }
   return runChat({ dealershipId, conversation, contactId: conversation.contact_id, userText: message, isOwner: false })
 }
 
@@ -605,6 +611,50 @@ export function registerAiRuntime(app) {
     if (error) return res.status(500).json({ error: 'Upload failed' })
     const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-pdfs').getPublicUrl(path)
     res.json({ ok: true, url: publicUrl })
+  })
+
+  // Take-over reply: a rep (or an AI draft) sends a message INTO the conversation.
+  // It's saved as an assistant turn and delivered to the customer's widget via its
+  // poller. mode:'ai' generates a suggested reply from the concierge runtime.
+  app.post('/ai/conversations/:id/reply', requireAuth, async (req, res) => {
+    if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    const { data: convo } = await supabaseAdmin.from('ai_conversations').select('*')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!convo) return res.status(404).json({ error: 'not found' })
+    const mode = String(req.body?.mode || 'human')
+    let text = String(req.body?.message || '').trim().slice(0, 4000)
+    if (mode === 'ai') {
+      try {
+        const bundle = await assembleContext(req.dealershipId, { conversationId: convo.id, contactId: convo.contact_id })
+        const ctx = { dealershipId: req.dealershipId, conversation: convo, contactRef: { id: convo.contact_id } }
+        const system = await buildSystem(req.dealershipId, ctx, bundle)
+        const hist = (await getHistory(convo.id, 40)).map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.message }))
+        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+        const r = await anthropic.messages.create({ model: MODEL, max_tokens: 500, system, messages: hist.length ? hist : [{ role: 'user', content: 'Continue helping the customer toward booking a visit.' }] })
+        text = (r.content || []).filter(b => b.type === 'text').map(b => b.text).join(' ').trim()
+      } catch (e) { return res.status(500).json({ error: 'AI draft failed' }) }
+    }
+    if (!text) return res.status(400).json({ error: 'empty message' })
+    const saved = await saveMessage(convo.id, req.dealershipId, 'assistant', text)
+    // A human reply puts (and keeps) the conversation in take-over mode so the AI
+    // stops auto-answering; an AI-assisted reply leaves the status as-is.
+    if (mode === 'human') await supabaseAdmin.from('ai_conversations').update({ status: 'handoff', assigned_salesperson: req.user?.id || null }).eq('id', convo.id)
+    res.json({ ok: true, message: text, at: saved?.created_at || new Date().toISOString(), mode })
+  })
+
+  // Public poller — the customer widget fetches assistant messages it hasn't seen
+  // yet (a rep's live replies during take-over). Scoped by the visitor's own token.
+  app.get('/ai/public/messages', rateLimit('widgetpoll', 180, 60000), async (req, res) => {
+    const cid = String(req.query.conversation_id || '')
+    const vtok = String(req.query.visitor_token || '')
+    if (!cid || !vtok) return res.json({ messages: [] })
+    const { data: convo } = await supabaseAdmin.from('ai_conversations').select('id, visitor_token, status').eq('id', cid).maybeSingle()
+    if (!convo || convo.visitor_token !== vtok) return res.json({ messages: [] })
+    let q = supabaseAdmin.from('ai_messages').select('role, message, created_at')
+      .eq('conversation_id', cid).eq('role', 'assistant').order('created_at', { ascending: true }).limit(50)
+    if (req.query.after) q = q.gt('created_at', String(req.query.after))
+    const { data } = await q
+    res.json({ handoff: convo.status === 'handoff', messages: (data || []).map(m => ({ message: m.message, at: m.created_at })) })
   })
 
   // The dealer's copy-paste embed snippet for LeadBox / eDealer / any site.
