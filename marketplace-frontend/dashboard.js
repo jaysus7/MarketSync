@@ -10488,10 +10488,15 @@ async function aiHomeSettings(body) {
     apiGetJson('/ai/personality').catch(() => ({ personality: {} })),
   ]);
   const p = persona.personality || {};
+  // Real photo headshots shipped in the frontend (Profile Headshot 1–5.png). Stored as
+  // absolute URLs so they load in the chat widget on any external site too.
+  const photoHeadshots = [1, 2, 3, 4, 5].map(n => `${location.origin}/Profile%20Headshot%20${n}.png`);
+  const photoHtml = photoHeadshots.map(uri => `<button type="button" onclick="aiPickPreset('','${uri}')" class="group">
+    <img src="${uri}" class="w-16 h-16 rounded-full object-cover ring-2 ring-transparent group-hover:ring-emerald-400 transition"></button>`).join('');
   const presetsHtml = AI_PERSONA_PRESETS.map(pr => {
     const uri = aiPresetAvatar(pr.name, pr.hue);
     return `<button type="button" onclick="aiPickPreset('${pr.name}','${uri.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 group">
-      <img src="${uri}" class="w-14 h-14 rounded-full ring-2 ring-transparent group-hover:ring-emerald-400 transition"><span class="text-[11px] font-semibold text-slate-500">${esc(pr.name)}</span></button>`;
+      <img src="${uri}" class="w-12 h-12 rounded-full ring-2 ring-transparent group-hover:ring-emerald-400 transition"><span class="text-[11px] font-semibold text-slate-500">${esc(pr.name)}</span></button>`;
   }).join('');
   body.innerHTML = `
     <div class="space-y-4 max-w-2xl">
@@ -10506,7 +10511,11 @@ async function aiHomeSettings(body) {
           </div>
         </div>
         <div>
-          <div class="text-[12px] font-bold text-slate-500 mb-2">Pick a headshot template</div>
+          <div class="text-[12px] font-bold text-slate-500 mb-2">Pick a headshot</div>
+          <div class="flex flex-wrap gap-3">${photoHtml}</div>
+        </div>
+        <div>
+          <div class="text-[12px] font-bold text-slate-500 mb-2">…or a lettered avatar</div>
           <div class="flex flex-wrap gap-3">${presetsHtml}</div>
         </div>
         <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
@@ -10519,7 +10528,7 @@ async function aiHomeSettings(body) {
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
         <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Voice</div>
-        <div><label class="text-[12px] font-bold text-slate-500">Greeting</label><input id="ai-p-greeting" value="${esc(p.greeting || '')}" placeholder="Hi! 👋 Looking for something specific? Ask me anything!" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
+        <div><label class="text-[12px] font-bold text-slate-500">Greeting</label><input id="ai-p-greeting" value="${esc(p.greeting || '')}" placeholder="Leave blank to auto-introduce, e.g. “Hi! I'm Ava with [dealership] — what are you looking for today?”" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"><p class="text-[11px] text-slate-400 mt-1">Blank = the assistant introduces itself by name like a sales rep.</p></div>
         <div><label class="text-[12px] font-bold text-slate-500">Tone</label><input id="ai-p-tone" value="${esc(p.tone || '')}" placeholder="warm, casual, natural — always books the appointment" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
         <button onclick="aiHomeSavePersonality(this)" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save assistant</button>
       </div>

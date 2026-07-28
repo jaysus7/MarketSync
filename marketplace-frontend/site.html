@@ -1041,7 +1041,7 @@
       const p=document.getElementById('ms-chat-panel'); if(!p) return;
       p.style.display=CHAT_OPEN?'flex':'none';
       if(CHAT_OPEN){
-        if(!CHAT.length){ const s=(DATA&&DATA.site)||{}; const cn=(s.chat_name||'').trim(); const greet=(s.chat_greeting||'').trim()||`Hi! 👋 ${cn?`I'm ${cn}. `:''}Looking for something specific, or want help finding the right vehicle? Ask me anything!`; chatPush('bot',greet); }
+        if(!CHAT.length){ const s=(DATA&&DATA.site)||{}; const cn=(s.chat_name||'').trim(); let greet=(s.chat_greeting||'').trim(); if(!greet){ greet = cn ? `Hi there! 👋 I'm ${cn}${s.name?`, part of the team here at ${s.name}`:''}. I can help you find the right vehicle, talk financing or a trade, or set up a time to come see something. What are you looking for today?` : `Hi there! 👋 Welcome to ${s.name||'our showroom'}! I can help you find the right vehicle, talk financing or a trade, or set up a visit. What are you looking for today?`; } chatPush('bot',greet); }
         chatStartPoll();
         setTimeout(()=>document.getElementById('ms-chat-input')?.focus(),50);
       }

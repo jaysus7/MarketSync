@@ -488,12 +488,16 @@ export function registerAiRuntime(app) {
     const { data: d } = await supabaseAdmin.from('dealerships').select('id, name, ai_chatbot_active').eq('id', dealer).maybeSingle()
     if (!d) return res.json({ enabled: false })
     const persona = await getConfig(d.id, 'ai_personality', {})
+    // Default greeting introduces the assistant like a real sales rep would.
+    const intro = (persona?.greeting || '').trim() || (persona?.name
+      ? `Hi there! 👋 I'm ${persona.name}, part of the team here at ${d.name}. I can help you find the right vehicle, talk financing or a trade, or set up a time to come by. What are you looking for today?`
+      : `Hi there! 👋 Welcome to ${d.name}! I can help you find the right vehicle, talk financing or a trade, or set up a visit. What are you looking for today?`)
     res.json({
       enabled: !!d.ai_chatbot_active,
       name: d.name,
       assistant_name: persona?.name || null,
       avatar: persona?.avatar_url || null,
-      greeting: persona?.greeting || 'Hi! How can I help you find your next vehicle?',
+      greeting: intro,
     })
   })
 
