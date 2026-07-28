@@ -125,7 +125,20 @@ export function registerAiEngine(app) {
     if (req.query.tag) q = q.contains('tags', [String(req.query.tag)])
     const { data, error } = await q
     if (error) return res.status(500).json({ error: error.message })
-    res.json({ conversations: data || [] })
+    const rows = data || []
+    // Enrich captured conversations with the customer's name/contact so the feed can
+    // show who it is instead of just "site".
+    const ids = [...new Set(rows.map(r => r.contact_id).filter(Boolean))]
+    if (ids.length) {
+      const { data: contacts } = await supabaseAdmin.from('contacts')
+        .select('id, full_name, phone, email').in('id', ids)
+      const byId = Object.fromEntries((contacts || []).map(c => [c.id, c]))
+      for (const r of rows) {
+        const c = r.contact_id && byId[r.contact_id]
+        if (c) { r.contact_name = c.full_name || null; r.contact_phone = c.phone || null; r.contact_email = c.email || null }
+      }
+    }
+    res.json({ conversations: rows })
   })
 
   // One conversation + its full message history + (if captured) the customer memory.
@@ -136,6 +149,10 @@ export function registerAiEngine(app) {
     if (!convo) return res.status(404).json({ error: 'not found' })
     const messages = await getHistory(convo.id, 500)
     const memory = convo.contact_id ? await getMemory(req.dealershipId, convo.contact_id) : []
+    if (convo.contact_id) {
+      const { data: c } = await supabaseAdmin.from('contacts').select('full_name, phone, email').eq('id', convo.contact_id).maybeSingle()
+      if (c) { convo.contact_name = c.full_name || null; convo.contact_phone = c.phone || null; convo.contact_email = c.email || null }
+    }
     res.json({ conversation: convo, messages, memory })
   })
 

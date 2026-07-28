@@ -10400,7 +10400,7 @@ function aiFeedRow(c) {
       </span>
     </div>
     <div class="mt-1 text-[12px] text-slate-500 dark:text-slate-400 truncate">
-      ${captured ? svgIcon('user', 'w-3.5 h-3.5 inline-block -mt-0.5 text-emerald-500') + ' Lead captured' : 'Visitor'}${c.website ? ' · ' + esc(String(c.website).replace(/^https?:\/\//, '').slice(0, 30)) : ''}${when ? ' · ' + esc(new Date(when).toLocaleDateString([], { month: 'short', day: 'numeric' })) : ''}
+      ${c.contact_name ? svgIcon('user', 'w-3.5 h-3.5 inline-block -mt-0.5 text-emerald-500') + ' <span class="font-bold text-slate-700 dark:text-slate-200">' + esc(c.contact_name) + '</span>' : (captured ? svgIcon('user', 'w-3.5 h-3.5 inline-block -mt-0.5 text-emerald-500') + ' Lead captured' : 'Visitor')}${c.website ? ' · ' + esc(String(c.website).replace(/^https?:\/\//, '').slice(0, 30)) : ''}${when ? ' · ' + esc(new Date(when).toLocaleDateString([], { month: 'short', day: 'numeric' })) : ''}
     </div>
   </button>`;
 }
@@ -10483,11 +10483,20 @@ function aiPresetAvatar(name, hue) {
 }
 const AI_AVATAR_FALLBACK = "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='#e2e8f0'/><circle cx='50' cy='40' r='18' fill='#94a3b8'/><path d='M18 90c0-19 15-30 32-30s32 11 32 30z' fill='#94a3b8'/></svg>");
 async function aiHomeSettings(body) {
-  const [embed, persona] = await Promise.all([
+  const [embed, persona, cfg] = await Promise.all([
     apiGetJson('/ai/widget/embed').catch(() => ({})),
     apiGetJson('/ai/personality').catch(() => ({ personality: {} })),
+    apiGetJson('/ai/config').catch(() => ({})),
   ]);
   const p = persona.personality || {};
+  // Assistant capability controls (what the bot is allowed to do) + rep access.
+  const catalog = Array.isArray(cfg.ai_tools_catalog) ? cfg.ai_tools_catalog : [];
+  const toolDisabled = new Set(Array.isArray(cfg.ai_tools_disabled) ? cfg.ai_tools_disabled : []);
+  const toolsHtml = catalog.map(t => `
+    <label class="flex items-start gap-2.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2 cursor-pointer">
+      <input type="checkbox" data-ai2-tool="${esc(t.name)}" ${toolDisabled.has(t.name) ? '' : 'checked'} class="accent-indigo-600 w-4 h-4 mt-0.5">
+      <span class="min-w-0"><span class="block text-sm font-semibold text-slate-700 dark:text-slate-200">${esc(t.label || t.name)}</span><span class="block text-[11px] text-slate-400">${esc(t.desc || '')}</span></span>
+    </label>`).join('');
   // Real photo headshots shipped in the frontend (Profile Headshot 1–5.png). Stored as
   // absolute URLs so they load in the chat widget on any external site too.
   const photoHeadshots = [1, 2, 3, 4, 5].map(n => `${location.origin}/Profile%20Headshot%20${n}.png`);
@@ -10532,6 +10541,15 @@ async function aiHomeSettings(body) {
         <div><label class="text-[12px] font-bold text-slate-500">Tone</label><input id="ai-p-tone" value="${esc(p.tone || '')}" placeholder="warm, casual, natural — always books the appointment" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
         <button onclick="aiHomeSavePersonality(this)" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save assistant</button>
       </div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">What the assistant can do</div>
+          <button onclick="openAiHistory()" class="text-[12px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">View chat history →</button>
+        </div>
+        <label class="flex items-center gap-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai2-reps" ${cfg.ai_assistant_reps !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Let sales reps use the internal "Ask MarketSync" assistant</label>
+        ${toolsHtml ? `<div><div class="text-[12px] font-bold text-slate-500 mb-1.5">Capabilities</div><div class="grid sm:grid-cols-2 gap-2">${toolsHtml}</div></div>` : ''}
+        <button onclick="aiHomeSaveControls(this)" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save controls</button>
+      </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-2">
         <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Install on your website</div>
         <p class="text-[13px] text-slate-500">Paste this one line before &lt;/body&gt; on your site (LeadBox, eDealer, WordPress, anywhere).</p>
@@ -10570,7 +10588,18 @@ async function aiHomeSavePersonality(btn) {
   } catch (e) { showToast(e.message, 'error'); }
   if (btn) btn.disabled = false;
 }
-Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, aiFeedApply, aiPickPreset, aiUploadAvatar });
+async function aiHomeSaveControls(btn) {
+  if (btn) btn.disabled = true;
+  try {
+    await apiSendJson('/ai/config', 'PUT', {
+      ai_assistant_reps: !!document.getElementById('ai2-reps')?.checked,
+      ai_tools_disabled: [...document.querySelectorAll('[data-ai2-tool]')].filter(el => !el.checked).map(el => el.dataset.ai2Tool),
+    });
+    showToast('Controls saved ✓', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+  if (btn) btn.disabled = false;
+}
+Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, aiHomeSaveControls, aiFeedApply, aiPickPreset, aiUploadAvatar });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Engine UI Framework — every engine renders inside one reusable shell that
@@ -12019,8 +12048,11 @@ async function aiOpenConversation(id) {
   const handoff = convo.status === 'handoff';
   panel.innerHTML = `<div class="p-5 space-y-3">
     <div class="flex items-center justify-between">
-      <div class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">AI Conversation
-        <button onclick="document.getElementById('ai-score-explain').classList.toggle('hidden')" title="How is this scored?" class="text-[11px] font-bold px-2 py-0.5 rounded-lg ${AI_SCORE_TONE(score)}">score ${score} ⓘ</button>
+      <div class="min-w-0">
+        <div class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2 truncate">${convo.contact_name ? esc(convo.contact_name) : 'AI Conversation'}
+          <button onclick="document.getElementById('ai-score-explain').classList.toggle('hidden')" title="How is this scored?" class="text-[11px] font-bold px-2 py-0.5 rounded-lg flex-shrink-0 ${AI_SCORE_TONE(score)}">score ${score} ⓘ</button>
+        </div>
+        ${(convo.contact_phone || convo.contact_email) ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(convo.contact_phone || '')}${convo.contact_phone && convo.contact_email ? ' · ' : ''}${esc(convo.contact_email || '')}</div>` : ''}
       </div>
       <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
@@ -12029,7 +12061,7 @@ async function aiOpenConversation(id) {
       ${factorRows}
       <div class="text-[11px] text-slate-400 mt-2">Higher = hotter. 80+ triggers a hot-lead alert to the team.</div>
     </div>
-    ${convo.summary ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2 whitespace-pre-wrap">${esc(convo.summary)}</div>` : ''}
+    ${convo.summary ? `<div class="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2"><div class="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-1">AI summary</div><div class="text-[12px] text-slate-600 dark:text-slate-300 whitespace-pre-wrap">${esc(convo.summary)}</div></div>` : ''}
     ${memHtml}
     <div id="ai-convo-log" class="space-y-2 max-h-72 overflow-y-auto p-1">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
     <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-2 space-y-2">
@@ -12044,7 +12076,6 @@ async function aiOpenConversation(id) {
       </div>
     </div>
     <div class="flex items-center gap-1 pt-1 border-t border-slate-100 dark:border-slate-800 flex-wrap">
-      <button onclick="aiSummarize('${id}',this)" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">Summarize</button>
       <button onclick="aiPrintConversation()" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">🖨 Save / Print PDF</button>
       <div class="relative">
         <button onclick="document.getElementById('ai-share-menu').classList.toggle('hidden')" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">↗ Share</button>

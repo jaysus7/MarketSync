@@ -441,6 +441,8 @@ async function runChat({ dealershipId, conversation, contactId, userText, isOwne
   await rescoreLead(ctx, allMsgs, bundle.memory)
   // Categorize the conversation (department/intent/tags) for the AI Chat dashboard feed.
   categorizeConversation(dealershipId, conversation.id, allMsgs.filter(m => m.role === 'user').map(m => m.message).join(' '), { booked: !!ctx.booked }).catch(() => {})
+  // Keep the CRM summary fresh automatically — no manual "Summarize" needed.
+  summarizeConversation(dealershipId, conversation.id).catch(() => {})
   const vehicles = await formatShownVehicles(dealershipId, ctx.shownVehicles)
   return { reply: replyText, reply_at: saved?.created_at || null, vehicles, conversation_id: conversation.id, contact_id: ctx.contactRef.id, lead_score: conversation.lead_score }
 }
@@ -448,7 +450,7 @@ async function runChat({ dealershipId, conversation, contactId, userText, isOwne
 // ── Conversation summary (structured, for CRM) ───────────────────────────────
 export async function summarizeConversation(dealershipId, conversationId) {
   const msgs = await getHistory(conversationId, 200)
-  if (!msgs.length) return null
+  if (msgs.length < 4) return null   // not enough exchanged yet to be worth summarizing
   const transcript = msgs.map(m => `${m.role}: ${m.message}`).join('\n').slice(0, 12000)
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   try {

@@ -14,7 +14,7 @@ import { runAutoResponder } from '../autoresponder.js'
 import { depositConfigForSite } from './deposits.js'
 import { toolDefs, callTool } from './tool-registry.js'
 import { startOrContinueConversation, saveMessage } from './ai-engine.js'
-import { categorizeConversation, formatShownVehicles } from './ai-runtime.js'
+import { categorizeConversation, formatShownVehicles, summarizeConversation } from './ai-runtime.js'
 
 const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
@@ -741,10 +741,12 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
         }
         messages.push({ role: 'user', content: results })
       }
-      // Categorize this chat for the AI Chat dashboard feed (department/intent/tags).
+      // Categorize this chat for the AI Chat dashboard feed (department/intent/tags)
+      // and keep the CRM summary fresh automatically.
       if (conversation?.id) {
         const userText = messages.filter(m => m.role === 'user' && typeof m.content === 'string').map(m => m.content).join(' ')
         categorizeConversation(d.id, conversation.id, userText, { booked: !!ctx.booked }).catch(() => {})
+        summarizeConversation(d.id, conversation.id).catch(() => {})
       }
       const captureTok = /\[CAPTURE\]/i.test(reply)
       reply = reply.replace(/\[CAPTURE\]/ig, '').trim()
