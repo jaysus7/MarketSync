@@ -1137,8 +1137,9 @@
     // "View Details" → open the vehicle. On the dealer's own site we open it in-page
     // (reliable); otherwise fall back to the deep link.
     function chatViewVehicle(id, url){
+      // Prefer the vehicle's stock page on the dealer's own website (source_url).
+      if(url){ window.open(url,'_blank','noopener'); return; }
       if(id && (DATA.vehicles||[]).some(v=>v.id===id)){ if(CHAT_OPEN) chatToggle(); openVehicle(id); }
-      else if(url){ window.open(url,'_blank','noopener'); }
     }
     // "Select" a card → drop it into the chat so the concierge can book a visit around it.
     function chatSelectVehicle(title){

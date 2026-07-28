@@ -76,7 +76,9 @@ export async function formatShownVehicles(dealershipId, rows) {
     stock: v.stocknumber || v.stock || null,
     vin: v.vin || null,
     condition: v.condition || null,
-    url: base ? `${base}${v.id}` : null,
+    // Link to the vehicle's stock page on the dealer's own website (from the sync);
+    // fall back to the hosted MarketSync site VDP only if there's no source URL.
+    url: (v.source_url && /^https?:\/\//i.test(v.source_url)) ? v.source_url : (base ? `${base}${v.id}` : null),
   }))
 }
 
@@ -162,7 +164,7 @@ const SALES_TOOLS = [
     async handler(a, ctx) {
       const status = String(a.status || 'available').toLowerCase()
       let q = supabaseAdmin.from('inventory')
-        .select('id, year, make, model, trim, price, mileage, stocknumber, vin, status, condition, exterior_color, image_urls, lot_date, created_at, sold_at')
+        .select('id, year, make, model, trim, price, mileage, stocknumber, vin, status, condition, exterior_color, image_urls, source_url, lot_date, created_at, sold_at')
         .eq('dealership_id', ctx.dealershipId).is('archived_at', null).limit(30)
       if (status === 'sold') q = q.eq('status', 'sold').order('sold_at', { ascending: false, nullsFirst: false })
       else if (status === 'pending') q = q.eq('status', 'pending')
