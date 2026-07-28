@@ -47,8 +47,10 @@
     .ft input:focus { border-color: var(--accent); }
     .ft button { border: 0; background: var(--accent); color: #fff; border-radius: 10px; padding: 0 14px; font-weight: 700; cursor: pointer; }
     .ft button:disabled { opacity: .5; cursor: default; }
-    .brand { text-align: center; font-size: 10.5px; color: #94a3b8; padding: 6px 8px; background: #fff; border-top: 1px solid #f1f5f9; }
-    .brand b { color: #64748b; font-weight: 800; }
+    .brand { text-align: center; font-size: 10px; line-height: 1.45; color: #94a3b8; padding: 7px 10px; background: #fff; border-top: 1px solid #f1f5f9; }
+    .brand a { color: #64748b; font-weight: 700; text-decoration: underline; }
+    .brand img { height: 12px; width: auto; vertical-align: -2px; }
+    .brand .sm { font-size: 9px; color: #b6c0cc; margin-top: 1px; }
     .off { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; color: #64748b; padding: 24px; font-size: 14px; }
   </style>
 </head>
@@ -63,7 +65,10 @@
       <input id="inp" placeholder="Type any question here…" autocomplete="off">
       <button id="send">Send</button>
     </div>
-    <div class="brand" id="brand" style="display:none;">Powered by <b>MarketSync</b> · AI assistant</div>
+    <div class="brand" id="brand" style="display:none;">
+      <div>Powered by <a href="https://marketsync.link" target="_blank" rel="noopener"><img src="https://marketsync.link/logo.png" alt="MarketSync"></a>. Use is subject to MarketSync's <a href="https://marketsync.link/terms.html" target="_blank" rel="noopener">Terms</a> and <a href="https://marketsync.link/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.</div>
+      <div class="sm">This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms of Service</a> apply.</div>
+    </div>
     <div class="off" id="off" style="display:none;">Chat isn't available right now.</div>
   </div>
   <script>

@@ -1028,7 +1028,10 @@
             <input id="ms-chat-input" autocomplete="off" placeholder="Type any question here…" style="flex:1;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font-size:14px;outline:none">
             <button type="submit" class="brand-bg" style="color:#fff;border:none;border-radius:10px;width:42px;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
           </form>
-          <div style="text-align:center;font-size:10.5px;color:#94a3b8;padding:6px 8px;background:#fff;border-top:1px solid #f1f5f9">Powered by <span style="font-weight:800;color:#64748b">MarketSync</span> · AI assistant</div>
+          <div style="text-align:center;font-size:10px;line-height:1.45;color:#94a3b8;padding:7px 10px;background:#fff;border-top:1px solid #f1f5f9">
+            <div>Powered by <a href="https://marketsync.link" target="_blank" rel="noopener" style="color:#64748b;font-weight:700;text-decoration:underline"><img src="https://marketsync.link/logo.png" alt="MarketSync" style="height:12px;width:auto;vertical-align:-2px"></a>. Use is subject to MarketSync's <a href="https://marketsync.link/terms.html" target="_blank" rel="noopener" style="color:#64748b;font-weight:700;text-decoration:underline">Terms</a> and <a href="https://marketsync.link/privacy-policy.html" target="_blank" rel="noopener" style="color:#64748b;font-weight:700;text-decoration:underline">Privacy Policy</a>.</div>
+            <div style="font-size:9px;color:#b6c0cc;margin-top:1px">This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:underline">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:underline">Terms of Service</a> apply.</div>
+          </div>
         </div>`;
       document.body.appendChild(wrap);
       // Nudge: pop the greeting teaser a few seconds after load (once per session).
@@ -1107,7 +1110,7 @@
       const row=document.createElement('div'); row.className='ms-veh';
       row.innerHTML=vehicles.map(v=>{
         const img=v.image?`<img src="${esc(v.image)}" loading="lazy">`:`<div style="height:120px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#cbd5e1"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 17H3a1 1 0 0 1-1-1v-4l2.5-5h11L18 12v4a1 1 0 0 1-1 1h-2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg></div>`;
-        const view=v.url?`<a href="${esc(v.url)}" target="_blank" rel="noopener">View Details</a>`:`<button onclick="chatSelectVehicle(${JSON.stringify(v.title||'').replace(/"/g,'&quot;')})">View Details</button>`;
+        const view=`<button onclick="chatViewVehicle('${esc(v.id||'')}','${esc(v.url||'')}')">View Details</button>`;
         return `<div class="ms-veh-card">${img}<div class="p">${v.stock?`<div class="sub">Stock #${esc(String(v.stock))}</div>`:''}<div class="t">${esc(v.title||'Vehicle')}</div><div class="pr">${money(v.price)}</div></div><div class="btns">${view}<button onclick="chatSelectVehicle(${JSON.stringify(v.title||'').replace(/"/g,'&quot;')})">Select</button></div></div>`;
       }).join('');
       log.appendChild(row); log.scrollTop=log.scrollHeight;
@@ -1125,6 +1128,12 @@
         const r=await fetch(u); const d=await r.json().catch(()=>({}));
         (d.messages||[]).forEach(m=>{ chatPush('bot',m.message); if(m.at) window.MS_CHAT_AFTER=m.at; });
       }catch(e){}
+    }
+    // "View Details" → open the vehicle. On the dealer's own site we open it in-page
+    // (reliable); otherwise fall back to the deep link.
+    function chatViewVehicle(id, url){
+      if(id && (DATA.vehicles||[]).some(v=>v.id===id)){ if(CHAT_OPEN) chatToggle(); openVehicle(id); }
+      else if(url){ window.open(url,'_blank','noopener'); }
     }
     // "Select" a card → drop it into the chat so the concierge can book a visit around it.
     function chatSelectVehicle(title){
@@ -1175,7 +1184,7 @@
         chatPush('bot',`Thanks${name?' '+name:''}! A product advisor will reach out shortly. Anything else I can help with in the meantime?`);
       }catch(_){ btn.disabled=false; alert('Something went wrong — please try again.'); }
     }
-    Object.assign(window,{ chatToggle, chatSend, chatSubmitLead, chatHideTeaser, chatSelectVehicle });
+    Object.assign(window,{ chatToggle, chatSend, chatSubmitLead, chatHideTeaser, chatSelectVehicle, chatViewVehicle });
 
     // ── Native appointment booking (test drive / consult) ──────────────────────
     let __bookVeh=null, __bookLabel='';

@@ -44,8 +44,10 @@ export async function formatShownVehicles(dealershipId, rows) {
   try {
     const { data: d } = await supabaseAdmin.from('dealerships')
       .select('site_slug, custom_domain, custom_domain_verified').eq('id', dealershipId).maybeSingle()
-    if (d?.custom_domain && d?.custom_domain_verified) base = `https://${d.custom_domain}`
-    else if (d?.site_slug) base = `${SITE_PUBLIC.replace(/\/$/, '')}/${d.site_slug}`
+    // Deep link to the vehicle on the dealer's public site. Custom domain → root
+    // (site.html resolves the dealer by hostname); otherwise the hosted site.html?d=slug.
+    if (d?.custom_domain && d?.custom_domain_verified) base = `https://${d.custom_domain}/?v=`
+    else if (d?.site_slug) base = `${SITE_PUBLIC.replace(/\/$/, '')}/site.html?d=${encodeURIComponent(d.site_slug)}&v=`
   } catch {}
   return rows.slice(0, 12).map(v => ({
     id: v.id,
@@ -54,7 +56,7 @@ export async function formatShownVehicles(dealershipId, rows) {
     image: (Array.isArray(v.image_urls) && v.image_urls[0]) || null,
     stock: v.stocknumber || v.stock || null,
     vin: v.vin || null,
-    url: base ? `${base}${base.includes('?') ? '&' : '?'}v=${v.id}` : null,
+    url: base ? `${base}${v.id}` : null,
   }))
 }
 
