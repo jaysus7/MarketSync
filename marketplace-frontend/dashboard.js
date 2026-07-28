@@ -542,7 +542,7 @@ const PRODUCT_SETUP_STEPS = {
   ai_chatbot: [
     { id: 'ai-personality', icon: 'sparkles', label: "Set your AI's voice", desc: 'Name your assistant and set its greeting and tone.', done: () => setupAck('ai-personality'), run: () => { setSetupAck('ai-personality'); setupCloseAll(); switchPage('ai-home'); } },
     { id: 'ai-knowledge', icon: 'chat', label: 'Teach it about your store', desc: 'Hours, financing, specials — what it should know when it answers.', done: () => setupAck('ai-knowledge'), run: () => { setSetupAck('ai-knowledge'); setupCloseAll(); switchPage('ai-home'); } },
-    { id: 'ai-install', icon: 'globe', label: 'Add the chat to your website', desc: 'Copy the snippet and paste it into your site — it goes live instantly.', done: () => setupAck('ai-install'), run: () => { setSetupAck('ai-install'); setupCloseAll(); switchPage('ai-inbox'); } },
+    { id: 'ai-install', icon: 'globe', label: 'Add the chat to your website', desc: 'Copy the snippet and paste it into your site — it goes live instantly.', done: () => setupAck('ai-install'), run: () => { setSetupAck('ai-install'); setupCloseAll(); switchPage('ai-home'); } },
   ],
   facebook_solo: [
     { id: 'fb-extension', icon: 'download', label: 'Install the Chrome extension', desc: 'It posts a full Marketplace listing in one click.', done: () => setupAck('fb-extension'), run: () => { setSetupAck('fb-extension'); setupCloseAll(); applyExtensionVisibility(); showToast('Use “Install extension” at the top right to add it', 'info'); } },
@@ -1601,7 +1601,7 @@ const DEPARTMENTS = {
       // one inventory pool, viewed in 'facebook' mode.
       { page: 'inventory', label: 'Facebook Marketplace', invmode: 'facebook' },
       { page: 'website', label: 'Website', mgr: true },
-      { page: 'ai-inbox', label: 'AI Chat', mgr: true },
+      { page: 'ai-home', label: 'AI Chat', mgr: true },
       // The builder holds the email/text templates (New Lead, Delivery, Holidays);
       // the settings page (engine on/off, email setup) is reached from within it.
       { page: 'automation-builder', label: 'Automation', mgr: true },
@@ -4653,36 +4653,18 @@ function setupMobileMoreMenu() {
     }
 
     // DealerOS department mode (managers/admins, and the SaaS owner back office):
-    // the desktop nav is the flat department list and the legacy tree is hidden,
-    // so mirror the DEPARTMENTS the user actually has — one card per department
-    // with its reachable pages. Keeps the phone menu dynamic per login.
+    // the desktop nav is the flat department list, so mirror it EXACTLY — one
+    // tappable row per department that opens it (its home page + the dept tab bar),
+    // no dropdowns. Sub-pages are reached from the department's own tab bar, just
+    // like desktop. Keeps the phone menu dynamic per login.
     if (__deptNavBuilt && __deptRegistry) {
-      Object.entries(__deptRegistry).forEach(([, d]) => {
+      Object.entries(__deptRegistry).forEach(([id, d]) => {
         if (!deptVisible(d)) return;
         const A = ENGINE_ACCENTS[d.accent] || ENGINE_ACCENTS.indigo;
         const svg = svgIcon(d.icon || 'dot', 'w-5 h-5');
-        const pages = d.pages.filter(deptPageAllowed);
-        const go = (p) => { close(); if (p && p.invmode) __inventoryMode = p.invmode; switchPage((p || d.pages[0]).page); };
-        // Single-page department → one tappable row (matches the desktop dept button).
-        if (pages.length <= 1) {
-          const p = pages[0] || d.pages[0];
-          const b = mk(`<button type="button" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-left"><span class="w-5 h-5 flex-shrink-0 ${A.text}">${svg}</span><span class="truncate">${esc(d.label)}</span></button>`);
-          b.addEventListener('click', () => go(p));
-          list.appendChild(b);
-          return;
-        }
-        // Multi-page department → collapsible card of its pages.
-        const card = mk('<div class="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden"></div>');
-        const head = mk(`<button type="button" class="w-full flex items-center justify-between gap-2 px-3 py-2.5 font-bold text-sm text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800"><span class="flex items-center gap-2.5"><span class="w-5 h-5 ${A.text}">${svg}</span>${esc(d.label)}</span><svg class="ms-chev w-4 h-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>`);
-        const body = mk('<div class="p-1.5 space-y-1"></div>');
-        pages.forEach(p => {
-          const r = mk(`<button type="button" class="w-full flex items-center gap-2.5 px-3 py-2.5 pl-4 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left"><span class="truncate">${esc(p.label)}</span></button>`);
-          r.addEventListener('click', () => go(p));
-          body.appendChild(r);
-        });
-        head.addEventListener('click', () => { const hid = body.classList.toggle('hidden'); head.querySelector('.ms-chev')?.classList.toggle('-rotate-90', hid); });
-        card.appendChild(head); card.appendChild(body);
-        list.appendChild(card);
+        const b = mk(`<button type="button" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-left"><span class="w-5 h-5 flex-shrink-0 ${A.text}">${svg}</span><span class="truncate">${esc(d.label)}</span></button>`);
+        b.addEventListener('click', () => { close(); if (typeof deptOpen === 'function') deptOpen(id); });
+        list.appendChild(b);
       });
       menu.classList.remove('hidden');
       return;
