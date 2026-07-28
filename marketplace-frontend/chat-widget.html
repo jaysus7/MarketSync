@@ -18,8 +18,9 @@
     .brow { align-self: flex-start; display: flex; gap: 8px; align-items: flex-end; max-width: 92%; }
     .brow img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
     .veh { align-self: stretch; display: flex; gap: 10px; overflow-x: auto; padding: 2px 0 4px; }
-    .veh .card { flex: 0 0 210px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,.06); }
-    .veh .card img { width: 100%; height: 120px; object-fit: cover; background: #f1f5f9; display: block; }
+    .veh .card { flex: 0 0 220px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,.06); cursor: pointer; }
+    .veh .card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+    .veh .card img { width: 100%; height: 140px; object-fit: cover; background: #f1f5f9; display: block; }
     .veh .card .p { padding: 9px 11px; }
     .veh .card .sub { font-size: 11px; color: #64748b; }
     .veh .card .t { font-weight: 800; font-size: 13px; line-height: 1.25; color: #0f172a; margin-top: 2px; }
@@ -129,12 +130,13 @@
       if(!Array.isArray(vehicles)||!vehicles.length) return;
       var row=document.createElement('div'); row.className='veh';
       row.innerHTML=vehicles.map(function(v){
-        var img=v.image?'<img src="'+esc(v.image)+'" loading="lazy">':'<div style="height:120px;background:#f1f5f9"></div>';
-        var view=v.url?'<a href="'+esc(v.url)+'" target="_blank" rel="noopener">View Details</a>':'';
+        var img=v.image?'<img src="'+esc(v.image)+'" loading="lazy">':'<div style="height:140px;background:#f1f5f9"></div>';
         var cond=v.condition?'<span style="text-transform:capitalize;color:var(--accent);font-weight:800">'+esc(v.condition)+'</span>'+(v.stock?' · ':''):'';
-        return '<div class="card">'+img+'<div class="p"><div class="sub">'+cond+(v.stock?'Stock #'+esc(String(v.stock)):'')+'</div><div class="t">'+esc(v.title||'Vehicle')+'</div><div class="pr">'+money(v.price)+'</div></div><div class="btns">'+view+'<button data-sel="'+esc(v.title||'')+'">Select</button></div></div>';
+        return '<div class="card" data-url="'+esc(v.url||'')+'">'+img+'<div class="p"><div class="sub">'+cond+(v.stock?'Stock #'+esc(String(v.stock)):'')+'</div><div class="t">'+esc(v.title||'Vehicle')+'</div><div class="pr">'+money(v.price)+'</div></div><div class="btns"><span style="flex:1;text-align:center;padding:9px 4px;font-size:12px;font-weight:800;color:var(--accent)">View Details</span><button data-sel="'+esc(v.title||'')+'">Select</button></div></div>';
       }).join('');
-      row.querySelectorAll('button[data-sel]').forEach(function(btn){ btn.onclick=function(){ inp.value="I'm interested in the "+btn.getAttribute('data-sel')+". Can we set up a time to see it?"; send(); }; });
+      // Whole card → open the vehicle page; Select drops it into the chat.
+      row.querySelectorAll('.card[data-url]').forEach(function(card){ card.onclick=function(){ var u=card.getAttribute('data-url'); if(u) window.open(u,'_blank','noopener'); }; });
+      row.querySelectorAll('button[data-sel]').forEach(function(btn){ btn.onclick=function(e){ e.stopPropagation(); inp.value="I'm interested in the "+btn.getAttribute('data-sel')+". Can we set up a time to see it?"; send(); }; });
       msgsEl.appendChild(row); msgsEl.scrollTop=msgsEl.scrollHeight;
     }
     function typing(on){ var t=document.getElementById('typing'); if(on){ if(!t){ t=document.createElement('div'); t.id='typing'; t.className='typing'; t.textContent='…'; msgsEl.appendChild(t); msgsEl.scrollTop=msgsEl.scrollHeight; } } else if(t){ t.remove(); } }

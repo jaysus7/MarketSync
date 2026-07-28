@@ -982,8 +982,9 @@
           #ms-chat-teaser{animation:msPop .35s ease}
           @keyframes msPop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
           #ms-chat-log .ms-veh{align-self:stretch;display:flex;gap:10px;overflow-x:auto;padding:2px 0 4px;scroll-snap-type:x mandatory}
-          #ms-chat-log .ms-veh-card{flex:0 0 210px;scroll-snap-align:start;background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.06)}
-          #ms-chat-log .ms-veh-card img{width:100%;height:120px;object-fit:cover;background:#f1f5f9;display:block}
+          #ms-chat-log .ms-veh-card{flex:0 0 220px;scroll-snap-align:start;background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.06);cursor:pointer}
+          #ms-chat-log .ms-veh-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.12)}
+          #ms-chat-log .ms-veh-card img{width:100%;height:140px;object-fit:cover;background:#f1f5f9;display:block}
           #ms-chat-log .ms-veh-card .p{padding:9px 11px}
           #ms-chat-log .ms-veh-card .t{font-weight:800;font-size:13px;line-height:1.25;color:#0f172a}
           #ms-chat-log .ms-veh-card .sub{font-size:11px;color:#64748b;margin-top:2px}
@@ -1114,9 +1115,8 @@
       const row=document.createElement('div'); row.className='ms-veh';
       row.innerHTML=vehicles.map(v=>{
         const img=v.image?`<img src="${esc(v.image)}" loading="lazy">`:`<div style="height:120px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#cbd5e1"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 17H3a1 1 0 0 1-1-1v-4l2.5-5h11L18 12v4a1 1 0 0 1-1 1h-2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg></div>`;
-        const view=`<button onclick="chatViewVehicle('${esc(v.id||'')}','${esc(v.url||'')}')">View Details</button>`;
         const cond=v.condition?`<span style="text-transform:capitalize;color:var(--brand);font-weight:800">${esc(v.condition)}</span>${v.stock?' · ':''}`:'';
-        return `<div class="ms-veh-card">${img}<div class="p"><div class="sub">${cond}${v.stock?`Stock #${esc(String(v.stock))}`:''}</div><div class="t">${esc(v.title||'Vehicle')}</div><div class="pr">${money(v.price)}</div></div><div class="btns">${view}<button onclick="chatSelectVehicle(${JSON.stringify(v.title||'').replace(/"/g,'&quot;')})">Select</button></div></div>`;
+        return `<div class="ms-veh-card" onclick="chatViewVehicle('${esc(v.id||'')}','${esc(v.url||'')}')">${img}<div class="p"><div class="sub">${cond}${v.stock?`Stock #${esc(String(v.stock))}`:''}</div><div class="t">${esc(v.title||'Vehicle')}</div><div class="pr">${money(v.price)}</div></div><div class="btns"><span style="flex:1;text-align:center;padding:9px 4px;font-size:12px;font-weight:800;color:var(--brand)">View Details</span><button onclick="event.stopPropagation();chatSelectVehicle(${JSON.stringify(v.title||'').replace(/"/g,'&quot;')})">Select</button></div></div>`;
       }).join('');
       log.appendChild(row); log.scrollTop=log.scrollHeight;
     }
