@@ -792,18 +792,29 @@ window.applyProductNav = applyProductNav;
 // Leaderboard · Inventory · Customers). Full-OS dealers keep the authored row.
 // The Menu (#nav-more) is always kept reachable.
 function applyMobileQuickRow() {
-  const restricted = __fbOnly || __productAllowedPages;
   const authored = document.querySelectorAll('#dashboard-nav > button.nav-item[data-page]');
   const more = document.getElementById('nav-more');
-  if (!restricted) {
-    // Full experience — drop any generated row and restore the authored quick buttons.
+  // Build the bottom quick-row from the SAME registry the desktop nav + "All pages"
+  // sheet use — nothing hardcoded — for both restricted tiers and full DealerOS.
+  let pages = null;
+  if (__fbOnly || __productAllowedPages) {
+    // Restricted tiers (Facebook / product): that tier's exact page set.
+    pages = (restrictedNavPages() || []).filter(p => p.page !== 'profile').slice(0, 4);
+  } else if (__deptNavBuilt && __deptRegistry) {
+    // Full DealerOS: the first few visible departments' home pages, straight from
+    // the DEPARTMENTS registry (per-role via deptVisible/deptPageAllowed).
+    pages = Object.values(__deptRegistry).filter(deptVisible).slice(0, 4).map(d => {
+      const home = d.pages.find(deptPageAllowed) || d.pages[0] || {};
+      return { page: home.page, label: d.label, icon: d.icon, invmode: home.invmode };
+    }).filter(p => p.page);
+  }
+  if (!pages || !pages.length) {
+    // No registry yet (legacy/solo tree) — drop any generated row, keep the authored one.
     document.getElementById('mobile-quickrow-dyn')?.remove();
     return;
   }
-  // Hide the authored (hardcoded) quick buttons and generate the row from the registry.
+  // Hide the authored (hardcoded) quick buttons and render the registry-driven row.
   authored.forEach(b => b.classList.add('hidden'));
-  // Settings lives in the header gear, so it isn't a bottom-row destination.
-  const pages = (restrictedNavPages() || []).filter(p => p.page !== 'profile').slice(0, 4);
   let host = document.getElementById('mobile-quickrow-dyn');
   if (!host) {
     host = document.createElement('div');
@@ -1745,6 +1756,7 @@ function renderDeptNav(role) {
       navRoot.classList.add('dept-mode');
       __deptNavBuilt = true;
       if (__currentPage) highlightDeptNav(__currentPage);
+      applyMobileQuickRow();   // keep the bottom quick-row in sync with this registry
       return;
     }
     navRoot.classList.remove('dept-mode'); document.getElementById('dept-nav')?.remove(); __deptNavBuilt = false; return;
@@ -1764,6 +1776,7 @@ function renderDeptNav(role) {
   navRoot.classList.add('dept-mode');
   __deptNavBuilt = true;
   if (__currentPage) highlightDeptNav(__currentPage);
+  applyMobileQuickRow();   // bottom quick-row mirrors the DEPARTMENTS registry too
 }
 window.renderDeptNav = renderDeptNav;
 function deptOpen(id) {
