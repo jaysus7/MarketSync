@@ -623,7 +623,8 @@ export function registerAiRuntime(app) {
     if (!convo) return res.status(404).json({ error: 'not found' })
     const mode = String(req.body?.mode || 'human')
     let text = String(req.body?.message || '').trim().slice(0, 4000)
-    if (mode === 'ai') {
+    // 'draft' (or legacy 'ai') generates a suggested reply from the concierge runtime.
+    if (mode === 'draft' || mode === 'ai') {
       try {
         const bundle = await assembleContext(req.dealershipId, { conversationId: convo.id, contactId: convo.contact_id })
         const ctx = { dealershipId: req.dealershipId, conversation: convo, contactRef: { id: convo.contact_id } }
@@ -635,9 +636,12 @@ export function registerAiRuntime(app) {
       } catch (e) { return res.status(500).json({ error: 'AI draft failed' }) }
     }
     if (!text) return res.status(400).json({ error: 'empty message' })
-    const saved = await saveMessage(convo.id, req.dealershipId, 'assistant', text)
-    // A human reply puts (and keeps) the conversation in take-over mode so the AI
-    // stops auto-answering; an AI-assisted reply leaves the status as-is.
+    // Draft mode returns the suggestion for the rep to edit — it is NOT sent or saved.
+    if (mode === 'draft') return res.json({ ok: true, draft: text })
+    // 'human' → the rep is speaking (tagged so the console shows it as the rep, and it
+    // flips the conversation into take-over); 'ai' → sent as the AI.
+    const senderType = mode === 'human' ? 'human' : 'ai'
+    const saved = await saveMessage(convo.id, req.dealershipId, 'assistant', text, { senderType })
     if (mode === 'human') await supabaseAdmin.from('ai_conversations').update({ status: 'handoff', assigned_salesperson: req.user?.id || null }).eq('id', convo.id)
     res.json({ ok: true, message: text, at: saved?.created_at || new Date().toISOString(), mode })
   })

@@ -69,10 +69,10 @@ async function createConversation(dealershipId, { contactId, visitorToken, websi
   return data
 }
 
-export async function saveMessage(conversationId, dealershipId, role, message, { tokens = null, attachments = [] } = {}) {
+export async function saveMessage(conversationId, dealershipId, role, message, { tokens = null, attachments = [], senderType = null } = {}) {
   if (!conversationId || !dealershipId || !role) return null
   const { data, error } = await supabaseAdmin.from('ai_messages')
-    .insert({ conversation_id: conversationId, dealership_id: dealershipId, role, message: String(message || ''), tokens, attachments })
+    .insert({ conversation_id: conversationId, dealership_id: dealershipId, role, message: String(message || ''), tokens, attachments, sender_type: senderType })
     .select('id, created_at').single()
   if (error) { console.warn('[ai-engine] saveMessage failed:', error.message); return null }
   await supabaseAdmin.from('ai_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversationId)
@@ -83,7 +83,7 @@ export async function saveMessage(conversationId, dealershipId, role, message, {
 
 export async function getHistory(conversationId, limit = 50) {
   const { data } = await supabaseAdmin.from('ai_messages')
-    .select('role, message, created_at').eq('conversation_id', conversationId)
+    .select('role, message, created_at, sender_type').eq('conversation_id', conversationId)
     .order('created_at', { ascending: true }).limit(limit)
   return data || []
 }

@@ -11991,8 +11991,16 @@ async function aiOpenConversation(id) {
   try { const d = await apiGetJson(`/ai/conversations/${id}`); convo = d.conversation; messages = d.messages || []; memory = d.memory || []; } catch { if (panel) panel.innerHTML = '<div class="p-6 text-rose-500 text-sm">Could not load.</div>'; return; }
   if (!panel || !overlay.isConnected) return;
   __aiConvo = { id, convo, messages, memory };
-  const bubbles = messages.map(m => `<div class="flex ${m.role === 'user' ? 'justify-start' : 'justify-end'}">
-    <div class="max-w-[80%] px-3 py-2 rounded-2xl text-[13px] whitespace-pre-wrap ${m.role === 'user' ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200' : 'bg-indigo-600 text-white'}">${esc(m.message)}</div></div>`).join('');
+  const bubbles = messages.map(m => {
+    const isUser = m.role === 'user';
+    const isHuman = !isUser && m.sender_type === 'human';   // a rep's reply, not the AI
+    const label = isUser ? '' : (isHuman ? 'You' : 'AI');
+    const tone = isUser ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+      : isHuman ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white';
+    return `<div class="flex flex-col ${isUser ? 'items-start' : 'items-end'}">
+      ${label ? `<span class="text-[10px] font-bold mb-0.5 px-1 ${isHuman ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-500 dark:text-indigo-400'}">${label}</span>` : ''}
+      <div class="max-w-[80%] px-3 py-2 rounded-2xl text-[13px] whitespace-pre-wrap ${tone}">${esc(m.message)}</div></div>`;
+  }).join('');
   const memHtml = memory.length ? `<div class="flex flex-wrap gap-1.5 mb-3">${memory.map(m => `<span class="text-[11px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(m.memory_type)}: ${esc(m.value)}</span>`).join('')}</div>` : '';
   const score = convo.lead_score || 0;
   const factors = aiScoreFactors(messages, !!convo.contact_id, memory);
@@ -12020,7 +12028,7 @@ async function aiOpenConversation(id) {
       <textarea id="ai-reply-box" rows="2" placeholder="Type your reply to the customer…" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></textarea>
       <div class="flex items-center gap-2">
         <button onclick="aiSendReply('${id}','human',this)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Send reply</button>
-        <button onclick="aiSendReply('${id}','ai',this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg" title="Let the AI draft & send the next reply">✨ AI reply</button>
+        <button onclick="aiDraftReply('${id}',this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg" title="Draft an AI reply into the box — edit it, then Send">✨ AI draft</button>
         ${handoff ? `<button onclick="aiSetConvStatus('${id}','active',this)" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">Hand back to AI</button>` : ''}
         <div class="flex-1"></div>
         <button onclick="aiRefreshConvo('${id}')" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2" title="Refresh">↻</button>
@@ -12052,6 +12060,18 @@ async function aiSendReply(id, mode, btn) {
     showToast(mode === 'ai' ? 'AI reply sent ✓' : 'Reply sent ✓', 'success');
     aiOpenConversation(id);   // refresh transcript
   } catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) btn.disabled = false; }
+}
+// ✨ AI draft — generate a suggested reply and drop it in the box for the rep to
+// edit and send (it does NOT send on its own).
+async function aiDraftReply(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '✨ Drafting…'; }
+  try {
+    const d = await apiSendJson(`/ai/conversations/${id}/reply`, 'POST', { mode: 'draft' });
+    const box = document.getElementById('ai-reply-box');
+    if (box) { box.value = d.draft || ''; box.focus(); }
+    showToast('Draft ready — edit, then Send', 'success');
+  } catch (e) { showToast(e.message || 'Failed', 'error'); }
+  if (btn) { btn.disabled = false; btn.textContent = '✨ AI draft'; }
 }
 async function aiRefreshConvo(id) { aiOpenConversation(id); }
 async function aiSetConvStatus(id, status, btn) {
@@ -12097,7 +12117,7 @@ function aiCheckConvoHash() {
   if (m && typeof aiOpenConversation === 'function') aiOpenConversation(m[1]);
 }
 window.addEventListener('hashchange', aiCheckConvoHash);
-Object.assign(window, { loadAiInbox, aiCopyEmbed, aiOpenConversation, aiSetConvStatus, aiSummarize, aiSendReply, aiRefreshConvo, aiPrintConversation, aiShareConversation });
+Object.assign(window, { loadAiInbox, aiCopyEmbed, aiOpenConversation, aiSetConvStatus, aiSummarize, aiSendReply, aiDraftReply, aiRefreshConvo, aiPrintConversation, aiShareConversation });
 
 // Budget — a monthly spending target per expense category, tracked against actual spend.
 async function acctLoadBudget() {
