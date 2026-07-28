@@ -14,7 +14,7 @@ import { runAutoResponder } from '../autoresponder.js'
 import { depositConfigForSite } from './deposits.js'
 import { toolDefs, callTool } from './tool-registry.js'
 import { startOrContinueConversation, saveMessage } from './ai-engine.js'
-import { categorizeConversation, formatShownVehicles, summarizeConversation } from './ai-runtime.js'
+import { categorizeConversation, formatShownVehicles, summarizeConversation, verifyRecaptcha, RECAPTCHA_SITE_KEY } from './ai-runtime.js'
 
 const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
@@ -308,6 +308,7 @@ async function buildSiteResponse(d) {
   site.chat_name = persona?.name || site.chat_name || null
   site.chat_avatar = persona?.avatar_url || null
   site.chat_greeting = persona?.greeting || null
+  site.recaptcha_site_key = RECAPTCHA_SITE_KEY || null   // gates the on-site reCAPTCHA
   return { site, vehicles, team: roster, count: vehicles.length, deposits }
 }
 
@@ -391,6 +392,7 @@ export function registerSite(app) {
     const { data: d } = await supabaseAdmin.from('dealerships')
       .select('id, site_published').ilike('site_slug', slug).maybeSingle()
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
+    if (!(await verifyRecaptcha(req.body?.recaptcha_token))) return res.status(403).json({ error: 'recaptcha_failed' })
     const b = req.body || {}
     const name = String(b.name || '').trim().slice(0, 120)
     const email = String(b.email || '').trim().slice(0, 160)
@@ -526,6 +528,7 @@ export function registerSite(app) {
     const slug = String(req.params.slug || '').toLowerCase().trim()
     const { data: d } = await supabaseAdmin.from('dealerships').select('id, name, branding, site_published, city, province').ilike('site_slug', slug).maybeSingle()
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
+    if (!(await verifyRecaptcha(req.body?.recaptcha_token))) return res.status(403).json({ error: 'recaptcha_failed' })
     const b = req.body || {}
     const name = String(b.name || '').trim().slice(0, 120)
     const email = String(b.email || '').trim().slice(0, 160)
@@ -606,6 +609,7 @@ export function registerSite(app) {
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
     const b = d.branding || {}
     if (!b.site_sales_chat) return res.status(403).json({ error: 'Chat is not enabled for this site.' })
+    if (!(await verifyRecaptcha(req.body?.recaptcha_token))) return res.status(403).json({ error: 'recaptcha_failed' })
 
     // Graceful degrade: no key or over the monthly budget → show the lead form.
     if (!process.env.ANTHROPIC_API_KEY || !(await aiAllowed(d.id, false))) {

@@ -147,18 +147,24 @@
         document.getElementById('hd-nm').textContent = cfg.assistant_name || cfg.name || 'Chat';
         document.getElementById('ft').style.display='flex';
         document.getElementById('brand').style.display='block';
+        // reCAPTCHA v3 (invisible) — load only if the dealer has keys configured; otherwise
+        // hide the "protected by reCAPTCHA" line so it isn't shown untruthfully.
+        if(cfg.recaptcha_site_key){ window.RC_KEY=cfg.recaptcha_site_key; var rs=document.createElement('script'); rs.src='https://www.google.com/recaptcha/api.js?render='+encodeURIComponent(cfg.recaptcha_site_key); rs.async=true; document.head.appendChild(rs); }
+        else { var sm=document.querySelector('#brand .sm'); if(sm) sm.style.display='none'; }
         bubble(cfg.greeting || 'Hi! How can I help you find your next vehicle?', 'ai');
         if(convId&&visTok) startPoll();   // returning visitor — catch live rep replies
         inp.focus();
       }catch(e){ document.getElementById('off').style.display='flex'; }
     }
 
+    async function rcToken(action){ try{ if(window.RC_KEY && window.grecaptcha){ await new Promise(function(r){ grecaptcha.ready?grecaptcha.ready(r):r(); }); return await grecaptcha.execute(window.RC_KEY,{action:action||'chat'}); } }catch(e){} return null; }
     async function send(){
       var text = inp.value.trim(); if(!text) return;
       inp.value=''; sendBtn.disabled=true; bubble(text,'user'); typing(true);
       try{
+        var rc = await rcToken('chat');
         var r = await fetch(API+'/ai/widget/chat', { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ dealer: dealer, message: text, conversation_id: convId, visitor_token: visTok, website: document.referrer || null }) });
+          body: JSON.stringify({ dealer: dealer, message: text, conversation_id: convId, visitor_token: visTok, website: document.referrer || null, recaptcha_token: rc }) });
         var d = await r.json(); typing(false);
         if(d.conversation_id){ convId=d.conversation_id; localStorage.setItem(LS_CONV,convId); }
         if(d.visitor_token){ visTok=d.visitor_token; localStorage.setItem(LS_VIS,visTok); }

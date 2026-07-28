@@ -94,12 +94,16 @@
         injectHead(s.head_html);
         applyTypography(s);
         renderChrome(); go(hashToView(location.hash));
+        if(s.recaptcha_site_key) loadRecaptcha(s.recaptcha_site_key);
         if(s.sales_chat) mountSalesChat(s);
         maybeDepositBanner();
         // Deep link: ?v=<vehicle id> (e.g. a "View Details" link from the AI chat) opens that vehicle.
         try{ const vid=new URLSearchParams(location.search).get('v'); if(vid) setTimeout(()=>{ try{ openVehicle(vid) }catch(e){} },120); }catch(e){}
       }catch(e){ document.getElementById('app').innerHTML=errPage(e.message); }
     }
+    // Google reCAPTCHA v3 (invisible) — loaded only when the dealer has keys configured.
+    function loadRecaptcha(key){ if(window.__rcLoaded) return; window.__rcLoaded=true; window.RC_KEY=key; const sc=document.createElement('script'); sc.src='https://www.google.com/recaptcha/api.js?render='+encodeURIComponent(key); sc.async=true; document.head.appendChild(sc); }
+    async function rcToken(action){ try{ if(window.RC_KEY && window.grecaptcha){ await new Promise(r=>grecaptcha.ready?grecaptcha.ready(r):r()); return await grecaptcha.execute(window.RC_KEY,{action:action||'submit'}); } }catch(e){} return null; }
     const errPage=(m)=>`<div class="min-h-screen flex flex-col items-center justify-center gap-2 text-center px-6"><div class="text-lg font-bold text-slate-700">${esc(m)}</div><div class="text-sm text-slate-400">Please check the link.</div></div>`;
     // Deposit checkout return → confirmation/cancel banner, then clean the URL.
     function maybeDepositBanner(){ const p=new URLSearchParams(location.search); const dep=p.get('deposit'); if(!dep) return;
@@ -932,7 +936,7 @@
     }
 
     async function postLead(body,formEl,btn){ btn.disabled=true; const t=btn.textContent; btn.textContent='Sending…';
-      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('x');
+      try{ body.recaptcha_token=await rcToken(body.form_type||'lead'); const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('x');
         formEl.innerHTML='<div class="text-center py-10"><div class="text-2xl mb-2">✓</div><div class="font-bold text-emerald-600">Thanks! We\'ll be in touch shortly.</div></div>';
       }catch(e){ btn.disabled=false; btn.textContent=t; alert('Sorry, something went wrong. Please call us.'); } }
     const V=(id)=>(document.getElementById(id)?.value||'').trim();
@@ -1030,7 +1034,7 @@
           </form>
           <div style="text-align:center;font-size:10px;line-height:1.45;color:#94a3b8;padding:7px 10px;background:#fff;border-top:1px solid #f1f5f9">
             <div>Powered by <a href="https://marketsync.link" target="_blank" rel="noopener" style="color:#64748b;font-weight:700;text-decoration:underline"><img src="https://marketsync.link/logo.png" alt="MarketSync" style="height:12px;width:auto;vertical-align:-2px"></a>. Use is subject to MarketSync's <a href="https://marketsync.link/terms.html" target="_blank" rel="noopener" style="color:#64748b;font-weight:700;text-decoration:underline">Terms</a> and <a href="https://marketsync.link/privacy-policy.html" target="_blank" rel="noopener" style="color:#64748b;font-weight:700;text-decoration:underline">Privacy Policy</a>.</div>
-            <div style="font-size:9px;color:#b6c0cc;margin-top:1px">This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:underline">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:underline">Terms of Service</a> apply.</div>
+            ${s.recaptcha_site_key?`<div style="font-size:9px;color:#b6c0cc;margin-top:1px">This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:underline">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:underline">Terms of Service</a> apply.</div>`:''}
           </div>
         </div>`;
       document.body.appendChild(wrap);
@@ -1153,7 +1157,8 @@
       inp.value=''; chatPush('me',text); CHAT_BUSY=true; chatTyping(true);
       try{
         const msgs=CHAT.filter(m=>m.who==='me'||m.who==='bot').slice(-8).map(m=>({role:m.who==='me'?'user':'assistant',content:m.text}));
-        const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,conversation_id:window.MS_CHAT_CONV||null,visitor_token:window.MS_CHAT_VTOK||null})});
+        const rc=await rcToken('chat');
+        const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,conversation_id:window.MS_CHAT_CONV||null,visitor_token:window.MS_CHAT_VTOK||null,recaptcha_token:rc})});
         const d=await r.json().catch(()=>({}));
         if(d.conversation_id) window.MS_CHAT_CONV=d.conversation_id;
         if(d.visitor_token) window.MS_CHAT_VTOK=d.visitor_token;
@@ -1178,7 +1183,8 @@
       // Full structured transcript (both sides) so the dealer can read exactly what the AI said.
       const chat_transcript=CHAT.filter(m=>m.who==='me'||m.who==='bot').map(m=>({role:m.who==='me'?'user':'assistant',content:String(m.text||'').slice(0,2000)})).slice(-60);
       try{
-        await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({form_type:'chat',name,phone,email,message:'From website chat: '+transcript,chat_transcript})});
+        const rc=await rcToken('chat_lead');
+        await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({form_type:'chat',name,phone,email,message:'From website chat: '+transcript,chat_transcript,recaptcha_token:rc})});
         CHAT_CAPTURED=true;
         document.getElementById('ms-chat-capture').style.display='none';
         chatPush('bot',`Thanks${name?' '+name:''}! A product advisor will reach out shortly. Anything else I can help with in the meantime?`);
@@ -1213,7 +1219,7 @@
       const when=new Date(date+'T'+time+':00'); if(isNaN(when.getTime())||when.getTime()<Date.now()){ err.textContent='Pick a future time.'; err.classList.remove('hidden'); return; }
       let tz=''; try{ tz=Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(_){}
       btn.disabled=true; const t=btn.textContent; btn.textContent='Booking…';
-      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/book`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,email,notes,vehicle_id:__bookVeh,when:when.toISOString(),tz,kind:'Test drive'})});
+      try{ const rc=await rcToken('book'); const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/book`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,email,notes,vehicle_id:__bookVeh,when:when.toISOString(),tz,kind:'Test drive',recaptcha_token:rc})});
         const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not book that time.');
         document.getElementById('bk-body').innerHTML=`<div class="text-center py-6"><div class="text-4xl">✅</div><div class="text-lg font-black text-slate-900 mt-2">You're booked!</div><div class="text-sm text-slate-500 mt-1">Check your inbox for the confirmation. See you then!</div>${d.meet_url?`<a href="${d.meet_url}" target="_blank" class="inline-block mt-3 text-sm font-bold brand-text">Join link</a>`:''}<div class="mt-3"><button onclick="this.closest('.fixed').remove()" class="text-slate-500 font-bold text-sm">Close</button></div></div>`;
       }catch(e){ btn.disabled=false; btn.textContent=t; err.textContent=e.message||'Something went wrong — please call us.'; err.classList.remove('hidden'); } }

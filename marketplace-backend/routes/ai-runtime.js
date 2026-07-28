@@ -36,6 +36,25 @@ const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const SITE_PUBLIC = process.env.SITE_PUBLIC_URL || FRONTEND_URL || 'https://marketsync.link'
 const aiAvatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 4 * 1024 * 1024 } })
 
+// ── Google reCAPTCHA (v3) ────────────────────────────────────────────────────
+// Enabled only when both keys are set in the environment. The site key is public
+// (sent to the browser); the secret verifies tokens server-side.
+export const RECAPTCHA_SITE_KEY = process.env.RECAPTCHA_SITE_KEY || ''
+const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET || ''
+export async function verifyRecaptcha(token) {
+  if (!RECAPTCHA_SECRET) return true          // not configured → don't block anyone
+  if (!token) return false
+  try {
+    const r = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `secret=${encodeURIComponent(RECAPTCHA_SECRET)}&response=${encodeURIComponent(token)}`,
+    })
+    const d = await r.json()
+    // v3 returns a score (0–1); accept a generous threshold for chat/lead forms.
+    return !!d.success && (d.score === undefined || d.score >= 0.3)
+  } catch { return true }                      // network/proxy hiccup → fail open, don't lock out real customers
+}
+
 // Turn the vehicles the agent surfaced (ctx.shownVehicles) into rich cards for the
 // chat client: photo, title, price, stock, VIN and a deep link to the vehicle page.
 export async function formatShownVehicles(dealershipId, rows) {
@@ -502,6 +521,7 @@ export function registerAiRuntime(app) {
       assistant_name: persona?.name || null,
       avatar: persona?.avatar_url || null,
       greeting: intro,
+      recaptcha_site_key: RECAPTCHA_SITE_KEY || null,
     })
   })
 
@@ -511,6 +531,7 @@ export function registerAiRuntime(app) {
     if (!dealer || !message) return res.status(400).json({ error: 'dealer and message required' })
     const { data: d } = await supabaseAdmin.from('dealerships').select('id, ai_chatbot_active').eq('id', dealer).maybeSingle()
     if (!d || !d.ai_chatbot_active) return res.status(403).json({ error: 'chatbot_not_enabled' })
+    if (!(await verifyRecaptcha(req.body?.recaptcha_token))) return res.status(403).json({ error: 'recaptcha_failed' })
     if (!(await aiAllowed(d.id, false))) return res.status(429).json({ error: 'busy' })
     const visitorToken = String(req.body?.visitor_token || '') || ('v_' + Math.random().toString(36).slice(2) + Date.now().toString(36))
     const out = await publicChat({ dealershipId: d.id, conversationId: req.body?.conversation_id || null, visitorToken, message, website: req.body?.website || null })
@@ -639,11 +660,17 @@ export function registerAiRuntime(app) {
         const bundle = await assembleContext(req.dealershipId, { conversationId: convo.id, contactId: convo.contact_id })
         const ctx = { dealershipId: req.dealershipId, conversation: convo, contactRef: { id: convo.contact_id } }
         const system = await buildSystem(req.dealershipId, ctx, bundle)
-        const hist = (await getHistory(convo.id, 40)).map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.message }))
+        // Pass the transcript as one user turn (always valid input, even for empty or
+        // assistant-ended histories) and ask for the next reply — so a draft is never blank.
+        const hist = await getHistory(convo.id, 40)
+        const transcript = hist.map(m => `${m.role === 'assistant' ? 'You' : 'Customer'}: ${m.message}`).join('\n')
+        const prompt = `${transcript ? `Conversation so far:\n${transcript}\n\n` : ''}Write your next reply to the customer — short, warm and natural, moving toward booking a visit. Reply with just the message text.`
         const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-        const r = await anthropic.messages.create({ model: MODEL, max_tokens: 500, system, messages: hist.length ? hist : [{ role: 'user', content: 'Continue helping the customer toward booking a visit.' }] })
+        const r = await anthropic.messages.create({ model: MODEL, max_tokens: 500, system, messages: [{ role: 'user', content: prompt }] })
         text = (r.content || []).filter(b => b.type === 'text').map(b => b.text).join(' ').trim()
-      } catch (e) { return res.status(500).json({ error: 'AI draft failed' }) }
+      } catch (e) { return res.status(500).json({ error: 'AI draft failed: ' + (e.message || 'error') }) }
+      if (!text) return res.status(502).json({ error: 'The AI returned an empty draft — try again.' })
+      return res.json({ ok: true, draft: text })
     }
     if (!text) return res.status(400).json({ error: 'empty message' })
     // Draft mode returns the suggestion for the rep to edit — it is NOT sent or saved.
