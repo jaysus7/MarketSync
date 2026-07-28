@@ -786,16 +786,33 @@ function applyProductNav(products) {
 }
 window.applyProductNav = applyProductNav;
 
-// Trim the mobile bottom quick-row to the current tier's allowed pages, so a
-// restricted dealer never sees a dead/leaky Home/CRM/Stock button. Full-OS dealers
-// keep the authored row. The Menu (#nav-more) is always kept reachable.
+// Rebuild the mobile bottom quick-row from the SAME registry the desktop nav +
+// "more" sheet use (restrictedNavPages), so a restricted tier never shows a
+// dead/leaky Home/CRM/Stock button, and the order matches the tier (e.g. Facebook:
+// Leaderboard · Inventory · Customers). Full-OS dealers keep the authored row.
+// The Menu (#nav-more) is always kept reachable.
 function applyMobileQuickRow() {
-  const allowed = __fbOnly ? FB_ONLY_PAGES : (__productAllowedPages || null);
-  document.querySelectorAll('#dashboard-nav > button.nav-item[data-page]').forEach(b => {
-    if (!allowed) { return; }   // full experience — leave the authored row as-is
-    b.classList.toggle('hidden', !allowed.has(b.dataset.page));
-  });
-  if (allowed) document.getElementById('nav-more')?.classList.remove('hidden');
+  const restricted = __fbOnly || __productAllowedPages;
+  const authored = document.querySelectorAll('#dashboard-nav > button.nav-item[data-page]');
+  const more = document.getElementById('nav-more');
+  if (!restricted) {
+    // Full experience — drop any generated row and restore the authored quick buttons.
+    document.getElementById('mobile-quickrow-dyn')?.remove();
+    return;
+  }
+  // Hide the authored (hardcoded) quick buttons and generate the row from the registry.
+  authored.forEach(b => b.classList.add('hidden'));
+  // Settings lives in the header gear, so it isn't a bottom-row destination.
+  const pages = (restrictedNavPages() || []).filter(p => p.page !== 'profile').slice(0, 4);
+  let host = document.getElementById('mobile-quickrow-dyn');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'mobile-quickrow-dyn';
+    host.className = 'contents md:hidden';   // display:contents → children join the flex row
+    if (more && more.parentElement) more.parentElement.insertBefore(host, more);
+  }
+  host.innerHTML = pages.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : ''})" title="${esc(p.label)}" class="nav-item md:hidden flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="opacity-70">${svgIcon(p.icon || 'dot', 'w-[18px] h-[18px]')}</span><span class="text-[9px] leading-none">${esc(p.label.split(' ')[0])}</span></button>`).join('');
+  more?.classList.remove('hidden');
 }
 window.applyMobileQuickRow = applyMobileQuickRow;
 
@@ -1280,13 +1297,15 @@ async function initializeDashboardEcosystem() {
       }
     } catch (e) {}
 
-    // Team leaderboard is for actual teams (admin + reps in a real dealership).
-    // Solo reps / no-team users have nothing to rank against on a team, so we hide
-    // the team panel entirely — they only get the Global Leaderboard below.
-    if (inDealership && !isPersonal) {
-      __pageInit.leaderboard = () => loadLeaderboard();
-    } else {
-      document.getElementById('leaderboard-panel')?.classList.add('hidden');
+    // The Leaderboard is its own page (the home for the Facebook / fb-only tiers,
+    // a Marketing tab in DealerOS). Wire the loader for EVERYONE so navigating to it
+    // never lands on an empty panel — this was the "leaderboard doesn't show" bug on
+    // the Facebook Solo/Dealer tiers, where the account is personal / has no team.
+    __pageInit.leaderboard = () => { try { initGlobalLeaderboard(); } catch (e) {} try { loadLeaderboard(); } catch (e) {} };
+    // No real team to rank against (solo / personal): default the carousel to the
+    // Global view and drop the "My Team" toggle — Global is the meaningful board.
+    if (!(inDealership && !isPersonal)) {
+      document.getElementById('lb-tab-team')?.classList.add('hidden');
     }
 
     // Set permission flags used by switchPage to mirror panels into Insights
@@ -10288,28 +10307,145 @@ async function loadAiHome(tab) {
     return aiHomeOverview(body, t);   // overview + conversations share the data fetch
   } catch (e) { body.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message)}</div>`; }
 }
+// Human labels for the categorization taxonomy (matches ai-runtime.categorizeText).
+const AI_DEPT_LABELS = { sales: 'Sales', service: 'Service', parts: 'Parts', general: 'General' };
+const AI_TYPE_LABELS = {
+  appointment: 'Appointment', parts: 'Parts', service: 'Service', financing: 'Financing',
+  trade: 'Trade-in', vehicle_inquiry: 'Vehicle inquiry', general: 'General question',
+};
+const AI_DEPT_TONE = {
+  sales: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
+  service: 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300',
+  parts: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
+  general: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+};
+let __aiFeed = { department: '', type: '', flag: '' };
+
 async function aiHomeOverview(body, tab) {
+  if (tab === 'conversations') return aiHomeFeed(body);
   const d = await apiGetJson('/ai/home');
   const s = d.stats || {};
+  const byDept = d.by_department || {};
+  const byType = d.by_type || {};
   const tile = (label, val, accent) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4"><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div><div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${(val ?? 0).toLocaleString()}</div></div>`;
-  const conv = (d.recent || []).map(c => `
-    <button onclick="aiOpenConversation('${c.id}')" class="w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
-      <span class="min-w-0 flex-1 truncate text-[13px] text-slate-700 dark:text-slate-200">${c.captured ? svgIcon('user', 'w-3.5 h-3.5 inline-block -mt-0.5 text-emerald-500') + ' Lead captured' : 'Visitor'}${c.website ? ' · ' + esc(String(c.website).replace(/^https?:\/\//, '').slice(0, 30)) : ''}</span>
-      <span class="flex items-center gap-2 flex-shrink-0">
-        ${c.status === 'handoff' ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">Handoff</span>' : ''}
-        <span class="text-[11px] font-black ${c.score >= 80 ? 'text-rose-600 dark:text-rose-400' : c.score >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}">${c.score}</span>
-      </span>
-    </button>`).join('') || '<div class="text-sm text-slate-400 py-6 text-center">No conversations yet — add the chatbot to your site (Settings).</div>';
-  const showAll = tab === 'conversations';
-  body.innerHTML = `
-    ${showAll ? '' : `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+  // Insight tiles — what the chatbot did.
+  const insights = `
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
       ${tile('Conversations', s.conversations, 'text-emerald-600 dark:text-emerald-400')}
       ${tile('Leads Captured', s.leads_captured)}
+      ${tile('Appointments Booked', s.booked, 'text-emerald-600 dark:text-emerald-400')}
       ${tile('Hot Leads', s.hot_leads, 'text-rose-600 dark:text-rose-400')}
-      ${tile('After Hours', s.after_hours, 'text-indigo-600 dark:text-indigo-400')}
-    </div>`}
-    <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">${showAll ? 'All conversations' : 'Recent conversations'}</div>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      ${tile('Sales', byDept.sales, 'text-emerald-600 dark:text-emerald-400')}
+      ${tile('Service', byDept.service, 'text-sky-600 dark:text-sky-400')}
+      ${tile('Parts', byDept.parts, 'text-amber-600 dark:text-amber-400')}
+      ${tile('Asked for a Rep', s.asked_for_rep, 'text-indigo-600 dark:text-indigo-400')}
+    </div>`;
+  // Breakdown bars.
+  const breakdown = (title, obj, labels, tone) => {
+    const entries = Object.entries(obj || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    const max = Math.max(1, ...entries.map(([, v]) => v));
+    if (!entries.length) return '';
+    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2.5">${esc(title)}</div>
+      <div class="space-y-2">${entries.map(([k, v]) => `
+        <div class="flex items-center gap-2">
+          <span class="w-28 flex-shrink-0 text-[12px] font-semibold text-slate-600 dark:text-slate-300 truncate">${esc((labels && labels[k]) || k)}</span>
+          <div class="flex-1 h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full ${tone}" style="width:${Math.round(v / max * 100)}%"></div></div>
+          <span class="w-8 flex-shrink-0 text-right text-[12px] font-black text-slate-700 dark:text-slate-200">${v}</span>
+        </div>`).join('')}</div>
+    </div>`;
+  };
+  const conv = (d.recent || []).map(aiFeedRow).join('')
+    || '<div class="text-sm text-slate-400 py-6 text-center">No conversations yet — add the chatbot to your site (Settings).</div>';
+  body.innerHTML = `
+    ${insights}
+    <div class="grid md:grid-cols-2 gap-3 mb-4">
+      ${breakdown('By department', byDept, AI_DEPT_LABELS, 'bg-emerald-500')}
+      ${breakdown('By lead type', byType, AI_TYPE_LABELS, 'bg-indigo-500')}
+    </div>
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">Recent conversations</div>
+      <button onclick="loadAiHome('conversations')" class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline">View all + filters →</button>
+    </div>
     <div class="space-y-1.5">${conv}</div>`;
+}
+
+// One row in the categorized feed. Works with the raw ai_conversations shape
+// (lead_score/contact_id/…) and with the /ai/home recent[] shape (score/captured/…).
+function aiFeedRow(c) {
+  const score = c.score ?? c.lead_score ?? 0;
+  const captured = c.captured ?? !!c.contact_id;
+  const dept = c.department || 'general';
+  const type = c.lead_type || 'general';
+  const tags = Array.isArray(c.tags) ? c.tags : [];
+  const when = c.at || c.last_message_at || c.created_at;
+  const chip = (txt, tone) => `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${tone}">${esc(txt)}</span>`;
+  const tagChips = tags.filter(t => t !== 'asked_manager').slice(0, 4)
+    .map(t => chip(t, 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300')).join('');
+  return `<button onclick="aiOpenConversation('${c.id}')" class="w-full text-left px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+    <div class="flex items-center justify-between gap-2">
+      <div class="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+        ${chip(AI_DEPT_LABELS[dept] || dept, AI_DEPT_TONE[dept] || AI_DEPT_TONE.general)}
+        ${chip(AI_TYPE_LABELS[type] || type, 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300')}
+        ${c.booked ? chip('Booked', 'bg-emerald-600 text-white') : ''}
+        ${c.requested_rep ? chip('Asked for ' + c.requested_rep, 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300') : ''}
+        ${tags.includes('asked_manager') ? chip('Asked for manager', 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300') : ''}
+        ${tagChips}
+      </div>
+      <span class="flex items-center gap-2 flex-shrink-0">
+        ${c.status === 'handoff' ? chip('Handoff', 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300') : ''}
+        <span class="text-[11px] font-black ${score >= 80 ? 'text-rose-600 dark:text-rose-400' : score >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}">${score}</span>
+      </span>
+    </div>
+    <div class="mt-1 text-[12px] text-slate-500 dark:text-slate-400 truncate">
+      ${captured ? svgIcon('user', 'w-3.5 h-3.5 inline-block -mt-0.5 text-emerald-500') + ' Lead captured' : 'Visitor'}${c.website ? ' · ' + esc(String(c.website).replace(/^https?:\/\//, '').slice(0, 30)) : ''}${when ? ' · ' + esc(new Date(when).toLocaleDateString([], { month: 'short', day: 'numeric' })) : ''}
+    </div>
+  </button>`;
+}
+
+// Filterable categorized feed (Conversations tab).
+async function aiHomeFeed(body) {
+  const opt = (val, label, cur) => `<option value="${esc(val)}"${cur === val ? ' selected' : ''}>${esc(label)}</option>`;
+  const deptOpts = ['', ...Object.keys(AI_DEPT_LABELS)].map(v => opt(v, v ? AI_DEPT_LABELS[v] : 'All departments', __aiFeed.department)).join('');
+  const typeOpts = ['', ...Object.keys(AI_TYPE_LABELS)].map(v => opt(v, v ? AI_TYPE_LABELS[v] : 'All lead types', __aiFeed.type)).join('');
+  const flagOpts = [['', 'All conversations'], ['booked', 'Booked appointments'], ['captured', 'Leads captured'], ['asked_manager', 'Asked for a manager']]
+    .map(([v, l]) => opt(v, l, __aiFeed.flag)).join('');
+  const sel = 'px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] font-semibold';
+  body.innerHTML = `
+    <div class="flex flex-wrap gap-2 mb-3">
+      <select id="ai-feed-dept" onchange="aiFeedApply()" class="${sel}">${deptOpts}</select>
+      <select id="ai-feed-type" onchange="aiFeedApply()" class="${sel}">${typeOpts}</select>
+      <select id="ai-feed-flag" onchange="aiFeedApply()" class="${sel}">${flagOpts}</select>
+    </div>
+    <div id="ai-feed-list"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
+  await aiFeedLoad();
+}
+async function aiFeedApply() {
+  __aiFeed = {
+    department: document.getElementById('ai-feed-dept')?.value || '',
+    type: document.getElementById('ai-feed-type')?.value || '',
+    flag: document.getElementById('ai-feed-flag')?.value || '',
+  };
+  await aiFeedLoad();
+}
+async function aiFeedLoad() {
+  const list = document.getElementById('ai-feed-list');
+  if (!list) return;
+  const p = new URLSearchParams();
+  if (__aiFeed.department) p.set('department', __aiFeed.department);
+  if (__aiFeed.type) p.set('type', __aiFeed.type);
+  if (__aiFeed.flag === 'booked') p.set('booked', 'true');
+  else if (__aiFeed.flag === 'captured') p.set('captured', 'true');
+  else if (__aiFeed.flag === 'asked_manager') p.set('tag', 'asked_manager');
+  try {
+    const d = await apiGetJson('/ai/conversations' + (p.toString() ? '?' + p.toString() : ''));
+    const rows = d.conversations || [];
+    list.innerHTML = rows.length
+      ? `<div class="text-[11px] text-slate-400 font-bold mb-2">${rows.length} conversation${rows.length === 1 ? '' : 's'}</div><div class="space-y-1.5">${rows.map(aiFeedRow).join('')}</div>`
+      : '<div class="text-sm text-slate-400 py-10 text-center">No conversations match these filters.</div>';
+  } catch (e) { list.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message)}</div>`; }
 }
 async function aiHomeKnowledge(body) {
   const { knowledge: k } = await apiGetJson('/ai/knowledge');
@@ -10360,7 +10496,7 @@ async function aiHomeSavePersonality() {
   try { await apiSendJson('/ai/personality', 'PUT', { greeting: document.getElementById('ai-p-greeting').value, tone: document.getElementById('ai-p-tone').value }); showToast('Saved ✓', 'success'); }
   catch (e) { showToast(e.message, 'error'); }
 }
-Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality });
+Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, aiFeedApply });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Engine UI Framework — every engine renders inside one reusable shell that

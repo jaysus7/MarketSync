@@ -33,6 +33,72 @@ const MODEL = 'claude-haiku-4-5-20251001'
 const SURFACE = 'sales_chat'   // the agent surface the customer-facing chatbot runs on
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 
+// ── Conversation categorization (deterministic, zero-cost) ───────────────────
+// Tags every chat by department + intent + extracted attributes so the AI Chat
+// dashboard can show a filterable feed and insights. No model call — pure keywords.
+const CAR_MAKES = ['toyota', 'honda', 'ford', 'chevrolet', 'chevy', 'gmc', 'ram', 'dodge', 'jeep', 'nissan', 'hyundai', 'kia', 'mazda', 'subaru', 'volkswagen', 'vw', 'bmw', 'mercedes', 'audi', 'lexus', 'acura', 'infiniti', 'buick', 'cadillac', 'chrysler', 'tesla', 'volvo', 'porsche', 'land rover', 'jaguar', 'mitsubishi', 'genesis', 'lincoln']
+function categorizeText(text) {
+  const t = String(text || '').toLowerCase()
+  const tags = new Set()
+  let department = 'general'
+  if (/\b(parts?|accessor|tire|battery|brake pad|wiper|floor mat|roof rack)\b/.test(t)) department = 'parts'
+  else if (/\b(service|repair|oil change|maintenance|recall|check engine|diagnos|tune-?up|inspection|brakes)\b/.test(t)) department = 'service'
+  else if (/\b(buy|price|financ|lease|trade|test drive|in stock|available|vehicle|truck|suv|sedan|payment|apr|quote)\b/.test(t) || CAR_MAKES.some(m => t.includes(m))) department = 'sales'
+  let lead_type = 'general'
+  if (/\b(appointment|book|schedule|test drive|come in|visit|set up a time)\b/.test(t)) lead_type = 'appointment'
+  else if (department === 'parts') lead_type = 'parts'
+  else if (department === 'service') lead_type = 'service'
+  else if (/\b(financ|apr|payment|monthly|approv|credit)\b/.test(t)) lead_type = 'financing'
+  else if (/\b(trade|trade-?in|worth for my)\b/.test(t)) lead_type = 'trade'
+  else if (CAR_MAKES.some(m => t.includes(m)) || /\b(suv|truck|sedan|van|coupe|hatchback|crossover|minivan)\b/.test(t)) lead_type = 'vehicle_inquiry'
+  if (/\bnew\b/.test(t)) tags.add('new')
+  if (/\b(used|pre-?owned|second-?hand)\b/.test(t)) tags.add('used')
+  if (/\bdemo\b/.test(t)) tags.add('demo')
+  for (const m of CAR_MAKES) if (t.includes(m)) tags.add(m === 'chevy' ? 'chevrolet' : m === 'vw' ? 'volkswagen' : m)
+  const yr = t.match(/\b(?:19|20)\d{2}\b/); if (yr) tags.add(yr[0])
+  if (/\bmanager\b/.test(t)) tags.add('asked_manager')
+  tags.add(department)
+  let requested_rep = null
+  const rm = t.match(/\b(?:ask for|speak (?:to|with)|talk to|deal with|work with)\s+([a-z][a-z'.-]{1,18})\b/)
+  if (rm && !['a', 'an', 'the', 'someone', 'sales', 'service', 'parts', 'you', 'me', 'somebody', 'anyone'].includes(rm[1])) requested_rep = rm[1]
+  return { department, lead_type, tags: [...tags], requested_rep }
+}
+export async function categorizeConversation(dealershipId, conversationId, userText, { booked = false } = {}) {
+  const c = categorizeText(userText)
+  const patch = { department: c.department, lead_type: c.lead_type, tags: c.tags, category_at: new Date().toISOString() }
+  if (c.requested_rep) patch.requested_rep = c.requested_rep
+  if (booked) patch.booked = true
+  try { await supabaseAdmin.from('ai_conversations').update(patch).eq('id', conversationId).eq('dealership_id', dealershipId) } catch { /* columns may not exist yet */ }
+  return c
+}
+
+// Pick a random rep for a department so AI leads land on a real person's plate.
+// Falls back to any sales rep, then any dealership member.
+async function pickRandomRep(dealershipId, department = 'sales') {
+  const role = department === 'service' ? 'SERVICE' : department === 'parts' ? 'PARTS' : 'SALES_REP'
+  const grab = async (r) => { const { data } = await supabaseAdmin.from('profiles').select('id').eq('dealership_id', dealershipId).eq('role', r).limit(50); return data || [] }
+  try {
+    let pool = await grab(role)
+    if (!pool.length && role !== 'SALES_REP') pool = await grab('SALES_REP')
+    if (!pool.length) { const { data } = await supabaseAdmin.from('profiles').select('id').eq('dealership_id', dealershipId).limit(50); pool = data || [] }
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)].id : null
+  } catch { return null }
+}
+
+// When the chatbot captures info, drop a task on a random rep + a follow-up task, so
+// nothing an AI lead shares just sits in a transcript.
+async function assignFollowupTasks(dealershipId, contactId, { department = 'sales', repId = null, vehicle = null, initialTitle = null } = {}) {
+  if (!contactId) return null
+  const rep = repId || await pickRandomRep(dealershipId, department)
+  const now = Date.now()
+  const rows = [
+    { dealership_id: dealershipId, contact_id: contactId, assigned_to: rep, type: 'call', category: department, title: initialTitle || `New AI lead — contact${vehicle ? ' re: ' + String(vehicle).slice(0, 60) : ''}`, due_at: new Date(now + 3600000).toISOString() },
+    { dealership_id: dealershipId, contact_id: contactId, assigned_to: rep, type: 'followup', category: department, title: 'Follow up with AI chat lead', due_at: new Date(now + 2 * 86400000).toISOString() },
+  ]
+  try { await supabaseAdmin.from('crm_tasks').insert(rows) } catch { /* non-fatal */ }
+  return rep
+}
+
 // ── Sales-chat tools — every tool wraps an engine API; handlers get (args, ctx) ──
 // ctx = { dealershipId, conversation, contactRef } (contactRef.id mutable on capture).
 // These are registered into the shared Agent Tool Registry (kernel contract §5) on
@@ -97,6 +163,8 @@ const SALES_TOOLS = [
       if (a.vehicle_interest) await saveMemory(ctx.dealershipId, contactId, 'vehicle_interest', a.vehicle_interest, { conversationId: ctx.conversation.id })
       routeAndNotifyLead(ctx.dealershipId, { contactId, vehicleId: null, name: a.name, source: 'AI Chat' }).catch(() => {})
       emitEvent({ dealershipId: ctx.dealershipId, eventName: 'lead.created', entityType: 'customer', entityId: contactId, summary: `AI captured lead — ${a.name}`, department: 'Sales', payload: { source: 'AI Chat', conversation_id: ctx.conversation.id } })
+      // Drop a contact task + a follow-up on a random sales rep so it's actioned.
+      assignFollowupTasks(ctx.dealershipId, contactId, { department: 'sales', vehicle: a.vehicle_interest }).catch(() => {})
       return { ok: true, contact_id: contactId }
     },
   },
@@ -138,13 +206,19 @@ const SALES_TOOLS = [
         routeAndNotifyLead(ctx.dealershipId, { contactId, vehicleId: null, name: a.name, source: 'AI Chat' }).catch(() => {})
       }
       const label = dept === 'service' ? 'Service' : 'Sales'
+      // Put the appointment on a real rep's plate (random rep for the department).
+      const rep = await pickRandomRep(ctx.dealershipId, dept)
       const title = `${label} appointment${a.vehicle ? ' — ' + String(a.vehicle).slice(0, 80) : ''}${a.note ? ' · ' + String(a.note).slice(0, 120) : ''}`
       const { data: task, error } = await supabaseAdmin.from('crm_tasks').insert({
-        dealership_id: ctx.dealershipId, contact_id: contactId, type: 'appointment', category: dept,
+        dealership_id: ctx.dealershipId, contact_id: contactId, assigned_to: rep, type: 'appointment', category: dept,
         title, due_at: when.toISOString(),
       }).select('id').maybeSingle()
       if (error) return { ok: false, reason: 'could_not_book' }
       if (dept === 'service') supabaseAdmin.from('contacts').update({ service_customer: true }).eq('id', contactId).then(() => {}, () => {})
+      // Mark the conversation booked (for AI Chat insights) + add a follow-up task.
+      ctx.booked = true
+      supabaseAdmin.from('ai_conversations').update({ booked: true }).eq('id', ctx.conversation.id).then(() => {}, () => {})
+      supabaseAdmin.from('crm_tasks').insert({ dealership_id: ctx.dealershipId, contact_id: contactId, assigned_to: rep, type: 'followup', category: dept, title: `Confirm ${dept} appointment`, due_at: new Date(when.getTime() - 3600000).toISOString() }).then(() => {}, () => {})
       emitEvent({ dealershipId: ctx.dealershipId, eventName: 'appointment.booked', entityType: 'customer', entityId: contactId, summary: `AI booked a ${dept} appointment for ${when.toLocaleString('en-US')}`, department: label, payload: { conversation_id: ctx.conversation.id, when: when.toISOString(), task_id: task?.id || null } })
       createNotification({ dealershipId: ctx.dealershipId, type: 'appointment', title: `📅 New ${label} appointment (AI chat)`, body: `${when.toLocaleString('en-US')} — booked by your website assistant.`, linkPage: dept === 'service' ? 'service-appointments' : 'appointments' }).catch(() => {})
       return { ok: true, department: dept, when: when.toISOString() }
@@ -324,6 +398,8 @@ async function runChat({ dealershipId, conversation, contactId, userText, isOwne
   recordAssistantChat(dealershipId).catch(() => {})
   const allMsgs = await getHistory(conversation.id, 100)
   await rescoreLead(ctx, allMsgs, bundle.memory)
+  // Categorize the conversation (department/intent/tags) for the AI Chat dashboard feed.
+  categorizeConversation(dealershipId, conversation.id, allMsgs.filter(m => m.role === 'user').map(m => m.message).join(' '), { booked: !!ctx.booked }).catch(() => {})
   return { reply: replyText, conversation_id: conversation.id, contact_id: ctx.contactRef.id, lead_score: conversation.lead_score }
 }
 
@@ -407,23 +483,30 @@ export function registerAiRuntime(app) {
     res.json({ surface: SURFACE, tools: toolDefs(SURFACE) })
   })
 
-  // ── AI Chatbot product home: stats + recent conversations ───────────────────
+  // ── AI Chatbot product home: stats, breakdowns + recent conversations ───────
   app.get('/ai/home', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    const since = new Date(Date.now() - 30 * 86400000).toISOString()
+    const days = Math.min(365, Math.max(1, parseInt(req.query.days, 10) || 30))
+    const since = new Date(Date.now() - days * 86400000).toISOString()
     const { data } = await supabaseAdmin.from('ai_conversations')
-      .select('id, contact_id, lead_score, status, created_at, website')
-      .eq('dealership_id', req.dealershipId).gte('created_at', since).order('created_at', { ascending: false }).limit(1000)
+      .select('id, contact_id, lead_score, status, created_at, website, department, lead_type, tags, booked, requested_rep')
+      .eq('dealership_id', req.dealershipId).gte('created_at', since).order('created_at', { ascending: false }).limit(2000)
     const rows = data || []
     const afterHours = rows.filter(r => { const h = new Date(r.created_at).getHours(); return h < 8 || h >= 18 }).length
+    const countBy = (fn) => rows.reduce((m, r) => { const k = fn(r); if (k) m[k] = (m[k] || 0) + 1; return m }, {})
     res.json({
       stats: {
         conversations: rows.length,
         leads_captured: rows.filter(r => r.contact_id).length,
         hot_leads: rows.filter(r => (r.lead_score || 0) >= 80).length,
         after_hours: afterHours,
+        booked: rows.filter(r => r.booked).length,
+        asked_for_rep: rows.filter(r => r.requested_rep).length,
+        asked_for_manager: rows.filter(r => Array.isArray(r.tags) && r.tags.includes('asked_manager')).length,
       },
-      recent: rows.slice(0, 10).map(r => ({ id: r.id, score: r.lead_score || 0, status: r.status || 'open', captured: !!r.contact_id, website: r.website || null, at: r.created_at })),
+      by_department: countBy(r => r.department || 'general'),
+      by_type: countBy(r => r.lead_type || 'general'),
+      recent: rows.slice(0, 12).map(r => ({ id: r.id, score: r.lead_score || 0, status: r.status || 'open', captured: !!r.contact_id, website: r.website || null, at: r.created_at, department: r.department || 'general', lead_type: r.lead_type || 'general', tags: Array.isArray(r.tags) ? r.tags : [], booked: !!r.booked, requested_rep: r.requested_rep || null })),
     })
   })
 

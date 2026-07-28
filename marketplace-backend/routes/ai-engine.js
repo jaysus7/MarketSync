@@ -107,12 +107,20 @@ export async function assembleContext(dealershipId, { conversationId = null, con
 
 // ── HTTP surface — dealer console reads (managers) ───────────────────────────
 export function registerAiEngine(app) {
-  // Live conversations list for the dealer console.
+  // Live conversations list for the dealer console + AI Chat feed.
+  // Supports categorization filters used by the AI Chat dashboard:
+  //   status, department, type (lead_type), booked, captured, tag
   app.get('/ai/conversations', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    const limit = Math.min(300, Math.max(1, parseInt(req.query.limit, 10) || 200))
     let q = supabaseAdmin.from('ai_conversations').select('*')
-      .eq('dealership_id', req.dealershipId).order('last_message_at', { ascending: false }).limit(200)
+      .eq('dealership_id', req.dealershipId).order('last_message_at', { ascending: false }).limit(limit)
     if (req.query.status) q = q.eq('status', String(req.query.status))
+    if (req.query.department) q = q.eq('department', String(req.query.department))
+    if (req.query.type) q = q.eq('lead_type', String(req.query.type))
+    if (req.query.booked === 'true') q = q.eq('booked', true)
+    if (req.query.captured === 'true') q = q.not('contact_id', 'is', null)
+    if (req.query.tag) q = q.contains('tags', [String(req.query.tag)])
     const { data, error } = await q
     if (error) return res.status(500).json({ error: error.message })
     res.json({ conversations: data || [] })

@@ -14,6 +14,7 @@ import { runAutoResponder } from '../autoresponder.js'
 import { depositConfigForSite } from './deposits.js'
 import { toolDefs, callTool } from './tool-registry.js'
 import { startOrContinueConversation } from './ai-engine.js'
+import { categorizeConversation } from './ai-runtime.js'
 
 const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
@@ -714,6 +715,11 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
           results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out) })
         }
         messages.push({ role: 'user', content: results })
+      }
+      // Categorize this chat for the AI Chat dashboard feed (department/intent/tags).
+      if (conversation?.id) {
+        const userText = messages.filter(m => m.role === 'user' && typeof m.content === 'string').map(m => m.content).join(' ')
+        categorizeConversation(d.id, conversation.id, userText, { booked: !!ctx.booked }).catch(() => {})
       }
       const captureTok = /\[CAPTURE\]/i.test(reply)
       reply = reply.replace(/\[CAPTURE\]/ig, '').trim()
