@@ -12,6 +12,7 @@
 //   • AI copy generation hook                            → /automation/ai-copy
 // ─────────────────────────────────────────────────────────────────────────────
 import Anthropic from '@anthropic-ai/sdk'
+import { timingSafeEqual } from 'crypto'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { decryptJson } from '../crypto-pii.js'
@@ -24,6 +25,19 @@ const DEALER_LEVEL = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isDealerLevel = (req) => DEALER_LEVEL.includes(req.profile?.role)
 const digits = (s) => String(s || '').replace(/\D/g, '')
 const nowIso = () => new Date().toISOString()
+
+function inboundSecretOk(req, res) {
+  const expected = process.env.INBOUND_AUTOMATION_SECRET
+  if (!expected) { res.status(503).json({ error: 'Inbound automation is not configured.' }); return false }
+  const provided = String(req.get('x-inbound-secret') || (req.get('authorization') || '').replace(/^Bearer\s+/i, ''))
+  const expectedBytes = Buffer.from(expected)
+  const providedBytes = Buffer.from(provided)
+  if (expectedBytes.length !== providedBytes.length || !timingSafeEqual(expectedBytes, providedBytes)) {
+    res.status(401).json({ error: 'Unauthorized inbound webhook.' })
+    return false
+  }
+  return true
+}
 
 // Pipeline stages that mean "a live deal is being negotiated" → pause long-term retention.
 const OPEN_DEAL_STATUSES = new Set(['appointment', 'sold', 'fni', 'turnover'])
@@ -943,6 +957,7 @@ export function registerAutomation(app) {
 
   // ── Inbound webhook (SMS/email reply) → drop-out freeze + STOP handling ─────
   app.post('/automation/inbound', async (req, res) => {
+    if (!inboundSecretOk(req, res)) return
     const b = req.body || {}
     const from = b.from || b.From || ''
     const channel = (b.channel || (b.From ? 'sms' : 'email')).toLowerCase()
@@ -957,9 +972,11 @@ export function registerAutomation(app) {
       if (/^\s*(stop|unsubscribe|quit|cancel|end)\b/i.test(text)) {
         await supabaseAdmin.from('contacts').update({ opt_out: true, consent_sms: false, automation_paused: true }).eq('id', contact.id)
         await freezeSequences(contact.id, 'opted_out')
+        audit(req, 'customer.sms_opted_out', { contact_id: contact.id, source: 'inbound_webhook' })
         return res.json({ ok: true, opted_out: true })
       }
       await freezeSequences(contact.id, 'customer_replied')
+      audit(req, 'customer.inbound_reply', { contact_id: contact.id, channel, source: 'inbound_webhook' })
       res.json({ ok: true, frozen: true })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
