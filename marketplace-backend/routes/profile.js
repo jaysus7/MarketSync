@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../shared.js'
+import { supabaseAdmin, sendEmail, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { validatePassword, rateLimit } from '../security.js'
 import { audit, AuditAction } from '../audit.js'
@@ -214,7 +214,7 @@ export function registerRoutes(app) {
     res.json(enriched)
   })
 
-  app.post('/admin/users/invite', requireAuth, requirePermission('users.manage'), async (req, res) => {
+  app.post('/admin/users/invite', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
       return res.status(403).json({ error: 'Admins only' })
     }
@@ -245,11 +245,13 @@ export function registerRoutes(app) {
       tempPassword = randomBytes(12).toString('base64').replace(/[+/=]/g, '') + 'Aa9!'
     }
 
-    // Rep needs to verify their email like any other signup
+    // Create a random server-only bootstrap password. The invitee receives a
+    // Resend-delivered password setup link, never this secret and never a
+    // Supabase-hosted invitation email.
     const { data: newUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: tempPassword,
-      email_confirm: false
+      email_confirm: true
     })
     if (authError) return res.status(500).json({ error: authError.message })
 
@@ -267,13 +269,41 @@ export function registerRoutes(app) {
     try { await syncDealerRole(newUser.user.id, req.dealershipId, newRole, req.user.id) }
     catch (e) { await supabaseAdmin.from('profiles').delete().eq('id', newUser.user.id); await supabaseAdmin.auth.admin.deleteUser(newUser.user.id); return res.status(500).json({ error: e.message }) }
 
-    audit(req, AuditAction.TEAM_MEMBER_INVITED, { invited_email: email, invited_user_id: newUser.user.id })
+    const { data: setupLink, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+      options: { redirectTo: `${FRONTEND_URL}/reset-password.html` },
+    })
+    const actionLink = setupLink?.properties?.action_link
+    const firstName = String(full_name).trim().split(/\s+/)[0] || 'there'
+    const safeFirstName = firstName.replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[character]))
+    const mail = !linkError && actionLink ? await sendEmail({
+      to: email,
+      subject: 'You have been invited to MarketSync',
+      html: `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#0f172a">
+        <h2 style="margin:0 0 12px">Welcome to MarketSync, ${safeFirstName}!</h2>
+        <p style="line-height:1.6">Your MarketSync account is ready. Set your password to activate your dealer workspace.</p>
+        <p><a href="${actionLink}" style="display:inline-block;background:#4f46e5;color:#fff;font-weight:700;padding:12px 24px;border-radius:10px;text-decoration:none">Set my password</a></p>
+        <p style="color:#64748b;font-size:13px;line-height:1.5">If the button does not work, copy this link into your browser:<br><a href="${actionLink}" style="color:#4f46e5;word-break:break-all">${actionLink}</a></p>
+      </div>`,
+      tags: [{ name: 'message_type', value: 'team_invite' }],
+    }) : { ok: false, error: linkError?.message || 'Could not create password setup link' }
+
+    if (!mail.ok) {
+      await supabaseAdmin.from('profiles').delete().eq('id', newUser.user.id)
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+      return res.status(503).json({ error: 'Invitation email could not be sent. No account was created.' })
+    }
+
+    audit(req, AuditAction.TEAM_MEMBER_INVITED, { invited_email: email, invited_user_id: newUser.user.id, delivery: 'resend' })
     res.json({
       success: true,
       user_id: newUser.user.id,
       email,
-      temp_password: tempPassword,
-      note: 'Rep must verify their email before they can log in. Share the temp password securely.'
+      invitation_sent: true,
+      note: 'A MarketSync password-setup email was sent through Resend.'
     })
   })
 
