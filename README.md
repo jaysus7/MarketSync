@@ -109,6 +109,9 @@ Key environment variables (set in Render or a local `.env`):
 |----------|---------|
 | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` | Supabase project + admin access |
 | `FRONTEND_URL` | Base URL used in generated links (e.g. `https://marketsync.link`) |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated additional browser origins, such as the staging dashboard URL |
+| `CORS_ALLOWED_EXTENSION_ORIGINS` | Comma-separated `chrome-extension://<extension-id>` origins allowed to call the API; never use a wildcard |
+| `INBOUND_AUTOMATION_SECRET` | Secret required by inbound automation/webhook callers in `x-inbound-secret` or `Authorization: Bearer` |
 | `BLOG_API_KEY` | Shared secret for the n8n → `POST /blog` publishing endpoint |
 | `STRIPE_*` | Billing |
 | `MARKETCHECK_*` | Market price / intelligence data |
