@@ -177,6 +177,18 @@ if (process.env.REDIS_URL) {
   console.log('[rate-limit] No REDIS_URL — using in-memory rate limiting (single-node only)')
 }
 
+// Safe dependency signal for readiness checks and uptime monitors. It never
+// exposes the Redis URL or credentials, only whether strict production mode is
+// actually protected by a working shared limiter.
+export function rateLimitHealth() {
+  const redisReady = !!redis && redisHealthy
+  return {
+    ok: !requireRedisRateLimiting || redisReady,
+    mode: redisReady ? 'redis' : 'memory',
+    redis_required: requireRedisRateLimiting,
+  }
+}
+
 // In-memory fallback store
 const buckets = new Map()
 setInterval(() => {

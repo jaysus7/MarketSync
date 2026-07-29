@@ -1,6 +1,6 @@
 import express from 'express'
 import cors from 'cors'
-import { securityHeaders, corsOriginCheck } from './security.js'
+import { securityHeaders, corsOriginCheck, rateLimitHealth } from './security.js'
 import { startWebhookRetryWorker, registerWebhookRoutes } from './webhooks.js'
 import { CANONICAL_FRONTEND, supabaseAdmin } from './shared.js'
 import { registerRoutes as registerAuth } from './routes/auth.js'
@@ -77,8 +77,15 @@ app.use(cors({ origin: corsOriginCheck, credentials: true }))
 app.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }))
 app.get('/ready', async (req, res) => {
   const { error } = await supabaseAdmin.from('dealerships').select('id', { head: true }).limit(1)
-  if (error) return res.status(503).json({ ok: false, dependency: 'database' })
-  res.json({ ok: true, ts: Date.now(), database: 'ready' })
+  const rate_limiting = rateLimitHealth()
+  if (error || !rate_limiting.ok) {
+    return res.status(503).json({
+      ok: false,
+      database: error ? 'unavailable' : 'ready',
+      rate_limiting,
+    })
+  }
+  res.json({ ok: true, ts: Date.now(), database: 'ready', rate_limiting })
 })
 
 // Bounce any stale *.html requests to the canonical frontend
