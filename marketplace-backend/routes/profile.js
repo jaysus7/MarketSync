@@ -26,8 +26,8 @@ export function resolveProducts(dealer) {
 export const SAAS_ROLES = ['owner', 'sales', 'support', 'marketing', 'developer']
 export const SAAS_PERMISSIONS = {
   owner:     ['*'],
-  sales:     ['view_customers', 'view_pipeline', 'view_revenue', 'create_trial', 'extend_trial'],
-  support:   ['view_customers', 'view_pipeline', 'extend_trial', 'reset_password', 'impersonate'],
+  sales:     ['view_customers', 'view_pipeline', 'view_revenue', 'create_trial', 'extend_trial', 'manage_followups'],
+  support:   ['view_customers', 'view_pipeline', 'extend_trial', 'reset_password', 'impersonate', 'manage_followups'],
   marketing: ['view_customers', 'view_pipeline', 'marketing', 'affiliates', 'website'],
   developer: ['view_customers', 'products', 'settings', 'logs'],
 }

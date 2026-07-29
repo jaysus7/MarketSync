@@ -311,7 +311,13 @@ export function corsOriginCheck(origin, callback) {
     'https://facebook.com',
     'https://m.facebook.com'
   ]
-  if (allowed.includes(origin)) return callback(null, true)
+  // Comma-separated environment-specific origins. This keeps staging isolated
+  // without opening CORS to arbitrary Render preview domains.
+  const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(value => value.trim().replace(/\/$/, ''))
+    .filter(Boolean)
+  if (allowed.includes(origin) || configuredOrigins.includes(origin)) return callback(null, true)
   if (origin.startsWith('chrome-extension://')) return callback(null, true)
   if (process.env.NODE_ENV !== 'production') {
     if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
