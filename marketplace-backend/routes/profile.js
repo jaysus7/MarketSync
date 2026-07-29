@@ -418,7 +418,7 @@ export function registerRoutes(app) {
   // ── AUDIT LOG (SOC 2 evidence export) ────────────────────────────────────────
   // Admins can pull their dealership's audit log via the dashboard or for compliance.
   // The owner can pull the full platform log. Rows are read-only — no delete or update.
-  app.get('/audit-log', requireAuth, async (req, res) => {
+  app.get('/audit-log', requireAuth, requireMfa, requirePermission('audit.view'), async (req, res) => {
     const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
     const isAdmin = req.profile.role === 'DEALER_ADMIN' || req.profile.role === 'OWNER'
     if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Admins only' })
