@@ -12,7 +12,7 @@ import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
 import { lookupPlate, plateLookupConfigured } from '../providers/plateLookup.js'
 import { audit, AuditAction } from '../audit.js'
 import {
-  OWNER_EMAIL, attachOemStickerToInventory, LANG_NAME, langName,
+  isPlatformOwner, attachOemStickerToInventory, LANG_NAME, langName,
   PRODUCT_KB, ASSISTANT_TOOLS, REPORT_TOPICS,
   buildDealershipReport, runAssistantTool,
   skipPriceComp, PRICE_MIN_COMPS, buildPriceFlag, aiErrorMessage,
@@ -46,7 +46,7 @@ export function registerAI(app) {
       .eq('id', req.dealershipId)
       .single()
     if (error) return res.status(500).json({ error: error.message })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
 
     // 30-day full-access onboarding: everything is on until full_access_until. This
     // is the self-healing expiry — the first config load after the window closes
@@ -237,7 +237,7 @@ export function registerAI(app) {
       .single()
     if (dealerErr) return res.status(500).json({ error: dealerErr.message })
 
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer.ai_boost_active) {
       return res.status(403).json({ error: 'AI Boost subscription is not active for this dealership' })
     }
@@ -298,7 +298,7 @@ export function registerAI(app) {
     if (!skipPriceComp(vehicle) && vehicle.price && vehicle.make && vehicle.model && vehicle.year) {
       const countryRaw = (dealer?.country || '').trim().toUpperCase()
       const _isUS = countryRaw === 'US' || countryRaw === 'USA' || countryRaw === 'UNITED STATES'
-      const _isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+      const _isOwner = isPlatformOwner(req)
       const mm = await marketMedianForScan({ vehicle, dealer, isUS: _isUS, dealershipId: req.dealershipId, isOwner: _isOwner })
       if (mm) price_flag = buildPriceFlag(vehicle.price, mm.median, mm.source, mm.count, mm.matched_on ? !!mm.matched_on.trim : null)
     }
@@ -376,7 +376,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
       .eq('id', req.dealershipId)
       .single()
 
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     // The Inventory Scan lives on the Inventory page and is part of the Inventory
     // Intelligence add-on — it refreshes each vehicle's market comps / % to market
     // (a metered MarketCheck call), so we gate it to Inventory Intelligence.
@@ -505,7 +505,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
   // Boost enhancement (owner exempt, metered) and falls back to a templated line.
   app.get('/ai/daily-digest', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ items: [], summary: null })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     res.json(await computeDailyDigest(req.dealershipId, isOwner))
   })
 
@@ -532,7 +532,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('name, ai_tone, ai_boost_active').eq('id', req.dealershipId).maybeSingle()
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
     if (!(await aiAllowed(req.dealershipId, isOwner))) {
@@ -584,7 +584,7 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
   // through the normal add-customer flow. The licence image is NOT persisted.
   app.post('/crm/scan-license', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('ai_boost_active').eq('id', req.dealershipId).maybeSingle()
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
@@ -623,7 +623,7 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
   app.post('/accounting/scan-receipt', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('ai_boost_active').eq('id', req.dealershipId).maybeSingle()
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'Receipt scanning needs AI Boost' })
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
@@ -678,7 +678,7 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
     const hint = String(b.hint || '').slice(0, 200)
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('name, ai_tone, ai_boost_active, city, province').eq('id', req.dealershipId).maybeSingle()
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
     if (!(await aiAllowed(req.dealershipId, isOwner))) return res.status(429).json({ error: 'Monthly AI limit reached — resets next month.' })
@@ -788,7 +788,7 @@ Return ONLY the ${isTitle ? 'title' : isMeta ? 'meta description' : 'copy'} — 
     if (!ids.length) return res.status(400).json({ error: 'No vehicles selected' })
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('name, ai_tone, ai_boost_active, city, province').eq('id', req.dealershipId).maybeSingle()
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
 
@@ -851,7 +851,7 @@ Facts (ignore any blank/unknown fields): ${JSON.stringify(facts)}`
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('name, ai_tone, ai_boost_active, city, province').eq('id', req.dealershipId).maybeSingle()
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
     if (!(await aiAllowed(req.dealershipId, isOwner))) return res.status(429).json({ error: 'Monthly AI limit reached — resets next month.' })
@@ -1008,7 +1008,7 @@ Return ONLY the ${field === 'pitch' ? 'sales pitch' : 'description'} — no prea
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('name, country, province, postal_code, inv_intel_active, ai_boost_active').eq('id', req.dealershipId).maybeSingle()
     // Trade Appraisal is part of the Inventory Intelligence add-on.
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence add-on required' })
     const c = (dealer?.country || '').trim().toUpperCase()
     const isUS = c === 'US' || c === 'USA' || c === 'UNITED STATES'
@@ -1355,7 +1355,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   // Inventory Intelligence add-on; owner exempt.
   app.post('/ai/appraisals', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('inv_intel_active').eq('id', req.dealershipId).maybeSingle()
     if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence add-on required' })
@@ -1564,7 +1564,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
     // fire-and-forget so it never delays or fails the acquisition.
     if (row.vin && !row.window_sticker_oem_url) {
       const { data: dealer } = await supabaseAdmin.from('dealerships').select('inv_intel_active').eq('id', req.dealershipId).maybeSingle()
-      const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+      const isOwner = isPlatformOwner(req)
       if (isOwner || dealer?.inv_intel_active) attachOemStickerToInventory(req.dealershipId, inv.id, { vin: row.vin, make: row.make }).catch(() => {})
     }
     res.json({ ok: true, inventory_id: inv.id, awaiting_possession: true })
@@ -1803,7 +1803,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
       .eq('id', req.dealershipId)
       .single()
 
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
     if (!resend) return res.status(503).json({ error: 'Email not configured' })
 
@@ -2036,7 +2036,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
 </table>
 </body></html>`
 
-    const recipient = dealer.ai_manager_email || OWNER_EMAIL
+    const recipient = dealer.ai_manager_email || req.user.email
     await resend.emails.send({
       from: EMAIL_FROM,
       to: recipient,
@@ -2057,7 +2057,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
       .eq('id', req.dealershipId)
       .single()
 
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
 
     const d = await buildReportData(req.dealershipId)
@@ -2632,7 +2632,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   // daily-capped MarketCheck call. Owner exempt from the per-dealer caps.
   app.get('/ai/market-snapshot', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('inv_intel_active, country').eq('id', req.dealershipId).maybeSingle()
     if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence add-on required' })
@@ -2663,7 +2663,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   // every other AI call so it can't run past the budget kill-switch.
   app.post('/ai/assistant', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships')
@@ -2840,7 +2840,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   // handled client-side; this covers book_appointment + reassign_lead.
   app.post('/ai/assistant/action', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     const isMgr = isOwner || ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
     const a = req.body || {}
     // Resolve exactly one contact for a name/phone/email, else a clear disambiguation error.
@@ -2902,7 +2902,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   // GET /ai/assistant/history — recent Ask MarketSync transcripts for manager review.
   app.get('/ai/assistant/history', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     const isMgr = isOwner || ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
     if (!isMgr) return res.status(403).json({ error: 'Manager access required' })
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50))
