@@ -1,7 +1,7 @@
 import { supabaseAdmin, sendEmail, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { validatePassword, rateLimit, getClientIp } from '../security.js'
-import { audit, AuditAction } from '../audit.js'
+import { audit, AuditAction, exportReason } from '../audit.js'
 import { SYSTEM_ROLES, hasSystemRole, requirePermission, syncDealerRole } from '../authorization.js'
 import multer from 'multer'
 import { randomBytes, createHash } from 'node:crypto'
@@ -474,7 +474,7 @@ export function registerRoutes(app) {
     const { data, error } = await query
     if (error) return res.status(500).json({ error: error.message })
 
-    audit(req, AuditAction.ADMIN_DATA_EXPORT, { type: 'audit_log', limit, offset })
+    audit(req, AuditAction.ADMIN_DATA_EXPORT, { type: 'audit_log', limit, offset, reason: exportReason(req) })
     res.json({ entries: data || [], count: (data || []).length })
   })
 
@@ -501,7 +501,7 @@ export function registerRoutes(app) {
       }
     }))
     const valid = enriched.filter(r => r.email)
-    audit(req, AuditAction.NEWSLETTER_EXPORTED, { count: valid.length, format: (req.query.format || 'json').toLowerCase() })
+    audit(req, AuditAction.NEWSLETTER_EXPORTED, { count: valid.length, format: (req.query.format || 'json').toLowerCase(), reason: exportReason(req) })
 
     // Respect ?format=csv for direct paste into mail tools
     if ((req.query.format || '').toLowerCase() === 'csv') {

@@ -15,6 +15,14 @@
 import { supabaseAdmin } from './shared.js'
 import { getClientIp } from './security.js'
 
+// Export routes accept the purpose in either query string (CSV downloads) or
+// request body (POST exports). A missing legacy-client value is explicit in the
+// audit trail rather than silently looking like it was provided.
+export function exportReason(req) {
+  const value = req?.query?.reason ?? req?.body?.reason ?? ''
+  return String(value).trim().slice(0, 300) || 'not_provided'
+}
+
 export async function audit(req, action, meta = {}) {
   try {
     const { before_state = null, after_state = null, ...metadata } = meta || {}

@@ -13,7 +13,7 @@ import { requireAuth, requireMfa } from '../middleware.js'
 import { getClientIp } from '../security.js'
 import { encryptField, decryptField, maskTail, piiConfigured, logSensitiveAccess, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
 import { getCreditProvider } from '../providers/credit.js'
-import { audit, AuditAction } from '../audit.js'
+import { audit, AuditAction, exportReason } from '../audit.js'
 
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 const str = (v) => { const s = (v == null ? '' : String(v)).trim(); return s || null }
@@ -152,7 +152,7 @@ export function registerCredit(app) {
       co_sin: decryptField(row.co_sin_enc), co_dob: decryptField(row.co_dob_enc),
     }
     await logSensitiveAccess({ dealershipId: req.dealershipId, actorId: req.user?.id, entity: 'credit_application', entityId: row.id, action: 'export', detail: 'xml', ip: getClientIp(req) })
-    audit(req, AuditAction.CREDIT_APPLICATION_EXPORTED, { credit_application_id: row.id, format: 'xml' })
+    audit(req, AuditAction.CREDIT_APPLICATION_EXPORTED, { credit_application_id: row.id, format: 'xml', reason: exportReason(req) })
     const xml = buildCreditXml(row, dealer || {}, secrets)
     res.json({ ok: true, xml, filename: `credit-app-${(row.id || '').slice(0, 8)}.xml` })
   })

@@ -2,7 +2,7 @@ import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { findOrCreateContact } from './crm.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
-import { audit, AuditAction } from '../audit.js'
+import { audit, AuditAction, exportReason } from '../audit.js'
 import { requirePermission } from '../authorization.js'
 import { emitEvent } from './events.js'
 import { getConfig } from './config-engine.js'
@@ -296,7 +296,7 @@ export function registerLeads(app) {
       rep: reps[assignedByContact[l.contact_id] || l.created_by] || '',
       created_at: l.created_at,
     }))
-    audit(req, AuditAction.LEADS_EXPORTED, { count: rows.length, scope: dealerLevel ? 'dealership' : 'own' })
+    audit(req, AuditAction.LEADS_EXPORTED, { count: rows.length, scope: dealerLevel ? 'dealership' : 'own', reason: exportReason(req) })
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', `attachment; filename="leads-${new Date().toISOString().slice(0, 10)}.csv"`)
     res.send(toCsv(rows))
