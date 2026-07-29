@@ -405,8 +405,10 @@ export function registerRoutes(app) {
         // Older Supabase clients don't accept the scope arg — fall back to revoking all
         const { error: fallbackErr } = await supabaseAdmin.auth.admin.signOut(req.user.id)
         if (fallbackErr) throw fallbackErr
+        audit(req, AuditAction.SESSIONS_REVOKED, { scope: 'all' })
         return res.json({ success: true, scope: 'all', message: 'All sessions signed out, including this one. Please log in again.' })
       }
+      audit(req, AuditAction.SESSIONS_REVOKED, { scope: 'others' })
       res.json({ success: true, scope: 'others', message: 'Other devices have been signed out.' })
     } catch (err) {
       res.status(500).json({ error: err.message })
