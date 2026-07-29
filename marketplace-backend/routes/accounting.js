@@ -18,6 +18,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { sendEmail } from '../securityAlerts.js'
 import { plaidConfigured, plaidStatus, bankTotalsForDay, syncTransactions } from '../providers/plaid.js'
+import { audit } from '../audit.js'
 
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
@@ -289,9 +290,26 @@ export function registerAccounting(app) {
   })
   app.delete('/accounting/entries/:id', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    // Only manual entries can be removed here; auto-posted deal/deposit lines are managed by the system.
-    await supabaseAdmin.from('gl_entries').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId).eq('source', 'manual')
-    res.json({ ok: true })
+    // Financial history must not be erased. A manual correction is represented by
+    // an equal-and-opposite line so reports continue to reconcile and the original
+    // entry remains reviewable.
+    const { data: original } = await supabaseAdmin.from('gl_entries')
+      .select('id, entry_date, account_id, description, amount, direction, source')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).eq('source', 'manual').maybeSingle()
+    if (!original) return res.status(404).json({ error: 'Manual entry not found' })
+    const { data: reversal, error } = await supabaseAdmin.from('gl_entries').insert({
+      dealership_id: req.dealershipId,
+      entry_date: today(),
+      account_id: original.account_id,
+      description: `Reversal of ${original.id}: ${original.description || 'manual entry'}`.slice(0, 200),
+      amount: -Math.abs(n(original.amount)),
+      direction: original.direction,
+      source: 'manual_reversal',
+      created_by: req.user?.id || null,
+    }).select().single()
+    if (error) return res.status(500).json({ error: 'Could not create reversal' })
+    audit(req, 'accounting.entry_reversed', { before_state: original, after_state: reversal })
+    res.json({ ok: true, reversed: true, reversal })
   })
 
   // ── Reconciliation ───────────────────────────────────────────────────────────
