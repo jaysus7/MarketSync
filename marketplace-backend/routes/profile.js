@@ -9,9 +9,8 @@ import { randomBytes, createHash } from 'node:crypto'
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } })
 
 // ── OWNER-ONLY: NEWSLETTER SUBSCRIBER EXPORT ──
-// Gated to a single owner email (you). Returns CSV-ready data of everyone who
-// opted in to marketing emails during signup. Drop the file into Resend/Mailchimp/etc.
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+// Gated by the server-managed platform-owner role. Returns CSV-ready data of
+// everyone who opted in to marketing emails during signup.
 
 // Which MarketSync product(s) this dealership has. Empty → full DealerOS (so existing
 // accounts and personal workspaces keep everything). The frontend generates the nav +
@@ -433,7 +432,7 @@ export function registerRoutes(app) {
   // Revoke every refresh token except the current request's. The current access token
   // still works until its short-lived expiry (Supabase ~1h default), then forces a
   // re-login on every other device.
-  app.post('/me/sessions/revoke-others', requireAuth, async (req, res) => {
+  app.post('/me/sessions/revoke-others', requireAuth, requireMfa, async (req, res) => {
     try {
       const { error } = await supabaseAdmin.auth.admin.signOut(req.user.id, 'others')
       if (error) {
@@ -454,7 +453,7 @@ export function registerRoutes(app) {
   // Admins can pull their dealership's audit log via the dashboard or for compliance.
   // The owner can pull the full platform log. Rows are read-only — no delete or update.
   app.get('/audit-log', requireAuth, requireMfa, requirePermission('audit.view'), async (req, res) => {
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
     const isAdmin = req.profile.role === 'DEALER_ADMIN' || req.profile.role === 'OWNER'
     if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Admins only' })
 
@@ -480,7 +479,7 @@ export function registerRoutes(app) {
   })
 
   app.get('/owner/newsletter-subscribers', requireAuth, requireMfa, async (req, res) => {
-    if ((req.user.email || '').toLowerCase() !== OWNER_EMAIL) {
+    if (!hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)) {
       return res.status(403).json({ error: 'Owner-only endpoint' })
     }
 
