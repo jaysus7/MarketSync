@@ -10,11 +10,12 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { bustDemoDealerCache } from '../middleware.js'
+import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
+import { audit } from '../audit.js'
 
 const DEMO_NAME = 'MarketSync Automotive'
 const OLD_DEMO_NAME = 'MarketSync Demo'   // migrate any earlier-seeded demo workspace
-const isOwner = (req) => (!!process.env.OWNER_EMAIL && (req.user?.email || '').toLowerCase() === process.env.OWNER_EMAIL.toLowerCase())
-  || ['JMS Automotive', 'MarketSync'].includes(req.profile?.dealerships?.name)
+const isOwner = (req) => hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
 
 // Demo customers across the full pipeline so the stage stepper has material.
 const CUSTOMERS = [
@@ -104,6 +105,7 @@ export function registerDemo(app) {
     try {
       const id = await ensureDemoDealership()
       await seed(id, req.user.id)
+      audit(req, 'demo.seeded', { demo_dealership_id: id })
       res.json({ ok: true, dealership_id: id, seeded: true })
     } catch (e) { console.error('[demo] seed failed:', e.message); res.status(500).json({ error: 'Could not set up the demo workspace.' }) }
   })
@@ -115,6 +117,7 @@ export function registerDemo(app) {
       const id = await ensureDemoDealership()
       await wipe(id)
       await seed(id, req.user.id)
+      audit(req, 'demo.reset', { demo_dealership_id: id })
       res.json({ ok: true, dealership_id: id, reset: true })
     } catch (e) { console.error('[demo] reset failed:', e.message); res.status(500).json({ error: 'Could not reset the demo workspace.' }) }
   })

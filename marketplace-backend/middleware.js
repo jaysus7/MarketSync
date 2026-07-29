@@ -1,4 +1,5 @@
 import { supabase, supabaseAdmin } from './shared.js'
+import { SYSTEM_ROLES, hasSystemRole } from './authorization.js'
 
 // Cache the demo dealership id (created by POST /demo/seed). Only positive results
 // are cached, so it resolves as soon as the workspace is seeded.
@@ -68,14 +69,9 @@ export async function requireAuth(req, res, next) {
     req.profile = profile
     req.dealershipId = profile.dealership_id
 
-    // Owner-only DEMO workspace override: the MarketSync owner can flip the whole
-    // dashboard into a sandboxed demo dealership (seeded fake cars/customers) without
-    // touching their real MarketSync data. Gated to the JMS Automotive owner + an
-    // explicit header, and scoped by dealership_id like everything else.
-    const ownerEmail = (process.env.OWNER_EMAIL || '').toLowerCase()
-    const isMsOwner = (ownerEmail && (user.email || '').toLowerCase() === ownerEmail)
-      || ['JMS Automotive', 'MarketSync'].includes(profile.dealerships?.name)
-    if (req.headers['x-act-demo'] === '1' && isMsOwner) {
+    // Demo mode is limited to an explicit platform owner; dealer names and mutable
+    // user metadata must never grant cross-tenant elevation.
+    if (req.headers['x-act-demo'] === '1' && hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)) {
       const demoId = await resolveDemoDealership()
       if (demoId) { req.dealershipId = demoId; req.isDemo = true }
     }

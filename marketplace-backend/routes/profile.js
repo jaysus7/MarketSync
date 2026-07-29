@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { validatePassword, rateLimit } from '../security.js'
 import { audit, AuditAction } from '../audit.js'
+import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 import multer from 'multer'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } })
@@ -32,7 +33,7 @@ export const SAAS_PERMISSIONS = {
   developer: ['view_customers', 'products', 'settings', 'logs'],
 }
 export function saasRoleOf(req) {
-  if ((req?.user?.email || '').toLowerCase() === OWNER_EMAIL) return 'owner'
+  if (hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)) return 'owner'
   const r = req?.profile?.saas_role
   return SAAS_ROLES.includes(r) ? r : null
 }
@@ -41,12 +42,8 @@ export function saasCan(req, perm) { const p = saasPerms(req); return p.includes
 
 export function registerRoutes(app) {
   app.get('/auth/me', requireAuth, async (req, res) => {
-    // The MarketSync owner gets the owner-only Demo ↔ MarketSync dashboard switch.
-    // Keyed off the owner email (robust to workspace renames), with a name fallback.
-    const isMarketsync = (
-      (!!process.env.OWNER_EMAIL && (req.user.email || '').toLowerCase() === process.env.OWNER_EMAIL.toLowerCase())
-      || ['JMS Automotive', 'MarketSync'].includes(req.profile.dealerships?.name)
-    )
+    // Workspace identity comes from a server-managed system role, never a dealer name.
+    const isMarketsync = hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER, SYSTEM_ROLES.PLATFORM_ADMIN)
     // Workspace resolution (universal identity layer): one login → the top-level
     // experience this person belongs to. Same engines underneath, different front door.
     //   saas_admin → MarketSync's own back office (owner/staff)
