@@ -78,14 +78,26 @@ export function startEventDispatcher() {
  * @param {string} [e.toState]
  * @param {string} [e.department]
  * @param {object} [e.payload]
+ * @param {number} [e.eventVersion=1] contract version for payload consumers
  * @param {string} [e.createdBy]
  */
 export async function emitEvent({
   dealershipId, eventName, entityType, entityId,
   summary = null, fromState = null, toState = null,
-  department = null, payload = {}, createdBy = null,
+  department = null, payload = {}, eventVersion = 1, createdBy = null,
 }) {
   if (!dealershipId || !eventName || !entityType || !entityId) return null
+  // Event names are a stable dotted contract (for example `deal.status_changed`).
+  // Refusing malformed names here prevents invisible one-off event channels.
+  if (!/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/.test(eventName)) {
+    console.error('[events] invalid event name:', eventName)
+    return null
+  }
+  const version = Number(eventVersion)
+  if (!Number.isInteger(version) || version < 1) {
+    console.error('[events] invalid event version:', eventVersion)
+    return null
+  }
   try {
     const { data, error } = await supabaseAdmin.from('events').insert({
       dealership_id: dealershipId,
@@ -97,6 +109,7 @@ export async function emitEvent({
       to_state: toState,
       department,
       payload: payload || {},
+      event_version: version,
       created_by: createdBy,
     }).select().single()
     if (error) throw error
