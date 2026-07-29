@@ -10,11 +10,13 @@ import { runPhotoVision } from '../sync/photoVision.js'
 import { brandDealershipPhotos } from '../utils/photoOverlay.js'
 import { autoFetchOemStickers } from '../sync/oemStickers.js'
 import { audit } from '../audit.js'
+import { isSafeFeedProbeUrl } from '../feed-probe-policy.js'
 
 export function registerRoutes(app) {
-  app.post('/feeds/probe', async (req, res) => {
+  app.post('/feeds/probe', requireAuth, async (req, res) => {
     const { url } = req.body || {}
     if (!url) return res.status(400).json({ error: 'url is required' })
+    if (!(await isSafeFeedProbeUrl(url))) return res.status(400).json({ error: 'Invalid or disallowed feed URL' })
     try {
       const result = await detectFeedPlatform(url)
       res.json(result)
