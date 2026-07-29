@@ -7,7 +7,7 @@ function isPrivateIp(ip) {
   return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
 }
 
-export async function isSafeFeedProbeUrl(rawUrl) {
+export async function isSafeHttpUrl(rawUrl) {
   let parsed
   try { parsed = new URL(String(rawUrl || '').trim()) } catch { return false }
   if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.hostname === 'localhost') return false
@@ -21,3 +21,5 @@ export async function isSafeFeedProbeUrl(rawUrl) {
   }
   return true
 }
+
+export const isSafeFeedProbeUrl = isSafeHttpUrl
