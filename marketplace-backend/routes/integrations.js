@@ -5,7 +5,7 @@
  */
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
-import { encryptJson, decryptJson, piiConfigured } from '../crypto-pii.js'
+import { encryptJson, decryptJson, piiConfigured, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
 import { emitWebhook, WEBHOOK_EVENTS } from '../webhooks.js'
 import { sendDealerSms, invalidateTwilioCache } from './automation.js'
 import { qboConfigured, qboAuthorizeUrl, signState, verifyState, qboExchangeCode, qboEnsureToken, qboCompanyName } from '../providers/quickbooks.js'
@@ -145,6 +145,7 @@ export function registerIntegrations(app) {
         dealership_id: dealershipId, provider: 'quickbooks',
         enabled: true, status: 'connected',
         credentials_enc: encryptJson(creds),
+        credentials_encryption_version: PII_ENCRYPTION_VERSION,
         lender_code_map: { realm_id: String(realmId), connected_at: new Date().toISOString() },
         last_status_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }, { onConflict: 'dealership_id,provider' })
@@ -168,7 +169,7 @@ export function registerIntegrations(app) {
       const ensured = await qboEnsureToken(creds)
       if (ensured.refreshed) {
         creds = ensured.creds
-        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), updated_at: new Date().toISOString() })
+        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), credentials_encryption_version: PII_ENCRYPTION_VERSION, updated_at: new Date().toISOString() })
           .eq('dealership_id', req.dealershipId).eq('provider', 'quickbooks')
       }
       const name = await qboCompanyName({ accessToken: creds.access_token, realmId: row.lender_code_map.realm_id })
@@ -222,6 +223,7 @@ export function registerIntegrations(app) {
       await supabaseAdmin.from('dealer_integrations').upsert({
         dealership_id: dealershipId, provider, enabled: true, status: 'connected',
         credentials_enc: encryptJson(creds),
+        credentials_encryption_version: PII_ENCRYPTION_VERSION,
         lender_code_map: { ...(tenant || {}), connected_at: new Date().toISOString() },
         last_status_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }, { onConflict: 'dealership_id,provider' })
@@ -245,7 +247,7 @@ export function registerIntegrations(app) {
       const ensured = await oauthEnsureToken(provider, creds)
       if (ensured.refreshed) {
         creds = ensured.creds
-        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), updated_at: new Date().toISOString() })
+        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), credentials_encryption_version: PII_ENCRYPTION_VERSION, updated_at: new Date().toISOString() })
           .eq('dealership_id', req.dealershipId).eq('provider', provider)
       }
       const msg = await oauthTest(provider, creds, row.lender_code_map || {})
@@ -273,6 +275,7 @@ export function registerIntegrations(app) {
     if (b.credentials && typeof b.credentials === 'object' && Object.keys(b.credentials).length) {
       if (!piiConfigured()) return res.status(400).json({ error: 'Set the PII_ENCRYPTION_KEY environment variable before storing credentials.' })
       patch.credentials_enc = encryptJson(b.credentials)
+      patch.credentials_encryption_version = PII_ENCRYPTION_VERSION
       if (patch.status === undefined) patch.status = 'configured'
       patch.last_status_at = new Date().toISOString()
     }
@@ -365,7 +368,7 @@ Rules: 1 short paragraph, roughly 30–80 words, plain text only (no markdown, n
       const ensured = await oauthEnsureToken('google_business', creds)
       if (ensured.refreshed) {
         creds = ensured.creds
-        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), updated_at: new Date().toISOString() })
+        await supabaseAdmin.from('dealer_integrations').update({ credentials_enc: encryptJson(creds), credentials_encryption_version: PII_ENCRYPTION_VERSION, updated_at: new Date().toISOString() })
           .eq('dealership_id', req.dealershipId).eq('provider', 'google_business')
       }
       const cta = req.body?.cta_url ? { cta: 'LEARN_MORE', ctaUrl: String(req.body.cta_url).slice(0, 300) } : {}

@@ -11,7 +11,7 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { getClientIp } from '../security.js'
-import { encryptField, decryptField, maskTail, piiConfigured, logSensitiveAccess } from '../crypto-pii.js'
+import { encryptField, decryptField, maskTail, piiConfigured, logSensitiveAccess, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
 import { getCreditProvider } from '../providers/credit.js'
 import { audit, AuditAction } from '../audit.js'
 
@@ -89,6 +89,7 @@ export function registerCredit(app) {
     applyEnc('applicant_dob', 'applicant_dob_enc', null)
     applyEnc('co_sin', 'co_sin_enc', 'co_sin_mask')
     applyEnc('co_dob', 'co_dob_enc', null)
+    if (anySensitive) row.pii_encryption_version = PII_ENCRYPTION_VERSION
 
     // Consent: stamp once when the applicant authorizes the credit pull.
     const { data: existing } = dealId
