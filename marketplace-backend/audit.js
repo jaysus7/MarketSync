@@ -17,6 +17,7 @@ import { getClientIp } from './security.js'
 
 export async function audit(req, action, meta = {}) {
   try {
+    const { before_state = null, after_state = null, ...metadata } = meta || {}
     const entry = {
       action,
       actor_id: req?.user?.id || null,
@@ -24,11 +25,29 @@ export async function audit(req, action, meta = {}) {
       dealership_id: req?.dealershipId || null,
       ip: req ? getClientIp(req) : null,
       user_agent: req?.headers?.['user-agent']?.slice(0, 500) || null,
-      meta: Object.keys(meta).length ? meta : null,
+      meta: Object.keys(meta || {}).length ? meta : null,
       created_at: new Date().toISOString()
     }
-    const { error } = await supabaseAdmin.from('audit_log').insert(entry)
-    if (error) console.warn('[audit] insert failed:', error.message, '— action:', action)
+    // Keep the existing application audit log, and mirror it into the immutable
+    // security-event record required for incident investigation. `before_state`
+    // and `after_state` are optional and intentionally separated from metadata.
+    const securityEvent = {
+      event_type: action,
+      user_id: entry.actor_id,
+      dealership_id: entry.dealership_id,
+      ip: entry.ip,
+      user_agent: entry.user_agent,
+      metadata: Object.keys(metadata).length ? metadata : null,
+      before_state,
+      after_state,
+      created_at: entry.created_at,
+    }
+    const [auditResult, securityResult] = await Promise.all([
+      supabaseAdmin.from('audit_log').insert(entry),
+      supabaseAdmin.from('security_events').insert(securityEvent),
+    ])
+    if (auditResult.error) console.warn('[audit] insert failed:', auditResult.error.message, '— action:', action)
+    if (securityResult.error) console.warn('[security-events] insert failed:', securityResult.error.message, '— action:', action)
   } catch (e) {
     console.warn('[audit] unexpected error:', e.message, '— action:', action)
   }
