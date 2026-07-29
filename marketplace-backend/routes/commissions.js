@@ -21,6 +21,7 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { emitEvent, onEvent } from './events.js'
+import { audit } from '../audit.js'
 
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
@@ -346,9 +347,15 @@ export function registerCommissions(app) {
   app.delete('/commissions/plans/:id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+    const { data: before } = await supabaseAdmin.from('commission_plans').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Commission plan not found' })
     await supabaseAdmin.from('profiles').update({ commission_plan_id: null }).eq('dealership_id', req.dealershipId).eq('commission_plan_id', req.params.id)
-    await supabaseAdmin.from('commission_plans').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
-    res.json({ ok: true })
+    const { data, error } = await supabaseAdmin.from('commission_plans')
+      .update({ active: false, is_default: false, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
+    if (error) return res.status(500).json({ error: 'Could not deactivate commission plan' })
+    audit(req, 'commission.plan_deactivated', { before_state: before, after_state: data })
+    res.json({ ok: true, deactivated: true })
   })
 
   // Assign a plan to a rep (or clear it to fall back to the default).
