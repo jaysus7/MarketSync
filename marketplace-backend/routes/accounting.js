@@ -244,6 +244,7 @@ export function registerAccounting(app) {
     if (!name || !['income', 'expense', 'asset', 'liability', 'equity'].includes(category)) return res.status(400).json({ error: 'name and a valid category required' })
     const { data, error } = await supabaseAdmin.from('gl_accounts').insert({ dealership_id: req.dealershipId, name, category, code: String(req.body?.code || '').slice(0, 20) || null }).select().single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'accounting.account_created', { after_state: data })
     res.json({ ok: true, account: data })
   })
   app.put('/accounting/accounts/:id', requireAuth, async (req, res) => {
@@ -253,16 +254,27 @@ export function registerAccounting(app) {
     if (req.body?.code !== undefined) patch.code = String(req.body.code || '').slice(0, 20) || null
     if (req.body?.category !== undefined) patch.category = String(req.body.category).toLowerCase()
     if (req.body?.active !== undefined) patch.active = !!req.body.active
+    const { data: before } = await supabaseAdmin.from('gl_accounts').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Account not found' })
     const { data, error } = await supabaseAdmin.from('gl_accounts').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'accounting.account_updated', { before_state: before, after_state: data })
     res.json({ ok: true, account: data })
   })
   app.delete('/accounting/accounts/:id', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     // Don't hard-delete an account that has entries — deactivate it instead.
+    const { data: account } = await supabaseAdmin.from('gl_accounts').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!account) return res.status(404).json({ error: 'Account not found' })
     const { data: used } = await supabaseAdmin.from('gl_entries').select('id').eq('account_id', req.params.id).limit(1)
-    if (used && used.length) { await supabaseAdmin.from('gl_accounts').update({ active: false }).eq('id', req.params.id).eq('dealership_id', req.dealershipId); return res.json({ ok: true, deactivated: true }) }
+    if (used && used.length) {
+      const { data: deactivated, error } = await supabaseAdmin.from('gl_accounts').update({ active: false }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
+      if (error) return res.status(500).json({ error: 'Could not deactivate account' })
+      audit(req, 'accounting.account_deactivated', { before_state: account, after_state: deactivated })
+      return res.json({ ok: true, deactivated: true })
+    }
     await supabaseAdmin.from('gl_accounts').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    audit(req, 'accounting.account_deleted', { before_state: account, after_state: null })
     res.json({ ok: true })
   })
 
@@ -286,6 +298,7 @@ export function registerAccounting(app) {
       amount: Math.abs(amount), direction, source: 'manual', created_by: req.user?.id || null,
     }).select().single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'accounting.entry_created', { after_state: data })
     res.json({ ok: true, entry: data })
   })
   app.delete('/accounting/entries/:id', requireAuth, async (req, res) => {
@@ -380,6 +393,7 @@ export function registerAccounting(app) {
       description: String(req.body?.description || 'Tax paid / ITC').slice(0, 200), amount, direction: 'out', source: 'manual', created_by: req.user?.id || null,
     }).select().single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'accounting.tax_payment_created', { after_state: data })
     res.json({ ok: true, entry: data })
   })
 
