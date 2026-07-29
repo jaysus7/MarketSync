@@ -18,6 +18,23 @@ export const WEBHOOK_EVENTS = [
   'lead.created', 'deal.sold', 'deal.delivered', 'appointment.booked', 'test.ping',
 ]
 
+function webhookSignature(secret, body) {
+  if (!secret) return null
+  return 'sha256=' + crypto.createHmac('sha256', String(secret)).update(body).digest('hex')
+}
+
+function webhookHeaders({ event, eventId, timestamp, secret, body }) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-MarketSync-Event': event,
+    'X-MarketSync-Event-Id': eventId,
+    'X-MarketSync-Timestamp': timestamp,
+  }
+  const signature = webhookSignature(secret, body)
+  if (signature) headers['X-MarketSync-Signature'] = signature
+  return headers
+}
+
 export async function emitWebhook(dealershipId, event, data) {
   try {
     if (!dealershipId || !event) return
@@ -37,11 +54,8 @@ export async function emitWebhook(dealershipId, event, data) {
     const eventId = delivery?.event_id || crypto.randomUUID()
     const timestamp = new Date().toISOString()
     const body = JSON.stringify({ event, event_id: eventId, dealership_id: dealershipId, at: timestamp, data: data || {} })
-    const headers = { 'Content-Type': 'application/json', 'X-MarketSync-Event': event, 'X-MarketSync-Event-Id': eventId, 'X-MarketSync-Timestamp': timestamp }
-    if (row.credentials_enc) {
-      const secret = decryptJson(row.credentials_enc)?.secret
-      if (secret) headers['X-MarketSync-Signature'] = 'sha256=' + crypto.createHmac('sha256', String(secret)).update(body).digest('hex')
-    }
+    const secret = row.credentials_enc ? decryptJson(row.credentials_enc)?.secret : null
+    const headers = webhookHeaders({ event, eventId, timestamp, secret, body })
     try {
       const response = await fetch(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(8000) })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
@@ -59,7 +73,20 @@ export function startWebhookRetryWorker() {
       .eq('status', 'failed').lte('next_retry_at', now).lt('attempts', 5).limit(25)
     for (const row of rows || []) {
       try {
-        const r = await fetch(row.destination_url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-MarketSync-Event': row.event_name, 'X-MarketSync-Event-Id': row.event_id, 'X-MarketSync-Timestamp': new Date().toISOString() }, body: JSON.stringify({ event: row.event_name, event_id: row.event_id, dealership_id: row.dealership_id, at: new Date().toISOString(), data: row.payload || {} }), signal: AbortSignal.timeout(8000) })
+        const { data: integration, error: integrationError } = await supabaseAdmin
+          .from('dealer_integrations')
+          .select('enabled, credentials_enc')
+          .eq('dealership_id', row.dealership_id)
+          .eq('provider', 'webhook')
+          .maybeSingle()
+        if (integrationError) throw integrationError
+        if (!integration?.enabled) throw new Error('Webhook integration is no longer enabled')
+
+        const timestamp = new Date().toISOString()
+        const body = JSON.stringify({ event: row.event_name, event_id: row.event_id, dealership_id: row.dealership_id, at: timestamp, data: row.payload || {} })
+        const secret = integration.credentials_enc ? decryptJson(integration.credentials_enc)?.secret : null
+        const headers = webhookHeaders({ event: row.event_name, eventId: row.event_id, timestamp, secret, body })
+        const r = await fetch(row.destination_url, { method: 'POST', headers, body, signal: AbortSignal.timeout(8000) })
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         await supabaseAdmin.from('webhook_deliveries').update({ status: 'delivered', attempts: row.attempts + 1, response_status: r.status, delivered_at: new Date().toISOString(), next_retry_at: null }).eq('id', row.id)
       } catch (e) {
