@@ -31,12 +31,23 @@ export async function emitWebhook(dealershipId, event, data) {
     const events = Array.isArray(cfg.events) ? cfg.events : []
     if (events.length && !events.includes(event)) return   // subscribed to a subset only
 
-    const body = JSON.stringify({ event, dealership_id: dealershipId, at: new Date().toISOString(), data: data || {} })
-    const headers = { 'Content-Type': 'application/json', 'X-MarketSync-Event': event }
+    const { data: delivery } = await supabaseAdmin.from('webhook_deliveries').insert({
+      dealership_id: dealershipId, event_name: event, destination_url: url
+    }).select('id, event_id').single()
+    const eventId = delivery?.event_id || crypto.randomUUID()
+    const timestamp = new Date().toISOString()
+    const body = JSON.stringify({ event, event_id: eventId, dealership_id: dealershipId, at: timestamp, data: data || {} })
+    const headers = { 'Content-Type': 'application/json', 'X-MarketSync-Event': event, 'X-MarketSync-Event-Id': eventId, 'X-MarketSync-Timestamp': timestamp }
     if (row.credentials_enc) {
       const secret = decryptJson(row.credentials_enc)?.secret
       if (secret) headers['X-MarketSync-Signature'] = 'sha256=' + crypto.createHmac('sha256', String(secret)).update(body).digest('hex')
     }
-    await fetch(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(8000) }).catch(() => {})
+    try {
+      const response = await fetch(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(8000) })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      if (delivery?.id) await supabaseAdmin.from('webhook_deliveries').update({ status: 'delivered', attempts: 1, response_status: response.status, delivered_at: new Date().toISOString() }).eq('id', delivery.id)
+    } catch (error) {
+      if (delivery?.id) await supabaseAdmin.from('webhook_deliveries').update({ status: 'failed', attempts: 1, last_error: String(error?.message || error).slice(0, 1000), next_retry_at: new Date(Date.now() + 60_000).toISOString() }).eq('id', delivery.id)
+    }
   } catch (e) { console.warn('[webhook] emit failed:', e.message) }
 }
