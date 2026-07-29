@@ -19,9 +19,9 @@ import { supabase, supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { rateLimit, validatePassword } from '../security.js'
 import { postMarketsyncAffiliateExpense } from './accounting.js'
+import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
-const isAdmin = (req) => (req.user?.email || '').toLowerCase() === OWNER_EMAIL || req.profile?.is_marketsync === true
+const isAdmin = (req) => hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER, SYSTEM_ROLES.PLATFORM_ADMIN)
 
 // Program defaults (a new affiliate inherits these; the owner can tune per-affiliate).
 const DEFAULT_RATE_PCT = Number(process.env.AFFILIATE_RATE_PCT) || 8
