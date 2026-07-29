@@ -4,6 +4,7 @@ import { enqueueForTrigger, markDelivered, freezeSequences } from './automation.
 import { emitWebhook } from '../webhooks.js'
 import { syncAppointmentOut } from './calendar.js'
 import { emitEvent } from './events.js'
+import { audit } from '../audit.js'
 import multer from 'multer'
 
 // CRM attachments: photos, videos and files reps attach to a customer. In-memory,
@@ -331,7 +332,8 @@ export function registerCrm(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     // Grab the prior status so we can fire automation only on a real transition.
     const { data: before } = await supabaseAdmin.from('contacts')
-      .select('status, sold_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      .select('id, status, sold_at, consent_email, consent_sms, dnc, opt_out')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     const patch = { ...contactPatchFromBody(req.body || {}), updated_at: new Date().toISOString() }
     // Stamp the moment a deal is first marked won, so sales reports are period-bound.
     const WON = ['sold', 'fni', 'delivered']
@@ -346,6 +348,18 @@ export function registerCrm(app) {
       if (patch.status === 'delivered') markDelivered(req.dealershipId, data.id, vehicleId, data.assigned_rep)
       else if (patch.status === 'appointment') { enqueueForTrigger(req.dealershipId, 'appointment_booked', { contactId: data.id, vehicleId, repId: data.assigned_rep }); emitWebhook(req.dealershipId, 'appointment.booked', { contact_id: data.id, vehicle_id: vehicleId, assigned_to: data.assigned_rep || null }) }
       else if (patch.status === 'followup') ensureFollowupTask(req.dealershipId, data, req.user.id)
+    }
+    const beforeState = before && {
+      id: before.id, status: before.status, consent_email: before.consent_email,
+      consent_sms: before.consent_sms, dnc: before.dnc, opt_out: before.opt_out,
+    }
+    const afterState = {
+      id: data.id, status: data.status, consent_email: data.consent_email,
+      consent_sms: data.consent_sms, dnc: data.dnc, opt_out: data.opt_out,
+    }
+    audit(req, 'customer.updated', { customer_id: data.id, before_state: beforeState, after_state: afterState })
+    if (patch.consent_email !== undefined || patch.consent_sms !== undefined || patch.dnc !== undefined) {
+      audit(req, 'customer.consent_updated', { customer_id: data.id, before_state: beforeState, after_state: afterState })
     }
     res.json({ ok: true, contact: data })
   })
