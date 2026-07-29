@@ -54,7 +54,7 @@ export function registerMarketing(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     let q = supabaseAdmin.from('marketing_spend').select('id, channel, period, amount, notes, updated_at')
-      .eq('dealership_id', req.dealershipId)
+      .eq('dealership_id', req.dealershipId).is('deleted_at', null)
     if (req.query.period) q = q.eq('period', String(req.query.period).slice(0, 7))
     const { data, error } = await q.order('period', { ascending: false }).order('channel')
     if (error) return res.status(500).json({ error: 'Could not load spend' })
@@ -74,7 +74,7 @@ export function registerMarketing(app) {
     const { error } = await supabaseAdmin.from('marketing_spend').upsert({
       dealership_id: req.dealershipId, channel, period, amount,
       notes: (req.body?.notes || '').toString().slice(0, 300) || null,
-      created_by: req.user?.id || null, updated_at: new Date().toISOString(),
+      created_by: req.user?.id || null, updated_at: new Date().toISOString(), deleted_at: null, deleted_by: null,
     }, { onConflict: 'dealership_id,channel,period' })
     if (error) { console.error('[marketing] spend save failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
     res.json({ ok: true })
@@ -86,11 +86,15 @@ export function registerMarketing(app) {
     const { data: before } = await supabaseAdmin.from('marketing_spend')
       .select('id, channel, period, amount, notes').eq('dealership_id', req.dealershipId).eq('id', req.params.id).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Spend record not found' })
-    const { error } = await supabaseAdmin.from('marketing_spend').delete()
+    const { data, error } = await supabaseAdmin.from('marketing_spend').update({
+      deleted_at: new Date().toISOString(), deleted_by: req.user?.id || null,
+    })
       .eq('dealership_id', req.dealershipId).eq('id', req.params.id)
+      .is('deleted_at', null).select('id, deleted_at').maybeSingle()
     if (error) return res.status(500).json({ error: 'Delete failed' })
-    audit(req, 'marketing.spend_deleted', { before_state: before, after_state: null })
-    res.json({ ok: true })
+    if (!data) return res.status(409).json({ error: 'Spend record was already removed' })
+    audit(req, 'marketing.spend_archived', { before_state: before, after_state: data })
+    res.json({ ok: true, archived: true })
   })
 
   // The ROI report: per-channel leads / sales / spend / cost-per / revenue / est
@@ -119,7 +123,7 @@ export async function buildMarketingRoi(did, { days = 90, avgGross = DEFAULT_AVG
   const [{ data: leadRows }, { data: contactRows }, { data: spendRows }] = await Promise.all([
     supabaseAdmin.from('leads').select('source, created_at, contact_id').eq('dealership_id', did).gte('created_at', startIso).limit(50000),
     supabaseAdmin.from('contacts').select('id, status, source, sold_source, sold_at').eq('dealership_id', did).limit(50000),
-    supabaseAdmin.from('marketing_spend').select('channel, period, amount').eq('dealership_id', did),
+    supabaseAdmin.from('marketing_spend').select('channel, period, amount').eq('dealership_id', did).is('deleted_at', null),
   ])
 
   // Revenue: sold/delivered deals inside the window, mapped to the contact's source.
