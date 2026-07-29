@@ -1,9 +1,10 @@
 import { supabaseAdmin, sendEmail, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
-import { validatePassword, rateLimit } from '../security.js'
+import { validatePassword, rateLimit, getClientIp } from '../security.js'
 import { audit, AuditAction } from '../audit.js'
 import { SYSTEM_ROLES, hasSystemRole, requirePermission, syncDealerRole } from '../authorization.js'
 import multer from 'multer'
+import { randomBytes, createHash } from 'node:crypto'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } })
 
@@ -241,7 +242,6 @@ export function registerRoutes(app) {
     } else {
       // 16 base64 chars from crypto.randomBytes — strong enough that the rep should
       // reset on first login. Always passes the policy.
-      const { randomBytes } = await import('crypto')
       tempPassword = randomBytes(12).toString('base64').replace(/[+/=]/g, '') + 'Aa9!'
     }
 
@@ -269,17 +269,21 @@ export function registerRoutes(app) {
     try { await syncDealerRole(newUser.user.id, req.dealershipId, newRole, req.user.id) }
     catch (e) { await supabaseAdmin.from('profiles').delete().eq('id', newUser.user.id); await supabaseAdmin.auth.admin.deleteUser(newUser.user.id); return res.status(500).json({ error: e.message }) }
 
-    const { data: setupLink, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email,
-      options: { redirectTo: `${FRONTEND_URL}/reset-password.html` },
+    const rawResetToken = randomBytes(32).toString('hex')
+    const tokenHash = createHash('sha256').update(rawResetToken).digest('hex')
+    const { error: tokenError } = await supabaseAdmin.from('password_reset_tokens').insert({
+      user_id: newUser.user.id,
+      email: email.trim().toLowerCase(),
+      token_hash: tokenHash,
+      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      requested_ip: getClientIp(req),
     })
-    const actionLink = setupLink?.properties?.action_link
+    const actionLink = `${FRONTEND_URL}/reset-password.html?token=${rawResetToken}`
     const firstName = String(full_name).trim().split(/\s+/)[0] || 'there'
     const safeFirstName = firstName.replace(/[&<>"']/g, (character) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[character]))
-    const mail = !linkError && actionLink ? await sendEmail({
+    const mail = !tokenError ? await sendEmail({
       to: email,
       subject: 'You have been invited to MarketSync',
       html: `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#0f172a">
@@ -289,9 +293,10 @@ export function registerRoutes(app) {
         <p style="color:#64748b;font-size:13px;line-height:1.5">If the button does not work, copy this link into your browser:<br><a href="${actionLink}" style="color:#4f46e5;word-break:break-all">${actionLink}</a></p>
       </div>`,
       tags: [{ name: 'message_type', value: 'team_invite' }],
-    }) : { ok: false, error: linkError?.message || 'Could not create password setup link' }
+    }) : { ok: false, error: tokenError?.message || 'Could not create password setup link' }
 
     if (!mail.ok) {
+      await supabaseAdmin.from('password_reset_tokens').delete().eq('token_hash', tokenHash)
       await supabaseAdmin.from('profiles').delete().eq('id', newUser.user.id)
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
       return res.status(503).json({ error: 'Invitation email could not be sent. No account was created.' })
