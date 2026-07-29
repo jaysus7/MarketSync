@@ -8,7 +8,10 @@ import { Resend } from 'resend'
 // from this backend instead of going through Supabase Auth. Lower latency,
 // better deliverability, no shared-tenant rate limits.
 export const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
-export const EMAIL_FROM = process.env.EMAIL_FROM || 'MarketSync <noreply@marketsync.link>'
+// Render should set EMAIL_FROM once the domain is verified in Resend. The
+// MarketSync address below is the intended branded default for all invite and
+// transactional messages.
+export const EMAIL_FROM = process.env.EMAIL_FROM || 'MarketSync <noreply@marketsync.com>'
 
 // Central mailer. Every failure mode is made explicit and LOGGED (most call sites
 // used to swallow errors, which is why a mis-configured key or an unverified
