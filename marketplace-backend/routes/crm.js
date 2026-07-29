@@ -232,7 +232,7 @@ export function registerCrm(app) {
       supabaseAdmin.from('leads').select('id, comments, source, status, inventory_id, created_by, created_at').eq('contact_id', contact.id).order('created_at', { ascending: false }),
       supabaseAdmin.from('trade_appraisals').select('id, year, make, model, trim, vin, suggested_offer, currency, created_by, created_at').eq('contact_id', contact.id).order('created_at', { ascending: false }),
       supabaseAdmin.from('crm_tasks').select('*').eq('contact_id', contact.id).order('due_at', { ascending: true, nullsFirst: false }),
-      supabaseAdmin.from('crm_attachments').select('id, url, filename, content_type, size, kind, uploaded_by, created_at').eq('contact_id', contact.id).order('created_at', { ascending: false }).then(r => r, () => ({ data: [] })),
+      supabaseAdmin.from('crm_attachments').select('id, url, filename, content_type, size, kind, uploaded_by, created_at').eq('contact_id', contact.id).is('deleted_at', null).order('created_at', { ascending: false }).then(r => r, () => ({ data: [] })),
       // A worked deal for this customer (if any) — powers the "View deal / Desk a deal" button.
       supabaseAdmin.from('deals').select('deal_number, deal_status, insurance').eq('contact_id', contact.id).eq('dealership_id', req.dealershipId).maybeSingle().then(r => r, () => ({ data: null })),
     ])
@@ -320,11 +320,15 @@ export function registerCrm(app) {
   app.delete('/crm/attachments/:id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: att } = await supabaseAdmin.from('crm_attachments')
-      .select('id, path').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      .select('id, contact_id, path, filename, content_type, size, kind, uploaded_by, created_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
     if (!att) return res.status(404).json({ error: 'Attachment not found' })
-    try { if (att.path) await supabaseAdmin.storage.from('crm-attachments').remove([att.path]) } catch (e) { console.warn('[crm-attach] remove failed:', e.message) }
-    await supabaseAdmin.from('crm_attachments').delete().eq('id', att.id).eq('dealership_id', req.dealershipId)
-    res.json({ ok: true })
+    const { data, error } = await supabaseAdmin.from('crm_attachments').update({
+      deleted_at: new Date().toISOString(), deleted_by: req.user?.id || null,
+    }).eq('id', att.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).select('id, deleted_at').maybeSingle()
+    if (error) return res.status(500).json({ error: 'Could not archive attachment' })
+    if (!data) return res.status(409).json({ error: 'Attachment was already removed' })
+    audit(req, 'crm.attachment_archived', { before_state: att, after_state: data })
+    res.json({ ok: true, archived: true })
   })
 
   // ── Update a contact ──────────────────────────────────────────────────────
