@@ -102,7 +102,7 @@ export function registerRoutes(app) {
   // ── 3. AUTH ENDPOINTS ──
   // 5 login attempts per IP per 15 minutes — slows credential stuffing without
   // hurting real users who fat-finger their password.
-  app.post('/auth/login', rateLimit('login', 5, 15 * 60 * 1000), async (req, res) => {
+  app.post('/auth/login', rateLimit('login', 5, 15 * 60 * 1000, { email: true }), async (req, res) => {
     const { email, password } = req.body
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
