@@ -1748,7 +1748,7 @@ export function registerRoutes(app) {
     }
     if (LABEL_TEAMS.includes(team)) {
       const { data } = await supabaseAdmin.from('staff_members')
-        .select('id, name, phone, email, notes, active').eq('dealership_id', req.dealershipId).eq('team', team).order('name')
+        .select('id, name, phone, email, notes, active').eq('dealership_id', req.dealershipId).eq('team', team).eq('active', true).order('name')
       return res.json({ ok: true, team, login: false, members: (data || []).map(m => ({ ...m, login: false })) })
     }
     res.status(400).json({ error: 'Unknown team' })
@@ -1781,8 +1781,12 @@ export function registerRoutes(app) {
   app.delete('/team/staff/:id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
-    const { error } = await supabaseAdmin.from('staff_members').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
-    if (error) return res.status(500).json({ error: 'Delete failed' })
-    res.json({ ok: true })
+    const { data, error } = await supabaseAdmin.from('staff_members')
+      .update({ active: false, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).eq('active', true)
+      .select('id, name, team').maybeSingle()
+    if (error) return res.status(500).json({ error: 'Deactivate failed' })
+    if (data) audit(req, 'team.staff_deactivated', { staff_id: data.id, name: data.name, team: data.team })
+    res.json({ ok: true, deactivated: true })
   })
 }
