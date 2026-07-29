@@ -1,7 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import { securityHeaders, corsOriginCheck } from './security.js'
-import { startWebhookRetryWorker } from './webhooks.js'
+import { startWebhookRetryWorker, registerWebhookRoutes } from './webhooks.js'
 import { CANONICAL_FRONTEND, supabaseAdmin } from './shared.js'
 import { registerRoutes as registerAuth } from './routes/auth.js'
 import { registerRoutes as registerProfile } from './routes/profile.js'
@@ -154,6 +154,7 @@ registerDelivery(app)
 registerPublicApi(app)
 registerPlaid(app)
 registerAffiliate(app)
+registerWebhookRoutes(app)
 
 // Durable event bus: start the catch-up poller AFTER every engine has registered
 // its onEvent subscribers, so a replayed event reaches all of them.

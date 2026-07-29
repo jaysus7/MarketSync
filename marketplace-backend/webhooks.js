@@ -13,6 +13,9 @@
 import crypto from 'node:crypto'
 import { supabaseAdmin } from './shared.js'
 import { decryptJson } from './crypto-pii.js'
+import { requireAuth, requireMfa } from './middleware.js'
+import { requirePermission } from './authorization.js'
+import { audit } from './audit.js'
 
 export const WEBHOOK_EVENTS = [
   'lead.created', 'deal.sold', 'deal.delivered', 'appointment.booked', 'test.ping',
@@ -96,4 +99,42 @@ export function startWebhookRetryWorker() {
     }
   }
   run(); const t = setInterval(run, 60_000); t.unref?.(); return t
+}
+
+// Dealer-facing delivery history. Payloads can contain customer data, so the
+// summary list omits them and the detail/retry operations require MFA.
+export function registerWebhookRoutes(app) {
+  const canManage = [requireAuth, requirePermission('users.manage')]
+
+  app.get('/webhooks/deliveries', ...canManage, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500)
+    let query = supabaseAdmin.from('webhook_deliveries')
+      .select('id, event_id, event_name, destination_url, status, attempts, response_status, last_error, next_retry_at, delivered_at, created_at')
+      .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(limit)
+    if (req.query.status) query = query.eq('status', String(req.query.status))
+    const { data, error } = await query
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ deliveries: data || [] })
+  })
+
+  app.get('/webhooks/deliveries/:id', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data, error } = await supabaseAdmin.from('webhook_deliveries').select('*')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!data) return res.status(404).json({ error: 'Delivery not found' })
+    res.json({ delivery: data })
+  })
+
+  app.post('/webhooks/deliveries/:id/retry', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data, error } = await supabaseAdmin.from('webhook_deliveries').update({
+      status: 'failed', next_retry_at: new Date().toISOString(), last_error: null,
+    }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).in('status', ['failed', 'delivered']).select('id').maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!data) return res.status(404).json({ error: 'Delivery not found' })
+    audit(req, 'webhook.delivery_retried', { delivery_id: data.id })
+    res.json({ ok: true, delivery_id: data.id })
+  })
 }
