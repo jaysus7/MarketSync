@@ -77,7 +77,7 @@ const DEAL_TASK_TEMPLATE = [
 export async function ensureDealTasks(dealershipId, { dealId, inventoryId = null, contactId = null, createdBy = null, dueDate = null } = {}) {
   if (!dealershipId || !dealId) return
   try {
-    const { data: existing } = await supabaseAdmin.from('dealer_tasks').select('id').eq('dealership_id', dealershipId).eq('deal_id', dealId).limit(1)
+    const { data: existing } = await supabaseAdmin.from('dealer_tasks').select('id').eq('dealership_id', dealershipId).eq('deal_id', dealId).is('deleted_at', null).limit(1)
     if (existing && existing.length) return   // already generated
     let vin = null, stock = null, contact_name = null
     if (inventoryId) { const { data: v } = await supabaseAdmin.from('inventory').select('vin, stock_number').eq('id', inventoryId).maybeSingle(); vin = v?.vin || null; stock = v?.stock_number || null }
@@ -120,7 +120,7 @@ export function registerDealerTasks(app) {
   app.get('/dealer-tasks', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     const q = req.query
-    let query = supabaseAdmin.from('dealer_tasks').select('*').eq('dealership_id', req.dealershipId)
+    let query = supabaseAdmin.from('dealer_tasks').select('*').eq('dealership_id', req.dealershipId).is('deleted_at', null)
     if (q.status) query = query.eq('status', String(q.status))
     if (q.assignee_id) query = query.eq('assignee_id', String(q.assignee_id))
     if (q.mine === '1') query = query.eq('assignee_id', req.user.id)
@@ -143,7 +143,7 @@ export function registerDealerTasks(app) {
   // Quick counts for the dashboard "Today's priorities" / nav badge.
   app.get('/dealer-tasks/summary', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    const { data } = await supabaseAdmin.from('dealer_tasks').select('status, due_date, assignee_id').eq('dealership_id', req.dealershipId).neq('status', 'done').limit(2000)
+    const { data } = await supabaseAdmin.from('dealer_tasks').select('status, due_date, assignee_id').eq('dealership_id', req.dealershipId).is('deleted_at', null).neq('status', 'done').limit(2000)
     const rows = data || []; const t = today()
     res.json({ ok: true,
       open: rows.length,
@@ -166,7 +166,7 @@ export function registerDealerTasks(app) {
 
   app.get('/dealer-tasks/:id', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    const { data } = await supabaseAdmin.from('dealer_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data } = await supabaseAdmin.from('dealer_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
     if (!data) return res.status(404).json({ error: 'Not found' })
     res.json({ ok: true, task: data })
   })
@@ -199,7 +199,7 @@ export function registerDealerTasks(app) {
 
   app.put('/dealer-tasks/:id', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    const { data: cur } = await supabaseAdmin.from('dealer_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: cur } = await supabaseAdmin.from('dealer_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
     if (!cur) return res.status(404).json({ error: 'Not found' })
     const f = fieldsFrom(req.body || {})
     // Re-link to inventory if the VIN/stock changed.
@@ -214,7 +214,7 @@ export function registerDealerTasks(app) {
     else if (f.status && f.status !== cur.status) events.push(stamp(req.user?.id, 'status', f.status))
     else events.push(stamp(req.user?.id, 'edited', null))
     patch.events = events
-    const { data, error } = await supabaseAdmin.from('dealer_tasks').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().single()
+    const { data, error } = await supabaseAdmin.from('dealer_tasks').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).select().single()
     if (error) return res.status(500).json({ error: error.message })
     // Two-way Cleanup sync: completing a get-ready task advances the car's stage.
     if (nowDone) await syncTaskToRecon(req.dealershipId, data, req.user?.id)
@@ -231,11 +231,14 @@ export function registerDealerTasks(app) {
     if (!guard(req, res)) return
     const { data: before } = await supabaseAdmin.from('dealer_tasks')
       .select('id, title, status, kind, department, inventory_id, contact_id, due_date')
-      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Not found' })
-    const { error } = await supabaseAdmin.from('dealer_tasks').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
-    if (error) return res.status(500).json({ error: 'Delete failed' })
-    audit(req, 'dealer_task.deleted', { before_state: before, after_state: null })
-    res.json({ ok: true })
+    const { data, error } = await supabaseAdmin.from('dealer_tasks').update({
+      deleted_at: new Date().toISOString(), deleted_by: req.user?.id || null,
+    }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).select('id, deleted_at').maybeSingle()
+    if (error) return res.status(500).json({ error: 'Archive failed' })
+    if (!data) return res.status(409).json({ error: 'Task was already removed' })
+    audit(req, 'dealer_task.archived', { before_state: before, after_state: data })
+    res.json({ ok: true, archived: true })
   })
 }
