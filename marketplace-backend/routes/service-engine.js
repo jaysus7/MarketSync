@@ -17,6 +17,7 @@ import { getConfig, setConfig } from './config-engine.js'
 import { getContact } from './crm.js'
 import { registerTool } from './tool-registry.js'
 import { raiseException } from './workflow.js'
+import { audit } from '../audit.js'
 
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
@@ -32,7 +33,7 @@ async function svcConfig(dealershipId) {
 export async function getRepairOrder(dealershipId, id) {
   const { data: ro } = await supabaseAdmin.from('repair_orders').select('*').eq('id', id).eq('dealership_id', dealershipId).maybeSingle()
   if (!ro) return null
-  const { data: lines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', id).order('created_at')
+  const { data: lines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', id).is('deleted_at', null).order('created_at')
   return { ...ro, lines: lines || [] }
 }
 export async function listRepairOrders(dealershipId, { status = null, contactId = null, limit = 200 } = {}) {
@@ -68,7 +69,7 @@ export async function roSummary(dealershipId, { from = null, to = null } = {}) {
 // ── RO totals ─────────────────────────────────────────────────────────────────
 async function recomputeRoTotals(dealershipId, roId) {
   const cfg = await svcConfig(dealershipId)
-  const { data: lines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', roId)
+  const { data: lines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', roId).is('deleted_at', null)
   const by = (t) => (lines || []).filter(l => l.line_type === t)
   const sum = (arr, f) => round2(arr.reduce((s, l) => s + n(f(l)), 0))
   const labor_total = sum(by('labor'), l => l.total)
@@ -145,10 +146,16 @@ export async function addRoLine(dealershipId, roId, line = {}) {
   return inserted
 }
 
-export async function removeRoLine(dealershipId, roId, lineId) {
-  await supabaseAdmin.from('ro_lines').delete().eq('id', lineId).eq('ro_id', roId).eq('dealership_id', dealershipId)
+export async function removeRoLine(dealershipId, roId, lineId, { userId = null } = {}) {
+  const { data: before } = await supabaseAdmin.from('ro_lines').select('*')
+    .eq('id', lineId).eq('ro_id', roId).eq('dealership_id', dealershipId).is('deleted_at', null).maybeSingle()
+  if (!before) throw new Error('repair-order line not found')
+  const { data, error } = await supabaseAdmin.from('ro_lines').update({
+    deleted_at: new Date().toISOString(), deleted_by: userId,
+  }).eq('id', lineId).eq('ro_id', roId).eq('dealership_id', dealershipId).is('deleted_at', null).select().maybeSingle()
+  if (error || !data) throw new Error(error?.message || 'could not archive repair-order line')
   await recomputeRoTotals(dealershipId, roId)
-  return true
+  return { before, archived: data }
 }
 
 export async function setRoStatus(dealershipId, roId, toStatus, { userId = null } = {}) {
@@ -176,7 +183,7 @@ export async function closeRepairOrder(dealershipId, roId, { userId = null } = {
   const totals = await recomputeRoTotals(dealershipId, roId)
 
   // Consume parts from stock (immutable ledger + decrement on-hand), once.
-  const { data: partLines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', roId).eq('line_type', 'part')
+  const { data: partLines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', roId).eq('line_type', 'part').is('deleted_at', null)
   for (const l of partLines || []) {
     if (!l.part_id) continue
     await consumePart(dealershipId, l.part_id, n(l.qty), { roId, unitCost: n(l.unit_cost), userId })
@@ -331,8 +338,11 @@ export function registerServiceEngine(app) {
   })
   app.delete('/service-engine/ros/:id/lines/:lineId', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    await removeRoLine(req.dealershipId, req.params.id, req.params.lineId)
-    res.json({ ok: true })
+    try {
+      const result = await removeRoLine(req.dealershipId, req.params.id, req.params.lineId, { userId: req.user?.id || null })
+      audit(req, 'service.ro_line_archived', { before_state: result.before, after_state: result.archived })
+      res.json({ ok: true, archived: true })
+    } catch (e) { res.status(400).json({ error: e.message }) }
   })
   app.post('/service-engine/ros/:id/status', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
