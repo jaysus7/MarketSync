@@ -2,6 +2,7 @@ import { supabaseAdmin, stripe, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { randomBytes } from 'crypto'
 import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
+import { audit } from '../audit.js'
 
 // Short, human-shareable join code (no ambiguous chars). e.g. "K7P4-9QMX".
 function makeJoinCode() {
@@ -50,6 +51,7 @@ export function registerGroups(app) {
     if (req.profile.dealership_id) {
       await supabaseAdmin.from('dealerships').update({ group_id: group.id }).eq('id', req.profile.dealership_id)
     }
+    audit(req, 'group.created', { group_id: group.id, group_name: group.name, dealership_id: req.profile.dealership_id || null })
     res.json({ group })
   })
 
@@ -72,6 +74,7 @@ export function registerGroups(app) {
     const { error } = await supabaseAdmin
       .from('dealerships').update({ group_id: group.id }).eq('id', req.profile.dealership_id)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'group.dealership_joined', { group_id: group.id, dealership_id: req.profile.dealership_id })
     res.json({ ok: true, group: { id: group.id, name: group.name } })
   })
 
@@ -93,6 +96,7 @@ export function registerGroups(app) {
     const { error } = await supabaseAdmin
       .from('dealerships').update({ group_id: null }).eq('id', req.profile.dealership_id)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'group.dealership_left', { dealership_id: req.profile.dealership_id })
     res.json({ ok: true })
   })
 
@@ -106,6 +110,7 @@ export function registerGroups(app) {
     const { error } = await supabaseAdmin
       .from('dealerships').update({ group_id: req.profile.group_id }).eq('id', dealership_id)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'group.dealership_attached', { group_id: req.profile.group_id, dealership_id })
     res.json({ ok: true })
   })
 
@@ -118,6 +123,7 @@ export function registerGroups(app) {
       .from('dealerships').update({ group_id: null })
       .eq('id', req.params.id).eq('group_id', req.profile.group_id)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'group.dealership_detached', { group_id: req.profile.group_id, dealership_id: req.params.id })
     res.json({ ok: true })
   })
 
