@@ -708,13 +708,17 @@ export function registerRoutes(app) {
     }
   })
 
-  app.post('/support', async (req, res) => {
-    const { name, email, subject, message } = req.body || {}
+  app.post('/support', rateLimit('support', 5, 60 * 60 * 1000, { email: true }), async (req, res) => {
+    const name = String(req.body?.name || '').trim().slice(0, 120)
+    const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 254)
+    const subject = String(req.body?.subject || '').trim().slice(0, 200) || null
+    const message = String(req.body?.message || '').trim().slice(0, 5000)
     if (!name || !email || !message) return res.status(400).json({ error: 'name, email, and message are required' })
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'A valid email address is required' })
 
     const { error } = await supabaseAdmin
       .from('support_requests')
-      .insert({ name, email, subject: subject || null, message })
+      .insert({ name, email, subject, message })
     if (error) {
       console.error('Support insert failed:', error.message)
       return res.status(500).json({ error: 'Could not submit your request. Please try again.' })
