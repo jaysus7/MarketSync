@@ -1,5 +1,5 @@
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { findOrCreateContact } from './crm.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
 import { audit, AuditAction } from '../audit.js'
@@ -262,7 +262,7 @@ export function registerLeads(app) {
   })
 
   // Export leads as CSV. Reps get their own; dealer-level gets the whole team.
-  app.get('/leads/export.csv', requireAuth, requirePermission('customer.export'), async (req, res) => {
+  app.get('/leads/export.csv', requireAuth, requireMfa, requirePermission('customer.export'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const dealerLevel = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
     let q = supabaseAdmin.from('leads')

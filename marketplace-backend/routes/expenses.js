@@ -9,7 +9,9 @@
  */
 import multer from 'multer'
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { audit, AuditAction } from '../audit.js'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)
@@ -136,7 +138,7 @@ export function registerExpenses(app) {
   })
 
   // ── CSV export (registered before /:id so 'export.csv' isn't read as an id) ─────
-  app.get('/expenses/export.csv', requireAuth, async (req, res) => {
+  app.get('/expenses/export.csv', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const q = req.query
     let query = supabaseAdmin.from('expenses').select('*').eq('dealership_id', req.dealershipId)
@@ -151,6 +153,7 @@ export function registerExpenses(app) {
     const cols = ['expense_date', 'vendor', 'category', 'department', 'employee_name', 'vin', 'stock_number', 'repair_order', 'po_number', 'payment_method', 'card_last4', 'subtotal', 'tax', 'amount', 'status', 'reimbursable', 'reimbursed', 'notes']
     const escc = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
     const lines = [cols.join(','), ...(data || []).map(r => cols.map(c => escc(r[c])).join(','))]
+    audit(req, AuditAction.EXPENSES_EXPORTED, { count: (data || []).length })
     res.setHeader('Content-Type', 'text/csv')
     res.setHeader('Content-Disposition', `attachment; filename="expenses-${today()}.csv"`)
     res.send(lines.join('\n'))

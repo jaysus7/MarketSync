@@ -9,10 +9,11 @@
  * is written to sensitive_access_log.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { getClientIp } from '../security.js'
 import { encryptField, decryptField, maskTail, piiConfigured, logSensitiveAccess } from '../crypto-pii.js'
 import { getCreditProvider } from '../providers/credit.js'
+import { audit, AuditAction } from '../audit.js'
 
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 const str = (v) => { const s = (v == null ? '' : String(v)).trim(); return s || null }
@@ -139,7 +140,7 @@ export function registerCredit(app) {
   })
 
   // ── Export the STAR-style credit-application XML (audited). ──
-  app.post('/credit/application/:id/export', requireAuth, async (req, res) => {
+  app.post('/credit/application/:id/export', requireAuth, requireMfa, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: row } = await supabaseAdmin.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
@@ -150,6 +151,7 @@ export function registerCredit(app) {
       co_sin: decryptField(row.co_sin_enc), co_dob: decryptField(row.co_dob_enc),
     }
     await logSensitiveAccess({ dealershipId: req.dealershipId, actorId: req.user?.id, entity: 'credit_application', entityId: row.id, action: 'export', detail: 'xml', ip: getClientIp(req) })
+    audit(req, AuditAction.CREDIT_APPLICATION_EXPORTED, { credit_application_id: row.id, format: 'xml' })
     const xml = buildCreditXml(row, dealer || {}, secrets)
     res.json({ ok: true, xml, filename: `credit-app-${(row.id || '').slice(0, 8)}.xml` })
   })

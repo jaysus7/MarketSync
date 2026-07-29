@@ -479,7 +479,7 @@ export function registerRoutes(app) {
     res.json({ entries: data || [], count: (data || []).length })
   })
 
-  app.get('/owner/newsletter-subscribers', requireAuth, async (req, res) => {
+  app.get('/owner/newsletter-subscribers', requireAuth, requireMfa, async (req, res) => {
     if ((req.user.email || '').toLowerCase() !== OWNER_EMAIL) {
       return res.status(403).json({ error: 'Owner-only endpoint' })
     }
@@ -502,6 +502,7 @@ export function registerRoutes(app) {
       }
     }))
     const valid = enriched.filter(r => r.email)
+    audit(req, AuditAction.NEWSLETTER_EXPORTED, { count: valid.length, format: (req.query.format || 'json').toLowerCase() })
 
     // Respect ?format=csv for direct paste into mail tools
     if ((req.query.format || '').toLowerCase() === 'csv') {

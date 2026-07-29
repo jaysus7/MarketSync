@@ -1,5 +1,5 @@
 import { supabaseAdmin, browserFetch } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { createNotifications } from '../notifications.js'
 import { runInventorySync, syncProgress } from '../sync/engine.js'
 import { audit, AuditAction } from '../audit.js'
@@ -366,7 +366,7 @@ export function registerRoutes(app) {
 
   // ── CSV import / export ─────────────────────────────────────────────────────
   // Registered BEFORE /inventory/:id so "export.csv" isn't swallowed as an :id.
-  app.get('/inventory/export.csv', requireAuth, requirePermission('customer.export'), async (req, res) => {
+  app.get('/inventory/export.csv', requireAuth, requireMfa, requirePermission('customer.export'), async (req, res) => {
     if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data } = await supabaseAdmin.from('inventory')
       .select(CSV_COLS.filter(c => c !== 'image_urls').join(', ') + ', image_urls')

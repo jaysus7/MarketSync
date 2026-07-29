@@ -83,6 +83,9 @@ export const AuditAction = Object.freeze({
   // Data exports (who pulled the customer/inventory book)
   LEADS_EXPORTED:         'leads.exported',
   INVENTORY_EXPORTED:     'inventory.exported',
+  EXPENSES_EXPORTED:      'expenses.exported',
+  CREDIT_APPLICATION_EXPORTED: 'credit_application.exported',
+  NEWSLETTER_EXPORTED:    'newsletter.exported',
 
   // Admin / system
   ADMIN_DATA_EXPORT:      'admin.data_export',
