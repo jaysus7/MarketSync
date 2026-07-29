@@ -18,6 +18,8 @@ import { createNotification } from '../notifications.js'
 import { findOrCreateContact } from './crm.js'
 import { squareStatus, squareCreateDepositLink } from '../providers/square.js'
 import { emitEvent } from './events.js'
+import { rateLimit } from '../security.js'
+import { depositReturnUrl, safePublicReturnBase } from '../public-return-url.js'
 
 const PROVIDER = 'stripe_deposits'
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
@@ -225,9 +227,9 @@ export function registerDeposits(app) {
   })
 
   // ── PUBLIC: shopper pays a deposit to reserve a vehicle → Checkout Session. ──
-  app.post('/site/:slug/deposit', async (req, res) => {
+  app.post('/site/:slug/deposit', rateLimit('sitedeposit', 6, 60 * 1000), async (req, res) => {
     const slug = String(req.params.slug || '').toLowerCase().trim()
-    const { data: d } = await supabaseAdmin.from('dealerships').select('id, name, country, site_published').ilike('site_slug', slug).maybeSingle()
+    const { data: d } = await supabaseAdmin.from('dealerships').select('id, name, country, site_published, site_slug, custom_domain, custom_domain_verified').ilike('site_slug', slug).maybeSingle()
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
     const cfg = await depositConfigForSite(d.id)
     if (!cfg.enabled) return res.status(400).json({ error: 'Online deposits aren’t available right now.' })
@@ -240,9 +242,15 @@ export function registerDeposits(app) {
     const email = String(b.email || '').trim().slice(0, 160)
     const phone = String(b.phone || '').trim().slice(0, 40)
     if (!email && !phone) return res.status(400).json({ error: 'Enter an email or phone so we can reach you.' })
-    // Return here after Checkout (the shopper's current site page).
-    const rawReturn = String(b.return_url || '').trim()
-    const backBase = /^https?:\/\//i.test(rawReturn) ? rawReturn.split('#')[0].split('?')[0] : `${FRONTEND_URL}/`
+    // Return after Checkout only to the hosted MarketSync site or this dealer's
+    // verified domain. Never reflect a shopper-supplied third-party URL.
+    const backBase = safePublicReturnBase({
+      rawReturn: b.return_url,
+      frontendUrl: FRONTEND_URL,
+      siteSlug: d.site_slug,
+      customDomain: d.custom_domain,
+      customDomainVerified: d.custom_domain_verified,
+    })
 
     // Which vehicle (optional) — for the receipt line + rep follow-up.
     let inventory_id = null, vehicleLabel = 'a vehicle'
@@ -277,8 +285,8 @@ export function registerDeposits(app) {
           description: `Website reserve deposit — ${vehicleLabel} — ${d.name}`,
         },
         customer_email: email || undefined,
-        success_url: `${backBase}?deposit=success`,
-        cancel_url: `${backBase}?deposit=cancelled`,
+        success_url: depositReturnUrl(backBase, 'success'),
+        cancel_url: depositReturnUrl(backBase, 'cancelled'),
         metadata: {
           kind: 'deposit', dealership_id: d.id, contact_id: contactId || '', lead_id: lead?.id || '',
           vehicle_id: inventory_id || '', vehicle_label: vehicleLabel,

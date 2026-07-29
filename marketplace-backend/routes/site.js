@@ -387,7 +387,7 @@ export function registerSite(app) {
   }
 
   // ── PUBLIC: capture a lead from the site → lands in the CRM ─────────────────
-  app.post('/site/:slug/lead', async (req, res) => {
+  app.post('/site/:slug/lead', rateLimit('sitelead', 8, 60 * 1000), async (req, res) => {
     const slug = String(req.params.slug || '').toLowerCase().trim()
     const { data: d } = await supabaseAdmin.from('dealerships')
       .select('id, site_published').ilike('site_slug', slug).maybeSingle()
