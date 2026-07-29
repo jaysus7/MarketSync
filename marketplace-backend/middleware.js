@@ -29,6 +29,9 @@ export async function requireAuth(req, res, next) {
       .single()
 
     if (profileError || !profile) return res.status(401).json({ error: 'Profile not found' })
+    // Retain deactivated team members for audit/history, but never allow their
+    // existing or newly issued sessions to reach the application.
+    if (profile.active === false) return res.status(403).json({ error: 'ACCOUNT_DEACTIVATED' })
 
     if (!req.path.startsWith('/billing')) {
       const isPersonal = profile.dealerships?.is_personal === true

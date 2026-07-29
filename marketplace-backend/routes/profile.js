@@ -534,9 +534,9 @@ export function registerRoutes(app) {
       return res.status(403).json({ error: 'Cannot remove an admin/owner from the dashboard' })
     }
 
-    await supabaseAdmin.from('profiles').delete().eq('id', req.params.id)
-    await supabaseAdmin.auth.admin.deleteUser(req.params.id)
-    audit(req, AuditAction.TEAM_MEMBER_REMOVED, { removed_user_id: req.params.id })
-    res.json({ success: true })
+    const { error } = await supabaseAdmin.from('profiles').update({ active: false }).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, AuditAction.TEAM_MEMBER_REMOVED, { removed_user_id: req.params.id, deactivated: true })
+    res.json({ success: true, deactivated: true })
   })
 }
