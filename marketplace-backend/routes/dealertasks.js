@@ -12,6 +12,7 @@ import { requireAuth } from '../middleware.js'
 import { createNotification } from '../notifications.js'
 import { RECON_STAGES, KIND_TO_STAGE, ensureReconCard } from './recon.js'
 import { notifyTaskCompleted } from './workflow.js'
+import { audit } from '../audit.js'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 // Get-ready kinds (vehicle prep) + internal-ops kinds (service, lot attendant,
@@ -228,7 +229,13 @@ export function registerDealerTasks(app) {
 
   app.delete('/dealer-tasks/:id', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    await supabaseAdmin.from('dealer_tasks').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    const { data: before } = await supabaseAdmin.from('dealer_tasks')
+      .select('id, title, status, kind, department, inventory_id, contact_id, due_date')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Not found' })
+    const { error } = await supabaseAdmin.from('dealer_tasks').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: 'Delete failed' })
+    audit(req, 'dealer_task.deleted', { before_state: before, after_state: null })
     res.json({ ok: true })
   })
 }

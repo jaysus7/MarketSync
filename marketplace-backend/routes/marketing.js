@@ -10,6 +10,7 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { audit } from '../audit.js'
 
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 const WON = ['sold', 'fni', 'delivered']
@@ -82,8 +83,13 @@ export function registerMarketing(app) {
   app.delete('/marketing/spend/:id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
-    await supabaseAdmin.from('marketing_spend').delete()
+    const { data: before } = await supabaseAdmin.from('marketing_spend')
+      .select('id, channel, period, amount, notes').eq('dealership_id', req.dealershipId).eq('id', req.params.id).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Spend record not found' })
+    const { error } = await supabaseAdmin.from('marketing_spend').delete()
       .eq('dealership_id', req.dealershipId).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: 'Delete failed' })
+    audit(req, 'marketing.spend_deleted', { before_state: before, after_state: null })
     res.json({ ok: true })
   })
 
