@@ -85,4 +85,6 @@ export const AuditAction = Object.freeze({
 
   // Admin / system
   ADMIN_DATA_EXPORT:      'admin.data_export',
+  API_KEY_CREATED:        'api_key.created',
+  API_KEY_REVOKED:        'api_key.revoked',
 })

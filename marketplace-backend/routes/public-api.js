@@ -13,6 +13,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { emitEvent } from './events.js'
 import { findOrCreateContact } from './crm.js'
+import { audit, AuditAction } from '../audit.js'
 
 const hashKey = (raw) => crypto.createHash('sha256').update(String(raw)).digest('hex')
 const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
@@ -85,6 +86,7 @@ export function registerPublicApi(app) {
       key_prefix: prefix, key_hash: hashKey(raw), created_by: req.user?.id || null,
     }).select('id, name, key_prefix, created_at').single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, AuditAction.API_KEY_CREATED, { api_key_id: data.id, name: data.name })
     res.json({ ok: true, key: raw, meta: data })   // raw key returned ONCE
   })
   app.get('/api-keys', requireAuth, async (req, res) => {
@@ -98,6 +100,7 @@ export function registerPublicApi(app) {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     await supabaseAdmin.from('api_keys').update({ revoked_at: new Date().toISOString() }).eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    audit(req, AuditAction.API_KEY_REVOKED, { api_key_id: req.params.id })
     res.json({ ok: true })
   })
 
