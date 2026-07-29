@@ -32,7 +32,7 @@ export async function emitWebhook(dealershipId, event, data) {
     if (events.length && !events.includes(event)) return   // subscribed to a subset only
 
     const { data: delivery } = await supabaseAdmin.from('webhook_deliveries').insert({
-      dealership_id: dealershipId, event_name: event, destination_url: url
+      dealership_id: dealershipId, event_name: event, destination_url: url, payload: data || {}
     }).select('id, event_id').single()
     const eventId = delivery?.event_id || crypto.randomUUID()
     const timestamp = new Date().toISOString()
@@ -50,4 +50,23 @@ export async function emitWebhook(dealershipId, event, data) {
       if (delivery?.id) await supabaseAdmin.from('webhook_deliveries').update({ status: 'failed', attempts: 1, last_error: String(error?.message || error).slice(0, 1000), next_retry_at: new Date(Date.now() + 60_000).toISOString() }).eq('id', delivery.id)
     }
   } catch (e) { console.warn('[webhook] emit failed:', e.message) }
+}
+
+export function startWebhookRetryWorker() {
+  const run = async () => {
+    const now = new Date().toISOString()
+    const { data: rows } = await supabaseAdmin.from('webhook_deliveries').select('*')
+      .eq('status', 'failed').lte('next_retry_at', now).lt('attempts', 5).limit(25)
+    for (const row of rows || []) {
+      try {
+        const r = await fetch(row.destination_url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-MarketSync-Event': row.event_name, 'X-MarketSync-Event-Id': row.event_id, 'X-MarketSync-Timestamp': new Date().toISOString() }, body: JSON.stringify({ event: row.event_name, event_id: row.event_id, dealership_id: row.dealership_id, at: new Date().toISOString(), data: row.payload || {} }), signal: AbortSignal.timeout(8000) })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        await supabaseAdmin.from('webhook_deliveries').update({ status: 'delivered', attempts: row.attempts + 1, response_status: r.status, delivered_at: new Date().toISOString(), next_retry_at: null }).eq('id', row.id)
+      } catch (e) {
+        const attempts = row.attempts + 1
+        await supabaseAdmin.from('webhook_deliveries').update({ attempts, last_error: String(e.message || e).slice(0, 1000), next_retry_at: attempts >= 5 ? null : new Date(Date.now() + Math.min(3600000, 60000 * 2 ** attempts)).toISOString() }).eq('id', row.id)
+      }
+    }
+  }
+  run(); const t = setInterval(run, 60_000); t.unref?.(); return t
 }

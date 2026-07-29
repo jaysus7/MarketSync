@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import { securityHeaders, corsOriginCheck } from './security.js'
+import { startWebhookRetryWorker } from './webhooks.js'
 import { CANONICAL_FRONTEND } from './shared.js'
 import { registerRoutes as registerAuth } from './routes/auth.js'
 import { registerRoutes as registerProfile } from './routes/profile.js'
@@ -152,6 +153,7 @@ registerAffiliate(app)
 // Durable event bus: start the catch-up poller AFTER every engine has registered
 // its onEvent subscribers, so a replayed event reaches all of them.
 startEventDispatcher()
+startWebhookRetryWorker()
 
 app.use((err, req, res, next) => {
   console.error('Unhandled Express error:', {
