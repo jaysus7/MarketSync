@@ -8,6 +8,7 @@
 //   - CASL + CAN-SPAM (newsletter consent is captured at registration; tracked elsewhere)
 
 import { createHash, randomBytes } from 'crypto'
+export { corsOriginCheck } from './cors-policy.js'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // PASSWORD POLICY
@@ -325,34 +326,6 @@ export function securityHeaders(req, res, next) {
 // ──────────────────────────────────────────────────────────────────────────────
 // CORS — locked down to known origins
 // ──────────────────────────────────────────────────────────────────────────────
-// Pass to cors({ origin: corsOriginCheck }) so dev (localhost), the marketing
-// site, the dashboard, and the Chrome extension all work — and nothing else.
-
-export function corsOriginCheck(origin, callback) {
-  if (!origin) return callback(null, true)  // server-to-server, curl, etc.
-  const allowed = [
-    'https://marketsync.link',
-    'https://www.marketsync.link',
-    'https://www.facebook.com',
-    'https://facebook.com',
-    'https://m.facebook.com'
-  ]
-  // Comma-separated environment-specific origins. This keeps staging isolated
-  // without opening CORS to arbitrary Render preview domains.
-  const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
-    .split(',')
-    .map(value => value.trim().replace(/\/$/, ''))
-    .filter(Boolean)
-  if (allowed.includes(origin) || configuredOrigins.includes(origin)) return callback(null, true)
-  if (origin.startsWith('chrome-extension://')) return callback(null, true)
-  if (process.env.NODE_ENV !== 'production') {
-    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-      return callback(null, true)
-    }
-  }
-  return callback(new Error(`CORS blocked: ${origin}`), false)
-}
-
 // ──────────────────────────────────────────────────────────────────────────────
 // IP HELPER — used to record consent (CASL/GDPR) and audit events
 // ──────────────────────────────────────────────────────────────────────────────
