@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware.js'
 import { createNotifications } from '../notifications.js'
 import { runInventorySync, syncProgress } from '../sync/engine.js'
 import { audit, AuditAction } from '../audit.js'
+import { requirePermission } from '../authorization.js'
 import multer from 'multer'
 import sharp from 'sharp'
 
@@ -190,7 +191,7 @@ export function registerRoutes(app) {
   })
 
   // Delete a vehicle (and its uploaded photos)
-  app.delete('/inventory/:id', requireAuth, async (req, res) => {
+  app.delete('/inventory/:id', requireAuth, requirePermission('inventory.delete'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: v } = await supabaseAdmin.from('inventory')
@@ -365,7 +366,7 @@ export function registerRoutes(app) {
 
   // ── CSV import / export ─────────────────────────────────────────────────────
   // Registered BEFORE /inventory/:id so "export.csv" isn't swallowed as an :id.
-  app.get('/inventory/export.csv', requireAuth, async (req, res) => {
+  app.get('/inventory/export.csv', requireAuth, requirePermission('customer.export'), async (req, res) => {
     if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data } = await supabaseAdmin.from('inventory')
       .select(CSV_COLS.filter(c => c !== 'image_urls').join(', ') + ', image_urls')

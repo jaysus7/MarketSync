@@ -6,6 +6,19 @@ export const SYSTEM_ROLES = Object.freeze({
   DEALER_USER: 'dealer_user',
 })
 
+export const LEGACY_DEALER_ROLE_MAP = Object.freeze({
+  OWNER: 'dealer_owner', DEALER_ADMIN: 'dealer_owner', DEALER_GROUP: 'dealer_group_owner',
+  MANAGER: 'general_manager', SALES_REP: 'salesperson', BDC: 'bdc',
+  FNI: 'fni_manager', SERVICE: 'service_manager', ACCOUNTING: 'accounting',
+})
+
+export async function syncDealerRole(userId, dealershipId, legacyRole, assignedBy = null) {
+  const roleId = LEGACY_DEALER_ROLE_MAP[legacyRole] || 'read_only'
+  await supabaseAdmin.from('user_roles').delete().eq('user_id', userId).eq('dealership_id', dealershipId)
+  const { error } = await supabaseAdmin.from('user_roles').insert({ user_id: userId, dealership_id: dealershipId, role_id: roleId, assigned_by: assignedBy })
+  if (error) throw error
+}
+
 export function hasSystemRole(req, ...roles) {
   return roles.includes(req?.profile?.system_role)
 }

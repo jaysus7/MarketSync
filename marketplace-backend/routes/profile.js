@@ -2,7 +2,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { validatePassword, rateLimit } from '../security.js'
 import { audit, AuditAction } from '../audit.js'
-import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
+import { SYSTEM_ROLES, hasSystemRole, requirePermission, syncDealerRole } from '../authorization.js'
 import multer from 'multer'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } })
@@ -214,7 +214,7 @@ export function registerRoutes(app) {
     res.json(enriched)
   })
 
-  app.post('/admin/users/invite', requireAuth, async (req, res) => {
+  app.post('/admin/users/invite', requireAuth, requirePermission('users.manage'), async (req, res) => {
     if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
       return res.status(403).json({ error: 'Admins only' })
     }
@@ -264,6 +264,8 @@ export function registerRoutes(app) {
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
       return res.status(500).json({ error: profileError.message })
     }
+    try { await syncDealerRole(newUser.user.id, req.dealershipId, newRole, req.user.id) }
+    catch (e) { await supabaseAdmin.from('profiles').delete().eq('id', newUser.user.id); await supabaseAdmin.auth.admin.deleteUser(newUser.user.id); return res.status(500).json({ error: e.message }) }
 
     audit(req, AuditAction.TEAM_MEMBER_INVITED, { invited_email: email, invited_user_id: newUser.user.id })
     res.json({
@@ -278,7 +280,7 @@ export function registerRoutes(app) {
   // Promote a rep to Manager (full dealer access, scoped to this store) or
   // demote a manager back to rep. Dealer admins/owners only — a manager cannot
   // mint other managers.
-  app.post('/admin/users/:id/role', requireAuth, async (req, res) => {
+  app.post('/admin/users/:id/role', requireAuth, requirePermission('users.manage'), async (req, res) => {
     if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') {
       return res.status(403).json({ error: 'Only a dealer admin can change roles' })
     }
@@ -306,6 +308,8 @@ export function registerRoutes(app) {
       .update({ role, account_role: role === 'MANAGER' ? 'dealer_admin' : 'sales_rep' })
       .eq('id', req.params.id)
     if (error) return res.status(500).json({ error: error.message })
+    try { await syncDealerRole(target.id, req.dealershipId, role, req.user.id) }
+    catch (e) { return res.status(500).json({ error: e.message }) }
     audit(req, AuditAction.TEAM_MEMBER_INVITED, { role_change_user_id: req.params.id, new_role: role })
     res.json({ success: true, role })
   })
@@ -475,7 +479,7 @@ export function registerRoutes(app) {
     res.json({ count: valid.length, subscribers: valid })
   })
 
-  app.delete('/admin/users/:id', requireAuth, async (req, res) => {
+  app.delete('/admin/users/:id', requireAuth, requirePermission('users.manage'), async (req, res) => {
     if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
       return res.status(403).json({ error: 'Admins only' })
     }
