@@ -6,6 +6,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { audit } from '../audit.js'
 import { marketcheckMarket, marketcheckListings, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing, marketcheckDecodeVin, marketcheckPredictPrice, marketcheckMarketStats } from '../marketcheck.js'
 import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, assistantDailyAllowed, recordAssistantChat, ASSISTANT_DAILY_LIMIT, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
 import { findOrCreateContact } from './crm.js'
@@ -1241,12 +1242,16 @@ Units 60d+ on lot: ${stale}`
 
   app.delete('/ai/competitors/:id', requireAuth, requireDealerAdmin, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const { data: before } = await supabaseAdmin
+      .from('competitor_dealerships').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Competitor not found' })
     const { error } = await supabaseAdmin
       .from('competitor_dealerships')
       .delete()
       .eq('id', req.params.id)
       .eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'inventory.competitor_deleted', { before_state: before, after_state: null })
     res.json({ deleted: true })
   })
 

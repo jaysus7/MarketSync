@@ -18,6 +18,7 @@ import { decryptJson } from '../crypto-pii.js'
 import { createNotification } from '../notifications.js'
 import { aiAllowed, recordUsage } from '../usage.js'
 import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
+import { audit } from '../audit.js'
 
 const DEALER_LEVEL = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isDealerLevel = (req) => DEALER_LEVEL.includes(req.profile?.role)
@@ -1021,15 +1022,20 @@ export function registerAutomation(app) {
   // Delete a (custom) campaign.
   app.delete('/automation/campaigns/:id', requireAuth, async (req, res) => {
     if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+    const { data: before } = await supabaseAdmin.from('automated_campaigns').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Campaign not found' })
     const { error } = await supabaseAdmin.from('automated_campaigns').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'automation.campaign_deleted', { before_state: before, after_state: null })
     res.json({ ok: true })
   })
   app.post('/automation/campaigns/reset', requireAuth, async (req, res) => {
     if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+    const { data: before } = await supabaseAdmin.from('automated_campaigns').select('id, key, name, category, trigger_event, channel, is_active').eq('dealership_id', req.dealershipId)
     await supabaseAdmin.from('automated_campaigns').delete().eq('dealership_id', req.dealershipId)
     await ensureCampaigns(req.dealershipId)
     const { data } = await supabaseAdmin.from('automated_campaigns').select('*').eq('dealership_id', req.dealershipId).order('sort')
+    audit(req, 'automation.campaigns_reset', { before_state: before || [], after_state: (data || []).map(r => ({ id: r.id, key: r.key, name: r.name, is_active: r.is_active })) })
     res.json({ ok: true, campaigns: data || [] })
   })
 
