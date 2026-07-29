@@ -976,6 +976,7 @@ function initDashModeForOwner() {
   document.getElementById('nav-owner-users')?.classList.remove('hidden');
   document.getElementById('nav-saas-command')?.classList.remove('hidden');   // SaaS Command Center
   document.getElementById('nav-saas-customers')?.classList.remove('hidden'); // Customer Pipeline
+  document.getElementById('nav-saas-followups')?.classList.remove('hidden'); // Account follow-up queue
   document.getElementById('nav-saas-employees')?.classList.remove('hidden'); // Employees + permissions
   // The demo dealership workspace has been retired — the owner runs the MarketSync
   // SaaS business only, so force the SaaS back office and land on the HQ.
@@ -1684,6 +1685,7 @@ window.deptGo = deptGo;
 const SAAS_DEPARTMENTS = {
   hq:         { label: 'MarketSync HQ',    icon: 'chart',    accent: 'fuchsia', pages: [{ page: 'saas-command', label: 'HQ' }] },
   pipeline:   { label: 'Customer Pipeline', icon: 'chart',   accent: 'fuchsia', pages: [{ page: 'saas-customers', label: 'Pipeline' }] },
+  followups:  { label: 'Follow-ups',        icon: 'bolt',    accent: 'fuchsia', pages: [{ page: 'saas-followups', label: 'Follow-ups' }] },
   employees:  { label: 'Employees',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'saas-employees', label: 'Employees' }] },
   accounts:   { label: 'All Users',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'owner-users', label: 'Accounts' }] },
   affiliates: { label: 'Affiliates',       icon: 'trophy',   accent: 'amber',   pages: [{ page: 'affiliates-admin', label: 'Affiliates' }] },
@@ -1915,6 +1917,7 @@ function switchPage(pageId) {
   if (pageId === 'command') loadCommandCenter();
   if (pageId === 'saas-command') loadSaasCommand();
   if (pageId === 'saas-customers') loadSaasCustomers();
+  if (pageId === 'saas-followups') loadSaasFollowups();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'saas-accounting') loadSaasAccounting();
   if (pageId === 'config') loadConfigHub();
@@ -10946,6 +10949,44 @@ ENGINES['saas-customers'] = {
 };
 function loadSaasCustomers() { renderEngine('saas-customers'); }
 window.loadSaasCustomers = loadSaasCustomers;
+
+// ══ Account follow-ups — internal MarketSync customer-success work ═══════════
+let __saasFollowups = [], __saasFollowupAccounts = [];
+function saasFollowupDue(f) {
+  if (!f.due_at) return { label: 'No due date', tone: 'text-slate-400' };
+  const due = new Date(f.due_at), today = new Date(); today.setHours(0, 0, 0, 0);
+  const day = new Date(due); day.setHours(0, 0, 0, 0);
+  const days = Math.round((day - today) / 86400000);
+  return days < 0 ? { label: `${Math.abs(days)}d overdue`, tone: 'text-rose-600 dark:text-rose-400' }
+    : days === 0 ? { label: 'Due today', tone: 'text-amber-600 dark:text-amber-400' }
+    : { label: due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), tone: 'text-slate-400' };
+}
+function saasFollowupRow(f) {
+  const due = saasFollowupDue(f), priority = f.priority === 'high' ? 'text-rose-600 dark:text-rose-400' : f.priority === 'low' ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400';
+  return `<div class="flex gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+    <button onclick="saasCompleteFollowup('${f.id}',true)" title="Complete" class="mt-0.5 w-5 h-5 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-emerald-500 flex-shrink-0"></button>
+    <button onclick="saasEditFollowup('${f.id}')" class="min-w-0 flex-1 text-left"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(f.title)}</div><div class="text-[12px] font-semibold text-fuchsia-600 dark:text-fuchsia-400">${esc(f.account_name)}</div>${f.note ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">${esc(f.note)}</div>` : ''}<div class="text-[11px] mt-1 ${due.tone}">${due.label}${f.assigned_name ? ` · ${esc(f.assigned_name)}` : ''} <span class="ml-1 uppercase font-bold ${priority}">${esc(f.priority)}</span></div></button>
+  </div>`;
+}
+function saasFollowupModal(f = null) {
+  const editing = !!f, due = f?.due_at ? new Date(f.due_at).toISOString().slice(0, 16) : '';
+  const accounts = __saasFollowupAccounts.map(a => `<option value="${a.id}" ${f?.dealership_id === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
+  const el = document.createElement('div'); el.className = 'fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/45 p-4';
+  el.innerHTML = `<div class="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-5"><div class="flex justify-between mb-4"><div><div class="text-lg font-black text-slate-900 dark:text-white">${editing ? 'Edit follow-up' : 'New follow-up'}</div><div class="text-xs text-slate-400">MarketSync account work</div></div><button data-close class="text-xl text-slate-400">×</button></div><div class="space-y-3"><label class="block text-xs font-bold text-slate-500">Account<select id="sf-account" ${editing ? 'disabled' : ''} class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="">Choose account…</option>${accounts}</select></label><label class="block text-xs font-bold text-slate-500">Follow-up<input id="sf-title" value="${esc(f?.title || '')}" placeholder="e.g. Book activation call" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label><div class="grid grid-cols-2 gap-3"><label class="block text-xs font-bold text-slate-500">Due<input id="sf-due" type="datetime-local" value="${due}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label><label class="block text-xs font-bold text-slate-500">Priority<select id="sf-priority" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${['low','normal','high'].map(x => `<option value="${x}" ${(f?.priority || 'normal') === x ? 'selected' : ''}>${x}</option>`).join('')}</select></label></div><label class="block text-xs font-bold text-slate-500">Note<textarea id="sf-note" rows="4" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(f?.note || '')}</textarea></label></div><div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button><button data-save class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">${editing ? 'Save' : 'Add follow-up'}</button></div></div>`;
+  const close = () => el.remove(); el.querySelectorAll('[data-close]').forEach(x => x.onclick = close);
+  el.querySelector('[data-save]').onclick = async () => {
+    const title = el.querySelector('#sf-title').value.trim(), dealership_id = f?.dealership_id || el.querySelector('#sf-account').value, rawDue = el.querySelector('#sf-due').value;
+    if (!title || !dealership_id) return showToast('Choose an account and enter a follow-up.', 'error');
+    const body = { title, dealership_id, due_at: rawDue ? new Date(rawDue).toISOString() : null, priority: el.querySelector('#sf-priority').value, note: el.querySelector('#sf-note').value.trim() };
+    try { await (editing ? apiSendJson(`/saas/followups/${f.id}`, 'PATCH', body) : apiSendJson('/saas/followups', 'POST', body)); close(); await loadSaasFollowups(); showToast(editing ? 'Follow-up updated' : 'Follow-up added', 'success'); } catch (e) { showToast(e.message || 'Could not save follow-up', 'error'); }
+  }; document.body.appendChild(el);
+}
+window.saasEditFollowup = id => { const f = __saasFollowups.find(x => x.id === id); if (f) saasFollowupModal(f); };
+window.saasCompleteFollowup = async (id, done) => { try { await apiSendJson(`/saas/followups/${id}`, 'PATCH', { done }); await loadSaasFollowups(); showToast(done ? 'Follow-up completed' : 'Follow-up reopened', 'success'); } catch (e) { showToast(e.message || 'Could not update follow-up', 'error'); } };
+window.saasNewFollowup = async () => { if (!__saasFollowupAccounts.length) { const d = await apiGetJson('/saas/customers'); __saasFollowupAccounts = (d.stages || []).flatMap(s => d.by_stage?.[s] || []).map(a => ({ id: a.id, name: a.name })).sort((a,b) => a.name.localeCompare(b.name)); } saasFollowupModal(); };
+ENGINES['saas-followups'] = { rootId: 'saas-followups-root', title: 'Follow-ups', subtitle: 'Every MarketSync account touch, owner, and due date', icon: 'bolt', accent: 'fuchsia', fetch: async () => { const d = await apiGetJson('/saas/followups'); __saasFollowups = d.followups || []; return d; }, quickActions: [{ label: 'Add follow-up', icon: 'bolt', onclick: 'saasNewFollowup()' }, { label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" }], nextActions: d => { const n = (d.followups || []).filter(f => f.due_at && new Date(f.due_at) < new Date()).length; return n ? [{ label: `${n} overdue follow-up${n === 1 ? '' : 's'}`, icon: 'flame', tone: 'text-rose-500', onclick: "engineTab('saas-followups','work')" }] : []; }, tabs: { overview(body, d) { const a = d.followups || [], now = new Date(), today = new Date(); today.setHours(23,59,59,999); const overdue = a.filter(f => f.due_at && new Date(f.due_at) < now), due = a.filter(f => f.due_at && new Date(f.due_at) >= now && new Date(f.due_at) <= today); body.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">${engKpi('Open', a.length)}${engKpi('Overdue', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '')}${engKpi('Due today', due.length, due.length ? 'text-amber-600 dark:text-amber-400' : '')}${engKpi('High priority', a.filter(f => f.priority === 'high').length)}</div>${engCard('Needs attention', (overdue.length ? overdue : a.slice(0, 6)).map(saasFollowupRow).join('') || engEmpty('No open account follow-ups.'))}`; }, work(body, d) { const a = d.followups || [], overdue = a.filter(f => f.due_at && new Date(f.due_at) < new Date()), rest = a.filter(f => !overdue.includes(f)); body.innerHTML = `<div class="flex justify-end mb-3"><button onclick="saasNewFollowup()" class="px-3 py-2 rounded-lg bg-fuchsia-600 text-white text-sm font-bold">＋ Add follow-up</button></div>${overdue.length ? engCard('Overdue', overdue.map(saasFollowupRow).join('')) : ''}${engCard(overdue.length ? 'Upcoming & unscheduled' : 'Open follow-ups', rest.map(saasFollowupRow).join('') || engEmpty('Nothing else is queued.'))}`; }, insights(body, d) { const a = d.followups || []; body.innerHTML = engCard('Workload by priority', ['high','normal','low'].map(p => `<div class="flex justify-between py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold capitalize text-sm">${p}</span><span class="font-black">${a.filter(f => f.priority === p).length}</span></div>`).join('')); }, automation(body) { body.innerHTML = engCard('Follow-up workflow', '<p class="text-[13px] text-slate-600 dark:text-slate-300">Turn a Customer Pipeline risk signal into an owned, dated follow-up. Completion stays separate from dealership CRM tasks, so this queue remains the source of truth for MarketSync account success.</p>'); }, settings(body) { body.innerHTML = engCard('Access', '<p class="text-[13px] text-slate-600 dark:text-slate-300">Pipeline users can see the queue; MarketSync Sales and Support can create, edit, and complete follow-ups.</p>'); } } };
+function loadSaasFollowups() { renderEngine('saas-followups'); }
+window.loadSaasFollowups = loadSaasFollowups;
 
 // ══ Employees + permissions — MarketSync staff (owner-only) ═══════════════════
 const empRoleOpts = (roles, sel) => (roles || []).map(r => `<option value="${r}" ${r === sel ? 'selected' : ''}>${esc(r)}</option>`).join('');
