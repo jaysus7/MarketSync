@@ -22,7 +22,7 @@ const today = () => new Date().toISOString().slice(0, 10)
 const DEPARTMENTS = ['Sales', 'Service', 'Parts', 'Finance', 'Administration', 'Detail', 'Body Shop']
 const CATEGORIES = ['Advertising', 'Reconditioning', 'Detail', 'Fuel', 'Office Supplies', 'Parts', 'Service', 'Travel', 'Meals', 'Training', 'Warranty', 'Floorplan Interest', 'Auction Fees', 'Dealer Trade', 'OMVIC Fees', 'Licensing', 'Safety Inspection', 'Internal Repair Order', 'Demo Vehicle', 'Salesperson Reimbursement', 'Utilities', 'Rent', 'Other']
 const PAYMENT_METHODS = ['credit_card', 'debit', 'cash', 'etransfer', 'cheque', 'account']
-const STATUSES = ['draft', 'submitted', 'approved', 'rejected', 'paid']
+const STATUSES = ['draft', 'submitted', 'approved', 'rejected', 'paid', 'voided']
 const RECURRENCES = ['weekly', 'monthly', 'quarterly', 'annual']
 
 const stamp = (actor, action, detail) => ({ at: new Date().toISOString(), actor: actor || null, action, detail: detail || null })
@@ -63,7 +63,22 @@ async function postToLedger(exp) {
     return data?.id || null
   } catch { return null }
 }
-async function unpostLedger(id) { if (id) { try { await supabaseAdmin.from('gl_entries').delete().eq('id', id).eq('source', 'expense') } catch {} } }
+async function unpostLedger(id, actorId) {
+  if (!id) return null
+  try {
+    const { data: original } = await supabaseAdmin.from('gl_entries')
+      .select('id, dealership_id, entry_date, account_id, description, amount, direction')
+      .eq('id', id).eq('source', 'expense').maybeSingle()
+    if (!original) return null
+    const { data } = await supabaseAdmin.from('gl_entries').insert({
+      dealership_id: original.dealership_id, entry_date: today(), account_id: original.account_id,
+      description: `Reversal of ${original.id}: ${original.description || 'expense'}`.slice(0, 200),
+      amount: -Math.abs(Number(original.amount) || 0), direction: original.direction,
+      source: 'expense_reversal', created_by: actorId || null,
+    }).select().maybeSingle()
+    return data || null
+  } catch { return null }
+}
 
 export function registerExpenses(app) {
   const guard = (req, res) => { if (!req.dealershipId) { res.status(400).json({ error: 'No dealership' }); return false } if (!isMgr(req)) { res.status(403).json({ error: 'Manager access required' }); return false } return true }
@@ -92,7 +107,11 @@ export function registerExpenses(app) {
   })
   app.delete('/expense-vendors/:id', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    await supabaseAdmin.from('expense_vendors').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    const { data: before } = await supabaseAdmin.from('expense_vendors').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Vendor not found' })
+    const { error } = await supabaseAdmin.from('expense_vendors').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: 'Delete failed' })
+    audit(req, 'expense.vendor_deleted', { before_state: before, after_state: null })
     res.json({ ok: true })
   })
 
@@ -183,6 +202,7 @@ export function registerExpenses(app) {
     const { data, error } = await supabaseAdmin.from('expenses').insert(row).select().single()
     if (error) return res.status(500).json({ error: error.message })
     if (data.status === 'approved') { const glId = await postToLedger(data); if (glId) await supabaseAdmin.from('expenses').update({ posted: true, gl_entry_id: glId }).eq('id', data.id) }
+    audit(req, 'expense.created', { after_state: data })
     res.json({ ok: true, expense: data })
   })
 
@@ -201,16 +221,22 @@ export function registerExpenses(app) {
     if (error) return res.status(500).json({ error: error.message })
     // Keep the posted ledger line in sync if amount/date/account changed on an approved expense.
     if (data.posted && data.gl_entry_id) { await supabaseAdmin.from('gl_entries').update({ entry_date: data.expense_date, amount: Math.abs(Number(data.amount) || 0), account_id: data.gl_account_id || null, description: [data.vendor, data.category].filter(Boolean).join(' · ').slice(0, 200) || 'Expense' }).eq('id', data.gl_entry_id) }
+    audit(req, 'expense.updated', { before_state: cur, after_state: data })
     res.json({ ok: true, expense: data })
   })
 
   app.delete('/expenses/:id', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    const { data: cur } = await supabaseAdmin.from('expenses').select('id, gl_entry_id, posted').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
-    if (!cur) return res.json({ ok: true })
-    if (cur.posted) await unpostLedger(cur.gl_entry_id)
-    await supabaseAdmin.from('expenses').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
-    res.json({ ok: true })
+    const { data: cur } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!cur) return res.status(404).json({ error: 'Not found' })
+    const reversal = cur.posted ? await unpostLedger(cur.gl_entry_id, req.user?.id) : null
+    const events = (Array.isArray(cur.events) ? cur.events.slice(-49) : [])
+    events.push(stamp(req.user?.id, 'voided', String(req.body?.note || '').slice(0, 200) || null))
+    const { data, error } = await supabaseAdmin.from('expenses').update({ status: 'voided', posted: false, gl_entry_id: null, events, updated_at: new Date().toISOString() })
+      .eq('id', cur.id).eq('dealership_id', req.dealershipId).select().single()
+    if (error) return res.status(500).json({ error: 'Could not void expense' })
+    audit(req, 'expense.voided', { before_state: cur, after_state: data, reversal_entry_id: reversal?.id || null })
+    res.json({ ok: true, voided: true, expense: data })
   })
 
   // ── Approval workflow ──────────────────────────────────────────────────────────
@@ -224,6 +250,7 @@ export function registerExpenses(app) {
     if (!cur.posted) glId = await postToLedger(cur)
     const { data, error } = await supabaseAdmin.from('expenses').update({ status: 'approved', approved_by: req.user?.id || null, approved_at: new Date().toISOString(), approver_note: String(req.body?.note || '').slice(0, 200) || null, posted: !!glId, gl_entry_id: glId, events, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'expense.approved', { before_state: cur, after_state: data })
     res.json({ ok: true, expense: data })
   })
   app.post('/expenses/:id/reject', requireAuth, async (req, res) => {
@@ -231,10 +258,11 @@ export function registerExpenses(app) {
     if (!canApprove(req)) return res.status(403).json({ error: 'Approver access required' })
     const { data: cur } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!cur) return res.status(404).json({ error: 'Not found' })
-    if (cur.posted) await unpostLedger(cur.gl_entry_id)
+    const reversal = cur.posted ? await unpostLedger(cur.gl_entry_id, req.user?.id) : null
     const events = (Array.isArray(cur.events) ? cur.events.slice(-49) : []); events.push(stamp(req.user?.id, 'rejected', String(req.body?.note || '').slice(0, 200) || null))
     const { data, error } = await supabaseAdmin.from('expenses').update({ status: 'rejected', approver_note: String(req.body?.note || '').slice(0, 200) || null, posted: false, gl_entry_id: null, events, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'expense.rejected', { before_state: cur, after_state: data, reversal_entry_id: reversal?.id || null })
     res.json({ ok: true, expense: data })
   })
   // Mark a reimbursable expense as paid out to the employee.
