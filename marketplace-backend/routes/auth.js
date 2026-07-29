@@ -503,7 +503,7 @@ export function registerRoutes(app) {
   })
 
   // Passwordless login via passkey — no password required
-  app.post('/auth/passkey/login/begin', rateLimit('passkey-login', 10, 15 * 60 * 1000), async (req, res) => {
+  app.post('/auth/passkey/login/begin', rateLimit('passkey-login', 10, 15 * 60 * 1000, { email: true }), async (req, res) => {
     const { email } = req.body || {}
     try {
       const options = await beginPasskeyLogin({ supabaseAdmin, email })
@@ -511,7 +511,7 @@ export function registerRoutes(app) {
     } catch (err) { res.status(500).json({ error: err.message }) }
   })
 
-  app.post('/auth/passkey/login/finish', rateLimit('passkey-login', 10, 15 * 60 * 1000), async (req, res) => {
+  app.post('/auth/passkey/login/finish', rateLimit('passkey-login', 10, 15 * 60 * 1000, { email: true }), async (req, res) => {
     const { email, response } = req.body || {}
     if (!response) return res.status(400).json({ error: 'response required' })
     const result = await finishPasskeyLogin({ supabaseAdmin, email, response })

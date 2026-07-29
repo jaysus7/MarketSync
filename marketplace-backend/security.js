@@ -252,7 +252,7 @@ export function rateLimit(name, max, windowMs, { email = false, dealership = fal
     if (email) parts.push(String(req.body?.email || '').trim().toLowerCase() || 'no-email')
     if (dealership) parts.push(String(req.dealershipId || req.body?.dealership_id || 'no-dealer'))
     const key = `rl:${name}:${parts.join(':')}`
-    const { allowed, retryAfter } = await checkRateLimit(key, max, windowSecs)
+    const { allowed, unavailable = false, retryAfter } = await checkRateLimit(key, max, windowSecs)
     if (!allowed) {
       res.set('Retry-After', String(retryAfter))
       if (unavailable) return res.status(503).json({ error: 'Rate limiting is temporarily unavailable. Try again shortly.' })
@@ -323,9 +323,6 @@ export function securityHeaders(req, res, next) {
   next()
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// CORS — locked down to known origins
-// ──────────────────────────────────────────────────────────────────────────────
 // ──────────────────────────────────────────────────────────────────────────────
 // IP HELPER — used to record consent (CASL/GDPR) and audit events
 // ──────────────────────────────────────────────────────────────────────────────
