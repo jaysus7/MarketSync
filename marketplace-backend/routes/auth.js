@@ -135,7 +135,14 @@ export function registerRoutes(app) {
         })
       }
     } catch (mfaErr) {
-      console.warn('MFA status check failed (allowing login):', mfaErr.message)
+      // Failing open here would issue a full password session to an account that
+      // may have MFA enabled. Make the user retry instead of weakening MFA when
+      // Supabase's factor lookup is temporarily unavailable.
+      console.warn('MFA status check failed (blocking login):', mfaErr.message)
+      return res.status(503).json({
+        error: 'MFA_STATUS_UNAVAILABLE',
+        message: 'We could not verify your multi-factor sign-in status. Please try again shortly.'
+      })
     }
 
     const currentIp = getClientIp(req)
