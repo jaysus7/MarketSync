@@ -15,6 +15,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { timingSafeEqual } from 'crypto'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import { decryptJson } from '../crypto-pii.js'
 import { createNotification } from '../notifications.js'
 import { aiAllowed, recordUsage } from '../usage.js'
@@ -886,7 +887,7 @@ async function runWeeklyBriefing(force = false) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export function registerAutomation(app) {
-  const cronOk = (req) => (req.headers['x-cron-secret'] || '').trim() === (process.env.CRON_SECRET || '').trim() && !!process.env.CRON_SECRET
+  const cronOk = requestHasCronSecret
 
   // ── Safe diagnostic: is the cron secret configured + does a given header match?
   // Reveals only booleans (never the secret). Open it in a browser (no header) to

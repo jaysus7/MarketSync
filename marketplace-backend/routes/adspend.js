@@ -12,6 +12,7 @@
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { audit, AuditAction } from '../audit.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import {
   AD_PROVIDERS, adProviderConfigured, anyAdProviderConfigured, adAuthUrl,
   signState, verifyState, adExchangeAndStore, pullAdSpend,
@@ -88,7 +89,7 @@ export function registerAdSpend(app) {
   // Nightly sweep. Render Cron Job:
   //   curl -X POST https://<backend>/cron/adspend-pull -H "x-cron-secret: $CRON_SECRET"
   app.post('/cron/adspend-pull', async (req, res) => {
-    if ((req.headers['x-cron-secret'] || '').trim() !== (process.env.CRON_SECRET || '').trim()) return res.status(403).json({ error: 'Forbidden' })
+    if (!requestHasCronSecret(req)) return res.status(403).json({ error: 'Forbidden' })
     const { data: conns } = await supabaseAdmin.from('ad_connections').select('*').limit(1000)
     let ok = 0, failed = 0
     for (const conn of (conns || [])) {

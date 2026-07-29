@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import { marketcheckMarket, marketcheckListings, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing, marketcheckDecodeVin, marketcheckPredictPrice, marketcheckMarketStats } from '../marketcheck.js'
 import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, getAssistantUsage, assistantDailyAllowed, recordAssistantChat, ASSISTANT_DAILY_LIMIT, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
 import { findOrCreateContact } from './crm.js'
@@ -2300,7 +2301,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   //   Schedule: daily, e.g. 0 8 * * *
   //   curl -X POST https://<your-render-url>/cron/expire-full-access -H "x-cron-secret: $CRON_SECRET"
   app.post('/cron/expire-full-access', async (req, res) => {
-    if ((req.headers['x-cron-secret'] || '').trim() !== (process.env.CRON_SECRET || '').trim()) {
+    if (!requestHasCronSecret(req)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
     try {
@@ -2327,7 +2328,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   //   Command:  curl -X POST https://<your-render-url>/cron/weekly-reports \
   //               -H "x-cron-secret: $CRON_SECRET"
   app.post('/cron/weekly-reports', async (req, res) => {
-    if ((req.headers['x-cron-secret'] || '').trim() !== (process.env.CRON_SECRET || '').trim()) {
+    if (!requestHasCronSecret(req)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
@@ -2584,7 +2585,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   //   Command:  curl -X POST https://<your-render-url>/cron/daily-digest \
   //               -H "x-cron-secret: $CRON_SECRET"
   app.post('/cron/daily-digest', async (req, res) => {
-    if ((req.headers['x-cron-secret'] || '').trim() !== (process.env.CRON_SECRET || '').trim()) {
+    if (!requestHasCronSecret(req)) {
       return res.status(401).json({ error: 'unauthorized' })
     }
     if (!resend) return res.json({ sent: 0, note: 'email not configured' })

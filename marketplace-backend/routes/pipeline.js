@@ -1,6 +1,7 @@
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { createNotification } from '../notifications.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 
 const STALE_DAYS = 21
 const STAGES = ['posted', 'appointment_set', 'claimed_sale', 'need_relisting']
@@ -270,9 +271,7 @@ export function registerPipeline(app) {
   // Creates an in-app notification for the store and emails the manager address
   // when set. Schedule this hourly/daily with the x-cron-secret header.
   app.post('/cron/appointment-reminders', async (req, res) => {
-    // Trim both sides — a stray newline/space when pasting the secret into a
-    // scheduler is the usual cause of a spurious 401.
-    if ((req.headers['x-cron-secret'] || '').trim() !== (process.env.CRON_SECRET || '').trim()) {
+    if (!requestHasCronSecret(req)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
     const now = new Date()

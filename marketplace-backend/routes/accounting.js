@@ -16,6 +16,7 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import { sendEmail } from '../securityAlerts.js'
 import { plaidConfigured, plaidStatus, bankTotalsForDay, syncTransactions } from '../providers/plaid.js'
 import { audit } from '../audit.js'
@@ -24,7 +25,7 @@ const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includ
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
 const money = (x) => '$' + (Number(x) || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })
-const cronOk = (req) => (req.headers['x-cron-secret'] || '').trim() === (process.env.CRON_SECRET || '').trim() && !!process.env.CRON_SECRET
+const cronOk = requestHasCronSecret
 const today = () => new Date().toISOString().slice(0, 10)
 const monthBounds = (m) => { const b = m ? new Date(m + '-01T00:00:00Z') : new Date(); const from = new Date(Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), 1)); const to = new Date(Date.UTC(b.getUTCFullYear(), b.getUTCMonth() + 1, 1)); return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) } }
 

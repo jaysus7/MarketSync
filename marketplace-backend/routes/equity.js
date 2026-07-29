@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import { enqueueForTrigger } from './automation.js'
 
 // Equity mining (who-to-call for upgrades / lease pull-ahead) is a sales tool, so
@@ -208,7 +209,7 @@ export async function buildEquityRadar(dealershipId) {
 }
 
 export function registerEquity(app) {
-  const cronOk = (req) => (req.headers['x-cron-secret'] || '').trim() === (process.env.CRON_SECRET || '').trim() && !!process.env.CRON_SECRET
+  const cronOk = requestHasCronSecret
 
   // ── Settings ───────────────────────────────────────────────────────────────
   app.get('/equity/settings', requireAuth, async (req, res) => {

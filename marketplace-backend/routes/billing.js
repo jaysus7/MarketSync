@@ -1,6 +1,7 @@
 import express from 'express'
 import { stripe, supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import {
   sendTrialStarted,
   sendTrialExpiring,
@@ -585,7 +586,7 @@ export function registerRoutes(app) {
   // Hit daily by Render Cron (or any scheduler). Sends warning emails to any
   // dealership whose trial ends within the next 24 hours.
   app.post('/cron/trial-expiry', async (req, res) => {
-    if ((req.headers['x-cron-secret'] || '').trim() !== (process.env.CRON_SECRET || '').trim()) {
+    if (!requestHasCronSecret(req)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
