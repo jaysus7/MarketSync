@@ -173,10 +173,12 @@ export function registerRoutes(app) {
     // and we stamp sold_at only on a real transition into 'sold' (so re-editing a
     // sold unit doesn't reset its days-to-sell).
     let priorPrice = null
+    let beforeState = null
     if (b.price !== undefined || b.status !== undefined) {
       const { data: cur } = await supabaseAdmin.from('inventory')
-        .select('price, status, sold_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+        .select('id, price, status, sold_at, archived_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
       priorPrice = cur ? cur.price : null
+      beforeState = cur
       if (b.status === 'sold' && cur && cur.status !== 'sold' && !cur.sold_at) patch.sold_at = new Date().toISOString()
       if (b.status === 'available') patch.sold_at = null   // relisted → clear
     }
@@ -187,6 +189,11 @@ export function registerRoutes(app) {
     if (b.price !== undefined && Number(priorPrice) !== Number(data.price)) {
       notifyMarketplacePriceChange(req.dealershipId, data, priorPrice).catch(() => {})
     }
+    audit(req, 'inventory.updated', {
+      inventory_id: data.id,
+      before_state: beforeState,
+      after_state: { id: data.id, price: data.price, status: data.status, sold_at: data.sold_at, archived_at: data.archived_at },
+    })
     res.json({ ok: true, vehicle: data })
   })
 
@@ -201,7 +208,11 @@ export function registerRoutes(app) {
     const { error } = await supabaseAdmin.from('inventory').update({ archived_at: new Date().toISOString() })
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('archived_at', null)
     if (error) return res.status(500).json({ error: error.message })
-    audit(req, 'inventory.archived', { inventory_id: v.id })
+    audit(req, 'inventory.archived', {
+      inventory_id: v.id,
+      before_state: { id: v.id, archived_at: null },
+      after_state: { id: v.id, archived_at: true },
+    })
     res.json({ ok: true, archived: true })
   })
 
