@@ -4,6 +4,7 @@ import { emitWebhook } from '../webhooks.js'
 import { ensureGetReadyCard } from './recon.js'
 import { ensureDealTasks } from './dealertasks.js'
 import { emitEvent } from './events.js'
+import { audit } from '../audit.js'
 
 async function buildUserStats(userId) {
   const countOf = async (status) => {
@@ -1429,7 +1430,7 @@ export function registerRoutes(app) {
     // Both are per-dealership sequential and stay attached: the deal references the
     // contact, and the bill of sale prints both numbers together.
     const { data: existingDeal } = await supabaseAdmin.from('deals')
-      .select('deal_number').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
+      .select('id, deal_number, deal_status, inventory_id, selling_price, total_price, amount_financed, cost').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (existingDeal?.deal_number) row.deal_number = existingDeal.deal_number
     else row.deal_number = await nextDealershipNumber('deals', 'deal_number', req.dealershipId, 1000)
 
@@ -1488,6 +1489,19 @@ export function registerRoutes(app) {
         payload: { contact_id: contactId, inventory_id: data.inventory_id || null },
       })
     }
+    audit(req, existingDeal ? 'deal.updated' : 'deal.created', {
+      deal_id: data?.id || null,
+      before_state: existingDeal ? {
+        id: existingDeal.id, deal_number: existingDeal.deal_number, deal_status: existingDeal.deal_status,
+        inventory_id: existingDeal.inventory_id, selling_price: existingDeal.selling_price,
+        total_price: existingDeal.total_price, amount_financed: existingDeal.amount_financed, cost: existingDeal.cost,
+      } : null,
+      after_state: data ? {
+        id: data.id, deal_number: data.deal_number, deal_status: data.deal_status,
+        inventory_id: data.inventory_id, selling_price: data.selling_price,
+        total_price: data.total_price, amount_financed: data.amount_financed, cost: data.cost,
+      } : null,
+    })
     res.json({ ok: true, deal: data, customer_number: customerNumber, salesperson, vehicle_pending: vehiclePending })
   })
 
@@ -1515,7 +1529,7 @@ export function registerRoutes(app) {
     const m = MAP[action]
     if (!m) return res.status(400).json({ error: 'Invalid action' })
     const { data: deal } = await supabaseAdmin.from('deals')
-      .select('id, inventory_id').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
+      .select('id, inventory_id, deal_status').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!deal) return res.status(404).json({ error: 'Save the deal first, then set its status.' })
     const patch = { deal_status: m.deal, updated_at: now }
     if (m.stamp) patch[m.stamp] = now
@@ -1549,6 +1563,11 @@ export function registerRoutes(app) {
       dealershipId: req.dealershipId, eventName: 'deal.status_changed', entityType: 'deal', entityId: deal.id,
       summary: `Deal marked ${m.deal}`, toState: m.deal, department: 'Sales', createdBy: req.user?.id || null,
       payload: { contact_id: contactId, inventory_id: deal.inventory_id || null, action },
+    })
+    audit(req, 'deal.status_changed', {
+      deal_id: deal.id,
+      before_state: { id: deal.id, deal_status: deal.deal_status },
+      after_state: { id: deal.id, deal_status: m.deal },
     })
     // Both the internal ledger AND any external accounting sync (QuickBooks/Xero) now
     // hang off the deal.status_changed:delivered event above — the Accounting Engine
