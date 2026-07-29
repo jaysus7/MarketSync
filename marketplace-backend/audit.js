@@ -74,6 +74,7 @@ export const AuditAction = Object.freeze({
   PASSWORD_CHANGED:       'user.password_changed',
   MFA_ENROLLED:           'user.mfa_enrolled',
   MFA_DISABLED:           'user.mfa_disabled',
+  MFA_RECOVERY_CODES_REGENERATED: 'user.mfa_recovery_codes_regenerated',
   MFA_CHALLENGE_PASSED:   'user.mfa_challenge_passed',
   MFA_CHALLENGE_FAILED:   'user.mfa_challenge_failed',
   PASSKEY_REGISTERED:     'user.passkey_registered',

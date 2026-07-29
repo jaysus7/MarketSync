@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { randomBytes, createHash } from 'crypto'
 import { supabase, supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { validatePassword, rateLimit, getClientIp, generateRecoveryCodes, hashRecoveryCode } from '../security.js'
 import { maybeAlertSuspiciousLogin } from '../securityAlerts.js'
 import { audit, AuditAction } from '../audit.js'
@@ -453,13 +453,14 @@ export function registerRoutes(app) {
   })
 
   // Regenerate recovery codes (invalidates old ones). Available from the security panel.
-  app.post('/auth/2fa/regenerate-recovery-codes', requireAuth, rateLimit('mfa-regen', 3, 60 * 60 * 1000), async (req, res) => {
+  app.post('/auth/2fa/regenerate-recovery-codes', requireAuth, requireMfa, rateLimit('mfa-regen', 3, 60 * 60 * 1000), async (req, res) => {
     try {
       const codes = generateRecoveryCodes(10)
       const rows = codes.map(c => ({ user_id: req.user.id, code_hash: hashRecoveryCode(c) }))
       await supabaseAdmin.from('recovery_codes').delete().eq('user_id', req.user.id)
       const { error } = await supabaseAdmin.from('recovery_codes').insert(rows)
       if (error) throw error
+      audit(req, AuditAction.MFA_RECOVERY_CODES_REGENERATED)
       res.json({ recovery_codes: codes, message: 'New recovery codes generated. Old codes no longer work.' })
     } catch (err) {
       res.status(500).json({ error: err.message })
@@ -567,8 +568,9 @@ export function registerRoutes(app) {
     }
   })
 
-  // Step 3 — Disable 2FA (requires fresh authentication, i.e. current session)
-  app.post('/auth/2fa/disable', requireAuth, rateLimit('mfa-disable', 5, 60 * 60 * 1000), async (req, res) => {
+  // Step 3 — Disable 2FA. This requires an aal2 session: a password-only
+  // session must not be able to remove the account's second factor.
+  app.post('/auth/2fa/disable', requireAuth, requireMfa, rateLimit('mfa-disable', 5, 60 * 60 * 1000), async (req, res) => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '')
       const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
@@ -581,6 +583,7 @@ export function registerRoutes(app) {
 
       const { error } = await userClient.auth.mfa.unenroll({ factorId: totp.id })
       if (error) throw error
+      audit(req, AuditAction.MFA_DISABLED, { factor_id: totp.id })
       res.json({ success: true, message: 'Two-factor authentication has been disabled.' })
     } catch (err) {
       res.status(500).json({ error: err.message })
