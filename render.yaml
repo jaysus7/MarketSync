@@ -59,8 +59,6 @@ services:
         sync: false
       - key: MARKETCHECK_API_KEY
         sync: false
-      - key: OWNER_EMAIL
-        sync: false
       # Accounting / messaging connectors (optional — leave unset until provisioned;
       # the connectors show "coming soon" until their app credentials exist)
       - key: QBO_CLIENT_ID
