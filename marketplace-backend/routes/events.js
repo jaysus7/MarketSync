@@ -12,6 +12,7 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { validateEventContract } from '../event-contract.js'
 
 // In-process event bus. The workflow engine subscribes via onEvent() at startup;
 // this keeps events.js free of any import of the engine (no circular dependency).
@@ -87,15 +88,9 @@ export async function emitEvent({
   department = null, payload = {}, eventVersion = 1, createdBy = null,
 }) {
   if (!dealershipId || !eventName || !entityType || !entityId) return null
-  // Event names are a stable dotted contract (for example `deal.status_changed`).
-  // Refusing malformed names here prevents invisible one-off event channels.
-  if (!/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/.test(eventName)) {
-    console.error('[events] invalid event name:', eventName)
-    return null
-  }
-  const version = Number(eventVersion)
-  if (!Number.isInteger(version) || version < 1) {
-    console.error('[events] invalid event version:', eventVersion)
+  const contract = validateEventContract(eventName, eventVersion)
+  if (!contract.ok) {
+    console.error(`[events] ${contract.error}:`, contract.error === 'invalid event name' ? eventName : eventVersion)
     return null
   }
   try {
@@ -109,7 +104,7 @@ export async function emitEvent({
       to_state: toState,
       department,
       payload: payload || {},
-      event_version: version,
+      event_version: contract.version,
       created_by: createdBy,
     }).select().single()
     if (error) throw error
