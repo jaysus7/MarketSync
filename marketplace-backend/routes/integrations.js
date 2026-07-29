@@ -14,8 +14,7 @@ import { stripeDepositsConfigured } from './deposits.js'
 import { squareConfigured } from '../providers/square.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { aiAllowed, recordUsage } from '../usage.js'
-
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 
 /**
  * The Integrations Hub catalog. Each entry is a connectable service. `live: true`
@@ -302,7 +301,7 @@ export function registerIntegrations(app) {
   app.post('/integrations/google_business/compose', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
     const { data: dealer } = await supabaseAdmin.from('dealerships')
       .select('name, ai_tone, ai_boost_active, city, province').eq('id', req.dealershipId).maybeSingle()
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })

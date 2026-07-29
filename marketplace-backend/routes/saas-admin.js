@@ -4,14 +4,12 @@
  * revenue-first Command Center overview; Customers/Trials/CRM/Support/Marketing/
  * Employees are subsequent stages that register into the same workspace.
  *
- * Owner-gated (OWNER_EMAIL / MarketSync org). Reads across accounts — no new tables.
+ * Access is derived from server-managed MarketSync staff roles. Reads across
+ * accounts — no new tables.
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { resolveProducts, saasCan, saasRoleOf, SAAS_ROLES, SAAS_PERMISSIONS } from './profile.js'
-
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
-const isOwner = (req) => (req.user?.email || '').toLowerCase() === OWNER_EMAIL || req.profile?.is_marketsync === true
 
 // Monthly price per product (used for MRR estimation from entitlements).
 const PRODUCT_MRR = { facebook_solo: 79, facebook_dealer: 499, ai_chatbot: 499, dealer_os: 499 }

@@ -17,8 +17,7 @@ import { requireAuth } from '../middleware.js'
 import { decryptJson } from '../crypto-pii.js'
 import { createNotification } from '../notifications.js'
 import { aiAllowed, recordUsage } from '../usage.js'
-
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 
 const DEALER_LEVEL = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
 const isDealerLevel = (req) => DEALER_LEVEL.includes(req.profile?.role)
@@ -1107,7 +1106,7 @@ export function registerAutomation(app) {
     const instruction = String(b.instruction || '').slice(0, 400)
     const ctx = b.context || {}
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('name, ai_boost_active').eq('id', req.dealershipId).maybeSingle()
-    const isOwner = (req.user?.email || '').toLowerCase() === (process.env.OWNER_EMAIL || 'massiejay@gmail.com')
+    const isOwner = hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
     const channel = ctx.channel === 'email' ? 'email' : 'sms'
