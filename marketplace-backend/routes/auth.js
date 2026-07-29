@@ -6,6 +6,7 @@ import { validatePassword, rateLimit, getClientIp, generateRecoveryCodes, hashRe
 import { maybeAlertSuspiciousLogin } from '../securityAlerts.js'
 import { audit, AuditAction } from '../audit.js'
 import { recordReferralSignup } from './affiliate.js'
+import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge } from '../mfa-login-challenges.js'
 import {
   beginPasskeyRegistration, finishPasskeyRegistration,
   beginPasskeyLogin, finishPasskeyLogin,
@@ -130,7 +131,10 @@ export function registerRoutes(app) {
         return res.status(202).json({
           mfa_required: true,
           factor_id: verified.id,
-          partial_token: data.session.access_token,
+          partial_token: createMfaLoginChallenge({
+            accessToken: data.session.access_token,
+            refreshToken: data.session.refresh_token,
+          }),
           message: 'Two-factor code required.'
         })
       }
@@ -621,8 +625,12 @@ export function registerRoutes(app) {
     }
 
     try {
+      const loginChallenge = getMfaLoginChallenge(partial_token)
+      if (!loginChallenge) {
+        return res.status(401).json({ error: 'MFA challenge expired. Please sign in again.' })
+      }
       const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${partial_token}` } }
+        global: { headers: { Authorization: `Bearer ${loginChallenge.accessToken}` } }
       })
 
       // Detect recovery code by shape (8 alphanumeric chars with optional dash) —
@@ -647,8 +655,8 @@ export function registerRoutes(app) {
         // Burn the code immediately
         await supabaseAdmin.from('recovery_codes').delete().eq('id', codeRow.id)
 
-        // The partial_token is already a valid Supabase access token at this point —
-        // we accept the recovery code as proof and return it as the session.
+        // The real Supabase session was retained only server-side until this
+        // recovery code succeeded, so it could not be used to skip MFA.
         // (Recovery code use is logged via the logins insert below.)
         supabaseAdmin.from('logins').insert({
           user_id: user.id,
@@ -663,8 +671,10 @@ export function registerRoutes(app) {
           .from('recovery_codes').select('id', { count: 'exact', head: true })
           .eq('user_id', user.id)
 
+        const completed = consumeMfaLoginChallenge(partial_token)
         return res.json({
-          access_token: partial_token,
+          access_token: completed.accessToken,
+          refresh_token: completed.refreshToken,
           user: { id: user.id, email: user.email },
           used_recovery_code: true,
           recovery_codes_remaining: remaining || 0
@@ -681,6 +691,8 @@ export function registerRoutes(app) {
         code
       })
       if (error) return res.status(401).json({ error: 'Invalid 2FA code.' })
+
+      consumeMfaLoginChallenge(partial_token)
 
       // Log successful TOTP login
       supabaseAdmin.from('logins').insert({
