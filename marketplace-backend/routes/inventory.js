@@ -190,20 +190,19 @@ export function registerRoutes(app) {
     res.json({ ok: true, vehicle: data })
   })
 
-  // Delete a vehicle (and its uploaded photos)
+  // Archive a vehicle instead of permanently deleting it. The record, photos,
+  // costs, and audit trail remain available for compliance and reconciliation.
   app.delete('/inventory/:id', requireAuth, requirePermission('inventory.delete'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: v } = await supabaseAdmin.from('inventory')
-      .select('id, image_urls').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      .select('id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('archived_at', null).maybeSingle()
     if (!v) return res.status(404).json({ error: 'Vehicle not found' })
-    try {
-      const paths = (v.image_urls || []).map(photoStoragePath).filter(Boolean)
-      if (paths.length) await supabaseAdmin.storage.from('vehicle-photos').remove(paths)
-    } catch (e) { console.warn('[inv] photo cleanup failed:', e.message) }
-    const { error } = await supabaseAdmin.from('inventory').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    const { error } = await supabaseAdmin.from('inventory').update({ archived_at: new Date().toISOString() })
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('archived_at', null)
     if (error) return res.status(500).json({ error: error.message })
-    res.json({ ok: true })
+    audit(req, 'inventory.archived', { inventory_id: v.id })
+    res.json({ ok: true, archived: true })
   })
 
   // Upload photos (multipart) → Supabase Storage → append to image_urls
