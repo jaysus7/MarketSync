@@ -56,6 +56,7 @@ export const AuditAction = Object.freeze({
   // Team management (admin actions)
   TEAM_MEMBER_INVITED:    'team.member_invited',
   TEAM_MEMBER_REMOVED:    'team.member_removed',
+  PERMISSION_CHANGED:     'permission.changed',
 
   // Profile
   PROFILE_UPDATED:        'profile.updated',

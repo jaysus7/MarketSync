@@ -310,7 +310,7 @@ export function registerRoutes(app) {
     if (error) return res.status(500).json({ error: error.message })
     try { await syncDealerRole(target.id, req.dealershipId, role, req.user.id) }
     catch (e) { return res.status(500).json({ error: e.message }) }
-    audit(req, AuditAction.TEAM_MEMBER_INVITED, { role_change_user_id: req.params.id, new_role: role })
+    audit(req, AuditAction.PERMISSION_CHANGED, { target_user_id: req.params.id, new_role: role })
     res.json({ success: true, role })
   })
 
