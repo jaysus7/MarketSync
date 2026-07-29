@@ -1,5 +1,6 @@
 import { supabase, supabaseAdmin } from './shared.js'
 import { SYSTEM_ROLES, hasSystemRole } from './authorization.js'
+import { createClient } from '@supabase/supabase-js'
 
 // Cache the demo dealership id (created by POST /demo/seed). Only positive results
 // are cached, so it resolves as soon as the workspace is seeded.
@@ -78,5 +79,24 @@ export async function requireAuth(req, res, next) {
     next()
   } catch (err) {
     return res.status(500).json({ error: 'Internal server authorization error' })
+  }
+}
+
+// Re-check Supabase's authenticated assurance level for high-risk operations.
+// A normal password session is aal1; a verified TOTP/passkey challenge is aal2.
+export async function requireMfa(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  if (!token) return res.status(401).json({ error: 'No token provided' })
+  try {
+    const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    })
+    const { data, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (error || data?.currentLevel !== 'aal2') {
+      return res.status(403).json({ error: 'MFA_REQUIRED', message: 'Complete multi-factor authentication to continue.' })
+    }
+    next()
+  } catch {
+    return res.status(503).json({ error: 'MFA verification temporarily unavailable.' })
   }
 }

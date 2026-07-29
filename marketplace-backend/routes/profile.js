@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { validatePassword, rateLimit } from '../security.js'
 import { audit, AuditAction } from '../audit.js'
 import { SYSTEM_ROLES, hasSystemRole, requirePermission, syncDealerRole } from '../authorization.js'
@@ -280,7 +280,7 @@ export function registerRoutes(app) {
   // Promote a rep to Manager (full dealer access, scoped to this store) or
   // demote a manager back to rep. Dealer admins/owners only — a manager cannot
   // mint other managers.
-  app.post('/admin/users/:id/role', requireAuth, requirePermission('users.manage'), async (req, res) => {
+  app.post('/admin/users/:id/role', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') {
       return res.status(403).json({ error: 'Only a dealer admin can change roles' })
     }
@@ -335,7 +335,7 @@ export function registerRoutes(app) {
   })
 
   // Reset a team member's password (dealer admin / owner only). Sets a temp password.
-  app.put('/admin/users/:id/password', requireAuth, async (req, res) => {
+  app.put('/admin/users/:id/password', requireAuth, requireMfa, async (req, res) => {
     if (!['DEALER_ADMIN', 'OWNER'].includes(req.profile.role)) return res.status(403).json({ error: 'Dealer admin required' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (req.params.id === req.user.id) return res.status(400).json({ error: 'Use Settings to change your own password' })
@@ -479,7 +479,7 @@ export function registerRoutes(app) {
     res.json({ count: valid.length, subscribers: valid })
   })
 
-  app.delete('/admin/users/:id', requireAuth, requirePermission('users.manage'), async (req, res) => {
+  app.delete('/admin/users/:id', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
       return res.status(403).json({ error: 'Admins only' })
     }

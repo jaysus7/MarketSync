@@ -1,6 +1,6 @@
 import express from 'express'
 import { stripe, supabaseAdmin, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import {
   sendTrialStarted,
   sendTrialExpiring,
@@ -394,9 +394,9 @@ export function registerRoutes(app) {
   }
 
   // ── Add-on subscription endpoints ─────────────────────────────────────────
-  app.post('/billing/subscribe-ai-boost',    requireAuth, (req, res) => createAddonCheckout(req, res, 'ai_boost'))
-  app.post('/billing/subscribe-ai-chatbot',  requireAuth, (req, res) => createAddonCheckout(req, res, 'ai_chatbot'))
-  app.post('/billing/subscribe-inv-intel',   requireAuth, (req, res) => createAddonCheckout(req, res, 'inv_intel'))
+  app.post('/billing/subscribe-ai-boost',    requireAuth, requireMfa, (req, res) => createAddonCheckout(req, res, 'ai_boost'))
+  app.post('/billing/subscribe-ai-chatbot',  requireAuth, requireMfa, (req, res) => createAddonCheckout(req, res, 'ai_chatbot'))
+  app.post('/billing/subscribe-inv-intel',   requireAuth, requireMfa, (req, res) => createAddonCheckout(req, res, 'inv_intel'))
   // Retired add-ons — VIN & Brochure (OEM) is now core; AI Vision + generated docs
   // are part of AI Boost. Point any stale clients at AI Boost.
   const retired = (req, res) => res.status(410).json({ error: 'This add-on has moved into AI Boost.', redirect: 'ai_boost' })
@@ -439,7 +439,7 @@ export function registerRoutes(app) {
       res.json({ url: session.url })
     } catch (err) { res.status(500).json({ error: err.message }) }
   }
-  app.post('/billing/subscribe-package', requireAuth, createPackageCheckout)
+  app.post('/billing/subscribe-package', requireAuth, requireMfa, createPackageCheckout)
 
   app.get('/billing/package-verify', requireAuth, async (req, res) => {
     const { session_id } = req.query
@@ -482,7 +482,7 @@ export function registerRoutes(app) {
   app.get('/billing/ai-vision-verify',   requireAuth, (req, res) => verifyAddonSession(req, res, 'ai_vision'))
 
   // ── Customer Portal ────────────────────────────────────────────────────────
-  app.post('/billing/portal', requireAuth, async (req, res) => {
+  app.post('/billing/portal', requireAuth, requireMfa, async (req, res) => {
     const customerId = req.profile.dealerships?.stripe_customer_id || req.profile.stripe_customer_id
     if (!customerId) return res.status(400).json({ error: 'No billing account found' })
 
@@ -498,7 +498,7 @@ export function registerRoutes(app) {
   })
 
   // ── Main checkout (base platform plan) ────────────────────────────────────
-  app.post('/billing/checkout', requireAuth, async (req, res) => {
+  app.post('/billing/checkout', requireAuth, requireMfa, async (req, res) => {
     const isPersonal = req.profile.dealerships?.is_personal === true
     const isSolo = !req.dealershipId || isPersonal
 
