@@ -4,6 +4,8 @@
 // marks Delivered, which closes the deal out and drops it off the list.
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { audit } from '../audit.js'
 import { sendEmail } from '../securityAlerts.js'
 import { ensureGetReadyCard } from './recon.js'
 import { emitWebhook } from '../webhooks.js'
@@ -230,7 +232,7 @@ export function registerFni(app) {
   })
 
   // Approve → save get-ready details, create/refresh the Cleanup card, email teams.
-  app.post('/fni/deals/:id/approve', requireAuth, async (req, res) => {
+  app.post('/fni/deals/:id/approve', requireAuth, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const b = req.body || {}
@@ -272,6 +274,11 @@ export function registerFni(app) {
       })
     }
 
+    audit(req, 'deal.approved', {
+      deal_id: deal.id,
+      after_state: { delivery_date, delivery_time, fni_products, inventory_id: invId },
+    })
+
     // Best-effort notification email to managers + salesperson + cleanup/service.
     sendGetReadyEmails(req.dealershipId, deal, { delivery_date, delivery_time, fni_products, notes })
       .catch(e => console.warn('[fni] get-ready email failed:', e.message))
@@ -282,7 +289,7 @@ export function registerFni(app) {
   })
 
   // Delivered → deal delivered, vehicle sold, customer marked delivered; off the list.
-  app.post('/fni/deals/:id/delivered', requireAuth, async (req, res) => {
+  app.post('/fni/deals/:id/delivered', requireAuth, requirePermission('deal.finalize'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: deal } = await supabaseAdmin.from('deals')
@@ -303,6 +310,10 @@ export function registerFni(app) {
       dealershipId: req.dealershipId, eventName: 'deal.status_changed', entityType: 'deal', entityId: deal.id,
       summary: 'Deal marked delivered', toState: 'delivered', department: 'F&I', createdBy: req.user?.id || null,
       payload: { contact_id: deal.contact_id || null, inventory_id: deal.inventory_id || null, action: 'fni_delivered' },
+    })
+    audit(req, 'deal.delivered', {
+      deal_id: deal.id,
+      after_state: { deal_status: 'delivered', delivered_at: now, inventory_id: deal.inventory_id || null },
     })
     res.json({ ok: true })
   })

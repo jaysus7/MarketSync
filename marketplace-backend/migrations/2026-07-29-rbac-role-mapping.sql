@@ -6,7 +6,7 @@ SELECT r.role_id, r.permission_id FROM (VALUES
  ('general_manager','inventory.view'),('general_manager','inventory.edit'),('general_manager','inventory.delete'),('general_manager','customer.view'),('general_manager','customer.export'),('general_manager','lead.create'),('general_manager','lead.assign'),('general_manager','deal.create'),('general_manager','deal.approve'),('general_manager','deal.finalize'),('general_manager','users.manage'),
  ('sales_manager','inventory.view'),('sales_manager','inventory.edit'),('sales_manager','customer.view'),('sales_manager','lead.create'),('sales_manager','lead.assign'),('sales_manager','deal.create'),('sales_manager','deal.approve'),
  ('salesperson','inventory.view'),('salesperson','customer.view'),('salesperson','lead.create'),('salesperson','deal.create'),
- ('bdc','customer.view'),('bdc','lead.create'),('fni_manager','customer.view'),('fni_manager','deal.create'),('fni_manager','deal.approve'),
+ ('bdc','customer.view'),('bdc','lead.create'),('fni_manager','customer.view'),('fni_manager','deal.create'),('fni_manager','deal.approve'),('fni_manager','deal.finalize'),
  ('service_manager','service.write_repair_order'),('technician','service.write_repair_order'),('accounting','accounting.view'),('accounting','accounting.edit'),('read_only','inventory.view')
 ) AS r(role_id, permission_id)
 ON CONFLICT DO NOTHING;
