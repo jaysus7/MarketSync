@@ -9,10 +9,10 @@
  * `marketing_roi` topic so "which campaign paid off" is answerable in chat.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 const WON = ['sold', 'fni', 'delivered']
 const DEFAULT_AVG_GROSS = 3500   // front + F&I gross per unit, dealer-editable assumption
 
@@ -50,9 +50,8 @@ function monthsInRange(days) {
 
 export function registerMarketing(app) {
   // List the store's spend rows (optionally for one period). Managers only.
-  app.get('/marketing/spend', requireAuth, async (req, res) => {
+  app.get('/marketing/spend', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     let q = supabaseAdmin.from('marketing_spend').select('id, channel, period, amount, notes, updated_at')
       .eq('dealership_id', req.dealershipId).is('deleted_at', null)
     if (req.query.period) q = q.eq('period', String(req.query.period).slice(0, 7))
@@ -62,9 +61,8 @@ export function registerMarketing(app) {
   })
 
   // Upsert one channel/period spend amount. Managers only.
-  app.put('/marketing/spend', requireAuth, async (req, res) => {
+  app.put('/marketing/spend', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const channel = String(req.body?.channel || '').trim().slice(0, 60)
     const period = String(req.body?.period || '').trim().slice(0, 7)
     const amount = Number(req.body?.amount)
@@ -77,12 +75,12 @@ export function registerMarketing(app) {
       created_by: req.user?.id || null, updated_at: new Date().toISOString(), deleted_at: null, deleted_by: null,
     }, { onConflict: 'dealership_id,channel,period' })
     if (error) { console.error('[marketing] spend save failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
+    audit(req, 'marketing.spend_saved', { after_state: { channel, period, amount } })
     res.json({ ok: true })
   })
 
-  app.delete('/marketing/spend/:id', requireAuth, async (req, res) => {
+  app.delete('/marketing/spend/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: before } = await supabaseAdmin.from('marketing_spend')
       .select('id, channel, period, amount, notes').eq('dealership_id', req.dealershipId).eq('id', req.params.id).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Spend record not found' })
@@ -99,9 +97,8 @@ export function registerMarketing(app) {
 
   // The ROI report: per-channel leads / sales / spend / cost-per / revenue / est
   // gross / ROI over the window. Managers only.
-  app.get('/marketing/roi', requireAuth, async (req, res) => {
+  app.get('/marketing/roi', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const did = req.dealershipId
     const days = ({ '30': 30, '90': 90, '180': 180, '365': 365 }[String(req.query.range || '90')]) || 90
     const avgGross = Number(req.query.avg_gross) > 0 ? Number(req.query.avg_gross) : DEFAULT_AVG_GROSS
