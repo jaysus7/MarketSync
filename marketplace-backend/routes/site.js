@@ -1,7 +1,9 @@
 import dns from 'node:dns/promises'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { audit } from '../audit.js'
 import { findOrCreateContact } from './crm.js'
 import { enqueueForTrigger } from './automation.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
@@ -16,8 +18,6 @@ import { toolDefs, callTool } from './tool-registry.js'
 import { startOrContinueConversation, saveMessage } from './ai-engine.js'
 import { categorizeConversation, formatShownVehicles, summarizeConversation, verifyRecaptcha, RECAPTCHA_SITE_KEY } from './ai-runtime.js'
 
-const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
-const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
 const slugOk = (s) => /^[a-z0-9]([a-z0-9-]{1,38})[a-z0-9]$/.test(s)   // 3–40, no leading/trailing dash
 // The host a dealer points their custom domain's CNAME at (the static-site domain,
 // or the Cloudflare-for-SaaS CNAME target once that's set up).
@@ -771,7 +771,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   })
 
   // ── ADMIN: read the site config (slug, published, content) ─────────────────
-  app.get('/dealership/site', requireAuth, async (req, res) => {
+  app.get('/dealership/site', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: d } = await supabaseAdmin.from('dealerships')
       .select('name, branding, site_slug, site_published, custom_domain, custom_domain_verified, city, province, postal_code, website_url').eq('id', req.dealershipId).single()
@@ -781,15 +781,14 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       custom_domain: d.custom_domain || null,
       custom_domain_verified: !!d.custom_domain_verified,
       domain_target: SITE_HOST,   // where the dealer points their CNAME
-      can_manage: isSiteAdmin(req),
+      can_manage: true,
       content: siteContent(d),
     })
   })
 
   // ── ADMIN: update slug / publish / site content ────────────────────────────
-  app.put('/dealership/site', requireAuth, async (req, res) => {
+  app.put('/dealership/site', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Manager access required' })
     const b = req.body || {}
     const update = {}
 
@@ -854,12 +853,12 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     if (!Object.keys(update).length) return res.json({ ok: true })
     const { error } = await supabaseAdmin.from('dealerships').update(update).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'site.configuration_updated', { after_state: { fields: Object.keys(update), site_published: update.site_published, site_slug: update.site_slug, custom_domain: update.custom_domain } })
     res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST })
   })
 
   // ── ADMIN: check whether the dealer's custom domain now points at us ─────────
-  app.post('/dealership/site/verify-domain', requireAuth, async (req, res) => {
-    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.post('/dealership/site/verify-domain', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
     const { data: d } = await supabaseAdmin.from('dealerships').select('custom_domain, custom_domain_cf_id').eq('id', req.dealershipId).single()
     const dom = d?.custom_domain
     if (!dom) return res.status(400).json({ error: 'Add a domain first.' })
@@ -882,6 +881,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       }
     }
     await supabaseAdmin.from('dealerships').update({ custom_domain_verified: ok }).eq('id', req.dealershipId)
+    audit(req, 'site.domain_verified', { after_state: { domain: dom, verified: ok } })
     res.json({ verified: ok, domain: dom, target: SITE_HOST, message: ok ? 'Connected! Your domain is live with a secure certificate.' : 'Not live yet — DNS/SSL can take a few minutes to an hour after you add the record. Try again shortly.' })
   })
 }
