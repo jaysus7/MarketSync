@@ -94,3 +94,12 @@ test('bulk AI outreach requires MFA and lead-assignment authority', () => {
   assert.doesNotMatch(bulk, /const isMgr/)
   assert.match(bulk, /communications\.bulk_outreach_sent/)
 })
+
+test('delivery workflow requires finalization authority and MFA for completion', () => {
+  const delivery = source('routes/delivery.js')
+  assert.match(delivery, /app\.get\('\/delivery\/queue', requireAuth, requirePermission\('deal\.finalize'\)/)
+  assert.match(delivery, /app\.post\('\/delivery\/:id\/checklist', requireAuth, requirePermission\('deal\.finalize'\)/)
+  assert.match(delivery, /app\.post\('\/delivery\/:id\/deliver', requireAuth, requireMfa, requirePermission\('deal\.finalize'\)/)
+  assert.doesNotMatch(delivery, /const isMgr/)
+  assert.match(delivery, /deal\.delivered/)
+})
