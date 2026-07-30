@@ -10,12 +10,13 @@
  */
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { findOrCreateContact } from './crm.js'
 import { createNotification } from '../notifications.js'
 import { rateLimit } from '../security.js'
 import { syncAppointmentOut } from './calendar.js'
+import { audit } from '../audit.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'SERVICE'].includes(req.profile?.role)
 const isDealerLevel = (p) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'SERVICE'].includes(p?.role)
 const DEFAULT_TYPES = ['Oil change', 'Tire change / rotation', 'Brakes', 'Diagnostic', 'Scheduled maintenance', 'Recall', 'Detailing', 'Other']
 
@@ -43,16 +44,14 @@ function apptRow(t, contactName, repName) {
 
 export function registerService(app) {
   // ── Settings ────────────────────────────────────────────────────────────────
-  app.get('/service/config', requireAuth, async (req, res) => {
+  app.get('/service/config', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: d } = await supabaseAdmin.from('dealerships').select('service_settings, site_slug, site_published').eq('id', req.dealershipId).maybeSingle()
     res.json({ ok: true, settings: serviceSettings(d), site_slug: d?.site_slug || null, site_published: !!d?.site_published, default_types: DEFAULT_TYPES })
   })
 
-  app.put('/service/config', requireAuth, async (req, res) => {
+  app.put('/service/config', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: cur } = await supabaseAdmin.from('dealerships').select('service_settings').eq('id', req.dealershipId).maybeSingle()
     const s = { ...(cur?.service_settings || {}) }
     const b = req.body || {}
@@ -64,6 +63,14 @@ export function registerService(app) {
     if (b.duration_min !== undefined) { const n = parseInt(b.duration_min); if (Number.isFinite(n) && n > 0 && n <= 480) s.duration_min = n }
     const { error } = await supabaseAdmin.from('dealerships').update({ service_settings: s }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: 'Save failed' })
+    audit(req, 'service.configuration_updated', {
+      after_state: {
+        enabled: s.enabled === true,
+        service_type_count: Array.isArray(s.service_types) ? s.service_types.length : 0,
+        desk_email_configured: !!s.desk_email,
+        duration_min: s.duration_min || null,
+      },
+    })
     res.json({ ok: true, settings: serviceSettings({ service_settings: s }) })
   })
 

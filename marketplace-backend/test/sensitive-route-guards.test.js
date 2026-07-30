@@ -103,3 +103,13 @@ test('delivery workflow requires finalization authority and MFA for completion',
   assert.doesNotMatch(delivery, /const isMgr/)
   assert.match(delivery, /deal\.delivered/)
 })
+
+test('service configuration uses the service RBAC permission', () => {
+  const service = source('routes/service.js')
+  const guard = "requireAuth, requirePermission('service.write_repair_order')"
+  for (const endpoint of ["app.get('/service/config'", "app.put('/service/config'"]) {
+    assert.ok(service.includes(`${endpoint}, ${guard}`), `${endpoint} should use the service configuration guard`)
+  }
+  assert.doesNotMatch(service, /const isMgr/)
+  assert.match(service, /service\.configuration_updated/)
+})
