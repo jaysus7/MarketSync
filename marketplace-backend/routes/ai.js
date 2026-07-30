@@ -215,7 +215,7 @@ export function registerAI(app) {
   })
 
   // POST /ai/enrich-listing — run AI enrichment on an inventory item
-  app.post('/ai/enrich-listing', requireAuth, async (req, res) => {
+  app.post('/ai/enrich-listing', requireAuth, requireMfa, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
 
     const { inventory_id } = req.body
@@ -371,7 +371,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
 
   // POST /ai/sync-all — run AI enrichment on all active inventory for the dealership
   // Runs in background; returns immediately with a count. Results appear in /ai/activity.
-  app.post('/ai/sync-all', requireAuth, async (req, res) => {
+  app.post('/ai/sync-all', requireAuth, requireMfa, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
 
     const { data: dealer } = await supabaseAdmin
@@ -470,7 +470,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
   })
 
   // GET /ai/activity — recent AI enrichment log for the dealership
-  app.get('/ai/activity', requireAuth, async (req, res) => {
+  app.get('/ai/activity', requireAuth, requirePermission('inventory.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const limit = Math.min(Number(req.query.limit) || 200, 500)
     const { data, error } = await supabaseAdmin
@@ -517,7 +517,7 @@ Write a compelling listing in under 280 words. Include the year/make/model/trim,
   // Two modes: pass { lead_id } to pull the lead from the DB (dashboard Pipeline), OR
   // pass { message, vehicle_label } for an ad-hoc draft from a live Facebook chat (the
   // extension, where no lead row exists).
-  app.post('/ai/lead-reply', requireAuth, async (req, res) => {
+  app.post('/ai/lead-reply', requireAuth, requirePermission('customer.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { lead_id, message, vehicle_label: vlabelIn } = req.body || {}
 
@@ -586,7 +586,7 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
   // A rep snaps the front of a licence; AI Vision reads it and returns the fields
   // to pre-fill a new customer. Nothing is stored here — the rep reviews and saves
   // through the normal add-customer flow. The licence image is NOT persisted.
-  app.post('/crm/scan-license', requireAuth, async (req, res) => {
+  app.post('/crm/scan-license', requireAuth, requireMfa, requirePermission('customer.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const isOwner = isPlatformOwner(req)
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('ai_boost_active').eq('id', req.dealershipId).maybeSingle()
