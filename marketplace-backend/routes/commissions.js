@@ -20,7 +20,7 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
-import { requirePermission } from '../rbac.js'
+import { requirePermission } from '../authorization.js'
 import { emitEvent, onEvent } from './events.js'
 import { audit } from '../audit.js'
 
