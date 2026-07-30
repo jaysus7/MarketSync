@@ -672,7 +672,7 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
   // ── AI copy for the website builder (✨ per-section actions) ────────────────
   // task: rewrite | improve | expand | shorten | generate | seo | faq
   // kind: headline | subheadline | cta | about | faq | seo | text
-  app.post('/ai/site-copy', requireAuth, async (req, res) => {
+  app.post('/ai/site-copy', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const task = String(b.task || 'generate').toLowerCase()
@@ -785,7 +785,7 @@ Return ONLY the ${isTitle ? 'title' : isMeta ? 'meta description' : 'copy'} — 
   // POST /ai/sales-pitch — write a compelling sales pitch for one or many vehicles.
   // Body: { ids: [vehicleId, ...] }. Stores the result on inventory.sales_pitch and
   // returns the generated text keyed by id. Gated on AI Boost (owner exempt).
-  app.post('/ai/sales-pitch', requireAuth, async (req, res) => {
+  app.post('/ai/sales-pitch', requireAuth, requireMfa, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Boolean).slice(0, 200) : []
     if (!ids.length) return res.status(400).json({ error: 'No vehicles selected' })
@@ -843,7 +843,7 @@ Facts (ignore any blank/unknown fields): ${JSON.stringify(facts)}`
   // the automation/website AI: boost / fresh / short / long / seo. Powers the ✨ AI
   // menu on the Add/Edit vehicle form, so copy can be generated before the car is saved.
   // Body: { field: 'description'|'pitch', task, vehicle:{year,make,...,specs_manual}, current }
-  app.post('/ai/vehicle-copy', requireAuth, async (req, res) => {
+  app.post('/ai/vehicle-copy', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const field = String(b.field || 'description').toLowerCase() === 'pitch' ? 'pitch' : 'description'
@@ -910,7 +910,7 @@ Return ONLY the ${field === 'pitch' ? 'sales pitch' : 'description'} — no prea
 
   // Decode a VIN to year/make/model/trim via NHTSA (free, no key). Used by the
   // Trade Appraisal form's "Decode" button to prefill the manual fields.
-  app.post('/ai/vin-decode', requireAuth, async (req, res) => {
+  app.post('/ai/vin-decode', requireAuth, requirePermission('inventory.view'), async (req, res) => {
     const vin = String(req.body?.vin || '').trim().toUpperCase()
     if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return res.status(400).json({ error: 'Enter a valid 17-character VIN' })
     try {
@@ -952,7 +952,7 @@ Return ONLY the ${field === 'pitch' ? 'sales pitch' : 'description'} — no prea
   // License-plate → VIN for trade appraisals. Uses whichever plate-decode provider
   // is provisioned (CarsXE / Vehicle Databases); returns a VIN the appraisal then
   // decodes normally. 503 when no provider is set so the UI can say "enter the VIN".
-  app.post('/ai/plate-decode', requireAuth, async (req, res) => {
+  app.post('/ai/plate-decode', requireAuth, requireMfa, requirePermission('inventory.edit'), async (req, res) => {
     if (!plateLookupConfigured()) return res.status(503).json({ error: 'Plate lookup isn’t set up on this account yet — enter the VIN instead.', not_configured: true })
     try {
       const out = await lookupPlate({ plate: req.body?.plate, region: req.body?.region, country: req.body?.country })
@@ -1798,7 +1798,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
     }
   }
 
-  app.post('/ai/weekly-report', requireAuth, async (req, res) => {
+  app.post('/ai/weekly-report', requireAuth, requireMfa, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
 
     const { data: dealer } = await supabaseAdmin
@@ -2052,7 +2052,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   })
 
   // ── Weekly Report — printable HTML (for PDF download) ────────────────────
-  app.get('/ai/weekly-report/html', requireAuth, async (req, res) => {
+  app.get('/ai/weekly-report/html', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
 
     const { data: dealer } = await supabaseAdmin

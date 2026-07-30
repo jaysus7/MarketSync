@@ -214,6 +214,18 @@ test('AI inventory operations and licence scanning require their data permission
   assert.ok(ai.includes("app.post('/crm/scan-license', requireAuth, requireMfa, requirePermission('customer.view')"))
 })
 
+test('AI copy, vehicle lookup, and reports require the matching capability', () => {
+  const ai = source('routes/ai.js')
+  assert.ok(ai.includes("app.post('/ai/site-copy', requireAuth, requireMfa, requirePermission('site.manage')"))
+  for (const endpoint of ["app.post('/ai/sales-pitch'", "app.post('/ai/plate-decode'", "app.post('/ai/weekly-report'"]) {
+    assert.ok(ai.includes(`${endpoint}, requireAuth, requireMfa, requirePermission('inventory.edit')`), `${endpoint} should require secured inventory edit authority`)
+  }
+  for (const endpoint of ["app.post('/ai/vehicle-copy'", "app.get('/ai/weekly-report/html'"]) {
+    assert.ok(ai.includes(`${endpoint}, requireAuth, requirePermission('inventory.edit')`), `${endpoint} should require inventory edit authority`)
+  }
+  assert.ok(ai.includes("app.post('/ai/vin-decode', requireAuth, requirePermission('inventory.view')"))
+})
+
 test('appraisal visibility and inventory acquisition use RBAC', () => {
   const ai = source('routes/ai.js')
   assert.match(ai, /app\.put\('\/ai\/rep-appraisal-visibility', requireAuth, requireMfa, requirePermission\('users\.manage'\)/)
