@@ -10,7 +10,8 @@
  *   POST /cron/adspend-pull               nightly sweep of all connections (CRON_SECRET)
  */
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { audit, AuditAction } from '../audit.js'
 import { requestHasCronSecret } from '../cron-auth.js'
 import {
@@ -18,19 +19,16 @@ import {
   signState, verifyState, adExchangeAndStore, pullAdSpend,
 } from '../adSpendSync.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
-const isAdmin = (req) => ['DEALER_ADMIN', 'OWNER'].includes(req.profile?.role)
 const label = (p) => (p === 'meta' ? 'Meta Ads' : p === 'google_ads' ? 'Google Ads' : p)
 
 export function registerAdSpend(app) {
-  app.get('/adspend/status', requireAuth, async (req, res) => {
+  app.get('/adspend/status', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: conns } = await supabaseAdmin.from('ad_connections')
       .select('provider, account_name, account_id, last_synced_at, last_error').eq('dealership_id', req.dealershipId)
     const by = Object.fromEntries((conns || []).map(c => [c.provider, c]))
     res.json({
-      ok: true, can_manage: isAdmin(req),
+      ok: true, can_manage: true,
       providers: AD_PROVIDERS.map(p => ({
         provider: p, label: label(p), configured: adProviderConfigured(p),
         connected: !!by[p], account: by[p]?.account_name || by[p]?.account_id || null,
@@ -40,10 +38,9 @@ export function registerAdSpend(app) {
     })
   })
 
-  app.get('/adspend/connect/:provider', requireAuth, async (req, res) => {
+  app.get('/adspend/connect/:provider', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     const provider = req.params.provider
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' })
     if (!AD_PROVIDERS.includes(provider)) return res.status(400).json({ error: 'Unknown provider' })
     if (!adProviderConfigured(provider)) return res.status(501).json({ error: `${label(provider)} isn’t configured on this server yet.` })
     const state = signState({ uid: req.user.id, did: req.dealershipId, p: provider, kind: 'ad' })
@@ -66,16 +63,14 @@ export function registerAdSpend(app) {
     } catch (e) { console.error('[adspend] callback failed:', e.message); done(false, e.message) }
   })
 
-  app.post('/adspend/disconnect/:provider', requireAuth, async (req, res) => {
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' })
+  app.post('/adspend/disconnect/:provider', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     await supabaseAdmin.from('ad_connections').delete().eq('dealership_id', req.dealershipId).eq('provider', req.params.provider)
     audit(req, AuditAction.CONFIG_UPDATED, { ad_disconnected: req.params.provider })
     res.json({ ok: true })
   })
 
-  app.post('/adspend/sync-now', requireAuth, async (req, res) => {
+  app.post('/adspend/sync-now', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: conns } = await supabaseAdmin.from('ad_connections').select('*').eq('dealership_id', req.dealershipId)
     if (!conns?.length) return res.status(400).json({ error: 'No ad account connected.' })
     const results = []
