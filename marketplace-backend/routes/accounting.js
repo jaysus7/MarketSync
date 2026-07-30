@@ -15,13 +15,13 @@
  * seeded on first use.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { requestHasCronSecret } from '../cron-auth.js'
 import { sendEmail } from '../securityAlerts.js'
 import { plaidConfigured, plaidStatus, bankTotalsForDay, syncTransactions } from '../providers/plaid.js'
 import { audit } from '../audit.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
 const money = (x) => '$' + (Number(x) || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })
@@ -229,16 +229,16 @@ async function reconcileDay(dealershipId, dateStr, { alert = false } = {}) {
 }
 
 export function registerAccounting(app) {
-  const guard = (req, res) => { if (!req.dealershipId) { res.status(400).json({ error: 'No dealership' }); return false } if (!isMgr(req)) { res.status(403).json({ error: 'Manager access required' }); return false } return true }
+  const guard = (req, res) => { if (!req.dealershipId) { res.status(400).json({ error: 'No dealership' }); return false } return true }
 
   // ── Chart of accounts ───────────────────────────────────────────────────────
-  app.get('/accounting/accounts', requireAuth, async (req, res) => {
+  app.get('/accounting/accounts', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     await ensureChart(req.dealershipId)
     const { data } = await supabaseAdmin.from('gl_accounts').select('*').eq('dealership_id', req.dealershipId).order('code', { ascending: true })
     res.json({ ok: true, accounts: data || [] })
   })
-  app.post('/accounting/accounts', requireAuth, async (req, res) => {
+  app.post('/accounting/accounts', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const name = String(req.body?.name || '').trim().slice(0, 80)
     const category = String(req.body?.category || '').toLowerCase()
@@ -248,7 +248,7 @@ export function registerAccounting(app) {
     audit(req, 'accounting.account_created', { after_state: data })
     res.json({ ok: true, account: data })
   })
-  app.put('/accounting/accounts/:id', requireAuth, async (req, res) => {
+  app.put('/accounting/accounts/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const patch = {}
     if (req.body?.name !== undefined) patch.name = String(req.body.name || '').trim().slice(0, 80)
@@ -262,7 +262,7 @@ export function registerAccounting(app) {
     audit(req, 'accounting.account_updated', { before_state: before, after_state: data })
     res.json({ ok: true, account: data })
   })
-  app.delete('/accounting/accounts/:id', requireAuth, async (req, res) => {
+  app.delete('/accounting/accounts/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     // Don't hard-delete an account that has entries — deactivate it instead.
     const { data: account } = await supabaseAdmin.from('gl_accounts').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
@@ -280,7 +280,7 @@ export function registerAccounting(app) {
   })
 
   // ── Ledger entries ───────────────────────────────────────────────────────────
-  app.get('/accounting/entries', requireAuth, async (req, res) => {
+  app.get('/accounting/entries', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const from = String(req.query.from || today())
     const to = String(req.query.to || from)
@@ -288,7 +288,7 @@ export function registerAccounting(app) {
     const { data } = await supabaseAdmin.from('gl_entries').select('*').eq('dealership_id', req.dealershipId).gte('entry_date', from).lt('entry_date', toEnd).order('entry_date', { ascending: false }).order('created_at', { ascending: false }).limit(2000)
     res.json({ ok: true, entries: data || [] })
   })
-  app.post('/accounting/entries', requireAuth, async (req, res) => {
+  app.post('/accounting/entries', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const amount = round2(req.body?.amount)
     const direction = req.body?.direction === 'in' ? 'in' : 'out'   // accounting mostly adds expenses (out)
@@ -302,7 +302,7 @@ export function registerAccounting(app) {
     audit(req, 'accounting.entry_created', { after_state: data })
     res.json({ ok: true, entry: data })
   })
-  app.delete('/accounting/entries/:id', requireAuth, async (req, res) => {
+  app.delete('/accounting/entries/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     // Financial history must not be erased. A manual correction is represented by
     // an equal-and-opposite line so reports continue to reconcile and the original
@@ -327,12 +327,12 @@ export function registerAccounting(app) {
   })
 
   // ── Reconciliation ───────────────────────────────────────────────────────────
-  app.post('/accounting/reconcile', requireAuth, async (req, res) => {
+  app.post('/accounting/reconcile', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const snap = await reconcileDay(req.dealershipId, String(req.body?.date || today()), { alert: !!req.body?.alert })
     res.json({ ok: true, reconciliation: snap })
   })
-  app.get('/accounting/reconciliations', requireAuth, async (req, res) => {
+  app.get('/accounting/reconciliations', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const { from, to } = monthBounds(req.query.month)
     const { data } = await supabaseAdmin.from('reconciliations').select('*').eq('dealership_id', req.dealershipId).gte('recon_date', from).lt('recon_date', to).order('recon_date', { ascending: false })
@@ -340,7 +340,7 @@ export function registerAccounting(app) {
   })
 
   // ── Reports / insights (P&L-lite for the month) ──────────────────────────────
-  app.get('/accounting/report', requireAuth, async (req, res) => {
+  app.get('/accounting/report', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     await ensureChart(req.dealershipId)
     const { from, to } = monthBounds(req.query.month)
@@ -364,7 +364,7 @@ export function registerAccounting(app) {
   })
 
   // ── Tax: collected (from deals) vs paid/ITCs → net owing for the period ──────
-  app.get('/accounting/tax', requireAuth, async (req, res) => {
+  app.get('/accounting/tax', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     await ensureChart(req.dealershipId)
     const { from, to } = monthBounds(req.query.month)
@@ -383,7 +383,7 @@ export function registerAccounting(app) {
   })
 
   // Record tax paid / an input-tax-credit (posts to the Sales Tax Paid account).
-  app.post('/accounting/tax/paid', requireAuth, async (req, res) => {
+  app.post('/accounting/tax/paid', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     await ensureChart(req.dealershipId)
     const amount = Math.abs(round2(req.body?.amount))
@@ -399,12 +399,12 @@ export function registerAccounting(app) {
   })
 
   // ── Settings ──────────────────────────────────────────────────────────────────
-  app.get('/accounting/settings', requireAuth, async (req, res) => {
+  app.get('/accounting/settings', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const { data } = await supabaseAdmin.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
     res.json({ ok: true, settings: settingsOf(data) })
   })
-  app.put('/accounting/settings', requireAuth, async (req, res) => {
+  app.put('/accounting/settings', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const b = req.body || {}
     const parseEmails = (v) => (Array.isArray(v) ? v : String(v || '').split(/[,\s]+/)).map(s => String(s).trim().toLowerCase()).filter(e => /.+@.+\..+/.test(e)).slice(0, 20)
@@ -431,7 +431,7 @@ export function registerAccounting(app) {
   // A monthly spending target per expense account, stored in accounting_settings.
   // GET returns the targets + this month's actual spend so the UI can show
   // budget-vs-actual; PUT saves the targets map { [account_id]: monthlyAmount }.
-  app.get('/accounting/budget', requireAuth, async (req, res) => {
+  app.get('/accounting/budget', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7)
     const { data: row } = await supabaseAdmin.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
@@ -447,7 +447,7 @@ export function registerAccounting(app) {
     for (const e of (entries || [])) { const k = e.account_id || 'none'; actuals[k] = (actuals[k] || 0) + (Number(e.amount) || 0) }
     res.json({ ok: true, month, budgets, actuals })
   })
-  app.put('/accounting/budget', requireAuth, async (req, res) => {
+  app.put('/accounting/budget', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const inb = (req.body && typeof req.body.budgets === 'object' && req.body.budgets) || {}
     const budgets = {}
