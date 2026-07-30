@@ -67,3 +67,20 @@ test('inventory access relies on inventory permissions and site uploads use site
     assert.ok(inventory.includes(`${endpoint}, requireAuth, requireMfa, requirePermission('site.manage')`), `${endpoint} should require secure site authority`)
   }
 })
+
+test('lead routing and CRM delivery use RBAC rather than legacy dealer roles', () => {
+  const leads = source('routes/leads.js')
+  assert.match(leads, /app\.put\('\/leads\/:id\/assign', requireAuth, requirePermission\('lead\.assign'\)/)
+  assert.match(leads, /app\.get\('\/leads\/response-metrics', requireAuth, requirePermission\('lead\.assign'\)/)
+  assert.match(leads, /app\.post\('\/leads\/import', requireAuth, requirePermission\('lead\.create'\), requirePermission\('lead\.assign'\)/)
+  for (const endpoint of ["app.get('/leads/crm-email'", "app.put('/leads/crm-email'", "app.post('/leads/:id/resend'"]) {
+    assert.ok(leads.includes(`${endpoint}, requireAuth, requireMfa, requirePermission('integrations.manage')`), `${endpoint} should use the integration security guard`)
+  }
+})
+
+test('salespeople cannot acknowledge another representative\'s lead', () => {
+  const leads = source('routes/leads.js')
+  assert.match(leads, /app\.post\('\/leads\/:id\/answered', requireAuth, requirePermission\('customer\.view'\)/)
+  assert.match(leads, /hasPermission\(req, 'lead\.assign'\)/)
+  assert.match(leads, /contact\?\.assigned_rep !== req\.user\.id/)
+})
