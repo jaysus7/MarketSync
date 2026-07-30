@@ -157,3 +157,16 @@ test('label-only staff administration requires MFA and user-management authority
   assert.match(dashboard, /team\.staff_created/)
   assert.match(dashboard, /team\.staff_updated/)
 })
+
+test('accounting engine requires MFA and accounting permissions', () => {
+  const accounting = source('routes/accounting-engine.js')
+  const readGuard = "requireAuth, requireMfa, requirePermission('accounting.view')"
+  for (const endpoint of ["app.get('/accounting/journal'", "app.get('/accounting/event-log'", "app.get('/accounting/trial-balance'", "app.get('/accounting/summary'", "app.get('/accounting/income-statement'", "app.get('/accounting/balance-sheet'", "app.get('/accounting/periods'", "app.get('/accounting/forecast'"]) {
+    assert.ok(accounting.includes(`${endpoint}, ${readGuard}`), `${endpoint} should use the accounting read guard`)
+  }
+  const writeGuard = "requireAuth, requireMfa, requirePermission('accounting.edit')"
+  for (const endpoint of ["app.post('/accounting/replay/:eventId'", "app.post('/accounting/periods/advance'"]) {
+    assert.ok(accounting.includes(`${endpoint}, ${writeGuard}`), `${endpoint} should use the accounting write guard`)
+  }
+  assert.match(accounting, /accounting\.period_advanced/)
+})
