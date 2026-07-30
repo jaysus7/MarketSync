@@ -18,7 +18,6 @@ import { audit, AuditAction } from '../audit.js'
 import { keyIsExpired, requestedExpiry, requestedScopes } from '../api-key-policy.js'
 
 const hashKey = (raw) => crypto.createHash('sha256').update(String(raw)).digest('hex')
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 
 // ── API-safe tool set (MCP-shaped) ────────────────────────────────────────────
 const API_TOOLS = [
@@ -88,7 +87,6 @@ export function registerPublicApi(app) {
   // ── Key management (dashboard, managers) ──
   app.post('/api-keys', requireAuth, requireMfa, requirePermission('api_keys.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const scopes = requestedScopes(req.body?.scopes)
     if (!scopes) return res.status(400).json({ error: 'scopes must include read and/or leads' })
     const expiry = requestedExpiry(req.body?.expires_at)
@@ -103,16 +101,14 @@ export function registerPublicApi(app) {
     audit(req, AuditAction.API_KEY_CREATED, { api_key_id: data.id, name: data.name })
     res.json({ ok: true, key: raw, meta: data })   // raw key returned ONCE
   })
-  app.get('/api-keys', requireAuth, requirePermission('api_keys.manage'), async (req, res) => {
+  app.get('/api-keys', requireAuth, requireMfa, requirePermission('api_keys.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data } = await supabaseAdmin.from('api_keys').select('id, name, key_prefix, scopes, expires_at, created_at, last_used_at, revoked_at')
       .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(50)
     res.json({ keys: data || [] })
   })
   app.post('/api-keys/:id/revoke', requireAuth, requireMfa, requirePermission('api_keys.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     await supabaseAdmin.from('api_keys').update({ revoked_at: new Date().toISOString() }).eq('id', req.params.id).eq('dealership_id', req.dealershipId)
     audit(req, AuditAction.API_KEY_REVOKED, { api_key_id: req.params.id })
     res.json({ ok: true })
