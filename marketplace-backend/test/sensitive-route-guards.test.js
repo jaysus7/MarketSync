@@ -47,3 +47,12 @@ test('CRM integration configuration and delivery queue require MFA and integrati
   assert.match(integration, /integration\.crm_configuration_updated/)
   assert.match(integration, /integration\.delivery_retried/)
 })
+
+test('dealer-wide configuration requires MFA and settings authority', () => {
+  const config = source('routes/config-engine.js')
+  const guard = "requireAuth, requireMfa, requirePermission('settings.manage')"
+  for (const endpoint of ["app.get('/config'", "app.get('/config/:key'", "app.put('/config/:key'", "app.delete('/config/:key'"]) {
+    assert.ok(config.includes(`${endpoint}, ${guard}`), `${endpoint} should use the configuration security guard`)
+  }
+  assert.match(source('migrations/2026-07-29-rbac-api-key-permission.sql'), /'settings\.manage'/)
+})
