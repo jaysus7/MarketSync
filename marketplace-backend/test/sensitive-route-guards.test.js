@@ -113,3 +113,12 @@ test('service configuration uses the service RBAC permission', () => {
   assert.doesNotMatch(service, /const isMgr/)
   assert.match(service, /service\.configuration_updated/)
 })
+
+test('notifications use RBAC for management alerts and protect targeted alerts', () => {
+  const notifications = source('routes/notifications.js')
+  assert.doesNotMatch(notifications, /const isMgr/)
+  assert.match(notifications, /hasPermission\(req, 'lead\.assign'\)/)
+  const ownerFilter = 'target_user_id.is.null,target_user_id.eq.${req.user.id}'
+  assert.match(notifications, new RegExp("app\\.post\\('\\/notifications\\/:id\\/read'[\\s\\S]{0,700}" + ownerFilter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  assert.match(notifications, new RegExp("app\\.delete\\('\\/notifications\\/:id'[\\s\\S]{0,700}" + ownerFilter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+})
