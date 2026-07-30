@@ -5,6 +5,7 @@ import { emitWebhook } from '../webhooks.js'
 import { syncAppointmentOut } from './calendar.js'
 import { emitEvent } from './events.js'
 import { audit } from '../audit.js'
+import { hasPermission } from '../authorization.js'
 import multer from 'multer'
 
 // CRM attachments: photos, videos and files reps attach to a customer. In-memory,
@@ -464,7 +465,9 @@ export function registerCrm(app) {
       .select('id, contact_id, assigned_to, title, type, due_at, done, done_at, created_at')
       .eq('dealership_id', req.dealershipId)
       .order('due_at', { ascending: true, nullsFirst: false }).limit(300)
-    if (!isDealerLevel(req)) query = query.eq('assigned_to', req.user.id)
+    let canManageTasks = false
+    try { canManageTasks = await hasPermission(req, 'lead.assign') } catch { return res.status(500).json({ error: 'Permission check failed' }) }
+    if (!canManageTasks) query = query.eq('assigned_to', req.user.id)
     if (scope === 'open') query = query.eq('done', false)
     const { data, error } = await query
     if (error) return res.status(500).json({ error: error.message })
@@ -484,15 +487,24 @@ export function registerCrm(app) {
     const b = req.body || {}
     const title = String(b.title || '').trim()
     if (!title) return res.status(400).json({ error: 'Task title is required' })
+    let canManageTasks = false
+    try { canManageTasks = await hasPermission(req, 'lead.assign') } catch { return res.status(500).json({ error: 'Permission check failed' }) }
+    const assignedTo = b.assigned_to || req.user.id
+    if (assignedTo !== req.user.id && !canManageTasks) return res.status(403).json({ error: 'Insufficient permission to assign team tasks' })
+    if (assignedTo !== req.user.id) {
+      const { data: assignee } = await supabaseAdmin.from('profiles').select('id').eq('id', assignedTo).eq('dealership_id', req.dealershipId).maybeSingle()
+      if (!assignee) return res.status(400).json({ error: 'Assignee must belong to this dealership' })
+    }
     const { data, error } = await supabaseAdmin.from('crm_tasks').insert({
       dealership_id: req.dealershipId,
       contact_id: b.contact_id || null,
-      assigned_to: b.assigned_to || req.user.id,
+      assigned_to: assignedTo,
       created_by: req.user.id,
       title, type: ['call', 'text', 'email', 'followup', 'appointment', 'other'].includes(b.type) ? b.type : 'followup',
       due_at: b.due_at || null,
     }).select('*').single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'crm.task_created', { after_state: { id: data.id, contact_id: data.contact_id, assigned_to: data.assigned_to, type: data.type, due_at: data.due_at } })
     // Mirror new appointments to the rep's connected calendar (fire-and-forget).
     if (data.type === 'appointment' && data.due_at) syncAppointmentOut(data.id, 'upsert')
     res.json({ ok: true, task: data })
@@ -502,6 +514,16 @@ export function registerCrm(app) {
   app.put('/crm/tasks/:id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
+    const { data: before } = await supabaseAdmin.from('crm_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Task not found' })
+    let canManageTasks = false
+    try { canManageTasks = await hasPermission(req, 'lead.assign') } catch { return res.status(500).json({ error: 'Permission check failed' }) }
+    if (!canManageTasks && before.assigned_to !== req.user.id) return res.status(403).json({ error: 'You can only update your own tasks' })
+    if (b.assigned_to !== undefined && b.assigned_to !== before.assigned_to && !canManageTasks) return res.status(403).json({ error: 'Insufficient permission to reassign tasks' })
+    if (b.assigned_to) {
+      const { data: assignee } = await supabaseAdmin.from('profiles').select('id').eq('id', b.assigned_to).eq('dealership_id', req.dealershipId).maybeSingle()
+      if (!assignee) return res.status(400).json({ error: 'Assignee must belong to this dealership' })
+    }
     const patch = {}
     if (b.title !== undefined) patch.title = String(b.title).trim()
     if (b.type !== undefined) patch.type = b.type
@@ -511,7 +533,7 @@ export function registerCrm(app) {
     const { data, error } = await supabaseAdmin.from('crm_tasks')
       .update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('*').maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
-    if (!data) return res.status(404).json({ error: 'Task not found' })
+    audit(req, 'crm.task_updated', { before_state: before, after_state: data })
     // Push time/title/assignment changes (and completions/cancellations) to the calendar.
     if (data.type === 'appointment') syncAppointmentOut(data.id, data.done ? 'delete' : 'upsert')
     res.json({ ok: true, task: data })
