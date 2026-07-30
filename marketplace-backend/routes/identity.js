@@ -11,7 +11,8 @@
  * the Stripe account; if it isn't, Stripe returns an error we surface plainly.
  */
 import { stripe, supabaseAdmin, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { audit, AuditAction } from '../audit.js'
 
 // Two interchangeable identity providers, chosen by env so the customer-facing flow
@@ -30,8 +31,6 @@ function identityProvider() {
   return null
 }
 const configured = () => identityProvider() !== null
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
-
 // Which providers this server can actually use right now (keys present).
 function availableProviders() {
   const a = []
@@ -101,7 +100,7 @@ async function personaStatus(inquiryId) {
 }
 
 export function registerIdentity(app) {
-  app.get('/identity/config', requireAuth, async (req, res) => {
+  app.get('/identity/config', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     const available = availableProviders()
     const selected = req.dealershipId ? await resolveProvider(req.dealershipId) : identityProvider()
     res.json({
@@ -113,19 +112,19 @@ export function registerIdentity(app) {
 
   // Managers pin which verification provider this dealership uses (only among the ones
   // the server actually has keys for). Stored on a dealer_integrations 'identity' row.
-  app.put('/identity/provider', requireAuth, async (req, res) => {
+  app.put('/identity/provider', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const provider = String(req.body?.provider || '').toLowerCase()
     if (!availableProviders().includes(provider)) return res.status(400).json({ error: 'That verification provider isn’t available.' })
     await supabaseAdmin.from('dealer_integrations').upsert({
       dealership_id: req.dealershipId, provider: 'identity', enabled: true, status: 'configured',
       lender_code_map: { provider }, updated_at: new Date().toISOString(),
     }, { onConflict: 'dealership_id,provider' })
+    audit(req, 'identity.provider_updated', { after_state: { provider } })
     res.json({ ok: true, selected: provider })
   })
 
-  app.post('/identity/start', requireAuth, async (req, res) => {
+  app.post('/identity/start', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!configured()) return res.status(501).json({ error: 'Identity verification isn’t configured on this server yet.' })
     const contactId = String(req.body?.contact_id || '')
@@ -163,7 +162,7 @@ export function registerIdentity(app) {
     }
   })
 
-  app.get('/identity/status', requireAuth, async (req, res) => {
+  app.get('/identity/status', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const contactId = String(req.query.contact_id || '')
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
@@ -200,6 +199,7 @@ export function registerIdentity(app) {
       patch.id_verification_report = report
       if (status === 'verified') patch.id_verified_at = contact.id_verified_at || new Date().toISOString()
       await supabaseAdmin.from('contacts').update(patch).eq('id', contactId)
+      audit(req, 'customer.identity_verification_status_checked', { contact_id: contactId, after_state: { status, provider } })
       res.json({ ok: true, status, verified_at: patch.id_verified_at || contact.id_verified_at, report })
     } catch (e) {
       res.json({ ok: true, status: contact.id_verification_status || 'unstarted', verified_at: contact.id_verified_at, report: contact.id_verification_report, error: e.message })
