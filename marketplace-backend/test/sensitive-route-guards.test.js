@@ -186,3 +186,9 @@ test('equity data and outreach require MFA and dedicated RBAC permissions', () =
   assert.match(sql, /'equity\.view'/)
   assert.match(sql, /'equity\.manage'/)
 })
+
+test('sensitive AI financial and history routes require MFA and RBAC', () => {
+  const ai = source('routes/ai.js')
+  assert.match(ai, /app\.post\('\/accounting\/scan-receipt', requireAuth, requireMfa, requirePermission\('accounting\.edit'\)/)
+  assert.match(ai, /app\.get\('\/ai\/assistant\/history', requireAuth, requireMfa, requirePermission\('lead\.assign'\)/)
+})

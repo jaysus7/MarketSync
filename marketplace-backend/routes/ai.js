@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, browserFetch } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { requestHasCronSecret } from '../cron-auth.js'
 import { marketcheckMarket, marketcheckListings, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing, marketcheckDecodeVin, marketcheckPredictPrice, marketcheckMarketStats } from '../marketcheck.js'
 import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, getAssistantUsage, assistantDailyAllowed, recordAssistantChat, ASSISTANT_DAILY_LIMIT, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
@@ -621,9 +622,8 @@ Guidelines: under 90 words; answer their question if they asked one; confirm the
   // Accounting snaps a photo of a receipt; AI Vision reads it and returns the
   // fields to pre-fill an expense (vendor, date, total, tax, a category guess).
   // Nothing is stored here — the user reviews and saves through the normal flow.
-  app.post('/accounting/scan-receipt', requireAuth, async (req, res) => {
+  app.post('/accounting/scan-receipt', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const isOwner = isPlatformOwner(req)
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('ai_boost_active').eq('id', req.dealershipId).maybeSingle()
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'Receipt scanning needs AI Boost' })
@@ -2901,11 +2901,8 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   })
 
   // GET /ai/assistant/history — recent Ask MarketSync transcripts for manager review.
-  app.get('/ai/assistant/history', requireAuth, async (req, res) => {
+  app.get('/ai/assistant/history', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const isOwner = isPlatformOwner(req)
-    const isMgr = isOwner || ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
-    if (!isMgr) return res.status(403).json({ error: 'Manager access required' })
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50))
     const { data, error } = await supabaseAdmin.from('ai_assistant_chats')
       .select('id, user_name, question, answer, tools, created_at')
