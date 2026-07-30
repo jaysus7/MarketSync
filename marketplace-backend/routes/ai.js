@@ -18,7 +18,7 @@ import {
   PRODUCT_KB, ASSISTANT_TOOLS, REPORT_TOPICS,
   buildDealershipReport, runAssistantTool,
   skipPriceComp, PRICE_MIN_COMPS, buildPriceFlag, aiErrorMessage,
-  marketMedianForScan, requireDealerAdmin, median, mileageAdjustedMedian,
+  marketMedianForScan, median, mileageAdjustedMedian,
   computeDailyDigest,
 } from './ai-helpers.js'
 import { registerAiPricing } from './ai-pricing.js'
@@ -40,7 +40,7 @@ const ASSISTANT_TOOL_CATALOG = [
 export function registerAI(app) {
   registerAiPricing(app)   // inventory-intelligence / pricing / vision / competitor routes
   // GET /ai/config — returns dealership's AI config
-  app.get('/ai/config', requireAuth, async (req, res) => {
+  app.get('/ai/config', requireAuth, requireMfa, requirePermission('settings.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data, error } = await supabaseAdmin
       .from('dealerships')
@@ -115,8 +115,9 @@ export function registerAI(app) {
     }
   })
 
-  // PUT /ai/config — update dealership AI config (DEALER_ADMIN only)
-  app.put('/ai/config', requireAuth, requireDealerAdmin, async (req, res) => {
+  // PUT /ai/config — dealership-wide configuration needs a verified MFA session
+  // and the explicit settings authority, not a legacy profile role.
+  app.put('/ai/config', requireAuth, requireMfa, requirePermission('settings.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { ai_tone, ai_required_fields, ai_manager_email, ai_boost_active, country, province, city, postal_code, daily_digest_enabled,
       legal_name, street_address, phone, fax, hst_number, omvic_reg } = req.body
@@ -197,8 +198,8 @@ export function registerAI(app) {
   })
 
   // POST /ai/knowledge-upload — extract text from an uploaded KB file (txt/md/csv,
-  // or a text-based PDF) and store it as the dealership knowledge base. DEALER_ADMIN.
-  app.post('/ai/knowledge-upload', requireAuth, requireDealerAdmin, async (req, res) => {
+  // or a text-based PDF) and store it as the dealership knowledge base.
+  app.post('/ai/knowledge-upload', requireAuth, requireMfa, requirePermission('settings.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const name = String(req.body?.name || 'knowledge').slice(0, 200)
     let text = String(req.body?.text || '')
@@ -209,6 +210,7 @@ export function registerAI(app) {
     const { error } = await supabaseAdmin.from('dealerships')
       .update({ ai_knowledge: text, ai_knowledge_name: name }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: 'Could not save the knowledge base.' })
+    audit(req, AuditAction.CONFIG_UPDATED, { fields: ['ai_knowledge', 'ai_knowledge_name'], source: 'knowledge_upload' })
     res.json({ ok: true, name, chars: text.length })
   })
 

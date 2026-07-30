@@ -695,15 +695,6 @@ async function marketMedianForScan({ vehicle, dealer, isUS, dealershipId, isOwne
   } catch { return null }
 }
 
-function requireDealerAdmin(req, res, next) {
-  // Dealer-level access: dealer admins, owners, and managers (a manager has full
-  // dealer access, just scoped to the store they're logged into).
-  if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) {
-    return res.status(403).json({ error: 'Dealer-level access required' })
-  }
-  next()
-}
-
 // Calculate median from a sorted array of numbers
 function median(sorted) {
   if (!sorted.length) return null
@@ -796,6 +787,6 @@ export {
   PRODUCT_KB, ASSISTANT_TOOLS, REPORT_TOPICS,
   buildDealershipReport, runAssistantTool,
   skipPriceComp, PRICE_MIN_COMPS, buildPriceFlag, aiErrorMessage,
-  marketMedianForScan, requireDealerAdmin, median, mileageAdjustedMedian,
+  marketMedianForScan, median, mileageAdjustedMedian,
   computeDailyDigest,
 }

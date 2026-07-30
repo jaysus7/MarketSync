@@ -57,6 +57,16 @@ test('dealer-wide configuration requires MFA and settings authority', () => {
   assert.match(source('migrations/2026-07-29-rbac-api-key-permission.sql'), /'settings\.manage'/)
 })
 
+test('AI configuration and knowledge base management use MFA and settings authority', () => {
+  const ai = source('routes/ai.js')
+  const guard = "requireAuth, requireMfa, requirePermission('settings.manage')"
+  for (const endpoint of ["app.get('/ai/config'", "app.put('/ai/config'", "app.post('/ai/knowledge-upload'"]) {
+    assert.ok(ai.includes(`${endpoint}, ${guard}`), `${endpoint} should use the settings security guard`)
+  }
+  assert.doesNotMatch(ai, /requireDealerAdmin/)
+  assert.match(ai, /source: 'knowledge_upload'/)
+})
+
 test('inventory access relies on inventory permissions and site uploads use site authority', () => {
   const inventory = source('routes/inventory.js')
   assert.doesNotMatch(inventory, /canManageInventory|INV_MANAGERS/)
