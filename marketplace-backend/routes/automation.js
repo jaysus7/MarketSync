@@ -14,16 +14,15 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { timingSafeEqual } from 'crypto'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { requestHasCronSecret } from '../cron-auth.js'
 import { decryptJson } from '../crypto-pii.js'
 import { createNotification } from '../notifications.js'
 import { aiAllowed, recordUsage } from '../usage.js'
-import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
+import { SYSTEM_ROLES, hasSystemRole, requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 
 const DEALER_LEVEL = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
-const isDealerLevel = (req) => DEALER_LEVEL.includes(req.profile?.role)
 const digits = (s) => String(s || '').replace(/\D/g, '')
 const nowIso = () => new Date().toISOString()
 
@@ -921,9 +920,8 @@ export function registerAutomation(app) {
     try { res.json({ ok: true, ...(await runMorningDigest()) }) } catch (e) { res.status(500).json({ error: e.message }) }
   })
   // Manager self-serve: send myself today's briefing right now (for the "preview" button).
-  app.post('/automation/digest/preview', requireAuth, async (req, res) => {
+  app.post('/automation/digest/preview', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
     try {
       const dg = await buildDigest(req.dealershipId)
       const email = req.profile?.email || req.user?.email
@@ -942,9 +940,8 @@ export function registerAutomation(app) {
     try { res.json({ ok: true, ...(await runWeeklyBriefing(false)) }) } catch (e) { res.status(500).json({ error: e.message }) }
   })
   // Manager self-serve: build + email myself this week's briefing right now.
-  app.post('/automation/weekly/preview', requireAuth, async (req, res) => {
+  app.post('/automation/weekly/preview', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
     try {
       const { data: dl } = await supabaseAdmin.from('dealerships').select('name, automation_settings').eq('id', req.dealershipId).maybeSingle()
       const wk = await buildWeeklyBriefing(req.dealershipId, dealerSettings(dl).weekly_focus)
@@ -983,9 +980,8 @@ export function registerAutomation(app) {
   })
 
   // ── Campaign management (manager) ──────────────────────────────────────────
-  app.get('/automation/campaigns', requireAuth, async (req, res) => {
+  app.get('/automation/campaigns', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required', can_manage: false })
     await ensureCampaigns(req.dealershipId)
     const [{ data: campaigns }, { data: dealer }] = await Promise.all([
       supabaseAdmin.from('automated_campaigns').select('*').eq('dealership_id', req.dealershipId).order('sort'),
@@ -993,8 +989,7 @@ export function registerAutomation(app) {
     ])
     res.json({ campaigns: campaigns || [], settings: dealerSettings(dealer), region: { province: dealer?.province || null, country: dealer?.country || null }, can_manage: true })
   })
-  app.put('/automation/campaigns/:id', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.put('/automation/campaigns/:id', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     const b = req.body || {}, patch = { updated_at: nowIso() }
     if (b.name !== undefined) patch.name = String(b.name).slice(0, 120)
     if (b.subject_template !== undefined) patch.subject_template = String(b.subject_template || '').slice(0, 300) || null
@@ -1003,15 +998,16 @@ export function registerAutomation(app) {
     if (b.delay_minutes !== undefined) patch.delay_minutes = Math.max(0, parseInt(b.delay_minutes) || 0)
     if (b.send_at_hour !== undefined) patch.send_at_hour = b.send_at_hour === null ? null : Math.max(0, Math.min(23, parseInt(b.send_at_hour) || 0))
     if (b.sender_identity !== undefined && ['house', 'rep', 'dynamic_smart_switch'].includes(b.sender_identity)) patch.sender_identity = b.sender_identity
+    const { data: before } = await supabaseAdmin.from('automated_campaigns').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Campaign not found' })
     const { data, error } = await supabaseAdmin.from('automated_campaigns').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('*').maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
-    if (!data) return res.status(404).json({ error: 'Campaign not found' })
+    audit(req, 'automation.campaign_updated', { before_state: before, after_state: data })
     res.json({ ok: true, campaign: data })
   })
   // Create a new campaign — used by the "Add more" template library on the
   // Lead / Delivery / Holiday automation pages.
-  app.post('/automation/campaigns', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.post('/automation/campaigns', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     const b = req.body || {}
     const TRIGGERS = ['internet_lead', 'appointment_booked', 'show_no_sale', 'delivered', 'birthday', 'holiday']
     const trigger = TRIGGERS.includes(b.trigger_event) ? b.trigger_event : 'internet_lead'
@@ -1035,11 +1031,11 @@ export function registerAutomation(app) {
     }
     const { data, error } = await supabaseAdmin.from('automated_campaigns').insert(row).select('*').single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'automation.campaign_created', { after_state: data })
     res.json({ ok: true, campaign: data })
   })
   // Delete a (custom) campaign.
-  app.delete('/automation/campaigns/:id', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.delete('/automation/campaigns/:id', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     const { data: before } = await supabaseAdmin.from('automated_campaigns').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Campaign not found' })
     const { error } = await supabaseAdmin.from('automated_campaigns').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
@@ -1047,8 +1043,7 @@ export function registerAutomation(app) {
     audit(req, 'automation.campaign_deleted', { before_state: before, after_state: null })
     res.json({ ok: true })
   })
-  app.post('/automation/campaigns/reset', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.post('/automation/campaigns/reset', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     const { data: before } = await supabaseAdmin.from('automated_campaigns').select('id, key, name, category, trigger_event, channel, is_active').eq('dealership_id', req.dealershipId)
     await supabaseAdmin.from('automated_campaigns').delete().eq('dealership_id', req.dealershipId)
     await ensureCampaigns(req.dealershipId)
@@ -1058,8 +1053,7 @@ export function registerAutomation(app) {
   })
 
   // ── Settings (review URL, referral bonus, business hours, holidays…) ───────
-  app.put('/automation/settings', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.put('/automation/settings', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     const b = req.body || {}
     const { data: cur } = await supabaseAdmin.from('dealerships').select('automation_settings').eq('id', req.dealershipId).maybeSingle()
     const s = { ...(cur?.automation_settings || {}) }
@@ -1095,12 +1089,12 @@ export function registerAutomation(app) {
       message: h.message ? String(h.message).slice(0, 3000) : null,
     })).filter(h => h.name && (/^\d{2}-\d{2}$/.test(h.date) || h.rule))
     await supabaseAdmin.from('dealerships').update({ automation_settings: s }).eq('id', req.dealershipId)
+    audit(req, 'automation.settings_updated', { before_state: cur?.automation_settings || {}, after_state: s })
     res.json({ ok: true, settings: dealerSettings({ automation_settings: s }) })
   })
 
   // ── Manual event fire (delivered / show_no_sale / appointment / lead) ──────
-  app.post('/automation/event', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.post('/automation/event', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     const b = req.body || {}
     const trigger = String(b.trigger || '')
     if (!['internet_lead', 'appointment_booked', 'show_no_sale', 'delivered'].includes(trigger)) return res.status(400).json({ error: 'Bad trigger' })
@@ -1110,11 +1104,12 @@ export function registerAutomation(app) {
     const vehicleId = b.vehicle_id || c.interest_inventory_id || null
     if (trigger === 'delivered') await markDelivered(req.dealershipId, c.id, vehicleId, c.assigned_rep, b.delivery_date)
     else await enqueueForTrigger(req.dealershipId, trigger, { contactId: c.id, vehicleId, repId: c.assigned_rep })
+    audit(req, 'automation.event_enqueued', { contact_id: c.id, after_state: { trigger, vehicle_id: vehicleId } })
     res.json({ ok: true })
   })
 
   // ── Upcoming queue (for a contact or the whole store) ──────────────────────
-  app.get('/automation/queue', requireAuth, async (req, res) => {
+  app.get('/automation/queue', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     let q = supabaseAdmin.from('scheduled_messages').select('id, contact_id, campaign_id, channel, sender_identity, scheduled_at, status, cancel_reason, interval_marker').eq('dealership_id', req.dealershipId)
     if (req.query.contact_id) q = q.eq('contact_id', req.query.contact_id)
@@ -1124,7 +1119,7 @@ export function registerAutomation(app) {
   })
 
   // ── AI copy generation (context-aware) ─────────────────────────────────────
-  app.post('/automation/ai-copy', requireAuth, async (req, res) => {
+  app.post('/automation/ai-copy', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const instruction = String(b.instruction || '').slice(0, 400)
@@ -1157,7 +1152,7 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
   })
 
   // ── Live template preview (renders against a sample or real contact) ───────
-  app.post('/automation/preview', requireAuth, async (req, res) => {
+  app.post('/automation/preview', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     const b = req.body || {}
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('id, name, site_slug, branding, automation_settings').eq('id', req.dealershipId).maybeSingle()
     const s = dealerSettings(dealer)
