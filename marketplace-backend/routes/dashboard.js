@@ -1358,9 +1358,8 @@ export function registerRoutes(app) {
   // JSONB line-item / block fields — the full deal detail for the estimate + bill of sale.
   const DEAL_JSON_FIELDS = ['addons', 'fni_items', 'fees', 'insurance', 'vehicle']
 
-  app.get('/reports/deal', requireAuth, async (req, res) => {
+  app.get('/reports/deal', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const contactId = String(req.query.contact_id || '')
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
     const { data } = await supabaseAdmin.from('deals')
@@ -1392,9 +1391,8 @@ export function registerRoutes(app) {
     return (cur && cur >= base) ? cur + 1 : base
   }
 
-  app.post('/reports/deal', requireAuth, async (req, res) => {
+  app.post('/reports/deal', requireAuth, requirePermission('deal.create'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const contactId = String(req.body?.contact_id || '')
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
     // Confirm the contact belongs to this dealership before writing.
@@ -1504,9 +1502,8 @@ export function registerRoutes(app) {
   //   delivered      → vehicle handed over; car sold, customer delivered
   // Updates the deal + its linked inventory unit. The CONTACT status is updated
   // separately by the client (via /crm/contacts/:id) so pipeline automation fires.
-  app.post('/reports/deal/status', requireAuth, async (req, res) => {
+  app.post('/reports/deal/status', requireAuth, requireMfa, requirePermission('deal.finalize'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const contactId = String(req.body?.contact_id || '')
     const action = String(req.body?.action || '').toLowerCase()
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
@@ -1574,9 +1571,8 @@ export function registerRoutes(app) {
 
   // ── Desk-a-deal helpers: search customers, prefill one, search inventory ──────
   // Search ALL contacts (not just sold) so a deal can be started for anyone.
-  app.get('/deals/customers', requireAuth, async (req, res) => {
+  app.get('/deals/customers', requireAuth, requirePermission('deal.create'), async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, rows: [] })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const q = String(req.query.q || '').trim()
     let query = supabaseAdmin.from('contacts')
       .select('id, first_name, last_name, full_name, email, phone, phone_mobile, city, province')
@@ -1597,9 +1593,8 @@ export function registerRoutes(app) {
 
   // Full buyer block for the bill of sale (address, DL, phones), plus any vehicle
   // of interest so the desk can prefill the vehicle section.
-  app.get('/deals/customer', requireAuth, async (req, res) => {
+  app.get('/deals/customer', requireAuth, requirePermission('deal.create'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const id = String(req.query.id || '')
     if (!id) return res.status(400).json({ error: 'id required' })
     const { data: c } = await supabaseAdmin.from('contacts')
@@ -1617,9 +1612,8 @@ export function registerRoutes(app) {
   })
 
   // Saved trade appraisals for this customer — to pull into the desk's trade section.
-  app.get('/deals/trades', requireAuth, async (req, res) => {
+  app.get('/deals/trades', requireAuth, requirePermission('deal.create'), async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, rows: [] })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const contactId = String(req.query.contact_id || '')
     if (!contactId) return res.json({ ok: true, rows: [] })
     const cols = 'id, year, make, model, trim, vin, mileage, color, suggested_offer, retail_median, created_at, contact_id, customer'
@@ -1656,9 +1650,8 @@ export function registerRoutes(app) {
   })
 
   // Search this dealer's inventory for the vehicle section (VIN / stock / name).
-  app.get('/deals/vehicles', requireAuth, async (req, res) => {
+  app.get('/deals/vehicles', requireAuth, requirePermission('deal.create'), async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, rows: [] })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const q = String(req.query.q || '').trim()
     let query = supabaseAdmin.from('inventory')
       .select('id, vin, year, make, model, trim, mileage, exterior_color, stocknumber, price, status')
@@ -1673,9 +1666,8 @@ export function registerRoutes(app) {
 
   // Inventory report — the "what" data source for the custom report builder.
   // Filters by status and (lot-date) range; returns a flat row per vehicle.
-  app.get('/reports/inventory', requireAuth, async (req, res) => {
+  app.get('/reports/inventory', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, rows: [] })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const did = req.dealershipId
     const days = ({ '30': 30, '90': 90, '180': 180, '365': 365, 'all': null }[String(req.query.range || 'all')])
     const startIso = days ? new Date(Date.now() - days * 86400000).toISOString() : null

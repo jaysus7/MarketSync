@@ -137,3 +137,13 @@ test('dashboard reports use their corresponding RBAC permissions', () => {
   assert.match(dashboard, /app\.get\('\/dashboard\/sales-snapshot', requireAuth, requirePermission\('lead\.assign'\)/)
   assert.match(dashboard, /app\.get\('\/reports\/sold-deals', requireAuth, requireMfa, requirePermission\('customer\.export'\)/)
 })
+
+test('deal desk separates creation from approval and finalization authority', () => {
+  const dashboard = source('routes/dashboard.js')
+  assert.match(dashboard, /app\.get\('\/reports\/deal', requireAuth, requireMfa, requirePermission\('deal\.approve'\)/)
+  assert.match(dashboard, /app\.post\('\/reports\/deal', requireAuth, requirePermission\('deal\.create'\)/)
+  assert.match(dashboard, /app\.post\('\/reports\/deal\/status', requireAuth, requireMfa, requirePermission\('deal\.finalize'\)/)
+  for (const endpoint of ["app.get('/deals/customers'", "app.get('/deals/customer'", "app.get('/deals/trades'", "app.get('/deals/vehicles'"]) {
+    assert.ok(dashboard.includes(`${endpoint}, requireAuth, requirePermission('deal.create')`), `${endpoint} should require deal.create`)
+  }
+})
