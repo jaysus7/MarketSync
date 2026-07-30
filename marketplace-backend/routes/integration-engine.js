@@ -13,15 +13,15 @@
  * recorded in integration_deliveries and deduped, so a lead is pushed exactly once.
  */
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { audit } from '../audit.js'
 import { onEvent } from './events.js'
 import { getConfig, setConfig } from './config-engine.js'
 import { getContact } from './crm.js'
 import { buildAdf } from './leads.js'
 import { emitWebhook } from '../webhooks.js'
 import { syncDealToAccounting } from '../providers/accounting.js'
-
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 
 // Resolve the dealer's outbound method. Backward-compatible: if none is set but a
 // legacy crm_adf_email exists, default to ADF.
@@ -126,15 +126,17 @@ export function registerIntegrationEngine(app) {
   onEvent(onLeadCreated)     // subscribe the Integration Engine to captured leads
   onEvent(onDealDelivered)   // subscribe to deal delivery → external accounting sync
 
-  app.get('/integration/config', requireAuth, async (req, res) => {
+  // CRM credentials, delivery payloads, and extension queue entries can expose
+  // customer data and control outbound data flows. They are therefore limited to
+  // MFA-verified integration administrators rather than every signed-in dealer user.
+  app.get('/integration/config', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const cfg = await getConfig(req.dealershipId, 'crm_integration', {})
     res.json({ config: cfg })
   })
 
-  app.put('/integration/config', requireAuth, async (req, res) => {
+  app.put('/integration/config', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const b = req.body || {}
     const value = {
       method: ['none', 'api', 'adf', 'webhook', 'extension'].includes(b.method) ? b.method : 'none',
@@ -143,12 +145,24 @@ export function registerIntegrationEngine(app) {
       webhook_url: String(b.webhook_url || '').slice(0, 500),
       api: b.api && typeof b.api === 'object' ? b.api : {},
     }
-    try { await setConfig(req.dealershipId, 'crm_integration', value, req); res.json({ ok: true, config: value }) }
+    try {
+      await setConfig(req.dealershipId, 'crm_integration', value, req)
+      audit(req, 'integration.crm_configuration_updated', {
+        after_state: {
+          method: value.method,
+          crm: value.crm,
+          lead_email_configured: !!value.lead_email,
+          webhook_configured: !!value.webhook_url,
+          api_configured: Object.keys(value.api).length > 0,
+        },
+      })
+      res.json({ ok: true, config: value })
+    }
     catch (e) { res.status(500).json({ error: e.message }) }
   })
 
   // Delivery log (managers) — proof every lead reached the CRM.
-  app.get('/integration/deliveries', requireAuth, async (req, res) => {
+  app.get('/integration/deliveries', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const { data } = await supabaseAdmin.from('integration_deliveries').select('*')
       .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(200)
@@ -156,30 +170,31 @@ export function registerIntegrationEngine(app) {
   })
 
   // Chrome-extension queue: leads waiting to be autofilled into the dealer's CRM UI.
-  app.get('/integration/queue', requireAuth, async (req, res) => {
+  app.get('/integration/queue', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const { data } = await supabaseAdmin.from('integration_deliveries').select('*')
       .eq('dealership_id', req.dealershipId).eq('method', 'extension').eq('status', 'queued').order('created_at').limit(50)
     res.json({ queue: data || [] })
   })
 
-  app.post('/integration/queue/:id/ack', requireAuth, async (req, res) => {
+  app.post('/integration/queue/:id/ack', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     await supabaseAdmin.from('integration_deliveries').update({ status: 'acked', updated_at: new Date().toISOString() })
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    audit(req, 'integration.delivery_acknowledged', { delivery_id: req.params.id })
     res.json({ ok: true })
   })
 
   // Manual retry of a failed delivery.
-  app.post('/integration/deliveries/:id/retry', requireAuth, async (req, res) => {
+  app.post('/integration/deliveries/:id/retry', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: row } = await supabaseAdmin.from('integration_deliveries').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!row) return res.status(404).json({ error: 'not found' })
     await supabaseAdmin.from('integration_deliveries').delete().eq('id', row.id)   // clear dedupe so pushLead re-runs
     // Re-drive from the source event shape.
     if (row.entity_type === 'lead') await onLeadCreated({ event_name: 'lead.created', dealership_id: req.dealershipId, entity_id: row.entity_id, payload: { lead_id: row.entity_id } })
     else await onLeadCreated({ event_name: 'lead.created', dealership_id: req.dealershipId, entity_id: row.entity_id, payload: {} })
+    audit(req, 'integration.delivery_retried', { delivery_id: row.id, entity_id: row.entity_id, entity_type: row.entity_type, method: row.method })
     res.json({ ok: true })
   })
 }

@@ -30,3 +30,20 @@ test('integration management permission is seeded for dealer owners and general 
   assert.match(sql, /'integrations\.manage'/)
   assert.match(sql, /'dealer_group_owner','dealer_owner','general_manager'/)
 })
+
+test('CRM integration configuration and delivery queue require MFA and integration authority', () => {
+  const integration = source('routes/integration-engine.js')
+  const guard = "requireAuth, requireMfa, requirePermission('integrations.manage')"
+  for (const endpoint of [
+    "app.get('/integration/config'",
+    "app.put('/integration/config'",
+    "app.get('/integration/deliveries'",
+    "app.get('/integration/queue'",
+    "app.post('/integration/queue/:id/ack'",
+    "app.post('/integration/deliveries/:id/retry'",
+  ]) {
+    assert.ok(integration.includes(`${endpoint}, ${guard}`), `${endpoint} should use the integration security guard`)
+  }
+  assert.match(integration, /integration\.crm_configuration_updated/)
+  assert.match(integration, /integration\.delivery_retried/)
+})
