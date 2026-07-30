@@ -129,3 +129,11 @@ test('dashboard paid-feature and staff controls require MFA and RBAC', () => {
   assert.match(dashboard, /app\.get\('\/dealership\/team\/:userId\/stats', requireAuth, requireMfa, requirePermission\('users\.manage'\)/)
   assert.match(dashboard, /billing\.feature_flags_updated/)
 })
+
+test('dashboard reports use their corresponding RBAC permissions', () => {
+  const dashboard = source('routes/dashboard.js')
+  assert.match(dashboard, /app\.get\('\/dashboard\/inventory-mix', requireAuth, requirePermission\('inventory\.edit'\)/)
+  assert.match(dashboard, /app\.get\('\/dashboard\/sales-analysis', requireAuth, requirePermission\('inventory\.edit'\)/)
+  assert.match(dashboard, /app\.get\('\/dashboard\/sales-snapshot', requireAuth, requirePermission\('lead\.assign'\)/)
+  assert.match(dashboard, /app\.get\('\/reports\/sold-deals', requireAuth, requireMfa, requirePermission\('customer\.export'\)/)
+})

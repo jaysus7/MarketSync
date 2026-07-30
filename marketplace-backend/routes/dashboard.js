@@ -1045,9 +1045,8 @@ export function registerRoutes(app) {
   // ── Inventory mix & aging report (managers) ─────────────────────────────────
   // The classic lot breakdown: age buckets (0-30 / 31-60 / 61-90 / 90+), plus mix
   // by colour, by mileage band, and by make — count, value, and average age each.
-  app.get('/dashboard/inventory-mix', requireAuth, async (req, res) => {
+  app.get('/dashboard/inventory-mix', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, empty: true })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('country').eq('id', req.dealershipId).maybeSingle()
     const c = (dealer?.country || '').trim().toUpperCase()
     const isUS = c === 'US' || c === 'USA' || c === 'UNITED STATES'
@@ -1108,9 +1107,8 @@ export function registerRoutes(app) {
   // 'archived' (dropped off the feed). Sale date = sold_at ?? archived_at, and
   // days-to-sell = sale date − lot date. Grouped by colour, mileage band, make,
   // condition, and price band — count + avg days-to-sell + total value each.
-  app.get('/dashboard/sales-analysis', requireAuth, async (req, res) => {
+  app.get('/dashboard/sales-analysis', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, empty: true })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const days = ({ '30': 30, '90': 90, '180': 180, '365': 365 }[String(req.query.range || '90')]) || 90
     const startMs = Date.now() - days * 86400000
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('country').eq('id', req.dealershipId).maybeSingle()
@@ -1210,10 +1208,9 @@ export function registerRoutes(app) {
   // Live counts that each deep-link to a filtered view: unanswered leads, follow-ups
   // due today / overdue, appointments today, deals working, deliveries pending, and
   // units sold this month. Manager/admin scoped (dealership-wide).
-  app.get('/dashboard/sales-snapshot', requireAuth, async (req, res) => {
+  app.get('/dashboard/sales-snapshot', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     const did = req.dealershipId
     if (!did) return res.json({ ok: true, empty: true })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const now = new Date()
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
@@ -1249,9 +1246,8 @@ export function registerRoutes(app) {
   // interest, and delivery/ownership. F&I desk fields (manager, deposit, term,
   // products, gross, commissions, surveys) are returned as null — they need a deal
   // record that isn't captured yet, so they ship as empty columns to fill later.
-  app.get('/reports/sold-deals', requireAuth, async (req, res) => {
+  app.get('/reports/sold-deals', requireAuth, requireMfa, requirePermission('customer.export'), async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, rows: [], reps: [] })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const did = req.dealershipId
     const days = ({ '30': 30, '90': 90, '180': 180, '365': 365, 'all': null }[String(req.query.range || '365')])
     const startIso = days ? new Date(Date.now() - days * 86400000).toISOString() : null
