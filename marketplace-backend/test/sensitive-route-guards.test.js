@@ -84,3 +84,13 @@ test('salespeople cannot acknowledge another representative\'s lead', () => {
   assert.match(leads, /hasPermission\(req, 'lead\.assign'\)/)
   assert.match(leads, /contact\?\.assigned_rep !== req\.user\.id/)
 })
+
+test('bulk AI outreach requires MFA and lead-assignment authority', () => {
+  const bulk = source('routes/bulk.js')
+  const guard = "requireAuth, requireMfa, requirePermission('lead.assign')"
+  for (const endpoint of ["app.post('/ai/bulk/plan'", "app.post('/ai/bulk/execute'"]) {
+    assert.ok(bulk.includes(`${endpoint}, ${guard}`), `${endpoint} should use the bulk-outreach security guard`)
+  }
+  assert.doesNotMatch(bulk, /const isMgr/)
+  assert.match(bulk, /communications\.bulk_outreach_sent/)
+})
