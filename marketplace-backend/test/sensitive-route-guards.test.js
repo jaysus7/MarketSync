@@ -122,3 +122,10 @@ test('notifications use RBAC for management alerts and protect targeted alerts',
   assert.match(notifications, new RegExp("app\\.post\\('\\/notifications\\/:id\\/read'[\\s\\S]{0,700}" + ownerFilter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   assert.match(notifications, new RegExp("app\\.delete\\('\\/notifications\\/:id'[\\s\\S]{0,700}" + ownerFilter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 })
+
+test('dashboard paid-feature and staff controls require MFA and RBAC', () => {
+  const dashboard = source('routes/dashboard.js')
+  assert.match(dashboard, /app\.put\('\/dealership\/features', requireAuth, requireMfa, requirePermission\('billing\.manage'\)/)
+  assert.match(dashboard, /app\.get\('\/dealership\/team\/:userId\/stats', requireAuth, requireMfa, requirePermission\('users\.manage'\)/)
+  assert.match(dashboard, /billing\.feature_flags_updated/)
+})

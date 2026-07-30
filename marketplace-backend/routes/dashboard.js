@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { hasPermission, requirePermission } from '../authorization.js'
 import { emitWebhook } from '../webhooks.js'
 import { ensureGetReadyCard } from './recon.js'
 import { ensureDealTasks } from './dealertasks.js'
@@ -78,16 +79,16 @@ export function registerRoutes(app) {
     const { data } = await supabaseAdmin.from('dealerships').select('feature_flags').eq('id', req.dealershipId).maybeSingle()
     const f = (data?.feature_flags && typeof data.feature_flags === 'object') ? data.feature_flags : {}
     const features = Object.fromEntries(FEATURE_KEYS.map(k => [k, f[k] !== false]))   // default on
-    res.json({ features, can_manage: ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role) })
+    res.json({ features, can_manage: await hasPermission(req, 'billing.manage') })
   })
-  app.put('/dealership/features', requireAuth, async (req, res) => {
+  app.put('/dealership/features', requireAuth, requireMfa, requirePermission('billing.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Admin access required' })
     const body = req.body || {}
     const flags = {}
     for (const k of FEATURE_KEYS) if (k in body) flags[k] = !!body[k]
     const { error } = await supabaseAdmin.from('dealerships').update({ feature_flags: flags }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: 'Save failed' })
+    audit(req, 'billing.feature_flags_updated', { after_state: { feature_flags: flags } })
     res.json({ ok: true, features: Object.fromEntries(FEATURE_KEYS.map(k => [k, flags[k] !== false])) })
   })
 
@@ -851,11 +852,7 @@ export function registerRoutes(app) {
     })
   })
 
-  app.get('/dealership/team/:userId/stats', requireAuth, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Admins only' })
-    }
-
+  app.get('/dealership/team/:userId/stats', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     const { data: target } = await supabaseAdmin
       .from('profiles')
       .select('id, full_name, role, dealership_id, created_at')
