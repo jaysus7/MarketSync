@@ -350,10 +350,10 @@ export function registerRoutes(app) {
 
   // Edit a team member's public-facing profile (name, bio, photo) — coincides with
   // the website team card. Manager+ can edit any rep in their dealership.
-  app.put('/admin/users/:id/profile', requireAuth, async (req, res) => {
+  app.put('/admin/users/:id/profile', requireAuth, requirePermission('users.manage'), async (req, res) => {
     if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id').eq('id', req.params.id).maybeSingle()
+    const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id, full_name, display_name, bio, avatar_url, registration_id').eq('id', req.params.id).maybeSingle()
     if (!target || target.dealership_id !== req.dealershipId) return res.status(404).json({ error: 'User not found in your dealership' })
     const b = req.body || {}, patch = {}
     if (b.full_name !== undefined) patch.full_name = String(b.full_name || '').trim().slice(0, 120) || null
@@ -365,11 +365,16 @@ export function registerRoutes(app) {
     if (!Object.keys(patch).length) return res.json({ ok: true })
     const { error } = await supabaseAdmin.from('profiles').update(patch).eq('id', req.params.id)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, AuditAction.TEAM_MEMBER_PROFILE_UPDATED, {
+      target_user_id: req.params.id,
+      before_state: target,
+      after_state: { ...target, ...patch },
+    })
     res.json({ ok: true, ...patch })
   })
 
   // Reset a team member's password (dealer admin / owner only). Sets a temp password.
-  app.put('/admin/users/:id/password', requireAuth, requireMfa, async (req, res) => {
+  app.put('/admin/users/:id/password', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!['DEALER_ADMIN', 'OWNER'].includes(req.profile.role)) return res.status(403).json({ error: 'Dealer admin required' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (req.params.id === req.user.id) return res.status(400).json({ error: 'Use Settings to change your own password' })
@@ -380,14 +385,15 @@ export function registerRoutes(app) {
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' })
     const { error } = await supabaseAdmin.auth.admin.updateUserById(req.params.id, { password })
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, AuditAction.TEAM_MEMBER_PASSWORD_RESET, { target_user_id: req.params.id })
     res.json({ ok: true, password })
   })
 
   // Set a member's sales team + manager scope (for lead routing / notifications).
-  app.put('/admin/users/:id/team', requireAuth, async (req, res) => {
+  app.put('/admin/users/:id/team', requireAuth, requirePermission('users.manage'), async (req, res) => {
     if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id').eq('id', req.params.id).maybeSingle()
+    const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id, sales_team, mgr_role, active').eq('id', req.params.id).maybeSingle()
     if (!target || target.dealership_id !== req.dealershipId) return res.status(404).json({ error: 'User not found in your dealership' })
     const b = req.body || {}, patch = {}
     if (b.sales_team !== undefined) patch.sales_team = ['new', 'used', 'both'].includes(b.sales_team) ? b.sales_team : null
@@ -396,6 +402,11 @@ export function registerRoutes(app) {
     if (!Object.keys(patch).length) return res.json({ ok: true })
     const { error } = await supabaseAdmin.from('profiles').update(patch).eq('id', req.params.id)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, AuditAction.TEAM_MEMBER_TEAM_UPDATED, {
+      target_user_id: req.params.id,
+      before_state: target,
+      after_state: { ...target, ...patch },
+    })
     res.json({ ok: true, ...patch })
   })
 
