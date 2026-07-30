@@ -202,6 +202,16 @@ test('appraisal visibility and inventory acquisition use RBAC', () => {
   assert.match(ai, /data\.created_by !== req\.user\.id/)
 })
 
+test('AI assistant uses lead-assignment authority for manager-only access and actions', () => {
+  const ai = source('routes/ai.js')
+  assert.match(ai, /const canManageLeads = await hasPermission\(req, 'lead\.assign'\)/)
+  assert.doesNotMatch(ai, /isMgrRoleGate/)
+  assert.match(ai, /app\.post\('\/ai\/assistant\/action', requireAuth, requireMfa, requirePermission\('lead\.create'\)/)
+  assert.match(ai, /const isMgr = await hasPermission\(req, 'lead\.assign'\)/)
+  assert.match(ai, /assistant\.appointment_booked/)
+  assert.match(ai, /lead\.reassigned/)
+})
+
 test('dashboard management scope relies on lead-assignment permission', () => {
   const dashboard = source('routes/dashboard.js')
   assert.match(dashboard, /app\.get\('\/dealership\/charts', requireAuth, requirePermission\('lead\.assign'\)/)

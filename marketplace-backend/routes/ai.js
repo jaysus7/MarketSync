@@ -2674,9 +2674,10 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
 
     const entitled = isOwner || !!dealer?.ai_boost_active || !!dealer?.inv_intel_active
     if (!entitled) return res.status(403).json({ error: 'The AI assistant needs AI Boost or Inventory Intelligence.' })
-    // Access control: the dealer can restrict the assistant to managers only.
-    const isMgrRoleGate = isOwner || ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
-    if (!isMgrRoleGate && dealer?.ai_assistant_reps === false) {
+    // Access control: a dealer can restrict the assistant to staff who can route
+    // leads. This is deliberately an RBAC permission, never a legacy role label.
+    const canManageLeads = await hasPermission(req, 'lead.assign')
+    if (!canManageLeads && dealer?.ai_assistant_reps === false) {
       return res.status(403).json({ error: 'The AI assistant is limited to managers at your dealership.' })
     }
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI is not configured.' })
@@ -2767,7 +2768,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
     const isUS = /^(us|usa|united states)$/i.test((dealer?.country || '').trim())
     // Finance topics of the dealership report (revenue, per-rep commissions) are
     // manager-only; a rep asking gets the non-financial slices.
-    const isMgrRole = isOwner || ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
+    const isMgrRole = canManageLeads
 
     try {
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -2840,10 +2841,9 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   // the user clicked confirm in the dock. Server-side + strict matching so a fuzzy
   // name can never silently mutate the wrong record. create_task / bulk_outreach are
   // handled client-side; this covers book_appointment + reassign_lead.
-  app.post('/ai/assistant/action', requireAuth, async (req, res) => {
+  app.post('/ai/assistant/action', requireAuth, requireMfa, requirePermission('lead.create'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const isOwner = isPlatformOwner(req)
-    const isMgr = isOwner || ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
+    const isMgr = await hasPermission(req, 'lead.assign')
     const a = req.body || {}
     // Resolve exactly one contact for a name/phone/email, else a clear disambiguation error.
     const findContact = async (q) => {
@@ -2874,6 +2874,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
           title, type: 'appointment', due_at: when.toISOString(),
         })
         if (error) return res.status(500).json({ error: error.message })
+        audit(req, 'assistant.appointment_booked', { contact_id: r.contact.id, due_at: when.toISOString() })
         return res.json({ ok: true, message: `Appointment booked for ${name} on ${when.toLocaleString('en-US')}.` })
       }
       if (a.action === 'reassign_lead') {
@@ -2893,6 +2894,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
         const { error } = await supabaseAdmin.from('contacts').update({ assigned_rep: rep.id })
           .eq('id', r.contact.id).eq('dealership_id', req.dealershipId)
         if (error) return res.status(500).json({ error: error.message })
+        audit(req, 'lead.reassigned', { contact_id: r.contact.id, assigned_rep: rep.id, source: 'ai_assistant' })
         return res.json({ ok: true, message: `${name} reassigned to ${repName}.` })
       }
       return res.status(400).json({ error: 'Unknown action.' })
