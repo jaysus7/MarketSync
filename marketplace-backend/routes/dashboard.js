@@ -1719,7 +1719,6 @@ export function registerRoutes(app) {
   // label-only staff records. One roster endpoint serves both.
   const LOGIN_TEAMS = { sales: ['SALES_REP'], management: ['MANAGER', 'DEALER_ADMIN', 'OWNER'] }
   const LABEL_TEAMS = ['service', 'admin', 'cleanup', 'lot']
-  const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 
   app.get('/team/roster', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, team: 'sales', members: [], login: false })
@@ -1739,9 +1738,8 @@ export function registerRoutes(app) {
     res.status(400).json({ error: 'Unknown team' })
   })
 
-  app.post('/team/staff', requireAuth, async (req, res) => {
+  app.post('/team/staff', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const team = String(req.body?.team || '').toLowerCase()
     const name = String(req.body?.name || '').trim()
     if (!LABEL_TEAMS.includes(team)) return res.status(400).json({ error: 'Invalid team' })
@@ -1756,16 +1754,17 @@ export function registerRoutes(app) {
     if (req.body?.id) {
       const { data, error } = await supabaseAdmin.from('staff_members').update(row).eq('id', req.body.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
       if (error) return res.status(500).json({ error: 'Save failed' })
+      if (data) audit(req, 'team.staff_updated', { staff_id: data.id, after_state: { team: data.team, contact_details_configured: !!(data.phone || data.email) } })
       return res.json({ ok: true, member: data })
     }
     const { data, error } = await supabaseAdmin.from('staff_members').insert(row).select().maybeSingle()
     if (error) return res.status(500).json({ error: 'Save failed' })
+    if (data) audit(req, 'team.staff_created', { staff_id: data.id, after_state: { team: data.team, contact_details_configured: !!(data.phone || data.email) } })
     res.json({ ok: true, member: data })
   })
 
-  app.delete('/team/staff/:id', requireAuth, async (req, res) => {
+  app.delete('/team/staff/:id', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data, error } = await supabaseAdmin.from('staff_members')
       .update({ active: false, updated_at: new Date().toISOString() })
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).eq('active', true)

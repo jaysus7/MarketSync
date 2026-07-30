@@ -147,3 +147,13 @@ test('deal desk separates creation from approval and finalization authority', ()
     assert.ok(dashboard.includes(`${endpoint}, requireAuth, requirePermission('deal.create')`), `${endpoint} should require deal.create`)
   }
 })
+
+test('label-only staff administration requires MFA and user-management authority', () => {
+  const dashboard = source('routes/dashboard.js')
+  const guard = "requireAuth, requireMfa, requirePermission('users.manage')"
+  for (const endpoint of ["app.post('/team/staff'", "app.delete('/team/staff/:id'"]) {
+    assert.ok(dashboard.includes(`${endpoint}, ${guard}`), `${endpoint} should require the team-administration guard`)
+  }
+  assert.match(dashboard, /team\.staff_created/)
+  assert.match(dashboard, /team\.staff_updated/)
+})
