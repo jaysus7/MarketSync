@@ -14,7 +14,6 @@ import { requirePermission } from '../authorization.js'
 import { audit, AuditAction, exportReason } from '../audit.js'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)
 const canApprove = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)   // controller / GM level
 const n = (v) => { const x = Number(String(v ?? '').toString().replace(/[^0-9.\-]/g, '')); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
@@ -81,21 +80,21 @@ async function unpostLedger(id, actorId) {
 }
 
 export function registerExpenses(app) {
-  const guard = (req, res) => { if (!req.dealershipId) { res.status(400).json({ error: 'No dealership' }); return false } if (!isMgr(req)) { res.status(403).json({ error: 'Manager access required' }); return false } return true }
+  const guard = (req, res) => { if (!req.dealershipId) { res.status(400).json({ error: 'No dealership' }); return false } return true }
 
   // Static option lists for the form (categories, departments, etc.).
-  app.get('/expenses/options', requireAuth, async (req, res) => {
+  app.get('/expenses/options', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     res.json({ ok: true, departments: DEPARTMENTS, categories: CATEGORIES, payment_methods: PAYMENT_METHODS, recurrences: RECURRENCES, statuses: STATUSES })
   })
 
   // ── Vendors ──────────────────────────────────────────────────────────────────
-  app.get('/expense-vendors', requireAuth, async (req, res) => {
+  app.get('/expense-vendors', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const { data } = await supabaseAdmin.from('expense_vendors').select('*').eq('dealership_id', req.dealershipId).order('name', { ascending: true })
     res.json({ ok: true, vendors: data || [] })
   })
-  app.post('/expense-vendors', requireAuth, async (req, res) => {
+  app.post('/expense-vendors', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const name = String(req.body?.name || '').trim().slice(0, 120)
     if (!name) return res.status(400).json({ error: 'Vendor name required' })
@@ -105,7 +104,7 @@ export function registerExpenses(app) {
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, vendor: data })
   })
-  app.delete('/expense-vendors/:id', requireAuth, async (req, res) => {
+  app.delete('/expense-vendors/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const { data: before } = await supabaseAdmin.from('expense_vendors').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Vendor not found' })
@@ -116,7 +115,7 @@ export function registerExpenses(app) {
   })
 
   // ── Receipt upload (image or PDF) → storage, returns a URL ────────────────────
-  app.post('/expenses/upload-receipt', requireAuth, upload.single('file'), async (req, res) => {
+  app.post('/expenses/upload-receipt', requireAuth, requireMfa, requirePermission('accounting.edit'), upload.single('file'), async (req, res) => {
     if (!guard(req, res)) return
     if (!req.file) return res.status(400).json({ error: 'No file' })
     const mime = req.file.mimetype || ''
@@ -131,7 +130,7 @@ export function registerExpenses(app) {
   })
 
   // ── List with filters + search ────────────────────────────────────────────────
-  app.get('/expenses', requireAuth, async (req, res) => {
+  app.get('/expenses', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const q = req.query
     let query = supabaseAdmin.from('expenses').select('*').eq('dealership_id', req.dealershipId)
@@ -178,7 +177,7 @@ export function registerExpenses(app) {
     res.send(lines.join('\n'))
   })
 
-  app.get('/expenses/:id', requireAuth, async (req, res) => {
+  app.get('/expenses/:id', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const { data } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!data) return res.status(404).json({ error: 'Not found' })
@@ -186,7 +185,7 @@ export function registerExpenses(app) {
   })
 
   // ── Create ────────────────────────────────────────────────────────────────────
-  app.post('/expenses', requireAuth, async (req, res) => {
+  app.post('/expenses', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const f = fieldsFrom(req.body || {})
     // Mileage reimbursement: km × rate → amount when no explicit amount was entered.
@@ -207,7 +206,7 @@ export function registerExpenses(app) {
   })
 
   // ── Edit ──────────────────────────────────────────────────────────────────────
-  app.put('/expenses/:id', requireAuth, async (req, res) => {
+  app.put('/expenses/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const { data: cur } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!cur) return res.status(404).json({ error: 'Not found' })
@@ -225,7 +224,7 @@ export function registerExpenses(app) {
     res.json({ ok: true, expense: data })
   })
 
-  app.delete('/expenses/:id', requireAuth, async (req, res) => {
+  app.delete('/expenses/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const { data: cur } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!cur) return res.status(404).json({ error: 'Not found' })
@@ -240,7 +239,7 @@ export function registerExpenses(app) {
   })
 
   // ── Approval workflow ──────────────────────────────────────────────────────────
-  app.post('/expenses/:id/approve', requireAuth, async (req, res) => {
+  app.post('/expenses/:id/approve', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!canApprove(req)) return res.status(403).json({ error: 'Approver access required' })
     const { data: cur } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
@@ -253,7 +252,7 @@ export function registerExpenses(app) {
     audit(req, 'expense.approved', { before_state: cur, after_state: data })
     res.json({ ok: true, expense: data })
   })
-  app.post('/expenses/:id/reject', requireAuth, async (req, res) => {
+  app.post('/expenses/:id/reject', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!canApprove(req)) return res.status(403).json({ error: 'Approver access required' })
     const { data: cur } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
@@ -266,7 +265,7 @@ export function registerExpenses(app) {
     res.json({ ok: true, expense: data })
   })
   // Mark a reimbursable expense as paid out to the employee.
-  app.post('/expenses/:id/mark-reimbursed', requireAuth, async (req, res) => {
+  app.post('/expenses/:id/mark-reimbursed', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const { data: cur } = await supabaseAdmin.from('expenses').select('events').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!cur) return res.status(404).json({ error: 'Not found' })
@@ -277,7 +276,7 @@ export function registerExpenses(app) {
   })
 
   // ── Recurring: clone each recurring template into the given month if missing ────
-  app.post('/expenses/generate-recurring', requireAuth, async (req, res) => {
+  app.post('/expenses/generate-recurring', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const month = /^\d{4}-\d{2}$/.test(String(req.body?.month || '')) ? String(req.body.month) : today().slice(0, 7)
     const { data: templates } = await supabaseAdmin.from('expenses').select('*').eq('dealership_id', req.dealershipId).eq('recurring', true).is('recurring_source_id', null).limit(500)
@@ -299,7 +298,7 @@ export function registerExpenses(app) {
   })
 
   // ── Month-end / daily close checks ──────────────────────────────────────────────
-  app.get('/expenses/checks', requireAuth, async (req, res) => {
+  app.get('/expenses/checks', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7)
     const from = month + '-01', to = month + '-31'
@@ -328,7 +327,7 @@ export function registerExpenses(app) {
 
   // ── Reports ────────────────────────────────────────────────────────────────────
   // type: department | employee | vin | vendor | category | reimbursements | tax | payment
-  app.get('/expenses/report/:type', requireAuth, async (req, res) => {
+  app.get('/expenses/report/:type', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const type = req.params.type
     const from = String(req.query.from || (today().slice(0, 7) + '-01'))
