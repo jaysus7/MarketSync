@@ -201,3 +201,9 @@ test('appraisal visibility and inventory acquisition use RBAC', () => {
   }
   assert.match(ai, /data\.created_by !== req\.user\.id/)
 })
+
+test('dashboard management scope relies on lead-assignment permission', () => {
+  const dashboard = source('routes/dashboard.js')
+  assert.match(dashboard, /app\.get\('\/dealership\/charts', requireAuth, requirePermission\('lead\.assign'\)/)
+  assert.equal(dashboard.split("hasPermission(req, 'lead.assign')").length - 1 >= 2, true)
+})

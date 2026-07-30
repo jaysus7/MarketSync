@@ -236,10 +236,7 @@ export function registerRoutes(app) {
     res.json({ events: events.slice(0, 25) })
   })
 
-  app.get('/dealership/charts', requireAuth, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Admins only' })
-    }
+  app.get('/dealership/charts', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.json({ daily: [], by_rep: [] })
 
     // Honor the same ?range= filter as /dashboard/insights. Lifetime means no filter.
@@ -666,7 +663,7 @@ export function registerRoutes(app) {
   })
 
   app.get('/dashboard/insights', requireAuth, async (req, res) => {
-    const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
+    const isAdmin = await hasPermission(req, 'lead.assign')
     const now = new Date()
 
     // Time range filter: lifetime | 365 | 90 | 30 | 7 (days). Defaults to lifetime.
@@ -884,7 +881,7 @@ export function registerRoutes(app) {
   // (once captured) attributed sales by source.
   app.get('/dashboard/executive', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, empty: true })
-    const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
+    const isMgr = await hasPermission(req, 'lead.assign')
     const selfId = req.user.id
     const days = ({ '7': 7, '30': 30, '90': 90, '365': 365 }[String(req.query.range || '90')]) || 90
     const now = Date.now()
