@@ -136,6 +136,37 @@ The app talks to the deployed backend (the API base is set in the page scripts).
 Migrations are plain SQL in `marketplace-backend/migrations/`, named by date. To apply one,
 paste it into the Supabase SQL editor and run it (each is written to be safe to re-run).
 
+### RLS baseline for staging
+
+MarketSync uses a **backend-only Data API model**: the browser talks to the authenticated
+MarketSync backend, and the backend applies RBAC plus dealership checks before using its
+server-only Supabase key. Do not add `anon` or `authenticated` table policies for the
+business tables unless the application is deliberately redesigned for direct browser access.
+
+After bootstrapping or rebuilding the **staging** database, re-run these SQL files in the
+staging project's SQL editor, in this order:
+
+1. `2026-07-01-ai-activity.sql`
+2. `2026-07-16-recon.sql`
+3. `2026-07-29-core-tenant-rls.sql`
+4. `2026-07-29-accounting-tenant-rls.sql`
+5. `2026-07-29-ai-automation-tenant-rls.sql`
+6. `2026-07-29-operations-tenant-rls.sql`
+7. `2026-07-29-service-fni-tenant-rls.sql`
+
+Those scripts enable RLS and remove legacy direct-access policies. Verify with:
+
+```sql
+select tablename, policyname
+from pg_policies
+where schemaname = 'public'
+order by tablename, policyname;
+```
+
+For the backend-only model, this query should return no business-table policies. The
+service-role key must remain in Render environment variables only — never in frontend or
+extension code.
+
 ## The blog pipeline (n8n → Supabase)
 
 Blog posts are **not** stored in the repo — they live in the Supabase `blog_posts` table and
