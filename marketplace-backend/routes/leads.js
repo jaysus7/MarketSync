@@ -182,7 +182,7 @@ export function registerLeads(app) {
 
   // Reassign a lead to a different salesperson (manager/dealer-admin only). Ownership
   // lives on the linked contact's assigned_rep — the same field the routing + list use.
-  app.put('/leads/:id/assign', requireAuth, async (req, res) => {
+  app.put('/leads/:id/assign', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
       return res.status(403).json({ error: 'Manager access required' })
@@ -304,7 +304,7 @@ export function registerLeads(app) {
 
   // Import leads from CSV (manager only). Matches header names to fields; each row
   // becomes a lead + CRM contact (deduped) and is routed/notified like a normal lead.
-  app.post('/leads/import', requireAuth, async (req, res) => {
+  app.post('/leads/import', requireAuth, requirePermission('lead.create'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
     const csv = String(req.body?.csv || '')
@@ -345,7 +345,7 @@ export function registerLeads(app) {
   })
 
   // Capture a lead and (if a CRM address is set) deliver it as ADF XML by email.
-  app.post('/leads', requireAuth, async (req, res) => {
+  app.post('/leads', requireAuth, requirePermission('lead.create'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { name, email, phone, comments, inventory_id, source } = req.body || {}
     if (!name && !email && !phone) return res.status(400).json({ error: 'Enter at least a name, phone, or email' })
@@ -417,7 +417,7 @@ export function registerLeads(app) {
     const r = (d?.lead_routing && typeof d.lead_routing === 'object') ? d.lead_routing : {}
     res.json({ routing: { mode: r.mode === 'all' ? 'all' : 'targeted', notify_reps: r.notify_reps !== false, notify_managers: r.notify_managers !== false, notify_all_sales: !!r.notify_all_sales }, can_manage: ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role) })
   })
-  app.put('/leads/routing', requireAuth, async (req, res) => {
+  app.put('/leads/routing', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
@@ -427,7 +427,7 @@ export function registerLeads(app) {
     res.json({ ok: true, routing })
   })
 
-  app.put('/leads/crm-email', requireAuth, async (req, res) => {
+  app.put('/leads/crm-email', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
       return res.status(403).json({ error: 'Dealer admin required' })
     }

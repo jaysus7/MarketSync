@@ -113,7 +113,7 @@ export function registerRoutes(app) {
   // touches them. This is the "we host your inventory" path — photos + all.
 
   // Create a vehicle
-  app.post('/inventory', requireAuth, async (req, res) => {
+  app.post('/inventory', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const b = req.body || {}
@@ -147,7 +147,7 @@ export function registerRoutes(app) {
   })
 
   // Edit a vehicle (any owned unit — manual or synced)
-  app.put('/inventory/:id', requireAuth, async (req, res) => {
+  app.put('/inventory/:id', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const b = req.body || {}
@@ -217,7 +217,7 @@ export function registerRoutes(app) {
   })
 
   // Upload photos (multipart) → Supabase Storage → append to image_urls
-  app.post('/inventory/:id/photos', requireAuth, photoUpload.array('photos', 30), async (req, res) => {
+  app.post('/inventory/:id/photos', requireAuth, requirePermission('inventory.edit'), photoUpload.array('photos', 30), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: v } = await supabaseAdmin.from('inventory')
@@ -258,7 +258,7 @@ export function registerRoutes(app) {
 
   // Set the full photo order / removal (client sends the desired image_urls array).
   // Any uploaded photo dropped from the list is also deleted from storage.
-  app.put('/inventory/:id/photos', requireAuth, async (req, res) => {
+  app.put('/inventory/:id/photos', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const nextUrls = Array.isArray(req.body?.image_urls) ? req.body.image_urls : null
@@ -387,7 +387,7 @@ export function registerRoutes(app) {
     res.send(toCsv(data || []))
   })
 
-  app.post('/inventory/import', requireAuth, async (req, res) => {
+  app.post('/inventory/import', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const csv = req.body && req.body.csv
     if (!csv || typeof csv !== 'string') return res.status(400).json({ error: 'Provide CSV text as { csv }' })
@@ -447,7 +447,7 @@ export function registerRoutes(app) {
     res.json(syncProgress.get(req.dealershipId) || { phase: 'idle', pct: 0 })
   })
 
-  app.post('/inventory/sync', requireAuth, async (req, res) => {
+  app.post('/inventory/sync', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this account' })
     try {
       const result = await runInventorySync(req.dealershipId)
