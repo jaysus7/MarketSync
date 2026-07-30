@@ -1,6 +1,8 @@
 import express from 'express'
 import { stripe, supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import {
   sendTrialStarted,
   sendTrialExpiring,
@@ -71,6 +73,14 @@ function packageInSub(sub) {
     if (k) return k
   }
   return null
+}
+
+// A personal/solo workspace may manage only its own profile billing. A dealership
+// subscription is a company-level commitment and requires the explicit RBAC grant.
+function requireBillingManage(req, res, next) {
+  const isPersonal = req.profile?.dealerships?.is_personal === true || !req.dealershipId
+  if (isPersonal) return next()
+  return requirePermission('billing.manage')(req, res, next)
 }
 // Entitlement columns for a package. Growth & Pro unlock the AI Boost and
 // Inventory Intelligence bundles (which cascade to Vision/docs/VIN/appraisals);
@@ -327,9 +337,6 @@ export function registerRoutes(app) {
   // ── Checkout helpers ───────────────────────────────────────────────────────
 
   async function createAddonCheckout(req, res, addonKey) {
-    if (req.profile?.role !== 'DEALER_ADMIN' && req.profile?.role !== 'OWNER') {
-      return res.status(403).json({ error: 'Admin role required' })
-    }
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
 
     const envKey = {
@@ -394,9 +401,9 @@ export function registerRoutes(app) {
   }
 
   // ── Add-on subscription endpoints ─────────────────────────────────────────
-  app.post('/billing/subscribe-ai-boost',    requireAuth, requireMfa, (req, res) => createAddonCheckout(req, res, 'ai_boost'))
-  app.post('/billing/subscribe-ai-chatbot',  requireAuth, requireMfa, (req, res) => createAddonCheckout(req, res, 'ai_chatbot'))
-  app.post('/billing/subscribe-inv-intel',   requireAuth, requireMfa, (req, res) => createAddonCheckout(req, res, 'inv_intel'))
+  app.post('/billing/subscribe-ai-boost',    requireAuth, requireMfa, requireBillingManage, (req, res) => createAddonCheckout(req, res, 'ai_boost'))
+  app.post('/billing/subscribe-ai-chatbot',  requireAuth, requireMfa, requireBillingManage, (req, res) => createAddonCheckout(req, res, 'ai_chatbot'))
+  app.post('/billing/subscribe-inv-intel',   requireAuth, requireMfa, requireBillingManage, (req, res) => createAddonCheckout(req, res, 'inv_intel'))
   // Retired add-ons — VIN & Brochure (OEM) is now core; AI Vision + generated docs
   // are part of AI Boost. Point any stale clients at AI Boost.
   const retired = (req, res) => res.status(410).json({ error: 'This add-on has moved into AI Boost.', redirect: 'ai_boost' })
@@ -407,9 +414,6 @@ export function registerRoutes(app) {
   // Currency follows the dealer's country (US → USD, else CAD); the client may
   // override with { currency }. 30-day free trial, no card required up front.
   async function createPackageCheckout(req, res) {
-    if (req.profile?.role !== 'DEALER_ADMIN' && req.profile?.role !== 'OWNER') {
-      return res.status(403).json({ error: 'Admin role required' })
-    }
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const pkgKey = String(req.body?.package || '').toLowerCase()
     const pkg = PACKAGES[pkgKey]
@@ -439,9 +443,9 @@ export function registerRoutes(app) {
       res.json({ url: session.url })
     } catch (err) { res.status(500).json({ error: err.message }) }
   }
-  app.post('/billing/subscribe-package', requireAuth, requireMfa, createPackageCheckout)
+  app.post('/billing/subscribe-package', requireAuth, requireMfa, requireBillingManage, createPackageCheckout)
 
-  app.get('/billing/package-verify', requireAuth, async (req, res) => {
+  app.get('/billing/package-verify', requireAuth, requireMfa, requireBillingManage, async (req, res) => {
     const { session_id } = req.query
     if (!session_id) return res.status(400).json({ error: 'session_id required' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
@@ -475,14 +479,14 @@ export function registerRoutes(app) {
     res.json({ currency, packages: rows })
   })
 
-  app.get('/billing/ai-boost-verify',    requireAuth, (req, res) => verifyAddonSession(req, res, 'ai_boost'))
-  app.get('/billing/ai-chatbot-verify',  requireAuth, (req, res) => verifyAddonSession(req, res, 'ai_chatbot'))
-  app.get('/billing/vin-sticker-verify', requireAuth, (req, res) => verifyAddonSession(req, res, 'vin_sticker'))
-  app.get('/billing/inv-intel-verify',   requireAuth, (req, res) => verifyAddonSession(req, res, 'inv_intel'))
-  app.get('/billing/ai-vision-verify',   requireAuth, (req, res) => verifyAddonSession(req, res, 'ai_vision'))
+  app.get('/billing/ai-boost-verify',    requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'ai_boost'))
+  app.get('/billing/ai-chatbot-verify',  requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'ai_chatbot'))
+  app.get('/billing/vin-sticker-verify', requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'vin_sticker'))
+  app.get('/billing/inv-intel-verify',   requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'inv_intel'))
+  app.get('/billing/ai-vision-verify',   requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'ai_vision'))
 
   // ── Customer Portal ────────────────────────────────────────────────────────
-  app.post('/billing/portal', requireAuth, requireMfa, async (req, res) => {
+  app.post('/billing/portal', requireAuth, requireMfa, requireBillingManage, async (req, res) => {
     const customerId = req.profile.dealerships?.stripe_customer_id || req.profile.stripe_customer_id
     if (!customerId) return res.status(400).json({ error: 'No billing account found' })
 
@@ -498,13 +502,9 @@ export function registerRoutes(app) {
   })
 
   // ── Main checkout (base platform plan) ────────────────────────────────────
-  app.post('/billing/checkout', requireAuth, requireMfa, async (req, res) => {
+  app.post('/billing/checkout', requireAuth, requireMfa, requireBillingManage, async (req, res) => {
     const isPersonal = req.profile.dealerships?.is_personal === true
     const isSolo = !req.dealershipId || isPersonal
-
-    if (req.profile.role === 'SALES_REP' && req.dealershipId && !isPersonal) {
-      return res.status(403).json({ error: 'Sales reps under a dealership do not manage billing.' })
-    }
 
     const existingCustomerId = isSolo
       ? req.profile.stripe_customer_id
@@ -585,7 +585,7 @@ export function registerRoutes(app) {
   // Hit daily by Render Cron (or any scheduler). Sends warning emails to any
   // dealership whose trial ends within the next 24 hours.
   app.post('/cron/trial-expiry', async (req, res) => {
-    if ((req.headers['x-cron-secret'] || '').trim() !== (process.env.CRON_SECRET || '').trim()) {
+    if (!requestHasCronSecret(req)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 

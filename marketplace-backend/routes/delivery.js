@@ -7,7 +7,9 @@
  * This is the workflow engine made visible.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { audit } from '../audit.js'
 import { emitEvent } from './events.js'
 
 const CHECKLIST = [
@@ -17,11 +19,9 @@ const CHECKLIST = [
   { key: 'documents', label: 'Documents signed' },
   { key: 'customer_notified', label: 'Customer notified' },
 ]
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'].includes(req.profile?.role)
-
 export function registerDelivery(app) {
   // The queue: sold-but-not-delivered deals + their checklist + who/what.
-  app.get('/delivery/queue', requireAuth, async (req, res) => {
+  app.get('/delivery/queue', requireAuth, requirePermission('deal.finalize'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const { data: deals } = await supabaseAdmin.from('deals')
       .select('id, deal_number, contact_id, inventory_id, deal_status, delivery_checklist, delivery_date, updated_at')
@@ -55,7 +55,7 @@ export function registerDelivery(app) {
   })
 
   // Toggle one checklist item.
-  app.post('/delivery/:id/checklist', requireAuth, async (req, res) => {
+  app.post('/delivery/:id/checklist', requireAuth, requirePermission('deal.finalize'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const key = String(req.body?.key || '')
     if (!CHECKLIST.some(i => i.key === key)) return res.status(400).json({ error: 'unknown checklist item' })
@@ -65,13 +65,13 @@ export function registerDelivery(app) {
     cl[key] = !!req.body?.done
     const { error } = await supabaseAdmin.from('deals').update({ delivery_checklist: cl, updated_at: new Date().toISOString() }).eq('id', req.params.id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'deal.delivery_checklist_updated', { deal_id: req.params.id, after_state: { checklist_item: key, done: cl[key] } })
     res.json({ ok: true, checklist: cl })
   })
 
   // Complete delivery → the kernel event drives accounting + commission + sync.
-  app.post('/delivery/:id/deliver', requireAuth, async (req, res) => {
+  app.post('/delivery/:id/deliver', requireAuth, requireMfa, requirePermission('deal.finalize'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: deal } = await supabaseAdmin.from('deals').select('id, deal_status, contact_id, inventory_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!deal) return res.status(404).json({ error: 'not found' })
     if (deal.deal_status === 'delivered') return res.json({ ok: true, already: true })
@@ -83,6 +83,11 @@ export function registerDelivery(app) {
       dealershipId: req.dealershipId, eventName: 'deal.status_changed', entityType: 'deal', entityId: deal.id,
       summary: 'Deal delivered', toState: 'delivered', department: 'Delivery', createdBy: req.user?.id || null,
       payload: { contact_id: deal.contact_id || null, inventory_id: deal.inventory_id || null, action: 'delivery_queue' },
+    })
+    audit(req, 'deal.delivered', {
+      deal_id: deal.id,
+      before_state: { deal_status: deal.deal_status },
+      after_state: { deal_status: 'delivered', inventory_marked_sold: !!deal.inventory_id, customer_marked_delivered: !!deal.contact_id },
     })
     res.json({ ok: true })
   })

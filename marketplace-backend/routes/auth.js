@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 import { randomBytes, createHash } from 'crypto'
 import { supabase, supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { validatePassword, rateLimit, getClientIp, generateRecoveryCodes, hashRecoveryCode } from '../security.js'
 import { maybeAlertSuspiciousLogin } from '../securityAlerts.js'
 import { audit, AuditAction } from '../audit.js'
 import { recordReferralSignup } from './affiliate.js'
+import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge } from '../mfa-login-challenges.js'
 import {
   beginPasskeyRegistration, finishPasskeyRegistration,
   beginPasskeyLogin, finishPasskeyLogin,
@@ -130,12 +131,22 @@ export function registerRoutes(app) {
         return res.status(202).json({
           mfa_required: true,
           factor_id: verified.id,
-          partial_token: data.session.access_token,
+          partial_token: createMfaLoginChallenge({
+            accessToken: data.session.access_token,
+            refreshToken: data.session.refresh_token,
+          }),
           message: 'Two-factor code required.'
         })
       }
     } catch (mfaErr) {
-      console.warn('MFA status check failed (allowing login):', mfaErr.message)
+      // Failing open here would issue a full password session to an account that
+      // may have MFA enabled. Make the user retry instead of weakening MFA when
+      // Supabase's factor lookup is temporarily unavailable.
+      console.warn('MFA status check failed (blocking login):', mfaErr.message)
+      return res.status(503).json({
+        error: 'MFA_STATUS_UNAVAILABLE',
+        message: 'We could not verify your multi-factor sign-in status. Please try again shortly.'
+      })
     }
 
     const currentIp = getClientIp(req)
@@ -453,13 +464,14 @@ export function registerRoutes(app) {
   })
 
   // Regenerate recovery codes (invalidates old ones). Available from the security panel.
-  app.post('/auth/2fa/regenerate-recovery-codes', requireAuth, rateLimit('mfa-regen', 3, 60 * 60 * 1000), async (req, res) => {
+  app.post('/auth/2fa/regenerate-recovery-codes', requireAuth, requireMfa, rateLimit('mfa-regen', 3, 60 * 60 * 1000), async (req, res) => {
     try {
       const codes = generateRecoveryCodes(10)
       const rows = codes.map(c => ({ user_id: req.user.id, code_hash: hashRecoveryCode(c) }))
       await supabaseAdmin.from('recovery_codes').delete().eq('user_id', req.user.id)
       const { error } = await supabaseAdmin.from('recovery_codes').insert(rows)
       if (error) throw error
+      audit(req, AuditAction.MFA_RECOVERY_CODES_REGENERATED)
       res.json({ recovery_codes: codes, message: 'New recovery codes generated. Old codes no longer work.' })
     } catch (err) {
       res.status(500).json({ error: err.message })
@@ -502,7 +514,7 @@ export function registerRoutes(app) {
   })
 
   // Passwordless login via passkey — no password required
-  app.post('/auth/passkey/login/begin', rateLimit('passkey-login', 10, 15 * 60 * 1000), async (req, res) => {
+  app.post('/auth/passkey/login/begin', rateLimit('passkey-login', 10, 15 * 60 * 1000, { email: true }), async (req, res) => {
     const { email } = req.body || {}
     try {
       const options = await beginPasskeyLogin({ supabaseAdmin, email })
@@ -510,7 +522,7 @@ export function registerRoutes(app) {
     } catch (err) { res.status(500).json({ error: err.message }) }
   })
 
-  app.post('/auth/passkey/login/finish', rateLimit('passkey-login', 10, 15 * 60 * 1000), async (req, res) => {
+  app.post('/auth/passkey/login/finish', rateLimit('passkey-login', 10, 15 * 60 * 1000, { email: true }), async (req, res) => {
     const { email, response } = req.body || {}
     if (!response) return res.status(400).json({ error: 'response required' })
     const result = await finishPasskeyLogin({ supabaseAdmin, email, response })
@@ -567,8 +579,9 @@ export function registerRoutes(app) {
     }
   })
 
-  // Step 3 — Disable 2FA (requires fresh authentication, i.e. current session)
-  app.post('/auth/2fa/disable', requireAuth, rateLimit('mfa-disable', 5, 60 * 60 * 1000), async (req, res) => {
+  // Step 3 — Disable 2FA. This requires an aal2 session: a password-only
+  // session must not be able to remove the account's second factor.
+  app.post('/auth/2fa/disable', requireAuth, requireMfa, rateLimit('mfa-disable', 5, 60 * 60 * 1000), async (req, res) => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '')
       const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
@@ -581,6 +594,7 @@ export function registerRoutes(app) {
 
       const { error } = await userClient.auth.mfa.unenroll({ factorId: totp.id })
       if (error) throw error
+      audit(req, AuditAction.MFA_DISABLED, { factor_id: totp.id })
       res.json({ success: true, message: 'Two-factor authentication has been disabled.' })
     } catch (err) {
       res.status(500).json({ error: err.message })
@@ -611,8 +625,12 @@ export function registerRoutes(app) {
     }
 
     try {
+      const loginChallenge = getMfaLoginChallenge(partial_token)
+      if (!loginChallenge) {
+        return res.status(401).json({ error: 'MFA challenge expired. Please sign in again.' })
+      }
       const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${partial_token}` } }
+        global: { headers: { Authorization: `Bearer ${loginChallenge.accessToken}` } }
       })
 
       // Detect recovery code by shape (8 alphanumeric chars with optional dash) —
@@ -637,8 +655,8 @@ export function registerRoutes(app) {
         // Burn the code immediately
         await supabaseAdmin.from('recovery_codes').delete().eq('id', codeRow.id)
 
-        // The partial_token is already a valid Supabase access token at this point —
-        // we accept the recovery code as proof and return it as the session.
+        // The real Supabase session was retained only server-side until this
+        // recovery code succeeded, so it could not be used to skip MFA.
         // (Recovery code use is logged via the logins insert below.)
         supabaseAdmin.from('logins').insert({
           user_id: user.id,
@@ -653,8 +671,10 @@ export function registerRoutes(app) {
           .from('recovery_codes').select('id', { count: 'exact', head: true })
           .eq('user_id', user.id)
 
+        const completed = consumeMfaLoginChallenge(partial_token)
         return res.json({
-          access_token: partial_token,
+          access_token: completed.accessToken,
+          refresh_token: completed.refreshToken,
           user: { id: user.id, email: user.email },
           used_recovery_code: true,
           recovery_codes_remaining: remaining || 0
@@ -671,6 +691,8 @@ export function registerRoutes(app) {
         code
       })
       if (error) return res.status(401).json({ error: 'Invalid 2FA code.' })
+
+      consumeMfaLoginChallenge(partial_token)
 
       // Log successful TOTP login
       supabaseAdmin.from('logins').insert({
@@ -708,13 +730,17 @@ export function registerRoutes(app) {
     }
   })
 
-  app.post('/support', async (req, res) => {
-    const { name, email, subject, message } = req.body || {}
+  app.post('/support', rateLimit('support', 5, 60 * 60 * 1000, { email: true }), async (req, res) => {
+    const name = String(req.body?.name || '').trim().slice(0, 120)
+    const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 254)
+    const subject = String(req.body?.subject || '').trim().slice(0, 200) || null
+    const message = String(req.body?.message || '').trim().slice(0, 5000)
     if (!name || !email || !message) return res.status(400).json({ error: 'name, email, and message are required' })
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'A valid email address is required' })
 
     const { error } = await supabaseAdmin
       .from('support_requests')
-      .insert({ name, email, subject: subject || null, message })
+      .insert({ name, email, subject, message })
     if (error) {
       console.error('Support insert failed:', error.message)
       return res.status(500).json({ error: 'Could not submit your request. Please try again.' })

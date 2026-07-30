@@ -10,10 +10,10 @@
  * platforms that want a structured feed.
  */
 import { supabaseAdmin, CANONICAL_FRONTEND } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 
 const API_BASE = (process.env.PUBLIC_API_URL || process.env.API_URL || '').replace(/\/+$/, '')
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 const currencyFor = (country) => /(^ca$|canada)/i.test(String(country || '')) ? 'CAD' : 'USD'
 
 // The dealer's public site base — custom domain if set, else marketsync.link/<slug>.
@@ -165,9 +165,8 @@ ${items}
   })
 
   // ── ADMIN: the dealer's feed URLs + a live count, for the Syndication card. ──
-  app.get('/syndication/config', requireAuth, async (req, res) => {
+  app.get('/syndication/config', requireAuth, requireMfa, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: d } = await supabaseAdmin.from('dealerships')
       .select('site_slug, site_published, country').eq('id', req.dealershipId).maybeSingle()
     if (!d?.site_slug || !d.site_published) {

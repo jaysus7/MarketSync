@@ -11,21 +11,20 @@
  */
 import express from 'express'
 import { supabaseAdmin, BACKEND_URL, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { audit } from '../audit.js'
 import { stampDepositPaid } from './deposits.js'
 import {
   squareConfigured, signState, verifyState, squareAuthorizeUrl, squareExchangeCode,
   squareStoreGrant, squareStatus, squareDisconnect, squareGetOrderReference, verifySquareWebhook, PROVIDER,
 } from '../providers/square.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
-
 export function registerSquare(app) {
   app.get('/square/config', requireAuth, (req, res) => res.json({ ok: true, configured: squareConfigured() }))
 
-  app.get('/square/connect', requireAuth, (req, res) => {
+  app.get('/square/connect', requireAuth, requireMfa, requirePermission('integrations.manage'), (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     if (!squareConfigured()) return res.status(501).json({ error: 'Square isn’t configured on this server yet.' })
     res.json({ url: squareAuthorizeUrl(signState(req.dealershipId)) })
   })
@@ -47,15 +46,15 @@ export function registerSquare(app) {
     }
   })
 
-  app.get('/square/status', requireAuth, async (req, res) => {
+  app.get('/square/status', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     res.json({ ok: true, configured: squareConfigured(), ...(await squareStatus(req.dealershipId)) })
   })
 
-  app.post('/square/disconnect', requireAuth, async (req, res) => {
+  app.post('/square/disconnect', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     await squareDisconnect(req.dealershipId)
+    audit(req, 'integration.square_disconnected')
     res.json({ ok: true })
   })
 

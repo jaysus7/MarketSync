@@ -15,30 +15,9 @@ import { requirePermission } from '../authorization.js'
 import { emitEvent } from './events.js'
 import { findOrCreateContact } from './crm.js'
 import { audit, AuditAction } from '../audit.js'
+import { keyIsExpired, requestedExpiry, requestedScopes } from '../api-key-policy.js'
 
 const hashKey = (raw) => crypto.createHash('sha256').update(String(raw)).digest('hex')
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
-const API_SCOPES = new Set(['read', 'leads'])
-const DEFAULT_API_SCOPES = ['read', 'leads']
-
-function requestedScopes(value) {
-  if (value == null) return DEFAULT_API_SCOPES
-  if (!Array.isArray(value)) return null
-  const normalized = value.map(s => String(s || '').trim().toLowerCase())
-  if (normalized.some(s => !API_SCOPES.has(s))) return null
-  const scopes = [...new Set(normalized)]
-  return scopes.length ? scopes : null
-}
-
-function requestedExpiry(value) {
-  if (value == null || value === '') return { value: null }
-  const expiresAt = new Date(value)
-  const max = Date.now() + 366 * 24 * 60 * 60 * 1000
-  if (!Number.isFinite(expiresAt.getTime()) || expiresAt.getTime() <= Date.now() || expiresAt.getTime() > max) {
-    return { error: 'expires_at must be a future date within one year' }
-  }
-  return { value: expiresAt.toISOString() }
-}
 
 // ── API-safe tool set (MCP-shaped) ────────────────────────────────────────────
 const API_TOOLS = [
@@ -89,7 +68,7 @@ async function apiAuth(req, res, next) {
   try {
     const { data: key } = await supabaseAdmin.from('api_keys').select('id, dealership_id, scopes, expires_at').eq('key_hash', hashKey(raw)).is('revoked_at', null).maybeSingle()
     if (!key) return res.status(401).json({ error: 'invalid or revoked API key' })
-    if (key.expires_at && new Date(key.expires_at).getTime() <= Date.now()) return res.status(401).json({ error: 'API key expired' })
+    if (keyIsExpired(key.expires_at)) return res.status(401).json({ error: 'API key expired' })
     req.dealershipId = key.dealership_id
     req.apiScopes = key.scopes || []
     supabaseAdmin.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', key.id).then(() => {}, () => {})
@@ -108,7 +87,6 @@ export function registerPublicApi(app) {
   // ── Key management (dashboard, managers) ──
   app.post('/api-keys', requireAuth, requireMfa, requirePermission('api_keys.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const scopes = requestedScopes(req.body?.scopes)
     if (!scopes) return res.status(400).json({ error: 'scopes must include read and/or leads' })
     const expiry = requestedExpiry(req.body?.expires_at)
@@ -123,16 +101,14 @@ export function registerPublicApi(app) {
     audit(req, AuditAction.API_KEY_CREATED, { api_key_id: data.id, name: data.name })
     res.json({ ok: true, key: raw, meta: data })   // raw key returned ONCE
   })
-  app.get('/api-keys', requireAuth, requirePermission('api_keys.manage'), async (req, res) => {
+  app.get('/api-keys', requireAuth, requireMfa, requirePermission('api_keys.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data } = await supabaseAdmin.from('api_keys').select('id, name, key_prefix, scopes, expires_at, created_at, last_used_at, revoked_at')
       .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(50)
     res.json({ keys: data || [] })
   })
   app.post('/api-keys/:id/revoke', requireAuth, requireMfa, requirePermission('api_keys.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     await supabaseAdmin.from('api_keys').update({ revoked_at: new Date().toISOString() }).eq('id', req.params.id).eq('dealership_id', req.dealershipId)
     audit(req, AuditAction.API_KEY_REVOKED, { api_key_id: req.params.id })
     res.json({ ok: true })

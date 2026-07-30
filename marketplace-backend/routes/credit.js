@@ -10,12 +10,12 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { getClientIp } from '../security.js'
 import { encryptField, decryptField, maskTail, piiConfigured, logSensitiveAccess, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
 import { getCreditProvider } from '../providers/credit.js'
-import { audit, AuditAction } from '../audit.js'
+import { audit, AuditAction, exportReason } from '../audit.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 const str = (v) => { const s = (v == null ? '' : String(v)).trim(); return s || null }
 const digits = (v) => String(v || '').replace(/\D/g, '')
 
@@ -34,9 +34,8 @@ function publicShape(row) {
 
 export function registerCredit(app) {
   // ── Read the application for a deal (or contact). Masked; never returns PII. ──
-  app.get('/credit/application', requireAuth, async (req, res) => {
+  app.get('/credit/application', requireAuth, requireMfa, requirePermission('credit_application.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const dealId = str(req.query.deal_id), contactId = str(req.query.contact_id)
     if (!dealId && !contactId) return res.status(400).json({ error: 'deal_id or contact_id required' })
     let q = supabaseAdmin.from('credit_applications').select('*').eq('dealership_id', req.dealershipId)
@@ -46,9 +45,8 @@ export function registerCredit(app) {
   })
 
   // ── Create / update (draft or ready). Encrypts SIN/DOB, captures consent. ──
-  app.post('/credit/application', requireAuth, async (req, res) => {
+  app.post('/credit/application', requireAuth, requireMfa, requirePermission('credit_application.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const b = req.body || {}
     const dealId = str(b.deal_id), contactId = str(b.contact_id)
 
@@ -121,13 +119,13 @@ export function registerCredit(app) {
       else ({ data: saved, error } = await supabaseAdmin.from('credit_applications').insert(row).select().maybeSingle())
     }
     if (error) { console.error('[credit] save failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
+    audit(req, 'credit_application.saved', { entity_type: 'credit_application', entity_id: saved.id, after_state: { status: saved.status, consent: saved.consent, provider: saved.provider || null } })
     res.json({ ok: true, application: publicShape(saved) })
   })
 
   // ── Reveal decrypted SIN/DOB (audited) — for the F&I manager on-screen. ──
-  app.get('/credit/application/:id/reveal', requireAuth, async (req, res) => {
+  app.get('/credit/application/:id/reveal', requireAuth, requireMfa, requirePermission('credit_application.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: row } = await supabaseAdmin.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!row) return res.status(404).json({ error: 'Not found' })
     await logSensitiveAccess({ dealershipId: req.dealershipId, actorId: req.user?.id, entity: 'credit_application', entityId: row.id, action: 'reveal', ip: getClientIp(req) })
@@ -141,9 +139,8 @@ export function registerCredit(app) {
   })
 
   // ── Export the STAR-style credit-application XML (audited). ──
-  app.post('/credit/application/:id/export', requireAuth, requireMfa, async (req, res) => {
+  app.post('/credit/application/:id/export', requireAuth, requireMfa, requirePermission('credit_application.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: row } = await supabaseAdmin.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!row) return res.status(404).json({ error: 'Not found' })
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('name, city, province, postal_code, website_url').eq('id', req.dealershipId).maybeSingle()
@@ -152,15 +149,14 @@ export function registerCredit(app) {
       co_sin: decryptField(row.co_sin_enc), co_dob: decryptField(row.co_dob_enc),
     }
     await logSensitiveAccess({ dealershipId: req.dealershipId, actorId: req.user?.id, entity: 'credit_application', entityId: row.id, action: 'export', detail: 'xml', ip: getClientIp(req) })
-    audit(req, AuditAction.CREDIT_APPLICATION_EXPORTED, { credit_application_id: row.id, format: 'xml' })
+    audit(req, AuditAction.CREDIT_APPLICATION_EXPORTED, { credit_application_id: row.id, format: 'xml', reason: exportReason(req) })
     const xml = buildCreditXml(row, dealer || {}, secrets)
     res.json({ ok: true, xml, filename: `credit-app-${(row.id || '').slice(0, 8)}.xml` })
   })
 
   // ── Submit to the lender rail (manual export today; live when DSP-certified). ──
-  app.post('/credit/application/:id/submit', requireAuth, async (req, res) => {
+  app.post('/credit/application/:id/submit', requireAuth, requireMfa, requirePermission('credit_application.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const providerName = str(req.body?.provider) || 'routeone'
     const { data: row } = await supabaseAdmin.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!row) return res.status(404).json({ error: 'Not found' })
@@ -176,6 +172,7 @@ export function registerCredit(app) {
       status: result.mode === 'manual' ? row.status : 'submitted',
       provider: providerName, submitted_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }).eq('id', row.id)
+    audit(req, 'credit_application.submitted', { entity_type: 'credit_application', entity_id: row.id, after_state: { provider: providerName, mode: result.mode } })
     res.json({ ok: true, ...result })
   })
 }

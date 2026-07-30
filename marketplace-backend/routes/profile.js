@@ -1,8 +1,8 @@
 import { supabaseAdmin, sendEmail, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { validatePassword, rateLimit, getClientIp } from '../security.js'
-import { audit, AuditAction } from '../audit.js'
-import { SYSTEM_ROLES, hasSystemRole, requirePermission, syncDealerRole } from '../authorization.js'
+import { audit, AuditAction, exportReason } from '../audit.js'
+import { SYSTEM_ROLES, hasPermission, hasSystemRole, requirePermission, syncDealerRole } from '../authorization.js'
 import multer from 'multer'
 import { randomBytes, createHash } from 'node:crypto'
 
@@ -99,8 +99,14 @@ export function registerRoutes(app) {
 
   app.put('/profile/update', requireAuth, rateLimit('profile-update', 10, 60 * 60 * 1000), async (req, res) => {
     const { fullName, displayName, phone, email, password, dealershipName, websiteUrl, avatarUrl, registrationId, emailSignature, emailReplyTo } = req.body
+    const changingDealershipIdentity = dealershipName !== undefined || websiteUrl !== undefined
 
     try {
+      // Authorize this before applying any personal updates so a mixed request
+      // cannot partially succeed when it includes a forbidden dealership change.
+      if (changingDealershipIdentity && (!req.dealershipId || !(await hasPermission(req, 'settings.manage')))) {
+        return res.status(403).json({ error: 'Insufficient permission to update dealership settings' })
+      }
       const authUpdates = {}
       if (email) authUpdates.email = email
       if (password) {
@@ -138,16 +144,24 @@ export function registerRoutes(app) {
         if (profileError) throw profileError
       }
 
-      if (req.dealershipId && (dealershipName || websiteUrl)) {
+      // A personal-profile update must never be used to modify dealership-wide
+      // identity. The UI can still submit these fields together, but only a role
+      // with the explicit settings permission can change them.
+      if (changingDealershipIdentity) {
         const dealerUpdates = {}
-        if (dealershipName) dealerUpdates.name = dealershipName
-        if (websiteUrl) dealerUpdates.website_url = websiteUrl
+        if (dealershipName !== undefined) {
+          const name = String(dealershipName || '').trim()
+          if (!name) return res.status(400).json({ error: 'Dealership name cannot be empty' })
+          dealerUpdates.name = name.slice(0, 200)
+        }
+        if (websiteUrl !== undefined) dealerUpdates.website_url = String(websiteUrl || '').trim().slice(0, 500) || null
 
         const { error: dealerError } = await supabaseAdmin
           .from('dealerships')
           .update(dealerUpdates)
           .eq('id', req.dealershipId)
         if (dealerError) throw dealerError
+        audit(req, AuditAction.CONFIG_UPDATED, { fields: Object.keys(dealerUpdates), source: 'profile_update' })
       }
 
       audit(req, AuditAction.PROFILE_UPDATED, {
@@ -160,10 +174,7 @@ export function registerRoutes(app) {
   })
 
   // ── 5. TEAM MANAGEMENT ──
-  app.get('/dealership/team', requireAuth, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Admins only' })
-    }
+  app.get('/dealership/team', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!req.dealershipId) return res.json([])
 
     const { data: members, error } = await supabaseAdmin
@@ -215,21 +226,20 @@ export function registerRoutes(app) {
   })
 
   app.post('/admin/users/invite', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Admins only' })
-    }
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this admin account' })
 
     const { email, full_name, password } = req.body || {}
     if (!email || !full_name) return res.status(400).json({ error: 'email and full_name required' })
 
-    // Only a dealer admin/owner may invite someone straight in as a Manager;
-    // a manager inviting can only add reps.
-    const wantsManager = req.body?.role === 'MANAGER'
-    if (wantsManager && !['DEALER_ADMIN', 'OWNER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Only a dealer admin can invite a manager' })
+    // The RBAC users.manage permission is the authority to add team members. Keep
+    // the stored legacy label only for existing UI compatibility; syncDealerRole
+    // assigns the canonical role in user_roles for every new user.
+    const ASSIGNABLE = ['MANAGER', 'SALES_REP', 'FNI', 'SERVICE', 'ACCOUNTING', 'CLEANUP']
+    const requestedRole = String(req.body?.role || 'SALES_REP').toUpperCase()
+    if (!ASSIGNABLE.includes(requestedRole)) {
+      return res.status(400).json({ error: `role must be one of ${ASSIGNABLE.join(', ')}` })
     }
-    const newRole = wantsManager ? 'MANAGER' : 'SALES_REP'
+    const newRole = requestedRole
 
     // Either: admin set a real password (must meet 2026 policy), or we generate a
     // cryptographically-random 16-char temporary one. No more weak Math.random() temps.
@@ -311,13 +321,9 @@ export function registerRoutes(app) {
     })
   })
 
-  // Promote a rep to Manager (full dealer access, scoped to this store) or
-  // demote a manager back to rep. Dealer admins/owners only — a manager cannot
-  // mint other managers.
+  // Change a team member's dealership role. The users.manage RBAC permission is
+  // the single source of authority; legacy labels are retained for UI compatibility.
   app.post('/admin/users/:id/role', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
-    if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') {
-      return res.status(403).json({ error: 'Only a dealer admin can change roles' })
-    }
     const { role } = req.body || {}
     // MANAGER = full dealer access. SALES_REP = standard rep. The specialized
     // sub-roles (FNI / SERVICE / ACCOUNTING / CLEANUP) each see only their own
@@ -349,11 +355,10 @@ export function registerRoutes(app) {
   })
 
   // Edit a team member's public-facing profile (name, bio, photo) — coincides with
-  // the website team card. Manager+ can edit any rep in their dealership.
-  app.put('/admin/users/:id/profile', requireAuth, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
+  // the website team card. It can change someone else's public identity, so MFA is required.
+  app.put('/admin/users/:id/profile', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id').eq('id', req.params.id).maybeSingle()
+    const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id, full_name, display_name, bio, avatar_url, registration_id').eq('id', req.params.id).maybeSingle()
     if (!target || target.dealership_id !== req.dealershipId) return res.status(404).json({ error: 'User not found in your dealership' })
     const b = req.body || {}, patch = {}
     if (b.full_name !== undefined) patch.full_name = String(b.full_name || '').trim().slice(0, 120) || null
@@ -365,29 +370,35 @@ export function registerRoutes(app) {
     if (!Object.keys(patch).length) return res.json({ ok: true })
     const { error } = await supabaseAdmin.from('profiles').update(patch).eq('id', req.params.id)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, AuditAction.TEAM_MEMBER_PROFILE_UPDATED, {
+      target_user_id: req.params.id,
+      before_state: target,
+      after_state: { ...target, ...patch },
+    })
     res.json({ ok: true, ...patch })
   })
 
   // Reset a team member's password (dealer admin / owner only). Sets a temp password.
-  app.put('/admin/users/:id/password', requireAuth, requireMfa, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER'].includes(req.profile.role)) return res.status(403).json({ error: 'Dealer admin required' })
+  app.put('/admin/users/:id/password', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (req.params.id === req.user.id) return res.status(400).json({ error: 'Use Settings to change your own password' })
     const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id').eq('id', req.params.id).maybeSingle()
     if (!target || target.dealership_id !== req.dealershipId) return res.status(404).json({ error: 'User not found in your dealership' })
     let password = String(req.body?.password || '').trim()
-    if (!password) password = 'MS-' + Math.random().toString(36).slice(2, 8) + Math.floor(10 + Math.random() * 89)  // auto temp
+    // Never use Math.random for an authentication secret. This one is returned to
+    // the authorized administrator once so they can pass it to the team member.
+    if (!password) password = `MS-${randomBytes(18).toString('base64url')}Aa9!`
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' })
     const { error } = await supabaseAdmin.auth.admin.updateUserById(req.params.id, { password })
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, AuditAction.TEAM_MEMBER_PASSWORD_RESET, { target_user_id: req.params.id })
     res.json({ ok: true, password })
   })
 
   // Set a member's sales team + manager scope (for lead routing / notifications).
-  app.put('/admin/users/:id/team', requireAuth, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
+  app.put('/admin/users/:id/team', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id').eq('id', req.params.id).maybeSingle()
+    const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id, sales_team, mgr_role, active').eq('id', req.params.id).maybeSingle()
     if (!target || target.dealership_id !== req.dealershipId) return res.status(404).json({ error: 'User not found in your dealership' })
     const b = req.body || {}, patch = {}
     if (b.sales_team !== undefined) patch.sales_team = ['new', 'used', 'both'].includes(b.sales_team) ? b.sales_team : null
@@ -396,6 +407,11 @@ export function registerRoutes(app) {
     if (!Object.keys(patch).length) return res.json({ ok: true })
     const { error } = await supabaseAdmin.from('profiles').update(patch).eq('id', req.params.id)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, AuditAction.TEAM_MEMBER_TEAM_UPDATED, {
+      target_user_id: req.params.id,
+      before_state: target,
+      after_state: { ...target, ...patch },
+    })
     res.json({ ok: true, ...patch })
   })
 
@@ -454,8 +470,7 @@ export function registerRoutes(app) {
   // The owner can pull the full platform log. Rows are read-only — no delete or update.
   app.get('/audit-log', requireAuth, requireMfa, requirePermission('audit.view'), async (req, res) => {
     const isOwner = hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
-    const isAdmin = req.profile.role === 'DEALER_ADMIN' || req.profile.role === 'OWNER'
-    if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Admins only' })
+    if (!isOwner && !req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this account' })
 
     const limit = Math.min(Number(req.query.limit) || 100, 1000)
     const offset = Number(req.query.offset) || 0
@@ -474,7 +489,7 @@ export function registerRoutes(app) {
     const { data, error } = await query
     if (error) return res.status(500).json({ error: error.message })
 
-    audit(req, AuditAction.ADMIN_DATA_EXPORT, { type: 'audit_log', limit, offset })
+    audit(req, AuditAction.ADMIN_DATA_EXPORT, { type: 'audit_log', limit, offset, reason: exportReason(req) })
     res.json({ entries: data || [], count: (data || []).length })
   })
 
@@ -501,7 +516,7 @@ export function registerRoutes(app) {
       }
     }))
     const valid = enriched.filter(r => r.email)
-    audit(req, AuditAction.NEWSLETTER_EXPORTED, { count: valid.length, format: (req.query.format || 'json').toLowerCase() })
+    audit(req, AuditAction.NEWSLETTER_EXPORTED, { count: valid.length, format: (req.query.format || 'json').toLowerCase(), reason: exportReason(req) })
 
     // Respect ?format=csv for direct paste into mail tools
     if ((req.query.format || '').toLowerCase() === 'csv') {
@@ -517,9 +532,6 @@ export function registerRoutes(app) {
   })
 
   app.delete('/admin/users/:id', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Admins only' })
-    }
     if (req.params.id === req.user.id) return res.status(400).json({ error: 'Cannot remove yourself' })
 
     const { data: target } = await supabaseAdmin
@@ -534,9 +546,9 @@ export function registerRoutes(app) {
       return res.status(403).json({ error: 'Cannot remove an admin/owner from the dashboard' })
     }
 
-    await supabaseAdmin.from('profiles').delete().eq('id', req.params.id)
-    await supabaseAdmin.auth.admin.deleteUser(req.params.id)
-    audit(req, AuditAction.TEAM_MEMBER_REMOVED, { removed_user_id: req.params.id })
-    res.json({ success: true })
+    const { error } = await supabaseAdmin.from('profiles').update({ active: false }).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, AuditAction.TEAM_MEMBER_REMOVED, { removed_user_id: req.params.id, deactivated: true })
+    res.json({ success: true, deactivated: true })
   })
 }

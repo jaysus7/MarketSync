@@ -8,12 +8,12 @@
 //     compliance kill-switch layer (never a raw insert) + a high-priority task.
 // ─────────────────────────────────────────────────────────────────────────────
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { audit } from '../audit.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import { enqueueForTrigger } from './automation.js'
 
-// Equity mining (who-to-call for upgrades / lease pull-ahead) is a sales tool, so
-// sales reps and F&I get it too — not just managers.
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'SERVICE', 'SALES_REP', 'FNI'].includes(req.profile?.role)
 const OPEN_DEAL = new Set(['appointment', 'sold', 'fni', 'turnover'])
 const num = (x) => { const n = Number(x); return Number.isFinite(n) ? n : null }
 const US_STATES = new Set(['al', 'ak', 'az', 'ar', 'ca', 'co', 'ct', 'de', 'fl', 'ga', 'hi', 'id', 'il', 'in', 'ia', 'ks', 'ky', 'la', 'me', 'md', 'ma', 'mi', 'mn', 'ms', 'mo', 'mt', 'ne', 'nv', 'nh', 'nj', 'nm', 'ny', 'nc', 'nd', 'oh', 'ok', 'or', 'pa', 'ri', 'sc', 'sd', 'tn', 'tx', 'ut', 'vt', 'va', 'wa', 'wv', 'wi', 'wy'])
@@ -208,16 +208,14 @@ export async function buildEquityRadar(dealershipId) {
 }
 
 export function registerEquity(app) {
-  const cronOk = (req) => (req.headers['x-cron-secret'] || '').trim() === (process.env.CRON_SECRET || '').trim() && !!process.env.CRON_SECRET
+  const cronOk = requestHasCronSecret
 
   // ── Settings ───────────────────────────────────────────────────────────────
-  app.get('/equity/settings', requireAuth, async (req, res) => {
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.get('/equity/settings', requireAuth, requireMfa, requirePermission('settings.manage'), async (req, res) => {
     const { data: d } = await supabaseAdmin.from('dealerships').select('automation_settings, province, country').eq('id', req.dealershipId).maybeSingle()
     res.json({ settings: equitySettings(d) })
   })
-  app.put('/equity/settings', requireAuth, async (req, res) => {
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.put('/equity/settings', requireAuth, requireMfa, requirePermission('settings.manage'), async (req, res) => {
     const b = req.body || {}
     const { data: cur } = await supabaseAdmin.from('dealerships').select('automation_settings, province, country').eq('id', req.dealershipId).maybeSingle()
     const as = { ...(cur?.automation_settings || {}) }
@@ -233,12 +231,12 @@ export function registerEquity(app) {
     if (b.depreciation_per_month !== undefined) e.depreciation_per_month = Math.max(0, Math.min(0.1, Number(b.depreciation_per_month) || 0.015))
     as.equity = e
     await supabaseAdmin.from('dealerships').update({ automation_settings: as }).eq('id', req.dealershipId)
+    audit(req, 'equity.settings_updated', { after_state: { settings_configured: true } })
     res.json({ ok: true, settings: equitySettings({ automation_settings: as, province: cur?.province, country: cur?.country }) })
   })
 
   // ── Delivered customers — enter/edit lease details ──────────────────────────
-  app.get('/equity/leases', requireAuth, async (req, res) => {
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.get('/equity/leases', requireAuth, requireMfa, requirePermission('equity.view'), async (req, res) => {
     const { data: d } = await supabaseAdmin.from('dealerships').select('automation_settings, province, country').eq('id', req.dealershipId).maybeSingle()
     const s = equitySettings(d)
     const rows = await loadLeasedRows(req.dealershipId, false)
@@ -254,8 +252,7 @@ export function registerEquity(app) {
     }))
     res.json({ leases: out })
   })
-  app.put('/equity/lease/:id', requireAuth, async (req, res) => {
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.put('/equity/lease/:id', requireAuth, requireMfa, requirePermission('equity.manage'), async (req, res) => {
     const b = req.body || {}, patch = { updated_at: new Date().toISOString() }
     if (b.vehicle_id !== undefined) {
       if (b.vehicle_id === '' || b.vehicle_id === null) patch.vehicle_id = null
@@ -284,12 +281,12 @@ export function registerEquity(app) {
     const { data: dl } = await supabaseAdmin.from('dealerships').select('automation_settings, province, country').eq('id', req.dealershipId).maybeSingle()
     const calc = computeDeal(data, equitySettings(dl))
     await supabaseAdmin.from('customer_ownership_tracking').update({ estimated_value: calc.wholesaleEst || null, estimated_value_at: new Date().toISOString() }).eq('id', data.id)
+    audit(req, 'equity.ownership_updated', { ownership_id: data.id, after_state: { deal_type: dealTypeOf(data), estimated_value_updated: true } })
     res.json({ ok: true, calc })
   })
 
   // ── Lease details for one delivered customer (CRM shortcut) ─────────────────
-  app.get('/equity/lease/by-contact/:contactId', requireAuth, async (req, res) => {
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.get('/equity/lease/by-contact/:contactId', requireAuth, requireMfa, requirePermission('equity.view'), async (req, res) => {
     const { data: d } = await supabaseAdmin.from('dealerships').select('automation_settings, province, country').eq('id', req.dealershipId).maybeSingle()
     const s = equitySettings(d)
     // Newest delivered record for this customer.
@@ -317,8 +314,7 @@ export function registerEquity(app) {
   })
 
   // ── Upgrade worksheet — the AutoAlert-style deal sheet for one customer ──────
-  app.get('/equity/worksheet/:id', requireAuth, async (req, res) => {
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.get('/equity/worksheet/:id', requireAuth, requireMfa, requirePermission('equity.view'), async (req, res) => {
     const { data: d } = await supabaseAdmin.from('dealerships').select('automation_settings, province, country').eq('id', req.dealershipId).maybeSingle()
     const s = equitySettings(d)
     const { data: o } = await supabaseAdmin.from('customer_ownership_tracking').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
@@ -369,15 +365,13 @@ export function registerEquity(app) {
   })
 
   // ── Equity radar (the tiered opportunity list) ──────────────────────────────
-  app.get('/equity/radar', requireAuth, async (req, res) => {
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.get('/equity/radar', requireAuth, requireMfa, requirePermission('equity.view'), async (req, res) => {
     const { items, settings } = await buildEquityRadar(req.dealershipId)
     res.json({ radar: items, settings })
   })
 
   // ── Start a pull-ahead (compliant enqueue + high-priority task) ─────────────
-  app.post('/equity/pull-ahead/:id', requireAuth, async (req, res) => {
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.post('/equity/pull-ahead/:id', requireAuth, requireMfa, requirePermission('equity.manage'), async (req, res) => {
     const { data: o } = await supabaseAdmin.from('customer_ownership_tracking').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!o) return res.status(404).json({ error: 'Record not found' })
     const { data: c } = await supabaseAdmin.from('contacts').select('id, assigned_rep, full_name').eq('id', o.customer_id).maybeSingle()
@@ -390,6 +384,7 @@ export function registerEquity(app) {
       title: `🔥 Pull-ahead: ${c.full_name || 'customer'} — run equity numbers`, type: 'pull_ahead',
       due_at: new Date(Date.now() + 86400000).toISOString(),
     })
+    audit(req, 'equity.pull_ahead_started', { ownership_id: o.id, customer_id: c.id })
     res.json({ ok: true })
   })
 

@@ -15,6 +15,14 @@
 import { supabaseAdmin } from './shared.js'
 import { getClientIp } from './security.js'
 
+// Export routes accept the purpose in either query string (CSV downloads) or
+// request body (POST exports). A missing legacy-client value is explicit in the
+// audit trail rather than silently looking like it was provided.
+export function exportReason(req) {
+  const value = req?.query?.reason ?? req?.body?.reason ?? ''
+  return String(value).trim().slice(0, 300) || 'not_provided'
+}
+
 export async function audit(req, action, meta = {}) {
   try {
     const { before_state = null, after_state = null, ...metadata } = meta || {}
@@ -66,6 +74,7 @@ export const AuditAction = Object.freeze({
   PASSWORD_CHANGED:       'user.password_changed',
   MFA_ENROLLED:           'user.mfa_enrolled',
   MFA_DISABLED:           'user.mfa_disabled',
+  MFA_RECOVERY_CODES_REGENERATED: 'user.mfa_recovery_codes_regenerated',
   MFA_CHALLENGE_PASSED:   'user.mfa_challenge_passed',
   MFA_CHALLENGE_FAILED:   'user.mfa_challenge_failed',
   PASSKEY_REGISTERED:     'user.passkey_registered',
@@ -75,6 +84,9 @@ export const AuditAction = Object.freeze({
   // Team management (admin actions)
   TEAM_MEMBER_INVITED:    'team.member_invited',
   TEAM_MEMBER_REMOVED:    'team.member_removed',
+  TEAM_MEMBER_PROFILE_UPDATED: 'team.member_profile_updated',
+  TEAM_MEMBER_PASSWORD_RESET: 'team.member_password_reset',
+  TEAM_MEMBER_TEAM_UPDATED: 'team.member_team_updated',
   PERMISSION_CHANGED:     'permission.changed',
 
   // Profile

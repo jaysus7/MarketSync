@@ -9,11 +9,14 @@ import { autoDecodeInventory } from '../sync/vinDecode.js'
 import { runPhotoVision } from '../sync/photoVision.js'
 import { brandDealershipPhotos } from '../utils/photoOverlay.js'
 import { autoFetchOemStickers } from '../sync/oemStickers.js'
+import { audit } from '../audit.js'
+import { isSafeFeedProbeUrl } from '../feed-probe-policy.js'
 
 export function registerRoutes(app) {
-  app.post('/feeds/probe', async (req, res) => {
+  app.post('/feeds/probe', requireAuth, async (req, res) => {
     const { url } = req.body || {}
     if (!url) return res.status(400).json({ error: 'url is required' })
+    if (!(await isSafeFeedProbeUrl(url))) return res.status(400).json({ error: 'Invalid or disallowed feed URL' })
     try {
       const result = await detectFeedPlatform(url)
       res.json(result)
@@ -390,21 +393,14 @@ export function registerRoutes(app) {
     }
     const feedOrigins = originsOf(feed.feed_url, feed.source_dealer_url)
 
-    // 0. Precise path: if inventory rows are tagged with this feed_id, remove them
-    // (and detach their listings) directly — reliable for ANY platform regardless of
-    // whether the vehicle source_url shares the feed's origin. Legacy rows without a
-    // feed_id fall through to the origin-matching logic below.
-    let deletedByFeedId = 0
+    // 0. Precise path: rows tagged with the feed are known to have been imported
+    // by it. Keep their sales/history record and archive them below rather than
+    // destroying inventory when a feed is disconnected.
+    const inventoryIds = new Set()
     if (await inventoryHasFeedId()) {
       const { data: byFeed } = await supabaseAdmin
         .from('inventory').select('id').eq('dealership_id', req.dealershipId).eq('feed_id', req.params.id)
-      const ids = (byFeed || []).map(r => r.id)
-      for (let i = 0; i < ids.length; i += 100) {
-        const slice = ids.slice(i, i + 100)
-        await supabaseAdmin.from('listings').delete().in('inventory_id', slice)
-        await supabaseAdmin.from('inventory').delete().in('id', slice)
-      }
-      deletedByFeedId = ids.length
+      for (const row of byFeed || []) inventoryIds.add(row.id)
     }
 
     // 1. Remove the feed row itself
@@ -424,14 +420,14 @@ export function registerRoutes(app) {
       for (const o of originsOf(f.feed_url, f.source_dealer_url)) remainingOrigins.add(o)
     }
 
-    let inventoryDeleted = 0
-    let toDelete = []
+    let toArchive = []
 
     if (Array.isArray(remainingFeeds) && remainingFeeds.length === 0) {
-      // No feeds left at all — wipe the dealership's inventory entirely
+      // No feeds remain. Imported inventory becomes archived, while hand-entered
+      // units remain active and available to the dealership.
       const { data: all } = await supabaseAdmin
-        .from('inventory').select('id').eq('dealership_id', req.dealershipId)
-      toDelete = (all || []).map(r => r.id)
+        .from('inventory').select('id, source').eq('dealership_id', req.dealershipId)
+      toArchive = (all || []).filter(r => r.source !== 'manual').map(r => r.id)
     } else {
       // Origins covered ONLY by the deleted feed (not by any remaining feed).
       const orphanedOrigins = [...feedOrigins].filter(o => !remainingOrigins.has(o))
@@ -439,27 +435,28 @@ export function registerRoutes(app) {
         const { data: matching } = await supabaseAdmin
           .from('inventory').select('id, source_url')
           .eq('dealership_id', req.dealershipId)
-        toDelete = (matching || [])
+        toArchive = (matching || [])
           .filter(r => r.source_url && orphanedOrigins.some(o => r.source_url.startsWith(o)))
           .map(r => r.id)
       }
     }
 
-    // 3. Cascade-delete listings then inventory, batched to avoid URL-length limits
-    if (toDelete.length) {
-      for (let i = 0; i < toDelete.length; i += 100) {
-        const slice = toDelete.slice(i, i + 100)
-        // Listings have FK to inventory — must go first
-        await supabaseAdmin.from('listings').delete().in('inventory_id', slice)
-        await supabaseAdmin.from('inventory').delete().in('id', slice)
+    for (const id of toArchive) inventoryIds.add(id)
+    const ids = [...inventoryIds]
+    const archivedAt = new Date().toISOString()
+    // 3. Archive affected inventory and close its active listings. The listings
+    // and vehicles remain available for historical reporting and audit review.
+    if (ids.length) {
+      for (let i = 0; i < ids.length; i += 100) {
+        const slice = ids.slice(i, i + 100)
+        await supabaseAdmin.from('listings').update({ status: 'deleted', deleted_at: archivedAt }).in('inventory_id', slice).eq('status', 'posted')
+        await supabaseAdmin.from('inventory').update({ status: 'archived', archived_at: archivedAt }).in('id', slice)
       }
-      inventoryDeleted = toDelete.length
     }
-    inventoryDeleted += deletedByFeedId
-    if (inventoryDeleted) {
-      console.log(`[feed delete] dealership=${req.dealershipId} feed=${req.params.id} removed ${inventoryDeleted} inventory rows (${deletedByFeedId} by feed_id)`)
+    if (ids.length) {
+      console.log(`[feed delete] dealership=${req.dealershipId} feed=${req.params.id} archived ${ids.length} inventory rows`)
     }
-
-    res.json({ success: true, inventory_deleted: inventoryDeleted })
+    audit(req, 'inventory.feed_deleted', { feed_id: feed.id, archived_inventory_count: ids.length, before_state: feed, after_state: null })
+    res.json({ success: true, inventory_archived: ids.length })
   })
 }

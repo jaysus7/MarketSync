@@ -89,6 +89,7 @@ INSERT INTO public.permissions (id, description) VALUES
   ('lead.create', 'Create leads'), ('lead.assign', 'Assign leads'),
   ('deal.create', 'Create deals'), ('deal.approve', 'Approve deals'), ('deal.finalize', 'Finalize deals'),
   ('accounting.view', 'View accounting'), ('accounting.edit', 'Edit accounting'),
+  ('credit_application.view', 'View masked credit applications'), ('credit_application.manage', 'Create, reveal, export, and submit credit applications'),
   ('service.write_repair_order', 'Create and edit repair orders'),
   ('users.manage', 'Manage dealership users'), ('billing.manage', 'Manage billing'),
   ('platform.manage', 'Manage platform settings')

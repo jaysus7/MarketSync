@@ -2,8 +2,8 @@ import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { findOrCreateContact } from './crm.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
-import { audit, AuditAction } from '../audit.js'
-import { requirePermission } from '../authorization.js'
+import { audit, AuditAction, exportReason } from '../audit.js'
+import { hasPermission, requirePermission } from '../authorization.js'
 import { emitEvent } from './events.js'
 import { getConfig } from './config-engine.js'
 
@@ -114,9 +114,9 @@ function scoreLead(lead, { status, hasInbound, hasAny }) {
 
 export function registerLeads(app) {
   // List leads for the dealership (reps see their own; dealer-level sees all).
-  app.get('/leads', requireAuth, async (req, res) => {
+  app.get('/leads', requireAuth, requirePermission('customer.view'), async (req, res) => {
     if (!req.dealershipId) return res.json({ leads: [], crm_adf_email: null })
-    const dealerLevel = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
+    const dealerLevel = await hasPermission(req, 'lead.assign')
     let q = supabaseAdmin.from('leads')
       .select('id, name, email, phone, comments, source, status, adf_sent_at, adf_error, inventory_id, contact_id, created_by, created_at, responded_at, responded_by')
       .eq('dealership_id', req.dealershipId)
@@ -182,11 +182,8 @@ export function registerLeads(app) {
 
   // Reassign a lead to a different salesperson (manager/dealer-admin only). Ownership
   // lives on the linked contact's assigned_rep — the same field the routing + list use.
-  app.put('/leads/:id/assign', requireAuth, async (req, res) => {
+  app.put('/leads/:id/assign', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Manager access required' })
-    }
     const repId = req.body?.rep_id || null
     const { data: lead } = await supabaseAdmin.from('leads')
       .select('id, contact_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
@@ -201,11 +198,19 @@ export function registerLeads(app) {
   // Mark a lead as answered — stops the speed-to-lead clock. First response wins
   // (idempotent: a second call won't overwrite the original answer time). Any user in
   // the dealership can answer; we record who did for the per-rep report.
-  app.post('/leads/:id/answered', requireAuth, async (req, res) => {
+  app.post('/leads/:id/answered', requireAuth, requirePermission('customer.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data: lead } = await supabaseAdmin.from('leads')
-      .select('id, responded_at, created_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      .select('id, contact_id, created_by, responded_at, created_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!lead) return res.status(404).json({ error: 'Lead not found' })
+    // A salesperson may acknowledge only a lead they created or that is assigned
+    // to them. Lead-routing authority is required to acknowledge another rep's lead.
+    if (!(await hasPermission(req, 'lead.assign')) && lead.created_by !== req.user.id) {
+      const { data: contact } = lead.contact_id
+        ? await supabaseAdmin.from('contacts').select('assigned_rep').eq('id', lead.contact_id).eq('dealership_id', req.dealershipId).maybeSingle()
+        : { data: null }
+      if (contact?.assigned_rep !== req.user.id) return res.status(403).json({ error: 'You can only answer your own assigned leads' })
+    }
     if (lead.responded_at) return res.json({ ok: true, responded_at: lead.responded_at, already: true })
     const now = new Date().toISOString()
     const { error } = await supabaseAdmin.from('leads')
@@ -218,11 +223,8 @@ export function registerLeads(app) {
   // Speed-to-lead reporting (manager/dealer-admin). Aggregates time-to-answer over a
   // window: overall median/avg, how many were answered inside 5/15/60 min, still-open
   // count, and a per-responder breakdown. All timing is created_at → responded_at.
-  app.get('/leads/response-metrics', requireAuth, async (req, res) => {
+  app.get('/leads/response-metrics', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Manager access required' })
-    }
     const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 30))
     const since = new Date(Date.now() - days * 86400000).toISOString()
     const { data, error } = await supabaseAdmin.from('leads')
@@ -264,7 +266,7 @@ export function registerLeads(app) {
   // Export leads as CSV. Reps get their own; dealer-level gets the whole team.
   app.get('/leads/export.csv', requireAuth, requireMfa, requirePermission('customer.export'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const dealerLevel = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
+    const dealerLevel = await hasPermission(req, 'lead.assign')
     let q = supabaseAdmin.from('leads')
       .select('name, email, phone, source, status, comments, inventory_id, contact_id, created_by, created_at')
       .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(5000)
@@ -296,7 +298,7 @@ export function registerLeads(app) {
       rep: reps[assignedByContact[l.contact_id] || l.created_by] || '',
       created_at: l.created_at,
     }))
-    audit(req, AuditAction.LEADS_EXPORTED, { count: rows.length, scope: dealerLevel ? 'dealership' : 'own' })
+    audit(req, AuditAction.LEADS_EXPORTED, { count: rows.length, scope: dealerLevel ? 'dealership' : 'own', reason: exportReason(req) })
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', `attachment; filename="leads-${new Date().toISOString().slice(0, 10)}.csv"`)
     res.send(toCsv(rows))
@@ -304,9 +306,8 @@ export function registerLeads(app) {
 
   // Import leads from CSV (manager only). Matches header names to fields; each row
   // becomes a lead + CRM contact (deduped) and is routed/notified like a normal lead.
-  app.post('/leads/import', requireAuth, async (req, res) => {
+  app.post('/leads/import', requireAuth, requirePermission('lead.create'), requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
     const csv = String(req.body?.csv || '')
     if (!csv.trim()) return res.status(400).json({ error: 'Empty file' })
     const rows = parseCsv(csv)
@@ -345,7 +346,7 @@ export function registerLeads(app) {
   })
 
   // Capture a lead and (if a CRM address is set) deliver it as ADF XML by email.
-  app.post('/leads', requireAuth, async (req, res) => {
+  app.post('/leads', requireAuth, requirePermission('lead.create'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { name, email, phone, comments, inventory_id, source } = req.body || {}
     if (!name && !email && !phone) return res.status(400).json({ error: 'Enter at least a name, phone, or email' })
@@ -403,22 +404,21 @@ export function registerLeads(app) {
 
   // Dealer admins set/clear the CRM's ADF intake email.
   // Light read of just the CRM/DMS (ADF) connection — used by the Settings page.
-  app.get('/leads/crm-email', requireAuth, async (req, res) => {
+  app.get('/leads/crm-email', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.json({ crm_adf_email: null, can_configure: false })
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('crm_adf_email').eq('id', req.dealershipId).maybeSingle()
-    res.json({ crm_adf_email: dealer?.crm_adf_email || null, can_configure: ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role) })
+    res.json({ crm_adf_email: dealer?.crm_adf_email || null, can_configure: true })
   })
 
   // Lead routing config (auto-assignment + who gets notified).
-  app.get('/leads/routing', requireAuth, async (req, res) => {
+  app.get('/leads/routing', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.json({ routing: {}, can_manage: false })
     const { data: d } = await supabaseAdmin.from('dealerships').select('lead_routing').eq('id', req.dealershipId).maybeSingle()
     const r = (d?.lead_routing && typeof d.lead_routing === 'object') ? d.lead_routing : {}
-    res.json({ routing: { mode: r.mode === 'all' ? 'all' : 'targeted', notify_reps: r.notify_reps !== false, notify_managers: r.notify_managers !== false, notify_all_sales: !!r.notify_all_sales }, can_manage: ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role) })
+    res.json({ routing: { mode: r.mode === 'all' ? 'all' : 'targeted', notify_reps: r.notify_reps !== false, notify_managers: r.notify_managers !== false, notify_all_sales: !!r.notify_all_sales }, can_manage: true })
   })
-  app.put('/leads/routing', requireAuth, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
+  app.put('/leads/routing', requireAuth, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const routing = { mode: b.mode === 'all' ? 'all' : 'targeted', notify_reps: b.notify_reps !== false, notify_managers: b.notify_managers !== false, notify_all_sales: !!b.notify_all_sales }
@@ -427,10 +427,7 @@ export function registerLeads(app) {
     res.json({ ok: true, routing })
   })
 
-  app.put('/leads/crm-email', requireAuth, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Dealer admin required' })
-    }
+  app.put('/leads/crm-email', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const email = String(req.body?.crm_adf_email || '').trim() || null
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Invalid email' })
@@ -441,7 +438,7 @@ export function registerLeads(app) {
   })
 
   // Re-send a lead's ADF (e.g. after fixing the CRM address).
-  app.post('/leads/:id/resend', requireAuth, async (req, res) => {
+  app.post('/leads/:id/resend', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: lead } = await supabaseAdmin
       .from('leads').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
