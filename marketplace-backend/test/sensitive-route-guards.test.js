@@ -56,3 +56,14 @@ test('dealer-wide configuration requires MFA and settings authority', () => {
   }
   assert.match(source('migrations/2026-07-29-rbac-api-key-permission.sql'), /'settings\.manage'/)
 })
+
+test('inventory access relies on inventory permissions and site uploads use site authority', () => {
+  const inventory = source('routes/inventory.js')
+  assert.doesNotMatch(inventory, /canManageInventory|INV_MANAGERS/)
+  for (const endpoint of ["app.get('/inventory'", "app.get('/inventory/all'", "app.get('/inventory/:id'", "app.get('/inventory/:id/carfax'"]) {
+    assert.ok(inventory.includes(`${endpoint}, requireAuth, requirePermission('inventory.view')`), `${endpoint} should require inventory.view`)
+  }
+  for (const endpoint of ["app.post('/dealership/photo-background'", "app.delete('/dealership/photo-background'", "app.post('/dealership/site-image'"]) {
+    assert.ok(inventory.includes(`${endpoint}, requireAuth, requireMfa, requirePermission('site.manage')`), `${endpoint} should require secure site authority`)
+  }
+})

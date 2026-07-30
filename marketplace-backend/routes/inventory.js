@@ -9,8 +9,6 @@ import sharp from 'sharp'
 
 // Vehicle-photo uploads: in-memory, 12MB/file, up to 30 at once.
 const photoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024, files: 30 } })
-const INV_MANAGERS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
-const canManageInventory = (req) => INV_MANAGERS.includes(req.profile?.role)
 
 // ── CSV helpers (dependency-free, RFC-4180-ish) ──────────────────────────────
 const CSV_COLS = ['vin', 'year', 'make', 'model', 'trim', 'price', 'mileage', 'condition', 'stocknumber', 'exterior_color', 'interior_color', 'transmission', 'fuel_type', 'drivetrain', 'engine', 'body_style', 'doors', 'status', 'description', 'image_urls']
@@ -115,7 +113,6 @@ export function registerRoutes(app) {
   // Create a vehicle
   app.post('/inventory', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const b = req.body || {}
     const make = String(b.make || '').trim(), model = String(b.model || '').trim()
     if (!make || !model) return res.status(400).json({ error: 'Make and model are required' })
@@ -149,7 +146,6 @@ export function registerRoutes(app) {
   // Edit a vehicle (any owned unit — manual or synced)
   app.put('/inventory/:id', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const b = req.body || {}
     const patch = {}
     for (const f of ['make', 'model', 'trim', 'condition', 'stocknumber', 'exterior_color', 'interior_color', 'transmission', 'fuel_type', 'drivetrain', 'engine', 'body_style', 'description', 'sales_pitch']) {
@@ -201,7 +197,6 @@ export function registerRoutes(app) {
   // costs, and audit trail remain available for compliance and reconciliation.
   app.delete('/inventory/:id', requireAuth, requirePermission('inventory.delete'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: v } = await supabaseAdmin.from('inventory')
       .select('id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('archived_at', null).maybeSingle()
     if (!v) return res.status(404).json({ error: 'Vehicle not found' })
@@ -219,7 +214,6 @@ export function registerRoutes(app) {
   // Upload photos (multipart) → Supabase Storage → append to image_urls
   app.post('/inventory/:id/photos', requireAuth, requirePermission('inventory.edit'), photoUpload.array('photos', 30), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: v } = await supabaseAdmin.from('inventory')
       .select('id, image_urls').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!v) return res.status(404).json({ error: 'Vehicle not found' })
@@ -260,7 +254,6 @@ export function registerRoutes(app) {
   // Any uploaded photo dropped from the list is also deleted from storage.
   app.put('/inventory/:id/photos', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const nextUrls = Array.isArray(req.body?.image_urls) ? req.body.image_urls : null
     if (!nextUrls) return res.status(400).json({ error: 'image_urls array required' })
     const { data: v } = await supabaseAdmin.from('inventory')
@@ -278,9 +271,8 @@ export function registerRoutes(app) {
   })
 
   // ── Dealership branded photo background (for AI background swap) ────────────
-  app.post('/dealership/photo-background', requireAuth, photoUpload.single('background'), async (req, res) => {
+  app.post('/dealership/photo-background', requireAuth, requireMfa, requirePermission('site.manage'), photoUpload.single('background'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     if (!req.file) return res.status(400).json({ error: 'No image uploaded' })
     let webp
     try { webp = await toWebp(req.file.buffer, { max: 2000, quality: 88 }) } catch (e) { return res.status(500).json({ error: 'Could not process image: ' + e.message }) }
@@ -291,18 +283,16 @@ export function registerRoutes(app) {
     await supabaseAdmin.from('dealerships').update({ photo_background_url: publicUrl }).eq('id', req.dealershipId)
     res.json({ ok: true, url: publicUrl, provider_ready: !!process.env.REMOVEBG_API_KEY })
   })
-  app.delete('/dealership/photo-background', requireAuth, async (req, res) => {
+  app.delete('/dealership/photo-background', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     await supabaseAdmin.from('dealerships').update({ photo_background_url: null }).eq('id', req.dealershipId)
     res.json({ ok: true })
   })
 
   // Generic site image upload (hero, page images) — separate from the avatar used
   // for gamification. Returns a public WebP URL the site manager can drop anywhere.
-  app.post('/dealership/site-image', requireAuth, photoUpload.single('image'), async (req, res) => {
+  app.post('/dealership/site-image', requireAuth, requireMfa, requirePermission('site.manage'), photoUpload.single('image'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     if (!req.file) return res.status(400).json({ error: 'No image uploaded' })
     let webp
     try { webp = await toWebp(req.file.buffer, { max: 2200, quality: 85 }) } catch (e) { return res.status(500).json({ error: 'Could not process image: ' + e.message }) }
@@ -315,7 +305,7 @@ export function registerRoutes(app) {
 
   // GET /inventory/:id/carfax — resolve the Carfax report link for a vehicle by
   // scraping the badge off its source listing page (cached after first hit).
-  app.get('/inventory/:id/carfax', requireAuth, async (req, res) => {
+  app.get('/inventory/:id/carfax', requireAuth, requirePermission('inventory.view'), async (req, res) => {
     const { data: v } = await supabaseAdmin.from('inventory')
       .select('id, vin, source_url, carfax_url')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
@@ -341,7 +331,7 @@ export function registerRoutes(app) {
   })
 
   // ── 6. INVENTORY ──
-  app.get('/inventory', requireAuth, async (req, res) => {
+  app.get('/inventory', requireAuth, requirePermission('inventory.view'), async (req, res) => {
     const { data, error } = await supabaseAdmin
       .from('inventory')
       .select('*')
@@ -352,7 +342,7 @@ export function registerRoutes(app) {
     res.json(data)
   })
 
-  app.get('/inventory/all', requireAuth, async (req, res) => {
+  app.get('/inventory/all', requireAuth, requirePermission('inventory.view'), async (req, res) => {
     // Show the live lot, plus recently-sold units for 2 weeks (as "sold"), then hide
     // them. Older archived history stays in the DB for analytics until the 1-year purge.
     const cutoff = new Date(Date.now() - 14 * 86400000).toISOString()
@@ -377,7 +367,6 @@ export function registerRoutes(app) {
   // ── CSV import / export ─────────────────────────────────────────────────────
   // Registered BEFORE /inventory/:id so "export.csv" isn't swallowed as an :id.
   app.get('/inventory/export.csv', requireAuth, requireMfa, requirePermission('customer.export'), async (req, res) => {
-    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data } = await supabaseAdmin.from('inventory')
       .select(CSV_COLS.filter(c => c !== 'image_urls').join(', ') + ', image_urls')
       .eq('dealership_id', req.dealershipId).is('archived_at', null).order('created_at', { ascending: false })
@@ -388,7 +377,6 @@ export function registerRoutes(app) {
   })
 
   app.post('/inventory/import', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
-    if (!canManageInventory(req)) return res.status(403).json({ error: 'Manager access required' })
     const csv = req.body && req.body.csv
     if (!csv || typeof csv !== 'string') return res.status(400).json({ error: 'Provide CSV text as { csv }' })
     const rows = parseCsv(csv)
@@ -429,7 +417,7 @@ export function registerRoutes(app) {
     res.json({ ok: true, created, updated, skipped, errors: errors.slice(0, 20) })
   })
 
-  app.get('/inventory/:id', requireAuth, async (req, res) => {
+  app.get('/inventory/:id', requireAuth, requirePermission('inventory.view'), async (req, res) => {
     const { data, error } = await supabaseAdmin
       .from('inventory')
       .select('*')
@@ -442,7 +430,7 @@ export function registerRoutes(app) {
 
   // Lightweight progress poll for the dashboard Sync button. Returns the live
   // percentage/phase of an in-flight sync for the caller's dealership, or idle.
-  app.get('/inventory/sync/progress', requireAuth, (req, res) => {
+  app.get('/inventory/sync/progress', requireAuth, requirePermission('inventory.view'), (req, res) => {
     if (!req.dealershipId) return res.json({ phase: 'idle', pct: 0 })
     res.json(syncProgress.get(req.dealershipId) || { phase: 'idle', pct: 0 })
   })
