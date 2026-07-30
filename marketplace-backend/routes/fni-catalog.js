@@ -7,12 +7,26 @@
  * COST is stripped for non-managers so reps never see it).
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 const num = (v) => { if (v === '' || v == null) return null; const n = Number(v); return Number.isFinite(n) ? n : null }
 const str = (v, max = 120) => (v == null ? null : String(v).trim().slice(0, max) || null)
+
+// The catalog is readable at the deal desk, but costs and maintenance are limited
+// to a user who can approve F&I deals. Keep the UI capability in sync with the
+// route middleware instead of relying on the old legacy-role list.
+async function canManageCatalog(req) {
+  if (!req.dealershipId || !req.user?.id) return false
+  if (req.profile?.system_role === 'platform_owner') return true
+  const { data, error } = await supabaseAdmin.from('user_roles')
+    .select('role_permissions!inner(permission_id)')
+    .eq('user_id', req.user.id).eq('dealership_id', req.dealershipId)
+    .eq('role_permissions.permission_id', 'deal.approve').limit(1)
+  if (error) { console.warn('[fni-catalog] capability check failed:', error.message); return false }
+  return !!data?.length
+}
 
 export function registerFniCatalog(app) {
   // ── F&I products ────────────────────────────────────────────────────────────
@@ -24,14 +38,13 @@ export function registerFniCatalog(app) {
       .order('sort_order', { ascending: true }).order('name', { ascending: true })
     if (error) return res.status(500).json({ error: error.message })
     // Cost is back-end-gross data — managers only. Reps get the menu + retail.
-    const showCost = isMgr(req)
+    const showCost = await canManageCatalog(req)
     const rows = (data || []).map(p => showCost ? p : { ...p, cost: null })
-    res.json({ ok: true, products: rows, can_manage: isMgr(req) })
+    res.json({ ok: true, products: rows, can_manage: showCost })
   })
 
-  app.post('/fni/products', requireAuth, async (req, res) => {
+  app.post('/fni/products', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const name = str(req.body?.name, 120)
     if (!name) return res.status(400).json({ error: 'Name required' })
     const { data, error } = await supabaseAdmin.from('fni_products').insert({
@@ -45,9 +58,8 @@ export function registerFniCatalog(app) {
     res.json({ ok: true, product: data })
   })
 
-  app.put('/fni/products/:id', requireAuth, async (req, res) => {
+  app.put('/fni/products/:id', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const patch = { updated_at: new Date().toISOString() }
     if (req.body?.name !== undefined) patch.name = str(req.body.name, 120)
     if (req.body?.category !== undefined) patch.category = str(req.body.category, 60)
@@ -64,9 +76,8 @@ export function registerFniCatalog(app) {
     res.json({ ok: true, product: data })
   })
 
-  app.delete('/fni/products/:id', requireAuth, async (req, res) => {
+  app.delete('/fni/products/:id', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     // Soft-delete so historical deals keep their product references intact.
     const { data: before } = await supabaseAdmin.from('fni_products').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Product not found' })
@@ -91,12 +102,11 @@ export function registerFniCatalog(app) {
     else q = q.order('sort_order', { ascending: true }).order('name', { ascending: true })
     const { data, error } = await q
     if (error) return res.status(500).json({ error: error.message })
-    res.json({ ok: true, lenders: data || [], can_manage: isMgr(req) })
+    res.json({ ok: true, lenders: data || [], can_manage: await canManageCatalog(req) })
   })
 
-  app.post('/fni/lenders', requireAuth, async (req, res) => {
+  app.post('/fni/lenders', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const name = str(req.body?.name, 120)
     if (!name) return res.status(400).json({ error: 'Name required' })
     const { data, error } = await supabaseAdmin.from('lenders').insert({
@@ -110,9 +120,8 @@ export function registerFniCatalog(app) {
     res.json({ ok: true, lender: data })
   })
 
-  app.put('/fni/lenders/:id', requireAuth, async (req, res) => {
+  app.put('/fni/lenders/:id', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const patch = { updated_at: new Date().toISOString() }
     if (req.body?.name !== undefined) patch.name = str(req.body.name, 120)
     if (req.body?.base_rate !== undefined) patch.base_rate = num(req.body.base_rate)
@@ -129,9 +138,8 @@ export function registerFniCatalog(app) {
     res.json({ ok: true, lender: data })
   })
 
-  app.delete('/fni/lenders/:id', requireAuth, async (req, res) => {
+  app.delete('/fni/lenders/:id', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: before } = await supabaseAdmin.from('lenders').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Lender not found' })
     const { data, error } = await supabaseAdmin.from('lenders')
