@@ -170,3 +170,19 @@ test('accounting engine requires MFA and accounting permissions', () => {
   }
   assert.match(accounting, /accounting\.period_advanced/)
 })
+
+test('equity data and outreach require MFA and dedicated RBAC permissions', () => {
+  const equity = source('routes/equity.js')
+  assert.doesNotMatch(equity, /const isMgr/)
+  const viewGuard = "requireAuth, requireMfa, requirePermission('equity.view')"
+  for (const endpoint of ["app.get('/equity/leases'", "app.get('/equity/lease/by-contact/:contactId'", "app.get('/equity/worksheet/:id'", "app.get('/equity/radar'"]) {
+    assert.ok(equity.includes(`${endpoint}, ${viewGuard}`), `${endpoint} should require equity.view`)
+  }
+  const manageGuard = "requireAuth, requireMfa, requirePermission('equity.manage')"
+  for (const endpoint of ["app.put('/equity/lease/:id'", "app.post('/equity/pull-ahead/:id'"]) {
+    assert.ok(equity.includes(`${endpoint}, ${manageGuard}`), `${endpoint} should require equity.manage`)
+  }
+  const sql = source('migrations/2026-07-29-rbac-api-key-permission.sql')
+  assert.match(sql, /'equity\.view'/)
+  assert.match(sql, /'equity\.manage'/)
+})
