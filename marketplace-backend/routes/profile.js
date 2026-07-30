@@ -2,7 +2,7 @@ import { supabaseAdmin, sendEmail, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { validatePassword, rateLimit, getClientIp } from '../security.js'
 import { audit, AuditAction, exportReason } from '../audit.js'
-import { SYSTEM_ROLES, hasSystemRole, requirePermission, syncDealerRole } from '../authorization.js'
+import { SYSTEM_ROLES, hasPermission, hasSystemRole, requirePermission, syncDealerRole } from '../authorization.js'
 import multer from 'multer'
 import { randomBytes, createHash } from 'node:crypto'
 
@@ -99,8 +99,14 @@ export function registerRoutes(app) {
 
   app.put('/profile/update', requireAuth, rateLimit('profile-update', 10, 60 * 60 * 1000), async (req, res) => {
     const { fullName, displayName, phone, email, password, dealershipName, websiteUrl, avatarUrl, registrationId, emailSignature, emailReplyTo } = req.body
+    const changingDealershipIdentity = dealershipName !== undefined || websiteUrl !== undefined
 
     try {
+      // Authorize this before applying any personal updates so a mixed request
+      // cannot partially succeed when it includes a forbidden dealership change.
+      if (changingDealershipIdentity && (!req.dealershipId || !(await hasPermission(req, 'settings.manage')))) {
+        return res.status(403).json({ error: 'Insufficient permission to update dealership settings' })
+      }
       const authUpdates = {}
       if (email) authUpdates.email = email
       if (password) {
@@ -138,16 +144,24 @@ export function registerRoutes(app) {
         if (profileError) throw profileError
       }
 
-      if (req.dealershipId && (dealershipName || websiteUrl)) {
+      // A personal-profile update must never be used to modify dealership-wide
+      // identity. The UI can still submit these fields together, but only a role
+      // with the explicit settings permission can change them.
+      if (changingDealershipIdentity) {
         const dealerUpdates = {}
-        if (dealershipName) dealerUpdates.name = dealershipName
-        if (websiteUrl) dealerUpdates.website_url = websiteUrl
+        if (dealershipName !== undefined) {
+          const name = String(dealershipName || '').trim()
+          if (!name) return res.status(400).json({ error: 'Dealership name cannot be empty' })
+          dealerUpdates.name = name.slice(0, 200)
+        }
+        if (websiteUrl !== undefined) dealerUpdates.website_url = String(websiteUrl || '').trim().slice(0, 500) || null
 
         const { error: dealerError } = await supabaseAdmin
           .from('dealerships')
           .update(dealerUpdates)
           .eq('id', req.dealershipId)
         if (dealerError) throw dealerError
+        audit(req, AuditAction.CONFIG_UPDATED, { fields: Object.keys(dealerUpdates), source: 'profile_update' })
       }
 
       audit(req, AuditAction.PROFILE_UPDATED, {

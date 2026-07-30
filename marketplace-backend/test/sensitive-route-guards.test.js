@@ -232,3 +232,10 @@ test('team administration uses MFA and users.manage instead of legacy manager la
   assert.doesNotMatch(profile, /Math\.random\(\).*auto temp/)
   assert.match(profile, /randomBytes\(18\)\.toString\('base64url'\)/)
 })
+
+test('personal profile updates cannot alter dealership identity without settings authority', () => {
+  const profile = source('routes/profile.js')
+  assert.match(profile, /await hasPermission\(req, 'settings\.manage'\)/)
+  assert.match(profile, /Insufficient permission to update dealership settings/)
+  assert.match(profile, /AuditAction\.CONFIG_UPDATED/)
+})
