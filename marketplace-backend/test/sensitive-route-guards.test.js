@@ -192,3 +192,12 @@ test('sensitive AI financial and history routes require MFA and RBAC', () => {
   assert.match(ai, /app\.post\('\/accounting\/scan-receipt', requireAuth, requireMfa, requirePermission\('accounting\.edit'\)/)
   assert.match(ai, /app\.get\('\/ai\/assistant\/history', requireAuth, requireMfa, requirePermission\('lead\.assign'\)/)
 })
+
+test('appraisal visibility and inventory acquisition use RBAC', () => {
+  const ai = source('routes/ai.js')
+  assert.match(ai, /app\.put\('\/ai\/rep-appraisal-visibility', requireAuth, requireMfa, requirePermission\('users\.manage'\)/)
+  for (const endpoint of ["app.post('/ai/appraisals/:id/acquire'", "app.post('/ai/appraisals/:id/take-possession'"]) {
+    assert.ok(ai.includes(`${endpoint}, requireAuth, requirePermission('inventory.edit')`), `${endpoint} should require inventory.edit`)
+  }
+  assert.match(ai, /data\.created_by !== req\.user\.id/)
+})

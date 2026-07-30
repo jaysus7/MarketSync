@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, browserFetch } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
-import { requirePermission } from '../authorization.js'
+import { hasPermission, requirePermission } from '../authorization.js'
 import { requestHasCronSecret } from '../cron-auth.js'
 import { marketcheckMarket, marketcheckListings, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing, marketcheckDecodeVin, marketcheckPredictPrice, marketcheckMarketStats } from '../marketcheck.js'
 import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, getAssistantUsage, assistantDailyAllowed, recordAssistantChat, ASSISTANT_DAILY_LIMIT, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
@@ -1447,7 +1447,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
     const emptyMeta = { is_management: false, reps_see_all: false, restricted: true, salespeople: [] }
     if (!req.dealershipId) return res.json({ items: [], meta: emptyMeta })
     const role = req.profile?.role || 'SALES_REP'
-    const isManagement = MANAGEMENT_ROLES.includes(role)
+    const isManagement = await hasPermission(req, 'lead.assign')
     // Per-rep visibility: management always sees all; a rep sees all only if their
     // own profile flag is set (toggled per rep in Sales Team settings).
     const repsSeeAll = !!req.profile?.can_see_all_appraisals
@@ -1486,9 +1486,8 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   })
 
   // Management sets a SINGLE rep's appraisal visibility (see all vs. own only).
-  app.put('/ai/rep-appraisal-visibility', requireAuth, async (req, res) => {
+  app.put('/ai/rep-appraisal-visibility', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!MANAGEMENT_ROLES.includes(req.profile?.role)) return res.status(403).json({ error: 'Only management can change this.' })
     const repId = req.body?.rep_id
     if (!repId) return res.status(400).json({ error: 'rep_id required' })
     const can = !!req.body?.can_see_all
@@ -1498,6 +1497,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
       .select('id').maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
     if (!data) return res.status(404).json({ error: 'Rep not found in your dealership' })
+    audit(req, 'appraisal.visibility_updated', { user_id: repId, after_state: { can_see_all_appraisals: can } })
     res.json({ ok: true, rep_id: repId, can_see_all: can })
   })
 
@@ -1507,6 +1507,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
       .select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
     if (!data) return res.status(404).json({ error: 'Not found' })
+    if (!(await hasPermission(req, 'lead.assign')) && data.created_by !== req.user.id) return res.status(403).json({ error: 'You can only view your own appraisals' })
     res.json(data)
   })
 
@@ -1515,9 +1516,8 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   // and only goes live once the linked deal is Delivered in the CRM, or a manager
   // flips possession manually. Images/docs (#18) come from the brochure/window
   // sticker fetched during appraisal, carried over as-is when the client passes them.
-  app.post('/ai/appraisals/:id/acquire', requireAuth, async (req, res) => {
+  app.post('/ai/appraisals/:id/acquire', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!MANAGEMENT_ROLES.includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const { data: ap, error } = await supabaseAdmin.from('trade_appraisals')
       .select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
@@ -1561,6 +1561,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
     const { data: inv, error: invErr } = await supabaseAdmin.from('inventory').insert(row).select('id').single()
     if (invErr) return res.status(500).json({ error: invErr.message })
     await supabaseAdmin.from('trade_appraisals').update({ inventory_id: inv.id }).eq('id', ap.id)
+    audit(req, 'inventory.acquired_from_appraisal', { appraisal_id: ap.id, inventory_id: inv.id })
     // #18: best-effort factory window sticker for the unit (Inventory Intelligence only),
     // fire-and-forget so it never delays or fails the acquisition.
     if (row.vin && !row.window_sticker_oem_url) {
@@ -1572,9 +1573,8 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   })
 
   // Manually clear the possession gate → the acquired unit goes live on the site.
-  app.post('/ai/appraisals/:id/take-possession', requireAuth, async (req, res) => {
+  app.post('/ai/appraisals/:id/take-possession', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!MANAGEMENT_ROLES.includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const { data: ap } = await supabaseAdmin.from('trade_appraisals')
       .select('id, inventory_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!ap?.inventory_id) return res.status(404).json({ error: 'No acquired unit for this appraisal' })
@@ -1583,6 +1583,7 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
       .eq('id', ap.inventory_id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
     await supabaseAdmin.from('trade_appraisals').update({ acquired_at: new Date().toISOString() }).eq('id', ap.id)
+    audit(req, 'inventory.possession_taken', { appraisal_id: ap.id, inventory_id: ap.inventory_id })
     res.json({ ok: true, inventory_id: ap.inventory_id, live: true })
   })
 
