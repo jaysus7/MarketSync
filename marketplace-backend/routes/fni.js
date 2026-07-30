@@ -3,7 +3,7 @@
 // get-ready details — which creates the Cleanup card and emails the teams — then
 // marks Delivered, which closes the deal out and drops it off the list.
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { sendEmail } from '../securityAlerts.js'
@@ -11,15 +11,13 @@ import { ensureGetReadyCard } from './recon.js'
 import { emitWebhook } from '../webhooks.js'
 import { emitEvent } from './events.js'
 
-const MGR = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI']
-const isMgr = (req) => MGR.includes(req.profile?.role)
+const FNI_NOTIFICATION_ROLES = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI']
 const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 export function registerFni(app) {
   // Worklist: every deal that isn't delivered yet, newest first.
-  app.get('/fni/deals', requireAuth, async (req, res) => {
+  app.get('/fni/deals', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: deals, error } = await supabaseAdmin.from('deals')
       .select('id, deal_number, contact_id, inventory_id, deal_status, delivery_date, delivery_time, fni_products, notes, approved_at, created_by, created_at, selling_price')
       .eq('dealership_id', req.dealershipId)
@@ -60,9 +58,8 @@ export function registerFni(app) {
   // (the products the F&I office sold); penetration is which products attach and
   // how often. Everything is computed in-process from one bulk fetch + one name
   // lookup so the endpoint stays a couple of round-trips regardless of volume.
-  app.get('/fni/reports', requireAuth, async (req, res) => {
+  app.get('/fni/reports', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const allowed = [7, 30, 90, 365]
     let days = parseInt(req.query.days, 10)
     if (!allowed.includes(days)) days = 30
@@ -232,9 +229,8 @@ export function registerFni(app) {
   })
 
   // Approve → save get-ready details, create/refresh the Cleanup card, email teams.
-  app.post('/fni/deals/:id/approve', requireAuth, requirePermission('deal.approve'), async (req, res) => {
+  app.post('/fni/deals/:id/approve', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const b = req.body || {}
     const { data: deal } = await supabaseAdmin.from('deals')
       .select('id, inventory_id, contact_id, created_by, deal_number')
@@ -289,9 +285,8 @@ export function registerFni(app) {
   })
 
   // Delivered → deal delivered, vehicle sold, customer marked delivered; off the list.
-  app.post('/fni/deals/:id/delivered', requireAuth, requirePermission('deal.finalize'), async (req, res) => {
+  app.post('/fni/deals/:id/delivered', requireAuth, requireMfa, requirePermission('deal.finalize'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: deal } = await supabaseAdmin.from('deals')
       .select('id, inventory_id, contact_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!deal) return res.status(404).json({ error: 'Deal not found' })
@@ -319,12 +314,13 @@ export function registerFni(app) {
   })
 
   // Cleanup/service notification recipients (external addresses, comma/newline sep).
-  app.put('/fni/settings', requireAuth, async (req, res) => {
+  app.put('/fni/settings', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const emails = typeof req.body?.cleanup_notify_emails === 'string' ? req.body.cleanup_notify_emails.slice(0, 1000) : ''
+    const { data: before } = await supabaseAdmin.from('dealerships').select('cleanup_notify_emails').eq('id', req.dealershipId).maybeSingle()
     const { error } = await supabaseAdmin.from('dealerships').update({ cleanup_notify_emails: emails }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'fni.cleanup_notification_settings_updated', { before_state: before, after_state: { cleanup_notify_emails: emails } })
     res.json({ ok: true })
   })
 }
@@ -335,7 +331,7 @@ async function sendGetReadyEmails(dealershipId, deal, info) {
   const { data: dealer } = await supabaseAdmin.from('dealerships')
     .select('name, cleanup_notify_emails').eq('id', dealershipId).maybeSingle()
   const { data: mgrs } = await supabaseAdmin.from('profiles')
-    .select('business_email').eq('dealership_id', dealershipId).in('role', MGR)
+    .select('business_email').eq('dealership_id', dealershipId).in('role', FNI_NOTIFICATION_ROLES)
   const recips = new Set()
   for (const m of (mgrs || [])) if (m.business_email) recips.add(m.business_email.trim())
   if (deal.created_by) {
