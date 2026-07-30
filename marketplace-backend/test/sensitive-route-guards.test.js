@@ -207,3 +207,18 @@ test('dashboard management scope relies on lead-assignment permission', () => {
   assert.match(dashboard, /app\.get\('\/dealership\/charts', requireAuth, requirePermission\('lead\.assign'\)/)
   assert.equal(dashboard.split("hasPermission(req, 'lead.assign')").length - 1 >= 2, true)
 })
+
+test('team administration uses MFA and users.manage instead of legacy manager labels', () => {
+  const profile = source('routes/profile.js')
+  const guard = "requireAuth, requireMfa, requirePermission('users.manage')"
+  for (const endpoint of [
+    "app.get('/dealership/team'", "app.post('/admin/users/invite'",
+    "app.post('/admin/users/:id/role'", "app.put('/admin/users/:id/profile'",
+    "app.put('/admin/users/:id/password'", "app.put('/admin/users/:id/team'",
+    "app.delete('/admin/users/:id'",
+  ]) {
+    assert.ok(profile.includes(`${endpoint}, ${guard}`), `${endpoint} should require MFA and user-management authority`)
+  }
+  assert.doesNotMatch(profile, /Math\.random\(\).*auto temp/)
+  assert.match(profile, /randomBytes\(18\)\.toString\('base64url'\)/)
+})

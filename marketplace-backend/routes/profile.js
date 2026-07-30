@@ -160,10 +160,7 @@ export function registerRoutes(app) {
   })
 
   // ── 5. TEAM MANAGEMENT ──
-  app.get('/dealership/team', requireAuth, async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Admins only' })
-    }
+  app.get('/dealership/team', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!req.dealershipId) return res.json([])
 
     const { data: members, error } = await supabaseAdmin
@@ -215,21 +212,20 @@ export function registerRoutes(app) {
   })
 
   app.post('/admin/users/invite', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Admins only' })
-    }
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this admin account' })
 
     const { email, full_name, password } = req.body || {}
     if (!email || !full_name) return res.status(400).json({ error: 'email and full_name required' })
 
-    // Only a dealer admin/owner may invite someone straight in as a Manager;
-    // a manager inviting can only add reps.
-    const wantsManager = req.body?.role === 'MANAGER'
-    if (wantsManager && !['DEALER_ADMIN', 'OWNER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Only a dealer admin can invite a manager' })
+    // The RBAC users.manage permission is the authority to add team members. Keep
+    // the stored legacy label only for existing UI compatibility; syncDealerRole
+    // assigns the canonical role in user_roles for every new user.
+    const ASSIGNABLE = ['MANAGER', 'SALES_REP', 'FNI', 'SERVICE', 'ACCOUNTING', 'CLEANUP']
+    const requestedRole = String(req.body?.role || 'SALES_REP').toUpperCase()
+    if (!ASSIGNABLE.includes(requestedRole)) {
+      return res.status(400).json({ error: `role must be one of ${ASSIGNABLE.join(', ')}` })
     }
-    const newRole = wantsManager ? 'MANAGER' : 'SALES_REP'
+    const newRole = requestedRole
 
     // Either: admin set a real password (must meet 2026 policy), or we generate a
     // cryptographically-random 16-char temporary one. No more weak Math.random() temps.
@@ -311,13 +307,9 @@ export function registerRoutes(app) {
     })
   })
 
-  // Promote a rep to Manager (full dealer access, scoped to this store) or
-  // demote a manager back to rep. Dealer admins/owners only — a manager cannot
-  // mint other managers.
+  // Change a team member's dealership role. The users.manage RBAC permission is
+  // the single source of authority; legacy labels are retained for UI compatibility.
   app.post('/admin/users/:id/role', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
-    if (req.profile.role !== 'DEALER_ADMIN' && req.profile.role !== 'OWNER') {
-      return res.status(403).json({ error: 'Only a dealer admin can change roles' })
-    }
     const { role } = req.body || {}
     // MANAGER = full dealer access. SALES_REP = standard rep. The specialized
     // sub-roles (FNI / SERVICE / ACCOUNTING / CLEANUP) each see only their own
@@ -349,9 +341,8 @@ export function registerRoutes(app) {
   })
 
   // Edit a team member's public-facing profile (name, bio, photo) — coincides with
-  // the website team card. Manager+ can edit any rep in their dealership.
-  app.put('/admin/users/:id/profile', requireAuth, requirePermission('users.manage'), async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
+  // the website team card. It can change someone else's public identity, so MFA is required.
+  app.put('/admin/users/:id/profile', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id, full_name, display_name, bio, avatar_url, registration_id').eq('id', req.params.id).maybeSingle()
     if (!target || target.dealership_id !== req.dealershipId) return res.status(404).json({ error: 'User not found in your dealership' })
@@ -375,13 +366,14 @@ export function registerRoutes(app) {
 
   // Reset a team member's password (dealer admin / owner only). Sets a temp password.
   app.put('/admin/users/:id/password', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER'].includes(req.profile.role)) return res.status(403).json({ error: 'Dealer admin required' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (req.params.id === req.user.id) return res.status(400).json({ error: 'Use Settings to change your own password' })
     const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id').eq('id', req.params.id).maybeSingle()
     if (!target || target.dealership_id !== req.dealershipId) return res.status(404).json({ error: 'User not found in your dealership' })
     let password = String(req.body?.password || '').trim()
-    if (!password) password = 'MS-' + Math.random().toString(36).slice(2, 8) + Math.floor(10 + Math.random() * 89)  // auto temp
+    // Never use Math.random for an authentication secret. This one is returned to
+    // the authorized administrator once so they can pass it to the team member.
+    if (!password) password = `MS-${randomBytes(18).toString('base64url')}Aa9!`
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' })
     const { error } = await supabaseAdmin.auth.admin.updateUserById(req.params.id, { password })
     if (error) return res.status(500).json({ error: error.message })
@@ -390,8 +382,7 @@ export function registerRoutes(app) {
   })
 
   // Set a member's sales team + manager scope (for lead routing / notifications).
-  app.put('/admin/users/:id/team', requireAuth, requirePermission('users.manage'), async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) return res.status(403).json({ error: 'Manager access required' })
+  app.put('/admin/users/:id/team', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: target } = await supabaseAdmin.from('profiles').select('id, dealership_id, sales_team, mgr_role, active').eq('id', req.params.id).maybeSingle()
     if (!target || target.dealership_id !== req.dealershipId) return res.status(404).json({ error: 'User not found in your dealership' })
@@ -465,8 +456,7 @@ export function registerRoutes(app) {
   // The owner can pull the full platform log. Rows are read-only — no delete or update.
   app.get('/audit-log', requireAuth, requireMfa, requirePermission('audit.view'), async (req, res) => {
     const isOwner = hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
-    const isAdmin = req.profile.role === 'DEALER_ADMIN' || req.profile.role === 'OWNER'
-    if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Admins only' })
+    if (!isOwner && !req.dealershipId) return res.status(400).json({ error: 'No dealership associated with this account' })
 
     const limit = Math.min(Number(req.query.limit) || 100, 1000)
     const offset = Number(req.query.offset) || 0
@@ -528,9 +518,6 @@ export function registerRoutes(app) {
   })
 
   app.delete('/admin/users/:id', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
-    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
-      return res.status(403).json({ error: 'Admins only' })
-    }
     if (req.params.id === req.user.id) return res.status(400).json({ error: 'Cannot remove yourself' })
 
     const { data: target } = await supabaseAdmin
