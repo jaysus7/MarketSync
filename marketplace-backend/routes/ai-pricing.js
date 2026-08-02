@@ -6,6 +6,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { marketcheckMarket, marketcheckListings, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing, marketcheckDecodeVin, marketcheckPredictPrice, marketcheckMarketStats } from '../marketcheck.js'
 import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, assistantDailyAllowed, recordAssistantChat, ASSISTANT_DAILY_LIMIT, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
@@ -21,7 +22,7 @@ import {
   PRODUCT_KB, ASSISTANT_TOOLS, REPORT_TOPICS,
   buildDealershipReport, runAssistantTool,
   skipPriceComp, PRICE_MIN_COMPS, buildPriceFlag, aiErrorMessage,
-  marketMedianForScan, requireDealerAdmin, median, mileageAdjustedMedian,
+  marketMedianForScan, median, mileageAdjustedMedian,
   computeDailyDigest,
 } from './ai-helpers.js'
 
@@ -567,7 +568,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
     res.json({ rules: data.repricing_rules || { enabled: false, days_on_lot_threshold: 45, price_drop_pct: 5, overprice_threshold_pct: 20 } })
   })
 
-  app.put('/ai/repricing-rules', requireAuth, requireDealerAdmin, async (req, res) => {
+  app.put('/ai/repricing-rules', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { enabled, days_on_lot_threshold, price_drop_pct, overprice_threshold_pct } = req.body
     const rules = { enabled: !!enabled, days_on_lot_threshold: Number(days_on_lot_threshold) || 45, price_drop_pct: Number(price_drop_pct) || 5, overprice_threshold_pct: Number(overprice_threshold_pct) || 20 }
@@ -1213,7 +1214,7 @@ Units 60d+ on lot: ${stale}`
     res.json({ competitors: data || [] })
   })
 
-  app.post('/ai/competitors', requireAuth, requireDealerAdmin, async (req, res) => {
+  app.post('/ai/competitors', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { name, autotrader_url } = req.body
     if (!name) return res.status(400).json({ error: 'name required' })
@@ -1226,7 +1227,7 @@ Units 60d+ on lot: ${stale}`
     res.json({ competitor: data })
   })
 
-  app.patch('/ai/competitors/:id', requireAuth, requireDealerAdmin, async (req, res) => {
+  app.patch('/ai/competitors/:id', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { autotrader_url } = req.body || {}
     const { data, error } = await supabaseAdmin
@@ -1240,7 +1241,7 @@ Units 60d+ on lot: ${stale}`
     res.json({ competitor: data })
   })
 
-  app.delete('/ai/competitors/:id', requireAuth, requireDealerAdmin, async (req, res) => {
+  app.delete('/ai/competitors/:id', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data: before } = await supabaseAdmin
       .from('competitor_dealerships').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
