@@ -120,7 +120,7 @@ export function registerDealerTasks(app) {
   app.get('/dealer-tasks', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     const q = req.query
-    let query = supabaseAdmin.from('dealer_tasks').select('*').eq('dealership_id', req.dealershipId).is('deleted_at', null)
+    let query = req.supabase.from('dealer_tasks').select('*').eq('dealership_id', req.dealershipId).is('deleted_at', null)
     if (q.status) query = query.eq('status', String(q.status))
     if (q.assignee_id) query = query.eq('assignee_id', String(q.assignee_id))
     if (q.mine === '1') query = query.eq('assignee_id', req.user.id)
@@ -143,7 +143,7 @@ export function registerDealerTasks(app) {
   // Quick counts for the dashboard "Today's priorities" / nav badge.
   app.get('/dealer-tasks/summary', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    const { data } = await supabaseAdmin.from('dealer_tasks').select('status, due_date, assignee_id').eq('dealership_id', req.dealershipId).is('deleted_at', null).neq('status', 'done').limit(2000)
+    const { data } = await req.supabase.from('dealer_tasks').select('status, due_date, assignee_id').eq('dealership_id', req.dealershipId).is('deleted_at', null).neq('status', 'done').limit(2000)
     const rows = data || []; const t = today()
     res.json({ ok: true,
       open: rows.length,
@@ -166,7 +166,7 @@ export function registerDealerTasks(app) {
 
   app.get('/dealer-tasks/:id', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    const { data } = await supabaseAdmin.from('dealer_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
+    const { data } = await req.supabase.from('dealer_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
     if (!data) return res.status(404).json({ error: 'Not found' })
     res.json({ ok: true, task: data })
   })
@@ -188,7 +188,8 @@ export function registerDealerTasks(app) {
     // Link to an inventory unit when the VIN/stock matches, and put it on the Cleanup board.
     f.inventory_id = await resolveInventory(req.dealershipId, f)
     const row = { dealership_id: req.dealershipId, created_by: req.user?.id || null, ...f, events: [stamp(req.user?.id, 'created', null)] }
-    const { data, error } = await supabaseAdmin.from('dealer_tasks').insert(row).select().single()
+    // req.supabase: RLS INSERT allows created_by = self (set above) — enforces tenant + authorship.
+    const { data, error } = await req.supabase.from('dealer_tasks').insert(row).select().single()
     if (error) return res.status(500).json({ error: error.message })
     if (data.inventory_id) { await ensureReconCard(req.dealershipId, data.inventory_id); if (data.status === 'done') await syncTaskToRecon(req.dealershipId, data, req.user?.id) }
     if (data.assignee_id && data.assignee_id !== req.user?.id) {
@@ -199,7 +200,7 @@ export function registerDealerTasks(app) {
 
   app.put('/dealer-tasks/:id', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    const { data: cur } = await supabaseAdmin.from('dealer_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
+    const { data: cur } = await req.supabase.from('dealer_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
     if (!cur) return res.status(404).json({ error: 'Not found' })
     const f = fieldsFrom(req.body || {})
     // Re-link to inventory if the VIN/stock changed.
@@ -214,6 +215,11 @@ export function registerDealerTasks(app) {
     else if (f.status && f.status !== cur.status) events.push(stamp(req.user?.id, 'status', f.status))
     else events.push(stamp(req.user?.id, 'edited', null))
     patch.events = events
+    // NOTE: kept on supabaseAdmin. The dealer_tasks UPDATE RLS policy allows
+    // created_by / lead.assign / settings.manage but NOT assignee_id — so enforcing it
+    // here would block an assignee (detailer, lot attendant) from completing a task a
+    // manager created for them, which is the core shared-ops workflow. Revisit once the
+    // policy is widened to include `assignee_id = auth.uid()`.
     const { data, error } = await supabaseAdmin.from('dealer_tasks').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).select().single()
     if (error) return res.status(500).json({ error: error.message })
     // Two-way Cleanup sync: completing a get-ready task advances the car's stage.
@@ -229,10 +235,12 @@ export function registerDealerTasks(app) {
 
   app.delete('/dealer-tasks/:id', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    const { data: before } = await supabaseAdmin.from('dealer_tasks')
+    const { data: before } = await req.supabase.from('dealer_tasks')
       .select('id, title, status, kind, department, inventory_id, contact_id, due_date')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Not found' })
+    // Soft-delete kept on supabaseAdmin for the same reason as PUT above (assignee gap
+    // in the dealer_tasks UPDATE RLS policy). Revisit when the policy is widened.
     const { data, error } = await supabaseAdmin.from('dealer_tasks').update({
       deleted_at: new Date().toISOString(), deleted_by: req.user?.id || null,
     }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).select('id, deleted_at').maybeSingle()
