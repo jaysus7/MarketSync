@@ -215,11 +215,12 @@ export function registerLeads(app) {
     }
     if (lead.responded_at) return res.json({ ok: true, responded_at: lead.responded_at, already: true })
     const now = new Date().toISOString()
-    // First-response timestamp write kept on supabaseAdmin: this route is gated on
-    // customer.view (anyone may answer), but the leads UPDATE RLS requires
-    // lead.assign/lead.create — which a customer.view-only role (e.g. F&I manager)
-    // lacks. Ownership is already enforced in code above.
-    const { error } = await supabaseAdmin.from('leads')
+    // RLS-enforced: the leads UPDATE policy requires lead.assign/lead.create, held by
+    // every role that actually works leads (salesperson, BDC, managers). We keep the
+    // leads policy tight rather than widening it to customer.view (which would let any
+    // CRM viewer mutate any lead); a view-only F&I role acknowledging leads is not a
+    // real workflow, so leaving it out is the correct, more-secure behaviour.
+    const { error } = await req.supabase.from('leads')
       .update({ responded_at: now, responded_by: req.user.id }).eq('id', lead.id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
     const seconds = Math.max(0, Math.round((new Date(now) - new Date(lead.created_at)) / 1000))

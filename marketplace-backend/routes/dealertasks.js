@@ -215,12 +215,9 @@ export function registerDealerTasks(app) {
     else if (f.status && f.status !== cur.status) events.push(stamp(req.user?.id, 'status', f.status))
     else events.push(stamp(req.user?.id, 'edited', null))
     patch.events = events
-    // NOTE: kept on supabaseAdmin. The dealer_tasks UPDATE RLS policy allows
-    // created_by / lead.assign / settings.manage but NOT assignee_id — so enforcing it
-    // here would block an assignee (detailer, lot attendant) from completing a task a
-    // manager created for them, which is the core shared-ops workflow. Revisit once the
-    // policy is widened to include `assignee_id = auth.uid()`.
-    const { data, error } = await supabaseAdmin.from('dealer_tasks').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).select().single()
+    // RLS-enforced: the dealer_tasks UPDATE policy permits creator, assignee,
+    // lead.assign or settings.manage (widened 2026-08-02 to include assignee_id).
+    const { data, error } = await req.supabase.from('dealer_tasks').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).select().single()
     if (error) return res.status(500).json({ error: error.message })
     // Two-way Cleanup sync: completing a get-ready task advances the car's stage.
     if (nowDone) await syncTaskToRecon(req.dealershipId, data, req.user?.id)
@@ -239,9 +236,8 @@ export function registerDealerTasks(app) {
       .select('id, title, status, kind, department, inventory_id, contact_id, due_date')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Not found' })
-    // Soft-delete kept on supabaseAdmin for the same reason as PUT above (assignee gap
-    // in the dealer_tasks UPDATE RLS policy). Revisit when the policy is widened.
-    const { data, error } = await supabaseAdmin.from('dealer_tasks').update({
+    // RLS-enforced soft-delete (dealer_tasks UPDATE policy — see PUT above).
+    const { data, error } = await req.supabase.from('dealer_tasks').update({
       deleted_at: new Date().toISOString(), deleted_by: req.user?.id || null,
     }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).select('id, deleted_at').maybeSingle()
     if (error) return res.status(500).json({ error: 'Archive failed' })

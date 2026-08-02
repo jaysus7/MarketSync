@@ -243,10 +243,9 @@ export function registerPipeline(app) {
       await supabaseAdmin.from('sales').delete().eq('inventory_id', listing.inventory_id)
     }
 
-    // Listing stage write kept on supabaseAdmin: the listings UPDATE RLS requires
-    // inventory.edit, which a salesperson (who owns the post via posted_by, checked
-    // above) does not hold — enforcing it here would break rep-driven pipeline moves.
-    const { error } = await supabaseAdmin.from('listings').update(update).eq('id', req.params.id)
+    // RLS-enforced: the listings UPDATE policy permits the owning rep (posted_by) or
+    // inventory.edit (widened 2026-08-02), matching the ownership check above.
+    const { error } = await req.supabase.from('listings').update(update).eq('id', req.params.id)
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, stage })
   })
@@ -266,8 +265,8 @@ export function registerPipeline(app) {
     if (!isDealerLevel(req.profile) && listing.posted_by !== req.user.id) {
       return res.status(403).json({ error: 'You can only relist your own listings' })
     }
-    // Listing write kept on supabaseAdmin (see PATCH /pipeline/:id — inventory.edit gap for reps).
-    const { error } = await supabaseAdmin.from('listings').update({
+    // RLS-enforced listing write (posted_by / inventory.edit — see PATCH /pipeline/:id).
+    const { error } = await req.supabase.from('listings').update({
       relisted_at: new Date().toISOString(),
       pipeline_stage: null,
       pipeline_updated_at: new Date().toISOString(),
