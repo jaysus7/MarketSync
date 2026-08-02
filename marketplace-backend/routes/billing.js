@@ -14,6 +14,7 @@ import { createNotification } from '../notifications.js'
 import { handleDepositCheckout } from './deposits.js'
 import { accrueAffiliateCommission } from './affiliate.js'
 import { postMarketsyncRevenue } from './accounting.js'
+import { syncSubscriptionFromStripe } from '../entitlements.js'
 
 // Inventory Intelligence price ID — accept the canonical name OR the
 // STRIPE_INVENTORY_INTELLIGANCE name used in the current Render environment,
@@ -157,6 +158,11 @@ export function registerRoutes(app) {
             await supabaseAdmin.from('dealerships').update(updates).eq('id', meta.dealership_id)
           }
 
+          // Reconcile the normalized subscriptions table from the Stripe sub's plan
+          // prices (server-side price→plan mapping). Best-effort — legacy add-on flags
+          // above are unaffected if a price isn't in the plan catalog.
+          try { await syncSubscriptionFromStripe(meta.dealership_id, sub) } catch (e) { console.error('[stripe] sub sync failed:', e?.message || e) }
+
           // Trial-started email
           const { data: dealer } = await supabaseAdmin
             .from('dealerships')
@@ -199,6 +205,11 @@ export function registerRoutes(app) {
           if (Object.keys(updates).length) {
             await supabaseAdmin.from('dealerships').update(updates).eq('stripe_customer_id', sub.customer)
           }
+          // Reconcile normalized subscriptions (status change: active/past_due/etc.).
+          try {
+            const dealer = await dealerForCustomer(sub.customer)
+            if (dealer?.id) await syncSubscriptionFromStripe(dealer.id, sub)
+          } catch (e) { console.error('[stripe] sub sync failed:', e?.message || e) }
           break
         }
 
@@ -216,6 +227,11 @@ export function registerRoutes(app) {
           if (Object.keys(updates).length) {
             await supabaseAdmin.from('dealerships').update(updates).eq('stripe_customer_id', sub.customer)
           }
+          // Reconcile normalized subscriptions → status 'cancelled'.
+          try {
+            const d = await dealerForCustomer(sub.customer)
+            if (d?.id) await syncSubscriptionFromStripe(d.id, sub)
+          } catch (e) { console.error('[stripe] sub sync failed:', e?.message || e) }
 
           // Trial expired email (no payment collected = trial_end cancellation)
           if (sub.cancellation_details?.reason === 'cancellation_requested' || sub.cancel_at_period_end) break

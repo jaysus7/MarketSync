@@ -751,6 +751,43 @@ const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
 let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
 let __productHome = null;           // Where a product-restricted tier lands / bounces to
 
+// ── Access-context helpers (frontend mirror of the backend access service) ────
+// One place the UI asks "can I see/do this?", reading the derived summary from
+// /access/context. These are UX gates only — every action is still enforced server-side
+// (route guards + RLS). If the context is unavailable they fail OPEN to legacy behavior
+// (return true), so an older backend or a failed fetch never hides a page the legacy
+// gating would have shown.
+window.hasProduct = function (productId) {
+  const a = window.__access; if (!a || !Array.isArray(a.products)) return true;
+  return a.isPlatformStaff || a.products.includes(productId);
+};
+window.hasFeature = function (featureId) {
+  const a = window.__access; if (!a || !Array.isArray(a.features)) return true;
+  return a.isPlatformStaff || a.features.includes(featureId);
+};
+window.canDo = function (permission) {
+  const a = window.__access; if (!a || !Array.isArray(a.permissions)) return true;
+  return a.permissions.includes('*') || a.permissions.includes(permission);
+};
+
+// Translate the normalized products (facebook / ai_dealer / dealer_os) from the access
+// context into the legacy product-page keys applyProductNav already understands, so the
+// mature nav logic is reused unchanged. Returns null when no context is present (caller
+// falls back to the legacy /auth/me products object).
+function legacyProductsFromAccess(access) {
+  if (!access || !Array.isArray(access.products) || !access.products.length) return null;
+  if (access.isPlatformStaff || access.products.includes('dealer_os')) return { dealer_os: true };
+  const out = {};
+  if (access.products.includes('facebook')) {
+    // fb.sales_reps entitlement ⇒ the Dealership tier (rep management); else Solo.
+    if ((access.features || []).includes('fb.sales_reps')) out.facebook_dealer = true;
+    else out.facebook_solo = true;
+  }
+  if (access.products.includes('ai_dealer')) out.ai_chatbot = true;
+  return Object.keys(out).length ? out : null;
+}
+window.legacyProductsFromAccess = legacyProductsFromAccess;
+
 function applyProductNav(products) {
   products = products || {};
   // DealerOS (or nothing set) → the full department sidebar; clear any restriction.
@@ -1072,6 +1109,15 @@ async function initializeDashboardEcosystem() {
     profileContext = await res.json();
     clearTimeout(timeoutId);
 
+    // Normalized access context (products / entitled features / permissions / defaultRoute)
+    // from the central authorization service — the SINGLE source both desktop and mobile
+    // nav filter from. Falls back to the legacy /auth/me products object if unavailable,
+    // so an older backend keeps working.
+    try {
+      const ac = await fetch(`${API}/access/context`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (ac.ok) window.__access = await ac.json();
+    } catch { /* leave window.__access unset → legacy product gating below */ }
+
     // Render Shared Header Components
     // For dealer admins: lead with the DEALERSHIP NAME (so it visually distinguishes the
     // dealer admin view from rep views). Person's name moves to the subtitle line.
@@ -1369,7 +1415,10 @@ async function initializeDashboardEcosystem() {
     if (__dashMode === 'marketsync' && (profileContext?.workspace === 'saas_admin' || document.documentElement.getAttribute('data-dash-owner') === '1')) switchPage('saas-command');
     else switchPage(__mgrHome ? 'command' : 'insights');
     applyFeatureFlags();   // hide nav for features the dealer switched off
-    applyProductNav(profileContext?.products);   // entitlement-driven front door (overrides landing for non-OS products)
+    // Entitlement-driven front door. Prefer the normalized access context (composes
+    // subscription tier + product membership + role) and fall back to the legacy
+    // /auth/me products object. This is what stops every login landing on Facebook.
+    applyProductNav(legacyProductsFromAccess(window.__access) || profileContext?.products);
     // Flatten the left nav to departments for the full DealerOS manager/admin view
     // (runs after all gating so it derives visibility from the settled nav).
     renderDeptNav(profileContext?.role);
