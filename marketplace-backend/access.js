@@ -94,6 +94,28 @@ export async function getCurrentAccessContext(req) {
   return ctx
 }
 
+// ── Express guards (backend authorization layer) ──
+// Enforce product/feature entitlement on API routes. These sit ALONGSIDE requirePermission
+// (RBAC) and RLS — product/feature answers "is this product sold to this org & member?",
+// requirePermission answers "may this role do it?", RLS enforces both again at the row.
+// requireAuth must run before either guard.
+export function requireProduct(productId) {
+  return async (req, res, next) => {
+    try {
+      if (await hasProductAccessReq(req, productId)) return next()
+      return res.status(403).json({ error: 'PRODUCT_ACCESS_REQUIRED', product: productId })
+    } catch { return res.status(500).json({ error: 'Access check failed' }) }
+  }
+}
+export function requireFeature(featureId) {
+  return async (req, res, next) => {
+    try {
+      if (await hasFeatureReq(req, featureId)) return next()
+      return res.status(403).json({ error: 'FEATURE_ACCESS_REQUIRED', feature: featureId })
+    } catch { return res.status(500).json({ error: 'Access check failed' }) }
+  }
+}
+
 // Convenience wrappers that resolve the context first, so callers can `await hasFeatureReq(req, 'os.crm')`
 // without threading the context manually.
 export async function hasProductAccessReq(req, productId) { return hasProductAccess(await getCurrentAccessContext(req), productId) }

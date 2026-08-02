@@ -5,6 +5,9 @@ import { startWebhookRetryWorker, registerWebhookRoutes } from './webhooks.js'
 import { CANONICAL_FRONTEND, supabaseAdmin } from './shared.js'
 import { registerRoutes as registerAuth } from './routes/auth.js'
 import { registerRoutes as registerProfile } from './routes/profile.js'
+import { registerAccessContext } from './routes/access-context.js'
+import { requireAuth } from './middleware.js'
+import { requireFeature } from './access.js'
 import { registerRoutes as registerBlog } from './routes/blog.js'
 import { registerRoutes as registerDashboard } from './routes/dashboard.js'
 import { registerRoutes as registerInventory } from './routes/inventory.js'
@@ -102,9 +105,20 @@ registerSquare(app)
 app.use(express.json({ limit: '25mb' }))
 app.use(express.urlencoded({ extended: true, limit: '25mb' }))
 
+// ── Product/feature entitlement guards (backend authorization layer) ──
+// Mounted before the product-scoped route groups so they run ahead of the per-route RBAC
+// guards. requireAuth here also primes the caller's access context (memoized on req).
+// Orgs without an explicit subscription fall back to full dealer_os, so existing accounts
+// are unaffected; only plans that don't include the feature (e.g. os_starter, or a
+// Facebook-only org) are blocked here — the same gate RLS enforces at the row level.
+app.use('/accounting', requireAuth, requireFeature('os.accounting'))
+app.use('/service', requireAuth, requireFeature('os.service'))
+app.use('/service-engine', requireAuth, requireFeature('os.service'))
+
 // Route modules
 registerAuth(app)
 registerProfile(app)
+registerAccessContext(app)
 registerBlog(app)
 registerDashboard(app)
 registerInventory(app)
