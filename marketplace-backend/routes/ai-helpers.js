@@ -694,7 +694,12 @@ async function marketMedianForScan({ vehicle, dealer, isUS, dealershipId, isOwne
     return null
   } catch { return null }
 }
-
+function requireDealerAdmin(req, res, next) {
+  if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) {
+    return res.status(403).json({ error: 'Dealer-level access required' })
+  }
+  next()
+}
 // Calculate median from a sorted array of numbers
 function median(sorted) {
   if (!sorted.length) return null
