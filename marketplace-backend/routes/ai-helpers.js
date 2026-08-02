@@ -792,6 +792,5 @@ export {
   PRODUCT_KB, ASSISTANT_TOOLS, REPORT_TOPICS,
   buildDealershipReport, runAssistantTool,
   skipPriceComp, PRICE_MIN_COMPS, buildPriceFlag, aiErrorMessage,
-  marketMedianForScan, median, mileageAdjustedMedian,
-  computeDailyDigest,
+  marketMedianForScan, requireDealerAdmin, median, mileageAdjustedMedian,
 }
