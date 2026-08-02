@@ -138,7 +138,7 @@ export function registerRoutes(app) {
       image_urls: Array.isArray(b.image_urls) ? b.image_urls : [],
       lot_date: new Date().toISOString(),
     }
-    const { data, error } = await supabaseAdmin.from('inventory').insert(row).select('*').single()
+    const { data, error } = await req.supabase.from('inventory').insert(row).select('*').single()
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, vehicle: data })
   })
@@ -171,14 +171,14 @@ export function registerRoutes(app) {
     let priorPrice = null
     let beforeState = null
     if (b.price !== undefined || b.status !== undefined) {
-      const { data: cur } = await supabaseAdmin.from('inventory')
+      const { data: cur } = await req.supabase.from('inventory')
         .select('id, price, status, sold_at, archived_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
       priorPrice = cur ? cur.price : null
       beforeState = cur
       if (b.status === 'sold' && cur && cur.status !== 'sold' && !cur.sold_at) patch.sold_at = new Date().toISOString()
       if (b.status === 'available') patch.sold_at = null   // relisted → clear
     }
-    const { data, error } = await supabaseAdmin.from('inventory')
+    const { data, error } = await req.supabase.from('inventory')
       .update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('*').maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
     if (!data) return res.status(404).json({ error: 'Vehicle not found' })
@@ -197,10 +197,10 @@ export function registerRoutes(app) {
   // costs, and audit trail remain available for compliance and reconciliation.
   app.delete('/inventory/:id', requireAuth, requirePermission('inventory.delete'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: v } = await supabaseAdmin.from('inventory')
+    const { data: v } = await req.supabase.from('inventory')
       .select('id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('archived_at', null).maybeSingle()
     if (!v) return res.status(404).json({ error: 'Vehicle not found' })
-    const { error } = await supabaseAdmin.from('inventory').update({ archived_at: new Date().toISOString() })
+    const { error } = await req.supabase.from('inventory').update({ archived_at: new Date().toISOString() })
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('archived_at', null)
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'inventory.archived', {
@@ -214,7 +214,7 @@ export function registerRoutes(app) {
   // Upload photos (multipart) → Supabase Storage → append to image_urls
   app.post('/inventory/:id/photos', requireAuth, requirePermission('inventory.edit'), photoUpload.array('photos', 30), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: v } = await supabaseAdmin.from('inventory')
+    const { data: v } = await req.supabase.from('inventory')
       .select('id, image_urls').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!v) return res.status(404).json({ error: 'Vehicle not found' })
     const files = req.files || []
@@ -244,7 +244,7 @@ export function registerRoutes(app) {
       const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(path)
       urls.push(publicUrl)
     }
-    const { data, error } = await supabaseAdmin.from('inventory')
+    const { data, error } = await req.supabase.from('inventory')
       .update({ image_urls: urls }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('image_urls').single()
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, image_urls: data.image_urls })
@@ -256,7 +256,7 @@ export function registerRoutes(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const nextUrls = Array.isArray(req.body?.image_urls) ? req.body.image_urls : null
     if (!nextUrls) return res.status(400).json({ error: 'image_urls array required' })
-    const { data: v } = await supabaseAdmin.from('inventory')
+    const { data: v } = await req.supabase.from('inventory')
       .select('id, image_urls').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!v) return res.status(404).json({ error: 'Vehicle not found' })
     const removed = (v.image_urls || []).filter(u => !nextUrls.includes(u))
@@ -264,7 +264,7 @@ export function registerRoutes(app) {
       const paths = removed.map(photoStoragePath).filter(Boolean)
       if (paths.length) await supabaseAdmin.storage.from('vehicle-photos').remove(paths)
     } catch (e) { console.warn('[inv] photo remove failed:', e.message) }
-    const { data, error } = await supabaseAdmin.from('inventory')
+    const { data, error } = await req.supabase.from('inventory')
       .update({ image_urls: nextUrls }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('image_urls').single()
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, image_urls: data.image_urls })
@@ -306,7 +306,7 @@ export function registerRoutes(app) {
   // GET /inventory/:id/carfax — resolve the Carfax report link for a vehicle by
   // scraping the badge off its source listing page (cached after first hit).
   app.get('/inventory/:id/carfax', requireAuth, requirePermission('inventory.view'), async (req, res) => {
-    const { data: v } = await supabaseAdmin.from('inventory')
+    const { data: v } = await req.supabase.from('inventory')
       .select('id, vin, source_url, carfax_url')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!v) return res.status(404).json({ error: 'Not found' })
@@ -320,6 +320,8 @@ export function registerRoutes(app) {
       } catch { /* fall through to fallback */ }
     }
     if (found) {
+      // Cache-write side effect of a view-gated read: this route only requires
+      // inventory.view, so use supabaseAdmin (RLS UPDATE would demand inventory.edit).
       await supabaseAdmin.from('inventory').update({ carfax_url: found }).eq('id', v.id)
       return res.json({ url: found, source: 'website' })
     }
@@ -332,7 +334,7 @@ export function registerRoutes(app) {
 
   // ── 6. INVENTORY ──
   app.get('/inventory', requireAuth, requirePermission('inventory.view'), async (req, res) => {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await req.supabase
       .from('inventory')
       .select('*')
       .eq('dealership_id', req.dealershipId)
@@ -346,7 +348,7 @@ export function registerRoutes(app) {
     // Show the live lot, plus recently-sold units for 2 weeks (as "sold"), then hide
     // them. Older archived history stays in the DB for analytics until the 1-year purge.
     const cutoff = new Date(Date.now() - 14 * 86400000).toISOString()
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await req.supabase
       .from('inventory')
       .select('id, vin, year, make, model, trim, price, invoice_amount, mileage, condition, exterior_color, interior_color, body_style, fuel_type, drivetrain, transmission, engine, doors, status, archived_at, image_urls, source_url, source, description, stocknumber, created_at, last_synced_at, window_sticker_url, window_sticker_oem_url, window_sticker_gen_url, brochure_url, brochure_oem_url, brochure_gen_url, recalls, recalls_checked_at, vin_data, sales_pitch, sales_pitch_at, specs_manual, awaiting_possession, source_appraisal_id')
       .eq('dealership_id', req.dealershipId)
@@ -367,7 +369,7 @@ export function registerRoutes(app) {
   // ── CSV import / export ─────────────────────────────────────────────────────
   // Registered BEFORE /inventory/:id so "export.csv" isn't swallowed as an :id.
   app.get('/inventory/export.csv', requireAuth, requireMfa, requirePermission('customer.export'), async (req, res) => {
-    const { data } = await supabaseAdmin.from('inventory')
+    const { data } = await req.supabase.from('inventory')
       .select(CSV_COLS.filter(c => c !== 'image_urls').join(', ') + ', image_urls')
       .eq('dealership_id', req.dealershipId).is('archived_at', null).order('created_at', { ascending: false })
     audit(req, AuditAction.INVENTORY_EXPORTED, { count: (data || []).length, reason: exportReason(req) })
@@ -384,7 +386,7 @@ export function registerRoutes(app) {
     const header = rows[0].map(h => h.trim().toLowerCase())
     const idx = Object.fromEntries(CSV_COLS.map(c => [c, header.indexOf(c)]))
     if (idx.make < 0 || idx.model < 0) return res.status(400).json({ error: 'CSV needs at least "make" and "model" columns. Export a file first to see the format.' })
-    const { data: existing } = await supabaseAdmin.from('inventory').select('id, vin, stocknumber').eq('dealership_id', req.dealershipId).is('archived_at', null)
+    const { data: existing } = await req.supabase.from('inventory').select('id, vin, stocknumber').eq('dealership_id', req.dealershipId).is('archived_at', null)
     const byVin = {}, byStock = {}
     for (const e of (existing || [])) { if (e.vin) byVin[e.vin.toUpperCase()] = e.id; if (e.stocknumber) byStock[String(e.stocknumber).toLowerCase()] = e.id }
     let created = 0, updated = 0, skipped = 0; const errors = []
@@ -406,9 +408,9 @@ export function registerRoutes(app) {
       const imgs = get('image_urls'); if (imgs) patch.image_urls = imgs.split('|').map(x => x.trim()).filter(Boolean)
       const matchId = (vin && byVin[vin]) || (patch.stocknumber && byStock[patch.stocknumber.toLowerCase()]) || null
       try {
-        if (matchId) { await supabaseAdmin.from('inventory').update(patch).eq('id', matchId).eq('dealership_id', req.dealershipId); updated++ }
+        if (matchId) { await req.supabase.from('inventory').update(patch).eq('id', matchId).eq('dealership_id', req.dealershipId); updated++ }
         else {
-          const { data: ins } = await supabaseAdmin.from('inventory').insert({ dealership_id: req.dealershipId, source: 'import', lot_date: new Date().toISOString(), image_urls: [], ...patch }).select('id').single()
+          const { data: ins } = await req.supabase.from('inventory').insert({ dealership_id: req.dealershipId, source: 'import', lot_date: new Date().toISOString(), image_urls: [], ...patch }).select('id').single()
           created++
           if (ins) { if (vin) byVin[vin] = ins.id; if (patch.stocknumber) byStock[patch.stocknumber.toLowerCase()] = ins.id }   // dedupe within the same file
         }
@@ -418,7 +420,7 @@ export function registerRoutes(app) {
   })
 
   app.get('/inventory/:id', requireAuth, requirePermission('inventory.view'), async (req, res) => {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await req.supabase
       .from('inventory')
       .select('*')
       .eq('id', req.params.id)
