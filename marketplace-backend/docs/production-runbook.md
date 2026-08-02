@@ -9,6 +9,7 @@
 - In Supabase, verify daily backups and point-in-time recovery are enabled; record the retention period and restoration owner.
 - Never deploy directly to `main`: commit and push to `staging`, verify `/ready`, test sign-in, invite/reset links, and cross-dealer access, then promote.
 - Apply any new backend migration to the separate staging Supabase project before testing it. Do not copy production data into staging.
+- Every new `public` table must ship with RLS enabled and permission-based policies in the same migration — no exceptions. Follow `docs/rls-standard.md` and the `migrations/_TEMPLATE-new-table-rls.sql` template, and query dealer-facing routes with `req.supabase` (not `supabaseAdmin`) so those policies are enforced.
 - Platform access is assigned through `profiles.system_role`; do not use an email address or dealership name as an access-control shortcut.
 
 ## Incident response

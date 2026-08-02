@@ -34,7 +34,7 @@ export function registerPipeline(app) {
     // Join inventory inline and filter by dealership on the embedded resource.
     // (Avoids building a giant .in('inventory_id', [hundreds of IDs]) which blows
     // PostgREST's URL length limit and makes the request hang on big stores.)
-    let q = supabaseAdmin
+    let q = req.supabase
       .from('listings')
       .select('id, inventory_id, posted_by, vehicle_label, status, posted_at, sold_at, pipeline_stage, fb_listing_url, relisted_at, appointment_at, appointment_note, inventory:inventory_id!inner(dealership_id, year, make, model, trim, price, mileage, exterior_color, condition, stocknumber, image_urls, source_url)')
       .eq('inventory.dealership_id', req.dealershipId)
@@ -50,6 +50,7 @@ export function registerPipeline(app) {
     const repIds = [...new Set((listings || []).map(l => l.posted_by).filter(Boolean))]
     let repNames = {}
     if (repIds.length) {
+      // Rep-name lookup kept on supabaseAdmin (profiles RLS restricts cross-user reads).
       const { data: reps } = await supabaseAdmin
         .from('profiles').select('id, full_name, display_name').in('id', repIds)
       // Pipeline is an internal management view → show the rep's real name.
@@ -94,7 +95,7 @@ export function registerPipeline(app) {
   app.get('/appointments', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ appointments: [], can_manage_all: false })
 
-    let q = supabaseAdmin
+    let q = req.supabase
       .from('listings')
       .select('id, posted_by, vehicle_label, appointment_at, appointment_note, fb_listing_url, inventory:inventory_id!inner(dealership_id, year, make, model, trim, price, mileage, exterior_color, condition, stocknumber, image_urls, source_url)')
       .eq('inventory.dealership_id', req.dealershipId)
@@ -110,7 +111,7 @@ export function registerPipeline(app) {
     // Appointments also get booked straight from a CRM contact (a crm_task of
     // type 'appointment'). Pull those too so the calendar shows every booking,
     // not just pipeline ones.
-    let taskQ = supabaseAdmin.from('crm_tasks')
+    let taskQ = req.supabase.from('crm_tasks')
       .select('id, contact_id, assigned_to, title, due_at')
       .eq('dealership_id', req.dealershipId).eq('type', 'appointment').not('due_at', 'is', null)
       // Sales appointments only. Service appts (category='service') live in the Service
@@ -123,7 +124,7 @@ export function registerPipeline(app) {
     const taskContactIds = [...new Set((apptTasks || []).map(t => t.contact_id).filter(Boolean))]
     let contactNames = {}
     if (taskContactIds.length) {
-      const { data: cs } = await supabaseAdmin.from('contacts').select('id, full_name, first_name, last_name').in('id', taskContactIds)
+      const { data: cs } = await req.supabase.from('contacts').select('id, full_name, first_name, last_name').in('id', taskContactIds)
       contactNames = Object.fromEntries((cs || []).map(c => [c.id, c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Customer']))
     }
 
@@ -131,6 +132,7 @@ export function registerPipeline(app) {
     const repIds = [...new Set([...(rows || []).map(l => l.posted_by), ...(apptTasks || []).map(t => t.assigned_to)].filter(Boolean))]
     let repNames = {}
     if (repIds.length) {
+      // Rep-name lookup kept on supabaseAdmin (profiles RLS restricts cross-user reads).
       const { data: reps } = await supabaseAdmin
         .from('profiles').select('id, full_name, display_name').in('id', repIds)
       repNames = Object.fromEntries((reps || []).map(r => [r.id, r.full_name || r.display_name || '—']))
@@ -186,7 +188,7 @@ export function registerPipeline(app) {
     const stage = req.body?.stage
     if (!STAGES.includes(stage)) return res.status(400).json({ error: 'Invalid stage' })
 
-    const { data: listing } = await supabaseAdmin
+    const { data: listing } = await req.supabase
       .from('listings')
       .select('id, inventory_id, posted_by, status, inventory:inventory_id(dealership_id)')
       .eq('id', req.params.id)
@@ -221,6 +223,9 @@ export function registerPipeline(app) {
       // Mark the listing sold and log the sale (awards leaderboard points), once.
       update.status = 'sold'
       update.sold_at = new Date().toISOString()
+      // Sale-logging kept on supabaseAdmin: a rep moves their OWN post to "sold" here
+      // (ownership checked above via posted_by), but the sales table has no DELETE RLS
+      // policy and the reopen path below deletes — so the whole block stays on admin.
       const { data: existing } = await supabaseAdmin
         .from('sales').select('id').eq('inventory_id', listing.inventory_id).maybeSingle()
       if (!existing) {
@@ -238,7 +243,9 @@ export function registerPipeline(app) {
       await supabaseAdmin.from('sales').delete().eq('inventory_id', listing.inventory_id)
     }
 
-    const { error } = await supabaseAdmin.from('listings').update(update).eq('id', req.params.id)
+    // RLS-enforced: the listings UPDATE policy permits the owning rep (posted_by) or
+    // inventory.edit (widened 2026-08-02), matching the ownership check above.
+    const { error } = await req.supabase.from('listings').update(update).eq('id', req.params.id)
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, stage })
   })
@@ -246,7 +253,7 @@ export function registerPipeline(app) {
   // One-click relist: reset the freshness clock and return the vehicle's details
   // so the rep can repost it to Facebook (the extension fills the form).
   app.post('/pipeline/:id/relist', requireAuth, async (req, res) => {
-    const { data: listing } = await supabaseAdmin
+    const { data: listing } = await req.supabase
       .from('listings')
       .select('id, inventory_id, posted_by, vehicle_label, inventory:inventory_id(dealership_id)')
       .eq('id', req.params.id)
@@ -258,7 +265,8 @@ export function registerPipeline(app) {
     if (!isDealerLevel(req.profile) && listing.posted_by !== req.user.id) {
       return res.status(403).json({ error: 'You can only relist your own listings' })
     }
-    const { error } = await supabaseAdmin.from('listings').update({
+    // RLS-enforced listing write (posted_by / inventory.edit — see PATCH /pipeline/:id).
+    const { error } = await req.supabase.from('listings').update({
       relisted_at: new Date().toISOString(),
       pipeline_stage: null,
       pipeline_updated_at: new Date().toISOString(),

@@ -156,7 +156,7 @@ export function registerCrm(app) {
     const limit = Math.min(500, Math.max(1, parseInt(req.query.limit) || 200))
     const dealer = isDealerLevel(req)
     const searching = q.length > 0
-    let query = supabaseAdmin.from('contacts')
+    let query = req.supabase.from('contacts')
       .select('id, full_name, first_name, last_name, email, phone, phone_mobile, phone_home, address, city, province, postal_code, assigned_rep, source, sold_source, status, tags, dnc, last_activity_at, created_at')
       .eq('dealership_id', req.dealershipId)
       .order('last_activity_at', { ascending: false, nullsFirst: false })
@@ -202,7 +202,7 @@ export function registerCrm(app) {
     if (patch.phone == null) patch.phone = patch.phone_mobile || patch.phone_home || patch.phone_work || null
     const hasName = patch.full_name || patch.company_name || b.company_name
     if (!hasName && !patch.email && !patch.phone) return res.status(400).json({ error: 'Enter a name, phone, or email' })
-    const { data, error } = await supabaseAdmin.from('contacts').insert({
+    const { data, error } = await req.supabase.from('contacts').insert({
       dealership_id: req.dealershipId,
       ...patch,
       full_name: patch.full_name || (b.company_name ? String(b.company_name).trim() : null) || 'Unknown',
@@ -224,24 +224,26 @@ export function registerCrm(app) {
   // ── Contact detail: profile + unified timeline + open tasks ────────────────
   app.get('/crm/contacts/:id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: contact } = await supabaseAdmin.from('contacts')
+    const { data: contact } = await req.supabase.from('contacts')
       .select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!contact) return res.status(404).json({ error: 'Contact not found' })
 
     const [{ data: comms }, { data: leads }, { data: appraisals }, { data: tasks }, { data: attachments }, { data: deal }] = await Promise.all([
-      supabaseAdmin.from('communications').select('*').eq('contact_id', contact.id).order('occurred_at', { ascending: false }).limit(200),
-      supabaseAdmin.from('leads').select('id, comments, source, status, inventory_id, created_by, created_at').eq('contact_id', contact.id).order('created_at', { ascending: false }),
-      supabaseAdmin.from('trade_appraisals').select('id, year, make, model, trim, vin, suggested_offer, currency, created_by, created_at').eq('contact_id', contact.id).order('created_at', { ascending: false }),
-      supabaseAdmin.from('crm_tasks').select('*').eq('contact_id', contact.id).order('due_at', { ascending: true, nullsFirst: false }),
-      supabaseAdmin.from('crm_attachments').select('id, url, filename, content_type, size, kind, uploaded_by, created_at').eq('contact_id', contact.id).is('deleted_at', null).order('created_at', { ascending: false }).then(r => r, () => ({ data: [] })),
+      req.supabase.from('communications').select('*').eq('contact_id', contact.id).order('occurred_at', { ascending: false }).limit(200),
+      req.supabase.from('leads').select('id, comments, source, status, inventory_id, created_by, created_at').eq('contact_id', contact.id).order('created_at', { ascending: false }),
+      req.supabase.from('trade_appraisals').select('id, year, make, model, trim, vin, suggested_offer, currency, created_by, created_at').eq('contact_id', contact.id).order('created_at', { ascending: false }),
+      req.supabase.from('crm_tasks').select('*').eq('contact_id', contact.id).order('due_at', { ascending: true, nullsFirst: false }),
+      req.supabase.from('crm_attachments').select('id, url, filename, content_type, size, kind, uploaded_by, created_at').eq('contact_id', contact.id).is('deleted_at', null).order('created_at', { ascending: false }).then(r => r, () => ({ data: [] })),
       // A worked deal for this customer (if any) — powers the "View deal / Desk a deal" button.
-      supabaseAdmin.from('deals').select('deal_number, deal_status, insurance').eq('contact_id', contact.id).eq('dealership_id', req.dealershipId).maybeSingle().then(r => r, () => ({ data: null })),
+      req.supabase.from('deals').select('deal_number, deal_status, insurance').eq('contact_id', contact.id).eq('dealership_id', req.dealershipId).maybeSingle().then(r => r, () => ({ data: null })),
     ])
 
     // Resolve vehicle labels for pinned leads.
     const invIds = [...new Set((leads || []).map(l => l.inventory_id).filter(Boolean))]
     let vehicles = {}
     if (invIds.length) {
+      // Display-label lookup only. Kept on supabaseAdmin so CRM-only roles (BDC, F&I)
+      // that lack inventory.view still get vehicle names on the customer timeline.
       const { data: inv } = await supabaseAdmin.from('inventory').select('id, year, make, model, trim, price, stocknumber').in('id', invIds)
       vehicles = Object.fromEntries((inv || []).map(v => [v.id, v]))
     }
@@ -269,6 +271,7 @@ export function registerCrm(app) {
     // Resolve the "new car of interest" label from our stock, if pinned.
     let interest_vehicle_label = null
     if (contact.interest_inventory_id) {
+      // Display-label lookup only (see note above) — kept on supabaseAdmin.
       const { data: iv } = await supabaseAdmin.from('inventory')
         .select('year, make, model, trim, price, stocknumber').eq('id', contact.interest_inventory_id).maybeSingle()
       if (iv) interest_vehicle_label = { label: [iv.year, iv.make, iv.model, iv.trim].filter(Boolean).join(' '), price: iv.price, stocknumber: iv.stocknumber, inventory_id: contact.interest_inventory_id }
@@ -294,7 +297,7 @@ export function registerCrm(app) {
   // ── Attachments: reps attach photos / videos / files to a customer ─────────
   app.post('/crm/contacts/:id/attachments', requireAuth, attachUpload.array('files', 10), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: contact } = await supabaseAdmin.from('contacts')
+    const { data: contact } = await req.supabase.from('contacts')
       .select('id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!contact) return res.status(404).json({ error: 'Contact not found' })
     const files = req.files || []
@@ -307,7 +310,7 @@ export function registerCrm(app) {
         .upload(path, f.buffer, { contentType: f.mimetype || 'application/octet-stream', upsert: false })
       if (upErr) { console.warn('[crm-attach] upload failed:', upErr.message); continue }
       const { data: { publicUrl } } = supabaseAdmin.storage.from('crm-attachments').getPublicUrl(path)
-      const { data: row } = await supabaseAdmin.from('crm_attachments').insert({
+      const { data: row } = await req.supabase.from('crm_attachments').insert({
         dealership_id: req.dealershipId, contact_id: contact.id, uploaded_by: req.user.id,
         url: publicUrl, path, filename: f.originalname || safe, content_type: f.mimetype || null,
         size: f.size || null, kind: attachKind(f.mimetype || ''),
@@ -320,10 +323,10 @@ export function registerCrm(app) {
 
   app.delete('/crm/attachments/:id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: att } = await supabaseAdmin.from('crm_attachments')
+    const { data: att } = await req.supabase.from('crm_attachments')
       .select('id, contact_id, path, filename, content_type, size, kind, uploaded_by, created_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
     if (!att) return res.status(404).json({ error: 'Attachment not found' })
-    const { data, error } = await supabaseAdmin.from('crm_attachments').update({
+    const { data, error } = await req.supabase.from('crm_attachments').update({
       deleted_at: new Date().toISOString(), deleted_by: req.user?.id || null,
     }).eq('id', att.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).select('id, deleted_at').maybeSingle()
     if (error) return res.status(500).json({ error: 'Could not archive attachment' })
@@ -336,14 +339,14 @@ export function registerCrm(app) {
   app.put('/crm/contacts/:id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     // Grab the prior status so we can fire automation only on a real transition.
-    const { data: before } = await supabaseAdmin.from('contacts')
+    const { data: before } = await req.supabase.from('contacts')
       .select('id, status, sold_at, consent_email, consent_sms, dnc, opt_out')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     const patch = { ...contactPatchFromBody(req.body || {}), updated_at: new Date().toISOString() }
     // Stamp the moment a deal is first marked won, so sales reports are period-bound.
     const WON = ['sold', 'fni', 'delivered']
     if (patch.status && WON.includes(patch.status) && !before?.sold_at) patch.sold_at = new Date().toISOString()
-    const { data, error } = await supabaseAdmin.from('contacts')
+    const { data, error } = await req.supabase.from('contacts')
       .update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('*').maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
     if (!data) return res.status(404).json({ error: 'Contact not found' })
@@ -372,6 +375,9 @@ export function registerCrm(app) {
   // ── Dealership rep roster (for the "assigned to" picker) ──────────────────
   app.get('/crm/reps', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ reps: [] })
+    // Roster of co-workers for the "assigned to" picker. Kept on supabaseAdmin: the
+    // profiles RLS SELECT policy restricts direct reads to self / users.manage, so a
+    // rep would otherwise only see themselves. Dealership-scoped, non-sensitive fields.
     const { data } = await supabaseAdmin.from('profiles')
       .select('id, full_name, display_name, role').eq('dealership_id', req.dealershipId)
     const reps = (data || []).map(r => ({ id: r.id, name: r.full_name || r.display_name || '—', role: r.role }))
@@ -382,7 +388,7 @@ export function registerCrm(app) {
   // ── Log an activity (note / call / text / email logged manually) ──────────
   app.post('/crm/contacts/:id/log', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: contact } = await supabaseAdmin.from('contacts')
+    const { data: contact } = await req.supabase.from('contacts')
       .select('id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!contact) return res.status(404).json({ error: 'Contact not found' })
     const b = req.body || {}
@@ -402,7 +408,7 @@ export function registerCrm(app) {
   // marketplace/extension path. Stored as a 'chat' communication with meta.transcript.
   app.post('/crm/contacts/:id/chat-log', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: contact } = await supabaseAdmin.from('contacts')
+    const { data: contact } = await req.supabase.from('contacts')
       .select('id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!contact) return res.status(404).json({ error: 'Contact not found' })
     const b = req.body || {}
@@ -425,7 +431,7 @@ export function registerCrm(app) {
   // Real outbound (they already run Resend). Respects consent + DNC.
   app.post('/crm/contacts/:id/email', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: contact } = await supabaseAdmin.from('contacts')
+    const { data: contact } = await req.supabase.from('contacts')
       .select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!contact) return res.status(404).json({ error: 'Contact not found' })
     if (!contact.email) return res.status(400).json({ error: 'Contact has no email address' })
@@ -434,7 +440,7 @@ export function registerCrm(app) {
     const subject = String(req.body?.subject || '').trim()
     const body = String(req.body?.body || '').trim()
     if (!subject || !body) return res.status(400).json({ error: 'Subject and message are required' })
-    const { data: rep } = await supabaseAdmin.from('profiles').select('full_name, display_name, email_signature, email_reply_to').eq('id', req.user.id).maybeSingle()
+    const { data: rep } = await req.supabase.from('profiles').select('full_name, display_name, email_signature, email_reply_to').eq('id', req.user.id).maybeSingle()
     const repName = rep?.full_name || rep?.display_name || null
     // Signature: the rep's saved signature (Settings) if present, else just their name.
     // Reply-to: their chosen reply address (personal inbox) if set, else their login email —
@@ -461,7 +467,7 @@ export function registerCrm(app) {
   app.get('/crm/tasks', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ tasks: [] })
     const scope = String(req.query.scope || 'open')   // open | all
-    let query = supabaseAdmin.from('crm_tasks')
+    let query = req.supabase.from('crm_tasks')
       .select('id, contact_id, assigned_to, title, type, due_at, done, done_at, created_at')
       .eq('dealership_id', req.dealershipId)
       .order('due_at', { ascending: true, nullsFirst: false }).limit(300)
@@ -475,7 +481,7 @@ export function registerCrm(app) {
     const cids = [...new Set((data || []).map(t => t.contact_id).filter(Boolean))]
     let names = {}
     if (cids.length) {
-      const { data: cs } = await supabaseAdmin.from('contacts').select('id, full_name').in('id', cids)
+      const { data: cs } = await req.supabase.from('contacts').select('id, full_name').in('id', cids)
       names = Object.fromEntries((cs || []).map(c => [c.id, c.full_name]))
     }
     res.json({ tasks: (data || []).map(t => ({ ...t, contact_name: names[t.contact_id] || null })) })
@@ -492,10 +498,13 @@ export function registerCrm(app) {
     const assignedTo = b.assigned_to || req.user.id
     if (assignedTo !== req.user.id && !canManageTasks) return res.status(403).json({ error: 'Insufficient permission to assign team tasks' })
     if (assignedTo !== req.user.id) {
+      // Assignee-membership check on supabaseAdmin: profiles RLS restricts cross-user
+      // reads to users.manage, but task assignment is gated on lead.assign (which a
+      // sales manager can hold without users.manage). Reads only an id, dealership-scoped.
       const { data: assignee } = await supabaseAdmin.from('profiles').select('id').eq('id', assignedTo).eq('dealership_id', req.dealershipId).maybeSingle()
       if (!assignee) return res.status(400).json({ error: 'Assignee must belong to this dealership' })
     }
-    const { data, error } = await supabaseAdmin.from('crm_tasks').insert({
+    const { data, error } = await req.supabase.from('crm_tasks').insert({
       dealership_id: req.dealershipId,
       contact_id: b.contact_id || null,
       assigned_to: assignedTo,
@@ -514,13 +523,14 @@ export function registerCrm(app) {
   app.put('/crm/tasks/:id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
-    const { data: before } = await supabaseAdmin.from('crm_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: before } = await req.supabase.from('crm_tasks').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Task not found' })
     let canManageTasks = false
     try { canManageTasks = await hasPermission(req, 'lead.assign') } catch { return res.status(500).json({ error: 'Permission check failed' }) }
     if (!canManageTasks && before.assigned_to !== req.user.id) return res.status(403).json({ error: 'You can only update your own tasks' })
     if (b.assigned_to !== undefined && b.assigned_to !== before.assigned_to && !canManageTasks) return res.status(403).json({ error: 'Insufficient permission to reassign tasks' })
     if (b.assigned_to) {
+      // See POST /crm/tasks: assignee-membership check kept on supabaseAdmin (profiles RLS).
       const { data: assignee } = await supabaseAdmin.from('profiles').select('id').eq('id', b.assigned_to).eq('dealership_id', req.dealershipId).maybeSingle()
       if (!assignee) return res.status(400).json({ error: 'Assignee must belong to this dealership' })
     }
@@ -530,7 +540,7 @@ export function registerCrm(app) {
     if (b.due_at !== undefined) patch.due_at = b.due_at || null
     if (b.assigned_to !== undefined) patch.assigned_to = b.assigned_to || null
     if (b.done !== undefined) { patch.done = !!b.done; patch.done_at = b.done ? new Date().toISOString() : null }
-    const { data, error } = await supabaseAdmin.from('crm_tasks')
+    const { data, error } = await req.supabase.from('crm_tasks')
       .update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('*').maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'crm.task_updated', { before_state: before, after_state: data })
@@ -550,13 +560,14 @@ export function registerCrm(app) {
     const startIso = new Date(Date.now() - days * 86400000).toISOString()
     const prevStartIso = new Date(Date.now() - days * 2 * 86400000).toISOString()
 
-    // Roster for names + leaderboard.
+    // Roster for names + leaderboard — kept on supabaseAdmin (profiles RLS restricts
+    // cross-user reads to users.manage; dealership-scoped, non-sensitive fields).
     const { data: staff } = await supabaseAdmin.from('profiles')
       .select('id, full_name, display_name, role').eq('dealership_id', req.dealershipId)
     const nameOf = (id) => { const p = (staff || []).find(s => s.id === id); return p ? (p.full_name || p.display_name || '—') : '—' }
 
     // Leads over the (double) window so we can compute a trend.
-    let lq = supabaseAdmin.from('leads')
+    let lq = req.supabase.from('leads')
       .select('id, source, status, created_by, created_at, contact_id')
       .eq('dealership_id', req.dealershipId).gte('created_at', prevStartIso).limit(10000)
     if (!isMgr) lq = lq.eq('created_by', req.user.id)
@@ -576,7 +587,7 @@ export function registerCrm(app) {
       : []
 
     // Pipeline funnel from contacts (current book, not range-bound — it's a snapshot).
-    let cq = supabaseAdmin.from('contacts')
+    let cq = req.supabase.from('contacts')
       .select('status, assigned_rep, created_at').eq('dealership_id', req.dealershipId).limit(20000)
     if (!isMgr) cq = cq.eq('assigned_rep', req.user.id)
     const { data: contactRows } = await cq
@@ -589,7 +600,7 @@ export function registerCrm(app) {
     const conversionPct = totalContacts ? Math.round((wonContacts / totalContacts) * 1000) / 10 : 0
 
     // Tasks: open, overdue, due today.
-    let tq = supabaseAdmin.from('crm_tasks')
+    let tq = req.supabase.from('crm_tasks')
       .select('assigned_to, due_at, done').eq('dealership_id', req.dealershipId).eq('done', false).limit(20000)
     if (!isMgr) tq = tq.eq('assigned_to', req.user.id)
     const { data: taskRows } = await tq

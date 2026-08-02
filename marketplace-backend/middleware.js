@@ -2,6 +2,22 @@ import { supabase, supabaseAdmin } from './shared.js'
 import { SYSTEM_ROLES, hasSystemRole } from './authorization.js'
 import { createClient } from '@supabase/supabase-js'
 
+// A Supabase client scoped to the CALLER'S JWT. Queries run as the `authenticated`
+// Postgres role with auth.uid() set, so RLS (authz.has_permission(dealership_id, …))
+// enforces tenant isolation AND permission on every row — defence in depth beyond the
+// app-layer .eq('dealership_id', …) filters.
+//
+// Use req.supabase for ALL dealer-facing data access. Reserve supabaseAdmin (service
+// role, which BYPASSES RLS) strictly for: Supabase Auth administration, platform
+// administration, verified webhook processing, cron jobs / background workers, audit &
+// security-event writes, and maintenance operations.
+function requestScopedClient(token) {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
 // Cache the demo dealership id (created by POST /demo/seed). Only positive results
 // are cached, so it resolves as soon as the workspace is seeded.
 let _demoDealerId = null
@@ -72,6 +88,8 @@ export async function requireAuth(req, res, next) {
     req.user = user
     req.profile = profile
     req.dealershipId = profile.dealership_id
+    // RLS-enforcing client bound to this caller's token (see requestScopedClient).
+    req.supabase = requestScopedClient(token)
 
     // Demo mode is limited to an explicit platform owner; dealer names and mutable
     // user metadata must never grant cross-tenant elevation.
