@@ -3,9 +3,9 @@
 // Pure helpers (defaultTrialPlan) are unit-tested; IO helpers use the server-only client.
 
 import { supabaseAdmin } from './shared.js'
-import { PRODUCTS, ACCOUNT_TYPES, defaultTrialPlan } from './entitlements-policy.js'
+import { PRODUCTS, ACCOUNT_TYPES, defaultTrialPlan, mapStripeStatus } from './entitlements-policy.js'
 
-export { PRODUCTS, ACCOUNT_TYPES, defaultTrialPlan }
+export { PRODUCTS, ACCOUNT_TYPES, defaultTrialPlan, mapStripeStatus }
 
 // Validate a product + optional caller-chosen plan against the catalog. Falls back to the
 // trial default when no plan is given. Throws if the product is unknown or the plan does
@@ -47,6 +47,38 @@ export async function grantProductMembership(userId, dealershipId, product) {
     .from('product_memberships')
     .upsert({ user_id: userId, dealership_id: dealershipId, product_id: product }, { onConflict: 'user_id,dealership_id,product_id' })
   if (error) throw error
+}
+
+// ── Stripe → plan mapping (server-side; never trust the client for the plan) ──
+// mapStripeStatus lives in entitlements-policy.js (pure/testable) and is re-exported above.
+// Which catalog plan a Stripe price id corresponds to (via plans.stripe_price_id).
+export async function planForStripePrice(priceId) {
+  if (!priceId) return null
+  const { data } = await supabaseAdmin
+    .from('plans').select('id, product_id').eq('stripe_price_id', priceId).maybeSingle()
+  return data || null
+}
+
+// Reconcile the subscriptions table from a Stripe subscription object: each line item's
+// price resolves to a plan → product, and we upsert one subscriptions row per product
+// with a status derived from Stripe. Prices not present in the catalog (legacy add-ons)
+// are ignored here — they're still handled by the existing dealership-flag webhook path.
+export async function syncSubscriptionFromStripe(dealershipId, stripeSub) {
+  if (!dealershipId || !stripeSub) return
+  const status = mapStripeStatus(stripeSub.status)
+  const trialEndsAt = stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000).toISOString() : null
+  const stripe = {
+    stripe_subscription_id: stripeSub.id || null,
+    stripe_customer_id: stripeSub.customer || null,
+    current_period_end: stripeSub.current_period_end ? new Date(stripeSub.current_period_end * 1000).toISOString() : null,
+  }
+  const seen = new Set()
+  for (const item of (stripeSub.items?.data || [])) {
+    const plan = await planForStripePrice(item.price?.id)
+    if (!plan || seen.has(plan.product_id)) continue
+    seen.add(plan.product_id)
+    await provisionSubscription({ dealershipId, product: plan.product_id, planId: plan.id, status, trialEndsAt, stripe })
+  }
 }
 
 // Apply per-member permission overrides (grant/deny) on top of their RBAC role. Validates

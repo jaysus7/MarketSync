@@ -12,3 +12,10 @@ export function defaultTrialPlan(product, accountType) {
   if (product === 'ai_dealer') return 'ai_standard'
   return 'os_enterprise' // dealer_os
 }
+
+// Map a Stripe subscription status onto our subscriptions.status enum.
+const STRIPE_STATUS_MAP = Object.freeze({
+  trialing: 'trialing', active: 'active', past_due: 'past_due', unpaid: 'past_due',
+  canceled: 'cancelled', incomplete: 'past_due', incomplete_expired: 'expired', paused: 'past_due',
+})
+export function mapStripeStatus(status) { return STRIPE_STATUS_MAP[status] || 'past_due' }
