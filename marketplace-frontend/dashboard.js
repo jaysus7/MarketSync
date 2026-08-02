@@ -1113,10 +1113,19 @@ async function initializeDashboardEcosystem() {
     // from the central authorization service — the SINGLE source both desktop and mobile
     // nav filter from. Falls back to the legacy /auth/me products object if unavailable,
     // so an older backend keeps working.
+    // CRITICAL: this must NEVER block the dashboard from rendering. It is bounded by its
+    // own abort timeout so a slow/hanging response (e.g. a cold-started or down backend)
+    // can't stall the nav + skeleton screen — worst case we fall through to legacy gating.
     try {
-      const ac = await fetch(`${API}/access/context`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const acCtrl = new AbortController();
+      const acTimer = setTimeout(() => acCtrl.abort(), 8000);
+      const ac = await fetch(`${API}/access/context`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal: acCtrl.signal,
+      });
+      clearTimeout(acTimer);
       if (ac.ok) window.__access = await ac.json();
-    } catch { /* leave window.__access unset → legacy product gating below */ }
+    } catch { /* timed out / unavailable → leave window.__access unset, legacy gating applies */ }
 
     // Render Shared Header Components
     // For dealer admins: lead with the DEALERSHIP NAME (so it visually distinguishes the
