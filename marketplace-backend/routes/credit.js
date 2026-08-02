@@ -32,6 +32,16 @@ function publicShape(row) {
   }
 }
 
+// NOTE (RLS + guard bug): this file is intentionally left on supabaseAdmin pending a
+// decision, because its route guards reference permission strings that NO role is
+// granted — `credit_application.view` / `credit_application.manage` — whereas the RBAC
+// grants and the credit_applications table RLS use the `fni.credit_application.view` /
+// `fni.credit_application.edit` namespace. As written, requirePermission() 403s every
+// non-platform-owner here, so the F&I credit-app feature is effectively unreachable for
+// real users. Fix the guards to fni.credit_application.* (and update the guard test),
+// which both restores the feature AND makes RLS enforceable — then convert these calls
+// to req.supabase. Tracked as a follow-up; not changed here to avoid altering a tested
+// security guard on the most PII-sensitive route without sign-off.
 export function registerCredit(app) {
   // ── Read the application for a deal (or contact). Masked; never returns PII. ──
   app.get('/credit/application', requireAuth, requireMfa, requirePermission('credit_application.view'), async (req, res) => {

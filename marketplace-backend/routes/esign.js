@@ -41,18 +41,18 @@ export function registerEsign(app) {
       expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
       audit: [{ event: 'created', by: req.user?.email || null, at: new Date().toISOString() }],
     }
-    const { data, error } = await supabaseAdmin.from('esign_requests').insert(row).select('id, token').single()
+    const { data, error } = await req.supabase.from('esign_requests').insert(row).select('id, token').single()
     if (error) { console.error('[esign] create failed:', error.message); return res.status(500).json({ error: 'Could not create the signing request.' }) }
     const url = signUrl(token)
     // Email the signer the link (best-effort).
     if (resend && signer_email) {
-      const { data: d } = await supabaseAdmin.from('dealerships').select('name').eq('id', req.dealershipId).maybeSingle()
+      const { data: d } = await req.supabase.from('dealerships').select('name').eq('id', req.dealershipId).maybeSingle()
       const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto"><div style="background:#1e3a8a;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0"><div style="font-size:19px;font-weight:800">${d?.name || 'Your dealership'} — document to sign</div></div><div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 12px 12px;padding:20px"><p style="font-size:15px;color:#0f172a">Hi ${row.signer_name || 'there'}, please review and sign your ${row.doc_title}.</p><div style="margin-top:16px"><a href="${url}" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 22px;border-radius:8px">Review &amp; sign →</a></div><p style="font-size:12px;color:#94a3b8;margin-top:16px">This secure link is unique to you. It expires in 30 days.</p></div></div>`
       resend.emails.send({ from: EMAIL_FROM, to: signer_email, subject: `Please sign: ${row.doc_title}`, html }).catch(() => {})
     }
     // Timeline note on the customer's record.
     if (b.contact_id) {
-      await supabaseAdmin.from('communications').insert({
+      await req.supabase.from('communications').insert({
         dealership_id: req.dealershipId, contact_id: b.contact_id, channel: 'note', direction: 'internal',
         subject: `Sent for e-signature: ${row.doc_title}`, body: `Signing link sent${signer_email ? ' to ' + signer_email : ''}.`,
         occurred_at: new Date().toISOString(), rep_id: req.user?.id || null, meta: { kind: 'esign_sent', esign_id: data.id },
@@ -62,6 +62,10 @@ export function registerEsign(app) {
     res.json({ ok: true, id: data.id, token, url })
   })
 
+  // PUBLIC signer routes (token-authenticated, no logged-in user) stay on supabaseAdmin
+  // by necessity: there is no JWT/req.supabase for an unauthenticated customer. Access is
+  // scoped by the unguessable token; RLS-enforced access is applied on the manager-facing
+  // routes above/below (create/list/detail) instead.
   // PUBLIC: fetch the document to sign. Records a "viewed" event (once).
   app.get('/esign/:token', rateLimit('esignget', 60, 60000), async (req, res) => {
     const { data: r } = await supabaseAdmin.from('esign_requests')
@@ -135,7 +139,7 @@ export function registerEsign(app) {
   // Manager: list this dealership's signing requests (no doc_html/signature blobs).
   app.get('/esign', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data } = await supabaseAdmin.from('esign_requests')
+    const { data } = await req.supabase.from('esign_requests')
       .select('id, token, doc_title, doc_type, signer_name, signer_email, status, signed_at, created_at, contact_id')
       .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(200)
     res.json({ ok: true, requests: (data || []).map(r => ({ ...r, url: signUrl(r.token) })) })
@@ -144,7 +148,7 @@ export function registerEsign(app) {
   // Manager: full record incl. the signed document + signature (the file of record).
   app.get('/esign/:id/detail', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: r } = await supabaseAdmin.from('esign_requests').select('*')
+    const { data: r } = await req.supabase.from('esign_requests').select('*')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!r) return res.status(404).json({ error: 'Not found' })
     res.json({ ok: true, request: { ...r, url: signUrl(r.token) } })

@@ -28,6 +28,20 @@ async function canManageCatalog(req) {
   return !!data?.length
 }
 
+// NOTE (RLS): this file intentionally stays on supabaseAdmin pending a product
+// decision, because the fni_products/lenders row policies don't line up with how
+// these routes are used:
+//   • READS (GET products/lenders) serve any desk-capable role so the deal desk can
+//     show the F&I menu — but the tables' SELECT policy requires
+//     fni.credit_application.view, which salespeople and sales managers do NOT hold.
+//     (Product COST is already stripped for non-managers via canManageCatalog.)
+//   • WRITES are guarded by deal.approve, which a sales manager holds — but the
+//     tables' INSERT/UPDATE policy requires fni.credit_application.edit, which a sales
+//     manager does NOT hold.
+// Moving to req.supabase would therefore blank the desk menu for reps and block
+// catalog management for sales managers. Reconcile first (either widen the
+// fni_products/lenders policies to the deal-desk audience, or tighten these route
+// guards to fni.credit_application.*), then convert. Tracked as a follow-up.
 export function registerFniCatalog(app) {
   // ── F&I products ────────────────────────────────────────────────────────────
   app.get('/fni/products', requireAuth, async (req, res) => {
