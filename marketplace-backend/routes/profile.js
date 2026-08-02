@@ -3,6 +3,7 @@ import { requireAuth, requireMfa } from '../middleware.js'
 import { validatePassword, rateLimit, getClientIp } from '../security.js'
 import { audit, AuditAction, exportReason } from '../audit.js'
 import { SYSTEM_ROLES, hasPermission, hasSystemRole, requirePermission, syncDealerRole } from '../authorization.js'
+import { grantProductMembership, setPermissionOverrides, PRODUCTS } from '../entitlements.js'
 import multer from 'multer'
 import { randomBytes, createHash } from 'node:crypto'
 
@@ -277,6 +278,15 @@ export function registerRoutes(app) {
     }
     try { await syncDealerRole(newUser.user.id, req.dealershipId, newRole, req.user.id) }
     catch (e) { await supabaseAdmin.from('profiles').delete().eq('id', newUser.user.id); await supabaseAdmin.auth.admin.deleteUser(newUser.user.id); return res.status(500).json({ error: e.message }) }
+
+    // Optionally confine this member to a single product (e.g. a rep hired for Facebook
+    // only) and apply per-member permission overrides. Both are additive to the RBAC role.
+    // Best-effort: an entitlement hiccup should not undo an already-provisioned member.
+    try {
+      const invitedProduct = req.body?.product
+      if (PRODUCTS.includes(invitedProduct)) await grantProductMembership(newUser.user.id, req.dealershipId, invitedProduct)
+      if (Array.isArray(req.body?.permission_overrides)) await setPermissionOverrides(newUser.user.id, req.dealershipId, req.body.permission_overrides, req.user.id)
+    } catch (e) { console.error('[invite] product/override provisioning failed:', e?.message || e) }
 
     const rawResetToken = randomBytes(32).toString('hex')
     const tokenHash = createHash('sha256').update(rawResetToken).digest('hex')

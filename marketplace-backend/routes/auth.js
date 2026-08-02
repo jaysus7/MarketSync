@@ -6,6 +6,8 @@ import { validatePassword, rateLimit, getClientIp, generateRecoveryCodes, hashRe
 import { maybeAlertSuspiciousLogin } from '../securityAlerts.js'
 import { audit, AuditAction } from '../audit.js'
 import { recordReferralSignup } from './affiliate.js'
+import { syncDealerRole } from '../authorization.js'
+import { resolvePlan, provisionSubscription, ACCOUNT_TYPES } from '../entitlements.js'
 import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge } from '../mfa-login-challenges.js'
 import {
   beginPasskeyRegistration, finishPasskeyRegistration,
@@ -179,7 +181,7 @@ export function registerRoutes(app) {
   // 3 registrations per IP per hour — stops bot-driven sign-up abuse
   app.post('/auth/register', rateLimit('register', 3, 60 * 60 * 1000), async (req, res) => {
     const { accountRole, fullName, email, password, dealershipName, websiteUrl, feeds,
-            newsletterConsent, termsAccepted, affiliateCode } = req.body
+            newsletterConsent, termsAccepted, affiliateCode, product, plan } = req.body
 
     if (!email || !password || !fullName || !accountRole) {
       return res.status(400).json({ error: 'Missing required registration fields' })
@@ -187,6 +189,15 @@ export function registerRoutes(app) {
     if (accountRole === 'dealer_admin' && !dealershipName) {
       return res.status(400).json({ error: 'Dealership name required for admin accounts' })
     }
+    // Which product this account signs up for, and whether it's a solo workspace or a
+    // multi-seat dealership. Defaults preserve prior behavior: an admin registration is a
+    // dealership, anything else is solo; an unspecified product is the full Dealer OS
+    // (so existing signup forms that send neither keep working).
+    const isDealership = accountRole === 'dealer_admin'
+    const accountType = ACCOUNT_TYPES.includes(req.body.accountType)
+      ? req.body.accountType
+      : (isDealership ? 'dealership' : 'solo')
+    const signupProduct = ['facebook', 'ai_dealer', 'dealer_os'].includes(product) ? product : 'dealer_os'
 
     // 2026 password policy — NIST 800-63B compliant
     const pwCheck = await validatePassword(password, { email })
@@ -240,6 +251,7 @@ export function registerRoutes(app) {
           .insert({
             name: dealershipName,
             website_url: websiteUrl || null,
+            account_type: accountType,
             billing_status: 'TRIALING',
             trial_ends_at: trialEndsAt,
             // Everything unlocked for the 30-day trial; drops to paid-only after.
@@ -286,6 +298,7 @@ export function registerRoutes(app) {
           .insert({
             name: `${fullName} — Personal`,
             website_url: null,
+            account_type: accountType,
             billing_status: null,
             is_personal: true,
             // Same 30-day everything-unlocked onboarding.
@@ -314,6 +327,21 @@ export function registerRoutes(app) {
           })
         if (profileError) throw profileError
       }
+
+      // Grant the registrant the OWNER role in RBAC (user_roles). Without this the new
+      // owner has no role row and every RLS permission check fails — they would be locked
+      // out of their own workspace. This runs inside the try so a failure rolls the whole
+      // registration back (see catch), matching the team-invite flow.
+      await syncDealerRole(createdUserId, createdDealershipId, isDealership ? 'DEALER_ADMIN' : 'OWNER', createdUserId)
+
+      // Provision the org's trialing subscription for the chosen product. Best-effort: the
+      // access model falls back to legacy dealerships.products if this is unavailable, so a
+      // catalog hiccup must never block sign-up. The account OWNER gets NO product
+      // membership row on purpose — an empty membership set means "all org products".
+      try {
+        const { product: prod, planId } = await resolvePlan(signupProduct, plan, accountType)
+        await provisionSubscription({ dealershipId: createdDealershipId, product: prod, planId, status: 'trialing', trialEndsAt })
+      } catch (e) { console.error('[register] subscription provisioning failed:', e?.message || e) }
 
       // Affiliate attribution — if they arrived via a ?ref link, stamp the dealership
       // and open a referral for the affiliate (best-effort; never blocks signup).
