@@ -68,16 +68,17 @@ export async function ensureGetReadyCard(dealershipId, { inventoryId, dealId = n
   } catch (e) { console.warn('[recon] ensureGetReadyCard failed:', e.message); return null }
 }
 
-// NOTE (RLS): the Cleanup/recon board is a cross-department surface. Its exported
-// helpers (ensureReconCard, ensureGetReadyCard) are called from the deal + F&I flows
-// with no request context, so they stay on supabaseAdmin. The routes below are
-// requireAuth-only and read across tables with divergent, narrow policies — recon
-// (service.view), the inventory join (inventory.view), deals (deal.*) — while the
-// board's real audience spans sales managers (tracking sold-unit get-ready) and
-// detailers/service. No single permission covers that audience, so converting these
-// to req.supabase would drop the board for whole roles (e.g. a sales manager lacks
-// service.view; a technician lacks inventory.view). Kept on supabaseAdmin pending a
-// board-access policy decision; flagged as a follow-up.
+// RLS: the Cleanup/recon board is a cross-department surface. A dedicated recon.view
+// permission (migration 2026-08-02) opens it to its real audience — sales managers,
+// service, F&I and owners/GM — and the recon table policies were widened to
+// service.write_repair_order OR recon.view, so the board's WRITES (start / stage /
+// assign / notes / delivery / checklist / delete) run under req.supabase.
+// Kept on supabaseAdmin: the exported helpers (ensureReconCard / ensureGetReadyCard,
+// called from the deal + F&I flows with no request context); the GET board READ, which
+// joins inventory (inventory.view) + deals + dealer_tasks for an audience that doesn't
+// uniformly hold those perms — a cross-domain display, dealership-scoped; the inventory
+// ownership-verify in /start; and the dealer_tasks task-sync writes (the recon actor
+// isn't necessarily the task's creator/assignee under the dealer_tasks UPDATE policy).
 export function registerRecon(app) {
   // Board: every recon record for the dealership, joined to its vehicle. Also
   // returns which available vehicles aren't in recon yet, so the UI can add them.
@@ -189,7 +190,7 @@ export function registerRecon(app) {
     if (!veh) return res.status(404).json({ error: 'Vehicle not found' })
 
     const now = new Date().toISOString()
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await req.supabase
       .from('recon')
       .upsert({
         dealership_id: req.dealershipId, inventory_id, stage: 'arrived',
@@ -209,7 +210,7 @@ export function registerRecon(app) {
 
     const now = new Date().toISOString()
     const patch = { stage, stage_since: now, updated_at: now, done_at: stage === 'frontline' ? now : null }
-    const { error } = await supabaseAdmin
+    const { error } = await req.supabase
       .from('recon').update(patch)
       .eq('inventory_id', inventory_id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
@@ -241,7 +242,7 @@ export function registerRecon(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { inventory_id } = req.params
     const assigned_to = req.body?.assigned_to || null
-    const { error } = await supabaseAdmin
+    const { error } = await req.supabase
       .from('recon').update({ assigned_to, updated_at: new Date().toISOString() })
       .eq('inventory_id', inventory_id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
@@ -253,7 +254,7 @@ export function registerRecon(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { inventory_id } = req.params
     const notes = typeof req.body?.notes === 'string' ? req.body.notes.slice(0, 2000) : null
-    const { error } = await supabaseAdmin
+    const { error } = await req.supabase
       .from('recon').update({ notes, updated_at: new Date().toISOString() })
       .eq('inventory_id', inventory_id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
@@ -266,7 +267,7 @@ export function registerRecon(app) {
     const raw = req.body?.delivery_at
     let delivery_at = null
     if (raw) { const d = new Date(raw); if (isNaN(d)) return res.status(400).json({ error: 'Invalid date' }); delivery_at = d.toISOString() }
-    const { error } = await supabaseAdmin
+    const { error } = await req.supabase
       .from('recon').update({ delivery_at, updated_at: new Date().toISOString() })
       .eq('inventory_id', req.params.inventory_id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
@@ -288,7 +289,7 @@ export function registerRecon(app) {
     const now = new Date().toISOString()
     const patch = { checklist, updated_at: now }
     if (allDone) { patch.stage = 'frontline'; patch.done_at = now }
-    const { error } = await supabaseAdmin
+    const { error } = await req.supabase
       .from('recon').update(patch)
       .eq('inventory_id', req.params.inventory_id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
@@ -306,7 +307,7 @@ export function registerRecon(app) {
   // Remove a vehicle from the recon board.
   app.delete('/recon/:inventory_id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const { error } = await supabaseAdmin
+    const { error } = await req.supabase
       .from('recon').delete()
       .eq('inventory_id', req.params.inventory_id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })

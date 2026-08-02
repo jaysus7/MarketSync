@@ -42,16 +42,13 @@ function apptRow(t, contactName, repName) {
   }
 }
 
-// NOTE (RLS): the service-appointment routes read/write CRM-owned tables
-// (crm_tasks, contacts, communications) which are gated by customer.view/edit — but
-// service-department roles (service_manager, technician) do NOT hold customer.*, and
-// these routes serve exactly those users. Moving them to req.supabase would block the
-// service team from its own appointment book. Those calls therefore stay on
-// supabaseAdmin (dealership-scoped), while the dealerships settings READS above use
-// req.supabase (membership policy). The /site/:slug/service-book route is public
-// (unauthenticated customer, no JWT) and must use the service role. The dealerships
-// settings WRITE has no RLS UPDATE policy and stays on supabaseAdmin. Reconcile the
-// service-vs-customer permission split before converting the CRM-table access.
+// RLS: the service-appointment routes read/write CRM-owned tables (crm_tasks,
+// contacts, communications, gated by customer.view/edit). service_manager + technician
+// were granted customer.view/edit (migration 2026-08-02) so the service team can run
+// its own appointment book under req.supabase. Kept on supabaseAdmin: rep-name lookups
+// (profiles RLS restricts cross-user reads), the dealerships settings WRITE (no RLS
+// UPDATE policy), the findOrCreateContact helper (no request context), and the public
+// /site/:slug/service-book route (unauthenticated customer, no JWT).
 export function registerService(app) {
   // ── Settings ────────────────────────────────────────────────────────────────
   app.get('/service/config', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
@@ -87,7 +84,7 @@ export function registerService(app) {
   // ── Service appointments (attached to the same contacts as sales) ────────────
   app.get('/service/appointments', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ appointments: [] })
-    let q = supabaseAdmin.from('crm_tasks')
+    let q = req.supabase.from('crm_tasks')
       .select('id, contact_id, assigned_to, title, due_at, done, status, service_type')
       .eq('dealership_id', req.dealershipId).eq('category', 'service')
       .order('due_at', { ascending: true }).limit(2000)
@@ -97,7 +94,8 @@ export function registerService(app) {
     const cIds = [...new Set(list.map(t => t.contact_id).filter(Boolean))]
     const rIds = [...new Set(list.map(t => t.assigned_to).filter(Boolean))]
     let cNames = {}, rNames = {}
-    if (cIds.length) { const { data: cs } = await supabaseAdmin.from('contacts').select('id, full_name, first_name, last_name').in('id', cIds); cNames = Object.fromEntries((cs || []).map(c => [c.id, c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Customer'])) }
+    if (cIds.length) { const { data: cs } = await req.supabase.from('contacts').select('id, full_name, first_name, last_name').in('id', cIds); cNames = Object.fromEntries((cs || []).map(c => [c.id, c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Customer'])) }
+    // Rep-name lookup kept on supabaseAdmin (profiles RLS restricts cross-user reads).
     if (rIds.length) { const { data: rs } = await supabaseAdmin.from('profiles').select('id, full_name, display_name').in('id', rIds); rNames = Object.fromEntries((rs || []).map(r => [r.id, r.full_name || r.display_name || '—'])) }
     res.json({ ok: true, appointments: list.map(t => apptRow(t, cNames[t.contact_id], rNames[t.assigned_to])), can_manage_all: isDealerLevel(req.profile) })
   })
@@ -118,7 +116,7 @@ export function registerService(app) {
       contactId = await findOrCreateContact({ dealershipId: req.dealershipId, name, email: b.email || null, phone: b.phone || null, repId: req.user.id, source: 'Service' })
     }
     if (!contactId) return res.status(500).json({ error: 'Could not attach the customer.' })
-    const { data: task, error } = await supabaseAdmin.from('crm_tasks').insert({
+    const { data: task, error } = await req.supabase.from('crm_tasks').insert({
       dealership_id: req.dealershipId, contact_id: contactId, assigned_to: b.assigned_to || req.user.id, created_by: req.user.id,
       title: `${serviceType}${notes ? ' — ' + notes.slice(0, 60) : ''}`, type: 'appointment', category: 'service',
       service_type: serviceType, due_at: when.toISOString(),
@@ -126,8 +124,8 @@ export function registerService(app) {
     if (error) return res.status(500).json({ error: error.message })
     // The appointment is booked — the follow-on updates are best-effort and must not
     // fail the request (a hiccup here was surfacing as a generic "internal error").
-    await supabaseAdmin.from('contacts').update({ service_customer: true, updated_at: new Date().toISOString() }).eq('id', contactId).then(() => {}, () => {})
-    await supabaseAdmin.from('communications').insert({
+    await req.supabase.from('contacts').update({ service_customer: true, updated_at: new Date().toISOString() }).eq('id', contactId).then(() => {}, () => {})
+    await req.supabase.from('communications').insert({
       dealership_id: req.dealershipId, contact_id: contactId, channel: 'note', direction: 'internal',
       subject: 'Service appointment booked', body: `${serviceType} · ${when.toLocaleString('en-US')}${notes ? '\nNotes: ' + notes : ''}`,
       meta: { kind: 'service_appointment', when: when.toISOString(), service_type: serviceType },
@@ -143,7 +141,7 @@ export function registerService(app) {
     if (b.done !== undefined) { patch.done = !!b.done; patch.done_at = b.done ? new Date().toISOString() : null }
     if (b.when !== undefined) { const w = new Date(b.when); if (!isNaN(w.getTime())) patch.due_at = w.toISOString() }
     if (b.status !== undefined) patch.status = String(b.status).slice(0, 30)
-    const { data, error } = await supabaseAdmin.from('crm_tasks').update(patch)
+    const { data, error } = await req.supabase.from('crm_tasks').update(patch)
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).eq('category', 'service').select('*').maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
     if (!data) return res.status(404).json({ error: 'Not found' })
