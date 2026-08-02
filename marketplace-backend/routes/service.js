@@ -42,17 +42,27 @@ function apptRow(t, contactName, repName) {
   }
 }
 
+// NOTE (RLS): the service-appointment routes read/write CRM-owned tables
+// (crm_tasks, contacts, communications) which are gated by customer.view/edit — but
+// service-department roles (service_manager, technician) do NOT hold customer.*, and
+// these routes serve exactly those users. Moving them to req.supabase would block the
+// service team from its own appointment book. Those calls therefore stay on
+// supabaseAdmin (dealership-scoped), while the dealerships settings READS above use
+// req.supabase (membership policy). The /site/:slug/service-book route is public
+// (unauthenticated customer, no JWT) and must use the service role. The dealerships
+// settings WRITE has no RLS UPDATE policy and stays on supabaseAdmin. Reconcile the
+// service-vs-customer permission split before converting the CRM-table access.
 export function registerService(app) {
   // ── Settings ────────────────────────────────────────────────────────────────
   app.get('/service/config', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: d } = await supabaseAdmin.from('dealerships').select('service_settings, site_slug, site_published').eq('id', req.dealershipId).maybeSingle()
+    const { data: d } = await req.supabase.from('dealerships').select('service_settings, site_slug, site_published').eq('id', req.dealershipId).maybeSingle()
     res.json({ ok: true, settings: serviceSettings(d), site_slug: d?.site_slug || null, site_published: !!d?.site_published, default_types: DEFAULT_TYPES })
   })
 
   app.put('/service/config', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: cur } = await supabaseAdmin.from('dealerships').select('service_settings').eq('id', req.dealershipId).maybeSingle()
+    const { data: cur } = await req.supabase.from('dealerships').select('service_settings').eq('id', req.dealershipId).maybeSingle()
     const s = { ...(cur?.service_settings || {}) }
     const b = req.body || {}
     if (b.enabled !== undefined) s.enabled = !!b.enabled

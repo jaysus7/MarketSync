@@ -68,6 +68,16 @@ export async function ensureGetReadyCard(dealershipId, { inventoryId, dealId = n
   } catch (e) { console.warn('[recon] ensureGetReadyCard failed:', e.message); return null }
 }
 
+// NOTE (RLS): the Cleanup/recon board is a cross-department surface. Its exported
+// helpers (ensureReconCard, ensureGetReadyCard) are called from the deal + F&I flows
+// with no request context, so they stay on supabaseAdmin. The routes below are
+// requireAuth-only and read across tables with divergent, narrow policies — recon
+// (service.view), the inventory join (inventory.view), deals (deal.*) — while the
+// board's real audience spans sales managers (tracking sold-unit get-ready) and
+// detailers/service. No single permission covers that audience, so converting these
+// to req.supabase would drop the board for whole roles (e.g. a sales manager lacks
+// service.view; a technician lacks inventory.view). Kept on supabaseAdmin pending a
+// board-access policy decision; flagged as a follow-up.
 export function registerRecon(app) {
   // Board: every recon record for the dealership, joined to its vehicle. Also
   // returns which available vehicles aren't in recon yet, so the UI can add them.
