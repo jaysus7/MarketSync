@@ -1,4 +1,4 @@
-/**
+(/**
  * Shared helpers for the AI routes (extracted from ai.js to keep files navigable).
  * Cross-cutting utilities: report builder, assistant tools, price math, digest.
  */
@@ -793,4 +793,5 @@ export {
   buildDealershipReport, runAssistantTool,
   skipPriceComp, PRICE_MIN_COMPS, buildPriceFlag, aiErrorMessage,
   marketMedianForScan, requireDealerAdmin, median, mileageAdjustedMedian,
+  computeDailyDigest,
 }
