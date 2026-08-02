@@ -91,14 +91,14 @@ export function registerExpenses(app) {
   // ── Vendors ──────────────────────────────────────────────────────────────────
   app.get('/expense-vendors', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
-    const { data } = await supabaseAdmin.from('expense_vendors').select('*').eq('dealership_id', req.dealershipId).order('name', { ascending: true })
+    const { data } = await req.supabase.from('expense_vendors').select('*').eq('dealership_id', req.dealershipId).order('name', { ascending: true })
     res.json({ ok: true, vendors: data || [] })
   })
   app.post('/expense-vendors', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const name = String(req.body?.name || '').trim().slice(0, 120)
     if (!name) return res.status(400).json({ error: 'Vendor name required' })
-    const { data, error } = await supabaseAdmin.from('expense_vendors').insert({
+    const { data, error } = await req.supabase.from('expense_vendors').insert({
       dealership_id: req.dealershipId, name, contact: String(req.body?.contact || '').slice(0, 200) || null, notes: String(req.body?.notes || '').slice(0, 500) || null,
     }).select().single()
     if (error) return res.status(500).json({ error: error.message })
@@ -106,9 +106,9 @@ export function registerExpenses(app) {
   })
   app.delete('/expense-vendors/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
-    const { data: before } = await supabaseAdmin.from('expense_vendors').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: before } = await req.supabase.from('expense_vendors').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Vendor not found' })
-    const { error } = await supabaseAdmin.from('expense_vendors').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    const { error } = await req.supabase.from('expense_vendors').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: 'Delete failed' })
     audit(req, 'expense.vendor_deleted', { before_state: before, after_state: null })
     res.json({ ok: true })
@@ -133,7 +133,7 @@ export function registerExpenses(app) {
   app.get('/expenses', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const q = req.query
-    let query = supabaseAdmin.from('expenses').select('*').eq('dealership_id', req.dealershipId)
+    let query = req.supabase.from('expenses').select('*').eq('dealership_id', req.dealershipId)
     if (q.from) query = query.gte('expense_date', String(q.from))
     if (q.to) query = query.lte('expense_date', String(q.to))
     if (q.category) query = query.eq('category', String(q.category))
@@ -159,7 +159,7 @@ export function registerExpenses(app) {
   app.get('/expenses/export.csv', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const q = req.query
-    let query = supabaseAdmin.from('expenses').select('*').eq('dealership_id', req.dealershipId)
+    let query = req.supabase.from('expenses').select('*').eq('dealership_id', req.dealershipId)
     if (q.from) query = query.gte('expense_date', String(q.from))
     if (q.to) query = query.lte('expense_date', String(q.to))
     if (q.department) query = query.eq('department', String(q.department))
@@ -179,7 +179,7 @@ export function registerExpenses(app) {
 
   app.get('/expenses/:id', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
-    const { data } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data } = await req.supabase.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!data) return res.status(404).json({ error: 'Not found' })
     res.json({ ok: true, expense: data })
   })
@@ -198,9 +198,9 @@ export function registerExpenses(app) {
       events: [stamp(req.user?.id, 'created', null)],
     }
     if (wantApproved) { row.approved_by = req.user?.id || null; row.approved_at = new Date().toISOString(); row.events.push(stamp(req.user?.id, 'approved', null)) }
-    const { data, error } = await supabaseAdmin.from('expenses').insert(row).select().single()
+    const { data, error } = await req.supabase.from('expenses').insert(row).select().single()
     if (error) return res.status(500).json({ error: error.message })
-    if (data.status === 'approved') { const glId = await postToLedger(data); if (glId) await supabaseAdmin.from('expenses').update({ posted: true, gl_entry_id: glId }).eq('id', data.id) }
+    if (data.status === 'approved') { const glId = await postToLedger(data); if (glId) await req.supabase.from('expenses').update({ posted: true, gl_entry_id: glId }).eq('id', data.id) }
     audit(req, 'expense.created', { after_state: data })
     res.json({ ok: true, expense: data })
   })
@@ -208,7 +208,7 @@ export function registerExpenses(app) {
   // ── Edit ──────────────────────────────────────────────────────────────────────
   app.put('/expenses/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
-    const { data: cur } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: cur } = await req.supabase.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!cur) return res.status(404).json({ error: 'Not found' })
     if (cur.status === 'approved' && !canApprove(req)) return res.status(403).json({ error: 'Approved expenses can only be edited by a manager' })
     const f = fieldsFrom(req.body || {})
@@ -216,22 +216,22 @@ export function registerExpenses(app) {
     const changed = Object.keys(f).filter(k => JSON.stringify(f[k]) !== JSON.stringify(cur[k]))
     const events = Array.isArray(cur.events) ? cur.events.slice(-49) : []
     events.push(stamp(req.user?.id, 'edited', changed.join(', ') || null))
-    const { data, error } = await supabaseAdmin.from('expenses').update({ ...f, events, updated_at: new Date().toISOString() }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().single()
+    const { data, error } = await req.supabase.from('expenses').update({ ...f, events, updated_at: new Date().toISOString() }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().single()
     if (error) return res.status(500).json({ error: error.message })
     // Keep the posted ledger line in sync if amount/date/account changed on an approved expense.
-    if (data.posted && data.gl_entry_id) { await supabaseAdmin.from('gl_entries').update({ entry_date: data.expense_date, amount: Math.abs(Number(data.amount) || 0), account_id: data.gl_account_id || null, description: [data.vendor, data.category].filter(Boolean).join(' · ').slice(0, 200) || 'Expense' }).eq('id', data.gl_entry_id) }
+    if (data.posted && data.gl_entry_id) { await req.supabase.from('gl_entries').update({ entry_date: data.expense_date, amount: Math.abs(Number(data.amount) || 0), account_id: data.gl_account_id || null, description: [data.vendor, data.category].filter(Boolean).join(' · ').slice(0, 200) || 'Expense' }).eq('id', data.gl_entry_id) }
     audit(req, 'expense.updated', { before_state: cur, after_state: data })
     res.json({ ok: true, expense: data })
   })
 
   app.delete('/expenses/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
-    const { data: cur } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: cur } = await req.supabase.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!cur) return res.status(404).json({ error: 'Not found' })
     const reversal = cur.posted ? await unpostLedger(cur.gl_entry_id, req.user?.id) : null
     const events = (Array.isArray(cur.events) ? cur.events.slice(-49) : [])
     events.push(stamp(req.user?.id, 'voided', String(req.body?.note || '').slice(0, 200) || null))
-    const { data, error } = await supabaseAdmin.from('expenses').update({ status: 'voided', posted: false, gl_entry_id: null, events, updated_at: new Date().toISOString() })
+    const { data, error } = await req.supabase.from('expenses').update({ status: 'voided', posted: false, gl_entry_id: null, events, updated_at: new Date().toISOString() })
       .eq('id', cur.id).eq('dealership_id', req.dealershipId).select().single()
     if (error) return res.status(500).json({ error: 'Could not void expense' })
     audit(req, 'expense.voided', { before_state: cur, after_state: data, reversal_entry_id: reversal?.id || null })
@@ -242,12 +242,12 @@ export function registerExpenses(app) {
   app.post('/expenses/:id/approve', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!canApprove(req)) return res.status(403).json({ error: 'Approver access required' })
-    const { data: cur } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: cur } = await req.supabase.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!cur) return res.status(404).json({ error: 'Not found' })
     const events = (Array.isArray(cur.events) ? cur.events.slice(-49) : []); events.push(stamp(req.user?.id, 'approved', String(req.body?.note || '').slice(0, 200) || null))
     let glId = cur.gl_entry_id
     if (!cur.posted) glId = await postToLedger(cur)
-    const { data, error } = await supabaseAdmin.from('expenses').update({ status: 'approved', approved_by: req.user?.id || null, approved_at: new Date().toISOString(), approver_note: String(req.body?.note || '').slice(0, 200) || null, posted: !!glId, gl_entry_id: glId, events, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single()
+    const { data, error } = await req.supabase.from('expenses').update({ status: 'approved', approved_by: req.user?.id || null, approved_at: new Date().toISOString(), approver_note: String(req.body?.note || '').slice(0, 200) || null, posted: !!glId, gl_entry_id: glId, events, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single()
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'expense.approved', { before_state: cur, after_state: data })
     res.json({ ok: true, expense: data })
@@ -255,11 +255,11 @@ export function registerExpenses(app) {
   app.post('/expenses/:id/reject', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!canApprove(req)) return res.status(403).json({ error: 'Approver access required' })
-    const { data: cur } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: cur } = await req.supabase.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!cur) return res.status(404).json({ error: 'Not found' })
     const reversal = cur.posted ? await unpostLedger(cur.gl_entry_id, req.user?.id) : null
     const events = (Array.isArray(cur.events) ? cur.events.slice(-49) : []); events.push(stamp(req.user?.id, 'rejected', String(req.body?.note || '').slice(0, 200) || null))
-    const { data, error } = await supabaseAdmin.from('expenses').update({ status: 'rejected', approver_note: String(req.body?.note || '').slice(0, 200) || null, posted: false, gl_entry_id: null, events, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single()
+    const { data, error } = await req.supabase.from('expenses').update({ status: 'rejected', approver_note: String(req.body?.note || '').slice(0, 200) || null, posted: false, gl_entry_id: null, events, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single()
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'expense.rejected', { before_state: cur, after_state: data, reversal_entry_id: reversal?.id || null })
     res.json({ ok: true, expense: data })
@@ -267,10 +267,10 @@ export function registerExpenses(app) {
   // Mark a reimbursable expense as paid out to the employee.
   app.post('/expenses/:id/mark-reimbursed', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
-    const { data: cur } = await supabaseAdmin.from('expenses').select('events').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: cur } = await req.supabase.from('expenses').select('events').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!cur) return res.status(404).json({ error: 'Not found' })
     const events = (Array.isArray(cur.events) ? cur.events.slice(-49) : []); events.push(stamp(req.user?.id, 'reimbursed', null))
-    const { data, error } = await supabaseAdmin.from('expenses').update({ reimbursed: true, events, updated_at: new Date().toISOString() }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().single()
+    const { data, error } = await req.supabase.from('expenses').update({ reimbursed: true, events, updated_at: new Date().toISOString() }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().single()
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, expense: data })
   })
@@ -279,9 +279,9 @@ export function registerExpenses(app) {
   app.post('/expenses/generate-recurring', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     const month = /^\d{4}-\d{2}$/.test(String(req.body?.month || '')) ? String(req.body.month) : today().slice(0, 7)
-    const { data: templates } = await supabaseAdmin.from('expenses').select('*').eq('dealership_id', req.dealershipId).eq('recurring', true).is('recurring_source_id', null).limit(500)
+    const { data: templates } = await req.supabase.from('expenses').select('*').eq('dealership_id', req.dealershipId).eq('recurring', true).is('recurring_source_id', null).limit(500)
     const from = month + '-01', to = month + '-31'
-    const { data: already } = await supabaseAdmin.from('expenses').select('recurring_source_id').eq('dealership_id', req.dealershipId).gte('expense_date', from).lte('expense_date', to).not('recurring_source_id', 'is', null)
+    const { data: already } = await req.supabase.from('expenses').select('recurring_source_id').eq('dealership_id', req.dealershipId).gte('expense_date', from).lte('expense_date', to).not('recurring_source_id', 'is', null)
     const done = new Set((already || []).map(r => r.recurring_source_id))
     let created = 0
     for (const t of (templates || [])) {
@@ -291,7 +291,7 @@ export function registerExpenses(app) {
       clone.expense_date = month + '-01'; clone.recurring = false; clone.recurring_source_id = t.id
       clone.status = 'submitted'; clone.posted = false; clone.gl_entry_id = null; clone.reimbursed = false
       clone.events = [stamp(req.user?.id, 'created', 'recurring')]
-      const { error } = await supabaseAdmin.from('expenses').insert(clone)
+      const { error } = await req.supabase.from('expenses').insert(clone)
       if (!error) created++
     }
     res.json({ ok: true, created })
@@ -302,7 +302,7 @@ export function registerExpenses(app) {
     if (!guard(req, res)) return
     const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7)
     const from = month + '-01', to = month + '-31'
-    const { data } = await supabaseAdmin.from('expenses').select('*').eq('dealership_id', req.dealershipId).gte('expense_date', from).lte('expense_date', to).limit(5000)
+    const { data } = await req.supabase.from('expenses').select('*').eq('dealership_id', req.dealershipId).gte('expense_date', from).lte('expense_date', to).limit(5000)
     const rows = data || []
     const missing_receipts = rows.filter(e => !e.receipt_url && e.status !== 'rejected').map(e => ({ id: e.id, date: e.expense_date, vendor: e.vendor, amount: e.amount, category: e.category }))
     // Duplicate suspects: same vendor + same amount within 5 days.
@@ -332,7 +332,7 @@ export function registerExpenses(app) {
     const type = req.params.type
     const from = String(req.query.from || (today().slice(0, 7) + '-01'))
     const to = String(req.query.to || today())
-    let query = supabaseAdmin.from('expenses').select('*').eq('dealership_id', req.dealershipId).gte('expense_date', from).lte('expense_date', to)
+    let query = req.supabase.from('expenses').select('*').eq('dealership_id', req.dealershipId).gte('expense_date', from).lte('expense_date', to)
     // For most reports, only count approved/paid spend; reimbursements report is by request.
     if (type !== 'reimbursements') query = query.in('status', ['approved', 'paid', 'submitted'])
     const { data } = await query.limit(5000)
