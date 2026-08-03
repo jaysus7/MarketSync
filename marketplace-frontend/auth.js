@@ -20,6 +20,10 @@
 (function () {
   'use strict';
 
+  // Build tag — bump on every auth.js change so caches can't serve a stale copy AND so
+  // the console proves which script is live (see the boot log below).
+  var BUILD = '20260803b';
+
   var HAS_WINDOW = typeof window !== 'undefined';
   var HAS_STORAGE = HAS_WINDOW && (function () { try { return !!window.localStorage; } catch (e) { return false; } })();
 
@@ -305,14 +309,20 @@
       var nm = document.getElementById('nav-user-name');
       if (first && nm) nm.textContent = first;
     }
-    // Generic marketing pages: swap header/nav "Log in" links in place → Dashboard.
+    // Stable, explicit swap targets: EVERY [data-auth-nav] element (desktop + mobile,
+    // drawer, sticky header) is toggled — not just the first — using attributes, not
+    // fragile text matching. Authenticated → "Dashboard" / app.html; else → "Login" /
+    // login.html. Also swaps plain header/nav links to login.html as a fallback for
+    // marketing pages that only include auth.js without adding the attribute.
     try {
-      var links = document.querySelectorAll('header a[href*="login.html"], nav a[href*="login.html"], a[data-ms-auth="login"]');
-      links.forEach(function (a) {
-        if (a.id === 'nav-login' || a.id === 'mob-login') return; // handled above
+      var navEls = document.querySelectorAll(
+        '[data-auth-nav], header a[href*="login.html"], nav a[href*="login.html"], a[data-ms-auth="login"]'
+      );
+      navEls.forEach(function (a) {
+        if (a.id === 'nav-login' || a.id === 'mob-login' || a.id === 'nav-dashboard-btn' || a.id === 'mob-dashboard') return; // id-handled above
         if (authed) {
           if (!a.getAttribute('data-ms-login-text')) a.setAttribute('data-ms-login-text', a.textContent);
-          if (!a.getAttribute('data-ms-login-href')) a.setAttribute('data-ms-login-href', a.getAttribute('href') || '');
+          if (!a.getAttribute('data-ms-login-href')) a.setAttribute('data-ms-login-href', a.getAttribute('href') || 'login.html');
           a.textContent = 'Dashboard';
           a.setAttribute('href', 'app.html');
         } else if (a.getAttribute('data-ms-login-text')) {
@@ -320,7 +330,32 @@
           a.setAttribute('href', a.getAttribute('data-ms-login-href') || 'login.html');
         }
       });
+      // Sign-out controls are visible only when authenticated.
+      document.querySelectorAll('[data-auth-signout]').forEach(function (b) {
+        b.hidden = !authed;
+      });
     } catch (e) {}
+  }
+
+  // Wire EVERY [data-auth-signout] control (desktop/mobile header, drawer, account
+  // menu, settings, profile) to the ONE centralized signOut — no inline onclick, no
+  // per-page handler. Idempotent (marks wired elements) and guards double-clicks.
+  function wireSignOut() {
+    if (!HAS_WINDOW || typeof document === 'undefined') return;
+    document.querySelectorAll('[data-auth-signout]').forEach(function (btn) {
+      if (btn.getAttribute('data-ms-signout-wired')) return;
+      btn.setAttribute('data-ms-signout-wired', '1');
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (btn.getAttribute('data-ms-signing-out')) return;   // ignore repeat clicks
+        btn.setAttribute('data-ms-signing-out', '1');
+        btn.disabled = true;
+        Promise.resolve(signOut({ redirect: 'login.html' })).catch(function () {
+          btn.removeAttribute('data-ms-signing-out');
+          btn.disabled = false;
+        });
+      });
+    });
   }
 
   // ── Dev-only debug logging (never logs secrets) ───────────────────────────────
@@ -355,6 +390,7 @@
   var MSAuth = {
     // config
     API: resolveApiBase(),
+    BUILD: BUILD,
     resolveApiBase: resolveApiBase,
     SESSION_KEYS: SESSION_KEYS,
     STALE_AUTH_KEYS: STALE_AUTH_KEYS,
@@ -382,17 +418,21 @@
     signOut: signOut,
     // ui
     applyAuthNav: applyAuthNav,
+    wireSignOut: wireSignOut,
   };
 
   if (HAS_WINDOW) {
-    // Startup: purge stale flags, wire the header (load + bfcache restore), log once.
+    // Prove which script is actually running (helps diagnose stale-cache deploys).
+    try { console.info('[MSAuth] loaded ' + BUILD); } catch (e) {}
+    // Startup: purge stale flags, wire the header + every sign-out control (load +
+    // bfcache restore), log debug once.
     cleanupStaleKeys();
     window.MSAuth = MSAuth;
     window.msSignOut = function () { return signOut({ redirect: 'login.html' }); };
-    var boot = function () { debugBoot(); applyAuthNav(); };
+    var boot = function () { debugBoot(); applyAuthNav(); wireSignOut(); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();
-    window.addEventListener('pageshow', applyAuthNav);
+    window.addEventListener('pageshow', function () { applyAuthNav(); wireSignOut(); });
   }
 
   // Node/CommonJS export for unit tests (classic-script safe: guarded by typeof).
