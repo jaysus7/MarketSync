@@ -1689,9 +1689,39 @@ function deptRoleOk(spec) {
 }
 let __activeDept = null;
 let __currentPage = null;
+
+// ── Plan-tier feature gating for the Dealer OS department nav ─────────────────
+// Maps a nav page → the access-context feature that must be entitled for it to show.
+// This is what makes a Starter account NOT see Accounting/Service/Website while Pro
+// sees everything — driven by the plan's entitlements (/access/context.features), the
+// same truth the API + RLS enforce. Only the higher-tier pages are listed; unmapped
+// pages stay visible and fall through to the existing role / legacy-flag gating.
+const PAGE_FEATURE = {
+  accounting: 'os.accounting',
+  'service-ros': 'os.service', 'service-appointments': 'os.service', 'service-parts': 'os.service',
+  recon: 'os.service',
+  website: 'os.website',
+  'automation-builder': 'os.automations', operations: 'os.automations', taskboard: 'os.automations',
+  delivery: 'os.sales', fni: 'os.sales',
+  reports: 'os.reports',
+  'inv-intel': 'os.inventory', market: 'os.inventory',
+  'ai-home': 'os.marketing',
+};
+// True unless this page maps to a feature the plan doesn't include. Scoped to full
+// Dealer OS mode: restricted product tiers (Facebook / AI) use their own page sets, and
+// window.hasFeature fails OPEN when /access/context is unavailable, so legacy accounts
+// and an older backend are never over-filtered.
+function pageFeatureOk(pg) {
+  if (__productAllowedPages || __fbOnly) return true;   // restricted tiers handled by product nav
+  const feat = PAGE_FEATURE[pg];
+  if (!feat) return true;
+  return typeof window.hasFeature === 'function' ? window.hasFeature(feat) : true;
+}
+
 // Is a page reachable for this user? Respect the per-item gating that product /
 // role / feature flags apply by toggling the `hidden` class on nav items.
 function deptPageVisible(pg) {
+  if (!pageFeatureOk(pg)) return false;   // plan-tier entitlement gate
   if (__staffAllowedPages && !__staffAllowedPages.has(pg)) return false;
   const els = document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${pg}"]`);
   if (!els.length) return true;   // no nav item (e.g. sub-view) — don't over-filter
@@ -1778,6 +1808,7 @@ function deptHomePage(dept) { return dept.pages.find(deptPageAllowed) || dept.pa
 function deptHasRealPage(dept) {
   return dept.pages.some(p => {
     if (!deptRoleOk(p)) return false;
+    if (!pageFeatureOk(p.page)) return false;   // plan-tier entitlement gate
     const els = document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${p.page}"]`);
     return els.length && [...els].some(el => !el.classList.contains('hidden') && !el.classList.contains('ff-off'));
   });
@@ -1894,6 +1925,13 @@ function switchPage(pageId) {
   // Specialized staff role (F&I, Service, Accounting, Cleanup): anything outside
   // their workspace bounces to their home page. Guards deep links & stale nav too.
   if (__staffAllowedPages && !__staffAllowedPages.has(pageId)) { pageId = __staffHome; }
+
+  // Plan-tier gate: a page whose feature the current plan doesn't include bounces to a
+  // safe home. The API + RLS already deny the data; this keeps the UI from opening an
+  // empty/403 page from a stale link. profile (settings) is always reachable.
+  if (pageId !== 'profile' && !pageFeatureOk(pageId)) {
+    pageId = (typeof deptNavEligible === 'function' && deptNavEligible(profileContext?.role)) ? 'command' : 'insights';
+  }
 
   // Accounting has one container but each nav leaf (acct-insights, acct-tax, …) is
   // its own "page" — map those to the shared accounting container.
