@@ -15,7 +15,7 @@ import { handleDepositCheckout } from './deposits.js'
 import { accrueAffiliateCommission } from './affiliate.js'
 import { postMarketsyncRevenue } from './accounting.js'
 import { syncSubscriptionFromStripe } from '../entitlements.js'
-import { getPlan, stripePriceForPlan } from '../plan-catalog.js'
+import { getPlan, stripePriceForPlan, PLAN_CATALOG, PLAN_IDS } from '../plan-catalog.js'
 
 // Inventory Intelligence price ID — accept the canonical name OR the
 // STRIPE_INVENTORY_INTELLIGANCE name used in the current Render environment,
@@ -498,6 +498,29 @@ export function registerRoutes(app) {
     } catch (err) { res.status(500).json({ error: err.message }) }
   }
   app.post('/billing/subscribe-plan', requireAuth, requireBillingManage, createPlanCheckout)
+
+  // The plan catalog for the in-app "upgrade to unlock" UI. Reads plan-catalog.js (the
+  // single source), annotates each plan with the caller's current active plan(s) and
+  // whether its Stripe price is configured, so the modal can show real upgrade paths.
+  app.get('/billing/plans', requireAuth, async (req, res) => {
+    let current = []
+    if (req.dealershipId) {
+      const { data } = await supabaseAdmin
+        .from('subscriptions').select('plan_id, status')
+        .eq('dealership_id', req.dealershipId).in('status', ['trialing', 'active'])
+      current = [...new Set((data || []).map(r => r.plan_id).filter(Boolean))]
+    }
+    const plans = PLAN_IDS.map(id => {
+      const p = PLAN_CATALOG[id]
+      return {
+        id, label: p.label, monthly: p.monthly, tier: p.tier,
+        product_primary: p.product_primary, products: p.products, org_type: p.org_type,
+        feature_count: p.features.length,
+        configured: !!(stripePriceForPlan(id, 'usd', process.env) || stripePriceForPlan(id, 'cad', process.env)),
+      }
+    })
+    res.json({ current, plans })
+  })
 
   app.get('/billing/package-verify', requireAuth, requireMfa, requireBillingManage, async (req, res) => {
     const { session_id } = req.query

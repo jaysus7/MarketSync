@@ -788,6 +788,96 @@ function legacyProductsFromAccess(access) {
 }
 window.legacyProductsFromAccess = legacyProductsFromAccess;
 
+// ── Upgrade to unlock ────────────────────────────────────────────────────────
+// Turns plan-tier gating into a path forward: a sidebar CTA + a modal listing the
+// plans above the caller's current one, each starting Stripe Checkout. Reads the plan
+// catalog from the backend (/billing/plans — the single source), so pricing/tiers never
+// drift from the server.
+let __planCatalogCache = null;
+async function fetchPlanCatalog() {
+  if (__planCatalogCache) return __planCatalogCache;
+  try {
+    const token = localStorage.getItem('token');
+    const r = await fetch(`${API}/billing/plans`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) return null;
+    __planCatalogCache = await r.json();
+    return __planCatalogCache;
+  } catch { return null; }
+}
+async function startPlanCheckout(planId, btn) {
+  const token = localStorage.getItem('token');
+  if (btn) { btn.disabled = true; btn.textContent = 'Starting checkout…'; }
+  try {
+    const r = await fetch(`${API}/billing/subscribe-plan`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ plan: planId }),
+    });
+    const d = await r.json();
+    if (r.ok && d.url) { window.location.href = d.url; return; }
+    throw new Error(d.error || 'Could not start checkout.');
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Checkout unavailable — billing may not be configured yet.', 'error');
+    else alert(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Upgrade'; }
+  }
+}
+window.startPlanCheckout = startPlanCheckout;
+
+async function openPlanUpgradeModal() {
+  const data = await fetchPlanCatalog();
+  if (!data || !Array.isArray(data.plans)) { if (typeof showToast === 'function') showToast('Could not load plans.', 'error'); return; }
+  const current = data.current || [];
+  const currentMax = Math.max(0, ...data.plans.filter(p => current.includes(p.id)).map(p => p.monthly));
+  // Offer plans the account isn't on that cost at least as much (i.e. a real upgrade).
+  const options = data.plans.filter(p => !current.includes(p.id) && p.monthly >= currentMax);
+  const money = n => '$' + Number(n).toLocaleString();
+  const cards = (options.length ? options : data.plans).map(p => `
+    <div class="border ${current.includes(p.id) ? 'border-emerald-400' : 'border-slate-200 dark:border-slate-700'} rounded-xl p-4 flex flex-col">
+      <div class="flex items-baseline justify-between">
+        <span class="text-sm font-black text-slate-900 dark:text-white">${esc(p.label)}</span>
+        <span class="text-sm font-black text-indigo-600 dark:text-indigo-400">${money(p.monthly)}<span class="text-[10px] font-medium text-slate-400">/mo</span></span>
+      </div>
+      <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex-1">${p.products.map(x => x === 'dealer_os' ? 'Dealer OS' : x === 'ai_dealer' ? 'AI Dealer' : 'Facebook').join(' + ')} · ${p.feature_count} features${p.id === 'os_pro' ? ' · bundles everything' : ''}</div>
+      ${current.includes(p.id)
+        ? '<div class="mt-3 text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 py-2">Your current plan</div>'
+        : `<button onclick="startPlanCheckout('${p.id}', this)" ${p.configured ? '' : 'disabled title="Pricing not configured yet"'} class="mt-3 ${p.configured ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed'} text-white text-xs font-bold py-2 rounded-lg transition">${p.configured ? 'Upgrade' : 'Coming soon'}</button>`}
+    </div>`).join('');
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-[80] bg-black/70 flex items-start justify-center p-4 overflow-y-auto';
+  modal.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl mt-12 p-6 shadow-2xl">
+    <div class="flex items-center justify-between mb-1">
+      <h3 class="text-base font-black text-slate-900 dark:text-white">Upgrade your plan</h3>
+      <button data-x class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Your plan decides what you can access. Upgrade to unlock more — a 30-day free trial applies; you won't be charged until it ends.</p>
+    <div class="grid sm:grid-cols-2 gap-3">${cards}</div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('[data-x]')) modal.remove(); });
+}
+window.openPlanUpgradeModal = openPlanUpgradeModal;
+
+// Sidebar "Upgrade plan" CTA — shown unless the account already holds the full bundle
+// (all three products, i.e. Dealer OS Pro). Idempotent; safe to call after each nav render.
+function renderUpgradeCta() {
+  const navRoot = document.getElementById('nav-desktop');
+  if (!navRoot) return;
+  const a = window.__access;
+  const onTopPlan = a && Array.isArray(a.products) && ['dealer_os', 'facebook', 'ai_dealer'].every(p => a.products.includes(p));
+  let cta = document.getElementById('upgrade-cta');
+  if (onTopPlan || a?.isPlatformStaff) { cta?.remove(); return; }
+  if (!cta) {
+    cta = document.createElement('button');
+    cta.id = 'upgrade-cta';
+    cta.type = 'button';
+    cta.setAttribute('onclick', 'openPlanUpgradeModal()');
+    cta.className = 'w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-500 hover:to-fuchsia-500 transition shadow';
+    cta.innerHTML = '<span aria-hidden="true">⭐</span><span>Upgrade plan</span>';
+  }
+  navRoot.appendChild(cta); // keep it pinned to the bottom after nav re-renders
+}
+window.renderUpgradeCta = renderUpgradeCta;
+
 function applyProductNav(products) {
   products = products || {};
   // DealerOS (or nothing set) → the full department sidebar; clear any restriction.
@@ -1431,6 +1521,7 @@ async function initializeDashboardEcosystem() {
     // Flatten the left nav to departments for the full DealerOS manager/admin view
     // (runs after all gating so it derives visibility from the settled nav).
     renderDeptNav(profileContext?.role);
+    renderUpgradeCta();           // "Upgrade plan" CTA unless already on the full bundle
     applyExtensionVisibility();   // hide the FB extension CTA for SaaS / AI-only accounts
 
     // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
@@ -20879,8 +20970,9 @@ async function loadAIBoostSection() {
     // Paint the nav "Paid" badges: green when the dealer is entitled, grey when not.
     applyPaidBadges();
     applyFeatureFlags();   // re-hide any feature the dealer switched off (e.g. Appraisals)
-    applyProductNav(profileContext?.products);   // keep the product front door applied after config load
+    applyProductNav(legacyProductsFromAccess(window.__access) || profileContext?.products);   // keep the product front door applied after config load
     renderDeptNav(profileContext?.role);   // rebuild the department nav once feature flags settle
+    renderUpgradeCta();
     applyExtensionVisibility();
     // Reveal the floating AI assistant dock for entitled dealers (owner exempt).
     updateAiDockVisibility();
