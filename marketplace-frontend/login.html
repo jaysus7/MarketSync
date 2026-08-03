@@ -86,7 +86,7 @@
   </div>
 
   <script>
-    const API = 'https://marketsync-staging-backend.onrender.com';
+    const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
     let mfaState = null;  // { factor_id, partial_token } when MFA challenge is pending
 
     // Persist the session. "Keep me signed in" stores a refresh token + a 30-day

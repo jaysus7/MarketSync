@@ -61,7 +61,7 @@
   </footer>
 
   <script>
-    const API = 'https://vehicle-marketplace-s0e4.onrender.com';
+    const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const fmtDate = (d) => { try { return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); } catch { return ''; } };
 
@@ -177,7 +177,7 @@
     </style>
     <script>
       (function(){
-        var API='https://vehicle-marketplace-s0e4.onrender.com';
+        var API=(location.hostname.includes('staging')?'https://marketsync-staging-backend.onrender.com':'https://vehicle-marketplace-s0e4.onrender.com');
         var root=document.getElementById('msc-root'),fab=document.getElementById('msc-fab'),panel=document.getElementById('msc-panel'),
             msgs=document.getElementById('msc-msgs'),form=document.getElementById('msc-form'),input=document.getElementById('msc-input'),
             lead=document.getElementById('msc-lead'),chips=document.getElementById('msc-chips'),closeBtn=document.getElementById('msc-close');
