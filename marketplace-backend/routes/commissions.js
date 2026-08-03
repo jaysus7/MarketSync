@@ -140,11 +140,17 @@ export async function recomputeDealCommission(dealershipId, dealId) {
   return calc
 }
 
-// Reverse a deal's commission with a reason (unwind / repair / chargeback).
+// Reverse a deal's commission with a reason (unwind / repair / chargeback). Emits
+// commission.clawed_back so the Accounting Engine posts a reversing journal (DR
+// Commission Payable / CR Commission Expense) — the accrual is reversed, never edited.
 export async function clawbackDealCommission(dealershipId, dealId, reason) {
   await supabaseAdmin.from('deal_commissions')
     .update({ status: 'clawed_back', reason: String(reason || 'Reversed').slice(0, 300), updated_at: new Date().toISOString() })
     .eq('deal_id', dealId).eq('dealership_id', dealershipId)
+  emitEvent({
+    dealershipId, eventName: 'commission.clawed_back', entityType: 'deal', entityId: dealId,
+    summary: 'Commission clawed back', department: 'Accounting', payload: { deal_id: dealId },
+  })
 }
 
 // Published read API — other engines get a deal's commission via this, never by
