@@ -1,4 +1,7 @@
-const API = 'https://vehicle-marketplace-s0e4.onrender.com';
+// Resolve the backend by host so the staging site talks to the staging backend and
+// production talks to production — otherwise a token minted by one is rejected by the
+// other (the "logs in then logs out" bug). Keep in sync with login/register/reset pages.
+const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
 
 // Wrap fetch so EVERY call to our API carries the demo-workspace header when the
 // owner is in Demo mode — keeps all pages (even those using raw fetch) consistently
