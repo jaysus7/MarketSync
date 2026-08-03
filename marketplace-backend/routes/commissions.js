@@ -31,6 +31,7 @@ import { n, round2, mergeConfig, computeCommission, computeBackAmount, volumeBon
 // Pure pay-period date math + lifecycle rules (unit-tested, no IO).
 import { periodBounds, periodLabel, canTransition, isAssignable, canReview, canApprove, payReady, PERIOD_TYPES } from '../commission-periods.js'
 import { detectExceptions } from '../commission-exceptions.js'
+import { buildCsv } from '../payroll-export.js'
 
 export { computeCommission }   // preserve the existing public export
 
@@ -593,6 +594,30 @@ export function registerCommissions(app) {
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'commission.pay_period_approved', { entity_type: 'commission_pay_period', entity_id: period.id })
     res.json({ ok: true, period: data })
+  })
+
+  // Provider-neutral payroll export (CSV) for a pay period — one row per rep. The CSV
+  // shape is built by a pure, tested module; any payroll provider maps from these
+  // generic columns. Managers only.
+  app.get('/commissions/pay-periods/:id/export.csv', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!period) return res.status(404).json({ error: 'Pay period not found' })
+    const { data: lines } = await supabaseAdmin.from('deal_commissions')
+      .select('rep_id, deal_id, front_amount, back_amount, spiff_amount, total, status')
+      .eq('dealership_id', req.dealershipId).eq('pay_period_id', period.id)
+    const repIds = [...new Set((lines || []).map(l => l.rep_id).filter(Boolean))]
+    let repsById = {}
+    if (repIds.length) {
+      const { data: reps } = await supabaseAdmin.from('profiles').select('id, full_name, display_name, email').in('id', repIds)
+      repsById = Object.fromEntries((reps || []).map(r => [r.id, { name: r.display_name || r.full_name || '', email: r.email || '' }]))
+    }
+    const csv = buildCsv(period, lines || [], repsById)
+    audit(req, 'commission.payroll_exported', { entity_type: 'commission_pay_period', entity_id: period.id, after_state: { rows: (lines || []).length } })
+    const fname = `payroll-${String(period.name || period.id).replace(/[^a-z0-9-]+/gi, '_')}.csv`
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`)
+    res.send(csv)
   })
 
   // ── Exceptions queue ─────────────────────────────────────────────────────────
