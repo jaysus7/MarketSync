@@ -923,7 +923,7 @@ async function openPaywallModal(reason) {
     <h3 class="text-lg font-black text-slate-900 dark:text-white text-center mt-3">Your free trial has ended</h3>
     <p class="text-sm text-slate-500 dark:text-slate-400 text-center mb-5">Choose the package that fits — Facebook only, AI Chatbot only, or the full Dealer OS. Pick what you want to keep going.</p>
     <div class="grid sm:grid-cols-2 gap-3">${cards || '<p class="text-sm text-slate-500 col-span-2 text-center py-6">Plans are being set up — please contact support.</p>'}</div>
-    <div class="text-center mt-5"><button onclick="clearLocalStorage();window.location.href='login.html'" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Sign out</button></div>
+    <div class="text-center mt-5"><button onclick="window.msSignOut()" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Sign out</button></div>
   </div>`;
   document.body.appendChild(modal); // intentionally NOT dismissable — payment is required to continue
 }
@@ -19381,10 +19381,9 @@ function setupActionListeners() {
   // Launch Dedicated Stripe Gateway Session
   document.getElementById('launch-portal-btn')?.addEventListener('click', launchStripeLifecycle);
 
-  // Global Session Exits — also wired via inline onclick="msSignOut()" so sign-out works
-  // even if this listener never attaches. Optional chaining so a missing button can't
-  // throw and abort the rest of setup.
-  document.getElementById('logout-btn')?.addEventListener('click', (e) => { e.preventDefault(); msSignOut(); });
+  // Sign Out is owned solely by the shared auth module: every [data-auth-signout]
+  // control (this button included) is wired to MSAuth.signOut by auth.js. No inline
+  // onclick, no per-page listener here — one handler, one source of truth.
 }
 
 async function launchStripeLifecycle() {
