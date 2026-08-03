@@ -231,10 +231,10 @@ export function registerRoutes(app) {
       try { await supabaseAdmin.auth.admin.updateUserById(createdUserId, { email_confirm: true }) }
       catch (e) { console.error('[register] auto-confirm failed:', e?.message || e) }
 
-      // 39-day free trial — NO credit card required at sign-up. The account gets full
+      // 30-day free trial — NO credit card required at sign-up. The account gets full
       // access to the chosen plan for the trial window; when it ends, the middleware
       // billing gate returns 402 and the app shows the paywall popup to pick + pay.
-      const TRIAL_DAYS = 39
+      const TRIAL_DAYS = 30
       const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
 
       // Newsletter consent (CASL/GDPR/CAN-SPAM): only record if explicitly opted in.
@@ -338,7 +338,7 @@ export function registerRoutes(app) {
       // registration back (see catch), matching the team-invite flow.
       await syncDealerRole(createdUserId, createdDealershipId, chosenPlan?.owner_role || (isDealership ? 'DEALER_ADMIN' : 'OWNER'), createdUserId)
 
-      // Grant the chosen plan as a 39-day FREE TRIAL — no card. provisionPlan expands the
+      // Grant the chosen plan as a 30-day FREE TRIAL — no card. provisionPlan expands the
       // plan into its products/features (status 'trialing') and stamps billing_status +
       // trial_ends_at. When the trial lapses the middleware returns 402 and the app shows
       // the paywall popup where they pick a package and pay. Best-effort so a catalog
@@ -359,7 +359,7 @@ export function registerRoutes(app) {
         user_id: createdUserId,
         verification_required: true,
         email_sent: emailed,
-        // No checkout at sign-up — the 39-day trial is already active (no card). The
+        // No checkout at sign-up — the 30-day trial is already active (no card). The
         // client signs in and goes straight to the dashboard; payment happens later via
         // the paywall popup when the trial ends.
         requires_checkout: false,
