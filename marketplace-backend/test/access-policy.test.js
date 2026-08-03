@@ -216,6 +216,20 @@ test('visible navigation respects a feature→permission mapping', () => {
   assert.ok(osFeatures.includes('os.crm'))
 })
 
+// 15b. A trialing subscription past its trial_ends_at no longer grants access (paywall).
+test('expired free trial revokes access', () => {
+  const base = {
+    userId: 'ut', dealershipId: 'dt', roleIds: ['dealer_owner'],
+    rolePermissions: rolePerms('dealer_owner'),
+    now: '2026-08-10T00:00:00Z',
+  }
+  const live = ctxFor({ ...base, subscriptions: [{ product_id: 'dealer_os', plan_id: 'os_pro', status: 'trialing', trial_ends_at: '2026-09-01T00:00:00Z' }] })
+  assert.ok(hasProductAccess(live, 'dealer_os'), 'trial still within window grants access')
+  const expired = ctxFor({ ...base, subscriptions: [{ product_id: 'dealer_os', plan_id: 'os_pro', status: 'trialing', trial_ends_at: '2026-08-01T00:00:00Z' }] })
+  assert.ok(!hasProductAccess(expired, 'dealer_os'), 'lapsed trial revokes access')
+  assert.equal(getDefaultRoute(expired), null)
+})
+
 // 15. A caller with no products at all has no route and empty nav.
 test('no access yields null route and empty nav', () => {
   const ctx = ctxFor({

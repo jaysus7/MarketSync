@@ -56,7 +56,16 @@ export function computeAccessContext(raw = {}) {
   const roleIds = Array.isArray(raw.roleIds) ? [...new Set(raw.roleIds)] : []
 
   // ── Layer 1: product access ──
-  const activeSubs = (raw.subscriptions || []).filter(s => SUBSCRIPTION_ACTIVE_STATUSES.includes(s.status))
+  // A subscription grants access while active or trialing — but a TRIALING sub whose
+  // trial_ends_at has passed no longer counts (the 39-day free trial has lapsed; the app
+  // shows the paywall). `now` is injectable for tests; defaults to the real clock.
+  const now = raw.now ? new Date(raw.now).getTime() : Date.now()
+  const subLive = (s) => {
+    if (!SUBSCRIPTION_ACTIVE_STATUSES.includes(s.status)) return false
+    if (s.status === 'trialing' && s.trial_ends_at && new Date(s.trial_ends_at).getTime() < now) return false
+    return true
+  }
+  const activeSubs = (raw.subscriptions || []).filter(subLive)
   const orgHasSubs = (raw.subscriptions || []).length > 0
   let orgProducts
   if (orgHasSubs) {

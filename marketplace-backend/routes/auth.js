@@ -7,7 +7,7 @@ import { maybeAlertSuspiciousLogin } from '../securityAlerts.js'
 import { audit, AuditAction } from '../audit.js'
 import { recordReferralSignup } from './affiliate.js'
 import { syncDealerRole } from '../authorization.js'
-import { ACCOUNT_TYPES } from '../entitlements.js'
+import { ACCOUNT_TYPES, provisionPlan } from '../entitlements.js'
 import { getPlan } from '../plan-catalog.js'
 import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge } from '../mfa-login-challenges.js'
 import {
@@ -231,10 +231,11 @@ export function registerRoutes(app) {
       try { await supabaseAdmin.auth.admin.updateUserById(createdUserId, { email_confirm: true }) }
       catch (e) { console.error('[register] auto-confirm failed:', e?.message || e) }
 
-      // 30-day free trial: full account access AND every add-on switched on. When
-      // it ends, add-ons drop to whatever the dealer actually paid for (see the
-      // expiry sweep in /ai/config + /cron/expire-full-access).
-      const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      // 39-day free trial — NO credit card required at sign-up. The account gets full
+      // access to the chosen plan for the trial window; when it ends, the middleware
+      // billing gate returns 402 and the app shows the paywall popup to pick + pay.
+      const TRIAL_DAYS = 39
+      const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
 
       // Newsletter consent (CASL/GDPR/CAN-SPAM): only record if explicitly opted in.
       // Stamp the timestamp + IP so we have audit trail of when consent was given.
@@ -337,10 +338,15 @@ export function registerRoutes(app) {
       // registration back (see catch), matching the team-invite flow.
       await syncDealerRole(createdUserId, createdDealershipId, chosenPlan?.owner_role || (isDealership ? 'DEALER_ADMIN' : 'OWNER'), createdUserId)
 
-      // NOTE: registration grants NO access. The account exists; the chosen plan is
-      // returned to the client, which sends the user to Stripe Checkout. Access is granted
-      // only when the payment webhook activates the subscription (provisionPlan). This is
-      // the "subscription determines access, not registration" rule.
+      // Grant the chosen plan as a 39-day FREE TRIAL — no card. provisionPlan expands the
+      // plan into its products/features (status 'trialing') and stamps billing_status +
+      // trial_ends_at. When the trial lapses the middleware returns 402 and the app shows
+      // the paywall popup where they pick a package and pay. Best-effort so a catalog
+      // hiccup never blocks sign-up (the dealership row already carries the trial dates).
+      if (chosenPlan) {
+        try { await provisionPlan({ dealershipId: createdDealershipId, planId: chosenPlan.id, status: 'trialing', trialEndsAt }) }
+        catch (e) { console.error('[register] trial provisioning failed:', e?.message || e) }
+      }
 
       // Affiliate attribution — if they arrived via a ?ref link, stamp the dealership
       // and open a referral for the affiliate (best-effort; never blocks signup).
@@ -353,9 +359,11 @@ export function registerRoutes(app) {
         user_id: createdUserId,
         verification_required: true,
         email_sent: emailed,
-        // The client uses this to send the new account to Stripe Checkout for the chosen
-        // plan. Access is granted by the webhook after payment, never here.
-        requires_checkout: !!chosenPlan,
+        // No checkout at sign-up — the 39-day trial is already active (no card). The
+        // client signs in and goes straight to the dashboard; payment happens later via
+        // the paywall popup when the trial ends.
+        requires_checkout: false,
+        trial_days: TRIAL_DAYS,
         plan: chosenPlan?.id || null,
         message: emailed
           ? 'Account created. Check your email and click the verification link to activate your account.'

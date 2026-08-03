@@ -852,13 +852,47 @@ async function openPlanUpgradeModal() {
       <h3 class="text-base font-black text-slate-900 dark:text-white">Upgrade your plan</h3>
       <button data-x class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none">&times;</button>
     </div>
-    <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Your plan decides what you can access. Upgrade to unlock more — a 30-day free trial applies; you won't be charged until it ends.</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Your plan decides what you can access. Upgrade to unlock more.</p>
     <div class="grid sm:grid-cols-2 gap-3">${cards}</div>
   </div>`;
   document.body.appendChild(modal);
   modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('[data-x]')) modal.remove(); });
 }
 window.openPlanUpgradeModal = openPlanUpgradeModal;
+
+// The trial-ended PAYWALL — a blocking popup (no dismiss) shown when the 39-day free
+// trial has lapsed. Lists every package (Facebook-only, AI-only, Dealer OS tiers) so the
+// user picks what they want and pays. Rendered over the shell on a 402 from the API.
+let __paywallOpen = false;
+async function openPaywallModal(reason) {
+  if (__paywallOpen) return;
+  __paywallOpen = true;
+  const data = await fetchPlanCatalog();
+  const plans = (data && data.plans) || [];
+  const money = n => '$' + Number(n).toLocaleString();
+  const label = { facebook: 'Facebook', ai_dealer: 'AI Dealer', dealer_os: 'Dealer OS' };
+  const cards = plans.map(p => `
+    <div class="border border-slate-200 dark:border-slate-700 rounded-xl p-4 flex flex-col bg-white dark:bg-slate-900">
+      <div class="flex items-baseline justify-between">
+        <span class="text-sm font-black text-slate-900 dark:text-white">${esc(p.label)}</span>
+        <span class="text-sm font-black text-indigo-600 dark:text-indigo-400">${money(p.monthly)}<span class="text-[10px] font-medium text-slate-400">/mo</span></span>
+      </div>
+      <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex-1">${p.products.map(x => label[x] || x).join(' + ')} · ${p.feature_count} features${p.id === 'os_pro' ? ' · bundles everything' : ''}</div>
+      <button onclick="startPlanCheckout('${p.id}', this)" ${p.configured ? '' : 'disabled title="Pricing not configured yet"'} class="mt-3 ${p.configured ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed'} text-white text-xs font-bold py-2 rounded-lg transition">${p.configured ? 'Choose this plan' : 'Coming soon'}</button>
+    </div>`).join('');
+  const modal = document.createElement('div');
+  modal.id = 'paywall-modal';
+  modal.className = 'fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto';
+  modal.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl mt-10 p-6 shadow-2xl">
+    <div class="text-center mb-1"><span class="inline-flex items-center gap-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white"><span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span></div>
+    <h3 class="text-lg font-black text-slate-900 dark:text-white text-center mt-3">Your free trial has ended</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400 text-center mb-5">Choose the package that fits — Facebook only, AI Chatbot only, or the full Dealer OS. Pick what you want to keep going.</p>
+    <div class="grid sm:grid-cols-2 gap-3">${cards || '<p class="text-sm text-slate-500 col-span-2 text-center py-6">Plans are being set up — please contact support.</p>'}</div>
+    <div class="text-center mt-5"><button onclick="clearLocalStorage();window.location.href='login.html'" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Sign out</button></div>
+  </div>`;
+  document.body.appendChild(modal); // intentionally NOT dismissable — payment is required to continue
+}
+window.openPaywallModal = openPaywallModal;
 
 // Sidebar "Upgrade plan" CTA — shown unless the account already holds the full bundle
 // (all three products, i.e. Dealer OS Pro). Idempotent; safe to call after each nav render.
@@ -1561,13 +1595,13 @@ async function initializeDashboardEcosystem() {
 
 } catch (err) {
     if (err.message === 'TRIAL_EXPIRED') {
-      alert('Your 30-day free trial has ended. Add a payment method to keep using MarketSync.');
-      window.location.href = '/upgrade.html?reason=trial_ended';
+      // Free trial lapsed — show the blocking paywall popup with all packages to choose.
+      openPaywallModal('trial_ended');
       return;
     }
     if (err.message === 'SUBSCRIPTION_REQUIRED') {
-      alert('Subscription required to access system. Redirecting to billing...');
-      launchStripeLifecycle();
+      // No active subscription — same paywall (pick a package to continue).
+      openPaywallModal('subscription_required');
       return;
     }
     if (err.message === 'SESSION_EXPIRED') {
