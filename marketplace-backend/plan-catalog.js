@@ -65,6 +65,14 @@ export const PLAN_CATALOG = Object.freeze({
     features: ['fb.inventory', 'fb.sales_reps', 'fb.leaderboard'],
     legacy: { ...legacyFlags({ fbOnly: true }), products: { facebook_dealer: true } },
   },
+  ai_standard: {
+    id: 'ai_standard', label: 'AI Dealer', product_primary: 'ai_dealer',
+    products: ['ai_dealer'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
+    monthly: 499, tier: 0,
+    priceEnvCad: 'STRIPE_PRICE_AI_STANDARD_CAD', priceEnvUsd: 'STRIPE_PRICE_AI_STANDARD_USD',
+    features: [...FEATURES_BY_PRODUCT.ai_dealer],
+    legacy: { ...legacyFlags({}), ai_chatbot_active: true, ai_chatbot_paid: true, products: { ai_chatbot: true } },
+  },
   os_starter: {
     id: 'os_starter', label: 'Dealer OS Starter', product_primary: 'dealer_os',
     products: ['dealer_os'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',

@@ -5,13 +5,20 @@ import {
   productsForPlan, featuresForPlan,
 } from '../plan-catalog.js'
 
-test('the five sold plans exist with correct prices', () => {
-  assert.deepEqual(PLAN_IDS, ['fb_solo', 'fb_dealership', 'os_starter', 'os_growth', 'os_pro'])
+test('the sold plans exist with correct prices', () => {
+  assert.deepEqual(PLAN_IDS, ['fb_solo', 'fb_dealership', 'ai_standard', 'os_starter', 'os_growth', 'os_pro'])
   assert.equal(PLAN_CATALOG.fb_solo.monthly, 79)
   assert.equal(PLAN_CATALOG.fb_dealership.monthly, 499)
+  assert.equal(PLAN_CATALOG.ai_standard.monthly, 499)
   assert.equal(PLAN_CATALOG.os_starter.monthly, 999)
   assert.equal(PLAN_CATALOG.os_growth.monthly, 1799)
   assert.equal(PLAN_CATALOG.os_pro.monthly, 2499)
+})
+
+test('AI Dealer is a standalone product plan', () => {
+  assert.deepEqual(PLAN_CATALOG.ai_standard.products, ['ai_dealer'])
+  assert.ok(featuresForPlan('ai_standard').includes('ai.conversations'))
+  assert.equal(PLAN_CATALOG.ai_standard.legacy.ai_chatbot_active, true)
 })
 
 test('org type + owner role come from the plan', () => {

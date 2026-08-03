@@ -67,6 +67,10 @@
           <span class="block text-sm font-bold text-slate-900 dark:text-white">Facebook Marketplace</span>
           <span class="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">Post inventory to Facebook Marketplace with a sales leaderboard. Solo or full dealership.</span>
         </button>
+        <button type="button" data-product="ai_dealer" class="product-card w-full text-left border-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-4 rounded-lg select-none transition">
+          <span class="block text-sm font-bold text-slate-900 dark:text-white">AI Chatbot</span>
+          <span class="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">A 24/7 AI sales chatbot for your website — answers from your live inventory and captures leads into your CRM.</span>
+        </button>
         <button type="button" onclick="goToStep(2)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded text-sm shadow transition mt-2">Continue →</button>
       </div>
 
@@ -146,6 +150,9 @@
       facebook: [
         { id: 'fb_solo',       name: 'Facebook Solo',   price: 79,  org: 'solo',       blurb: 'Inventory + Leaderboard for a single seller' },
         { id: 'fb_dealership', name: 'Facebook Dealer', price: 499, org: 'dealership', blurb: 'Inventory + Sales Reps + Leaderboard for the whole store' },
+      ],
+      ai_dealer: [
+        { id: 'ai_standard', name: 'AI Dealer', price: 499, org: 'dealership', blurb: '24/7 AI sales chatbot: conversations, agents, and a knowledge base — embed it on any site' },
       ],
     };
 
