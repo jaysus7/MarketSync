@@ -12830,16 +12830,217 @@ function loadCommissionsPage() {
     </div>
     <div class="flex flex-wrap gap-1.5">
       ${tab('mine', 'My commission')}
+      ${tab('statements', 'My statements')}
       ${commIsMgr() ? tab('team', 'Team') : ''}
+      ${commIsMgr() ? tab('periods', 'Pay periods') : ''}
+      ${commIsMgr() ? tab('exceptions', 'Exceptions') : ''}
     </div>
     <div id="comm-body" class="pt-1"><div class="text-sm text-slate-400">Loading…</div></div>`;
   __commPlansTarget = 'comm-body';
   if (__commState.tab === 'mine') commLoadMine();
+  else if (__commState.tab === 'statements') commLoadStatements();
+  else if (__commState.tab === 'periods') commLoadPeriods();
+  else if (__commState.tab === 'exceptions') commLoadExceptions();
   else commLoadTeam();
 }
 function commSetTab(t) { __commState.tab = t; loadCommissionsPage(); }
 function commSetMonth(m) { __commState.month = m; loadCommissionsPage(); }
 window.loadCommissionsPage = loadCommissionsPage; window.commSetTab = commSetTab; window.commSetMonth = commSetMonth;
+
+// ── Group 7: Pay periods · Statements · Exceptions ───────────────────────────
+const commMoney2 = (v) => '$' + (Number(v) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function commPeriodBadge(s) {
+  const m = { open: ['bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300', 'Open'],
+    locked: ['bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300', 'Locked'],
+    paid: ['bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300', 'Paid'] };
+  const [c, l] = m[s] || ['bg-slate-100 dark:bg-slate-800 text-slate-600', s];
+  return `<span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${c}">${l}</span>`;
+}
+const commBtn = (label, onclick, kind) => {
+  const styles = { primary: 'bg-indigo-600 text-white hover:bg-indigo-500', ghost: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700', danger: 'bg-rose-600 text-white hover:bg-rose-500', ok: 'bg-emerald-600 text-white hover:bg-emerald-500' };
+  return `<button onclick="${onclick}" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${styles[kind] || styles.ghost}">${label}</button>`;
+};
+
+// Authenticated CSV download (a plain <a> can't send the Bearer token → 401).
+async function commDownloadCsv(path, filename) {
+  try {
+    const r = await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+    if (!r.ok) throw new Error('Export failed');
+    const blob = await r.blob(); const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename || 'export.csv';
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  } catch (e) { showToast(e.message || 'Export failed', 'error'); }
+}
+window.commDownloadCsv = commDownloadCsv;
+
+// ── Pay periods (managers) ──
+async function commLoadPeriods() {
+  const body = document.getElementById('comm-body'); if (!body) return;
+  body.innerHTML = '<div class="text-sm text-slate-400">Loading pay periods…</div>';
+  let data; try { data = await apiGetJson('/commissions/pay-periods'); } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; return; }
+  const periods = data.periods || [];
+  const types = data.period_types || ['weekly', 'biweekly', 'semi_monthly', 'monthly', 'custom'];
+  const typeOpts = types.map(t => `<option value="${t}">${t.replace('_', '-')}</option>`).join('');
+  const cards = periods.length ? periods.map(p => {
+    const acts = [];
+    if (p.status === 'open') { acts.push(commBtn('Assign earned', `commPeriodAssign('${p.id}')`, 'ghost')); acts.push(commBtn('Lock', `commPeriodStatus('${p.id}','locked')`, 'primary')); }
+    if (p.status === 'locked' && !p.reviewed_at) acts.push(commBtn('Review', `commPeriodReview('${p.id}')`, 'primary'));
+    if (p.status === 'locked' && p.reviewed_at && !p.approved_at) acts.push(commBtn('Approve', `commPeriodApprove('${p.id}')`, 'primary'));
+    if (p.status === 'locked' && p.approved_at) acts.push(commBtn('Mark paid', `commPeriodStatus('${p.id}','paid')`, 'ok'));
+    if (p.status === 'locked') acts.push(commBtn('Unlock', `commPeriodStatus('${p.id}','open')`, 'ghost'));
+    acts.push(commBtn('Payroll CSV', `commDownloadCsv('/commissions/pay-periods/${p.id}/export.csv','payroll-${esc(p.name)}.csv')`, 'ghost'));
+    const gate = `${p.reviewed_at ? '✓ reviewed' : ''}${p.approved_at ? ' · ✓ approved' : ''}`;
+    return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3.5">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div><span class="font-bold text-slate-900 dark:text-white">${esc(p.name)}</span> ${commPeriodBadge(p.status)}
+          <div class="text-xs text-slate-400">${p.start_date} → ${p.end_date} · ${p.lines || 0} lines · ${commMoney2(p.total)} ${gate ? '· ' + gate : ''}</div></div>
+        <div class="flex flex-wrap gap-1.5">${acts.join('')}</div>
+      </div></div>`;
+  }).join('') : '<div class="text-sm text-slate-400 py-6 text-center">No pay periods yet — create one to group and pay commissions.</div>';
+  body.innerHTML = `
+    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 mb-3 flex flex-wrap items-end gap-2">
+      <div><label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Type</label>
+        <select id="pp-type" onchange="document.getElementById('pp-custom').style.display=this.value==='custom'?'flex':'none'" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">${typeOpts}</select></div>
+      <div><label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Anchor date</label>
+        <input id="pp-anchor" type="date" value="${new Date().toISOString().slice(0,10)}" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></div>
+      <div id="pp-custom" style="display:none" class="gap-2 items-end">
+        <div><label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Start</label><input id="pp-start" type="date" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></div>
+        <div><label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">End</label><input id="pp-end" type="date" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></div>
+      </div>
+      ${commBtn('Create period', 'commCreatePeriod()', 'primary')}
+    </div>
+    <div class="space-y-2">${cards}</div>`;
+}
+async function commCreatePeriod() {
+  const type = document.getElementById('pp-type')?.value || 'monthly';
+  const b = { period_type: type };
+  if (type === 'custom') { b.start_date = document.getElementById('pp-start')?.value; b.end_date = document.getElementById('pp-end')?.value; }
+  else b.anchor_date = document.getElementById('pp-anchor')?.value;
+  try { await apiSendJson('/commissions/pay-periods', 'POST', b); showToast('Pay period created', 'success'); commLoadPeriods(); }
+  catch (e) { showToast(e.message || 'Could not create period', 'error'); }
+}
+async function commPeriodAssign(id) {
+  try { const r = await apiSendJson(`/commissions/pay-periods/${id}/assign`, 'POST', {}); showToast(`Assigned ${r.assigned} earned line(s)`, 'success'); commLoadPeriods(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function commPeriodStatus(id, status) {
+  if (status === 'paid' && !confirm('Mark this period paid? This books the pay run and locks the lines as paid.')) return;
+  try { await apiSendJson(`/commissions/pay-periods/${id}/status`, 'POST', { status }); showToast(`Period ${status}`, 'success'); commLoadPeriods(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function commPeriodReview(id) {
+  try { await apiSendJson(`/commissions/pay-periods/${id}/review`, 'POST', {}); showToast('Period reviewed', 'success'); commLoadPeriods(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function commPeriodApprove(id) {
+  try { await apiSendJson(`/commissions/pay-periods/${id}/approve`, 'POST', {}); showToast('Period approved', 'success'); commLoadPeriods(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+window.commLoadPeriods = commLoadPeriods; window.commCreatePeriod = commCreatePeriod; window.commPeriodAssign = commPeriodAssign;
+window.commPeriodStatus = commPeriodStatus; window.commPeriodReview = commPeriodReview; window.commPeriodApprove = commPeriodApprove;
+
+// ── Exceptions (managers) ──
+async function commLoadExceptions() {
+  const body = document.getElementById('comm-body'); if (!body) return;
+  body.innerHTML = '<div class="text-sm text-slate-400">Loading exceptions…</div>';
+  let data; try { data = await apiGetJson('/commissions/exceptions'); } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; return; }
+  const list = data.exceptions || [];
+  const rows = list.length ? list.map(x => {
+    const sev = x.severity === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400';
+    const acts = x.status === 'open'
+      ? commBtn('Acknowledge', `commExceptionStatus('${x.id}','acknowledged')`, 'ghost') + ' ' + commBtn('Resolve', `commExceptionStatus('${x.id}','resolved')`, 'ok')
+      : commBtn('Resolve', `commExceptionStatus('${x.id}','resolved')`, 'ok');
+    return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex items-center justify-between gap-2 flex-wrap">
+      <div><span class="font-bold ${sev}">${esc(x.type.replace(/_/g,' '))}</span> <span class="text-[10px] uppercase tracking-wider text-slate-400">${esc(x.status)}</span>
+        <div class="text-xs text-slate-500 dark:text-slate-400">${esc(x.detail || '')}</div></div>
+      <div class="flex gap-1.5">${acts}</div></div>`;
+  }).join('') : '<div class="text-sm text-slate-400 py-6 text-center">No open exceptions. 🎉</div>';
+  body.innerHTML = `
+    <div class="flex justify-end mb-3">${commBtn('Scan now', 'commScanExceptions()', 'primary')}</div>
+    <div class="space-y-2">${rows}</div>`;
+}
+async function commScanExceptions() {
+  try { const r = await apiSendJson('/commissions/exceptions/scan', 'POST', {}); showToast(`Scan complete — ${r.found} found, ${r.auto_resolved} auto-resolved`, 'success'); commLoadExceptions(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function commExceptionStatus(id, status) {
+  try { await apiSendJson(`/commissions/exceptions/${id}/status`, 'POST', { status }); commLoadExceptions(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+window.commLoadExceptions = commLoadExceptions; window.commScanExceptions = commScanExceptions; window.commExceptionStatus = commExceptionStatus;
+
+// ── Statements (reps: own; managers see their own here too) ──
+async function commLoadStatements() {
+  const body = document.getElementById('comm-body'); if (!body) return;
+  body.innerHTML = '<div class="text-sm text-slate-400">Loading statements…</div>';
+  let data; try { data = await apiGetJson('/commissions/statements/mine'); } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; return; }
+  const st = data.statements || [];
+  const rows = st.length ? st.map(s => {
+    const p = s.period, ack = s.acknowledgment;
+    const badge = ack ? (ack.status === 'disputed' ? '<span class="text-[10px] font-bold text-rose-600">Disputed</span>' : '<span class="text-[10px] font-bold text-emerald-600">Acknowledged</span>') : '<span class="text-[10px] text-slate-400">Not signed</span>';
+    return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex items-center justify-between gap-2 flex-wrap">
+      <div><span class="font-bold text-slate-900 dark:text-white">${esc(p.name)}</span> ${commPeriodBadge(p.status)} ${badge}
+        <div class="text-xs text-slate-400">${p.start_date} → ${p.end_date}</div></div>
+      <div class="flex gap-1.5">${commBtn('View', `commViewStatement('${p.id}')`, 'primary')}</div></div>`;
+  }).join('') : '<div class="text-sm text-slate-400 py-6 text-center">No statements yet — they appear once your commissions are assigned to a pay period.</div>';
+  body.innerHTML = `<div class="space-y-2">${rows}</div><div id="comm-stmt-detail" class="mt-4"></div>`;
+}
+async function commViewStatement(periodId) {
+  const box = document.getElementById('comm-stmt-detail'); if (box) box.innerHTML = '<div class="text-sm text-slate-400">Loading…</div>';
+  let d; try { d = await apiGetJson(`/commissions/statements/mine?period_id=${encodeURIComponent(periodId)}`); } catch (e) { if (box) box.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; return; }
+  __commStmt = d;   // stash for print
+  const t = d.totals, ack = d.acknowledgment;
+  const lines = (d.lines || []).map(l => `<tr class="border-t border-slate-100 dark:border-slate-800">
+    <td class="py-1.5 pr-3">${esc(l.deal_number || '—')}</td><td class="py-1.5 pr-3">${esc(l.customer || '—')}</td>
+    <td class="py-1.5 pr-3 text-right">${commMoney2(l.front)}</td><td class="py-1.5 pr-3 text-right">${commMoney2(l.back)}</td>
+    <td class="py-1.5 pr-3 text-right">${commMoney2(l.spiff)}</td><td class="py-1.5 pr-3 text-right font-bold">${commMoney2(l.total)}</td>
+    <td class="py-1.5">${commStatusBadge(l.status)}</td></tr>`).join('');
+  const signed = ack ? `<span class="text-xs ${ack.status === 'disputed' ? 'text-rose-600' : 'text-emerald-600'} font-bold">${ack.status === 'disputed' ? 'You disputed this statement' : 'You acknowledged this statement'}</span>` : '';
+  if (box) box.innerHTML = `
+    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+      <div class="flex items-center justify-between gap-2 flex-wrap mb-3">
+        <h3 class="font-black text-slate-900 dark:text-white">${esc(d.period.name)} — Statement</h3>
+        <div class="flex flex-wrap gap-1.5">
+          ${commBtn('Print / PDF', `commPrintStatement()`, 'ghost')}
+          ${commBtn('CSV', `commDownloadCsv('/commissions/statements/mine.csv?period_id=${periodId}','statement-${esc(d.period.name)}.csv')`, 'ghost')}
+          ${ack ? '' : commBtn('Acknowledge', `commAckStatement('${periodId}')`, 'ok')}
+          ${ack ? '' : commBtn('Dispute', `commDisputeStatement('${periodId}')`, 'danger')}
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+        <div class="rounded-lg bg-slate-50 dark:bg-slate-950 p-2.5"><div class="text-[10px] uppercase tracking-wider text-slate-400">Units</div><div class="font-black text-slate-900 dark:text-white">${t.units}</div></div>
+        <div class="rounded-lg bg-slate-50 dark:bg-slate-950 p-2.5"><div class="text-[10px] uppercase tracking-wider text-slate-400">Front</div><div class="font-black text-slate-900 dark:text-white">${commMoney2(t.front)}</div></div>
+        <div class="rounded-lg bg-slate-50 dark:bg-slate-950 p-2.5"><div class="text-[10px] uppercase tracking-wider text-slate-400">F&I + Spiff</div><div class="font-black text-slate-900 dark:text-white">${commMoney2(t.back + t.spiff)}</div></div>
+        <div class="rounded-lg bg-indigo-50 dark:bg-indigo-950/40 p-2.5"><div class="text-[10px] uppercase tracking-wider text-indigo-500">Payable</div><div class="font-black text-indigo-700 dark:text-indigo-300">${commMoney2(t.payable)}</div></div>
+      </div>
+      <div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-left text-slate-400"><th class="pb-1 pr-3">Deal</th><th class="pb-1 pr-3">Customer</th><th class="pb-1 pr-3 text-right">Front</th><th class="pb-1 pr-3 text-right">F&I</th><th class="pb-1 pr-3 text-right">Spiff</th><th class="pb-1 pr-3 text-right">Total</th><th class="pb-1">Status</th></tr></thead><tbody>${lines || '<tr><td colspan="7" class="py-3 text-center text-slate-400">No lines in this period.</td></tr>'}</tbody></table></div>
+      <div class="mt-2">${signed}</div>
+    </div>`;
+}
+let __commStmt = null;
+function commPrintStatement() {
+  const d = __commStmt; if (!d) return;
+  const rows = (d.lines || []).map(l => `<tr><td>${esc(l.deal_number || '—')}</td><td>${esc(l.customer || '—')}</td><td style="text-align:right">${commMoney2(l.front)}</td><td style="text-align:right">${commMoney2(l.back)}</td><td style="text-align:right">${commMoney2(l.spiff)}</td><td style="text-align:right">${commMoney2(l.total)}</td><td>${esc(l.status)}</td></tr>`).join('');
+  const w = window.open('', '_blank'); if (!w) { showToast('Allow pop-ups to print', 'error'); return; }
+  w.document.write(`<!doctype html><html><head><title>Statement — ${esc(d.period.name)}</title>
+    <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;padding:32px;color:#0f172a}h1{font-size:18px}table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}th,td{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left}.tot{margin-top:16px;font-weight:800}</style></head>
+    <body><h1>Commission Statement — ${esc(d.period.name)}</h1><div>${d.period.start_date} → ${d.period.end_date}</div>
+    <table><thead><tr><th>Deal</th><th>Customer</th><th style="text-align:right">Front</th><th style="text-align:right">F&I</th><th style="text-align:right">Spiff</th><th style="text-align:right">Total</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="tot">Payable: ${commMoney2(d.totals.payable)} · Units: ${d.totals.units}</div>
+    </body></html>`);
+  w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+}
+async function commAckStatement(periodId) {
+  try { await apiSendJson(`/commissions/statements/${periodId}/acknowledge`, 'POST', {}); showToast('Statement acknowledged', 'success'); commViewStatement(periodId); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function commDisputeStatement(periodId) {
+  const note = prompt('What’s wrong with this statement? (a manager will review)'); if (note == null) return;
+  try { await apiSendJson(`/commissions/statements/${periodId}/dispute`, 'POST', { note }); showToast('Dispute submitted', 'success'); commViewStatement(periodId); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+window.commLoadStatements = commLoadStatements; window.commViewStatement = commViewStatement; window.commPrintStatement = commPrintStatement;
+window.commAckStatement = commAckStatement; window.commDisputeStatement = commDisputeStatement;
 
 function commStatCards(s) {
   const card = (label, val, cls) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${label}</div><div class="text-2xl font-black mt-1 ${cls || 'text-slate-900 dark:text-white'}">${commMoney(val)}</div></div>`;
