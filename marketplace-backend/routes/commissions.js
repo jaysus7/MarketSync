@@ -29,7 +29,8 @@ import { audit } from '../audit.js'
 // calc so existing importers (accounting engine, tests) are unaffected.
 import { n, round2, mergeConfig, computeCommission, computeBackAmount, volumeBonus } from '../commissions-calc.js'
 // Pure pay-period date math + lifecycle rules (unit-tested, no IO).
-import { periodBounds, periodLabel, canTransition, isAssignable, PERIOD_TYPES } from '../commission-periods.js'
+import { periodBounds, periodLabel, canTransition, isAssignable, canReview, canApprove, payReady, PERIOD_TYPES } from '../commission-periods.js'
+import { detectExceptions } from '../commission-exceptions.js'
 
 export { computeCommission }   // preserve the existing public export
 
@@ -536,6 +537,8 @@ export function registerCommissions(app) {
     const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!period) return res.status(404).json({ error: 'Pay period not found' })
     if (!canTransition(period.status, to)) return res.status(409).json({ error: `Cannot move a pay period from ${period.status} to ${to}.` })
+    // A period must be reviewed AND approved before payout (separation of duties).
+    if (to === 'paid' && !payReady(period)) return res.status(409).json({ error: 'Pay period must be reviewed and approved before it can be paid.' })
     const now = new Date().toISOString()
     const patch = { status: to, updated_at: now }
     if (to === 'locked') { patch.locked_at = now; patch.locked_by = req.user?.id || null }
@@ -559,5 +562,100 @@ export function registerCommissions(app) {
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'commission.pay_period_status', { entity_type: 'commission_pay_period', entity_id: period.id, before_state: { status: period.status }, after_state: { status: to } })
     res.json({ ok: true, period: data })
+  })
+
+  // Review a locked period (first sign-off). Approval (below) is a SEPARATE action so a
+  // different person can approve than reviewed — separation of duties before payout.
+  app.post('/commissions/pay-periods/:id/review', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!period) return res.status(404).json({ error: 'Pay period not found' })
+    if (!canReview(period)) return res.status(409).json({ error: 'Only a locked, not-yet-reviewed period can be reviewed.' })
+    const now = new Date().toISOString()
+    const { data, error } = await supabaseAdmin.from('commission_pay_periods')
+      .update({ reviewed_at: now, reviewed_by: req.user?.id || null, updated_at: now })
+      .eq('id', period.id).eq('dealership_id', req.dealershipId).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.pay_period_reviewed', { entity_type: 'commission_pay_period', entity_id: period.id })
+    res.json({ ok: true, period: data })
+  })
+
+  // Approve a reviewed period → it becomes payable.
+  app.post('/commissions/pay-periods/:id/approve', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!period) return res.status(404).json({ error: 'Pay period not found' })
+    if (!canApprove(period)) return res.status(409).json({ error: 'A period must be locked and reviewed (and not already approved) before approval.' })
+    const now = new Date().toISOString()
+    const { data, error } = await supabaseAdmin.from('commission_pay_periods')
+      .update({ approved_at: now, approved_by: req.user?.id || null, updated_at: now })
+      .eq('id', period.id).eq('dealership_id', req.dealershipId).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.pay_period_approved', { entity_type: 'commission_pay_period', entity_id: period.id })
+    res.json({ ok: true, period: data })
+  })
+
+  // ── Exceptions queue ─────────────────────────────────────────────────────────
+  // Scan the store's recent commission lines for anomalies (no plan, zero/negative
+  // payout, unwound-but-not-reversed, cost unknown, stale pending) and upsert them into
+  // commission_exceptions. Detection is a pure, tested function — this route is just IO.
+  // Anomalies that have since cleared are auto-resolved so the queue reflects reality.
+  app.post('/commissions/exceptions/scan', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: lines } = await supabaseAdmin.from('deal_commissions')
+      .select('id, deal_id, rep_id, plan_id, total, status, breakdown').eq('dealership_id', req.dealershipId).limit(5000)
+    const dealIds = [...new Set((lines || []).map(l => l.deal_id).filter(Boolean))]
+    let deals = []
+    if (dealIds.length) {
+      const { data: dd } = await supabaseAdmin.from('deals').select('id, selling_price, deal_status, sold_at, delivered_at').in('id', dealIds)
+      deals = dd || []
+    }
+    const dealById = Object.fromEntries(deals.map(d => [d.id, d]))
+    const now = Date.now()
+    const found = []   // { deal_id, line_id, rep_id, type, severity, detail }
+    for (const l of lines || []) {
+      for (const ex of detectExceptions(l, dealById[l.deal_id], now)) {
+        found.push({ dealership_id: req.dealershipId, deal_id: l.deal_id || null, line_id: l.id, rep_id: l.rep_id || null, ...ex, updated_at: new Date().toISOString() })
+      }
+    }
+    // Upsert current anomalies (keeps status if already open/acknowledged).
+    if (found.length) {
+      await supabaseAdmin.from('commission_exceptions').upsert(found, { onConflict: 'dealership_id,deal_id,type', ignoreDuplicates: false })
+    }
+    // Auto-resolve previously-open exceptions that no longer reproduce.
+    const stillOpenKeys = new Set(found.map(f => `${f.deal_id}|${f.type}`))
+    const { data: openRows } = await supabaseAdmin.from('commission_exceptions')
+      .select('id, deal_id, type').eq('dealership_id', req.dealershipId).neq('status', 'resolved')
+    const toResolve = (openRows || []).filter(r => !stillOpenKeys.has(`${r.deal_id}|${r.type}`)).map(r => r.id)
+    if (toResolve.length) {
+      await supabaseAdmin.from('commission_exceptions').update({ status: 'resolved', resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() }).in('id', toResolve)
+    }
+    audit(req, 'commission.exceptions_scanned', { after_state: { found: found.length, auto_resolved: toResolve.length } })
+    res.json({ ok: true, found: found.length, auto_resolved: toResolve.length })
+  })
+
+  // List exceptions (open + acknowledged by default; ?all=1 includes resolved).
+  app.get('/commissions/exceptions', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    let q = supabaseAdmin.from('commission_exceptions').select('*').eq('dealership_id', req.dealershipId)
+    if (req.query.all !== '1') q = q.neq('status', 'resolved')
+    const { data } = await q.order('severity', { ascending: true }).order('created_at', { ascending: false }).limit(500)
+    res.json({ ok: true, exceptions: data || [] })
+  })
+
+  // Acknowledge or resolve an exception (managers). status ∈ acknowledged|resolved|open.
+  app.post('/commissions/exceptions/:id/status', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const to = String(req.body?.status || '')
+    if (!['open', 'acknowledged', 'resolved'].includes(to)) return res.status(400).json({ error: 'Invalid status' })
+    const now = new Date().toISOString()
+    const patch = { status: to, updated_at: now }
+    if (to === 'resolved') { patch.resolved_by = req.user?.id || null; patch.resolved_at = now }
+    else { patch.resolved_by = null; patch.resolved_at = null }
+    const { data, error } = await supabaseAdmin.from('commission_exceptions').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!data) return res.status(404).json({ error: 'Exception not found' })
+    audit(req, 'commission.exception_updated', { entity_type: 'commission_exception', entity_id: req.params.id, after_state: { status: to } })
+    res.json({ ok: true, exception: data })
   })
 }
