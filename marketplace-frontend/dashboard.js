@@ -308,6 +308,17 @@ function clearLocalStorage() {
   Object.entries(saved).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch {} });
 }
 
+// Deliberate sign-out. Defined globally + wired via inline onclick on the Sign Out button
+// so it works even if a later listener in setupActionListeners fails to attach. Belt-and-
+// suspenders: explicitly drop the session keys, flag the extension bridge not to re-login,
+// then bounce to the login page.
+window.msSignOut = function msSignOut() {
+  try { sessionStorage.setItem('ms_logged_out', '1'); } catch {}
+  try { ['token', 'refresh_token', 'user', 'ms_remember_until'].forEach(k => localStorage.removeItem(k)); } catch {}
+  try { clearLocalStorage(); } catch {}
+  window.location.href = 'login.html';
+};
+
 // "Keep me signed in" window: if it has lapsed, drop the stored session so the
 // user is returned to login instead of riding a stale token.
 (function enforceRememberWindow() {
@@ -19348,14 +19359,10 @@ function setupActionListeners() {
   // Launch Dedicated Stripe Gateway Session
   document.getElementById('launch-portal-btn')?.addEventListener('click', launchStripeLifecycle);
 
-  // Global Session Exits
-  document.getElementById('logout-btn').addEventListener('click', () => {
-    // Tell the extension bridge this is a deliberate sign-out so it logs the
-    // extension out too instead of auto-logging the site back in.
-    sessionStorage.setItem('ms_logged_out', '1');
-    clearLocalStorage();
-    window.location.href = 'login.html';
-  });
+  // Global Session Exits — also wired via inline onclick="msSignOut()" so sign-out works
+  // even if this listener never attaches. Optional chaining so a missing button can't
+  // throw and abort the rest of setup.
+  document.getElementById('logout-btn')?.addEventListener('click', (e) => { e.preventDefault(); msSignOut(); });
 }
 
 async function launchStripeLifecycle() {
