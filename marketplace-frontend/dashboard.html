@@ -3345,7 +3345,10 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=20260730k"></script>
+  <!-- Single shared auth module — MUST load before dashboard.js so the guard,
+       token refresh, authenticated fetch, and sign-out all use one source of truth. -->
+  <script src="auth.js?v=20260803a"></script>
+  <script src="dashboard.js?v=20260803a"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

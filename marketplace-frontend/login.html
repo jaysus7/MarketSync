@@ -85,20 +85,21 @@
     <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-6">New location? <a href="register.html" class="text-indigo-600 dark:text-indigo-400 hover:underline">Register Dealership</a></p>
   </div>
 
+  <!-- Single shared auth module: session store + host resolver live here, not inline. -->
+  <script src="/auth.js?v=20260803a"></script>
   <script>
-    const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
+    const API = window.MSAuth.resolveApiBase();
     let mfaState = null;  // { factor_id, partial_token } when MFA challenge is pending
 
-    // Persist the session. "Keep me signed in" stores a refresh token + a 30-day
-    // window the dashboard uses to silently refresh the access token; unchecked
-    // falls back to a 12-hour window.
+    // Already signed in (valid session)? Skip the form and route through the single
+    // authenticated entry point, which resolves the correct dashboard.
+    if (window.MSAuth.isAuthenticated()) { window.location.replace('app.html'); }
+
+    // Persist the session via the shared module (consistent keys + 30d/12h remember
+    // window). "Keep me signed in" unchecked → short window; checked/absent → 30 days.
     function storeSession(data) {
       const remember = document.getElementById('remember-me')?.checked !== false;
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
-      const days = remember ? 30 : 0.5;
-      localStorage.setItem('ms_remember_until', String(Date.now() + days * 86400000));
+      window.MSAuth.storeSession(data, remember);
     }
 
     document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -131,7 +132,7 @@
         if (!res.ok || data.error) throw new Error(data.error || 'Identity rejection');
 
         storeSession(data);
-        window.location.href = 'dashboard.html';
+        window.location.href = 'app.html';
       } catch (err) {
         errBox.textContent = err.message;
         errBox.classList.remove('hidden');
@@ -165,7 +166,7 @@
         }
 
         storeSession(data);
-        window.location.href = 'dashboard.html';
+        window.location.href = 'app.html';
       } catch (err) {
         errBox.textContent = err.message;
         errBox.classList.remove('hidden');
@@ -215,7 +216,7 @@
         if (!finishRes.ok) throw new Error(data.error || 'Passkey sign-in failed.');
 
         storeSession(data);
-        window.location.href = 'dashboard.html';
+        window.location.href = 'app.html';
       } catch (err) {
         // User cancelling the browser prompt throws an AbortError — handle nicely
         const msg = err.name === 'NotAllowedError' || err.name === 'AbortError'
