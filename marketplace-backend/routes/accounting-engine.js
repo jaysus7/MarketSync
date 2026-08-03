@@ -180,6 +180,30 @@ async function postCommissionCalculated(dealershipId, dealId) {
   })
 }
 
+// Reverse a clawed-back commission's accrual. Finds the original commission_calculated
+// journal for the deal and posts its exact inverse (DR Commission Payable / CR Commission
+// Expense) as a reversing entry — locked journals are never edited, corrections are
+// always new reversing postings (contract). Idempotent per deal (postJournal dedupes on
+// source+reference+event); a no-op when nothing was ever accrued for the deal.
+async function postCommissionClawback(dealershipId, dealId, date) {
+  const { data: orig } = await supabaseAdmin.from('journal_entries')
+    .select('id').eq('dealership_id', dealershipId).eq('source', 'commission')
+    .eq('reference', String(dealId)).eq('event_name', 'commission_calculated').maybeSingle()
+  if (!orig) return null   // nothing accrued → nothing to reverse
+  const { data: lines } = await supabaseAdmin.from('journal_lines').select('debit').eq('journal_entry_id', orig.id)
+  const amount = round2((lines || []).reduce((s, l) => s + n(l.debit), 0))   // balanced entry ⇒ Σdebit = total
+  if (amount <= 0) return null
+  return postJournal(dealershipId, {
+    source: 'commission', eventName: 'commission_clawed_back', reference: String(dealId),
+    entryDate: (date || new Date().toISOString()).slice(0, 10), memo: 'Commission clawback reversal',
+    refs: { ref_deal_id: dealId },
+    lines: [
+      { account_key: 'commission_payable', debit: amount, credit: 0, desc: 'Reverse commission accrual' },
+      { account_key: 'commission_expense', debit: 0, credit: amount, desc: 'Reverse commission accrual' },
+    ],
+  })
+}
+
 // Map one bus event to its posting handler → returns { handler, journalId } or null
 // when the event isn't a financial one. Amounts for A5 events come from the payload.
 async function routeFinancialEvent(event) {
@@ -194,6 +218,8 @@ async function routeFinancialEvent(event) {
       return { handler: 'commission_calculated', journalId: await postCommissionCalculated(did, p.deal_id || e) }
     case 'commission.paid':
       return { handler: 'commission_paid', journalId: await postByRule(did, 'commission_paid', { commission_total: n(p.amount), __source: 'commission_pay', __reference: p.ref || e, __date: event.created_at, __refs: { ref_deal_id: p.deal_id || null } }) }
+    case 'commission.clawed_back':
+      return { handler: 'commission_clawed_back', journalId: await postCommissionClawback(did, p.deal_id || e, event.created_at) }
     case 'deposit.paid': {
       const cents = n(p.amount_cents); if (cents <= 0) return null
       return { handler: 'deposit_received', journalId: await postByRule(did, 'deposit_received', { deposit_amount: round2(cents / 100), __source: 'deposit', __reference: p.payment_ref || e, __date: event.created_at, __refs: { ref_contact_id: e } }) }

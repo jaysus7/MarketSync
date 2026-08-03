@@ -23,63 +23,16 @@ import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { emitEvent, onEvent } from './events.js'
 import { audit } from '../audit.js'
+// The deterministic commission math lives in a pure, IO-free module so it can be
+// unit-tested without a DB/env. AI never computes payable amounts — these are fixed
+// formulas. commissions.js keeps all the DB + event orchestration and re-exports the
+// calc so existing importers (accounting engine, tests) are unaffected.
+import { n, round2, mergeConfig, computeCommission, computeBackAmount, volumeBonus } from '../commissions-calc.js'
 
-const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
-const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
+export { computeCommission }   // preserve the existing public export
+
 const monthStart = (d) => { const t = new Date(d); return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), 1)) }
 const monthEnd = (d) => { const t = new Date(d); return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 1)) }
-
-// Merge a per-deal override on top of the plan config (per-vehicle customization).
-function mergeConfig(plan, override) {
-  const base = plan || {}
-  if (!override || typeof override !== 'object') return base
-  return {
-    ...base,
-    front: { ...(base.front || {}), ...(override.front || {}) },
-    back: { ...(base.back || {}), ...(override.back || {}) },
-    spiff_per_deal: override.spiff_per_deal != null ? override.spiff_per_deal : base.spiff_per_deal,
-    bonuses: base.bonuses || [],
-  }
-}
-
-// The core calc. Front: percent of (gross − pack), a flat amount, or the greater of
-// the two. Back (F&I): percent of the F&I product revenue, or a flat amount.
-export function computeCommission(deal, planConfig, override) {
-  const cfg = mergeConfig(planConfig, override)
-  const front = cfg.front || {}
-  const back = cfg.back || {}
-  const price = n(deal.selling_price)
-  const hasCost = deal.cost != null && n(deal.cost) > 0
-  // Pack is what the store keeps off the top before the rep's %. It can be a flat
-  // dollar amount or a percentage of the selling price.
-  const pack = (front.pack_type === 'percent') ? round2(price * (n(front.pack) / 100)) : n(front.pack)
-  const frontGross = hasCost ? Math.max(0, price - n(deal.cost) - pack) : null
-  const pct = frontGross != null ? frontGross * (n(front.percent) / 100) : 0
-  const flat = n(front.flat)
-  const method = front.method || 'greater'
-  let frontAmt
-  if (method === 'flat') frontAmt = flat
-  else if (method === 'percent') frontAmt = frontGross != null ? pct : flat   // no cost → fall back to the flat/mini
-  else frontAmt = Math.max(pct, flat)                                          // 'greater'
-
-  const fniItems = Array.isArray(deal.fni_items) ? deal.fni_items : []
-  const fniGross = fniItems.reduce((s, x) => s + n(x?.price), 0)
-  const backAmt = (back.method === 'flat') ? n(back.flat) : fniGross * (n(back.percent) / 100)
-
-  const spiff = n(cfg.spiff_per_deal)
-  return {
-    front_amount: round2(frontAmt),
-    back_amount: round2(backAmt),
-    spiff_amount: round2(spiff),
-    total: round2(frontAmt + backAmt + spiff),
-    breakdown: {
-      front_gross: frontGross, fni_gross: round2(fniGross), pack,
-      front_method: method, front_percent: n(front.percent), front_flat: flat,
-      back_method: back.method || 'percent', back_percent: n(back.percent), back_flat: n(back.flat),
-      cost_known: hasCost,
-    },
-  }
-}
 
 // Resolve the plan that applies to a deal's rep: the rep's assigned plan, else the
 // store default. Returns { id, config } or null when the store has no plan yet.
@@ -93,12 +46,6 @@ async function planForDeal(dealershipId, repId) {
   }
   const { data: def } = await supabaseAdmin.from('commission_plans').select('id, config').eq('dealership_id', dealershipId).eq('is_default', true).eq('active', true).maybeSingle()
   return def ? { id: def.id, config: def.config || {} } : null
-}
-
-// F&I (back-end) amount from a given back config.
-function computeBackAmount(deal, backCfg) {
-  const fniGross = (Array.isArray(deal.fni_items) ? deal.fni_items : []).reduce((s, x) => s + n(x?.price), 0)
-  return round2((backCfg?.method === 'flat') ? n(backCfg?.flat) : fniGross * (n(backCfg?.percent) / 100))
 }
 
 // Recompute + persist a deal's commission across everyone who earns on it: the
@@ -181,15 +128,29 @@ export async function recomputeDealCommission(dealershipId, dealId) {
     if (!keepRoles.has(r.role) && r.status !== 'clawed_back') await supabaseAdmin.from('deal_commissions').delete().eq('id', r.id)
   }
 
-  await supabaseAdmin.from('deals').update({ vehicle_commission: round2(frontSales + frontCo), fni_commission: round2(backSales + backMgr) }).eq('id', dealId)
+  // Write the deal's front/back totals back so the existing reports + leaderboard stay
+  // in sync. These mirror what /commissions/preview shows the desk: the selling side's
+  // vehicle commission (front + per-deal spiff) and the salesperson's F&I share
+  // (backSales — the portion NOT attributed to a separate F&I manager). Previously this
+  // referenced undefined `frontSales`/`frontCo`, which threw on every recompute and left
+  // the deal totals (and the commission.calculated event) permanently stale.
+  await supabaseAdmin.from('deals')
+    .update({ vehicle_commission: round2(front + spiff), fni_commission: round2(backSales) })
+    .eq('id', dealId)
   return calc
 }
 
-// Reverse a deal's commission with a reason (unwind / repair / chargeback).
+// Reverse a deal's commission with a reason (unwind / repair / chargeback). Emits
+// commission.clawed_back so the Accounting Engine posts a reversing journal (DR
+// Commission Payable / CR Commission Expense) — the accrual is reversed, never edited.
 export async function clawbackDealCommission(dealershipId, dealId, reason) {
   await supabaseAdmin.from('deal_commissions')
     .update({ status: 'clawed_back', reason: String(reason || 'Reversed').slice(0, 300), updated_at: new Date().toISOString() })
     .eq('deal_id', dealId).eq('dealership_id', dealershipId)
+  emitEvent({
+    dealershipId, eventName: 'commission.clawed_back', entityType: 'deal', entityId: dealId,
+    summary: 'Commission clawed back', department: 'Accounting', payload: { deal_id: dealId },
+  })
 }
 
 // Published read API — other engines get a deal's commission via this, never by
@@ -223,19 +184,6 @@ async function onDealEvent(event) {
       })
     }
   } catch (e) { console.warn('[commission] deal event failed:', e.message) }
-}
-
-// Volume bonus from a plan's tiers, given the rep's period units + gross. Pays the
-// single highest tier met per basis (units, gross), summed across bases.
-function volumeBonus(planConfig, units, gross) {
-  const rules = Array.isArray(planConfig?.bonuses) ? planConfig.bonuses : []
-  let byUnits = 0, byGross = 0
-  for (const r of rules) {
-    const thr = n(r.threshold), amt = n(r.amount)
-    if (r.basis === 'gross') { if (gross >= thr && amt > byGross) byGross = amt }
-    else { if (units >= thr && amt > byUnits) byUnits = amt }
-  }
-  return round2(byUnits + byGross)
 }
 
 // Build a commission summary for one rep over a month (default = current month).
