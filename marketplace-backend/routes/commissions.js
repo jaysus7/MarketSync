@@ -31,7 +31,8 @@ import { n, round2, mergeConfig, computeCommission, computeBackAmount, volumeBon
 // Pure pay-period date math + lifecycle rules (unit-tested, no IO).
 import { periodBounds, periodLabel, canTransition, isAssignable, canReview, canApprove, payReady, PERIOD_TYPES } from '../commission-periods.js'
 import { detectExceptions } from '../commission-exceptions.js'
-import { buildCsv } from '../payroll-export.js'
+import { buildCsv, toCsv } from '../payroll-export.js'
+import { statementTotals } from '../commission-statements.js'
 
 export { computeCommission }   // preserve the existing public export
 
@@ -618,6 +619,101 @@ export function registerCommissions(app) {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', `attachment; filename="${fname}"`)
     res.send(csv)
+  })
+
+  // ── Employee statements (rep-facing: view / CSV / print / acknowledge / dispute) ──
+  // A statement is the rep's OWN commission lines for a pay period. Any authenticated rep
+  // can see their own — no accounting permission required — but only their own (scoped to
+  // req.user.id). The frontend renders the JSON for on-screen view + browser print→PDF;
+  // the CSV route is the machine-readable copy.
+  const STATEMENT_COLUMNS = [
+    { key: 'deal_number', header: 'Deal' }, { key: 'customer', header: 'Customer' },
+    { key: 'selling_price', header: 'Selling Price' }, { key: 'front', header: 'Front' },
+    { key: 'back', header: 'F&I' }, { key: 'spiff', header: 'Spiff' },
+    { key: 'total', header: 'Total' }, { key: 'status', header: 'Status' }, { key: 'period', header: 'Earned' },
+  ]
+  async function repStatement(dealershipId, repId, periodId) {
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', periodId).eq('dealership_id', dealershipId).maybeSingle()
+    if (!period) return null
+    const { data: rows } = await supabaseAdmin.from('deal_commissions')
+      .select('deal_id, front_amount, back_amount, spiff_amount, total, status, period')
+      .eq('dealership_id', dealershipId).eq('rep_id', repId).eq('pay_period_id', periodId)
+    const dealIds = (rows || []).map(r => r.deal_id).filter(Boolean)
+    let deals = [], contacts = []
+    if (dealIds.length) { const { data } = await supabaseAdmin.from('deals').select('id, deal_number, contact_id, selling_price').in('id', dealIds); deals = data || [] }
+    const contactIds = deals.map(d => d.contact_id).filter(Boolean)
+    if (contactIds.length) { const { data } = await supabaseAdmin.from('contacts').select('id, full_name').in('id', contactIds); contacts = data || [] }
+    const dealById = Object.fromEntries(deals.map(d => [d.id, d]))
+    const custById = Object.fromEntries(contacts.map(c => [c.id, c.full_name]))
+    const lines = (rows || []).map(r => {
+      const d = dealById[r.deal_id] || {}
+      return {
+        deal_number: d.deal_number || null, customer: custById[d.contact_id] || null,
+        selling_price: d.selling_price != null ? Number(d.selling_price) : null,
+        front: Number(r.front_amount), back: Number(r.back_amount), spiff: Number(r.spiff_amount),
+        total: Number(r.total), status: r.status, period: r.period,
+      }
+    })
+    const { data: ack } = await supabaseAdmin.from('commission_statement_acks').select('*').eq('pay_period_id', periodId).eq('rep_id', repId).maybeSingle()
+    return { period, totals: statementTotals(rows || []), lines, acknowledgment: ack || null }
+  }
+
+  // The rep's own statements. No period_id → list the periods they have lines in (+ ack
+  // status). With period_id → the detailed statement.
+  app.get('/commissions/statements/mine', requireAuth, async (req, res) => {
+    if (!req.dealershipId || !req.user?.id) return res.status(400).json({ error: 'No dealership/user' })
+    if (req.query.period_id) {
+      const st = await repStatement(req.dealershipId, req.user.id, String(req.query.period_id))
+      if (!st) return res.status(404).json({ error: 'Statement not found' })
+      return res.json({ ok: true, ...st })
+    }
+    const { data: myLines } = await supabaseAdmin.from('deal_commissions').select('pay_period_id').eq('dealership_id', req.dealershipId).eq('rep_id', req.user.id).not('pay_period_id', 'is', null)
+    const periodIds = [...new Set((myLines || []).map(l => l.pay_period_id))]
+    if (!periodIds.length) return res.json({ ok: true, statements: [] })
+    const [{ data: periods }, { data: acks }] = await Promise.all([
+      supabaseAdmin.from('commission_pay_periods').select('*').in('id', periodIds).eq('dealership_id', req.dealershipId).order('start_date', { ascending: false }),
+      supabaseAdmin.from('commission_statement_acks').select('*').in('pay_period_id', periodIds).eq('rep_id', req.user.id),
+    ])
+    const ackBy = Object.fromEntries((acks || []).map(a => [a.pay_period_id, a]))
+    res.json({ ok: true, statements: (periods || []).map(p => ({ period: p, acknowledgment: ackBy[p.id] || null })) })
+  })
+
+  // CSV of the rep's own statement for a period.
+  app.get('/commissions/statements/mine.csv', requireAuth, async (req, res) => {
+    if (!req.dealershipId || !req.user?.id) return res.status(400).json({ error: 'No dealership/user' })
+    const st = await repStatement(req.dealershipId, req.user.id, String(req.query.period_id || ''))
+    if (!st) return res.status(404).json({ error: 'Statement not found' })
+    const csv = toCsv(STATEMENT_COLUMNS, st.lines)
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="statement-${String(st.period.name || st.period.id).replace(/[^a-z0-9-]+/gi, '_')}.csv"`)
+    res.send(csv)
+  })
+
+  // Rep acknowledges or disputes their own statement (upsert, one row per period+rep).
+  const recordAck = (status) => async (req, res) => {
+    if (!req.dealershipId || !req.user?.id) return res.status(400).json({ error: 'No dealership/user' })
+    const periodId = String(req.params.periodId)
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('id').eq('id', periodId).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!period) return res.status(404).json({ error: 'Pay period not found' })
+    const row = {
+      dealership_id: req.dealershipId, pay_period_id: periodId, rep_id: req.user.id, status,
+      note: status === 'disputed' ? String(req.body?.note || '').slice(0, 500) : null, updated_at: new Date().toISOString(),
+    }
+    const { data, error } = await supabaseAdmin.from('commission_statement_acks').upsert(row, { onConflict: 'pay_period_id,rep_id' }).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    // Disputes surface to managers via the acks table + the per-period statements view
+    // (GET /commissions/pay-periods/:id/statements) — no separate exception row needed.
+    audit(req, `commission.statement_${status}`, { entity_type: 'commission_pay_period', entity_id: periodId })
+    res.json({ ok: true, acknowledgment: data })
+  }
+  app.post('/commissions/statements/:periodId/acknowledge', requireAuth, requireMfa, recordAck('acknowledged'))
+  app.post('/commissions/statements/:periodId/dispute', requireAuth, requireMfa, recordAck('disputed'))
+
+  // Manager view: every rep's ack/dispute status for a period.
+  app.get('/commissions/pay-periods/:id/statements', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: acks } = await supabaseAdmin.from('commission_statement_acks').select('*').eq('dealership_id', req.dealershipId).eq('pay_period_id', req.params.id)
+    res.json({ ok: true, statements: acks || [] })
   })
 
   // ── Exceptions queue ─────────────────────────────────────────────────────────
