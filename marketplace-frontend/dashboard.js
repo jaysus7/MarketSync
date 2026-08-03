@@ -164,13 +164,10 @@ function actHeaders() {
 }
 async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}) {
   let lastErr;
-  let refreshed = false;   // only attempt one silent token refresh per call
   for (let attempt = 0; attempt <= retries; attempt++) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-      // Proactively ensure the token is fresh before the request (cheap; no-op when valid).
-      if (window.MSAuth) { try { await window.MSAuth.ensureFreshToken(); token = window.MSAuth.getToken(); } catch {} }
       const r = await fetch(`${API}${path}`, {
         headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, ...actHeaders() },
         signal: ctrl.signal,
@@ -184,17 +181,6 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
       // exact pipeline/leads "stuck loading" bug). Clearing the timer only after
       // the body is fully read means a stalled body aborts → retries → surfaces.
       if (r.ok) return await r.json();
-      // 401 → token likely expired. Refresh once and retry; if that fails, the session
-      // is truly dead → hard sign-out (don't leave the page in a broken half-authed state).
-      if (r.status === 401 && !refreshed && window.MSAuth) {
-        refreshed = true;
-        clearTimeout(timer);
-        const ok = await window.MSAuth.refreshToken();
-        token = window.MSAuth.getToken();
-        if (ok) { attempt--; continue; }        // retry immediately with the new token
-        window.MSAuth.signOut({ redirect: 'login.html' });
-        throw new Error('Session expired');
-      }
       // Transient (waking up / gateway) → retry; otherwise fail with the body.
       if ([429, 500, 502, 503, 504].includes(r.status) && attempt < retries) {
         lastErr = new Error(`HTTP ${r.status}`);
@@ -220,31 +206,19 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
 // Generic JSON write helper (POST/PUT/PATCH/DELETE). Throws Error(body.error) on
 // non-2xx so callers can try/catch + toast. Used by the built-in CRM.
 async function apiSendJson(path, method = 'POST', body = null, { timeoutMs = 20000 } = {}) {
-  // One request attempt; on a 401 we refresh the token once and retry (self-heal an
-  // expired access token instead of surfacing a spurious "HTTP 401" to the user).
-  async function attempt() {
-    if (window.MSAuth) { try { await window.MSAuth.ensureFreshToken(); token = window.MSAuth.getToken(); } catch {} }
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      return await fetch(`${API}${path}`, {
-        method,
-        headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, 'Content-Type': 'application/json', ...actHeaders() },
-        body: body != null ? JSON.stringify(body) : undefined,
-        signal: ctrl.signal,
-      });
-    } finally { clearTimeout(timer); }
-  }
-  let r = await attempt();
-  if (r.status === 401 && window.MSAuth) {
-    const ok = await window.MSAuth.refreshToken();
-    token = window.MSAuth.getToken();
-    if (ok) r = await attempt();
-    if (r.status === 401) { window.MSAuth.signOut({ redirect: 'login.html' }); throw new Error('Session expired'); }
-  }
-  let data = null; try { data = await r.json(); } catch {}
-  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
-  return data || {};
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(`${API}${path}`, {
+      method,
+      headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, 'Content-Type': 'application/json', ...actHeaders() },
+      body: body != null ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal,
+    });
+    let data = null; try { data = await r.json(); } catch {}
+    if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+    return data || {};
+  } finally { clearTimeout(timer); }
 }
 
 // Surface otherwise-invisible runtime errors so "stuck loading" symptoms become
@@ -334,70 +308,74 @@ function clearLocalStorage() {
   Object.entries(saved).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch {} });
 }
 
-// Deliberate sign-out. Delegates to the ONE shared handler (MSAuth.signOut) so the same
-// logic runs everywhere: flag logged-out, best-effort revoke the server session
-// (/auth/logout), clear ALL local auth state, then REPLACE history with the login page
-// (so Back can't restore the authenticated dashboard). Wired via inline onclick on the
-// Sign Out button so it fires even if a later listener fails to attach. MSAuth defines a
-// window.msSignOut too; this override keeps the dashboard's extra prefs-preserving clear.
+// Deliberate sign-out. Defined globally + wired via inline onclick on the Sign Out button
+// so it works even if a later listener in setupActionListeners fails to attach. Belt-and-
+// suspenders: explicitly drop the session keys, flag the extension bridge not to re-login,
+// then bounce to the login page.
 window.msSignOut = function msSignOut() {
-  if (window.MSAuth && typeof window.MSAuth.signOut === 'function') {
-    return window.MSAuth.signOut({ redirect: 'login.html' });
-  }
-  // Fallback if the shared module somehow failed to load.
   try { sessionStorage.setItem('ms_logged_out', '1'); } catch {}
   try { ['token', 'refresh_token', 'user', 'ms_remember_until'].forEach(k => localStorage.removeItem(k)); } catch {}
   try { clearLocalStorage(); } catch {}
-  window.location.replace('login.html');
+  window.location.href = 'login.html';
 };
 
-// Session validation, remember-window, and silent refresh are all owned by the shared
-// MSAuth module (auth.js) now — one source of truth across every page. `token` stays a
-// module-level mirror the rest of dashboard.js reads; keep it in sync with MSAuth.
-let token = (window.MSAuth ? window.MSAuth.getToken() : localStorage.getItem('token'));
+// "Keep me signed in" window: if it has lapsed, drop the stored session so the
+// user is returned to login instead of riding a stale token.
+(function enforceRememberWindow() {
+  try {
+    const until = Number(localStorage.getItem('ms_remember_until') || '0');
+    if (until && Date.now() > until) clearLocalStorage();
+  } catch {}
+})();
+
+// Local Security Handshake Validations
+let token = localStorage.getItem('token');
 const userRaw = localStorage.getItem('user');
 
-// Silently refresh the access token so a "keep me signed in" session stays alive for its
-// full window. Delegates to MSAuth (single-flight, remember-window aware) and mirrors the
-// refreshed token back into our local variable. Runs on load and every 25 minutes (the
-// Supabase access token lives ~1h; MSAuth also refreshes proactively + on any 401).
+// Silently refresh the Supabase access token using the stored refresh token, so a
+// "keep me signed in" session stays alive for its full window without the user
+// re-authenticating. Runs on load and every 30 minutes.
 async function refreshSessionSilently() {
-  if (!window.MSAuth) return;
-  try { await window.MSAuth.refreshToken(); } catch {}
-  token = window.MSAuth.getToken();
+  const rt = localStorage.getItem('refresh_token');
+  if (!rt) return;
+  const until = Number(localStorage.getItem('ms_remember_until') || '0');
+  if (until && Date.now() > until) return; // window lapsed — bootstrap handles logout
+  try {
+    const r = await fetch(`${API}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: rt }),
+    });
+    if (!r.ok) return; // keep the current token; it may still be valid
+    const d = await r.json();
+    if (d.access_token) { token = d.access_token; localStorage.setItem('token', d.access_token); }
+    if (d.refresh_token) localStorage.setItem('refresh_token', d.refresh_token);
+  } catch {}
 }
-if (window.MSAuth && window.MSAuth.hasStoredSession() && window.MSAuth.getRefreshToken()) {
+if (token && localStorage.getItem('refresh_token')) {
   refreshSessionSilently();
-  setInterval(refreshSessionSilently, 25 * 60 * 1000);
+  setInterval(refreshSessionSilently, 30 * 60 * 1000);
 }
 
 // True while we're waiting to see if the extension's single-sign-on bridge will
 // inject a token. Blocks the dashboard init from running (and failing) in that window.
 let __authPending = false;
 
-// Authenticated ⇔ MSAuth says the token is VALID (JWT not expired), not merely present.
-const __hasValidSession = window.MSAuth ? window.MSAuth.isAuthenticated() : !!token;
-// A stored-but-expired session that still has a refresh token is recoverable.
-const __refreshable = window.MSAuth ? (window.MSAuth.hasStoredSession() && !!window.MSAuth.getRefreshToken()) : false;
-
-if (!__hasValidSession) {
+if (!token) {
+  // Don't bounce straight to login. The extension bridge (dashboard-bridge.js)
+  // runs at document_idle and mirrors the extension's session into localStorage —
+  // redirecting before it lands is exactly what caused the dashboard↔login flash
+  // when a user is signed into the extension but not yet the site. Wait briefly for
+  // the token to appear; reload cleanly if it does, only then fall back to login.
   __authPending = true;
   (async () => {
-    // 1. If the session is merely expired but refreshable, revive it in place — no flash.
-    if (__refreshable) {
-      const ok = await window.MSAuth.ensureFreshToken();
-      if (ok && window.MSAuth.isAuthenticated()) { token = window.MSAuth.getToken(); location.reload(); return; }
-    }
-    // 2. Otherwise wait briefly for the extension bridge (dashboard-bridge.js) to mirror
-    //    the extension's session into localStorage (#tk=), then reload cleanly if it lands.
     for (let i = 0; i < 20; i++) {          // ~2s grace window
       await new Promise(r => setTimeout(r, 100));
       const t = localStorage.getItem('token');
-      if (t && (!window.MSAuth || window.MSAuth.isAuthenticated())) { token = t; location.reload(); return; }
+      if (t) { token = t; location.reload(); return; }
     }
-    // 3. No usable session → hard sign-out to login (clears any expired remnants).
-    if (window.MSAuth) window.MSAuth.signOut({ redirect: 'login.html' });
-    else { clearLocalStorage(); window.location.replace('login.html'); }
+    clearLocalStorage();
+    window.location.href = 'login.html';
   })();
 }
 
@@ -923,7 +901,7 @@ async function openPaywallModal(reason) {
     <h3 class="text-lg font-black text-slate-900 dark:text-white text-center mt-3">Your free trial has ended</h3>
     <p class="text-sm text-slate-500 dark:text-slate-400 text-center mb-5">Choose the package that fits — Facebook only, AI Chatbot only, or the full Dealer OS. Pick what you want to keep going.</p>
     <div class="grid sm:grid-cols-2 gap-3">${cards || '<p class="text-sm text-slate-500 col-span-2 text-center py-6">Plans are being set up — please contact support.</p>'}</div>
-    <div class="text-center mt-5"><button onclick="window.msSignOut()" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Sign out</button></div>
+    <div class="text-center mt-5"><button onclick="clearLocalStorage();window.location.href='login.html'" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Sign out</button></div>
   </div>`;
   document.body.appendChild(modal); // intentionally NOT dismissable — payment is required to continue
 }
@@ -19381,9 +19359,10 @@ function setupActionListeners() {
   // Launch Dedicated Stripe Gateway Session
   document.getElementById('launch-portal-btn')?.addEventListener('click', launchStripeLifecycle);
 
-  // Sign Out is owned solely by the shared auth module: every [data-auth-signout]
-  // control (this button included) is wired to MSAuth.signOut by auth.js. No inline
-  // onclick, no per-page listener here — one handler, one source of truth.
+  // Global Session Exits — also wired via inline onclick="msSignOut()" so sign-out works
+  // even if this listener never attaches. Optional chaining so a missing button can't
+  // throw and abort the rest of setup.
+  document.getElementById('logout-btn')?.addEventListener('click', (e) => { e.preventDefault(); msSignOut(); });
 }
 
 async function launchStripeLifecycle() {

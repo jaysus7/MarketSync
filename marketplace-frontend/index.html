@@ -292,9 +292,6 @@
       </nav>
     </header>
 
-    <!-- Single shared auth module: owns session state + swaps Login⇄Dashboard in the
-         header (validated against the token's expiry, not mere key presence). -->
-    <script src="/auth.js?v=20260803b"></script>
     <script>
         function msToggleMenu() {
             const menu = document.getElementById('ms-mobile-menu')
@@ -305,8 +302,38 @@
             btn.setAttribute('aria-expanded', String(!isOpen))
             icon.className = isOpen ? 'fa-solid fa-bars text-lg' : 'fa-solid fa-xmark text-lg'
         }
-        // The header Login⇄Dashboard swap is handled by MSAuth.applyAuthNav() (auth.js),
-        // which runs on load AND on pageshow (bfcache-safe) and points Dashboard → app.html.
+
+        // Swap Log in / Sign up for a "Dashboard" button when already authenticated.
+        // Runs on load AND on pageshow so the Back button (bfcache) doesn't restore a
+        // stale "Log in" header after the user has signed in on another page.
+        function applyAuthNav() {
+            try {
+                const authed = !!localStorage.getItem('token')
+                // show() only clears the inline display so the element's own responsive
+                // classes (e.g. "hidden sm:inline-flex" = desktop-only) still govern; hide()
+                // forces it off with an inline style that beats any class.
+                const show = (id) => { const el = document.getElementById(id); if (el) el.style.display = '' }
+                const hide = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none' }
+                // Logged out ⇄ logged in — always set BOTH states so it's correct either way.
+                ;(authed ? hide : show)('nav-login')
+                ;(authed ? hide : show)('nav-signup')
+                ;(authed ? hide : show)('mob-login')
+                ;(authed ? hide : show)('mob-signup')
+                ;(authed ? show : hide)('nav-dashboard-btn')
+                ;(authed ? show : hide)('mob-dashboard')
+                if (authed) {
+                    try {
+                        const user = JSON.parse(localStorage.getItem('user') || '{}')
+                        const name = user.full_name || user.user_metadata?.full_name || user.email || ''
+                        const first = String(name).split(/\s+/)[0]
+                        const el = document.getElementById('nav-user-name')
+                        if (first && el) el.textContent = first
+                    } catch {}
+                }
+            } catch {}
+        }
+        applyAuthNav()
+        window.addEventListener('pageshow', applyAuthNav)
     </script>
 
     <section class="max-w-5xl mx-auto px-6 pt-16 pb-20 text-center">
