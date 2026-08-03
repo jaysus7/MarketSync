@@ -878,6 +878,23 @@ function renderUpgradeCta() {
 }
 window.renderUpgradeCta = renderUpgradeCta;
 
+// Populate the Settings → Billing "Current plan" card from the account's active plan.
+async function renderCurrentPlanBox() {
+  const box = document.getElementById('current-plan-box');
+  if (!box) return;
+  const data = await fetchPlanCatalog();
+  const cur = (data && data.current) || [];
+  const plan = data && data.plans.find(p => cur.includes(p.id));
+  if (!plan) { box.classList.add('hidden'); return; }
+  const prod = plan.products.map(x => x === 'dealer_os' ? 'Dealer OS' : x === 'ai_dealer' ? 'AI Dealer' : 'Facebook').join(' + ');
+  const nm = document.getElementById('current-plan-name');
+  const dt = document.getElementById('current-plan-detail');
+  if (nm) nm.textContent = `${plan.label} · $${Number(plan.monthly).toLocaleString()}/mo`;
+  if (dt) dt.textContent = `${prod} · ${plan.feature_count} features`;
+  box.classList.remove('hidden');
+}
+window.renderCurrentPlanBox = renderCurrentPlanBox;
+
 function applyProductNav(products) {
   products = products || {};
   // DealerOS (or nothing set) → the full department sidebar; clear any restriction.
@@ -4796,6 +4813,16 @@ function setupMobileMoreMenu() {
     // Restricted tiers (Facebook-only + product tiers): the desktop sidebar is
     // stripped, so mirror exactly that tier's page set here — no legacy tree, no
     // department cards. Settings is always reachable (this list + the header gear).
+    // "Upgrade plan" row for the mobile menu — same gate as the desktop CTA (hidden once
+    // the account holds the full Dealer OS Pro bundle or is platform staff).
+    const appendMobileUpgrade = () => {
+      const a = window.__access;
+      const onTop = a && Array.isArray(a.products) && ['dealer_os', 'facebook', 'ai_dealer'].every(p => a.products.includes(p));
+      if (onTop || a?.isPlatformStaff || typeof openPlanUpgradeModal !== 'function') return;
+      const b = mk('<button type="button" class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-black text-white bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-500 hover:to-fuchsia-500 transition"><span aria-hidden="true">⭐</span><span>Upgrade plan</span></button>');
+      b.addEventListener('click', () => { close(); openPlanUpgradeModal(); });
+      list.appendChild(b);
+    };
     const restricted = restrictedNavPages();
     if (restricted) {
       restricted.forEach(p => {
@@ -4803,6 +4830,7 @@ function setupMobileMoreMenu() {
         b.addEventListener('click', () => { close(); if (p.invmode) __inventoryMode = p.invmode; switchPage(p.page); });
         list.appendChild(b);
       });
+      appendMobileUpgrade();
       menu.classList.remove('hidden');
       return;
     }
@@ -4856,6 +4884,7 @@ function setupMobileMoreMenu() {
         b.addEventListener('click', () => { close(); if (typeof deptOpen === 'function') deptOpen(id); });
         list.appendChild(b);
       });
+      appendMobileUpgrade();
       menu.classList.remove('hidden');
       return;
     }
@@ -4885,6 +4914,7 @@ function setupMobileMoreMenu() {
         }
       });
     }
+    appendMobileUpgrade();
     menu.classList.remove('hidden');
   });
 
@@ -8356,6 +8386,7 @@ function settingsTab(tab) {
       !el.classList.contains('stab-hide') && !el.classList.contains('hidden'));
     panel.classList.toggle('is-multi', shown.length > 1);
   });
+  if (tab === 'billing' && typeof renderCurrentPlanBox === 'function') renderCurrentPlanBox();
   if (tab === 'team') {
     // MarketSync owner: the "Team" here is MarketSync staff with SaaS roles, not a
     // dealership sales team — render the SaaS roles manager instead.
