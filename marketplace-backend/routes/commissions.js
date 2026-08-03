@@ -28,6 +28,8 @@ import { audit } from '../audit.js'
 // formulas. commissions.js keeps all the DB + event orchestration and re-exports the
 // calc so existing importers (accounting engine, tests) are unaffected.
 import { n, round2, mergeConfig, computeCommission, computeBackAmount, volumeBonus } from '../commissions-calc.js'
+// Pure pay-period date math + lifecycle rules (unit-tested, no IO).
+import { periodBounds, periodLabel, canTransition, isAssignable, PERIOD_TYPES } from '../commission-periods.js'
 
 export { computeCommission }   // preserve the existing public export
 
@@ -451,5 +453,111 @@ export function registerCommissions(app) {
       bonus: round2(t.bonus + s.volume_bonus), total: round2(t.total + s.total),
     }), { units: 0, pending: 0, earned: 0, paid: 0, clawed_back: 0, bonus: 0, total: 0 })
     res.json({ ok: true, month: from.slice(0, 7), reps: summaries, totals })
+  })
+
+  // ── Pay periods (payroll organizing + lock) ──────────────────────────────────
+  // A pay period groups the commission lines that get reviewed and paid together and
+  // gives payroll a lockable boundary. It sits ON TOP of the existing per-line
+  // lifecycle (pending/earned/paid/clawed_back) — it does not replace it.
+
+  // List periods (newest first) with a live count + earned total of their lines.
+  app.get('/commissions/pay-periods', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: periods } = await supabaseAdmin.from('commission_pay_periods')
+      .select('*').eq('dealership_id', req.dealershipId).order('start_date', { ascending: false }).limit(60)
+    const ids = (periods || []).map(p => p.id)
+    const totals = {}
+    if (ids.length) {
+      const { data: lines } = await supabaseAdmin.from('deal_commissions')
+        .select('pay_period_id, total, status').eq('dealership_id', req.dealershipId).in('pay_period_id', ids)
+      for (const l of lines || []) {
+        const t = (totals[l.pay_period_id] ||= { lines: 0, total: 0 })
+        t.lines++; if (l.status !== 'clawed_back') t.total = round2(t.total + n(l.total))
+      }
+    }
+    res.json({ ok: true, periods: (periods || []).map(p => ({ ...p, ...(totals[p.id] || { lines: 0, total: 0 }) })), period_types: PERIOD_TYPES })
+  })
+
+  // Create a period. Bounds auto-computed from period_type + anchor_date, unless custom
+  // (then start_date + end_date are required). Idempotent-ish: a duplicate (same
+  // dealership + exact bounds) is rejected by the table's UNIQUE constraint.
+  app.post('/commissions/pay-periods', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const type = String(req.body?.period_type || 'monthly')
+    if (!PERIOD_TYPES.includes(type)) return res.status(400).json({ error: 'Invalid period_type' })
+    let start, end
+    try {
+      if (type === 'custom') {
+        start = String(req.body?.start_date || '').slice(0, 10)
+        end = String(req.body?.end_date || '').slice(0, 10)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || end < start) {
+          return res.status(400).json({ error: 'custom period needs valid start_date ≤ end_date' })
+        }
+      } else {
+        const anchor = String(req.body?.anchor_date || new Date().toISOString()).slice(0, 10)
+        ;({ start, end } = periodBounds(type, anchor))
+      }
+    } catch (e) { return res.status(400).json({ error: e.message }) }
+    const name = String(req.body?.name || '').trim().slice(0, 120) || periodLabel(type, start, end)
+    const { data, error } = await supabaseAdmin.from('commission_pay_periods').insert({
+      dealership_id: req.dealershipId, name, period_type: type, start_date: start, end_date: end,
+    }).select().single()
+    if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'A pay period with those exact dates already exists.' : error.message })
+    audit(req, 'commission.pay_period_created', { after_state: data })
+    res.json({ ok: true, period: data })
+  })
+
+  // Assign this period's in-range EARNED lines to it (or an explicit line_ids list).
+  // Only allowed while the period is open. Never touches paid/clawed-back lines.
+  app.post('/commissions/pay-periods/:id/assign', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!period) return res.status(404).json({ error: 'Pay period not found' })
+    if (!isAssignable(period.status)) return res.status(409).json({ error: `Period is ${period.status}; assign only when open.` })
+    let q = supabaseAdmin.from('deal_commissions').update({ pay_period_id: period.id, updated_at: new Date().toISOString() })
+      .eq('dealership_id', req.dealershipId).in('status', ['earned'])
+    if (Array.isArray(req.body?.line_ids) && req.body.line_ids.length) {
+      q = q.in('id', req.body.line_ids.map(String))
+    } else {
+      q = q.gte('period', period.start_date).lte('period', period.end_date).is('pay_period_id', null)
+    }
+    const { data, error } = await q.select('id')
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.pay_period_assigned', { entity_type: 'commission_pay_period', entity_id: period.id, after_state: { count: (data || []).length } })
+    res.json({ ok: true, assigned: (data || []).length })
+  })
+
+  // Advance a period's status (open⇄locked, locked→paid). paid transition also marks
+  // its earned lines paid and emits commission.paid so the Accounting Engine books the
+  // pay-run journal — reusing the exact same event the manual mark-paid route emits.
+  app.post('/commissions/pay-periods/:id/status', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const to = String(req.body?.status || '')
+    const { data: period } = await supabaseAdmin.from('commission_pay_periods').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!period) return res.status(404).json({ error: 'Pay period not found' })
+    if (!canTransition(period.status, to)) return res.status(409).json({ error: `Cannot move a pay period from ${period.status} to ${to}.` })
+    const now = new Date().toISOString()
+    const patch = { status: to, updated_at: now }
+    if (to === 'locked') { patch.locked_at = now; patch.locked_by = req.user?.id || null }
+    if (to === 'open') { patch.locked_at = null; patch.locked_by = null }
+
+    if (to === 'paid') {
+      // Total the earned lines in this period, mark them paid, then book the pay run.
+      const { data: toPay } = await supabaseAdmin.from('deal_commissions')
+        .select('id, total').eq('dealership_id', req.dealershipId).eq('pay_period_id', period.id).eq('status', 'earned')
+      const ids = (toPay || []).map(r => r.id)
+      const total = round2((toPay || []).reduce((s, r) => s + n(r.total), 0))
+      if (ids.length) await supabaseAdmin.from('deal_commissions').update({ status: 'paid', updated_at: now }).in('id', ids)
+      patch.paid_at = now; patch.paid_by = req.user?.id || null
+      if (total > 0) emitEvent({
+        dealershipId: req.dealershipId, eventName: 'commission.paid', entityType: 'deal', entityId: ids[0] || period.id,
+        summary: `Commission pay run — ${period.name}`, department: 'Accounting', createdBy: req.user?.id || null,
+        payload: { amount: total, ref: `payperiod:${period.id}` },
+      })
+    }
+    const { data, error } = await supabaseAdmin.from('commission_pay_periods').update(patch).eq('id', period.id).eq('dealership_id', req.dealershipId).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.pay_period_status', { entity_type: 'commission_pay_period', entity_id: period.id, before_state: { status: period.status }, after_state: { status: to } })
+    res.json({ ok: true, period: data })
   })
 }
