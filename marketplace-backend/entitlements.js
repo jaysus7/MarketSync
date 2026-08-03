@@ -41,13 +41,29 @@ export async function provisionPlan({ dealershipId, planId, status = 'trialing',
     .from('subscriptions').delete().eq('dealership_id', dealershipId).not('product_id', 'in', `(${products.join(',')})`)
   if (delErr) throw delErr
 
-  // Keep the legacy dealership flags + account_type in sync so existing gating is correct.
-  const { error: dErr } = await supabaseAdmin
-    .from('dealerships')
-    .update({ ...(plan.legacy || {}), account_type: plan.org_type })
-    .eq('id', dealershipId)
+  // Keep the legacy dealership flags + account_type + billing gate in sync so the
+  // middleware (requireAuth) reflects the plan: trialing→TRIALING (with trial_ends_at),
+  // active→ACTIVE, past_due→PAST_DUE, cancelled/expired→INACTIVE. This is what makes the
+  // paywall appear at trial end and disappear once they pay.
+  const billing_status = SUB_STATUS_TO_BILLING[status] || null
+  const dealerUpdate = { ...(plan.legacy || {}), account_type: plan.org_type, billing_status }
+  if (trialEndsAt !== null) dealerUpdate.trial_ends_at = trialEndsAt
+  const { error: dErr } = await supabaseAdmin.from('dealerships').update(dealerUpdate).eq('id', dealershipId)
   if (dErr) throw dErr
+
+  // Personal/solo workspaces are billed on the OWNER's profile (requireAuth uses
+  // profile.billing_status when is_personal), so mirror the gate there too.
+  const { data: dealer } = await supabaseAdmin.from('dealerships').select('is_personal').eq('id', dealershipId).maybeSingle()
+  if (dealer?.is_personal) {
+    const profileUpdate = { billing_status }
+    if (trialEndsAt !== null) profileUpdate.trial_ends_at = trialEndsAt
+    await supabaseAdmin.from('profiles').update(profileUpdate).eq('dealership_id', dealershipId)
+  }
 }
+// Subscription status → the legacy billing_status the middleware gate reads.
+const SUB_STATUS_TO_BILLING = Object.freeze({
+  trialing: 'TRIALING', active: 'ACTIVE', past_due: 'PAST_DUE', cancelled: 'INACTIVE', expired: 'INACTIVE',
+})
 
 // Fully deactivate an org's plan (Stripe cancellation): mark every subscription row
 // cancelled (access-policy grants only trialing/active) and clear the legacy paid flags.

@@ -483,14 +483,15 @@ export function registerRoutes(app) {
 
     const existingCustomerId = req.profile.dealerships?.stripe_customer_id
     try {
+      // Charge immediately (no Stripe trial): the 39-day free trial is granted at sign-up
+      // with no card, so by the time someone reaches Checkout they're subscribing to pay.
       const params = {
-        payment_method_collection: 'always',   // card captured up front, even for the trial
         line_items: [{ price: priceId, quantity: 1 }],
         mode: 'subscription',
         metadata: { type: 'plan', plan: planId, currency, dealership_id: req.dealershipId },
-        subscription_data: { trial_period_days: 30, metadata: { type: 'plan', plan: planId, dealership_id: req.dealershipId } },
+        subscription_data: { metadata: { type: 'plan', plan: planId, dealership_id: req.dealershipId } },
         success_url: `${FRONTEND_URL}/dashboard.html?plan_session={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${FRONTEND_URL}/register.html?step=plan`,
+        cancel_url: `${FRONTEND_URL}/dashboard.html`,
       }
       if (existingCustomerId) params.customer = existingCustomerId
       const session = await stripe.checkout.sessions.create(params)
