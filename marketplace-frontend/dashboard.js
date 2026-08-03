@@ -164,6 +164,7 @@ function actHeaders() {
 }
 async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}) {
   let lastErr;
+  let triedRefresh = false;   // one silent token refresh per call on a 401
   for (let attempt = 0; attempt <= retries; attempt++) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -173,6 +174,16 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
         signal: ctrl.signal,
         cache: 'no-store',   // avoid 304s that Response.ok treats as a failure
       });
+      // 401 → the access token likely expired mid-session. Refresh ONCE and retry so a
+      // long-lived "keep me signed in" session self-heals instead of erroring. If the
+      // refresh fails we fall through and surface the error (we do NOT force a logout
+      // here — a transient backend hiccup must not eject a valid session).
+      if (r.status === 401 && !triedRefresh) {
+        triedRefresh = true;
+        clearTimeout(timer);
+        const ok = await refreshSessionSilently();
+        if (ok) { attempt--; continue; }
+      }
       // IMPORTANT: keep the abort timer armed across the body read too. Reading
       // the body (r.json()) is a second network step — on a flaky mobile
       // connection the server can send the 200 headers and then stall mid-body.
@@ -206,19 +217,28 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
 // Generic JSON write helper (POST/PUT/PATCH/DELETE). Throws Error(body.error) on
 // non-2xx so callers can try/catch + toast. Used by the built-in CRM.
 async function apiSendJson(path, method = 'POST', body = null, { timeoutMs = 20000 } = {}) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const r = await fetch(`${API}${path}`, {
-      method,
-      headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, 'Content-Type': 'application/json', ...actHeaders() },
-      body: body != null ? JSON.stringify(body) : undefined,
-      signal: ctrl.signal,
-    });
-    let data = null; try { data = await r.json(); } catch {}
-    if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
-    return data || {};
-  } finally { clearTimeout(timer); }
+  async function attempt() {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      return await fetch(`${API}${path}`, {
+        method,
+        headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, 'Content-Type': 'application/json', ...actHeaders() },
+        body: body != null ? JSON.stringify(body) : undefined,
+        signal: ctrl.signal,
+      });
+    } finally { clearTimeout(timer); }
+  }
+  let r = await attempt();
+  // 401 → refresh the token once and retry (self-heal an expired session). No forced
+  // logout: a failed refresh just surfaces the error, it doesn't eject the user.
+  if (r.status === 401) {
+    const ok = await refreshSessionSilently();
+    if (ok) r = await attempt();
+  }
+  let data = null; try { data = await r.json(); } catch {}
+  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data || {};
 }
 
 // Surface otherwise-invisible runtime errors so "stuck loading" symptoms become
@@ -314,9 +334,16 @@ function clearLocalStorage() {
 // then bounce to the login page.
 window.msSignOut = function msSignOut() {
   try { sessionStorage.setItem('ms_logged_out', '1'); } catch {}
+  // Best-effort server-side revoke so the refresh token can't be reused. Fire-and-forget
+  // — never block or fail the local sign-out on the network.
+  try {
+    const tk = localStorage.getItem('token');
+    if (tk) fetch(`${API}/auth/logout`, { method: 'POST', headers: { 'Authorization': `Bearer ${tk}` } }).catch(() => {});
+  } catch {}
   try { ['token', 'refresh_token', 'user', 'ms_remember_until'].forEach(k => localStorage.removeItem(k)); } catch {}
   try { clearLocalStorage(); } catch {}
-  window.location.href = 'login.html';
+  // replace() (not href) so the browser Back button can't restore the authenticated dashboard.
+  window.location.replace('login.html');
 };
 
 // "Keep me signed in" window: if it has lapsed, drop the stored session so the
@@ -335,22 +362,31 @@ const userRaw = localStorage.getItem('user');
 // Silently refresh the Supabase access token using the stored refresh token, so a
 // "keep me signed in" session stays alive for its full window without the user
 // re-authenticating. Runs on load and every 30 minutes.
+// Returns true when it obtained a fresh access token, false otherwise. Single-flight so
+// several 401s at once share one refresh call instead of stampeding /auth/refresh.
+let __refreshInFlight = null;
 async function refreshSessionSilently() {
+  if (__refreshInFlight) return __refreshInFlight;
   const rt = localStorage.getItem('refresh_token');
-  if (!rt) return;
+  if (!rt) return false;
   const until = Number(localStorage.getItem('ms_remember_until') || '0');
-  if (until && Date.now() > until) return; // window lapsed — bootstrap handles logout
-  try {
-    const r = await fetch(`${API}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: rt }),
-    });
-    if (!r.ok) return; // keep the current token; it may still be valid
-    const d = await r.json();
-    if (d.access_token) { token = d.access_token; localStorage.setItem('token', d.access_token); }
-    if (d.refresh_token) localStorage.setItem('refresh_token', d.refresh_token);
-  } catch {}
+  if (until && Date.now() > until) return false; // window lapsed — bootstrap handles logout
+  __refreshInFlight = (async () => {
+    try {
+      const r = await fetch(`${API}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: rt }),
+      });
+      if (!r.ok) return false; // keep the current token; it may still be valid
+      const d = await r.json();
+      if (d.access_token) { token = d.access_token; localStorage.setItem('token', d.access_token); }
+      if (d.refresh_token) localStorage.setItem('refresh_token', d.refresh_token);
+      return !!d.access_token;
+    } catch { return false; }
+    finally { __refreshInFlight = null; }
+  })();
+  return __refreshInFlight;
 }
 if (token && localStorage.getItem('refresh_token')) {
   refreshSessionSilently();
