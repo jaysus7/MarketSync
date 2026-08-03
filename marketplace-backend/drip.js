@@ -20,7 +20,7 @@
 import { createHash } from 'crypto'
 
 const DAY_MS = 24 * 60 * 60 * 1000
-const TRIAL_DAYS = 39   // keep in sync with trialEndsAt in auth.js registration
+const TRIAL_DAYS = 30   // keep in sync with trialEndsAt in auth.js registration
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unsubscribe tokens

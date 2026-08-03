@@ -738,13 +738,15 @@ window.applyFbOnlyMode = applyFbOnlyMode;
 // each price point, powerful as they upgrade. The union applies when a dealer holds
 // several products (e.g. Facebook Dealer + AI Chatbot).
 const PRODUCT_PAGES = {
-  // Solo: leaderboard home + the Facebook inventory pull + a simple CRM + settings.
-  // (No separate "dashboard" — the leaderboard IS the home for the Facebook tiers.)
-  facebook_solo:   ['leaderboard', 'inventory', 'crm', 'profile'],
-  // Dealer: same, plus rep management (add reps, make managers). No accounting/reports.
-  facebook_dealer: ['leaderboard', 'inventory', 'crm', 'sales-team', 'profile'],
-  // AI Chatbot: only the AI chatbot workspace (stats + conversations + KB + settings).
-  ai_chatbot:      ['ai-home', 'profile'],
+  // Facebook Solo: EXACTLY two nav items — Leaderboard and Inventory. No Sales, no CRM.
+  // (Settings stays reachable from the header gear, not the left nav. The leaderboard IS
+  // the home — there's no separate dashboard.)
+  facebook_solo:   ['leaderboard', 'inventory'],
+  // Facebook Dealer: adds Sales Team (add reps, make managers) — where the team is
+  // controlled. Still no CRM / accounting / reports.
+  facebook_dealer: ['leaderboard', 'inventory', 'sales-team'],
+  // AI Chatbot: only the AI chatbot workspace (stats + conversations + KB).
+  ai_chatbot:      ['ai-home'],
   dealer_os:       null,   // null = full access, no restriction
 };
 const PRODUCT_HOME = { facebook_solo: 'leaderboard', facebook_dealer: 'leaderboard', ai_chatbot: 'ai-home' };
@@ -860,7 +862,7 @@ async function openPlanUpgradeModal() {
 }
 window.openPlanUpgradeModal = openPlanUpgradeModal;
 
-// The trial-ended PAYWALL — a blocking popup (no dismiss) shown when the 39-day free
+// The trial-ended PAYWALL — a blocking popup (no dismiss) shown when the 30-day free
 // trial has lapsed. Lists every package (Facebook-only, AI-only, Dealer OS tiers) so the
 // user picks what they want and pays. Rendered over the shell on a 402 from the API.
 let __paywallOpen = false;
@@ -1011,27 +1013,25 @@ window.applyMobileQuickRow = applyMobileQuickRow;
 // The page list for a restricted tier's mobile "more" sheet (with labels/icons), or
 // null for the full-OS experience (which uses the department / legacy renderers).
 function restrictedNavPages() {
-  if (__fbOnly) return [
-    { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
-    { page: 'inventory', label: 'Facebook Marketplace', invmode: 'facebook', icon: 'megaphone' },
-    { page: 'profile', label: 'Settings', icon: 'user' },
-  ];
+  // The product page-set is authoritative (it distinguishes Facebook Solo from Dealer).
+  // Only these exact items appear in the nav — Settings lives on the header gear, so it is
+  // deliberately NOT added here (Facebook Solo shows exactly Leaderboard + Inventory).
   if (__productAllowedPages) {
     const meta = {
       'ai-home':    { label: 'AI Employee', icon: 'sparkles' },
       leaderboard:  { label: 'Leaderboard', icon: 'trophy' },
-      inventory:    { label: 'Facebook Marketplace', icon: 'megaphone', invmode: 'facebook' },
-      crm:          { label: 'Customers', icon: 'user' },
-      'sales-team': { label: 'My Team', icon: 'user' },
-      profile:      { label: 'Settings', icon: 'user' },
+      inventory:    { label: 'Inventory', icon: 'megaphone', invmode: 'facebook' },
+      'sales-team': { label: 'Sales Team', icon: 'user' },
     };
-    const order = ['ai-home', 'leaderboard', 'inventory', 'crm', 'sales-team', 'profile'];
-    const pages = order.filter(p => __productAllowedPages.has(p))
+    const order = ['ai-home', 'leaderboard', 'inventory', 'sales-team'];
+    return order.filter(p => __productAllowedPages.has(p))
       .map(p => ({ page: p, label: meta[p]?.label || p, icon: meta[p]?.icon || 'dot', invmode: meta[p]?.invmode }));
-    // Settings is always reachable even if it isn't in the explicit product set.
-    if (!pages.some(p => p.page === 'profile')) pages.push({ page: 'profile', label: 'Settings', icon: 'user' });
-    return pages;
   }
+  // Legacy pure fb_only accounts with no product set: the same two Facebook items.
+  if (__fbOnly) return [
+    { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
+    { page: 'inventory', label: 'Inventory', invmode: 'facebook', icon: 'megaphone' },
+  ];
   return null;
 }
 window.restrictedNavPages = restrictedNavPages;
