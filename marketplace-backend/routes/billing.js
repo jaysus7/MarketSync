@@ -15,6 +15,7 @@ import { handleDepositCheckout } from './deposits.js'
 import { accrueAffiliateCommission } from './affiliate.js'
 import { postMarketsyncRevenue } from './accounting.js'
 import { syncSubscriptionFromStripe } from '../entitlements.js'
+import { getPlan, stripePriceForPlan } from '../plan-catalog.js'
 
 // Inventory Intelligence price ID — accept the canonical name OR the
 // STRIPE_INVENTORY_INTELLIGANCE name used in the current Render environment,
@@ -460,6 +461,43 @@ export function registerRoutes(app) {
     } catch (err) { res.status(500).json({ error: err.message }) }
   }
   app.post('/billing/subscribe-package', requireAuth, requireMfa, requireBillingManage, createPackageCheckout)
+
+  // ── Plan subscription (the entitlement-engine flow) ──────────────────────────
+  // Start Stripe Checkout for a catalog plan (fb_solo / fb_dealership / os_starter /
+  // os_growth / os_pro). Card required, 30-day trial. On completion the webhook resolves
+  // the price → plan and provisionPlan grants the bundle (Pro unlocks Facebook + AI).
+  // No requireMfa: this is part of onboarding, before a new owner has set up MFA.
+  async function createPlanCheckout(req, res) {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const planId = String(req.body?.plan || '')
+    const plan = getPlan(planId)
+    if (!plan) return res.status(400).json({ error: 'Unknown plan' })
+
+    let currency = String(req.body?.currency || '').toUpperCase()
+    if (currency !== 'USD' && currency !== 'CAD') {
+      const { data: dl } = await supabaseAdmin.from('dealerships').select('country').eq('id', req.dealershipId).maybeSingle()
+      currency = String(dl?.country || '').toUpperCase() === 'US' ? 'USD' : 'CAD'
+    }
+    const priceId = stripePriceForPlan(planId, currency, process.env)
+    if (!priceId) return res.status(500).json({ error: `Price for ${plan.label} (${currency}) is not configured yet` })
+
+    const existingCustomerId = req.profile.dealerships?.stripe_customer_id
+    try {
+      const params = {
+        payment_method_collection: 'always',   // card captured up front, even for the trial
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        metadata: { type: 'plan', plan: planId, currency, dealership_id: req.dealershipId },
+        subscription_data: { trial_period_days: 30, metadata: { type: 'plan', plan: planId, dealership_id: req.dealershipId } },
+        success_url: `${FRONTEND_URL}/dashboard.html?plan_session={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${FRONTEND_URL}/register.html?step=plan`,
+      }
+      if (existingCustomerId) params.customer = existingCustomerId
+      const session = await stripe.checkout.sessions.create(params)
+      res.json({ url: session.url })
+    } catch (err) { res.status(500).json({ error: err.message }) }
+  }
+  app.post('/billing/subscribe-plan', requireAuth, requireBillingManage, createPlanCheckout)
 
   app.get('/billing/package-verify', requireAuth, requireMfa, requireBillingManage, async (req, res) => {
     const { session_id } = req.query

@@ -7,7 +7,8 @@ import { maybeAlertSuspiciousLogin } from '../securityAlerts.js'
 import { audit, AuditAction } from '../audit.js'
 import { recordReferralSignup } from './affiliate.js'
 import { syncDealerRole } from '../authorization.js'
-import { resolvePlan, provisionSubscription, ACCOUNT_TYPES } from '../entitlements.js'
+import { ACCOUNT_TYPES } from '../entitlements.js'
+import { getPlan } from '../plan-catalog.js'
 import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge } from '../mfa-login-challenges.js'
 import {
   beginPasskeyRegistration, finishPasskeyRegistration,
@@ -186,18 +187,20 @@ export function registerRoutes(app) {
     if (!email || !password || !fullName || !accountRole) {
       return res.status(400).json({ error: 'Missing required registration fields' })
     }
-    if (accountRole === 'dealer_admin' && !dealershipName) {
-      return res.status(400).json({ error: 'Dealership name required for admin accounts' })
+    // The chosen plan (from the plan catalog) drives org type + owner role. Registration
+    // no longer determines access — the plan is validated here and carried to checkout,
+    // where the subscription (and thus access) is created after payment. `plan` is
+    // optional so older signup forms (no plan) still work via the accountRole fallback.
+    const chosenPlan = plan ? getPlan(plan) : null
+    if (plan && !chosenPlan) return res.status(400).json({ error: `Unknown plan: ${plan}` })
+
+    // Org type: from the plan when present, else the legacy accountRole heuristic.
+    const isDealership = chosenPlan ? chosenPlan.org_type === 'dealership' : accountRole === 'dealer_admin'
+    const accountType = chosenPlan?.org_type
+      || (ACCOUNT_TYPES.includes(req.body.accountType) ? req.body.accountType : (isDealership ? 'dealership' : 'solo'))
+    if (isDealership && !dealershipName) {
+      return res.status(400).json({ error: 'Dealership name required for a dealership account' })
     }
-    // Which product this account signs up for, and whether it's a solo workspace or a
-    // multi-seat dealership. Defaults preserve prior behavior: an admin registration is a
-    // dealership, anything else is solo; an unspecified product is the full Dealer OS
-    // (so existing signup forms that send neither keep working).
-    const isDealership = accountRole === 'dealer_admin'
-    const accountType = ACCOUNT_TYPES.includes(req.body.accountType)
-      ? req.body.accountType
-      : (isDealership ? 'dealership' : 'solo')
-    const signupProduct = ['facebook', 'ai_dealer', 'dealer_os'].includes(product) ? product : 'dealer_os'
 
     // 2026 password policy — NIST 800-63B compliant
     const pwCheck = await validatePassword(password, { email })
@@ -245,7 +248,7 @@ export function registerRoutes(app) {
         ? { terms_accepted_at: new Date().toISOString(), terms_accepted_ip: getClientIp(req) }
         : {}
 
-      if (accountRole === 'dealer_admin') {
+      if (isDealership) {
         const { data: dealership, error: dealerError } = await supabaseAdmin
           .from('dealerships')
           .insert({
@@ -332,16 +335,12 @@ export function registerRoutes(app) {
       // owner has no role row and every RLS permission check fails — they would be locked
       // out of their own workspace. This runs inside the try so a failure rolls the whole
       // registration back (see catch), matching the team-invite flow.
-      await syncDealerRole(createdUserId, createdDealershipId, isDealership ? 'DEALER_ADMIN' : 'OWNER', createdUserId)
+      await syncDealerRole(createdUserId, createdDealershipId, chosenPlan?.owner_role || (isDealership ? 'DEALER_ADMIN' : 'OWNER'), createdUserId)
 
-      // Provision the org's trialing subscription for the chosen product. Best-effort: the
-      // access model falls back to legacy dealerships.products if this is unavailable, so a
-      // catalog hiccup must never block sign-up. The account OWNER gets NO product
-      // membership row on purpose — an empty membership set means "all org products".
-      try {
-        const { product: prod, planId } = await resolvePlan(signupProduct, plan, accountType)
-        await provisionSubscription({ dealershipId: createdDealershipId, product: prod, planId, status: 'trialing', trialEndsAt })
-      } catch (e) { console.error('[register] subscription provisioning failed:', e?.message || e) }
+      // NOTE: registration grants NO access. The account exists; the chosen plan is
+      // returned to the client, which sends the user to Stripe Checkout. Access is granted
+      // only when the payment webhook activates the subscription (provisionPlan). This is
+      // the "subscription determines access, not registration" rule.
 
       // Affiliate attribution — if they arrived via a ?ref link, stamp the dealership
       // and open a referral for the affiliate (best-effort; never blocks signup).
@@ -354,6 +353,10 @@ export function registerRoutes(app) {
         user_id: createdUserId,
         verification_required: true,
         email_sent: emailed,
+        // The client uses this to send the new account to Stripe Checkout for the chosen
+        // plan. Access is granted by the webhook after payment, never here.
+        requires_checkout: !!chosenPlan,
+        plan: chosenPlan?.id || null,
         message: emailed
           ? 'Account created. Check your email and click the verification link to activate your account.'
           : 'Account created. If you don\'t receive a verification email shortly, use “Resend verification”.'

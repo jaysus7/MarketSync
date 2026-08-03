@@ -4,39 +4,62 @@
 
 import { supabaseAdmin } from './shared.js'
 import { PRODUCTS, ACCOUNT_TYPES, defaultTrialPlan, mapStripeStatus } from './entitlements-policy.js'
+import { PLAN_CATALOG, getPlan, planForStripePrice as planIdForStripePrice, productsForPlan } from './plan-catalog.js'
 
 export { PRODUCTS, ACCOUNT_TYPES, defaultTrialPlan, mapStripeStatus }
+export { PLAN_CATALOG, getPlan } from './plan-catalog.js'
 
-// Validate a product + optional caller-chosen plan against the catalog. Falls back to the
-// trial default when no plan is given. Throws if the product is unknown or the plan does
-// not belong to it (never trust a client-supplied plan id).
-export async function resolvePlan(product, plan, accountType) {
-  if (!PRODUCTS.includes(product)) throw new Error(`Unknown product: ${product}`)
-  const planId = plan || defaultTrialPlan(product, accountType)
-  const { data, error } = await supabaseAdmin
-    .from('plans').select('id, product_id').eq('id', planId).maybeSingle()
-  if (error) throw error
-  if (!data || data.product_id !== product) throw new Error(`Plan ${planId} does not belong to product ${product}`)
-  return { product, planId }
+// Validate a caller-supplied plan id against the catalog (never trust the client).
+export function resolvePlanId(planId) {
+  if (!getPlan(planId)) throw new Error(`Unknown plan: ${planId}`)
+  return planId
 }
 
-// Create/refresh the ORG's subscription for a product (idempotent on dealership+product).
-// Note: the account OWNER never gets a product_membership row — an empty membership set
-// means "all org products", which is what an owner/admin should see. Membership rows are
-// only for members intentionally confined to a subset (see grantProductMembership).
-export async function provisionSubscription({ dealershipId, product, planId, status = 'trialing', trialEndsAt = null, stripe = null }) {
-  const row = {
-    dealership_id: dealershipId,
-    product_id: product,
-    plan_id: planId,
-    status,
-    trial_ends_at: trialEndsAt,
-    updated_at: new Date().toISOString(),
-    ...(stripe || {}),
-  }
-  const { error } = await supabaseAdmin
-    .from('subscriptions').upsert(row, { onConflict: 'dealership_id,product_id' })
-  if (error) throw error
+// ── THE ENTITLEMENT ENGINE ───────────────────────────────────────────────────
+// Grant a plan to an organization. This is the ONE function that turns "active plan" into
+// access: it expands the plan into its products (the bundle), writes one subscription row
+// per product, PRUNES any product no longer covered (so a downgrade revokes it), and
+// dual-writes the legacy dealership flags the existing app still reads. Access = the union
+// of the org's active-subscription products; features come from the plan's plan_features.
+export async function provisionPlan({ dealershipId, planId, status = 'trialing', trialEndsAt = null, stripe = null }) {
+  const plan = getPlan(planId)
+  if (!dealershipId || !plan) throw new Error(`provisionPlan: bad args (dealership=${dealershipId}, plan=${planId})`)
+  const products = plan.products
+  const now = new Date().toISOString()
+
+  // One subscription row per product the plan grants.
+  const rows = products.map(product => ({
+    dealership_id: dealershipId, product_id: product, plan_id: planId,
+    status, trial_ends_at: trialEndsAt, updated_at: now, ...(stripe || {}),
+  }))
+  const { error: upErr } = await supabaseAdmin
+    .from('subscriptions').upsert(rows, { onConflict: 'dealership_id,product_id' })
+  if (upErr) throw upErr
+
+  // Prune products this plan no longer covers (downgrade revokes them automatically).
+  const { error: delErr } = await supabaseAdmin
+    .from('subscriptions').delete().eq('dealership_id', dealershipId).not('product_id', 'in', `(${products.join(',')})`)
+  if (delErr) throw delErr
+
+  // Keep the legacy dealership flags + account_type in sync so existing gating is correct.
+  const { error: dErr } = await supabaseAdmin
+    .from('dealerships')
+    .update({ ...(plan.legacy || {}), account_type: plan.org_type })
+    .eq('id', dealershipId)
+  if (dErr) throw dErr
+}
+
+// Fully deactivate an org's plan (Stripe cancellation): mark every subscription row
+// cancelled (access-policy grants only trialing/active) and clear the legacy paid flags.
+export async function cancelAllSubscriptions(dealershipId) {
+  if (!dealershipId) return
+  await supabaseAdmin.from('subscriptions')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('dealership_id', dealershipId)
+  await supabaseAdmin.from('dealerships').update({
+    plan: null, ai_boost_active: false, ai_boost_paid: false,
+    inv_intel_active: false, inv_intel_paid: false, ai_chatbot_active: false, ai_chatbot_paid: false,
+  }).eq('id', dealershipId)
 }
 
 // Confine a member to a specific product within the org (idempotent). Only call this for
@@ -51,18 +74,16 @@ export async function grantProductMembership(userId, dealershipId, product) {
 
 // ── Stripe → plan mapping (server-side; never trust the client for the plan) ──
 // mapStripeStatus lives in entitlements-policy.js (pure/testable) and is re-exported above.
-// Which catalog plan a Stripe price id corresponds to (via plans.stripe_price_id).
-export async function planForStripePrice(priceId) {
-  if (!priceId) return null
-  const { data } = await supabaseAdmin
-    .from('plans').select('id, product_id').eq('stripe_price_id', priceId).maybeSingle()
-  return data || null
+// Which catalog plan a Stripe price id corresponds to (env-based, single source in
+// plan-catalog.js). Returns a plan id or null.
+export function planForStripePrice(priceId) {
+  return planIdForStripePrice(priceId, process.env)
 }
 
-// Reconcile the subscriptions table from a Stripe subscription object: each line item's
-// price resolves to a plan → product, and we upsert one subscriptions row per product
-// with a status derived from Stripe. Prices not present in the catalog (legacy add-ons)
-// are ignored here — they're still handled by the existing dealership-flag webhook path.
+// Reconcile the entitlement state from a Stripe subscription object: resolve its price to
+// the internal plan, then grant that plan (expand→products, prune, dual-write legacy). One
+// Stripe subscription = one plan. Prices not in the catalog are ignored here (legacy
+// à-la-carte add-ons keep their own dealership-flag webhook path).
 export async function syncSubscriptionFromStripe(dealershipId, stripeSub) {
   if (!dealershipId || !stripeSub) return
   const status = mapStripeStatus(stripeSub.status)
@@ -72,13 +93,14 @@ export async function syncSubscriptionFromStripe(dealershipId, stripeSub) {
     stripe_customer_id: stripeSub.customer || null,
     current_period_end: stripeSub.current_period_end ? new Date(stripeSub.current_period_end * 1000).toISOString() : null,
   }
-  const seen = new Set()
+  // Find the (first) line item whose price maps to a plan.
+  let planId = null
   for (const item of (stripeSub.items?.data || [])) {
-    const plan = await planForStripePrice(item.price?.id)
-    if (!plan || seen.has(plan.product_id)) continue
-    seen.add(plan.product_id)
-    await provisionSubscription({ dealershipId, product: plan.product_id, planId: plan.id, status, trialEndsAt, stripe })
+    const p = planForStripePrice(item.price?.id)
+    if (p) { planId = p; break }
   }
+  if (!planId) return
+  await provisionPlan({ dealershipId, planId, status, trialEndsAt, stripe })
 }
 
 // Apply per-member permission overrides (grant/deny) on top of their RBAC role. Validates
