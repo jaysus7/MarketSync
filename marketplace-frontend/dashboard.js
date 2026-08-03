@@ -983,6 +983,11 @@ window.renderCurrentPlanBox = renderCurrentPlanBox;
 
 function applyProductNav(products) {
   products = products || {};
+  // The "Post to Facebook" header button belongs to the dealer tiers (Facebook Dealer
+  // and the full DealerOS bundle). Facebook SOLO is deliberately minimal — Inventory +
+  // Leaderboard only, posting via the browser extension — so the button is hidden for it.
+  const showFbPost = !!(products.dealer_os || products.facebook_dealer);
+  document.getElementById('fb-post-btn')?.classList.toggle('hidden', !showFbPost);
   // DealerOS (or nothing set) → the full department sidebar; clear any restriction.
   if (products.dealer_os) { __productAllowedPages = null; __productHome = null; document.documentElement.removeAttribute('data-product'); applyMobileQuickRow(); return; }
   const active = Object.keys(PRODUCT_PAGES).filter(k => products[k] && PRODUCT_PAGES[k]);
