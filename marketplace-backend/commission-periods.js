@@ -61,3 +61,12 @@ export function canTransition(from, to) {
 
 // Lines may only be assigned to / removed from a period while it is OPEN.
 export function isAssignable(status) { return status === 'open' }
+
+// ── Review / approval gates (Group 4) ────────────────────────────────────────
+// A locked period must be REVIEWED, then APPROVED, before it can be paid. These are
+// gates layered on top of the status graph — the raw status stays open→locked→paid.
+// A period is an object with { status, reviewed_at, approved_at }.
+export function canReview(p) { return !!p && p.status === 'locked' && !p.reviewed_at }
+export function canApprove(p) { return !!p && p.status === 'locked' && !!p.reviewed_at && !p.approved_at }
+// Paying requires the status transition to be legal AND the period to be approved.
+export function payReady(p) { return !!p && canTransition(p.status, 'paid') && !!p.approved_at }
