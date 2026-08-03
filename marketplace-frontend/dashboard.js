@@ -942,6 +942,11 @@ function applyProductNav(products) {
   if (!active.length) { __productAllowedPages = null; __productHome = null; applyMobileQuickRow(); return; }
   const allow = new Set(['profile']);
   active.forEach(k => (PRODUCT_PAGES[k] || []).forEach(p => allow.add(p)));
+  // Facebook Dealer: only owners/admins/managers can reach Sales Reps — a rep's nav omits
+  // it AND it's pruned from the reachable set so a deep link bounces (backend RLS also
+  // denies team management for reps).
+  const canManageTeam = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+  if (!canManageTeam) allow.delete('sales-team');
   __productAllowedPages = allow;
   document.documentElement.setAttribute('data-product', active.join(' '));
   // Facebook products render the Dashboard/Insights page as just the leaderboard (reuse
@@ -1013,25 +1018,32 @@ window.applyMobileQuickRow = applyMobileQuickRow;
 // The page list for a restricted tier's mobile "more" sheet (with labels/icons), or
 // null for the full-OS experience (which uses the department / legacy renderers).
 function restrictedNavPages() {
-  // The product page-set is authoritative (it distinguishes Facebook Solo from Dealer).
-  // Only these exact items appear in the nav — Settings lives on the header gear, so it is
-  // deliberately NOT added here (Facebook Solo shows exactly Leaderboard + Inventory).
+  // Exact per-product / per-role nav (Settings lives on the header gear, never here):
+  //   Facebook Solo ................. Inventory, Leaderboard
+  //   Facebook Dealer — Rep ......... My Inventory, Leaderboard
+  //   Facebook Dealer — Owner/Admin . Inventory, Sales Reps, Leaderboard
+  //   AI Dealer / AI Chatbot ........ AI Dealer (its page only)
+  const product = document.documentElement.getAttribute('data-product') || '';
+  const canManageTeam = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+  const INV = (label) => ({ page: 'inventory', label, icon: 'megaphone', invmode: 'facebook' });
+  const LEADER = { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' };
+  const SALES_REPS = { page: 'sales-team', label: 'Sales Reps', icon: 'user' };
+  const AI = { page: 'ai-home', label: 'AI Dealer', icon: 'sparkles' };
+
+  if (/facebook_dealer/.test(product)) {
+    return canManageTeam ? [INV('Inventory'), SALES_REPS, LEADER] : [INV('My Inventory'), LEADER];
+  }
+  if (/facebook_solo/.test(product)) return [INV('Inventory'), LEADER];
+  if (/ai_chatbot/.test(product)) return [AI];
+
+  // Fallback for any other restricted product set (keeps generic behavior).
   if (__productAllowedPages) {
-    const meta = {
-      'ai-home':    { label: 'AI Employee', icon: 'sparkles' },
-      leaderboard:  { label: 'Leaderboard', icon: 'trophy' },
-      inventory:    { label: 'Inventory', icon: 'megaphone', invmode: 'facebook' },
-      'sales-team': { label: 'Sales Team', icon: 'user' },
-    };
-    const order = ['ai-home', 'leaderboard', 'inventory', 'sales-team'];
-    return order.filter(p => __productAllowedPages.has(p))
-      .map(p => ({ page: p, label: meta[p]?.label || p, icon: meta[p]?.icon || 'dot', invmode: meta[p]?.invmode }));
+    const meta = { 'ai-home': AI, leaderboard: LEADER, inventory: INV('Inventory'), 'sales-team': SALES_REPS };
+    return ['inventory', 'sales-team', 'leaderboard', 'ai-home']
+      .filter(p => __productAllowedPages.has(p)).map(p => meta[p]);
   }
   // Legacy pure fb_only accounts with no product set: the same two Facebook items.
-  if (__fbOnly) return [
-    { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
-    { page: 'inventory', label: 'Inventory', invmode: 'facebook', icon: 'megaphone' },
-  ];
+  if (__fbOnly) return [INV('Inventory'), LEADER];
   return null;
 }
 window.restrictedNavPages = restrictedNavPages;
