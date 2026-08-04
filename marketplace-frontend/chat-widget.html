@@ -74,7 +74,7 @@
     <div class="off" id="off" style="display:none;">Chat isn't available right now.</div>
   </div>
   <script>
-    var API = 'https://vehicle-marketplace-s0e4.onrender.com';
+    var API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
     var params = new URLSearchParams(location.search);
     var dealer = params.get('dealer') || '';
     var LS_CONV = 'msc_conv_' + dealer, LS_VIS = 'msc_vis_' + dealer;
