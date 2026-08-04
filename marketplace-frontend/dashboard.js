@@ -19556,12 +19556,23 @@ function setupActionListeners() {
       phone: document.getElementById('prof-phone')?.value.trim() || '',
       email: document.getElementById('prof-email').value.trim(),
       password: document.getElementById('prof-password').value,
-      dealershipName: document.getElementById('prof-dealername').value.trim(),
-      websiteUrl: document.getElementById('prof-website').value.trim(),
       avatarUrl,
     };
+    // Dealership identity has a stricter server-side permission than a personal
+    // profile. Do not include its already-populated fields when the user only
+    // changes their own name, email, phone, password, or avatar.
+    const normalized = value => String(value || '').trim();
+    const dealershipName = normalized(document.getElementById('prof-dealername')?.value);
+    const websiteUrl = normalized(document.getElementById('prof-website')?.value);
+    const savedDealershipName = normalized(profileContext?.dealership?.name);
+    const savedWebsiteUrl = normalized(profileContext?.dealership?.website_url);
+    if (dealershipName !== savedDealershipName) payload.dealershipName = dealershipName;
+    if (websiteUrl !== savedWebsiteUrl) payload.websiteUrl = websiteUrl;
     // Strip empties so we only send fields the user actually changed
     Object.keys(payload).forEach(k => { if (!payload[k]) delete payload[k]; });
+    // Keep intentionally-cleared dealership website fields: an authorized admin
+    // must be able to remove an obsolete website URL.
+    if (websiteUrl !== savedWebsiteUrl) payload.websiteUrl = websiteUrl;
 
     const showMsg = (text, kind) => {
       msg.textContent = text;
