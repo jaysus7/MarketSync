@@ -11362,6 +11362,21 @@ async function renderSaasCustomer(id) {
   const tl = (d.timeline || []).slice(0, 18).map(e => `<div class="flex justify-between gap-3 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="text-[12px] text-slate-700 dark:text-slate-200 truncate">${esc(e.name)}</span><span class="text-[11px] text-slate-400 flex-shrink-0">${saasRel(e.at)}</span></div>`).join('') || '<div class="text-xs text-slate-400 italic py-2">No recent activity.</div>';
   const bill = (d.billing_history || []).map(b => `<div class="flex justify-between gap-3 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="text-[12px] text-slate-600 dark:text-slate-300">${new Date(b.date).toLocaleDateString()} ${b.number ? '· ' + esc(b.number) : ''}</span><span class="text-[12px] font-bold ${b.status === 'paid' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${money(b.amount)} ${esc(b.currency || '')}</span></div>`).join('');
   const team = (d.team || []).map(t => `<div class="flex justify-between gap-2 py-1 text-[12px]"><span class="text-slate-700 dark:text-slate-200 truncate">${esc(t.name || '—')}</span><span class="text-slate-400">${esc(t.role || '')}</span></div>`).join('') || '<div class="text-xs text-slate-400 italic">No team members.</div>';
+  const liveSeqs = (d.sequences || []).filter(s => s.status === 'active' || s.status === 'paused');
+  const enrolledKeys = new Set(liveSeqs.map(s => s.key));
+  const canEnroll = (d.sequence_catalog || []).filter(c => !enrolledKeys.has(c.key));
+  const seqTone = st => st === 'active' ? 'text-emerald-600 dark:text-emerald-400' : st === 'paused' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400';
+  const seqRow = s => `<div class="flex items-center gap-2 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1"><div class="text-[13px] font-bold text-slate-800 dark:text-slate-100">${esc(s.name)}</div><div class="text-[11px] text-slate-400">Step ${Math.min((s.current_step || 0) + 1, s.total_steps)}/${s.total_steps} · <span class="font-bold ${seqTone(s.status)}">${esc(s.status)}</span></div></div>
+      ${s.status === 'active' ? `<button onclick="saasCustSeqStatus('${id}','${s.id}','paused')" class="text-[11px] font-bold text-amber-600 dark:text-amber-400">Pause</button>` : s.status === 'paused' ? `<button onclick="saasCustSeqStatus('${id}','${s.id}','active')" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">Resume</button>` : ''}
+      ${(s.status === 'active' || s.status === 'paused') ? `<button onclick="saasCustSeqStatus('${id}','${s.id}','stopped')" class="text-[11px] font-bold text-rose-500">Stop</button>` : ''}</div>`;
+  const seqCard = `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4">
+      <div class="flex items-center justify-between mb-2"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Sequences</div><span class="text-[11px] text-slate-400">${liveSeqs.length} active</span></div>
+      <div>${liveSeqs.map(seqRow).join('') || '<div class="text-xs text-slate-400 italic py-1">Not enrolled in any sequence.</div>'}</div>
+      ${canEnroll.length ? `<div class="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/60">
+        <select id="saas-cust-seqsel" class="flex-1 min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-[13px]">${canEnroll.map(c => `<option value="${c.key}">${esc(c.name)}</option>`).join('')}</select>
+        <button onclick="saasCustEnrollSeq('${id}', document.getElementById('saas-cust-seqsel').value)" class="px-3 py-1.5 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[13px] font-bold flex-shrink-0">Enroll</button></div>` : ''}
+    </div>`;
   body.innerHTML = `
     <div class="flex items-start justify-between gap-3 mb-4">
       <div><div class="text-xl font-black text-slate-900 dark:text-white">${esc(d.name || 'Account')}</div>
@@ -11384,6 +11399,7 @@ async function renderSaasCustomer(id) {
         <button onclick="saasCustAddFollowup('${id}')" class="px-3 py-1.5 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[13px] font-bold flex-shrink-0">Add</button>
       </div>
     </div>
+    ${seqCard}
     ${bill ? `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Billing history</div>${bill}</div>` : ''}
     <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Team</div>${team}</div>
     <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Recent activity</div>${tl}</div>`;
@@ -11398,6 +11414,15 @@ window.saasCustAddFollowup = async (id) => {
 window.saasCustCompleteFollowup = async (id, fid) => {
   try { await apiSendJson('/saas/followups/' + fid, 'PATCH', { done: true }); await renderSaasCustomer(id); showToast('Follow-up completed', 'success'); }
   catch (e) { showToast(e.message || 'Could not complete', 'error'); }
+};
+window.saasCustEnrollSeq = async (id, key) => {
+  if (!key) return;
+  try { await apiSendJson('/saas/sequences/enroll', 'POST', { dealership_id: id, sequence_key: key }); await renderSaasCustomer(id); showToast('Enrolled in sequence', 'success'); }
+  catch (e) { showToast(e.message || 'Could not enroll', 'error'); }
+};
+window.saasCustSeqStatus = async (id, eid, status) => {
+  try { await apiSendJson('/saas/sequences/' + eid, 'PATCH', { status }); await renderSaasCustomer(id); showToast('Sequence ' + status, 'success'); }
+  catch (e) { showToast(e.message || 'Could not update sequence', 'error'); }
 };
 
 // ══ Account follow-ups — internal MarketSync customer-success work ═══════════
