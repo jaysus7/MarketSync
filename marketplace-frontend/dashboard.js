@@ -20287,6 +20287,15 @@ async function initSecurityPanel() {
         await refreshMfaStatus();
       } finally { btn.disabled = false; }
     } else {
+      // A second click while the QR is visible means "cancel setup", not "start a
+      // second factor". The next attempt safely clears the unfinished factor server-side.
+      if (currentEnrollment) {
+        currentEnrollment = null;
+        document.getElementById('mfa-enroll-panel').classList.add('hidden');
+        document.getElementById('mfa-enroll-error').classList.add('hidden');
+        btn.disabled = false; btn.textContent = 'Turn On';
+        return;
+      }
       btn.disabled = true; btn.textContent = 'Loading…';
       try {
         const res = await fetch(`${API}/auth/2fa/enroll`, {

@@ -446,9 +446,28 @@ export function registerRoutes(app) {
         global: { headers: { Authorization: `Bearer ${token}` } }
       })
 
+      // An interrupted setup leaves an unverified factor behind. Supabase will
+      // reject another factor with the old friendly name, making the user appear
+      // unable to turn MFA on. Remove only unfinished factors; a verified factor
+      // is never replaced from this endpoint.
+      const { data: factors, error: factorsError } = await userClient.auth.mfa.listFactors()
+      if (factorsError) throw factorsError
+      const totpFactors = factors?.totp || []
+      if (totpFactors.some(factor => factor.status === 'verified')) {
+        return res.status(409).json({ error: 'MFA_ALREADY_ENABLED', message: 'Multi-factor authentication is already enabled on this account.' })
+      }
+      await Promise.all(totpFactors
+        .filter(factor => factor.status !== 'verified')
+        .map(async factor => {
+          const { error } = await userClient.auth.mfa.unenroll({ factorId: factor.id })
+          if (error) throw error
+        }))
+
       const { data, error } = await userClient.auth.mfa.enroll({
         factorType: 'totp',
-        friendlyName: `MarketSync (${new Date().toISOString().slice(0, 10)})`
+        // Names must be unique per user. Seconds avoid collisions when a setup is
+        // restarted, and stale factors above are removed before creating this one.
+        friendlyName: `MarketSync-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
       })
       if (error) return res.status(400).json({ error: error.message })
 
