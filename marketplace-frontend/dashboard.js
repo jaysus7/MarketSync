@@ -1961,6 +1961,18 @@ const PAGE_FEATURE = {
   config: 'os.settings',
 };
 const PAGE_PRODUCT = { leaderboard: 'facebook' };
+// Dealer-controlled switches are a second visibility layer after the paid plan.
+// Keep this mapping page-based rather than deriving it from the legacy sidebar DOM:
+// the department nav is its own renderer and must not disappear merely because the
+// old nested menu happens to be collapsed or hidden for presentation reasons.
+const PAGE_DEALER_FLAG = {
+  website: 'website',
+  'automation-builder': 'automation', operations: 'automation', taskboard: 'automation',
+  equity: 'equity',
+  appraisal: 'appraisals',
+  reports: 'reports',
+  'inv-intel': 'inv_intel', market: 'inv_intel',
+};
 // True unless this page maps to a feature the plan doesn't include. Scoped to full
 // Dealer OS mode: restricted product tiers (Facebook / AI) use their own page sets, and
 // window.hasFeature fails OPEN when /access/context is unavailable, so legacy accounts
@@ -1985,11 +1997,8 @@ function pageFeatureOk(pg, invmode = null) {
 function deptPageVisible(pg, invmode = null) {
   if (!pageFeatureOk(pg, invmode)) return false;   // plan-tier entitlement gate
   if (__staffAllowedPages && !__staffAllowedPages.has(pg)) return false;
-  const els = document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${pg}"]`);
-  if (!els.length) return true;   // no nav item (e.g. sub-view) — don't over-filter
-  // A page is reachable only if a nav item for it is neither role/entitlement-hidden
-  // (`hidden`) nor feature-flag-off (`ff-off`).
-  return [...els].some(el => !el.classList.contains('hidden') && !el.classList.contains('ff-off'));
+  const dealerFlag = PAGE_DEALER_FLAG[pg];
+  return !dealerFlag || __featureFlags?.[dealerFlag] !== false;
 }
 function renderDeptTabbar(pageId) {
   const bar = document.getElementById('dept-tabbar');
@@ -2066,16 +2075,11 @@ function deptNavEligible(role) {
 // A page the current user may actually open: role-allowed AND not entitlement/flag hidden.
 function deptPageAllowed(p) { return deptRoleOk(p) && deptPageVisible(p.page, p.invmode); }
 function deptHomePage(dept) { return dept.pages.find(deptPageAllowed) || dept.pages.find(deptRoleOk) || dept.pages[0]; }
-// A page "counts" toward department visibility only if the user's role may see it AND
-// it has a real nav item that isn't gated off — pages without their own nav item
-// (e.g. accounting) fall through to the department's `probe`/`always`.
+// A department is present when it has one page the user's role and plan both permit.
+// Do not inspect the old nested sidebar here: it is merely a legacy presentation tree
+// and its hidden/collapsed classes are not an entitlement signal.
 function deptHasRealPage(dept) {
-  return dept.pages.some(p => {
-    if (!deptRoleOk(p)) return false;
-    if (!pageFeatureOk(p.page, p.invmode)) return false;   // plan-tier entitlement gate
-    const els = document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${p.page}"]`);
-    return els.length && [...els].some(el => !el.classList.contains('hidden') && !el.classList.contains('ff-off'));
-  });
+  return dept.pages.some(deptPageAllowed);
 }
 function deptVisible(dept) {
   if (!deptRoleOk(dept)) return false;   // role gate first (managers-only departments)
