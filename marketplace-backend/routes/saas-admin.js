@@ -232,7 +232,7 @@ export function registerSaasAdmin(app) {
     if (!need('view_customers')(req, res)) return
     const id = req.params.id
     const since = new Date(Date.now() - 90 * 86400000).toISOString()
-    const [{ data: dealer }, { data: team }, { data: events }, { data: subs }, { data: followups }, { data: enrollments }, { data: seqDefs }, { data: seqSteps }] = await Promise.all([
+    const [{ data: dealer }, { data: team }, { data: events }, { data: subs }, { data: followups }, { data: enrollments }, { data: seqDefs }, { data: seqSteps }, { data: allProfiles }] = await Promise.all([
       supabaseAdmin.from('dealerships').select('*').eq('id', id).maybeSingle(),
       supabaseAdmin.from('profiles').select('id, full_name, role, saas_role, billing_status, trial_ends_at, phone, created_at').eq('dealership_id', id).limit(100),
       supabaseAdmin.from('events').select('event_name, created_at').eq('dealership_id', id).order('created_at', { ascending: false }).limit(60),
@@ -241,10 +241,14 @@ export function registerSaasAdmin(app) {
       supabaseAdmin.from('saas_sequence_enrollments').select('*').eq('dealership_id', id).order('created_at', { ascending: false }).limit(50),
       supabaseAdmin.from('saas_sequences').select('id, key, name, trigger, enabled'),
       supabaseAdmin.from('saas_sequence_steps').select('sequence_id'),
+      supabaseAdmin.from('profiles').select('id, full_name, saas_role, system_role'),
     ])
     const seqByKey = Object.fromEntries((seqDefs || []).map(s => [s.key, s]))
     const stepCount = {}
     for (const st of seqSteps || []) stepCount[st.sequence_id] = (stepCount[st.sequence_id] || 0) + 1
+    // HQ staff = anyone with a saas_role or a platform system_role — the reassignable owners.
+    const hqStaff = (allProfiles || []).filter(p => p.saas_role || ['platform_owner', 'platform_admin'].includes(p.system_role))
+    const ownerName = dealer.hq_owner_id ? (hqStaff.find(p => p.id === dealer.hq_owner_id)?.full_name || null) : null
     if (!dealer) return res.status(404).json({ error: 'Customer not found' })
 
     // Effective billing (personal orgs bill on the single profile).
@@ -299,8 +303,20 @@ export function registerSaasAdmin(app) {
           current_step: e.current_step, total_steps: seq ? (stepCount[seq.id] || 0) : 0, started_at: e.started_at }
       }),
       sequence_catalog: (seqDefs || []).filter(s => s.enabled !== false).map(s => ({ key: s.key, name: s.name, trigger: s.trigger })),
+      owner_id: dealer.hq_owner_id || null,
+      owner_name: ownerName,
+      owner_options: hqStaff.map(p => ({ id: p.id, name: p.full_name || '—' })),
       stripe_customer_id: custId || null,
     })
+  })
+
+  // Reassign an account to an HQ owner / CSM (or clear it).
+  app.patch('/saas/customers/:id/owner', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const { data, error } = await supabaseAdmin.from('dealerships')
+      .update({ hq_owner_id: req.body?.owner_id || null }).eq('id', req.params.id).select('id, hq_owner_id').single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
   })
 
   // Follow-ups — HQ's own task queue against customer accounts (GHL-style). Powers

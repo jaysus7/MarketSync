@@ -352,6 +352,66 @@ export function registerSaasSequences(app) {
     res.json({ ok: true })
   })
 
+  // ── Email campaigns (Part 2) — one-off sends to a customer segment ──
+  async function segmentDealers(segment) {
+    let q = supabaseAdmin.from('dealerships').select('id, name, billing_status, trial_ends_at')
+    const now = new Date().toISOString()
+    if (segment === 'active') q = q.eq('billing_status', 'ACTIVE')
+    else if (segment === 'past_due') q = q.eq('billing_status', 'PAST_DUE')
+    else if (segment === 'cancelled') q = q.eq('billing_status', 'INACTIVE')
+    else if (segment === 'trialing') q = q.or(`billing_status.eq.TRIALING,trial_ends_at.gt.${now}`)
+    const { data } = await q.limit(2000)
+    return data || []
+  }
+
+  app.get('/saas/automation/campaigns', requireAuth, async (req, res) => {
+    if (!can('view_pipeline')(req, res)) return
+    const { data } = await supabaseAdmin.from('saas_campaigns').select('*').order('created_at', { ascending: false }).limit(200)
+    res.json({ campaigns: data || [] })
+  })
+
+  // Recipient-count preview for a segment.
+  app.get('/saas/automation/segment-count', requireAuth, async (req, res) => {
+    if (!can('view_pipeline')(req, res)) return
+    const dealers = await segmentDealers(String(req.query.segment || 'all'))
+    res.json({ count: dealers.length })
+  })
+
+  app.post('/saas/automation/campaigns', requireAuth, async (req, res) => {
+    if (!can('marketing')(req, res)) return
+    const { name, segment, subject, body, template_id } = req.body || {}
+    if (!name || !subject || !body) return res.status(400).json({ error: 'name, subject and body required' })
+    const { data, error } = await supabaseAdmin.from('saas_campaigns').insert({
+      name, segment: segment || 'all', subject, body, template_id: template_id || null, created_by: req.user.id,
+    }).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
+  // Send a campaign now — resolve the segment, email each account's admin (merge
+  // fields), record sent/fail counts. Capped to keep the request bounded.
+  app.post('/saas/automation/campaigns/:id/send', requireAuth, async (req, res) => {
+    if (!can('marketing')(req, res)) return
+    const { data: c } = await supabaseAdmin.from('saas_campaigns').select('*').eq('id', req.params.id).maybeSingle()
+    if (!c) return res.status(404).json({ error: 'Campaign not found' })
+    if (c.status === 'sent') return res.status(409).json({ error: 'Campaign already sent' })
+    const dealers = (await segmentDealers(c.segment)).slice(0, 500)
+    let sent = 0, fail = 0
+    for (const d of dealers) {
+      try {
+        const rcpt = await accountRecipient(d.id)
+        if (!rcpt?.email) { fail++; continue }
+        const ctx = { first_name: (rcpt.name || '').split(' ')[0] || 'there', account: rcpt.account || 'your dealership' }
+        const r = await sendEmail({ to: rcpt.email, subject: mergeFields(c.subject, ctx), html: seqHtml(mergeFields(c.subject, ctx), mergeFields(c.body, ctx)) })
+        if (r.ok) sent++; else fail++
+      } catch { fail++ }
+    }
+    const { data: updated } = await supabaseAdmin.from('saas_campaigns')
+      .update({ status: 'sent', sent_count: sent, fail_count: fail, sent_at: new Date().toISOString() })
+      .eq('id', c.id).select().single()
+    res.json(updated || { ok: true, sent, fail })
+  })
+
   // Cron: auto-enroll + advance sequences, then run the exception scan.
   app.post('/cron/saas-sequences', async (req, res) => {
     if (!requestHasCronSecret(req)) return res.status(401).json({ error: 'Unauthorized' })
