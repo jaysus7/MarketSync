@@ -10652,7 +10652,7 @@ async function loadAiHome(tab) {
       <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">${standalone ? 'AI Chatbot Dashboard' : 'Your AI Employee'}</h1>
         <p class="text-sm text-slate-500 dark:text-slate-400">${standalone ? 'Everything your website chatbot is doing — conversations, leads, knowledge and setup.' : 'Your website chatbot — capturing and qualifying leads around the clock.'}</p></div>
     </div>
-    <div class="flex flex-wrap gap-2">${tabBtn('overview', 'Overview')}${tabBtn('conversations', 'Conversations')}${tabBtn('knowledge', 'Knowledge Base')}${tabBtn('settings', 'Settings')}</div>
+    <div class="flex flex-wrap gap-2">${tabBtn('overview', 'Overview')}${tabBtn('conversations', 'AI Leads & Chats')}${tabBtn('knowledge', 'Knowledge Base')}${tabBtn('settings', 'Chatbot Settings')}</div>
     <div id="ai-home-body"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
   const body = document.getElementById('ai-home-body');
   try {
@@ -10673,7 +10673,7 @@ const AI_DEPT_TONE = {
   parts: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
   general: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
 };
-let __aiFeed = { department: '', type: '', flag: '' };
+let __aiFeed = { department: '', type: '', flag: '', status: '' };
 
 async function aiHomeOverview(body, tab) {
   if (tab === 'conversations') return aiHomeFeed(body);
@@ -10725,8 +10725,8 @@ async function aiHomeOverview(body, tab) {
       ${breakdown('By department', byDept, AI_DEPT_LABELS, 'bg-emerald-500')}
       ${breakdown('By lead type', byType, AI_TYPE_LABELS, 'bg-indigo-500')}
     </div>
-    <div class="flex items-center justify-between mb-2">
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">Recent conversations</div>
+    <div class="flex items-center justify-between mb-2 gap-3">
+      <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">Recent AI leads & chats</div><div class="text-[11px] text-slate-400 mt-0.5">Open a chat to see the complete AI transcript and reply to the visitor.</div></div>
       <button onclick="loadAiHome('conversations')" class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline">View all + filters →</button>
     </div>
     <div class="space-y-1.5">${conv}</div>`;
@@ -10762,6 +10762,8 @@ function aiFeedRow(c) {
     <div class="mt-1 text-[12px] text-slate-500 dark:text-slate-400 truncate">
       ${c.contact_name ? svgIcon('user', 'w-3.5 h-3.5 inline-block -mt-0.5 text-emerald-500') + ' <span class="font-bold text-slate-700 dark:text-slate-200">' + esc(c.contact_name) + '</span>' : (captured ? svgIcon('user', 'w-3.5 h-3.5 inline-block -mt-0.5 text-emerald-500') + ' Lead captured' : 'Visitor')}${c.website ? ' · ' + esc(String(c.website).replace(/^https?:\/\//, '').slice(0, 30)) : ''}${when ? ' · ' + esc(new Date(when).toLocaleDateString([], { month: 'short', day: 'numeric' })) : ''}
     </div>
+    ${c.summary ? `<div class="mt-1 text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(c.summary.replace(/\s+/g, ' ').slice(0, 160))}</div>` : ''}
+    <div class="mt-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">Open chat &amp; reply →</div>
   </button>`;
 }
 
@@ -10772,13 +10774,17 @@ async function aiHomeFeed(body) {
   const typeOpts = ['', ...Object.keys(AI_TYPE_LABELS)].map(v => opt(v, v ? AI_TYPE_LABELS[v] : 'All lead types', __aiFeed.type)).join('');
   const flagOpts = [['', 'All conversations'], ['booked', 'Booked appointments'], ['captured', 'Leads captured'], ['asked_manager', 'Asked for a manager']]
     .map(([v, l]) => opt(v, l, __aiFeed.flag)).join('');
+  const statusOpts = [['', 'Any chat status'], ['handoff', 'Needs a reply'], ['active', 'AI is handling'], ['closed', 'Closed chats']]
+    .map(([v, l]) => opt(v, l, __aiFeed.status || '')).join('');
   const sel = 'px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] font-semibold';
   body.innerHTML = `
     <div class="flex flex-wrap gap-2 mb-3">
       <select id="ai-feed-dept" onchange="aiFeedApply()" class="${sel}">${deptOpts}</select>
       <select id="ai-feed-type" onchange="aiFeedApply()" class="${sel}">${typeOpts}</select>
       <select id="ai-feed-flag" onchange="aiFeedApply()" class="${sel}">${flagOpts}</select>
+      <select id="ai-feed-status" onchange="aiFeedApply()" class="${sel}">${statusOpts}</select>
     </div>
+    <p class="text-[12px] text-slate-400 mb-3">Select a lead or chat to view every message, take over the chat, or reply as yourself or the AI assistant.</p>
     <div id="ai-feed-list"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
   await aiFeedLoad();
 }
@@ -10787,6 +10793,7 @@ async function aiFeedApply() {
     department: document.getElementById('ai-feed-dept')?.value || '',
     type: document.getElementById('ai-feed-type')?.value || '',
     flag: document.getElementById('ai-feed-flag')?.value || '',
+    status: document.getElementById('ai-feed-status')?.value || '',
   };
   await aiFeedLoad();
 }
@@ -10796,6 +10803,7 @@ async function aiFeedLoad() {
   const p = new URLSearchParams();
   if (__aiFeed.department) p.set('department', __aiFeed.department);
   if (__aiFeed.type) p.set('type', __aiFeed.type);
+  if (__aiFeed.status) p.set('status', __aiFeed.status);
   if (__aiFeed.flag === 'booked') p.set('booked', 'true');
   else if (__aiFeed.flag === 'captured') p.set('captured', 'true');
   else if (__aiFeed.flag === 'asked_manager') p.set('tag', 'asked_manager');

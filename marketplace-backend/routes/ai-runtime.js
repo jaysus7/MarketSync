@@ -595,12 +595,19 @@ export function registerAiRuntime(app) {
     const since = new Date(Date.now() - days * 86400000).toISOString()
     const [{ data }, { data: dealer }, persona] = await Promise.all([
       supabaseAdmin.from('ai_conversations')
-        .select('id, contact_id, lead_score, status, created_at, website, department, lead_type, tags, booked, requested_rep')
+        .select('id, contact_id, lead_score, status, created_at, last_message_at, website, department, lead_type, tags, booked, requested_rep, summary')
         .eq('dealership_id', req.dealershipId).gte('created_at', since).order('created_at', { ascending: false }).limit(2000),
       supabaseAdmin.from('dealerships').select('ai_chatbot_active').eq('id', req.dealershipId).maybeSingle(),
       getConfig(req.dealershipId, 'ai_personality', {}),
     ])
     const rows = data || []
+    const contactIds = [...new Set(rows.map(row => row.contact_id).filter(Boolean))]
+    const contactsById = {}
+    if (contactIds.length) {
+      const { data: contacts } = await supabaseAdmin.from('contacts')
+        .select('id, full_name, phone, email').in('id', contactIds)
+      for (const contact of contacts || []) contactsById[contact.id] = contact
+    }
     const afterHours = rows.filter(r => { const h = new Date(r.created_at).getHours(); return h < 8 || h >= 18 }).length
     const countBy = (fn) => rows.reduce((m, r) => { const k = fn(r); if (k) m[k] = (m[k] || 0) + 1; return m }, {})
     res.json({
@@ -619,7 +626,16 @@ export function registerAiRuntime(app) {
       },
       by_department: countBy(r => r.department || 'general'),
       by_type: countBy(r => r.lead_type || 'general'),
-      recent: rows.slice(0, 12).map(r => ({ id: r.id, score: r.lead_score || 0, status: r.status || 'open', captured: !!r.contact_id, website: r.website || null, at: r.created_at, department: r.department || 'general', lead_type: r.lead_type || 'general', tags: Array.isArray(r.tags) ? r.tags : [], booked: !!r.booked, requested_rep: r.requested_rep || null })),
+      recent: rows.slice(0, 12).map(r => {
+        const contact = r.contact_id ? contactsById[r.contact_id] : null
+        return {
+          id: r.id, score: r.lead_score || 0, status: r.status || 'open', captured: !!r.contact_id,
+          contact_name: contact?.full_name || null, contact_phone: contact?.phone || null, contact_email: contact?.email || null,
+          website: r.website || null, at: r.last_message_at || r.created_at, summary: r.summary || null,
+          department: r.department || 'general', lead_type: r.lead_type || 'general',
+          tags: Array.isArray(r.tags) ? r.tags : [], booked: !!r.booked, requested_rep: r.requested_rep || null,
+        }
+      }),
     })
   })
 
