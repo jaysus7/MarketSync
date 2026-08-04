@@ -187,11 +187,11 @@ export function registerRoutes(app) {
     if (!email || !password || !fullName || !accountRole) {
       return res.status(400).json({ error: 'Missing required registration fields' })
     }
-    // The chosen plan (from the plan catalog) drives org type + owner role. Registration
-    // no longer determines access — the plan is validated here and carried to checkout,
-    // where the subscription (and thus access) is created after payment. `plan` is
-    // optional so older signup forms (no plan) still work via the accountRole fallback.
+    // The chosen plan drives org type, owner role, trial and all entitlements. Never
+    // create a dealer account without one: an unplanned account can log in but has no
+    // reliable product/tier navigation.
     const chosenPlan = plan ? getPlan(plan) : null
+    if (!plan) return res.status(400).json({ error: 'Please choose a plan before creating your account' })
     if (plan && !chosenPlan) return res.status(400).json({ error: `Unknown plan: ${plan}` })
 
     // Org type: from the plan when present, else the legacy accountRole heuristic.
@@ -338,15 +338,10 @@ export function registerRoutes(app) {
       // registration back (see catch), matching the team-invite flow.
       await syncDealerRole(createdUserId, createdDealershipId, chosenPlan?.owner_role || (isDealership ? 'DEALER_ADMIN' : 'OWNER'), createdUserId)
 
-      // Grant the chosen plan as a 30-day FREE TRIAL — no card. provisionPlan expands the
-      // plan into its products/features (status 'trialing') and stamps billing_status +
-      // trial_ends_at. When the trial lapses the middleware returns 402 and the app shows
-      // the paywall popup where they pick a package and pay. Best-effort so a catalog
-      // hiccup never blocks sign-up (the dealership row already carries the trial dates).
-      if (chosenPlan) {
-        try { await provisionPlan({ dealershipId: createdDealershipId, planId: chosenPlan.id, status: 'trialing', trialEndsAt }) }
-        catch (e) { console.error('[register] trial provisioning failed:', e?.message || e) }
-      }
+      // Grant the chosen plan as a 30-day FREE TRIAL — no card. This is part of the
+      // registration success condition. If it fails, throw so the outer catch removes
+      // the incomplete user/dealership instead of creating a login with no tier.
+      await provisionPlan({ dealershipId: createdDealershipId, planId: chosenPlan.id, status: 'trialing', trialEndsAt })
 
       // Affiliate attribution — if they arrived via a ?ref link, stamp the dealership
       // and open a referral for the affiliate (best-effort; never blocks signup).
