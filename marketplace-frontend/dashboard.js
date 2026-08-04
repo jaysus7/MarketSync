@@ -19092,10 +19092,10 @@ async function loadInventoryCatalog() {
 let __catalogStatusFilter = 'all';
 let __catalogTypeFilter = 'all';
 let __catalogSegmentFilter = 'all';
-// The two inventory pages are strictly separate feeds, scoped by mode — no user-facing
-// source toggle. Facebook = the synced website feed (to post on Facebook Marketplace);
-// Inventory Intelligence = the dealer's own stock (manually added + trade appraisals won).
-let __catalogSourceFilter = 'mine';   // set from __inventoryMode: 'synced' (Facebook) | 'mine' (Intelligence)
+// Both inventory experiences use the same dealership inventory pool. A vehicle may come
+// from a website feed, a CSV, a manual entry, or a won trade appraisal — all of them can
+// be prepared and posted from the Facebook Marketplace experience.
+let __catalogSourceFilter = 'all';
 
 // The Inventory page serves two nav entries: the Facebook posting hub (feed sync +
 // synced stock) and the Inventory-Intelligence manual list (own stock only).
@@ -19110,13 +19110,12 @@ function applyInventoryMode() {
   // by the "Sync Inventory" button (toggleFeedsPanel). Keep it hidden on every mode
   // switch so DealerOS dealers see a clean catalog, not the raw feed.
   if (feeds) feeds.classList.add('hidden');
-  // Sales "Inventory List" shows the WHOLE lot (synced + manually added + won trades)
-  // so it includes the Facebook inventory — one shared pool. The Facebook Marketplace
-  // view keeps the synced set that's ready to post.
-  __catalogSourceFilter = facebook ? 'synced' : 'all';
+  // Keep one shared inventory pool. Filtering Facebook to website-synced units made a
+  // vehicle disappear immediately after an owner added it manually or imported a CSV.
+  __catalogSourceFilter = 'all';
   if (title) title.textContent = facebook ? 'Inventory Catalog' : 'Inventory List';
   if (sub) sub.textContent = facebook
-    ? 'Feed-synced stock, ready to post on Facebook Marketplace.'
+    ? 'All of your stock, ready to post on Facebook Marketplace.'
     : 'Your whole lot — Facebook-synced, manually added, and won trade appraisals.';
   applyInventoryProductGating();
   // Re-render if the catalog is already loaded; first open loads it via page init.
@@ -19131,10 +19130,12 @@ function toggleFeedsPanel() {
   if (willShow) f.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 window.toggleFeedsPanel = toggleFeedsPanel;
-// Facebook products (Solo/Dealer) sync only — no raw manual add / CSV import.
+// Inventory creation is an RBAC capability, not a product restriction. Facebook users
+// with inventory.edit can add a single vehicle or import a CSV as well as sync a feed.
+// The server independently enforces this permission on every write.
 function applyInventoryProductGating() {
-  const fb = /facebook/.test(document.documentElement.getAttribute('data-product') || '');
-  document.querySelectorAll('.inv-raw-add').forEach(el => el.classList.toggle('hidden', fb));
+  const canManageInventory = window.canDo('inventory.edit');
+  document.querySelectorAll('.inv-raw-add').forEach(el => el.classList.toggle('hidden', !canManageInventory));
 }
 window.applyInventoryProductGating = applyInventoryProductGating;
 
@@ -19226,12 +19227,12 @@ function renderCatalog() {
 
   if (!filtered.length) {
     document.getElementById('catalog-value-summary')?.classList.add('hidden');
-    // Mode-aware empty state: Facebook waits on a synced feed; Intelligence on own stock.
+    // Mode-aware empty state: Facebook inventory can be feed-synced or added directly.
     const noFilters = q === '' && statusFilter === 'all' && typeFilter === 'all' && segmentFilter === 'all';
     let msg = 'No vehicles match.';
     if (noFilters) {
       msg = __inventoryMode === 'facebook'
-        ? 'No synced vehicles yet. Add an inventory feed above, then click Sync Now.'
+        ? 'No vehicles yet. Use “Add vehicle”, import a CSV, or sync an inventory feed.'
         : 'No vehicles yet. Use “Add vehicle” or import a CSV — trade appraisals you win also land here.';
     }
     list.innerHTML = `<div class="text-xs text-slate-500 italic col-span-full">${msg}</div>`;
