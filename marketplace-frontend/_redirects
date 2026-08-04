@@ -5,3 +5,25 @@
 # Proxy server-rendered blog post pages for crawlers that don't execute JavaScript.
 # The backend /ssr/blog/:slug route returns a full HTML document with all SEO metadata.
 /blog/:slug  https://vehicle-marketplace-s0e4.onrender.com/ssr/blog/:slug  200
+
+# ── Marketing IA consolidation (2026-08): old feature/duplicate pages folded into
+# the three Solutions pages. 301s preserve SEO + any existing links/bookmarks.
+/features.html                  /dealer-os.html            301
+/inventory-intelligence.html    /dealer-os.html            301
+/market-price-reports.html      /dealer-os.html            301
+/trade-appraisal.html           /dealer-os.html            301
+/equity-mining.html             /dealer-os.html            301
+/deal-desk.html                 /dealer-os.html            301
+/crm-lead-delivery.html         /dealer-os.html            301
+/automation-followups.html      /dealer-os.html            301
+/dealer-website.html            /dealer-os.html            301
+/dealer-inventory-sync.html     /dealer-os.html            301
+/sales-leaderboard.html         /dealer-os.html            301
+/ai-listing-copy.html           /dealer-os.html            301
+/ai-vision-photo-scoring.html   /dealer-os.html            301
+/workflow.html                  /dealer-os.html            301
+/vin-decoder-window-stickers.html /dealer-os.html          301
+/dealer-groups.html             /dealer-os.html            301
+/facebook-posting-safety.html   /facebook-autoposter.html  301
+/facebook-marketplace-poster.html /facebook-autoposter.html 301
+/marketsync-vs-shiftly-auto.html /facebook-autoposter.html 301
