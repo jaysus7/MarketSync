@@ -1357,6 +1357,14 @@ async function initializeDashboardEcosystem() {
     profileContext = await res.json();
     clearTimeout(timeoutId);
 
+    // `/auth/me` carries the safe, normalized entitlement summary too. Use it first
+    // so plan-aware navigation is available even if the follow-up request hits a
+    // transient Render cold start; /access/context below refreshes the same snapshot
+    // when it succeeds.
+    if (profileContext?.access && Array.isArray(profileContext.access.features)) {
+      window.__access = profileContext.access;
+    }
+
     // Normalized access context (products / entitled features / permissions / defaultRoute)
     // from the central authorization service — the SINGLE source both desktop and mobile
     // nav filter from. Falls back to the legacy /auth/me products object if unavailable,
