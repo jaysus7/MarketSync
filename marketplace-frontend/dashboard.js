@@ -1010,8 +1010,10 @@ function applyProductNav(products) {
   // and DealerOS Pro, which includes Facebook). It must not leak into Starter/Growth
   // merely because they are DealerOS accounts.
   const access = window.__access;
+  const planFallback = typeof dealerPlanFallback === 'function' ? dealerPlanFallback() : null;
   const showFbPost = !!products.facebook_dealer
-    || !!(access && (access.isPlatformStaff || (access.products || []).includes('facebook')));
+    || !!(access && (access.isPlatformStaff || (access.products || []).includes('facebook')))
+    || !!planFallback?.products?.has('facebook');
   document.getElementById('fb-post-btn')?.classList.toggle('hidden', !showFbPost);
   // DealerOS (or nothing set) → the full department sidebar; clear any restriction.
   if (products.dealer_os) { __productAllowedPages = null; __productHome = null; document.documentElement.removeAttribute('data-product'); applyMobileQuickRow(); return; }
@@ -1969,6 +1971,20 @@ const PAGE_FEATURE = {
   config: 'os.settings',
 };
 const PAGE_PRODUCT = { leaderboard: 'facebook' };
+// The dealership record also carries its server-authored package name. This fallback
+// keeps the DealerOS menu stable during an access-context retry/cold start; it only
+// affects navigation presentation — API permissions remain enforced on the server.
+const DEALER_OS_PLAN_FEATURES = {
+  starter: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings']),
+  growth: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings', 'os.sales', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.integrations']),
+  pro: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.sales', 'os.accounting', 'os.service', 'os.marketing', 'os.website', 'os.reports', 'os.automations', 'os.integrations', 'os.team', 'os.settings', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings']),
+};
+function dealerPlanFallback() {
+  const plan = String(profileContext?.plan || profileContext?.dealership?.plan || '').toLowerCase();
+  const features = DEALER_OS_PLAN_FEATURES[plan];
+  if (!features) return { features: null, products: null };
+  return { features, products: plan === 'pro' ? new Set(['dealer_os', 'facebook', 'ai_dealer']) : new Set(['dealer_os']) };
+}
 // Dealer-controlled switches are a second visibility layer after the paid plan.
 // Keep this mapping page-based rather than deriving it from the legacy sidebar DOM:
 // the department nav is its own renderer and must not disappear merely because the
@@ -1988,16 +2004,19 @@ const PAGE_DEALER_FLAG = {
 function pageFeatureOk(pg, invmode = null) {
   if (__productAllowedPages || __fbOnly) return true;   // restricted tiers handled by product nav
   const access = window.__access;
+  const fallback = dealerPlanFallback();
   const requiredProduct = (pg === 'inventory' && (invmode || __inventoryMode) === 'facebook')
     ? 'facebook' : PAGE_PRODUCT[pg];
   if (requiredProduct) {
     // The entitlement context is derived server-side from live subscription rows. Until
     // it is available, do not advertise an add-on as part of a lower DealerOS plan.
-    return !!(access && (access.isPlatformStaff || (access.products || []).includes(requiredProduct)));
+    return !!((access && (access.isPlatformStaff || (access.products || []).includes(requiredProduct)))
+      || fallback.products?.has(requiredProduct));
   }
   const feat = PAGE_FEATURE[pg];
   if (!feat) return true;
-  return !!(access && (access.isPlatformStaff || (access.features || []).includes(feat)));
+  return !!((access && (access.isPlatformStaff || (access.features || []).includes(feat)))
+    || fallback.features?.has(feat));
 }
 
 // Is a page reachable for this user? Respect the per-item gating that product /

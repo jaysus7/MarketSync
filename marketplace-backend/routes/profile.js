@@ -88,6 +88,9 @@ export function registerRoutes(app) {
       email_signature: req.profile.email_signature || null,
       email_reply_to: req.profile.email_reply_to || null,
       dealership: req.profile.dealerships,
+      // A compact plan identifier gives the dashboard a resilient, server-authored
+      // source for its paid navigation if an entitlement refresh is delayed.
+      plan: req.profile.dealerships?.plan || null,
       is_marketsync: isMarketsync,
       // Product entitlements → the frontend builds the sidebar + landing from these.
       products: resolveProducts(req.profile.dealerships),
