@@ -787,6 +787,9 @@ function applyFbOnlyMode() {
   if (!__fbOnly) return;
   // Land on the Leaderboard (the fb tier's home) — no separate dashboard.
   if (typeof switchPage === 'function') switchPage('leaderboard');
+  // A legacy Facebook-only account may be identified only after its config finishes
+  // loading. Repaint the score with Facebook-only rules once that happens.
+  if (typeof loadLeaderboard === 'function') loadLeaderboard();
 }
 window.applyFbOnlyMode = applyFbOnlyMode;
 
@@ -1016,6 +1019,7 @@ function applyProductNav(products) {
   // Facebook products render the Dashboard/Insights page as just the leaderboard (reuse
   // the existing fb-tier CSS). AI/other products don't.
   if (active.some(k => FB_PRODUCTS.has(k))) document.documentElement.setAttribute('data-dash-tier', 'fb');
+  if (typeof applyLeaderboardProductPresentation === 'function') applyLeaderboardProductPresentation();
   // Hide every nav item (desktop + mobile) whose page isn't in this product's set.
   document.querySelectorAll('#dashboard-nav .nav-item[data-page]').forEach(it => {
     if (!allow.has(it.dataset.page)) it.classList.add('hidden');
@@ -14186,7 +14190,45 @@ function ensureLeaderboardLegend(panelId) {
   panel.insertAdjacentHTML('beforeend', leaderboardLegendHTML());
 }
 
-const calcPoints = (m) => (m.total_listings || 0) * 100 + (m.sold_listings || 0) * 500 + (m.deals_closed || 0) * 500 + (m.appraisals || 0) * 50;
+function facebookLeaderboardActive() {
+  return __fbOnly || /facebook/.test(document.documentElement.getAttribute('data-product') || '');
+}
+
+// Facebook tiers are deliberately scored only from Marketplace activity. The full
+// DealerOS leaderboard still includes its sales and appraisal incentives.
+const calcPoints = (m) => (m.total_listings || 0) * 100 + (m.sold_listings || 0) * 500
+  + (facebookLeaderboardActive() ? 0 : (m.deals_closed || 0) * 500 + (m.appraisals || 0) * 50);
+
+function applyLeaderboardProductPresentation() {
+  const facebook = facebookLeaderboardActive();
+  const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+  set('lb-title', facebook ? '🏆 Facebook Posting Leaderboard' : '🏆 Leaderboard');
+  set('lb-subtitle', facebook
+    ? '100 pts per Facebook post · 500 pts per Facebook sale · Build your posting streak and lead the board.'
+    : '500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.');
+  set('lb-conv-label', facebook ? 'Facebook Conversion' : 'Team Conversion');
+  set('lb-rankings-title', facebook ? 'Facebook posting rankings' : 'Full rankings');
+  set('lb-tab-global', facebook ? '🌎 Facebook Community' : '🌎 Global');
+  set('gl-subtitle', facebook
+    ? 'How your Facebook posting stacks up across MarketSync. Other accounts are anonymized.'
+    : 'How you stack up across every dealer & rep on MarketSync. Others are anonymized — only you see your name.');
+  set('gl-posted-label', facebook ? 'Your Facebook Posts' : 'Your Listings');
+}
+
+function leaderboardRanking(rows) {
+  let ranking = (rows || []).map(r => {
+    const points = calcPoints(r);
+    return { ...r, points, tier: tierFor(points) };
+  });
+  // The standard endpoint also powers DealerOS, so it returns its richer all-sales
+  // rank. Re-rank only the Facebook experience from Facebook posts and FB sales.
+  if (facebookLeaderboardActive()) {
+    ranking = ranking
+      .sort((a, b) => b.points - a.points || b.sold_listings - a.sold_listings || b.total_listings - a.total_listings || String(a.name || '').localeCompare(String(b.name || '')))
+      .map((r, index) => ({ ...r, rank: index + 1 }));
+  }
+  return ranking;
+}
 const tierFor = (points) => {
   let current = LB_TIERS[0];
   for (const t of LB_TIERS) if (points >= t.min) current = t;
@@ -14197,6 +14239,7 @@ const nextTierFor = (points) => LB_TIERS.find(t => t.min > points) || null;
 async function loadLeaderboard() {
   const body = document.getElementById('leaderboard-body');
   if (!body) return;
+  applyLeaderboardProductPresentation();
   body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-500 italic">Loading leaderboard...</td></tr>`;
   try {
     const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -14208,10 +14251,7 @@ async function loadLeaderboard() {
     setText('lb-team-sold', data.team_total_sold ?? 0);
     setText('lb-team-total', data.team_total_listings ?? 0);
 
-    const ranking = (data.ranking || []).map(r => {
-      const points = calcPoints(r);
-      return { ...r, points, tier: tierFor(points) };
-    });
+    const ranking = leaderboardRanking(data.ranking);
 
     renderPodium(ranking);
     renderYourPosition(ranking);
@@ -14305,10 +14345,7 @@ async function loadMyTierChip() {
     const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) return;
     const data = await res.json();
-    const ranking = (data.ranking || []).map(r => {
-      const points = calcPoints(r);
-      return { ...r, points, tier: tierFor(points) };
-    });
+    const ranking = leaderboardRanking(data.ranking);
     updateTierChip(ranking);
   } catch (e) { /* non-fatal — chip just stays hidden */ }
 }
@@ -14322,14 +14359,23 @@ async function loadAchievements() {
     if (!res.ok) throw new Error('gamification failed');
     const d = await res.json();
     if (!d.me && !d.dealership) { wrap.innerHTML = ''; return; }
+    const facebook = facebookLeaderboardActive();
+    const facebookBadge = (badge) => {
+      if (!facebook) return badge;
+      if (badge.key === 'closer') return { ...badge, label: 'Facebook Closer', description: 'Cars you sold through Facebook Marketplace' };
+      return badge;
+    };
+    const onlyFacebook = (badges) => (badges || [])
+      .filter(b => !facebook || ['closer', 'mover', 'speed', 'coverage', 'fastlot', 'sellthrough'].includes(b.key))
+      .map(facebookBadge);
     wrap.innerHTML = `
       ${d.me ? `<div class="mb-4">
-        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Your achievements</div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${(d.me.badges || []).map(badgeCard).join('')}</div>
+        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">${facebook ? 'Your Facebook achievements' : 'Your achievements'}</div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${onlyFacebook(d.me.badges).map(badgeCard).join('')}</div>
       </div>` : ''}
       ${d.dealership ? `<div>
-        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">${esc(d.dealership.name || 'Dealership')} achievements</div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${(d.dealership.badges || []).map(badgeCard).join('')}</div>
+        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">${esc(d.dealership.name || 'Dealership')} ${facebook ? 'Facebook achievements' : 'achievements'}</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${onlyFacebook(d.dealership.badges).map(badgeCard).join('')}</div>
       </div>` : ''}`;
   } catch (e) {
     console.warn('Achievements failed:', e.message);
@@ -14478,8 +14524,8 @@ function renderRankingTable(ranking) {
           </span>
         </td>
         <td class="py-3 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">${r.points.toLocaleString()}</td>
-        <td class="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">${r.deals_closed || 0}</td>
-        <td class="py-3 px-3 text-right font-mono text-amber-600 dark:text-amber-400">${r.appraisals || 0}</td>
+        <td data-lb-non-fb class="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">${r.deals_closed || 0}</td>
+        <td data-lb-non-fb class="py-3 px-3 text-right font-mono text-amber-600 dark:text-amber-400">${r.appraisals || 0}</td>
         <td class="py-3 px-3 text-right font-mono text-indigo-600 dark:text-indigo-400">${r.total_listings}</td>
         <td class="py-3 px-3 text-right font-mono text-slate-500 dark:text-slate-400">${r.sold_listings}</td>
         <td class="py-3 px-3 text-right font-mono text-slate-500 dark:text-slate-400">${r.conversion_rate}%</td>
@@ -15742,6 +15788,7 @@ let __glTab = 'reps';
 function initGlobalLeaderboard() {
   if (window.__glWired) return;
   window.__glWired = true;
+  applyLeaderboardProductPresentation();
 
   // Populate compact tier dots in #lb-legend-tiers
   const tiersEl = document.getElementById('lb-legend-tiers');

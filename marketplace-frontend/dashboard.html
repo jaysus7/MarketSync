@@ -92,6 +92,9 @@
     html[data-dash-tier="fb"] .fb-only-nav { display: flex !important; }
     /* In the Facebook-only tier the Dashboard is trimmed to just the leaderboard. */
     html[data-dash-tier="fb"] [data-page-content="insights"] > *:not(#dash-leaderboard-slot) { display: none !important; }
+    /* Facebook plans rank Facebook activity only. Keep general deal-desk columns and
+       point rules out of this focused posting leaderboard. */
+    html[data-dash-tier="fb"] [data-lb-non-fb] { display: none !important; }
     /* Report rail in MarketSync mode: hide the vehicle / F&I reports — MarketSync
        sells software, so keep only the SaaS-relevant reports (leads, marketing,
        appointments, activity, customers, rep scorecard, all). */
@@ -1750,15 +1753,15 @@
         <!-- Header row: title + team conversion + carousel tabs -->
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 class="text-lg font-bold text-slate-900 dark:text-white">🏆 Leaderboard</h2>
-            <p class="text-slate-500 dark:text-slate-400 text-xs">500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.</p>
+            <h2 id="lb-title" class="text-lg font-bold text-slate-900 dark:text-white">🏆 Leaderboard</h2>
+            <p id="lb-subtitle" class="text-slate-500 dark:text-slate-400 text-xs">500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.</p>
           </div>
           <div class="flex items-center gap-3 flex-wrap">
             <!-- Team conversion (hidden on global view) -->
             <div id="lb-conv-wrap" class="text-right">
-              <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">Team Conversion</div>
+              <div id="lb-conv-label" class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">Team Conversion</div>
               <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 leading-none"><span id="lb-conv">—</span>%</div>
-              <div class="text-xs text-slate-500"><span id="lb-team-sold">0</span> sold of <span id="lb-team-total">0</span> posted</div>
+              <div id="lb-team-summary" class="text-xs text-slate-500"><span id="lb-team-sold">0</span> sold of <span id="lb-team-total">0</span> posted</div>
             </div>
             <!-- Carousel tab pills -->
             <div class="inline-flex bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold">
@@ -1770,8 +1773,8 @@
 
         <!-- ── Legend (compact, always visible at top) ── -->
         <div class="lb-legend border-b border-slate-200 dark:border-slate-800 pb-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-          <span><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Close a deal</span>
-          <span><span class="font-bold text-amber-600 dark:text-amber-400">+50</span> Trade appraisal</span>
+          <span data-lb-non-fb><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Close a deal</span>
+          <span data-lb-non-fb><span class="font-bold text-amber-600 dark:text-amber-400">+50</span> Trade appraisal</span>
           <span><span class="font-bold text-indigo-600 dark:text-indigo-400">+100</span> Post a car</span>
           <span><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Sell what you posted</span>
           <div id="lb-legend-tiers" class="w-full flex flex-wrap gap-x-5 gap-y-0.5 mt-0.5"></div>
@@ -1816,7 +1819,7 @@
 
           <!-- Full ranking table -->
           <div>
-            <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Full rankings</div>
+            <div id="lb-rankings-title" class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Full rankings</div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm border-collapse">
                 <thead>
@@ -1825,8 +1828,8 @@
                     <th class="py-3 px-3 text-left">Player</th>
                     <th class="py-3 px-3 text-left">Tier</th>
                     <th class="py-3 px-3 text-right">Points</th>
-                    <th class="py-3 px-3 text-right">Deals</th>
-                    <th class="py-3 px-3 text-right">Appr.</th>
+                    <th data-lb-non-fb class="py-3 px-3 text-right">Deals</th>
+                    <th data-lb-non-fb class="py-3 px-3 text-right">Appr.</th>
                     <th class="py-3 px-3 text-right">Listings</th>
                     <th class="py-3 px-3 text-right">FB Sold</th>
                     <th class="py-3 px-3 text-right">Conv.</th>
@@ -1851,7 +1854,7 @@
         <!-- ── GLOBAL VIEW ── (hidden by default) -->
         <div id="lb-view-global" class="hidden" id="global-leaderboard-panel">
           <div class="flex items-center justify-between mb-3">
-            <p class="text-xs text-slate-500 dark:text-slate-400">How you stack up across every dealer &amp; rep on MarketSync. Others are anonymized — only you see your name.</p>
+            <p id="gl-subtitle" class="text-xs text-slate-500 dark:text-slate-400">How you stack up across every dealer &amp; rep on MarketSync. Others are anonymized — only you see your name.</p>
             <!-- Reps / Dealers toggle -->
             <div class="inline-flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold flex-shrink-0 ml-3">
               <button type="button" data-gl-tab="reps" class="gl-tab px-3 py-1.5 rounded bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition">Reps</button>
@@ -1869,7 +1872,7 @@
               <div class="text-xs text-slate-400 mt-0.5">Avg: <span id="gl-avg-pts">—</span></div>
             </div>
             <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg px-4 py-3 text-center">
-              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Your Listings</div>
+              <div id="gl-posted-label" class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Your Listings</div>
               <div id="gl-your-posted" class="text-xl font-black text-indigo-600 dark:text-indigo-400">—</div>
               <div class="text-xs text-slate-400 mt-0.5">Avg: <span id="gl-avg-posted">—</span></div>
             </div>
@@ -3347,7 +3350,7 @@
 
   <!-- Bump this revision whenever dashboard.js changes so an already-open browser
        cannot reuse an older bundle from its cache after a staging deployment. -->
-  <script src="dashboard.js?v=20260804d"></script>
+  <script src="dashboard.js?v=20260804e"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
