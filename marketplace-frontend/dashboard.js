@@ -359,6 +359,14 @@ window.msSignOut = function msSignOut() {
 let token = localStorage.getItem('token');
 const userRaw = localStorage.getItem('user');
 
+// A dashboard that redirected to login can be restored from the browser back/forward
+// cache with its old in-memory `token`, even though login has since stored a fresh
+// session. Reloading only restored pages makes the script read the current session
+// from storage instead of immediately treating that stale token as a logout.
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) window.location.reload();
+});
+
 // Silently refresh the Supabase access token using the stored refresh token, so a
 // "keep me signed in" session stays alive for its full window without the user
 // re-authenticating. Runs on load and every 30 minutes.
@@ -1297,13 +1305,25 @@ async function initializeDashboardEcosystem() {
     // produce a confusing error that looks identical to an auth failure.
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 45000);
-    const res = await fetch(`${API}/auth/me`, {
+    let res = await fetch(`${API}/auth/me`, {
       headers: { 'Authorization': `Bearer ${token}` },
       signal: controller.signal
     });
     // Keep the abort timer armed until the body is fully read (same reasoning as
     // apiGetJson): a response whose headers arrive but whose body stalls must
     // still time out, otherwise the dashboard hangs on a blank/loading screen.
+    // The silent refresh starts as the dashboard loads. If the first profile
+    // request races an expired/restored access token, wait for that one refresh
+    // and retry with the newest token before declaring the session invalid.
+    if (res.status === 401) {
+      const refreshed = await refreshSessionSilently();
+      if (refreshed) {
+        res = await fetch(`${API}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: controller.signal
+        });
+      }
+    }
     if (res.status === 401 || res.status === 402) {
       if (res.status === 402) {
         const body = await res.json().catch(() => ({}))
