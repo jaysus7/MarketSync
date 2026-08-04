@@ -11316,9 +11316,9 @@ async function openSaasCustomer(id) {
   document.getElementById('saas-cust-drawer')?.remove();
   const el = document.createElement('div');
   el.id = 'saas-cust-drawer';
-  el.className = 'fixed inset-0 z-[95] flex justify-end';
+  el.className = 'fixed inset-0 z-[95] flex items-center justify-center p-4';
   el.innerHTML = `<div data-close class="absolute inset-0 bg-slate-950/50"></div>
-    <div class="relative w-full max-w-xl h-full bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto"><div id="saas-cust-body" class="p-6"><div class="text-sm text-slate-400">Loading account…</div></div></div>`;
+    <div class="relative w-full max-w-2xl max-h-[90vh] rounded-2xl bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto"><div id="saas-cust-body" class="p-6"><div class="text-sm text-slate-400">Loading account…</div></div></div>`;
   el.querySelector('[data-close]').onclick = () => el.remove();
   document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { el.remove(); document.removeEventListener('keydown', esc); } });
   document.body.appendChild(el);
