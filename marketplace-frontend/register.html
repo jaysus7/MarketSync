@@ -273,7 +273,11 @@
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Registration failed.');
+        if (!res.ok) {
+          const error = new Error(data.error || 'Registration failed.');
+          error.code = data.code;
+          throw error;
+        }
 
         // 2) Sign in and go straight to the dashboard — no checkout at sign-up. When the
         //    trial ends, the app shows the paywall to pick a package and pay.
@@ -291,7 +295,15 @@
         try { localStorage.setItem('token', token); if (loginData.user) localStorage.setItem('user', JSON.stringify(loginData.user)); } catch {}
         window.location.href = 'dashboard.html';
       } catch (err) {
-        errBox.textContent = err.message;
+        if (err.code === 'EMAIL_ALREADY_REGISTERED') {
+          errBox.replaceChildren(
+            document.createTextNode('That email already has a MarketSync account. '),
+            Object.assign(document.createElement('a'), { href: 'login.html', textContent: 'Sign in instead' }),
+            document.createTextNode(', or use a different email for this dealership owner.')
+          );
+        } else {
+          errBox.textContent = err.message;
+        }
         errBox.classList.remove('hidden');
         btn.disabled = false;
         btn.textContent = orig;

@@ -376,7 +376,17 @@ export function registerRoutes(app) {
       if (createdUserId) {
         await supabaseAdmin.auth.admin.deleteUser(createdUserId)
       }
-      res.status(400).json({ error: err.message || 'Registration failed' })
+      // Never let public sign-up attach a dealership to an account it does not own.
+      // A logged-in owner can add another workspace through the authenticated flow;
+      // this anonymous endpoint may only create a brand-new account.
+      const message = err?.message || 'Registration failed'
+      const emailAlreadyRegistered = /already registered|already exists|user.*exists/i.test(message)
+      res.status(emailAlreadyRegistered ? 409 : 400).json({
+        error: emailAlreadyRegistered
+          ? 'An account already exists for this email. Sign in, or use a different email for this dealership owner.'
+          : message,
+        code: emailAlreadyRegistered ? 'EMAIL_ALREADY_REGISTERED' : undefined
+      })
     }
   })
 
