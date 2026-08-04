@@ -10646,6 +10646,7 @@ let __aiHomeTab = 'overview';
 async function loadAiHome(tab) {
   const root = document.getElementById('ai-home-root');
   if (!root) return;
+  root.className = 'space-y-6 sm:space-y-8';
   if (tab) __aiHomeTab = tab;
   const t = __aiHomeTab;
   const tabBtn = (key, label) => `<button onclick="loadAiHome('${key}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${t === key ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${esc(label)}</button>`;
