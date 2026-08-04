@@ -593,13 +593,21 @@ export function registerAiRuntime(app) {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const days = Math.min(365, Math.max(1, parseInt(req.query.days, 10) || 30))
     const since = new Date(Date.now() - days * 86400000).toISOString()
-    const { data } = await supabaseAdmin.from('ai_conversations')
-      .select('id, contact_id, lead_score, status, created_at, website, department, lead_type, tags, booked, requested_rep')
-      .eq('dealership_id', req.dealershipId).gte('created_at', since).order('created_at', { ascending: false }).limit(2000)
+    const [{ data }, { data: dealer }, persona] = await Promise.all([
+      supabaseAdmin.from('ai_conversations')
+        .select('id, contact_id, lead_score, status, created_at, website, department, lead_type, tags, booked, requested_rep')
+        .eq('dealership_id', req.dealershipId).gte('created_at', since).order('created_at', { ascending: false }).limit(2000),
+      supabaseAdmin.from('dealerships').select('ai_chatbot_active').eq('id', req.dealershipId).maybeSingle(),
+      getConfig(req.dealershipId, 'ai_personality', {}),
+    ])
     const rows = data || []
     const afterHours = rows.filter(r => { const h = new Date(r.created_at).getHours(); return h < 8 || h >= 18 }).length
     const countBy = (fn) => rows.reduce((m, r) => { const k = fn(r); if (k) m[k] = (m[k] || 0) + 1; return m }, {})
     res.json({
+      chatbot: {
+        active: !!dealer?.ai_chatbot_active,
+        assistant_name: persona?.name || null,
+      },
       stats: {
         conversations: rows.length,
         leads_captured: rows.filter(r => r.contact_id).length,

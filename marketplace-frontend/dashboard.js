@@ -816,6 +816,14 @@ const PRODUCT_HOME = { facebook_solo: 'leaderboard', facebook_dealer: 'leaderboa
 // just the leaderboard (no full dealer dashboard).
 const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
 let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
+
+// The standalone AI Chatbot plan deliberately has a smaller surface than DealerOS.
+// It must never show the internal "Ask MarketSync" assistant controls — that is a
+// separate employee tool, not something a chatbot-only customer bought.
+function isAiChatbotOnlyWorkspace() {
+  const products = document.documentElement.getAttribute('data-product') || '';
+  return /(?:^|\s)ai_chatbot(?:\s|$)/.test(products) && !/(?:^|\s)dealer_os(?:\s|$)/.test(products);
+}
 let __productHome = null;           // Where a product-restricted tier lands / bounces to
 
 // ── Access-context helpers (frontend mirror of the backend access service) ────
@@ -1096,7 +1104,7 @@ function restrictedNavPages() {
   const INV = (label) => ({ page: 'inventory', label, icon: 'megaphone', invmode: 'facebook' });
   const LEADER = { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' };
   const SALES_REPS = { page: 'sales-team', label: 'Sales Reps', icon: 'user' };
-  const AI = { page: 'ai-home', label: 'AI Dealer', icon: 'sparkles' };
+  const AI = { page: 'ai-home', label: 'AI Chatbot', icon: 'sparkles' };
 
   if (/facebook_dealer/.test(product)) {
     return canManageTeam ? [INV('Inventory'), SALES_REPS, LEADER] : [INV('My Inventory'), LEADER];
@@ -10638,10 +10646,11 @@ async function loadAiHome(tab) {
   if (tab) __aiHomeTab = tab;
   const t = __aiHomeTab;
   const tabBtn = (key, label) => `<button onclick="loadAiHome('${key}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${t === key ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${esc(label)}</button>`;
+  const standalone = isAiChatbotOnlyWorkspace();
   root.innerHTML = `
     <div class="flex items-center justify-between flex-wrap gap-2">
-      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Your AI Employee</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Your website chatbot — capturing and qualifying leads around the clock.</p></div>
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">${standalone ? 'AI Chatbot Dashboard' : 'Your AI Employee'}</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">${standalone ? 'Everything your website chatbot is doing — conversations, leads, knowledge and setup.' : 'Your website chatbot — capturing and qualifying leads around the clock.'}</p></div>
     </div>
     <div class="flex flex-wrap gap-2">${tabBtn('overview', 'Overview')}${tabBtn('conversations', 'Conversations')}${tabBtn('knowledge', 'Knowledge Base')}${tabBtn('settings', 'Settings')}</div>
     <div id="ai-home-body"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
@@ -10670,6 +10679,7 @@ async function aiHomeOverview(body, tab) {
   if (tab === 'conversations') return aiHomeFeed(body);
   const d = await apiGetJson('/ai/home');
   const s = d.stats || {};
+  const chatbot = d.chatbot || {};
   const byDept = d.by_department || {};
   const byType = d.by_type || {};
   const tile = (label, val, accent) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4"><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div><div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${(val ?? 0).toLocaleString()}</div></div>`;
@@ -10705,6 +10715,11 @@ async function aiHomeOverview(body, tab) {
   const conv = (d.recent || []).map(aiFeedRow).join('')
     || '<div class="text-sm text-slate-400 py-6 text-center">No conversations yet — add the chatbot to your site (Settings).</div>';
   body.innerHTML = `
+    <div class="mb-4 flex items-center gap-2 rounded-xl border ${chatbot.active ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30'} px-4 py-3">
+      <span class="w-2.5 h-2.5 rounded-full ${chatbot.active ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
+      <span class="text-sm font-bold text-slate-800 dark:text-slate-100">${chatbot.active ? 'Chatbot is live' : 'Chatbot is not live'}</span>
+      <span class="text-xs text-slate-500 dark:text-slate-400">${chatbot.assistant_name ? '· ' + esc(chatbot.assistant_name) : '· Set your assistant name in Settings'}</span>
+    </div>
     ${insights}
     <div class="grid md:grid-cols-2 gap-3 mb-4">
       ${breakdown('By department', byDept, AI_DEPT_LABELS, 'bg-emerald-500')}
@@ -10828,10 +10843,11 @@ function aiPresetAvatar(name, hue) {
 }
 const AI_AVATAR_FALLBACK = "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='#e2e8f0'/><circle cx='50' cy='40' r='18' fill='#94a3b8'/><path d='M18 90c0-19 15-30 32-30s32 11 32 30z' fill='#94a3b8'/></svg>");
 async function aiHomeSettings(body) {
+  const standalone = isAiChatbotOnlyWorkspace();
   const [embed, persona, cfg] = await Promise.all([
     apiGetJson('/ai/widget/embed').catch(() => ({})),
     apiGetJson('/ai/personality').catch(() => ({ personality: {} })),
-    apiGetJson('/ai/config').catch(() => ({})),
+    standalone ? Promise.resolve({}) : apiGetJson('/ai/config').catch(() => ({})),
   ]);
   const p = persona.personality || {};
   // Assistant capability controls (what the bot is allowed to do) + rep access.
@@ -10888,7 +10904,7 @@ async function aiHomeSettings(body) {
         <div><label class="text-[12px] font-bold text-slate-500">Tone</label><input id="ai-p-tone" value="${esc(p.tone || '')}" placeholder="warm, casual, natural — always books the appointment" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
         <button onclick="aiHomeSavePersonality(this)" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save assistant</button>
       </div>
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+      ${standalone ? '' : `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
         <div class="flex items-center justify-between">
           <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">What the assistant can do</div>
           <button onclick="openAiHistory()" class="text-[12px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">View chat history →</button>
@@ -10896,7 +10912,7 @@ async function aiHomeSettings(body) {
         <label class="flex items-center gap-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai2-reps" ${cfg.ai_assistant_reps !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Let sales reps use the internal "Ask MarketSync" assistant</label>
         ${toolsHtml ? `<div><div class="text-[12px] font-bold text-slate-500 mb-1.5">Capabilities</div><div class="grid sm:grid-cols-2 gap-2">${toolsHtml}</div></div>` : ''}
         <button onclick="aiHomeSaveControls(this)" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save controls</button>
-      </div>
+      </div>`}
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-2">
         <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Install on your website</div>
         <p class="text-[13px] text-slate-500">Paste this one line before &lt;/body&gt; on your site (LeadBox, eDealer, WordPress, anywhere).</p>
