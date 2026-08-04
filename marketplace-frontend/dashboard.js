@@ -980,7 +980,7 @@ function renderUpgradeCta() {
     cta.id = 'upgrade-cta';
     cta.type = 'button';
     cta.setAttribute('onclick', 'openPlanUpgradeModal()');
-    cta.className = 'w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-500 hover:to-fuchsia-500 transition shadow';
+    cta.className = 'w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition shadow';
     cta.innerHTML = '<span aria-hidden="true">⭐</span><span>Upgrade plan</span>';
   }
   navRoot.appendChild(cta); // keep it pinned to the bottom after nav re-renders
@@ -1902,7 +1902,7 @@ const DEPARTMENTS = {
     pages: [{ page: 'accounting', label: 'Accounting' }],
   },
   marketing: {
-    label: 'Marketing', icon: 'megaphone', accent: 'fuchsia',
+    label: 'Marketing', icon: 'megaphone', accent: 'violet',
     pages: [
       // Reps only see Facebook Marketplace here — everything else is manager-only.
       // Facebook Marketplace posts the SAME inventory as the website/manual list —
@@ -2033,13 +2033,13 @@ window.deptGo = deptGo;
 // The MarketSync owner's SaaS back office is its own flat department list —
 // the company operating system, not a dealership.
 const SAAS_DEPARTMENTS = {
-  hq:         { label: 'MarketSync HQ',    icon: 'chart',    accent: 'fuchsia', pages: [{ page: 'saas-command', label: 'HQ' }] },
-  pipeline:   { label: 'Customer Pipeline', icon: 'chart',   accent: 'fuchsia', pages: [{ page: 'saas-customers', label: 'Pipeline' }] },
-  followups:  { label: 'Follow-ups',        icon: 'bolt',    accent: 'fuchsia', pages: [{ page: 'saas-followups', label: 'Follow-ups' }] },
-  funnel:     { label: 'Funnel',            icon: 'chart',   accent: 'fuchsia', pages: [{ page: 'saas-funnel', label: 'Funnel' }] },
-  automation: { label: 'Automation',        icon: 'bolt',    accent: 'fuchsia', pages: [{ page: 'saas-automation', label: 'Automation' }] },
-  employees:  { label: 'Employees',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'saas-employees', label: 'Employees' }] },
-  accounts:   { label: 'All Users',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'owner-users', label: 'Accounts' }] },
+  hq:         { label: 'MarketSync HQ',    icon: 'chart',    accent: 'violet', pages: [{ page: 'saas-command', label: 'HQ' }] },
+  pipeline:   { label: 'Customer Pipeline', icon: 'chart',   accent: 'violet', pages: [{ page: 'saas-customers', label: 'Pipeline' }] },
+  followups:  { label: 'Follow-ups',        icon: 'bolt',    accent: 'violet', pages: [{ page: 'saas-followups', label: 'Follow-ups' }] },
+  funnel:     { label: 'Funnel',            icon: 'chart',   accent: 'violet', pages: [{ page: 'saas-funnel', label: 'Funnel' }] },
+  automation: { label: 'Automation',        icon: 'bolt',    accent: 'violet', pages: [{ page: 'saas-automation', label: 'Automation' }] },
+  employees:  { label: 'Employees',        icon: 'user',     accent: 'violet', pages: [{ page: 'saas-employees', label: 'Employees' }] },
+  accounts:   { label: 'All Users',        icon: 'user',     accent: 'violet', pages: [{ page: 'owner-users', label: 'Accounts' }] },
   affiliates: { label: 'Affiliates',       icon: 'trophy',   accent: 'amber',   pages: [{ page: 'affiliates-admin', label: 'Affiliates' }] },
   accounting: { label: 'Accounting',       icon: 'currency', accent: 'emerald', always: true, pages: [{ page: 'saas-accounting', label: 'Accounting' }] },
   settings:   { label: 'Settings',         icon: 'user',     accent: 'indigo',  always: true, pages: [{ page: 'profile', label: 'Settings' }] },
@@ -4977,7 +4977,7 @@ function setupMobileMoreMenu() {
       const a = window.__access;
       const onTop = a && Array.isArray(a.products) && ['dealer_os', 'facebook', 'ai_dealer'].every(p => a.products.includes(p));
       if (onTop || a?.isPlatformStaff || typeof openPlanUpgradeModal !== 'function') return;
-      const b = mk('<button type="button" class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-black text-white bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-500 hover:to-fuchsia-500 transition"><span aria-hidden="true">⭐</span><span>Upgrade plan</span></button>');
+      const b = mk('<button type="button" class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-black text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition"><span aria-hidden="true">⭐</span><span>Upgrade plan</span></button>');
       b.addEventListener('click', () => { close(); openPlanUpgradeModal(); });
       list.appendChild(b);
     };
@@ -8607,7 +8607,7 @@ async function renderSettingsSaasRoles() {
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-wrap items-end gap-2 mt-3">
       <div><label class="text-[11px] text-slate-400 font-bold">Add staff by email</label><input id="saas-emp-email" placeholder="teammate@marketsync.link" class="w-64 mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
       <div><label class="text-[11px] text-slate-400 font-bold">Role</label><select id="saas-emp-role" class="mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${empRoleOpts(roles, 'support')}</select></div>
-      <button onclick="saasAddEmployee()" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold transition">Add</button>
+      <button onclick="saasAddEmployee()" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold transition">Add</button>
     </div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mt-3">
       <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Permission matrix</div>${matrixRows}
@@ -11012,7 +11012,7 @@ Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, 
 const ENGINE_TAB_ORDER = ['overview', 'work', 'insights', 'automation', 'settings'];
 const ENGINE_TAB_LABEL = { overview: 'Overview', work: 'Work', insights: 'Insights', automation: 'Automation', settings: 'Settings' };
 const ENGINE_ACCENTS = {
-  fuchsia: { text: 'text-fuchsia-600 dark:text-fuchsia-400', bg: 'bg-fuchsia-50 dark:bg-fuchsia-950/40', solid: 'bg-fuchsia-600 hover:bg-fuchsia-500' },
+  violet: { text: 'text-violet-700 dark:text-violet-300', bg: 'bg-violet-100 dark:bg-violet-950/50', solid: 'bg-violet-600 hover:bg-violet-700' },
   indigo:  { text: 'text-indigo-600 dark:text-indigo-400',   bg: 'bg-indigo-50 dark:bg-indigo-950/40',   solid: 'bg-indigo-600 hover:bg-indigo-500' },
   sky:     { text: 'text-sky-600 dark:text-sky-400',         bg: 'bg-sky-50 dark:bg-sky-950/40',         solid: 'bg-sky-600 hover:bg-sky-500' },
   emerald: { text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', solid: 'bg-emerald-600 hover:bg-emerald-500' },
@@ -11146,7 +11146,7 @@ function hqTrialRow(t) {
 }
 ENGINES['saas-command'] = {
   rootId: 'saas-command-root', title: 'MarketSync HQ', subtitle: 'Revenue, trials, and account health',
-  icon: 'chart', accent: 'fuchsia',
+  icon: 'chart', accent: 'violet',
   fetch: () => apiGetJson('/saas/overview'),
   quickActions: [
     { label: 'Open Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" },
@@ -11195,7 +11195,7 @@ ENGINES['saas-command'] = {
       const mixRows = Object.keys(ENGINE_PRODUCT_MRR).filter(k => mix[k]).map(k => `
         <div class="flex items-center gap-2 text-[13px] py-1">
           <span class="w-32 flex-shrink-0 text-slate-600 dark:text-slate-300 font-semibold">${esc(ENGINE_PRODUCT_LABEL[k])}</span>
-          <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full bg-fuchsia-500" style="width:${mixTotal ? Math.round(mix[k] / mixTotal * 100) : 0}%"></span></span>
+          <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full bg-violet-500" style="width:${mixTotal ? Math.round(mix[k] / mixTotal * 100) : 0}%"></span></span>
           <span class="w-20 text-right font-bold text-slate-700 dark:text-slate-200">${engMoney0(mix[k])}</span>
         </div>`).join('') || engEmpty('No paying products yet.');
       body.innerHTML = `
@@ -11244,13 +11244,13 @@ function pipeCard(a) {
         <span>${a.engines_used} engine${a.engines_used === 1 ? '' : 's'} · ${a.last_activity_days == null ? 'no activity' : a.last_activity_days + 'd ago'}</span>
         ${a.trial_days_left != null ? `<span class="${a.trial_days_left <= 5 ? 'text-rose-500 font-bold' : ''}">${a.trial_days_left}d trial</span>` : ''}
       </div>
-      <div class="text-[11px] font-semibold text-fuchsia-600 dark:text-fuchsia-400">→ ${esc(a.next_action)}</div>
+      <div class="text-[11px] font-semibold text-violet-600 dark:text-violet-400">→ ${esc(a.next_action)}</div>
     </button>`;
 }
 const pipeAllRows = (d) => (d.stages || []).flatMap(s => d.by_stage[s] || []);
 ENGINES['saas-customers'] = {
   rootId: 'saas-customers-root', title: 'Customer Pipeline', subtitle: 'Every account by stage, health score, and next action',
-  icon: 'chart', accent: 'fuchsia',
+  icon: 'chart', accent: 'violet',
   fetch: () => apiGetJson('/saas/customers'),
   quickActions: [
     { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
@@ -11276,14 +11276,14 @@ ENGINES['saas-customers'] = {
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
           ${engKpi('Accounts', total.toLocaleString())}
           ${engKpi('Paid + Expanded', paid.toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Conversion', conv + '%', 'text-fuchsia-600 dark:text-fuchsia-400')}
+          ${engKpi('Conversion', conv + '%', 'text-violet-600 dark:text-violet-400')}
           ${engKpi('Churn Risk', (d.counts?.churn_risk || 0).toLocaleString(), d.counts?.churn_risk ? 'text-rose-600 dark:text-rose-400' : '')}
         </div>
         ${engCard('Stage distribution', (d.stages || []).map(s => {
           const n = (d.counts?.[s] || 0);
           return `<div class="flex items-center gap-2 text-[13px] py-1">
             <span class="w-28 flex-shrink-0 text-slate-600 dark:text-slate-300 font-semibold">${esc(SAAS_STAGE_LABEL[s] || s)}</span>
-            <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full ${s === 'churn_risk' ? 'bg-rose-500' : s === 'paid' || s === 'expanded' ? 'bg-emerald-500' : 'bg-fuchsia-400'}" style="width:${total ? Math.round(n / total * 100) : 0}%"></span></span>
+            <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full ${s === 'churn_risk' ? 'bg-rose-500' : s === 'paid' || s === 'expanded' ? 'bg-emerald-500' : 'bg-violet-400'}" style="width:${total ? Math.round(n / total * 100) : 0}%"></span></span>
             <span class="w-8 text-right font-bold text-slate-700 dark:text-slate-200">${n}</span></div>`;
         }).join(''))}`;
     },
@@ -11375,7 +11375,7 @@ async function renderSaasCustomer(id) {
   const statusTone = d.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
     : (d.status === 'PAST_DUE' || d.status === 'INACTIVE') ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
     : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
-  const chips = (d.product_keys || []).map(k => `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300">${esc(SAAS_PRODUCT_LABEL[k] || k)}</span>`).join('') || '<span class="text-xs text-slate-400">No products</span>';
+  const chips = (d.product_keys || []).map(k => `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">${esc(SAAS_PRODUCT_LABEL[k] || k)}</span>`).join('') || '<span class="text-xs text-slate-400">No products</span>';
   const kpi = (label, val, tone = '') => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400">${label}</div><div class="text-xl font-black ${tone || 'text-slate-900 dark:text-white'}">${val}</div></div>`;
   const open = (d.followups || []).filter(f => !f.completed_at);
   const fRow = f => `<div class="flex gap-2 items-start py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
@@ -11397,7 +11397,7 @@ async function renderSaasCustomer(id) {
       <div>${liveSeqs.map(seqRow).join('') || '<div class="text-xs text-slate-400 italic py-1">Not enrolled in any sequence.</div>'}</div>
       ${canEnroll.length ? `<div class="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/60">
         <select id="saas-cust-seqsel" class="flex-1 min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-[13px]">${canEnroll.map(c => `<option value="${c.key}">${esc(c.name)}</option>`).join('')}</select>
-        <button onclick="saasCustEnrollSeq('${id}', document.getElementById('saas-cust-seqsel').value)" class="px-3 py-1.5 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[13px] font-bold flex-shrink-0">Enroll</button></div>` : ''}
+        <button onclick="saasCustEnrollSeq('${id}', document.getElementById('saas-cust-seqsel').value)" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[13px] font-bold flex-shrink-0">Enroll</button></div>` : ''}
     </div>`;
   body.innerHTML = `
     <div class="flex items-start justify-between gap-3 mb-4">
@@ -11406,7 +11406,7 @@ async function renderSaasCustomer(id) {
       <button data-x class="text-2xl leading-none text-slate-400 hover:text-slate-600">×</button>
     </div>
     <div class="grid grid-cols-2 gap-2 mb-4">
-      ${kpi('MRR', money(d.mrr), 'text-fuchsia-600 dark:text-fuchsia-400')}
+      ${kpi('MRR', money(d.mrr), 'text-violet-600 dark:text-violet-400')}
       ${kpi('ARR', money(d.arr))}
       ${kpi('LTV' + (d.ltv_source === 'stripe' ? '' : ' (est.)'), money(d.ltv), 'text-emerald-600 dark:text-emerald-400')}
       ${kpi('Engines used', (d.engines_used || []).length + ' · ' + (d.last_activity_days == null ? 'idle' : d.last_activity_days + 'd ago'))}
@@ -11420,7 +11420,7 @@ async function renderSaasCustomer(id) {
       <div class="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/60">
         <input id="saas-cust-ftitle" placeholder="New follow-up…" class="flex-1 min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-[13px]">
         <input id="saas-cust-fdue" type="date" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-[13px]">
-        <button onclick="saasCustAddFollowup('${id}')" class="px-3 py-1.5 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[13px] font-bold flex-shrink-0">Add</button>
+        <button onclick="saasCustAddFollowup('${id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[13px] font-bold flex-shrink-0">Add</button>
       </div>
     </div>
     ${seqCard}
@@ -11468,14 +11468,14 @@ function saasFollowupRow(f) {
   const due = saasFollowupDue(f), priority = f.priority === 'high' ? 'text-rose-600 dark:text-rose-400' : f.priority === 'low' ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400';
   return `<div class="flex gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/30">
     <button onclick="saasCompleteFollowup('${f.id}',true)" title="Complete" class="mt-0.5 w-5 h-5 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-emerald-500 flex-shrink-0"></button>
-    <button onclick="saasEditFollowup('${f.id}')" class="min-w-0 flex-1 text-left"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(f.title)}</div><div class="text-[12px] font-semibold text-fuchsia-600 dark:text-fuchsia-400">${esc(f.account_name)}</div>${f.note ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">${esc(f.note)}</div>` : ''}<div class="text-[11px] mt-1 ${due.tone}">${due.label}${f.assigned_name ? ` · ${esc(f.assigned_name)}` : ''} <span class="ml-1 uppercase font-bold ${priority}">${esc(f.priority)}</span></div></button>
+    <button onclick="saasEditFollowup('${f.id}')" class="min-w-0 flex-1 text-left"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(f.title)}</div><div class="text-[12px] font-semibold text-violet-600 dark:text-violet-400">${esc(f.account_name)}</div>${f.note ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">${esc(f.note)}</div>` : ''}<div class="text-[11px] mt-1 ${due.tone}">${due.label}${f.assigned_name ? ` · ${esc(f.assigned_name)}` : ''} <span class="ml-1 uppercase font-bold ${priority}">${esc(f.priority)}</span></div></button>
   </div>`;
 }
 function saasFollowupModal(f = null) {
   const editing = !!f, due = f?.due_at ? new Date(f.due_at).toISOString().slice(0, 16) : '';
   const accounts = __saasFollowupAccounts.map(a => `<option value="${a.id}" ${f?.dealership_id === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
   const el = document.createElement('div'); el.className = 'fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/45 p-4';
-  el.innerHTML = `<div class="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-5"><div class="flex justify-between mb-4"><div><div class="text-lg font-black text-slate-900 dark:text-white">${editing ? 'Edit follow-up' : 'New follow-up'}</div><div class="text-xs text-slate-400">MarketSync account work</div></div><button data-close class="text-xl text-slate-400">×</button></div><div class="space-y-3"><label class="block text-xs font-bold text-slate-500">Account<select id="sf-account" ${editing ? 'disabled' : ''} class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="">Choose account…</option>${accounts}</select></label><label class="block text-xs font-bold text-slate-500">Follow-up<input id="sf-title" value="${esc(f?.title || '')}" placeholder="e.g. Book activation call" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label><div class="grid grid-cols-2 gap-3"><label class="block text-xs font-bold text-slate-500">Due<input id="sf-due" type="datetime-local" value="${due}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label><label class="block text-xs font-bold text-slate-500">Priority<select id="sf-priority" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${['low','normal','high'].map(x => `<option value="${x}" ${(f?.priority || 'normal') === x ? 'selected' : ''}>${x}</option>`).join('')}</select></label></div><label class="block text-xs font-bold text-slate-500">Note<textarea id="sf-note" rows="4" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(f?.note || '')}</textarea></label></div><div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button><button data-save class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">${editing ? 'Save' : 'Add follow-up'}</button></div></div>`;
+  el.innerHTML = `<div class="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-5"><div class="flex justify-between mb-4"><div><div class="text-lg font-black text-slate-900 dark:text-white">${editing ? 'Edit follow-up' : 'New follow-up'}</div><div class="text-xs text-slate-400">MarketSync account work</div></div><button data-close class="text-xl text-slate-400">×</button></div><div class="space-y-3"><label class="block text-xs font-bold text-slate-500">Account<select id="sf-account" ${editing ? 'disabled' : ''} class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="">Choose account…</option>${accounts}</select></label><label class="block text-xs font-bold text-slate-500">Follow-up<input id="sf-title" value="${esc(f?.title || '')}" placeholder="e.g. Book activation call" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label><div class="grid grid-cols-2 gap-3"><label class="block text-xs font-bold text-slate-500">Due<input id="sf-due" type="datetime-local" value="${due}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label><label class="block text-xs font-bold text-slate-500">Priority<select id="sf-priority" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${['low','normal','high'].map(x => `<option value="${x}" ${(f?.priority || 'normal') === x ? 'selected' : ''}>${x}</option>`).join('')}</select></label></div><label class="block text-xs font-bold text-slate-500">Note<textarea id="sf-note" rows="4" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(f?.note || '')}</textarea></label></div><div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button><button data-save class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">${editing ? 'Save' : 'Add follow-up'}</button></div></div>`;
   const close = () => el.remove(); el.querySelectorAll('[data-close]').forEach(x => x.onclick = close);
   el.querySelector('[data-save]').onclick = async () => {
     const title = el.querySelector('#sf-title').value.trim(), dealership_id = f?.dealership_id || el.querySelector('#sf-account').value, rawDue = el.querySelector('#sf-due').value;
@@ -11487,7 +11487,7 @@ function saasFollowupModal(f = null) {
 window.saasEditFollowup = id => { const f = __saasFollowups.find(x => x.id === id); if (f) saasFollowupModal(f); };
 window.saasCompleteFollowup = async (id, done) => { try { await apiSendJson(`/saas/followups/${id}`, 'PATCH', { done }); await loadSaasFollowups(); showToast(done ? 'Follow-up completed' : 'Follow-up reopened', 'success'); } catch (e) { showToast(e.message || 'Could not update follow-up', 'error'); } };
 window.saasNewFollowup = async () => { if (!__saasFollowupAccounts.length) { const d = await apiGetJson('/saas/customers'); __saasFollowupAccounts = (d.stages || []).flatMap(s => d.by_stage?.[s] || []).map(a => ({ id: a.id, name: a.name })).sort((a,b) => a.name.localeCompare(b.name)); } saasFollowupModal(); };
-ENGINES['saas-followups'] = { rootId: 'saas-followups-root', title: 'Follow-ups', subtitle: 'Every MarketSync account touch, owner, and due date', icon: 'bolt', accent: 'fuchsia', fetch: async () => { const d = await apiGetJson('/saas/followups'); __saasFollowups = d.followups || []; return d; }, quickActions: [{ label: 'Add follow-up', icon: 'bolt', onclick: 'saasNewFollowup()' }, { label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" }], nextActions: d => { const n = (d.followups || []).filter(f => f.due_at && new Date(f.due_at) < new Date()).length; return n ? [{ label: `${n} overdue follow-up${n === 1 ? '' : 's'}`, icon: 'flame', tone: 'text-rose-500', onclick: "engineTab('saas-followups','work')" }] : []; }, tabs: { overview(body, d) { const a = d.followups || [], now = new Date(), today = new Date(); today.setHours(23,59,59,999); const overdue = a.filter(f => f.due_at && new Date(f.due_at) < now), due = a.filter(f => f.due_at && new Date(f.due_at) >= now && new Date(f.due_at) <= today); body.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">${engKpi('Open', a.length)}${engKpi('Overdue', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '')}${engKpi('Due today', due.length, due.length ? 'text-amber-600 dark:text-amber-400' : '')}${engKpi('High priority', a.filter(f => f.priority === 'high').length)}</div>${engCard('Needs attention', (overdue.length ? overdue : a.slice(0, 6)).map(saasFollowupRow).join('') || engEmpty('No open account follow-ups.'))}`; }, work(body, d) { const a = d.followups || [], overdue = a.filter(f => f.due_at && new Date(f.due_at) < new Date()), rest = a.filter(f => !overdue.includes(f)); body.innerHTML = `<div class="flex justify-end mb-3"><button onclick="saasNewFollowup()" class="px-3 py-2 rounded-lg bg-fuchsia-600 text-white text-sm font-bold">＋ Add follow-up</button></div>${overdue.length ? engCard('Overdue', overdue.map(saasFollowupRow).join('')) : ''}${engCard(overdue.length ? 'Upcoming & unscheduled' : 'Open follow-ups', rest.map(saasFollowupRow).join('') || engEmpty('Nothing else is queued.'))}`; }, insights(body, d) { const a = d.followups || []; body.innerHTML = engCard('Workload by priority', ['high','normal','low'].map(p => `<div class="flex justify-between py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold capitalize text-sm">${p}</span><span class="font-black">${a.filter(f => f.priority === p).length}</span></div>`).join('')); }, automation(body) { body.innerHTML = engCard('Follow-up workflow', '<p class="text-[13px] text-slate-600 dark:text-slate-300">Turn a Customer Pipeline risk signal into an owned, dated follow-up. Completion stays separate from dealership CRM tasks, so this queue remains the source of truth for MarketSync account success.</p>'); }, settings(body) { body.innerHTML = engCard('Access', '<p class="text-[13px] text-slate-600 dark:text-slate-300">Pipeline users can see the queue; MarketSync Sales and Support can create, edit, and complete follow-ups.</p>'); } } };
+ENGINES['saas-followups'] = { rootId: 'saas-followups-root', title: 'Follow-ups', subtitle: 'Every MarketSync account touch, owner, and due date', icon: 'bolt', accent: 'violet', fetch: async () => { const d = await apiGetJson('/saas/followups'); __saasFollowups = d.followups || []; return d; }, quickActions: [{ label: 'Add follow-up', icon: 'bolt', onclick: 'saasNewFollowup()' }, { label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" }], nextActions: d => { const n = (d.followups || []).filter(f => f.due_at && new Date(f.due_at) < new Date()).length; return n ? [{ label: `${n} overdue follow-up${n === 1 ? '' : 's'}`, icon: 'flame', tone: 'text-rose-500', onclick: "engineTab('saas-followups','work')" }] : []; }, tabs: { overview(body, d) { const a = d.followups || [], now = new Date(), today = new Date(); today.setHours(23,59,59,999); const overdue = a.filter(f => f.due_at && new Date(f.due_at) < now), due = a.filter(f => f.due_at && new Date(f.due_at) >= now && new Date(f.due_at) <= today); body.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">${engKpi('Open', a.length)}${engKpi('Overdue', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '')}${engKpi('Due today', due.length, due.length ? 'text-amber-600 dark:text-amber-400' : '')}${engKpi('High priority', a.filter(f => f.priority === 'high').length)}</div>${engCard('Needs attention', (overdue.length ? overdue : a.slice(0, 6)).map(saasFollowupRow).join('') || engEmpty('No open account follow-ups.'))}`; }, work(body, d) { const a = d.followups || [], overdue = a.filter(f => f.due_at && new Date(f.due_at) < new Date()), rest = a.filter(f => !overdue.includes(f)); body.innerHTML = `<div class="flex justify-end mb-3"><button onclick="saasNewFollowup()" class="px-3 py-2 rounded-lg bg-violet-600 text-white text-sm font-bold">＋ Add follow-up</button></div>${overdue.length ? engCard('Overdue', overdue.map(saasFollowupRow).join('')) : ''}${engCard(overdue.length ? 'Upcoming & unscheduled' : 'Open follow-ups', rest.map(saasFollowupRow).join('') || engEmpty('Nothing else is queued.'))}`; }, insights(body, d) { const a = d.followups || []; body.innerHTML = engCard('Workload by priority', ['high','normal','low'].map(p => `<div class="flex justify-between py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold capitalize text-sm">${p}</span><span class="font-black">${a.filter(f => f.priority === p).length}</span></div>`).join('')); }, automation(body) { body.innerHTML = engCard('Follow-up workflow', '<p class="text-[13px] text-slate-600 dark:text-slate-300">Turn a Customer Pipeline risk signal into an owned, dated follow-up. Completion stays separate from dealership CRM tasks, so this queue remains the source of truth for MarketSync account success.</p>'); }, settings(body) { body.innerHTML = engCard('Access', '<p class="text-[13px] text-slate-600 dark:text-slate-300">Pipeline users can see the queue; MarketSync Sales and Support can create, edit, and complete follow-ups.</p>'); } } };
 function loadSaasFollowups() { renderEngine('saas-followups'); }
 window.loadSaasFollowups = loadSaasFollowups;
 
@@ -11498,12 +11498,12 @@ function funnelRow(c) {
       <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(c.account)}</div>
       <div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(c.plan || c.kind || 'plan')}${c.currency ? ' · ' + esc(c.currency) : ''} · started ${c.age_hours}h ago</div>
     </button>
-    <button onclick="saasRecoverCart('${c.id}')" class="px-3 py-1.5 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[12px] font-bold flex-shrink-0">Recover</button>
+    <button onclick="saasRecoverCart('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0">Recover</button>
   </div>`;
 }
 ENGINES['saas-funnel'] = {
   rootId: 'saas-funnel-root', title: 'Checkout Funnel', subtitle: 'Signup → checkout → paid, and abandoned-cart recovery',
-  icon: 'chart', accent: 'fuchsia',
+  icon: 'chart', accent: 'violet',
   fetch: () => apiGetJson('/saas/carts'),
   quickActions: [{ label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" }],
   nextActions: d => d.abandoned ? [{ label: `${d.abandoned} abandoned cart${d.abandoned === 1 ? '' : 's'} to recover`, icon: 'flame', tone: 'text-rose-500', onclick: "engineTab('saas-funnel','work')" }] : [],
@@ -11512,7 +11512,7 @@ ENGINES['saas-funnel'] = {
       body.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
           ${engKpi('Checkouts started', (d.started || 0).toLocaleString())}
           ${engKpi('Completed', (d.completed || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Conversion', (d.conversion || 0) + '%', 'text-fuchsia-600 dark:text-fuchsia-400')}
+          ${engKpi('Conversion', (d.conversion || 0) + '%', 'text-violet-600 dark:text-violet-400')}
           ${engKpi('Abandoned', (d.abandoned || 0).toLocaleString(), d.abandoned ? 'text-rose-600 dark:text-rose-400' : '')}
         </div>${engCard('Abandoned carts', (d.abandoned_list || []).length ? (d.abandoned_list || []).map(funnelRow).join('') : engEmpty('No abandoned carts — nice.'))}`;
     },
@@ -11546,11 +11546,11 @@ window.loadSaasAutomation = loadSaasAutomation;
 function renderAutomation() {
   const root = document.getElementById('saas-automation-root'); if (!root) return;
   const v = __automation.view;
-  const pill = (id, label) => `<button onclick="automationView('${id}')" class="px-3.5 py-1.5 rounded-full text-[13px] font-bold transition ${v === id ? 'bg-fuchsia-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
+  const pill = (id, label) => `<button onclick="automationView('${id}')" class="px-3.5 py-1.5 rounded-full text-[13px] font-bold transition ${v === id ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
   root.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-fuchsia-100 dark:bg-fuchsia-950/40 text-fuchsia-600 dark:text-fuchsia-400 flex items-center justify-center">${svgIcon('bolt', 'w-5 h-5')}</div>
+        <div class="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 flex items-center justify-center">${svgIcon('bolt', 'w-5 h-5')}</div>
         <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Automation &amp; Email</h1>
           <p class="text-[13px] text-slate-500 dark:text-slate-400">Edit your drips step-by-step and manage reusable email templates.</p></div>
       </div>
@@ -11588,7 +11588,7 @@ function renderAutoSequences() {
       <div class="flex flex-wrap gap-1.5 mt-3">${steps.map(autoStepChip).join('') || '<span class="text-[12px] text-slate-400 italic">No steps yet.</span>'}</div>
     </div>`;
   }).join('');
-  body.innerHTML = `<div class="flex justify-end mb-3"><button onclick="automationNewSeq()" class="px-3 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">＋ New sequence</button></div>
+  body.innerHTML = `<div class="flex justify-end mb-3"><button onclick="automationNewSeq()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New sequence</button></div>
     <div class="space-y-3">${cards || '<div class="text-sm text-slate-400 italic py-6 text-center">No sequences yet.</div>'}</div>`;
 }
 function renderAutoTemplates() {
@@ -11600,7 +11600,7 @@ function renderAutoTemplates() {
     </div>`).join('');
   body.innerHTML = `<div class="flex items-center justify-between mb-3">
       <p class="text-[12px] text-slate-500 dark:text-slate-400">Reusable email bodies. Use <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code> and <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{account}}</code> merge fields.</p>
-      <button onclick="automationNewTmpl()" class="px-3 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">＋ New template</button></div>
+      <button onclick="automationNewTmpl()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New template</button></div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No templates yet.</div>'}</div>`;
 }
 // ── campaigns ──
@@ -11611,11 +11611,11 @@ function renderAutoCampaigns() {
       <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(c.name)}</div>
         <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(c.subject)}</div>
         <div class="text-[11px] text-slate-400 mt-0.5">${esc(SAAS_SEG_LABEL[c.segment] || c.segment)} · ${c.status === 'sent' ? `sent to ${c.sent_count}${c.fail_count ? ` · ${c.fail_count} failed` : ''}` : 'draft'}</div></div>
-      ${c.status === 'sent' ? '<span class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">Sent</span>' : `<button onclick="automationSendCampaign('${c.id}')" class="px-3 py-1.5 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[12px] font-bold flex-shrink-0">Send</button>`}
+      ${c.status === 'sent' ? '<span class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">Sent</span>' : `<button onclick="automationSendCampaign('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0">Send</button>`}
     </div>`).join('');
   body.innerHTML = `<div class="flex items-center justify-between mb-3">
       <p class="text-[12px] text-slate-500 dark:text-slate-400">One-off email to a customer segment. Uses <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code>/<code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{account}}</code>.</p>
-      <button onclick="automationNewCampaign()" class="px-3 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">＋ New campaign</button></div>
+      <button onclick="automationNewCampaign()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New campaign</button></div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No campaigns yet.</div>'}</div>`;
 }
 window.automationNewCampaign = () => {
@@ -11632,7 +11632,7 @@ window.automationNewCampaign = () => {
     </div>
     <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
       <button onclick="automationSaveCampaign(false)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold">Save draft</button>
-      <button onclick="automationSaveCampaign(true)" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">Create &amp; send</button></div>`, 'max-w-lg');
+      <button onclick="automationSaveCampaign(true)" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Create &amp; send</button></div>`, 'max-w-lg');
   automationCampSegCount();
 };
 window.automationCampSegCount = async () => {
@@ -11682,7 +11682,7 @@ window.automationNewSeq = () => {
       <label class="block text-xs font-bold text-slate-500">Description<input id="as-desc" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
     </div>
     <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
-      <button onclick="automationCreateSeq()" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">Create</button></div>`);
+      <button onclick="automationCreateSeq()" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Create</button></div>`);
 };
 window.automationCreateSeq = async () => {
   const name = document.getElementById('as-name').value.trim(), key = document.getElementById('as-key').value.trim();
@@ -11713,11 +11713,11 @@ window.automationEditSeq = (id) => {
       <label class="block text-xs font-bold text-slate-500">Enabled<select id="es-enabled" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="true" ${s.enabled ? 'selected' : ''}>On</option><option value="false" ${!s.enabled ? 'selected' : ''}>Off</option></select></label>
       <label class="block text-xs font-bold text-slate-500 col-span-2">Description<input id="es-desc" value="${esc(s.description || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
     </div>
-    <div class="flex items-center justify-between mb-1"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Steps</div><button onclick="automationEditStep('${s.id}',null)" class="text-[12px] font-bold text-fuchsia-600 dark:text-fuchsia-400">＋ Add step</button></div>
+    <div class="flex items-center justify-between mb-1"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Steps</div><button onclick="automationEditStep('${s.id}',null)" class="text-[12px] font-bold text-violet-600 dark:text-violet-400">＋ Add step</button></div>
     <div class="rounded-lg border border-slate-200 dark:border-slate-800 px-3 mb-4">${steps.map(stepRow).join('') || '<div class="text-xs text-slate-400 italic py-3">No steps yet.</div>'}</div>
     <div class="flex justify-between gap-2"><button onclick="automationDeleteSeq('${s.id}')" class="px-3 py-2 text-sm font-bold text-rose-500">Delete sequence</button>
       <div class="flex gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Close</button>
-      <button onclick="automationSaveSeq('${s.id}')" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">Save</button></div></div>`, 'max-w-xl');
+      <button onclick="automationSaveSeq('${s.id}')" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Save</button></div></div>`, 'max-w-xl');
 };
 window.automationSaveSeq = async (id) => {
   try {
@@ -11768,7 +11768,7 @@ window.automationEditStep = (seqId, stepId) => {
       <label class="block text-xs font-bold text-slate-500">Priority<select id="st-priority" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${['low', 'normal', 'high'].map(p => `<option value="${p}" ${(st.priority || 'normal') === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
     </div>
     <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
-      <button onclick="automationSaveStep('${seqId}', ${stepId ? `'${stepId}'` : 'null'})" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">Save step</button></div>`, 'max-w-lg');
+      <button onclick="automationSaveStep('${seqId}', ${stepId ? `'${stepId}'` : 'null'})" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Save step</button></div>`, 'max-w-lg');
 };
 window.automationStepTypeToggle = () => {
   const t = document.getElementById('st-type').value;
@@ -11812,7 +11812,7 @@ function automationTmplModal(t) {
       <label class="block text-xs font-bold text-slate-500">Body <span class="text-slate-400 font-normal">— {{first_name}}, {{account}}</span><textarea id="tm-body" rows="8" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(t.body || '')}</textarea></label>
     </div>
     <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
-      <button onclick="automationSaveTmpl(${t.id ? `'${t.id}'` : 'null'})" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">Save</button></div>`);
+      <button onclick="automationSaveTmpl(${t.id ? `'${t.id}'` : 'null'})" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Save</button></div>`);
 }
 window.automationSaveTmpl = async (id) => {
   const payload = { name: document.getElementById('tm-name').value.trim(), subject: document.getElementById('tm-subject').value.trim(), body: document.getElementById('tm-body').value.trim() };
@@ -11833,7 +11833,7 @@ window.automationDeleteTmpl = async (id) => {
 const empRoleOpts = (roles, sel) => (roles || []).map(r => `<option value="${r}" ${r === sel ? 'selected' : ''}>${esc(r)}</option>`).join('');
 ENGINES['saas-employees'] = {
   rootId: 'saas-employees-root', title: 'Employees', subtitle: 'MarketSync staff and what each role can do',
-  icon: 'user', accent: 'fuchsia',
+  icon: 'user', accent: 'violet',
   fetch: () => apiGetJson('/saas/employees'),
   quickActions: [
     { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
@@ -11848,7 +11848,7 @@ ENGINES['saas-employees'] = {
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
           ${engKpi('Staff', staff.length.toLocaleString())}
           ${engKpi('Roles', (d.roles || []).length.toLocaleString())}
-          ${engKpi('Owners', (byRole.owner || 0).toLocaleString(), 'text-fuchsia-600 dark:text-fuchsia-400')}
+          ${engKpi('Owners', (byRole.owner || 0).toLocaleString(), 'text-violet-600 dark:text-violet-400')}
         </div>
         ${engCard('Headcount by role', (d.roles || []).map(r => `<div class="flex items-center justify-between text-[13px] py-1 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold uppercase text-slate-600 dark:text-slate-300">${esc(r)}</span><span class="font-bold text-slate-800 dark:text-slate-100">${byRole[r] || 0}</span></div>`).join(''))}`;
     },
@@ -11871,7 +11871,7 @@ ENGINES['saas-employees'] = {
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-wrap items-end gap-2">
           <div><label class="text-[11px] text-slate-400 font-bold">Add staff by email</label><input id="saas-emp-email" placeholder="teammate@marketsync.link" class="w-64 mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
           <div><label class="text-[11px] text-slate-400 font-bold">Role</label><select id="saas-emp-role" class="mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${empRoleOpts(roles, 'support')}</select></div>
-          <button onclick="saasAddEmployee()" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold transition">Add</button>
+          <button onclick="saasAddEmployee()" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold transition">Add</button>
         </div>`;
     },
     insights(body, d) {
@@ -11882,7 +11882,7 @@ ENGINES['saas-employees'] = {
       body.innerHTML = engCard('Team composition', (d.roles || []).map(r => `
         <div class="flex items-center gap-2 text-[13px] py-1">
           <span class="w-24 flex-shrink-0 uppercase font-semibold text-slate-600 dark:text-slate-300">${esc(r)}</span>
-          <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full bg-fuchsia-500" style="width:${total ? Math.round((byRole[r] || 0) / total * 100) : 0}%"></span></span>
+          <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full bg-violet-500" style="width:${total ? Math.round((byRole[r] || 0) / total * 100) : 0}%"></span></span>
           <span class="w-8 text-right font-bold text-slate-700 dark:text-slate-200">${byRole[r] || 0}</span></div>`).join('') || engEmpty('No staff yet.'));
     },
     automation(body) {
@@ -12645,7 +12645,7 @@ function ownerAccountCard(a) {
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
       <div class="flex flex-wrap items-center gap-2">
         <span class="font-black text-slate-800 dark:text-slate-100">${esc(a.name || 'Account')}</span>
-        ${a.is_personal ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300">PERSONAL</span>' : ''}
+        ${a.is_personal ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">PERSONAL</span>' : ''}
         ${a.plan ? `<span class="text-[11px] text-slate-400">${esc(a.plan)}</span>` : ''}
         ${ownerBillChip(effStatus)}${ownerTrialTxt(effTrial)}
         <span class="ml-auto text-[11px] text-slate-400">${a.users?.length || 0} user(s)</span>
@@ -12676,7 +12676,7 @@ function ownerSearch(v) { __ownerSearch = (v || '').toLowerCase(); ownerRenderCa
 
 ENGINES['owner-users'] = {
   rootId: 'owner-users-root', title: 'All Users & Accounts', subtitle: 'Every account — provision products, engines, and billing',
-  icon: 'user', accent: 'fuchsia', tabLabels: { work: 'Accounts' },
+  icon: 'user', accent: 'violet', tabLabels: { work: 'Accounts' },
   fetch: async () => {
     const d = await apiGetJson('/owner/accounts');
     __ownerAccounts = d.accounts || [];
