@@ -32,27 +32,31 @@ function publicShape(row) {
   }
 }
 
+// Permission namespace: credit applications are gated by fni.credit_application.view
+// (read) and fni.credit_application.edit (create / reveal / export / submit) — the same
+// permissions the credit_applications table RLS enforces, so every route below runs
+// under req.supabase and the row policy is the backstop behind the guard.
 export function registerCredit(app) {
   // ── Read the application for a deal (or contact). Masked; never returns PII. ──
-  app.get('/credit/application', requireAuth, requireMfa, requirePermission('credit_application.view'), async (req, res) => {
+  app.get('/credit/application', requireAuth, requireMfa, requirePermission('fni.credit_application.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const dealId = str(req.query.deal_id), contactId = str(req.query.contact_id)
     if (!dealId && !contactId) return res.status(400).json({ error: 'deal_id or contact_id required' })
-    let q = supabaseAdmin.from('credit_applications').select('*').eq('dealership_id', req.dealershipId)
+    let q = req.supabase.from('credit_applications').select('*').eq('dealership_id', req.dealershipId)
     q = dealId ? q.eq('deal_id', dealId) : q.eq('contact_id', contactId)
     const { data } = await q.order('updated_at', { ascending: false }).limit(1).maybeSingle()
     res.json({ ok: true, application: publicShape(data), pii_ready: piiConfigured() })
   })
 
   // ── Create / update (draft or ready). Encrypts SIN/DOB, captures consent. ──
-  app.post('/credit/application', requireAuth, requireMfa, requirePermission('credit_application.manage'), async (req, res) => {
+  app.post('/credit/application', requireAuth, requireMfa, requirePermission('fni.credit_application.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const dealId = str(b.deal_id), contactId = str(b.contact_id)
 
     // Confirm the deal (if given) belongs to this dealership.
     if (dealId) {
-      const { data: dl } = await supabaseAdmin.from('deals').select('id, contact_id').eq('id', dealId).eq('dealership_id', req.dealershipId).maybeSingle()
+      const { data: dl } = await req.supabase.from('deals').select('id, contact_id').eq('id', dealId).eq('dealership_id', req.dealershipId).maybeSingle()
       if (!dl) return res.status(404).json({ error: 'Deal not found' })
     }
 
@@ -91,7 +95,7 @@ export function registerCredit(app) {
 
     // Consent: stamp once when the applicant authorizes the credit pull.
     const { data: existing } = dealId
-      ? await supabaseAdmin.from('credit_applications').select('id, consent, created_by, created_at').eq('deal_id', dealId).eq('dealership_id', req.dealershipId).maybeSingle()
+      ? await req.supabase.from('credit_applications').select('id, consent, created_by, created_at').eq('deal_id', dealId).eq('dealership_id', req.dealershipId).maybeSingle()
       : { data: null }
     if (b.consent === true && !existing?.consent) {
       row.consent = true
@@ -107,16 +111,16 @@ export function registerCredit(app) {
     // the contact so repeated saves update the same record instead of piling up.
     let saved, error
     if (dealId) {
-      ({ data: saved, error } = await supabaseAdmin.from('credit_applications').upsert(row, { onConflict: 'deal_id' }).select().maybeSingle())
+      ({ data: saved, error } = await req.supabase.from('credit_applications').upsert(row, { onConflict: 'deal_id' }).select().maybeSingle())
     } else {
       let existingId = null
       if (contactId) {
-        const { data: ex } = await supabaseAdmin.from('credit_applications').select('id')
+        const { data: ex } = await req.supabase.from('credit_applications').select('id')
           .eq('contact_id', contactId).eq('dealership_id', req.dealershipId).order('updated_at', { ascending: false }).limit(1).maybeSingle()
         existingId = ex?.id || null
       }
-      if (existingId) ({ data: saved, error } = await supabaseAdmin.from('credit_applications').update(row).eq('id', existingId).select().maybeSingle())
-      else ({ data: saved, error } = await supabaseAdmin.from('credit_applications').insert(row).select().maybeSingle())
+      if (existingId) ({ data: saved, error } = await req.supabase.from('credit_applications').update(row).eq('id', existingId).select().maybeSingle())
+      else ({ data: saved, error } = await req.supabase.from('credit_applications').insert(row).select().maybeSingle())
     }
     if (error) { console.error('[credit] save failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
     audit(req, 'credit_application.saved', { entity_type: 'credit_application', entity_id: saved.id, after_state: { status: saved.status, consent: saved.consent, provider: saved.provider || null } })
@@ -124,9 +128,9 @@ export function registerCredit(app) {
   })
 
   // ── Reveal decrypted SIN/DOB (audited) — for the F&I manager on-screen. ──
-  app.get('/credit/application/:id/reveal', requireAuth, requireMfa, requirePermission('credit_application.manage'), async (req, res) => {
+  app.get('/credit/application/:id/reveal', requireAuth, requireMfa, requirePermission('fni.credit_application.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: row } = await supabaseAdmin.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: row } = await req.supabase.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!row) return res.status(404).json({ error: 'Not found' })
     await logSensitiveAccess({ dealershipId: req.dealershipId, actorId: req.user?.id, entity: 'credit_application', entityId: row.id, action: 'reveal', ip: getClientIp(req) })
     res.json({
@@ -139,11 +143,11 @@ export function registerCredit(app) {
   })
 
   // ── Export the STAR-style credit-application XML (audited). ──
-  app.post('/credit/application/:id/export', requireAuth, requireMfa, requirePermission('credit_application.manage'), async (req, res) => {
+  app.post('/credit/application/:id/export', requireAuth, requireMfa, requirePermission('fni.credit_application.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data: row } = await supabaseAdmin.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: row } = await req.supabase.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!row) return res.status(404).json({ error: 'Not found' })
-    const { data: dealer } = await supabaseAdmin.from('dealerships').select('name, city, province, postal_code, website_url').eq('id', req.dealershipId).maybeSingle()
+    const { data: dealer } = await req.supabase.from('dealerships').select('name, city, province, postal_code, website_url').eq('id', req.dealershipId).maybeSingle()
     const secrets = {
       applicant_sin: decryptField(row.applicant_sin_enc), applicant_dob: decryptField(row.applicant_dob_enc),
       co_sin: decryptField(row.co_sin_enc), co_dob: decryptField(row.co_dob_enc),
@@ -155,11 +159,13 @@ export function registerCredit(app) {
   })
 
   // ── Submit to the lender rail (manual export today; live when DSP-certified). ──
-  app.post('/credit/application/:id/submit', requireAuth, requireMfa, requirePermission('credit_application.manage'), async (req, res) => {
+  app.post('/credit/application/:id/submit', requireAuth, requireMfa, requirePermission('fni.credit_application.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const providerName = str(req.body?.provider) || 'routeone'
-    const { data: row } = await supabaseAdmin.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: row } = await req.supabase.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!row) return res.status(404).json({ error: 'Not found' })
+    // Integration credentials read kept on supabaseAdmin (separate integrations
+    // domain; not gated by fni.credit_application.*). Dealership-scoped by provider.
     const { data: integration } = await supabaseAdmin.from('dealer_integrations')
       .select('*').eq('dealership_id', req.dealershipId).eq('provider', providerName).maybeSingle()
 
@@ -168,7 +174,7 @@ export function registerCredit(app) {
     await logSensitiveAccess({ dealershipId: req.dealershipId, actorId: req.user?.id, entity: 'credit_application', entityId: row.id, action: 'submit', detail: `${providerName}:${result.mode}`, ip: getClientIp(req) })
 
     // Reflect submission on the record (manual submits still mark it submitted).
-    await supabaseAdmin.from('credit_applications').update({
+    await req.supabase.from('credit_applications').update({
       status: result.mode === 'manual' ? row.status : 'submitted',
       provider: providerName, submitted_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }).eq('id', row.id)

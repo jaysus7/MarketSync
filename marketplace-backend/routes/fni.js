@@ -18,7 +18,7 @@ export function registerFni(app) {
   // Worklist: every deal that isn't delivered yet, newest first.
   app.get('/fni/deals', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const { data: deals, error } = await supabaseAdmin.from('deals')
+    const { data: deals, error } = await req.supabase.from('deals')
       .select('id, deal_number, contact_id, inventory_id, deal_status, delivery_date, delivery_time, fni_products, notes, approved_at, created_by, created_at, selling_price')
       .eq('dealership_id', req.dealershipId)
       .neq('deal_status', 'delivered')
@@ -29,11 +29,14 @@ export function registerFni(app) {
     const contactIds = [...new Set((deals || []).map(d => d.contact_id).filter(Boolean))]
     const invIds = [...new Set((deals || []).map(d => d.inventory_id).filter(Boolean))]
     const repIds = [...new Set((deals || []).map(d => d.created_by).filter(Boolean))]
+    // inventory + profiles stay on supabaseAdmin: an F&I manager (a primary user of this
+    // deal.approve-gated worklist) holds neither inventory.view nor cross-user profile
+    // reads, so RLS would blank the vehicle/salesperson labels. Display-only, dealership-scoped.
     const [contacts, inv, reps, dealer] = await Promise.all([
-      contactIds.length ? supabaseAdmin.from('contacts').select('id, full_name, first_name, last_name').in('id', contactIds) : Promise.resolve({ data: [] }),
+      contactIds.length ? req.supabase.from('contacts').select('id, full_name, first_name, last_name').in('id', contactIds) : Promise.resolve({ data: [] }),
       invIds.length ? supabaseAdmin.from('inventory').select('id, year, make, model, trim, stocknumber').in('id', invIds) : Promise.resolve({ data: [] }),
       repIds.length ? supabaseAdmin.from('profiles').select('id, full_name, display_name').in('id', repIds) : Promise.resolve({ data: [] }),
-      supabaseAdmin.from('dealerships').select('cleanup_notify_emails').eq('id', req.dealershipId).maybeSingle(),
+      req.supabase.from('dealerships').select('cleanup_notify_emails').eq('id', req.dealershipId).maybeSingle(),
     ])
     const cById = Object.fromEntries((contacts.data || []).map(c => [c.id, c.full_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || '—']))
     const iById = Object.fromEntries((inv.data || []).map(v => [v.id, { label: [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle', stock: v.stocknumber }]))
@@ -66,7 +69,7 @@ export function registerFni(app) {
     const since = new Date(Date.now() - days * 86400000)
     const sinceIso = since.toISOString()
 
-    const { data: deals, error } = await supabaseAdmin.from('deals')
+    const { data: deals, error } = await req.supabase.from('deals')
       .select('id, deal_status, created_by, fni_manager, fni_items, addons, fni_products, fni_commission, selling_price, created_at, approved_at, credit_app_at, delivered_at, sold_at')
       .eq('dealership_id', req.dealershipId)
       .gte('created_at', sinceIso)
@@ -77,6 +80,7 @@ export function registerFni(app) {
 
     // Resolve salesperson (created_by) display names in one query.
     const repIds = [...new Set(list.map(d => d.created_by).filter(Boolean))]
+    // Rep-name lookup kept on supabaseAdmin (profiles RLS restricts cross-user reads).
     const { data: reps } = repIds.length
       ? await supabaseAdmin.from('profiles').select('id, full_name, display_name').in('id', repIds)
       : { data: [] }
@@ -232,7 +236,7 @@ export function registerFni(app) {
   app.post('/fni/deals/:id/approve', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const b = req.body || {}
-    const { data: deal } = await supabaseAdmin.from('deals')
+    const { data: deal } = await req.supabase.from('deals')
       .select('id, inventory_id, contact_id, created_by, deal_number')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!deal) return res.status(404).json({ error: 'Deal not found' })
@@ -248,12 +252,14 @@ export function registerFni(app) {
     let invId = deal.inventory_id || null
     const pickedInv = typeof b.inventory_id === 'string' ? b.inventory_id.trim() : ''
     if (pickedInv && pickedInv !== invId) {
+      // Inventory verify kept on supabaseAdmin: an F&I manager (the primary approver)
+      // holds deal.approve without inventory.view. Dealership-scoped id check only.
       const { data: veh } = await supabaseAdmin.from('inventory')
         .select('id').eq('id', pickedInv).eq('dealership_id', req.dealershipId).maybeSingle()
       if (veh) invId = veh.id
     }
 
-    await supabaseAdmin.from('deals')
+    await req.supabase.from('deals')
       .update({ delivery_date, delivery_time, fni_products, notes, approved_at: now, updated_at: now,
         ...(invId && invId !== deal.inventory_id ? { inventory_id: invId } : {}) })
       .eq('id', deal.id).eq('dealership_id', req.dealershipId)
@@ -287,15 +293,17 @@ export function registerFni(app) {
   // Delivered → deal delivered, vehicle sold, customer marked delivered; off the list.
   app.post('/fni/deals/:id/delivered', requireAuth, requireMfa, requirePermission('deal.finalize'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const { data: deal } = await supabaseAdmin.from('deals')
+    const { data: deal } = await req.supabase.from('deals')
       .select('id, inventory_id, contact_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!deal) return res.status(404).json({ error: 'Deal not found' })
     const now = new Date().toISOString()
-    await supabaseAdmin.from('deals').update({ deal_status: 'delivered', delivered_at: now, updated_at: now })
+    // req.supabase throughout: this route is deal.finalize-guarded, and every finalize
+    // holder (owners/GM) also holds inventory.edit and customer.edit.
+    await req.supabase.from('deals').update({ deal_status: 'delivered', delivered_at: now, updated_at: now })
       .eq('id', deal.id).eq('dealership_id', req.dealershipId)
-    if (deal.inventory_id) await supabaseAdmin.from('inventory').update({ status: 'sold', sold_at: now })
+    if (deal.inventory_id) await req.supabase.from('inventory').update({ status: 'sold', sold_at: now })
       .eq('id', deal.inventory_id).eq('dealership_id', req.dealershipId)
-    if (deal.contact_id) await supabaseAdmin.from('contacts').update({ status: 'delivered', updated_at: now })
+    if (deal.contact_id) await req.supabase.from('contacts').update({ status: 'delivered', updated_at: now })
       .eq('id', deal.contact_id).eq('dealership_id', req.dealershipId)
     emitWebhook(req.dealershipId, 'deal.delivered', { deal_id: deal.id, contact_id: deal.contact_id || null, inventory_id: deal.inventory_id || null, at: now })
     // Emit to the spine so every engine reacts uniformly: the Accounting Engine posts
@@ -317,7 +325,8 @@ export function registerFni(app) {
   app.put('/fni/settings', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const emails = typeof req.body?.cleanup_notify_emails === 'string' ? req.body.cleanup_notify_emails.slice(0, 1000) : ''
-    const { data: before } = await supabaseAdmin.from('dealerships').select('cleanup_notify_emails').eq('id', req.dealershipId).maybeSingle()
+    const { data: before } = await req.supabase.from('dealerships').select('cleanup_notify_emails').eq('id', req.dealershipId).maybeSingle()
+    // dealerships has no RLS UPDATE policy — write kept on supabaseAdmin (route is MFA + deal.approve gated).
     const { error } = await supabaseAdmin.from('dealerships').update({ cleanup_notify_emails: emails }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'fni.cleanup_notification_settings_updated', { before_state: before, after_state: { cleanup_notify_emails: emails } })

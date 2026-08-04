@@ -6,7 +6,7 @@ const source = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'u
 
 test('sensitive financial and customer-data routes require MFA plus a permission', () => {
   const checks = [
-    ['routes/credit.js', "requireAuth, requireMfa, requirePermission('credit_application.manage')"],
+    ['routes/credit.js', "requireAuth, requireMfa, requirePermission('fni.credit_application.edit')"],
     ['routes/commissions.js', "requireAuth, requireMfa, requirePermission('accounting.edit')"],
     ['routes/expenses.js', "requireAuth, requireMfa, requirePermission('accounting.edit')"],
     ['routes/reports.js', "requireAuth, requireMfa, requirePermission('accounting.view')"],
