@@ -1007,9 +1007,11 @@ window.renderCurrentPlanBox = renderCurrentPlanBox;
 function applyProductNav(products) {
   products = products || {};
   // The "Post to Facebook" header button belongs to the dealer tiers (Facebook Dealer
-  // and the full DealerOS bundle). Facebook SOLO is deliberately minimal — Inventory +
-  // Leaderboard only, posting via the browser extension — so the button is hidden for it.
-  const showFbPost = !!(products.dealer_os || products.facebook_dealer);
+  // and DealerOS Pro, which includes Facebook). It must not leak into Starter/Growth
+  // merely because they are DealerOS accounts.
+  const access = window.__access;
+  const showFbPost = !!products.facebook_dealer
+    || !!(access && (access.isPlatformStaff || (access.products || []).includes('facebook')));
   document.getElementById('fb-post-btn')?.classList.toggle('hidden', !showFbPost);
   // DealerOS (or nothing set) → the full department sidebar; clear any restriction.
   if (products.dealer_os) { __productAllowedPages = null; __productHome = null; document.documentElement.removeAttribute('data-product'); applyMobileQuickRow(); return; }
@@ -1938,37 +1940,50 @@ let __activeDept = null;
 let __currentPage = null;
 
 // ── Plan-tier feature gating for the Dealer OS department nav ─────────────────
-// Maps a nav page → the access-context feature that must be entitled for it to show.
-// This is what makes a Starter account NOT see Accounting/Service/Website while Pro
-// sees everything — driven by the plan's entitlements (/access/context.features), the
-// same truth the API + RLS enforce. Only the higher-tier pages are listed; unmapped
-// pages stay visible and fall through to the existing role / legacy-flag gating.
+// Maps every DealerOS nav page → the access-context entitlement required for it to
+// show. This makes each plan's sidebar match the plan catalog instead of treating
+// every DealerOS account as Pro.
 const PAGE_FEATURE = {
+  command: 'os.dashboard', insights: 'os.dashboard',
+  crm: 'os.crm', leads: 'os.crm', appointments: 'os.crm', tasks: 'os.crm',
+  appraisal: 'os.crm', equity: 'os.crm',
+  inventory: 'os.inventory', recon: 'os.inventory',
   accounting: 'os.accounting',
   'service-ros': 'os.service', 'service-appointments': 'os.service', 'service-parts': 'os.service',
-  recon: 'os.service',
   website: 'os.website',
   'automation-builder': 'os.automations', operations: 'os.automations', taskboard: 'os.automations',
   delivery: 'os.sales', fni: 'os.sales',
   reports: 'os.reports',
   'inv-intel': 'os.inventory', market: 'os.inventory',
   'ai-home': 'os.marketing',
+  'api-keys': 'os.integrations',
+  'owner-users': 'os.team', 'sales-team': 'os.team',
+  config: 'os.settings',
 };
+const PAGE_PRODUCT = { leaderboard: 'facebook' };
 // True unless this page maps to a feature the plan doesn't include. Scoped to full
 // Dealer OS mode: restricted product tiers (Facebook / AI) use their own page sets, and
 // window.hasFeature fails OPEN when /access/context is unavailable, so legacy accounts
 // and an older backend are never over-filtered.
-function pageFeatureOk(pg) {
+function pageFeatureOk(pg, invmode = null) {
   if (__productAllowedPages || __fbOnly) return true;   // restricted tiers handled by product nav
+  const access = window.__access;
+  const requiredProduct = (pg === 'inventory' && (invmode || __inventoryMode) === 'facebook')
+    ? 'facebook' : PAGE_PRODUCT[pg];
+  if (requiredProduct) {
+    // The entitlement context is derived server-side from live subscription rows. Until
+    // it is available, do not advertise an add-on as part of a lower DealerOS plan.
+    return !!(access && (access.isPlatformStaff || (access.products || []).includes(requiredProduct)));
+  }
   const feat = PAGE_FEATURE[pg];
   if (!feat) return true;
-  return typeof window.hasFeature === 'function' ? window.hasFeature(feat) : true;
+  return !!(access && (access.isPlatformStaff || (access.features || []).includes(feat)));
 }
 
 // Is a page reachable for this user? Respect the per-item gating that product /
 // role / feature flags apply by toggling the `hidden` class on nav items.
-function deptPageVisible(pg) {
-  if (!pageFeatureOk(pg)) return false;   // plan-tier entitlement gate
+function deptPageVisible(pg, invmode = null) {
+  if (!pageFeatureOk(pg, invmode)) return false;   // plan-tier entitlement gate
   if (__staffAllowedPages && !__staffAllowedPages.has(pg)) return false;
   const els = document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${pg}"]`);
   if (!els.length) return true;   // no nav item (e.g. sub-view) — don't over-filter
@@ -2049,7 +2064,7 @@ function deptNavEligible(role) {
     && __productAllowedPages == null;
 }
 // A page the current user may actually open: role-allowed AND not entitlement/flag hidden.
-function deptPageAllowed(p) { return deptRoleOk(p) && deptPageVisible(p.page); }
+function deptPageAllowed(p) { return deptRoleOk(p) && deptPageVisible(p.page, p.invmode); }
 function deptHomePage(dept) { return dept.pages.find(deptPageAllowed) || dept.pages.find(deptRoleOk) || dept.pages[0]; }
 // A page "counts" toward department visibility only if the user's role may see it AND
 // it has a real nav item that isn't gated off — pages without their own nav item
@@ -2057,7 +2072,7 @@ function deptHomePage(dept) { return dept.pages.find(deptPageAllowed) || dept.pa
 function deptHasRealPage(dept) {
   return dept.pages.some(p => {
     if (!deptRoleOk(p)) return false;
-    if (!pageFeatureOk(p.page)) return false;   // plan-tier entitlement gate
+    if (!pageFeatureOk(p.page, p.invmode)) return false;   // plan-tier entitlement gate
     const els = document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${p.page}"]`);
     return els.length && [...els].some(el => !el.classList.contains('hidden') && !el.classList.contains('ff-off'));
   });
