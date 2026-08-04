@@ -1,19 +1,17 @@
 /**
- * MarketSync HQ — customer-success SEQUENCES (Phase 3).
+ * MarketSync HQ — customer-success SEQUENCES + email templates (editable).
  *
- * Automated, multi-step cadences that MarketSync runs against its OWN customers
- * (dealership accounts): dunning (failed payment), win-back (cancelled), and a
- * manual white-glove onboarding cadence. Each step is an email (via the shared
- * mailer) or a task (an HQ follow-up on saas_account_followups).
+ * Cadences MarketSync runs against its own customers (dunning, win-back, onboarding,
+ * or anything HQ builds). The definitions live in the DB (saas_sequences +
+ * saas_sequence_steps) and pull copy from a reusable template library
+ * (saas_email_templates), so HQ edits them in the UI — no code deploy. Each step is
+ * an email (shared mailer, with {{first_name}}/{{account}} merge fields) or a task
+ * (an HQ follow-up). Enrollment + a per-step audit log live in
+ * saas_sequence_enrollments / saas_sequence_events.
  *
- * The catalog is config-as-code below. Enrollment + a per-step audit log live in
- * saas_sequence_enrollments / saas_sequence_events. A cron (/cron/saas-sequences)
- * auto-enrolls accounts by billing status, advances due steps, and stops dunning
- * automatically when an account recovers to ACTIVE. Idempotent: a partial unique
- * index guarantees one live enrollment per account per sequence, and current_step
- * guarantees each step fires once.
- *
- * Trial onboarding is intentionally NOT here — drip.js already owns trial emails.
+ * A cron (/cron/saas-sequences) auto-enrolls by billing status, advances due steps,
+ * auto-stops dunning on recovery, then runs the exception scanner. Idempotent
+ * throughout. Trial onboarding stays in drip.js to avoid double-emailing.
  */
 import { supabaseAdmin, sendEmail, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
@@ -22,73 +20,31 @@ import { saasCan } from './profile.js'
 
 const DAY_MS = 86400000
 
-// ── Catalog ──────────────────────────────────────────────────────────────────
-// step: { day, type:'email'|'task', subject/body (email) | title/note/priority (task) }
-export const SAAS_SEQUENCES = {
-  dunning: {
-    name: 'Payment recovery',
-    trigger: 'past_due',
-    description: 'Recover a failed payment before the account churns.',
-    steps: [
-      { day: 0, type: 'email', subject: 'Your MarketSync payment didn’t go through',
-        body: 'We had trouble charging your card for MarketSync. No action has been taken on your account yet — just update your payment method and you’re all set.' },
-      { day: 2, type: 'email', subject: 'Reminder: update your card to keep MarketSync active',
-        body: 'Your MarketSync subscription is past due. Update your payment details to avoid any interruption to posting, your dealer site, or the AI chat.' },
-      { day: 5, type: 'task', priority: 'high', title: 'Call about failed payment',
-        note: 'Dunning day 5 — personal outreach before access pauses.' },
-      { day: 8, type: 'email', subject: 'Final notice — your MarketSync access will pause',
-        body: 'This is the last reminder before your MarketSync access pauses. Update your card today to keep everything running.' },
-    ],
-  },
-  winback: {
-    name: 'Win-back',
-    trigger: 'cancelled',
-    description: 'Re-engage a cancelled account.',
-    steps: [
-      { day: 1, type: 'email', subject: 'We’d love to have you back at MarketSync',
-        body: 'Your MarketSync account is paused. If there’s anything we could have done better, just reply — we read every message. Reactivating takes one click whenever you’re ready.' },
-      { day: 14, type: 'email', subject: 'What’s new at MarketSync',
-        body: 'A lot has shipped since you left — faster Facebook posting, a smarter AI chat, and deeper inventory intelligence. Come see what’s new.' },
-      { day: 30, type: 'task', priority: 'normal', title: 'Win-back call',
-        note: '30 days since cancellation — personal check-in.' },
-    ],
-  },
-  onboarding_touch: {
-    name: 'White-glove onboarding',
-    trigger: 'manual',
-    description: 'A hands-on onboarding cadence you enroll new accounts into.',
-    steps: [
-      { day: 0, type: 'task', priority: 'high', title: 'Onboarding kickoff call',
-        note: 'Schedule the kickoff and confirm the inventory feed is connected.' },
-      { day: 2, type: 'email', subject: 'Getting started with MarketSync',
-        body: 'Welcome aboard! Here’s how to connect your inventory, install the extension, and post your first vehicles to Facebook Marketplace.' },
-      { day: 7, type: 'task', priority: 'normal', title: 'Week-1 adoption check',
-        note: 'Confirm they’ve posted, and offer help with anything stuck.' },
-      { day: 14, type: 'email', subject: 'Two weeks in — get more from MarketSync',
-        body: 'You’re rolling. Here are the features dealers get the most value from once they’re past setup.' },
-    ],
-  },
-}
-
 function seqHtml(title, body) {
   return `<div style="font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0f172a;">
     <h1 style="font-size:20px;margin:0 0 12px;">${title}</h1>
-    <div style="font-size:15px;line-height:1.6;color:#334155;">${body}</div>
+    <div style="font-size:15px;line-height:1.6;color:#334155;white-space:pre-wrap;">${body}</div>
     <p style="margin-top:24px;font-size:14px;"><a href="${FRONTEND_URL}/login.html" style="color:#6366f1;font-weight:600;">Open MarketSync</a></p>
     <p style="margin-top:20px;font-size:13px;color:#94a3b8;">— The MarketSync team</p>
   </div>`
 }
+function mergeFields(str, ctx) {
+  return String(str || '').replace(/\{\{\s*(first_name|account)\s*\}\}/g, (_, k) => (ctx[k] != null ? String(ctx[k]) : ''))
+}
 
-// The account's primary admin email (dealer admin, else first team member).
+// Recipient (account admin email + name) and the account/dealership name.
 async function accountRecipient(dealershipId) {
-  const { data: profs } = await supabaseAdmin.from('profiles').select('id, role').eq('dealership_id', dealershipId)
+  const [{ data: profs }, { data: dealer }] = await Promise.all([
+    supabaseAdmin.from('profiles').select('id, role').eq('dealership_id', dealershipId),
+    supabaseAdmin.from('dealerships').select('name').eq('id', dealershipId).maybeSingle(),
+  ])
   if (!profs?.length) return null
   const admin = profs.find(p => p.role === 'DEALER_ADMIN') || profs[0]
   try {
     const { data } = await supabaseAdmin.auth.admin.getUserById(admin.id)
     const u = data?.user
     if (!u?.email || !u?.email_confirmed_at) return null
-    return { email: u.email, name: u.user_metadata?.full_name || null }
+    return { email: u.email, name: u.user_metadata?.full_name || null, account: dealer?.name || null }
   } catch { return null }
 }
 
@@ -103,18 +59,42 @@ async function executeStep(e, seq, s, stepIndex, summary) {
   if (s.type === 'email') {
     const rcpt = await accountRecipient(e.dealership_id)
     if (rcpt?.email) {
-      const r = await sendEmail({ to: rcpt.email, subject: s.subject, html: seqHtml(s.subject, s.body) })
-      if (r.ok) { summary.emails++; await logStep(e, stepIndex, 'email', s.subject) }
+      const ctx = { first_name: (rcpt.name || '').split(' ')[0] || 'there', account: rcpt.account || 'your dealership' }
+      const subject = mergeFields(s.subject, ctx)
+      const r = await sendEmail({ to: rcpt.email, subject, html: seqHtml(subject, mergeFields(s.body, ctx)) })
+      if (r.ok) { summary.emails++; await logStep(e, stepIndex, 'email', subject) }
     }
   } else if (s.type === 'task') {
     await supabaseAdmin.from('saas_account_followups').insert({
-      dealership_id: e.dealership_id, title: s.title,
-      note: s.note || `${seq.name} — step ${stepIndex + 1}`,
-      priority: s.priority || 'normal', due_at: new Date().toISOString(),
+      dealership_id: e.dealership_id, title: s.title || `${seq.name} — step ${stepIndex + 1}`,
+      note: s.note || null, priority: s.priority || 'normal', due_at: new Date().toISOString(),
     })
     summary.tasks++
     await logStep(e, stepIndex, 'task', s.title)
   }
+}
+
+// Load every sequence definition (enabled + steps, with template copy resolved) from
+// the DB, keyed by sequence.key — this is what the runner executes.
+async function loadSequenceDefs() {
+  const [{ data: seqs }, { data: steps }, { data: tmpls }] = await Promise.all([
+    supabaseAdmin.from('saas_sequences').select('*'),
+    supabaseAdmin.from('saas_sequence_steps').select('*').order('step_order', { ascending: true }),
+    supabaseAdmin.from('saas_email_templates').select('*'),
+  ])
+  const tById = Object.fromEntries((tmpls || []).map(t => [t.id, t]))
+  const byId = {}, byKey = {}
+  for (const s of seqs || []) { const def = { ...s, steps: [] }; byKey[s.key] = def; byId[s.id] = def }
+  for (const st of steps || []) {
+    const def = byId[st.sequence_id]; if (!def) continue
+    const tmpl = st.template_id ? tById[st.template_id] : null
+    def.steps.push({
+      day: st.day_offset, type: st.type,
+      subject: st.subject || tmpl?.subject || '', body: st.body || tmpl?.body || '',
+      title: st.title, note: st.note, priority: st.priority,
+    })
+  }
+  return byKey
 }
 
 // Create a live enrollment if none exists (idempotent via the partial unique index).
@@ -132,19 +112,21 @@ async function enroll(dealershipId, sequenceKey, createdBy) {
 // ── The engine ────────────────────────────────────────────────────────────────
 export async function runSaasSequences({ trigger = 'manual' } = {}) {
   const summary = { trigger, enrolled: 0, stopped: 0, steps: 0, emails: 0, tasks: 0, completed: 0 }
+  const defs = await loadSequenceDefs()
 
-  // 1) Auto-enroll / auto-stop by billing status.
+  // 1) Auto-enroll / auto-stop by billing status (only for enabled sequences).
   const [{ data: dealers }, { data: live }] = await Promise.all([
     supabaseAdmin.from('dealerships').select('id, billing_status').limit(5000),
     supabaseAdmin.from('saas_sequence_enrollments').select('id, dealership_id, sequence_key, status').in('status', ['active', 'paused']),
   ])
   const liveByKey = new Map()
   for (const e of live || []) liveByKey.set(e.dealership_id + '|' + e.sequence_key, e)
+  const dunningOn = defs.dunning?.enabled, winbackOn = defs.winback?.enabled
   for (const d of dealers || []) {
     const S = (d.billing_status || '').toUpperCase()
     try {
-      if (S === 'PAST_DUE' && !liveByKey.has(d.id + '|dunning')) { await enroll(d.id, 'dunning', null); summary.enrolled++ }
-      else if (S === 'INACTIVE' && !liveByKey.has(d.id + '|winback')) { await enroll(d.id, 'winback', null); summary.enrolled++ }
+      if (dunningOn && S === 'PAST_DUE' && !liveByKey.has(d.id + '|dunning')) { await enroll(d.id, 'dunning', null); summary.enrolled++ }
+      else if (winbackOn && S === 'INACTIVE' && !liveByKey.has(d.id + '|winback')) { await enroll(d.id, 'winback', null); summary.enrolled++ }
       if (S === 'ACTIVE') {
         const dn = liveByKey.get(d.id + '|dunning')
         if (dn) { await supabaseAdmin.from('saas_sequence_enrollments').update({ status: 'stopped', updated_at: new Date().toISOString() }).eq('id', dn.id); summary.stopped++ }
@@ -155,8 +137,8 @@ export async function runSaasSequences({ trigger = 'manual' } = {}) {
   // 2) Advance every active enrollment through its due steps.
   const { data: toRun } = await supabaseAdmin.from('saas_sequence_enrollments').select('*').eq('status', 'active')
   for (const e of toRun || []) {
-    const seq = SAAS_SEQUENCES[e.sequence_key]
-    if (!seq) continue
+    const seq = defs[e.sequence_key]
+    if (!seq || !seq.enabled) continue
     const days = Math.floor((Date.now() - new Date(e.started_at).getTime()) / DAY_MS)
     let step = e.current_step
     while (step < seq.steps.length && seq.steps[step].day <= days) {
@@ -178,9 +160,6 @@ export async function runSaasSequences({ trigger = 'manual' } = {}) {
 }
 
 // ── Exception scanner (Phase 4) ───────────────────────────────────────────────
-// Surfaces accounts that need a human, as idempotent HQ follow-ups: trials ending
-// soon, and paying accounts whose usage has gone quiet. (Failed payments are handled
-// by the dunning sequence, so they're not duplicated here.)
 export async function runSaasExceptionScan() {
   const summary = { scanned: 0, created: 0 }
   const since = new Date(Date.now() - 14 * DAY_MS).toISOString()
@@ -221,26 +200,27 @@ export async function runSaasExceptionScan() {
 // ── HQ routes ─────────────────────────────────────────────────────────────────
 export function registerSaasSequences(app) {
   const can = (perm) => (req, res) => { if (saasCan(req, perm)) return true; res.status(403).json({ error: 'Insufficient permission' }); return false }
+  const touch = () => ({ updated_at: new Date().toISOString() })
 
-  // Catalog + live enrollment counts per sequence.
+  // Catalog + live enrollment counts (used by the Customer 360 enroll picker).
   app.get('/saas/sequences', requireAuth, async (req, res) => {
     if (!can('view_pipeline')(req, res)) return
-    const { data: rows } = await supabaseAdmin.from('saas_sequence_enrollments').select('sequence_key, status')
+    const [{ data: seqs }, { data: enr }] = await Promise.all([
+      supabaseAdmin.from('saas_sequences').select('key, name, trigger, description, enabled'),
+      supabaseAdmin.from('saas_sequence_enrollments').select('sequence_key, status'),
+    ])
     const counts = {}
-    for (const r of rows || []) { const k = r.sequence_key; (counts[k] = counts[k] || { active: 0, total: 0 }); counts[k].total++; if (r.status === 'active') counts[k].active++ }
-    res.json({
-      sequences: Object.entries(SAAS_SEQUENCES).map(([key, s]) => ({
-        key, name: s.name, trigger: s.trigger, description: s.description,
-        steps: s.steps.length, active: counts[key]?.active || 0, total: counts[key]?.total || 0,
-      })),
-    })
+    for (const r of enr || []) { const k = r.sequence_key; (counts[k] = counts[k] || { active: 0, total: 0 }); counts[k].total++; if (r.status === 'active') counts[k].active++ }
+    res.json({ sequences: (seqs || []).map(s => ({ ...s, active: counts[s.key]?.active || 0, total: counts[s.key]?.total || 0 })) })
   })
 
-  // Manually enroll an account (e.g. onboarding_touch).
+  // Manually enroll an account.
   app.post('/saas/sequences/enroll', requireAuth, async (req, res) => {
     if (!can('manage_followups')(req, res)) return
     const { dealership_id, sequence_key } = req.body || {}
-    if (!dealership_id || !SAAS_SEQUENCES[sequence_key]) return res.status(400).json({ error: 'dealership_id and a valid sequence_key are required' })
+    if (!dealership_id || !sequence_key) return res.status(400).json({ error: 'dealership_id and sequence_key required' })
+    const { data: seq } = await supabaseAdmin.from('saas_sequences').select('key').eq('key', sequence_key).maybeSingle()
+    if (!seq) return res.status(400).json({ error: 'Unknown sequence' })
     try {
       const r = await enroll(dealership_id, sequence_key, req.user.id)
       if (r.skipped) return res.status(409).json({ error: 'Account is already in this sequence' })
@@ -248,19 +228,131 @@ export function registerSaasSequences(app) {
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
-  // Pause / resume / stop an enrollment.
+  // Pause / resume / stop an ENROLLMENT (operates on an enrollment id).
   app.patch('/saas/sequences/:id', requireAuth, async (req, res) => {
     if (!can('manage_followups')(req, res)) return
     const status = req.body?.status
     if (!['active', 'paused', 'stopped'].includes(status)) return res.status(400).json({ error: 'invalid status' })
     const { data, error } = await supabaseAdmin.from('saas_sequence_enrollments')
-      .update({ status, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single()
+      .update({ status, ...touch() }).eq('id', req.params.id).select().single()
     if (error) return res.status(500).json({ error: error.message })
     res.json(data)
   })
 
-  // Cron: auto-enroll + advance. Render Cron Job (daily):
-  //   curl -X POST https://<backend>/cron/saas-sequences -H "x-cron-secret: $CRON_SECRET"
+  // ── Automation builder — sequence DEFINITIONS + steps ──
+  app.get('/saas/automation/sequences', requireAuth, async (req, res) => {
+    if (!can('view_pipeline')(req, res)) return
+    const [{ data: seqs }, { data: steps }, { data: enr }] = await Promise.all([
+      supabaseAdmin.from('saas_sequences').select('*').order('created_at', { ascending: true }),
+      supabaseAdmin.from('saas_sequence_steps').select('*').order('step_order', { ascending: true }),
+      supabaseAdmin.from('saas_sequence_enrollments').select('sequence_key, status'),
+    ])
+    const counts = {}
+    for (const r of enr || []) { const k = r.sequence_key; (counts[k] = counts[k] || { active: 0, total: 0 }); counts[k].total++; if (r.status === 'active') counts[k].active++ }
+    res.json({
+      sequences: (seqs || []).map(s => ({
+        ...s, active: counts[s.key]?.active || 0, total: counts[s.key]?.total || 0,
+        steps: (steps || []).filter(st => st.sequence_id === s.id),
+      })),
+    })
+  })
+
+  app.post('/saas/automation/sequences', requireAuth, async (req, res) => {
+    if (!can('manage_followups')(req, res)) return
+    const { key, name, trigger, description } = req.body || {}
+    if (!key || !name) return res.status(400).json({ error: 'key and name required' })
+    const { data, error } = await supabaseAdmin.from('saas_sequences')
+      .insert({ key: String(key).toLowerCase().replace(/[^a-z0-9_]/g, '_'), name, trigger: trigger || 'manual', description: description || null }).select().single()
+    if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'A sequence with that key exists' : error.message })
+    res.json(data)
+  })
+
+  app.patch('/saas/automation/sequences/:id', requireAuth, async (req, res) => {
+    if (!can('manage_followups')(req, res)) return
+    const patch = touch()
+    for (const k of ['name', 'trigger', 'description', 'enabled']) if (k in (req.body || {})) patch[k] = req.body[k]
+    const { data, error } = await supabaseAdmin.from('saas_sequences').update(patch).eq('id', req.params.id).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
+  app.delete('/saas/automation/sequences/:id', requireAuth, async (req, res) => {
+    if (!can('manage_followups')(req, res)) return
+    const { error } = await supabaseAdmin.from('saas_sequences').delete().eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  })
+
+  app.post('/saas/automation/sequences/:id/steps', requireAuth, async (req, res) => {
+    if (!can('manage_followups')(req, res)) return
+    const b = req.body || {}
+    const { data: existing } = await supabaseAdmin.from('saas_sequence_steps').select('step_order').eq('sequence_id', req.params.id)
+    const nextOrder = (existing || []).reduce((m, r) => Math.max(m, r.step_order + 1), 0)
+    const { data, error } = await supabaseAdmin.from('saas_sequence_steps').insert({
+      sequence_id: req.params.id, step_order: nextOrder,
+      day_offset: b.day_offset || 0, type: b.type === 'task' ? 'task' : 'email',
+      template_id: b.template_id || null, subject: b.subject || null, body: b.body || null,
+      title: b.title || null, note: b.note || null, priority: b.priority || null,
+    }).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
+  app.patch('/saas/automation/steps/:id', requireAuth, async (req, res) => {
+    if (!can('manage_followups')(req, res)) return
+    const patch = touch()
+    for (const k of ['day_offset', 'type', 'template_id', 'subject', 'body', 'title', 'note', 'priority', 'step_order']) if (k in (req.body || {})) patch[k] = req.body[k]
+    const { data, error } = await supabaseAdmin.from('saas_sequence_steps').update(patch).eq('id', req.params.id).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
+  app.delete('/saas/automation/steps/:id', requireAuth, async (req, res) => {
+    if (!can('manage_followups')(req, res)) return
+    const { error } = await supabaseAdmin.from('saas_sequence_steps').delete().eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  })
+
+  app.post('/saas/automation/sequences/:id/reorder', requireAuth, async (req, res) => {
+    if (!can('manage_followups')(req, res)) return
+    const order = Array.isArray(req.body?.order) ? req.body.order : []
+    for (let i = 0; i < order.length; i++) {
+      await supabaseAdmin.from('saas_sequence_steps').update({ step_order: i, ...touch() }).eq('id', order[i]).eq('sequence_id', req.params.id)
+    }
+    res.json({ ok: true })
+  })
+
+  // ── Email template library ──
+  app.get('/saas/automation/templates', requireAuth, async (req, res) => {
+    if (!can('view_pipeline')(req, res)) return
+    const { data } = await supabaseAdmin.from('saas_email_templates').select('*').order('updated_at', { ascending: false })
+    res.json({ templates: data || [] })
+  })
+  app.post('/saas/automation/templates', requireAuth, async (req, res) => {
+    if (!can('manage_followups')(req, res)) return
+    const { name, subject, body } = req.body || {}
+    if (!name || !subject || !body) return res.status(400).json({ error: 'name, subject and body required' })
+    const { data, error } = await supabaseAdmin.from('saas_email_templates').insert({ name, subject, body, created_by: req.user.id }).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+  app.patch('/saas/automation/templates/:id', requireAuth, async (req, res) => {
+    if (!can('manage_followups')(req, res)) return
+    const patch = touch()
+    for (const k of ['name', 'subject', 'body']) if (k in (req.body || {})) patch[k] = req.body[k]
+    const { data, error } = await supabaseAdmin.from('saas_email_templates').update(patch).eq('id', req.params.id).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+  app.delete('/saas/automation/templates/:id', requireAuth, async (req, res) => {
+    if (!can('manage_followups')(req, res)) return
+    const { error } = await supabaseAdmin.from('saas_email_templates').delete().eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  })
+
+  // Cron: auto-enroll + advance sequences, then run the exception scan.
   app.post('/cron/saas-sequences', async (req, res) => {
     if (!requestHasCronSecret(req)) return res.status(401).json({ error: 'Unauthorized' })
     try {

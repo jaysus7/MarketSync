@@ -436,7 +436,7 @@ let profileContext = null;
 // html[data-dash-mode] attribute). Persisted per-browser.
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-employees', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
+const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-employees', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -1247,6 +1247,7 @@ function initDashModeForOwner() {
   document.getElementById('nav-saas-customers')?.classList.remove('hidden'); // Customer Pipeline
   document.getElementById('nav-saas-followups')?.classList.remove('hidden'); // Account follow-up queue
   document.getElementById('nav-saas-funnel')?.classList.remove('hidden');    // Checkout funnel / abandoned carts
+  document.getElementById('nav-saas-automation')?.classList.remove('hidden');// Automation & email (editable drips)
   document.getElementById('nav-saas-employees')?.classList.remove('hidden'); // Employees + permissions
   // The demo dealership workspace has been retired — the owner runs the MarketSync
   // SaaS business only, so force the SaaS back office and land on the HQ.
@@ -2021,6 +2022,7 @@ const SAAS_DEPARTMENTS = {
   pipeline:   { label: 'Customer Pipeline', icon: 'chart',   accent: 'fuchsia', pages: [{ page: 'saas-customers', label: 'Pipeline' }] },
   followups:  { label: 'Follow-ups',        icon: 'bolt',    accent: 'fuchsia', pages: [{ page: 'saas-followups', label: 'Follow-ups' }] },
   funnel:     { label: 'Funnel',            icon: 'chart',   accent: 'fuchsia', pages: [{ page: 'saas-funnel', label: 'Funnel' }] },
+  automation: { label: 'Automation',        icon: 'bolt',    accent: 'fuchsia', pages: [{ page: 'saas-automation', label: 'Automation' }] },
   employees:  { label: 'Employees',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'saas-employees', label: 'Employees' }] },
   accounts:   { label: 'All Users',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'owner-users', label: 'Accounts' }] },
   affiliates: { label: 'Affiliates',       icon: 'trophy',   accent: 'amber',   pages: [{ page: 'affiliates-admin', label: 'Affiliates' }] },
@@ -2262,6 +2264,7 @@ function switchPage(pageId) {
   if (pageId === 'saas-customers') loadSaasCustomers();
   if (pageId === 'saas-followups') loadSaasFollowups();
   if (pageId === 'saas-funnel') loadSaasFunnel();
+  if (pageId === 'saas-automation') loadSaasAutomation();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'saas-accounting') loadSaasAccounting();
   if (pageId === 'config') loadConfigHub();
@@ -11502,6 +11505,248 @@ window.loadSaasFunnel = loadSaasFunnel;
 window.saasRecoverCart = async (id) => {
   try { await apiSendJson('/saas/carts/' + id + '/recover', 'POST', {}); showToast('Recovery follow-up created', 'success'); await loadSaasFunnel(); }
   catch (e) { showToast(e.message || 'Could not create recovery follow-up', 'error'); }
+};
+
+// ══ Automation & Email — editable drips (sequences + steps) + template library ══
+let __automation = { view: 'sequences', sequences: [], templates: [] };
+const SAAS_TRIGGER_LABEL = { past_due: 'Payment failed', cancelled: 'Cancelled', trialing: 'On trial', manual: 'Manual' };
+async function loadSaasAutomation() {
+  const root = document.getElementById('saas-automation-root'); if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading automation…</div>`;
+  try {
+    const [seq, tpl] = await Promise.all([apiGetJson('/saas/automation/sequences'), apiGetJson('/saas/automation/templates')]);
+    __automation.sequences = seq.sequences || [];
+    __automation.templates = tpl.templates || [];
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message || 'Could not load')}</div>`; return; }
+  renderAutomation();
+}
+window.loadSaasAutomation = loadSaasAutomation;
+function renderAutomation() {
+  const root = document.getElementById('saas-automation-root'); if (!root) return;
+  const v = __automation.view;
+  const pill = (id, label) => `<button onclick="automationView('${id}')" class="px-3.5 py-1.5 rounded-full text-[13px] font-bold transition ${v === id ? 'bg-fuchsia-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
+  root.innerHTML = `
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-fuchsia-100 dark:bg-fuchsia-950/40 text-fuchsia-600 dark:text-fuchsia-400 flex items-center justify-center">${svgIcon('bolt', 'w-5 h-5')}</div>
+        <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Automation &amp; Email</h1>
+          <p class="text-[13px] text-slate-500 dark:text-slate-400">Edit your drips step-by-step and manage reusable email templates.</p></div>
+      </div>
+      <div class="flex items-center gap-2">${pill('sequences', 'Sequences')}${pill('templates', 'Templates')}</div>
+    </div>
+    <div id="automation-body"></div>`;
+  (v === 'sequences' ? renderAutoSequences : renderAutoTemplates)();
+}
+window.automationView = (v) => { __automation.view = v; renderAutomation(); };
+function autoStepChip(s) {
+  const label = s.type === 'task' ? `Task: ${esc(s.title || 'Follow-up')}` : `Email: ${esc(s.subject || '(template)')}`;
+  const tone = s.type === 'task' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300';
+  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold ${tone}">Day ${s.day_offset} · ${label}</span>`;
+}
+function renderAutoSequences() {
+  const body = document.getElementById('automation-body'); if (!body) return;
+  const cards = (__automation.sequences || []).map(s => {
+    const steps = (s.steps || []).slice().sort((a, b) => a.step_order - b.step_order);
+    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-black text-slate-900 dark:text-white">${esc(s.name)}</span>
+            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(SAAS_TRIGGER_LABEL[s.trigger] || s.trigger || 'Manual')}</span>
+            ${s.enabled ? '' : '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-500">Off</span>'}
+          </div>
+          ${s.description ? `<p class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">${esc(s.description)}</p>` : ''}
+          <div class="text-[11px] text-slate-400 mt-1">${steps.length} step${steps.length === 1 ? '' : 's'} · ${s.active || 0} active / ${s.total || 0} enrolled</div>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <button onclick="automationToggleSeq('${s.id}', ${s.enabled ? 'false' : 'true'})" title="${s.enabled ? 'Turn off' : 'Turn on'}" class="text-[12px] font-bold ${s.enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${s.enabled ? 'On' : 'Off'}</button>
+          <button onclick="automationEditSeq('${s.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700">Edit</button>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-1.5 mt-3">${steps.map(autoStepChip).join('') || '<span class="text-[12px] text-slate-400 italic">No steps yet.</span>'}</div>
+    </div>`;
+  }).join('');
+  body.innerHTML = `<div class="flex justify-end mb-3"><button onclick="automationNewSeq()" class="px-3 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">＋ New sequence</button></div>
+    <div class="space-y-3">${cards || '<div class="text-sm text-slate-400 italic py-6 text-center">No sequences yet.</div>'}</div>`;
+}
+function renderAutoTemplates() {
+  const body = document.getElementById('automation-body'); if (!body) return;
+  const rows = (__automation.templates || []).map(t => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(t.name)}</div><div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(t.subject)}</div></div>
+      <button onclick="automationEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700">Edit</button>
+      <button onclick="automationDeleteTmpl('${t.id}')" class="text-[12px] font-bold text-rose-500">Delete</button>
+    </div>`).join('');
+  body.innerHTML = `<div class="flex items-center justify-between mb-3">
+      <p class="text-[12px] text-slate-500 dark:text-slate-400">Reusable email bodies. Use <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code> and <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{account}}</code> merge fields.</p>
+      <button onclick="automationNewTmpl()" class="px-3 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">＋ New template</button></div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No templates yet.</div>'}</div>`;
+}
+// ── modal helper ──
+function automationModal(html, maxW = 'max-w-lg') {
+  document.getElementById('automation-modal')?.remove();
+  const el = document.createElement('div'); el.id = 'automation-modal';
+  el.className = 'fixed inset-0 z-[96] flex items-center justify-center p-4';
+  el.innerHTML = `<div data-close class="absolute inset-0 bg-slate-950/50"></div><div class="relative w-full ${maxW} max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-5">${html}</div>`;
+  el.querySelectorAll('[data-close]').forEach(x => x.onclick = () => el.remove());
+  document.body.appendChild(el);
+  return el;
+}
+const closeAutomationModal = () => document.getElementById('automation-modal')?.remove();
+// ── sequence editor ──
+window.automationNewSeq = () => {
+  automationModal(`<div class="text-lg font-black text-slate-900 dark:text-white mb-4">New sequence</div>
+    <div class="space-y-3">
+      <label class="block text-xs font-bold text-slate-500">Name<input id="as-name" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="e.g. Renewal reminder"></label>
+      <label class="block text-xs font-bold text-slate-500">Key (unique)<input id="as-key" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="renewal_reminder"></label>
+      <label class="block text-xs font-bold text-slate-500">Trigger<select id="as-trigger" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${['manual', 'past_due', 'cancelled', 'trialing'].map(t => `<option value="${t}">${SAAS_TRIGGER_LABEL[t]}</option>`).join('')}</select></label>
+      <label class="block text-xs font-bold text-slate-500">Description<input id="as-desc" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+    </div>
+    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
+      <button onclick="automationCreateSeq()" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">Create</button></div>`);
+};
+window.automationCreateSeq = async () => {
+  const name = document.getElementById('as-name').value.trim(), key = document.getElementById('as-key').value.trim();
+  if (!name || !key) return showToast('Name and key are required', 'error');
+  try {
+    await apiSendJson('/saas/automation/sequences', 'POST', { name, key, trigger: document.getElementById('as-trigger').value, description: document.getElementById('as-desc').value.trim() });
+    closeAutomationModal(); await loadSaasAutomation(); showToast('Sequence created', 'success');
+  } catch (e) { showToast(e.message || 'Could not create', 'error'); }
+};
+window.automationToggleSeq = async (id, enabled) => {
+  try { await apiSendJson('/saas/automation/sequences/' + id, 'PATCH', { enabled }); await loadSaasAutomation(); } catch (e) { showToast(e.message || 'Failed', 'error'); }
+};
+window.automationEditSeq = (id) => {
+  const s = __automation.sequences.find(x => x.id === id); if (!s) return;
+  const steps = (s.steps || []).slice().sort((a, b) => a.step_order - b.step_order);
+  const stepRow = (st, i) => `<div class="flex items-center gap-2 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <span class="text-[11px] font-bold text-slate-400 w-12">Day ${st.day_offset}</span>
+      <div class="min-w-0 flex-1"><div class="text-[13px] font-semibold text-slate-800 dark:text-slate-100">${st.type === 'task' ? 'Task' : 'Email'}: ${esc(st.type === 'task' ? (st.title || '—') : (st.subject || '(from template)'))}</div></div>
+      <button onclick="automationMoveStep('${s.id}','${st.id}',-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 disabled:opacity-30 text-xs">▲</button>
+      <button onclick="automationMoveStep('${s.id}','${st.id}',1)" ${i === steps.length - 1 ? 'disabled' : ''} class="text-slate-400 disabled:opacity-30 text-xs">▼</button>
+      <button onclick="automationEditStep('${s.id}','${st.id}')" class="text-[12px] font-bold text-indigo-600 dark:text-indigo-400">Edit</button>
+      <button onclick="automationDeleteStep('${s.id}','${st.id}')" class="text-[12px] font-bold text-rose-500">✕</button>
+    </div>`;
+  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${esc(s.name)}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <label class="block text-xs font-bold text-slate-500 col-span-2">Name<input id="es-name" value="${esc(s.name)}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Trigger<select id="es-trigger" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${['manual', 'past_due', 'cancelled', 'trialing'].map(t => `<option value="${t}" ${s.trigger === t ? 'selected' : ''}>${SAAS_TRIGGER_LABEL[t]}</option>`).join('')}</select></label>
+      <label class="block text-xs font-bold text-slate-500">Enabled<select id="es-enabled" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="true" ${s.enabled ? 'selected' : ''}>On</option><option value="false" ${!s.enabled ? 'selected' : ''}>Off</option></select></label>
+      <label class="block text-xs font-bold text-slate-500 col-span-2">Description<input id="es-desc" value="${esc(s.description || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+    </div>
+    <div class="flex items-center justify-between mb-1"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Steps</div><button onclick="automationEditStep('${s.id}',null)" class="text-[12px] font-bold text-fuchsia-600 dark:text-fuchsia-400">＋ Add step</button></div>
+    <div class="rounded-lg border border-slate-200 dark:border-slate-800 px-3 mb-4">${steps.map(stepRow).join('') || '<div class="text-xs text-slate-400 italic py-3">No steps yet.</div>'}</div>
+    <div class="flex justify-between gap-2"><button onclick="automationDeleteSeq('${s.id}')" class="px-3 py-2 text-sm font-bold text-rose-500">Delete sequence</button>
+      <div class="flex gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Close</button>
+      <button onclick="automationSaveSeq('${s.id}')" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">Save</button></div></div>`, 'max-w-xl');
+};
+window.automationSaveSeq = async (id) => {
+  try {
+    await apiSendJson('/saas/automation/sequences/' + id, 'PATCH', {
+      name: document.getElementById('es-name').value.trim(), trigger: document.getElementById('es-trigger').value,
+      enabled: document.getElementById('es-enabled').value === 'true', description: document.getElementById('es-desc').value.trim(),
+    });
+    closeAutomationModal(); await loadSaasAutomation(); showToast('Saved', 'success');
+  } catch (e) { showToast(e.message || 'Could not save', 'error'); }
+};
+window.automationDeleteSeq = async (id) => {
+  if (!confirm('Delete this sequence and all its steps? Active enrollments stop.')) return;
+  try { await apiSendJson('/saas/automation/sequences/' + id, 'DELETE'); closeAutomationModal(); await loadSaasAutomation(); showToast('Sequence deleted', 'success'); }
+  catch (e) { showToast(e.message || 'Could not delete', 'error'); }
+};
+window.automationMoveStep = async (seqId, stepId, dir) => {
+  const s = __automation.sequences.find(x => x.id === seqId); if (!s) return;
+  const steps = (s.steps || []).slice().sort((a, b) => a.step_order - b.step_order);
+  const i = steps.findIndex(x => x.id === stepId); const j = i + dir;
+  if (i < 0 || j < 0 || j >= steps.length) return;
+  const order = steps.map(x => x.id); [order[i], order[j]] = [order[j], order[i]];
+  try { await apiSendJson('/saas/automation/sequences/' + seqId + '/reorder', 'POST', { order }); await loadSaasAutomation(); automationEditSeq(seqId); }
+  catch (e) { showToast(e.message || 'Could not reorder', 'error'); }
+};
+window.automationDeleteStep = async (seqId, stepId) => {
+  try { await apiSendJson('/saas/automation/steps/' + stepId, 'DELETE'); await loadSaasAutomation(); automationEditSeq(seqId); }
+  catch (e) { showToast(e.message || 'Could not delete step', 'error'); }
+};
+// ── step editor ──
+window.automationEditStep = (seqId, stepId) => {
+  const s = __automation.sequences.find(x => x.id === seqId); if (!s) return;
+  const st = stepId ? (s.steps || []).find(x => x.id === stepId) : {};
+  const type = st.type || 'email';
+  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__automation.templates || []).map(t => `<option value="${t.id}" ${st.template_id === t.id ? 'selected' : ''}>${esc(t.name)}</option>`)).join('');
+  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${stepId ? 'Edit step' : 'Add step'}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
+    <div class="grid grid-cols-2 gap-3">
+      <label class="block text-xs font-bold text-slate-500">Day offset<input id="st-day" type="number" min="0" value="${st.day_offset || 0}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Type<select id="st-type" onchange="automationStepTypeToggle()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="email" ${type === 'email' ? 'selected' : ''}>Email</option><option value="task" ${type === 'task' ? 'selected' : ''}>Task</option></select></label>
+    </div>
+    <div id="st-email" class="${type === 'task' ? 'hidden' : ''} mt-3 space-y-3">
+      <label class="block text-xs font-bold text-slate-500">Template<select id="st-template" onchange="automationTmplPick()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${tmplOpts}</select></label>
+      <label class="block text-xs font-bold text-slate-500">Subject<input id="st-subject" value="${esc(st.subject || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Body<textarea id="st-body" rows="6" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(st.body || '')}</textarea></label>
+    </div>
+    <div id="st-task" class="${type === 'task' ? '' : 'hidden'} mt-3 space-y-3">
+      <label class="block text-xs font-bold text-slate-500">Task title<input id="st-title" value="${esc(st.title || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Note<textarea id="st-note" rows="3" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(st.note || '')}</textarea></label>
+      <label class="block text-xs font-bold text-slate-500">Priority<select id="st-priority" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${['low', 'normal', 'high'].map(p => `<option value="${p}" ${(st.priority || 'normal') === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
+    </div>
+    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
+      <button onclick="automationSaveStep('${seqId}', ${stepId ? `'${stepId}'` : 'null'})" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">Save step</button></div>`, 'max-w-lg');
+};
+window.automationStepTypeToggle = () => {
+  const t = document.getElementById('st-type').value;
+  document.getElementById('st-email').classList.toggle('hidden', t === 'task');
+  document.getElementById('st-task').classList.toggle('hidden', t !== 'task');
+};
+window.automationTmplPick = () => {
+  const id = document.getElementById('st-template').value;
+  const t = (__automation.templates || []).find(x => x.id === id);
+  if (t) { document.getElementById('st-subject').value = t.subject; document.getElementById('st-body').value = t.body; }
+};
+window.automationSaveStep = async (seqId, stepId) => {
+  const type = document.getElementById('st-type').value;
+  const payload = { day_offset: parseInt(document.getElementById('st-day').value, 10) || 0, type };
+  if (type === 'email') {
+    payload.template_id = document.getElementById('st-template').value || null;
+    payload.subject = document.getElementById('st-subject').value.trim();
+    payload.body = document.getElementById('st-body').value.trim();
+    if (!payload.subject) return showToast('Email subject is required', 'error');
+  } else {
+    payload.title = document.getElementById('st-title').value.trim();
+    payload.note = document.getElementById('st-note').value.trim();
+    payload.priority = document.getElementById('st-priority').value;
+    if (!payload.title) return showToast('Task title is required', 'error');
+  }
+  try {
+    if (stepId) await apiSendJson('/saas/automation/steps/' + stepId, 'PATCH', payload);
+    else await apiSendJson('/saas/automation/sequences/' + seqId + '/steps', 'POST', payload);
+    await loadSaasAutomation(); automationEditSeq(seqId); showToast('Step saved', 'success');
+  } catch (e) { showToast(e.message || 'Could not save step', 'error'); }
+};
+// ── templates ──
+window.automationNewTmpl = () => automationTmplModal(null);
+window.automationEditTmpl = (id) => automationTmplModal((__automation.templates || []).find(x => x.id === id));
+function automationTmplModal(t) {
+  t = t || {};
+  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${t.id ? 'Edit template' : 'New template'}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
+    <div class="space-y-3">
+      <label class="block text-xs font-bold text-slate-500">Name<input id="tm-name" value="${esc(t.name || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Subject<input id="tm-subject" value="${esc(t.subject || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Body <span class="text-slate-400 font-normal">— {{first_name}}, {{account}}</span><textarea id="tm-body" rows="8" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(t.body || '')}</textarea></label>
+    </div>
+    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
+      <button onclick="automationSaveTmpl(${t.id ? `'${t.id}'` : 'null'})" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">Save</button></div>`);
+}
+window.automationSaveTmpl = async (id) => {
+  const payload = { name: document.getElementById('tm-name').value.trim(), subject: document.getElementById('tm-subject').value.trim(), body: document.getElementById('tm-body').value.trim() };
+  if (!payload.name || !payload.subject || !payload.body) return showToast('Name, subject and body are required', 'error');
+  try {
+    if (id) await apiSendJson('/saas/automation/templates/' + id, 'PATCH', payload);
+    else await apiSendJson('/saas/automation/templates', 'POST', payload);
+    closeAutomationModal(); await loadSaasAutomation(); showToast('Template saved', 'success');
+  } catch (e) { showToast(e.message || 'Could not save', 'error'); }
+};
+window.automationDeleteTmpl = async (id) => {
+  if (!confirm('Delete this template?')) return;
+  try { await apiSendJson('/saas/automation/templates/' + id, 'DELETE'); await loadSaasAutomation(); showToast('Template deleted', 'success'); }
+  catch (e) { showToast(e.message || 'Could not delete', 'error'); }
 };
 
 // ══ Employees + permissions — MarketSync staff (owner-only) ═══════════════════
