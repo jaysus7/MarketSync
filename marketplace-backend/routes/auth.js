@@ -370,6 +370,9 @@ export function registerRoutes(app) {
           : 'Account created. If you don\'t receive a verification email shortly, use “Resend verification”.'
       })
     } catch (err) {
+      // Keep enough server-side context to diagnose a failed signup without
+      // putting registration details (email, password, or name) in the logs.
+      console.warn('[register] failed', { code: err?.code || null, message: err?.message || 'Registration failed' })
       if (createdDealershipId) {
         await supabaseAdmin.from('dealerships').delete().eq('id', createdDealershipId)
       }

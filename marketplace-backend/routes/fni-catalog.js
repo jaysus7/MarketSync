@@ -8,7 +8,7 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
-import { requirePermission } from '../authorization.js'
+import { hasPermission, requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 
 const num = (v) => { if (v === '' || v == null) return null; const n = Number(v); return Number.isFinite(n) ? n : null }
@@ -20,12 +20,8 @@ const str = (v, max = 120) => (v == null ? null : String(v).trim().slice(0, max)
 async function canManageCatalog(req) {
   if (!req.dealershipId || !req.user?.id) return false
   if (req.profile?.system_role === 'platform_owner') return true
-  const { data, error } = await supabaseAdmin.from('user_roles')
-    .select('role_permissions!inner(permission_id)')
-    .eq('user_id', req.user.id).eq('dealership_id', req.dealershipId)
-    .eq('role_permissions.permission_id', 'deal.approve').limit(1)
-  if (error) { console.warn('[fni-catalog] capability check failed:', error.message); return false }
-  return !!data?.length
+  try { return await hasPermission(req, 'deal.approve') }
+  catch (error) { console.warn('[fni-catalog] capability check failed:', error.message); return false }
 }
 
 export function registerFniCatalog(app) {

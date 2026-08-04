@@ -22,14 +22,27 @@ async function permissionLookup(req, permission) {
   if (hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)) return { allowed: true, error: null }
   const dealershipId = req.dealershipId
   if (!dealershipId) return { allowed: false, error: null }
-  const { data, error } = await supabaseAdmin
-      .from('user_roles')
-      .select('role_permissions!inner(permission_id)')
-      .eq('user_id', req.user?.id)
-      .eq('dealership_id', dealershipId)
-      .eq('role_permissions.permission_id', permission)
-      .limit(1)
-  return { allowed: !!data?.length, error }
+  // `user_roles` and `role_permissions` both reference `roles`, but do not
+  // directly reference one another. Querying them as an embedded PostgREST
+  // relationship therefore fails in Supabase's schema cache. Resolve through
+  // role IDs explicitly, just as the access-context loader does.
+  const { data: roleRows, error: roleError } = await supabaseAdmin
+    .from('user_roles')
+    .select('role_id')
+    .eq('user_id', req.user?.id)
+    .eq('dealership_id', dealershipId)
+  if (roleError) return { allowed: false, error: roleError }
+
+  const roleIds = (roleRows || []).map(row => row.role_id)
+  if (roleIds.length === 0) return { allowed: false, error: null }
+
+  const { data: grants, error } = await supabaseAdmin
+    .from('role_permissions')
+    .select('permission_id')
+    .in('role_id', roleIds)
+    .eq('permission_id', permission)
+    .limit(1)
+  return { allowed: !!grants?.length, error }
 }
 
 // Controller-level checks use this when the correct permission determines whether
