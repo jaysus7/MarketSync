@@ -138,7 +138,9 @@ export async function runSaasSequences({ trigger = 'manual' } = {}) {
   const { data: toRun } = await supabaseAdmin.from('saas_sequence_enrollments').select('*').eq('status', 'active')
   for (const e of toRun || []) {
     const seq = defs[e.sequence_key]
-    if (!seq || !seq.enabled) continue
+    // 'trialing'-trigger sequences (the trial onboarding drip) are sent by drip.js,
+    // not this runner — never double-send them here.
+    if (!seq || !seq.enabled || seq.trigger === 'trialing') continue
     const days = Math.floor((Date.now() - new Date(e.started_at).getTime()) / DAY_MS)
     let step = e.current_step
     while (step < seq.steps.length && seq.steps[step].day <= days) {
