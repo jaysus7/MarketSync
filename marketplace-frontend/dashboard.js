@@ -18521,10 +18521,10 @@ function applyInventoryMode() {
   const feeds = document.getElementById('feeds-panel');
   const title = document.getElementById('catalog-title');
   const sub = document.getElementById('catalog-sub');
-  // The feed/sync panel is no longer a permanent fixture — it's revealed on demand
-  // by the "Sync Inventory" button (toggleFeedsPanel). Keep it hidden on every mode
-  // switch so DealerOS dealers see a clean catalog, not the raw feed.
-  if (feeds) feeds.classList.add('hidden');
+  // The feed/sync panel is a permanent fixture on the inventory view (both the
+  // Facebook Marketplace catalog and the Inventory list) so the "pull from your
+  // website feed" controls are always in reach — no need to hunt for a toggle.
+  if (feeds) feeds.classList.remove('hidden');
   // Sales "Inventory List" shows the WHOLE lot (synced + manually added + won trades)
   // so it includes the Facebook inventory — one shared pool. The Facebook Marketplace
   // view keeps the synced set that's ready to post.
@@ -18538,12 +18538,12 @@ function applyInventoryMode() {
   if (typeof __catalogCache !== 'undefined' && __catalogCache && document.getElementById('catalog-list')) renderCatalog();
 }
 window.applyInventoryMode = applyInventoryMode;
-// Reveal/hide the feed panel on demand (Sync Inventory button).
+// The feed panel is always shown on the inventory view now; the "Sync Inventory"
+// button just scrolls up to it (it never hides the panel).
 function toggleFeedsPanel() {
   const f = document.getElementById('feeds-panel'); if (!f) return;
-  const willShow = f.classList.contains('hidden');
-  f.classList.toggle('hidden', !willShow);
-  if (willShow) f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  f.classList.remove('hidden');
+  f.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 window.toggleFeedsPanel = toggleFeedsPanel;
 // Facebook products (Solo/Dealer) sync only — no raw manual add / CSV import.
