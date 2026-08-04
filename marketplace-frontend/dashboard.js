@@ -11397,6 +11397,8 @@ async function renderSaasCustomer(id) {
       ${kpi('Engines used', (d.engines_used || []).length + ' · ' + (d.last_activity_days == null ? 'idle' : d.last_activity_days + 'd ago'))}
     </div>
     <div class="mb-4"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400 mb-1.5">Products</div><div class="flex flex-wrap gap-1.5">${chips}</div></div>
+    <div class="flex items-center gap-2 mb-4"><span class="text-[11px] uppercase font-bold tracking-wide text-slate-400">Owner</span>
+      <select onchange="saasCustSetOwner('${id}', this.value)" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-[13px]">${['<option value="">Unassigned</option>'].concat((d.owner_options || []).map(o => `<option value="${o.id}" ${d.owner_id === o.id ? 'selected' : ''}>${esc(o.name)}</option>`)).join('')}</select></div>
     <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4">
       <div class="flex items-center justify-between mb-2"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Follow-ups</div><span class="text-[11px] text-slate-400">${open.length} open</span></div>
       <div id="saas-cust-fups">${open.map(fRow).join('') || '<div class="text-xs text-slate-400 italic py-1">No open follow-ups.</div>'}</div>
@@ -11430,6 +11432,10 @@ window.saasCustEnrollSeq = async (id, key) => {
 window.saasCustSeqStatus = async (id, eid, status) => {
   try { await apiSendJson('/saas/sequences/' + eid, 'PATCH', { status }); await renderSaasCustomer(id); showToast('Sequence ' + status, 'success'); }
   catch (e) { showToast(e.message || 'Could not update sequence', 'error'); }
+};
+window.saasCustSetOwner = async (id, owner_id) => {
+  try { await apiSendJson('/saas/customers/' + id + '/owner', 'PATCH', { owner_id: owner_id || null }); showToast('Owner updated', 'success'); }
+  catch (e) { showToast(e.message || 'Could not update owner', 'error'); }
 };
 
 // ══ Account follow-ups — internal MarketSync customer-success work ═══════════
@@ -11514,9 +11520,10 @@ async function loadSaasAutomation() {
   const root = document.getElementById('saas-automation-root'); if (!root) return;
   root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading automation…</div>`;
   try {
-    const [seq, tpl] = await Promise.all([apiGetJson('/saas/automation/sequences'), apiGetJson('/saas/automation/templates')]);
+    const [seq, tpl, camp] = await Promise.all([apiGetJson('/saas/automation/sequences'), apiGetJson('/saas/automation/templates'), apiGetJson('/saas/automation/campaigns')]);
     __automation.sequences = seq.sequences || [];
     __automation.templates = tpl.templates || [];
+    __automation.campaigns = camp.campaigns || [];
   } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message || 'Could not load')}</div>`; return; }
   renderAutomation();
 }
@@ -11532,10 +11539,10 @@ function renderAutomation() {
         <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Automation &amp; Email</h1>
           <p class="text-[13px] text-slate-500 dark:text-slate-400">Edit your drips step-by-step and manage reusable email templates.</p></div>
       </div>
-      <div class="flex items-center gap-2">${pill('sequences', 'Sequences')}${pill('templates', 'Templates')}</div>
+      <div class="flex items-center gap-2">${pill('sequences', 'Sequences')}${pill('campaigns', 'Campaigns')}${pill('templates', 'Templates')}</div>
     </div>
     <div id="automation-body"></div>`;
-  (v === 'sequences' ? renderAutoSequences : renderAutoTemplates)();
+  (v === 'campaigns' ? renderAutoCampaigns : v === 'templates' ? renderAutoTemplates : renderAutoSequences)();
 }
 window.automationView = (v) => { __automation.view = v; renderAutomation(); };
 function autoStepChip(s) {
@@ -11581,6 +11588,64 @@ function renderAutoTemplates() {
       <button onclick="automationNewTmpl()" class="px-3 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">＋ New template</button></div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No templates yet.</div>'}</div>`;
 }
+// ── campaigns ──
+const SAAS_SEG_LABEL = { all: 'All customers', trialing: 'On trial', active: 'Active', past_due: 'Past due', cancelled: 'Cancelled' };
+function renderAutoCampaigns() {
+  const body = document.getElementById('automation-body'); if (!body) return;
+  const rows = (__automation.campaigns || []).map(c => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(c.name)}</div>
+        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(c.subject)}</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">${esc(SAAS_SEG_LABEL[c.segment] || c.segment)} · ${c.status === 'sent' ? `sent to ${c.sent_count}${c.fail_count ? ` · ${c.fail_count} failed` : ''}` : 'draft'}</div></div>
+      ${c.status === 'sent' ? '<span class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">Sent</span>' : `<button onclick="automationSendCampaign('${c.id}')" class="px-3 py-1.5 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[12px] font-bold flex-shrink-0">Send</button>`}
+    </div>`).join('');
+  body.innerHTML = `<div class="flex items-center justify-between mb-3">
+      <p class="text-[12px] text-slate-500 dark:text-slate-400">One-off email to a customer segment. Uses <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code>/<code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{account}}</code>.</p>
+      <button onclick="automationNewCampaign()" class="px-3 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">＋ New campaign</button></div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No campaigns yet.</div>'}</div>`;
+}
+window.automationNewCampaign = () => {
+  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__automation.templates || []).map(t => `<option value="${t.id}">${esc(t.name)}</option>`)).join('');
+  const segOpts = Object.entries(SAAS_SEG_LABEL).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">New campaign</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
+    <div class="space-y-3">
+      <label class="block text-xs font-bold text-slate-500">Name<input id="cp-name" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="e.g. October product update"></label>
+      <label class="block text-xs font-bold text-slate-500">Segment<select id="cp-segment" onchange="automationCampSegCount()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${segOpts}</select></label>
+      <div class="text-[12px] text-slate-500 dark:text-slate-400" id="cp-count">Recipients: …</div>
+      <label class="block text-xs font-bold text-slate-500">Template<select id="cp-template" onchange="automationCampTmplPick()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${tmplOpts}</select></label>
+      <label class="block text-xs font-bold text-slate-500">Subject<input id="cp-subject" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Body<textarea id="cp-body" rows="7" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></textarea></label>
+    </div>
+    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
+      <button onclick="automationSaveCampaign(false)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold">Save draft</button>
+      <button onclick="automationSaveCampaign(true)" class="px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold">Create &amp; send</button></div>`, 'max-w-lg');
+  automationCampSegCount();
+};
+window.automationCampSegCount = async () => {
+  const seg = document.getElementById('cp-segment')?.value || 'all'; const el = document.getElementById('cp-count'); if (!el) return;
+  el.textContent = 'Recipients: …';
+  try { const r = await apiGetJson('/saas/automation/segment-count?segment=' + encodeURIComponent(seg)); el.textContent = `Recipients: ${r.count}`; }
+  catch { el.textContent = 'Recipients: —'; }
+};
+window.automationCampTmplPick = () => {
+  const t = (__automation.templates || []).find(x => x.id === document.getElementById('cp-template').value);
+  if (t) { document.getElementById('cp-subject').value = t.subject; document.getElementById('cp-body').value = t.body; }
+};
+window.automationSaveCampaign = async (sendNow) => {
+  const payload = { name: document.getElementById('cp-name').value.trim(), segment: document.getElementById('cp-segment').value, subject: document.getElementById('cp-subject').value.trim(), body: document.getElementById('cp-body').value.trim(), template_id: document.getElementById('cp-template').value || null };
+  if (!payload.name || !payload.subject || !payload.body) return showToast('Name, subject and body are required', 'error');
+  if (sendNow && !confirm('Send this campaign now to the selected segment?')) return;
+  try {
+    const c = await apiSendJson('/saas/automation/campaigns', 'POST', payload);
+    if (sendNow) { const sent = await apiSendJson('/saas/automation/campaigns/' + c.id + '/send', 'POST', {}); showToast(`Sent to ${sent.sent_count || 0}${sent.fail_count ? ` · ${sent.fail_count} failed` : ''}`, 'success'); }
+    else showToast('Draft saved', 'success');
+    closeAutomationModal(); await loadSaasAutomation();
+  } catch (e) { showToast(e.message || 'Could not save campaign', 'error'); }
+};
+window.automationSendCampaign = async (id) => {
+  if (!confirm('Send this campaign now?')) return;
+  try { const sent = await apiSendJson('/saas/automation/campaigns/' + id + '/send', 'POST', {}); showToast(`Sent to ${sent.sent_count || 0}${sent.fail_count ? ` · ${sent.fail_count} failed` : ''}`, 'success'); await loadSaasAutomation(); }
+  catch (e) { showToast(e.message || 'Could not send', 'error'); }
+};
 // ── modal helper ──
 function automationModal(html, maxW = 'max-w-lg') {
   document.getElementById('automation-modal')?.remove();
