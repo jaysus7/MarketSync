@@ -19,25 +19,15 @@
   <meta name="description" content="The MarketSync Terms of Service &amp; Subscription Agreement: the rules for using the MarketSync web app and Chrome extension, including subscriptions, the free trial, billing, acceptable use, AI features, and liability.">
   <link rel="canonical" href="https://marketsync.link/terms.html">
   <style id="word-break-mobile-css">@media (max-width: 640px) { body { word-wrap: break-word; overflow-wrap: anywhere; } code { white-space: pre-wrap; word-break: break-all; } }</style>
-  <script>tailwind = { config: { darkMode: 'media' } }</script>
+  <script>tailwind = { config: { darkMode: 'class' } }</script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <meta name="color-scheme" content="light dark">
+  <meta name="color-scheme" content="light">
+  <link rel="stylesheet" href="/site-marketing.css">
   <style id="ms-font-bump">html{font-size:17px}@media (max-width:640px){html{font-size:16px}}</style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased overflow-x-hidden">
 
-  <nav class="border-b border-slate-200 dark:border-slate-800/80 backdrop-blur-sm sticky top-0 bg-slate-50/80 dark:bg-slate-950/80 z-50">
-    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-      <a href="index.html" class="flex items-center gap-2.5">
-        <span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>
-        <span class="text-xl font-black tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
-      </a>
-      <div class="flex items-center gap-5">
-        <a href="privacy-policy.html" class="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">Privacy</a>
-        <a href="index.html" class="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">← Back to home</a>
-      </div>
-    </div>
-  </nav>
+  <div id="ms-header"></div>
 
   <header class="max-w-3xl mx-auto px-6 pt-16 pb-10">
     <p class="text-xs uppercase font-bold tracking-widest text-indigo-600 dark:text-indigo-400 mb-3">Legal</p>
@@ -328,17 +318,8 @@
   </article>
 
   <!-- FOOTER -->
-  <footer class="border-t border-slate-200 dark:border-slate-800/60 py-8">
-    <div class="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-      <div class="flex items-center gap-2.5">
-        <span class="w-1.5 h-5 bg-indigo-500 rounded-sm"></span>
-        <span class="text-sm font-bold tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
-      </div>
-      <div class="text-xs text-slate-500">
-        &copy; 2026 MarketSync · Not affiliated with Meta or Facebook
-      </div>
-    </div>
-  </footer>
+  <div id="ms-footer"></div>
+  <script src="/site-nav.js" defer></script>
 
 </body>
 </html>
