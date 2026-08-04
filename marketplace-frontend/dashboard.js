@@ -436,7 +436,7 @@ let profileContext = null;
 // html[data-dash-mode] attribute). Persisted per-browser.
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'saas-employees', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
+const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-employees', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -1246,6 +1246,7 @@ function initDashModeForOwner() {
   document.getElementById('nav-saas-command')?.classList.remove('hidden');   // SaaS Command Center
   document.getElementById('nav-saas-customers')?.classList.remove('hidden'); // Customer Pipeline
   document.getElementById('nav-saas-followups')?.classList.remove('hidden'); // Account follow-up queue
+  document.getElementById('nav-saas-funnel')?.classList.remove('hidden');    // Checkout funnel / abandoned carts
   document.getElementById('nav-saas-employees')?.classList.remove('hidden'); // Employees + permissions
   // The demo dealership workspace has been retired — the owner runs the MarketSync
   // SaaS business only, so force the SaaS back office and land on the HQ.
@@ -2019,6 +2020,7 @@ const SAAS_DEPARTMENTS = {
   hq:         { label: 'MarketSync HQ',    icon: 'chart',    accent: 'fuchsia', pages: [{ page: 'saas-command', label: 'HQ' }] },
   pipeline:   { label: 'Customer Pipeline', icon: 'chart',   accent: 'fuchsia', pages: [{ page: 'saas-customers', label: 'Pipeline' }] },
   followups:  { label: 'Follow-ups',        icon: 'bolt',    accent: 'fuchsia', pages: [{ page: 'saas-followups', label: 'Follow-ups' }] },
+  funnel:     { label: 'Funnel',            icon: 'chart',   accent: 'fuchsia', pages: [{ page: 'saas-funnel', label: 'Funnel' }] },
   employees:  { label: 'Employees',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'saas-employees', label: 'Employees' }] },
   accounts:   { label: 'All Users',        icon: 'user',     accent: 'fuchsia', pages: [{ page: 'owner-users', label: 'Accounts' }] },
   affiliates: { label: 'Affiliates',       icon: 'trophy',   accent: 'amber',   pages: [{ page: 'affiliates-admin', label: 'Affiliates' }] },
@@ -2259,6 +2261,7 @@ function switchPage(pageId) {
   if (pageId === 'saas-command') loadSaasCommand();
   if (pageId === 'saas-customers') loadSaasCustomers();
   if (pageId === 'saas-followups') loadSaasFollowups();
+  if (pageId === 'saas-funnel') loadSaasFunnel();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'saas-accounting') loadSaasAccounting();
   if (pageId === 'config') loadConfigHub();
@@ -11462,6 +11465,43 @@ window.saasNewFollowup = async () => { if (!__saasFollowupAccounts.length) { con
 ENGINES['saas-followups'] = { rootId: 'saas-followups-root', title: 'Follow-ups', subtitle: 'Every MarketSync account touch, owner, and due date', icon: 'bolt', accent: 'fuchsia', fetch: async () => { const d = await apiGetJson('/saas/followups'); __saasFollowups = d.followups || []; return d; }, quickActions: [{ label: 'Add follow-up', icon: 'bolt', onclick: 'saasNewFollowup()' }, { label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" }], nextActions: d => { const n = (d.followups || []).filter(f => f.due_at && new Date(f.due_at) < new Date()).length; return n ? [{ label: `${n} overdue follow-up${n === 1 ? '' : 's'}`, icon: 'flame', tone: 'text-rose-500', onclick: "engineTab('saas-followups','work')" }] : []; }, tabs: { overview(body, d) { const a = d.followups || [], now = new Date(), today = new Date(); today.setHours(23,59,59,999); const overdue = a.filter(f => f.due_at && new Date(f.due_at) < now), due = a.filter(f => f.due_at && new Date(f.due_at) >= now && new Date(f.due_at) <= today); body.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">${engKpi('Open', a.length)}${engKpi('Overdue', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '')}${engKpi('Due today', due.length, due.length ? 'text-amber-600 dark:text-amber-400' : '')}${engKpi('High priority', a.filter(f => f.priority === 'high').length)}</div>${engCard('Needs attention', (overdue.length ? overdue : a.slice(0, 6)).map(saasFollowupRow).join('') || engEmpty('No open account follow-ups.'))}`; }, work(body, d) { const a = d.followups || [], overdue = a.filter(f => f.due_at && new Date(f.due_at) < new Date()), rest = a.filter(f => !overdue.includes(f)); body.innerHTML = `<div class="flex justify-end mb-3"><button onclick="saasNewFollowup()" class="px-3 py-2 rounded-lg bg-fuchsia-600 text-white text-sm font-bold">＋ Add follow-up</button></div>${overdue.length ? engCard('Overdue', overdue.map(saasFollowupRow).join('')) : ''}${engCard(overdue.length ? 'Upcoming & unscheduled' : 'Open follow-ups', rest.map(saasFollowupRow).join('') || engEmpty('Nothing else is queued.'))}`; }, insights(body, d) { const a = d.followups || []; body.innerHTML = engCard('Workload by priority', ['high','normal','low'].map(p => `<div class="flex justify-between py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold capitalize text-sm">${p}</span><span class="font-black">${a.filter(f => f.priority === p).length}</span></div>`).join('')); }, automation(body) { body.innerHTML = engCard('Follow-up workflow', '<p class="text-[13px] text-slate-600 dark:text-slate-300">Turn a Customer Pipeline risk signal into an owned, dated follow-up. Completion stays separate from dealership CRM tasks, so this queue remains the source of truth for MarketSync account success.</p>'); }, settings(body) { body.innerHTML = engCard('Access', '<p class="text-[13px] text-slate-600 dark:text-slate-300">Pipeline users can see the queue; MarketSync Sales and Support can create, edit, and complete follow-ups.</p>'); } } };
 function loadSaasFollowups() { renderEngine('saas-followups'); }
 window.loadSaasFollowups = loadSaasFollowups;
+
+// ══ Checkout Funnel — signup → checkout → paid, and abandoned-cart recovery ══
+function funnelRow(c) {
+  return `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+    <button onclick="openSaasCustomer('${c.dealership_id}')" class="min-w-0 flex-1 text-left">
+      <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(c.account)}</div>
+      <div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(c.plan || c.kind || 'plan')}${c.currency ? ' · ' + esc(c.currency) : ''} · started ${c.age_hours}h ago</div>
+    </button>
+    <button onclick="saasRecoverCart('${c.id}')" class="px-3 py-1.5 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[12px] font-bold flex-shrink-0">Recover</button>
+  </div>`;
+}
+ENGINES['saas-funnel'] = {
+  rootId: 'saas-funnel-root', title: 'Checkout Funnel', subtitle: 'Signup → checkout → paid, and abandoned-cart recovery',
+  icon: 'chart', accent: 'fuchsia',
+  fetch: () => apiGetJson('/saas/carts'),
+  quickActions: [{ label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" }],
+  nextActions: d => d.abandoned ? [{ label: `${d.abandoned} abandoned cart${d.abandoned === 1 ? '' : 's'} to recover`, icon: 'flame', tone: 'text-rose-500', onclick: "engineTab('saas-funnel','work')" }] : [],
+  tabs: {
+    overview(body, d) {
+      body.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          ${engKpi('Checkouts started', (d.started || 0).toLocaleString())}
+          ${engKpi('Completed', (d.completed || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Conversion', (d.conversion || 0) + '%', 'text-fuchsia-600 dark:text-fuchsia-400')}
+          ${engKpi('Abandoned', (d.abandoned || 0).toLocaleString(), d.abandoned ? 'text-rose-600 dark:text-rose-400' : '')}
+        </div>${engCard('Abandoned carts', (d.abandoned_list || []).length ? (d.abandoned_list || []).map(funnelRow).join('') : engEmpty('No abandoned carts — nice.'))}`;
+    },
+    work(body, d) {
+      body.innerHTML = engCard('Abandoned carts — recover', (d.abandoned_list || []).length ? (d.abandoned_list || []).map(funnelRow).join('') : engEmpty('Nothing to recover right now.'));
+    },
+  },
+};
+function loadSaasFunnel() { renderEngine('saas-funnel'); }
+window.loadSaasFunnel = loadSaasFunnel;
+window.saasRecoverCart = async (id) => {
+  try { await apiSendJson('/saas/carts/' + id + '/recover', 'POST', {}); showToast('Recovery follow-up created', 'success'); await loadSaasFunnel(); }
+  catch (e) { showToast(e.message || 'Could not create recovery follow-up', 'error'); }
+};
 
 // ══ Employees + permissions — MarketSync staff (owner-only) ═══════════════════
 const empRoleOpts = (roles, sel) => (roles || []).map(r => `<option value="${r}" ${r === sel ? 'selected' : ''}>${esc(r)}</option>`).join('');

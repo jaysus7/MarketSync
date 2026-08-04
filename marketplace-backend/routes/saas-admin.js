@@ -341,6 +341,49 @@ export function registerSaasAdmin(app) {
     res.json(data)
   })
 
+  // ── Checkout funnel (Phase 2) — signup → checkout → paid, and abandoned carts.
+  // A cart is a Stripe Checkout Session we started; the webhook flips it to
+  // 'completed'. Anything still 'started' past a 1-hour grace window is abandoned. ──
+  app.get('/saas/carts', requireAuth, async (req, res) => {
+    if (!need('view_pipeline')(req, res)) return
+    const GRACE_MS = 60 * 60 * 1000
+    const { data: rows } = await supabaseAdmin.from('saas_checkout_sessions')
+      .select('*').order('created_at', { ascending: false }).limit(2000)
+    const all = rows || []
+    const now = Date.now()
+    const completed = all.filter(r => r.status === 'completed').length
+    const started = all.length
+    const abandonedRows = all.filter(r => r.status !== 'completed' && (now - new Date(r.created_at).getTime()) > GRACE_MS)
+    const ids = [...new Set(abandonedRows.map(r => r.dealership_id).filter(Boolean))]
+    const { data: dealers } = ids.length ? await supabaseAdmin.from('dealerships').select('id, name').in('id', ids) : { data: [] }
+    const dName = Object.fromEntries((dealers || []).map(d => [d.id, d.name]))
+    res.json({
+      started, completed, abandoned: abandonedRows.length,
+      conversion: started ? Math.round(completed / started * 100) : 0,
+      abandoned_list: abandonedRows.slice(0, 60).map(r => ({
+        id: r.id, dealership_id: r.dealership_id, account: dName[r.dealership_id] || 'Account',
+        kind: r.kind, plan: r.plan_key, currency: r.currency,
+        age_hours: Math.round((now - new Date(r.created_at).getTime()) / 3600000), created_at: r.created_at,
+      })),
+    })
+  })
+
+  // Recover an abandoned cart → drop a high-priority follow-up on the account.
+  app.post('/saas/carts/:id/recover', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const { data: cart } = await supabaseAdmin.from('saas_checkout_sessions').select('*').eq('id', req.params.id).maybeSingle()
+    if (!cart) return res.status(404).json({ error: 'Cart not found' })
+    if (!cart.dealership_id) return res.status(400).json({ error: 'No account linked to this cart' })
+    const { data, error } = await supabaseAdmin.from('saas_account_followups').insert({
+      dealership_id: cart.dealership_id,
+      title: `Recover abandoned checkout (${cart.plan_key || cart.kind || 'plan'})`,
+      note: `Checkout started ${new Date(cart.created_at).toLocaleString()} and was never completed — reach out to finish signup.`,
+      priority: 'high', due_at: new Date().toISOString(), created_by: req.user.id,
+    }).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
   // ── SaaS Accounting — MarketSync's OWN books (recurring revenue + program cost) ──
   // Recurring revenue is recognised from live product entitlements (the same basis
   // as HQ's MRR); the affiliate program is the recurring cost of goods. This is the
