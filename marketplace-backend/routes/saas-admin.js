@@ -319,47 +319,8 @@ export function registerSaasAdmin(app) {
     res.json(data)
   })
 
-  // Follow-ups — HQ's own task queue against customer accounts (GHL-style). Powers
-  // both the Follow-ups page and the Customer 360 drawer. Open items only (completed
-  // ones drop off the queue). Account + assignee names are resolved for the UI.
-  app.get('/saas/followups', requireAuth, async (req, res) => {
-    if (!need('view_pipeline')(req, res)) return
-    const { data: rows } = await supabaseAdmin.from('saas_account_followups')
-      .select('*').is('completed_at', null).order('due_at', { ascending: true, nullsFirst: false }).limit(500)
-    const followups = rows || []
-    const dealerIds = [...new Set(followups.map(f => f.dealership_id).filter(Boolean))]
-    const userIds = [...new Set(followups.map(f => f.assigned_to).filter(Boolean))]
-    const [{ data: dealers }, { data: users }] = await Promise.all([
-      dealerIds.length ? supabaseAdmin.from('dealerships').select('id, name').in('id', dealerIds) : Promise.resolve({ data: [] }),
-      userIds.length ? supabaseAdmin.from('profiles').select('id, full_name').in('id', userIds) : Promise.resolve({ data: [] }),
-    ])
-    const dName = Object.fromEntries((dealers || []).map(d => [d.id, d.name]))
-    const uName = Object.fromEntries((users || []).map(u => [u.id, u.full_name]))
-    res.json({ followups: followups.map(f => ({ ...f, account_name: dName[f.dealership_id] || 'Account', assigned_name: f.assigned_to ? (uName[f.assigned_to] || null) : null })) })
-  })
-
-  app.post('/saas/followups', requireAuth, async (req, res) => {
-    if (!need('manage_followups')(req, res)) return
-    const { dealership_id, title, note, due_at, priority, assigned_to } = req.body || {}
-    if (!dealership_id || !title || !String(title).trim()) return res.status(400).json({ error: 'dealership_id and title required' })
-    const { data, error } = await supabaseAdmin.from('saas_account_followups').insert({
-      dealership_id, title: String(title).trim(), note: note || null, due_at: due_at || null,
-      priority: priority || 'normal', assigned_to: assigned_to || null, created_by: req.user.id,
-    }).select().single()
-    if (error) return res.status(500).json({ error: error.message })
-    res.json(data)
-  })
-
-  app.patch('/saas/followups/:id', requireAuth, async (req, res) => {
-    if (!need('manage_followups')(req, res)) return
-    const b = req.body || {}
-    const patch = { updated_at: new Date().toISOString() }
-    if ('done' in b) { patch.completed_at = b.done ? new Date().toISOString() : null; patch.completed_by = b.done ? req.user.id : null }
-    for (const k of ['title', 'note', 'due_at', 'priority', 'assigned_to']) if (k in b) patch[k] = b[k]
-    const { data, error } = await supabaseAdmin.from('saas_account_followups').update(patch).eq('id', req.params.id).select().single()
-    if (error) return res.status(500).json({ error: error.message })
-    res.json(data)
-  })
+  // (Follow-up GET/POST/PATCH routes are defined once above — a duplicate block was
+  // removed here; Express would only ever serve the first registration anyway.)
 
   // ── Checkout funnel (Phase 2) — signup → checkout → paid, and abandoned carts.
   // A cart is a Stripe Checkout Session we started; the webhook flips it to
