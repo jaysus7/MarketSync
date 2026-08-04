@@ -11204,7 +11204,7 @@ const SAAS_STAGE_LABEL = { lead: 'Lead', trial_started: 'Trial Started', activat
 const saasHealthColor = (h) => h >= 70 ? 'bg-emerald-500' : h >= 40 ? 'bg-amber-500' : 'bg-rose-500';
 // Pipeline account card (shared).
 function pipeCard(a) {
-  return `<button onclick="switchPage('owner-users')" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 hover:shadow-md transition space-y-1.5">
+  return `<button onclick="openSaasCustomer('${a.id}')" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 hover:shadow-md transition space-y-1.5">
       <div class="flex items-center justify-between gap-2">
         <span class="font-bold text-slate-800 dark:text-slate-100 text-[13px] truncate">${esc(a.name || 'Account')}</span>
         <span class="text-[11px] font-black ${a.health >= 70 ? 'text-emerald-600 dark:text-emerald-400' : a.health >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}">${a.health}%</span>
@@ -11312,6 +11312,85 @@ ENGINES['saas-customers'] = {
 };
 function loadSaasCustomers() { renderEngine('saas-customers'); }
 window.loadSaasCustomers = loadSaasCustomers;
+
+// ══ Customer 360 drawer — one account: products, MRR/ARR/LTV, tenure, team,
+// usage timeline, billing history, and follow-ups (create + complete inline). ══
+const SAAS_PRODUCT_LABEL = { facebook_solo: 'FB AutoPoster · Solo', facebook_dealer: 'FB AutoPoster · Dealer', ai_chatbot: 'AI ChatBot', dealer_os: 'DealerOS' };
+function saasRel(iso) {
+  if (!iso) return '';
+  const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60); if (m < 60) return m + 'm ago';
+  const h = Math.floor(m / 60); if (h < 24) return h + 'h ago';
+  const d = Math.floor(h / 24); if (d < 30) return d + 'd ago';
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
+}
+async function openSaasCustomer(id) {
+  document.getElementById('saas-cust-drawer')?.remove();
+  const el = document.createElement('div');
+  el.id = 'saas-cust-drawer';
+  el.className = 'fixed inset-0 z-[95] flex justify-end';
+  el.innerHTML = `<div data-close class="absolute inset-0 bg-slate-950/50"></div>
+    <div class="relative w-full max-w-xl h-full bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto"><div id="saas-cust-body" class="p-6"><div class="text-sm text-slate-400">Loading account…</div></div></div>`;
+  el.querySelector('[data-close]').onclick = () => el.remove();
+  document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { el.remove(); document.removeEventListener('keydown', esc); } });
+  document.body.appendChild(el);
+  await renderSaasCustomer(id);
+}
+window.openSaasCustomer = openSaasCustomer;
+async function renderSaasCustomer(id) {
+  const body = document.getElementById('saas-cust-body'); if (!body) return;
+  let d; try { d = await apiGetJson('/saas/customers/' + id); } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load account')}</div>`; return; }
+  const money = n => '$' + Math.round(n || 0).toLocaleString();
+  const statusTone = d.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+    : (d.status === 'PAST_DUE' || d.status === 'INACTIVE') ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
+  const chips = (d.product_keys || []).map(k => `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300">${esc(SAAS_PRODUCT_LABEL[k] || k)}</span>`).join('') || '<span class="text-xs text-slate-400">No products</span>';
+  const kpi = (label, val, tone = '') => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400">${label}</div><div class="text-xl font-black ${tone || 'text-slate-900 dark:text-white'}">${val}</div></div>`;
+  const open = (d.followups || []).filter(f => !f.completed_at);
+  const fRow = f => `<div class="flex gap-2 items-start py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <button onclick="saasCustCompleteFollowup('${id}','${f.id}')" title="Complete" class="mt-0.5 w-4 h-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-emerald-500 flex-shrink-0"></button>
+      <div class="min-w-0 flex-1"><div class="text-[13px] font-bold text-slate-800 dark:text-slate-100">${esc(f.title)}</div>${f.note ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(f.note)}</div>` : ''}<div class="text-[11px] text-slate-400">${f.due_at ? 'Due ' + new Date(f.due_at).toLocaleDateString() : 'No due date'} · <span class="uppercase font-bold">${esc(f.priority || 'normal')}</span></div></div></div>`;
+  const tl = (d.timeline || []).slice(0, 18).map(e => `<div class="flex justify-between gap-3 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="text-[12px] text-slate-700 dark:text-slate-200 truncate">${esc(e.name)}</span><span class="text-[11px] text-slate-400 flex-shrink-0">${saasRel(e.at)}</span></div>`).join('') || '<div class="text-xs text-slate-400 italic py-2">No recent activity.</div>';
+  const bill = (d.billing_history || []).map(b => `<div class="flex justify-between gap-3 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="text-[12px] text-slate-600 dark:text-slate-300">${new Date(b.date).toLocaleDateString()} ${b.number ? '· ' + esc(b.number) : ''}</span><span class="text-[12px] font-bold ${b.status === 'paid' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${money(b.amount)} ${esc(b.currency || '')}</span></div>`).join('');
+  const team = (d.team || []).map(t => `<div class="flex justify-between gap-2 py-1 text-[12px]"><span class="text-slate-700 dark:text-slate-200 truncate">${esc(t.name || '—')}</span><span class="text-slate-400">${esc(t.role || '')}</span></div>`).join('') || '<div class="text-xs text-slate-400 italic">No team members.</div>';
+  body.innerHTML = `
+    <div class="flex items-start justify-between gap-3 mb-4">
+      <div><div class="text-xl font-black text-slate-900 dark:text-white">${esc(d.name || 'Account')}</div>
+        <div class="flex items-center gap-2 mt-1">${d.status ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${statusTone}">${esc(d.status)}</span>` : ''}<span class="text-[12px] text-slate-400">${d.tenure_months != null ? d.tenure_months + ' mo customer' : ''}</span></div></div>
+      <button data-x class="text-2xl leading-none text-slate-400 hover:text-slate-600">×</button>
+    </div>
+    <div class="grid grid-cols-2 gap-2 mb-4">
+      ${kpi('MRR', money(d.mrr), 'text-fuchsia-600 dark:text-fuchsia-400')}
+      ${kpi('ARR', money(d.arr))}
+      ${kpi('LTV' + (d.ltv_source === 'stripe' ? '' : ' (est.)'), money(d.ltv), 'text-emerald-600 dark:text-emerald-400')}
+      ${kpi('Engines used', (d.engines_used || []).length + ' · ' + (d.last_activity_days == null ? 'idle' : d.last_activity_days + 'd ago'))}
+    </div>
+    <div class="mb-4"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400 mb-1.5">Products</div><div class="flex flex-wrap gap-1.5">${chips}</div></div>
+    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4">
+      <div class="flex items-center justify-between mb-2"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Follow-ups</div><span class="text-[11px] text-slate-400">${open.length} open</span></div>
+      <div id="saas-cust-fups">${open.map(fRow).join('') || '<div class="text-xs text-slate-400 italic py-1">No open follow-ups.</div>'}</div>
+      <div class="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/60">
+        <input id="saas-cust-ftitle" placeholder="New follow-up…" class="flex-1 min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-[13px]">
+        <input id="saas-cust-fdue" type="date" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-[13px]">
+        <button onclick="saasCustAddFollowup('${id}')" class="px-3 py-1.5 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[13px] font-bold flex-shrink-0">Add</button>
+      </div>
+    </div>
+    ${bill ? `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Billing history</div>${bill}</div>` : ''}
+    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Team</div>${team}</div>
+    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Recent activity</div>${tl}</div>`;
+  body.querySelector('[data-x]').onclick = () => document.getElementById('saas-cust-drawer')?.remove();
+}
+window.saasCustAddFollowup = async (id) => {
+  const t = document.getElementById('saas-cust-ftitle'), due = document.getElementById('saas-cust-fdue');
+  const title = (t?.value || '').trim(); if (!title) return showToast('Enter a follow-up.', 'error');
+  try { await apiSendJson('/saas/followups', 'POST', { dealership_id: id, title, due_at: due?.value ? new Date(due.value).toISOString() : null }); await renderSaasCustomer(id); showToast('Follow-up added', 'success'); }
+  catch (e) { showToast(e.message || 'Could not add follow-up', 'error'); }
+};
+window.saasCustCompleteFollowup = async (id, fid) => {
+  try { await apiSendJson('/saas/followups/' + fid, 'PATCH', { done: true }); await renderSaasCustomer(id); showToast('Follow-up completed', 'success'); }
+  catch (e) { showToast(e.message || 'Could not complete', 'error'); }
+};
 
 // ══ Account follow-ups — internal MarketSync customer-success work ═══════════
 let __saasFollowups = [], __saasFollowupAccounts = [];

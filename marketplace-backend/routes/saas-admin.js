@@ -7,7 +7,7 @@
  * Access is derived from server-managed MarketSync staff roles. Reads across
  * accounts — no new tables.
  */
-import { supabaseAdmin } from '../shared.js'
+import { supabaseAdmin, stripe } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { resolveProducts, saasCan, saasRoleOf, SAAS_ROLES, SAAS_PERMISSIONS } from './profile.js'
 
@@ -223,6 +223,114 @@ export function registerSaasAdmin(app) {
     if (error) return res.status(500).json({ error: error.message })
     if (!data) return res.status(404).json({ error: 'Follow-up not found' })
     res.json({ followup: data })
+  })
+
+  // ── Customer 360 — one account: products, MRR/ARR, LTV, tenure, usage timeline,
+  // team, billing history, and follow-ups. LTV is real (paid Stripe invoices) when we
+  // have a Stripe customer, otherwise an MRR×tenure estimate (flagged as such). ──
+  app.get('/saas/customers/:id', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const id = req.params.id
+    const since = new Date(Date.now() - 90 * 86400000).toISOString()
+    const [{ data: dealer }, { data: team }, { data: events }, { data: subs }, { data: followups }] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('*').eq('id', id).maybeSingle(),
+      supabaseAdmin.from('profiles').select('id, full_name, role, saas_role, billing_status, trial_ends_at, phone, created_at').eq('dealership_id', id).limit(100),
+      supabaseAdmin.from('events').select('event_name, created_at').eq('dealership_id', id).order('created_at', { ascending: false }).limit(60),
+      supabaseAdmin.from('subscriptions').select('*').eq('dealership_id', id),
+      supabaseAdmin.from('saas_account_followups').select('*').eq('dealership_id', id).order('due_at', { ascending: true }).limit(100),
+    ])
+    if (!dealer) return res.status(404).json({ error: 'Customer not found' })
+
+    // Effective billing (personal orgs bill on the single profile).
+    let status = dealer.billing_status, trialEnds = dealer.trial_ends_at
+    if (dealer.is_personal) { const u = (team || [])[0]; if (u) { status = u.billing_status; trialEnds = u.trial_ends_at } }
+
+    const products = resolveProducts(dealer)
+    const productKeys = Object.keys(products).filter(k => products[k])
+    const mrr = productKeys.reduce((s, k) => s + (PRODUCT_MRR[k] || 0), 0)
+    const createdAt = dealer.created_at ? new Date(dealer.created_at) : null
+    const tenureMonths = createdAt ? Math.max(1, Math.round((Date.now() - createdAt) / (30 * 86400000))) : null
+
+    // Usage: 90-day timeline + engines touched + last-seen.
+    const now = Date.now()
+    const engines = new Set()
+    for (const e of events || []) { const ns = String(e.event_name || '').split('.')[0]; if (ns) engines.add(ns) }
+    const recent = (events || []).filter(e => e.created_at >= since)
+    const lastAt = (events || [])[0]?.created_at || null
+    const lastDays = lastAt ? Math.floor((now - new Date(lastAt)) / 86400000) : null
+
+    // LTV — real paid invoices from Stripe when we can, else MRR×tenure estimate.
+    let ltv = null, ltvSource = 'estimate', billingHistory = []
+    const custId = dealer.stripe_customer_id || (subs || []).map(s => s.stripe_customer_id).find(Boolean)
+    if (custId && stripe) {
+      try {
+        const inv = await stripe.invoices.list({ customer: custId, limit: 100 })
+        const paid = (inv.data || []).filter(i => i.status === 'paid')
+        ltv = paid.reduce((s, i) => s + (i.amount_paid || 0), 0) / 100
+        ltvSource = 'stripe'
+        billingHistory = (inv.data || []).slice(0, 12).map(i => ({
+          date: new Date(i.created * 1000).toISOString(), amount: (i.amount_paid || i.amount_due || 0) / 100,
+          currency: (i.currency || 'usd').toUpperCase(), number: i.number, status: i.status, url: i.hosted_invoice_url,
+        }))
+      } catch (e) { /* keep estimate */ }
+    }
+    if (ltv == null) ltv = tenureMonths != null ? mrr * tenureMonths : mrr
+
+    res.json({
+      id: dealer.id, name: dealer.name, website_url: dealer.website_url || null,
+      is_personal: !!dealer.is_personal, status: (status || '').toUpperCase() || null,
+      created_at: dealer.created_at, trial_ends_at: trialEnds,
+      products, product_keys: productKeys, plan: dealer.plan || null,
+      mrr, arr: mrr * 12, ltv, ltv_source: ltvSource, tenure_months: tenureMonths,
+      engines_used: [...engines], activity_90d: recent.length, last_activity_days: lastDays,
+      team: (team || []).map(t => ({ id: t.id, name: t.full_name, role: t.role, saas_role: t.saas_role })),
+      timeline: (events || []).map(e => ({ name: e.event_name, at: e.created_at })),
+      subscriptions: subs || [], billing_history: billingHistory,
+      followups: followups || [],
+      stripe_customer_id: custId || null,
+    })
+  })
+
+  // Follow-ups — HQ's own task queue against customer accounts (GHL-style). Powers
+  // both the Follow-ups page and the Customer 360 drawer. Open items only (completed
+  // ones drop off the queue). Account + assignee names are resolved for the UI.
+  app.get('/saas/followups', requireAuth, async (req, res) => {
+    if (!need('view_pipeline')(req, res)) return
+    const { data: rows } = await supabaseAdmin.from('saas_account_followups')
+      .select('*').is('completed_at', null).order('due_at', { ascending: true, nullsFirst: false }).limit(500)
+    const followups = rows || []
+    const dealerIds = [...new Set(followups.map(f => f.dealership_id).filter(Boolean))]
+    const userIds = [...new Set(followups.map(f => f.assigned_to).filter(Boolean))]
+    const [{ data: dealers }, { data: users }] = await Promise.all([
+      dealerIds.length ? supabaseAdmin.from('dealerships').select('id, name').in('id', dealerIds) : Promise.resolve({ data: [] }),
+      userIds.length ? supabaseAdmin.from('profiles').select('id, full_name').in('id', userIds) : Promise.resolve({ data: [] }),
+    ])
+    const dName = Object.fromEntries((dealers || []).map(d => [d.id, d.name]))
+    const uName = Object.fromEntries((users || []).map(u => [u.id, u.full_name]))
+    res.json({ followups: followups.map(f => ({ ...f, account_name: dName[f.dealership_id] || 'Account', assigned_name: f.assigned_to ? (uName[f.assigned_to] || null) : null })) })
+  })
+
+  app.post('/saas/followups', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const { dealership_id, title, note, due_at, priority, assigned_to } = req.body || {}
+    if (!dealership_id || !title || !String(title).trim()) return res.status(400).json({ error: 'dealership_id and title required' })
+    const { data, error } = await supabaseAdmin.from('saas_account_followups').insert({
+      dealership_id, title: String(title).trim(), note: note || null, due_at: due_at || null,
+      priority: priority || 'normal', assigned_to: assigned_to || null, created_by: req.user.id,
+    }).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
+  app.patch('/saas/followups/:id', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const b = req.body || {}
+    const patch = { updated_at: new Date().toISOString() }
+    if ('done' in b) { patch.completed_at = b.done ? new Date().toISOString() : null; patch.completed_by = b.done ? req.user.id : null }
+    for (const k of ['title', 'note', 'due_at', 'priority', 'assigned_to']) if (k in b) patch[k] = b[k]
+    const { data, error } = await supabaseAdmin.from('saas_account_followups').update(patch).eq('id', req.params.id).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
   })
 
   // ── SaaS Accounting — MarketSync's OWN books (recurring revenue + program cost) ──

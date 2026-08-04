@@ -121,3 +121,20 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, { realtime: { transport: ws } })
 export const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { realtime: { transport: ws } })
+
+// ── MarketSync staff — the saas_admin / HQ workspace ──
+// HQ is MarketSync's own back office, NOT a dealership. Staff are identified by a
+// `saas_role` on their profile (or the owner email). Such an account needs no
+// dealership_id and is exempt from the dealership billing gate. The legacy internal
+// dealership names stay recognised so pre-existing owner logins keep HQ access.
+export const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+export const SAAS_ROLES = ['owner', 'sales', 'support', 'marketing', 'developer']
+// Platform system roles (authoritative, from profiles.system_role) that open HQ.
+export const PLATFORM_SYSTEM_ROLES = ['platform_owner', 'platform_admin']
+export function isSaasStaff(profile, email) {
+  if (profile && PLATFORM_SYSTEM_ROLES.includes(profile.system_role)) return true
+  if (email && String(email).toLowerCase() === OWNER_EMAIL) return true
+  if (profile && SAAS_ROLES.includes(profile.saas_role)) return true
+  const dn = profile?.dealerships?.name
+  return dn === 'MarketSync' || dn === 'JMS Automotive'
+}
