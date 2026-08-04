@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from './shared.js'
+import { supabase, supabaseAdmin, isSaasStaff } from './shared.js'
 import { SYSTEM_ROLES, hasSystemRole } from './authorization.js'
 import { createClient } from '@supabase/supabase-js'
 
@@ -67,7 +67,10 @@ export async function requireAuth(req, res, next) {
     // existing or newly issued sessions to reach the application.
     if (profile.active === false) return res.status(403).json({ error: 'ACCOUNT_DEACTIVATED' })
 
-    if (!req.path.startsWith('/billing')) {
+    // MarketSync HQ staff (the saas_admin workspace) have no dealership and no
+    // subscription of their own — they operate the platform. Skip the dealership
+    // billing gate entirely for them.
+    if (!req.path.startsWith('/billing') && !isSaasStaff(profile, user.email)) {
       const isPersonal = profile.dealerships?.is_personal === true
       const useProfileBilling = !profile.dealership_id || isPersonal
       const status = useProfileBilling
