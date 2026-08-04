@@ -10,6 +10,8 @@
 import { supabaseAdmin, stripe } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { resolveProducts, saasCan, saasRoleOf, SAAS_ROLES, SAAS_PERMISSIONS } from './profile.js'
+import Anthropic from '@anthropic-ai/sdk'
+import { SMART_MODEL } from '../aiModels.js'
 
 // Monthly price per product (used for MRR estimation from entitlements).
 const PRODUCT_MRR = { facebook_solo: 79, facebook_dealer: 499, ai_chatbot: 499, dealer_os: 499 }
@@ -363,6 +365,75 @@ export function registerSaasAdmin(app) {
     }).select().single()
     if (error) return res.status(500).json({ error: error.message })
     res.json(data)
+  })
+
+  // ── HQ copilot — MarketSync's OWN internal AI assistant (the 4th bot). Answers
+  // about the SaaS business from a live snapshot; platform-staff only. Distinct from
+  // the dealer /ai/assistant (a single store) and the customer/marketing bots. ──
+  app.post('/saas/assistant', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI is not configured.' })
+    const raw = Array.isArray(req.body?.messages) ? req.body.messages : []
+    const messages = raw
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+      .slice(-10).map(m => ({ role: m.role, content: m.content.trim().slice(0, 2000) }))
+    if (!messages.length || messages[messages.length - 1].role !== 'user') return res.status(400).json({ error: 'Send a question.' })
+
+    const now = Date.now()
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
+    const since30 = new Date(now - 30 * 86400000).toISOString()
+    const [{ data: dealers }, { data: profiles }, { data: events }, { data: followups }, { data: carts }, { data: seqs }] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('id, name, is_personal, billing_status, trial_ends_at, products, created_at').limit(3000),
+      supabaseAdmin.from('profiles').select('dealership_id, billing_status, trial_ends_at').limit(8000),
+      supabaseAdmin.from('events').select('dealership_id').gte('created_at', since30).limit(20000),
+      supabaseAdmin.from('saas_account_followups').select('due_at').is('completed_at', null).limit(2000),
+      supabaseAdmin.from('saas_checkout_sessions').select('status, created_at').limit(2000),
+      supabaseAdmin.from('saas_sequences').select('name, enabled').limit(100),
+    ])
+    const profByDealer = {}
+    for (const p of profiles || []) (profByDealer[p.dealership_id] = profByDealer[p.dealership_id] || []).push(p)
+    let mrr = 0, active = 0, trials = 0, churn = 0, newThis = 0
+    const top = []
+    for (const d of dealers || []) {
+      let status = d.billing_status, trialEnds = d.trial_ends_at
+      if (d.is_personal) { const u = (profByDealer[d.id] || [])[0]; if (u) { status = u.billing_status; trialEnds = u.trial_ends_at } }
+      const products = resolveProducts(d)
+      const acctMrr = Object.keys(PRODUCT_MRR).reduce((s, k) => s + (products[k] ? PRODUCT_MRR[k] : 0), 0)
+      const futureTrial = trialEnds && new Date(trialEnds) > new Date()
+      if (activeStatus(status)) { active++; mrr += acctMrr; top.push({ name: d.name, mrr: acctMrr }) }
+      else if (dunningStatus(status)) churn++
+      else if (trialingStatus(status) || futureTrial) { if (futureTrial) { trials++; if (new Date(trialEnds).getTime() < now + 5 * 86400000) churn++ } else churn++ }
+      if (d.created_at && new Date(d.created_at) >= monthStart) newThis++
+    }
+    top.sort((a, b) => b.mrr - a.mrr)
+    const openF = (followups || []).length
+    const overdueF = (followups || []).filter(f => f.due_at && new Date(f.due_at) < new Date()).length
+    const startedC = (carts || []).length
+    const completedC = (carts || []).filter(c => c.status === 'completed').length
+    const abandonedC = (carts || []).filter(c => c.status !== 'completed' && (now - new Date(c.created_at).getTime()) > 3600000).length
+    const conv = startedC ? Math.round(completedC / startedC * 100) : 0
+    const seqOn = (seqs || []).filter(s => s.enabled).map(s => s.name)
+
+    const facts = [
+      `MRR: $${Math.round(mrr).toLocaleString()} (ARR $${Math.round(mrr * 12).toLocaleString()}).`,
+      `Customers: ${active} active, ${trials} on trial, ${churn} at churn risk. New accounts this month: ${newThis}. Total accounts: ${(dealers || []).length}.`,
+      `Top accounts by MRR: ${top.slice(0, 6).map(t => `${t.name} $${t.mrr}`).join(', ') || 'n/a'}.`,
+      `Checkout funnel: ${startedC} started, ${completedC} completed (${conv}% conversion), ${abandonedC} abandoned carts to recover.`,
+      `Customer-success: ${openF} open follow-ups (${overdueF} overdue).`,
+      `Automation sequences ON: ${seqOn.join(', ') || 'none'}.`,
+    ].join('\n')
+
+    const system = `You are the MarketSync HQ copilot — the analyst for MarketSync's OWN SaaS business. MarketSync sells three products to car dealerships: DealerOS (a full dealership operating system), Facebook AutoPoster, and an AI ChatBot. You help the MarketSync operator run the company: answer questions about revenue (MRR/ARR), active vs trial customers, churn risk, new signups, top accounts, the checkout funnel and abandoned carts, open customer-success follow-ups, and which automation sequences are running — all from the LIVE HQ SNAPSHOT below. Be direct: lead with the number, then one crisp takeaway or recommended next step. Keep it tight — a couple of sentences or a short list, no headings, no fluff. Never invent numbers beyond the snapshot. Today: ${new Date().toISOString().slice(0, 10)}.\n\nLIVE HQ SNAPSHOT (MarketSync, right now):\n${facts}`
+
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const r = await Promise.race([
+        anthropic.messages.create({ model: SMART_MODEL, max_tokens: 700, system, messages }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 25000)),
+      ])
+      const reply = (r.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim() || 'No reply.'
+      res.json({ reply })
+    } catch (e) { res.status(500).json({ error: e.message || 'AI request failed' }) }
   })
 
   // ── SaaS Accounting — MarketSync's OWN books (recurring revenue + program cost) ──

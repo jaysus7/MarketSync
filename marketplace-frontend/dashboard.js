@@ -24677,7 +24677,9 @@ async function sendAiDock(text) {
   const input = document.getElementById('ai-dock-input');
   if (input) { input.value = ''; input.style.height = 'auto'; }
   try {
-    const r = await fetch(`${API}/ai/assistant`, {
+    // MarketSync HQ (saas_admin) gets its own copilot; dealers get the dealership assistant.
+    const aiEndpoint = (profileContext?.workspace === 'saas_admin') ? '/saas/assistant' : '/ai/assistant';
+    const r = await fetch(`${API}${aiEndpoint}`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: aiDockMessages.slice(-10) }),
