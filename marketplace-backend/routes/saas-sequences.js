@@ -177,6 +177,47 @@ export async function runSaasSequences({ trigger = 'manual' } = {}) {
   return summary
 }
 
+// ── Exception scanner (Phase 4) ───────────────────────────────────────────────
+// Surfaces accounts that need a human, as idempotent HQ follow-ups: trials ending
+// soon, and paying accounts whose usage has gone quiet. (Failed payments are handled
+// by the dunning sequence, so they're not duplicated here.)
+export async function runSaasExceptionScan() {
+  const summary = { scanned: 0, created: 0 }
+  const since = new Date(Date.now() - 14 * DAY_MS).toISOString()
+  const [{ data: dealers }, { data: openF }, { data: recent }] = await Promise.all([
+    supabaseAdmin.from('dealerships').select('id, name, billing_status, trial_ends_at').limit(5000),
+    supabaseAdmin.from('saas_account_followups').select('dealership_id, title').is('completed_at', null),
+    supabaseAdmin.from('events').select('dealership_id').gte('created_at', since).limit(20000),
+  ])
+  const activeRecently = new Set((recent || []).map(e => e.dealership_id))
+  const hasOpen = (did, tag) => (openF || []).some(f => f.dealership_id === did && (f.title || '').startsWith(tag))
+  async function ensure(did, tag, title, priority, note) {
+    if (hasOpen(did, tag)) return
+    await supabaseAdmin.from('saas_account_followups').insert({
+      dealership_id: did, title, note: note || null, priority: priority || 'normal', due_at: new Date().toISOString(),
+    })
+    summary.created++
+  }
+  const now = Date.now()
+  for (const d of dealers || []) {
+    summary.scanned++
+    const S = (d.billing_status || '').toUpperCase()
+    if (d.trial_ends_at) {
+      const days = Math.round((new Date(d.trial_ends_at).getTime() - now) / DAY_MS)
+      if (S !== 'ACTIVE' && days >= 0 && days <= 3) {
+        try { await ensure(d.id, 'Trial ending', `Trial ending in ${days}d — convert ${d.name}`, 'high', 'Trial is almost over. Reach out to convert before it lapses.') }
+        catch (e) { console.error('[saas-scan] trial flag failed', d.id, e.message) }
+      }
+    }
+    if (S === 'ACTIVE' && !activeRecently.has(d.id)) {
+      try { await ensure(d.id, 'Usage dropped', `Usage dropped — check in with ${d.name}`, 'high', 'No activity in 14+ days on a paying account — churn risk.') }
+      catch (e) { console.error('[saas-scan] usage flag failed', d.id, e.message) }
+    }
+  }
+  console.log(`[saas-scan] scanned ${summary.scanned}, created ${summary.created} follow-up(s)`)
+  return summary
+}
+
 // ── HQ routes ─────────────────────────────────────────────────────────────────
 export function registerSaasSequences(app) {
   const can = (perm) => (req, res) => { if (saasCan(req, perm)) return true; res.status(403).json({ error: 'Insufficient permission' }); return false }
@@ -222,7 +263,10 @@ export function registerSaasSequences(app) {
   //   curl -X POST https://<backend>/cron/saas-sequences -H "x-cron-secret: $CRON_SECRET"
   app.post('/cron/saas-sequences', async (req, res) => {
     if (!requestHasCronSecret(req)) return res.status(401).json({ error: 'Unauthorized' })
-    try { res.json(await runSaasSequences({ trigger: 'cron' })) }
-    catch (e) { res.status(500).json({ error: e.message }) }
+    try {
+      const sequences = await runSaasSequences({ trigger: 'cron' })
+      const exceptions = await runSaasExceptionScan()
+      res.json({ sequences, exceptions })
+    } catch (e) { res.status(500).json({ error: e.message }) }
   })
 }

@@ -109,6 +109,26 @@ async function dealerForCustomer(customerId) {
   return data
 }
 
+// ── HQ checkout funnel (Phase 2) ──
+// Best-effort: log each acquisition Checkout Session we start; the webhook flips it
+// to 'completed'. Never let a logging error affect the customer's checkout.
+async function recordCheckoutStart({ sessionId, dealershipId, kind, planKey, currency }) {
+  try {
+    await supabaseAdmin.from('saas_checkout_sessions').insert({
+      stripe_session_id: sessionId, dealership_id: dealershipId || null,
+      kind, plan_key: planKey || null, currency: currency || null,
+    })
+  } catch (e) { console.error('[funnel] record start failed:', e?.message || e) }
+}
+async function markCheckoutComplete(sessionId) {
+  if (!sessionId) return
+  try {
+    await supabaseAdmin.from('saas_checkout_sessions')
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .eq('stripe_session_id', sessionId)
+  } catch (e) { console.error('[funnel] mark complete failed:', e?.message || e) }
+}
+
 export function registerRoutes(app) {
 
   // ── Stripe Webhook ─────────────────────────────────────────────────────────
@@ -127,6 +147,7 @@ export function registerRoutes(app) {
         case 'checkout.session.completed': {
           const session = event.data.object
           const meta = session.metadata || {}
+          markCheckoutComplete(session.id)   // HQ funnel: this cart converted
 
           // Online deposit (Stripe Connect destination charge) — not a subscription.
           if (meta.kind === 'deposit') { await handleDepositCheckout(session); break }
@@ -457,6 +478,7 @@ export function registerRoutes(app) {
       }
       if (existingCustomerId) sessionParams.customer = existingCustomerId
       const session = await stripe.checkout.sessions.create(sessionParams)
+      recordCheckoutStart({ sessionId: session.id, dealershipId: req.dealershipId, kind: 'package', planKey: pkgKey, currency })
       res.json({ url: session.url })
     } catch (err) { res.status(500).json({ error: err.message }) }
   }
@@ -495,6 +517,7 @@ export function registerRoutes(app) {
       }
       if (existingCustomerId) params.customer = existingCustomerId
       const session = await stripe.checkout.sessions.create(params)
+      recordCheckoutStart({ sessionId: session.id, dealershipId: req.dealershipId, kind: 'plan', planKey: planId, currency })
       res.json({ url: session.url })
     } catch (err) { res.status(500).json({ error: err.message }) }
   }
