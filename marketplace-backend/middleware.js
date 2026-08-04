@@ -38,13 +38,31 @@ export async function requireAuth(req, res, next) {
     const { data: { user }, error } = await supabase.auth.getUser(token)
     if (error || !user) return res.status(401).json({ error: 'AUTH_EXPIRED — please sign in again' })
 
+    // Do not embed `dealerships(*)` here. The schema has more than one
+    // profiles↔dealerships relationship (for example, a dealership owner), so
+    // PostgREST rejects the unqualified embed as ambiguous. That used to turn a
+    // perfectly valid fresh login into `Profile not found` / 401.
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('*, dealerships(*)')
+      .select('*')
       .eq('id', user.id)
       .single()
 
     if (profileError || !profile) return res.status(401).json({ error: 'Profile not found' })
+    if (profile.dealership_id) {
+      const { data: dealership, error: dealershipError } = await supabaseAdmin
+        .from('dealerships')
+        .select('*')
+        .eq('id', profile.dealership_id)
+        .maybeSingle()
+      if (dealershipError) {
+        console.warn('[auth] dealership lookup failed:', dealershipError.message)
+      }
+      // Preserve the existing request shape for downstream billing and role code.
+      profile.dealerships = dealership || null
+    } else {
+      profile.dealerships = null
+    }
     // Retain deactivated team members for audit/history, but never allow their
     // existing or newly issued sessions to reach the application.
     if (profile.active === false) return res.status(403).json({ error: 'ACCOUNT_DEACTIVATED' })

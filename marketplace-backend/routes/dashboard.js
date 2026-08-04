@@ -403,11 +403,19 @@ export function registerRoutes(app) {
   // competitors' identities. Points = listings·100 + sold·500 (same as team board).
   app.get('/leaderboard/global', requireAuth, async (req, res) => {
     try {
-      const [{ data: listings }, { data: profiles }] = await Promise.all([
+      const [{ data: listings }, { data: profiles }, { data: dealerships }] = await Promise.all([
         supabaseAdmin.from('listings').select('posted_by, status'),
-        supabaseAdmin.from('profiles').select('id, full_name, display_name, avatar_url, dealership_id, dealerships(name, is_personal)')
+        // Keep this separate from profiles: there are multiple foreign-key paths
+        // between profiles and dealerships, so an unqualified PostgREST embed is
+        // ambiguous on the staged schema.
+        supabaseAdmin.from('profiles').select('id, full_name, display_name, avatar_url, dealership_id'),
+        supabaseAdmin.from('dealerships').select('id, name, is_personal')
       ])
-      const profById = new Map((profiles || []).map(p => [p.id, p]))
+      const dealerById = new Map((dealerships || []).map(d => [d.id, d]))
+      const profById = new Map((profiles || []).map(p => [p.id, {
+        ...p,
+        dealerships: dealerById.get(p.dealership_id) || null,
+      }]))
 
       // Tally listings + sold per rep (include current user even with 0 activity).
       const repTally = new Map()
