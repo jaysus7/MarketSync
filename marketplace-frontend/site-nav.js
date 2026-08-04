@@ -92,7 +92,7 @@
     '.ms-hd{position:sticky;top:0;z-index:60;backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);background:rgba(255,255,255,.72);border-bottom:1px solid rgba(0,0,0,.06);transition:background .3s,box-shadow .3s,height .3s;}' +
     '@media (prefers-color-scheme:dark){.ms-hd{background:rgba(11,18,32,.72);border-bottom-color:rgba(255,255,255,.08);}}' +
     '.ms-hd.ms-scrolled{box-shadow:0 1px 20px rgba(0,0,0,.08);}' +
-    '.ms-hd-in{max-width:1280px;margin:0 auto;height:56px;display:flex;align-items:center;gap:24px;padding:0 32px;}' +
+    '.ms-hd-in{max-width:1600px;margin:0 auto;height:56px;display:flex;align-items:center;gap:24px;padding:0 32px;}' +
     '.ms-logo{display:inline-flex;align-items:center;gap:9px;font-weight:800;font-size:19px;letter-spacing:-.02em;color:#0b1220;text-decoration:none;}' +
     '@media (prefers-color-scheme:dark){.ms-logo{color:#fff;}}' +
     '.ms-logo-bar{width:6px;height:22px;border-radius:3px;background:var(--ms-accent);}' +
@@ -145,13 +145,13 @@
     '.ms-f-cta p{font-size:17px;line-height:1.6;max-width:620px;margin:0 auto 26px;}' +
     '.ms-f-cta-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}' +
     '.ms-f-cta-note{margin-top:16px;font-size:13px;color:#64748b;}' +
-    '.ms-f-grid{max-width:1280px;margin:0 auto;padding:52px 32px;display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:32px;border-top:1px solid rgba(255,255,255,.08);}' +
+    '.ms-f-grid{max-width:1600px;margin:0 auto;padding:52px 32px;display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:32px;border-top:1px solid rgba(255,255,255,.08);}' +
     '@media (max-width:860px){.ms-f-grid{grid-template-columns:1fr 1fr;}}' +
     '.ms-f-brand p{margin-top:12px;font-size:14px;max-width:230px;}' +
     '.ms-f-h{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#e2e8f0;margin-bottom:14px;}' +
     '.ms-f-col a{display:block;font-size:14px;color:#94a3b8;text-decoration:none;padding:5px 0;transition:color .15s;}' +
     '.ms-f-col a:hover{color:#fff;}' +
-    '.ms-f-bottom{max-width:1280px;margin:0 auto;padding:22px 32px;font-size:13px;border-top:1px solid rgba(255,255,255,.08);}' +
+    '.ms-f-bottom{max-width:1600px;margin:0 auto;padding:22px 32px;font-size:13px;border-top:1px solid rgba(255,255,255,.08);}' +
     /* motion */
     '.ms-reveal{opacity:0;transform:translateY(28px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1);}' +
     '.ms-reveal.ms-in{opacity:1;transform:none;}' +
