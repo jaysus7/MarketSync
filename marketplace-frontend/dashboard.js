@@ -397,7 +397,11 @@ async function refreshSessionSilently() {
   return __refreshInFlight;
 }
 if (token && localStorage.getItem('refresh_token')) {
-  refreshSessionSilently();
+  // Do not refresh immediately after a password/passkey login. The login response
+  // already contains a fresh access token, and rotating its refresh token while
+  // the dashboard is simultaneously booting `/auth/me` can make a successful
+  // sign-in look like an expired session. A genuine expiry is still repaired by
+  // the 401 retry above, and established sessions refresh on this interval.
   setInterval(refreshSessionSilently, 30 * 60 * 1000);
 }
 
