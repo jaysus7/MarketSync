@@ -10,6 +10,7 @@
 import { supabaseAdmin, stripe } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { resolveProducts, saasCan, saasRoleOf, SAAS_ROLES, SAAS_PERMISSIONS } from './profile.js'
+import { SAAS_SEQUENCES } from './saas-sequences.js'
 
 // Monthly price per product (used for MRR estimation from entitlements).
 const PRODUCT_MRR = { facebook_solo: 79, facebook_dealer: 499, ai_chatbot: 499, dealer_os: 499 }
@@ -232,12 +233,13 @@ export function registerSaasAdmin(app) {
     if (!need('view_customers')(req, res)) return
     const id = req.params.id
     const since = new Date(Date.now() - 90 * 86400000).toISOString()
-    const [{ data: dealer }, { data: team }, { data: events }, { data: subs }, { data: followups }] = await Promise.all([
+    const [{ data: dealer }, { data: team }, { data: events }, { data: subs }, { data: followups }, { data: enrollments }] = await Promise.all([
       supabaseAdmin.from('dealerships').select('*').eq('id', id).maybeSingle(),
       supabaseAdmin.from('profiles').select('id, full_name, role, saas_role, billing_status, trial_ends_at, phone, created_at').eq('dealership_id', id).limit(100),
       supabaseAdmin.from('events').select('event_name, created_at').eq('dealership_id', id).order('created_at', { ascending: false }).limit(60),
       supabaseAdmin.from('subscriptions').select('*').eq('dealership_id', id),
       supabaseAdmin.from('saas_account_followups').select('*').eq('dealership_id', id).order('due_at', { ascending: true }).limit(100),
+      supabaseAdmin.from('saas_sequence_enrollments').select('*').eq('dealership_id', id).order('created_at', { ascending: false }).limit(50),
     ])
     if (!dealer) return res.status(404).json({ error: 'Customer not found' })
 
@@ -287,6 +289,12 @@ export function registerSaasAdmin(app) {
       timeline: (events || []).map(e => ({ name: e.event_name, at: e.created_at })),
       subscriptions: subs || [], billing_history: billingHistory,
       followups: followups || [],
+      sequences: (enrollments || []).map(e => {
+        const seq = SAAS_SEQUENCES[e.sequence_key]
+        return { id: e.id, key: e.sequence_key, name: seq?.name || e.sequence_key, status: e.status,
+          current_step: e.current_step, total_steps: seq?.steps?.length || 0, started_at: e.started_at }
+      }),
+      sequence_catalog: Object.entries(SAAS_SEQUENCES).map(([key, s]) => ({ key, name: s.name, trigger: s.trigger })),
       stripe_customer_id: custId || null,
     })
   })
