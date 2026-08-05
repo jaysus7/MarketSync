@@ -144,7 +144,7 @@ test('shell theme is automatic system dark/light with a live listener and no man
   assert.doesNotMatch(js, /toggleTheme|theme-toggle|data-theme-toggle/, 'shell must not add a manual theme toggle')
 
   const css = read('assets/public-shell.css')
-  assert.match(css, /@media \(prefers-color-scheme: dark\)/, 'shell CSS has no system dark styling')
+  assert.match(css, /@media \(prefers-color-scheme:\s?dark\)/, 'shell CSS has no system dark styling')
 })
 
 // ── Centralized session check (a token string alone is not "signed in") ─
