@@ -51,7 +51,7 @@
        MarketSync itself. In MarketSync mode we trim the nav to the SaaS-relevant
        pages, trim Settings, and repaint the whole UI purple to make the mode
        unmistakable. The mode switcher itself is hidden unless JS reveals it. */
-    #ms-mode-switch { display: flex; }
+    #ms-mode-switch { display: none !important; }
 
     /* Trimmed nav in MarketSync mode: hide the vehicle-only groups + pages. */
     html[data-dash-mode="marketsync"] .nav-group[data-group="fb"],
@@ -789,12 +789,7 @@
 
         <!-- ═══════ DESKTOP grouped sidebar ═══════ -->
         <div id="nav-desktop" class="hidden md:flex md:flex-col md:w-full md:space-y-0.5">
-          <!-- Owner-only workspace switch: vehicle-dealer Demo ↔ running MarketSync. -->
-          <div id="ms-mode-switch" role="tablist" aria-label="Workspace mode">
-            <button type="button" data-mode="demo" data-on="1" onclick="setDashMode('demo')">🚗 MarketSync Automotive</button>
-            <button type="button" data-mode="marketsync" onclick="setDashMode('marketsync')">🟣 MarketSync</button>
-          </div>
-          <button id="ms-demo-reset" type="button" onclick="demoReset()" title="Reset the demo dealership to its starting data">↻ Reset demo data</button>
+
 
           <!-- Command Center — DealerOS home (today's operations + live exceptions) -->
           <button type="button" id="nav-command" data-page="command" title="Command Center" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
