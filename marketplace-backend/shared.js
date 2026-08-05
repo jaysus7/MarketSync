@@ -8,44 +8,7 @@ import { Resend } from 'resend'
 // from this backend instead of going through Supabase Auth. Lower latency,
 // better deliverability, no shared-tenant rate limits.
 export const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
-// Render should set EMAIL_FROM once the domain is verified in Resend. The
-// MarketSync address below is the intended branded default for all invite and
-// transactional messages.
-export const EMAIL_FROM = process.env.EMAIL_FROM || 'MarketSync <noreply@marketsync.com>'
-
-// Central mailer. Every failure mode is made explicit and LOGGED (most call sites
-// used to swallow errors, which is why a mis-configured key or an unverified
-// sending domain looked like "no emails going through" with nothing in the logs).
-// Returns { ok, error, id } — callers may ignore it, but the reason is always logged.
-export async function sendEmail({ to, subject, html, from, replyTo, cc, bcc, tags } = {}) {
-  if (!resend) { const error = 'RESEND_API_KEY not set — email is disabled'; console.error('[email]', error); return { ok: false, error } }
-  if (!to || !subject) { const error = 'email requires `to` and `subject`'; console.error('[email]', error, { to, subject }); return { ok: false, error } }
-  try {
-    const payload = { from: from || EMAIL_FROM, to, subject, html: html || '' }
-    if (replyTo) payload.replyTo = replyTo
-    if (cc) payload.cc = cc
-    if (bcc) payload.bcc = bcc
-    if (tags) payload.tags = tags
-    const r = await resend.emails.send(payload)
-    if (r?.error) { console.error('[email] send failed:', r.error?.message || r.error, '→', to); return { ok: false, error: r.error?.message || String(r.error) } }
-    return { ok: true, id: r?.data?.id || null }
-  } catch (e) {
-    console.error('[email] send threw:', e?.message || e, '→', to)
-    return { ok: false, error: e?.message || String(e) }
-  }
-}
-
-// Config snapshot for the owner's email diagnostic (no secrets returned).
-export function emailHealth() {
-  const m = /<([^>]+)>/.exec(EMAIL_FROM)
-  const addr = (m ? m[1] : EMAIL_FROM).trim()
-  return {
-    configured: !!resend,
-    key_present: !!process.env.RESEND_API_KEY,
-    from: EMAIL_FROM,
-    from_domain: addr.includes('@') ? addr.split('@')[1] : null,
-  }
-}
+export const EMAIL_FROM = process.env.EMAIL_FROM || 'MarketSync <noreply@marketsync.link>'
 
 // Public frontend host used for password reset links, email verification, Stripe
 // redirects, etc. This MUST be the static-site domain (marketsync.link) — NOT this
@@ -121,20 +84,3 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, { realtime: { transport: ws } })
 export const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { realtime: { transport: ws } })
-
-// ── MarketSync staff — the saas_admin / HQ workspace ──
-// HQ is MarketSync's own back office, NOT a dealership. Staff are identified by a
-// `saas_role` on their profile (or the owner email). Such an account needs no
-// dealership_id and is exempt from the dealership billing gate. The legacy internal
-// dealership names stay recognised so pre-existing owner logins keep HQ access.
-export const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
-export const SAAS_ROLES = ['owner', 'sales', 'support', 'marketing', 'developer']
-// Platform system roles (authoritative, from profiles.system_role) that open HQ.
-export const PLATFORM_SYSTEM_ROLES = ['platform_owner', 'platform_admin']
-export function isSaasStaff(profile, email) {
-  if (profile && PLATFORM_SYSTEM_ROLES.includes(profile.system_role)) return true
-  if (email && String(email).toLowerCase() === OWNER_EMAIL) return true
-  if (profile && SAAS_ROLES.includes(profile.saas_role)) return true
-  const dn = profile?.dealerships?.name
-  return dn === 'MarketSync' || dn === 'JMS Automotive'
-}

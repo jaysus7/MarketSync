@@ -19,17 +19,12 @@ export function registerMarketplaceHome(app) {
     const did = req.dealershipId
     if (!did) return res.status(403).json({ error: 'no dealership' })
     const since = daysAgo(30)
-    const [active, leads30, soldMktRows, respRows] = await Promise.all([
+    const [active, leads30, sold30, respRows] = await Promise.all([
       countOf('inventory', q => q.eq('dealership_id', did).is('archived_at', null).neq('status', 'sold')),
       countOf('leads', q => q.eq('dealership_id', did).gte('created_at', since)),
-      // "Sold through Marketplace" = Facebook LISTINGS that sold in the window, not
-      // every sold vehicle. A sale is attributed to Marketplace only if the unit was
-      // actually posted there (a listings row) and marked sold.
-      supabaseAdmin.from('listings').select('id, inventory:inventory_id!inner(dealership_id)')
-        .eq('inventory.dealership_id', did).eq('status', 'sold').gte('sold_at', since).limit(2000),
+      countOf('inventory', q => q.eq('dealership_id', did).eq('status', 'sold').gte('sold_at', since)),
       supabaseAdmin.from('leads').select('created_at, responded_at').eq('dealership_id', did).gte('created_at', since).not('responded_at', 'is', null).limit(500),
     ])
-    const sold30 = (soldMktRows?.data || []).length
     // Average first-response time, in minutes, over leads that got a reply.
     let avgResponseMin = null
     const rows = respRows.data || []

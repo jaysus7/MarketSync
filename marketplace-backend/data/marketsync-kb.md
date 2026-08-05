@@ -1,5 +1,5 @@
 # MarketSync — Product Knowledge Base
-Source: marketsync.link marketing site. Generated 2026-07-29.
+Source: marketsync.link marketing site. Generated 2026-07-17.
 Use ONLY this document to answer questions about MarketSync.
 
 
@@ -157,14 +157,6 @@ Running multiple rooftops? See MarketSync for Dealer Groups
 Run the whole loop on one platform.
 Replace your website vendor, CRM, inventory tool, marketing tool and appraisal book with one login — and one database.
 Start free — 30 days
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Feature index — MarketSync Features — The Complete Dealer Toolkit
@@ -217,14 +209,6 @@ Equity Mining
 Find who's ready to trade up, automatically.
 See the full workflow
 See how MarketSync compares
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## How MarketSync compares — MarketSync vs Other Facebook Marketplace Posting Tools | Comparison
@@ -279,14 +263,6 @@ The core platform covers Facebook posting, inventory sync, pipeline, leaderboard
 See the whole platform for yourself
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## FAQ — MarketSync FAQ — Facebook Marketplace for Car Dealers
@@ -306,7 +282,7 @@ Total inventory synced, listings posted (overall + per-rep), sold conversion rat
 What happens to my dealership data?
 Inventory data is pulled from your own public dealer feed and stored only so we can show it to your team in the extension. We don't sell, share, or use your data for advertising. See our Privacy Policy for the full breakdown.
 Can I see a demo before I sign up?
-Absolutely. Book a demo and we'll walk you through it live with your actual inventory.
+Absolutely. Book a 15-minute call and we'll walk you through it live with your actual inventory.
 What if Facebook changes their UI?
 We maintain the extension actively — when FB shifts their layout, we ship an update. Active subscribers automatically get the new version through Chrome's auto-update.
 What is the sales leaderboard and how do points work?
@@ -319,14 +295,6 @@ Who sees the AI Boost upgrade button in the dashboard?
 Only the dealer admin sees it — the upgrade prompt appears at the top of the Insights page and in Profile & Settings. Sales reps see the AI Enrichment button on inventory cards once the admin has activated it, but the billing and configuration is managed by the admin only.
 Does MarketSync work on mobile?
 The dashboard, leaderboard, and stats pages are fully responsive and work great from a phone or tablet browser. Posting to Facebook Marketplace itself happens through the Chrome extension, which requires desktop Chrome — that's a Facebook limitation, not a MarketSync one, since Facebook's own listing form behaves differently on mobile.
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Dealer Website Builder — Car Dealer Website Builder — Live Inventory & VIN Pages
@@ -370,14 +338,6 @@ Own your storefront.
 Stop renting your website from a vendor. Build it, brand it, and keep it in sync with your lot — all on one platform.
 Start free — 30 days
 Part of the MarketSync workflow · See how it all connects →
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Deal Desk & Bill of Sale — Car Deal Desk & Bill of Sale Software for Dealers
@@ -421,14 +381,6 @@ Close cleaner deals, faster.
 Desk, F&I and paperwork in one place — attached to the customer and the car, with nothing re-typed.
 Start free — 30 days
 Part of the MarketSync workflow · See how it all connects →
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Trade Appraisal — Car Trade-In Appraisal Software with Live Market Values
@@ -472,14 +424,6 @@ Stop guessing on trades.
 Give every rep a market-accurate number — and turn winning the trade into the start of your next sale.
 Start free — 30 days
 Part of the MarketSync workflow · See how it all connects →
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Follow-up Automation — Dealership Follow-Up Automation — Email, SMS & Rep Tasks
@@ -523,14 +467,6 @@ Never let a lead go cold.
 Automated follow-ups keep every customer warm — so your last sale becomes your next one.
 Start free — 30 days
 Part of the MarketSync workflow · See how it all connects →
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Equity Mining — Automotive Equity Mining — Pull-Ahead & Trade-Up Radar
@@ -574,14 +510,6 @@ Your next sale is already in your CRM.
 Equity mining finds the customers ready to trade up — and hands your team the numbers to close them.
 Start free — 30 days
 Part of the MarketSync workflow · See how it all connects →
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Inventory Intelligence — Car Dealership Inventory Intelligence & Analytics
@@ -629,14 +557,6 @@ Photo quality scoring
 See your lot clearly
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Facebook Marketplace Auto-Poster — Facebook Marketplace Auto-Poster for Car Dealers
@@ -684,14 +604,6 @@ Ban-protection guardrails
 Start posting to Facebook Marketplace faster
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: CRM & Lead Delivery — ADF/XML CRM Lead Delivery for Dealers
@@ -739,14 +651,6 @@ Multi-store roles & billing
 Never lose a Marketplace lead
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: AI Listing Copy — AI Vehicle Listing Descriptions for Facebook Marketplace
@@ -794,14 +698,6 @@ Photo quality scoring
 Let AI write your listings
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: AI Vision Photo Scoring — AI Vehicle Photo Scoring for Listings
@@ -849,14 +745,6 @@ Live US & Canada pricing
 Turn better photos into more clicks
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Market Price Reports — Live Vehicle Market Price Reports (US & Canada)
@@ -904,14 +792,6 @@ Decode, stickers, brochures
 Price every car with confidence
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Sales Pipeline — Car Sales Pipeline & Appointment Tracker
@@ -959,14 +839,6 @@ ADF/XML to your CRM
 Turn postings into tracked deals
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Sales Leaderboard — Dealership Sales Leaderboard & Team Insights
@@ -1014,14 +886,6 @@ Multi-store roles & billing
 Motivate your team to post more
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Dealer Groups — Multi-Store Dealer Group Management
@@ -1069,14 +933,6 @@ ADF/XML to your CRM
 Bring your whole group together
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Inventory Sync — Automatic Dealer Inventory Sync
@@ -1124,14 +980,6 @@ Decode, stickers, brochures
 Keep your inventory in sync automatically
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: VIN Decoder & Window Stickers — VIN Decoder, Window Sticker & Brochure Generator
@@ -1179,14 +1027,6 @@ Health, turn rate, hot & cold
 Decode VINs and print pro documents
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Product: Facebook Posting Safety — Facebook Marketplace Posting Safety & Ban Protection
@@ -1234,28 +1074,29 @@ Posted → Appointment → Sold
 Post safely, at scale
 Try MarketSync free for 30 days. No credit card required.
 Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
 
 
 ## Packages & add-on pricing — MarketSync Pricing & Plans — Free 30-Day Trial
 (upgrade.html)
 Market Sync
 Choose your plan
-Your free trial has ended — pick a plan to keep going. Cancel anytime.
-Loading plans…
+30 days free on either plan. Cancel anytime.
+Solo Sales Rep
+$79 / month
+For independent reps working solo or across multiple dealers.
+✓ Personal inventory sync
+✓ Chrome extension auto-poster
+✓ Mark sold + listing tracking
+✓ Personal performance dashboard
+Start 30-day free trial
+Most popular
+Dealer Plan
+$499 / month
+Full team: dealership admin + unlimited sales reps on one plan.
+✓ Everything in Solo
+✓ Invite + manage unlimited sales reps
+✓ Team performance insights + drill-downs
+✓ Multiple inventory feeds (new / used / demo)
+✓ Reps don't pay — billed once at the dealership level
+Start 30-day free trial
 Already have an account? Sign in
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link

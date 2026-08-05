@@ -13,9 +13,10 @@
  * their own editors; this unifies discovery + the simple keys.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth, requireMfa } from '../middleware.js'
-import { requirePermission } from '../authorization.js'
+import { requireAuth } from '../middleware.js'
 import { audit } from '../audit.js'
+
+const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 
 // In-process cache (per dealer+key) with a short TTL — config is read on hot paths.
 const _cache = new Map()
@@ -63,11 +64,8 @@ const STRUCTURED_DOMAINS = [
 ]
 
 export function registerConfigEngine(app) {
-  // The generic configuration store can hold integration endpoints, notification
-  // rules, and other dealer-wide controls. Use a dedicated RBAC permission and
-  // MFA for both reads and writes rather than trusting the legacy profile role.
   // Catalog — everything a dealer can configure, in one place.
-  app.get('/config', requireAuth, requireMfa, requirePermission('settings.manage'), async (req, res) => {
+  app.get('/config', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     // Merge global defaults + this dealer's overrides into one view per key.
     const { data: rows } = await supabaseAdmin.from('dealer_config').select('*')
@@ -90,15 +88,16 @@ export function registerConfigEngine(app) {
     res.json({ keys, structured })
   })
 
-  app.get('/config/:key', requireAuth, requireMfa, requirePermission('settings.manage'), async (req, res) => {
+  app.get('/config/:key', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const value = await getConfig(req.dealershipId, req.params.key, null)
     if (value === null) return res.status(404).json({ error: 'not set' })
     res.json({ key: req.params.key, value })
   })
 
-  app.put('/config/:key', requireAuth, requireMfa, requirePermission('settings.manage'), async (req, res) => {
+  app.put('/config/:key', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     try {
       await setConfig(req.dealershipId, req.params.key, req.body?.value ?? {}, req)
       res.json({ ok: true })
@@ -106,8 +105,9 @@ export function registerConfigEngine(app) {
   })
 
   // Reset a dealer's override for a key (fall back to the global default).
-  app.delete('/config/:key', requireAuth, requireMfa, requirePermission('settings.manage'), async (req, res) => {
+  app.delete('/config/:key', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     await supabaseAdmin.from('dealer_config').delete().eq('dealership_id', req.dealershipId).eq('key', req.params.key)
     _cache.delete(ckey(req.dealershipId, req.params.key))
     audit(req, 'config.reset', { key: req.params.key }).catch(() => {})

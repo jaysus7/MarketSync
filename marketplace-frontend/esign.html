@@ -50,7 +50,7 @@
   </div>
 
   <script>
-    const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
+    const API = 'https://vehicle-marketplace-s0e4.onrender.com';
     const token = new URLSearchParams(location.search).get('t') || '';
     const card = document.getElementById('card');
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));

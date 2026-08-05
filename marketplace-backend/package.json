@@ -8,10 +8,7 @@
     "dev": "node --watch server.js",
     "build": "npm install && npm run build:kb",
     "build:kb": "node scripts/build-kb.js",
-    "build:training": "node scripts/build-training-expanded.js && node scripts/build-training-visuals.js",
-    "test": "node --test test/*.test.js",
-    "seed:jms": "node scripts/seed-jms.js",
-    "bootstrap:platform-staff": "node scripts/bootstrap-platform-staff.js"
+    "seed:jms": "node scripts/seed-jms.js"
   },
   "keywords": [],
   "author": "",

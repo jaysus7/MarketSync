@@ -5,7 +5,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
-import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 import { marketcheckMarket, marketcheckListings, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing, marketcheckDecodeVin, marketcheckPredictPrice, marketcheckMarketStats } from '../marketcheck.js'
 import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, assistantDailyAllowed, recordAssistantChat, ASSISTANT_DAILY_LIMIT, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
 import { findOrCreateContact } from './crm.js'
@@ -16,11 +15,7 @@ import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
 import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
 import { lookupPlate, plateLookupConfigured } from '../providers/plateLookup.js'
 
-// Platform-only entitlement overrides must come from the server-managed role,
-// never from an email string or editable profile field.
-function isPlatformOwner(req) {
-  return hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
-}
+const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 
 // Best-effort: pull the factory (OEM) window sticker for an acquired unit's VIN and
 // attach it, so a freshly-taken trade carries real factory documentation before the
@@ -103,27 +98,13 @@ const ASSISTANT_TOOLS = [
     input_schema: { type: 'object', properties: { topic: { type: 'string', enum: ['overview', 'sales', 'commissions', 'reps', 'leads', 'inventory', 'recon', 'tasks', 'appraisals', 'trends', 'priorities', 'pricing', 'equity'], description: 'Which slice of the dealership to report on.' } }, required: ['topic'] },
   },
   {
-    name: 'customer_lookup',
-    description: "Look up a SPECIFIC customer in this store's CRM by name, phone or email, and get where they stand: status, assigned rep, contact info, the vehicle they're interested in, their latest logged activity, and any deal. Use for 'what's the status on <name>', 'has anyone followed up with <name>', 'who's handling <name>', 'find <phone/email>'. For store-wide rollups (unworked leads, who to call today) use dealership_report instead.",
-    input_schema: { type: 'object', properties: { query: { type: 'string', description: "The customer's name, phone number, or email (or a fragment of it)." } }, required: ['query'] },
-  },
-  {
-    name: 'inventory_lookup',
-    description: "Look up a SPECIFIC vehicle on this store's lot by stock number, VIN, or description (e.g. '2020 Silverado', '#A1234'), and get where it stands: price, mileage, days on lot, photo count/health, status, and how it sits vs the market median from the last scan. Use for 'what's the story on stock #<n>', 'how long has the <car> been here', 'is the <car> priced right'. For lot-wide rollups (what's aging, what to discount) use dealership_report's inventory/pricing topics instead.",
-    input_schema: { type: 'object', properties: { query: { type: 'string', description: 'A stock number, VIN, or a year/make/model description.' } }, required: ['query'] },
-  },
-  {
     name: 'propose_action',
-    description: "Propose an action for the user to CONFIRM (never executed automatically). Use when the user asks you to DO something, not just report. Actions: 'create_task' — add a follow-up/reminder task (give a clear title and optional due_hours); 'bulk_outreach' — text/email a group of customers described in plain English (put the full request in `instruction`); 'book_appointment' — book an appointment for a specific customer (give `customer` = their name, `when_iso` = the exact date-time in ISO 8601 you compute from their request and today's date, and an optional `note`); 'reassign_lead' — hand a customer to a different salesperson (give `customer` = their name and `to_rep` = the salesperson's name). After proposing, tell the user in one short sentence what you set up and that they can confirm it. Do NOT claim it's done — it only happens once they confirm.",
+    description: "Propose an action for the user to CONFIRM (never executed automatically). Use when the user asks you to DO something, not just report. Two actions: 'create_task' — add a follow-up/reminder task for the user (give a clear title and optional due_hours); 'bulk_outreach' — text or email a group of customers described in plain English (put the full request in `instruction`, e.g. 'text everyone uncontacted for 3 days about our weekend sale'). After proposing, tell the user in one short sentence what you set up and that they can confirm it. Do NOT claim it's done — it only happens once they confirm.",
     input_schema: { type: 'object', properties: {
-      action: { type: 'string', enum: ['create_task', 'bulk_outreach', 'book_appointment', 'reassign_lead'] },
+      action: { type: 'string', enum: ['create_task', 'bulk_outreach'] },
       title: { type: 'string', description: 'create_task: the task title' },
       due_hours: { type: 'number', description: 'create_task: hours from now the task is due (optional)' },
       instruction: { type: 'string', description: 'bulk_outreach: the full plain-English outreach request' },
-      customer: { type: 'string', description: 'book_appointment / reassign_lead: the customer name (or phone/email) to match' },
-      when_iso: { type: 'string', description: 'book_appointment: the appointment date-time in ISO 8601 (compute from the request + today\'s date)' },
-      note: { type: 'string', description: 'book_appointment: optional note for the appointment' },
-      to_rep: { type: 'string', description: 'reassign_lead: the salesperson to reassign the customer to (name)' },
     }, required: ['action'] },
   },
 ]
@@ -461,119 +442,11 @@ async function buildDealershipReport(dealershipId, topicRaw, { isMgr = true } = 
   return JSON.stringify(out).slice(0, 4500)
 }
 
-// Look up a specific customer from THIS store's CRM and summarize where they stand
-// — status, assigned rep, contact info, the vehicle they're interested in, their
-// latest logged activity, and any deal. Scoped to the dealership; bounded queries.
-async function buildCustomerLookup(dealershipId, query) {
-  const q = String(query || '').trim()
-  if (q.length < 2) return 'Give me a name, phone number, or email to look up.'
-  const like = `%${q.replace(/[%,]/g, ' ').trim()}%`
-  const { data: rows } = await supabaseAdmin.from('contacts')
-    .select('id, full_name, first_name, last_name, email, phone, phone_mobile, status, assigned_rep, source, created_at, sold_at, interest_inventory_id')
-    .eq('dealership_id', dealershipId)
-    .or(`full_name.ilike.${like},first_name.ilike.${like},last_name.ilike.${like},email.ilike.${like},phone.ilike.${like},phone_mobile.ilike.${like}`)
-    .order('created_at', { ascending: false })
-    .limit(5)
-  if (!rows || !rows.length) return `No customer found matching "${q}".`
-
-  const ids = rows.map(r => r.id)
-  const repIds = [...new Set(rows.map(r => r.assigned_rep).filter(Boolean))]
-  const invIds = [...new Set(rows.map(r => r.interest_inventory_id).filter(Boolean))]
-  const [reps, inv, comms, deals] = await Promise.all([
-    repIds.length ? supabaseAdmin.from('profiles').select('id, full_name, display_name').in('id', repIds).then(r => r.data || [], () => []) : Promise.resolve([]),
-    invIds.length ? supabaseAdmin.from('inventory').select('id, year, make, model, trim').in('id', invIds).then(r => r.data || [], () => []) : Promise.resolve([]),
-    supabaseAdmin.from('communications').select('contact_id, channel, direction, subject, created_at').in('contact_id', ids).order('created_at', { ascending: false }).limit(60).then(r => r.data || [], () => []),
-    supabaseAdmin.from('deals').select('contact_id, deal_number, deal_status, selling_price').in('contact_id', ids).then(r => r.data || [], () => []),
-  ])
-  const repById = Object.fromEntries(reps.map(r => [r.id, r.display_name || r.full_name || '—']))
-  const invById = Object.fromEntries(inv.map(v => [v.id, [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')]))
-  const lastComm = {}; for (const c of comms) if (!lastComm[c.contact_id]) lastComm[c.contact_id] = c
-  const dealBy = {}; for (const d of deals) if (!dealBy[d.contact_id]) dealBy[d.contact_id] = d
-  const days = (iso) => { try { return Math.floor((Date.now() - new Date(iso)) / 86400000) } catch { return null } }
-
-  const lines = rows.map(r => {
-    const name = r.full_name || [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Unnamed'
-    const parts = [`${name} — status: ${r.status || 'lead'}`]
-    if (r.assigned_rep) parts.push(`rep: ${repById[r.assigned_rep] || '—'}`)
-    const contact = [r.phone || r.phone_mobile, r.email].filter(Boolean).join(', ')
-    if (contact) parts.push(`contact: ${contact}`)
-    if (r.interest_inventory_id && invById[r.interest_inventory_id]) parts.push(`interested in: ${invById[r.interest_inventory_id]}`)
-    if (r.source) parts.push(`source: ${r.source}`)
-    const lc = lastComm[r.id]
-    if (lc) { const d = days(lc.created_at); parts.push(`last activity: ${lc.direction || ''} ${lc.channel || 'note'}${lc.subject ? ' “' + String(lc.subject).slice(0, 60) + '”' : ''}${d != null ? ` (${d}d ago)` : ''}`.trim()) }
-    else { const d = days(r.created_at); parts.push(`no logged activity${d != null ? ` — created ${d}d ago` : ''}`) }
-    const dl = dealBy[r.id]
-    if (dl) parts.push(`deal: #${dl.deal_number || '?'} ${dl.deal_status || ''}${dl.selling_price ? ' $' + Number(dl.selling_price).toLocaleString() : ''}`.trim())
-    return '• ' + parts.join(' · ')
-  })
-  return `${rows.length} match${rows.length > 1 ? 'es' : ''} for "${q}":\n` + lines.join('\n')
-}
-
-// Look up a SPECIFIC unit on this store's lot by stock #, VIN, or description and
-// summarize where it stands: price, mileage, days on lot, photo health, status, and
-// (from the latest scan) how it sits vs the market median. Reads our OWN data.
-async function buildInventoryLookup(dealershipId, query, { isUS = false } = {}) {
-  const q = String(query || '').trim()
-  if (q.length < 2) return 'Give me a stock number, VIN, or a year/make/model to look up.'
-  const { data: rows } = await supabaseAdmin.from('inventory')
-    .select('id, year, make, model, trim, vin, stocknumber, price, mileage, status, image_urls, photo_score, created_at, lot_date, condition')
-    .eq('dealership_id', dealershipId)
-    .limit(2000)
-  if (!rows || !rows.length) return 'No inventory on file yet.'
-
-  const tokens = q.toLowerCase().split(/\s+/).filter(Boolean)
-  const hayOf = (v) => [v.year, v.make, v.model, v.trim, v.stocknumber, v.vin].map(x => String(x ?? '').toLowerCase()).join(' ')
-  const idMatch = (v) => {
-    const sn = String(v.stocknumber ?? '').toLowerCase(), vin = String(v.vin ?? '').toLowerCase()
-    const ql = q.toLowerCase()
-    return (sn && sn === ql) || (vin && (vin === ql || vin.endsWith(ql)))
-  }
-  let matched = rows.filter(v => idMatch(v))
-  if (!matched.length) matched = rows.filter(v => { const h = hayOf(v); return tokens.every(t => h.includes(t)) })
-  if (!matched.length) return `No vehicle found matching "${q}".`
-  const rank = (v) => (idMatch(v) ? 0 : 1) + (v.status === 'available' ? 0 : 0.5)
-  matched.sort((a, b) => rank(a) - rank(b) || new Date(b.lot_date || b.created_at) - new Date(a.lot_date || a.created_at))
-  const top = matched.slice(0, 5)
-
-  // Latest scanned market median per matched unit → price-vs-market read.
-  const ids = top.map(v => v.id)
-  const { data: acts } = await supabaseAdmin.from('ai_activity')
-    .select('inventory_id, price_median, created_at').eq('dealership_id', dealershipId)
-    .in('inventory_id', ids).not('price_median', 'is', null)
-    .order('created_at', { ascending: false }).limit(500)
-  const medBy = {}; for (const a of (acts || [])) if (a.inventory_id && !medBy[a.inventory_id]) medBy[a.inventory_id] = a.price_median
-  const days = (v) => { try { const ref = v.lot_date || v.created_at; return ref ? Math.floor((Date.now() - new Date(ref)) / 86400000) : null } catch { return null } }
-  const photos = (v) => Array.isArray(v.image_urls) ? v.image_urls.filter(Boolean).length : 0
-
-  const lines = top.map(v => {
-    const name = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || 'Vehicle'
-    const parts = [`${name}${v.stocknumber ? ` (#${v.stocknumber})` : ''} — status: ${v.status || 'unknown'}`]
-    if (v.price) parts.push(`price: $${Number(v.price).toLocaleString()}`); else parts.push('no price set')
-    if (v.mileage != null) parts.push(`${Number(v.mileage).toLocaleString()} ${isUS ? 'mi' : 'km'}`)
-    const d = days(v); if (d != null) parts.push(`${d}d on lot`)
-    const ph = photos(v); parts.push(`${ph} photo${ph === 1 ? '' : 's'}${v.photo_score != null ? `, score ${v.photo_score}` : ''}`)
-    const med = medBy[v.id]
-    if (med && v.price) { const pct = Math.round(((Number(v.price) - med) / med) * 100); parts.push(`vs market: ${pct > 0 ? '+' : ''}${pct}% (median $${Number(med).toLocaleString()})`) }
-    return '• ' + parts.join(' · ')
-  })
-  return `${top.length} match${top.length > 1 ? 'es' : ''} for "${q}":\n` + lines.join('\n')
-}
-
 async function runAssistantTool(name, input, { dealershipId, isOwner, isUS, isMgr }) {
   // The dealership report reads our OWN database — never gated by MarketCheck.
   if (name === 'dealership_report') {
     try { return await buildDealershipReport(dealershipId, input?.topic, { isMgr: !!isMgr }) }
     catch (e) { console.warn('[assistant] dealership_report failed:', e.message); return 'Could not pull that report right now.' }
-  }
-  // Customer lookup also reads our OWN CRM — never gated by MarketCheck.
-  if (name === 'customer_lookup') {
-    try { return await buildCustomerLookup(dealershipId, input?.query) }
-    catch (e) { console.warn('[assistant] customer_lookup failed:', e.message); return 'Could not look that customer up right now.' }
-  }
-  // Inventory lookup reads our OWN lot (+ last scan's median) — never gated by MarketCheck.
-  if (name === 'inventory_lookup') {
-    try { return await buildInventoryLookup(dealershipId, input?.query, { isUS }) }
-    catch (e) { console.warn('[assistant] inventory_lookup failed:', e.message); return 'Could not look that vehicle up right now.' }
   }
   if (!marketcheckEnabled()) return 'Live market data (MarketCheck) is not configured on this account.'
   if (!(await marketcheckAllowed(dealershipId, isOwner))) return 'The market-data lookup limit has been reached for now — try again later.'
@@ -670,9 +543,6 @@ async function marketMedianForScan({ vehicle, dealer, isUS, dealershipId, isOwne
       params: {
         make: vehicle.make, model: vehicle.model, year: Number(vehicle.year),
         trim: vehicle.trim || '', mileage: vehicle.mileage ? Number(vehicle.mileage) : null,
-        // Geo-scope like the appraisal: start local (200 km) and let marketcheckMarket
-        // widen to province/state → national when the local comp set is too thin.
-        zip: dealer?.postal_code || null, radius: 200, state: dealer?.province || null,
         isUS,
       },
     })
@@ -694,12 +564,16 @@ async function marketMedianForScan({ vehicle, dealer, isUS, dealershipId, isOwne
     return null
   } catch { return null }
 }
+
 function requireDealerAdmin(req, res, next) {
+  // Dealer-level access: dealer admins, owners, and managers (a manager has full
+  // dealer access, just scoped to the store they're logged into).
   if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) {
     return res.status(403).json({ error: 'Dealer-level access required' })
   }
   next()
 }
+
 // Calculate median from a sorted array of numbers
 function median(sorted) {
   if (!sorted.length) return null
@@ -788,7 +662,7 @@ async function computeDailyDigest(dealershipId, isOwner = false) {
 }
 
 export {
-  isPlatformOwner, attachOemStickerToInventory, LANG_NAME, langName,
+  OWNER_EMAIL, attachOemStickerToInventory, LANG_NAME, langName,
   PRODUCT_KB, ASSISTANT_TOOLS, REPORT_TOPICS,
   buildDealershipReport, runAssistantTool,
   skipPriceComp, PRICE_MIN_COMPS, buildPriceFlag, aiErrorMessage,

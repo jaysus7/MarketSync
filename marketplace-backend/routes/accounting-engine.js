@@ -17,9 +17,7 @@
  * numbers; this engine only turns its result (deal_commissions.total) into journals.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth, requireMfa } from '../middleware.js'
-import { requirePermission } from '../authorization.js'
-import { audit } from '../audit.js'
+import { requireAuth } from '../middleware.js'
 import { onEvent } from './events.js'
 import { getCommissionResult } from './commissions.js'
 import { getDeal } from './dashboard.js'
@@ -180,30 +178,6 @@ async function postCommissionCalculated(dealershipId, dealId) {
   })
 }
 
-// Reverse a clawed-back commission's accrual. Finds the original commission_calculated
-// journal for the deal and posts its exact inverse (DR Commission Payable / CR Commission
-// Expense) as a reversing entry — locked journals are never edited, corrections are
-// always new reversing postings (contract). Idempotent per deal (postJournal dedupes on
-// source+reference+event); a no-op when nothing was ever accrued for the deal.
-async function postCommissionClawback(dealershipId, dealId, date) {
-  const { data: orig } = await supabaseAdmin.from('journal_entries')
-    .select('id').eq('dealership_id', dealershipId).eq('source', 'commission')
-    .eq('reference', String(dealId)).eq('event_name', 'commission_calculated').maybeSingle()
-  if (!orig) return null   // nothing accrued → nothing to reverse
-  const { data: lines } = await supabaseAdmin.from('journal_lines').select('debit').eq('journal_entry_id', orig.id)
-  const amount = round2((lines || []).reduce((s, l) => s + n(l.debit), 0))   // balanced entry ⇒ Σdebit = total
-  if (amount <= 0) return null
-  return postJournal(dealershipId, {
-    source: 'commission', eventName: 'commission_clawed_back', reference: String(dealId),
-    entryDate: (date || new Date().toISOString()).slice(0, 10), memo: 'Commission clawback reversal',
-    refs: { ref_deal_id: dealId },
-    lines: [
-      { account_key: 'commission_payable', debit: amount, credit: 0, desc: 'Reverse commission accrual' },
-      { account_key: 'commission_expense', debit: 0, credit: amount, desc: 'Reverse commission accrual' },
-    ],
-  })
-}
-
 // Map one bus event to its posting handler → returns { handler, journalId } or null
 // when the event isn't a financial one. Amounts for A5 events come from the payload.
 async function routeFinancialEvent(event) {
@@ -218,8 +192,6 @@ async function routeFinancialEvent(event) {
       return { handler: 'commission_calculated', journalId: await postCommissionCalculated(did, p.deal_id || e) }
     case 'commission.paid':
       return { handler: 'commission_paid', journalId: await postByRule(did, 'commission_paid', { commission_total: n(p.amount), __source: 'commission_pay', __reference: p.ref || e, __date: event.created_at, __refs: { ref_deal_id: p.deal_id || null } }) }
-    case 'commission.clawed_back':
-      return { handler: 'commission_clawed_back', journalId: await postCommissionClawback(did, p.deal_id || e, event.created_at) }
     case 'deposit.paid': {
       const cents = n(p.amount_cents); if (cents <= 0) return null
       return { handler: 'deposit_received', journalId: await postByRule(did, 'deposit_received', { deposit_amount: round2(cents / 100), __source: 'deposit', __reference: p.payment_ref || e, __date: event.created_at, __refs: { ref_contact_id: e } }) }
@@ -261,7 +233,7 @@ async function onFinancialEvent(event) {
 export function registerAccountingEngine(app) {
   onEvent(onFinancialEvent)   // subscribe the accounting engine to the events bus
 
-  app.get('/accounting/journal', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+  app.get('/accounting/journal', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const { data: entries } = await supabaseAdmin.from('journal_entries').select('*')
       .eq('dealership_id', req.dealershipId).order('entry_date', { ascending: false }).order('created_at', { ascending: false }).limit(200)
@@ -274,7 +246,7 @@ export function registerAccountingEngine(app) {
   })
 
   // Event → journal audit log (which event produced which journal; replay history).
-  app.get('/accounting/event-log', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+  app.get('/accounting/event-log', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const { data } = await supabaseAdmin.from('accounting_event_log').select('*')
       .eq('dealership_id', req.dealershipId).order('processed_at', { ascending: false }).limit(200)
@@ -283,7 +255,7 @@ export function registerAccountingEngine(app) {
 
   // Replay a stored event → regenerate its accounting safely (postings are idempotent
   // per source+reference+event, so replaying returns the existing journal, not a dup).
-  app.post('/accounting/replay/:eventId', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+  app.post('/accounting/replay/:eventId', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const { data: event } = await supabaseAdmin.from('events').select('*')
       .eq('id', req.params.eventId).eq('dealership_id', req.dealershipId).maybeSingle()
@@ -294,12 +266,11 @@ export function registerAccountingEngine(app) {
       processed_by: (result?.handler || 'replay') + ' (replay)', journal_entry_id: result?.journalId || null,
       status: result?.journalId ? 'processed' : 'skipped',
     })
-    audit(req, 'accounting.event_replayed', { event_id: event.id, event_name: event.event_name, journal_entry_id: result?.journalId || null, status: result?.journalId ? 'processed' : 'skipped' })
     res.json({ ok: true, handler: result?.handler || null, journal_entry_id: result?.journalId || null })
   })
 
   // Trial balance — computed purely from journal_lines (never edited balances).
-  app.get('/accounting/trial-balance', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+  app.get('/accounting/trial-balance', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const acc = await accountBalances(req.dealershipId, req.query)
     const rows = acc.filter(a => a.debit || a.credit)
@@ -309,7 +280,7 @@ export function registerAccountingEngine(app) {
   })
 
   // Dashboard cards — MTD P&L + cumulative balance-sheet positions (from journals).
-  app.get('/accounting/summary', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+  app.get('/accounting/summary', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const now = new Date()
     const from = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`
@@ -329,7 +300,7 @@ export function registerAccountingEngine(app) {
   })
 
   // Income statement — revenue − COGS − expense (from journals, optional date range).
-  app.get('/accounting/income-statement', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+  app.get('/accounting/income-statement', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const acc = await accountBalances(req.dealershipId, req.query)
     const bucket = (cat) => acc.filter(a => a.category === cat)
@@ -349,7 +320,7 @@ export function registerAccountingEngine(app) {
   })
 
   // Balance sheet — assets = liabilities + equity + net income (from journals).
-  app.get('/accounting/balance-sheet', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+  app.get('/accounting/balance-sheet', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const acc = await accountBalances(req.dealershipId, {})   // balance sheet is cumulative
     const bucket = (cat) => acc.filter(a => a.category === cat)
@@ -370,7 +341,7 @@ export function registerAccountingEngine(app) {
   })
 
   // ── A6 Period Close: open → manager_approved → controller_approved → closed → locked
-  app.get('/accounting/periods', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+  app.get('/accounting/periods', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const now = new Date(); const cur = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
     // Ensure the current month exists so there's always something to act on.
@@ -380,8 +351,9 @@ export function registerAccountingEngine(app) {
   })
 
   // Advance a period one step (or lock it). Managers/admins only.
-  app.post('/accounting/periods/advance', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+  app.post('/accounting/periods/advance', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const period = String(req.body?.period || '')
     if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ error: 'period must be YYYY-MM' })
     const { data: row } = await supabaseAdmin.from('accounting_periods').select('*').eq('dealership_id', req.dealershipId).eq('period', period).maybeSingle()
@@ -393,12 +365,11 @@ export function registerAccountingEngine(app) {
     const patch = { dealership_id: req.dealershipId, period, status: next, approvals, updated_at: new Date().toISOString() }
     if (next === 'locked') { patch.locked_at = new Date().toISOString(); patch.locked_by = req.user?.id || null }
     await supabaseAdmin.from('accounting_periods').upsert(patch, { onConflict: 'dealership_id,period' })
-    audit(req, 'accounting.period_advanced', { period, before_state: { status: cur }, after_state: { status: next } })
     res.json({ ok: true, status: next })
   })
 
   // ── A8 Forecast: project month-end from open deals + posted journals + pipeline.
-  app.get('/accounting/forecast', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+  app.get('/accounting/forecast', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const did = req.dealershipId
     const now = new Date(); const from = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`

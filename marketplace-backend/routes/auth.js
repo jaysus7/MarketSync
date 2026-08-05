@@ -1,35 +1,16 @@
 import { createClient } from '@supabase/supabase-js'
 import { randomBytes, createHash } from 'crypto'
 import { supabase, supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
-import { requireAuth, requireMfa } from '../middleware.js'
+import { requireAuth } from '../middleware.js'
 import { validatePassword, rateLimit, getClientIp, generateRecoveryCodes, hashRecoveryCode } from '../security.js'
 import { maybeAlertSuspiciousLogin } from '../securityAlerts.js'
 import { audit, AuditAction } from '../audit.js'
 import { recordReferralSignup } from './affiliate.js'
-import { syncDealerRole } from '../authorization.js'
-import { ACCOUNT_TYPES, provisionPlan } from '../entitlements.js'
-import { getPlan } from '../plan-catalog.js'
-import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge } from '../mfa-login-challenges.js'
 import {
   beginPasskeyRegistration, finishPasskeyRegistration,
   beginPasskeyLogin, finishPasskeyLogin,
   listUserPasskeys, deletePasskey
 } from '../passkeys.js'
-
-function maskPhone(phone) {
-  const value = String(phone || '')
-  if (value.length < 5) return 'your phone'
-  return `${value.slice(0, 2)}••• ••• ${value.slice(-4)}`
-}
-
-async function replaceMfaRecoveryCodes(userId) {
-  const codes = generateRecoveryCodes(10)
-  const rows = codes.map(code => ({ user_id: userId, code_hash: hashRecoveryCode(code) }))
-  await supabaseAdmin.from('recovery_codes').delete().eq('user_id', userId)
-  const { error } = await supabaseAdmin.from('recovery_codes').insert(rows)
-  if (error) throw error
-  return codes
-}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // EMAIL TEMPLATES — plain language, branded, with a clear call to action
@@ -121,7 +102,7 @@ export function registerRoutes(app) {
   // ── 3. AUTH ENDPOINTS ──
   // 5 login attempts per IP per 15 minutes — slows credential stuffing without
   // hurting real users who fat-finger their password.
-  app.post('/auth/login', rateLimit('login', 5, 15 * 60 * 1000, { email: true }), async (req, res) => {
+  app.post('/auth/login', rateLimit('login', 5, 15 * 60 * 1000), async (req, res) => {
     const { email, password } = req.body
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
@@ -137,42 +118,24 @@ export function registerRoutes(app) {
       })
     }
 
-    // MFA gate — if the user has a verified Supabase TOTP or phone factor, retain
-    // the aal1 session server-side and require one chosen factor before returning
-    // a usable token. Passkeys/email OTP are first-factor sign-in methods, not aal2.
+    // 2FA gate — if user has a verified TOTP factor, return a partial session and require
+    // a code via /auth/2fa/challenge before they get a usable access token.
     try {
       const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
         global: { headers: { Authorization: `Bearer ${data.session.access_token}` } }
       })
-      const { data: factors, error: factorError } = await userClient.auth.mfa.listFactors()
-      if (factorError) throw factorError
-      const verifiedFactors = [
-        ...(factors?.totp || []).filter(f => f.status === 'verified').map(f => ({ id: f.id, factor_type: 'totp', friendly_name: f.friendly_name || 'Authenticator app' })),
-        ...(factors?.phone || []).filter(f => f.status === 'verified').map(f => ({ id: f.id, factor_type: 'phone', friendly_name: f.friendly_name || 'Text message', phone: maskPhone(f.phone) })),
-      ]
-      if (verifiedFactors.length) {
-        const preferred = verifiedFactors[0]
+      const { data: factors } = await userClient.auth.mfa.listFactors()
+      const verified = (factors?.totp || []).find(f => f.status === 'verified')
+      if (verified) {
         return res.status(202).json({
           mfa_required: true,
-          factor_id: preferred.id,
-          factor_type: preferred.factor_type,
-          factors: verifiedFactors,
-          partial_token: createMfaLoginChallenge({
-            accessToken: data.session.access_token,
-            refreshToken: data.session.refresh_token,
-          }),
+          factor_id: verified.id,
+          partial_token: data.session.access_token,
           message: 'Two-factor code required.'
         })
       }
     } catch (mfaErr) {
-      // Failing open here would issue a full password session to an account that
-      // may have MFA enabled. Make the user retry instead of weakening MFA when
-      // Supabase's factor lookup is temporarily unavailable.
-      console.warn('MFA status check failed (blocking login):', mfaErr.message)
-      return res.status(503).json({
-        error: 'MFA_STATUS_UNAVAILABLE',
-        message: 'We could not verify your multi-factor sign-in status. Please try again shortly.'
-      })
+      console.warn('MFA status check failed (allowing login):', mfaErr.message)
     }
 
     const currentIp = getClientIp(req)
@@ -205,24 +168,13 @@ export function registerRoutes(app) {
   // 3 registrations per IP per hour — stops bot-driven sign-up abuse
   app.post('/auth/register', rateLimit('register', 3, 60 * 60 * 1000), async (req, res) => {
     const { accountRole, fullName, email, password, dealershipName, websiteUrl, feeds,
-            newsletterConsent, termsAccepted, affiliateCode, product, plan } = req.body
+            newsletterConsent, termsAccepted, affiliateCode } = req.body
 
     if (!email || !password || !fullName || !accountRole) {
       return res.status(400).json({ error: 'Missing required registration fields' })
     }
-    // The chosen plan drives org type, owner role, trial and all entitlements. Never
-    // create a dealer account without one: an unplanned account can log in but has no
-    // reliable product/tier navigation.
-    const chosenPlan = plan ? getPlan(plan) : null
-    if (!plan) return res.status(400).json({ error: 'Please choose a plan before creating your account' })
-    if (plan && !chosenPlan) return res.status(400).json({ error: `Unknown plan: ${plan}` })
-
-    // Org type: from the plan when present, else the legacy accountRole heuristic.
-    const isDealership = chosenPlan ? chosenPlan.org_type === 'dealership' : accountRole === 'dealer_admin'
-    const accountType = chosenPlan?.org_type
-      || (ACCOUNT_TYPES.includes(req.body.accountType) ? req.body.accountType : (isDealership ? 'dealership' : 'solo'))
-    if (isDealership && !dealershipName) {
-      return res.status(400).json({ error: 'Dealership name required for a dealership account' })
+    if (accountRole === 'dealer_admin' && !dealershipName) {
+      return res.status(400).json({ error: 'Dealership name required for admin accounts' })
     }
 
     // 2026 password policy — NIST 800-63B compliant
@@ -247,18 +199,10 @@ export function registerRoutes(app) {
       createdUserId = authData.user.id
       confirmActionLink = authData.properties?.action_link || null
 
-      // Auto-confirm the email so the account can sign in immediately. The
-      // confirmation email is a welcome/nice-to-have, NOT a gate — this keeps
-      // sign-up and sign-in working even when email delivery is down (e.g. the
-      // sending domain isn't verified in Resend yet).
-      try { await supabaseAdmin.auth.admin.updateUserById(createdUserId, { email_confirm: true }) }
-      catch (e) { console.error('[register] auto-confirm failed:', e?.message || e) }
-
-      // 30-day free trial — NO credit card required at sign-up. The account gets full
-      // access to the chosen plan for the trial window; when it ends, the middleware
-      // billing gate returns 402 and the app shows the paywall popup to pick + pay.
-      const TRIAL_DAYS = 30
-      const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+      // 30-day free trial: full account access AND every add-on switched on. When
+      // it ends, add-ons drop to whatever the dealer actually paid for (see the
+      // expiry sweep in /ai/config + /cron/expire-full-access).
+      const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
       // Newsletter consent (CASL/GDPR/CAN-SPAM): only record if explicitly opted in.
       // Stamp the timestamp + IP so we have audit trail of when consent was given.
@@ -272,13 +216,12 @@ export function registerRoutes(app) {
         ? { terms_accepted_at: new Date().toISOString(), terms_accepted_ip: getClientIp(req) }
         : {}
 
-      if (isDealership) {
+      if (accountRole === 'dealer_admin') {
         const { data: dealership, error: dealerError } = await supabaseAdmin
           .from('dealerships')
           .insert({
             name: dealershipName,
             website_url: websiteUrl || null,
-            account_type: accountType,
             billing_status: 'TRIALING',
             trial_ends_at: trialEndsAt,
             // Everything unlocked for the 30-day trial; drops to paid-only after.
@@ -325,7 +268,6 @@ export function registerRoutes(app) {
           .insert({
             name: `${fullName} — Personal`,
             website_url: null,
-            account_type: accountType,
             billing_status: null,
             is_personal: true,
             // Same 30-day everything-unlocked onboarding.
@@ -355,17 +297,6 @@ export function registerRoutes(app) {
         if (profileError) throw profileError
       }
 
-      // Grant the registrant the OWNER role in RBAC (user_roles). Without this the new
-      // owner has no role row and every RLS permission check fails — they would be locked
-      // out of their own workspace. This runs inside the try so a failure rolls the whole
-      // registration back (see catch), matching the team-invite flow.
-      await syncDealerRole(createdUserId, createdDealershipId, chosenPlan?.owner_role || (isDealership ? 'DEALER_ADMIN' : 'OWNER'), createdUserId)
-
-      // Grant the chosen plan as a 30-day FREE TRIAL — no card. This is part of the
-      // registration success condition. If it fails, throw so the outer catch removes
-      // the incomplete user/dealership instead of creating a login with no tier.
-      await provisionPlan({ dealershipId: createdDealershipId, planId: chosenPlan.id, status: 'trialing', trialEndsAt })
-
       // Affiliate attribution — if they arrived via a ?ref link, stamp the dealership
       // and open a referral for the affiliate (best-effort; never blocks signup).
       if (affiliateCode) { try { await recordReferralSignup({ code: affiliateCode, dealershipId: createdDealershipId, email, name: dealershipName || fullName }) } catch {} }
@@ -377,37 +308,18 @@ export function registerRoutes(app) {
         user_id: createdUserId,
         verification_required: true,
         email_sent: emailed,
-        // No checkout at sign-up — the 30-day trial is already active (no card). The
-        // client signs in and goes straight to the dashboard; payment happens later via
-        // the paywall popup when the trial ends.
-        requires_checkout: false,
-        trial_days: TRIAL_DAYS,
-        plan: chosenPlan?.id || null,
         message: emailed
           ? 'Account created. Check your email and click the verification link to activate your account.'
           : 'Account created. If you don\'t receive a verification email shortly, use “Resend verification”.'
       })
     } catch (err) {
-      // Keep enough server-side context to diagnose a failed signup without
-      // putting registration details (email, password, or name) in the logs.
-      console.warn('[register] failed', { code: err?.code || null, message: err?.message || 'Registration failed' })
       if (createdDealershipId) {
         await supabaseAdmin.from('dealerships').delete().eq('id', createdDealershipId)
       }
       if (createdUserId) {
         await supabaseAdmin.auth.admin.deleteUser(createdUserId)
       }
-      // Never let public sign-up attach a dealership to an account it does not own.
-      // A logged-in owner can add another workspace through the authenticated flow;
-      // this anonymous endpoint may only create a brand-new account.
-      const message = err?.message || 'Registration failed'
-      const emailAlreadyRegistered = /already registered|already exists|user.*exists/i.test(message)
-      res.status(emailAlreadyRegistered ? 409 : 400).json({
-        error: emailAlreadyRegistered
-          ? 'An account already exists for this email. Sign in, or use a different email for this dealership owner.'
-          : message,
-        code: emailAlreadyRegistered ? 'EMAIL_ALREADY_REGISTERED' : undefined
-      })
+      res.status(400).json({ error: err.message || 'Registration failed' })
     }
   })
 
@@ -469,28 +381,9 @@ export function registerRoutes(app) {
         global: { headers: { Authorization: `Bearer ${token}` } }
       })
 
-      // An interrupted setup leaves an unverified factor behind. Supabase will
-      // reject another factor with the old friendly name, making the user appear
-      // unable to turn MFA on. Remove only unfinished factors; a verified factor
-      // is never replaced from this endpoint.
-      const { data: factors, error: factorsError } = await userClient.auth.mfa.listFactors()
-      if (factorsError) throw factorsError
-      const totpFactors = factors?.totp || []
-      if (totpFactors.some(factor => factor.status === 'verified')) {
-        return res.status(409).json({ error: 'MFA_ALREADY_ENABLED', message: 'Multi-factor authentication is already enabled on this account.' })
-      }
-      await Promise.all(totpFactors
-        .filter(factor => factor.status !== 'verified')
-        .map(async factor => {
-          const { error } = await userClient.auth.mfa.unenroll({ factorId: factor.id })
-          if (error) throw error
-        }))
-
       const { data, error } = await userClient.auth.mfa.enroll({
         factorType: 'totp',
-        // Names must be unique per user. Seconds avoid collisions when a setup is
-        // restarted, and stale factors above are removed before creating this one.
-        friendlyName: `MarketSync-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
+        friendlyName: `MarketSync (${new Date().toISOString().slice(0, 10)})`
       })
       if (error) return res.status(400).json({ error: error.message })
 
@@ -521,7 +414,7 @@ export function registerRoutes(app) {
       const { data: challenge, error: chErr } = await userClient.auth.mfa.challenge({ factorId: factor_id })
       if (chErr) return res.status(400).json({ error: chErr.message })
 
-      const { data: verifiedSession, error: verifyErr } = await userClient.auth.mfa.verify({
+      const { error: verifyErr } = await userClient.auth.mfa.verify({
         factorId: factor_id,
         challengeId: challenge.id,
         code
@@ -530,20 +423,20 @@ export function registerRoutes(app) {
 
       // Issue 10 recovery codes — returned ONCE, hashed in DB. If the user loses
       // their phone they can use one of these to get back in.
-      let codes = []
-      try { codes = await replaceMfaRecoveryCodes(req.user.id) }
-      catch (codeErr) { console.warn('recovery_codes insert failed:', codeErr.message) }
+      const codes = generateRecoveryCodes(10)
+      const rows = codes.map(c => ({
+        user_id: req.user.id,
+        code_hash: hashRecoveryCode(c)
+      }))
+      // Wipe any previous codes (e.g. user re-enrolled after disabling) then write fresh ones
+      await supabaseAdmin.from('recovery_codes').delete().eq('user_id', req.user.id)
+      const { error: codeErr } = await supabaseAdmin.from('recovery_codes').insert(rows)
+      if (codeErr) console.warn('recovery_codes insert failed:', codeErr.message)
 
       audit(req, AuditAction.MFA_ENROLLED, { factor_id })
       res.json({
         success: true,
         message: 'Two-factor authentication is now active on this account.',
-        // Supabase promotes the session used for verify() from aal1 to aal2. Return
-        // that replacement session so the dashboard stops using the older aal1 JWT;
-        // otherwise protected actions incorrectly keep saying MFA is required until
-        // the user signs out and completes a second login.
-        access_token: verifiedSession?.access_token || null,
-        refresh_token: verifiedSession?.refresh_token || null,
         recovery_codes: codes,
         recovery_codes_note: 'Save these somewhere safe (password manager, printed). Each one works ONCE if you lose your phone. They will not be shown again.'
       })
@@ -552,78 +445,14 @@ export function registerRoutes(app) {
     }
   })
 
-  // Native Supabase Phone MFA. The staging/production Supabase project must have
-  // Phone MFA enabled and an SMS provider configured; errors are returned clearly
-  // instead of pretending an ordinary email/passkey login reached aal2.
-  app.post('/auth/2fa/phone/enroll', requireAuth, rateLimit('mfa-phone-enroll', 5, 60 * 60 * 1000), async (req, res) => {
-    const phone = String(req.body?.phone || '').replace(/[\s()-]/g, '')
-    if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
-      return res.status(400).json({ error: 'Enter a mobile number with country code, for example +19055551234.' })
-    }
-    try {
-      const token = req.headers.authorization?.replace('Bearer ', '')
-      const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${token}` } }
-      })
-      const { data: factors, error: factorsError } = await userClient.auth.mfa.listFactors()
-      if (factorsError) throw factorsError
-      const phoneFactors = factors?.phone || []
-      if (phoneFactors.some(factor => factor.status === 'verified' && factor.phone === phone)) {
-        return res.status(409).json({ error: 'PHONE_MFA_ALREADY_ENABLED', message: 'Text-message MFA is already enabled for this number.' })
-      }
-      await Promise.all(phoneFactors.filter(factor => factor.status !== 'verified').map(async factor => {
-        const { error } = await userClient.auth.mfa.unenroll({ factorId: factor.id })
-        if (error) throw error
-      }))
-      const { data: enrolled, error: enrollError } = await userClient.auth.mfa.enroll({
-        factorType: 'phone', phone,
-        friendlyName: `MarketSync-SMS-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`,
-      })
-      if (enrollError) return res.status(400).json({ error: enrollError.message, code: 'PHONE_MFA_NOT_CONFIGURED' })
-      const { data: challenge, error: challengeError } = await userClient.auth.mfa.challenge({ factorId: enrolled.id })
-      if (challengeError) return res.status(400).json({ error: challengeError.message, code: 'PHONE_MFA_SEND_FAILED' })
-      res.json({ factor_id: enrolled.id, challenge_id: challenge.id, phone: maskPhone(phone), message: 'Verification code sent by text message.' })
-    } catch (err) {
-      res.status(500).json({ error: err.message })
-    }
-  })
-
-  app.post('/auth/2fa/phone/verify-enroll', requireAuth, rateLimit('mfa-phone-verify', 10, 60 * 60 * 1000), async (req, res) => {
-    const { factor_id, challenge_id, code } = req.body || {}
-    if (!factor_id || !challenge_id || !/^\d{6,10}$/.test(String(code || ''))) {
-      return res.status(400).json({ error: 'factor_id, challenge_id, and the texted code are required' })
-    }
-    try {
-      const token = req.headers.authorization?.replace('Bearer ', '')
-      const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${token}` } }
-      })
-      const { data: verifiedSession, error } = await userClient.auth.mfa.verify({ factorId: factor_id, challengeId: challenge_id, code: String(code) })
-      if (error) return res.status(400).json({ error: 'That text-message code is invalid or expired.' })
-      let codes = []
-      try { codes = await replaceMfaRecoveryCodes(req.user.id) }
-      catch (codeErr) { console.warn('recovery_codes insert failed:', codeErr.message) }
-      audit(req, AuditAction.MFA_ENROLLED, { factor_id, factor_type: 'phone' })
-      res.json({
-        success: true, message: 'Text-message MFA is now active.',
-        access_token: verifiedSession?.access_token || null,
-        refresh_token: verifiedSession?.refresh_token || null,
-        recovery_codes: codes,
-      })
-    } catch (err) {
-      res.status(500).json({ error: err.message })
-    }
-  })
-
   // Regenerate recovery codes (invalidates old ones). Available from the security panel.
-  app.post('/auth/2fa/regenerate-recovery-codes', requireAuth, requireMfa, rateLimit('mfa-regen', 3, 60 * 60 * 1000), async (req, res) => {
+  app.post('/auth/2fa/regenerate-recovery-codes', requireAuth, rateLimit('mfa-regen', 3, 60 * 60 * 1000), async (req, res) => {
     try {
       const codes = generateRecoveryCodes(10)
       const rows = codes.map(c => ({ user_id: req.user.id, code_hash: hashRecoveryCode(c) }))
       await supabaseAdmin.from('recovery_codes').delete().eq('user_id', req.user.id)
       const { error } = await supabaseAdmin.from('recovery_codes').insert(rows)
       if (error) throw error
-      audit(req, AuditAction.MFA_RECOVERY_CODES_REGENERATED)
       res.json({ recovery_codes: codes, message: 'New recovery codes generated. Old codes no longer work.' })
     } catch (err) {
       res.status(500).json({ error: err.message })
@@ -666,7 +495,7 @@ export function registerRoutes(app) {
   })
 
   // Passwordless login via passkey — no password required
-  app.post('/auth/passkey/login/begin', rateLimit('passkey-login', 10, 15 * 60 * 1000, { email: true }), async (req, res) => {
+  app.post('/auth/passkey/login/begin', rateLimit('passkey-login', 10, 15 * 60 * 1000), async (req, res) => {
     const { email } = req.body || {}
     try {
       const options = await beginPasskeyLogin({ supabaseAdmin, email })
@@ -674,7 +503,7 @@ export function registerRoutes(app) {
     } catch (err) { res.status(500).json({ error: err.message }) }
   })
 
-  app.post('/auth/passkey/login/finish', rateLimit('passkey-login', 10, 15 * 60 * 1000, { email: true }), async (req, res) => {
+  app.post('/auth/passkey/login/finish', rateLimit('passkey-login', 10, 15 * 60 * 1000), async (req, res) => {
     const { email, response } = req.body || {}
     if (!response) return res.status(400).json({ error: 'response required' })
     const result = await finishPasskeyLogin({ supabaseAdmin, email, response })
@@ -708,28 +537,6 @@ export function registerRoutes(app) {
         return res.status(500).json({ error: 'Session mint failed: ' + (verifyErr?.message || 'unknown') })
       }
 
-      // A passkey is a phishing-resistant first-factor sign-in, but Supabase does
-      // not label this custom WebAuthn session aal2. If the user opted into MFA,
-      // require their verified Supabase second factor before releasing the session.
-      const passkeySessionClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${verifyData.session.access_token}` } }
-      })
-      const { data: passkeyFactors, error: passkeyFactorError } = await passkeySessionClient.auth.mfa.listFactors()
-      if (passkeyFactorError) return res.status(503).json({ error: 'MFA_STATUS_UNAVAILABLE', message: 'We could not verify your multi-factor sign-in status.' })
-      const verifiedPasskeyFactors = [
-        ...(passkeyFactors?.totp || []).filter(f => f.status === 'verified').map(f => ({ id: f.id, factor_type: 'totp', friendly_name: f.friendly_name || 'Authenticator app' })),
-        ...(passkeyFactors?.phone || []).filter(f => f.status === 'verified').map(f => ({ id: f.id, factor_type: 'phone', friendly_name: f.friendly_name || 'Text message', phone: maskPhone(f.phone) })),
-      ]
-      if (verifiedPasskeyFactors.length) {
-        const preferred = verifiedPasskeyFactors[0]
-        return res.status(202).json({
-          mfa_required: true, factor_id: preferred.id, factor_type: preferred.factor_type,
-          factors: verifiedPasskeyFactors,
-          partial_token: createMfaLoginChallenge({ accessToken: verifyData.session.access_token, refreshToken: verifyData.session.refresh_token }),
-          message: 'Multi-factor code required.',
-        })
-      }
-
       // Log + suspicious-login check (best-effort)
       const currentIp = getClientIp(req)
       const currentUa = (req.headers['user-agent'] || '').slice(0, 500) + ' [passkey]'
@@ -753,25 +560,21 @@ export function registerRoutes(app) {
     }
   })
 
-  // Step 3 — Disable 2FA. This requires an aal2 session: a password-only
-  // session must not be able to remove the account's second factor.
-  app.post('/auth/2fa/disable', requireAuth, requireMfa, rateLimit('mfa-disable', 5, 60 * 60 * 1000), async (req, res) => {
+  // Step 3 — Disable 2FA (requires fresh authentication, i.e. current session)
+  app.post('/auth/2fa/disable', requireAuth, rateLimit('mfa-disable', 5, 60 * 60 * 1000), async (req, res) => {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '')
       const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
         global: { headers: { Authorization: `Bearer ${token}` } }
       })
 
-      const { data: factors, error: factorError } = await userClient.auth.mfa.listFactors()
-      if (factorError) throw factorError
-      const verified = [...(factors?.totp || []), ...(factors?.phone || [])].filter(f => f.status === 'verified')
-      if (!verified.length) return res.json({ success: true, message: 'No active MFA factor.' })
-      for (const factor of verified) {
-        const { error } = await userClient.auth.mfa.unenroll({ factorId: factor.id })
-        if (error) throw error
-        audit(req, AuditAction.MFA_DISABLED, { factor_id: factor.id, factor_type: factor.factor_type || factor.type || null })
-      }
-      res.json({ success: true, message: 'Multi-factor authentication has been disabled.' })
+      const { data: factors } = await userClient.auth.mfa.listFactors()
+      const totp = (factors?.totp || []).find(f => f.status === 'verified')
+      if (!totp) return res.json({ success: true, message: 'No active 2FA factor.' })
+
+      const { error } = await userClient.auth.mfa.unenroll({ factorId: totp.id })
+      if (error) throw error
+      res.json({ success: true, message: 'Two-factor authentication has been disabled.' })
     } catch (err) {
       res.status(500).json({ error: err.message })
     }
@@ -785,38 +588,8 @@ export function registerRoutes(app) {
         global: { headers: { Authorization: `Bearer ${token}` } }
       })
       const { data: factors } = await userClient.auth.mfa.listFactors()
-      const verifiedTotp = (factors?.totp || []).find(f => f.status === 'verified')
-      const verifiedPhone = (factors?.phone || []).find(f => f.status === 'verified')
-      res.json({
-        enabled: !!(verifiedTotp || verifiedPhone),
-        factor_id: (verifiedTotp || verifiedPhone)?.id || null,
-        methods: [
-          ...(verifiedTotp ? [{ factor_type: 'totp', factor_id: verifiedTotp.id }] : []),
-          ...(verifiedPhone ? [{ factor_type: 'phone', factor_id: verifiedPhone.id, phone: maskPhone(verifiedPhone.phone) }] : []),
-        ],
-      })
-    } catch (err) {
-      res.status(500).json({ error: err.message })
-    }
-  })
-
-  // Send a login-time phone challenge after the password step. The partial token
-  // is opaque and short-lived; verify the requested factor belongs to that session.
-  app.post('/auth/2fa/send-code', rateLimit('mfa-send-code', 5, 15 * 60 * 1000), async (req, res) => {
-    const { factor_id, partial_token } = req.body || {}
-    const loginChallenge = getMfaLoginChallenge(partial_token)
-    if (!factor_id || !loginChallenge) return res.status(401).json({ error: 'MFA challenge expired. Please sign in again.' })
-    try {
-      const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${loginChallenge.accessToken}` } }
-      })
-      const { data: factors, error: factorError } = await userClient.auth.mfa.listFactors()
-      if (factorError) throw factorError
-      const phoneFactor = (factors?.phone || []).find(f => f.id === factor_id && f.status === 'verified')
-      if (!phoneFactor) return res.status(400).json({ error: 'Choose a verified text-message factor.' })
-      const { data: challenge, error } = await userClient.auth.mfa.challenge({ factorId: factor_id })
-      if (error) return res.status(400).json({ error: error.message })
-      res.json({ challenge_id: challenge.id, phone: maskPhone(phoneFactor.phone), message: 'Code sent.' })
+      const verified = (factors?.totp || []).find(f => f.status === 'verified')
+      res.json({ enabled: !!verified, factor_id: verified?.id || null })
     } catch (err) {
       res.status(500).json({ error: err.message })
     }
@@ -825,18 +598,14 @@ export function registerRoutes(app) {
   // Login-time challenge. Called after the password step when login responds with
   // MFA_REQUIRED. Accepts a TOTP code OR an 8-char recovery code (XXXX-XXXX format).
   app.post('/auth/2fa/challenge', rateLimit('mfa-challenge', 5, 15 * 60 * 1000), async (req, res) => {
-    const { factor_id, challenge_id, code, partial_token } = req.body || {}
+    const { factor_id, code, partial_token } = req.body || {}
     if (!factor_id || !code || !partial_token) {
       return res.status(400).json({ error: 'factor_id, code, and partial_token are required' })
     }
 
     try {
-      const loginChallenge = getMfaLoginChallenge(partial_token)
-      if (!loginChallenge) {
-        return res.status(401).json({ error: 'MFA challenge expired. Please sign in again.' })
-      }
       const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${loginChallenge.accessToken}` } }
+        global: { headers: { Authorization: `Bearer ${partial_token}` } }
       })
 
       // Detect recovery code by shape (8 alphanumeric chars with optional dash) —
@@ -861,8 +630,8 @@ export function registerRoutes(app) {
         // Burn the code immediately
         await supabaseAdmin.from('recovery_codes').delete().eq('id', codeRow.id)
 
-        // The real Supabase session was retained only server-side until this
-        // recovery code succeeded, so it could not be used to skip MFA.
+        // The partial_token is already a valid Supabase access token at this point —
+        // we accept the recovery code as proof and return it as the session.
         // (Recovery code use is logged via the logins insert below.)
         supabaseAdmin.from('logins').insert({
           user_id: user.id,
@@ -877,47 +646,30 @@ export function registerRoutes(app) {
           .from('recovery_codes').select('id', { count: 'exact', head: true })
           .eq('user_id', user.id)
 
-        const completed = consumeMfaLoginChallenge(partial_token)
         return res.json({
-          access_token: completed.accessToken,
-          refresh_token: completed.refreshToken,
+          access_token: partial_token,
           user: { id: user.id, email: user.email },
           used_recovery_code: true,
           recovery_codes_remaining: remaining || 0
         })
       }
 
-      const { data: factors, error: factorError } = await userClient.auth.mfa.listFactors()
-      if (factorError) throw factorError
-      const totpFactor = (factors?.totp || []).find(f => f.id === factor_id && f.status === 'verified')
-      const phoneFactor = (factors?.phone || []).find(f => f.id === factor_id && f.status === 'verified')
-      if (!totpFactor && !phoneFactor) return res.status(400).json({ error: 'That MFA method is not available on this account.' })
-
-      // TOTP challenges can be created immediately. Phone challenges send a code,
-      // so they are created once by /send-code and the returned id is reused here.
-      let activeChallengeId = challenge_id
-      if (totpFactor) {
-        const { data: challenge, error: chErr } = await userClient.auth.mfa.challenge({ factorId: factor_id })
-        if (chErr) return res.status(400).json({ error: chErr.message })
-        activeChallengeId = challenge.id
-      } else if (!activeChallengeId) {
-        return res.status(400).json({ error: 'Send a text-message code before verifying.' })
-      }
+      // Otherwise treat as TOTP code
+      const { data: challenge, error: chErr } = await userClient.auth.mfa.challenge({ factorId: factor_id })
+      if (chErr) return res.status(400).json({ error: chErr.message })
 
       const { data, error } = await userClient.auth.mfa.verify({
         factorId: factor_id,
-        challengeId: activeChallengeId,
+        challengeId: challenge.id,
         code
       })
-      if (error) return res.status(401).json({ error: 'Invalid or expired MFA code.' })
-
-      consumeMfaLoginChallenge(partial_token)
+      if (error) return res.status(401).json({ error: 'Invalid 2FA code.' })
 
       // Log successful TOTP login
       supabaseAdmin.from('logins').insert({
         user_id: data.user?.id,
         ip: getClientIp(req),
-        user_agent: (req.headers['user-agent'] || '').slice(0, 500) + (phoneFactor ? ' [phone-mfa]' : ' [totp]')
+        user_agent: (req.headers['user-agent'] || '').slice(0, 500) + ' [totp]'
       }).then(({ error: logErr }) => {
         if (logErr) console.warn('login log failed:', logErr.message)
       })
@@ -949,17 +701,13 @@ export function registerRoutes(app) {
     }
   })
 
-  app.post('/support', rateLimit('support', 5, 60 * 60 * 1000, { email: true }), async (req, res) => {
-    const name = String(req.body?.name || '').trim().slice(0, 120)
-    const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 254)
-    const subject = String(req.body?.subject || '').trim().slice(0, 200) || null
-    const message = String(req.body?.message || '').trim().slice(0, 5000)
+  app.post('/support', async (req, res) => {
+    const { name, email, subject, message } = req.body || {}
     if (!name || !email || !message) return res.status(400).json({ error: 'name, email, and message are required' })
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'A valid email address is required' })
 
     const { error } = await supabaseAdmin
       .from('support_requests')
-      .insert({ name, email, subject, message })
+      .insert({ name, email, subject: subject || null, message })
     if (error) {
       console.error('Support insert failed:', error.message)
       return res.status(500).json({ error: 'Could not submit your request. Please try again.' })

@@ -1,8 +1,6 @@
 import express from 'express'
 import { stripe, supabaseAdmin, FRONTEND_URL } from '../shared.js'
-import { requireAuth, requireMfa } from '../middleware.js'
-import { requirePermission } from '../authorization.js'
-import { requestHasCronSecret } from '../cron-auth.js'
+import { requireAuth } from '../middleware.js'
 import {
   sendTrialStarted,
   sendTrialExpiring,
@@ -14,8 +12,6 @@ import { createNotification } from '../notifications.js'
 import { handleDepositCheckout } from './deposits.js'
 import { accrueAffiliateCommission } from './affiliate.js'
 import { postMarketsyncRevenue } from './accounting.js'
-import { syncSubscriptionFromStripe } from '../entitlements.js'
-import { getPlan, stripePriceForPlan, PLAN_CATALOG, PLAN_IDS } from '../plan-catalog.js'
 
 // Inventory Intelligence price ID — accept the canonical name OR the
 // STRIPE_INVENTORY_INTELLIGANCE name used in the current Render environment,
@@ -76,14 +72,6 @@ function packageInSub(sub) {
   }
   return null
 }
-
-// A personal/solo workspace may manage only its own profile billing. A dealership
-// subscription is a company-level commitment and requires the explicit RBAC grant.
-function requireBillingManage(req, res, next) {
-  const isPersonal = req.profile?.dealerships?.is_personal === true || !req.dealershipId
-  if (isPersonal) return next()
-  return requirePermission('billing.manage')(req, res, next)
-}
 // Entitlement columns for a package. Growth & Pro unlock the AI Boost and
 // Inventory Intelligence bundles (which cascade to Vision/docs/VIN/appraisals);
 // `plan` gates the Pro-only layer (equity mining + executive dashboard). When a
@@ -109,26 +97,6 @@ async function dealerForCustomer(customerId) {
   return data
 }
 
-// ── HQ checkout funnel (Phase 2) ──
-// Best-effort: log each acquisition Checkout Session we start; the webhook flips it
-// to 'completed'. Never let a logging error affect the customer's checkout.
-async function recordCheckoutStart({ sessionId, dealershipId, kind, planKey, currency }) {
-  try {
-    await supabaseAdmin.from('saas_checkout_sessions').insert({
-      stripe_session_id: sessionId, dealership_id: dealershipId || null,
-      kind, plan_key: planKey || null, currency: currency || null,
-    })
-  } catch (e) { console.error('[funnel] record start failed:', e?.message || e) }
-}
-async function markCheckoutComplete(sessionId) {
-  if (!sessionId) return
-  try {
-    await supabaseAdmin.from('saas_checkout_sessions')
-      .update({ status: 'completed', completed_at: new Date().toISOString() })
-      .eq('stripe_session_id', sessionId)
-  } catch (e) { console.error('[funnel] mark complete failed:', e?.message || e) }
-}
-
 export function registerRoutes(app) {
 
   // ── Stripe Webhook ─────────────────────────────────────────────────────────
@@ -147,7 +115,6 @@ export function registerRoutes(app) {
         case 'checkout.session.completed': {
           const session = event.data.object
           const meta = session.metadata || {}
-          markCheckoutComplete(session.id)   // HQ funnel: this cart converted
 
           // Online deposit (Stripe Connect destination charge) — not a subscription.
           if (meta.kind === 'deposit') { await handleDepositCheckout(session); break }
@@ -179,11 +146,6 @@ export function registerRoutes(app) {
           if (Object.keys(updates).length) {
             await supabaseAdmin.from('dealerships').update(updates).eq('id', meta.dealership_id)
           }
-
-          // Reconcile the normalized subscriptions table from the Stripe sub's plan
-          // prices (server-side price→plan mapping). Best-effort — legacy add-on flags
-          // above are unaffected if a price isn't in the plan catalog.
-          try { await syncSubscriptionFromStripe(meta.dealership_id, sub) } catch (e) { console.error('[stripe] sub sync failed:', e?.message || e) }
 
           // Trial-started email
           const { data: dealer } = await supabaseAdmin
@@ -227,11 +189,6 @@ export function registerRoutes(app) {
           if (Object.keys(updates).length) {
             await supabaseAdmin.from('dealerships').update(updates).eq('stripe_customer_id', sub.customer)
           }
-          // Reconcile normalized subscriptions (status change: active/past_due/etc.).
-          try {
-            const dealer = await dealerForCustomer(sub.customer)
-            if (dealer?.id) await syncSubscriptionFromStripe(dealer.id, sub)
-          } catch (e) { console.error('[stripe] sub sync failed:', e?.message || e) }
           break
         }
 
@@ -249,11 +206,6 @@ export function registerRoutes(app) {
           if (Object.keys(updates).length) {
             await supabaseAdmin.from('dealerships').update(updates).eq('stripe_customer_id', sub.customer)
           }
-          // Reconcile normalized subscriptions → status 'cancelled'.
-          try {
-            const d = await dealerForCustomer(sub.customer)
-            if (d?.id) await syncSubscriptionFromStripe(d.id, sub)
-          } catch (e) { console.error('[stripe] sub sync failed:', e?.message || e) }
 
           // Trial expired email (no payment collected = trial_end cancellation)
           if (sub.cancellation_details?.reason === 'cancellation_requested' || sub.cancel_at_period_end) break
@@ -375,6 +327,9 @@ export function registerRoutes(app) {
   // ── Checkout helpers ───────────────────────────────────────────────────────
 
   async function createAddonCheckout(req, res, addonKey) {
+    if (req.profile?.role !== 'DEALER_ADMIN' && req.profile?.role !== 'OWNER') {
+      return res.status(403).json({ error: 'Admin role required' })
+    }
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
 
     const envKey = {
@@ -439,9 +394,9 @@ export function registerRoutes(app) {
   }
 
   // ── Add-on subscription endpoints ─────────────────────────────────────────
-  app.post('/billing/subscribe-ai-boost',    requireAuth, requireMfa, requireBillingManage, (req, res) => createAddonCheckout(req, res, 'ai_boost'))
-  app.post('/billing/subscribe-ai-chatbot',  requireAuth, requireMfa, requireBillingManage, (req, res) => createAddonCheckout(req, res, 'ai_chatbot'))
-  app.post('/billing/subscribe-inv-intel',   requireAuth, requireMfa, requireBillingManage, (req, res) => createAddonCheckout(req, res, 'inv_intel'))
+  app.post('/billing/subscribe-ai-boost',    requireAuth, (req, res) => createAddonCheckout(req, res, 'ai_boost'))
+  app.post('/billing/subscribe-ai-chatbot',  requireAuth, (req, res) => createAddonCheckout(req, res, 'ai_chatbot'))
+  app.post('/billing/subscribe-inv-intel',   requireAuth, (req, res) => createAddonCheckout(req, res, 'inv_intel'))
   // Retired add-ons — VIN & Brochure (OEM) is now core; AI Vision + generated docs
   // are part of AI Boost. Point any stale clients at AI Boost.
   const retired = (req, res) => res.status(410).json({ error: 'This add-on has moved into AI Boost.', redirect: 'ai_boost' })
@@ -452,6 +407,9 @@ export function registerRoutes(app) {
   // Currency follows the dealer's country (US → USD, else CAD); the client may
   // override with { currency }. 30-day free trial, no card required up front.
   async function createPackageCheckout(req, res) {
+    if (req.profile?.role !== 'DEALER_ADMIN' && req.profile?.role !== 'OWNER') {
+      return res.status(403).json({ error: 'Admin role required' })
+    }
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const pkgKey = String(req.body?.package || '').toLowerCase()
     const pkg = PACKAGES[pkgKey]
@@ -478,75 +436,12 @@ export function registerRoutes(app) {
       }
       if (existingCustomerId) sessionParams.customer = existingCustomerId
       const session = await stripe.checkout.sessions.create(sessionParams)
-      recordCheckoutStart({ sessionId: session.id, dealershipId: req.dealershipId, kind: 'package', planKey: pkgKey, currency })
       res.json({ url: session.url })
     } catch (err) { res.status(500).json({ error: err.message }) }
   }
-  app.post('/billing/subscribe-package', requireAuth, requireMfa, requireBillingManage, createPackageCheckout)
+  app.post('/billing/subscribe-package', requireAuth, createPackageCheckout)
 
-  // ── Plan subscription (the entitlement-engine flow) ──────────────────────────
-  // Start Stripe Checkout for a catalog plan (fb_solo / fb_dealership / os_starter /
-  // os_growth / os_pro). Card required, 30-day trial. On completion the webhook resolves
-  // the price → plan and provisionPlan grants the bundle (Pro unlocks Facebook + AI).
-  // No requireMfa: this is part of onboarding, before a new owner has set up MFA.
-  async function createPlanCheckout(req, res) {
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const planId = String(req.body?.plan || '')
-    const plan = getPlan(planId)
-    if (!plan) return res.status(400).json({ error: 'Unknown plan' })
-
-    let currency = String(req.body?.currency || '').toUpperCase()
-    if (currency !== 'USD' && currency !== 'CAD') {
-      const { data: dl } = await supabaseAdmin.from('dealerships').select('country').eq('id', req.dealershipId).maybeSingle()
-      currency = String(dl?.country || '').toUpperCase() === 'US' ? 'USD' : 'CAD'
-    }
-    const priceId = stripePriceForPlan(planId, currency, process.env)
-    if (!priceId) return res.status(500).json({ error: `Price for ${plan.label} (${currency}) is not configured yet` })
-
-    const existingCustomerId = req.profile.dealerships?.stripe_customer_id
-    try {
-      // Charge immediately (no Stripe trial): the 39-day free trial is granted at sign-up
-      // with no card, so by the time someone reaches Checkout they're subscribing to pay.
-      const params = {
-        line_items: [{ price: priceId, quantity: 1 }],
-        mode: 'subscription',
-        metadata: { type: 'plan', plan: planId, currency, dealership_id: req.dealershipId },
-        subscription_data: { metadata: { type: 'plan', plan: planId, dealership_id: req.dealershipId } },
-        success_url: `${FRONTEND_URL}/dashboard.html?plan_session={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${FRONTEND_URL}/dashboard.html`,
-      }
-      if (existingCustomerId) params.customer = existingCustomerId
-      const session = await stripe.checkout.sessions.create(params)
-      recordCheckoutStart({ sessionId: session.id, dealershipId: req.dealershipId, kind: 'plan', planKey: planId, currency })
-      res.json({ url: session.url })
-    } catch (err) { res.status(500).json({ error: err.message }) }
-  }
-  app.post('/billing/subscribe-plan', requireAuth, requireBillingManage, createPlanCheckout)
-
-  // The plan catalog for the in-app "upgrade to unlock" UI. Reads plan-catalog.js (the
-  // single source), annotates each plan with the caller's current active plan(s) and
-  // whether its Stripe price is configured, so the modal can show real upgrade paths.
-  app.get('/billing/plans', requireAuth, async (req, res) => {
-    let current = []
-    if (req.dealershipId) {
-      const { data } = await supabaseAdmin
-        .from('subscriptions').select('plan_id, status')
-        .eq('dealership_id', req.dealershipId).in('status', ['trialing', 'active'])
-      current = [...new Set((data || []).map(r => r.plan_id).filter(Boolean))]
-    }
-    const plans = PLAN_IDS.map(id => {
-      const p = PLAN_CATALOG[id]
-      return {
-        id, label: p.label, monthly: p.monthly, tier: p.tier,
-        product_primary: p.product_primary, products: p.products, org_type: p.org_type,
-        feature_count: p.features.length,
-        configured: !!(stripePriceForPlan(id, 'usd', process.env) || stripePriceForPlan(id, 'cad', process.env)),
-      }
-    })
-    res.json({ current, plans })
-  })
-
-  app.get('/billing/package-verify', requireAuth, requireMfa, requireBillingManage, async (req, res) => {
+  app.get('/billing/package-verify', requireAuth, async (req, res) => {
     const { session_id } = req.query
     if (!session_id) return res.status(400).json({ error: 'session_id required' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
@@ -580,14 +475,14 @@ export function registerRoutes(app) {
     res.json({ currency, packages: rows })
   })
 
-  app.get('/billing/ai-boost-verify',    requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'ai_boost'))
-  app.get('/billing/ai-chatbot-verify',  requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'ai_chatbot'))
-  app.get('/billing/vin-sticker-verify', requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'vin_sticker'))
-  app.get('/billing/inv-intel-verify',   requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'inv_intel'))
-  app.get('/billing/ai-vision-verify',   requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'ai_vision'))
+  app.get('/billing/ai-boost-verify',    requireAuth, (req, res) => verifyAddonSession(req, res, 'ai_boost'))
+  app.get('/billing/ai-chatbot-verify',  requireAuth, (req, res) => verifyAddonSession(req, res, 'ai_chatbot'))
+  app.get('/billing/vin-sticker-verify', requireAuth, (req, res) => verifyAddonSession(req, res, 'vin_sticker'))
+  app.get('/billing/inv-intel-verify',   requireAuth, (req, res) => verifyAddonSession(req, res, 'inv_intel'))
+  app.get('/billing/ai-vision-verify',   requireAuth, (req, res) => verifyAddonSession(req, res, 'ai_vision'))
 
   // ── Customer Portal ────────────────────────────────────────────────────────
-  app.post('/billing/portal', requireAuth, requireMfa, requireBillingManage, async (req, res) => {
+  app.post('/billing/portal', requireAuth, async (req, res) => {
     const customerId = req.profile.dealerships?.stripe_customer_id || req.profile.stripe_customer_id
     if (!customerId) return res.status(400).json({ error: 'No billing account found' })
 
@@ -603,9 +498,13 @@ export function registerRoutes(app) {
   })
 
   // ── Main checkout (base platform plan) ────────────────────────────────────
-  app.post('/billing/checkout', requireAuth, requireMfa, requireBillingManage, async (req, res) => {
+  app.post('/billing/checkout', requireAuth, async (req, res) => {
     const isPersonal = req.profile.dealerships?.is_personal === true
     const isSolo = !req.dealershipId || isPersonal
+
+    if (req.profile.role === 'SALES_REP' && req.dealershipId && !isPersonal) {
+      return res.status(403).json({ error: 'Sales reps under a dealership do not manage billing.' })
+    }
 
     const existingCustomerId = isSolo
       ? req.profile.stripe_customer_id
@@ -686,7 +585,7 @@ export function registerRoutes(app) {
   // Hit daily by Render Cron (or any scheduler). Sends warning emails to any
   // dealership whose trial ends within the next 24 hours.
   app.post('/cron/trial-expiry', async (req, res) => {
-    if (!requestHasCronSecret(req)) {
+    if ((req.headers['x-cron-secret'] || '').trim() !== (process.env.CRON_SECRET || '').trim()) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 

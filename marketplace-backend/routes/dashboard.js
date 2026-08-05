@@ -1,11 +1,9 @@
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth, requireMfa } from '../middleware.js'
-import { hasPermission, requirePermission } from '../authorization.js'
+import { requireAuth } from '../middleware.js'
 import { emitWebhook } from '../webhooks.js'
 import { ensureGetReadyCard } from './recon.js'
 import { ensureDealTasks } from './dealertasks.js'
 import { emitEvent } from './events.js'
-import { audit } from '../audit.js'
 
 async function buildUserStats(userId) {
   const countOf = async (status) => {
@@ -79,21 +77,22 @@ export function registerRoutes(app) {
     const { data } = await supabaseAdmin.from('dealerships').select('feature_flags').eq('id', req.dealershipId).maybeSingle()
     const f = (data?.feature_flags && typeof data.feature_flags === 'object') ? data.feature_flags : {}
     const features = Object.fromEntries(FEATURE_KEYS.map(k => [k, f[k] !== false]))   // default on
-    res.json({ features, can_manage: await hasPermission(req, 'billing.manage') })
+    res.json({ features, can_manage: ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role) })
   })
-  app.put('/dealership/features', requireAuth, requireMfa, requirePermission('billing.manage'), async (req, res) => {
+  app.put('/dealership/features', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!['DEALER_ADMIN', 'OWNER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Admin access required' })
     const body = req.body || {}
     const flags = {}
     for (const k of FEATURE_KEYS) if (k in body) flags[k] = !!body[k]
     const { error } = await supabaseAdmin.from('dealerships').update({ feature_flags: flags }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: 'Save failed' })
-    audit(req, 'billing.feature_flags_updated', { after_state: { feature_flags: flags } })
     res.json({ ok: true, features: Object.fromEntries(FEATURE_KEYS.map(k => [k, flags[k] !== false])) })
   })
 
   app.get('/dealership/leaderboard', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ranking: [], total_members: 0 })
+    if (req.profile.dealerships?.is_personal === true) return res.json({ ranking: [], total_members: 0 })
 
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -109,25 +108,16 @@ export function registerRoutes(app) {
     // dealership and tallied in memory (bounded), then merged into each rep's row.
     // Each is independently guarded — a failure in one must never blank the board.
     const WON = ['sold', 'fni', 'delivered']
-    const DEAL_UNITS = ['sold', 'delivered']
-    const [{ data: wonContacts }, { data: apprRows }, { data: dealRows }] = await Promise.all([
+    const [{ data: wonContacts }, { data: apprRows }] = await Promise.all([
       supabaseAdmin.from('contacts')
         .select('assigned_rep, status').eq('dealership_id', req.dealershipId)
         .in('status', WON).limit(50000).then(r => ({ data: r.data || [] }), () => ({ data: [] })),
       supabaseAdmin.from('trade_appraisals')
         .select('created_by').eq('dealership_id', req.dealershipId).limit(50000).then(r => ({ data: r.data || [] }), () => ({ data: [] })),
-      // Desked deals that became units — for the internal sales-performance board:
-      // real F&I gross (sum of each deal's fni_items) and units, by the deal's rep.
-      supabaseAdmin.from('deals')
-        .select('created_by, deal_status, fni_items').eq('dealership_id', req.dealershipId)
-        .in('deal_status', DEAL_UNITS).limit(50000).then(r => ({ data: r.data || [] }), () => ({ data: [] })),
     ])
-    const dealsByRep = new Map(), apprByRep = new Map(), fniGrossByRep = new Map(), unitsByRep = new Map()
+    const dealsByRep = new Map(), apprByRep = new Map()
     for (const c of (wonContacts || [])) if (c.assigned_rep) dealsByRep.set(c.assigned_rep, (dealsByRep.get(c.assigned_rep) || 0) + 1)
     for (const a of (apprRows || [])) if (a.created_by) apprByRep.set(a.created_by, (apprByRep.get(a.created_by) || 0) + 1)
-    const money = (v) => { if (typeof v === 'number') return isFinite(v) ? v : 0; const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isFinite(n) ? n : 0 }
-    const dealFniGross = (d) => { let g = 0; for (const it of (Array.isArray(d.fni_items) ? d.fni_items : [])) if (it && typeof it === 'object') g += money(it.price ?? it.amount ?? it.total); return g }
-    for (const d of (dealRows || [])) { if (!d.created_by) continue; fniGrossByRep.set(d.created_by, (fniGrossByRep.get(d.created_by) || 0) + dealFniGross(d)); unitsByRep.set(d.created_by, (unitsByRep.get(d.created_by) || 0) + 1) }
 
     const rows = await Promise.all(members.map(async (m) => {
       const { count: posted } = await supabaseAdmin
@@ -151,8 +141,6 @@ export function registerRoutes(app) {
         sold_listings: sold || 0,
         deals_closed: dealsByRep.get(m.id) || 0,
         appraisals: apprByRep.get(m.id) || 0,
-        units_sold: unitsByRep.get(m.id) || 0,
-        fni_gross: Math.round(fniGrossByRep.get(m.id) || 0),
         recent_logins: recentLogins || 0,
         conversion_rate: (total || 0) > 0
           ? Math.round(((sold || 0) / (total || 0)) * 100)
@@ -177,8 +165,6 @@ export function registerRoutes(app) {
     const totalSold = rows.reduce((s, r) => s + r.sold_listings, 0)
     const totalDeals = rows.reduce((s, r) => s + r.deals_closed, 0)
     const totalAppraisals = rows.reduce((s, r) => s + r.appraisals, 0)
-    const totalFniGross = rows.reduce((s, r) => s + (r.fni_gross || 0), 0)
-    const totalUnits = rows.reduce((s, r) => s + (r.units_sold || 0), 0)
 
     res.json({
       ranking,
@@ -187,8 +173,6 @@ export function registerRoutes(app) {
       team_total_sold: totalSold,
       team_total_deals: totalDeals,
       team_total_appraisals: totalAppraisals,
-      team_total_fni_gross: totalFniGross,
-      team_total_units: totalUnits,
       team_conversion_rate: totalListings > 0
         ? Math.round((totalSold / totalListings) * 100)
         : 0
@@ -235,7 +219,10 @@ export function registerRoutes(app) {
     res.json({ events: events.slice(0, 25) })
   })
 
-  app.get('/dealership/charts', requireAuth, requirePermission('lead.assign'), async (req, res) => {
+  app.get('/dealership/charts', requireAuth, async (req, res) => {
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
+      return res.status(403).json({ error: 'Admins only' })
+    }
     if (!req.dealershipId) return res.json({ daily: [], by_rep: [] })
 
     // Honor the same ?range= filter as /dashboard/insights. Lifetime means no filter.
@@ -402,19 +389,11 @@ export function registerRoutes(app) {
   // competitors' identities. Points = listings·100 + sold·500 (same as team board).
   app.get('/leaderboard/global', requireAuth, async (req, res) => {
     try {
-      const [{ data: listings }, { data: profiles }, { data: dealerships }] = await Promise.all([
+      const [{ data: listings }, { data: profiles }] = await Promise.all([
         supabaseAdmin.from('listings').select('posted_by, status'),
-        // Keep this separate from profiles: there are multiple foreign-key paths
-        // between profiles and dealerships, so an unqualified PostgREST embed is
-        // ambiguous on the staged schema.
-        supabaseAdmin.from('profiles').select('id, full_name, display_name, avatar_url, dealership_id'),
-        supabaseAdmin.from('dealerships').select('id, name, is_personal')
+        supabaseAdmin.from('profiles').select('id, full_name, display_name, avatar_url, dealership_id, dealerships(name, is_personal)')
       ])
-      const dealerById = new Map((dealerships || []).map(d => [d.id, d]))
-      const profById = new Map((profiles || []).map(p => [p.id, {
-        ...p,
-        dealerships: dealerById.get(p.dealership_id) || null,
-      }]))
+      const profById = new Map((profiles || []).map(p => [p.id, p]))
 
       // Tally listings + sold per rep (include current user even with 0 activity).
       const repTally = new Map()
@@ -670,7 +649,7 @@ export function registerRoutes(app) {
   })
 
   app.get('/dashboard/insights', requireAuth, async (req, res) => {
-    const isAdmin = await hasPermission(req, 'lead.assign')
+    const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)
     const now = new Date()
 
     // Time range filter: lifetime | 365 | 90 | 30 | 7 (days). Defaults to lifetime.
@@ -856,7 +835,11 @@ export function registerRoutes(app) {
     })
   })
 
-  app.get('/dealership/team/:userId/stats', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
+  app.get('/dealership/team/:userId/stats', requireAuth, async (req, res) => {
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile.role)) {
+      return res.status(403).json({ error: 'Admins only' })
+    }
+
     const { data: target } = await supabaseAdmin
       .from('profiles')
       .select('id, full_name, role, dealership_id, created_at')
@@ -888,7 +871,7 @@ export function registerRoutes(app) {
   // (once captured) attributed sales by source.
   app.get('/dashboard/executive', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, empty: true })
-    const isMgr = await hasPermission(req, 'lead.assign')
+    const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
     const selfId = req.user.id
     const days = ({ '7': 7, '30': 30, '90': 90, '365': 365 }[String(req.query.range || '90')]) || 90
     const now = Date.now()
@@ -1049,8 +1032,9 @@ export function registerRoutes(app) {
   // ── Inventory mix & aging report (managers) ─────────────────────────────────
   // The classic lot breakdown: age buckets (0-30 / 31-60 / 61-90 / 90+), plus mix
   // by colour, by mileage band, and by make — count, value, and average age each.
-  app.get('/dashboard/inventory-mix', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
+  app.get('/dashboard/inventory-mix', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, empty: true })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('country').eq('id', req.dealershipId).maybeSingle()
     const c = (dealer?.country || '').trim().toUpperCase()
     const isUS = c === 'US' || c === 'USA' || c === 'UNITED STATES'
@@ -1111,8 +1095,9 @@ export function registerRoutes(app) {
   // 'archived' (dropped off the feed). Sale date = sold_at ?? archived_at, and
   // days-to-sell = sale date − lot date. Grouped by colour, mileage band, make,
   // condition, and price band — count + avg days-to-sell + total value each.
-  app.get('/dashboard/sales-analysis', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
+  app.get('/dashboard/sales-analysis', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, empty: true })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const days = ({ '30': 30, '90': 90, '180': 180, '365': 365 }[String(req.query.range || '90')]) || 90
     const startMs = Date.now() - days * 86400000
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('country').eq('id', req.dealershipId).maybeSingle()
@@ -1158,35 +1143,6 @@ export function registerRoutes(app) {
     const medianDts = dtsAll.length ? dtsAll[Math.floor(dtsAll.length / 2)] : null
     const totalValue = sold.reduce((s, v) => s + (num(v.price) || 0), 0)
 
-    // Turn rate: how fast the lot recycles. Needs the current live-lot count,
-    // split Used / New / Demo (certified counts as Used).
-    const condOf = (c) => { const x = (c || '').toLowerCase(); return x === 'new' ? 'new' : x === 'demo' ? 'demo' : 'used' }
-    const { data: liveRows } = await supabaseAdmin.from('inventory')
-      .select('condition')
-      .eq('dealership_id', req.dealershipId).is('archived_at', null).neq('status', 'sold').limit(50000)
-    const liveByCond = { used: 0, new: 0, demo: 0 }
-    for (const r of (liveRows || [])) liveByCond[condOf(r.condition)]++
-    const soldByCond = { used: 0, new: 0, demo: 0 }
-    for (const v of sold) soldByCond[condOf(v.condition)]++
-    const live = (liveRows || []).length
-    const dailyRate = sold.length / days                       // units sold per day in the window
-    const salesPerMonth = Math.round(dailyRate * 30 * 10) / 10 // one-decimal monthly pace
-    // Inventory turns per year = annual sales pace ÷ units on the ground.
-    const turnsPerYear = live > 0 ? Math.round((dailyRate * 365 / live) * 10) / 10 : null
-    // Days of supply = how long the current lot lasts at the recent sales pace.
-    const daysSupply = dailyRate > 0 ? Math.round(live / dailyRate) : null
-    // Per-condition turn: same maths scoped to each vehicle class.
-    const turnFor = (k) => {
-      const dr = soldByCond[k] / days, lv = liveByCond[k]
-      return {
-        label: k === 'used' ? 'Used' : k === 'new' ? 'New' : 'Demo',
-        live: lv, sold: soldByCond[k],
-        sales_per_month: Math.round(dr * 30 * 10) / 10,
-        turns_per_year: lv > 0 ? Math.round((dr * 365 / lv) * 10) / 10 : null,
-        days_supply: dr > 0 ? Math.round(lv / dr) : null,
-      }
-    }
-
     res.json({
       ok: true, range_days: days, distance_unit: unit,
       summary: {
@@ -1194,12 +1150,7 @@ export function registerRoutes(app) {
         total_value: Math.round(totalValue),
         avg_days_to_sell: dtsAll.length ? Math.round(dtsAll.reduce((a, b) => a + b, 0) / dtsAll.length) : null,
         median_days_to_sell: medianDts,
-        live_units: live,
-        sales_per_month: salesPerMonth,
-        turns_per_year: turnsPerYear,
-        days_supply: daysSupply,
       },
-      turn_by_condition: ['used', 'new', 'demo'].map(turnFor).filter(t => t.live > 0 || t.sold > 0),
       by_days_to_sell: groupBy(dtsBucket, ['0–30', '31–60', '61–90', '90+', 'Unknown']),
       by_color: groupBy(v => (v.exterior_color || '').trim() || 'Unspecified').slice(0, 12),
       by_mileage: groupBy(kmBucket, ['Under 50k', '50–100k', '100–150k', '150k+', 'Unknown']),
@@ -1208,50 +1159,14 @@ export function registerRoutes(app) {
     })
   })
 
-  // ── Sales snapshot: the "what needs me now" counts for the Sales dashboard ────
-  // Live counts that each deep-link to a filtered view: unanswered leads, follow-ups
-  // due today / overdue, appointments today, deals working, deliveries pending, and
-  // units sold this month. Manager/admin scoped (dealership-wide).
-  app.get('/dashboard/sales-snapshot', requireAuth, requirePermission('lead.assign'), async (req, res) => {
-    const did = req.dealershipId
-    if (!did) return res.json({ ok: true, empty: true })
-    const now = new Date()
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-    const nowIso = now.toISOString()
-    const count = async (table, build) => {
-      try { const { count, error } = await build(supabaseAdmin.from(table).select('id', { count: 'exact', head: true }).eq('dealership_id', did)); return error ? 0 : (count || 0) }
-      catch { return 0 }
-    }
-    const [unansweredLeads, followupsToday, followupsOverdue, apptsToday, dealsWorking, deliveriesPending, soldThisMonth] = await Promise.all([
-      count('leads', q => q.is('responded_at', null)),
-      count('crm_tasks', q => q.eq('done', false).neq('type', 'appointment').gte('due_at', startOfToday).lt('due_at', endOfToday)),
-      count('crm_tasks', q => q.eq('done', false).neq('type', 'appointment').lt('due_at', startOfToday).not('due_at', 'is', null)),
-      count('crm_tasks', q => q.eq('done', false).eq('type', 'appointment').gte('due_at', startOfToday).lt('due_at', endOfToday)),
-      count('deals', q => q.in('deal_status', ['working', 'pending_credit'])),
-      count('deals', q => q.eq('deal_status', 'sold')),   // sold but not yet delivered
-      count('deals', q => q.gte('sold_at', startOfMonth)),
-    ])
-    res.json({
-      ok: true,
-      unanswered_leads: unansweredLeads,
-      followups_today: followupsToday,
-      followups_overdue: followupsOverdue,
-      appointments_today: apptsToday,
-      deals_working: dealsWorking,
-      deliveries_pending: deliveriesPending,
-      sold_this_month: soldThisMonth,
-    })
-  })
-
   // ── Sold deals report (managers) — the per-rep sold sheet + custom filters ──
   // One row per won contact (Sold/F&I/Delivered) with the customer, the vehicle of
   // interest, and delivery/ownership. F&I desk fields (manager, deposit, term,
   // products, gross, commissions, surveys) are returned as null — they need a deal
   // record that isn't captured yet, so they ship as empty columns to fill later.
-  app.get('/reports/sold-deals', requireAuth, requireMfa, requirePermission('customer.export'), async (req, res) => {
+  app.get('/reports/sold-deals', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, rows: [], reps: [] })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const did = req.dealershipId
     const days = ({ '30': 30, '90': 90, '180': 180, '365': 365, 'all': null }[String(req.query.range || '365')])
     const startIso = days ? new Date(Date.now() - days * 86400000).toISOString() : null
@@ -1362,8 +1277,9 @@ export function registerRoutes(app) {
   // JSONB line-item / block fields — the full deal detail for the estimate + bill of sale.
   const DEAL_JSON_FIELDS = ['addons', 'fni_items', 'fees', 'insurance', 'vehicle']
 
-  app.get('/reports/deal', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
+  app.get('/reports/deal', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const contactId = String(req.query.contact_id || '')
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
     const { data } = await supabaseAdmin.from('deals')
@@ -1395,8 +1311,9 @@ export function registerRoutes(app) {
     return (cur && cur >= base) ? cur + 1 : base
   }
 
-  app.post('/reports/deal', requireAuth, requirePermission('deal.create'), async (req, res) => {
+  app.post('/reports/deal', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const contactId = String(req.body?.contact_id || '')
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
     // Confirm the contact belongs to this dealership before writing.
@@ -1425,7 +1342,7 @@ export function registerRoutes(app) {
     // Both are per-dealership sequential and stay attached: the deal references the
     // contact, and the bill of sale prints both numbers together.
     const { data: existingDeal } = await supabaseAdmin.from('deals')
-      .select('id, deal_number, deal_status, inventory_id, selling_price, total_price, amount_financed, cost').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
+      .select('deal_number').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (existingDeal?.deal_number) row.deal_number = existingDeal.deal_number
     else row.deal_number = await nextDealershipNumber('deals', 'deal_number', req.dealershipId, 1000)
 
@@ -1484,19 +1401,6 @@ export function registerRoutes(app) {
         payload: { contact_id: contactId, inventory_id: data.inventory_id || null },
       })
     }
-    audit(req, existingDeal ? 'deal.updated' : 'deal.created', {
-      deal_id: data?.id || null,
-      before_state: existingDeal ? {
-        id: existingDeal.id, deal_number: existingDeal.deal_number, deal_status: existingDeal.deal_status,
-        inventory_id: existingDeal.inventory_id, selling_price: existingDeal.selling_price,
-        total_price: existingDeal.total_price, amount_financed: existingDeal.amount_financed, cost: existingDeal.cost,
-      } : null,
-      after_state: data ? {
-        id: data.id, deal_number: data.deal_number, deal_status: data.deal_status,
-        inventory_id: data.inventory_id, selling_price: data.selling_price,
-        total_price: data.total_price, amount_financed: data.amount_financed, cost: data.cost,
-      } : null,
-    })
     res.json({ ok: true, deal: data, customer_number: customerNumber, salesperson, vehicle_pending: vehiclePending })
   })
 
@@ -1506,8 +1410,9 @@ export function registerRoutes(app) {
   //   delivered      → vehicle handed over; car sold, customer delivered
   // Updates the deal + its linked inventory unit. The CONTACT status is updated
   // separately by the client (via /crm/contacts/:id) so pipeline automation fires.
-  app.post('/reports/deal/status', requireAuth, requireMfa, requirePermission('deal.finalize'), async (req, res) => {
+  app.post('/reports/deal/status', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const contactId = String(req.body?.contact_id || '')
     const action = String(req.body?.action || '').toLowerCase()
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
@@ -1523,7 +1428,7 @@ export function registerRoutes(app) {
     const m = MAP[action]
     if (!m) return res.status(400).json({ error: 'Invalid action' })
     const { data: deal } = await supabaseAdmin.from('deals')
-      .select('id, inventory_id, deal_status').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
+      .select('id, inventory_id').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!deal) return res.status(404).json({ error: 'Save the deal first, then set its status.' })
     const patch = { deal_status: m.deal, updated_at: now }
     if (m.stamp) patch[m.stamp] = now
@@ -1558,11 +1463,6 @@ export function registerRoutes(app) {
       summary: `Deal marked ${m.deal}`, toState: m.deal, department: 'Sales', createdBy: req.user?.id || null,
       payload: { contact_id: contactId, inventory_id: deal.inventory_id || null, action },
     })
-    audit(req, 'deal.status_changed', {
-      deal_id: deal.id,
-      before_state: { id: deal.id, deal_status: deal.deal_status },
-      after_state: { id: deal.id, deal_status: m.deal },
-    })
     // Both the internal ledger AND any external accounting sync (QuickBooks/Xero) now
     // hang off the deal.status_changed:delivered event above — the Accounting Engine
     // posts balanced double-entry journals and the Integration Engine SUBSCRIBES to
@@ -1575,8 +1475,9 @@ export function registerRoutes(app) {
 
   // ── Desk-a-deal helpers: search customers, prefill one, search inventory ──────
   // Search ALL contacts (not just sold) so a deal can be started for anyone.
-  app.get('/deals/customers', requireAuth, requirePermission('deal.create'), async (req, res) => {
+  app.get('/deals/customers', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, rows: [] })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const q = String(req.query.q || '').trim()
     let query = supabaseAdmin.from('contacts')
       .select('id, first_name, last_name, full_name, email, phone, phone_mobile, city, province')
@@ -1597,8 +1498,9 @@ export function registerRoutes(app) {
 
   // Full buyer block for the bill of sale (address, DL, phones), plus any vehicle
   // of interest so the desk can prefill the vehicle section.
-  app.get('/deals/customer', requireAuth, requirePermission('deal.create'), async (req, res) => {
+  app.get('/deals/customer', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const id = String(req.query.id || '')
     if (!id) return res.status(400).json({ error: 'id required' })
     const { data: c } = await supabaseAdmin.from('contacts')
@@ -1616,8 +1518,9 @@ export function registerRoutes(app) {
   })
 
   // Saved trade appraisals for this customer — to pull into the desk's trade section.
-  app.get('/deals/trades', requireAuth, requirePermission('deal.create'), async (req, res) => {
+  app.get('/deals/trades', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, rows: [] })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const contactId = String(req.query.contact_id || '')
     if (!contactId) return res.json({ ok: true, rows: [] })
     const cols = 'id, year, make, model, trim, vin, mileage, color, suggested_offer, retail_median, created_at, contact_id, customer'
@@ -1654,8 +1557,9 @@ export function registerRoutes(app) {
   })
 
   // Search this dealer's inventory for the vehicle section (VIN / stock / name).
-  app.get('/deals/vehicles', requireAuth, requirePermission('deal.create'), async (req, res) => {
+  app.get('/deals/vehicles', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, rows: [] })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const q = String(req.query.q || '').trim()
     let query = supabaseAdmin.from('inventory')
       .select('id, vin, year, make, model, trim, mileage, exterior_color, stocknumber, price, status')
@@ -1670,8 +1574,9 @@ export function registerRoutes(app) {
 
   // Inventory report — the "what" data source for the custom report builder.
   // Filters by status and (lot-date) range; returns a flat row per vehicle.
-  app.get('/reports/inventory', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
+  app.get('/reports/inventory', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, rows: [] })
+    if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)) return res.status(403).json({ error: 'Manager access required' })
     const did = req.dealershipId
     const days = ({ '30': 30, '90': 90, '180': 180, '365': 365, 'all': null }[String(req.query.range || 'all')])
     const startIso = days ? new Date(Date.now() - days * 86400000).toISOString() : null
@@ -1723,6 +1628,7 @@ export function registerRoutes(app) {
   // label-only staff records. One roster endpoint serves both.
   const LOGIN_TEAMS = { sales: ['SALES_REP'], management: ['MANAGER', 'DEALER_ADMIN', 'OWNER'] }
   const LABEL_TEAMS = ['service', 'admin', 'cleanup', 'lot']
+  const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 
   app.get('/team/roster', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, team: 'sales', members: [], login: false })
@@ -1736,14 +1642,15 @@ export function registerRoutes(app) {
     }
     if (LABEL_TEAMS.includes(team)) {
       const { data } = await supabaseAdmin.from('staff_members')
-        .select('id, name, phone, email, notes, active').eq('dealership_id', req.dealershipId).eq('team', team).eq('active', true).order('name')
+        .select('id, name, phone, email, notes, active').eq('dealership_id', req.dealershipId).eq('team', team).order('name')
       return res.json({ ok: true, team, login: false, members: (data || []).map(m => ({ ...m, login: false })) })
     }
     res.status(400).json({ error: 'Unknown team' })
   })
 
-  app.post('/team/staff', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
+  app.post('/team/staff', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const team = String(req.body?.team || '').toLowerCase()
     const name = String(req.body?.name || '').trim()
     if (!LABEL_TEAMS.includes(team)) return res.status(400).json({ error: 'Invalid team' })
@@ -1758,23 +1665,18 @@ export function registerRoutes(app) {
     if (req.body?.id) {
       const { data, error } = await supabaseAdmin.from('staff_members').update(row).eq('id', req.body.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
       if (error) return res.status(500).json({ error: 'Save failed' })
-      if (data) audit(req, 'team.staff_updated', { staff_id: data.id, after_state: { team: data.team, contact_details_configured: !!(data.phone || data.email) } })
       return res.json({ ok: true, member: data })
     }
     const { data, error } = await supabaseAdmin.from('staff_members').insert(row).select().maybeSingle()
     if (error) return res.status(500).json({ error: 'Save failed' })
-    if (data) audit(req, 'team.staff_created', { staff_id: data.id, after_state: { team: data.team, contact_details_configured: !!(data.phone || data.email) } })
     res.json({ ok: true, member: data })
   })
 
-  app.delete('/team/staff/:id', requireAuth, requireMfa, requirePermission('users.manage'), async (req, res) => {
+  app.delete('/team/staff/:id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data, error } = await supabaseAdmin.from('staff_members')
-      .update({ active: false, updated_at: new Date().toISOString() })
-      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).eq('active', true)
-      .select('id, name, team').maybeSingle()
-    if (error) return res.status(500).json({ error: 'Deactivate failed' })
-    if (data) audit(req, 'team.staff_deactivated', { staff_id: data.id, name: data.name, team: data.team })
-    res.json({ ok: true, deactivated: true })
+    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+    const { error } = await supabaseAdmin.from('staff_members').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: 'Delete failed' })
+    res.json({ ok: true })
   })
 }

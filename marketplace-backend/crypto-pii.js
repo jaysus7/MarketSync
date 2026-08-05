@@ -11,8 +11,6 @@
 import crypto from 'node:crypto'
 import { supabaseAdmin } from './shared.js'
 
-export const PII_ENCRYPTION_VERSION = 1
-
 let _key = null
 function key() {
   if (_key) return _key

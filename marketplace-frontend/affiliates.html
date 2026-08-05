@@ -81,7 +81,7 @@
   <footer class="border-t border-slate-200 dark:border-slate-800 py-8 text-center text-xs text-slate-400">&copy; 2026 MarketSync</footer>
 
   <script>
-    const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
+    const API = 'https://vehicle-marketplace-s0e4.onrender.com';
     // Show the live commission structure.
     fetch(`${API}/affiliate/public-config`).then(r => r.json()).then(c => {
       if (c && c.rate_pct != null) {

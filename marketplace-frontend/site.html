@@ -30,41 +30,13 @@
     .prose h3{font-size:1.2rem;font-weight:700;margin:.9em 0 .3em;color:#0f172a}
     .prose p{margin:0 0 1em} .prose ul{list-style:disc;padding-left:1.4em;margin:0 0 1em} .prose li{margin:.25em 0}
     .prose a{color:var(--brand);text-decoration:underline}
-    .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-
-    /* ── One-click design themes — token bundles the whole site auto-styles from.
-       Set on <html data-theme="…">; sections keep their markup and pick up the
-       tokens, for an eDealer/LeadBox-grade look without hand-editing each block. ── */
-    :root{
-      --ms-radius:16px; --ms-radius-sm:12px; --ms-btn-radius:10px;
-      --ms-shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
-      --ms-shadow-lg:0 22px 48px -22px rgba(15,23,42,.32);
-      --ms-sec-py:3.5rem; --ms-card-border:1px solid rgba(0,0,0,.06);
-    }
-    #view .cshadow{box-shadow:var(--ms-shadow);transition:box-shadow .2s,transform .2s}
-    #view .cshadow:hover,#view .hover\:shadow-lg:hover{box-shadow:var(--ms-shadow-lg)}
-    #view .rounded-2xl{border-radius:var(--ms-radius)}
-    #view .rounded-xl{border-radius:var(--ms-radius-sm)}
-    #view .py-14{padding-top:var(--ms-sec-py);padding-bottom:var(--ms-sec-py)}
-    /* Prestige — refined, spacious, serif headings, pill buttons */
-    [data-theme="prestige"]{--ms-radius:22px;--ms-radius-sm:16px;--ms-btn-radius:999px;--ms-sec-py:5rem;--ms-shadow:0 2px 12px rgba(15,23,42,.06);--ms-shadow-lg:0 34px 64px -26px rgba(15,23,42,.5)}
-    [data-theme="prestige"] #view h1,[data-theme="prestige"] #view h2{font-family:Georgia,'Times New Roman',serif;letter-spacing:-.01em}
-    [data-theme="prestige"] #view button.brand-bg,[data-theme="prestige"] #view a.brand-bg{border-radius:var(--ms-btn-radius)}
-    /* Modern — crisp, medium radius, soft depth */
-    [data-theme="modern"]{--ms-radius:14px;--ms-radius-sm:10px;--ms-btn-radius:10px;--ms-sec-py:4rem;--ms-shadow:0 8px 24px -12px rgba(15,23,42,.16)}
-    /* Bold — high-contrast, tight radius, heavy heads */
-    [data-theme="bold"]{--ms-radius:8px;--ms-radius-sm:6px;--ms-btn-radius:6px;--ms-sec-py:4rem;--ms-shadow:0 14px 32px -14px rgba(15,23,42,.3)}
-    [data-theme="bold"] #view h1,[data-theme="bold"] #view h2{letter-spacing:-.03em;font-weight:900}
-    /* Minimal — flat, bordered cards, airy */
-    [data-theme="minimal"]{--ms-radius:8px;--ms-radius-sm:6px;--ms-btn-radius:6px;--ms-sec-py:4.5rem;--ms-shadow:none;--ms-shadow-lg:0 10px 26px -16px rgba(15,23,42,.22)}
-    [data-theme="minimal"] #view .cshadow{border:1px solid rgba(0,0,0,.10)}
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
   <div id="app"><div class="min-h-screen flex items-center justify-center text-slate-400 text-sm">Loading…</div></div>
 
   <script>
-    const API=(location.hostname.includes('staging')?'https://marketsync-staging-backend.onrender.com':'https://vehicle-marketplace-s0e4.onrender.com');
+    const API='https://vehicle-marketplace-s0e4.onrender.com';
     let SLUG=(new URLSearchParams(location.search).get('d')||location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase();
     if(SLUG.endsWith('.html')) SLUG='';   // custom-domain root → resolve by hostname instead
     const esc=(s)=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -116,24 +88,16 @@
         if(!r.ok) throw new Error('This site isn\'t available.');
         DATA=await r.json(); const s=DATA.site;
         if(!SLUG && s.slug) SLUG=s.slug;   // resolved from the custom domain — used for lead posting
-        try{ const br=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/blog`); DATA.blog = br.ok ? ((await br.json()).posts||[]) : []; }catch{ DATA.blog=[]; }
         applySeo(s);
         document.documentElement.style.setProperty('--brand',s.primary_color||'#1e3a8a');
         document.documentElement.style.setProperty('--brand2',s.secondary_color||'#0f172a');
         injectHead(s.head_html);
-        document.documentElement.setAttribute('data-theme', s.theme || 'classic');
         applyTypography(s);
         renderChrome(); go(hashToView(location.hash));
-        if(s.recaptcha_site_key) loadRecaptcha(s.recaptcha_site_key);
         if(s.sales_chat) mountSalesChat(s);
         maybeDepositBanner();
-        // Deep link: ?v=<vehicle id> (e.g. a "View Details" link from the AI chat) opens that vehicle.
-        try{ const vid=new URLSearchParams(location.search).get('v'); if(vid) setTimeout(()=>{ try{ openVehicle(vid) }catch(e){} },120); }catch(e){}
       }catch(e){ document.getElementById('app').innerHTML=errPage(e.message); }
     }
-    // Google reCAPTCHA v3 (invisible) — loaded only when the dealer has keys configured.
-    function loadRecaptcha(key){ if(window.__rcLoaded) return; window.__rcLoaded=true; window.RC_KEY=key; const sc=document.createElement('script'); sc.src='https://www.google.com/recaptcha/api.js?render='+encodeURIComponent(key); sc.async=true; document.head.appendChild(sc); }
-    async function rcToken(action){ try{ if(window.RC_KEY && window.grecaptcha){ await new Promise(r=>grecaptcha.ready?grecaptcha.ready(r):r()); return await grecaptcha.execute(window.RC_KEY,{action:action||'submit'}); } }catch(e){} return null; }
     const errPage=(m)=>`<div class="min-h-screen flex flex-col items-center justify-center gap-2 text-center px-6"><div class="text-lg font-bold text-slate-700">${esc(m)}</div><div class="text-sm text-slate-400">Please check the link.</div></div>`;
     // Deposit checkout return → confirmation/cancel banner, then clean the URL.
     function maybeDepositBanner(){ const p=new URLSearchParams(location.search); const dep=p.get('deposit'); if(!dep) return;
@@ -260,7 +224,6 @@
       if(biOn('trade')) entries.push({token:'b:trade',label:biLabel('trade','Value Trade'),onclick:"go('trade')",menu:biMenu('trade')});
       if(biOn('finance')) entries.push({token:'b:finance',label:biLabel('finance','Financing'),onclick:"go('finance')",menu:biMenu('finance')});
       if(hasTeam&&biOn('team')) entries.push({token:'b:team',label:biLabel('team','Team'),onclick:"go('team')",menu:biMenu('team')});
-      if((DATA.blog||[]).length) entries.push({token:'b:blog',label:'Blog',onclick:"go('blog')",menu:null});
       if(biOn('contact')) entries.push({token:'b:contact',label:biLabel('contact','Contact'),onclick:"go('inquiry')",menu:biMenu('contact')});
       // Apply the dealer's explicit menu order (unlisted items keep their natural order, after listed ones).
       const order=Array.isArray(s.menu_order)?s.menu_order:[];
@@ -345,8 +308,8 @@
     function fmtDeposit(){ const d=DATA.deposits||{}; const amt=Number(d.amount)||0; const cur=(d.currency||'usd').toUpperCase(); return '$'+amt.toLocaleString()+(cur==='CAD'?' CAD':''); }
     // Hash routing: gives every page a distinct, shareable, crawlable URL and lets
     // AI-inserted internal links (href="#finance", "#/page-slug") just work.
-    function viewToHash(v){ if(!v||v==='home') return '#home'; if(v.startsWith('page:')) return '#/'+v.slice(5); if(v.startsWith('post:')) return '#blog/'+v.slice(5); if(v==='blog') return '#blog'; if(v==='inquiry') return '#contact'; return '#'+v; }
-    function hashToView(h){ h=(h||'').replace(/^#/,''); if(!h||h==='home') return 'home'; if(h==='blog') return 'blog'; if(h.startsWith('blog/')) return 'post:'+h.slice(5); if(h[0]==='/') return 'page:'+h.slice(1); if(h==='contact') return 'inquiry'; if(['inventory','build','trade','finance','team'].includes(h)) return h; return 'home'; }
+    function viewToHash(v){ if(!v||v==='home') return '#home'; if(v.startsWith('page:')) return '#/'+v.slice(5); if(v==='inquiry') return '#contact'; return '#'+v; }
+    function hashToView(h){ h=(h||'').replace(/^#/,''); if(!h||h==='home') return 'home'; if(h[0]==='/') return 'page:'+h.slice(1); if(h==='contact') return 'inquiry'; if(['inventory','build','trade','finance','team'].includes(h)) return h; return 'home'; }
     window.addEventListener('hashchange',()=>{ const v=hashToView(location.hash); if(v===VIEW) return; VIEW=v; window.scrollTo(0,0); renderView(); applyViewSeo(); });
     // Is a built-in page switched on? (default on when unset)
     function builtinOn(k){ const bi=(DATA.site&&DATA.site.builtins)||{}; return !bi[k]||bi[k].enabled!==false; }
@@ -361,8 +324,6 @@
       else if(VIEW==='trade') el.innerHTML=viewTrade();
       else if(VIEW==='finance') el.innerHTML=viewFinance();
       else if(VIEW==='inquiry') el.innerHTML=viewInquiry();
-      else if(VIEW==='blog'){ el.innerHTML=viewBlogIndex(); return; }
-      else if(VIEW.startsWith('post:')){ renderBlogPost(el, VIEW.slice(5)); return; }
       else if(VIEW.startsWith('page:')){ const p=(DATA.site.pages||[]).find(x=>x.slug===VIEW.slice(5)); el.innerHTML=viewPage(p); return; }
       else { renderHome(el); return; }
       // Prepend dealer-defined intro sections (hero/SEO) above a built-in view's functional content.
@@ -508,7 +469,6 @@
           return `<section class="bg-slate-100"><div class="max-w-6xl mx-auto px-4 py-14">${head}${cards}${embed}${empty}${cta}</div></section>`;
         }
         case 'faq': { const items=Array.isArray(g.items)?g.items:[]; return `<section class="max-w-3xl mx-auto px-4 py-12"><h2 class="text-2xl font-black mb-6">${esc(g.title||'Frequently asked questions')}</h2><div class="space-y-3">${items.map(it=>`<details class="bg-white rounded-lg cshadow p-4"><summary class="font-bold cursor-pointer">${esc(it.q||'')}</summary><p class="text-sm text-slate-600 mt-2 whitespace-pre-line">${esc(it.a||'')}</p></details>`).join('')||'<div class="text-sm text-slate-400">Add FAQ items in the section settings.</div>'}</div></section>`; }
-        case 'blog': { const posts=(DATA.blog||[]).slice(0,Math.max(1,Math.min(12,+g.count||3))); if(!posts.length) return ''; return `<section class="max-w-6xl mx-auto px-4 py-14"><div class="flex items-end justify-between mb-6"><h2 class="text-2xl font-black text-slate-900">${esc(g.title||'From our blog')}</h2><a href="#blog" onclick="go('blog');return false" class="text-sm font-bold brand-text">View all →</a></div><div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">${posts.map(blogCard).join('')}</div></section>`; }
         case 'gallery': { const imgs=Array.isArray(g.images)?g.images:[]; return imgs.length?`<section class="max-w-6xl mx-auto px-4 py-10">${g.title?`<h2 class="text-2xl font-black mb-4">${esc(g.title)}</h2>`:''}<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">${imgs.map(u=>`<img src="${esc(u)}" class="w-full h-40 object-cover rounded-lg">`).join('')}</div></section>`:''; }
         case 'map': { const addr=g.address||[s.address,s.city,s.province].filter(Boolean).join(', '); return addr?`<section class="max-w-6xl mx-auto px-4 py-10">${g.title?`<h2 class="text-2xl font-black mb-4">${esc(g.title)}</h2>`:''}<iframe class="w-full h-72 rounded-lg border-0" loading="lazy" src="https://www.google.com/maps?q=${encodeURIComponent(addr)}&output=embed"></iframe></section>`:''; }
         case 'contact': return `<section id="contact" class="brand-bg text-white"><div class="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-2 gap-8"><div><h2 class="text-2xl font-black mb-3">${esc(g.title||'Get in touch')}</h2>${s.phone?`<div class="text-white/80 text-sm mb-1">📞 <a href="tel:${esc(s.phone)}" class="underline">${esc(s.phone)}</a></div>`:''}${s.email?`<div class="text-white/80 text-sm mb-1">✉️ <a href="mailto:${esc(s.email)}" class="underline">${esc(s.email)}</a></div>`:''}${s.hours?`<div class="text-white/80 text-sm mt-3 whitespace-pre-line">${esc(s.hours)}</div>`:''}</div><form onsubmit="submitInquiry(event)" class="bg-white text-slate-900 rounded-xl p-5 space-y-2"><div class="font-bold">Send us a message</div><input id="i-name" placeholder="Your name" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"><div class="flex gap-2"><input id="i-phone" placeholder="Phone" class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"><input id="i-email" placeholder="Email" class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"></div><textarea id="i-msg" rows="3" placeholder="How can we help?" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></textarea><input type="hidden" id="i-vehicle"><button class="w-full brand-bg text-white font-bold py-2.5 rounded-lg">Send</button></form></div></section>`;
@@ -950,42 +910,6 @@
       postLead({form_type:'build',name:V('b-name'),phone:V('b-phone'),email:V('b-email'),message:V('b-notes'),
         fields:{Make:BUILD.make,Model:BUILD.model,Trim:BUILD.trim,Exterior:BUILD.ext,Interior:BUILD.int}},e.target,btn); }
 
-    // ── Blog ─────────────────────────────────────────────────────────────────
-    function fmtPostDate(d){ if(!d) return ''; try{ return new Date(d).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}); }catch{ return ''; } }
-    function blogCard(p){
-      const cover=p.cover_image_url?`<img src="${esc(p.cover_image_url)}" class="w-full h-44 object-cover" loading="lazy">`:`<div class="w-full h-44 brand2-bg opacity-90"></div>`;
-      return `<a href="#blog/${esc(p.slug)}" onclick="go('post:${esc(p.slug)}');return false" class="group block bg-white rounded-2xl cshadow overflow-hidden border border-slate-100 hover:shadow-lg hover:-translate-y-0.5 transition">
-        ${cover}
-        <div class="p-5">${(p.tags||[]).length?`<div class="text-[11px] font-bold uppercase tracking-wider brand-text mb-1">${esc((p.tags||[])[0])}</div>`:''}
-          <div class="font-black text-lg text-slate-900 leading-snug group-hover:brand-text transition">${esc(p.title)}</div>
-          ${p.excerpt?`<p class="text-sm text-slate-500 mt-1.5 line-clamp-2">${esc(p.excerpt)}</p>`:''}
-          <div class="text-[12px] text-slate-400 mt-3">${esc(fmtPostDate(p.published_at))}${p.author?' · '+esc(p.author):''}</div>
-        </div></a>`;
-    }
-    function viewBlogIndex(){
-      const posts=DATA.blog||[];
-      const head=`<section class="brand2-bg text-white"><div class="max-w-6xl mx-auto px-4 py-14"><h1 class="text-3xl sm:text-4xl font-black">${esc((DATA.site&&DATA.site.name)||'Our')} Blog</h1><p class="text-white/70 mt-2">News, tips and specials from our team.</p></div></section>`;
-      if(!posts.length) return head+`<section class="max-w-3xl mx-auto px-4 py-20 text-center text-slate-400">No posts yet — check back soon.</section>`;
-      return head+`<section class="max-w-6xl mx-auto px-4 py-12"><div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">${posts.map(blogCard).join('')}</div></section>`;
-    }
-    async function renderBlogPost(el, slug){
-      el.innerHTML=`<section class="max-w-3xl mx-auto px-4 py-20 text-center text-slate-400">Loading…</section>`;
-      let p=null;
-      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/blog/${encodeURIComponent(slug)}`); if(r.ok) p=(await r.json()).post; }catch{}
-      if(!p){ el.innerHTML=`<section class="max-w-3xl mx-auto px-4 py-20 text-center"><p class="text-slate-400 mb-4">Post not found.</p><a href="#blog" onclick="go('blog');return false" class="brand-text font-bold">← Back to blog</a></section>`; return; }
-      applyViewSeo(); document.title=(p.seo_title||p.title)+' — '+((DATA.site&&DATA.site.name)||'');
-      const more=(DATA.blog||[]).filter(x=>x.slug!==p.slug).slice(0,3);
-      el.innerHTML=`
-        <article class="max-w-3xl mx-auto px-4 py-10">
-          <a href="#blog" onclick="go('blog');return false" class="text-sm font-bold brand-text">← Back to blog</a>
-          <h1 class="text-3xl sm:text-4xl font-black text-slate-900 mt-4 leading-tight">${esc(p.title)}</h1>
-          <div class="text-[13px] text-slate-400 mt-2">${esc(fmtPostDate(p.published_at))}${p.author?' · '+esc(p.author):''}</div>
-          ${p.cover_image_url?`<img src="${esc(p.cover_image_url)}" class="w-full rounded-2xl cshadow object-cover mt-6">`:''}
-          <div class="prose max-w-none text-slate-700 mt-6 leading-relaxed">${sanitizeRich(p.content_html||'')}</div>
-        </article>
-        ${more.length?`<section class="max-w-6xl mx-auto px-4 py-12 border-t border-slate-100"><h2 class="text-xl font-black text-slate-900 mb-5">More posts</h2><div class="grid sm:grid-cols-3 gap-5">${more.map(blogCard).join('')}</div></section>`:''}`;
-    }
-
     function viewPage(p){
       if(!p) return `<section class="max-w-3xl mx-auto px-4 py-16 text-center text-slate-400">Page not found.</section>`;
       // Per-page brand accent (#28): override --brand within this page so its buttons/links tint.
@@ -1006,7 +930,7 @@
     }
 
     async function postLead(body,formEl,btn){ btn.disabled=true; const t=btn.textContent; btn.textContent='Sending…';
-      try{ body.recaptcha_token=await rcToken(body.form_type||'lead'); const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('x');
+      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('x');
         formEl.innerHTML='<div class="text-center py-10"><div class="text-2xl mb-2">✓</div><div class="font-bold text-emerald-600">Thanks! We\'ll be in touch shortly.</div></div>';
       }catch(e){ btn.disabled=false; btn.textContent=t; alert('Sorry, something went wrong. Please call us.'); } }
     const V=(id)=>(document.getElementById(id)?.value||'').trim();
@@ -1038,60 +962,19 @@
 
     // ── AI sales concierge chat (dealer opt-in) ───────────────────────────────
     let CHAT=[], CHAT_OPEN=false, CHAT_BUSY=false, CHAT_CAPTURED=false;
-    // AI concierge identity (set in DealerOS → AI Chat → Settings): headshot + name.
-    const AV_FALLBACK="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23e2e8f0'/><circle cx='50' cy='40' r='18' fill='%2394a3b8'/><path d='M18 90c0-19 15-30 32-30s32 11 32 30z' fill='%2394a3b8'/></svg>";
-    function chatAvatar(){ const s=(DATA&&DATA.site)||{}; return s.chat_avatar||s.logo_url||AV_FALLBACK; }
-    function chatBotName(){ const s=(DATA&&DATA.site)||{}; return s.chat_name||s.name||'Sales team'; }
     function mountSalesChat(s){
       if(document.getElementById('ms-chat')) return;
-      const chatAv=s.chat_avatar||s.logo_url||AV_FALLBACK;
-      const chatNm=s.chat_name||s.name||'Sales team';
       const wrap=document.createElement('div'); wrap.id='ms-chat';
       wrap.innerHTML=`
-        <style>
-          #ms-chat-teaser{animation:msPop .35s ease}
-          @keyframes msPop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-          #ms-chat-log .ms-veh{align-self:stretch;display:flex;gap:10px;overflow-x:auto;padding:2px 0 4px;scroll-snap-type:x mandatory}
-          #ms-chat-log .ms-veh-card{flex:0 0 220px;scroll-snap-align:start;background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.06);cursor:pointer}
-          #ms-chat-log .ms-veh-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.12)}
-          #ms-chat-log .ms-veh-card img{width:100%;height:140px;object-fit:cover;background:#f1f5f9;display:block}
-          #ms-chat-log .ms-veh-card .p{padding:9px 11px}
-          #ms-chat-log .ms-veh-card .t{font-weight:800;font-size:13px;line-height:1.25;color:#0f172a}
-          #ms-chat-log .ms-veh-card .sub{font-size:11px;color:#64748b;margin-top:2px}
-          #ms-chat-log .ms-veh-card .pr{font-weight:900;color:var(--brand);margin-top:6px;font-size:15px}
-          #ms-chat-log .ms-veh-card .btns{display:flex;border-top:1px solid #eef2f7}
-          #ms-chat-log .ms-veh-card .btns a,#ms-chat-log .ms-veh-card .btns button{flex:1;text-align:center;padding:9px 4px;font-size:12px;font-weight:800;color:var(--brand);background:none;border:none;cursor:pointer;text-decoration:none}
-          #ms-chat-log .ms-veh-card .btns button{border-left:1px solid #eef2f7}
-          #ms-chat-log .ms-md{white-space:normal}
-          #ms-chat-log .ms-md > *:first-child{margin-top:0}
-          #ms-chat-log .ms-md > *:last-child{margin-bottom:0}
-          #ms-chat-log .ms-md p{margin:0 0 8px}
-          #ms-chat-log .ms-md ul,#ms-chat-log .ms-md ol{margin:6px 0 8px;padding-left:20px}
-          #ms-chat-log .ms-md li{margin:3px 0}
-          #ms-chat-log .ms-md strong{font-weight:700}
-          #ms-chat-log .ms-md em{font-style:italic}
-          #ms-chat-log .ms-md a{color:var(--brand);text-decoration:underline;font-weight:600;word-break:break-word}
-          #ms-chat-log .ms-md .ms-h{font-weight:800;margin:4px 0 6px;font-size:14px}
-          #ms-chat-log .ms-md code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
-          #ms-chat-log .ms-md hr{border:none;border-top:1px solid #e2e8f0;margin:8px 0}
-        </style>
-        <div id="ms-chat-teaser" onclick="chatToggle()" style="display:none;position:fixed;right:18px;bottom:90px;z-index:60;max-width:min(320px,calc(100vw - 36px));background:#fff;border-radius:16px;box-shadow:0 16px 40px rgba(0,0,0,.22);padding:12px 14px 12px 12px;display:flex;align-items:center;gap:11px;cursor:pointer">
-          <img src="${esc(chatAv)}" style="width:46px;height:46px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.15)">
-          <div style="font-size:14px;line-height:1.3;color:#0f172a;font-weight:600">Questions about our cars? Let's chat for all the info you need!</div>
-          <button onclick="event.stopPropagation();chatHideTeaser()" aria-label="Dismiss" style="position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;background:var(--brand);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
-        </div>
         <button id="ms-chat-fab" onclick="chatToggle()" aria-label="Chat with us"
-          style="position:fixed;right:18px;bottom:18px;z-index:60;width:62px;height:62px;border-radius:50%;background:var(--brand);color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;border:3px solid #fff;cursor:pointer">
-          <svg id="ms-chat-fab-i" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          style="position:fixed;right:18px;bottom:18px;z-index:60;width:60px;height:60px;border-radius:50%;background:var(--brand);color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;border:none;cursor:pointer">
+          <svg id="ms-chat-fab-i" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </button>
-        <div id="ms-chat-panel" style="display:none;position:fixed;right:18px;bottom:88px;z-index:60;width:min(380px,calc(100vw - 36px));height:min(600px,calc(100vh - 120px));background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;flex-direction:column">
-          <div class="brand-bg" style="color:#fff;padding:12px 14px;display:flex;align-items:center;gap:11px">
-            <img src="${esc(chatAv)}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid rgba(255,255,255,.6)">
-            <div style="flex:1;min-width:0">
-              <div style="font-weight:800;font-size:16px;line-height:1.1">${esc(chatNm)}</div>
-              <div style="font-size:12px;opacity:.9;display:flex;align-items:center;gap:5px;margin-top:2px"><span style="width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 2px rgba(74,222,128,.35)"></span>Online</div>
-            </div>
-            <button onclick="chatToggle()" style="background:none;border:none;color:#fff;cursor:pointer;opacity:.85"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div id="ms-chat-panel" style="display:none;position:fixed;right:18px;bottom:88px;z-index:60;width:min(370px,calc(100vw - 36px));height:min(560px,calc(100vh - 120px));background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;flex-direction:column">
+          <div class="brand-bg" style="color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px">
+            ${s.logo_url?`<img src="${esc(s.logo_url)}" style="height:26px;width:auto;background:rgba(255,255,255,.15);border-radius:4px;padding:2px">`:''}
+            <div style="flex:1;min-width:0"><div style="font-weight:800;font-size:15px;line-height:1.1">${esc(s.name)}</div><div style="font-size:11px;opacity:.85">${s.chat_name?esc(s.chat_name)+' · ':'Sales team · '}replies in seconds</div></div>
+            <button onclick="chatToggle()" style="background:none;border:none;color:#fff;cursor:pointer;opacity:.8"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
           </div>
           <div id="ms-chat-log" style="flex:1;overflow-y:auto;padding:14px;background:#f8fafc;display:flex;flex-direction:column;gap:10px"></div>
           <div id="ms-chat-capture" style="display:none;padding:12px 14px;border-top:1px solid #e2e8f0;background:#fff">
@@ -1100,122 +983,30 @@
             <div style="display:flex;gap:6px"><input id="ms-chat-email" placeholder="Email (optional)" style="flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:13px"><button onclick="chatSubmitLead(this)" class="brand-bg" style="color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer">Send</button></div>
           </div>
           <form onsubmit="chatSend(event)" style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;background:#fff">
-            <input id="ms-chat-input" autocomplete="off" placeholder="Type any question here…" style="flex:1;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font-size:14px;outline:none">
+            <input id="ms-chat-input" autocomplete="off" placeholder="Ask about our inventory…" style="flex:1;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font-size:14px;outline:none">
             <button type="submit" class="brand-bg" style="color:#fff;border:none;border-radius:10px;width:42px;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
           </form>
-          <div style="text-align:center;font-size:11px;line-height:1.5;color:#475569;padding:8px 12px;background:#fff;border-top:1px solid #e2e8f0">
-            <div>Powered by <a href="https://marketsync.link" target="_blank" rel="noopener" style="color:#0f172a;font-weight:800;text-decoration:underline">MarketSync</a>. Use is subject to MarketSync's <a href="https://marketsync.link/terms.html" target="_blank" rel="noopener" style="color:var(--brand);font-weight:700;text-decoration:underline">Terms</a> and <a href="https://marketsync.link/privacy-policy.html" target="_blank" rel="noopener" style="color:var(--brand);font-weight:700;text-decoration:underline">Privacy Policy</a>.</div>
-            ${s.recaptcha_site_key?`<div style="font-size:10px;color:#64748b;margin-top:2px">This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#475569;text-decoration:underline">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener" style="color:#475569;text-decoration:underline">Terms of Service</a> apply.</div>`:''}
-          </div>
         </div>`;
       document.body.appendChild(wrap);
-      // Nudge: pop the greeting teaser a few seconds after load (once per session).
-      try{ if(!sessionStorage.getItem('msChatTeased')){ setTimeout(()=>{ if(!CHAT_OPEN){ const t=document.getElementById('ms-chat-teaser'); if(t) t.style.display='flex'; } },3500); } }catch(e){}
     }
-    function chatHideTeaser(){ const t=document.getElementById('ms-chat-teaser'); if(t) t.style.display='none'; try{sessionStorage.setItem('msChatTeased','1')}catch(e){} }
     function chatToggle(){
       CHAT_OPEN=!CHAT_OPEN;
-      chatHideTeaser();
       const p=document.getElementById('ms-chat-panel'); if(!p) return;
       p.style.display=CHAT_OPEN?'flex':'none';
       if(CHAT_OPEN){
-        if(!CHAT.length){ const s=(DATA&&DATA.site)||{}; const cn=(s.chat_name||'').trim(); let greet=(s.chat_greeting||'').trim(); if(!greet){ greet = cn ? `Hi there! 👋 I'm ${cn}${s.name?`, part of the team here at ${s.name}`:''}. I can help you find the right vehicle, talk financing or a trade, or set up a time to come see something. What are you looking for today?` : `Hi there! 👋 Welcome to ${s.name||'our showroom'}! I can help you find the right vehicle, talk financing or a trade, or set up a visit. What are you looking for today?`; } chatPush('bot',greet); }
-        chatStartPoll();
+        if(!CHAT.length){ const cn=(DATA&&DATA.site&&DATA.site.chat_name||'').trim(); chatPush('bot',`Hi! 👋 ${cn?`I'm ${cn}. `:''}Looking for something specific, or want help finding the right vehicle? Ask me anything about our inventory, financing or trade-ins.`); }
         setTimeout(()=>document.getElementById('ms-chat-input')?.focus(),50);
       }
     }
     function chatEsc(t){ return esc(t).replace(/\n/g,'<br>'); }
-    // Inline markdown → HTML (input is ALREADY html-escaped). Handles code, bold,
-    // italic, [text](url) links and bare URLs so the concierge's answers read cleanly.
-    function chatInline(s){
-      s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
-      s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
-      s=s.replace(/__([^_]+)__/g,'<strong>$1</strong>');
-      s=s.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g,'$1<em>$2</em>');
-      s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
-      // Bare URLs not already inside an href (prefix can't be " or =).
-      s=s.replace(/(^|[\s(])((?:https?:\/\/)[^\s<]+)/g,(m,pre,url)=>{
-        let tail=''; const mt=url.match(/[.,!?;:)]+$/); if(mt){ tail=mt[0]; url=url.slice(0,-tail.length); }
-        return `${pre}<a href="${url}" target="_blank" rel="noopener">${url.replace(/^https?:\/\//,'')}</a>${tail}`;
-      });
-      return s;
-    }
-    // Block-level markdown → HTML: paragraphs (blank-line separated), bullet & numbered
-    // lists, headings and rules. Keeps the customer chat spaced and readable.
-    function chatMarkdown(t){
-      const lines=esc(t).split(/\r?\n/);
-      const out=[]; let list=null, para=[];
-      const closeList=()=>{ if(list){ out.push('</'+list+'>'); list=null; } };
-      const flushPara=()=>{ if(para.length){ out.push('<p>'+para.join('<br>')+'</p>'); para=[]; } };
-      for(const raw of lines){
-        const line=raw.trim();
-        if(!line){ flushPara(); closeList(); continue; }
-        let m;
-        if(/^([-*_])\1{2,}$/.test(line)){ flushPara(); closeList(); out.push('<hr>'); continue; }
-        if(m=line.match(/^#{1,6}\s+(.*)$/)){ flushPara(); closeList(); out.push('<div class="ms-h">'+chatInline(m[1])+'</div>'); continue; }
-        if(m=line.match(/^[-*•]\s+(.*)$/)){ flushPara(); if(list!=='ul'){ closeList(); out.push('<ul>'); list='ul'; } out.push('<li>'+chatInline(m[1])+'</li>'); continue; }
-        if(m=line.match(/^\d+[.)]\s+(.*)$/)){ flushPara(); if(list!=='ol'){ closeList(); out.push('<ol>'); list='ol'; } out.push('<li>'+chatInline(m[1])+'</li>'); continue; }
-        closeList(); para.push(chatInline(line));
-      }
-      flushPara(); closeList();
-      return out.join('')||chatEsc(t);
-    }
     function chatPush(who,text){
       CHAT.push({who,text});
       const log=document.getElementById('ms-chat-log'); if(!log) return;
       const mine=who==='me';
       const b=document.createElement('div');
-      if(!mine) b.className='ms-md';
-      b.style.cssText=`max-width:${mine?'82%':'100%'};padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.5;${mine?'background:var(--brand);color:#fff;border-bottom-right-radius:4px':'background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-bottom-left-radius:4px'}`;
-      b.innerHTML=mine?chatEsc(text):chatMarkdown(text);
-      if(mine){ b.style.alignSelf='flex-end'; log.appendChild(b); }
-      else {
-        // Bot messages ride next to the concierge's headshot, like a real rep texting.
-        const row=document.createElement('div'); row.style.cssText='align-self:flex-start;display:flex;gap:8px;align-items:flex-end;max-width:90%';
-        const av=document.createElement('img'); av.src=chatAvatar(); av.style.cssText='width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0';
-        b.style.flex='1'; row.appendChild(av); row.appendChild(b); log.appendChild(row);
-      }
-      log.scrollTop=log.scrollHeight;
-    }
-    // Render the vehicles the concierge surfaced as swipeable cards (image 3 style).
-    function chatPushVehicles(vehicles){
-      if(!Array.isArray(vehicles)||!vehicles.length) return;
-      const log=document.getElementById('ms-chat-log'); if(!log) return;
-      const money=n=>n?'$'+Number(n).toLocaleString('en-US'):'Call for price';
-      const row=document.createElement('div'); row.className='ms-veh';
-      row.innerHTML=vehicles.map(v=>{
-        const img=v.image?`<img src="${esc(v.image)}" loading="lazy">`:`<div style="height:120px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#cbd5e1"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 17H3a1 1 0 0 1-1-1v-4l2.5-5h11L18 12v4a1 1 0 0 1-1 1h-2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg></div>`;
-        const cond=v.condition?`<span style="text-transform:capitalize;color:var(--brand);font-weight:800">${esc(v.condition)}</span>${v.stock?' · ':''}`:'';
-        return `<div class="ms-veh-card" onclick="chatViewVehicle('${esc(v.id||'')}','${esc(v.url||'')}')">${img}<div class="p"><div class="sub">${cond}${v.stock?`Stock #${esc(String(v.stock))}`:''}</div><div class="t">${esc(v.title||'Vehicle')}</div><div class="pr">${money(v.price)}</div></div><div class="btns"><span style="flex:1;text-align:center;padding:9px 4px;font-size:12px;font-weight:800;color:var(--brand)">View Details</span><button onclick="event.stopPropagation();chatSelectVehicle(${JSON.stringify(v.title||'').replace(/"/g,'&quot;')})">Select</button></div></div>`;
-      }).join('');
-      log.appendChild(row); log.scrollTop=log.scrollHeight;
-    }
-    // Poll for rep replies during a take-over so the customer sees them live.
-    function chatStartPoll(){
-      if(window.__msPollTimer||!window.MS_CHAT_CONV||!window.MS_CHAT_VTOK) return;
-      if(!window.MS_CHAT_AFTER) window.MS_CHAT_AFTER=new Date().toISOString();
-      window.__msPollTimer=setInterval(chatPollOnce,5000);
-    }
-    async function chatPollOnce(){
-      if(!CHAT_OPEN||!window.MS_CHAT_CONV||!window.MS_CHAT_VTOK) return;
-      try{
-        const u=`${API}/ai/public/messages?conversation_id=${encodeURIComponent(MS_CHAT_CONV)}&visitor_token=${encodeURIComponent(MS_CHAT_VTOK)}${MS_CHAT_AFTER?`&after=${encodeURIComponent(MS_CHAT_AFTER)}`:''}`;
-        const r=await fetch(u); const d=await r.json().catch(()=>({}));
-        (d.messages||[]).forEach(m=>{ chatPush('bot',m.message); if(m.at) window.MS_CHAT_AFTER=m.at; });
-      }catch(e){}
-    }
-    // "View Details" → open the vehicle. On the dealer's own site we open it in-page
-    // (reliable); otherwise fall back to the deep link.
-    function chatViewVehicle(id, url){
-      // Prefer the vehicle's stock page on the dealer's own website (source_url).
-      if(url){ window.open(url,'_blank','noopener'); return; }
-      if(id && (DATA.vehicles||[]).some(v=>v.id===id)){ if(CHAT_OPEN) chatToggle(); openVehicle(id); }
-    }
-    // "Select" a card → drop it into the chat so the concierge can book a visit around it.
-    function chatSelectVehicle(title){
-      const inp=document.getElementById('ms-chat-input'); if(!inp) return;
-      inp.value=`I'm interested in the ${title}. Can we set up a time to see it?`;
-      chatSend(new Event('submit'));
+      b.style.cssText=`max-width:82%;padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.4;${mine?'align-self:flex-end;background:var(--brand);color:#fff;border-bottom-right-radius:4px':'align-self:flex-start;background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-bottom-left-radius:4px'}`;
+      b.innerHTML=chatEsc(text);
+      log.appendChild(b); log.scrollTop=log.scrollHeight;
     }
     function chatTyping(on){
       let t=document.getElementById('ms-chat-typing');
@@ -1229,18 +1020,10 @@
       inp.value=''; chatPush('me',text); CHAT_BUSY=true; chatTyping(true);
       try{
         const msgs=CHAT.filter(m=>m.who==='me'||m.who==='bot').slice(-8).map(m=>({role:m.who==='me'?'user':'assistant',content:m.text}));
-        const rc=await rcToken('chat');
-        const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,conversation_id:window.MS_CHAT_CONV||null,visitor_token:window.MS_CHAT_VTOK||null,recaptcha_token:rc})});
+        const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs})});
         const d=await r.json().catch(()=>({}));
-        if(d.conversation_id) window.MS_CHAT_CONV=d.conversation_id;
-        if(d.visitor_token) window.MS_CHAT_VTOK=d.visitor_token;
         chatTyping(false);
-        if(d.reply) chatPush('bot',d.reply);
-        else if(d.handoff && !window.__msHandoffNote){ window.__msHandoffNote=1; chatPush('bot',"You're now chatting with a member of our team 👋"); }
-        else if(!d.handoff) chatPush('bot',"Sorry, I didn't catch that — could you rephrase?");
-        chatPushVehicles(d.vehicles);
-        if(d.reply_at) window.MS_CHAT_AFTER=d.reply_at;
-        chatStartPoll();   // pick up any rep replies (take-over) live
+        chatPush('bot',d.reply||"Sorry, I didn't catch that — could you rephrase?");
         if(d.capture&&!CHAT_CAPTURED) document.getElementById('ms-chat-capture').style.display='block';
       }catch(_){ chatTyping(false); chatPush('bot',"I'm having trouble connecting — please leave your info and we'll reach out."); document.getElementById('ms-chat-capture').style.display='block'; }
       CHAT_BUSY=false;
@@ -1255,14 +1038,13 @@
       // Full structured transcript (both sides) so the dealer can read exactly what the AI said.
       const chat_transcript=CHAT.filter(m=>m.who==='me'||m.who==='bot').map(m=>({role:m.who==='me'?'user':'assistant',content:String(m.text||'').slice(0,2000)})).slice(-60);
       try{
-        const rc=await rcToken('chat_lead');
-        await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({form_type:'chat',name,phone,email,message:'From website chat: '+transcript,chat_transcript,recaptcha_token:rc})});
+        await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({form_type:'chat',name,phone,email,message:'From website chat: '+transcript,chat_transcript})});
         CHAT_CAPTURED=true;
         document.getElementById('ms-chat-capture').style.display='none';
         chatPush('bot',`Thanks${name?' '+name:''}! A product advisor will reach out shortly. Anything else I can help with in the meantime?`);
       }catch(_){ btn.disabled=false; alert('Something went wrong — please try again.'); }
     }
-    Object.assign(window,{ chatToggle, chatSend, chatSubmitLead, chatHideTeaser, chatSelectVehicle, chatViewVehicle });
+    Object.assign(window,{ chatToggle, chatSend, chatSubmitLead });
 
     // ── Native appointment booking (test drive / consult) ──────────────────────
     let __bookVeh=null, __bookLabel='';
@@ -1291,7 +1073,7 @@
       const when=new Date(date+'T'+time+':00'); if(isNaN(when.getTime())||when.getTime()<Date.now()){ err.textContent='Pick a future time.'; err.classList.remove('hidden'); return; }
       let tz=''; try{ tz=Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(_){}
       btn.disabled=true; const t=btn.textContent; btn.textContent='Booking…';
-      try{ const rc=await rcToken('book'); const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/book`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,email,notes,vehicle_id:__bookVeh,when:when.toISOString(),tz,kind:'Test drive',recaptcha_token:rc})});
+      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/book`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,email,notes,vehicle_id:__bookVeh,when:when.toISOString(),tz,kind:'Test drive'})});
         const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not book that time.');
         document.getElementById('bk-body').innerHTML=`<div class="text-center py-6"><div class="text-4xl">✅</div><div class="text-lg font-black text-slate-900 mt-2">You're booked!</div><div class="text-sm text-slate-500 mt-1">Check your inbox for the confirmation. See you then!</div>${d.meet_url?`<a href="${d.meet_url}" target="_blank" class="inline-block mt-3 text-sm font-bold brand-text">Join link</a>`:''}<div class="mt-3"><button onclick="this.closest('.fixed').remove()" class="text-slate-500 font-bold text-sm">Close</button></div></div>`;
       }catch(e){ btn.disabled=false; btn.textContent=t; err.textContent=e.message||'Something went wrong — please call us.'; err.classList.remove('hidden'); } }

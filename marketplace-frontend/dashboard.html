@@ -51,8 +51,7 @@
        MarketSync itself. In MarketSync mode we trim the nav to the SaaS-relevant
        pages, trim Settings, and repaint the whole UI purple to make the mode
        unmistakable. The mode switcher itself is hidden unless JS reveals it. */
-    #ms-mode-switch { display: none; }
-    html[data-dash-owner="1"] #ms-mode-switch { display: flex; }
+    #ms-mode-switch { display: flex; }
 
     /* Trimmed nav in MarketSync mode: hide the vehicle-only groups + pages. */
     html[data-dash-mode="marketsync"] .nav-group[data-group="fb"],
@@ -796,6 +795,9 @@
             <button type="button" data-mode="marketsync" onclick="setDashMode('marketsync')">🟣 MarketSync</button>
           </div>
           <button id="ms-demo-reset" type="button" onclick="demoReset()" title="Reset the demo dealership to its starting data">↻ Reset demo data</button>
+          <button id="ms-reopen-tour" type="button" onclick="reopenCurrentDepartmentTour()" class="w-full text-xs font-bold py-1.5 px-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition flex items-center justify-center gap-1.5 my-1" title="Re-open guided tour & setup wizard for current department">
+            🎓 OPEN Tour &amp; Setup Wizard
+          </button>
 
           <!-- Guided-setup progress bar (populated by renderSetupBar; hidden when complete) -->
           <div id="setup-bar-host"></div>

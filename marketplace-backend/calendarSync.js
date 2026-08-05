@@ -34,9 +34,7 @@ const MS = {
   tenant: process.env.MS_CALENDAR_TENANT || 'common',
   scopes: ['offline_access', 'openid', 'email', 'Calendars.ReadWrite', 'User.Read'],
 }
-// shared.js refuses to start without SUPABASE_SERVICE_ROLE_KEY, so this can
-// never silently fall back to a predictable development secret.
-const STATE_SECRET = process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY
+const STATE_SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev-secret'
 const APPT_MINUTES = 60   // appointments carry a start (due_at) only; assume a 1h block
 
 export const PROVIDERS = ['google', 'microsoft']

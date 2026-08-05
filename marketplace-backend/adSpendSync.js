@@ -162,7 +162,7 @@ export async function pullAdSpend(conn, { days = 120 } = {}) {
   for (const period of months) {
     await supabaseAdmin.from('marketing_spend').upsert({
       dealership_id: conn.dealership_id, channel, period, amount: Math.round(byMonth[period] * 100) / 100,
-      source: conn.provider, notes: 'Auto-imported', updated_at: new Date().toISOString(), deleted_at: null, deleted_by: null,
+      source: conn.provider, notes: 'Auto-imported', updated_at: new Date().toISOString(),
     }, { onConflict: 'dealership_id,channel,period' })
   }
   await supabaseAdmin.from('ad_connections').update({ last_synced_at: new Date().toISOString(), last_error: null }).eq('id', conn.id)

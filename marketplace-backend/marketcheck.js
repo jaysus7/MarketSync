@@ -15,15 +15,8 @@
 
 const BASE = 'https://mc-api.marketcheck.com/v2'
 
-// Resolve the API key: primary env var, then a BACKUP slot. Lets the owner rotate
-// keys or drop in a second account (e.g. when the primary hits its plan cap)
-// without a code change — set MARKETCHECK_API_KEY_BACKUP.
-export function mcKey() {
-  return process.env.MARKETCHECK_API_KEY || process.env.MARKETCHECK_API_KEY_BACKUP || ''
-}
-
 export function marketcheckEnabled() {
-  return !!mcKey()
+  return !!process.env.MARKETCHECK_API_KEY
 }
 
 /**
@@ -31,10 +24,10 @@ export function marketcheckEnabled() {
  * Returns { configured, ok, sample_found?, status?, error? }.
  */
 export async function marketcheckPing() {
-  if (!mcKey()) return { configured: false, ok: false }
+  if (!process.env.MARKETCHECK_API_KEY) return { configured: false, ok: false }
   try {
     const params = new URLSearchParams({
-      api_key: mcKey(),
+      api_key: process.env.MARKETCHECK_API_KEY,
       rows: '0', car_type: 'used', make: 'Chevrolet', model: 'Silverado', stats: 'price',
     })
     const r = await fetch(`${BASE}/search/car/active?${params.toString()}`, {
@@ -55,7 +48,7 @@ export async function marketcheckPing() {
  * Returns { listing_count, avg_price, min_price, max_price, platform } or null.
  */
 export async function marketcheckCompetitorStats({ url, isUS }) {
-  const key = mcKey()
+  const key = process.env.MARKETCHECK_API_KEY
   if (!key || !url) return null
   let domain = ''
   try { domain = new URL(url).hostname.replace(/^www\./i, '').toLowerCase() } catch { return null }
@@ -161,8 +154,8 @@ function provinceFromPostal(postal) {
   return CA_POSTAL_PROVINCE[c] || null
 }
 
-export async function marketcheckMarket({ make, model, year, trim, mileage, drivetrain, engine, zip, radius, state, isUS = false } = {}) {
-  const key = mcKey()
+export async function marketcheckMarket({ make, model, year, trim, mileage, drivetrain, engine, zip, radius, isUS = false } = {}) {
+  const key = process.env.MARKETCHECK_API_KEY
   if (!key || !make || !model || !year) return null
 
   const wantDrive = normalizeDrivetrain(drivetrain)
@@ -170,27 +163,23 @@ export async function marketcheckMarket({ make, model, year, trim, mileage, driv
   const cleanZip = String(zip || '').replace(/\s+/g, '').toUpperCase() || null
   const rad = Number(radius) > 0 ? Math.round(Number(radius)) : null
 
-  // Resolve TWO geo scopes so pricing/medians always widen the same way: start local
-  // (a radius around the dealer), then fall back to the whole province/state, then
-  // national. US ZIP works natively; CA postal must be geocoded to lat/long or
-  // MarketCheck ignores it and returns national comps.
-  let geoLocal = null   // radius scope (zip or lat/long)
-  let geoState = null   // province/state scope
+  // Resolve the geo filter once. US ZIP works natively; CA postal must be geocoded
+  // to lat/long or MarketCheck ignores it and returns national comps.
+  let geo = null
   if (cleanZip && rad) {
-    if (isUS) geoLocal = { zip: cleanZip }
+    if (isUS) geo = { zip: cleanZip }
     else {
+      // Prefer a precise lat/long radius; if geocoding fails, fall back to the
+      // dealer's PROVINCE (derived from the postal) so CA comps are never national.
       const g = await geocodePostal(zip || cleanZip, false)
-      if (g) geoLocal = { latitude: g.lat, longitude: g.lon }
+      if (g) geo = { latitude: g.lat, longitude: g.lon }
+      else { const prov = provinceFromPostal(cleanZip); if (prov) geo = { state: prov } }
     }
   }
-  // Province/state scope: explicit `state` (dealer's province/state), else derived
-  // from a CA postal. Gives the middle rung between "200 km" and "national".
-  const stateCode = String(state || '').trim().toUpperCase() || (!isUS && cleanZip ? provinceFromPostal(cleanZip) : null)
-  if (stateCode) geoState = { state: stateCode }
 
-  // One fetch with a given set of filters. geoMode picks the scope: 'local' (radius),
-  // 'state' (province/state), or null (national). Trim/drivetrain relax independently.
-  const fetchListings = async ({ withTrim, withDrive, geoMode }) => {
+  // One fetch with a given set of filters. geo/drivetrain/trim can each be turned
+  // off so the caller can relax them when a tighter query comes back too thin.
+  const fetchListings = async ({ withTrim, withDrive, withGeo }) => {
     const p = new URLSearchParams({
       api_key: key, country: isUS ? 'us' : 'ca', car_type: 'used',
       make: String(make), model: String(model), year: String(year),
@@ -198,11 +187,10 @@ export async function marketcheckMarket({ make, model, year, trim, mileage, driv
     })
     if (withTrim && trim) p.set('trim', String(trim))
     if (withDrive && wantDrive) p.set('drivetrain', wantDrive)
-    const geo = geoMode === 'local' ? geoLocal : geoMode === 'state' ? geoState : null
-    if (geo) {
+    if (withGeo && geo) {
       if (geo.zip) { p.set('zip', geo.zip); p.set('radius', String(rad)) }
       else if (geo.latitude != null) { p.set('latitude', String(geo.latitude)); p.set('longitude', String(geo.longitude)); p.set('radius', String(rad)) }
-      else if (geo.state) { p.set('state', geo.state) }   // province/state scope (no radius)
+      else if (geo.state) { p.set('state', geo.state) }   // province scope (no radius)
     }
     try {
       const r = await fetch(`${BASE}/search/car/active?${p.toString()}`, {
@@ -236,29 +224,21 @@ export async function marketcheckMarket({ make, model, year, trim, mileage, driv
   // comps of the model at all. This is the fix for "clicked 250 but got national":
   // a scarce local Sport-AWD used to drop geo first and jump straight to nationwide.
   const priced = (res) => (res?.listings || []).filter(l => l.price >= 2500)
-  const geoAvail = (m) => m === 'local' ? !!geoLocal : m === 'state' ? !!geoState : true
-  const appliedOf = (a) => ({ trim: a.withTrim && !!trim, drivetrain: a.withDrive && !!wantDrive, geo: geoAvail(a.geoMode) && a.geoMode !== null, geo_mode: geoAvail(a.geoMode) ? a.geoMode : null })
-  // GEO IS STICKY, and it widens in RUNGS: relax trim/drivetrain within a scope
-  // before widening the scope — 200 km radius → whole province/state → national.
+  const appliedOf = (a) => ({ trim: a.withTrim && !!trim, drivetrain: a.withDrive && !!wantDrive, geo: a.withGeo && !!geo })
   const attempts = [
-    { withTrim: true,  withDrive: true,  geoMode: 'local' },
-    { withTrim: true,  withDrive: false, geoMode: 'local' },
-    { withTrim: false, withDrive: false, geoMode: 'local' },
-    { withTrim: true,  withDrive: true,  geoMode: 'state' },
-    { withTrim: true,  withDrive: false, geoMode: 'state' },
-    { withTrim: false, withDrive: false, geoMode: 'state' },
-    { withTrim: true,  withDrive: true,  geoMode: null },
-    { withTrim: true,  withDrive: false, geoMode: null },
-    { withTrim: false, withDrive: false, geoMode: null },
+    { withTrim: true,  withDrive: true,  withGeo: true  },   // local · exact trim+drivetrain
+    { withTrim: true,  withDrive: false, withGeo: true  },   // local · trim (drop drivetrain)
+    { withTrim: false, withDrive: false, withGeo: true  },   // local · any trim of the model
+    { withTrim: true,  withDrive: true,  withGeo: false },   // national · exact (local was empty)
+    { withTrim: true,  withDrive: false, withGeo: false },   // national · trim
+    { withTrim: false, withDrive: false, withGeo: false },   // national · any trim
   ]
   let res = null, applied = null
   const seenKeys = new Set()
   for (const a of attempts) {
-    if (!geoAvail(a.geoMode)) continue   // skip a scope we can't build (no zip / no state)
     // Effective query — skip attempts identical to one we already ran (e.g. there's
-    // no drivetrain to drop, so relaxing it changes nothing).
-    const gk = geoAvail(a.geoMode) ? (a.geoMode || 'nat') : 'nat'
-    const key = [a.withTrim && trim ? 't' : '', a.withDrive && wantDrive ? 'd' : '', gk].join('|')
+    // no drivetrain/geo to drop, so relaxing them changes nothing).
+    const key = [a.withTrim && trim ? 't' : '', a.withDrive && wantDrive ? 'd' : '', a.withGeo && geo ? 'g' : ''].join('|')
     if (seenKeys.has(key)) continue
     seenKeys.add(key)
     const cand = await fetchListings(a)
@@ -313,11 +293,9 @@ export async function marketcheckMarket({ make, model, year, trim, mileage, driv
     median_mileage: miles.length ? miles[Math.floor(miles.length / 2)] : null,
     // Which of the requested filters actually shaped this comp set (for the UI).
     matched_on: applied || {},
-    // Radius only applies to the local (lat/long or zip) rung; province/state has no radius.
-    radius_used: (applied?.geo_mode === 'local' && rad) ? rad : null,
-    geo_scope: applied?.geo_mode === 'local' ? 'radius'
-      : applied?.geo_mode === 'state' ? (geoState?.state || 'state')
-      : null,   // 'radius' / 'ON' / null(national)
+    // Radius only applies when geo was a lat/long or zip scope; province scope has no radius.
+    radius_used: (applied?.geo && !geo?.state && rad) ? rad : null,
+    geo_scope: applied?.geo ? (geo?.state || 'radius') : null,   // 'ON' / 'radius' / null
     median_distance: dists.length ? dists[Math.floor(dists.length / 2)] : null,
     max_distance: dists.length ? dists[dists.length - 1] : null,
     listings: cleanListings,
@@ -342,7 +320,7 @@ export async function marketcheckMarket({ make, model, year, trim, mileage, driv
  * listings:[{price,miles,city,region,dealer,dom,sold_date,vdp_url,source}] } or null.
  */
 export async function marketcheckSoldListings({ make, model, year, trim, drivetrain, engine, zip, radius, mileage, isUS = false } = {}) {
-  const key = mcKey()
+  const key = process.env.MARKETCHECK_API_KEY
   if (!key || !make || !model || !year) return null
   if (process.env.MARKETCHECK_SOLD_DISABLED === '1') return null   // kill-switch if plan lacks it
   const path = process.env.MARKETCHECK_SOLD_PATH || '/search/car/recents'
@@ -488,7 +466,7 @@ export async function marketcheckSoldListings({ make, model, year, trim, drivetr
  * miles, city, region, dealer}] } or null. Broadens like marketcheckMarket.
  */
 export async function marketcheckListings({ make, model, year, trim, mileage, isUS = false, rows = 50 } = {}) {
-  const key = mcKey()
+  const key = process.env.MARKETCHECK_API_KEY
   if (!key || !make || !model || !year) return null
   const path = '/search/car/active'
   const base = () => {
@@ -533,7 +511,7 @@ export async function marketcheckListings({ make, model, year, trim, mileage, is
  * fall back to NHTSA.
  */
 export async function marketcheckDecodeVin(vin) {
-  const key = mcKey()
+  const key = process.env.MARKETCHECK_API_KEY
   const v = String(vin || '').trim().toUpperCase()
   if (!key || v.length !== 17) return null
   try {
@@ -551,7 +529,7 @@ export async function marketcheckDecodeVin(vin) {
  * metered call. Returns { predicted, low, high, confidence } or null.
  */
 export async function marketcheckPredictPrice({ vin, miles } = {}) {
-  const key = mcKey()
+  const key = process.env.MARKETCHECK_API_KEY
   const v = String(vin || '').trim().toUpperCase()
   if (!key || v.length !== 17) return null
   try {
@@ -582,7 +560,7 @@ export async function marketcheckPredictPrice({ vin, miles } = {}) {
  * { count, price:{median,mean,min,max}, dom:{median,mean}, miles:{median} } or null.
  */
 export async function marketcheckMarketStats({ make, model, year, trim, zip, radius, isUS = false } = {}) {
-  const key = mcKey()
+  const key = process.env.MARKETCHECK_API_KEY
   if (!key || !make || !model) return null
   try {
     const p = new URLSearchParams({

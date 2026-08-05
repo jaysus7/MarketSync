@@ -26,7 +26,7 @@ export const squareConfigured = () => !!(process.env.SQUARE_APP_ID && process.en
 const isSandbox = () => String(process.env.SQUARE_ENV || 'production').toLowerCase() === 'sandbox'
 const apiBase = () => isSandbox() ? 'https://connect.squareupsandbox.com' : 'https://connect.squareup.com'
 
-const STATE_SECRET = () => process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY
+const STATE_SECRET = () => process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev-secret'
 export function signState(dealershipId) {
   const payload = `${dealershipId}|square|${Date.now()}`
   const sig = crypto.createHmac('sha256', STATE_SECRET()).update(payload).digest('hex').slice(0, 32)

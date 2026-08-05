@@ -29,7 +29,7 @@
   </main>
 
   <script>
-    const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
+    const API = 'https://vehicle-marketplace-s0e4.onrender.com';
     const token = localStorage.getItem('token');
     const root = document.getElementById('root');
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));

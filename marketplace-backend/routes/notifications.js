@@ -1,10 +1,10 @@
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
-import { hasPermission } from '../authorization.js'
 
 // Report / lot-health notification types are for management only — reps don't get
 // them (they see lead/task/deposit/billing alerts instead).
 const MANAGER_ONLY_TYPES = ['weekly_report', 'aging', 'price_drift', 'missing_info', 'report', 'reconciliation']
+const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 const managerTypeList = '(' + MANAGER_ONLY_TYPES.map(t => `"${t}"`).join(',') + ')'
 
 export function registerNotifications(app) {
@@ -18,7 +18,7 @@ export function registerNotifications(app) {
       .select('id, type, title, body, link_page, link_filter, link_url, read, created_at')
       .eq('dealership_id', req.dealershipId)
       .or(`target_user_id.is.null,target_user_id.eq.${req.user.id}`)
-    if (!(await hasPermission(req, 'lead.assign'))) q = q.not('type', 'in', managerTypeList)   // reports → managers only
+    if (!isMgr(req)) q = q.not('type', 'in', managerTypeList)   // reports → managers only
     const { data, error } = await q.order('created_at', { ascending: false }).limit(50)
 
     if (error) return res.status(500).json({ error: error.message })
@@ -35,7 +35,7 @@ export function registerNotifications(app) {
       .eq('dealership_id', req.dealershipId)
       .or(`target_user_id.is.null,target_user_id.eq.${req.user.id}`)
       .eq('read', false)
-    if (!(await hasPermission(req, 'lead.assign'))) q = q.not('type', 'in', managerTypeList)
+    if (!isMgr(req)) q = q.not('type', 'in', managerTypeList)
     const { count, error } = await q
 
     if (error) return res.json({ count: 0 })
@@ -51,7 +51,6 @@ export function registerNotifications(app) {
       .update({ read: true })
       .eq('id', req.params.id)
       .eq('dealership_id', req.dealershipId)
-      .or(`target_user_id.is.null,target_user_id.eq.${req.user.id}`)
 
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true })
@@ -81,7 +80,6 @@ export function registerNotifications(app) {
       .delete()
       .eq('id', req.params.id)
       .eq('dealership_id', req.dealershipId)
-      .or(`target_user_id.is.null,target_user_id.eq.${req.user.id}`)
 
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true })

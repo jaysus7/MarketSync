@@ -1,9 +1,7 @@
 import dns from 'node:dns/promises'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
-import { requireAuth, requireMfa } from '../middleware.js'
-import { requirePermission } from '../authorization.js'
-import { audit } from '../audit.js'
+import { requireAuth } from '../middleware.js'
 import { findOrCreateContact } from './crm.js'
 import { enqueueForTrigger } from './automation.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
@@ -14,10 +12,9 @@ import { getConfig } from './config-engine.js'
 import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '../chatGuard.js'
 import { runAutoResponder } from '../autoresponder.js'
 import { depositConfigForSite } from './deposits.js'
-import { toolDefs, callTool } from './tool-registry.js'
-import { startOrContinueConversation, saveMessage } from './ai-engine.js'
-import { categorizeConversation, formatShownVehicles, summarizeConversation, verifyRecaptcha, RECAPTCHA_SITE_KEY } from './ai-runtime.js'
 
+const SITE_ADMINS = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
+const isSiteAdmin = (req) => SITE_ADMINS.includes(req.profile?.role)
 const slugOk = (s) => /^[a-z0-9]([a-z0-9-]{1,38})[a-z0-9]$/.test(s)   // 3–40, no leading/trailing dash
 // The host a dealer points their custom domain's CNAME at (the static-site domain,
 // or the Cloudflare-for-SaaS CNAME target once that's set up).
@@ -183,7 +180,7 @@ function cleanStaff(arr) {
 }
 
 // The section palette for the page builder. Each is dealership-aware on render.
-const SECTION_TYPES = ['hero', 'feature_cards', 'featured_inventory', 'inventory_grid', 'text_image', 'body_style', 'payment_calc', 'ad_banner', 'finance_cta', 'trade_cta', 'service_cta', 'staff', 'reviews', 'faq', 'blog', 'cta_banner', 'gallery', 'map', 'contact', 'html']
+const SECTION_TYPES = ['hero', 'feature_cards', 'featured_inventory', 'inventory_grid', 'text_image', 'body_style', 'payment_calc', 'ad_banner', 'finance_cta', 'trade_cta', 'service_cta', 'staff', 'reviews', 'faq', 'cta_banner', 'gallery', 'map', 'contact', 'html']
 function cleanSections(arr) {
   if (!Array.isArray(arr)) return []
   return arr.slice(0, 40).map((s, i) => {
@@ -197,7 +194,6 @@ function cleanSections(arr) {
   })
 }
 const TYPOGRAPHY = ['modern', 'luxury', 'bold', 'corporate', 'minimal']
-const SITE_THEMES = ['classic', 'prestige', 'modern', 'bold', 'minimal']
 
 // Placed widgets: where they can go and their shape.
 const WIDGET_SLOTS = ['top_banner', 'hero_below', 'above_inventory', 'below_inventory', 'above_footer']
@@ -255,9 +251,6 @@ function siteContent(d) {
     // Page builder: ordered sections + global styling.
     sections: cleanSections(b.site_sections),
     typography: TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern',
-    // One-click design theme — a bundle of tokens (radius, shadow, spacing, hero/card
-    // style) applied by the public site for an eDealer/LeadBox-grade look.
-    theme: SITE_THEMES.includes(b.site_theme) ? b.site_theme : 'classic',
     // Optional dealer-chosen Google Fonts (override the typography preset).
     heading_font: b.heading_font || null,
     body_font: b.body_font || null,
@@ -304,16 +297,7 @@ async function buildSiteResponse(d) {
     .map(publicVehicle)
   const roster = (team || []).filter(p => !p.hide_on_site && (p.display_name || p.full_name)).map(publicRep)
   const deposits = await depositConfigForSite(d.id).catch(() => ({ enabled: false }))
-  // The AI concierge persona (name + headshot + greeting) is set in AI Chat → Settings
-  // (ai_personality). It drives the on-site chat bubble's identity — persona wins, with
-  // the per-site branding name as a fallback.
-  const persona = await getConfig(d.id, 'ai_personality', {}).catch(() => ({}))
-  const site = siteContent(d)
-  site.chat_name = persona?.name || site.chat_name || null
-  site.chat_avatar = persona?.avatar_url || null
-  site.chat_greeting = persona?.greeting || null
-  site.recaptcha_site_key = RECAPTCHA_SITE_KEY || null   // gates the on-site reCAPTCHA
-  return { site, vehicles, team: roster, count: vehicles.length, deposits }
+  return { site: siteContent(d), vehicles, team: roster, count: vehicles.length, deposits }
 }
 
 export function registerSite(app) {
@@ -391,12 +375,11 @@ export function registerSite(app) {
   }
 
   // ── PUBLIC: capture a lead from the site → lands in the CRM ─────────────────
-  app.post('/site/:slug/lead', rateLimit('sitelead', 8, 60 * 1000), async (req, res) => {
+  app.post('/site/:slug/lead', async (req, res) => {
     const slug = String(req.params.slug || '').toLowerCase().trim()
     const { data: d } = await supabaseAdmin.from('dealerships')
       .select('id, site_published').ilike('site_slug', slug).maybeSingle()
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
-    if (!(await verifyRecaptcha(req.body?.recaptcha_token))) return res.status(403).json({ error: 'recaptcha_failed' })
     const b = req.body || {}
     const name = String(b.name || '').trim().slice(0, 120)
     const email = String(b.email || '').trim().slice(0, 160)
@@ -532,7 +515,6 @@ export function registerSite(app) {
     const slug = String(req.params.slug || '').toLowerCase().trim()
     const { data: d } = await supabaseAdmin.from('dealerships').select('id, name, branding, site_published, city, province').ilike('site_slug', slug).maybeSingle()
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
-    if (!(await verifyRecaptcha(req.body?.recaptcha_token))) return res.status(403).json({ error: 'recaptcha_failed' })
     const b = req.body || {}
     const name = String(b.name || '').trim().slice(0, 120)
     const email = String(b.email || '').trim().slice(0, 160)
@@ -613,7 +595,6 @@ export function registerSite(app) {
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
     const b = d.branding || {}
     if (!b.site_sales_chat) return res.status(403).json({ error: 'Chat is not enabled for this site.' })
-    if (!(await verifyRecaptcha(req.body?.recaptcha_token))) return res.status(403).json({ error: 'recaptcha_failed' })
 
     // Graceful degrade: no key or over the monthly budget → show the lead form.
     if (!process.env.ANTHROPIC_API_KEY || !(await aiAllowed(d.id, false))) {
@@ -648,10 +629,8 @@ export function registerSite(app) {
     let facts = [
       `Dealership: ${d.name}${loc ? ` — ${loc}` : ''}.`,
       b.phone ? `Phone: ${b.phone}.` : '',
-      b.email ? `Email: ${b.email}.` : '',
       b.address ? `Address: ${b.address}.` : '',
       b.hours ? `Hours: ${String(b.hours).slice(0, 300)}.` : '',
-      b.about ? `About: ${String(b.about).slice(0, 600)}.` : '',
       `Vehicles in stock: ${list.length}. By make: ${byMake || 'n/a'}.`,
       `Financing available: ${can('finance') ? 'yes' : 'ask'}. Trade-in appraisals: ${can('trade') ? 'yes' : 'ask'}.`,
     ].filter(Boolean).join('\n')
@@ -675,23 +654,13 @@ export function registerSite(app) {
     const instr = [String(aiCfg?.ai_customer_style || '').trim(), String(b.site_chat_instructions || '').trim()].filter(Boolean).join('\n\n').slice(0, 4000) || defaultTone
     const disclaimer = String(b.site_chat_disclaimer || '').trim().slice(0, 600)
     const botName = String(b.site_chat_name || '').trim().slice(0, 60)
-    const system = `You are ${botName ? `${botName}, a real member of the sales team` : 'the online sales concierge'} at ${d.name}, a car dealership${loc ? ` in ${loc}` : ''}.${botName ? ` If a shopper asks your name, you're ${botName}.` : ''}
+    const system = `You are ${botName ? `${botName}, the friendly online sales concierge` : 'the friendly online sales concierge'} for ${d.name}, a car dealership${loc ? ` in ${loc}` : ''}.${botName ? ` If a shopper asks your name, say you're ${botName}.` : ''} Help shoppers find a vehicle, answer questions about the inventory below, and guide them toward the next step: booking a test drive, getting pre-approved for financing, or valuing their trade. Be warm, concise (2–4 sentences), and never pushy.
 
-YOUR #1 JOB: get the customer IN THE DOOR. You're not closing the sale over chat — you're booking the appointment (test drive or a quick visit) and getting their contact info. Everything points at that.
-
-HOW YOU TALK:
-- Short. One or two sentences per message, like texting. No long paragraphs, no dumping the whole inventory list.
-- One question at a time, warm and natural, a little personality. Never say you're an AI or a bot.
-
-PLAYBOOK:
-- Get their name early and casually, then a phone or email so an advisor can lock in a time.
-- When they tell you what they want, use search_inventory to pull 2-3 great matches, then steer straight to a visit: "Want me to set up a time to come see it?" (The app shows the vehicles you find as cards automatically — don't paste long specs.)
-- You KNOW the live prices (search_inventory) — but don't negotiate or quote monthly payments in chat. If they push on price, say the sharpest number comes from a few minutes in person and offer to book it.
-- Use your TOOLS to actually DO things: search_inventory, dealership_info (hours/address/phone/financing/stock count), calculate_payment, book_appointment (SALES test-drive/visit or SERVICE — once you have name + phone/email + a date/time; compute the ISO date-time from what they say), create_lead (the moment you have name + phone/email), save_memory, request_human (sales/service/parts for anything complicated).
-- Always be closing — on the APPOINTMENT, not the car. Every reply nudges toward "let's get you in."
-- If you need their contact info and don't have it yet, ask for name + phone/email and end that message with the token [CAPTURE].
-- Only discuss vehicles from search_inventory / the list below — never invent stock, prices, VINs or specs. Keep it about ${d.name}. Today: ${new Date().toISOString().slice(0, 10)}.
-- CONDITION — be exact: describe a vehicle ONLY by its listed condition (New, Used, or Demo). NEVER imply newness from mileage or say "basically brand new", "only a few km" or "practically new" — a new vehicle can legally carry delivery kilometres, so that's misleading. Don't quote kilometres on New vehicles; just say it's new. Mention km only for Used/Demo. The app shows the vehicles you find as cards with a View Details link — let those cards do the showing instead of pasting long specs.${instr ? `
+RULES:
+- Only discuss vehicles from the INVENTORY list. Never invent stock, prices, VINs, or specs. If something isn't listed, say you'll have an advisor confirm and offer to take their info.
+- Quote prices exactly as listed; if a unit shows "call for price", invite them to enquire.
+- When the shopper shows buying intent (a specific vehicle, financing, a test drive, a trade value), invite them to leave their name and phone/email so a product advisor can follow up, and end that message with the token [CAPTURE].
+- Keep it about ${d.name}. Don't mention other dealers or that you are an AI model. Today: ${new Date().toISOString().slice(0, 10)}.${instr ? `
 
 DEALER INSTRUCTIONS (how this dealership wants you to answer — follow these, but never break the RULES above):
 ${instr}` : ''}${kb ? `
@@ -707,77 +676,25 @@ ${facts}
 INVENTORY (${list.length} in stock):
 ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its vehicles, pricing, financing, trades, test drives, service, hours and location`, 'the inventory above, financing, trade-ins, booking a test drive or service visit, and the dealership\'s hours/location/contact')
 
-    // A conversation handle so the agentic tools (book_appointment, create_lead,
-    // request_human, save_memory) can persist to the CRM / timeline / AI Chat home.
-    // The visitor token is echoed back so follow-up turns continue the same thread.
-    const visitorToken = String(req.body?.visitor_token || '') || ('v_' + Math.random().toString(36).slice(2) + Date.now().toString(36))
-    let conversation = null
-    if (req.body?.conversation_id) {
-      const { data } = await supabaseAdmin.from('ai_conversations').select('*').eq('id', req.body.conversation_id).eq('dealership_id', d.id).maybeSingle()
-      conversation = data
-    }
-    if (!conversation) { try { conversation = await startOrContinueConversation(d.id, { visitorToken, website: `site:${slug}`, source: 'site' }) } catch {} }
-    const ctx = { dealershipId: d.id, conversation: conversation || { id: null }, contactRef: { id: conversation?.contact_id || null } }
-
-    // Persist the shopper's turn so the dealer console's transcript (AI Chat →
-    // conversation) shows the real history. The reply is saved after the loop.
-    if (conversation?.id && lastUser) { try { await saveMessage(conversation.id, d.id, 'user', lastUser) } catch {} }
-
-    // A rep has taken over — the AI stays quiet; the rep's replies reach the widget
-    // through its poller. Just acknowledge the visitor's message.
-    if (conversation?.status === 'handoff') {
-      return res.json({ reply: '', handoff: true, vehicles: [], conversation_id: conversation.id, visitor_token: visitorToken })
-    }
-
     try {
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-      const tools = toolDefs('sales_chat')
-      let reply = ''
-      // Agentic tool loop — the concierge can search inventory, look up store facts,
-      // book sales/service appointments, capture leads and hand off to a human.
-      for (let hop = 0; hop < 5; hop++) {
-        const resp = await Promise.race([
-          anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 600, system, tools, messages }),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 22000)),
-        ])
-        const toolUses = (resp.content || []).filter(x => x.type === 'tool_use')
-        const textPart = (resp.content || []).filter(x => x.type === 'text').map(x => x.text).join('\n').trim()
-        if (textPart) reply = textPart
-        if (resp.stop_reason !== 'tool_use' || !toolUses.length) break
-        messages.push({ role: 'assistant', content: resp.content })
-        const results = []
-        for (const tu of toolUses) {
-          const out = await callTool(tu.name, tu.input || {}, ctx, { surface: 'sales_chat' })
-          results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out) })
-        }
-        messages.push({ role: 'user', content: results })
-      }
-      // Categorize this chat for the AI Chat dashboard feed (department/intent/tags)
-      // and keep the CRM summary fresh automatically.
-      if (conversation?.id) {
-        const userText = messages.filter(m => m.role === 'user' && typeof m.content === 'string').map(m => m.content).join(' ')
-        categorizeConversation(d.id, conversation.id, userText, { booked: !!ctx.booked }).catch(() => {})
-        summarizeConversation(d.id, conversation.id).catch(() => {})
-      }
-      const captureTok = /\[CAPTURE\]/i.test(reply)
+      const response = await Promise.race([
+        anthropic.messages.create({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, system, messages }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 20000)),
+      ])
+      let reply = (response?.content || []).filter(x => x.type === 'text').map(x => x.text).join('\n').trim()
+      const capture = /\[CAPTURE\]/i.test(reply)
       reply = reply.replace(/\[CAPTURE\]/ig, '').trim()
-      // Only show the lead form when we still need contact info (no lead captured yet).
-      const capture = captureTok && !ctx.contactRef.id
-      if (!reply) return res.json({ reply: CHAT_FALLBACK, capture: true, conversation_id: conversation?.id || null, visitor_token: visitorToken })
-      // Persist the concierge's reply so the transcript reads as a real conversation.
-      let savedReply = null
-      if (conversation?.id) { try { savedReply = await saveMessage(conversation.id, d.id, 'assistant', reply) } catch {} }
+      if (!reply) return res.json({ reply: CHAT_FALLBACK, capture: true })
       recordUsage(d.id, { ai: 1 })
-      // Vehicles the concierge surfaced this turn → rendered as cards in the widget.
-      const vehicles = await formatShownVehicles(d.id, ctx.shownVehicles).catch(() => [])
-      res.json({ reply, reply_at: savedReply?.created_at || null, vehicles, capture, conversation_id: conversation?.id || null, visitor_token: visitorToken })
+      res.json({ reply, capture })
     } catch (e) {
-      res.json({ reply: CHAT_FALLBACK, capture: true, conversation_id: conversation?.id || null, visitor_token: visitorToken })
+      res.json({ reply: CHAT_FALLBACK, capture: true })
     }
   })
 
   // ── ADMIN: read the site config (slug, published, content) ─────────────────
-  app.get('/dealership/site', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+  app.get('/dealership/site', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: d } = await supabaseAdmin.from('dealerships')
       .select('name, branding, site_slug, site_published, custom_domain, custom_domain_verified, city, province, postal_code, website_url').eq('id', req.dealershipId).single()
@@ -787,14 +704,15 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       custom_domain: d.custom_domain || null,
       custom_domain_verified: !!d.custom_domain_verified,
       domain_target: SITE_HOST,   // where the dealer points their CNAME
-      can_manage: true,
+      can_manage: isSiteAdmin(req),
       content: siteContent(d),
     })
   })
 
   // ── ADMIN: update slug / publish / site content ────────────────────────────
-  app.put('/dealership/site', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+  app.put('/dealership/site', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Manager access required' })
     const b = req.body || {}
     const update = {}
 
@@ -809,26 +727,6 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       } else update.site_slug = null
     }
     if (b.site_published !== undefined) update.site_published = !!b.site_published
-
-    // Auto-assign a web address the first time a site is published (e.g. right after a
-    // template is applied) so it goes live immediately without the dealer hand-picking a
-    // slug. Derived from the dealership name; de-duplicated with a numeric suffix.
-    if (update.site_published === true && update.site_slug === undefined) {
-      const { data: cur } = await supabaseAdmin.from('dealerships').select('name, site_slug').eq('id', req.dealershipId).maybeSingle()
-      if (!cur?.site_slug) {
-        let base = slugify(cur?.name || '') || 'dealer'
-        if (base.length < 3) base = ('dealer-' + base).replace(/-$/, '').slice(0, 40)
-        let slug = base, n = 1
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          const { data: taken } = await supabaseAdmin.from('dealerships')
-            .select('id').ilike('site_slug', slug).neq('id', req.dealershipId).maybeSingle()
-          if (!taken) break
-          slug = (base.slice(0, 36) + '-' + (++n)).slice(0, 40)
-        }
-        update.site_slug = slug
-      }
-    }
 
     if (b.custom_domain !== undefined) {
       const dom = String(b.custom_domain || '').toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
@@ -854,7 +752,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
 
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
     const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'hero_photos', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image']
-    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.theme !== undefined || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined || b.sales_chat !== undefined || b.chat_name !== undefined || b.chat_kb !== undefined || b.chat_instructions !== undefined || b.chat_disclaimer !== undefined
+    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined || b.sales_chat !== undefined || b.chat_name !== undefined || b.chat_kb !== undefined || b.chat_instructions !== undefined || b.chat_disclaimer !== undefined
     if (touchesContent) {
       const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
       const branding = { ...(cur?.branding || {}) }
@@ -873,19 +771,18 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       if (b.menu_order !== undefined) branding.site_menu_order = cleanMenuOrder(b.menu_order)
       if (b.sections !== undefined) branding.site_sections = cleanSections(b.sections)
       if (b.typography !== undefined) branding.typography = TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern'
-      if (b.theme !== undefined) branding.site_theme = SITE_THEMES.includes(b.theme) ? b.theme : 'classic'
       update.branding = branding
     }
 
     if (!Object.keys(update).length) return res.json({ ok: true })
     const { error } = await supabaseAdmin.from('dealerships').update(update).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
-    audit(req, 'site.configuration_updated', { after_state: { fields: Object.keys(update), site_published: update.site_published, site_slug: update.site_slug, custom_domain: update.custom_domain } })
     res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST })
   })
 
   // ── ADMIN: check whether the dealer's custom domain now points at us ─────────
-  app.post('/dealership/site/verify-domain', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+  app.post('/dealership/site/verify-domain', requireAuth, async (req, res) => {
+    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Manager access required' })
     const { data: d } = await supabaseAdmin.from('dealerships').select('custom_domain, custom_domain_cf_id').eq('id', req.dealershipId).single()
     const dom = d?.custom_domain
     if (!dom) return res.status(400).json({ error: 'Add a domain first.' })
@@ -908,110 +805,6 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       }
     }
     await supabaseAdmin.from('dealerships').update({ custom_domain_verified: ok }).eq('id', req.dealershipId)
-    audit(req, 'site.domain_verified', { after_state: { domain: dom, verified: ok } })
     res.json({ verified: ok, domain: dom, target: SITE_HOST, message: ok ? 'Connected! Your domain is live with a secure certificate.' : 'Not live yet — DNS/SSL can take a few minutes to an hour after you add the record. Try again shortly.' })
-  })
-
-  // ── Dealer blog — authoring (owner / GM), RLS-scoped via req.supabase ────────
-  const BLOG_COLS = 'id, slug, title, excerpt, content_html, cover_image_url, author, tags, status, seo_title, seo_description, published_at, created_at, updated_at'
-  async function uniqueBlogSlug(supa, dealershipId, base, ignoreId) {
-    let slug = slugify(base) || 'post'; let n = 1
-    while (true) {
-      let q = supa.from('dealer_blog_posts').select('id').eq('dealership_id', dealershipId).eq('slug', slug)
-      if (ignoreId) q = q.neq('id', ignoreId)
-      const { data } = await q.maybeSingle()
-      if (!data) return slug
-      slug = `${slugify(base) || 'post'}-${++n}`
-    }
-  }
-
-  app.get('/dealership/blog', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data, error } = await req.supabase.from('dealer_blog_posts')
-      .select(BLOG_COLS).eq('dealership_id', req.dealershipId).order('updated_at', { ascending: false })
-    if (error) return res.status(500).json({ error: error.message })
-    res.json({ posts: data || [] })
-  })
-
-  app.post('/dealership/blog', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const b = req.body || {}
-    const title = String(b.title || '').trim()
-    if (!title) return res.status(400).json({ error: 'Title is required' })
-    const slug = await uniqueBlogSlug(req.supabase, req.dealershipId, b.slug || title)
-    const status = b.status === 'published' ? 'published' : 'draft'
-    const row = {
-      dealership_id: req.dealershipId, slug, title,
-      excerpt: String(b.excerpt || '').trim(),
-      content_html: String(b.content_html || ''),
-      cover_image_url: b.cover_image_url || null,
-      author: String(b.author || '').trim() || null,
-      tags: Array.isArray(b.tags) ? b.tags.filter(Boolean).map(String) : [],
-      status, seo_title: b.seo_title || null, seo_description: b.seo_description || null,
-      published_at: status === 'published' ? new Date().toISOString() : null,
-      created_by: req.user.id,
-    }
-    const { data, error } = await req.supabase.from('dealer_blog_posts').insert(row).select(BLOG_COLS).single()
-    if (error) return res.status(500).json({ error: error.message })
-    res.json({ post: data })
-  })
-
-  app.patch('/dealership/blog/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const b = req.body || {}
-    const { data: existing } = await req.supabase.from('dealer_blog_posts')
-      .select('id, status, published_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
-    if (!existing) return res.status(404).json({ error: 'Post not found' })
-    const patch = { updated_at: new Date().toISOString() }
-    if (b.title !== undefined) patch.title = String(b.title || '').trim()
-    if (b.excerpt !== undefined) patch.excerpt = String(b.excerpt || '').trim()
-    if (b.content_html !== undefined) patch.content_html = String(b.content_html || '')
-    if (b.cover_image_url !== undefined) patch.cover_image_url = b.cover_image_url || null
-    if (b.author !== undefined) patch.author = String(b.author || '').trim() || null
-    if (b.tags !== undefined) patch.tags = Array.isArray(b.tags) ? b.tags.filter(Boolean).map(String) : []
-    if (b.seo_title !== undefined) patch.seo_title = b.seo_title || null
-    if (b.seo_description !== undefined) patch.seo_description = b.seo_description || null
-    if (b.slug !== undefined && b.slug) patch.slug = await uniqueBlogSlug(req.supabase, req.dealershipId, b.slug, existing.id)
-    if (b.status !== undefined) {
-      patch.status = b.status === 'published' ? 'published' : 'draft'
-      if (patch.status === 'published' && !existing.published_at) patch.published_at = new Date().toISOString()
-    }
-    const { data, error } = await req.supabase.from('dealer_blog_posts')
-      .update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select(BLOG_COLS).single()
-    if (error) return res.status(500).json({ error: error.message })
-    res.json({ post: data })
-  })
-
-  app.delete('/dealership/blog/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
-    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { error } = await req.supabase.from('dealer_blog_posts')
-      .delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
-    if (error) return res.status(500).json({ error: error.message })
-    res.json({ ok: true })
-  })
-
-  // ── PUBLIC: a dealer's published blog (served for the public site) ───────────
-  async function dealerBySlug(slug) {
-    const s = String(slug || '').toLowerCase().trim()
-    if (!s) return null
-    const { data } = await supabaseAdmin.from('dealerships').select('id, name, site_published').ilike('site_slug', s).maybeSingle()
-    return (data && data.site_published) ? data : null
-  }
-  app.get('/site/:slug/blog', async (req, res) => {
-    const d = await dealerBySlug(req.params.slug)
-    if (!d) return res.status(404).json({ error: 'Site not found' })
-    const { data } = await supabaseAdmin.from('dealer_blog_posts')
-      .select('slug, title, excerpt, cover_image_url, author, tags, published_at')
-      .eq('dealership_id', d.id).eq('status', 'published').order('published_at', { ascending: false }).limit(100)
-    res.json({ posts: data || [] })
-  })
-  app.get('/site/:slug/blog/:postSlug', async (req, res) => {
-    const d = await dealerBySlug(req.params.slug)
-    if (!d) return res.status(404).json({ error: 'Site not found' })
-    const { data } = await supabaseAdmin.from('dealer_blog_posts')
-      .select('slug, title, excerpt, content_html, cover_image_url, author, tags, published_at, seo_title, seo_description')
-      .eq('dealership_id', d.id).eq('slug', String(req.params.postSlug || '').toLowerCase()).eq('status', 'published').maybeSingle()
-    if (!data) return res.status(404).json({ error: 'Post not found' })
-    res.json({ post: data })
   })
 }

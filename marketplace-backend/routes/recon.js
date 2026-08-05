@@ -143,7 +143,7 @@ export function registerRecon(app) {
     if (cardInvIds.length) {
       const { data: tks } = await supabaseAdmin.from('dealer_tasks')
         .select('id, inventory_id, title, kind, status, assignee_name, due_date, priority')
-        .eq('dealership_id', req.dealershipId).in('inventory_id', cardInvIds).is('deleted_at', null).neq('status', 'done')
+        .eq('dealership_id', req.dealershipId).in('inventory_id', cardInvIds).neq('status', 'done')
         .order('due_date', { ascending: true, nullsFirst: false }).limit(500)
       const grouped = {}
       for (const t of (tks || [])) { (grouped[t.inventory_id] = grouped[t.inventory_id] || []).push(t) }
@@ -211,7 +211,7 @@ export function registerRecon(app) {
       if (doneKinds.length) {
         await supabaseAdmin.from('dealer_tasks')
           .update({ status: 'done', completed_at: now, completed_by: req.user?.id || null, updated_at: now })
-          .eq('dealership_id', req.dealershipId).eq('inventory_id', inventory_id).is('deleted_at', null).in('kind', doneKinds).neq('status', 'done')
+          .eq('dealership_id', req.dealershipId).eq('inventory_id', inventory_id).in('kind', doneKinds).neq('status', 'done')
       }
     } catch (e) { console.warn('[recon] task sync failed:', e.message) }
     // Advance any workflows whose tasks were just completed by this stage move.
@@ -287,7 +287,7 @@ export function registerRecon(app) {
       try {
         await supabaseAdmin.from('dealer_tasks')
           .update({ status: 'done', completed_at: now, completed_by: req.user?.id || null, updated_at: now })
-          .eq('dealership_id', req.dealershipId).eq('inventory_id', req.params.inventory_id).is('deleted_at', null).neq('status', 'done')
+          .eq('dealership_id', req.dealershipId).eq('inventory_id', req.params.inventory_id).neq('status', 'done')
       } catch (e) { console.warn('[recon] checklist task sync failed:', e.message) }
     }
     res.json({ ok: true, checklist, all_done: allDone })

@@ -17,5 +17,10 @@ create index on ai_activity (dealership_id, created_at desc);
 
 alter table ai_activity enable row level security;
 
--- Direct Data API access is intentionally denied. The backend enforces RBAC.
-drop policy if exists "ai_activity_read" on ai_activity;
+-- Dealer members can read their own dealership's activity
+create policy "ai_activity_read" on ai_activity
+  for select using (
+    dealership_id in (
+      select dealership_id from profiles where id = auth.uid()
+    )
+  );

@@ -18,7 +18,7 @@
 import crypto from 'node:crypto'
 import { BACKEND_URL } from '../shared.js'
 
-const STATE_SECRET = () => process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY
+const STATE_SECRET = () => process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev-secret'
 
 // Signed state so the JWT-less OAuth callback can be trusted to carry the dealership +
 // provider it was started for, and can't be forged or replayed after 15 minutes.

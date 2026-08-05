@@ -155,7 +155,7 @@ begin
       (tpl_id,7,'Post revenue','post_ledger','Accounting','{}','{}'),
       (tpl_id,8,'Post commission','post_commission','Accounting','{}','{}'),
       (tpl_id,9,'Schedule delivery','create_task','Sales','{"kind":"Deliver","title":"Schedule & confirm delivery"}','{1,2,3,6}'),
-      (tpl_id,10,'Review request','send_sms','Sales','{}','{9}');
+      (tpl_id,10,'Review request','send_sms','CRM','{}','{9}');
   end if;
 
   if not exists (select 1 from public.workflow_templates where dealership_id is null and name='Trade Acquisition') then
@@ -178,7 +178,7 @@ begin
     insert into public.workflow_steps(workflow_template_id,step_order,name,action_type,department,config,depends_on) values
       (tpl_id,1,'Notify salesperson','send_notification','Sales','{}','{}'),
       (tpl_id,2,'5-min SLA timer','wait',null,'{"minutes":5}','{}'),
-      (tpl_id,3,'Escalate if silent','create_exception','Sales','{"kind":"lead_unanswered","unless_event":"customer.contacted"}','{}'),
+      (tpl_id,3,'Escalate if silent','create_exception','Sales Manager','{"kind":"lead_unanswered","unless_event":"customer.contacted"}','{}'),
       (tpl_id,4,'Follow-up task','create_task','Sales','{"kind":"Call","title":"Call new lead"}','{}');
   end if;
 end $$;
@@ -189,7 +189,7 @@ insert into public.state_ownership
 values
   (null,'deal','open','Sales','Salesperson','{dealer_admin,manager}'),
   (null,'deal','negotiating','Sales','Salesperson','{dealer_admin,manager}'),
-  (null,'deal','pending_approval','Sales','Manager','{dealer_admin,manager}'),
+  (null,'deal','pending_approval','Sales Manager','Manager','{dealer_admin,manager}'),
   (null,'deal','approved','F&I','F&I Manager','{dealer_admin,manager}'),
   (null,'deal','fni','F&I','F&I Manager','{dealer_admin,manager}'),
   (null,'deal','deposit_received','Accounting','Accounting','{dealer_admin,manager}'),
@@ -215,6 +215,6 @@ values
   (null,'customer','negotiating','Sales','Salesperson','{dealer_admin,manager}'),
   (null,'customer','sold','Sales','Salesperson','{dealer_admin,manager}'),
   (null,'customer','delivered','Sales','Salesperson','{dealer_admin,manager}'),
-  (null,'customer','owner','Sales','Automation','{dealer_admin,manager}'),
-  (null,'customer','equity_candidate','Sales','Automation','{dealer_admin,manager}')
+  (null,'customer','owner','CRM','Automation','{dealer_admin,manager}'),
+  (null,'customer','equity_candidate','CRM','Automation','{dealer_admin,manager}')
 on conflict (coalesce(dealership_id,'00000000-0000-0000-0000-000000000000'::uuid), entity_type, state) do nothing;

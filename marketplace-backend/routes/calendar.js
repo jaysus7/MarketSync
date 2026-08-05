@@ -15,7 +15,6 @@
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { audit, AuditAction } from '../audit.js'
-import { requestHasCronSecret } from '../cron-auth.js'
 import {
   PROVIDERS, providerConfigured, anyProviderConfigured, authUrl, signState, verifyState,
   exchangeCode, fetchProviderEmail, pushEvent, deleteEvent, pullEvents, getConnectionForUser,
@@ -113,7 +112,7 @@ export function registerCalendar(app) {
   // Periodic inbound sweep for every connection. Set up as a Render Cron Job:
   //   curl -X POST https://<backend>/cron/calendar-pull -H "x-cron-secret: $CRON_SECRET"
   app.post('/cron/calendar-pull', async (req, res) => {
-    if (!requestHasCronSecret(req)) {
+    if ((req.headers['x-cron-secret'] || '').trim() !== (process.env.CRON_SECRET || '').trim()) {
       return res.status(403).json({ error: 'Forbidden' })
     }
     const { data: conns } = await supabaseAdmin.from('calendar_connections').select('*').limit(1000)

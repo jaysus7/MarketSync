@@ -15,7 +15,6 @@ import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { rateLimit, consumeQuota } from '../security.js'
 import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '../chatGuard.js'
-import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 
 const PRICE_POINTS = [
   { key: 'starter', label: 'Starter', monthly: 999 },
@@ -50,10 +49,10 @@ export function registerMarketsync(app) {
   async function jms() {
     if (_jms && Date.now() - _jmsAt < 10 * 60 * 1000) return _jms
     // Resolve the MarketSync ops workspace by name (either the seed name or a
-    // renamed 'MarketSync'), else via the platform owner's dealership.
+    // renamed 'MarketSync'), else via the owner-email profile's dealership.
     let { data: d } = await supabaseAdmin.from('dealerships').select('id').in('name', ['JMS Automotive', 'MarketSync']).limit(1).maybeSingle()
-    if (!d?.id) {
-      const { data: op } = await supabaseAdmin.from('profiles').select('dealership_id').eq('system_role', SYSTEM_ROLES.PLATFORM_OWNER).not('dealership_id', 'is', null).limit(1).maybeSingle()
+    if (!d?.id && process.env.OWNER_EMAIL) {
+      const { data: op } = await supabaseAdmin.from('profiles').select('dealership_id').ilike('email', process.env.OWNER_EMAIL).not('dealership_id', 'is', null).limit(1).maybeSingle()
       if (op?.dealership_id) d = { id: op.dealership_id }
     }
     let ownerId = null
@@ -227,7 +226,7 @@ export function registerMarketsync(app) {
         meta: { kind: 'appointment', meet_url: meetUrl, when: when.toISOString(), duration_min: durationMin },
       })
 
-      // Emails: customer + the server-managed MarketSync platform owners.
+      // Emails: customer + the MarketSync team (owner profile + OWNER_EMAIL).
       if (resend) {
         const gcalStart = when.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
         const gcalEnd = endAt.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
@@ -249,9 +248,8 @@ export function registerMarketsync(app) {
         resend.emails.send({ from: EMAIL_FROM, to: email, subject: `Your MarketSync demo — ${whenLabel}`, html: shell('Your demo is booked 🎉', `Thanks ${name.split(' ')[0] || ''}! Here are your details. Just click to join at the scheduled time — no download needed.`) }).catch(() => {})
         // Team notification
         const team = new Set()
+        if (process.env.OWNER_EMAIL) team.add(process.env.OWNER_EMAIL.toLowerCase())
         if (ownerId) { const { data: op } = await supabaseAdmin.from('profiles').select('email').eq('id', ownerId).maybeSingle(); if (op?.email) team.add(op.email.toLowerCase()) }
-        const { data: owners } = await supabaseAdmin.from('profiles').select('email').eq('system_role', SYSTEM_ROLES.PLATFORM_OWNER).limit(20)
-        for (const owner of owners || []) if (owner.email) team.add(owner.email.toLowerCase())
         for (const to of team) {
           resend.emails.send({ from: EMAIL_FROM, to, subject: `New demo booked — ${name}${company ? ' (' + company + ')' : ''} — ${whenLabel}`, html: shell('New demo booked', `${name}${company ? ` from ${company}` : ''} booked a demo. It's on your CRM calendar.${notes ? `<br><br><b>Notes:</b> ${notes}` : ''}`) }).catch(() => {})
         }
@@ -263,7 +261,8 @@ export function registerMarketsync(app) {
     }
   })
 
-  const ownerOnly = (req) => hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
+  const ownerOnly = (req) => (!!process.env.OWNER_EMAIL && (req.user?.email || '').toLowerCase() === process.env.OWNER_EMAIL.toLowerCase())
+    || ['JMS Automotive', 'MarketSync'].includes(req.profile?.dealerships?.name)
 
   // ── OWNER: MarketSync dashboard insights — leads + revenue potential ────────
   app.get('/marketsync/insights', requireAuth, async (req, res) => {

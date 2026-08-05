@@ -21,6 +21,15 @@ create index if not exists recon_dealership_stage_idx on recon (dealership_id, s
 
 alter table recon enable row level security;
 
--- Direct Data API access is intentionally denied. The backend enforces RBAC.
-drop policy if exists "recon_read" on recon;
-drop policy if exists "recon_write" on recon;
+-- Dealer members can read + manage their own dealership's recon board. The backend
+-- uses the service role (bypasses RLS); these policies are defense-in-depth for any
+-- direct client access, mirroring ai_activity.
+create policy "recon_read" on recon
+  for select using (
+    dealership_id in (select dealership_id from profiles where id = auth.uid())
+  );
+
+create policy "recon_write" on recon
+  for all using (
+    dealership_id in (select dealership_id from profiles where id = auth.uid())
+  );

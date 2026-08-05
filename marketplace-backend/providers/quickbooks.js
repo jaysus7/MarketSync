@@ -38,7 +38,7 @@ function basicAuthHeader() {
 
 // ── Signed state, so the OAuth callback (which arrives without our JWT) can be
 // trusted to carry the dealership it was started for and can't be forged. ──────
-const STATE_SECRET = () => process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY
+const STATE_SECRET = () => process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'dev-secret'
 export function signState(dealershipId) {
   const payload = `${dealershipId}.${Date.now()}`
   const sig = crypto.createHmac('sha256', STATE_SECRET()).update(payload).digest('hex').slice(0, 32)

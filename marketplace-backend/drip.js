@@ -219,13 +219,6 @@ export async function runDripCampaign({
     return { success: false, reason: 'no resend key', sent: 0 }
   }
 
-  // HQ toggle: the trial drip is surfaced in Automation as the 'trial_onboarding'
-  // sequence. If HQ turns it off, pause the whole trial email series.
-  try {
-    const { data: seq } = await supabaseAdmin.from('saas_sequences').select('enabled').eq('key', 'trial_onboarding').maybeSingle()
-    if (seq && seq.enabled === false) { console.log('[drip] trial_onboarding disabled in HQ — skipping'); return { success: true, skipped: 'disabled', sent: 0 } }
-  } catch { /* sequence table not present — proceed with the drip */ }
-
   const EMAILS = dripContent(frontendUrl, extensionUrl)
   const now = Date.now()
   const summary = { trigger, sent: 0, skipped: 0, errors: 0, processed: 0 }

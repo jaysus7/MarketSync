@@ -69,21 +69,19 @@ async function createConversation(dealershipId, { contactId, visitorToken, websi
   return data
 }
 
-export async function saveMessage(conversationId, dealershipId, role, message, { tokens = null, attachments = [], senderType = null } = {}) {
+export async function saveMessage(conversationId, dealershipId, role, message, { tokens = null, attachments = [] } = {}) {
   if (!conversationId || !dealershipId || !role) return null
   const { data, error } = await supabaseAdmin.from('ai_messages')
-    .insert({ conversation_id: conversationId, dealership_id: dealershipId, role, message: String(message || ''), tokens, attachments, sender_type: senderType })
-    .select('id, created_at').single()
+    .insert({ conversation_id: conversationId, dealership_id: dealershipId, role, message: String(message || ''), tokens, attachments })
+    .select('id').single()
   if (error) { console.warn('[ai-engine] saveMessage failed:', error.message); return null }
   await supabaseAdmin.from('ai_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversationId)
-  // Returns { id, created_at } — the timestamp lets chat clients poll for new
-  // messages (rep take-over) without re-rendering ones they already have.
-  return data || null
+  return data?.id || null
 }
 
 export async function getHistory(conversationId, limit = 50) {
   const { data } = await supabaseAdmin.from('ai_messages')
-    .select('role, message, created_at, sender_type').eq('conversation_id', conversationId)
+    .select('role, message, created_at').eq('conversation_id', conversationId)
     .order('created_at', { ascending: true }).limit(limit)
   return data || []
 }
@@ -109,36 +107,15 @@ export async function assembleContext(dealershipId, { conversationId = null, con
 
 // ── HTTP surface — dealer console reads (managers) ───────────────────────────
 export function registerAiEngine(app) {
-  // Live conversations list for the dealer console + AI Chat feed.
-  // Supports categorization filters used by the AI Chat dashboard:
-  //   status, department, type (lead_type), booked, captured, tag
+  // Live conversations list for the dealer console.
   app.get('/ai/conversations', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    const limit = Math.min(300, Math.max(1, parseInt(req.query.limit, 10) || 200))
     let q = supabaseAdmin.from('ai_conversations').select('*')
-      .eq('dealership_id', req.dealershipId).order('last_message_at', { ascending: false }).limit(limit)
+      .eq('dealership_id', req.dealershipId).order('last_message_at', { ascending: false }).limit(200)
     if (req.query.status) q = q.eq('status', String(req.query.status))
-    if (req.query.department) q = q.eq('department', String(req.query.department))
-    if (req.query.type) q = q.eq('lead_type', String(req.query.type))
-    if (req.query.booked === 'true') q = q.eq('booked', true)
-    if (req.query.captured === 'true') q = q.not('contact_id', 'is', null)
-    if (req.query.tag) q = q.contains('tags', [String(req.query.tag)])
     const { data, error } = await q
     if (error) return res.status(500).json({ error: error.message })
-    const rows = data || []
-    // Enrich captured conversations with the customer's name/contact so the feed can
-    // show who it is instead of just "site".
-    const ids = [...new Set(rows.map(r => r.contact_id).filter(Boolean))]
-    if (ids.length) {
-      const { data: contacts } = await supabaseAdmin.from('contacts')
-        .select('id, full_name, phone, email').in('id', ids)
-      const byId = Object.fromEntries((contacts || []).map(c => [c.id, c]))
-      for (const r of rows) {
-        const c = r.contact_id && byId[r.contact_id]
-        if (c) { r.contact_name = c.full_name || null; r.contact_phone = c.phone || null; r.contact_email = c.email || null }
-      }
-    }
-    res.json({ conversations: rows })
+    res.json({ conversations: data || [] })
   })
 
   // One conversation + its full message history + (if captured) the customer memory.
@@ -149,10 +126,6 @@ export function registerAiEngine(app) {
     if (!convo) return res.status(404).json({ error: 'not found' })
     const messages = await getHistory(convo.id, 500)
     const memory = convo.contact_id ? await getMemory(req.dealershipId, convo.contact_id) : []
-    if (convo.contact_id) {
-      const { data: c } = await supabaseAdmin.from('contacts').select('full_name, phone, email').eq('id', convo.contact_id).maybeSingle()
-      if (c) { convo.contact_name = c.full_name || null; convo.contact_phone = c.phone || null; convo.contact_email = c.email || null }
-    }
     res.json({ conversation: convo, messages, memory })
   })
 

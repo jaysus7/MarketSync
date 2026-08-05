@@ -21782,6 +21782,13 @@ function checkDepartmentOpen(deptId) {
   }
 }
 
+function reopenCurrentDepartmentTour() {
+  const activePage = document.querySelector('.page-content:not(.hidden)')?.getAttribute('data-page-content') || 'command';
+  try { localStorage.removeItem(`ms_dept_opened_${activePage}`); } catch {}
+  checkDepartmentOpen(activePage);
+}
+window.reopenCurrentDepartmentTour = reopenCurrentDepartmentTour;
+
 function showThingsToKnowModal(deptId) {
   const cfg = DEPARTMENTS_CONFIG[deptId];
   if (!cfg) return;

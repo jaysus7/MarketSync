@@ -70,12 +70,10 @@
       <div class="mb-2 text-center">
         <div class="text-3xl mb-2">🔐</div>
         <h2 class="text-base font-bold text-slate-900 dark:text-white">Enter your code</h2>
-        <p id="mfa-instructions" class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
           Open your authenticator app (Google Authenticator, Authy, 1Password…) and type the 6-digit code below.
         </p>
       </div>
-      <div id="mfa-methods" class="hidden grid grid-cols-2 gap-2"></div>
-      <button type="button" id="mfa-send-code" class="hidden w-full rounded border border-indigo-300 bg-indigo-50 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">Send a new text code</button>
       <input type="text" id="mfa-code" inputmode="text" autocomplete="one-time-code" placeholder="123456 or XXXX-XXXX"
         class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-center text-xl tracking-widest font-mono text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
       <p class="text-[10px] text-center text-slate-500 dark:text-slate-400 -mt-2">
@@ -88,16 +86,8 @@
   </div>
 
   <script>
-    const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
+    const API = 'https://vehicle-marketplace-s0e4.onrender.com';
     let mfaState = null;  // { factor_id, partial_token } when MFA challenge is pending
-
-    // Internal pages (for example Training Academy) can send a signed-out user to
-    // login with ?next=/training.html. Restrict this to a same-site absolute path
-    // so the parameter can never become an open redirect.
-    function afterLoginDestination() {
-      const next = new URLSearchParams(location.search).get('next');
-      return next && next.startsWith('/') && !next.startsWith('//') ? next : 'dashboard.html';
-    }
 
     // Persist the session. "Keep me signed in" stores a refresh token + a 30-day
     // window the dashboard uses to silently refresh the access token; unchecked
@@ -109,17 +99,6 @@
       if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
       const days = remember ? 30 : 0.5;
       localStorage.setItem('ms_remember_until', String(Date.now() + days * 86400000));
-    }
-
-    function showMfaChallenge(data) {
-      const factors = Array.isArray(data.factors) && data.factors.length
-        ? data.factors
-        : [{ id: data.factor_id, factor_type: data.factor_type || 'totp', friendly_name: 'Authenticator app' }];
-      mfaState = { factor_id: data.factor_id, factor_type: data.factor_type || 'totp', factors, partial_token: data.partial_token, challenge_id: null };
-      document.getElementById('login-form').classList.add('hidden');
-      document.getElementById('mfa-form').classList.remove('hidden');
-      renderMfaMethods();
-      document.getElementById('mfa-code').focus();
     }
 
     document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -142,13 +121,17 @@
 
         // 2FA challenge — backend returned 202 with mfa_required:true
         if (res.status === 202 && data.mfa_required) {
-          showMfaChallenge(data); return;
+          mfaState = { factor_id: data.factor_id, partial_token: data.partial_token };
+          document.getElementById('login-form').classList.add('hidden');
+          document.getElementById('mfa-form').classList.remove('hidden');
+          document.getElementById('mfa-code').focus();
+          return;
         }
 
         if (!res.ok || data.error) throw new Error(data.error || 'Identity rejection');
 
         storeSession(data);
-        window.location.href = afterLoginDestination();
+        window.location.href = 'dashboard.html';
       } catch (err) {
         errBox.textContent = err.message;
         errBox.classList.remove('hidden');
@@ -170,7 +153,6 @@
           body: JSON.stringify({
             factor_id: mfaState.factor_id,
             partial_token: mfaState.partial_token,
-            challenge_id: mfaState.challenge_id,
             code: document.getElementById('mfa-code').value.trim()
           })
         });
@@ -183,59 +165,12 @@
         }
 
         storeSession(data);
-        window.location.href = afterLoginDestination();
+        window.location.href = 'dashboard.html';
       } catch (err) {
         errBox.textContent = err.message;
         errBox.classList.remove('hidden');
         btn.disabled = false; btn.textContent = 'Verify & Sign In';
       }
-    });
-
-    function renderMfaMethods() {
-      const host = document.getElementById('mfa-methods');
-      const factors = mfaState?.factors || [];
-      host.classList.toggle('hidden', factors.length < 2);
-      host.innerHTML = factors.map(factor => `<button type="button" data-factor-id="${factor.id}" class="mfa-method rounded border px-2 py-2 text-xs font-bold ${factor.id === mfaState.factor_id ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300' : 'border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300'}">${factor.factor_type === 'phone' ? 'Text message' : 'Authenticator app'}</button>`).join('');
-      host.querySelectorAll('.mfa-method').forEach(button => button.addEventListener('click', () => selectMfaMethod(button.dataset.factorId)));
-      updateMfaInstructions();
-    }
-
-    function selectMfaMethod(factorId) {
-      const factor = mfaState.factors.find(item => item.id === factorId);
-      if (!factor) return;
-      mfaState.factor_id = factor.id;
-      mfaState.factor_type = factor.factor_type;
-      mfaState.challenge_id = null;
-      document.getElementById('mfa-code').value = '';
-      renderMfaMethods();
-    }
-
-    function updateMfaInstructions() {
-      const factor = mfaState.factors.find(item => item.id === mfaState.factor_id) || mfaState.factors[0];
-      const isPhone = factor?.factor_type === 'phone';
-      document.getElementById('mfa-instructions').textContent = isPhone
-        ? `Send a code to ${factor.phone || 'your verified phone'}, then type it below.`
-        : 'Open your authenticator app (Google Authenticator, Authy, 1Password…) and type the 6-digit code below.';
-      document.getElementById('mfa-send-code').classList.toggle('hidden', !isPhone);
-    }
-
-    document.getElementById('mfa-send-code').addEventListener('click', async () => {
-      const button = document.getElementById('mfa-send-code');
-      const errBox = document.getElementById('error-box');
-      button.disabled = true; button.textContent = 'Sending…'; errBox.classList.add('hidden');
-      try {
-        const response = await fetch(`${API}/auth/2fa/send-code`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ factor_id: mfaState.factor_id, partial_token: mfaState.partial_token })
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Could not send the text code.');
-        mfaState.challenge_id = data.challenge_id;
-        document.getElementById('mfa-instructions').textContent = `Code sent to ${data.phone || 'your verified phone'}. It expires shortly.`;
-        button.textContent = 'Send a new text code';
-      } catch (error) {
-        errBox.textContent = error.message; errBox.classList.remove('hidden'); button.textContent = 'Try sending again';
-      } finally { button.disabled = false; }
     });
 
     // Sign in with passkey — fingerprint, Face ID, Windows Hello, or hardware key
@@ -279,12 +214,8 @@
         const data = await finishRes.json();
         if (!finishRes.ok) throw new Error(data.error || 'Passkey sign-in failed.');
 
-        if (finishRes.status === 202 && data.mfa_required) {
-          showMfaChallenge(data); return;
-        }
-
         storeSession(data);
-        window.location.href = afterLoginDestination();
+        window.location.href = 'dashboard.html';
       } catch (err) {
         // User cancelling the browser prompt throws an AbortError — handle nicely
         const msg = err.name === 'NotAllowedError' || err.name === 'AbortError'

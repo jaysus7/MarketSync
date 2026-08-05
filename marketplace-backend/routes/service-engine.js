@@ -12,16 +12,15 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
-import { requirePermission } from '../authorization.js'
 import { emitEvent } from './events.js'
 import { getConfig, setConfig } from './config-engine.js'
 import { getContact } from './crm.js'
 import { registerTool } from './tool-registry.js'
 import { raiseException } from './workflow.js'
-import { audit } from '../audit.js'
 
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
+const isSvc = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'SERVICE'].includes(req.profile?.role)
 
 const CONFIG_DEFAULT = { labor_rate: 149, tax_rate: 0, shop_supplies_pct: 0, part_markup_pct: 40, ro_prefix: 'RO-' }
 async function svcConfig(dealershipId) {
@@ -33,7 +32,7 @@ async function svcConfig(dealershipId) {
 export async function getRepairOrder(dealershipId, id) {
   const { data: ro } = await supabaseAdmin.from('repair_orders').select('*').eq('id', id).eq('dealership_id', dealershipId).maybeSingle()
   if (!ro) return null
-  const { data: lines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', id).is('deleted_at', null).order('created_at')
+  const { data: lines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', id).order('created_at')
   return { ...ro, lines: lines || [] }
 }
 export async function listRepairOrders(dealershipId, { status = null, contactId = null, limit = 200 } = {}) {
@@ -69,7 +68,7 @@ export async function roSummary(dealershipId, { from = null, to = null } = {}) {
 // ── RO totals ─────────────────────────────────────────────────────────────────
 async function recomputeRoTotals(dealershipId, roId) {
   const cfg = await svcConfig(dealershipId)
-  const { data: lines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', roId).is('deleted_at', null)
+  const { data: lines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', roId)
   const by = (t) => (lines || []).filter(l => l.line_type === t)
   const sum = (arr, f) => round2(arr.reduce((s, l) => s + n(f(l)), 0))
   const labor_total = sum(by('labor'), l => l.total)
@@ -146,16 +145,10 @@ export async function addRoLine(dealershipId, roId, line = {}) {
   return inserted
 }
 
-export async function removeRoLine(dealershipId, roId, lineId, { userId = null } = {}) {
-  const { data: before } = await supabaseAdmin.from('ro_lines').select('*')
-    .eq('id', lineId).eq('ro_id', roId).eq('dealership_id', dealershipId).is('deleted_at', null).maybeSingle()
-  if (!before) throw new Error('repair-order line not found')
-  const { data, error } = await supabaseAdmin.from('ro_lines').update({
-    deleted_at: new Date().toISOString(), deleted_by: userId,
-  }).eq('id', lineId).eq('ro_id', roId).eq('dealership_id', dealershipId).is('deleted_at', null).select().maybeSingle()
-  if (error || !data) throw new Error(error?.message || 'could not archive repair-order line')
+export async function removeRoLine(dealershipId, roId, lineId) {
+  await supabaseAdmin.from('ro_lines').delete().eq('id', lineId).eq('ro_id', roId).eq('dealership_id', dealershipId)
   await recomputeRoTotals(dealershipId, roId)
-  return { before, archived: data }
+  return true
 }
 
 export async function setRoStatus(dealershipId, roId, toStatus, { userId = null } = {}) {
@@ -183,7 +176,7 @@ export async function closeRepairOrder(dealershipId, roId, { userId = null } = {
   const totals = await recomputeRoTotals(dealershipId, roId)
 
   // Consume parts from stock (immutable ledger + decrement on-hand), once.
-  const { data: partLines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', roId).eq('line_type', 'part').is('deleted_at', null)
+  const { data: partLines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', roId).eq('line_type', 'part')
   for (const l of partLines || []) {
     if (!l.part_id) continue
     await consumePart(dealershipId, l.part_id, n(l.qty), { roId, unitCost: n(l.unit_cost), userId })
@@ -306,15 +299,16 @@ export function registerServiceEngine(app) {
 
   const guard = (req, res) => {
     if (!req.dealershipId) { res.status(403).json({ error: 'no dealership' }); return false }
+    if (!isSvc(req)) { res.status(403).json({ error: 'Service/Manager access required' }); return false }
     return true
   }
 
-  app.get('/service-engine/ros', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.get('/service-engine/ros', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     const rows = await listRepairOrders(req.dealershipId, { status: req.query.status || null, contactId: req.query.contact_id || null })
     res.json({ ros: rows })
   })
-  app.get('/service-engine/ros/:id', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.get('/service-engine/ros/:id', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     const ro = await getRepairOrder(req.dealershipId, req.params.id)
     if (!ro) return res.status(404).json({ error: 'not found' })
@@ -322,7 +316,7 @@ export function registerServiceEngine(app) {
     if (ro.contact_id) { const c = await getContact(req.dealershipId, ro.contact_id).catch(() => null); customer = c ? { id: c.id, name: c.full_name, phone: c.phone || c.phone_mobile, email: c.email } : null }
     res.json({ ro, customer })
   })
-  app.post('/service-engine/ros', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/ros', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     try {
       const b = req.body || {}
@@ -330,62 +324,59 @@ export function registerServiceEngine(app) {
       res.json({ ok: true, ro })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })
-  app.post('/service-engine/ros/:id/lines', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/ros/:id/lines', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ ok: true, line: await addRoLine(req.dealershipId, req.params.id, req.body || {}) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
-  app.delete('/service-engine/ros/:id/lines/:lineId', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.delete('/service-engine/ros/:id/lines/:lineId', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
-    try {
-      const result = await removeRoLine(req.dealershipId, req.params.id, req.params.lineId, { userId: req.user?.id || null })
-      audit(req, 'service.ro_line_archived', { before_state: result.before, after_state: result.archived })
-      res.json({ ok: true, archived: true })
-    } catch (e) { res.status(400).json({ error: e.message }) }
+    await removeRoLine(req.dealershipId, req.params.id, req.params.lineId)
+    res.json({ ok: true })
   })
-  app.post('/service-engine/ros/:id/status', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/ros/:id/status', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ ok: true, ro: await setRoStatus(req.dealershipId, req.params.id, String(req.body?.status || ''), { userId: req.user?.id || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
-  app.post('/service-engine/ros/:id/close', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/ros/:id/close', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ ok: true, ro: await closeRepairOrder(req.dealershipId, req.params.id, { userId: req.user?.id || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
 
-  app.get('/service-engine/parts', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.get('/service-engine/parts', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     res.json({ parts: await searchParts(req.dealershipId, req.query.q || null, 200) })
   })
-  app.post('/service-engine/parts', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/parts', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     try {
       const b = req.body || {}
       res.json({ ok: true, part: await upsertPart(req.dealershipId, { partNumber: b.part_number, description: b.description, bin: b.bin, cost: b.cost, price: b.price, reorderPoint: b.reorder_point }) })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })
-  app.post('/service-engine/parts/:id/receive', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/parts/:id/receive', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ ok: true, on_hand: await receiveParts(req.dealershipId, req.params.id, req.body?.qty, { unitCost: req.body?.unit_cost, reference: req.body?.reference, userId: req.user?.id || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
-  app.post('/service-engine/parts/:id/adjust', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/parts/:id/adjust', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ ok: true, on_hand: await adjustPart(req.dealershipId, req.params.id, req.body?.qty, { note: req.body?.note, userId: req.user?.id || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
 
-  app.get('/service-engine/summary', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.get('/service-engine/summary', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     res.json(await roSummary(req.dealershipId, { from: req.query.from || null, to: req.query.to || null }))
   })
 
-  app.get('/service-engine/config', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.get('/service-engine/config', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     res.json({ config: await svcConfig(req.dealershipId) })
   })
-  app.put('/service-engine/config', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.put('/service-engine/config', requireAuth, async (req, res) => {
     if (!guard(req, res)) return
     const b = req.body || {}
     const value = {

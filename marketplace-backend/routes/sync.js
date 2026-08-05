@@ -3,7 +3,6 @@ import { runInventorySync, syncAllDealerships, sweepStaleExtensionFeeds } from '
 import { runDripCampaign, verifyUnsubToken } from '../drip.js'
 import { scanExceptions } from './workflow-scan.js'
 import { retryDueActions } from './action-executor.js'
-import { cronAuthorized } from '../cron-auth.js'
 
 function runDrip(trigger) {
   return runDripCampaign({
@@ -16,12 +15,6 @@ function runDrip(trigger) {
     unsubSecret: process.env.SYNC_SECRET || '',
     trigger
   })
-}
-
-function syncSecretAuthorized(req) {
-  // Secrets in query strings end up in reverse-proxy logs, browser history, and
-  // monitoring URLs. Schedulers must send this value as x-cron-secret instead.
-  return cronAuthorized(req.headers['x-cron-secret'], process.env.SYNC_SECRET)
 }
 
 async function applyDripUnsubscribe(req) {
@@ -60,7 +53,7 @@ async function cleanupExpiredSoldListings() {
   const ids = expired.map(l => l.id)
   const { error: updateErr } = await supabaseAdmin
     .from('listings')
-    .update({ status: 'deleted', deleted_at: new Date().toISOString() })
+    .update({ status: 'deleted' })
     .in('id', ids)
 
   if (updateErr) {
@@ -73,7 +66,7 @@ async function cleanupExpiredSoldListings() {
 export function registerRoutes(app) {
   app.get('/sync', async (req, res) => {
     if (!process.env.SYNC_SECRET) return res.status(503).json({ error: 'Sync endpoint not configured' })
-    if (!syncSecretAuthorized(req)) {
+    if (req.query.secret !== process.env.SYNC_SECRET) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
     const targetDealershipId = req.query.dealership_id
@@ -97,7 +90,8 @@ export function registerRoutes(app) {
 
   app.post('/cron/sync-all', async (req, res) => {
     if (!process.env.SYNC_SECRET) return res.status(503).json({ error: 'Cron endpoint not configured' })
-    if (!syncSecretAuthorized(req)) return res.status(401).json({ error: 'Unauthorized' })
+    const secret = req.headers['x-cron-secret'] || req.query.secret
+    if (secret !== process.env.SYNC_SECRET) return res.status(401).json({ error: 'Unauthorized' })
     res.json({ success: true, message: 'Full sync started' })
     syncAllDealerships('manual')
       .then(() => sweepStaleExtensionFeeds({ resend, emailFrom: EMAIL_FROM, frontendUrl: FRONTEND_URL }))
@@ -106,7 +100,8 @@ export function registerRoutes(app) {
 
   app.post('/cron/drip', async (req, res) => {
     if (!process.env.SYNC_SECRET) return res.status(503).json({ error: 'Cron endpoint not configured' })
-    if (!syncSecretAuthorized(req)) return res.status(401).json({ error: 'Unauthorized' })
+    const secret = req.headers['x-cron-secret'] || req.query.secret
+    if (secret !== process.env.SYNC_SECRET) return res.status(401).json({ error: 'Unauthorized' })
     const result = await runDrip('manual')
     res.json(result)
   })

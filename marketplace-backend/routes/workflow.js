@@ -88,7 +88,7 @@ async function ensureStepTask(dealershipId, instance, step, ctx) {
   const kind = step.config?.kind || 'Other'
   const title = step.config?.title || step.name
   // Find an existing equivalent task (from ensureDealTasks or a prior run) to adopt.
-  let q = supabaseAdmin.from('dealer_tasks').select('id, status, workflow_instance_id').eq('dealership_id', dealershipId).is('deleted_at', null).eq('kind', kind).neq('status', 'done')
+  let q = supabaseAdmin.from('dealer_tasks').select('id, status, workflow_instance_id').eq('dealership_id', dealershipId).eq('kind', kind).neq('status', 'done')
   if (ctx.dealId) q = q.eq('deal_id', ctx.dealId)
   else if (ctx.inventoryId) q = q.eq('inventory_id', ctx.inventoryId)
   else if (ctx.contactId) q = q.eq('contact_id', ctx.contactId)
@@ -99,7 +99,7 @@ async function ensureStepTask(dealershipId, instance, step, ctx) {
     await supabaseAdmin.from('dealer_tasks').update({
       workflow_instance_id: existing.workflow_instance_id || instance.id,
       workflow_step_id: step.id, department: step.department || null, updated_at: new Date().toISOString(),
-    }).eq('id', existing.id).is('deleted_at', null)
+    }).eq('id', existing.id)
     return existing.id
   }
   const now = new Date().toISOString()
@@ -227,9 +227,9 @@ async function startInstance(template, event, ctx) {
       await supabaseAdmin.from('task_dependencies').upsert({ task_id: stepTaskId[s.step_order], depends_on_task_id: dep }, { onConflict: 'task_id,depends_on_task_id' })
     }
     if (deps.length) {
-      const { data: unmet } = await supabaseAdmin.from('dealer_tasks').select('id').in('id', deps).is('deleted_at', null).neq('status', 'done')
+      const { data: unmet } = await supabaseAdmin.from('dealer_tasks').select('id').in('id', deps).neq('status', 'done')
       if (unmet?.length) {
-        await supabaseAdmin.from('dealer_tasks').update({ status: 'blocked', blocked_reason: 'Waiting on prerequisite tasks' }).eq('id', stepTaskId[s.step_order]).is('deleted_at', null).neq('status', 'done')
+        await supabaseAdmin.from('dealer_tasks').update({ status: 'blocked', blocked_reason: 'Waiting on prerequisite tasks' }).eq('id', stepTaskId[s.step_order]).neq('status', 'done')
       }
     }
   }
@@ -245,7 +245,7 @@ export async function reconcileInstance(instanceId) {
     if (!instance || instance.status !== 'running') return
     const did = instance.dealership_id
     const { data: steps } = await supabaseAdmin.from('workflow_steps').select('*').eq('workflow_template_id', instance.workflow_template_id).order('step_order')
-    const { data: tasks } = await supabaseAdmin.from('dealer_tasks').select('id, status, workflow_step_id').eq('workflow_instance_id', instanceId).is('deleted_at', null)
+    const { data: tasks } = await supabaseAdmin.from('dealer_tasks').select('id, status, workflow_step_id').eq('workflow_instance_id', instanceId)
     const taskByStep = new Map((tasks || []).map(t => [t.workflow_step_id, t]))
     const doneStepOrders = new Set()
     const ctx = { dealId: instance.context?.dealId, inventoryId: instance.context?.inventoryId, contactId: instance.context?.contactId }
@@ -259,10 +259,10 @@ export async function reconcileInstance(instanceId) {
         const { data: deps } = await supabaseAdmin.from('task_dependencies').select('depends_on_task_id').eq('task_id', t.id)
         const depIds = (deps || []).map(d => d.depends_on_task_id)
         if (depIds.length) {
-          const { data: unmet } = await supabaseAdmin.from('dealer_tasks').select('id').in('id', depIds).is('deleted_at', null).neq('status', 'done')
-          if (!unmet?.length) await supabaseAdmin.from('dealer_tasks').update({ status: 'todo', blocked_reason: null }).eq('id', t.id).is('deleted_at', null)
+          const { data: unmet } = await supabaseAdmin.from('dealer_tasks').select('id').in('id', depIds).neq('status', 'done')
+          if (!unmet?.length) await supabaseAdmin.from('dealer_tasks').update({ status: 'todo', blocked_reason: null }).eq('id', t.id)
         } else {
-          await supabaseAdmin.from('dealer_tasks').update({ status: 'todo', blocked_reason: null }).eq('id', t.id).is('deleted_at', null)
+          await supabaseAdmin.from('dealer_tasks').update({ status: 'todo', blocked_reason: null }).eq('id', t.id)
         }
       }
     }
@@ -306,7 +306,7 @@ export async function notifyTaskCompleted(dealershipId, task) {
 export async function reconcileTasksForInventory(dealershipId, inventoryId) {
   try {
     const { data } = await supabaseAdmin.from('dealer_tasks').select('workflow_instance_id')
-      .eq('dealership_id', dealershipId).eq('inventory_id', inventoryId).is('deleted_at', null).not('workflow_instance_id', 'is', null)
+      .eq('dealership_id', dealershipId).eq('inventory_id', inventoryId).not('workflow_instance_id', 'is', null)
     const ids = [...new Set((data || []).map(t => t.workflow_instance_id).filter(Boolean))]
     for (const id of ids) await reconcileInstance(id)
   } catch (e) { console.warn('[workflow] reconcileTasksForInventory failed:', e.message) }

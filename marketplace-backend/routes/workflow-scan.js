@@ -47,7 +47,7 @@ async function scanSoldNotDelivered() {
 async function scanTasksOverdue() {
   const today = new Date().toISOString().slice(0, 10)
   const { data } = await supabaseAdmin.from('dealer_tasks')
-    .select('id, dealership_id, title, due_date, department, status').is('deleted_at', null)
+    .select('id, dealership_id, title, due_date, department, status')
     .neq('status', 'done').not('due_date', 'is', null).lt('due_date', today).limit(2000)
   for (const t of data || []) {
     await raiseException(t.dealership_id, {
@@ -68,7 +68,7 @@ async function resolveStaleExceptions() {
     if (frontline.length) await supabaseAdmin.from('exceptions').update({ status: 'resolved', resolved_at: now })
       .eq('kind', 'recon_stalled').eq('status', 'open').in('entity_id', frontline)
     // task_overdue → resolved once the task is done
-    const { data: doneTasks } = await supabaseAdmin.from('dealer_tasks').select('id').eq('status', 'done').is('deleted_at', null).limit(4000)
+    const { data: doneTasks } = await supabaseAdmin.from('dealer_tasks').select('id').eq('status', 'done').limit(4000)
     const done = (doneTasks || []).map(t => t.id)
     if (done.length) await supabaseAdmin.from('exceptions').update({ status: 'resolved', resolved_at: now })
       .eq('kind', 'task_overdue').eq('status', 'open').in('entity_id', done)
