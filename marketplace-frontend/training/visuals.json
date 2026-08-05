@@ -2735,6 +2735,434 @@
         "Excluded · Internal notes · credentials · unrelated financial data"
       ],
       "action": "Approve secure export"
+    },
+    "PF-021": {
+      "kind": "security",
+      "nav": "Settings",
+      "page": "Security",
+      "title": "Password & sessions",
+      "state": "Password changed; two older sessions are selected for revocation",
+      "tabs": [
+        "MFA",
+        "Passkeys",
+        "Sessions",
+        "Recovery"
+      ],
+      "activeTab": "Sessions",
+      "metrics": [
+        [
+          "Active sessions",
+          "3"
+        ],
+        [
+          "Current device",
+          "1"
+        ],
+        [
+          "Selected to revoke",
+          "2"
+        ]
+      ],
+      "fields": [
+        "Current session · Chrome on macOS · Toronto · active now",
+        "Older session · Safari on iPhone · last active Jul 18",
+        "Unknown session · Chrome on Windows · last active Jul 2",
+        "MFA status · Authenticator + passkey enabled"
+      ],
+      "action": "Sign out other devices",
+      "notice": "The current verified session remains signed in"
+    },
+    "CRM-032": {
+      "kind": "pipeline",
+      "nav": "CRM",
+      "page": "Lead routing",
+      "title": "Round-robin assignment",
+      "state": "Website SUV leads route to three scheduled salespeople",
+      "stages": [
+        [
+          "Incoming",
+          "Test"
+        ],
+        [
+          "Assigned",
+          "Alex"
+        ],
+        [
+          "Accepted",
+          "28 sec"
+        ],
+        [
+          "Fallback",
+          "Manager"
+        ]
+      ],
+      "metrics": [
+        [
+          "Eligible users",
+          "3"
+        ],
+        [
+          "Acceptance window",
+          "5 min"
+        ],
+        [
+          "After-hours owner",
+          "BDC"
+        ]
+      ],
+      "rows": [
+        [
+          "Website · SUV inquiry",
+          "Alex Morgan",
+          "Assigned"
+        ],
+        [
+          "AI Chat · appointment intent",
+          "Mia Chen",
+          "Accepted"
+        ]
+      ],
+      "action": "Publish routing rules"
+    },
+    "SALES-028": {
+      "kind": "deal",
+      "nav": "Sales",
+      "page": "Proposal",
+      "title": "Customer payment options",
+      "state": "Approved three-option proposal is open in customer preview",
+      "tabs": [
+        "Deal summary",
+        "Options",
+        "Customer preview",
+        "History"
+      ],
+      "activeTab": "Customer preview",
+      "metrics": [
+        [
+          "Vehicle price",
+          "$39,995"
+        ],
+        [
+          "Trade equity",
+          "$3,200"
+        ],
+        [
+          "Option 1",
+          "$318 biweekly"
+        ],
+        [
+          "Option 2",
+          "$289 biweekly"
+        ]
+      ],
+      "fields": [
+        "Customer · Jordan Lee",
+        "Vehicle · 2025 Chevrolet Equinox RS",
+        "Proposal expires · Aug 8, 2026",
+        "Internal gross · Hidden from customer"
+      ],
+      "action": "Present & save outcome"
+    },
+    "FNI-011": {
+      "kind": "deal",
+      "nav": "F&I",
+      "page": "Products & contracts",
+      "title": "Product presentation",
+      "state": "Customer choices are recorded and contracts await validation",
+      "tabs": [
+        "Eligible products",
+        "Presentation",
+        "Contracts",
+        "Signatures"
+      ],
+      "activeTab": "Contracts",
+      "metrics": [
+        [
+          "Presented",
+          "4"
+        ],
+        [
+          "Accepted",
+          "2"
+        ],
+        [
+          "Declined",
+          "2"
+        ],
+        [
+          "Contracts",
+          "2 drafts"
+        ]
+      ],
+      "columns": [
+        "Product",
+        "Choice",
+        "Price",
+        "Contract"
+      ],
+      "rows": [
+        [
+          "Extended warranty",
+          "Accepted",
+          "$2,495",
+          "Draft ready"
+        ],
+        [
+          "GAP protection",
+          "Accepted",
+          "$895",
+          "Draft ready"
+        ],
+        [
+          "Appearance protection",
+          "Declined",
+          "$799",
+          "Waiver saved"
+        ]
+      ],
+      "action": "Validate contracts"
+    },
+    "INV-034": {
+      "kind": "inventory",
+      "nav": "Inventory",
+      "page": "Market comparison",
+      "title": "Vehicle price report",
+      "state": "Fourteen relevant comparables position the vehicle above market",
+      "metrics": [
+        [
+          "Current price",
+          "$42,995"
+        ],
+        [
+          "Market median",
+          "$40,850"
+        ],
+        [
+          "Price position",
+          "+5.3%"
+        ],
+        [
+          "Relevant comps",
+          "14"
+        ]
+      ],
+      "columns": [
+        "Comparable",
+        "Mileage",
+        "Distance",
+        "Price"
+      ],
+      "rows": [
+        [
+          "2024 Blazer RS",
+          "31,200 km",
+          "18 km",
+          "$40,995"
+        ],
+        [
+          "2024 Blazer RS",
+          "28,840 km",
+          "42 km",
+          "$41,500"
+        ],
+        [
+          "2024 Blazer 3LT",
+          "24,100 km",
+          "31 km",
+          "$39,880"
+        ]
+      ],
+      "action": "Save pricing decision"
+    },
+    "SVC-025": {
+      "kind": "builder",
+      "nav": "Service",
+      "page": "Maintenance reminders",
+      "title": "Equinox maintenance follow-up",
+      "state": "Oil service reminder is scheduled from verified mileage and consent",
+      "tabs": [
+        "Due customers",
+        "Message",
+        "Schedule",
+        "Results"
+      ],
+      "activeTab": "Schedule",
+      "metrics": [
+        [
+          "Due in 30 days",
+          "84"
+        ],
+        [
+          "Consented",
+          "71"
+        ],
+        [
+          "Already booked",
+          "9"
+        ],
+        [
+          "Will send",
+          "62"
+        ]
+      ],
+      "fields": [
+        "Service · Oil and filter change",
+        "Due rule · 8,000 km or 6 months",
+        "First reminder · 14 days before estimated due",
+        "Channel · SMS then email",
+        "Booking link · Service calendar"
+      ],
+      "action": "Activate reminder"
+    },
+    "ACC-046": {
+      "kind": "accounting",
+      "nav": "Accounting",
+      "page": "Deal posting",
+      "title": "Post deal #1048",
+      "state": "Posting preview balances and all source documents are attached",
+      "tabs": [
+        "Unposted deals",
+        "Preview",
+        "Journal",
+        "History"
+      ],
+      "activeTab": "Preview",
+      "metrics": [
+        [
+          "Debits",
+          "$48,214.32"
+        ],
+        [
+          "Credits",
+          "$48,214.32"
+        ],
+        [
+          "Difference",
+          "$0.00"
+        ],
+        [
+          "Exceptions",
+          "0"
+        ]
+      ],
+      "columns": [
+        "Account",
+        "Debit",
+        "Credit"
+      ],
+      "rows": [
+        [
+          "Lender receivable",
+          "$41,784.32",
+          "—"
+        ],
+        [
+          "Cash deposit",
+          "$1,000.00",
+          "—"
+        ],
+        [
+          "Vehicle inventory",
+          "—",
+          "$34,200.00"
+        ],
+        [
+          "Vehicle sales & tax",
+          "—",
+          "$8,584.32"
+        ]
+      ],
+      "action": "Post finalized deal"
+    },
+    "MKT-028": {
+      "kind": "builder",
+      "nav": "Website",
+      "page": "Settings",
+      "title": "Domain & SEO",
+      "state": "Custom domain is verified and the search preview is open",
+      "tabs": [
+        "Domain",
+        "SEO",
+        "Tracking",
+        "Widgets"
+      ],
+      "activeTab": "SEO",
+      "metrics": [
+        [
+          "Domain",
+          "Verified"
+        ],
+        [
+          "HTTPS",
+          "Active"
+        ],
+        [
+          "Forms tested",
+          "3 / 3"
+        ]
+      ],
+      "fields": [
+        "Primary domain · www.marketsyncmotors.ca",
+        "Page title · New & Used Vehicles | MarketSync Motors",
+        "Meta description · Shop local inventory and book a test drive",
+        "Canonical URL · https://www.marketsyncmotors.ca/",
+        "Analytics · GA4 · consent-controlled"
+      ],
+      "action": "Publish settings",
+      "notice": "Google search preview · mobile and desktop"
+    },
+    "MS-BILL-021": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Customer billing",
+      "title": "Failed subscription payment",
+      "state": "Stripe decline and MarketSync grace-period state are synchronized",
+      "tabs": [
+        "Subscription",
+        "Invoices",
+        "Payment attempts",
+        "Access history"
+      ],
+      "activeTab": "Payment attempts",
+      "metrics": [
+        [
+          "Invoice",
+          "$499 CAD"
+        ],
+        [
+          "Attempts",
+          "2"
+        ],
+        [
+          "Grace remaining",
+          "5 days"
+        ],
+        [
+          "Access",
+          "Restricted soon"
+        ]
+      ],
+      "columns": [
+        "Time",
+        "Result",
+        "Reason",
+        "Next action"
+      ],
+      "rows": [
+        [
+          "Aug 5 · 9:10 AM",
+          "Failed",
+          "Insufficient funds",
+          "Dunning email sent"
+        ],
+        [
+          "Aug 3 · 9:10 AM",
+          "Failed",
+          "Insufficient funds",
+          "Retry scheduled"
+        ]
+      ],
+      "action": "Send secure billing link"
     }
   }
 }
