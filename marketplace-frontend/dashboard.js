@@ -11999,10 +11999,10 @@ function renderDealerEmail() {
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 flex items-center justify-center">${svgIcon('megaphone', 'w-5 h-5')}</div>
         <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Email Marketing</h1>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400">Design visual emails with Mailchimp builder &amp; automate CRM campaigns.</p></div>
+          <p class="text-[13px] text-slate-500 dark:text-slate-400">Design visual emails with block builder &amp; automate CRM campaigns.</p></div>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="openMailchimpEmailBuilder('inventory')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/25 transition flex items-center gap-1.5">🎨 Mailchimp Drag &amp; Drop Builder</button>
+        <button onclick="openMailchimpEmailBuilder('inventory')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/25 transition flex items-center gap-1.5">🎨 Visual Builder</button>
         <div class="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200 dark:border-slate-800">${pill('campaigns', 'Active Campaigns')}${pill('templates', 'Templates')}</div>
       </div>
     </div>
@@ -12023,13 +12023,13 @@ function renderDealerTemplates() {
       </div>
       <label title="Turn this template on or off" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0"><input type="checkbox" ${t.active !== false ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','active',this.checked)" class="accent-emerald-600 w-4 h-4"><span class="${t.active !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">On</span></label>
       <label title="Also make this template available for text (SMS)" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0"><input type="checkbox" ${t.sms_enabled ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','sms_enabled',this.checked)" class="accent-indigo-600 w-4 h-4"><span class="${t.sms_enabled ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}">Text</span></label>
-      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0 flex items-center gap-1">🎨 Edit in Builder</button>
+      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0 flex items-center gap-1">🎨 Builder</button>
       <button onclick="dealerEmailDeleteTmpl('${t.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">Delete</button>
     </div>`).join('');
   body.innerHTML = `<div class="flex items-center justify-between mb-3">
       <p class="text-[12px] text-slate-500 dark:text-slate-400">Reusable email bodies. Toggled-on templates automatically appear as active campaigns in your Campaigns list.</p>
       <div class="flex items-center gap-2">
-        <button onclick="openMailchimpEmailBuilder('inventory', true)" class="px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5">🎨 Mailchimp Drag &amp; Drop Builder</button>
+        <button onclick="openMailchimpEmailBuilder('inventory', true)" class="px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5">🎨 Visual Builder</button>
         <button onclick="dealerEmailNewTmpl()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition">＋ New Template</button>
       </div>
     </div>
@@ -12055,7 +12055,7 @@ function renderDealerCampaigns() {
         <div class="text-[11px] text-slate-400 mt-0.5">Automated Drip / Trigger · Active for all CRM contacts</div>
       </div>
       <button onclick="dealerEmailSendCampaign('${t.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0 flex items-center gap-1">🚀 Run Broadcast</button>
-      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-[12px] font-bold flex-shrink-0 flex items-center gap-1">🎨 Edit in Builder</button>
+      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-[12px] font-bold flex-shrink-0 flex items-center gap-1">🎨 Builder</button>
       <label title="Toggle active status" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0 ml-1">
         <input type="checkbox" checked onchange="dealerEmailToggleTmpl('${t.id}','active',this.checked)" class="accent-emerald-600 w-4 h-4">
         <span class="text-emerald-600 dark:text-emerald-400">On</span>
@@ -12084,7 +12084,7 @@ function renderDealerCampaigns() {
   body.innerHTML = `<div class="flex items-center justify-between mb-3">
       <p class="text-[12px] text-slate-500 dark:text-slate-400">Active automated campaigns and one-off broadcasts to your CRM contacts.</p>
       <div class="flex items-center gap-2">
-        <button onclick="openMailchimpEmailBuilder('inventory')" class="px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5">🎨 Mailchimp Drag &amp; Drop Builder</button>
+        <button onclick="openMailchimpEmailBuilder('inventory')" class="px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5">🎨 Visual Builder</button>
         <button onclick="dealerEmailNewCampaign()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition">＋ New Campaign</button>
       </div>
     </div>
@@ -12275,7 +12275,7 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-violet-600 text-white flex items-center justify-center font-black">🎨</div>
           <div>
-            <h2 class="text-lg font-black text-slate-900 dark:text-white leading-tight">Mailchimp-Style Email Builder</h2>
+            <h2 class="text-lg font-black text-slate-900 dark:text-white leading-tight">Visual Email Builder ${__builderMeta.isTemplate ? '(Template Editor)' : '(Campaign Studio)'}</h2>
             <p class="text-xs text-slate-500 dark:text-slate-400">Drag, customize blocks &amp; send responsive email campaigns.</p>
           </div>
         </div>
@@ -12295,10 +12295,10 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
         <div class="lg:col-span-5 flex flex-col space-y-4 overflow-y-auto pr-2 scrollbar-thin">
           <!-- Campaign Settings -->
           <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
-            <div class="text-xs font-black uppercase tracking-wider text-slate-400">Campaign Details</div>
+            <div class="text-xs font-black uppercase tracking-wider text-slate-400">${__builderMeta.isTemplate ? 'Template Details' : 'Campaign Details'}</div>
             <div>
-              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Campaign Name</label>
-              <input id="mb-name" value="${esc(preset.name)}" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white font-bold">
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">${__builderMeta.isTemplate ? 'Template Name' : 'Campaign Name'}</label>
+              <input id="mb-name" value="${esc(__builderMeta.name || preset.name)}" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white font-bold">
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
@@ -12308,16 +12308,16 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
               <div>
                 <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Preset Theme</label>
                 <select onchange="applyBuilderPreset(this.value)" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-xs font-semibold">
-                  <option value="inventory" ${initialPresetKey === 'inventory' ? 'selected' : ''}>New Arrivals</option>
-                  <option value="trade_up" ${initialPresetKey === 'trade_up' ? 'selected' : ''}>VIP Trade-Up</option>
-                  <option value="service" ${initialPresetKey === 'service' ? 'selected' : ''}>Service Special</option>
+                  <option value="inventory" ${presetKey === 'inventory' ? 'selected' : ''}>New Arrivals</option>
+                  <option value="trade_up" ${presetKey === 'trade_up' ? 'selected' : ''}>VIP Trade-Up</option>
+                  <option value="service" ${presetKey === 'service' ? 'selected' : ''}>Service Special</option>
                 </select>
               </div>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email Subject Line</label>
               <div class="flex gap-2">
-                <input id="mb-subject" value="${esc(preset.subject)}" class="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
+                <input id="mb-subject" value="${esc(__builderMeta.subject || preset.subject)}" class="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
                 <button onclick="generateAiEmailSubject()" title="AI Write Subject" class="px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg text-xs font-black shadow-sm shrink-0 flex items-center gap-1">✨ AI</button>
               </div>
             </div>
