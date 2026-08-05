@@ -11989,18 +11989,22 @@ async function loadDealerEmail() {
   renderDealerEmail();
 }
 window.loadDealerEmail = loadDealerEmail;
+
 function renderDealerEmail() {
   const root = document.getElementById('dealer-email-root'); if (!root) return;
   const v = __dealerEmail.view;
-  const pill = (id, label) => `<button onclick="dealerEmailView('${id}')" class="px-3.5 py-1.5 rounded-full text-[13px] font-bold transition ${v === id ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
+  const pill = (id, label) => `<button onclick="dealerEmailView('${id}')" class="px-4 py-2 rounded-xl text-xs font-black transition ${v === id ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
   root.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 flex items-center justify-center">${svgIcon('megaphone', 'w-5 h-5')}</div>
         <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Email Marketing</h1>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400">Reusable templates and one-off email campaigns to your CRM contacts.</p></div>
+          <p class="text-[13px] text-slate-500 dark:text-slate-400">Design visual emails with Mailchimp builder &amp; automate CRM campaigns.</p></div>
       </div>
-      <div class="flex items-center gap-2">${pill('campaigns', 'Campaigns')}${pill('templates', 'Templates')}</div>
+      <div class="flex items-center gap-2">
+        <button onclick="openMailchimpEmailBuilder('inventory')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/25 transition flex items-center gap-1.5">🎨 Mailchimp Drag &amp; Drop Builder</button>
+        <div class="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200 dark:border-slate-800">${pill('campaigns', 'Active Campaigns')}${pill('templates', 'Templates')}</div>
+      </div>
     </div>
     <div id="dealer-email-body"></div>`;
   (v === 'templates' ? renderDealerTemplates : renderDealerCampaigns)();
@@ -12009,33 +12013,82 @@ window.dealerEmailView = (v) => { __dealerEmail.view = v; renderDealerEmail(); }
 
 function renderDealerTemplates() {
   const body = document.getElementById('dealer-email-body'); if (!body) return;
-  const rows = (__dealerEmail.templates || []).map(t => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(t.name)}${t.is_seed ? ' <span class="text-[10px] font-bold uppercase text-slate-400">starter</span>' : ''}</div><div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(t.subject)}</div></div>
+  const rows = (__dealerEmail.templates || []).map(t => `<div class="flex items-center gap-3 px-4 py-3.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+          <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(t.name)}${t.is_seed ? ' <span class="text-[10px] font-bold uppercase text-slate-400">starter</span>' : ''}</div>
+          ${t.active !== false ? '<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">Active in Campaigns</span>' : ''}
+        </div>
+        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${esc(t.subject)}</div>
+      </div>
       <label title="Turn this template on or off" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0"><input type="checkbox" ${t.active !== false ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','active',this.checked)" class="accent-emerald-600 w-4 h-4"><span class="${t.active !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">On</span></label>
       <label title="Also make this template available for text (SMS)" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0"><input type="checkbox" ${t.sms_enabled ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','sms_enabled',this.checked)" class="accent-indigo-600 w-4 h-4"><span class="${t.sms_enabled ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}">Text</span></label>
-      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex-shrink-0">Edit</button>
+      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0 flex items-center gap-1">🎨 Edit in Builder</button>
       <button onclick="dealerEmailDeleteTmpl('${t.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">Delete</button>
     </div>`).join('');
   body.innerHTML = `<div class="flex items-center justify-between mb-3">
-      <p class="text-[12px] text-slate-500 dark:text-slate-400">Reusable email bodies. Use <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code> and <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{dealership}}</code> merge fields.</p>
-      <button onclick="dealerEmailNewTmpl()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New template</button></div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No templates yet.</div>'}</div>`;
+      <p class="text-[12px] text-slate-500 dark:text-slate-400">Reusable email bodies. Toggled-on templates automatically appear as active campaigns in your Campaigns list.</p>
+      <div class="flex items-center gap-2">
+        <button onclick="openMailchimpEmailBuilder('inventory', true)" class="px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5">🎨 Mailchimp Drag &amp; Drop Builder</button>
+        <button onclick="dealerEmailNewTmpl()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition">＋ New Template</button>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No templates yet.</div>'}</div>`;
 }
+
 function renderDealerCampaigns() {
   const body = document.getElementById('dealer-email-body'); if (!body) return;
   const segLabel = (c) => { const p = Object.values(DEALER_SEG).find(x => JSON.stringify(x.seg) === JSON.stringify(c.segment || {})); return p ? p.label : 'Custom segment'; };
-  const rows = (__dealerEmail.campaigns || []).map(c => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(c.name)}</div>
-        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(c.subject)}</div>
-        <div class="text-[11px] text-slate-400 mt-0.5">${esc(segLabel(c))} · ${c.status === 'sent' ? `sent to ${c.sent_count}` : c.status === 'failed' ? 'failed' : 'draft'}</div></div>
+
+  const activeAutomatedTemplates = (__dealerEmail.templates || []).filter(t => t.active !== false);
+  const customCampaigns = __dealerEmail.campaigns || [];
+
+  const autoRows = activeAutomatedTemplates.map(t => `
+    <div class="flex items-center gap-3 px-4 py-3.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+          <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(t.name)}</div>
+          <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">● Active Automated</span>
+          ${t.sms_enabled ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300">SMS Enabled</span>' : ''}
+        </div>
+        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${esc(t.subject)}</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">Automated Drip / Trigger · Active for all CRM contacts</div>
+      </div>
+      <button onclick="dealerEmailSendCampaign('${t.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0 flex items-center gap-1">🚀 Run Broadcast</button>
+      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-[12px] font-bold flex-shrink-0 flex items-center gap-1">🎨 Edit in Builder</button>
+      <label title="Toggle active status" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0 ml-1">
+        <input type="checkbox" checked onchange="dealerEmailToggleTmpl('${t.id}','active',this.checked)" class="accent-emerald-600 w-4 h-4">
+        <span class="text-emerald-600 dark:text-emerald-400">On</span>
+      </label>
+    </div>
+  `).join('');
+
+  const campRows = customCampaigns.map(c => `
+    <div class="flex items-center gap-3 px-4 py-3.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+          <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(c.name)}</div>
+          <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${c.status === 'sent' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${c.status === 'sent' ? 'Sent' : 'Draft'}</span>
+        </div>
+        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${esc(c.subject)}</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">${esc(segLabel(c))} · ${c.status === 'sent' ? `Sent to ${c.sent_count}` : 'Manual Broadcast'}</div>
+      </div>
       ${c.status === 'sent' ? '<span class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">Sent</span>'
-        : `<button onclick="dealerEmailSendCampaign('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0">Send</button>`}
+        : `<button onclick="dealerEmailSendCampaign('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0">Send Now</button>`}
       <button onclick="dealerEmailDeleteCampaign('${c.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">✕</button>
-    </div>`).join('');
+    </div>
+  `).join('');
+
+  const allRows = autoRows + campRows;
+
   body.innerHTML = `<div class="flex items-center justify-between mb-3">
-      <p class="text-[12px] text-slate-500 dark:text-slate-400">One-off email to a CRM segment. Only contacts with an address and email consent are reached.</p>
-      <button onclick="dealerEmailNewCampaign()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New campaign</button></div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No campaigns yet.</div>'}</div>`;
+      <p class="text-[12px] text-slate-500 dark:text-slate-400">Active automated campaigns and one-off broadcasts to your CRM contacts.</p>
+      <div class="flex items-center gap-2">
+        <button onclick="openMailchimpEmailBuilder('inventory')" class="px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5">🎨 Mailchimp Drag &amp; Drop Builder</button>
+        <button onclick="dealerEmailNewCampaign()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition">＋ New Campaign</button>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">${allRows || '<div class="text-sm text-slate-400 italic py-10 text-center">No active campaigns yet — enable a template or build a new campaign.</div>'}</div>`;
 }
 
 // ── segment helper: build jsonb from the modal's preset + tag input ──
@@ -12057,6 +12110,7 @@ window.dealerEmailSegCount = async () => {
 let __builderBlocks = [];
 let __builderActiveBlockIdx = null;
 let __builderDeviceView = 'desktop'; // 'desktop' | 'mobile'
+let __builderMeta = { id: null, name: '', subject: '', isTemplate: false };
 
 const BUILDER_STARTER_TEMPLATES = {
   inventory: {
@@ -12186,9 +12240,30 @@ function compileBlocksToHtml(blocks) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="background-color: #f1f5f9; margin: 0; padding: 20px; font-family: system-ui, -apple-system, sans-serif;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table role="presentation" width="100%" style="max-width: 620px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);" cellpadding="0" cellspacing="0"><tr><td>${blockHtmls}</td></tr></table></td></tr></table></body></html>`;
 }
 
-function openMailchimpEmailBuilder(initialPresetKey = 'inventory') {
-  const preset = BUILDER_STARTER_TEMPLATES[initialPresetKey] || BUILDER_STARTER_TEMPLATES['inventory'];
-  __builderBlocks = JSON.parse(JSON.stringify(preset.blocks));
+function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false) {
+  let presetKey = 'inventory';
+  if (typeof targetItem === 'string') {
+    presetKey = targetItem;
+  }
+  const preset = BUILDER_STARTER_TEMPLATES[presetKey] || BUILDER_STARTER_TEMPLATES['inventory'];
+
+  if (typeof targetItem === 'object' && targetItem !== null) {
+    __builderMeta = {
+      id: targetItem.id || null,
+      name: targetItem.name || '',
+      subject: targetItem.subject || '',
+      isTemplate: !!isTemplate
+    };
+    __builderBlocks = JSON.parse(JSON.stringify(preset.blocks));
+  } else {
+    __builderMeta = {
+      id: null,
+      name: preset.name,
+      subject: preset.subject,
+      isTemplate: !!isTemplate
+    };
+    __builderBlocks = JSON.parse(JSON.stringify(preset.blocks));
+  }
   __builderActiveBlockIdx = 0;
 
   const segOpts = Object.entries(DEALER_SEG).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
@@ -27143,18 +27218,19 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   leaderboard: {
-    id: 'leaderboard', title: 'Sales Leaderboard & Gamification', badgeTitle: 'Gamification Director', badgeIcon: '🏆',
-    badgeDesc: 'You have configured Sales Leaderboard & Gamification!',
+    id: 'leaderboard', title: 'Sales Leaderboard & Ranking Overview', badgeTitle: 'Leaderboard Champion', badgeIcon: '🏆',
+    badgeDesc: 'You have completed the Leaderboard Overview!',
     stages: [
-      { num: '1', title: 'Points Rules', desc: 'Award points for units sold, test drives, and customer reviews.' },
-      { num: '2', title: 'TV Display Mode', desc: 'Launch full-screen leaderboard for showroom TV displays.' },
-      { num: '3', title: 'Monthly Rewards', desc: 'Track sales rep rankings and monthly bonus rewards.' }
+      { num: '1', title: 'Dealership Store View', desc: 'View top performing sales reps within your local dealership in real-time.' },
+      { num: '2', title: 'Global Network View', desc: 'Toggle the Global tab to see how your store and reps rank against all MarketSync dealerships nationwide.' },
+      { num: '3', title: 'Showroom TV Display', desc: 'Launch full-screen mode to project live sales rankings on your showroom floor monitors.' }
     ],
-    tutorials: ['Sales points scoring rules', 'Showroom TV display mode', 'Rep ranking & bonus reward tracking'],
-    fields: [
-      { key: 'pts_per_sale', label: 'Points Per Unit Sold', placeholder: '100' },
-      { key: 'pts_per_review', label: 'Points Per 5-Star Review', placeholder: '25' }
-    ]
+    tutorials: [
+      'Toggle between Dealership Store & Global Network rankings',
+      'Real-time units sold & gross profit tracking',
+      'Full-screen TV display mode for showroom floor monitors'
+    ],
+    fields: []
   },
   taskboard: {
     id: 'taskboard', title: 'Operations Taskboard & Kanban', badgeTitle: 'Kanban Master', badgeIcon: '📋',
@@ -27295,17 +27371,29 @@ function openDepartmentSetupWizard(deptId) {
 
   const fieldsContainer = document.getElementById('dsw-fields-container');
   if (fieldsContainer) {
-    fieldsContainer.innerHTML = (config.fields || []).map(f => {
-      const val = (f.sharedKey && sharedStore[f.sharedKey]) ? sharedStore[f.sharedKey] : '';
-      return `
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-            ${f.label} ${f.sharedKey ? '<span class="text-[10px] text-amber-500 font-semibold">(Auto-Synced)</span>' : ''}
-          </label>
-          <input type="text" data-field-key="${f.key}" data-shared-key="${f.sharedKey || ''}" value="${val}" placeholder="${f.placeholder || ''}" oninput="handleSharedDataInput('${f.sharedKey || ''}', this)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
+    if (config.fields && config.fields.length > 0) {
+      fieldsContainer.innerHTML = (config.fields || []).map(f => {
+        const val = (f.sharedKey && sharedStore[f.sharedKey]) ? sharedStore[f.sharedKey] : '';
+        return `
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+              ${f.label} ${f.sharedKey ? '<span class="text-[10px] text-amber-500 font-semibold">(Auto-Synced)</span>' : ''}
+            </label>
+            <input type="text" data-field-key="${f.key}" data-shared-key="${f.sharedKey || ''}" value="${val}" placeholder="${f.placeholder || ''}" oninput="handleSharedDataInput('${f.sharedKey || ''}', this)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
+          </div>
+        `;
+      }).join('');
+    } else {
+      fieldsContainer.innerHTML = `
+        <div class="p-4 rounded-xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 text-center space-y-2">
+          <div class="text-3xl">🏆</div>
+          <div class="font-black text-sm text-violet-900 dark:text-violet-200">No Configuration Inputs Required</div>
+          <div class="text-xs text-slate-600 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+            Use the top tabs on the Leaderboard page to switch between <b>Dealership Store View</b> (internal team rankings) and <b>Global Network View</b> (store vs store nationwide). Click <b>Done</b> below to complete overview.
+          </div>
         </div>
       `;
-    }).join('');
+    }
   }
 
   const modal = document.getElementById('dept-setup-wizard-modal');
