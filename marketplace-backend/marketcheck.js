@@ -31,21 +31,44 @@ export function marketcheckEnabled() {
  * Returns { configured, ok, sample_found?, status?, error? }.
  */
 export async function marketcheckPing() {
-  if (!mcKey()) return { configured: false, ok: false }
-  try {
-    const params = new URLSearchParams({
-      api_key: mcKey(),
-      rows: '0', car_type: 'used', make: 'Chevrolet', model: 'Silverado', stats: 'price',
-    })
-    const r = await fetch(`${BASE}/search/car/active?${params.toString()}`, {
-      headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10000),
-    })
-    if (!r.ok) return { configured: true, ok: false, status: r.status }
-    const j = await r.json()
-    return { configured: true, ok: true, sample_found: Number(j?.num_found ?? 0) }
-  } catch (e) {
-    return { configured: true, ok: false, error: e.message }
+  const primaryKey = process.env.MARKETCHECK_API_KEY || ''
+  const backupKey = process.env.MARKETCHECK_API_KEY_BACKUP || ''
+  const key = primaryKey || backupKey
+  if (!key) return { configured: false, ok: false }
+
+  const testKey = async (k) => {
+    try {
+      const params = new URLSearchParams({
+        api_key: k, rows: '0', car_type: 'used', make: 'Chevrolet', model: 'Silverado', stats: 'price',
+      })
+      const r = await fetch(`${BASE}/search/car/active?${params.toString()}`, {
+        headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10000),
+      })
+      if (!r.ok) return { ok: false, status: r.status }
+      const j = await r.json()
+      return { ok: true, sample_found: Number(j?.num_found ?? 0) }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
   }
+
+  let res = await testKey(key)
+  if (!res.ok && res.status === 429 && primaryKey && backupKey) {
+    console.warn('[marketcheck] Primary key hit 429 rate limit. Testing MARKETCHECK_API_KEY_BACKUP...')
+    const bRes = await testKey(backupKey)
+    if (bRes.ok) return { configured: true, ok: true, using_backup: true, sample_found: bRes.sample_found }
+  }
+
+  if (!res.ok && res.status === 429) {
+    return {
+      configured: true,
+      ok: false,
+      status: 429,
+      error: 'MarketCheck API plan quota or rate limit exceeded (HTTP 429). MarketSync is automatically using live web scrapers and NHTSA fallback data.'
+    }
+  }
+
+  return { configured: true, ok: res.ok, status: res.status, error: res.error, sample_found: res.sample_found }
 }
 
 /**
