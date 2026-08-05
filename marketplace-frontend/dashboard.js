@@ -27183,6 +27183,21 @@ const DEPARTMENTS_CONFIG = {
       { key: 'trainee_name', label: 'Primary Trainee Name', placeholder: 'John Doe' },
       { key: 'cert_title', label: 'Certificate Title', placeholder: 'Certified Digital Dealership Specialist' }
     ]
+  },
+  'ai-inbox': {
+    id: 'ai-inbox', title: 'AI Chat & Multi-Channel Inbox', badgeTitle: 'AI Communications Director', badgeIcon: '💬',
+    badgeDesc: 'You have configured AI Chat & Multi-Channel Inbox!',
+    stages: [
+      { num: '1', title: 'Inbox Consolidation', desc: 'Consolidate messages from Facebook Messenger, Web Chat, and SMS.' },
+      { num: '2', title: 'AI Copilot Auto-Reply', desc: 'Enable Gemini AI to draft responses, share vehicle specs, and qualify buyers.' },
+      { num: '3', title: 'Test Drive Hand-Off', desc: 'Auto-schedule test drives directly to your sales calendar.' }
+    ],
+    tutorials: ['Multi-channel inbox (Facebook, Web Chat, SMS)', 'AI Copilot buyer qualification & specs', 'Automated test drive calendar booking'],
+    fields: [
+      { key: 'ai_copilot_mode', label: 'AI Copilot Mode', placeholder: 'Auto-Pilot (Full Auto)' },
+      { key: 'ai_response_delay_sec', label: 'AI Response Delay (Seconds)', placeholder: '15' },
+      { key: 'ai_fallback_email', label: 'Rep Escalation Email', placeholder: 'sales@dealership.com' }
+    ]
   }
 };
 
@@ -27198,6 +27213,7 @@ function checkDepartmentOpen(pageId) {
   if (typeof pageId === 'string' && pageId.startsWith('acct-')) deptId = pageId;
   if (pageId === 'website' || pageId === 'website-settings') deptId = 'web';
   if (pageId === 'automation' || pageId === 'automation-builder' || pageId === 'email-campaigns') deptId = pageId === 'email-campaigns' ? 'email-campaigns' : 'auto';
+  if (pageId === 'ai-inbox' || pageId === 'ai-home' || pageId === 'ai-vision' || pageId === 'ai-chat') deptId = 'ai-inbox';
 
   const deptConfig = DEPARTMENTS_CONFIG[deptId] || DEPARTMENTS_CONFIG[pageId];
   if (!deptConfig) return;
