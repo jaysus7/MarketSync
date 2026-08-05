@@ -21,8 +21,8 @@ export const FEATURES_BY_PRODUCT = Object.freeze({
   ai_dealer: ['ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings'],
   dealer_os: [
     'os.dashboard', 'os.crm', 'os.inventory', 'os.sales', 'os.accounting', 'os.service',
-    'os.marketing', 'os.website', 'os.reports', 'os.automations', 'os.integrations',
-    'os.team', 'os.settings',
+    'os.marketing', 'os.website', 'os.reports', 'os.automations', 'os.email_marketing',
+    'os.integrations', 'os.team', 'os.settings',
   ],
 })
 
