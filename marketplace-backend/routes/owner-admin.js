@@ -2,7 +2,7 @@
  * Owner / Platform admin — the "back office" of MarketSync itself (not a dealership
  * feature). Lets the MarketSync owner see every account + user and manually control
  * access: flip an account's engines on/off, extend/shorten trials, or comp an account
- * to work indefinitely. Owner-gated by OWNER_EMAIL (robust to workspace renames).
+ * to work indefinitely. Owner-gated by a server-managed platform role.
  *
  * Access model recap (why both dealership- AND user-level billing controls exist):
  *  - Normal dealerships bill on the dealerships row (billing_status/trial_ends_at).
@@ -10,13 +10,13 @@
  *    profile's billing there. So the console exposes both targets.
  *  - Engines/entitlements are always per-dealership columns.
  */
-import { supabaseAdmin } from '../shared.js'
+import { supabaseAdmin, sendEmail, emailHealth, resend } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { PRODUCT_KEYS, resolveProducts } from './profile.js'
+import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 const PRODUCT_LABELS = { facebook_solo: 'Facebook Solo', facebook_dealer: 'Facebook Dealer', ai_chatbot: 'AI Chatbot', dealer_os: 'DealerOS' }
-const isOwner = (req) => (req.user?.email || '').toLowerCase() === OWNER_EMAIL || req.profile?.is_marketsync === true
+const isOwner = (req) => hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
 
 // The engine/entitlement flags the owner can toggle per dealership (column → label).
 const ENGINE_FLAGS = [
@@ -48,6 +48,41 @@ export function registerOwnerAdmin(app) {
     if (!isOwner(req)) { res.status(403).json({ error: 'Owner access required' }); return false }
     return true
   }
+
+  // ── Email diagnostic (owner) — surfaces WHY email may not be sending ─────────
+  // Reports the config (is the key present? which sending domain?) and can fire a
+  // real test send so Resend's actual error (e.g. "domain not verified") is visible.
+  app.get('/owner/email/health', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const health = emailHealth()
+    // Ask Resend (with the backend's OWN key) which domains it can actually send
+    // from + their status. If the sending domain isn't here as "verified", the key
+    // belongs to a different Resend account/team than where it was verified.
+    let domains = null, domains_error = null
+    if (resend) {
+      try {
+        const r = await resend.domains.list()
+        const list = r?.data?.data || r?.data || []
+        domains = (Array.isArray(list) ? list : []).map(d => ({ name: d.name, status: d.status, region: d.region }))
+      } catch (e) { domains_error = e?.message || String(e) }
+    }
+    const match = domains && health.from_domain ? domains.find(d => d.name === health.from_domain) : null
+    res.json({ ...health, domains, domains_error, from_domain_status: match?.status || null })
+  })
+  app.post('/owner/email/test', requireAuth, async (req, res) => {
+    if (!guard(req, res)) return
+    const to = String(req.body?.to || req.user?.email || '').trim()
+    if (!to) return res.status(400).json({ error: 'no recipient — pass { to } or have an email on your account' })
+    const r = await sendEmail({
+      to,
+      subject: 'MarketSync email test ✓',
+      html: `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:480px;margin:0 auto;padding:8px">
+        <h2 style="margin:0 0 8px">Email is working</h2>
+        <p style="color:#334155;line-height:1.6;margin:0">If you're reading this, MarketSync can deliver email — transactional messages, drip follow-ups and alerts will go out.</p>
+        <p style="color:#94a3b8;font-size:12px;margin:12px 0 0">Sent ${new Date().toLocaleString('en-US')}</p></div>`,
+    })
+    res.json({ ...emailHealth(), sent_to: to, ...r })   // always 200; ok/error in the body
+  })
 
   // Every account (dealership) + its users + engine/billing state.
   app.get('/owner/accounts', requireAuth, async (req, res) => {

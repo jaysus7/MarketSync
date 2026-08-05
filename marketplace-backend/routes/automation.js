@@ -12,18 +12,33 @@
 //   • AI copy generation hook                            → /automation/ai-copy
 // ─────────────────────────────────────────────────────────────────────────────
 import Anthropic from '@anthropic-ai/sdk'
+import { timingSafeEqual } from 'crypto'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import { decryptJson } from '../crypto-pii.js'
 import { createNotification } from '../notifications.js'
 import { aiAllowed, recordUsage } from '../usage.js'
-
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+import { SYSTEM_ROLES, hasSystemRole, requirePermission } from '../authorization.js'
+import { masterCreds } from '../providers/twilio-provision.js'
+import { audit } from '../audit.js'
 
 const DEALER_LEVEL = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
-const isDealerLevel = (req) => DEALER_LEVEL.includes(req.profile?.role)
 const digits = (s) => String(s || '').replace(/\D/g, '')
 const nowIso = () => new Date().toISOString()
+
+function inboundSecretOk(req, res) {
+  const expected = process.env.INBOUND_AUTOMATION_SECRET
+  if (!expected) { res.status(503).json({ error: 'Inbound automation is not configured.' }); return false }
+  const provided = String(req.get('x-inbound-secret') || (req.get('authorization') || '').replace(/^Bearer\s+/i, ''))
+  const expectedBytes = Buffer.from(expected)
+  const providedBytes = Buffer.from(provided)
+  if (expectedBytes.length !== providedBytes.length || !timingSafeEqual(expectedBytes, providedBytes)) {
+    res.status(401).json({ error: 'Unauthorized inbound webhook.' })
+    return false
+  }
+  return true
+}
 
 // Pipeline stages that mean "a live deal is being negotiated" → pause long-term retention.
 const OPEN_DEAL_STATUSES = new Set(['appointment', 'sold', 'fni', 'turnover'])
@@ -360,10 +375,18 @@ async function dealerTwilio(dealershipId) {
     const { data: row } = await supabaseAdmin.from('dealer_integrations')
       .select('enabled, credentials_enc, lender_code_map')
       .eq('dealership_id', dealershipId).eq('provider', 'twilio').maybeSingle()
-    if (row?.enabled && row.credentials_enc) {
+    const meta = row?.lender_code_map || {}
+    if (row?.enabled && meta.platform_managed) {
+      // MarketSync-provisioned number under our master Twilio account.
+      const m = masterCreds()
+      if (m && (meta.from || meta.messaging_service_sid)) {
+        creds = { sid: m.sid, tok: m.tok, from: meta.from || null, messagingServiceSid: meta.messaging_service_sid || null }
+      }
+    } else if (row?.enabled && row.credentials_enc) {
+      // Dealer brought their own Twilio account.
       const dec = decryptJson(row.credentials_enc) || {}
       if (dec.account_sid && dec.auth_token) {
-        creds = { sid: dec.account_sid, tok: dec.auth_token, from: row.lender_code_map?.from || null }
+        creds = { sid: dec.account_sid, tok: dec.auth_token, from: meta.from || null }
       }
     }
   } catch (e) { console.warn('[twilio] resolve failed:', e.message) }
@@ -375,10 +398,14 @@ export function invalidateTwilioCache(dealershipId) { if (dealershipId) __twilio
 async function sendSms(to, body, from, creds) {
   const sid = creds?.sid || process.env.TWILIO_ACCOUNT_SID
   const tok = creds?.tok || process.env.TWILIO_AUTH_TOKEN
+  // Prefer a per-dealer Messaging Service; fall back to a platform-wide one from env
+  // (TWILIO_MESSAGING_SERVICE_SID) so sends work before per-dealer provisioning.
+  const msid = creds?.messagingServiceSid || process.env.TWILIO_MESSAGING_SERVICE_SID
   const fromNum = from || creds?.from
-  if (!sid || !tok || !fromNum || !to) return { ok: false, simulated: true }
+  if (!sid || !tok || !to || (!fromNum && !msid)) return { ok: false, simulated: true }
   try {
-    const params = new URLSearchParams({ To: to, From: fromNum, Body: body })
+    const params = new URLSearchParams({ To: to, Body: body })
+    if (msid) params.set('MessagingServiceSid', msid); else params.set('From', fromNum)
     const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: 'POST', headers: { Authorization: 'Basic ' + Buffer.from(`${sid}:${tok}`).toString('base64'), 'Content-Type': 'application/x-www-form-urlencoded' }, body: params,
     })
@@ -872,7 +899,7 @@ async function runWeeklyBriefing(force = false) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export function registerAutomation(app) {
-  const cronOk = (req) => (req.headers['x-cron-secret'] || '').trim() === (process.env.CRON_SECRET || '').trim() && !!process.env.CRON_SECRET
+  const cronOk = requestHasCronSecret
 
   // ── Safe diagnostic: is the cron secret configured + does a given header match?
   // Reveals only booleans (never the secret). Open it in a browser (no header) to
@@ -906,9 +933,8 @@ export function registerAutomation(app) {
     try { res.json({ ok: true, ...(await runMorningDigest()) }) } catch (e) { res.status(500).json({ error: e.message }) }
   })
   // Manager self-serve: send myself today's briefing right now (for the "preview" button).
-  app.post('/automation/digest/preview', requireAuth, async (req, res) => {
+  app.post('/automation/digest/preview', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
     try {
       const dg = await buildDigest(req.dealershipId)
       const email = req.profile?.email || req.user?.email
@@ -927,9 +953,8 @@ export function registerAutomation(app) {
     try { res.json({ ok: true, ...(await runWeeklyBriefing(false)) }) } catch (e) { res.status(500).json({ error: e.message }) }
   })
   // Manager self-serve: build + email myself this week's briefing right now.
-  app.post('/automation/weekly/preview', requireAuth, async (req, res) => {
+  app.post('/automation/weekly/preview', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
     try {
       const { data: dl } = await supabaseAdmin.from('dealerships').select('name, automation_settings').eq('id', req.dealershipId).maybeSingle()
       const wk = await buildWeeklyBriefing(req.dealershipId, dealerSettings(dl).weekly_focus)
@@ -943,6 +968,7 @@ export function registerAutomation(app) {
 
   // ── Inbound webhook (SMS/email reply) → drop-out freeze + STOP handling ─────
   app.post('/automation/inbound', async (req, res) => {
+    if (!inboundSecretOk(req, res)) return
     const b = req.body || {}
     const from = b.from || b.From || ''
     const channel = (b.channel || (b.From ? 'sms' : 'email')).toLowerCase()
@@ -957,17 +983,48 @@ export function registerAutomation(app) {
       if (/^\s*(stop|unsubscribe|quit|cancel|end)\b/i.test(text)) {
         await supabaseAdmin.from('contacts').update({ opt_out: true, consent_sms: false, automation_paused: true }).eq('id', contact.id)
         await freezeSequences(contact.id, 'opted_out')
+        audit(req, 'customer.sms_opted_out', { contact_id: contact.id, source: 'inbound_webhook' })
         return res.json({ ok: true, opted_out: true })
       }
       await freezeSequences(contact.id, 'customer_replied')
+      audit(req, 'customer.inbound_reply', { contact_id: contact.id, channel, source: 'inbound_webhook' })
       res.json({ ok: true, frozen: true })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
+  // ── Twilio inbound webhook (platform-provisioned numbers) ───────────────────
+  // Twilio POSTs here on any inbound text to a MarketSync-managed number. We map the
+  // receiving number (To) to its dealership, then freeze that contact's sequences on a
+  // reply and honour STOP. (Messaging Services also auto-handle STOP at the carrier
+  // level; this keeps our own automation state in sync.) Always replies with empty TwiML.
+  app.post('/automation/twilio-inbound', async (req, res) => {
+    const b = req.body || {}
+    const fromNum = String(b.From || '').trim()
+    const toNum = String(b.To || '').trim()
+    const text = String(b.Body || '').trim()
+    const twiml = () => { res.set('Content-Type', 'text/xml'); res.send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>') }
+    try {
+      if (!fromNum || !toNum) return twiml()
+      const { data: integ } = await supabaseAdmin.from('dealer_integrations')
+        .select('dealership_id').eq('provider', 'twilio').filter('lender_code_map->>from', 'eq', toNum).maybeSingle()
+      const dealershipId = integ?.dealership_id
+      if (!dealershipId) return twiml()
+      const { data: contact } = await supabaseAdmin.from('contacts')
+        .select('id').eq('dealership_id', dealershipId).eq('phone', fromNum).limit(1).maybeSingle()
+      if (!contact) return twiml()
+      if (/^\s*(stop|unsubscribe|quit|cancel|end)\b/i.test(text)) {
+        await supabaseAdmin.from('contacts').update({ opt_out: true, consent_sms: false, automation_paused: true }).eq('id', contact.id)
+        await freezeSequences(contact.id, 'opted_out')
+      } else {
+        await freezeSequences(contact.id, 'customer_replied')
+      }
+      return twiml()
+    } catch (e) { return twiml() }
+  })
+
   // ── Campaign management (manager) ──────────────────────────────────────────
-  app.get('/automation/campaigns', requireAuth, async (req, res) => {
+  app.get('/automation/campaigns', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required', can_manage: false })
     await ensureCampaigns(req.dealershipId)
     const [{ data: campaigns }, { data: dealer }] = await Promise.all([
       supabaseAdmin.from('automated_campaigns').select('*').eq('dealership_id', req.dealershipId).order('sort'),
@@ -975,8 +1032,7 @@ export function registerAutomation(app) {
     ])
     res.json({ campaigns: campaigns || [], settings: dealerSettings(dealer), region: { province: dealer?.province || null, country: dealer?.country || null }, can_manage: true })
   })
-  app.put('/automation/campaigns/:id', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.put('/automation/campaigns/:id', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     const b = req.body || {}, patch = { updated_at: nowIso() }
     if (b.name !== undefined) patch.name = String(b.name).slice(0, 120)
     if (b.subject_template !== undefined) patch.subject_template = String(b.subject_template || '').slice(0, 300) || null
@@ -985,15 +1041,16 @@ export function registerAutomation(app) {
     if (b.delay_minutes !== undefined) patch.delay_minutes = Math.max(0, parseInt(b.delay_minutes) || 0)
     if (b.send_at_hour !== undefined) patch.send_at_hour = b.send_at_hour === null ? null : Math.max(0, Math.min(23, parseInt(b.send_at_hour) || 0))
     if (b.sender_identity !== undefined && ['house', 'rep', 'dynamic_smart_switch'].includes(b.sender_identity)) patch.sender_identity = b.sender_identity
+    const { data: before } = await supabaseAdmin.from('automated_campaigns').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Campaign not found' })
     const { data, error } = await supabaseAdmin.from('automated_campaigns').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('*').maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
-    if (!data) return res.status(404).json({ error: 'Campaign not found' })
+    audit(req, 'automation.campaign_updated', { before_state: before, after_state: data })
     res.json({ ok: true, campaign: data })
   })
   // Create a new campaign — used by the "Add more" template library on the
   // Lead / Delivery / Holiday automation pages.
-  app.post('/automation/campaigns', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.post('/automation/campaigns', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     const b = req.body || {}
     const TRIGGERS = ['internet_lead', 'appointment_booked', 'show_no_sale', 'delivered', 'birthday', 'holiday']
     const trigger = TRIGGERS.includes(b.trigger_event) ? b.trigger_event : 'internet_lead'
@@ -1017,26 +1074,29 @@ export function registerAutomation(app) {
     }
     const { data, error } = await supabaseAdmin.from('automated_campaigns').insert(row).select('*').single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'automation.campaign_created', { after_state: data })
     res.json({ ok: true, campaign: data })
   })
   // Delete a (custom) campaign.
-  app.delete('/automation/campaigns/:id', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.delete('/automation/campaigns/:id', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
+    const { data: before } = await supabaseAdmin.from('automated_campaigns').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Campaign not found' })
     const { error } = await supabaseAdmin.from('automated_campaigns').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'automation.campaign_deleted', { before_state: before, after_state: null })
     res.json({ ok: true })
   })
-  app.post('/automation/campaigns/reset', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.post('/automation/campaigns/reset', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
+    const { data: before } = await supabaseAdmin.from('automated_campaigns').select('id, key, name, category, trigger_event, channel, is_active').eq('dealership_id', req.dealershipId)
     await supabaseAdmin.from('automated_campaigns').delete().eq('dealership_id', req.dealershipId)
     await ensureCampaigns(req.dealershipId)
     const { data } = await supabaseAdmin.from('automated_campaigns').select('*').eq('dealership_id', req.dealershipId).order('sort')
+    audit(req, 'automation.campaigns_reset', { before_state: before || [], after_state: (data || []).map(r => ({ id: r.id, key: r.key, name: r.name, is_active: r.is_active })) })
     res.json({ ok: true, campaigns: data || [] })
   })
 
   // ── Settings (review URL, referral bonus, business hours, holidays…) ───────
-  app.put('/automation/settings', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.put('/automation/settings', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     const b = req.body || {}
     const { data: cur } = await supabaseAdmin.from('dealerships').select('automation_settings').eq('id', req.dealershipId).maybeSingle()
     const s = { ...(cur?.automation_settings || {}) }
@@ -1072,12 +1132,12 @@ export function registerAutomation(app) {
       message: h.message ? String(h.message).slice(0, 3000) : null,
     })).filter(h => h.name && (/^\d{2}-\d{2}$/.test(h.date) || h.rule))
     await supabaseAdmin.from('dealerships').update({ automation_settings: s }).eq('id', req.dealershipId)
+    audit(req, 'automation.settings_updated', { before_state: cur?.automation_settings || {}, after_state: s })
     res.json({ ok: true, settings: dealerSettings({ automation_settings: s }) })
   })
 
   // ── Manual event fire (delivered / show_no_sale / appointment / lead) ──────
-  app.post('/automation/event', requireAuth, async (req, res) => {
-    if (!isDealerLevel(req)) return res.status(403).json({ error: 'Manager access required' })
+  app.post('/automation/event', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     const b = req.body || {}
     const trigger = String(b.trigger || '')
     if (!['internet_lead', 'appointment_booked', 'show_no_sale', 'delivered'].includes(trigger)) return res.status(400).json({ error: 'Bad trigger' })
@@ -1087,11 +1147,12 @@ export function registerAutomation(app) {
     const vehicleId = b.vehicle_id || c.interest_inventory_id || null
     if (trigger === 'delivered') await markDelivered(req.dealershipId, c.id, vehicleId, c.assigned_rep, b.delivery_date)
     else await enqueueForTrigger(req.dealershipId, trigger, { contactId: c.id, vehicleId, repId: c.assigned_rep })
+    audit(req, 'automation.event_enqueued', { contact_id: c.id, after_state: { trigger, vehicle_id: vehicleId } })
     res.json({ ok: true })
   })
 
   // ── Upcoming queue (for a contact or the whole store) ──────────────────────
-  app.get('/automation/queue', requireAuth, async (req, res) => {
+  app.get('/automation/queue', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     let q = supabaseAdmin.from('scheduled_messages').select('id, contact_id, campaign_id, channel, sender_identity, scheduled_at, status, cancel_reason, interval_marker').eq('dealership_id', req.dealershipId)
     if (req.query.contact_id) q = q.eq('contact_id', req.query.contact_id)
@@ -1101,13 +1162,13 @@ export function registerAutomation(app) {
   })
 
   // ── AI copy generation (context-aware) ─────────────────────────────────────
-  app.post('/automation/ai-copy', requireAuth, async (req, res) => {
+  app.post('/automation/ai-copy', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const instruction = String(b.instruction || '').slice(0, 400)
     const ctx = b.context || {}
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('name, ai_boost_active').eq('id', req.dealershipId).maybeSingle()
-    const isOwner = (req.user?.email || '').toLowerCase() === (process.env.OWNER_EMAIL || 'massiejay@gmail.com')
+    const isOwner = hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
     const channel = ctx.channel === 'email' ? 'email' : 'sms'
@@ -1134,7 +1195,7 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
   })
 
   // ── Live template preview (renders against a sample or real contact) ───────
-  app.post('/automation/preview', requireAuth, async (req, res) => {
+  app.post('/automation/preview', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     const b = req.body || {}
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('id, name, site_slug, branding, automation_settings').eq('id', req.dealershipId).maybeSingle()
     const s = dealerSettings(dealer)

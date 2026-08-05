@@ -1,9 +1,13 @@
 import express from 'express'
 import cors from 'cors'
-import { securityHeaders, corsOriginCheck } from './security.js'
-import { CANONICAL_FRONTEND } from './shared.js'
+import { securityHeaders, corsOriginCheck, rateLimitHealth } from './security.js'
+import { startWebhookRetryWorker, registerWebhookRoutes } from './webhooks.js'
+import { CANONICAL_FRONTEND, supabaseAdmin } from './shared.js'
 import { registerRoutes as registerAuth } from './routes/auth.js'
 import { registerRoutes as registerProfile } from './routes/profile.js'
+import { registerAccessContext } from './routes/access-context.js'
+import { requireAuth } from './middleware.js'
+import { requireFeature } from './access.js'
 import { registerRoutes as registerBlog } from './routes/blog.js'
 import { registerRoutes as registerDashboard } from './routes/dashboard.js'
 import { registerRoutes as registerInventory } from './routes/inventory.js'
@@ -21,6 +25,7 @@ import { registerLeads } from './routes/leads.js'
 import { registerCrm } from './routes/crm.js'
 import { registerSite } from './routes/site.js'
 import { registerAutomation } from './routes/automation.js'
+import { registerDealerEmailMarketing } from './routes/dealer-automation.js'
 import { registerEquity } from './routes/equity.js'
 import { registerRecon } from './routes/recon.js'
 import { registerFni } from './routes/fni.js'
@@ -41,6 +46,7 @@ import { registerAdSpend } from './routes/adspend.js'
 import { registerIdentity } from './routes/identity.js'
 import { registerSquare } from './routes/square.js'
 import { registerCommissions } from './routes/commissions.js'
+import { registerFniCatalog } from './routes/fni-catalog.js'
 import { registerAccounting } from './routes/accounting.js'
 import { registerExpenses } from './routes/expenses.js'
 import { registerDealerTasks } from './routes/dealertasks.js'
@@ -57,6 +63,9 @@ import { registerOwnerAdmin } from './routes/owner-admin.js'
 import { registerCommandCenter } from './routes/command-center.js'
 import { registerMarketplaceHome } from './routes/marketplace-home.js'
 import { registerSaasAdmin } from './routes/saas-admin.js'
+import { registerSaasSequences } from './routes/saas-sequences.js'
+import { registerDelivery } from './routes/delivery.js'
+import { registerPublicApi } from './routes/public-api.js'
 import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
 
@@ -71,6 +80,18 @@ app.use(cors({ origin: corsOriginCheck, credentials: true }))
 // free-tier instance from spinning down (which caused ~50s cold-start hangs on
 // the first request to the dashboard, pipeline/leads, and the extension).
 app.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }))
+app.get('/ready', async (req, res) => {
+  const { error } = await supabaseAdmin.from('dealerships').select('id', { head: true }).limit(1)
+  const rate_limiting = rateLimitHealth()
+  if (error || !rate_limiting.ok) {
+    return res.status(503).json({
+      ok: false,
+      database: error ? 'unavailable' : 'ready',
+      rate_limiting,
+    })
+  }
+  res.json({ ok: true, ts: Date.now(), database: 'ready', rate_limiting })
+})
 
 // Bounce any stale *.html requests to the canonical frontend
 app.get(/\.html$/, (req, res) => {
@@ -86,9 +107,20 @@ registerSquare(app)
 app.use(express.json({ limit: '25mb' }))
 app.use(express.urlencoded({ extended: true, limit: '25mb' }))
 
+// ── Product/feature entitlement guards (backend authorization layer) ──
+// Mounted before the product-scoped route groups so they run ahead of the per-route RBAC
+// guards. requireAuth here also primes the caller's access context (memoized on req).
+// Orgs without an explicit subscription fall back to full dealer_os, so existing accounts
+// are unaffected; only plans that don't include the feature (e.g. os_starter, or a
+// Facebook-only org) are blocked here — the same gate RLS enforces at the row level.
+app.use('/accounting', requireAuth, requireFeature('os.accounting'))
+app.use('/service', requireAuth, requireFeature('os.service'))
+app.use('/service-engine', requireAuth, requireFeature('os.service'))
+
 // Route modules
 registerAuth(app)
 registerProfile(app)
+registerAccessContext(app)
 registerBlog(app)
 registerDashboard(app)
 registerInventory(app)
@@ -105,6 +137,7 @@ registerLeads(app)
 registerCrm(app)
 registerSite(app)
 registerAutomation(app)
+registerDealerEmailMarketing(app)
 registerEquity(app)
 registerRecon(app)
 registerFni(app)
@@ -124,6 +157,7 @@ registerCalendar(app)
 registerAdSpend(app)
 registerIdentity(app)
 registerCommissions(app)
+registerFniCatalog(app)
 registerAccounting(app)
 registerExpenses(app)
 registerDealerTasks(app)
@@ -140,12 +174,17 @@ registerOwnerAdmin(app)
 registerCommandCenter(app)
 registerMarketplaceHome(app)
 registerSaasAdmin(app)
+registerSaasSequences(app)
+registerDelivery(app)
+registerPublicApi(app)
 registerPlaid(app)
 registerAffiliate(app)
+registerWebhookRoutes(app)
 
 // Durable event bus: start the catch-up poller AFTER every engine has registered
 // its onEvent subscribers, so a replayed event reaches all of them.
 startEventDispatcher()
+startWebhookRetryWorker()
 
 app.use((err, req, res, next) => {
   console.error('Unhandled Express error:', {

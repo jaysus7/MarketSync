@@ -41,7 +41,7 @@ const period = () => new Date().toISOString().slice(0, 7)  // 'YYYY-MM' (UTC)
 const dayPeriod = () => new Date().toISOString().slice(0, 10) // 'YYYY-MM-DD' (UTC)
 
 // Stable key for a vehicle's market lookup — lowercased market|make|model|year|trim.
-export function marketSignature({ make, model, year, trim, drivetrain, engine, zip, radius, isUS }) {
+export function marketSignature({ make, model, year, trim, drivetrain, engine, zip, radius, state, isUS }) {
   // Base key (make/model/year/trim) — unchanged so the scan & price-report callers,
   // which don't pass the finer filters, keep hitting the same cache entries as before.
   const base = [isUS ? 'us' : 'ca', make, model, year, (trim || '').trim()]
@@ -52,6 +52,9 @@ export function marketSignature({ make, model, year, trim, drivetrain, engine, z
   if (drivetrain) extra.push('dt:' + String(drivetrain).toLowerCase().trim())
   if (engine) extra.push('eng:' + String(engine).toLowerCase().replace(/\s+/g, ''))
   if (zip && Number(radius) > 0) extra.push('geo:' + String(zip).toLowerCase().replace(/\s+/g, '') + '@' + Math.round(Number(radius)))
+  // Province/state widening rung affects the result when local comps are thin, so it
+  // must key the cache too (two dealers, different provinces, same car → different reads).
+  if (state) extra.push('st:' + String(state).toLowerCase().trim())
   return extra.length ? base + '||' + extra.join('|') : base
 }
 
@@ -215,5 +218,18 @@ export async function getUsage(dealershipId) {
     period: period(),
     marketcheck: { used: u.marketcheck_calls, limit: QUOTAS.marketcheck },
     ai: { used: u.ai_calls, limit: QUOTAS.ai },
+  }
+}
+
+// Today's assistant-chat usage vs the daily cap (for the AI management panel).
+// The day-keyed api_usage row's ai_calls is written only by recordAssistantChat,
+// so it counts assistant questions specifically.
+export async function getAssistantUsage(dealershipId) {
+  const d = await usageRow(dealershipId, dayPeriod())
+  return {
+    day: dayPeriod(),
+    used: d.ai_calls,
+    limit: ASSISTANT_DAILY_CAP,
+    remaining: Math.max(0, ASSISTANT_DAILY_CAP - d.ai_calls),
   }
 }

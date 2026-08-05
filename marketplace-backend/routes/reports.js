@@ -16,10 +16,10 @@
  *   /reports/customers    customer base: new, sales vs service, consent, top sources
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { buildMarketingRoi } from './marketing.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 const WON = ['sold', 'fni', 'delivered']
 const rangeDays = (q) => ({ '30': 30, '90': 90, '180': 180, '365': 365 }[String(q.range || '90')] || 90)
 const money = (n) => Math.round(Number(n) || 0)
@@ -43,10 +43,10 @@ function lastMonths(n) {
 }
 
 export function registerReports(app) {
-  const guard = (req, res) => { if (!req.dealershipId) { res.status(400).json({ error: 'No dealership' }); return false } if (!isMgr(req)) { res.status(403).json({ error: 'Manager access required' }); return false } return true }
+  const guard = (req, res) => { if (!req.dealershipId) { res.status(400).json({ error: 'No dealership' }); return false } return true }
 
   // ── Sales performance ────────────────────────────────────────────────────────
-  app.get('/reports/sales', requireAuth, async (req, res) => {
+  app.get('/reports/sales', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const days = rangeDays(req.query); const startIso = new Date(Date.now() - days * 86400000).toISOString()
     const { nameOf } = await roster(req.dealershipId)
@@ -87,7 +87,7 @@ export function registerReports(app) {
   })
 
   // ── F&I performance ──────────────────────────────────────────────────────────
-  app.get('/reports/fni', requireAuth, async (req, res) => {
+  app.get('/reports/fni', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const days = rangeDays(req.query); const startIso = new Date(Date.now() - days * 86400000).toISOString()
     const { data: deals } = await supabaseAdmin.from('deals')
@@ -119,7 +119,7 @@ export function registerReports(app) {
   })
 
   // ── Lead source performance + funnel + speed-to-lead ─────────────────────────
-  app.get('/reports/leads', requireAuth, async (req, res) => {
+  app.get('/reports/leads', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const days = rangeDays(req.query); const startIso = new Date(Date.now() - days * 86400000).toISOString()
     const [{ data: leads }, { data: contacts }] = await Promise.all([
@@ -173,7 +173,7 @@ export function registerReports(app) {
   })
 
   // ── Per-rep scorecard ────────────────────────────────────────────────────────
-  app.get('/reports/reps', requireAuth, async (req, res) => {
+  app.get('/reports/reps', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const did = req.dealershipId
     const days = rangeDays(req.query); const startIso = new Date(Date.now() - days * 86400000).toISOString()
@@ -200,7 +200,7 @@ export function registerReports(app) {
   })
 
   // ── Trade appraisals ─────────────────────────────────────────────────────────
-  app.get('/reports/appraisals', requireAuth, async (req, res) => {
+  app.get('/reports/appraisals', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const days = rangeDays(req.query); const startIso = new Date(Date.now() - days * 86400000).toISOString()
     const { nameOf } = await roster(req.dealershipId)
@@ -208,17 +208,19 @@ export function registerReports(app) {
       .select('created_by, created_at, acquired_at, suggested_offer, currency').eq('dealership_id', req.dealershipId).gte('created_at', startIso).limit(20000)
     const rows = apprs || []
     const acquired = rows.filter(r => r.acquired_at)
+    // Capital deployed on trades = total suggested offer on the units actually acquired.
+    const acquiredValue = sum(acquired, r => r.suggested_offer)
     const byRep = {}
-    for (const r of rows) { const k = r.created_by || 'unassigned'; byRep[k] = byRep[k] || { appraised: 0, acquired: 0, offer: 0 }; byRep[k].appraised++; if (r.acquired_at) byRep[k].acquired++; byRep[k].offer += Number(r.suggested_offer) || 0 }
+    for (const r of rows) { const k = r.created_by || 'unassigned'; byRep[k] = byRep[k] || { appraised: 0, acquired: 0, offer: 0, acqValue: 0 }; byRep[k].appraised++; if (r.acquired_at) { byRep[k].acquired++; byRep[k].acqValue += Number(r.suggested_offer) || 0 } byRep[k].offer += Number(r.suggested_offer) || 0 }
     res.json({
       ok: true, range_days: days,
-      summary: { appraised: rows.length, acquired: acquired.length, acquisition_rate_pct: pct(acquired.length, rows.length), avg_offer: rows.length ? money(sum(rows, r => r.suggested_offer) / rows.length) : 0 },
-      by_rep: Object.entries(byRep).sort((a, b) => b[1].appraised - a[1].appraised).map(([id, v]) => ({ rep: id === 'unassigned' ? 'Unassigned' : nameOf(id), appraised: v.appraised, acquired: v.acquired, acquisition_rate_pct: pct(v.acquired, v.appraised), avg_offer: v.appraised ? money(v.offer / v.appraised) : 0 })),
+      summary: { appraised: rows.length, acquired: acquired.length, acquisition_rate_pct: pct(acquired.length, rows.length), avg_offer: rows.length ? money(sum(rows, r => r.suggested_offer) / rows.length) : 0, acquired_value: money(acquiredValue) },
+      by_rep: Object.entries(byRep).sort((a, b) => b[1].appraised - a[1].appraised).map(([id, v]) => ({ rep: id === 'unassigned' ? 'Unassigned' : nameOf(id), appraised: v.appraised, acquired: v.acquired, acquisition_rate_pct: pct(v.acquired, v.appraised), avg_offer: v.appraised ? money(v.offer / v.appraised) : 0, acquired_value: money(v.acqValue) })),
     })
   })
 
   // ── Service department ───────────────────────────────────────────────────────
-  app.get('/reports/service', requireAuth, async (req, res) => {
+  app.get('/reports/service', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const did = req.dealershipId
     const days = rangeDays(req.query); const startIso = new Date(Date.now() - days * 86400000).toISOString()
@@ -243,7 +245,7 @@ export function registerReports(app) {
   })
 
   // ── Activity / productivity ──────────────────────────────────────────────────
-  app.get('/reports/activity', requireAuth, async (req, res) => {
+  app.get('/reports/activity', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const did = req.dealershipId
     const days = rangeDays(req.query); const startIso = new Date(Date.now() - days * 86400000).toISOString()
@@ -267,7 +269,7 @@ export function registerReports(app) {
   })
 
   // ── Customer base ────────────────────────────────────────────────────────────
-  app.get('/reports/customers', requireAuth, async (req, res) => {
+  app.get('/reports/customers', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const did = req.dealershipId
     const days = rangeDays(req.query); const startIso = new Date(Date.now() - days * 86400000).toISOString()
@@ -296,7 +298,7 @@ export function registerReports(app) {
   // Every appointment is a crm_tasks row (type='appointment') with a due_at. A
   // "showed" appointment is one marked done; a past appointment left un-done is a
   // no-show. Show-rate is computed only over appointments whose time has passed.
-  app.get('/reports/appointments', requireAuth, async (req, res) => {
+  app.get('/reports/appointments', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const did = req.dealershipId
     const days = rangeDays(req.query); const startIso = new Date(Date.now() - days * 86400000).toISOString()
@@ -328,7 +330,7 @@ export function registerReports(app) {
   })
 
   // ── E-signature completion ───────────────────────────────────────────────────
-  app.get('/reports/esign', requireAuth, async (req, res) => {
+  app.get('/reports/esign', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const did = req.dealershipId
     const days = rangeDays(req.query); const startIso = new Date(Date.now() - days * 86400000).toISOString()
@@ -355,7 +357,7 @@ export function registerReports(app) {
 
   // ── Marketing ROI ────────────────────────────────────────────────────────────
   // Wraps the shared ROI model so it lives in the Reports hub alongside the rest.
-  app.get('/reports/marketing', requireAuth, async (req, res) => {
+  app.get('/reports/marketing', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const days = rangeDays(req.query)
     try { const roi = await buildMarketingRoi(req.dealershipId, { days }); res.json({ ok: true, range_days: days, ...roi }) }

@@ -10,6 +10,7 @@ import multer from 'multer'
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { carfaxDeepLink } from '../providers/history.js'
+import { audit } from '../audit.js'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, files: 1 } })
 const str = (v) => { const s = (v == null ? '' : String(v)).trim(); return s || null }
@@ -28,7 +29,8 @@ export function registerHistory(app) {
     if (!req.dealershipId) return res.json({ reports: [] })
     let q = supabaseAdmin.from('vehicle_history_reports')
       .select('id, vin, provider, report_type, external_url, file_url, summary, pulled_by, created_at')
-      .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(50)
+      .eq('dealership_id', req.dealershipId).is('deleted_at', null)
+      .order('created_at', { ascending: false }).limit(50)
     const inv = str(req.query.inventory_id), vin = str(req.query.vin), contact = str(req.query.contact_id), deal = str(req.query.deal_id)
     if (inv) q = q.eq('inventory_id', inv)
     else if (deal) q = q.eq('deal_id', deal)
@@ -73,14 +75,18 @@ export function registerHistory(app) {
     res.json({ ok: true, report: data })
   })
 
-  // Delete a stored report (and its file).
+  // Archive a stored report. We intentionally retain the underlying record and
+  // file provenance for compliance instead of permanently deleting business data.
   app.delete('/history/:id', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: r } = await supabaseAdmin.from('vehicle_history_reports')
-      .select('id, file_path').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      .select('id, file_path').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
     if (!r) return res.status(404).json({ error: 'Not found' })
-    try { if (r.file_path) await supabaseAdmin.storage.from('vehicle-pdfs').remove([r.file_path]) } catch (e) { console.warn('[history] remove failed:', e.message) }
-    await supabaseAdmin.from('vehicle_history_reports').delete().eq('id', r.id).eq('dealership_id', req.dealershipId)
+    const { error } = await supabaseAdmin.from('vehicle_history_reports').update({
+      deleted_at: new Date().toISOString(), deleted_by: req.user?.id || null,
+    }).eq('id', r.id).eq('dealership_id', req.dealershipId).is('deleted_at', null)
+    if (error) return res.status(500).json({ error: 'Archive failed' })
+    audit(req, 'vehicle_history_report.archived', { vehicle_history_report_id: r.id })
     res.json({ ok: true })
   })
 }
