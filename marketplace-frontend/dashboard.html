@@ -3419,6 +3419,156 @@
     </div>
   </div>
 
+  <!-- ── 1. Department Opening: Full-Page "Things to Know" Modal ── -->
+  <div id="dept-things-to-know-modal" class="hidden fixed inset-0 z-[85] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto flex flex-col max-h-[90vh]">
+      <!-- Header banner -->
+      <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 p-6 text-white shrink-0 relative">
+        <button onclick="closeThingsToKnowModal()" class="absolute top-4 right-4 text-white/80 hover:text-white text-2xl font-bold leading-none">&times;</button>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-bold uppercase tracking-wider mb-2">
+          <span id="ttk-dept-badge-icon">🛡️</span> Department Onboarding
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-black tracking-tight" id="ttk-dept-title">Opening CRM &amp; Customers</h2>
+        <p class="text-xs sm:text-sm text-indigo-100 mt-1" id="ttk-dept-subtitle">Things to know before you start operating this department.</p>
+      </div>
+      <!-- Body content -->
+      <div class="p-6 space-y-6 overflow-y-auto flex-1">
+        <div class="space-y-4">
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider text-xs">Left-to-Right Workflow Overview</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="ttk-workflow-stages">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider text-xs">Tutorial Highlights &amp; Key Features</h3>
+          <ul class="space-y-2.5 text-sm text-slate-600 dark:text-slate-300" id="ttk-tutorial-list">
+            <!-- Rendered by JS -->
+          </ul>
+        </div>
+      </div>
+      <!-- Footer actions -->
+      <div class="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <button type="button" onclick="closeThingsToKnowModal()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Skip to Page</button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeThingsToKnowModal(); openDepartmentSetupWizard(__activeOpenDeptId);" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 font-bold px-4 py-2.5 rounded-xl text-xs transition">
+            ⚙️ Configure Setup Wizard
+          </button>
+          <button type="button" id="ttk-start-btn" onclick="startDepartmentTourAndWizard()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-md shadow-indigo-500/30 transition flex items-center gap-2">
+            <span>Start Guided Tour</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 2. Department Setup Wizard Modal ── -->
+  <div id="dept-setup-wizard-modal" class="hidden fixed inset-0 z-[86] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950 shrink-0">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400" id="dsw-dept-tag">Setup Wizard</div>
+          <h3 class="text-lg font-black text-slate-900 dark:text-white" id="dsw-dept-title">Configure Integrations &amp; Store Info</h3>
+        </div>
+        <button onclick="closeSetupWizardModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      </div>
+
+      <div class="p-6 space-y-5 overflow-y-auto flex-1">
+        <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+          <svg class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div>
+            <strong>Cross-Platform Auto-Sync Active:</strong> Information entered here (Legal Name, Address, Phone, Website, CRM Intake Email) automatically syncs across all department wizards and settings. No double-entry!
+          </div>
+        </div>
+
+        <form id="dsw-form" class="space-y-4">
+          <!-- Dynamically populated per department -->
+          <div id="dsw-fields-container" class="space-y-4"></div>
+        </form>
+      </div>
+
+      <div class="p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between shrink-0">
+        <button type="button" onclick="closeSetupWizardModal()" class="text-xs font-bold text-slate-500">Cancel</button>
+        <button type="button" onclick="completeDepartmentWizard()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-md shadow-emerald-500/30 transition flex items-center gap-2">
+          <span>Complete Setup &amp; Unlock Badge 🎖️</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. Dealer Gamification Badge Reveal Modal ── -->
+  <div id="dealer-badge-reveal-modal" class="hidden fixed inset-0 z-[90] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl p-8 text-center shadow-2xl border border-amber-500/40 relative overflow-hidden animate-bounce-short">
+      <div class="w-24 h-24 rounded-full bg-gradient-to-tr from-amber-400 via-amber-500 to-yellow-300 mx-auto flex items-center justify-center text-4xl shadow-xl shadow-amber-500/30 mb-4" id="dbr-badge-icon">
+        🛡️
+      </div>
+      <div class="text-xs font-black uppercase tracking-widest text-amber-500">DEALER Gamification Badge Earned!</div>
+      <h3 class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="dbr-badge-title">CRM Commander</h3>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" id="dbr-badge-desc">You have successfully Opened and configured the CRM &amp; Customer Management department!</p>
+
+      <div class="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center gap-3">
+        <button type="button" onclick="closeBadgeRevealModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition">
+          Claim Badge &amp; Continue
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 4. Printable Academy Certificate Modal ── -->
+  <div id="academy-certificate-modal" class="hidden fixed inset-0 z-[95] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-950 w-full max-w-4xl rounded-2xl shadow-2xl border border-amber-500/40 overflow-hidden my-auto flex flex-col">
+      <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900 shrink-0 print:hidden">
+        <div class="text-sm font-bold text-slate-900 dark:text-white">Official Certificate of Completion</div>
+        <div class="flex items-center gap-3">
+          <!-- LinkedIn Button -->
+          <a id="cert-linkedin-btn" href="#" target="_blank" rel="noopener" class="bg-[#0a66c2] hover:bg-[#084e96] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>
+            Add to LinkedIn
+          </a>
+          <button type="button" onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231a1.125 1.125 0 01-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-19.126 0C1.081 7.441.313 8.375.313 9.456v6.294c0 1.081.768 2.015 1.837 2.175h1.091"/></svg>
+            Print Diploma
+          </button>
+          <button onclick="closeAcademyCertificateModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none p-1">&times;</button>
+        </div>
+      </div>
+
+      <!-- Printable Diploma Sheet -->
+      <div id="printable-certificate-sheet" class="p-8 sm:p-12 bg-[#fffdfa] text-slate-900 relative overflow-hidden border-8 border-double border-amber-600/40 m-4 rounded-xl shadow-inner">
+        <!-- Certificate Watermark Seal -->
+        <div class="absolute -right-16 -bottom-16 w-64 h-64 opacity-5 pointer-events-none">
+          <svg fill="currentColor" viewBox="0 0 640 512"><path d="M320 32c-8.1 0-16.1 1.4-23.7 4.1L15.8 137.4C6.3 140.9 0 149.9 0 160s6.3 19.1 15.8 22.6l57.9 20.9C57.3 229.3 48 259.8 48 292.6l0 3.4c0 28.6-8.9 57.1-25.1 82.9c-6.8 10.9-8.4 24.4-4.3 36.6c4 12.1 13.2 21.9 25.1 26.6l7 2.8c-3.5 27.6-13.3 51.9-26.5 71.6c-3.3 4.9-3.6 11.2-.8 16.4c2.8 5.2 8.2 8.5 14.2 8.5l72 0c6 0 11.4-3.3 14.2-8.5c2.8-5.2 2.5-11.5-.8-16.4c-13.2-19.7-23-44-26.5-71.6l7-2.8c11.9-4.7 21.1-14.5 25.1-26.6c4.1-12.2 2.5-25.7-4.3-36.6C121 353.1 112 324.6 112 296l0-3.4c0-27 7.6-52.5 20.9-74.4l163.4 59c7.6 2.7 15.6 4.1 23.7 4.1s16.1-1.4 23.7-4.1L624.2 182.6c9.5-3.5 15.8-12.5 15.8-22.6s-6.3-19.1-15.8-22.6L343.7 36.1C336.1 33.4 328.1 32 320 32z"/></svg>
+        </div>
+
+        <div class="text-center space-y-4">
+          <div class="text-xs font-black uppercase tracking-widest text-amber-700">MarketSync Academy · Official Certification</div>
+          <h1 class="text-3xl sm:text-4xl font-serif font-bold text-slate-900 tracking-wide" style="font-family: Georgia, serif;">Certificate of Mastery</h1>
+          <p class="text-xs text-slate-500 uppercase tracking-widest">This certifies that</p>
+          <div class="text-2xl sm:text-3xl font-black text-indigo-900 border-b border-slate-300 pb-2 max-w-lg mx-auto" id="cert-student-name">Alex Johnson</div>
+          <p class="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">has successfully completed all required modules, practical assignments, and exams for</p>
+          <div class="text-xl font-bold text-amber-800 font-serif my-2" id="cert-course-name">Certified Email Campaign Specialist</div>
+          <p class="text-xs text-slate-500">Issued by MarketSync Technologies Inc.</p>
+
+          <div class="pt-8 flex items-center justify-between text-left text-xs text-slate-600 max-w-xl mx-auto">
+            <div>
+              <div class="font-bold text-slate-900" id="cert-date font-mono">August 5, 2026</div>
+              <div class="text-[10px] text-slate-400">Issue Date</div>
+            </div>
+            <div class="text-center">
+              <div class="w-12 h-12 rounded-full border-2 border-amber-500 mx-auto flex items-center justify-center text-amber-600 font-bold text-[10px]">VERIFIED</div>
+              <div class="text-[9px] font-mono text-slate-400 mt-1" id="cert-id-code">MS-CERT-2026-98421</div>
+            </div>
+            <div class="text-right">
+              <div class="font-serif italic font-bold text-indigo-900 text-sm" style="font-family: Georgia, serif;">MarketSync Academic Board</div>
+              <div class="text-[10px] text-slate-400">Official Signature</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Bump this revision whenever dashboard.js changes so an already-open browser
        cannot reuse an older bundle from its cache after a staging deployment. -->
   <script src="dashboard.js?v=20260805a"></script>

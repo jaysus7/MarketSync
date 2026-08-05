@@ -1794,6 +1794,9 @@ function toggleNavGroup(id) {
   if (!body) return;
   const collapsed = body.classList.toggle('hidden');
   chev?.classList.toggle('-rotate-90', collapsed);
+  if (!collapsed) {
+    checkDepartmentOpen(id);
+  }
 }
 window.toggleNavGroup = toggleNavGroup;
 
@@ -2337,6 +2340,7 @@ function switchPage(pageId) {
   if (pageId === 'ai-inbox') loadAiInbox();
 
   __currentPage = pageId;
+  checkDepartmentOpen(pageId);
   renderDeptTabbar(pageId);
   highlightDeptNav(pageId);
 }
@@ -26103,3 +26107,354 @@ document.addEventListener('change', (e) => {
     } catch {}
   }
 });
+
+// ── Department Opening, Left-to-Right Workflow, Setup Wizard & Gamification ──
+let __activeOpenDeptId = null;
+
+const DEPARTMENTS_CONFIG = {
+  command: {
+    id: 'command',
+    title: 'Command Center & Executive Briefing',
+    badgeTitle: 'Executive Commander',
+    badgeIcon: '📊',
+    badgeDesc: 'You have configured the Command Center & Executive Overview department!',
+    stages: [
+      { num: '1', title: 'Executive Overview', desc: 'Monitor revenue, lead velocity, and store performance.' },
+      { num: '2', title: 'Operational Flow', desc: 'Track department health across sales, inventory & service.' },
+      { num: '3', title: 'Action Launchpad', desc: 'Execute quick actions directly from the header.' }
+    ],
+    tutorials: [
+      'Daily revenue & exception monitoring',
+      'Department health velocity cards',
+      'Quick action header buttons for instant deal desking'
+    ],
+    fields: [
+      { key: 'legal_name', label: 'Legal Dealership Name', placeholder: 'e.g. Apex Motors Inc.', sharedKey: 'legal_name' },
+      { key: 'store_tz', label: 'Store Time Zone', placeholder: 'America/Toronto' }
+    ]
+  },
+  crm: {
+    id: 'crm',
+    title: 'CRM & Customer Management',
+    badgeTitle: 'CRM Commander',
+    badgeIcon: '🛡️',
+    badgeDesc: 'You have configured the CRM & Customer Management department!',
+    stages: [
+      { num: '1', title: 'Lead Ingestion', desc: 'Capture leads automatically from Facebook, Web Chat, and SMS.' },
+      { num: '2', title: 'Pipeline Stages', desc: 'Drag customers from Uncontacted to Appointment and Sold.' },
+      { num: '3', title: 'Verification', desc: 'Scan driver\'s licences to auto-fill customer profiles.' }
+    ],
+    tutorials: [
+      'Multi-channel lead consolidation (Facebook, Web, SMS)',
+      'Kanban drag-and-drop customer pipeline',
+      'Driver\'s licence barcode scanner for instant profile creation'
+    ],
+    fields: [
+      { key: 'crm_email', label: 'Lead Intake Email', placeholder: 'leads@dealership.com', sharedKey: 'crm_email' },
+      { key: 'phone', label: 'Sales Line Phone', placeholder: '(555) 019-2831', sharedKey: 'phone' }
+    ]
+  },
+  inventory: {
+    id: 'inventory',
+    title: 'Inventory & Stock Management',
+    badgeTitle: 'Inventory Director',
+    badgeIcon: '🚘',
+    badgeDesc: 'You have configured the Inventory Management department!',
+    stages: [
+      { num: '1', title: 'Stock Ingestion', desc: 'Sync website feed or CSV file to auto-populate inventory.' },
+      { num: '2', title: 'Catalog Management', desc: 'Edit specs, photos, and AI-generated vehicle descriptions.' },
+      { num: '3', title: 'Market Execution', desc: 'One-click post to Facebook Marketplace in seconds.' }
+    ],
+    tutorials: [
+      'Automated inventory feed sync (CSV / Website Feed)',
+      'AI vehicle sales pitch generator',
+      'Chrome Extension one-click Facebook Marketplace posting'
+    ],
+    fields: [
+      { key: 'feed_url', label: 'Inventory Feed URL (CSV/XML)', placeholder: 'https://feed.provider.com/stock.csv' },
+      { key: 'dms_platform', label: 'DMS Provider', placeholder: 'vAuto / Homenet / PBS / Reynolds' }
+    ]
+  },
+  sales: {
+    id: 'sales',
+    title: 'Sales & Desking Department',
+    badgeTitle: 'Desking Specialist',
+    badgeIcon: '📑',
+    badgeDesc: 'You have configured the Sales & Deal Desking department!',
+    stages: [
+      { num: '1', title: 'Deal Input', desc: 'Select stock vehicle, trade-in, and customer profile.' },
+      { num: '2', title: 'Deal Structuring', desc: 'Calculate taxes, F&I back-end products, and payments.' },
+      { num: '3', title: 'Delivery & Printing', desc: 'Print Buyers Orders, Bill of Sale, and mark unit Delivered.' }
+    ],
+    tutorials: [
+      'Interactive Deal Desk calculator with trade payoff',
+      'F&I menu pricing & margin calculator',
+      'Printable Buyers Order, Bill of Sale, and e-Signature workflow'
+    ],
+    fields: [
+      { key: 'default_tax_rate', label: 'Default Sales Tax Rate (%)', placeholder: '13.0' },
+      { key: 'default_doc_fee', label: 'Default Documentation Fee ($)', placeholder: '499.00' }
+    ]
+  },
+  service: {
+    id: 'service',
+    title: 'Service & Fixed Ops Department',
+    badgeTitle: 'Service Director',
+    badgeIcon: '🧰',
+    badgeDesc: 'You have configured the Service & Parts department!',
+    stages: [
+      { num: '1', title: 'Service Intake', desc: 'Schedule appointments and create repair orders.' },
+      { num: '2', title: 'Repair Dispatch', desc: 'Manage open repair orders, parts, and technician assignments.' },
+      { num: '3', title: 'Equity Mining', desc: 'Identify high-equity service customers to trade up.' }
+    ],
+    tutorials: [
+      'Service scheduling and repair order tracking',
+      'Parts inventory requisitions',
+      'Automated Equity Mining scanner for trade-in acquisitions'
+    ],
+    fields: [
+      { key: 'service_phone', label: 'Service Desk Phone', placeholder: '(555) 019-2832', sharedKey: 'phone' },
+      { key: 'labor_rate', label: 'Hourly Labor Rate ($)', placeholder: '145.00' }
+    ]
+  },
+  accounting: {
+    id: 'accounting',
+    title: 'Accounting & Dealership Books',
+    badgeTitle: 'Controller',
+    badgeIcon: '💼',
+    badgeDesc: 'You have configured the Accounting department!',
+    stages: [
+      { num: '1', title: 'Ledger Ingestion', desc: 'Delivered deals automatically post to general ledger.' },
+      { num: '2', title: 'Expenses & Payroll', desc: 'Track vendor invoices, inventory pack, and rep commissions.' },
+      { num: '3', title: 'Reconciliation & Tax', desc: 'Run daily bank reconciliation and export tax reports.' }
+    ],
+    tutorials: [
+      'Automated deal posting from Sales Desk to General Ledger',
+      'Commission calculation and rep payroll export',
+      'One-click tax report generation & bank reconciliation'
+    ],
+    fields: [
+      { key: 'accounting_email', label: 'Accounting Contact Email', placeholder: 'accounting@dealership.com' },
+      { key: 'currency', label: 'Primary Currency', placeholder: 'CAD / USD' }
+    ]
+  },
+  web: {
+    id: 'web',
+    title: 'Website & Digital Showroom',
+    badgeTitle: 'Digital Webmaster',
+    badgeIcon: '🌐',
+    badgeDesc: 'You have configured the Website department!',
+    stages: [
+      { num: '1', title: 'Structure & Theme', desc: 'Choose theme colors, logo, and homepage hero.' },
+      { num: '2', title: 'AI Assistant Widget', desc: 'Configure 24/7 AI chat widget to capture leads.' },
+      { num: '3', title: 'Custom Domain', desc: 'Connect custom domain name and publish site.' }
+    ],
+    tutorials: [
+      'Drag-and-drop website block builder',
+      '24/7 AI Assistant lead capture widget',
+      'Custom domain & SSL auto-provisioning'
+    ],
+    fields: [
+      { key: 'website_url', label: 'Dealership Website URL', placeholder: 'https://www.apexmotors.com', sharedKey: 'website_url' },
+      { key: 'subdomain', label: 'MarketSync Subdomain', placeholder: 'apexmotors' }
+    ]
+  },
+  auto: {
+    id: 'auto',
+    title: 'Automations & Follow-Up Drips',
+    badgeTitle: 'Automation Master',
+    badgeIcon: '⚡',
+    badgeDesc: 'You have configured the Automation department!',
+    stages: [
+      { num: '1', title: 'Triggers', desc: 'Select automated triggers for new leads & aged units.' },
+      { num: '2', title: 'Sequences', desc: 'Craft multi-step SMS and email follow-up drips.' },
+      { num: '3', title: 'Engine Control', desc: 'Turn Engine ON for automated 24/7 follow-up.' }
+    ],
+    tutorials: [
+      'Event-driven automation triggers',
+      'Personalized SMS & Email template tags',
+      '24/7 background campaign execution engine'
+    ],
+    fields: [
+      { key: 'sender_name', label: 'Email Sender Name', placeholder: 'Apex Motors Sales Team' },
+      { key: 'sender_email', label: 'Sender Email Address', placeholder: 'info@apexmotors.com' }
+    ]
+  }
+};
+
+function checkDepartmentOpen(pageId) {
+  if (!pageId) return;
+  let deptId = pageId;
+  if (pageId === 'inv-intel' || pageId === 'market') deptId = 'inventory';
+  if (pageId === 'fni' || pageId === 'desk' || pageId === 'recon') deptId = 'sales';
+  if (pageId === 'appraisal' || pageId === 'equity') deptId = 'sales';
+  if (pageId === 'service-ros' || pageId === 'service-appointments' || pageId === 'service-parts') deptId = 'service';
+  if (typeof pageId === 'string' && pageId.startsWith('acct-')) deptId = 'accounting';
+  if (pageId === 'website' || pageId === 'website-settings') deptId = 'web';
+  if (pageId === 'automation' || pageId === 'automation-builder' || pageId === 'email-campaigns') deptId = 'auto';
+
+  const deptConfig = DEPARTMENTS_CONFIG[deptId];
+  if (!deptConfig) return;
+
+  const key = `ms_dept_opened_${deptId}`;
+  try {
+    if (!localStorage.getItem(key)) {
+      openDepartmentSetupWizard(deptId);
+    }
+  } catch {}
+}
+window.checkDepartmentOpen = checkDepartmentOpen;
+
+function showThingsToKnowModal(deptId) {
+  const config = DEPARTMENTS_CONFIG[deptId];
+  if (!config) return;
+  __activeOpenDeptId = deptId;
+
+  const titleEl = document.getElementById('ttk-dept-title');
+  if (titleEl) titleEl.textContent = `Opening ${config.title}`;
+  const iconEl = document.getElementById('ttk-dept-badge-icon');
+  if (iconEl) iconEl.textContent = config.badgeIcon || '🛡️';
+
+  const stagesContainer = document.getElementById('ttk-workflow-stages');
+  if (stagesContainer) {
+    stagesContainer.innerHTML = (config.stages || []).map(s => `
+      <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
+        <div class="w-6 h-6 rounded-full bg-indigo-600 text-white font-black text-xs flex items-center justify-center mb-2">${s.num}</div>
+        <div class="text-xs font-bold text-slate-900 dark:text-white">${s.title}</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">${s.desc}</div>
+      </div>
+    `).join('');
+  }
+
+  const tutorialList = document.getElementById('ttk-tutorial-list');
+  if (tutorialList) {
+    tutorialList.innerHTML = (config.tutorials || []).map(t => `
+      <li class="flex items-start gap-2 text-xs">
+        <svg class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+        <span>${t}</span>
+      </li>
+    `).join('');
+  }
+
+  const modal = document.getElementById('dept-things-to-know-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+window.showThingsToKnowModal = showThingsToKnowModal;
+
+function closeThingsToKnowModal() {
+  const modal = document.getElementById('dept-things-to-know-modal');
+  if (modal) modal.classList.add('hidden');
+}
+window.closeThingsToKnowModal = closeThingsToKnowModal;
+
+function startDepartmentTourAndWizard() {
+  closeThingsToKnowModal();
+  const deptId = __activeOpenDeptId;
+  if (!deptId) return;
+  try { localStorage.setItem(`ms_dept_opened_${deptId}`, '1'); } catch {}
+  if (typeof window.startAreaTour === 'function') {
+    window.startAreaTour(deptId);
+  }
+}
+window.startDepartmentTourAndWizard = startDepartmentTourAndWizard;
+
+function openDepartmentSetupWizard(deptId) {
+  const config = DEPARTMENTS_CONFIG[deptId || __activeOpenDeptId] || DEPARTMENTS_CONFIG['crm'];
+  if (!config) return;
+  __activeOpenDeptId = config.id;
+
+  const tagEl = document.getElementById('dsw-dept-tag');
+  if (tagEl) tagEl.textContent = `${config.title} · Setup Wizard`;
+  const titleEl = document.getElementById('dsw-dept-title');
+  if (titleEl) titleEl.textContent = `Configure ${config.title}`;
+
+  let sharedStore = {};
+  try { sharedStore = JSON.parse(localStorage.getItem('ms_shared_dealer_data') || '{}'); } catch {}
+
+  const fieldsContainer = document.getElementById('dsw-fields-container');
+  if (fieldsContainer) {
+    fieldsContainer.innerHTML = (config.fields || []).map(f => {
+      const val = (f.sharedKey && sharedStore[f.sharedKey]) ? sharedStore[f.sharedKey] : '';
+      return `
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+            ${f.label} ${f.sharedKey ? '<span class="text-[10px] text-amber-500 font-semibold">(Auto-Synced)</span>' : ''}
+          </label>
+          <input type="text" data-field-key="${f.key}" data-shared-key="${f.sharedKey || ''}" value="${val}" placeholder="${f.placeholder || ''}" oninput="handleSharedDataInput('${f.sharedKey || ''}', this)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
+        </div>
+      `;
+    }).join('');
+  }
+
+  const modal = document.getElementById('dept-setup-wizard-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+window.openDepartmentSetupWizard = openDepartmentSetupWizard;
+
+function closeSetupWizardModal() {
+  const modal = document.getElementById('dept-setup-wizard-modal');
+  if (modal) modal.classList.add('hidden');
+}
+window.closeSetupWizardModal = closeSetupWizardModal;
+
+function handleSharedDataInput(sharedKey, el) {
+  if (!sharedKey || !el) return;
+  syncSharedDealerData(sharedKey, el.value);
+}
+window.handleSharedDataInput = handleSharedDataInput;
+
+function syncSharedDealerData(key, value) {
+  if (!key) return;
+  try {
+    let sharedStore = JSON.parse(localStorage.getItem('ms_shared_dealer_data') || '{}');
+    sharedStore[key] = value;
+    localStorage.setItem('ms_shared_dealer_data', JSON.stringify(sharedStore));
+    document.querySelectorAll(`input[data-shared-key="${key}"]`).forEach(inp => {
+      if (inp !== document.activeElement) inp.value = value;
+    });
+  } catch {}
+}
+window.syncSharedDealerData = syncSharedDealerData;
+
+function completeDepartmentWizard() {
+  closeSetupWizardModal();
+  const deptId = __activeOpenDeptId;
+  if (!deptId) return;
+  try { localStorage.setItem(`ms_dept_opened_${deptId}`, '1'); } catch {}
+  awardDealerBadge(deptId);
+}
+window.completeDepartmentWizard = completeDepartmentWizard;
+
+function awardDealerBadge(deptId) {
+  const config = DEPARTMENTS_CONFIG[deptId];
+  if (!config) return;
+
+  try {
+    let badges = JSON.parse(localStorage.getItem('ms_unlocked_badges') || '[]');
+    if (!badges.includes(deptId)) {
+      badges.push(deptId);
+      localStorage.setItem('ms_unlocked_badges', JSON.stringify(badges));
+    }
+  } catch {}
+
+  const iconEl = document.getElementById('dbr-badge-icon');
+  if (iconEl) iconEl.textContent = config.badgeIcon || '🛡️';
+  const titleEl = document.getElementById('dbr-badge-title');
+  if (titleEl) titleEl.textContent = config.badgeTitle || 'Department Specialist';
+  const descEl = document.getElementById('dbr-badge-desc');
+  if (descEl) descEl.textContent = config.badgeDesc || `You have completed setup for ${config.title}!`;
+
+  const modal = document.getElementById('dealer-badge-reveal-modal');
+  if (modal) modal.classList.remove('hidden');
+
+  if (typeof window.fireConfetti === 'function') {
+    window.fireConfetti();
+  }
+}
+window.awardDealerBadge = awardDealerBadge;
+
+function closeBadgeRevealModal() {
+  const modal = document.getElementById('dealer-badge-reveal-modal');
+  if (modal) modal.classList.add('hidden');
+}
+window.closeBadgeRevealModal = closeBadgeRevealModal;
