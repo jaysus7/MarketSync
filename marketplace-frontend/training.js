@@ -96,6 +96,22 @@ function section(title, body, tone = 'slate') {
   return `<section class="rounded-xl border p-5 ${tones[tone] || tones.slate}"><h3 class="mb-3 text-sm font-black uppercase tracking-wider">${esc(title)}</h3>${body}</section>`;
 }
 
+function lessonVisual(lesson) {
+  const product = productLabels[lesson.product] || lesson.product;
+  const callouts = lesson.steps.slice(0, 4).map((step, index) => `
+    <div class="training-screen-callout rounded-xl border border-indigo-200 bg-white p-3 dark:border-indigo-900 dark:bg-slate-900">
+      <div class="flex items-start gap-3"><span class="grid h-7 w-7 flex-none place-items-center rounded-full bg-indigo-600 text-xs font-black text-white">${index + 1}</span><div><div class="text-xs font-black text-slate-900 dark:text-white">${esc(step.title)}</div><div class="mt-1 text-[11px] leading-4 text-slate-500 dark:text-slate-400">${esc(step.body)}</div></div></div>
+    </div>`).join('');
+  const nav = [product, lesson.course, 'Help & Training'].map((label, index) => `<div class="rounded-lg px-2.5 py-2 text-[11px] font-bold ${index === 1 ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-slate-400'}">${esc(label)}</div>`).join('');
+  return `<figure class="overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm dark:border-indigo-900 dark:bg-slate-950">
+    <div class="flex items-center justify-between border-b border-indigo-100 bg-white px-4 py-3 dark:border-indigo-950 dark:bg-slate-900"><div class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span><span class="h-2.5 w-2.5 rounded-full bg-amber-400"></span><span class="h-2.5 w-2.5 rounded-full bg-emerald-400"></span></div><div class="text-[10px] font-black uppercase tracking-[.18em] text-indigo-500">Visual walkthrough · rendered from HTML/CSS</div><div class="w-12"></div></div>
+    <div class="training-screen training-screen-grid">
+      <aside class="training-screen-nav border-r border-indigo-100/80 bg-white/75 p-3 dark:border-indigo-950 dark:bg-slate-950/70"><div class="mb-4 px-2 text-sm font-black">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></div><div class="space-y-1">${nav}</div></aside>
+      <div class="p-4 sm:p-6"><div class="mb-4"><div class="text-[10px] font-black uppercase tracking-widest text-indigo-500">${esc(product)} · ${esc(lesson.course)}</div><div class="mt-1 text-xl font-black text-slate-950 dark:text-white">${esc(lesson.title)}</div><div class="mt-1 text-xs text-slate-500 dark:text-slate-400">Follow the numbered areas, then use the detailed steps below.</div></div><div class="grid gap-3 sm:grid-cols-2">${callouts}</div><div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">✓ Success: ${esc(lesson.success)}</div></div>
+    </div><figcaption class="border-t border-slate-200 px-4 py-3 text-[11px] leading-4 text-slate-500 dark:border-slate-800">This is a simplified screen map generated from the live lesson content. Button names and the detailed workflow below are the source of truth.</figcaption>
+  </figure>`;
+}
+
 function openLesson(id, updateUrl = true) {
   const lesson = visibleLessons.find(item => item.id === id);
   if (!lesson) return;
@@ -113,6 +129,7 @@ function openLesson(id, updateUrl = true) {
       ${section('What you will accomplish', `<p class="text-sm text-slate-700 dark:text-slate-300">${esc(lesson.outcome)}</p>`, 'indigo')}
       ${section('Who can do this', `<p class="text-sm text-slate-700 dark:text-slate-300">${esc(lesson.who)}</p>`)}
       ${section('Before you start', `<ul class="list-disc space-y-1 pl-5 text-sm text-slate-700 dark:text-slate-300">${lesson.before.map(item => `<li>${esc(item)}</li>`).join('')}</ul>`, 'amber')}
+      ${lessonVisual(lesson)}
       <section><h3 class="mb-2 text-lg font-black">Step by step</h3><ol class="divide-y divide-slate-200 dark:divide-slate-800">${steps}</ol></section>
       ${section('What success looks like', `<p class="text-sm font-semibold text-emerald-900 dark:text-emerald-200">${esc(lesson.success)}</p>`, 'emerald')}
       ${section('What MarketSync does automatically', `<ul class="list-disc space-y-1 pl-5 text-sm text-slate-700 dark:text-slate-300">${lesson.automatic.map(item => `<li>${esc(item)}</li>`).join('')}</ul>`, 'indigo')}
@@ -149,7 +166,14 @@ async function bootAcademy() {
     };
     const catalogRequest = window.__TRAINING_CATALOG__
       ? Promise.resolve(window.__TRAINING_CATALOG__)
-      : fetch('/training/catalog.json?v=20260804a').then(res => { if (!res.ok) throw new Error('CATALOG'); return res.json(); });
+      : Promise.all([
+          fetch('/training/catalog.json?v=20260804b'),
+          fetch('/training/catalog-expanded.json?v=20260804b'),
+        ]).then(async responses => {
+          if (responses.some(response => !response.ok)) throw new Error('CATALOG');
+          const catalogs = await Promise.all(responses.map(response => response.json()));
+          return { lessons: catalogs.flatMap(catalog => catalog.lessons || []) };
+        });
     const [profile, catalog] = await Promise.all([LOCAL_PREVIEW ? Promise.resolve(previewProfile) : authenticatedJson('/auth/me'), catalogRequest]);
     academyUser = profile;
     academyAccess = profile.access || await authenticatedJson('/access/context');
