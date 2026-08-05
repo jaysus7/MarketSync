@@ -54,6 +54,10 @@ export const PLAN_CATALOG = Object.freeze({
     products: ['facebook'], org_type: 'solo', owner_role: 'OWNER',
     monthly: 79, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_FB_SOLO_CAD', priceEnvUsd: 'STRIPE_PRICE_FB_SOLO_USD',
+    // Keep the staging service's original variable names working during the
+    // transition to the plan catalog names.
+    priceEnvCadAliases: ['STRIPE_SOLO_PRICE_ID_CAD', 'STRIPE_SOLO_PRICE_ID'],
+    priceEnvUsdAliases: ['STRIPE_SOLO_PRICE_ID_USD', 'STRIPE_SOLO_PRICE_ID'],
     features: ['fb.inventory', 'fb.leaderboard'],
     legacy: { ...legacyFlags({ fbOnly: true }), products: { facebook_solo: true } },
   },
@@ -62,6 +66,8 @@ export const PLAN_CATALOG = Object.freeze({
     products: ['facebook'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
     monthly: 499, tier: 1,
     priceEnvCad: 'STRIPE_PRICE_FB_DEALER_CAD', priceEnvUsd: 'STRIPE_PRICE_FB_DEALER_USD',
+    priceEnvCadAliases: ['STRIPE_DEALER_PRICE_ID_CAD', 'STRIPE_DEALER_PRICE_ID'],
+    priceEnvUsdAliases: ['STRIPE_DEALER_PRICE_ID_USD', 'STRIPE_DEALER_PRICE_ID'],
     features: ['fb.inventory', 'fb.sales_reps', 'fb.leaderboard'],
     legacy: { ...legacyFlags({ fbOnly: true }), products: { facebook_dealer: true } },
   },
@@ -70,6 +76,8 @@ export const PLAN_CATALOG = Object.freeze({
     products: ['ai_dealer'], org_type: 'dealership', owner_role: 'DEALER_ADMIN',
     monthly: 499, tier: 0,
     priceEnvCad: 'STRIPE_PRICE_AI_STANDARD_CAD', priceEnvUsd: 'STRIPE_PRICE_AI_STANDARD_USD',
+    priceEnvCadAliases: ['STRIPE_AI_CHATBOT_PRICE_ID_CAD'],
+    priceEnvUsdAliases: ['STRIPE_AI_CHATBOT_PRICE_ID_USD'],
     features: [...FEATURES_BY_PRODUCT.ai_dealer],
     legacy: { ...legacyFlags({}), ai_chatbot_active: true, ai_chatbot_paid: true, products: { ai_chatbot: true } },
   },
@@ -115,9 +123,17 @@ export function getPlan(planId) { return PLAN_CATALOG[planId] || null }
 export function planForStripePrice(priceId, env = {}) {
   if (!priceId) return null
   for (const plan of Object.values(PLAN_CATALOG)) {
-    if (priceId === env[plan.priceEnvCad] || priceId === env[plan.priceEnvUsd]) return plan.id
+    if (priceId === priceFromEnv(env, plan.priceEnvCad, plan.priceEnvCadAliases)
+      || priceId === priceFromEnv(env, plan.priceEnvUsd, plan.priceEnvUsdAliases)) return plan.id
   }
   return null
+}
+
+function priceFromEnv(env, primaryKey, aliases = []) {
+  for (const key of [primaryKey, ...aliases]) {
+    if (env[key]) return env[key]
+  }
+  return ''
 }
 
 // The Stripe Price ID to charge for a plan in a given currency (falls back to the
@@ -125,8 +141,8 @@ export function planForStripePrice(priceId, env = {}) {
 export function stripePriceForPlan(planId, currency = 'usd', env = {}) {
   const plan = PLAN_CATALOG[planId]
   if (!plan) return null
-  const cad = env[plan.priceEnvCad] || ''
-  const usd = env[plan.priceEnvUsd] || ''
+  const cad = priceFromEnv(env, plan.priceEnvCad, plan.priceEnvCadAliases)
+  const usd = priceFromEnv(env, plan.priceEnvUsd, plan.priceEnvUsdAliases)
   return (String(currency).toLowerCase() === 'cad' ? cad : usd) || usd || cad || null
 }
 
