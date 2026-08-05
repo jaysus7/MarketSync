@@ -8,8 +8,8 @@
       "title": "Welcome back",
       "state": "Credentials entered; Continue is the next action",
       "fields": [
-        "Email address",
-        "Password"
+        "Email address · jason@dealership.ca",
+        "Password · ••••••••••••"
       ],
       "action": "Continue",
       "notice": "Secure login · staging workspace"
@@ -27,8 +27,8 @@
       ],
       "activeTab": "Security",
       "fields": [
-        "Factor: Authenticator app",
-        "6-digit verification code"
+        "Factor · Authenticator app",
+        "6-digit verification code · 284 193"
       ],
       "action": "Verify & activate MFA",
       "notice": "Recovery codes appear after verification"
@@ -46,10 +46,10 @@
       ],
       "activeTab": "Dealership",
       "fields": [
-        "Legal dealership name",
-        "Public phone",
-        "Address",
-        "Time zone"
+        "Legal dealership name · MarketSync Motors Inc.",
+        "Public phone · (905) 555-0140",
+        "Address · 100 Main Street, Welland ON",
+        "Time zone · America/Toronto"
       ],
       "action": "Save dealership"
     },
@@ -95,18 +95,18 @@
       "title": "Connect inventory feed",
       "state": "Dealer website feed mapped and ready for first sync",
       "fields": [
-        "Inventory source URL",
-        "Feed type: Dealer website",
-        "Sync every: 6 hours"
+        "Inventory source URL · https://dealer.example.com/inventory",
+        "Feed type · Dealer website",
+        "Sync frequency · Every 6 hours"
       ],
       "metrics": [
         [
           "Feed status",
-          "Ready"
+          "Connection verified"
         ],
         [
           "Last sync",
-          "Not run"
+          "First sync pending"
         ]
       ],
       "action": "Connect & sync",
@@ -120,8 +120,8 @@
       "state": "VIN decoded; required vehicle and pricing fields are in view",
       "fields": [
         "VIN · 1G1…8421",
-        "2025 Chevrolet Equinox",
-        "Stock # N1042",
+        "Vehicle · 2025 Chevrolet Equinox",
+        "Stock number · N1042",
         "Price · $39,995",
         "Status · Available"
       ],
@@ -174,10 +174,10 @@
       "title": "Create appointment",
       "state": "Customer and vehicle selected; date and time are being confirmed",
       "fields": [
-        "Jordan Lee",
-        "2025 Chevrolet Equinox RS",
-        "Aug 6 · 2:30 PM",
-        "Test drive"
+        "Customer · Jordan Lee",
+        "Vehicle · 2025 Chevrolet Equinox RS",
+        "Date & time · Aug 6 at 2:30 PM",
+        "Appointment type · Test drive"
       ],
       "action": "Save appointment",
       "notice": "Calendar view · August 2026"
@@ -566,7 +566,7 @@
       "state": "VIN decoded and condition review is in progress",
       "fields": [
         "VIN · 2GNAX…1182",
-        "2021 Chevrolet Equinox LT",
+        "Vehicle · 2021 Chevrolet Equinox LT",
         "Mileage · 68,420 km",
         "Condition · Good",
         "Suggested offer · $18,600"
@@ -841,9 +841,9 @@
         "12 photos"
       ],
       "fields": [
-        "Window sticker",
-        "2-page brochure",
-        "AI listing copy"
+        "Window sticker · Factory data decoded",
+        "2-page brochure · Branded template selected",
+        "AI listing copy · Draft generated"
       ],
       "action": "Generate brochure"
     },
@@ -950,11 +950,11 @@
       ],
       "activeTab": "Knowledge Base",
       "fields": [
-        "Sales hours",
-        "Service hours",
-        "Financing options",
-        "Current specials",
-        "Policies & directions"
+        "Sales hours · Mon–Thu 9–8 · Fri–Sat 9–6",
+        "Service hours · Mon–Fri 7:30–5:30",
+        "Financing options · Prime, non-prime, lease and finance",
+        "Current specials · August Equinox loyalty offer",
+        "Policies & directions · Updated today"
       ],
       "action": "Save knowledge"
     },
@@ -1011,10 +1011,10 @@
       ],
       "activeTab": "Day",
       "fields": [
-        "Jordan Lee",
-        "2021 Chevrolet Equinox",
-        "Oil change + brake noise",
-        "Aug 7 · 8:30 AM"
+        "Customer · Jordan Lee",
+        "Vehicle · 2021 Chevrolet Equinox",
+        "Concern · Oil change + brake noise",
+        "Appointment · Aug 7 at 8:30 AM"
       ],
       "action": "Book appointment"
     },
@@ -1168,10 +1168,10 @@
       ],
       "activeTab": "Pages",
       "fields": [
-        "Homepage",
-        "Hero headline",
-        "Featured inventory",
-        "Lead form"
+        "Page · Homepage",
+        "Hero headline · Find your next vehicle",
+        "Featured inventory · 8 available vehicles",
+        "Lead form · Request information"
       ],
       "action": "Publish changes",
       "notice": "Preview · desktop"
@@ -2074,6 +2074,312 @@
         ]
       ],
       "action": "Send customer update"
+    },
+    "DS-010": {
+      "kind": "form",
+      "nav": "Settings",
+      "page": "Branding",
+      "title": "Dealership branding",
+      "state": "Customer-facing identity is open in desktop preview",
+      "tabs": [
+        "Dealership",
+        "Branding",
+        "Integrations"
+      ],
+      "activeTab": "Branding",
+      "fields": [
+        "Logo · marketsync-motors-logo.png",
+        "Primary colour · Indigo #4F46E5",
+        "Accent colour · Emerald #10B981",
+        "Public phone · (905) 555-0140",
+        "Support email · support@dealership.ca"
+      ],
+      "action": "Save & preview",
+      "notice": "Website, forms, brochures, messages, and AI widget use these details"
+    },
+    "CRM-024": {
+      "kind": "crm",
+      "nav": "CRM",
+      "page": "Customers",
+      "title": "Resolve duplicate customer",
+      "state": "Two likely matches are compared before merging",
+      "tabs": [
+        "Compare",
+        "Relationships",
+        "Merge preview"
+      ],
+      "activeTab": "Compare",
+      "fields": [
+        "Primary record · Jordan Lee · verified email",
+        "Duplicate record · J. Lee · matching phone",
+        "Consent source · Primary record · Jun 12",
+        "Related records · 2 leads · 1 appointment · 1 deal"
+      ],
+      "rows": [
+        [
+          "Phone",
+          "(905) 555-0183",
+          "Exact match"
+        ],
+        [
+          "Email",
+          "jordan@example.com",
+          "Primary verified"
+        ],
+        [
+          "Owner",
+          "Alex Morgan",
+          "Keep primary"
+        ]
+      ],
+      "action": "Merge into primary"
+    },
+    "SALES-020": {
+      "kind": "deal",
+      "nav": "Sales",
+      "page": "Deal deposit",
+      "title": "Collect customer deposit",
+      "state": "Secure payment request is ready for recipient review",
+      "tabs": [
+        "Summary",
+        "Deposit",
+        "Receipts"
+      ],
+      "activeTab": "Deposit",
+      "metrics": [
+        [
+          "Deposit requested",
+          "$1,000"
+        ],
+        [
+          "Collected",
+          "$0"
+        ],
+        [
+          "Balance",
+          "$1,000"
+        ]
+      ],
+      "fields": [
+        "Customer · Jordan Lee",
+        "Vehicle · 2025 Chevrolet Equinox RS",
+        "Payment provider · Square · Connected",
+        "Receipt email · jordan@example.com"
+      ],
+      "action": "Send secure payment link"
+    },
+    "INV-026": {
+      "kind": "inventory",
+      "nav": "Inventory",
+      "page": "AI Vision",
+      "title": "Photo quality review",
+      "state": "Worst-scoring vehicle is open with detected issues",
+      "metrics": [
+        [
+          "Photo score",
+          "46 / 100"
+        ],
+        [
+          "Photos",
+          "8"
+        ],
+        [
+          "Critical flags",
+          "2"
+        ],
+        [
+          "After rescan",
+          "Not run"
+        ]
+      ],
+      "columns": [
+        "Photo",
+        "Detected issue",
+        "Action"
+      ],
+      "rows": [
+        [
+          "Hero image",
+          "Dark · vehicle cropped",
+          "Replace"
+        ],
+        [
+          "Rear 3/4",
+          "Blur detected",
+          "Retake"
+        ],
+        [
+          "Interior",
+          "Missing dashboard angle",
+          "Add photo"
+        ]
+      ],
+      "action": "Run scan again"
+    },
+    "SVC-017": {
+      "kind": "service",
+      "nav": "Service",
+      "page": "Repair Orders",
+      "title": "Technician labour & parts",
+      "state": "Front brake operation is active on the technician",
+      "tabs": [
+        "Operations",
+        "Time",
+        "Parts",
+        "Notes"
+      ],
+      "activeTab": "Time",
+      "metrics": [
+        [
+          "Clocked time",
+          "1.4 hr"
+        ],
+        [
+          "Sold time",
+          "2.1 hr"
+        ],
+        [
+          "Parts issued",
+          "$418.20"
+        ]
+      ],
+      "columns": [
+        "Operation",
+        "Technician",
+        "Clock",
+        "Status"
+      ],
+      "rows": [
+        [
+          "Front pads & rotors",
+          "Riley Gomez",
+          "Started 10:18",
+          "In progress"
+        ],
+        [
+          "Brake inspection",
+          "Riley Gomez",
+          "0.8 hr",
+          "Complete"
+        ]
+      ],
+      "action": "Stop time & complete"
+    },
+    "ACC-038": {
+      "kind": "accounting",
+      "nav": "Accounting",
+      "page": "Vendors",
+      "title": "Vendor profile",
+      "state": "New vendor identity and accounting defaults are under review",
+      "tabs": [
+        "Profile",
+        "Documents",
+        "Payables",
+        "History"
+      ],
+      "activeTab": "Profile",
+      "fields": [
+        "Legal name · Parts Direct Canada Inc.",
+        "Payment terms · Net 30",
+        "Default account · Parts purchases",
+        "Tax treatment · HST 13%",
+        "Approval owner · Accounting Manager"
+      ],
+      "action": "Save vendor",
+      "notice": "Banking changes require independent verification"
+    },
+    "MKT-020": {
+      "kind": "integration",
+      "nav": "Settings",
+      "page": "Integrations",
+      "title": "Messaging & calendar",
+      "state": "Texting is verified and Google Calendar test sync is pending",
+      "metrics": [
+        [
+          "Connected",
+          "2"
+        ],
+        [
+          "Needs test",
+          "1"
+        ],
+        [
+          "Errors",
+          "0"
+        ]
+      ],
+      "fields": [
+        "Twilio · Connected · +1 905 555 0199",
+        "Google Calendar · Connected · appointments@dealership.ca",
+        "Time zone · America/Toronto",
+        "Test appointment · Aug 8 at 10:00 AM"
+      ],
+      "rows": [
+        [
+          "Text delivery",
+          "Delivered",
+          "Reply captured"
+        ],
+        [
+          "Calendar create",
+          "Synced",
+          "Two-way update pending"
+        ]
+      ],
+      "action": "Run two-way test"
+    },
+    "MS-MON-013": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Operations",
+      "title": "Failed jobs & deliveries",
+      "state": "Oldest customer-impacting webhook failure is selected",
+      "tabs": [
+        "API failures",
+        "Jobs",
+        "Webhooks",
+        "Database"
+      ],
+      "activeTab": "Webhooks",
+      "metrics": [
+        [
+          "Failed",
+          "3"
+        ],
+        [
+          "Retrying",
+          "5"
+        ],
+        [
+          "Recovered today",
+          "18"
+        ],
+        [
+          "Oldest",
+          "27 min"
+        ]
+      ],
+      "columns": [
+        "Customer",
+        "Event",
+        "Attempts",
+        "Next action"
+      ],
+      "rows": [
+        [
+          "Northside Auto",
+          "sales.lead.created v1",
+          "3",
+          "Retry in 2 min"
+        ],
+        [
+          "Lakeshore Motors",
+          "inventory.vehicle.updated v1",
+          "5",
+          "Escalate"
+        ]
+      ],
+      "action": "Inspect delivery"
     }
   }
 }

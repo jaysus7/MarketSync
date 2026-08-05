@@ -13,7 +13,7 @@ const visualCatalog = JSON.parse(await readFile(new URL('../../marketplace-front
 const visuals = visualCatalog.visuals || {}
 
 test('training academy ships the complete feature recording catalog', () => {
-  assert.equal(lessons.length, 60)
+  assert.equal(lessons.length, 68)
   assert.equal(new Set(lessons.map(lesson => lesson.id)).size, lessons.length, 'lesson ids must be unique')
 })
 
@@ -66,6 +66,9 @@ test('academy renders an HTML/CSS visual walkthrough for every lesson', async ()
   for (const lesson of lessons) {
     const visual = visuals[lesson.id]
     assert.ok(visual.kind && visual.nav && visual.page && visual.title && visual.state, `${lesson.id} visual is incomplete`)
+    for (const field of visual.fields || []) {
+      assert.match(field, / · /, `${lesson.id} visual field needs a lesson-specific label and value: ${field}`)
+    }
   }
   assert.match(html, /training-conversation/)
   assert.match(html, /training-calendar/)
