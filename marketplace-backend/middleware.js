@@ -1,6 +1,7 @@
 import { supabase, supabaseAdmin, isSaasStaff } from './shared.js'
 import { SYSTEM_ROLES, hasSystemRole } from './authorization.js'
 import { createClient } from '@supabase/supabase-js'
+import { hasAal2 } from './mfa-assurance.js'
 
 // A Supabase client scoped to the CALLER'S JWT. Queries run as the `authenticated`
 // Postgres role with auth.uid() set, so RLS (authz.has_permission(dealership_id, …))
@@ -125,7 +126,9 @@ export async function requireAuth(req, res, next) {
 }
 
 // Re-check Supabase's authenticated assurance level for high-risk operations.
-// A normal password session is aal1; a verified TOTP/passkey challenge is aal2.
+// A normal password/passkey/email-OTP session is aal1; a verified Supabase MFA
+// factor (TOTP or phone) promotes that specific session to aal2.
+//
 export async function requireMfa(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'No token provided' })
@@ -133,8 +136,7 @@ export async function requireMfa(req, res, next) {
     const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: `Bearer ${token}` } }
     })
-    const { data, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
-    if (error || data?.currentLevel !== 'aal2') {
+    if (!(await hasAal2(client, token))) {
       return res.status(403).json({ error: 'MFA_REQUIRED', message: 'Complete multi-factor authentication to continue.' })
     }
     next()
