@@ -20,6 +20,7 @@ import { decryptJson } from '../crypto-pii.js'
 import { createNotification } from '../notifications.js'
 import { aiAllowed, recordUsage } from '../usage.js'
 import { SYSTEM_ROLES, hasSystemRole, requirePermission } from '../authorization.js'
+import { masterCreds } from '../providers/twilio-provision.js'
 import { audit } from '../audit.js'
 
 const DEALER_LEVEL = ['DEALER_ADMIN', 'OWNER', 'MANAGER']
@@ -374,10 +375,18 @@ async function dealerTwilio(dealershipId) {
     const { data: row } = await supabaseAdmin.from('dealer_integrations')
       .select('enabled, credentials_enc, lender_code_map')
       .eq('dealership_id', dealershipId).eq('provider', 'twilio').maybeSingle()
-    if (row?.enabled && row.credentials_enc) {
+    const meta = row?.lender_code_map || {}
+    if (row?.enabled && meta.platform_managed) {
+      // MarketSync-provisioned number under our master Twilio account.
+      const m = masterCreds()
+      if (m && (meta.from || meta.messaging_service_sid)) {
+        creds = { sid: m.sid, tok: m.tok, from: meta.from || null, messagingServiceSid: meta.messaging_service_sid || null }
+      }
+    } else if (row?.enabled && row.credentials_enc) {
+      // Dealer brought their own Twilio account.
       const dec = decryptJson(row.credentials_enc) || {}
       if (dec.account_sid && dec.auth_token) {
-        creds = { sid: dec.account_sid, tok: dec.auth_token, from: row.lender_code_map?.from || null }
+        creds = { sid: dec.account_sid, tok: dec.auth_token, from: meta.from || null }
       }
     }
   } catch (e) { console.warn('[twilio] resolve failed:', e.message) }
@@ -389,10 +398,12 @@ export function invalidateTwilioCache(dealershipId) { if (dealershipId) __twilio
 async function sendSms(to, body, from, creds) {
   const sid = creds?.sid || process.env.TWILIO_ACCOUNT_SID
   const tok = creds?.tok || process.env.TWILIO_AUTH_TOKEN
+  const msid = creds?.messagingServiceSid
   const fromNum = from || creds?.from
-  if (!sid || !tok || !fromNum || !to) return { ok: false, simulated: true }
+  if (!sid || !tok || !to || (!fromNum && !msid)) return { ok: false, simulated: true }
   try {
-    const params = new URLSearchParams({ To: to, From: fromNum, Body: body })
+    const params = new URLSearchParams({ To: to, Body: body })
+    if (msid) params.set('MessagingServiceSid', msid); else params.set('From', fromNum)
     const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: 'POST', headers: { Authorization: 'Basic ' + Buffer.from(`${sid}:${tok}`).toString('base64'), 'Content-Type': 'application/x-www-form-urlencoded' }, body: params,
     })
@@ -977,6 +988,36 @@ export function registerAutomation(app) {
       audit(req, 'customer.inbound_reply', { contact_id: contact.id, channel, source: 'inbound_webhook' })
       res.json({ ok: true, frozen: true })
     } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // ── Twilio inbound webhook (platform-provisioned numbers) ───────────────────
+  // Twilio POSTs here on any inbound text to a MarketSync-managed number. We map the
+  // receiving number (To) to its dealership, then freeze that contact's sequences on a
+  // reply and honour STOP. (Messaging Services also auto-handle STOP at the carrier
+  // level; this keeps our own automation state in sync.) Always replies with empty TwiML.
+  app.post('/automation/twilio-inbound', async (req, res) => {
+    const b = req.body || {}
+    const fromNum = String(b.From || '').trim()
+    const toNum = String(b.To || '').trim()
+    const text = String(b.Body || '').trim()
+    const twiml = () => { res.set('Content-Type', 'text/xml'); res.send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>') }
+    try {
+      if (!fromNum || !toNum) return twiml()
+      const { data: integ } = await supabaseAdmin.from('dealer_integrations')
+        .select('dealership_id').eq('provider', 'twilio').filter('lender_code_map->>from', 'eq', toNum).maybeSingle()
+      const dealershipId = integ?.dealership_id
+      if (!dealershipId) return twiml()
+      const { data: contact } = await supabaseAdmin.from('contacts')
+        .select('id').eq('dealership_id', dealershipId).eq('phone', fromNum).limit(1).maybeSingle()
+      if (!contact) return twiml()
+      if (/^\s*(stop|unsubscribe|quit|cancel|end)\b/i.test(text)) {
+        await supabaseAdmin.from('contacts').update({ opt_out: true, consent_sms: false, automation_paused: true }).eq('id', contact.id)
+        await freezeSequences(contact.id, 'opted_out')
+      } else {
+        await freezeSequences(contact.id, 'customer_replied')
+      }
+      return twiml()
+    } catch (e) { return twiml() }
   })
 
   // ── Campaign management (manager) ──────────────────────────────────────────

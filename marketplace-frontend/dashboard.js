@@ -8554,7 +8554,7 @@ let __settingsTab = 'account';
 // holds the per-user personal settings; the rest are dealership departments (admin).
 const SETTINGS_TAB_SECTIONS = {
   account: ['profile-form', 'security-section', 'settings-language-card'],
-  admin: ['settings-team', 'billing-section', 'integrations-section', 'groups-settings-section', 'dealer-features-card', 'email-sending-card'],
+  admin: ['settings-team', 'billing-section', 'integrations-section', 'settings-texting-card', 'groups-settings-section', 'dealer-features-card', 'email-sending-card'],
   sales: ['crm-dms-card', 'desk-fees-card', 'dealer-docs-card', 'guardrail-settings-section'],
   marketing: ['prof-branding-section', 'ai-boost-section'],
   inventory: ['inv-intel-section'],
@@ -8586,30 +8586,121 @@ function settingsTab(tab) {
       !el.classList.contains('stab-hide') && !el.classList.contains('hidden'));
     panel.classList.toggle('is-multi', shown.length > 1);
   });
-  if (tab === 'billing' && typeof renderCurrentPlanBox === 'function') renderCurrentPlanBox();
-  if (tab === 'team') {
-    // MarketSync owner: the "Team" here is MarketSync staff with SaaS roles, not a
-    // dealership sales team — render the SaaS roles manager instead.
+  // Administration bundles team, billing, integrations, group, features + texting.
+  if (tab === 'admin') {
+    if (typeof renderCurrentPlanBox === 'function') renderCurrentPlanBox();
+    if (typeof loadDealerFeatures === 'function') loadDealerFeatures();
+    if (typeof loadIntegrations === 'function') loadIntegrations();
+    if (typeof loadTextingStatus === 'function') loadTextingStatus();
+    // Team: MarketSync owner sees SaaS staff/roles; a dealer sees their team + login
+    // management + lead routing (nodes are moved, not cloned, so IDs keep working).
     if (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode()) {
       renderSettingsSaasRoles();
     } else {
       loadSettingsTeam(document.getElementById('team-picker')?.value || 'sales');
-      // Bring the full login/role management + lead-routing setup into Settings →
-      // Team so it's all in one place (they used to live on a separate page). The
-      // nodes are moved (not cloned), so their existing IDs + wiring keep working.
       const host = document.getElementById('settings-team');
       const dv = document.getElementById('dealer-view-panel');
       const lr = document.getElementById('lead-routing-card');
       const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
       if (host && dv && isAdmin) { dv.classList.remove('hidden'); if (dv.parentElement !== host) host.appendChild(dv); }
       if (host && lr && isAdmin && lr.parentElement !== host) host.appendChild(lr);
-      if (isAdmin) loadDealerManagementMatrix();
+      if (isAdmin && typeof loadDealerManagementMatrix === 'function') loadDealerManagementMatrix();
     }
   }
-  if (tab === 'dealermgmt') { loadDealerFeatures(); loadDeskFeeSettings(); loadDealerDocs(); }
-  if (tab === 'integrations') loadIntegrations();
+  if (tab === 'sales') { if (typeof loadDeskFeeSettings === 'function') loadDeskFeeSettings(); if (typeof loadDealerDocs === 'function') loadDealerDocs(); }
 }
 window.settingsTab = settingsTab;
+
+// ── Text messaging — provision a MarketSync-managed SMS number per dealer ──────
+let __texting = { status: null };
+async function loadTextingStatus() {
+  const root = document.getElementById('texting-root'); if (!root) return;
+  try { __texting.status = await apiGetJson('/integrations/twilio/provision/status'); }
+  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load')}</div>`; return; }
+  renderTexting();
+}
+window.loadTextingStatus = loadTextingStatus;
+const TX_INP = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+function renderTexting() {
+  const root = document.getElementById('texting-root'); if (!root) return;
+  const s = __texting.status || {};
+  if (!s.available) {
+    root.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400">Automatic number provisioning isn't switched on for this server yet. You can still connect your own Twilio account under <b>Integrations</b> above.</div>`;
+    return;
+  }
+  if (s.platform_managed && s.number) {
+    const a2p = s.a2p_status || 'not_started';
+    const badge = ({ not_started: ['Not registered', 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'], submitted: ['Registration submitted', 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'], approved: ['Registered ✓', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'] })[a2p] || ['—', 'bg-slate-100 text-slate-500'];
+    root.innerHTML = `
+      <div class="flex items-center gap-3 mb-2 flex-wrap">
+        <div class="text-xl font-black text-slate-900 dark:text-white">${esc(s.number)}</div>
+        <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${badge[1]}">${badge[0]}</span>
+        <button onclick="textingRelease()" class="ml-auto text-[12px] font-bold text-rose-500">Release number</button>
+      </div>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Your automated follow-ups and AI texts send from this number. To text at full volume in the US, complete carrier registration (A2P 10DLC) below.</p>
+      ${textingA2pForm(s.a2p_profile || {})}`;
+    return;
+  }
+  root.innerHTML = `
+    ${s.byo ? '<div class="text-xs text-slate-500 dark:text-slate-400 mb-2">You\'re currently using your own Twilio (Integrations). Provision a MarketSync-managed number instead below.</div>' : ''}
+    <div class="flex gap-2 items-end mb-3 flex-wrap">
+      <div><label class="block text-[11px] font-bold text-slate-500 mb-1">Country</label><select id="tx-country" class="${TX_INP}" style="width:90px"><option value="US">US</option><option value="CA">CA</option></select></div>
+      <div class="flex-1 min-w-[140px]"><label class="block text-[11px] font-bold text-slate-500 mb-1">Area code (optional)</label><input id="tx-area" maxlength="3" placeholder="e.g. 416" class="${TX_INP}"></div>
+      <button onclick="textingSearch(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg">Search numbers</button>
+    </div>
+    <div id="tx-results"></div>`;
+}
+function textingA2pForm(p) {
+  const lbl = (t) => `<label class="block text-[11px] font-bold text-slate-500 mb-1">${t}</label>`;
+  return `<div class="border-t border-slate-100 dark:border-slate-800 pt-3">
+    <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Carrier registration (A2P 10DLC)</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div>${lbl('Legal business name')}<input id="a2p-legal" value="${esc(p.legal_name || '')}" class="${TX_INP}"></div>
+      <div>${lbl('Tax ID (EIN / BN)')}<input id="a2p-tax" value="${esc(p.tax_id || '')}" class="${TX_INP}"></div>
+      <div class="sm:col-span-2">${lbl('Business address')}<input id="a2p-address" value="${esc(p.address || '')}" class="${TX_INP}"></div>
+      <div>${lbl('Website')}<input id="a2p-website" value="${esc(p.website || '')}" class="${TX_INP}"></div>
+      <div>${lbl('Contact email')}<input id="a2p-email" value="${esc(p.email || '')}" class="${TX_INP}"></div>
+      <div>${lbl('Contact phone')}<input id="a2p-phone" value="${esc(p.phone || '')}" class="${TX_INP}"></div>
+      <div>${lbl('Contact name')}<input id="a2p-contact" value="${esc(p.contact_name || '')}" class="${TX_INP}"></div>
+    </div>
+    <button onclick="textingSubmitA2p(this)" class="mt-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg">Submit registration</button>
+  </div>`;
+}
+window.textingSearch = async (btn) => {
+  const country = document.getElementById('tx-country')?.value || 'US';
+  const area = (document.getElementById('tx-area')?.value || '').trim();
+  const box = document.getElementById('tx-results'); if (box) box.innerHTML = '<div class="text-sm text-slate-400 italic py-2">Searching…</div>';
+  try {
+    const r = await apiGetJson(`/integrations/twilio/provision/search?country=${encodeURIComponent(country)}&area=${encodeURIComponent(area)}`);
+    const rows = (r.numbers || []).map(n => `<div class="flex items-center gap-3 px-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+        <div class="flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(n.number)}</div><div class="text-[12px] text-slate-500">${esc([n.locality, n.region].filter(Boolean).join(', '))}</div></div>
+        <button onclick="textingProvision('${esc(n.number)}', this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[12px] font-bold px-3 py-1.5 rounded-lg">Use this number</button>
+      </div>`).join('');
+    if (box) box.innerHTML = rows ? `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-1">${rows}</div>` : '<div class="text-sm text-slate-400 italic py-2">No numbers found — try a different area code.</div>';
+  } catch (e) { if (box) box.innerHTML = `<div class="text-sm text-rose-500 py-2">${esc(e.message || 'Search failed')}</div>`; }
+};
+window.textingProvision = async (number, btn) => {
+  if (!confirm(`Provision ${number} as your dealership texting number?`)) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Provisioning…'; }
+  try { await apiSendJson('/integrations/twilio/provision/buy', 'POST', { number }); showToast('Number provisioned — you can now text from it', 'success'); await loadTextingStatus(); }
+  catch (e) { showToast(e.message || 'Could not provision', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Use this number'; } }
+};
+window.textingSubmitA2p = async (btn) => {
+  const payload = {
+    legal_name: document.getElementById('a2p-legal')?.value.trim(), tax_id: document.getElementById('a2p-tax')?.value.trim(),
+    address: document.getElementById('a2p-address')?.value.trim(), website: document.getElementById('a2p-website')?.value.trim(),
+    email: document.getElementById('a2p-email')?.value.trim(), phone: document.getElementById('a2p-phone')?.value.trim(),
+    contact_name: document.getElementById('a2p-contact')?.value.trim(),
+  };
+  if (!payload.legal_name || !payload.tax_id) return showToast('Legal business name and tax ID are required', 'error');
+  try { await apiSendJson('/integrations/twilio/a2p', 'POST', payload); showToast('Registration submitted', 'success'); await loadTextingStatus(); }
+  catch (e) { showToast(e.message || 'Could not submit', 'error'); }
+};
+window.textingRelease = async () => {
+  if (!confirm('Release this texting number? Automated texts will stop until you provision a new one.')) return;
+  try { await apiSendJson('/integrations/twilio/provision/release', 'POST', {}); showToast('Number released', 'success'); await loadTextingStatus(); }
+  catch (e) { showToast(e.message || 'Could not release', 'error'); }
+};
 
 // MarketSync owner's Settings → Team = SaaS staff + roles (owner/sales/support/
 // marketing/developer) with the permission matrix — not a dealership sales team.

@@ -8,6 +8,7 @@ import { requireAuth, requireMfa } from '../middleware.js'
 import { encryptJson, decryptJson, piiConfigured, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
 import { emitWebhook, WEBHOOK_EVENTS } from '../webhooks.js'
 import { sendDealerSms, invalidateTwilioCache } from './automation.js'
+import { twilioProvisionConfigured, searchNumbers, provisionForDealer, releaseNumber } from '../providers/twilio-provision.js'
 import { qboConfigured, qboAuthorizeUrl, signState, verifyState, qboExchangeCode, qboEnsureToken, qboCompanyName } from '../providers/quickbooks.js'
 import { OAUTH_PROVIDERS, oauthConfigured, oauthAuthorizeUrl, oauthExchangeCode, oauthEnsureToken, oauthAfterToken, oauthTest, gbpCreatePost, signState as signOAuthState, verifyState as verifyOAuthState } from '../providers/oauth.js'
 import { stripeDepositsConfigured } from './deposits.js'
@@ -115,6 +116,96 @@ export function registerIntegrations(app) {
     const r = await sendDealerSms(req.dealershipId, to, 'MarketSync test ✓ — your Twilio number is connected and ready to send.')
     if (r.simulated) return res.status(400).json({ error: 'Save and enable your Twilio SID, token, and from-number first.' })
     if (!r.ok) return res.status(400).json({ error: r.error || 'Twilio rejected the message — double-check the SID, token, and from-number.' })
+    res.json({ ok: true })
+  })
+
+  // ── Twilio provisioning under MarketSync's master account ───────────────────
+  // Gives a dealer their own dedicated texting number without them ever touching
+  // Twilio. Non-secret metadata (number, messaging service, A2P status) lives in
+  // lender_code_map; the master credentials come from env, never per-dealer.
+  const inboundUrl = () => process.env.PUBLIC_API_URL ? `${String(process.env.PUBLIC_API_URL).replace(/\/$/, '')}/automation/twilio-inbound` : ''
+
+  app.get('/integrations/twilio/provision/status', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: row } = await supabaseAdmin.from('dealer_integrations')
+      .select('enabled, credentials_enc, lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', 'twilio').maybeSingle()
+    const meta = row?.lender_code_map || {}
+    res.json({
+      available: twilioProvisionConfigured(),
+      platform_managed: !!meta.platform_managed,
+      byo: !!row?.credentials_enc && !meta.platform_managed,
+      enabled: !!row?.enabled,
+      number: meta.from || null,
+      a2p_status: meta.a2p_status || null,
+      a2p_profile: meta.a2p_profile || null,
+    })
+  })
+
+  app.get('/integrations/twilio/provision/search', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+    if (!twilioProvisionConfigured()) return res.status(503).json({ error: 'Number provisioning is not configured on this server yet.' })
+    try {
+      const numbers = await searchNumbers({ country: (req.query.country || 'US'), areaCode: (req.query.area || ''), contains: (req.query.contains || ''), limit: 12 })
+      res.json({ numbers })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  app.post('/integrations/twilio/provision/buy', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!twilioProvisionConfigured()) return res.status(503).json({ error: 'Number provisioning is not configured on this server yet.' })
+    const number = String(req.body?.number || '').trim()
+    if (!/^\+[1-9]\d{6,15}$/.test(number)) return res.status(400).json({ error: 'Pick a number to provision.' })
+    try {
+      const { data: d } = await supabaseAdmin.from('dealerships').select('name').eq('id', req.dealershipId).maybeSingle()
+      const { data: existing } = await supabaseAdmin.from('dealer_integrations')
+        .select('lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', 'twilio').maybeSingle()
+      const meta = await provisionForDealer({ chosenNumber: number, dealerName: d?.name || '', inboundUrl: inboundUrl() })
+      await supabaseAdmin.from('dealer_integrations').upsert({
+        dealership_id: req.dealershipId, provider: 'twilio', enabled: true, status: 'connected',
+        lender_code_map: { ...(existing?.lender_code_map || {}), ...meta },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'dealership_id,provider' })
+      invalidateTwilioCache(req.dealershipId)
+      audit(req, 'twilio.number_provisioned', { after_state: { number: meta.from } })
+      res.json({ ok: true, number: meta.from, a2p_status: meta.a2p_status })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  app.post('/integrations/twilio/a2p', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const b = req.body || {}
+    const profile = {
+      legal_name: String(b.legal_name || '').slice(0, 160),
+      business_type: String(b.business_type || '').slice(0, 60),
+      tax_id: String(b.tax_id || '').slice(0, 40),           // EIN (US) / BN (CA)
+      address: String(b.address || '').slice(0, 200),
+      website: String(b.website || '').slice(0, 200),
+      email: String(b.email || '').slice(0, 160),
+      phone: String(b.phone || '').slice(0, 40),
+      contact_name: String(b.contact_name || '').slice(0, 120),
+    }
+    if (!profile.legal_name || !profile.tax_id) return res.status(400).json({ error: 'Legal business name and tax ID (EIN / BN) are required for carrier registration.' })
+    const { data: existing } = await supabaseAdmin.from('dealer_integrations')
+      .select('lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', 'twilio').maybeSingle()
+    await supabaseAdmin.from('dealer_integrations').upsert({
+      dealership_id: req.dealershipId, provider: 'twilio', enabled: true, status: 'connected',
+      lender_code_map: { ...(existing?.lender_code_map || {}), a2p_profile: profile, a2p_status: 'submitted', a2p_submitted_at: new Date().toISOString() },
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'dealership_id,provider' })
+    audit(req, 'twilio.a2p_submitted', { after_state: { legal_name: profile.legal_name } })
+    res.json({ ok: true, a2p_status: 'submitted' })
+  })
+
+  app.post('/integrations/twilio/provision/release', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: row } = await supabaseAdmin.from('dealer_integrations')
+      .select('lender_code_map').eq('dealership_id', req.dealershipId).eq('provider', 'twilio').maybeSingle()
+    const meta = row?.lender_code_map || {}
+    try { if (meta.platform_managed && meta.number_sid) await releaseNumber(meta.number_sid) } catch (e) { /* release best-effort */ }
+    const cleaned = { ...meta }
+    delete cleaned.platform_managed; delete cleaned.from; delete cleaned.number_sid; delete cleaned.messaging_service_sid; delete cleaned.a2p_status; delete cleaned.a2p_profile
+    await supabaseAdmin.from('dealer_integrations').update({ enabled: false, lender_code_map: cleaned, updated_at: new Date().toISOString() })
+      .eq('dealership_id', req.dealershipId).eq('provider', 'twilio')
+    invalidateTwilioCache(req.dealershipId)
     res.json({ ok: true })
   })
 

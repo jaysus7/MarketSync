@@ -1316,6 +1316,13 @@
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Translate your dashboard into any language — it's saved to your browser, just for you. Your choice also becomes the language for your AI-written Facebook listings.</p>
           <div id="google_translate_element"></div>
         </div>
+        <!-- Text messaging — provision a dedicated SMS number under MarketSync, no
+             Twilio account needed. Powers automated follow-ups + AI autoresponder texts. -->
+        <div id="settings-texting-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Text messaging (SMS)</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Get your own texting number to send automated follow-ups and AI replies — carrier-compliant, no Twilio account to set up.</p>
+          <div id="texting-root"><div class="text-sm text-slate-400 italic py-3">Loading…</div></div>
+        </div>
         <!-- Service department settings live on their own page — linked here so the
              Service section exists under Settings without duplicating those controls. -->
         <div id="settings-service-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
