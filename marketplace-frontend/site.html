@@ -88,6 +88,7 @@
         if(!r.ok) throw new Error('This site isn\'t available.');
         DATA=await r.json(); const s=DATA.site;
         if(!SLUG && s.slug) SLUG=s.slug;   // resolved from the custom domain — used for lead posting
+        try{ const br=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/blog`); DATA.blog = br.ok ? ((await br.json()).posts||[]) : []; }catch{ DATA.blog=[]; }
         applySeo(s);
         document.documentElement.style.setProperty('--brand',s.primary_color||'#1e3a8a');
         document.documentElement.style.setProperty('--brand2',s.secondary_color||'#0f172a');
@@ -230,6 +231,7 @@
       if(biOn('trade')) entries.push({token:'b:trade',label:biLabel('trade','Value Trade'),onclick:"go('trade')",menu:biMenu('trade')});
       if(biOn('finance')) entries.push({token:'b:finance',label:biLabel('finance','Financing'),onclick:"go('finance')",menu:biMenu('finance')});
       if(hasTeam&&biOn('team')) entries.push({token:'b:team',label:biLabel('team','Team'),onclick:"go('team')",menu:biMenu('team')});
+      if((DATA.blog||[]).length) entries.push({token:'b:blog',label:'Blog',onclick:"go('blog')",menu:null});
       if(biOn('contact')) entries.push({token:'b:contact',label:biLabel('contact','Contact'),onclick:"go('inquiry')",menu:biMenu('contact')});
       // Apply the dealer's explicit menu order (unlisted items keep their natural order, after listed ones).
       const order=Array.isArray(s.menu_order)?s.menu_order:[];
@@ -314,8 +316,8 @@
     function fmtDeposit(){ const d=DATA.deposits||{}; const amt=Number(d.amount)||0; const cur=(d.currency||'usd').toUpperCase(); return '$'+amt.toLocaleString()+(cur==='CAD'?' CAD':''); }
     // Hash routing: gives every page a distinct, shareable, crawlable URL and lets
     // AI-inserted internal links (href="#finance", "#/page-slug") just work.
-    function viewToHash(v){ if(!v||v==='home') return '#home'; if(v.startsWith('page:')) return '#/'+v.slice(5); if(v==='inquiry') return '#contact'; return '#'+v; }
-    function hashToView(h){ h=(h||'').replace(/^#/,''); if(!h||h==='home') return 'home'; if(h[0]==='/') return 'page:'+h.slice(1); if(h==='contact') return 'inquiry'; if(['inventory','build','trade','finance','team'].includes(h)) return h; return 'home'; }
+    function viewToHash(v){ if(!v||v==='home') return '#home'; if(v.startsWith('page:')) return '#/'+v.slice(5); if(v.startsWith('post:')) return '#blog/'+v.slice(5); if(v==='blog') return '#blog'; if(v==='inquiry') return '#contact'; return '#'+v; }
+    function hashToView(h){ h=(h||'').replace(/^#/,''); if(!h||h==='home') return 'home'; if(h==='blog') return 'blog'; if(h.startsWith('blog/')) return 'post:'+h.slice(5); if(h[0]==='/') return 'page:'+h.slice(1); if(h==='contact') return 'inquiry'; if(['inventory','build','trade','finance','team'].includes(h)) return h; return 'home'; }
     window.addEventListener('hashchange',()=>{ const v=hashToView(location.hash); if(v===VIEW) return; VIEW=v; window.scrollTo(0,0); renderView(); applyViewSeo(); });
     // Is a built-in page switched on? (default on when unset)
     function builtinOn(k){ const bi=(DATA.site&&DATA.site.builtins)||{}; return !bi[k]||bi[k].enabled!==false; }
@@ -330,6 +332,8 @@
       else if(VIEW==='trade') el.innerHTML=viewTrade();
       else if(VIEW==='finance') el.innerHTML=viewFinance();
       else if(VIEW==='inquiry') el.innerHTML=viewInquiry();
+      else if(VIEW==='blog'){ el.innerHTML=viewBlogIndex(); return; }
+      else if(VIEW.startsWith('post:')){ renderBlogPost(el, VIEW.slice(5)); return; }
       else if(VIEW.startsWith('page:')){ const p=(DATA.site.pages||[]).find(x=>x.slug===VIEW.slice(5)); el.innerHTML=viewPage(p); return; }
       else { renderHome(el); return; }
       // Prepend dealer-defined intro sections (hero/SEO) above a built-in view's functional content.
@@ -475,6 +479,7 @@
           return `<section class="bg-slate-100"><div class="max-w-6xl mx-auto px-4 py-14">${head}${cards}${embed}${empty}${cta}</div></section>`;
         }
         case 'faq': { const items=Array.isArray(g.items)?g.items:[]; return `<section class="max-w-3xl mx-auto px-4 py-12"><h2 class="text-2xl font-black mb-6">${esc(g.title||'Frequently asked questions')}</h2><div class="space-y-3">${items.map(it=>`<details class="bg-white rounded-lg cshadow p-4"><summary class="font-bold cursor-pointer">${esc(it.q||'')}</summary><p class="text-sm text-slate-600 mt-2 whitespace-pre-line">${esc(it.a||'')}</p></details>`).join('')||'<div class="text-sm text-slate-400">Add FAQ items in the section settings.</div>'}</div></section>`; }
+        case 'blog': { const posts=(DATA.blog||[]).slice(0,Math.max(1,Math.min(12,+g.count||3))); if(!posts.length) return ''; return `<section class="max-w-6xl mx-auto px-4 py-14"><div class="flex items-end justify-between mb-6"><h2 class="text-2xl font-black text-slate-900">${esc(g.title||'From our blog')}</h2><a href="#blog" onclick="go('blog');return false" class="text-sm font-bold brand-text">View all →</a></div><div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">${posts.map(blogCard).join('')}</div></section>`; }
         case 'gallery': { const imgs=Array.isArray(g.images)?g.images:[]; return imgs.length?`<section class="max-w-6xl mx-auto px-4 py-10">${g.title?`<h2 class="text-2xl font-black mb-4">${esc(g.title)}</h2>`:''}<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">${imgs.map(u=>`<img src="${esc(u)}" class="w-full h-40 object-cover rounded-lg">`).join('')}</div></section>`:''; }
         case 'map': { const addr=g.address||[s.address,s.city,s.province].filter(Boolean).join(', '); return addr?`<section class="max-w-6xl mx-auto px-4 py-10">${g.title?`<h2 class="text-2xl font-black mb-4">${esc(g.title)}</h2>`:''}<iframe class="w-full h-72 rounded-lg border-0" loading="lazy" src="https://www.google.com/maps?q=${encodeURIComponent(addr)}&output=embed"></iframe></section>`:''; }
         case 'contact': return `<section id="contact" class="brand-bg text-white"><div class="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-2 gap-8"><div><h2 class="text-2xl font-black mb-3">${esc(g.title||'Get in touch')}</h2>${s.phone?`<div class="text-white/80 text-sm mb-1">📞 <a href="tel:${esc(s.phone)}" class="underline">${esc(s.phone)}</a></div>`:''}${s.email?`<div class="text-white/80 text-sm mb-1">✉️ <a href="mailto:${esc(s.email)}" class="underline">${esc(s.email)}</a></div>`:''}${s.hours?`<div class="text-white/80 text-sm mt-3 whitespace-pre-line">${esc(s.hours)}</div>`:''}</div><form onsubmit="submitInquiry(event)" class="bg-white text-slate-900 rounded-xl p-5 space-y-2"><div class="font-bold">Send us a message</div><input id="i-name" placeholder="Your name" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"><div class="flex gap-2"><input id="i-phone" placeholder="Phone" class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"><input id="i-email" placeholder="Email" class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"></div><textarea id="i-msg" rows="3" placeholder="How can we help?" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></textarea><input type="hidden" id="i-vehicle"><button class="w-full brand-bg text-white font-bold py-2.5 rounded-lg">Send</button></form></div></section>`;
@@ -915,6 +920,42 @@
       if(!V('b-name')&&!V('b-phone')&&!V('b-email')){ alert('Add a name, phone, or email.'); return; }
       postLead({form_type:'build',name:V('b-name'),phone:V('b-phone'),email:V('b-email'),message:V('b-notes'),
         fields:{Make:BUILD.make,Model:BUILD.model,Trim:BUILD.trim,Exterior:BUILD.ext,Interior:BUILD.int}},e.target,btn); }
+
+    // ── Blog ─────────────────────────────────────────────────────────────────
+    function fmtPostDate(d){ if(!d) return ''; try{ return new Date(d).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}); }catch{ return ''; } }
+    function blogCard(p){
+      const cover=p.cover_image_url?`<img src="${esc(p.cover_image_url)}" class="w-full h-44 object-cover" loading="lazy">`:`<div class="w-full h-44 brand2-bg opacity-90"></div>`;
+      return `<a href="#blog/${esc(p.slug)}" onclick="go('post:${esc(p.slug)}');return false" class="group block bg-white rounded-2xl cshadow overflow-hidden border border-slate-100 hover:shadow-lg hover:-translate-y-0.5 transition">
+        ${cover}
+        <div class="p-5">${(p.tags||[]).length?`<div class="text-[11px] font-bold uppercase tracking-wider brand-text mb-1">${esc((p.tags||[])[0])}</div>`:''}
+          <div class="font-black text-lg text-slate-900 leading-snug group-hover:brand-text transition">${esc(p.title)}</div>
+          ${p.excerpt?`<p class="text-sm text-slate-500 mt-1.5 line-clamp-2">${esc(p.excerpt)}</p>`:''}
+          <div class="text-[12px] text-slate-400 mt-3">${esc(fmtPostDate(p.published_at))}${p.author?' · '+esc(p.author):''}</div>
+        </div></a>`;
+    }
+    function viewBlogIndex(){
+      const posts=DATA.blog||[];
+      const head=`<section class="brand2-bg text-white"><div class="max-w-6xl mx-auto px-4 py-14"><h1 class="text-3xl sm:text-4xl font-black">${esc((DATA.site&&DATA.site.name)||'Our')} Blog</h1><p class="text-white/70 mt-2">News, tips and specials from our team.</p></div></section>`;
+      if(!posts.length) return head+`<section class="max-w-3xl mx-auto px-4 py-20 text-center text-slate-400">No posts yet — check back soon.</section>`;
+      return head+`<section class="max-w-6xl mx-auto px-4 py-12"><div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">${posts.map(blogCard).join('')}</div></section>`;
+    }
+    async function renderBlogPost(el, slug){
+      el.innerHTML=`<section class="max-w-3xl mx-auto px-4 py-20 text-center text-slate-400">Loading…</section>`;
+      let p=null;
+      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/blog/${encodeURIComponent(slug)}`); if(r.ok) p=(await r.json()).post; }catch{}
+      if(!p){ el.innerHTML=`<section class="max-w-3xl mx-auto px-4 py-20 text-center"><p class="text-slate-400 mb-4">Post not found.</p><a href="#blog" onclick="go('blog');return false" class="brand-text font-bold">← Back to blog</a></section>`; return; }
+      applyViewSeo(); document.title=(p.seo_title||p.title)+' — '+((DATA.site&&DATA.site.name)||'');
+      const more=(DATA.blog||[]).filter(x=>x.slug!==p.slug).slice(0,3);
+      el.innerHTML=`
+        <article class="max-w-3xl mx-auto px-4 py-10">
+          <a href="#blog" onclick="go('blog');return false" class="text-sm font-bold brand-text">← Back to blog</a>
+          <h1 class="text-3xl sm:text-4xl font-black text-slate-900 mt-4 leading-tight">${esc(p.title)}</h1>
+          <div class="text-[13px] text-slate-400 mt-2">${esc(fmtPostDate(p.published_at))}${p.author?' · '+esc(p.author):''}</div>
+          ${p.cover_image_url?`<img src="${esc(p.cover_image_url)}" class="w-full rounded-2xl cshadow object-cover mt-6">`:''}
+          <div class="prose max-w-none text-slate-700 mt-6 leading-relaxed">${sanitizeRich(p.content_html||'')}</div>
+        </article>
+        ${more.length?`<section class="max-w-6xl mx-auto px-4 py-12 border-t border-slate-100"><h2 class="text-xl font-black text-slate-900 mb-5">More posts</h2><div class="grid sm:grid-cols-3 gap-5">${more.map(blogCard).join('')}</div></section>`:''}`;
+    }
 
     function viewPage(p){
       if(!p) return `<section class="max-w-3xl mx-auto px-4 py-16 text-center text-slate-400">Page not found.</section>`;

@@ -183,7 +183,7 @@ function cleanStaff(arr) {
 }
 
 // The section palette for the page builder. Each is dealership-aware on render.
-const SECTION_TYPES = ['hero', 'feature_cards', 'featured_inventory', 'inventory_grid', 'text_image', 'body_style', 'payment_calc', 'ad_banner', 'finance_cta', 'trade_cta', 'service_cta', 'staff', 'reviews', 'faq', 'cta_banner', 'gallery', 'map', 'contact', 'html']
+const SECTION_TYPES = ['hero', 'feature_cards', 'featured_inventory', 'inventory_grid', 'text_image', 'body_style', 'payment_calc', 'ad_banner', 'finance_cta', 'trade_cta', 'service_cta', 'staff', 'reviews', 'faq', 'blog', 'cta_banner', 'gallery', 'map', 'contact', 'html']
 function cleanSections(arr) {
   if (!Array.isArray(arr)) return []
   return arr.slice(0, 40).map((s, i) => {
@@ -883,5 +883,108 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     await supabaseAdmin.from('dealerships').update({ custom_domain_verified: ok }).eq('id', req.dealershipId)
     audit(req, 'site.domain_verified', { after_state: { domain: dom, verified: ok } })
     res.json({ verified: ok, domain: dom, target: SITE_HOST, message: ok ? 'Connected! Your domain is live with a secure certificate.' : 'Not live yet — DNS/SSL can take a few minutes to an hour after you add the record. Try again shortly.' })
+  })
+
+  // ── Dealer blog — authoring (owner / GM), RLS-scoped via req.supabase ────────
+  const BLOG_COLS = 'id, slug, title, excerpt, content_html, cover_image_url, author, tags, status, seo_title, seo_description, published_at, created_at, updated_at'
+  async function uniqueBlogSlug(supa, dealershipId, base, ignoreId) {
+    let slug = slugify(base) || 'post'; let n = 1
+    while (true) {
+      let q = supa.from('dealer_blog_posts').select('id').eq('dealership_id', dealershipId).eq('slug', slug)
+      if (ignoreId) q = q.neq('id', ignoreId)
+      const { data } = await q.maybeSingle()
+      if (!data) return slug
+      slug = `${slugify(base) || 'post'}-${++n}`
+    }
+  }
+
+  app.get('/dealership/blog', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data, error } = await req.supabase.from('dealer_blog_posts')
+      .select(BLOG_COLS).eq('dealership_id', req.dealershipId).order('updated_at', { ascending: false })
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ posts: data || [] })
+  })
+
+  app.post('/dealership/blog', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const b = req.body || {}
+    const title = String(b.title || '').trim()
+    if (!title) return res.status(400).json({ error: 'Title is required' })
+    const slug = await uniqueBlogSlug(req.supabase, req.dealershipId, b.slug || title)
+    const status = b.status === 'published' ? 'published' : 'draft'
+    const row = {
+      dealership_id: req.dealershipId, slug, title,
+      excerpt: String(b.excerpt || '').trim(),
+      content_html: String(b.content_html || ''),
+      cover_image_url: b.cover_image_url || null,
+      author: String(b.author || '').trim() || null,
+      tags: Array.isArray(b.tags) ? b.tags.filter(Boolean).map(String) : [],
+      status, seo_title: b.seo_title || null, seo_description: b.seo_description || null,
+      published_at: status === 'published' ? new Date().toISOString() : null,
+      created_by: req.user.id,
+    }
+    const { data, error } = await req.supabase.from('dealer_blog_posts').insert(row).select(BLOG_COLS).single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ post: data })
+  })
+
+  app.patch('/dealership/blog/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const b = req.body || {}
+    const { data: existing } = await req.supabase.from('dealer_blog_posts')
+      .select('id, status, published_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!existing) return res.status(404).json({ error: 'Post not found' })
+    const patch = { updated_at: new Date().toISOString() }
+    if (b.title !== undefined) patch.title = String(b.title || '').trim()
+    if (b.excerpt !== undefined) patch.excerpt = String(b.excerpt || '').trim()
+    if (b.content_html !== undefined) patch.content_html = String(b.content_html || '')
+    if (b.cover_image_url !== undefined) patch.cover_image_url = b.cover_image_url || null
+    if (b.author !== undefined) patch.author = String(b.author || '').trim() || null
+    if (b.tags !== undefined) patch.tags = Array.isArray(b.tags) ? b.tags.filter(Boolean).map(String) : []
+    if (b.seo_title !== undefined) patch.seo_title = b.seo_title || null
+    if (b.seo_description !== undefined) patch.seo_description = b.seo_description || null
+    if (b.slug !== undefined && b.slug) patch.slug = await uniqueBlogSlug(req.supabase, req.dealershipId, b.slug, existing.id)
+    if (b.status !== undefined) {
+      patch.status = b.status === 'published' ? 'published' : 'draft'
+      if (patch.status === 'published' && !existing.published_at) patch.published_at = new Date().toISOString()
+    }
+    const { data, error } = await req.supabase.from('dealer_blog_posts')
+      .update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select(BLOG_COLS).single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ post: data })
+  })
+
+  app.delete('/dealership/blog/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { error } = await req.supabase.from('dealer_blog_posts')
+      .delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  })
+
+  // ── PUBLIC: a dealer's published blog (served for the public site) ───────────
+  async function dealerBySlug(slug) {
+    const s = String(slug || '').toLowerCase().trim()
+    if (!s) return null
+    const { data } = await supabaseAdmin.from('dealerships').select('id, name, site_published').ilike('site_slug', s).maybeSingle()
+    return (data && data.site_published) ? data : null
+  }
+  app.get('/site/:slug/blog', async (req, res) => {
+    const d = await dealerBySlug(req.params.slug)
+    if (!d) return res.status(404).json({ error: 'Site not found' })
+    const { data } = await supabaseAdmin.from('dealer_blog_posts')
+      .select('slug, title, excerpt, cover_image_url, author, tags, published_at')
+      .eq('dealership_id', d.id).eq('status', 'published').order('published_at', { ascending: false }).limit(100)
+    res.json({ posts: data || [] })
+  })
+  app.get('/site/:slug/blog/:postSlug', async (req, res) => {
+    const d = await dealerBySlug(req.params.slug)
+    if (!d) return res.status(404).json({ error: 'Site not found' })
+    const { data } = await supabaseAdmin.from('dealer_blog_posts')
+      .select('slug, title, excerpt, content_html, cover_image_url, author, tags, published_at, seo_title, seo_description')
+      .eq('dealership_id', d.id).eq('slug', String(req.params.postSlug || '').toLowerCase()).eq('status', 'published').maybeSingle()
+    if (!data) return res.status(404).json({ error: 'Post not found' })
+    res.json({ post: data })
   })
 }

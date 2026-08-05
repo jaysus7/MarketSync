@@ -17846,12 +17846,13 @@ const SEC_META = {
   staff:              { label: 'Meet the team', fields: [['title','Title','text']] },
   reviews:            { label: 'Reviews', fields: [['title','Title','text'],['google_rating','Overall rating (e.g. 4.8)','text'],['reviews_url','“Read our Google reviews” link','text'],['items','Reviews — one per line: Name :: 5 :: Their comment','reviews'],['embed_html','Or paste a reviews widget embed (optional)','textarea']] },
   faq:                { label: 'FAQ', fields: [['title','Title','text'],['items','Questions (one per line: Question :: Answer)','faq']] },
+  blog:               { label: 'Blog / news (latest posts)', fields: [['title','Title','text'],['count','How many to show','number']] },
   gallery:            { label: 'Photo gallery', fields: [['title','Title','text'],['images','Images','images']] },
   map:                { label: 'Map', fields: [['title','Title','text'],['address','Address (blank = your address)','text']] },
   contact:            { label: 'Contact form', fields: [['title','Title','text']] },
   html:               { label: 'Custom HTML', fields: [['html','HTML','textarea']] },
 };
-const SEC_ORDER = ['hero','feature_cards','two_col','cards','featured_inventory','text_image','body_style','payment_calc','ad_banner','inventory_grid','trade_cta','finance_cta','service_cta','staff','reviews','faq','gallery','map','contact','cta_banner','html'];
+const SEC_ORDER = ['hero','feature_cards','two_col','cards','featured_inventory','text_image','body_style','payment_calc','ad_banner','inventory_grid','trade_cta','finance_cta','service_cta','staff','reviews','faq','blog','gallery','map','contact','cta_banner','html'];
 
 async function loadWebsitePage() {
   const root = document.getElementById('website-root');
@@ -17915,7 +17916,7 @@ function renderWebsitePage() {
         <button onclick="saveWebsite(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save</button>
       </div>
     </div>
-    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 flex-wrap">${tab('builder', 'Builder')}${tab('design', 'Design')}${tab('pages', 'Pages')}</div>
+    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 flex-wrap">${tab('builder', 'Builder')}${tab('design', 'Design')}${tab('pages', 'Pages')}${tab('blog', 'Blog')}</div>
     <div id="ws-body"></div>`;
   renderWsBody();
 }
@@ -18040,6 +18041,7 @@ function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
   if (__wsTab === 'design') { body.innerHTML = wsDesign(); return; }
   if (__wsTab === 'pages') { body.innerHTML = wsPages(); renderMenuList(); return; }
+  if (__wsTab === 'blog') { body.innerHTML = '<div id="ws-blog-root" class="pt-4"></div>'; loadDealerBlog(); return; }
   if (__wsTab === 'team') { body.innerHTML = wsTeam(); renderSiteStaff(); return; }
   if (__wsTab === 'settings') { body.innerHTML = wsSettings(); __siteWidgets = Array.isArray(__siteCfg?.content?.widgets) ? __siteCfg.content.widgets.slice() : []; renderSiteWidgets(); return; }
   if (__wsTab === 'builder' && __builderMode === 'live') { renderLiveBuilder(body); return; }
@@ -18588,6 +18590,101 @@ async function applyTemplate(id) {
   showToast('Template applied — full site laid out with content. Review the menu, tweak, then Save.', 'success');
 }
 Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, menuIndent, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette });
+
+// ══ Website builder — Blog / News (per-dealer, RLS-scoped) ═════════════════════
+let __dealerBlog = [];
+async function loadDealerBlog() {
+  const root = document.getElementById('ws-blog-root'); if (!root) return;
+  root.innerHTML = '<div class="py-10 text-center text-sm text-slate-400 italic">Loading posts…</div>';
+  try { const r = await apiGetJson('/dealership/blog'); __dealerBlog = r.posts || []; }
+  catch (e) { root.innerHTML = `<div class="py-10 text-center text-sm text-rose-500">${esc(e.message || 'Could not load')}</div>`; return; }
+  renderDealerBlog();
+}
+function renderDealerBlog() {
+  const root = document.getElementById('ws-blog-root'); if (!root) return;
+  const rows = (__dealerBlog || []).map(p => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      ${p.cover_image_url ? `<img src="${esc(p.cover_image_url)}" class="w-16 h-11 object-cover rounded-md flex-shrink-0">` : '<div class="w-16 h-11 rounded-md bg-slate-100 dark:bg-slate-800 flex-shrink-0"></div>'}
+      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">${esc(p.title)}</div>
+        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">/${esc(p.slug)}${p.excerpt ? ' · ' + esc(p.excerpt) : ''}</div></div>
+      <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${p.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'} flex-shrink-0">${p.status === 'published' ? 'Published' : 'Draft'}</span>
+      <button onclick="dealerBlogEdit('${p.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold flex-shrink-0">Edit</button>
+      <button onclick="dealerBlogDelete('${p.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">Delete</button>
+    </div>`).join('');
+  root.innerHTML = `<div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+      <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-2xl">Posts show on your public site at <b>/blog</b> — each gets its own page, and you can drop a “Latest posts” section on any page. Great for SEO and specials.</p>
+      <button onclick="dealerBlogEdit(null)" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold flex-shrink-0">＋ New post</button></div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-8 text-center">No posts yet — write your first to start ranking.</div>'}</div>`;
+}
+function dealerBlogModal(p) {
+  p = p || {};
+  document.getElementById('blog-modal')?.remove();
+  const el = document.createElement('div'); el.id = 'blog-modal';
+  el.className = 'fixed inset-0 z-[96] flex items-center justify-center p-4';
+  el.innerHTML = `<div data-close class="absolute inset-0 bg-slate-950/50"></div>
+    <div class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-5">
+      <div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${p.id ? 'Edit post' : 'New post'}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
+      <div class="space-y-3">
+        <div class="flex items-center gap-3">
+          <div id="bp-cover-prev" class="w-24 h-16 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center flex-shrink-0" style="${p.cover_image_url ? `background-image:url('${esc(p.cover_image_url)}')` : ''}"></div>
+          <div><label class="text-xs font-bold text-slate-500">Cover image</label>
+            <div><input type="file" accept="image/*" onchange="dealerBlogUploadCover(this.files[0])" class="text-xs mt-1"></div>
+            <input type="hidden" id="bp-cover" value="${esc(p.cover_image_url || '')}"></div>
+        </div>
+        <label class="block text-xs font-bold text-slate-500">Title<input id="bp-title" value="${esc(p.title || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-xs font-bold text-slate-500">URL slug (optional)<input id="bp-slug" value="${esc(p.slug || '')}" placeholder="auto from title" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+          <label class="block text-xs font-bold text-slate-500">Tags (comma-separated)<input id="bp-tags" value="${esc((p.tags || []).join(', '))}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+        </div>
+        <label class="block text-xs font-bold text-slate-500">Excerpt <span class="text-slate-400 font-normal">— short summary for cards + SEO</span><textarea id="bp-excerpt" rows="2" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(p.excerpt || '')}</textarea></label>
+        <label class="block text-xs font-bold text-slate-500">Body <span class="text-slate-400 font-normal">— HTML allowed (headings, paragraphs, images, links)</span><textarea id="bp-body" rows="11" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-mono">${esc(p.content_html || '')}</textarea></label>
+      </div>
+      <div class="mt-5 flex justify-between gap-2">
+        ${p.id ? `<button onclick="dealerBlogDelete('${p.id}')" class="px-3 py-2 text-sm font-bold text-rose-500">Delete</button>` : '<span></span>'}
+        <div class="flex gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
+          <button onclick="dealerBlogSave('${p.id || ''}','draft')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold">Save draft</button>
+          <button onclick="dealerBlogSave('${p.id || ''}','published')" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">${p.status === 'published' ? 'Update (published)' : 'Publish'}</button></div>
+      </div>
+    </div>`;
+  el.querySelectorAll('[data-close]').forEach(x => x.onclick = () => el.remove());
+  document.body.appendChild(el);
+}
+window.dealerBlogEdit = (id) => dealerBlogModal(id ? (__dealerBlog || []).find(x => x.id === id) : null);
+window.dealerBlogUploadCover = async (file) => {
+  if (!file) return; showToast('Uploading…', 'info');
+  try {
+    const fd = new FormData(); fd.append('image', file);
+    const r = await fetch(`${API}/dealership/site-image`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error);
+    document.getElementById('bp-cover').value = d.url;
+    document.getElementById('bp-cover-prev').style.backgroundImage = `url('${d.url}')`;
+    showToast('Cover uploaded', 'success');
+  } catch (e) { showToast(e.message || 'Upload failed', 'error'); }
+};
+window.dealerBlogSave = async (id, status) => {
+  const payload = {
+    title: document.getElementById('bp-title').value.trim(),
+    slug: document.getElementById('bp-slug').value.trim(),
+    excerpt: document.getElementById('bp-excerpt').value.trim(),
+    content_html: document.getElementById('bp-body').value,
+    cover_image_url: document.getElementById('bp-cover').value || null,
+    tags: document.getElementById('bp-tags').value.split(',').map(s => s.trim()).filter(Boolean),
+    status,
+  };
+  if (!payload.title) return showToast('Title is required', 'error');
+  try {
+    if (id) await apiSendJson('/dealership/blog/' + id, 'PATCH', payload);
+    else await apiSendJson('/dealership/blog', 'POST', payload);
+    document.getElementById('blog-modal')?.remove();
+    await loadDealerBlog();
+    showToast(status === 'published' ? 'Post published' : 'Draft saved', 'success');
+  } catch (e) { showToast(e.message || 'Could not save', 'error'); }
+};
+window.dealerBlogDelete = async (id) => {
+  if (!confirm('Delete this post? This cannot be undone.')) return;
+  try { await apiSendJson('/dealership/blog/' + id, 'DELETE'); document.getElementById('blog-modal')?.remove(); await loadDealerBlog(); showToast('Post deleted', 'success'); }
+  catch (e) { showToast(e.message || 'Could not delete', 'error'); }
+};
+window.loadDealerBlog = loadDealerBlog;
 
 // ══ Automation engine — manager workspace (inline toggles + message boxes) ═══
 // State: __autoCfg { campaigns[], settings{}, region{}, can_manage }; __autoHol = working holiday rows.
