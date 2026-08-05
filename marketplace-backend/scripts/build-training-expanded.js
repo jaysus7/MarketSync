@@ -1100,6 +1100,102 @@ const lessons = [
     ],
     success: 'The customer receives the agreed outcome on time and billing, access, data, integrations, communication, and audit history all agree.',
   }),
+  lesson({
+    id: 'DS-014', title: 'Add a dealership location to a dealer group', summary: 'Create a separate location with correct ownership, products, billing, users, data boundaries, and shared group access.', product: 'dealer_os', course: 'Dealership setup', features: ['os.settings', 'os.team'], permissions: ['users.manage'], keywords: ['dealer group', 'location', 'multi dealer', 'dealership setup'],
+    steps: [
+      ['Open group administration', 'Confirm the dealer group, authorized group owner, active locations, billing structure, and purchased location allowance.'],
+      ['Create the location', 'Enter the legal and public dealership identity, address, time zone, currency, phone, email, and manufacturer or business details.'],
+      ['Assign products and billing', 'Choose only purchased products, plan, effective date, billing owner, subscription treatment, and approved shared services.'],
+      ['Configure data boundaries', 'Set the location dealership ID, inventory source, CRM ownership, accounting entity, website, integrations, and document storage.'],
+      ['Add location users', 'Assign local owners and managers, then grant group users only the locations and actions required by their role.'],
+      ['Run isolation and group tests', 'Verify local users cannot enter another location while authorized group users can switch and report across allowed locations.'],
+    ],
+    success: 'The new location operates independently, group access follows authorization, and no customer, inventory, financial, or user data crosses incorrectly.',
+  }),
+  lesson({
+    id: 'CRM-040', title: 'Transfer customer ownership to another salesperson', summary: 'Move responsibility intentionally while preserving history, open work, communication, and management visibility.', product: 'dealer_os', course: 'CRM and leads', features: ['os.crm'], permissions: ['lead.assign'], keywords: ['customer owner', 'transfer', 'salesperson', 'reassignment'],
+    steps: [
+      ['Open the customer record', 'Confirm identity, current owner, active leads, tasks, appointments, deals, communication, consent, and any ownership protection rule.'],
+      ['Confirm the transfer reason', 'Choose coverage, role change, departure, manager decision, customer request, or another approved reason.'],
+      ['Select an eligible new owner', 'Verify the user is active, scheduled, trained, permitted for the product and location, and not overloaded.'],
+      ['Choose related work', 'Transfer the appropriate open leads, tasks, appointments, and opportunities while preserving completed history and attribution.'],
+      ['Notify the right people', 'Inform current and new owners, manager, and customer only when the customer experience requires it.'],
+      ['Verify the result', 'Confirm new ownership, work queues, notifications, reporting attribution, customer timeline, reason, actor, and timestamp.'],
+    ],
+    success: 'The customer and selected open work have one eligible new owner, with original history and attribution preserved.',
+  }),
+  lesson({
+    id: 'SALES-040', title: 'Coordinate a sold vehicle with the dealership task board', summary: 'Turn delivery requirements into owned cross-department tasks for detail, fuel, plates, transport, accessories, and handoff.', product: 'dealer_os', course: 'Sales and deal desk', features: ['os.sales', 'os.team'], permissions: ['deal.finalize'], keywords: ['taskboard', 'delivery tasks', 'detail', 'plates'],
+    steps: [
+      ['Open the sold deal task board', 'Confirm customer, vehicle, delivery date and time, salesperson, manager, and delivery checklist.'],
+      ['Create required tasks', 'Add only applicable detail, fuel or charge, safety, accessories, plates, transport, documents, payment, and customer-prep tasks.'],
+      ['Assign owners and deadlines', 'Choose one responsible person or department and a due time that leaves room before delivery.'],
+      ['Add acceptance details', 'State what complete means, relevant location, key or document handoff, dependencies, and safe customer context.'],
+      ['Monitor blockers', 'Review overdue, blocked, rejected, and dependent tasks and escalate before they threaten the promised delivery.'],
+      ['Complete the handoff', 'Verify evidence, mark actual completion, notify the next owner, and confirm the delivery checklist and briefing update.'],
+    ],
+    success: 'Every required delivery task has one owner, deadline, acceptance condition, and verified completion before customer arrival.',
+  }),
+  lesson({
+    id: 'INV-042', title: 'Resolve a duplicate VIN without losing inventory history', summary: 'Identify the real duplicate, choose the surviving unit, reconnect related records, and preserve the audit trail.', product: 'dealer_os', course: 'Inventory', features: ['os.inventory'], permissions: ['inventory.edit'], keywords: ['duplicate vin', 'inventory cleanup', 'merge vehicle'],
+    steps: [
+      ['Open the duplicate-VIN alert', 'Compare dealership, VIN, stock, source feed, status, dates, mileage, price, photos, costs, and sync history.'],
+      ['Determine whether both are legitimate', 'Check transfers, trades, sold returns, feed duplicates, stock-number changes, and cross-location ownership before merging.'],
+      ['Choose the surviving record', 'Keep the verified unit with the most complete accurate business history and current source connection.'],
+      ['Resolve conflicting data', 'Verify status, cost, mileage, stock, price, source URL, photos, recon, documents, and ownership from reliable evidence.'],
+      ['Reconnect related records', 'Move valid listings, appraisals, deals, tasks, reports, and documents to the surviving unit without duplicating events.'],
+      ['Archive the duplicate', 'Mark it merged or duplicate with the survivor ID, reason, actor, timestamp, and preserved read-only history.'],
+    ],
+    success: 'One active verified VIN record owns the complete current workflow, and the duplicate remains traceable without affecting listings or reports.',
+  }),
+  lesson({
+    id: 'SVC-033', title: 'Create a warranty or internal repair order', summary: 'Separate customer-pay, warranty, and internal responsibility while keeping authorization, parts, labour, and recovery accurate.', product: 'dealer_os', course: 'Service', features: ['os.service', 'os.accounting'], permissions: ['service.write_repair_order'], keywords: ['warranty', 'internal repair', 'claim', 'service'],
+    steps: [
+      ['Open or create the repair order', 'Confirm customer or inventory vehicle, mileage, concern, source department, warranty coverage, and responsible payer.'],
+      ['Choose line responsibility', 'Mark each operation customer-pay, warranty, policy, internal sales, internal used vehicle, or other approved type.'],
+      ['Capture authorization and evidence', 'Record claim or internal approval, coverage dates, causal part, diagnostics, photos, documents, and required codes.'],
+      ['Perform and record the work', 'Track technician time, labour operation, parts, sublet, notes, and completion separately for each responsibility type.'],
+      ['Prepare claim or internal posting', 'Review eligible hours, parts, rates, taxes, deductibles, recoveries, department expense, and rejected items.'],
+      ['Close and verify', 'Confirm customer invoice, warranty claim, internal charge, parts inventory, technician metrics, accounting, and vehicle history agree.'],
+    ],
+    success: 'Every repair line has the correct payer, approval, evidence, labour, parts, recovery or expense, and final posting.',
+  }),
+  lesson({
+    id: 'ACC-054', title: 'Approve a commission adjustment or clawback', summary: 'Correct salesperson pay through a documented controlled adjustment without changing original deal history.', product: 'dealer_os', course: 'Accounting for non-accountants', features: ['os.accounting', 'os.sales'], permissions: ['accounting.edit'], keywords: ['commission adjustment', 'clawback', 'payroll', 'deal'],
+    steps: [
+      ['Open Commissions → Adjustments', 'Find the employee, pay period, deal, original commission line, funding, delivery, and current payment status.'],
+      ['Choose the adjustment type', 'Select correction, bonus, split change, chargeback, unwind clawback, advance recovery, or another approved reason.'],
+      ['Calculate the amount', 'Use the plan, deal facts, effective dates, prior payments, taxes, and policy; show the calculation rather than entering an unexplained total.'],
+      ['Attach evidence and approval', 'Add deal, funding, cancellation, manager, payroll, or policy evidence and the required independent approver.'],
+      ['Post to the correct period', 'Use the current open pay period or approved recovery schedule without silently editing a paid statement.'],
+      ['Verify employee and accounting records', 'Confirm statement line, payable total, payroll export, journal effect, reason, actor, approval, and linked original deal.'],
+    ],
+    success: 'The adjustment or clawback is calculated, approved, visible to the employee, linked to original evidence, and posted once.',
+  }),
+  lesson({
+    id: 'MKT-036', title: 'Create and schedule a holiday customer campaign', summary: 'Build a timely narrow campaign with correct hours, offers, consent, scheduling, and automatic suppression.', product: 'dealer_os', course: 'Marketing and website', features: ['os.automations', 'os.email_marketing'], keywords: ['holiday campaign', 'automation', 'email', 'sms'],
+    steps: [
+      ['Open Automation Builder → Holidays', 'Choose the dealership, holiday or event, year, customer purpose, and intended channels.'],
+      ['Confirm real business details', 'Verify holiday hours, closures, offer terms, inventory or service availability, expiry, and responsible department.'],
+      ['Build the audience', 'Select a relevant consenting segment and exclude unsubscribed, do-not-contact, invalid, duplicate, and recently contacted customers.'],
+      ['Write the campaign', 'Use accurate dealership identity, helpful context, clear offer terms, one call to action, personalization, and opt-out language.'],
+      ['Test timing and content', 'Send internal email and SMS tests and verify links, merge fields, mobile layout, reply routing, time zone, and stop rules.'],
+      ['Schedule and monitor', 'Publish the approved campaign and review delivery, failures, replies, appointments, opt-outs, complaints, and automatic completion.'],
+    ],
+    success: 'The campaign sends at the intended local time to an eligible audience with verified details, working actions, and monitored outcomes.',
+  }),
+  lesson({
+    id: 'MS-SEC-033', title: 'Investigate a suspicious security event', summary: 'Validate the signal, contain access safely, preserve evidence, and coordinate customer and internal response.', product: 'marketsync_os', course: 'MarketSync OS', keywords: ['security event', 'suspicious login', 'incident', 'audit'],
+    steps: [
+      ['Open the security event', 'Review event type, severity, user, dealership, IP, device, timestamp, endpoint, metadata, and related recent events.'],
+      ['Validate the signal', 'Compare normal user activity, session history, MFA, role changes, exports, API keys, webhooks, and customer confirmation.'],
+      ['Contain proportionately', 'Revoke affected sessions or keys, require password reset and MFA, restrict sensitive actions, or isolate an integration as warranted.'],
+      ['Preserve evidence', 'Retain event IDs, before and after state, logs, timestamps, decisions, actor, and customer communication without altering source records.'],
+      ['Assess scope and obligations', 'Identify affected accounts, data, actions, time window, legal or privacy escalation, and notification responsibility.'],
+      ['Resolve and prevent recurrence', 'Confirm containment, restore safe access, document cause and impact, complete notifications, and assign preventive actions.'],
+    ],
+    success: 'The event has a verified classification, proportionate containment, preserved evidence, owned obligations, and confirmed safe resolution.',
+  }),
 ]
 
 const output = fileURLToPath(new URL('../../marketplace-frontend/training/catalog-expanded.json', import.meta.url))

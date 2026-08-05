@@ -3950,6 +3950,398 @@
         ]
       ],
       "action": "Confirm cancellation schedule"
+    },
+    "DS-014": {
+      "kind": "users",
+      "nav": "Dealer Group",
+      "page": "Locations",
+      "title": "Add dealership location",
+      "state": "New Welland location is configured and waiting for isolation tests",
+      "tabs": [
+        "Identity",
+        "Products",
+        "Data boundaries",
+        "Users",
+        "Testing"
+      ],
+      "activeTab": "Testing",
+      "metrics": [
+        [
+          "Group locations",
+          "4"
+        ],
+        [
+          "New users",
+          "6"
+        ],
+        [
+          "Products",
+          "DealerOS Pro"
+        ],
+        [
+          "Isolation tests",
+          "4 / 6"
+        ]
+      ],
+      "columns": [
+        "Test user",
+        "Allowed location",
+        "Expected access",
+        "Result"
+      ],
+      "rows": [
+        [
+          "Local Salesperson",
+          "Welland",
+          "Welland only",
+          "Passed"
+        ],
+        [
+          "Group Owner",
+          "All 4 locations",
+          "Switch + group reports",
+          "Passed"
+        ],
+        [
+          "Other-store Manager",
+          "St. Catharines",
+          "Welland blocked",
+          "Passed"
+        ]
+      ],
+      "action": "Activate tested location"
+    },
+    "CRM-040": {
+      "kind": "crm",
+      "nav": "CRM",
+      "page": "Customer ownership",
+      "title": "Transfer Jordan Lee",
+      "state": "Open CRM work is selected for transfer while completed history stays attributed",
+      "tabs": [
+        "Customer",
+        "Open work",
+        "Notifications",
+        "Audit preview"
+      ],
+      "activeTab": "Open work",
+      "metrics": [
+        [
+          "Open leads",
+          "1"
+        ],
+        [
+          "Open tasks",
+          "2"
+        ],
+        [
+          "Appointments",
+          "1"
+        ],
+        [
+          "Completed history",
+          "Preserved"
+        ]
+      ],
+      "fields": [
+        "Current owner · Alex Morgan",
+        "New owner · Mia Chen · active · scheduled today",
+        "Reason · Territory coverage change",
+        "Customer notice · Not required"
+      ],
+      "action": "Transfer selected work"
+    },
+    "SALES-040": {
+      "kind": "pipeline",
+      "nav": "Sales",
+      "page": "Task board",
+      "title": "Equinox delivery tasks",
+      "state": "Cross-department work is sequenced before today’s 4:00 PM delivery",
+      "stages": [
+        [
+          "To do",
+          "2"
+        ],
+        [
+          "In progress",
+          "2"
+        ],
+        [
+          "Blocked",
+          "1"
+        ],
+        [
+          "Complete",
+          "4"
+        ]
+      ],
+      "metrics": [
+        [
+          "Delivery",
+          "Today · 4:00 PM"
+        ],
+        [
+          "Time remaining",
+          "3 hr 18 min"
+        ],
+        [
+          "Checklist",
+          "4 / 6"
+        ]
+      ],
+      "rows": [
+        [
+          "Install floor liners",
+          "Parts",
+          "In progress"
+        ],
+        [
+          "Detail & fuel",
+          "Detail",
+          "Due 1:30 PM"
+        ],
+        [
+          "Licence plates",
+          "Admin",
+          "Blocked · registration"
+        ]
+      ],
+      "action": "Resolve blocked task"
+    },
+    "INV-042": {
+      "kind": "inventory",
+      "nav": "Inventory",
+      "page": "Duplicate VINs",
+      "title": "Duplicate VIN review",
+      "state": "Feed and manual records are compared before one is archived",
+      "metrics": [
+        [
+          "Duplicate groups",
+          "1"
+        ],
+        [
+          "Related records",
+          "9"
+        ],
+        [
+          "Active listings",
+          "1"
+        ],
+        [
+          "Decision",
+          "Review pending"
+        ]
+      ],
+      "columns": [
+        "Record",
+        "Source",
+        "Status",
+        "History"
+      ],
+      "rows": [
+        [
+          "N1042",
+          "Dealer feed",
+          "Available · current",
+          "Recon · photos · listing"
+        ],
+        [
+          "TEMP-8421",
+          "Manual entry",
+          "Draft · stale",
+          "One appraisal"
+        ]
+      ],
+      "action": "Merge into N1042"
+    },
+    "SVC-033": {
+      "kind": "service",
+      "nav": "Service",
+      "page": "Repair Orders",
+      "title": "Warranty & internal work",
+      "state": "Repair order separates warranty and used-vehicle internal lines",
+      "tabs": [
+        "Operations",
+        "Authorization",
+        "Claim",
+        "Posting"
+      ],
+      "activeTab": "Posting",
+      "metrics": [
+        [
+          "Warranty recovery",
+          "$684.20"
+        ],
+        [
+          "Internal expense",
+          "$412.50"
+        ],
+        [
+          "Customer due",
+          "$0.00"
+        ]
+      ],
+      "columns": [
+        "Operation",
+        "Responsibility",
+        "Labour / parts",
+        "Posting"
+      ],
+      "rows": [
+        [
+          "Infotainment module",
+          "Warranty",
+          "$684.20",
+          "Claim W-1842"
+        ],
+        [
+          "Used vehicle inspection",
+          "Internal · Sales",
+          "$412.50",
+          "Sales expense"
+        ]
+      ],
+      "action": "Finalize claim & posting"
+    },
+    "ACC-054": {
+      "kind": "accounting",
+      "nav": "Accounting",
+      "page": "Commission adjustments",
+      "title": "Commission clawback",
+      "state": "Unwound deal commission is calculated for the current open period",
+      "tabs": [
+        "Adjustments",
+        "Approvals",
+        "Statements",
+        "Audit"
+      ],
+      "activeTab": "Approvals",
+      "metrics": [
+        [
+          "Original paid",
+          "$640"
+        ],
+        [
+          "Clawback",
+          "-$640"
+        ],
+        [
+          "Current period net",
+          "$5,840"
+        ],
+        [
+          "Approvals",
+          "1 / 2"
+        ]
+      ],
+      "fields": [
+        "Employee · Alex Morgan",
+        "Original deal · #1048 · unwound Aug 5",
+        "Reason · Customer cancellation after funding reversal",
+        "Recovery · Current open pay period",
+        "Evidence · Unwind approval + lender cancellation"
+      ],
+      "action": "Approve clawback"
+    },
+    "MKT-036": {
+      "kind": "builder",
+      "nav": "Marketing",
+      "page": "Holiday campaigns",
+      "title": "Labour Day service campaign",
+      "state": "Audience, offer, local timing, and test messages are approved",
+      "tabs": [
+        "Event",
+        "Audience",
+        "Email",
+        "SMS",
+        "Schedule"
+      ],
+      "activeTab": "Schedule",
+      "metrics": [
+        [
+          "Eligible customers",
+          "842"
+        ],
+        [
+          "Suppressed",
+          "61"
+        ],
+        [
+          "Scheduled",
+          "Aug 28 · 9:15 AM"
+        ],
+        [
+          "Tests",
+          "4 / 4 passed"
+        ]
+      ],
+      "fields": [
+        "Offer · Fall inspection · $49.95 · expires Sep 14",
+        "Holiday hours · Service closed Sep 7",
+        "Audience · Customers due for maintenance in 60 days",
+        "Stop rule · Stop after booking or opt-out",
+        "Time zone · America/Toronto"
+      ],
+      "action": "Schedule approved campaign"
+    },
+    "MS-SEC-033": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Security events",
+      "title": "Suspicious account activity",
+      "state": "New API key and export from an unfamiliar IP are correlated",
+      "tabs": [
+        "Event",
+        "Related activity",
+        "Containment",
+        "Evidence",
+        "Resolution"
+      ],
+      "activeTab": "Containment",
+      "metrics": [
+        [
+          "Severity",
+          "High"
+        ],
+        [
+          "Related events",
+          "6"
+        ],
+        [
+          "Affected users",
+          "1"
+        ],
+        [
+          "Sessions revoked",
+          "2"
+        ]
+      ],
+      "columns": [
+        "Time",
+        "Security event",
+        "Source",
+        "Containment"
+      ],
+      "rows": [
+        [
+          "10:14 AM",
+          "api_key.created",
+          "IP 198.51.100.24",
+          "Key revoked"
+        ],
+        [
+          "10:18 AM",
+          "data.exported",
+          "Same unfamiliar IP",
+          "Download expired"
+        ],
+        [
+          "10:22 AM",
+          "session.revoked",
+          "Platform response",
+          "All other devices"
+        ]
+      ],
+      "action": "Record incident classification"
     }
   }
 }
