@@ -26959,6 +26959,230 @@ const DEPARTMENTS_CONFIG = {
       { key: 'webhook_url', label: 'Lead Webhook Callback URL', placeholder: 'https://api.yourdomain.com/webhook' },
       { key: 'mcp_server_url', label: 'MCP Server Endpoint', placeholder: 'https://mcp.yourdomain.com/sse' }
     ]
+  },
+  'crm-appointments': {
+    id: 'crm-appointments', title: 'Sales & CRM Appointments', badgeTitle: 'Appointment Coordinator', badgeIcon: '📅',
+    badgeDesc: 'You have configured Sales & CRM Appointments!',
+    stages: [
+      { num: '1', title: 'Calendar Sync', desc: 'Sync sales rep Google/Outlook calendars.' },
+      { num: '2', title: 'Automated Reminders', desc: 'Configure 24h & 2h pre-appointment SMS reminders.' },
+      { num: '3', title: 'Show-Rate Tracking', desc: 'Track appointment show rate and conversion to sale.' }
+    ],
+    tutorials: ['Sales calendar sync', 'Pre-appointment automated SMS reminders', 'Show rate conversion analytics'],
+    fields: [
+      { key: 'calendar_tz', label: 'Calendar Time Zone', placeholder: 'America/Toronto' },
+      { key: 'reminder_sms_lead_hours', label: 'SMS Reminder Lead Time (Hours)', placeholder: '24' }
+    ]
+  },
+  'crm-tasks': {
+    id: 'crm-tasks', title: 'Sales Tasks & Follow-Up Reminders', badgeTitle: 'Task Manager', badgeIcon: '✅',
+    badgeDesc: 'You have configured Sales Tasks & Follow-Up Reminders!',
+    stages: [
+      { num: '1', title: 'Auto-Task Assignment', desc: 'Create tasks on new lead intake.' },
+      { num: '2', title: 'Daily Rep Agenda', desc: 'Prioritize phone calls, emails, and SMS follow-ups.' },
+      { num: '3', title: 'SLA Escalation', desc: 'Escalate overdue tasks to sales manager.' }
+    ],
+    tutorials: ['Automatic task assignment rules', 'Daily rep follow-up queue', 'Manager task SLA escalation'],
+    fields: [
+      { key: 'default_task_due_hours', label: 'Default Follow-Up Task SLA (Hours)', placeholder: '2' },
+      { key: 'escalate_manager_email', label: 'Manager Escalation Email', placeholder: 'mgr@dealership.com' }
+    ]
+  },
+  'crm-opps': {
+    id: 'crm-opps', title: 'Opportunities Pipeline & Deal Stages', badgeTitle: 'Pipeline Strategist', badgeIcon: '🎯',
+    badgeDesc: 'You have configured Opportunities Pipeline & Deal Stages!',
+    stages: [
+      { num: '1', title: 'Stage Probability', desc: 'Set win probabilities for Uncontacted, Appointment, and Desking.' },
+      { num: '2', title: 'Rotting Alerts', desc: 'Flag deals inactive for more than 48 hours.' },
+      { num: '3', title: 'Forecast Reporting', desc: 'Project monthly front and back-end gross revenue.' }
+    ],
+    tutorials: ['Kanban deal stage probability', 'Stale deal rotting alerts', 'Monthly gross revenue forecasting'],
+    fields: [
+      { key: 'rotting_days', label: 'Stale Deal Alert Threshold (Days)', placeholder: '3' },
+      { key: 'target_monthly_deals', label: 'Target Monthly Unit Sales', placeholder: '45' }
+    ]
+  },
+  'sales-reports': {
+    id: 'sales-reports', title: 'Sales Reports & Rep Benchmarks', badgeTitle: 'Sales Analyst', badgeIcon: '📊',
+    badgeDesc: 'You have configured Sales Reports & Benchmarks!',
+    stages: [
+      { num: '1', title: 'Metric Selection', desc: 'Choose gross profit, conversion rate, and lead response metrics.' },
+      { num: '2', title: 'Rep Leaderboards', desc: 'Track sales rep volume and average front gross.' },
+      { num: '3', title: 'Executive Digest', desc: 'Automate weekly executive email reports.' }
+    ],
+    tutorials: ['Gross profit analytics', 'Rep performance leaderboard', 'Automated weekly email report digest'],
+    fields: [
+      { key: 'report_email_recipient', label: 'Executive Digest Email', placeholder: 'gm@dealership.com' },
+      { key: 'target_front_gross_per_unit', label: 'Target Front Gross / Unit ($)', placeholder: '2,200.00' }
+    ]
+  },
+  'fni-reports': {
+    id: 'fni-reports', title: 'F&I Reports & PVR Benchmarks', badgeTitle: 'F&I Analyst', badgeIcon: '📈',
+    badgeDesc: 'You have configured F&I Reports & PVR Benchmarks!',
+    stages: [
+      { num: '1', title: 'PVR Tracking', desc: 'Track Per Vehicle Retail (PVR) back-end income.' },
+      { num: '2', title: 'Product Penetration', desc: 'Monitor warranty, GAP, and chemical protection percentages.' },
+      { num: '3', title: 'Lender Mix', desc: 'Analyze lender approval and funded deal distribution.' }
+    ],
+    tutorials: ['PVR back-end income tracker', 'Product penetration percentage reporting', 'Lender approval mix analytics'],
+    fields: [
+      { key: 'target_pvr_goal', label: 'Target PVR Goal ($)', placeholder: '1,850.00' },
+      { key: 'warranty_penetration_goal', label: 'Warranty Penetration Target (%)', placeholder: '55.0' }
+    ]
+  },
+  'service-appointments': {
+    id: 'service-appointments', title: 'Service Appointments & Capacity', badgeTitle: 'Service Coordinator', badgeIcon: '📅',
+    badgeDesc: 'You have configured Service Appointments & Capacity!',
+    stages: [
+      { num: '1', title: 'Advisor Intake', desc: 'Schedule appointments per service advisor.' },
+      { num: '2', title: 'Bay Capacity', desc: 'Set maximum daily shop labor hours.' },
+      { num: '3', title: 'Automated Reminders', desc: 'Send appointment confirmation and SMS reminders.' }
+    ],
+    tutorials: ['Advisor appointment scheduling', 'Daily shop labor hour capacity limits', 'Automated SMS appointment reminders'],
+    fields: [
+      { key: 'max_daily_labor_hours', label: 'Max Daily Shop Capacity (Labor Hours)', placeholder: '64' },
+      { key: 'service_advisor_email', label: 'Service Lead Advisor Email', placeholder: 'service@dealership.com' }
+    ]
+  },
+  'acct-insights': {
+    id: 'acct-insights', title: 'Financial Insights & Profitability', badgeTitle: 'Financial Analyst', badgeIcon: '💡',
+    badgeDesc: 'You have configured Financial Insights & Profitability!',
+    stages: [
+      { num: '1', title: 'P&L Benchmarks', desc: 'Set target net margin and overhead cost caps.' },
+      { num: '2', title: 'Department Split', desc: 'Track gross contribution across Sales, F&I, Service, and Parts.' },
+      { num: '3', title: 'Variance Alerts', desc: 'Get notified when overhead exceeds budget.' }
+    ],
+    tutorials: ['Departmental P&L contribution tracking', 'Overhead cost cap alerts', 'Real-time store net profit estimation'],
+    fields: [
+      { key: 'target_net_margin_pct', label: 'Target Store Net Margin (%)', placeholder: '8.5' },
+      { key: 'monthly_overhead_cap', label: 'Monthly Overhead Cap ($)', placeholder: '65,000.00' }
+    ]
+  },
+  'acct-bank': {
+    id: 'acct-bank', title: 'Bank Accounts & Operating Accounts', badgeTitle: 'Treasury Officer', badgeIcon: '🏦',
+    badgeDesc: 'You have configured Bank Accounts & Operating Accounts!',
+    stages: [
+      { num: '1', title: 'Account Registration', desc: 'Register operating, payroll, and floorplan bank accounts.' },
+      { num: '2', title: 'Transit Routing', desc: 'Enter transit, institution, and account numbers.' },
+      { num: '3', title: 'Daily Feed Sync', desc: 'Connect bank feeds for automated reconciliation.' }
+    ],
+    tutorials: ['Operating & payroll account registration', 'Bank transit & routing configuration', 'Automated daily bank feed sync'],
+    fields: [
+      { key: 'operating_bank_name', label: 'Operating Bank Name', placeholder: 'Royal Bank / Chase / TD' },
+      { key: 'account_last4', label: 'Operating Account (Last 4 Digits)', placeholder: '9421' }
+    ]
+  },
+  'acct-expenses': {
+    id: 'acct-expenses', title: 'Expense Tracking & Approval Limits', badgeTitle: 'Expense Controller', badgeIcon: '💸',
+    badgeDesc: 'You have configured Expense Tracking & Approval Limits!',
+    stages: [
+      { num: '1', title: 'Expense Categories', desc: 'Configure vendor, floorplan interest, pack, and advertising categories.' },
+      { num: '2', title: 'Manager Approval Limits', desc: 'Set maximum expense amount requiring GM approval.' },
+      { num: '3', title: 'Invoice Scanning', desc: 'Scan and OCR vendor invoices for automated ledger posting.' }
+    ],
+    tutorials: ['Custom expense category taxonomy', 'Manager purchase order approval limits', 'Vendor invoice OCR ingestion'],
+    fields: [
+      { key: 'approval_limit_mgr', label: 'Manager Expense Approval Limit ($)', placeholder: '1,000.00' },
+      { key: 'default_pack_amount', label: 'Default Vehicle Stock Pack ($)', placeholder: '600.00' }
+    ]
+  },
+  'acct-budget': {
+    id: 'acct-budget', title: 'Monthly Budgeting & Variance', badgeTitle: 'Budget Director', badgeIcon: '📊',
+    badgeDesc: 'You have configured Monthly Budgeting & Variance!',
+    stages: [
+      { num: '1', title: 'Budget Allocation', desc: 'Allocate monthly budgets for Marketing, Personnel, and Facilities.' },
+      { num: '2', title: 'Variance Tracking', desc: 'Compare actual spend against budget in real-time.' },
+      { num: '3', title: 'Overrun Warning', desc: 'Trigger alerts when department spend hits 90% of budget.' }
+    ],
+    tutorials: ['Departmental budget allocation', 'Real-time spend vs budget tracking', 'Budget overrun early warning alerts'],
+    fields: [
+      { key: 'monthly_marketing_budget', label: 'Monthly Marketing Budget ($)', placeholder: '12,500.00' },
+      { key: 'budget_alert_pct', label: 'Budget Alert Threshold (%)', placeholder: '90' }
+    ]
+  },
+  'acct-reports': {
+    id: 'acct-reports', title: 'Financial Reports & CPA Export', badgeTitle: 'Reporting Officer', badgeIcon: '📑',
+    badgeDesc: 'You have configured Financial Reports & CPA Export!',
+    stages: [
+      { num: '1', title: 'Fiscal Year Setup', desc: 'Set store fiscal year start month.' },
+      { num: '2', title: 'Report Templates', desc: 'Balance sheet, Income statement, Trial balance, and Tax summary.' },
+      { num: '3', title: 'CPA Export', desc: 'Export trial balance and transaction ledger to Excel / CSV / QuickBooks.' }
+    ],
+    tutorials: ['Fiscal year period configuration', 'Standard financial statement generation', 'QuickBooks / CSV ledger export'],
+    fields: [
+      { key: 'fiscal_start_month', label: 'Fiscal Year Start Month', placeholder: 'January' },
+      { key: 'export_format', label: 'Default CPA Export Format', placeholder: 'CSV / Excel' }
+    ]
+  },
+  'facebook-autoposter': {
+    id: 'facebook-autoposter', title: 'Facebook Marketplace Autoposter', badgeTitle: 'Marketplace Automation Specialist', badgeIcon: '📱',
+    badgeDesc: 'You have configured Facebook Marketplace Autoposter!',
+    stages: [
+      { num: '1', title: 'Extension Sync', desc: 'Connect MarketSync Chrome Extension.' },
+      { num: '2', title: 'Listing Template', desc: 'Format AI-generated sales copy and photo ordering.' },
+      { num: '3', title: '1-Click Execution', desc: 'Post inventory listings to Facebook Marketplace in seconds.' }
+    ],
+    tutorials: ['Chrome Extension connection', 'AI listing description generator', '1-click Facebook Marketplace posting'],
+    fields: [
+      { key: 'fb_location_city', label: 'Facebook Marketplace Primary City', placeholder: 'Toronto, ON' },
+      { key: 'auto_include_vin', label: 'Include VIN in Listing Copy', placeholder: 'Yes' }
+    ]
+  },
+  'ai-chatbot': {
+    id: 'ai-chatbot', title: 'AI Assistant ChatBot Widget', badgeTitle: 'AI Operations Specialist', badgeIcon: '🤖',
+    badgeDesc: 'You have configured AI Assistant ChatBot Widget!',
+    stages: [
+      { num: '1', title: 'Widget Embedding', desc: 'Embed 24/7 AI chat widget on your dealership website.' },
+      { num: '2', title: 'Knowledge Base', desc: 'Train AI on store inventory, location, hours, and financing terms.' },
+      { num: '3', title: 'Lead Capture & Booking', desc: 'Automatically capture lead contact info and book test drives.' }
+    ],
+    tutorials: ['Website AI chat widget installation', 'Inventory & store rules training', 'Automated test drive booking'],
+    fields: [
+      { key: 'chatbot_greeting', label: 'Welcome Greeting Message', placeholder: 'Hi! Looking for a vehicle or scheduling service?' },
+      { key: 'lead_notify_email', label: 'Lead Notification Email', placeholder: 'leads@dealership.com' }
+    ]
+  },
+  leaderboard: {
+    id: 'leaderboard', title: 'Sales Leaderboard & Gamification', badgeTitle: 'Gamification Director', badgeIcon: '🏆',
+    badgeDesc: 'You have configured Sales Leaderboard & Gamification!',
+    stages: [
+      { num: '1', title: 'Points Rules', desc: 'Award points for units sold, test drives, and customer reviews.' },
+      { num: '2', title: 'TV Display Mode', desc: 'Launch full-screen leaderboard for showroom TV displays.' },
+      { num: '3', title: 'Monthly Rewards', desc: 'Track sales rep rankings and monthly bonus rewards.' }
+    ],
+    tutorials: ['Sales points scoring rules', 'Showroom TV display mode', 'Rep ranking & bonus reward tracking'],
+    fields: [
+      { key: 'pts_per_sale', label: 'Points Per Unit Sold', placeholder: '100' },
+      { key: 'pts_per_review', label: 'Points Per 5-Star Review', placeholder: '25' }
+    ]
+  },
+  taskboard: {
+    id: 'taskboard', title: 'Operations Taskboard & Kanban', badgeTitle: 'Kanban Master', badgeIcon: '📋',
+    badgeDesc: 'You have configured Operations Taskboard & Kanban!',
+    stages: [
+      { num: '1', title: 'Column Layout', desc: 'Configure columns: To Do, In Progress, Review, Completed.' },
+      { num: '2', title: 'Task Assignment', desc: 'Assign tasks to reps, detailers, and drivers.' },
+      { num: '3', title: 'Priority Tags', desc: 'Set urgent, high, and normal priority badges.' }
+    ],
+    tutorials: ['Operational task Kanban layout', 'Team member task assignment', 'Priority escalation tags'],
+    fields: [
+      { key: 'default_task_assignee', label: 'Default Operations Task Assignee', placeholder: 'Detail Dept' },
+      { key: 'high_priority_color', label: 'High Priority Color', placeholder: 'Rose / Red' }
+    ]
+  },
+  academy: {
+    id: 'academy', title: 'MarketSync Training Academy', badgeTitle: 'Certified Master', badgeIcon: '🎓',
+    badgeDesc: 'You have configured MarketSync Training Academy!',
+    stages: [
+      { num: '1', title: '200 Masterclass Lessons', desc: 'Complete lessons across Sales, CRM, Inventory, and F&I.' },
+      { num: '2', title: 'Interactive Quizzes', desc: 'Test knowledge with real-world dealership scenario quizzes.' },
+      { num: '3', title: 'Certificates', desc: 'Earn official printable certificates and LinkedIn badges.' }
+    ],
+    tutorials: ['200 dealership masterclass lessons', 'Interactive knowledge checks', 'Printable PDF certificates & LinkedIn integration'],
+    fields: [
+      { key: 'trainee_name', label: 'Primary Trainee Name', placeholder: 'John Doe' },
+      { key: 'cert_title', label: 'Certificate Title', placeholder: 'Certified Digital Dealership Specialist' }
+    ]
   }
 };
 

@@ -248,6 +248,81 @@
       { target: '[data-page-content="api-keys"]', before: () => goPage('api-keys'), title: '1. REST API Keys (Left)', body: `Generate API tokens for custom DMS, CRM, and inventory integrations.` },
       { target: '[data-page-content="api-keys"]', before: () => goPage('api-keys'), title: '2. Webhook Callbacks (Center)', body: `Subscribe to real-time events for new leads, deal deliveries, and inventory changes.` },
       { target: '[data-page-content="api-keys"]', before: () => goPage('api-keys'), title: '3. MCP Server Connections (Right)', body: `Connect Model Context Protocol (MCP) servers for AI copilot tool expansion.` }
+    ],
+    'crm-appointments': [
+      { target: '[data-page-content="crm"]', before: () => { openGroup('crm'); goPage('appointments'); }, title: '1. Calendar View (Left)', body: `View scheduled test drives and sales appointments.` },
+      { target: '[data-page-content="crm"]', before: () => goPage('appointments'), title: '2. SMS Reminders (Center)', body: `Automate 24-hour and 2-hour pre-appointment customer SMS text reminders.` },
+      { target: '[data-page-content="crm"]', before: () => goPage('appointments'), title: '3. Show Rate Analytics (Right)', body: `Track customer appointment show rates and conversion to sold deals!` }
+    ],
+    'crm-tasks': [
+      { target: '[data-page-content="crm"]', before: () => { openGroup('crm'); goPage('tasks'); }, title: '1. Task Agenda (Left)', body: `Prioritize daily rep phone calls, emails, and follow-up activities.` },
+      { target: '[data-page-content="crm"]', before: () => goPage('tasks'), title: '2. Auto-Task Engine (Center)', body: `Tasks are auto-created when new leads arrive from Facebook or Website.` },
+      { target: '[data-page-content="crm"]', before: () => goPage('tasks'), title: '3. Overdue Escalations (Right)', body: `Overdue follow-ups automatically alert sales managers for review.` }
+    ],
+    'crm-opps': [
+      { target: '[data-page-content="crm"]', before: () => { openGroup('crm'); goPage('crm'); }, title: '1. Opportunities Pipeline (Left)', body: `Drag deal cards through pipeline stages from Lead to Delivered.` },
+      { target: '[data-page-content="crm"]', before: () => goPage('crm'), title: '2. Rotting Alerts (Center)', body: `Stale deals inactive over 48h are automatically highlighted.` },
+      { target: '[data-page-content="crm"]', before: () => goPage('crm'), title: '3. Forecast Revenue (Right)', body: `Project monthly front and back-end gross profit based on win probability.` }
+    ],
+    'sales-reports': [
+      { target: '[data-page-content="reports"]', before: () => goPage('reports'), title: '1. Gross Profit Reports (Left)', body: `Analyze total front-end and back-end gross revenue by sales rep.` },
+      { target: '[data-page-content="reports"]', before: () => goPage('reports'), title: '2. Conversion Funnel (Center)', body: `Track lead-to-appointment and appointment-to-sale conversion rates.` },
+      { target: '[data-page-content="reports"]', before: () => goPage('reports'), title: '3. Executive Email Digest (Right)', body: `Automate weekly PDF & CSV report digests sent to dealership leadership.` }
+    ],
+    'fni-reports': [
+      { target: '[data-page-content="fni"]', before: () => { openGroup('sales'); goPage('fni'); }, title: '1. PVR Benchmarks (Left)', body: `Track Per Vehicle Retail (PVR) back-end gross profit per deal.` },
+      { target: '[data-page-content="fni"]', before: () => goPage('fni'), title: '2. Product Penetration (Center)', body: `Monitor warranty, GAP, tire & wheel, and chemical protection percentages.` },
+      { target: '[data-page-content="fni"]', before: () => goPage('fni'), title: '3. Lender Approval Mix (Right)', body: `Analyze lender approval rates and funded contract distribution.` }
+    ],
+    'service-appointments': [
+      { target: '[data-page-content="service-appointments"]', before: () => { openGroup('service'); goPage('service-appointments'); }, title: '1. Service Intake (Left)', body: `Schedule repair orders and maintenance appointments.` },
+      { target: '[data-page-content="service-appointments"]', before: () => goPage('service-appointments'), title: '2. Shop Capacity (Center)', body: `Set maximum daily shop labor hour capacity.` },
+      { target: '[data-page-content="service-appointments"]', before: () => goPage('service-appointments'), title: '3. Automated Reminders (Right)', body: `Send appointment confirmation and SMS text reminders to customers.` }
+    ],
+    'acct-insights': [
+      { target: '[data-page-content="accounting"]', before: () => { openGroup('accounting'); goPage('acct-insights'); }, title: '1. P&L Net Margin (Left)', body: `Track real-time store net profit margin and contribution.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-insights'), title: '2. Department Contribution (Center)', body: `Break down profit contribution across Sales, F&I, Service, and Parts.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-insights'), title: '3. Overhead Cap Warning (Right)', body: `Receive alerts when store overhead exceeds budgeted limits.` }
+    ],
+    'acct-bank': [
+      { target: '[data-page-content="accounting"]', before: () => { openGroup('accounting'); goPage('acct-bank'); }, title: '1. Operating Accounts (Left)', body: `Manage operating, payroll, and floorplan bank accounts.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-bank'), title: '2. Transit Routing (Center)', body: `Set up bank transit, institution, and account routing numbers.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-bank'), title: '3. Bank Feed Connection (Right)', body: `Connect daily bank feeds for automatic transaction reconciliation.` }
+    ],
+    'acct-expenses': [
+      { target: '[data-page-content="accounting"]', before: () => { openGroup('accounting'); goPage('acct-expenses'); }, title: '1. Expense Categories (Left)', body: `Track vendor, advertising, pack, and floorplan interest expenses.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-expenses'), title: '2. Approval Limits (Center)', body: `Set purchase order and manager expense approval caps.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-expenses'), title: '3. Invoice OCR (Right)', body: `Scan vendor invoices for automated general ledger posting.` }
+    ],
+    'acct-budget': [
+      { target: '[data-page-content="accounting"]', before: () => { openGroup('accounting'); goPage('acct-budget'); }, title: '1. Budget Allocation (Left)', body: `Allocate monthly budgets for Marketing, Personnel, and Facilities.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-budget'), title: '2. Spend vs Budget (Center)', body: `Compare real-time department spend against allocated budget.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-budget'), title: '3. Budget Overrun Alert (Right)', body: `Get notified when department spend reaches 90% of budget cap.` }
+    ],
+    'acct-reports': [
+      { target: '[data-page-content="accounting"]', before: () => { openGroup('accounting'); goPage('acct-reports'); }, title: '1. Fiscal Period Setup (Left)', body: `Configure fiscal year start month and accounting periods.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-reports'), title: '2. Financial Statements (Center)', body: `Generate Income Statements, Balance Sheets, and Trial Balances.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-reports'), title: '3. CPA Export (Right)', body: `Export transaction ledgers directly to QuickBooks, CSV, or Excel.` }
+    ],
+    'facebook-autoposter': [
+      { target: '#install-ext-btn', before: () => goPage('inventory'), title: '1. Extension Sync (Left)', body: `Connect MarketSync Chrome Extension for 1-click posting.` },
+      { target: '[data-page-content="inventory"]', before: () => goPage('inventory'), title: '2. Listing Template (Center)', body: `Format AI-generated vehicle descriptions and photo sequence.` },
+      { target: '#install-ext-btn', before: () => goPage('inventory'), title: '3. 1-Click Post (Right)', body: `Push inventory listings to Facebook Marketplace in seconds!` }
+    ],
+    'ai-chatbot': [
+      { target: '[data-page-content="website"]', before: () => { openGroup('web'); goPage('website'); }, title: '1. Embed Widget (Left)', body: `Embed 24/7 AI chat assistant widget on your website.` },
+      { target: '[data-page-content="website"]', before: () => goPage('website'), title: '2. Knowledge Base (Center)', body: `Train AI on inventory specs, financing, location, and store hours.` },
+      { target: '[data-page-content="website"]', before: () => goPage('website'), title: '3. Test Drive Booking (Right)', body: `AI automatically qualifies leads and schedules test drives on your calendar.` }
+    ],
+    leaderboard: [
+      { target: '[data-page-content="reports"]', before: () => goPage('reports'), title: '1. Points Rules (Left)', body: `Award points for units sold, test drives, and customer reviews.` },
+      { target: '[data-page-content="reports"]', before: () => goPage('reports'), title: '2. Showroom TV Display (Center)', body: `Launch full-screen leaderboard for live showroom TV displays.` },
+      { target: '[data-page-content="reports"]', before: () => goPage('reports'), title: '3. Rep Rewards (Right)', body: `Track monthly rep rankings and bonus reward payouts.` }
+    ],
+    taskboard: [
+      { target: '[data-page-content="taskboard"]', before: () => goPage('taskboard'), title: '1. Kanban Columns (Left)', body: `Organize tasks: To Do, In Progress, Review, Completed.` },
+      { target: '[data-page-content="taskboard"]', before: () => goPage('taskboard'), title: '2. Team Assignments (Center)', body: `Assign tasks to sales reps, detailers, and transport drivers.` },
+      { target: '[data-page-content="taskboard"]', before: () => goPage('taskboard'), title: '3. Priority Badges (Right)', body: `Highlight urgent tasks with priority escalation badges.` }
     ]
   };
 
