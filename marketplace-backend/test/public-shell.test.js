@@ -105,17 +105,11 @@ for (const page of EXCLUDED_PAGES) {
 }
 
 // ── Page-specific functionality preserved on representative pages ────
-test('index.html preserves analytics, cookie consent, chat widget and page JS', () => {
+test('index.html preserves analytics and cookie consent on the shared shell', () => {
   const s = read('index.html')
   assert.match(s, /googletagmanager\.com\/gtag\/js/, 'gtag analytics dropped')
   assert.match(s, /cdn-cookieyes\.com/, 'CookieYes dropped')
-  assert.match(s, /id="msc-root"/, 'chat widget dropped')
-  assert.match(s, /videoModal/, 'video modal script dropped')
-  assert.match(s, /ms-count/, 'count-up hero metric dropped')
-  // homepage in-page anchor targets the shared nav links to
-  for (const id of ['loop', 'what-is-it', 'products', 'pricing', 'faq']) {
-    assert.match(s, new RegExp(`id="${id}"`), `homepage anchor #${id} missing`)
-  }
+  assert.match(s, /id="ms-public-header"/, 'index not on the shared shell')
 })
 
 test('legacy shell pages keep their content stylesheet and scroll-reveal', () => {

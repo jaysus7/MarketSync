@@ -9,8 +9,9 @@
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="apple-touch-icon" href="/favicon.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
+    <script>tailwind.config = { darkMode:'media' }</script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/site-marketing.css">
     <style>
         .sync-color { color: #6366F1; }
         .gradient-text { background: linear-gradient(135deg, #A78BFA 0%, #6366F1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -25,16 +26,14 @@
     <meta property="og:title" content="Security &amp; Data Protection — MarketSync">
     <meta property="og:description" content="Encryption, isolation, access control and auditing — how MarketSync keeps dealership and customer data safe.">
     <meta property="og:url" content="https://marketsync.link/security.html">
-    <!-- Automatic OS dark/light before first paint (no flash) -->
-    <script>(function(){try{if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark');}catch(e){}})();</script>
-    <script src="/assets/auth.js" defer></script>
-    <script src="/assets/public-shell.js" defer></script>
+  <!-- Automatic OS dark/light before first paint (no flash) -->
+  <script>(function(){try{if(window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");}catch(e){}})();</script>
 </head>
 <body class="bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-gray-200 antialiased">
 
     <div id="ms-public-header"></div>
 
-<main>
+    <main>
     <!-- Hero -->
     <section class="max-w-4xl mx-auto px-6 pt-16 pb-8 text-center">
         <p class="text-sm font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-4"><i class="fa-solid fa-shield-halved mr-2"></i>Security &amp; Data Protection</p>
@@ -111,6 +110,7 @@
     </main>
 
     <div id="ms-public-footer"></div>
-
+    <script src="/assets/auth.js" defer></script>
+  <script src="/assets/public-shell.js" defer></script>
 </body>
 </html>
