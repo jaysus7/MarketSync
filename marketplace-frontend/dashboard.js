@@ -12112,6 +12112,15 @@ let __builderActiveBlockIdx = null;
 let __builderDeviceView = 'desktop'; // 'desktop' | 'mobile'
 let __builderMeta = { id: null, name: '', subject: '', isTemplate: false };
 
+function getDealerBranding() {
+  const name = profileContext?.dealership?.name || profileContext?.dealershipName || 'MarketSync Motors';
+  const logo = profileContext?.dealership?.logo_url || profileContext?.dealership?.logo || '';
+  const phone = profileContext?.dealership?.phone || profileContext?.dealership?.phone_number || '(555) 019-2831';
+  const address = profileContext?.dealership?.address || profileContext?.dealership?.location || '100 Motorway Blvd, Auto City';
+  const website = profileContext?.dealership?.website_url || 'https://marketsync.site';
+  return { name, logo, phone, address, website };
+}
+
 const BUILDER_STARTER_TEMPLATES = {
   inventory: {
     name: 'New Inventory Showcase',
@@ -12149,87 +12158,97 @@ const BUILDER_STARTER_TEMPLATES = {
 };
 
 function compileBlocksToHtml(blocks) {
+  const bBrand = getDealerBranding();
   const blockHtmls = (blocks || []).map(b => {
     if (b.type === 'header') {
+      const titleText = (b.logoText || bBrand.name).replace(/\{\{dealership\}\}/gi, bBrand.name);
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: ${b.bgColor || '#0f172a'}; padding: 24px 30px; text-align: center; border-radius: 12px 12px 0 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: ${b.bgColor || '#0f172a'}; padding: 32px 36px; text-align: center; border-radius: 16px 16px 0 0;">
           <tr>
             <td>
-              <h1 style="color: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">${esc(b.logoText || 'Dealership')}</h1>
-              <p style="color: #94a3b8; font-family: system-ui, -apple-system, sans-serif; font-size: 12px; margin: 4px 0 0 0; text-transform: uppercase; letter-spacing: 1px;">${esc(b.subtitle || '')}</p>
+              ${(b.logoUrl || bBrand.logo) ? `<img src="${esc(b.logoUrl || bBrand.logo)}" alt="${esc(titleText)}" style="max-height: 48px; max-width: 200px; margin-bottom: 12px; object-fit: contain;">` : ''}
+              <h1 style="color: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-size: 24px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">${esc(titleText)}</h1>
+              <p style="color: #94a3b8; font-family: system-ui, -apple-system, sans-serif; font-size: 13px; margin: 6px 0 0 0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">${esc(b.subtitle || '')}</p>
             </td>
           </tr>
         </table>`;
     }
     if (b.type === 'hero') {
+      const headlineText = (b.headline || '').replace(/\{\{dealership\}\}/gi, bBrand.name);
+      const bodyText = (b.body || '').replace(/\{\{dealership\}\}/gi, bBrand.name);
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 24px 30px; border-bottom: 1px solid #f1f5f9;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 32px 36px; border-bottom: 1px solid #f1f5f9;">
           <tr>
             <td>
-              ${b.imageUrl ? `<img src="${esc(b.imageUrl)}" alt="Hero" style="width: 100%; max-height: 280px; object-fit: cover; border-radius: 8px; margin-bottom: 16px;">` : ''}
-              <h2 style="color: #0f172a; font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; margin: 0 0 10px 0;">${esc(b.headline || '')}</h2>
-              <p style="color: #475569; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; margin: 0;">${esc(b.body || '').replace(/\n/g, '<br>')}</p>
+              ${b.imageUrl ? `<img src="${esc(b.imageUrl)}" alt="Hero" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">` : ''}
+              <h2 style="color: #0f172a; font-family: system-ui, -apple-system, sans-serif; font-size: 22px; font-weight: 800; margin: 0 0 12px 0; line-height: 1.3;">${esc(headlineText)}</h2>
+              <p style="color: #475569; font-family: system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.65; margin: 0;">${esc(bodyText).replace(/\n/g, '<br>')}</p>
             </td>
           </tr>
         </table>`;
     }
     if (b.type === 'text') {
+      const titleText = (b.title || '').replace(/\{\{dealership\}\}/gi, bBrand.name);
+      const contentText = (b.content || '').replace(/\{\{dealership\}\}/gi, bBrand.name);
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 20px 30px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 28px 36px;">
           <tr>
             <td>
-              ${b.title ? `<h3 style="color: #0f172a; font-family: system-ui, -apple-system, sans-serif; font-size: 16px; font-weight: 700; margin: 0 0 8px 0;">${esc(b.title)}</h3>` : ''}
-              <p style="color: #334155; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; margin: 0;">${esc(b.content || '').replace(/\n/g, '<br>')}</p>
+              ${titleText ? `<h3 style="color: #0f172a; font-family: system-ui, -apple-system, sans-serif; font-size: 17px; font-weight: 700; margin: 0 0 10px 0;">${esc(titleText)}</h3>` : ''}
+              <p style="color: #334155; font-family: system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.65; margin: 0;">${esc(contentText).replace(/\n/g, '<br>')}</p>
             </td>
           </tr>
         </table>`;
     }
     if (b.type === 'vehicle') {
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; margin: 16px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-radius: 14px; margin: 20px 0;">
           <tr>
-            <td width="40%" style="vertical-align: top; padding-right: 16px;">
-              <img src="${esc(b.img || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80')}" alt="Vehicle" style="width: 100%; border-radius: 8px; object-fit: cover; aspect-ratio: 4/3;">
+            <td width="42%" style="vertical-align: top; padding-right: 20px;">
+              <img src="${esc(b.img || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80')}" alt="Vehicle" style="width: 100%; border-radius: 10px; object-fit: cover; aspect-ratio: 4/3; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             </td>
-            <td width="60%" style="vertical-align: top;">
-              <span style="background-color: #e0e7ff; color: #4338ca; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">${esc(b.stockNumber || 'FEATURED UNIT')}</span>
-              <h4 style="color: #0f172a; font-family: system-ui, -apple-system, sans-serif; font-size: 16px; font-weight: 800; margin: 8px 0 4px 0;">${esc(b.yearMakeModel || 'Vehicle Name')}</h4>
-              <div style="color: #059669; font-family: system-ui, -apple-system, sans-serif; font-size: 18px; font-weight: 900; margin-bottom: 12px;">${esc(b.price || '$0')}</div>
-              <a href="${esc(b.url || '#')}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 700; padding: 8px 16px; border-radius: 6px; text-decoration: none;">${esc(b.ctaText || 'View Details')}</a>
+            <td width="58%" style="vertical-align: top;">
+              <span style="background-color: #e0e7ff; color: #4338ca; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 6px; text-transform: uppercase;">${esc(b.stockNumber || 'FEATURED UNIT')}</span>
+              <h4 style="color: #0f172a; font-family: system-ui, -apple-system, sans-serif; font-size: 17px; font-weight: 800; margin: 10px 0 6px 0; line-height: 1.3;">${esc(b.yearMakeModel || 'Vehicle Name')}</h4>
+              <div style="color: #059669; font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 900; margin-bottom: 14px;">${esc(b.price || '$0')}</div>
+              <a href="${esc(b.url || bBrand.website || '#')}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 700; padding: 10px 18px; border-radius: 8px; text-decoration: none; box-shadow: 0 2px 4px rgba(79,70,229,0.2);">${esc(b.ctaText || 'View Details')}</a>
             </td>
           </tr>
         </table>`;
     }
     if (b.type === 'promo') {
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #fefce8; border: 2px dashed #eab308; padding: 20px 24px; border-radius: 12px; text-align: center; margin: 16px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #fefce8; border: 2px dashed #eab308; padding: 24px 28px; border-radius: 14px; text-align: center; margin: 20px 0;">
           <tr>
             <td>
-              <span style="background-color: #ca8a04; color: #ffffff; font-size: 10px; font-weight: 900; padding: 3px 10px; border-radius: 12px; text-transform: uppercase; letter-spacing: 1px;">${esc(b.badge || 'PROMO')}</span>
-              <h3 style="color: #854d0e; font-family: system-ui, -apple-system, sans-serif; font-size: 18px; font-weight: 900; margin: 10px 0 4px 0;">${esc(b.text || '')}</h3>
-              <p style="color: #a16207; font-family: system-ui, -apple-system, sans-serif; font-size: 12px; margin: 0; font-weight: 600;">${esc(b.expire || '')}</p>
+              <span style="background-color: #ca8a04; color: #ffffff; font-size: 11px; font-weight: 900; padding: 4px 12px; border-radius: 12px; text-transform: uppercase; letter-spacing: 1px;">${esc(b.badge || 'PROMO')}</span>
+              <h3 style="color: #854d0e; font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 900; margin: 12px 0 6px 0;">${esc(b.text || '')}</h3>
+              <p style="color: #a16207; font-family: system-ui, -apple-system, sans-serif; font-size: 13px; margin: 0; font-weight: 600;">${esc(b.expire || '')}</p>
             </td>
           </tr>
         </table>`;
     }
     if (b.type === 'cta') {
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 20px 30px; text-align: center;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 28px 36px; text-align: center;">
           <tr>
             <td>
-              <a href="${esc(b.url || '#')}" style="display: inline-block; background-color: ${b.bgColor || '#4f46e5'}; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-size: 15px; font-weight: 800; padding: 14px 28px; border-radius: 8px; text-decoration: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">${esc(b.label || 'Click Here')}</a>
+              <a href="${esc(b.url || bBrand.website || '#')}" style="display: inline-block; background-color: ${b.bgColor || '#4f46e5'}; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-size: 16px; font-weight: 800; padding: 14px 32px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 12px rgba(79,70,229,0.25);">${esc(b.label || 'Click Here')}</a>
             </td>
           </tr>
         </table>`;
     }
     if (b.type === 'footer') {
+      const storeText = (b.storeName || bBrand.name).replace(/\{\{dealership\}\}/gi, bBrand.name);
+      const addrText = b.address || bBrand.address;
+      const phoneText = b.phone || bBrand.phone;
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 24px 30px; text-align: center; border-radius: 0 0 12px 12px; border-top: 1px solid #e2e8f0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 32px 36px; text-align: center; border-radius: 0 0 16px 16px; border-top: 1px solid #e2e8f0;">
           <tr>
             <td>
-              <p style="color: #64748b; font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 700; margin: 0 0 4px 0;">${esc(b.storeName || 'Dealership')}</p>
-              <p style="color: #94a3b8; font-family: system-ui, -apple-system, sans-serif; font-size: 11px; margin: 0 0 10px 0;">${esc(b.address || '')} · ${esc(b.phone || '')}</p>
-              <p style="color: #cbd5e1; font-family: system-ui, -apple-system, sans-serif; font-size: 10px; margin: 0;"><a href="#" style="color: #94a3b8; text-decoration: underline;">${esc(b.unsubscribeText || 'Unsubscribe')}</a></p>
+              <p style="color: #475569; font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 800; margin: 0 0 6px 0;">${esc(storeText)}</p>
+              <p style="color: #64748b; font-family: system-ui, -apple-system, sans-serif; font-size: 12px; margin: 0 0 12px 0;">${esc(addrText)} · ${esc(phoneText)}</p>
+              <p style="color: #cbd5e1; font-family: system-ui, -apple-system, sans-serif; font-size: 11px; margin: 0;"><a href="#" style="color: #94a3b8; text-decoration: underline;">${esc(b.unsubscribeText || 'Unsubscribe')}</a></p>
             </td>
           </tr>
         </table>`;
@@ -12237,10 +12256,11 @@ function compileBlocksToHtml(blocks) {
     return '';
   }).join('');
 
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="background-color: #f1f5f9; margin: 0; padding: 20px; font-family: system-ui, -apple-system, sans-serif;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table role="presentation" width="100%" style="max-width: 620px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);" cellpadding="0" cellspacing="0"><tr><td>${blockHtmls}</td></tr></table></td></tr></table></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="background-color: #f1f5f9; margin: 0; padding: 40px 20px; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table role="presentation" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04); border: 1px solid #e2e8f0;" cellpadding="0" cellspacing="0"><tr><td style="padding: 0;">${blockHtmls}</td></tr></table></td></tr></table></body></html>`;
 }
 
 function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false) {
+  const bBrand = getDealerBranding();
   let presetKey = 'inventory';
   if (typeof targetItem === 'string') {
     presetKey = targetItem;
@@ -12258,8 +12278,8 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
   } else {
     __builderMeta = {
       id: null,
-      name: preset.name,
-      subject: preset.subject,
+      name: preset.name.replace(/\{\{dealership\}\}/gi, bBrand.name),
+      subject: preset.subject.replace(/\{\{dealership\}\}/gi, bBrand.name),
       isTemplate: !!isTemplate
     };
     __builderBlocks = JSON.parse(JSON.stringify(preset.blocks));
@@ -12275,12 +12295,16 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-violet-600 text-white flex items-center justify-center font-black">🎨</div>
           <div>
-            <h2 class="text-lg font-black text-slate-900 dark:text-white leading-tight">Visual Email Builder ${__builderMeta.isTemplate ? '(Template Editor)' : '(Campaign Studio)'}</h2>
+            <div class="flex items-center gap-2">
+              <h2 class="text-lg font-black text-slate-900 dark:text-white leading-tight">Visual Email Builder ${__builderMeta.isTemplate ? '(Template Editor)' : '(Campaign Studio)'}</h2>
+              <span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 flex items-center gap-1">🏢 ${esc(bBrand.name)}</span>
+            </div>
             <p class="text-xs text-slate-500 dark:text-slate-400">Drag, customize blocks &amp; send responsive email campaigns.</p>
           </div>
         </div>
 
         <div class="flex items-center gap-2">
+          <button onclick="openEmailFullPreviewModal()" class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition flex items-center gap-1.5 shadow-sm border border-indigo-200/60 dark:border-indigo-800/60">👁️ Preview Email</button>
           <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
             <button onclick="setBuilderDevice('desktop')" id="btn-device-desktop" class="px-2.5 py-1 text-xs font-bold rounded-md bg-white dark:bg-slate-900 text-indigo-600 shadow-sm">💻 Desktop</button>
             <button onclick="setBuilderDevice('mobile')" id="btn-device-mobile" class="px-2.5 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">📱 Mobile</button>
@@ -12317,7 +12341,7 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
             <div>
               <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email Subject Line</label>
               <div class="flex gap-2">
-                <input id="mb-subject" value="${esc(__builderMeta.subject || preset.subject)}" class="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
+                <input id="mb-subject" value="${esc((__builderMeta.subject || preset.subject).replace(/\{\{dealership\}\}/gi, bBrand.name))}" class="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
                 <button onclick="generateAiEmailSubject()" title="AI Write Subject" class="px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg text-xs font-black shadow-sm shrink-0 flex items-center gap-1">✨ AI</button>
               </div>
             </div>
@@ -12349,9 +12373,9 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
         </div>
 
         <!-- Right Column: Live Visual Canvas -->
-        <div class="lg:col-span-7 flex flex-col bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 overflow-y-auto items-center min-h-0">
-          <div id="builder-canvas-wrapper" class="w-full transition-all duration-300 max-w-[620px]">
-            <div id="builder-canvas" class="bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden divide-y divide-dashed divide-slate-200 dark:divide-slate-800">
+        <div class="lg:col-span-7 flex flex-col bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-6 overflow-y-auto items-center min-h-0">
+          <div id="builder-canvas-wrapper" class="w-full transition-all duration-300 max-w-[620px] p-6 bg-slate-200/80 dark:bg-slate-900/80 rounded-2xl border border-slate-300/60 dark:border-slate-800/60 shadow-inner">
+            <div id="builder-canvas" class="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden divide-y divide-dashed divide-slate-200 dark:divide-slate-800">
               <!-- Live compiled blocks render here -->
             </div>
           </div>
@@ -12373,6 +12397,40 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
   renderBuilderCanvas();
   renderBlockInspector();
 }
+window.openMailchimpEmailBuilder = openMailchimpEmailBuilder;
+
+function openEmailFullPreviewModal() {
+  const html = compileBlocksToHtml(__builderBlocks);
+  const bBrand = getDealerBranding();
+  const subject = document.getElementById('mb-subject')?.value || __builderMeta.subject || 'Campaign Preview';
+  
+  const modalHtml = `
+    <div class="flex flex-col h-[85vh] max-h-[800px]">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-sm">👁️</div>
+          <div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Email Inbox Full Preview</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Subject: <span class="font-semibold text-slate-700 dark:text-slate-300">${esc(subject)}</span></p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 rounded-full">Branded for ${esc(bBrand.name)}</span>
+          <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2">✕</button>
+        </div>
+      </div>
+      <div class="flex-1 bg-slate-200 dark:bg-slate-950 p-6 overflow-hidden flex justify-center items-center rounded-b-xl mt-3">
+        <iframe id="email-preview-iframe" class="w-full h-full max-w-[640px] bg-white rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 transition-all duration-300" style="border:none;"></iframe>
+      </div>
+    </div>
+  `;
+  automationModal(modalHtml, 'max-w-4xl');
+  setTimeout(() => {
+    const iframe = document.getElementById('email-preview-iframe');
+    if (iframe) iframe.srcdoc = html;
+  }, 50);
+}
+window.openEmailFullPreviewModal = openEmailFullPreviewModal;
 window.openMailchimpEmailBuilder = openMailchimpEmailBuilder;
 
 function setBuilderDevice(mode) {
