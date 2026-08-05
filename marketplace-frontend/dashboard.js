@@ -1,8 +1,25 @@
-// Resolve the backend by host so the staging site talks to the staging backend and
-// production talks to production — otherwise a token minted by one is rejected by the
-// other (the "logs in then logs out" bug). Keep in sync with login/register/reset pages.
-const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
+const API = 'https://vehicle-marketplace-s0e4.onrender.com';
 
+// Wrap fetch so EVERY call to our API carries the demo-workspace header when the
+// owner is in Demo mode — keeps all pages (even those using raw fetch) consistently
+// scoped to the sandboxed demo dealership. No-op for non-API URLs and other users.
+(function () {
+  const _fetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    try {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (url.indexOf(API) === 0 &&
+          document.documentElement.getAttribute('data-dash-owner') === '1' &&
+          document.documentElement.getAttribute('data-dash-mode') === 'demo') {
+        init = init || {};
+        const h = new Headers(init.headers || (typeof input !== 'string' && input.headers) || {});
+        h.set('X-Act-Demo', '1');
+        init = { ...init, headers: h };
+      }
+    } catch (e) {}
+    return _fetch(input, init);
+  };
+})();
 // Carfax Canada report link by VIN. Swap to your dealer badge/report URL if you
 // wire the Carfax account (the VIN is appended, URL-encoded).
 const CARFAX_BASE = 'https://www.carfax.ca/vehicle-history-reports?vin=';
@@ -132,14 +149,18 @@ function msIco(name, cls) {
 // return a 502/503/504 for ~30–60s while it wakes. We retry those (and network
 // errors) a few times with backoff, and surface the real status/message on final
 // failure instead of a generic "could not load".
-// Reserved extension point for request-scoped headers. Tenant identity always comes
-// from the authenticated profile; the browser cannot switch dealerships by header.
+// In owner Demo mode, scope every API call to the sandboxed demo workspace via a
+// header the backend honors only for the MarketSync owner. Read from the DOM so it
+// works regardless of when the mode variables initialize.
 function actHeaders() {
+  try {
+    if (document.documentElement.getAttribute('data-dash-owner') === '1' &&
+        document.documentElement.getAttribute('data-dash-mode') === 'demo') return { 'X-Act-Demo': '1' };
+  } catch (e) {}
   return {};
 }
 async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}) {
   let lastErr;
-  let triedRefresh = false;   // one silent token refresh per call on a 401
   for (let attempt = 0; attempt <= retries; attempt++) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -149,16 +170,6 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
         signal: ctrl.signal,
         cache: 'no-store',   // avoid 304s that Response.ok treats as a failure
       });
-      // 401 → the access token likely expired mid-session. Refresh ONCE and retry so a
-      // long-lived "keep me signed in" session self-heals instead of erroring. If the
-      // refresh fails we fall through and surface the error (we do NOT force a logout
-      // here — a transient backend hiccup must not eject a valid session).
-      if (r.status === 401 && !triedRefresh) {
-        triedRefresh = true;
-        clearTimeout(timer);
-        const ok = await refreshSessionSilently();
-        if (ok) { attempt--; continue; }
-      }
       // IMPORTANT: keep the abort timer armed across the body read too. Reading
       // the body (r.json()) is a second network step — on a flaky mobile
       // connection the server can send the 200 headers and then stall mid-body.
@@ -192,28 +203,19 @@ async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}
 // Generic JSON write helper (POST/PUT/PATCH/DELETE). Throws Error(body.error) on
 // non-2xx so callers can try/catch + toast. Used by the built-in CRM.
 async function apiSendJson(path, method = 'POST', body = null, { timeoutMs = 20000 } = {}) {
-  async function attempt() {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      return await fetch(`${API}${path}`, {
-        method,
-        headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, 'Content-Type': 'application/json', ...actHeaders() },
-        body: body != null ? JSON.stringify(body) : undefined,
-        signal: ctrl.signal,
-      });
-    } finally { clearTimeout(timer); }
-  }
-  let r = await attempt();
-  // 401 → refresh the token once and retry (self-heal an expired session). No forced
-  // logout: a failed refresh just surfaces the error, it doesn't eject the user.
-  if (r.status === 401) {
-    const ok = await refreshSessionSilently();
-    if (ok) r = await attempt();
-  }
-  let data = null; try { data = await r.json(); } catch {}
-  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
-  return data || {};
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(`${API}${path}`, {
+      method,
+      headers: { 'Authorization': `Bearer ${token || localStorage.getItem('token') || ''}`, 'Content-Type': 'application/json', ...actHeaders() },
+      body: body != null ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal,
+    });
+    let data = null; try { data = await r.json(); } catch {}
+    if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+    return data || {};
+  } finally { clearTimeout(timer); }
 }
 
 // Surface otherwise-invisible runtime errors so "stuck loading" symptoms become
@@ -266,7 +268,7 @@ function showToast(message, type = 'info', duration = 4000) {
     const label = provider === 'google' ? 'Google Calendar' : provider === 'microsoft' ? 'Outlook Calendar' : 'Calendar'
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
-        if (state === 'connected') { showToast(`${label} connected`, 'success'); if (typeof switchPage === 'function') { switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('admin'); }, 250); } }
+        if (state === 'connected') { showToast(`${label} connected`, 'success'); if (typeof switchPage === 'function') { switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('integrations'); }, 250); } }
         else showToast(`Couldn’t connect ${label}${q.get('msg') ? ': ' + q.get('msg') : ''}`, 'error', 7000)
       }, 400)
     })
@@ -303,24 +305,6 @@ function clearLocalStorage() {
   Object.entries(saved).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch {} });
 }
 
-// Deliberate sign-out. Defined globally + wired via inline onclick on the Sign Out button
-// so it works even if a later listener in setupActionListeners fails to attach. Belt-and-
-// suspenders: explicitly drop the session keys, flag the extension bridge not to re-login,
-// then bounce to the login page.
-window.msSignOut = function msSignOut() {
-  try { sessionStorage.setItem('ms_logged_out', '1'); } catch {}
-  // Best-effort server-side revoke so the refresh token can't be reused. Fire-and-forget
-  // — never block or fail the local sign-out on the network.
-  try {
-    const tk = localStorage.getItem('token');
-    if (tk) fetch(`${API}/auth/logout`, { method: 'POST', headers: { 'Authorization': `Bearer ${tk}` } }).catch(() => {});
-  } catch {}
-  try { ['token', 'refresh_token', 'user', 'ms_remember_until'].forEach(k => localStorage.removeItem(k)); } catch {}
-  try { clearLocalStorage(); } catch {}
-  // replace() (not href) so the browser Back button can't restore the authenticated dashboard.
-  window.location.replace('login.html');
-};
-
 // "Keep me signed in" window: if it has lapsed, drop the stored session so the
 // user is returned to login instead of riding a stale token.
 (function enforceRememberWindow() {
@@ -334,49 +318,28 @@ window.msSignOut = function msSignOut() {
 let token = localStorage.getItem('token');
 const userRaw = localStorage.getItem('user');
 
-// A dashboard that redirected to login can be restored from the browser back/forward
-// cache with its old in-memory `token`, even though login has since stored a fresh
-// session. Reloading only restored pages makes the script read the current session
-// from storage instead of immediately treating that stale token as a logout.
-window.addEventListener('pageshow', (event) => {
-  if (event.persisted) window.location.reload();
-});
-
 // Silently refresh the Supabase access token using the stored refresh token, so a
 // "keep me signed in" session stays alive for its full window without the user
 // re-authenticating. Runs on load and every 30 minutes.
-// Returns true when it obtained a fresh access token, false otherwise. Single-flight so
-// several 401s at once share one refresh call instead of stampeding /auth/refresh.
-let __refreshInFlight = null;
 async function refreshSessionSilently() {
-  if (__refreshInFlight) return __refreshInFlight;
   const rt = localStorage.getItem('refresh_token');
-  if (!rt) return false;
+  if (!rt) return;
   const until = Number(localStorage.getItem('ms_remember_until') || '0');
-  if (until && Date.now() > until) return false; // window lapsed — bootstrap handles logout
-  __refreshInFlight = (async () => {
-    try {
-      const r = await fetch(`${API}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: rt }),
-      });
-      if (!r.ok) return false; // keep the current token; it may still be valid
-      const d = await r.json();
-      if (d.access_token) { token = d.access_token; localStorage.setItem('token', d.access_token); }
-      if (d.refresh_token) localStorage.setItem('refresh_token', d.refresh_token);
-      return !!d.access_token;
-    } catch { return false; }
-    finally { __refreshInFlight = null; }
-  })();
-  return __refreshInFlight;
+  if (until && Date.now() > until) return; // window lapsed — bootstrap handles logout
+  try {
+    const r = await fetch(`${API}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: rt }),
+    });
+    if (!r.ok) return; // keep the current token; it may still be valid
+    const d = await r.json();
+    if (d.access_token) { token = d.access_token; localStorage.setItem('token', d.access_token); }
+    if (d.refresh_token) localStorage.setItem('refresh_token', d.refresh_token);
+  } catch {}
 }
 if (token && localStorage.getItem('refresh_token')) {
-  // Do not refresh immediately after a password/passkey login. The login response
-  // already contains a fresh access token, and rotating its refresh token while
-  // the dashboard is simultaneously booting `/auth/me` can make a successful
-  // sign-in look like an expired session. A genuine expiry is still repaired by
-  // the 401 retry above, and established sessions refresh on this interval.
+  refreshSessionSilently();
   setInterval(refreshSessionSilently, 30 * 60 * 1000);
 }
 
@@ -405,11 +368,13 @@ if (!token) {
 const user = userRaw ? JSON.parse(userRaw) : {};
 let profileContext = null;
 
-// MarketSync HQ is a SaaS-only workspace. Demonstrations use separate, tenant-scoped
-// accounts; there is intentionally no browser-side dealership switch.
-let __dashMode = 'marketsync';
+// ── Owner workspace mode: vehicle-dealer DEMO ↔ running MarketSync ────────────
+// Only the MarketSync owner sees the switch. MarketSync mode trims the nav to the
+// SaaS pages, trims Settings, and repaints the UI purple (all via CSS driven by the
+// html[data-dash-mode] attribute). Persisted per-browser.
+let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-employees', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
+const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -422,8 +387,8 @@ const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', '
 // value reachable (used to hide stray items and to gate switchPage); `home` = the
 // page they land on. Profile stays reachable for everyone (password, photo, etc.).
 const STAFF_ROLE_NAV = {
-  FNI:        { groups: ['crm', 'sales', 'acquisition'], pages: ['insights', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'fni', 'recon', 'desk', 'taskboard', 'profile'], home: 'crm' },
-  SERVICE:    { groups: ['crm', 'service', 'acquisition'], pages: ['crm', 'tasks', 'appointments', 'service-appointments', 'equity', 'service-settings', 'taskboard', 'profile'], home: 'service-appointments' },
+  FNI:        { groups: ['crm', 'sales'],       pages: ['insights', 'crm', 'tasks', 'appointments', 'leads', 'appraisal', 'fni', 'recon', 'desk', 'taskboard', 'profile'], home: 'crm' },
+  SERVICE:    { groups: ['crm', 'service'],      pages: ['crm', 'tasks', 'appointments', 'service-appointments', 'equity', 'service-settings', 'taskboard', 'profile'], home: 'service-appointments' },
   ACCOUNTING: { groups: ['crm', 'accounting'],   pages: ['crm', 'tasks', 'appointments', 'acct-insights', 'acct-reconciliation', 'acct-bank', 'commissions', 'acct-expenses', 'acct-budget', 'acct-tax', 'acct-reports', 'acct-settings', 'taskboard', 'profile'], home: 'acct-insights' },
   CLEANUP:    { groups: ['sales'],               pages: ['recon', 'taskboard', 'profile'], home: 'recon' },
 };
@@ -570,42 +535,7 @@ const SETUP_STEPS = [
   { id: 'service', icon: 'wrench', label: 'Turn on service booking', desc: 'Let customers book service from your website.', roles: [...MGR_SET, 'SERVICE'], tour: 'service', done: s => !!s.svc.enabled, run: () => runSetupForm('service') },
   { id: 'automation', icon: 'bolt', label: 'Turn on follow-ups', desc: 'Auto-text and email your leads on autopilot.', roles: MGR_SET, tour: 'automation', done: () => false, run: () => { setSetupAck('automation'); setupCloseAll(); switchPage('automation-builder'); showToast('Flip on a sequence to finish this step', 'info'); } },
 ];
-// Product-specific onboarding. Each product sells a different job-to-be-done, so
-// the startup wizard walks a different path. DealerOS (full) keeps the role-based
-// SETUP_STEPS above; the MarketSync owner gets no dealer wizard at all.
-const PRODUCT_SETUP_STEPS = {
-  ai_chatbot: [
-    { id: 'ai-personality', icon: 'sparkles', label: "Set your AI's voice", desc: 'Name your assistant and set its greeting and tone.', done: () => setupAck('ai-personality'), run: () => { setSetupAck('ai-personality'); setupCloseAll(); switchPage('ai-home'); } },
-    { id: 'ai-knowledge', icon: 'chat', label: 'Teach it about your store', desc: 'Hours, financing, specials — what it should know when it answers.', done: () => setupAck('ai-knowledge'), run: () => { setSetupAck('ai-knowledge'); setupCloseAll(); switchPage('ai-home'); } },
-    { id: 'ai-install', icon: 'globe', label: 'Add the chat to your website', desc: 'Copy the snippet and paste it into your site — it goes live instantly.', done: () => setupAck('ai-install'), run: () => { setSetupAck('ai-install'); setupCloseAll(); switchPage('ai-home'); } },
-  ],
-  facebook_solo: [
-    { id: 'fb-extension', icon: 'download', label: 'Install the Chrome extension', desc: 'It posts a full Marketplace listing in one click.', done: () => setupAck('fb-extension'), run: () => { setSetupAck('fb-extension'); setupCloseAll(); applyExtensionVisibility(); showToast('Use “Install extension” at the top right to add it', 'info'); } },
-    { id: 'fb-inventory', icon: 'car', label: 'Add your inventory', desc: 'Pull your vehicles in from your website or a CSV.', done: s => (s.feeds || []).length > 0, run: () => { setupCloseAll(); __inventoryMode = 'manual'; switchPage('inventory'); } },
-    { id: 'fb-post', icon: 'rocket', label: 'Post your first car', desc: 'Pick a vehicle and post it to Facebook Marketplace.', done: () => setupAck('fb-post'), run: () => { setSetupAck('fb-post'); setupCloseAll(); __inventoryMode = 'facebook'; switchPage('inventory'); } },
-  ],
-  facebook_dealer: [
-    { id: 'fb-extension', icon: 'download', label: 'Install the Chrome extension', desc: 'It posts a full Marketplace listing in one click.', done: () => setupAck('fb-extension'), run: () => { setSetupAck('fb-extension'); setupCloseAll(); applyExtensionVisibility(); showToast('Use “Install extension” at the top right to add it', 'info'); } },
-    { id: 'fb-inventory', icon: 'car', label: 'Add your inventory', desc: 'Pull your vehicles in from your website or a CSV.', done: s => (s.feeds || []).length > 0, run: () => { setupCloseAll(); __inventoryMode = 'manual'; switchPage('inventory'); } },
-    { id: 'reps', icon: 'user', label: 'Add your sales reps', desc: 'Invite your team, see their insights, and set managers.', done: () => setupAck('reps'), run: () => { setSetupAck('reps'); setupCloseAll(); switchPage('sales-team'); } },
-    { id: 'fb-post', icon: 'rocket', label: 'Post your first car', desc: 'Pick a vehicle and post it to Facebook Marketplace.', done: () => setupAck('fb-post'), run: () => { setSetupAck('fb-post'); setupCloseAll(); __inventoryMode = 'facebook'; switchPage('inventory'); } },
-  ],
-};
-// Which onboarding path applies right now (product entitlement / workspace).
-function currentProductKey() {
-  if (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode()) return 'marketsync';
-  const prod = document.documentElement.getAttribute('data-product') || '';
-  if (/facebook_dealer/.test(prod)) return 'facebook_dealer';
-  if (/facebook_solo/.test(prod)) return 'facebook_solo';
-  if (/ai_chatbot/.test(prod)) return 'ai_chatbot';
-  return 'dealer_os';
-}
-function setupStepsFor(role) {
-  const p = currentProductKey();
-  if (p === 'marketsync') return [];                          // owner SaaS — no dealer setup wizard
-  if (PRODUCT_SETUP_STEPS[p]) return PRODUCT_SETUP_STEPS[p];  // AI / Facebook tiers
-  return SETUP_STEPS.filter(s => s.roles.includes(role));     // full DealerOS
-}
+function setupStepsFor(role) { return SETUP_STEPS.filter(s => s.roles.includes(role)); }
 function setupStepDone(step, snap) { return setupAck(step.id) || !!(step.done && step.done(snap)); }
 function setupCloseAll() { document.querySelectorAll('.fixed').forEach(el => { if (el.dataset.setup) el.remove(); }); }
 
@@ -671,7 +601,7 @@ async function openSetupCenter() {
       : `<button onclick="setupRun('${states[nextIdx].s.id}')" class="w-full flex items-center justify-center gap-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-lg transition">Continue setup — ${esc(states[nextIdx].s.label)}<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>`}
   </div>`, 'max-w-md').dataset.setup = '1';
 }
-function setupRun(id) { const s = setupStepsFor(profileContext?.role).find(x => x.id === id); if (s) s.run(); }
+function setupRun(id) { const s = SETUP_STEPS.find(x => x.id === id); if (s) s.run(); }
 // Close the Setup overlay and run that spot's short guided tour.
 function setupTour(tourId) { setupCloseAll(); if (typeof startAreaTour === 'function') startAreaTour(tourId); }
 
@@ -728,7 +658,7 @@ function setupGoIntegration(which) {
   setupCloseAll();
   __focusIntegration = which;   // 'twilio' → Twilio card · 'calendar' → calendar sync card
   switchPage('profile');
-  setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('admin'); }, 200);
+  setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('integrations'); }, 200);
 }
 let __focusIntegration = null;
 // After the Integrations tab renders, scroll to + flash the targeted card.
@@ -752,17 +682,14 @@ Object.assign(window, { openSetupCenter, setupRun, setupSaveForm, setupTour, ren
 let __fbOnly = false;
 // The leaderboard panel lives on the Dashboard (insights) — in fb tier the insights
 // page is stripped by CSS to just the leaderboard, so 'insights' is the leaderboard.
-const FB_ONLY_PAGES = new Set(['inventory', 'leaderboard', 'insights', 'profile']);
+const FB_ONLY_PAGES = new Set(['inventory', 'insights', 'profile']);
 function applyFbOnlyMode() {
   if (__fbOnly) document.documentElement.setAttribute('data-dash-tier', 'fb');
   else document.documentElement.removeAttribute('data-dash-tier');
-  applyMobileQuickRow();   // trim the mobile bottom bar to the fb page set
   if (!__fbOnly) return;
-  // Land on the Leaderboard (the fb tier's home) — no separate dashboard.
-  if (typeof switchPage === 'function') switchPage('leaderboard');
-  // A legacy Facebook-only account may be identified only after its config finishes
-  // loading. Repaint the score with Facebook-only rules once that happens.
-  if (typeof loadLeaderboard === 'function') loadLeaderboard();
+  // Land on the Facebook posting hub — the feature they pay for.
+  __inventoryMode = 'facebook';
+  if (typeof switchPage === 'function') switchPage('inventory');
 }
 window.applyFbOnlyMode = applyFbOnlyMode;
 
@@ -773,351 +700,76 @@ window.applyFbOnlyMode = applyFbOnlyMode;
 // each price point, powerful as they upgrade. The union applies when a dealer holds
 // several products (e.g. Facebook Dealer + AI Chatbot).
 const PRODUCT_PAGES = {
-  // Facebook Solo: EXACTLY two nav items — Leaderboard and Inventory. No Sales, no CRM.
-  // (Settings stays reachable from the header gear, not the left nav. The leaderboard IS
-  // the home — there's no separate dashboard.)
-  facebook_solo:   ['leaderboard', 'inventory'],
-  // Facebook Dealer: adds Sales Team (add reps, make managers) — where the team is
-  // controlled. Still no CRM / accounting / reports.
-  facebook_dealer: ['leaderboard', 'inventory', 'sales-team'],
-  // AI Chatbot: only the AI chatbot workspace (stats + conversations + KB).
-  ai_chatbot:      ['ai-home'],
+  facebook_solo:   ['solo-home', 'inventory', 'leads', 'crm', 'profile'],
+  facebook_dealer: ['solo-home', 'inventory', 'leads', 'crm', 'reports', 'commissions', 'sales-team', 'profile'],
+  ai_chatbot:      ['ai-inbox', 'crm', 'leads', 'profile'],
   dealer_os:       null,   // null = full access, no restriction
 };
-const PRODUCT_HOME = { facebook_solo: 'leaderboard', facebook_dealer: 'leaderboard', ai_chatbot: 'ai-home' };
-// Facebook products reuse the fb tier CSS so the Dashboard/Insights page renders as
-// just the leaderboard (no full dealer dashboard).
-const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
+const PRODUCT_HOME = { facebook_solo: 'solo-home', facebook_dealer: 'solo-home', ai_chatbot: 'ai-inbox' };
 let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
-
-// The standalone AI Chatbot plan deliberately has a smaller surface than DealerOS.
-// It must never show the internal "Ask MarketSync" assistant controls — that is a
-// separate employee tool, not something a chatbot-only customer bought.
-function isAiChatbotOnlyWorkspace() {
-  const products = document.documentElement.getAttribute('data-product') || '';
-  return /(?:^|\s)ai_chatbot(?:\s|$)/.test(products) && !/(?:^|\s)dealer_os(?:\s|$)/.test(products);
-}
-let __productHome = null;           // Where a product-restricted tier lands / bounces to
-
-// ── Access-context helpers (frontend mirror of the backend access service) ────
-// One place the UI asks "can I see/do this?", reading the derived summary from
-// /access/context. These are UX gates only — every action is still enforced server-side
-// (route guards + RLS). If the context is unavailable they fail OPEN to legacy behavior
-// (return true), so an older backend or a failed fetch never hides a page the legacy
-// gating would have shown.
-window.hasProduct = function (productId) {
-  const a = window.__access; if (!a || !Array.isArray(a.products)) return true;
-  return a.isPlatformStaff || a.products.includes(productId);
-};
-window.hasFeature = function (featureId) {
-  const a = window.__access; if (!a || !Array.isArray(a.features)) return true;
-  return a.isPlatformStaff || a.features.includes(featureId);
-};
-window.canDo = function (permission) {
-  const a = window.__access; if (!a || !Array.isArray(a.permissions)) return true;
-  return a.permissions.includes('*') || a.permissions.includes(permission);
-};
-
-// Translate the normalized products (facebook / ai_dealer / dealer_os) from the access
-// context into the legacy product-page keys applyProductNav already understands, so the
-// mature nav logic is reused unchanged. Returns null when no context is present (caller
-// falls back to the legacy /auth/me products object).
-function legacyProductsFromAccess(access) {
-  if (!access || !Array.isArray(access.products) || !access.products.length) return null;
-  if (access.isPlatformStaff || access.products.includes('dealer_os')) return { dealer_os: true };
-  const out = {};
-  if (access.products.includes('facebook')) {
-    // fb.sales_reps entitlement ⇒ the Dealership tier (rep management); else Solo.
-    if ((access.features || []).includes('fb.sales_reps')) out.facebook_dealer = true;
-    else out.facebook_solo = true;
-  }
-  if (access.products.includes('ai_dealer')) out.ai_chatbot = true;
-  return Object.keys(out).length ? out : null;
-}
-window.legacyProductsFromAccess = legacyProductsFromAccess;
-
-// ── Upgrade to unlock ────────────────────────────────────────────────────────
-// Turns plan-tier gating into a path forward: a sidebar CTA + a modal listing the
-// plans above the caller's current one, each starting Stripe Checkout. Reads the plan
-// catalog from the backend (/billing/plans — the single source), so pricing/tiers never
-// drift from the server.
-let __planCatalogCache = null;
-async function fetchPlanCatalog() {
-  if (__planCatalogCache) return __planCatalogCache;
-  try {
-    const token = localStorage.getItem('token');
-    const r = await fetch(`${API}/billing/plans`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!r.ok) return null;
-    __planCatalogCache = await r.json();
-    return __planCatalogCache;
-  } catch { return null; }
-}
-async function startPlanCheckout(planId, btn) {
-  const token = localStorage.getItem('token');
-  if (btn) { btn.disabled = true; btn.textContent = 'Starting checkout…'; }
-  try {
-    const r = await fetch(`${API}/billing/subscribe-plan`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ plan: planId }),
-    });
-    const d = await r.json();
-    if (r.ok && d.url) { window.location.href = d.url; return; }
-    throw new Error(d.error || 'Could not start checkout.');
-  } catch (e) {
-    if (typeof showToast === 'function') showToast(e.message || 'Checkout unavailable — billing may not be configured yet.', 'error');
-    else alert(e.message);
-    if (btn) { btn.disabled = false; btn.textContent = 'Upgrade'; }
-  }
-}
-window.startPlanCheckout = startPlanCheckout;
-
-async function openPlanUpgradeModal() {
-  const data = await fetchPlanCatalog();
-  if (!data || !Array.isArray(data.plans)) { if (typeof showToast === 'function') showToast('Could not load plans.', 'error'); return; }
-  const current = data.current || [];
-  const currentMax = Math.max(0, ...data.plans.filter(p => current.includes(p.id)).map(p => p.monthly));
-  // Offer plans the account isn't on that cost at least as much (i.e. a real upgrade).
-  const options = data.plans.filter(p => !current.includes(p.id) && p.monthly >= currentMax);
-  const money = n => '$' + Number(n).toLocaleString();
-  const cards = (options.length ? options : data.plans).map(p => `
-    <div class="border ${current.includes(p.id) ? 'border-emerald-400' : 'border-slate-200 dark:border-slate-700'} rounded-xl p-4 flex flex-col">
-      <div class="flex items-baseline justify-between">
-        <span class="text-sm font-black text-slate-900 dark:text-white">${esc(p.label)}</span>
-        <span class="text-sm font-black text-indigo-600 dark:text-indigo-400">${money(p.monthly)}<span class="text-[10px] font-medium text-slate-400">/mo</span></span>
-      </div>
-      <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex-1">${p.products.map(x => x === 'dealer_os' ? 'Dealer OS' : x === 'ai_dealer' ? 'AI Dealer' : 'Facebook').join(' + ')} · ${p.feature_count} features${p.id === 'os_pro' ? ' · bundles everything' : ''}</div>
-      ${current.includes(p.id)
-        ? '<div class="mt-3 text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 py-2">Your current plan</div>'
-        : `<button onclick="startPlanCheckout('${p.id}', this)" ${p.configured ? '' : 'disabled title="Pricing not configured yet"'} class="mt-3 ${p.configured ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed'} text-white text-xs font-bold py-2 rounded-lg transition">${p.configured ? 'Upgrade' : 'Coming soon'}</button>`}
-    </div>`).join('');
-  const modal = document.createElement('div');
-  modal.className = 'fixed inset-0 z-[80] bg-black/70 flex items-start justify-center p-4 overflow-y-auto';
-  modal.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl mt-12 p-6 shadow-2xl">
-    <div class="flex items-center justify-between mb-1">
-      <h3 class="text-base font-black text-slate-900 dark:text-white">Upgrade your plan</h3>
-      <button data-x class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none">&times;</button>
-    </div>
-    <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Your plan decides what you can access. Upgrade to unlock more.</p>
-    <div class="grid sm:grid-cols-2 gap-3">${cards}</div>
-  </div>`;
-  document.body.appendChild(modal);
-  modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('[data-x]')) modal.remove(); });
-}
-window.openPlanUpgradeModal = openPlanUpgradeModal;
-
-// The trial-ended PAYWALL — a blocking popup (no dismiss) shown when the 30-day free
-// trial has lapsed. Lists every package (Facebook-only, AI-only, Dealer OS tiers) so the
-// user picks what they want and pays. Rendered over the shell on a 402 from the API.
-let __paywallOpen = false;
-async function openPaywallModal(reason) {
-  if (__paywallOpen) return;
-  __paywallOpen = true;
-  const data = await fetchPlanCatalog();
-  const plans = (data && data.plans) || [];
-  const money = n => '$' + Number(n).toLocaleString();
-  const label = { facebook: 'Facebook', ai_dealer: 'AI Dealer', dealer_os: 'Dealer OS' };
-  const cards = plans.map(p => `
-    <div class="border border-slate-200 dark:border-slate-700 rounded-xl p-4 flex flex-col bg-white dark:bg-slate-900">
-      <div class="flex items-baseline justify-between">
-        <span class="text-sm font-black text-slate-900 dark:text-white">${esc(p.label)}</span>
-        <span class="text-sm font-black text-indigo-600 dark:text-indigo-400">${money(p.monthly)}<span class="text-[10px] font-medium text-slate-400">/mo</span></span>
-      </div>
-      <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex-1">${p.products.map(x => label[x] || x).join(' + ')} · ${p.feature_count} features${p.id === 'os_pro' ? ' · bundles everything' : ''}</div>
-      <button onclick="startPlanCheckout('${p.id}', this)" ${p.configured ? '' : 'disabled title="Pricing not configured yet"'} class="mt-3 ${p.configured ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed'} text-white text-xs font-bold py-2 rounded-lg transition">${p.configured ? 'Choose this plan' : 'Coming soon'}</button>
-    </div>`).join('');
-  const modal = document.createElement('div');
-  modal.id = 'paywall-modal';
-  modal.className = 'fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto';
-  modal.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl mt-10 p-6 shadow-2xl">
-    <div class="text-center mb-1"><span class="inline-flex items-center gap-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white"><span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span></div>
-    <h3 class="text-lg font-black text-slate-900 dark:text-white text-center mt-3">Your free trial has ended</h3>
-    <p class="text-sm text-slate-500 dark:text-slate-400 text-center mb-5">Choose the package that fits — Facebook only, AI Chatbot only, or the full Dealer OS. Pick what you want to keep going.</p>
-    <div class="grid sm:grid-cols-2 gap-3">${cards || '<p class="text-sm text-slate-500 col-span-2 text-center py-6">Plans are being set up — please contact support.</p>'}</div>
-    <div class="text-center mt-5"><button onclick="clearLocalStorage();window.location.href='login.html'" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Sign out</button></div>
-  </div>`;
-  document.body.appendChild(modal); // intentionally NOT dismissable — payment is required to continue
-}
-window.openPaywallModal = openPaywallModal;
-
-// Sidebar "Upgrade plan" CTA — shown unless the account already holds the full bundle
-// (all three products, i.e. Dealer OS Pro). Idempotent; safe to call after each nav render.
-function renderUpgradeCta() {
-  const navRoot = document.getElementById('nav-desktop');
-  if (!navRoot) return;
-  const a = window.__access;
-  const onTopPlan = a && Array.isArray(a.products) && ['dealer_os', 'facebook', 'ai_dealer'].every(p => a.products.includes(p));
-  let cta = document.getElementById('upgrade-cta');
-  if (onTopPlan || a?.isPlatformStaff) { cta?.remove(); return; }
-  if (!cta) {
-    cta = document.createElement('button');
-    cta.id = 'upgrade-cta';
-    cta.type = 'button';
-    cta.setAttribute('onclick', 'openPlanUpgradeModal()');
-    cta.className = 'w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition shadow';
-    cta.innerHTML = '<span aria-hidden="true">⭐</span><span>Upgrade plan</span>';
-  }
-  navRoot.appendChild(cta); // keep it pinned to the bottom after nav re-renders
-}
-window.renderUpgradeCta = renderUpgradeCta;
-
-// Populate the Settings → Billing "Current plan" card from the account's active plan.
-async function renderCurrentPlanBox() {
-  const box = document.getElementById('current-plan-box');
-  if (!box) return;
-  const data = await fetchPlanCatalog();
-  const cur = (data && data.current) || [];
-  const plan = data && data.plans.find(p => cur.includes(p.id));
-  if (!plan) { box.classList.add('hidden'); return; }
-  const prod = plan.products.map(x => x === 'dealer_os' ? 'Dealer OS' : x === 'ai_dealer' ? 'AI Dealer' : 'Facebook').join(' + ');
-  const nm = document.getElementById('current-plan-name');
-  const dt = document.getElementById('current-plan-detail');
-  if (nm) nm.textContent = `${plan.label} · $${Number(plan.monthly).toLocaleString()}/mo`;
-  if (dt) dt.textContent = `${prod} · ${plan.feature_count} features`;
-  box.classList.remove('hidden');
-}
-window.renderCurrentPlanBox = renderCurrentPlanBox;
 
 function applyProductNav(products) {
   products = products || {};
-  // The "Post to Facebook" header button belongs to the dealer tiers (Facebook Dealer
-  // and DealerOS Pro, which includes Facebook). It must not leak into Starter/Growth
-  // merely because they are DealerOS accounts.
-  const access = window.__access;
-  const planFallback = typeof dealerPlanFallback === 'function' ? dealerPlanFallback() : null;
-  const showFbPost = !!products.facebook_dealer
-    || !!(access && (access.isPlatformStaff || (access.products || []).includes('facebook')))
-    || !!planFallback?.products?.has('facebook');
-  document.getElementById('fb-post-btn')?.classList.toggle('hidden', !showFbPost);
   // DealerOS (or nothing set) → the full department sidebar; clear any restriction.
-  if (products.dealer_os) { __productAllowedPages = null; __productHome = null; document.documentElement.removeAttribute('data-product'); applyMobileQuickRow(); return; }
+  if (products.dealer_os) { __productAllowedPages = null; document.documentElement.removeAttribute('data-product'); return; }
   const active = Object.keys(PRODUCT_PAGES).filter(k => products[k] && PRODUCT_PAGES[k]);
-  if (!active.length) { __productAllowedPages = null; __productHome = null; applyMobileQuickRow(); return; }
+  if (!active.length) { __productAllowedPages = null; return; }
   const allow = new Set(['profile']);
   active.forEach(k => (PRODUCT_PAGES[k] || []).forEach(p => allow.add(p)));
-  // Facebook Dealer: only owners/admins/managers can reach Sales Reps — a rep's nav omits
-  // it AND it's pruned from the reachable set so a deep link bounces (backend RLS also
-  // denies team management for reps).
-  const canManageTeam = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-  if (!canManageTeam) allow.delete('sales-team');
   __productAllowedPages = allow;
   document.documentElement.setAttribute('data-product', active.join(' '));
-  // Facebook products render the Dashboard/Insights page as just the leaderboard (reuse
-  // the existing fb-tier CSS). AI/other products don't.
-  if (active.some(k => FB_PRODUCTS.has(k))) document.documentElement.setAttribute('data-dash-tier', 'fb');
-  if (typeof applyLeaderboardProductPresentation === 'function') applyLeaderboardProductPresentation();
   // Hide every nav item (desktop + mobile) whose page isn't in this product's set.
   document.querySelectorAll('#dashboard-nav .nav-item[data-page]').forEach(it => {
     if (!allow.has(it.dataset.page)) it.classList.add('hidden');
   });
-  // Reveal nav buttons that ship hidden-by-default (so DealerOS never sees them) but
-  // belong to this product's set.
-  ['solo-home', 'sales-team', 'ai-home'].forEach(pg => {
-    document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${pg}"]`).forEach(it => it.classList.toggle('hidden', !allow.has(pg)));
-  });
+  // Reveal product-home nav buttons that ship hidden-by-default (so DealerOS never
+  // sees them) but belong to this product's set.
+  document.querySelectorAll('#dashboard-nav .nav-item[data-page="solo-home"]').forEach(it => it.classList.toggle('hidden', !allow.has('solo-home')));
   // Collapse any group left with no visible leaf.
   document.querySelectorAll('#nav-desktop .nav-group').forEach(g => {
     const anyVisible = [...g.querySelectorAll('.nav-group-body .nav-item[data-page]')].some(it => allow.has(it.dataset.page));
     g.classList.toggle('hidden', !anyVisible);
   });
   // Land on this product's home screen.
-  const home = PRODUCT_HOME[active[0]] || [...allow][0] || 'profile';
-  __productHome = home;
-  applyMobileQuickRow();   // trim the mobile bottom bar to this tier's pages
+  const home = PRODUCT_HOME[active[0]];
   if (home) { if (home === 'inventory') __inventoryMode = 'facebook'; if (typeof switchPage === 'function') switchPage(home); }
 }
 window.applyProductNav = applyProductNav;
-
-// Rebuild the mobile bottom quick-row from the SAME registry the desktop nav +
-// "more" sheet use (restrictedNavPages), so a restricted tier never shows a
-// dead/leaky Home/CRM/Stock button, and the order matches the tier (e.g. Facebook:
-// Leaderboard · Inventory · Customers). Full-OS dealers keep the authored row.
-// The Menu (#nav-more) is always kept reachable.
-function applyMobileQuickRow() {
-  const authored = document.querySelectorAll('#dashboard-nav > button.nav-item[data-page]');
-  const more = document.getElementById('nav-more');
-  // Build the bottom quick-row from the SAME registry the desktop nav + "All pages"
-  // sheet use — nothing hardcoded — for both restricted tiers and full DealerOS.
-  let pages = null;
-  if (__fbOnly || __productAllowedPages) {
-    // Restricted tiers (Facebook / product): that tier's exact page set.
-    pages = (restrictedNavPages() || []).filter(p => p.page !== 'profile').slice(0, 4);
-  } else if (__deptNavBuilt && __deptRegistry) {
-    // Full DealerOS: the first few visible departments' home pages, straight from
-    // the DEPARTMENTS registry (per-role via deptVisible/deptPageAllowed).
-    pages = Object.values(__deptRegistry).filter(deptVisible).slice(0, 4).map(d => {
-      const home = d.pages.find(deptPageAllowed) || d.pages[0] || {};
-      return { page: home.page, label: d.label, icon: d.icon, invmode: home.invmode };
-    }).filter(p => p.page);
-  }
-  if (!pages || !pages.length) {
-    // No registry yet (legacy/solo tree) — drop any generated row, keep the authored one.
-    document.getElementById('mobile-quickrow-dyn')?.remove();
-    return;
-  }
-  // Hide the authored (hardcoded) quick buttons and render the registry-driven row.
-  authored.forEach(b => b.classList.add('hidden'));
-  let host = document.getElementById('mobile-quickrow-dyn');
-  if (!host) {
-    host = document.createElement('div');
-    host.id = 'mobile-quickrow-dyn';
-    host.className = 'contents md:hidden';   // display:contents → children join the flex row
-    if (more && more.parentElement) more.parentElement.insertBefore(host, more);
-  }
-  host.innerHTML = pages.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="deptGo('${esc(p.page)}'${p.invmode ? `,'${esc(p.invmode)}'` : ''})" title="${esc(p.label)}" class="nav-item md:hidden flex-1 flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="opacity-70">${svgIcon(p.icon || 'dot', 'w-[18px] h-[18px]')}</span><span class="text-[9px] leading-none">${esc(p.label.split(' ')[0])}</span></button>`).join('');
-  more?.classList.remove('hidden');
-}
-window.applyMobileQuickRow = applyMobileQuickRow;
-
-// The page list for a restricted tier's mobile "more" sheet (with labels/icons), or
-// null for the full-OS experience (which uses the department / legacy renderers).
-function restrictedNavPages() {
-  // Exact per-product / per-role nav (Settings lives on the header gear, never here):
-  //   Facebook Solo ................. Inventory, Leaderboard
-  //   Facebook Dealer — Rep ......... My Inventory, Leaderboard
-  //   Facebook Dealer — Owner/Admin . Inventory, Sales Reps, Leaderboard
-  //   AI Dealer / AI Chatbot ........ AI Dealer (its page only)
-  const product = document.documentElement.getAttribute('data-product') || '';
-  const canManageTeam = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-  const INV = (label) => ({ page: 'inventory', label, icon: 'megaphone', invmode: 'facebook' });
-  const LEADER = { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' };
-  const SALES_REPS = { page: 'sales-team', label: 'Sales Reps', icon: 'user' };
-  const AI = { page: 'ai-home', label: 'AI Chatbot', icon: 'sparkles' };
-
-  if (/facebook_dealer/.test(product)) {
-    return canManageTeam ? [INV('Inventory'), SALES_REPS, LEADER] : [INV('My Inventory'), LEADER];
-  }
-  if (/facebook_solo/.test(product)) return [INV('Inventory'), LEADER];
-  if (/ai_chatbot/.test(product)) return [AI];
-
-  // Fallback for any other restricted product set (keeps generic behavior).
-  if (__productAllowedPages) {
-    const meta = { 'ai-home': AI, leaderboard: LEADER, inventory: INV('Inventory'), 'sales-team': SALES_REPS };
-    return ['inventory', 'sales-team', 'leaderboard', 'ai-home']
-      .filter(p => __productAllowedPages.has(p)).map(p => meta[p]);
-  }
-  // Legacy pure fb_only accounts with no product set: the same two Facebook items.
-  if (__fbOnly) return [INV('Inventory'), LEADER];
-  return null;
-}
-window.restrictedNavPages = restrictedNavPages;
-// Facebook products get a simplified CRM (customers + leads only — no deal desk /
-// accounting affordances inside CRM).
-function simpleCrmActive() { return /facebook/.test(document.documentElement.getAttribute('data-product') || ''); }
-window.simpleCrmActive = simpleCrmActive;
 // In MarketSync mode the Reports hub shows only the SaaS-relevant reports (no
 // vehicle inventory, F&I, appraisals or service — MarketSync sells software).
 const MS_REPORT_KEYS = new Set(['leads', 'marketing', 'appointments', 'activity', 'customers', 'reps']);
-function applyMarketsyncWorkspace() {
-  __dashMode = 'marketsync';
-  document.documentElement.setAttribute('data-dash-mode', 'marketsync');
+function applyDashMode(mode) {
+  __dashMode = mode === 'marketsync' ? 'marketsync' : 'demo';
+  document.documentElement.setAttribute('data-dash-mode', __dashMode);
+  document.querySelectorAll('#ms-mode-switch button').forEach(b => b.setAttribute('data-on', b.dataset.mode === __dashMode ? '1' : '0'));
   // In MarketSync mode "Sales" is a direct page (the F&I/subscriptions list), not a
   // collapsible group — point its header at the page and open it.
   const salesHead = document.getElementById('nav-sales-head');
   if (salesHead) {
-    salesHead.onclick = () => { if (typeof switchPage === 'function') switchPage('fni'); };
+    salesHead.onclick = __dashMode === 'marketsync'
+      ? () => { if (typeof switchPage === 'function') switchPage('fni'); }
+      : () => { if (typeof toggleNavGroup === 'function') toggleNavGroup('sales'); };
   }
-  try { renderMarketsyncInsights(); } catch (e) {}
+  if (__dashMode === 'marketsync') { try { renderMarketsyncInsights(); } catch (e) {} }
 }
+function setDashMode(mode) {
+  applyDashMode(mode);
+  localStorage.setItem('ms_dash_mode', __dashMode);
+  // Full reload so every page re-fetches under the new workspace header cleanly.
+  if (__dashMode === 'demo') {
+    if (typeof showToast === 'function') showToast('Loading demo workspace…', 'info');
+    apiSendJson('/demo/seed', 'POST', {}).catch(() => {}).finally(() => location.reload());
+  } else {
+    location.reload();
+  }
+}
+window.setDashMode = setDashMode;
+async function demoReset() {
+  if (!confirm('Reset the demo dealership back to its starting data? Your real MarketSync data is untouched.')) return;
+  try { await apiSendJson('/demo/reset', 'POST', {}); showToast('Demo reset', 'success'); location.reload(); }
+  catch (e) { showToast(e.message || 'Could not reset', 'error'); }
+}
+window.demoReset = demoReset;
 // Walk a demo customer forward/back through the pipeline for a live demo.
 const DEMO_STAGES = ['uncontacted', 'contacted', 'appointment', 'sold', 'fni', 'delivered'];
 async function demoStepStage(id, dir, cur) {
@@ -1156,7 +808,7 @@ async function renderMarketsyncInsights() {
       <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">MarketSync</h1>
         <p class="text-sm text-slate-500 dark:text-slate-400">Leads from your website + chatbot, and what they're worth across the five price points.</p></div>
       <div class="flex items-center gap-2">
-        <a href="/marketsync-guide.html" target="_blank" rel="noopener" class="text-xs font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 border border-violet-200 dark:border-violet-900 rounded-lg px-3 py-2">Owner guide</a>
+        <a href="/marketsync-guide.html" target="_blank" rel="noopener" class="text-xs font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 border border-violet-200 dark:border-violet-900 rounded-lg px-3 py-2">📘 Owner guide</a>
         <button onclick="marketsyncCleanup(this)" class="text-xs font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 border border-violet-200 dark:border-violet-900 rounded-lg px-3 py-2">Remove sample leads</button>
       </div>
     </div>
@@ -1192,7 +844,7 @@ async function marketsyncCleanup(btn) {
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Cleanup failed', 'error'); }
 }
 window.marketsyncCleanup = marketsyncCleanup;
-// Reveal the SaaS console once we know this is the MarketSync owner.
+// Reveal the switch + apply the saved mode once we know this is the MarketSync owner.
 function initDashModeForOwner() {
   const isOwner = profileContext?.is_marketsync === true || ['JMS Automotive', 'MarketSync'].includes(profileContext?.dealership?.name);
   if (!isOwner) return;
@@ -1201,19 +853,10 @@ function initDashModeForOwner() {
   document.getElementById('nav-owner-users')?.classList.remove('hidden');
   document.getElementById('nav-saas-command')?.classList.remove('hidden');   // SaaS Command Center
   document.getElementById('nav-saas-customers')?.classList.remove('hidden'); // Customer Pipeline
-  document.getElementById('nav-saas-followups')?.classList.remove('hidden'); // Account follow-up queue
-  document.getElementById('nav-saas-funnel')?.classList.remove('hidden');    // Checkout funnel / abandoned carts
-  document.getElementById('nav-saas-automation')?.classList.remove('hidden');// Automation & email (editable drips)
-  document.getElementById('nav-saas-employees')?.classList.remove('hidden'); // Employees + permissions
-  // HQ never impersonates or switches into a dealer tenant. Dedicated demo accounts
-  // are prepared in the background and accessed through their own logins.
-  applyMarketsyncWorkspace();
-  apiSendJson('/demo/seed-all', 'POST', {}).catch(() => {});
-  // Dealer-only Settings tabs don't apply to the SaaS owner (Team becomes SaaS
-  // roles via renderSettingsSaasRoles). Hide the purely dealership ones.
-  ['group', 'branding', 'aiboost', 'dealermgmt'].forEach(t =>
-    document.querySelector(`#settings-tabs [data-stab="${t}"]`)?.classList.add('hidden'));
-  if (typeof switchPage === 'function') switchPage('saas-command');
+  applyDashMode(__dashMode);
+  // In MarketSync (SaaS) mode the owner lands on the SaaS Command Center — revenue,
+  // trials, churn — not a dealership dashboard.
+  if (__dashMode === 'marketsync' && typeof switchPage === 'function') switchPage('saas-command');
 }
 
 // Page permission flags (set after profile loads, read by switchPage to mirror panels into Insights)
@@ -1278,25 +921,13 @@ async function initializeDashboardEcosystem() {
     // produce a confusing error that looks identical to an auth failure.
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 45000);
-    let res = await fetch(`${API}/auth/me`, {
+    const res = await fetch(`${API}/auth/me`, {
       headers: { 'Authorization': `Bearer ${token}` },
       signal: controller.signal
     });
     // Keep the abort timer armed until the body is fully read (same reasoning as
     // apiGetJson): a response whose headers arrive but whose body stalls must
     // still time out, otherwise the dashboard hangs on a blank/loading screen.
-    // The silent refresh starts as the dashboard loads. If the first profile
-    // request races an expired/restored access token, wait for that one refresh
-    // and retry with the newest token before declaring the session invalid.
-    if (res.status === 401) {
-      const refreshed = await refreshSessionSilently();
-      if (refreshed) {
-        res = await fetch(`${API}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-          signal: controller.signal
-        });
-      }
-    }
     if (res.status === 401 || res.status === 402) {
       if (res.status === 402) {
         const body = await res.json().catch(() => ({}))
@@ -1309,42 +940,6 @@ async function initializeDashboardEcosystem() {
 
     profileContext = await res.json();
     clearTimeout(timeoutId);
-
-    // Dedicated demo logins keep their fictional records inside their own tenant.
-    // Seed before the first page loaders run; regular dealer and HQ accounts are
-    // rejected by the backend and are never modified.
-    const dedicatedDemo = /(?:^|\b)demo(?:\b|$)/i.test(profileContext?.dealership?.name || '');
-    document.documentElement.setAttribute('data-demo-account', dedicatedDemo ? '1' : '0');
-    if (dedicatedDemo) {
-      try { await apiSendJson('/demo/seed', 'POST', {}); }
-      catch (e) { console.warn('[demo] seed unavailable:', e.message); }
-    }
-
-    // `/auth/me` carries the safe, normalized entitlement summary too. Use it first
-    // so plan-aware navigation is available even if the follow-up request hits a
-    // transient Render cold start; /access/context below refreshes the same snapshot
-    // when it succeeds.
-    if (profileContext?.access && Array.isArray(profileContext.access.features)) {
-      window.__access = profileContext.access;
-    }
-
-    // Normalized access context (products / entitled features / permissions / defaultRoute)
-    // from the central authorization service — the SINGLE source both desktop and mobile
-    // nav filter from. Falls back to the legacy /auth/me products object if unavailable,
-    // so an older backend keeps working.
-    // CRITICAL: this must NEVER block the dashboard from rendering. It is bounded by its
-    // own abort timeout so a slow/hanging response (e.g. a cold-started or down backend)
-    // can't stall the nav + skeleton screen — worst case we fall through to legacy gating.
-    try {
-      const acCtrl = new AbortController();
-      const acTimer = setTimeout(() => acCtrl.abort(), 8000);
-      const ac = await fetch(`${API}/access/context`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        signal: acCtrl.signal,
-      });
-      clearTimeout(acTimer);
-      if (ac.ok) window.__access = await ac.json();
-    } catch { /* timed out / unavailable → leave window.__access unset, legacy gating applies */ }
 
     // Render Shared Header Components
     // For dealer admins: lead with the DEALERSHIP NAME (so it visually distinguishes the
@@ -1371,7 +966,7 @@ async function initializeDashboardEcosystem() {
       document.getElementById('ui-profile-name').textContent = personName;
       document.getElementById('ui-dealership-name').textContent = dealershipName;
     }
-    // Platform owners always stay inside the MarketSync HQ workspace.
+    // Owner-only Demo ↔ MarketSync workspace switch.
     try { initDashModeForOwner(); } catch (e) {}
 
     // Pre-fill profile form
@@ -1583,15 +1178,13 @@ async function initializeDashboardEcosystem() {
       }
     } catch (e) {}
 
-    // The Leaderboard is its own page (the home for the Facebook / fb-only tiers,
-    // a Marketing tab in DealerOS). Wire the loader for EVERYONE so navigating to it
-    // never lands on an empty panel — this was the "leaderboard doesn't show" bug on
-    // the Facebook Solo/Dealer tiers, where the account is personal / has no team.
-    __pageInit.leaderboard = () => { try { initGlobalLeaderboard(); } catch (e) {} try { loadLeaderboard(); } catch (e) {} };
-    // No real team to rank against (solo / personal): default the carousel to the
-    // Global view and drop the "My Team" toggle — Global is the meaningful board.
-    if (!(inDealership && !isPersonal)) {
-      document.getElementById('lb-tab-team')?.classList.add('hidden');
+    // Team leaderboard is for actual teams (admin + reps in a real dealership).
+    // Solo reps / no-team users have nothing to rank against on a team, so we hide
+    // the team panel entirely — they only get the Global Leaderboard below.
+    if (inDealership && !isPersonal) {
+      __pageInit.leaderboard = () => loadLeaderboard();
+    } else {
+      document.getElementById('leaderboard-panel')?.classList.add('hidden');
     }
 
     // Set permission flags used by switchPage to mirror panels into Insights
@@ -1599,13 +1192,9 @@ async function initializeDashboardEcosystem() {
     __canSeeTeamInsights = isAdmin;
     __canSeeSalesTeam = isAdmin;
 
-    // The Dashboard hosts the internal sales-performance board (real deals: sold +
-    // F&I + appraisals). The full Team+Global "teaser" board is a Marketing page.
-    // Facebook-only tier is the exception — its dashboard IS the full board.
-    if (__canSeeLeaderboard) {
-      if (__fbOnly) { try { loadLeaderboard(); } catch {} }
-      else { try { loadInternalBoard(); } catch {} }
-    }
+    // The Dashboard now hosts the leaderboard + dealer-level insight bundles.
+    // Populate them once role flags are known (loadInsights already ran earlier).
+    if (__canSeeLeaderboard && typeof loadLeaderboard === 'function') { try { loadLeaderboard(); } catch {} }
     if (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role) && typeof loadDealerDash === 'function') {
       document.getElementById('dealer-dash')?.classList.remove('hidden');
       loadDealerDash();
@@ -1640,18 +1229,10 @@ async function initializeDashboardEcosystem() {
     const __mgrHome = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     // SaaS Admin in MarketSync mode → the company command center; otherwise the
     // dealership Command Center (managers) or the rep Dashboard.
-    if (__dashMode === 'marketsync' && (profileContext?.workspace === 'saas_admin' || document.documentElement.getAttribute('data-dash-owner') === '1')) switchPage('saas-command');
+    if (profileContext?.workspace === 'saas_admin' && __dashMode === 'marketsync') switchPage('saas-command');
     else switchPage(__mgrHome ? 'command' : 'insights');
     applyFeatureFlags();   // hide nav for features the dealer switched off
-    // Entitlement-driven front door. Prefer the normalized access context (composes
-    // subscription tier + product membership + role) and fall back to the legacy
-    // /auth/me products object. This is what stops every login landing on Facebook.
-    applyProductNav(legacyProductsFromAccess(window.__access) || profileContext?.products);
-    // Flatten the left nav to departments for the full DealerOS manager/admin view
-    // (runs after all gating so it derives visibility from the settled nav).
-    renderDeptNav(profileContext?.role);
-    renderUpgradeCta();           // "Upgrade plan" CTA unless already on the full bundle
-    applyExtensionVisibility();   // hide the FB extension CTA for SaaS / AI-only accounts
+    applyProductNav(profileContext?.products);   // entitlement-driven front door (overrides landing for non-OS products)
 
     // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
     initGlobalLeaderboard();
@@ -1670,13 +1251,13 @@ async function initializeDashboardEcosystem() {
 
 } catch (err) {
     if (err.message === 'TRIAL_EXPIRED') {
-      // Free trial lapsed — show the blocking paywall popup with all packages to choose.
-      openPaywallModal('trial_ended');
+      alert('Your 30-day free trial has ended. Add a payment method to keep using MarketSync.');
+      window.location.href = '/upgrade.html?reason=trial_ended';
       return;
     }
     if (err.message === 'SUBSCRIPTION_REQUIRED') {
-      // No active subscription — same paywall (pick a package to continue).
-      openPaywallModal('subscription_required');
+      alert('Subscription required to access system. Redirecting to billing...');
+      launchStripeLifecycle();
       return;
     }
     if (err.message === 'SESSION_EXPIRED') {
@@ -1704,9 +1285,7 @@ async function initializeDashboardEcosystem() {
 // (entitlement still governs access; this is a visibility preference on top).
 let __featureFlags = null;
 const FEATURE_NAV = {
-  // Target the website leaves, not the whole Marketing group — the group also holds
-  // Marketplace + AI Chat, which the website toggle must not hide.
-  website: '[data-page="website"], [data-page="website-settings"]',
+  website: '.nav-group[data-group="web"]',
   automation: '[data-page="automation"]',
   equity: '[data-page="equity"]',
   inv_intel: '.nav-group[data-group="ii"]',
@@ -1791,376 +1370,13 @@ window.personalizeSalesNav = personalizeSalesNav;
 function postToFacebook() { __inventoryMode = 'facebook'; switchPage('inventory'); }
 window.postToFacebook = postToFacebook;
 
-// The rank chip + old leaderboard deep links open the full Team+Global board.
-// It's a Marketing-department page now (except the Facebook-only tier, where it
-// still lives on the dashboard).
+// The rank chip + old leaderboard deep links land on the Dashboard and scroll to
+// the leaderboard, which now lives there.
 function openLeaderboardOnDash() {
-  if (__fbOnly) {
-    switchPage('insights');
-    setTimeout(() => { try { document.getElementById('leaderboard-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {} }, 120);
-    return;
-  }
-  switchPage('leaderboard');
+  switchPage('insights');
   setTimeout(() => { try { document.getElementById('leaderboard-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {} }, 120);
 }
 window.openLeaderboardOnDash = openLeaderboardOnDash;
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Departments — the user-facing navigation unit. A department groups several
-// existing pages; when you're on one of its pages, the others appear as tabs
-// at the top of the content (renderDeptTabbar). Engines stay behind the wall:
-// a department's pages are quietly powered by whatever engines they need.
-// Single-workspace departments (Executive, admin) use the in-body 5-tab shell
-// instead; those pages are intentionally NOT listed here.
-// ═══════════════════════════════════════════════════════════════════════════
-// `mgr:true` (department or page) = managers/owners/admins only. `roles:[...]` = an
-// explicit allow-list. Nothing set = everyone in the dealership (reps included).
-// A sales rep therefore sees Sales, Detail/Cleanup and Marketing — with the
-// manager/analyst pages inside them hidden — and nothing else. Settings isn't a
-// department; the header gear owns it.
-const DEPARTMENTS = {
-  executive: {
-    label: 'Daily Briefing', icon: 'chart', accent: 'indigo', mgr: true,
-    pages: [{ page: 'command', label: 'Daily Briefing' }],
-  },
-  sales: {
-    label: 'Sales', icon: 'currency', accent: 'amber',
-    pages: [
-      { page: 'insights', label: 'Dashboard' },
-      { page: 'crm', label: 'Customers' },
-      { page: 'appointments', label: 'Appointments' },
-      { page: 'tasks', label: 'Tasks' },
-      { page: 'inventory', label: 'Inventory', invmode: 'manual' },
-      { page: 'appraisal', label: 'Appraisals' },
-      { page: 'equity', label: 'Equity Mining' },
-      // Manager/analyst-only slices — hidden from a sales rep.
-      { page: 'leads', label: 'Opportunities', mgr: true },
-      { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true },
-      { page: 'market', label: 'Market', mgr: true },
-      { page: 'delivery', label: 'Deliveries', mgr: true },
-      { page: 'reports', label: 'Reports', mgr: true },
-    ],
-  },
-  fni: {
-    // Desk-a-deal isn't a tab — it's launched per customer (header button, CRM card,
-    // and the Deals list), so F&I is a single Deals workspace.
-    label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
-    pages: [
-      { page: 'fni', label: 'Deals' },
-    ],
-  },
-  service: {
-    label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
-    // Service Settings lives under the header gear now, not as a department tab.
-    pages: [
-      { page: 'service-ros', label: 'Repair Orders' },
-      { page: 'service-appointments', label: 'Appointments' },
-    ],
-  },
-  parts: {
-    label: 'Parts', icon: 'gem', accent: 'amber', mgr: true,
-    pages: [{ page: 'service-parts', label: 'Parts Inventory' }],
-  },
-  cleanup: {
-    label: 'Detail / Cleanup', icon: 'droplet', accent: 'sky',
-    pages: [{ page: 'recon', label: 'Cleanup' }],
-  },
-  accounting: {
-    // The Accounting page already renders its own rich top menu (Financials,
-    // Insights, Reconciliation, Tax, …), so it's a single-page department — that
-    // native menu IS the "menus on top", no second tab row stacked over it.
-    label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
-    pages: [{ page: 'accounting', label: 'Accounting' }],
-  },
-  marketing: {
-    label: 'Marketing', icon: 'megaphone', accent: 'violet',
-    pages: [
-      // Reps only see Facebook Marketplace here — everything else is manager-only.
-      // Facebook Marketplace posts the SAME inventory as the website/manual list —
-      // one inventory pool, viewed in 'facebook' mode.
-      { page: 'inventory', label: 'Facebook Marketplace', invmode: 'facebook' },
-      { page: 'website', label: 'Website', mgr: true },
-      { page: 'ai-home', label: 'AI Chat', mgr: true },
-      // The builder holds the email/text templates (New Lead, Delivery, Holidays);
-      // the settings page (engine on/off, email setup) is reached from within it.
-      { page: 'automation-builder', label: 'Automation', mgr: true },
-      { page: 'email-marketing', label: 'Email Marketing', mgr: true },
-      { page: 'leaderboard', label: 'Leaderboard', mgr: true },
-    ],
-  },
-  administration: {
-    label: 'Administration', icon: 'shield', accent: 'indigo', mgr: true,
-    pages: [
-      // Dealer users are managed in the dealership-scoped team workspace. The
-      // owner-users page calls /owner/accounts and is reserved for MarketSync HQ.
-      // Keep Users first so Administration opens directly into user management.
-      { page: 'sales-team', label: 'Users' },
-      { page: 'operations', label: 'Operations' },
-      { page: 'taskboard', label: 'Task Board' },
-      { page: 'config', label: 'Configuration' },
-      { page: 'api-keys', label: 'API Keys' },
-    ],
-  },
-};
-// Role gate for a department or page spec: explicit `roles` list wins, else `mgr`
-// means managers/owners/admins only, else everyone in the dealership.
-const DEPT_MGR_ROLES = ['DEALER_ADMIN', 'OWNER', 'MANAGER'];
-function deptRoleOk(spec) {
-  if (!spec) return true;
-  if (Array.isArray(spec.roles)) return spec.roles.includes(profileContext?.role);
-  if (spec.mgr) return DEPT_MGR_ROLES.includes(profileContext?.role);
-  return true;
-}
-let __activeDept = null;
-let __currentPage = null;
-
-// ── Plan-tier feature gating for the Dealer OS department nav ─────────────────
-// Maps every DealerOS nav page → the access-context entitlement required for it to
-// show. This makes each plan's sidebar match the plan catalog instead of treating
-// every DealerOS account as Pro.
-const PAGE_FEATURE = {
-  command: 'os.dashboard', insights: 'os.dashboard',
-  crm: 'os.crm', leads: 'os.crm', appointments: 'os.crm', tasks: 'os.crm',
-  appraisal: 'os.crm', equity: 'os.crm',
-  inventory: 'os.inventory', recon: 'os.inventory',
-  accounting: 'os.accounting',
-  'service-ros': 'os.service', 'service-appointments': 'os.service', 'service-parts': 'os.service',
-  website: 'os.website',
-  'automation-builder': 'os.automations', operations: 'os.automations', taskboard: 'os.automations',
-  'email-marketing': 'os.email_marketing',
-  delivery: 'os.sales', fni: 'os.sales',
-  reports: 'os.reports',
-  'inv-intel': 'os.inventory', market: 'os.inventory',
-  'ai-home': 'os.marketing',
-  'api-keys': 'os.integrations',
-  'owner-users': 'os.team', 'sales-team': 'os.team',
-  config: 'os.settings',
-};
-const PAGE_PRODUCT = { leaderboard: 'facebook' };
-// The dealership record also carries its server-authored package name. This fallback
-// keeps the DealerOS menu stable during an access-context retry/cold start; it only
-// affects navigation presentation — API permissions remain enforced on the server.
-const DEALER_OS_PLAN_FEATURES = {
-  starter: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings']),
-  growth: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings', 'os.sales', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.integrations']),
-  pro: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.sales', 'os.accounting', 'os.service', 'os.marketing', 'os.website', 'os.reports', 'os.automations', 'os.email_marketing', 'os.integrations', 'os.team', 'os.settings', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings']),
-};
-function dealerPlanFallback() {
-  const plan = String(profileContext?.plan || profileContext?.dealership?.plan || '').toLowerCase();
-  const features = DEALER_OS_PLAN_FEATURES[plan];
-  if (!features) return { features: null, products: null };
-  return { features, products: plan === 'pro' ? new Set(['dealer_os', 'facebook', 'ai_dealer']) : new Set(['dealer_os']) };
-}
-// Dealer-controlled switches are a second visibility layer after the paid plan.
-// Keep this mapping page-based rather than deriving it from the legacy sidebar DOM:
-// the department nav is its own renderer and must not disappear merely because the
-// old nested menu happens to be collapsed or hidden for presentation reasons.
-const PAGE_DEALER_FLAG = {
-  website: 'website',
-  'automation-builder': 'automation', operations: 'automation', taskboard: 'automation',
-  equity: 'equity',
-  appraisal: 'appraisals',
-  reports: 'reports',
-  'inv-intel': 'inv_intel', market: 'inv_intel',
-};
-// True unless this page maps to a feature the plan doesn't include. Scoped to full
-// Dealer OS mode: restricted product tiers (Facebook / AI) use their own page sets, and
-// window.hasFeature fails OPEN when /access/context is unavailable, so legacy accounts
-// and an older backend are never over-filtered.
-function pageFeatureOk(pg, invmode = null) {
-  if (__productAllowedPages || __fbOnly) return true;   // restricted tiers handled by product nav
-  const access = window.__access;
-  const fallback = dealerPlanFallback();
-  const requiredProduct = (pg === 'inventory' && (invmode || __inventoryMode) === 'facebook')
-    ? 'facebook' : PAGE_PRODUCT[pg];
-  if (requiredProduct) {
-    // The entitlement context is derived server-side from live subscription rows. Until
-    // it is available, do not advertise an add-on as part of a lower DealerOS plan.
-    return !!((access && (access.isPlatformStaff || (access.products || []).includes(requiredProduct)))
-      || fallback.products?.has(requiredProduct));
-  }
-  const feat = PAGE_FEATURE[pg];
-  if (!feat) return true;
-  return !!((access && (access.isPlatformStaff || (access.features || []).includes(feat)))
-    || fallback.features?.has(feat));
-}
-
-// Is a page reachable for this user? Respect the per-item gating that product /
-// role / feature flags apply by toggling the `hidden` class on nav items.
-function deptPageVisible(pg, invmode = null) {
-  if (!pageFeatureOk(pg, invmode)) return false;   // plan-tier entitlement gate
-  if (__staffAllowedPages && !__staffAllowedPages.has(pg)) return false;
-  const dealerFlag = PAGE_DEALER_FLAG[pg];
-  return !dealerFlag || __featureFlags?.[dealerFlag] !== false;
-}
-function renderDeptTabbar(pageId) {
-  const bar = document.getElementById('dept-tabbar');
-  if (!bar) return;
-  const hide = () => { bar.classList.add('hidden'); bar.innerHTML = ''; };
-  if (__fbOnly) { __activeDept = null; return hide(); }   // stripped Facebook-only tier
-  if (__productAllowedPages) { __activeDept = null; return hide(); }   // restricted product tiers use their flat nav, no dept tab-bar
-  // MarketSync owner mode uses the SaaS departments, not the dealership ones.
-  if (document.documentElement.getAttribute('data-dash-mode') === 'marketsync') { __activeDept = null; return hide(); }
-  // Sticky: keep the current department if it owns this page, else find the owner.
-  let deptId = (__activeDept && DEPARTMENTS[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
-             : Object.keys(DEPARTMENTS).find(d => DEPARTMENTS[d].pages.some(p => p.page === pageId));
-  if (!deptId) { __activeDept = null; return hide(); }
-  __activeDept = deptId;
-  const dept = DEPARTMENTS[deptId];
-  const pages = dept.pages.filter(deptPageAllowed);
-  if (pages.length <= 1) return hide();   // nothing to move between → no tab-bar
-  const A = ENGINE_ACCENTS[dept.accent] || ENGINE_ACCENTS.indigo;
-  const tabs = pages.map(p => {
-    const on = p.page === pageId && (!p.invmode || p.invmode === __inventoryMode);
-    return `<button onclick="deptGo('${p.page}'${p.invmode ? `,'${p.invmode}'` : ''})" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition ${on ? A.text + ' border-current' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}">${esc(p.label)}</button>`;
-  }).join('');
-  bar.innerHTML = `
-    <div class="flex items-center gap-2 mb-1">
-      <span class="w-7 h-7 rounded-lg ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0">${svgIcon(dept.icon || 'dot', 'w-4 h-4')}</span>
-      <span class="text-sm font-black text-slate-900 dark:text-white">${esc(dept.label)}</span>
-    </div>
-    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">${tabs}</div>`;
-  bar.classList.remove('hidden');
-}
-// Navigate to a department page (handles the inventory view-mode tabs).
-function deptGo(page, invmode) { if (invmode) __inventoryMode = invmode; switchPage(page); }
-window.deptGo = deptGo;
-
-// ── Flat department LEFT nav ─────────────────────────────────────────────────
-// The legacy left nav is a deep, mode-aware tree. For the full DealerOS
-// manager/admin experience we replace it with a flat department list (the
-// legacy tree is hidden, not removed, so all its gating still drives which
-// departments/pages are reachable). Reps, product tiers, Facebook-only and
-// MarketSync owner mode keep the legacy nav untouched — zero regression.
-// The MarketSync owner's SaaS back office is its own flat department list —
-// the company operating system, not a dealership.
-const SAAS_DEPARTMENTS = {
-  hq:         { label: 'MarketSync HQ',    icon: 'chart',    accent: 'violet', pages: [{ page: 'saas-command', label: 'HQ' }] },
-  pipeline:   { label: 'Customer Pipeline', icon: 'chart',   accent: 'violet', pages: [{ page: 'saas-customers', label: 'Pipeline' }] },
-  followups:  { label: 'Follow-ups',        icon: 'bolt',    accent: 'violet', pages: [{ page: 'saas-followups', label: 'Follow-ups' }] },
-  funnel:     { label: 'Funnel',            icon: 'chart',   accent: 'violet', pages: [{ page: 'saas-funnel', label: 'Funnel' }] },
-  automation: { label: 'Automation',        icon: 'bolt',    accent: 'violet', pages: [{ page: 'saas-automation', label: 'Automation' }] },
-  employees:  { label: 'Employees',        icon: 'user',     accent: 'violet', pages: [{ page: 'saas-employees', label: 'Employees' }] },
-  accounts:   { label: 'All Users',        icon: 'user',     accent: 'violet', pages: [{ page: 'owner-users', label: 'Accounts' }] },
-  affiliates: { label: 'Affiliates',       icon: 'trophy',   accent: 'amber',   pages: [{ page: 'affiliates-admin', label: 'Affiliates' }] },
-  accounting: { label: 'Accounting',       icon: 'currency', accent: 'emerald', always: true, pages: [{ page: 'saas-accounting', label: 'Accounting' }] },
-  settings:   { label: 'Settings',         icon: 'user',     accent: 'indigo',  always: true, pages: [{ page: 'profile', label: 'Settings' }] },
-};
-let __deptNavBuilt = false;
-let __deptRegistry = DEPARTMENTS;   // which department set the flat nav is showing
-function marketsyncOwnerMode() {
-  return document.documentElement.getAttribute('data-dash-owner') === '1'
-    && document.documentElement.getAttribute('data-dash-mode') === 'marketsync';
-}
-function deptNavEligible(role) {
-  // The department (DealerOS) nav is the ONE nav for every dealership user — reps
-  // included. Each department/page is filtered to what that user can actually see
-  // (deptVisible / deptPageVisible respect role + solo + feature-flag gating), so a
-  // rep simply gets fewer departments. Excluded only for the tiers that run their
-  // own nav: specialized staff workspaces, Facebook-only, restricted products, and
-  // the MarketSync back office.
-  return !!role
-    && !__fbOnly
-    && !__staffAllowedPages
-    && document.documentElement.getAttribute('data-dash-mode') !== 'marketsync'
-    && __productAllowedPages == null;
-}
-// A page the current user may actually open: role-allowed AND not entitlement/flag hidden.
-function deptPageAllowed(p) { return deptRoleOk(p) && deptPageVisible(p.page, p.invmode); }
-function deptHomePage(dept) { return dept.pages.find(deptPageAllowed) || dept.pages.find(deptRoleOk) || dept.pages[0]; }
-// A department is present when it has one page the user's role and plan both permit.
-// Do not inspect the old nested sidebar here: it is merely a legacy presentation tree
-// and its hidden/collapsed classes are not an entitlement signal.
-function deptHasRealPage(dept) {
-  return dept.pages.some(deptPageAllowed);
-}
-function deptVisible(dept) {
-  if (!deptRoleOk(dept)) return false;   // role gate first (managers-only departments)
-  if (dept.always) return true;
-  if (deptHasRealPage(dept)) return true;
-  if (dept.probe) { const el = document.querySelector(dept.probe); if (el && !el.classList.contains('hidden')) return true; }
-  return false;
-}
-function renderDeptNav(role) {
-  const navRoot = document.getElementById('nav-desktop');
-  if (!navRoot) return;
-  // Owner in the SaaS back office → the SaaS departments; a dealer manager in full
-  // DealerOS → the dealership departments; anyone else → the legacy nav.
-  const registry = marketsyncOwnerMode() ? SAAS_DEPARTMENTS : (deptNavEligible(role) ? DEPARTMENTS : null);
-  // The mode is now decided — reveal the sidebar (clears the pre-nav hidden state
-  // so the legacy tree never flashes before the department nav for eligible users).
-  navRoot.classList.remove('nav-init');
-  if (!registry) {
-    // Restricted product / Facebook tiers: render their nav from the same registry
-    // the mobile menu uses (restrictedNavPages) — a flat page list — so desktop and
-    // mobile are one source of truth and there's no hardcoded sidebar.
-    const rp = restrictedNavPages();
-    if (rp && rp.length) {
-      __deptRegistry = null;   // flat page list, not a department registry
-      let host = document.getElementById('dept-nav');
-      if (!host) {
-        host = document.createElement('div'); host.id = 'dept-nav'; host.className = 'space-y-0.5 mb-1';
-        const anchor = document.getElementById('setup-bar-host');
-        if (anchor && anchor.parentElement === navRoot) navRoot.insertBefore(host, anchor.nextSibling);
-        else navRoot.insertBefore(host, navRoot.firstChild);
-      }
-      host.innerHTML = rp.map(p => `<button type="button" data-page="${esc(p.page)}" onclick="deptGo('${p.page}'${p.invmode ? `,'${p.invmode}'` : ''})" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`).join('');
-      navRoot.classList.add('dept-mode');
-      __deptNavBuilt = true;
-      if (__currentPage) highlightDeptNav(__currentPage);
-      applyMobileQuickRow();   // keep the bottom quick-row in sync with this registry
-      return;
-    }
-    navRoot.classList.remove('dept-mode'); document.getElementById('dept-nav')?.remove(); __deptNavBuilt = false; return;
-  }
-  __deptRegistry = registry;
-  let host = document.getElementById('dept-nav');
-  if (!host) {
-    host = document.createElement('div'); host.id = 'dept-nav'; host.className = 'space-y-0.5 mb-1';
-    const anchor = document.getElementById('setup-bar-host');   // sit below the setup bar if present
-    if (anchor && anchor.parentElement === navRoot) navRoot.insertBefore(host, anchor.nextSibling);
-    else navRoot.insertBefore(host, navRoot.firstChild);
-  }
-  host.innerHTML = Object.entries(registry).filter(([, d]) => deptVisible(d)).map(([id, d]) => {
-    const A = ENGINE_ACCENTS[d.accent] || ENGINE_ACCENTS.indigo;
-    return `<button type="button" data-dept="${id}" onclick="deptOpen('${id}')" title="${esc(d.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="${A.text} flex-shrink-0">${svgIcon(d.icon || 'dot', 'w-4 h-4')}</span><span>${esc(d.label)}</span></button>`;
-  }).join('');
-  navRoot.classList.add('dept-mode');
-  __deptNavBuilt = true;
-  if (__currentPage) highlightDeptNav(__currentPage);
-  applyMobileQuickRow();   // bottom quick-row mirrors the DEPARTMENTS registry too
-}
-window.renderDeptNav = renderDeptNav;
-function deptOpen(id) {
-  const d = __deptRegistry[id]; if (!d) return;
-  __activeDept = id;
-  const home = deptHomePage(d);
-  if (home.invmode) __inventoryMode = home.invmode;
-  switchPage(home.page);
-}
-window.deptOpen = deptOpen;
-function highlightDeptNav(pageId) {
-  if (!__deptNavBuilt) return;
-  const reg = __deptRegistry;
-  // Restricted tiers render a FLAT page list (no dept registry): highlight by data-page.
-  if (!reg) {
-    document.querySelectorAll('#dept-nav .dept-nav-item').forEach(b => {
-      const on = b.dataset.page === pageId;
-      b.classList.toggle('bg-indigo-100', on); b.classList.toggle('dark:bg-indigo-950/50', on);
-      b.classList.toggle('text-indigo-700', on); b.classList.toggle('dark:text-indigo-300', on);
-      b.classList.toggle('text-slate-700', !on); b.classList.toggle('dark:text-slate-300', !on);
-    });
-    return;
-  }
-  const deptId = (__activeDept && reg[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
-               : Object.keys(reg).find(d => reg[d].pages.some(p => p.page === pageId));
-  document.querySelectorAll('#dept-nav .dept-nav-item').forEach(b => {
-    const on = b.dataset.dept === deptId;
-    b.classList.toggle('bg-indigo-100', on); b.classList.toggle('dark:bg-indigo-950/50', on);
-    b.classList.toggle('text-indigo-700', on); b.classList.toggle('dark:text-indigo-300', on);
-    b.classList.toggle('text-slate-700', !on); b.classList.toggle('dark:text-slate-300', !on);
-  });
-}
 
 function switchPage(pageId) {
   ensurePanelsInOriginalLocations();
@@ -2175,29 +1391,10 @@ function switchPage(pageId) {
   }
   // Facebook-only tier: only the Facebook hub, leaderboard and settings are reachable.
   if (__fbOnly && !FB_ONLY_PAGES.has(pageId)) { __inventoryMode = 'facebook'; pageId = 'inventory'; }
-  // Product-restricted tiers (Facebook Solo/Dealer, AI Chatbot): keep them inside
-  // their page set so a stale link or hardcoded mobile button can't reach full-OS
-  // pages. 'profile' (header gear) is always allowed.
-  if (__productAllowedPages && pageId !== 'profile' && !__productAllowedPages.has(pageId)) {
-    pageId = __productHome || 'profile';
-    if (pageId === 'inventory') __inventoryMode = 'facebook';
-  }
-
-  // Old DealerOS bookmarks used the MarketSync-only owner-users route. Keep those
-  // bookmarks useful without ever sending a dealership admin to the platform-wide
-  // account API. MarketSync HQ continues to use owner-users unchanged.
-  if (pageId === 'owner-users' && !marketsyncOwnerMode()) pageId = 'sales-team';
 
   // Specialized staff role (F&I, Service, Accounting, Cleanup): anything outside
   // their workspace bounces to their home page. Guards deep links & stale nav too.
   if (__staffAllowedPages && !__staffAllowedPages.has(pageId)) { pageId = __staffHome; }
-
-  // Plan-tier gate: a page whose feature the current plan doesn't include bounces to a
-  // safe home. The API + RLS already deny the data; this keeps the UI from opening an
-  // empty/403 page from a stale link. profile (settings) is always reachable.
-  if (pageId !== 'profile' && !pageFeatureOk(pageId)) {
-    pageId = (typeof deptNavEligible === 'function' && deptNavEligible(profileContext?.role)) ? 'command' : 'insights';
-  }
 
   // Accounting has one container but each nav leaf (acct-insights, acct-tax, …) is
   // its own "page" — map those to the shared accounting container.
@@ -2261,6 +1458,10 @@ function switchPage(pageId) {
   if (contentKey === 'accounting') loadAccountingPage(pageId.startsWith('acct-') ? pageId.slice(5) : undefined);
   if (pageId === 'affiliates-admin') loadAffiliatesAdmin();
   if (pageId === 'desk') loadDeskDeal();
+  if (pageId === 'academy') initAcademy();
+
+  // Check if department is being OPENED for the first time
+  if (typeof checkDepartmentOpen === 'function') checkDepartmentOpen(pageId);
   if (pageId === 'crm') loadCrmPage();
   if (pageId === 'leads') loadLeadsPage();
   if (pageId === 'appointments') loadAppointmentsPage();
@@ -2272,7 +1473,6 @@ function switchPage(pageId) {
   if (pageId === 'website-settings') loadWebsiteSettings();
   if (pageId === 'automation') loadAutomationPage();
   if (pageId === 'automation-builder') loadAutoBuilderPage();
-  if (pageId === 'email-marketing') loadDealerEmail();
   if (pageId === 'fni') loadFniPage();
   if (pageId === 'equity') loadEquityPage();
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
@@ -2280,56 +1480,17 @@ function switchPage(pageId) {
   if (pageId === 'command') loadCommandCenter();
   if (pageId === 'saas-command') loadSaasCommand();
   if (pageId === 'saas-customers') loadSaasCustomers();
-  if (pageId === 'saas-followups') loadSaasFollowups();
-  if (pageId === 'saas-funnel') loadSaasFunnel();
-  if (pageId === 'saas-automation') loadSaasAutomation();
-  if (pageId === 'saas-employees') loadSaasEmployees();
-  if (pageId === 'saas-accounting') loadSaasAccounting();
-  if (pageId === 'config') loadConfigHub();
-  if (pageId === 'api-keys') loadApiKeys();
-  if (pageId === 'delivery') loadDeliveryQueue();
   if (pageId === 'solo-home') loadSoloHome();
-  if (pageId === 'ai-home') loadAiHome();
-  if (pageId === 'sales-team' && typeof loadDealerManagementMatrix === 'function') { try { loadDealerManagementMatrix(); } catch {} }
   if (pageId === 'operations') loadOperationsPage();
   if (pageId === 'service-ros') loadServiceRosPage();
   if (pageId === 'service-parts') loadServicePartsPage();
   if (pageId === 'owner-users') loadOwnerUsersPage();
   if (pageId === 'ai-inbox') loadAiInbox();
 
-  __currentPage = pageId;
-  renderDeptTabbar(pageId);
-  highlightDeptNav(pageId);
 }
 
 // ── Trade Appraisal ──────────────────────────────────────────────────────────
 let __apprWired = false;
-let __apprDefaults = { recon: 1200, gross: 2500 };   // manager-set appraisal defaults
-let __apprCanEditDefaults = false;
-// Manager-only control to set the store's default recon + target gross (persists to
-// the dealership; every new appraisal starts from these).
-function renderApprDefaultsControl() {
-  const slot = document.getElementById('appr-defaults-slot'); if (!slot) return;
-  if (!__apprCanEditDefaults) { slot.innerHTML = ''; return; }
-  const iC = 'w-24 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-right tabular-nums';
-  slot.innerHTML = `<div class="mt-1 flex items-center gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400">
-    <span class="font-semibold">Store defaults:</span>
-    <span class="inline-flex items-center gap-1">Recon $<input id="appr-def-recon" type="number" min="0" value="${__apprDefaults.recon}" class="${iC}"></span>
-    <span class="inline-flex items-center gap-1">Target gross $<input id="appr-def-gross" type="number" min="0" value="${__apprDefaults.gross}" class="${iC}"></span>
-    <button onclick="saveApprDefaults()" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Save defaults</button>
-    <span class="text-slate-400">— applied to every new appraisal.</span>
-  </div>`;
-}
-async function saveApprDefaults() {
-  const recon = Number(document.getElementById('appr-def-recon')?.value);
-  const gross = Number(document.getElementById('appr-def-gross')?.value);
-  try {
-    await apiSendJson('/ai/config', 'PUT', { appraisal_recon_default: recon, appraisal_gross_default: gross });
-    __apprDefaults = { recon: Number.isFinite(recon) ? recon : 1200, gross: Number.isFinite(gross) ? gross : 2500 };
-    showToast('Appraisal defaults saved', 'success');
-  } catch (e) { showToast(e.message || 'Could not save', 'error'); }
-}
-window.saveApprDefaults = saveApprDefaults;
 // ── VIN barcode scanner (camera) ─────────────────────────────────────────────
 // Reads the Code 39 / Code 128 / Data-Matrix VIN barcode printed on the driver's
 // door jamb or lower windshield using the browser's built-in BarcodeDetector
@@ -2373,20 +1534,19 @@ function loadPdfJs() {
   });
   return __pdfjsPromise;
 }
-async function extractPdfText(file, options = {}) {
+async function extractPdfText(file) {
   const pdfjs = await loadPdfJs();
   const buf = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: buf }).promise;
   let out = '';
-  const maxPages = Math.min(pdf.numPages, Number(options.maxPages) > 0 ? Number(options.maxPages) : 40);
-  const maxChars = Number(options.maxChars) > 0 ? Number(options.maxChars) : 20000;
+  const maxPages = Math.min(pdf.numPages, 40);
   for (let i = 1; i <= maxPages; i++) {
     const page = await pdf.getPage(i);
     const tc = await page.getTextContent();
     out += tc.items.map(it => it.str).join(' ') + '\n';
-    if (out.length > maxChars) break;
+    if (out.length > 20000) break;
   }
-  return out.slice(0, maxChars);
+  return out;
 }
 
 async function openVinScanner(targetId, afterFill) {
@@ -2512,14 +1672,6 @@ function initAppraisal() {
   // Reveal the plate → VIN block only if a plate-decode provider is provisioned.
   apiGetJson('/ai/config', { retries: 1 }).then(cfg => {
     if (cfg?.plate_lookup_ready) document.getElementById('appr-plate-block')?.classList.remove('hidden');
-    // Manager-set appraisal defaults (recon + target gross); fall back to 1200/2500.
-    __apprDefaults = { recon: cfg?.appraisal_recon_default ?? 1200, gross: cfg?.appraisal_gross_default ?? 2500 };
-    __apprCanEditDefaults = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    // Seed the fields now if they're still on the app defaults.
-    const rc = document.getElementById('appr-recon'), gr = document.getElementById('appr-gross');
-    if (rc && (rc.value === '' || rc.value === '1200')) rc.value = __apprDefaults.recon;
-    if (gr && (gr.value === '' || gr.value === '2500')) gr.value = __apprDefaults.gross;
-    renderApprDefaultsControl();
   }).catch(() => {});
   if (__apprWired) return;      // switchPage calls this each visit; wire once
   const $ = (id) => document.getElementById(id);
@@ -2528,14 +1680,14 @@ function initAppraisal() {
   __apprWired = true;
 
   // Standalone VIN decoder — pops the same full specs & recall modal as Inventory.
-  // "View full VIN decode" reads the appraisal's VIN field and opens the rich
-  // specs + recall report (same modal Inventory uses).
+  const lookupBtn = $('appr-vin-lookup-btn'), lookupInput = $('appr-vin-lookup');
   const runVinLookup = () => {
-    const vin = ($('appr-vin')?.value || '').trim().toUpperCase();
-    if (vin.length !== 17) { showToast('Decode or enter a 17-character VIN first', 'error'); return; }
+    const vin = (lookupInput?.value || '').trim().toUpperCase();
+    if (vin.length !== 17) { showToast('Enter a 17-character VIN', 'error'); return; }
     openVinDecode(null, vin);
   };
-  $('appr-view-decode')?.addEventListener('click', runVinLookup);
+  lookupBtn?.addEventListener('click', runVinLookup);
+  lookupInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runVinLookup(); } });
 
   // Customer search — pull an existing CRM customer into the appraisal, or start new.
   const custSearch = $('appr-cust-search');
@@ -2612,14 +1764,6 @@ function initAppraisal() {
       showToast('VIN decoded — add mileage, then Appraise', 'success');
     } catch (e) { showToast(e.message, 'error'); }
     finally { decodeBtn.disabled = false; decodeBtn.textContent = orig; }
-  });
-
-  // Auto-decode the moment a full 17-char VIN is entered/scanned — the appraiser
-  // shouldn't have to click Decode. Fires once per VIN.
-  let __apprLastAutoVin = '';
-  $('appr-vin')?.addEventListener('input', () => {
-    const vin = ($('appr-vin').value || '').trim().toUpperCase();
-    if (vin.length === 17 && vin !== __apprLastAutoVin) { __apprLastAutoVin = vin; decodeBtn.click(); }
   });
 
   runBtn.addEventListener('click', async () => {
@@ -2741,7 +1885,7 @@ function resetAppraisal() {
    'cust-first', 'cust-last', 'cust-home-phone', 'cust-mobile-phone', 'cust-email', 'cust-postal', 'cust-address', 'disc-notes'
   ].forEach(id => set(id));
   set('appr-condition', 'good'); set('appr-drivetrain', ''); set('appr-radius', '250'); set('appr-accident', 'none');
-  set('appr-recon', String(__apprDefaults?.recon ?? 1200)); set('appr-gross', String(__apprDefaults?.gross ?? 2500));
+  set('appr-recon', '1200'); set('appr-gross', '2500');
   document.getElementById('appr-vin-decoded')?.classList.add('hidden');
   set('appr-vin-decoded-text');
   const res = document.getElementById('appr-result'); if (res) res.innerHTML = '';
@@ -3578,38 +2722,8 @@ function crmOverlay(inner, maxW = 'max-w-2xl') {
   document.body.appendChild(el);
   return el;
 }
-// Can the current user make changes to this contact? Managers/admins always can;
-// a rep can edit their own book (assigned to them) or an unassigned lead — otherwise
-// it's read-only.
-function canEditContact(c) {
-  if (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role)) return true;
-  const rep = c.owner_id || c.assigned_to || c.rep_id || null;
-  const me = profileContext?.id || user?.id || null;
-  return !rep || rep === me;
-}
-// Minimize the open customer modal to a corner chip so a rep can keep it "parked"
-// while they work elsewhere, then reopen it.
-function crmMinimizeModal(btn) {
-  const overlay = btn.closest('.fixed'); if (!overlay) return;
-  const nameEl = overlay.querySelector('.text-lg.font-black');
-  const name = nameEl ? nameEl.textContent.trim() : 'Customer';
-  overlay.style.display = 'none';
-  overlay.dataset.minimized = '1';
-  document.getElementById('crm-min-chip')?.remove();
-  const chip = document.createElement('div');
-  chip.id = 'crm-min-chip';
-  chip.className = 'fixed bottom-4 right-4 z-[9997] flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl rounded-full pl-4 pr-1.5 py-1.5';
-  chip.innerHTML = `<span class="text-sm font-bold text-slate-700 dark:text-slate-200 max-w-[180px] truncate">${esc(name)}</span>
-    <button onclick="crmRestoreModal()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 px-2.5 py-1 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40">Open</button>
-    <button onclick="crmCloseMinimized()" title="Close" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 w-6 h-6 flex items-center justify-center rounded-full">×</button>`;
-  document.body.appendChild(chip);
-}
-function crmRestoreModal() { const o = document.querySelector('.fixed[data-minimized="1"]'); if (o) { o.style.display = ''; delete o.dataset.minimized; } document.getElementById('crm-min-chip')?.remove(); }
-function crmCloseMinimized() { document.querySelector('.fixed[data-minimized="1"]')?.remove(); document.getElementById('crm-min-chip')?.remove(); }
-Object.assign(window, { crmMinimizeModal, crmRestoreModal, crmCloseMinimized });
-
 async function openCrmContact(id) {
-  const ov = crmOverlay(`<div class="p-10 text-center text-sm text-slate-400 italic">Loading…</div>`, 'max-w-4xl');
+  const ov = crmOverlay(`<div class="p-10 text-center text-sm text-slate-400 italic">Loading…</div>`);
   try {
     const d = await apiGetJson(`/crm/contacts/${id}`);
     ov.querySelector('div > div').innerHTML = crmDetailHtml(d);
@@ -3618,7 +2732,6 @@ async function openCrmContact(id) {
 }
 function crmDetailHtml(d) {
   const c = d.contact;
-  const canEdit = canEditContact(c);   // read-only for reps who aren't the assigned owner
   // A callable number may live in any phone field — use the first one we find so
   // Call/Text work even when the primary `phone` is blank (e.g. appraisal leads).
   const phone = (c.phone || c.phone_mobile || c.phone_home || c.phone_work || '').trim();
@@ -3637,13 +2750,10 @@ function crmDetailHtml(d) {
         <div class="text-xs text-slate-500 dark:text-slate-400 truncate">${esc([c.email, phone].filter(Boolean).join(' · ') || 'No contact info')}</div>
       </div>
     </div>
-    <div class="flex items-center gap-1 flex-shrink-0">
-      <button onclick="crmMinimizeModal(this)" title="Minimize" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M5 12h14"/></svg></button>
-      <button onclick="this.closest('.fixed').remove()" title="Close" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
-    </div>
+    <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex-shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <div class="p-5 space-y-4">
-    ${document.documentElement.getAttribute('data-demo-account') === '1' ? `
+    ${document.documentElement.getAttribute('data-dash-mode') === 'demo' ? `
     <div class="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-3 py-2">
       <span class="text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">Demo</span>
       <span class="text-xs text-slate-600 dark:text-slate-300">Walk this deal along the pipeline:</span>
@@ -3653,8 +2763,7 @@ function crmDetailHtml(d) {
         <button onclick="demoStepStage('${c.id}','next','${esc(c.status || 'uncontacted')}')" class="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-black text-slate-600 dark:text-slate-200" title="Next stage">▶</button>
       </div>
     </div>` : ''}
-    ${!canEdit ? `<div class="rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 px-3 py-2 text-[12px] text-slate-500 dark:text-slate-400 flex items-center gap-2">${svgIcon('eye', 'w-4 h-4')}Read-only — you're not the assigned rep on this customer.</div>` : ''}
-    <div class="flex flex-wrap gap-2 ${!canEdit ? 'hidden' : ''}">
+    <div class="flex flex-wrap gap-2">
       ${c.email && !c.dnc && c.consent_email !== false ? `<button onclick="crmEmailForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M4 6h16v12H4z"/></svg>Email</button>` : ''}
       ${phone
         ? `<a href="tel:${esc(phone)}" onclick="crmQuickLog('${c.id}','call')" class="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>Call</a>`
@@ -3672,7 +2781,6 @@ function crmDetailHtml(d) {
       ${c.status === 'delivered' && SALES_ROLES.includes(profileContext?.role) ? `<button onclick="crmLeaseForm('${c.id}')" class="flex items-center gap-1.5 text-xs font-bold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 px-3 py-1.5 rounded-lg"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M4 10v10h16V10M9 21v-6h6v6"/></svg>Deal / equity</button>` : ''}
     </div>
     ${c.notes ? `<div class="text-xs bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-950/40 rounded-lg p-3 text-slate-700 dark:text-slate-300">${esc(c.notes)}</div>` : ''}
-    ${crmVehicleCards(c, d)}
     ${crmDetailFacts(c, d)}
     ${openTasks.length ? `<div>
       <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Open tasks</div>
@@ -3705,7 +2813,7 @@ function openChatTx(id) {
     const mine = m.role === 'assistant';   // the dealership/AI side
     return `<div class="flex ${mine ? 'justify-start' : 'justify-end'}">
       <div class="max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${mine ? 'bg-indigo-50 dark:bg-indigo-950/40 text-slate-800 dark:text-slate-100 rounded-tl-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-tr-sm'}">
-        <div class="text-[10px] font-bold uppercase tracking-wide mb-0.5 ${mine ? 'text-indigo-500 dark:text-indigo-300' : 'text-slate-400'}">${mine ? svgIcon('sparkles', 'w-3 h-3 inline-block -mt-0.5') + ' AI' : 'Customer'}</div>
+        <div class="text-[10px] font-bold uppercase tracking-wide mb-0.5 ${mine ? 'text-indigo-500 dark:text-indigo-300' : 'text-slate-400'}">${mine ? '🤖 AI' : 'Customer'}</div>
         <div class="whitespace-pre-wrap">${esc(m.content)}</div>
       </div></div>`;
   }).join('');
@@ -3798,116 +2906,22 @@ function crmDetailFacts(c, d) {
   if (c.dl_number) fact("Driver's licence", c.dl_number + (c.dl_expiry ? ` (exp ${new Date(c.dl_expiry).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })})` : ''));
   fact('Source', c.source);
   fact('Salesperson', c.rep_name);
-  // Trade-in + desired vehicle now render as their own cards (crmVehicleCards).
+  const tv = c.trade_vehicle;
+  if (tv && (tv.make || tv.vin)) fact('Trade vehicle', [tv.year, tv.make, tv.model, tv.trim].filter(Boolean).join(' ') + (tv.mileage ? ` · ${Number(tv.mileage).toLocaleString()} km` : '') + (tv.vin ? ` · VIN ${tv.vin}` : ''));
+  if (d.interest_vehicle_label?.label) fact('New car of interest', d.interest_vehicle_label.label + (d.interest_vehicle_label.price ? ` · $${Number(d.interest_vehicle_label.price).toLocaleString()}` : ''));
   if (!rows.length) return '';
   return `<dl class="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3">${rows.join('')}</dl>`;
 }
-// Prominent cards: the vehicle they want to buy + their trade-in (pulled from the
-// appraisal). The desired-vehicle card carries the Desk-a-Deal action.
-function crmVehicleCards(c, d) {
-  const cards = [];
-  const wants = d.interest_vehicle_label;
-  if (wants && wants.label) {
-    const canDesk = canEditContact(c) && SALES_ROLES.includes(profileContext?.role);
-    // If the interest is pinned to a real stock unit, link straight to it (VDP) —
-    // opens the Inventory catalog filtered to its stock #, like the stocking recs.
-    const vdp = (wants.inventory_id && (wants.stocknumber || wants.inventory_id))
-      ? `<a href="#" onclick="switchPage('inventory');const s=document.getElementById('catalog-search');if(s){s.value='${esc(wants.stocknumber || wants.inventory_id)}';renderCatalog();}return false;" class="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline">${wants.stocknumber ? '#' + esc(wants.stocknumber) : 'View unit'} →</a>`
-      : '';
-    cards.push(`<div class="flex-1 min-w-[220px] bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900 rounded-xl p-3">
-      <div class="text-[10px] font-black uppercase tracking-wider text-indigo-500 mb-1 flex items-center gap-1">${svgIcon('car', 'w-3.5 h-3.5')}Wants to buy</div>
-      <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(wants.label)}</div>
-      <div class="flex items-center gap-2 flex-wrap">
-        ${wants.price ? `<span class="text-[12px] text-slate-500 dark:text-slate-400">$${Number(wants.price).toLocaleString()}</span>` : ''}
-        ${vdp}
-      </div>
-      ${canDesk ? `<button onclick="openDeskForContact('${c.id}')" class="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">${d.deal ? 'View deal' : 'Desk a deal'}</button>` : ''}
-    </div>`);
-  }
-  const tv = c.trade_vehicle;
-  if (tv && (tv.make || tv.vin)) {
-    const label = [tv.year, tv.make, tv.model, tv.trim].filter(Boolean).join(' ');
-    const sub = [tv.mileage ? Number(tv.mileage).toLocaleString() + ' km' : '', tv.vin ? 'VIN ' + tv.vin : ''].filter(Boolean).join(' · ');
-    cards.push(`<div class="flex-1 min-w-[220px] bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900 rounded-xl p-3">
-      <div class="text-[10px] font-black uppercase tracking-wider text-amber-500 mb-1 flex items-center gap-1">${svgIcon('tag', 'w-3.5 h-3.5')}Trade-in</div>
-      <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(label || 'Trade vehicle')}</div>
-      ${sub ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(sub)}</div>` : ''}
-      ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="switchPage('appraisal')" class="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200">${tv.appraisal_id ? 'View appraisal' : 'Appraise car'}</button>` : ''}
-    </div>`);
-  }
-  // Insurance — pulled from the deal once F&I fills it on the desk.
-  const insr = d.deal?.insurance;
-  if (insr && (insr.company || insr.policy || insr.agent || insr.phone || insr.expiry)) {
-    const line = [insr.policy ? 'Policy ' + insr.policy : '', insr.agent || '', insr.phone || '', insr.expiry ? 'exp ' + insr.expiry : ''].filter(Boolean).join(' · ');
-    cards.push(`<div class="flex-1 min-w-[220px] bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900 rounded-xl p-3">
-      <div class="text-[10px] font-black uppercase tracking-wider text-emerald-500 mb-1 flex items-center gap-1">${svgIcon('shield', 'w-3.5 h-3.5')}Insurance</div>
-      <div class="text-sm font-bold text-slate-900 dark:text-white">${esc(insr.company || 'On file')}</div>
-      ${line ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(line)}</div>` : ''}
-    </div>`);
-  }
-  if (!cards.length) return '';
-  return `<div class="flex flex-wrap gap-3">${cards.join('')}</div>`;
-}
 function crmTaskRow(t, contactId) {
   const overdue = t.due_at && new Date(t.due_at) < Date.now();
-  const isAppt = t.type === 'appointment';
-  const dot = t.type === 'lead_followup' ? 'bg-orange-500' : t.type === 'delivery_followup' ? 'bg-emerald-500' : isAppt ? 'bg-violet-500' : '';
-  // Appointments get outcome actions so the timeline records show / no-show / cancel,
-  // plus reschedule (opens a new date/time picker).
-  const acts = (isAppt && !t.done && contactId) ? `<div class="flex flex-wrap gap-1.5 mt-1 ml-6">
-      <button onclick="crmApptOutcome('${t.id}','${contactId}','showed')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200">Showed</button>
-      <button onclick="crmApptOutcome('${t.id}','${contactId}','no_show')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-200">No-show</button>
-      <button onclick="crmApptOutcome('${t.id}','${contactId}','cancelled')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">Cancel</button>
-      <button onclick="crmApptReschedule('${t.id}','${contactId}',${JSON.stringify(t.title || 'Appointment').replace(/"/g, '&quot;')},'${t.due_at || ''}')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-200">Reschedule</button>
-    </div>` : '';
-  return `<div>
-    <div class="flex items-center gap-2 text-sm">
-      <input type="checkbox" ${t.done ? 'checked' : ''} onchange="crmToggleTask('${t.id}', this.checked, '${contactId}')" class="w-4 h-4 rounded accent-indigo-600 flex-shrink-0">
-      ${dot ? `<span class="w-2 h-2 rounded-full ${dot} flex-shrink-0" title="${isAppt ? 'Appointment' : t.type === 'lead_followup' ? 'New-lead follow-up' : 'Delivery follow-up'}"></span>` : ''}
-      <span class="flex-1 ${t.done ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}">${esc(t.title)}</span>
-      ${t.due_at ? `<span class="text-[11px] ${overdue && !t.done ? 'text-rose-500 font-bold' : 'text-slate-400'}">${esc(crmWhen(t.due_at))}</span>` : ''}
-    </div>
-    ${acts}
+  const dot = t.type === 'lead_followup' ? 'bg-orange-500' : t.type === 'delivery_followup' ? 'bg-emerald-500' : '';
+  return `<div class="flex items-center gap-2 text-sm">
+    <input type="checkbox" ${t.done ? 'checked' : ''} onchange="crmToggleTask('${t.id}', this.checked, '${contactId}')" class="w-4 h-4 rounded accent-indigo-600 flex-shrink-0">
+    ${dot ? `<span class="w-2 h-2 rounded-full ${dot} flex-shrink-0" title="${t.type === 'lead_followup' ? 'New-lead follow-up' : 'Delivery follow-up'}"></span>` : ''}
+    <span class="flex-1 ${t.done ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}">${esc(t.title)}</span>
+    ${t.due_at ? `<span class="text-[11px] ${overdue && !t.done ? 'text-rose-500 font-bold' : 'text-slate-400'}">${esc(crmWhen(t.due_at))}</span>` : ''}
   </div>`;
 }
-// Appointment outcomes — mark the task resolved and record what happened on the timeline.
-async function crmApptOutcome(taskId, contactId, outcome) {
-  const map = {
-    showed:    { subject: 'Appointment — showed',    body: 'Customer showed for the appointment.' },
-    no_show:   { subject: 'Appointment — no-show',    body: 'Customer did not show (no-show).' },
-    cancelled: { subject: 'Appointment — cancelled',  body: 'Appointment cancelled.' },
-  };
-  const m = map[outcome]; if (!m) return;
-  try {
-    await apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { done: true });
-    await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', { channel: 'note', direction: 'internal', subject: m.subject, body: m.body });
-    showToast('Updated', 'success'); openCrmContact(contactId);
-  } catch (e) { showToast(e.message, 'error'); }
-}
-function crmApptReschedule(taskId, contactId, title, dueAt) {
-  const d = dueAt ? new Date(dueAt) : new Date();
-  const dateStr = isNaN(d) ? '' : d.toISOString().slice(0, 10);
-  const timeStr = isNaN(d) ? '09:00' : d.toTimeString().slice(0, 5);
-  const iCls = 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm';
-  crmDetailFormSlot(`<div class="bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900 rounded-lg p-3 space-y-2">
-    <div class="text-sm font-bold text-slate-800 dark:text-slate-100">Reschedule appointment</div>
-    <div class="flex gap-2"><input id="crm-resch-date" type="date" value="${dateStr}" class="${iCls}"><input id="crm-resch-time" type="time" value="${timeStr}" class="${iCls}"></div>
-    <div class="flex gap-2 justify-end"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
-      <button onclick="crmApptRescheduleSave('${taskId}','${contactId}',${JSON.stringify(title || 'Appointment').replace(/"/g, '&quot;')})" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg">Save new time</button></div>
-  </div>`);
-}
-async function crmApptRescheduleSave(taskId, contactId, title) {
-  const date = document.getElementById('crm-resch-date')?.value;
-  const time = document.getElementById('crm-resch-time')?.value || '09:00';
-  if (!date) { showToast('Pick a date', 'error'); return; }
-  const iso = new Date(`${date}T${time}`).toISOString();
-  try {
-    await apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { due_at: iso });
-    await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Appointment rescheduled', body: `${title} moved to ${new Date(iso).toLocaleString()}` });
-    showToast('Rescheduled', 'success'); openCrmContact(contactId);
-  } catch (e) { showToast(e.message, 'error'); }
-}
-Object.assign(window, { crmApptOutcome, crmApptReschedule, crmApptRescheduleSave });
 function crmTimelineItem(t, cid) {
   const chIco = { call: 'phone', sms: 'chat', email: 'mail', note: 'note' };
   let head = '', bodyTxt = t.body || '', reply = '', iconName = 'note';
@@ -3919,7 +2933,7 @@ function crmTimelineItem(t, cid) {
       return `<div class="flex gap-2.5">
         <div class="w-7 flex-shrink-0 flex justify-center pt-0.5 text-indigo-500">${msIco('chat', 'w-4 h-4')}</div>
         <div class="min-w-0 flex-1 border-l-2 border-slate-100 dark:border-slate-800 pl-3 pb-1">
-          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">${svgIcon('sparkles', 'w-4 h-4 text-indigo-500')}${esc(SRC[t.meta.source] || 'AI conversation')}</div>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">🤖 ${esc(SRC[t.meta.source] || 'AI conversation')}</div>
           <div class="text-sm text-slate-600 dark:text-slate-300 mt-0.5">${n} message${n === 1 ? '' : 's'} with the AI concierge.</div>
           <button onclick="openChatTx('${t.id}')" class="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">${msIco('chat', 'w-3 h-3')} View AI conversation</button>
           <div class="text-[11px] text-slate-400 mt-0.5">${esc(crmWhen(t.at))}</div>
@@ -3974,8 +2988,6 @@ async function crmSaveLog(id) {
   const channel = document.getElementById('crm-log-channel')?.value || 'note';
   const subject = document.getElementById('crm-log-subject')?.value || '';
   const body = document.getElementById('crm-log-body')?.value || '';
-  // A call / text / email touch must carry a note (audit): reps log what happened.
-  if (channel !== 'note' && !body.trim()) { showToast(`Add a note about the ${channel === 'sms' ? 'text' : channel}`, 'error'); return; }
   if (!body.trim() && !subject.trim()) { showToast('Add a note', 'error'); return; }
   try { await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel, subject, body, direction: channel === 'note' ? 'internal' : 'out' }); showToast('Logged', 'success'); openCrmContact(id); }
   catch (e) { showToast(e.message, 'error'); }
@@ -4014,50 +3026,10 @@ async function crmSendReply(id, channel) {
 window.crmReplyForm = crmReplyForm;
 window.crmSendReply = crmSendReply;
 
-// Fired when a rep taps Call/Text — opens a wrap-up so the touch is logged WITH a
-// required note (and, for calls, the time spent). A live timer runs while the call
-// is in progress; "Use timer" stamps the elapsed duration.
-let __crmCallTimer = null;
-function crmQuickLog(id, channel) {
-  const isCall = channel === 'call';
-  crmDetailFormSlot(`<div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2">
-    <div class="flex items-center justify-between">
-      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500">${isCall ? 'Call wrap-up' : 'Text wrap-up'}</div>
-      ${isCall ? `<div class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400" id="crm-call-timer" data-start="${Date.now()}">0:00</div>` : ''}
-    </div>
-    ${isCall ? `<div class="flex items-center gap-2"><label class="text-xs text-slate-500">Duration</label><input id="crm-call-dur" type="text" placeholder="e.g. 5m" class="w-24 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm"><button type="button" onclick="crmCallStamp()" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">Use timer</button></div>` : ''}
-    <textarea id="crm-ql-note" rows="2" placeholder="Add a note (required) — what happened?" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></textarea>
-    <div class="flex gap-2 justify-end"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
-      <button onclick="crmQuickLogSave('${id}','${channel}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Log ${isCall ? 'call' : 'text'}</button></div>
-  </div>`);
-  if (isCall) crmStartCallTimer();
+async function crmQuickLog(id, channel) {
+  // Fired when a rep taps Call/Text — auto-logs the touch so the timeline stays honest.
+  try { await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel, direction: 'out', body: channel === 'call' ? 'Called (tap-to-dial)' : 'Texted (tap-to-message)' }); } catch {}
 }
-function crmStartCallTimer() {
-  clearInterval(__crmCallTimer);
-  __crmCallTimer = setInterval(() => {
-    const el = document.getElementById('crm-call-timer');
-    if (!el) { clearInterval(__crmCallTimer); return; }   // form closed → stop
-    const s = Math.floor((Date.now() - Number(el.dataset.start)) / 1000);
-    el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
-  }, 1000);
-}
-function crmCallStamp() {
-  const el = document.getElementById('crm-call-timer'), d = document.getElementById('crm-call-dur');
-  if (!el || !d) return;
-  const s = Math.floor((Date.now() - Number(el.dataset.start)) / 1000);
-  d.value = s < 60 ? `${s}s` : `${Math.round(s / 60)}m`;
-}
-async function crmQuickLogSave(id, channel) {
-  const note = (document.getElementById('crm-ql-note')?.value || '').trim();
-  if (!note) { showToast('Add a note before saving', 'error'); return; }
-  let body = note;
-  if (channel === 'call') { const dur = (document.getElementById('crm-call-dur')?.value || '').trim(); body = dur ? `Call (${dur}) — ${note}` : `Call — ${note}`; }
-  else if (channel === 'sms') body = `Text — ${note}`;
-  clearInterval(__crmCallTimer);
-  try { await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel, direction: 'out', body }); showToast('Logged', 'success'); openCrmContact(id); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-Object.assign(window, { crmQuickLog, crmStartCallTimer, crmCallStamp, crmQuickLogSave });
 function crmEmailForm(id) {
   crmDetailFormSlot(`<div class="bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-900 rounded-lg p-3 space-y-2">
     <div class="text-[11px] font-bold uppercase tracking-wider text-indigo-500">Send email</div>
@@ -4096,22 +3068,9 @@ async function crmSaveTask(id) {
   try { await apiSendJson('/crm/tasks', 'POST', { contact_id: id, title, type, due_at: due ? new Date(due).toISOString() : null }); showToast('Task added', 'success'); openCrmContact(id); }
   catch (e) { showToast(e.message, 'error'); }
 }
-async function crmToggleTask(taskId, done, contactId, fromList) {
-  // Completing a task requires a note — it posts to the customer's timeline so the
-  // record shows WHAT happened, not just a checkmark. Un-checking needs no note.
-  const refresh = () => { if (fromList) crmLoadTasks(); else if (contactId) openCrmContact(contactId); else crmLoadTasks(); };
-  let note = null;
-  if (done) {
-    note = prompt('Add a note about this task before completing it:', '');
-    if (note == null || !note.trim()) { refresh(); return; }   // cancelled/blank → don't complete
-  }
-  try {
-    await apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { done });
-    if (done && note && note.trim() && contactId) {
-      await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Task completed', body: note.trim() });
-    }
-    refresh();   // timeline / list reflects the note immediately (no manual refresh)
-  } catch (e) { showToast(e.message, 'error'); }
+async function crmToggleTask(taskId, done, contactId) {
+  try { await apiSendJson(`/crm/tasks/${taskId}`, 'PUT', { done }); if (contactId) openCrmContact(contactId); else crmLoadTasks(); }
+  catch (e) { showToast(e.message, 'error'); }
 }
 // ── Lease / equity details right on the delivered customer (managers) ────────
 async function crmLeaseForm(id) {
@@ -4162,8 +3121,6 @@ function crmApptForm(id) {
       <input id="crm-appt-time" type="time" value="${defTime}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm">
       <select id="crm-appt-dur" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm"><option value="30">30 min</option><option value="60" selected>1 hr</option><option value="90">1.5 hr</option></select>
     </div>
-    <input id="crm-appt-vehicle" placeholder="Vehicle / stock # (optional)" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">
-    <textarea id="crm-appt-note" rows="2" placeholder="Notes (optional) — added to the timeline" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></textarea>
     <div class="flex gap-2 justify-end"><button onclick="crmDetailFormSlot('')" class="text-xs font-bold text-slate-500 px-3 py-1.5">Cancel</button>
       <button onclick="crmSaveAppt('${id}')" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg">Book + get calendar links</button></div>
   </div>`);
@@ -4181,19 +3138,13 @@ async function crmSaveAppt(id) {
   const date = document.getElementById('crm-appt-date')?.value;
   const time = document.getElementById('crm-appt-time')?.value || '09:00';
   const dur = Number(document.getElementById('crm-appt-dur')?.value || 60);
-  const vehicle = (document.getElementById('crm-appt-vehicle')?.value || '').trim();
-  const note = (document.getElementById('crm-appt-note')?.value || '').trim();
   if (!date) { showToast('Pick a date', 'error'); return; }
   const startIso = new Date(`${date}T${time}`).toISOString();
-  const fullTitle = vehicle ? `${title} · ${vehicle}` : title;
-  const details = ['Booked via MarketSync CRM', vehicle ? `Vehicle: ${vehicle}` : '', note].filter(Boolean).join('\n');
   try {
-    await apiSendJson('/crm/tasks', 'POST', { contact_id: id, title: fullTitle, type: 'appointment', due_at: startIso });
-    await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Appointment booked', body: `${fullTitle} — ${new Date(startIso).toLocaleString()}` });
-    // A note typed on the appointment posts to the timeline as its own note.
-    if (note) await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Appointment note', body: note });
+    await apiSendJson('/crm/tasks', 'POST', { contact_id: id, title, type: 'appointment', due_at: startIso });
+    await apiSendJson(`/crm/contacts/${id}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Appointment booked', body: `${title} — ${new Date(startIso).toLocaleString()}` });
     await apiSendJson(`/crm/contacts/${id}`, 'PUT', { status: 'appointment' });
-    const { g, o, ics } = crmCalLinks(fullTitle, startIso, dur, details);
+    const { g, o, ics } = crmCalLinks(title, startIso, dur, 'Booked via MarketSync CRM');
     crmDetailFormSlot(`<div class="bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900 rounded-lg p-3 space-y-2">
       <div class="text-sm font-bold text-slate-800 dark:text-slate-100">Appointment booked for ${esc(new Date(startIso).toLocaleString())}</div>
       <div class="text-xs text-slate-500">Add it to your calendar:</div>
@@ -4327,7 +3278,7 @@ async function crmOpenForm(id) {
     <div>${lbl('Street address')}${inp('crm-f-address', c.address, 'Street address', 'w-full')}</div>
     <div class="grid grid-cols-3 gap-2">
       <div>${lbl('City')}${inp('crm-f-city', c.city, 'City', 'w-full')}</div>
-      <div>${lbl('Province / State')}${inp('crm-f-province', c.province || (window.__dealerLocale?.province || ''), 'ON', 'w-full')}</div>
+      <div>${lbl('Province / State')}${inp('crm-f-province', c.province, 'ON', 'w-full')}</div>
       <div>${lbl('Postal / ZIP')}${inp('crm-f-postal', c.postal_code, 'A1A 1A1', 'w-full')}</div>
     </div>
     ${sect('Identification')}
@@ -4446,7 +3397,7 @@ function idvBlock(c) {
     ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Matched: ${esc(rep.name || '')}${rep.dob ? ` · DOB ${esc(rep.dob)}` : ''}${rep.selfie_matched ? ' · selfie matched' : ''}</div>` : '';
   const lastErr = status === 'requires_input' && rep.last_error
     ? `<div class="text-[11px] text-rose-500 mt-1">${esc(rep.last_error)}</div>` : '';
-  return `<div class="text-[11px] font-black uppercase tracking-wider text-indigo-500 pt-1">Identity verification</div>
+  return `${sect('Identity verification')}
     <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3">
       <div class="flex items-center justify-between gap-2">
         <div>
@@ -4577,8 +3528,7 @@ async function crmSaveContact(btn, id) {
 function crmTaskTypeMeta(type) {
   if (type === 'lead_followup') return { label: 'New lead', border: 'border-orange-500', badge: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300' };
   if (type === 'delivery_followup') return { label: 'Delivery', border: 'border-emerald-500', badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' };
-  if (type === 'appointment') return { label: 'Appointment', border: 'border-violet-500', badge: 'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300' };
-  return { label: 'Follow-up', border: 'border-sky-500', badge: 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300' };
+  return { label: type || 'follow-up', border: 'border-slate-200 dark:border-slate-700', badge: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' };
 }
 async function crmLoadTasks() {
   const body = document.getElementById('tasks-root');
@@ -4591,19 +3541,17 @@ async function crmLoadTasks() {
     if (!el) return;   // user navigated away mid-fetch
     if (!tasks.length) { el.className = ''; el.innerHTML = '<div class="py-16 text-center text-sm text-slate-400">No open tasks. Add follow-ups from a contact.</div>'; return; }
     el.className = '';
-    // Legend for the task journeys shown here.
+    // Legend for the two automated task journeys.
     const legend = `<div class="flex flex-wrap items-center gap-3 mb-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
       <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>New-lead follow-up</span>
-      <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span>Follow-up</span>
       <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>Delivery follow-up</span>
-      <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-violet-500"></span>Appointment</span>
     </div>`;
     el.innerHTML = legend + `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl divide-y divide-slate-100 dark:divide-slate-800">
       ${tasks.map(t => {
         const overdue = t.due_at && new Date(t.due_at) < Date.now();
         const meta = crmTaskTypeMeta(t.type);
         return `<div class="flex items-center gap-3 px-4 py-3 border-l-4 ${meta.border}">
-          <input type="checkbox" onchange="crmToggleTask('${t.id}', this.checked, ${t.contact_id ? `'${t.contact_id}'` : 'null'}, true)" class="w-4 h-4 rounded accent-indigo-600 flex-shrink-0">
+          <input type="checkbox" onchange="crmToggleTask('${t.id}', this.checked)" class="w-4 h-4 rounded accent-indigo-600 flex-shrink-0">
           <div class="min-w-0 flex-1">
             <div class="font-semibold text-sm text-slate-800 dark:text-slate-100 truncate">${esc(t.title)}</div>
             <div class="text-xs text-slate-400 flex flex-wrap items-center gap-1.5">${t.contact_name ? `<button onclick="openCrmContact('${t.contact_id}')" class="text-indigo-500 hover:underline">${esc(t.contact_name)}</button>` : ''}<span class="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${meta.badge}">${esc(meta.label)}</span></div>
@@ -4648,8 +3596,7 @@ async function loadLeadsPage() {
     if (!l.created_at) return '<span class="text-xs text-slate-400">—</span>';
     if (l.responded_at) {
       const sec = Math.max(0, Math.round((new Date(l.responded_at) - new Date(l.created_at)) / 1000));
-      // Colour the answered time by the response goal — fast = green, slow = red.
-      return `<span class="text-xs font-bold ${leadTimeClasses(sec).join(' ')}" title="Answered${l.responded_by_name ? ' by ' + esc(l.responded_by_name) : ''} in ${fmtLeadDuration(sec)}">✓ ${fmtLeadDuration(sec)}</span>`;
+      return `<span class="text-xs font-bold text-emerald-600 dark:text-emerald-400" title="Answered${l.responded_by_name ? ' by ' + esc(l.responded_by_name) : ''} in ${fmtLeadDuration(sec)}">✓ ${fmtLeadDuration(sec)}</span>`;
     }
     return `<span class="lead-timer text-xs font-black tabular-nums" data-created="${l.created_at}" title="Live — time this lead has gone unanswered">${fmtLeadDuration(Math.max(0, Math.round((Date.now() - new Date(l.created_at)) / 1000)))}</span>`;
   };
@@ -4702,14 +3649,6 @@ async function loadLeadsPage() {
       </div>
     </div>
 
-    ${data.can_reassign ? (() => { const sla = leadSla(); return `<div class="mb-4 flex items-center gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400">
-      <span class="font-semibold">Response goal:</span>
-      <span class="inline-flex items-center gap-1">green ≤ <input type="number" min="1" value="${sla.good}" id="lead-sla-good" class="w-14 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-right tabular-nums"> min</span>
-      <span class="inline-flex items-center gap-1">amber ≤ <input type="number" min="1" value="${sla.ok}" id="lead-sla-ok" class="w-14 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-right tabular-nums"> min</span>
-      <span class="text-slate-400">(red after) —</span>
-      <button onclick="saveLeadSla(document.getElementById('lead-sla-good').value, document.getElementById('lead-sla-ok').value)" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Save</button>
-    </div>`; })() : ''}
-
     <div id="leads-metrics" class="mb-4"></div>
 
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
@@ -4754,24 +3693,6 @@ async function loadLeadsPage() {
 }
 
 // Format seconds → compact "1h 02m 45s" / "3m 12s" / "45s" (down to the second).
-// Response-time goal (minutes) → green ≤ good, amber ≤ ok, red after. Managers set
-// it on the Opportunities page; stored per dealership. Defaults 5 / 15.
-function leadSla() {
-  try { const s = JSON.parse(localStorage.getItem('ms_lead_sla_' + (profileContext?.dealership_id || 'x')) || 'null'); if (s && s.good > 0 && s.ok > 0) return s; } catch {}
-  return { good: 5, ok: 15 };
-}
-function leadTimeClasses(sec) {
-  const { good, ok } = leadSla();
-  return sec <= good * 60 ? ['text-emerald-600', 'dark:text-emerald-400']
-    : sec <= ok * 60 ? ['text-amber-600', 'dark:text-amber-400']
-    : ['text-red-500'];
-}
-function saveLeadSla(good, ok) {
-  const g = Math.max(1, Number(good) || 5), o = Math.max(g, Number(ok) || 15);
-  try { localStorage.setItem('ms_lead_sla_' + (profileContext?.dealership_id || 'x'), JSON.stringify({ good: g, ok: o })); } catch {}
-  loadLeadsPage();
-}
-window.saveLeadSla = saveLeadSla;
 function fmtLeadDuration(totalSec) {
   totalSec = Math.max(0, Math.floor(totalSec));
   const s = totalSec % 60, m = Math.floor(totalSec / 60) % 60, h = Math.floor(totalSec / 3600) % 24, d = Math.floor(totalSec / 86400);
@@ -4796,7 +3717,8 @@ function startLeadTimers() {
       const sec = Math.max(0, Math.round((Date.now() - new Date(el.dataset.created)) / 1000));
       el.textContent = fmtLeadDuration(sec);
       el.classList.remove(...COLORS);
-      el.classList.add(...leadTimeClasses(sec));
+      const add = sec <= 300 ? ['text-emerald-600', 'dark:text-emerald-400'] : sec <= 900 ? ['text-amber-600', 'dark:text-amber-400'] : ['text-red-500'];
+      el.classList.add(...add);
     });
   };
   tick();
@@ -4972,30 +3894,6 @@ function setupMobileMoreMenu() {
     list.className = 'space-y-1.5';   // stacked full-width groups (was a 2-col grid)
     list.innerHTML = '';
     const mk = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
-    // Restricted tiers (Facebook-only + product tiers): the desktop sidebar is
-    // stripped, so mirror exactly that tier's page set here — no legacy tree, no
-    // department cards. Settings is always reachable (this list + the header gear).
-    // "Upgrade plan" row for the mobile menu — same gate as the desktop CTA (hidden once
-    // the account holds the full Dealer OS Pro bundle or is platform staff).
-    const appendMobileUpgrade = () => {
-      const a = window.__access;
-      const onTop = a && Array.isArray(a.products) && ['dealer_os', 'facebook', 'ai_dealer'].every(p => a.products.includes(p));
-      if (onTop || a?.isPlatformStaff || typeof openPlanUpgradeModal !== 'function') return;
-      const b = mk('<button type="button" class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-black text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition"><span aria-hidden="true">⭐</span><span>Upgrade plan</span></button>');
-      b.addEventListener('click', () => { close(); openPlanUpgradeModal(); });
-      list.appendChild(b);
-    };
-    const restricted = restrictedNavPages();
-    if (restricted) {
-      restricted.forEach(p => {
-        const b = mk(`<button type="button" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-left"><span class="w-5 h-5 flex-shrink-0 text-indigo-500">${svgIcon(p.icon || 'dot', 'w-5 h-5')}</span><span class="truncate">${esc(p.label)}</span></button>`);
-        b.addEventListener('click', () => { close(); if (p.invmode) __inventoryMode = p.invmode; switchPage(p.page); });
-        list.appendChild(b);
-      });
-      appendMobileUpgrade();
-      menu.classList.remove('hidden');
-      return;
-    }
     // Guided-setup progress at the very top of the mobile menu (uses the cached
     // snapshot; hidden once complete) so the "status bar on the nav" shows on phones too.
     (() => {
@@ -5020,7 +3918,7 @@ function setupMobileMoreMenu() {
     // admins get Desk a deal + Settings right at the top of the menu.
     const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     const quick = [];
-    if (isAdmin && !simpleCrmActive()) quick.push(['desk', 'Desk a deal']);
+    if (isAdmin) quick.push(['desk', 'Desk a deal']);
     quick.push(['profile', 'Settings']);
     if (quick.length) {
       const wrap = mk('<div class="grid grid-cols-2 gap-1.5"></div>');
@@ -5030,25 +3928,6 @@ function setupMobileMoreMenu() {
         wrap.appendChild(b);
       });
       list.appendChild(wrap);
-    }
-
-    // DealerOS department mode (managers/admins, and the SaaS owner back office):
-    // the desktop nav is the flat department list, so mirror it EXACTLY — one
-    // tappable row per department that opens it (its home page + the dept tab bar),
-    // no dropdowns. Sub-pages are reached from the department's own tab bar, just
-    // like desktop. Keeps the phone menu dynamic per login.
-    if (__deptNavBuilt && __deptRegistry) {
-      Object.entries(__deptRegistry).forEach(([id, d]) => {
-        if (!deptVisible(d)) return;
-        const A = ENGINE_ACCENTS[d.accent] || ENGINE_ACCENTS.indigo;
-        const svg = svgIcon(d.icon || 'dot', 'w-5 h-5');
-        const b = mk(`<button type="button" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-left"><span class="w-5 h-5 flex-shrink-0 ${A.text}">${svg}</span><span class="truncate">${esc(d.label)}</span></button>`);
-        b.addEventListener('click', () => { close(); if (typeof deptOpen === 'function') deptOpen(id); });
-        list.appendChild(b);
-      });
-      appendMobileUpgrade();
-      menu.classList.remove('hidden');
-      return;
     }
 
     const desktop = document.getElementById('nav-desktop');
@@ -5076,7 +3955,6 @@ function setupMobileMoreMenu() {
         }
       });
     }
-    appendMobileUpgrade();
     menu.classList.remove('hidden');
   });
 
@@ -5568,28 +4446,10 @@ function openApptDetail(a) {
           ${a.rep ? `<div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300"><svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a7.5 7.5 0 0115 0"/></svg>Rep: ${esc(a.rep)}</div>` : ''}
         </div>
 
-        <!-- Add to calendar (Google / Outlook / .ics) -->
-        ${(() => {
-          const { g, o, ics } = crmCalLinks(a.label ? `Appointment — ${a.label}` : 'Appointment', a.appointment_at, 60, a.appointment_note || specs || 'Booked via MarketSync');
-          const b = 'inline-flex items-center gap-1.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg';
-          return `<div>
-            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Add to calendar</div>
-            <div class="flex flex-wrap gap-2">
-              <a href="${g}" target="_blank" rel="noopener" class="${b}">${msIco('calendar','w-3.5 h-3.5')} Google</a>
-              <a href="${o}" target="_blank" rel="noopener" class="${b}">${msIco('calendar','w-3.5 h-3.5')} Outlook</a>
-              <a href="${ics}" download="appointment.ics" class="${b}">${msIco('download','w-3.5 h-3.5')} .ics</a>
-            </div>
-          </div>`;
-        })()}
-
         <!-- Person / buyer info (from the rep's note) -->
         <div>
           <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Buyer / Notes</div>
-          <div id="appt-notes-view" class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">${a.appointment_note ? esc(a.appointment_note) : '<span class="text-slate-400 italic">No buyer details were added.</span>'}</div>
-          ${a.contact_id ? `<div class="mt-2 flex gap-2">
-            <input id="appt-note-input" placeholder="Add a note…" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">
-            <button onclick="apptAddNote('${a.contact_id}')" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-700">Add note</button>
-          </div>` : ''}
+          <div class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">${a.appointment_note ? esc(a.appointment_note) : '<span class="text-slate-400 italic">No buyer details were added.</span>'}</div>
         </div>
 
         <div class="flex flex-wrap gap-2 pt-1">
@@ -5604,21 +4464,6 @@ function openApptDetail(a) {
     </div>`;
   document.getElementById('appt-detail-close')?.addEventListener('click', () => modal.classList.add('hidden'));
 }
-// Add a note to the appointment's customer — posts to the CRM timeline and shows
-// it inline without closing the modal.
-async function apptAddNote(contactId) {
-  const inp = document.getElementById('appt-note-input');
-  const body = (inp?.value || '').trim();
-  if (!body) { showToast('Type a note first', 'error'); return; }
-  try {
-    await apiSendJson(`/crm/contacts/${contactId}/log`, 'POST', { channel: 'note', direction: 'internal', subject: 'Appointment note', body });
-    const view = document.getElementById('appt-notes-view');
-    if (view) { const p = document.createElement('div'); p.className = 'mt-1'; p.textContent = body; if (view.querySelector('.italic')) view.innerHTML = ''; view.appendChild(p); }
-    if (inp) inp.value = '';
-    showToast('Note added', 'success');
-  } catch (e) { showToast(e.message || 'Could not add note', 'error'); }
-}
-window.apptAddNote = apptAddNote;
 // Reschedule / cancel apply to appointments booked as CRM tasks (id "task:<id>").
 // Pipeline appointments are managed from the pipeline board.
 function apptRescheduleForm(taskId, currentIso) {
@@ -5667,10 +4512,8 @@ function ensurePanelsInOriginalLocations() {
   const st = document.getElementById('dealer-view-panel');
   const pc = document.getElementById('profile-card');
 
-  // The Team+Global leaderboard lives on its own 'leaderboard' page for everyone —
-  // the Marketing tab (DealerOS) and the home for the Facebook / fb-only tiers. Keeping
-  // it in that one container means it loads wherever the nav points at 'leaderboard'.
-  const lbWrap = document.querySelector('[data-page-content="leaderboard"]') || document.getElementById('dash-leaderboard-slot');
+  // Leaderboard now lives on the Dashboard, not its own page.
+  const lbWrap = document.getElementById('dash-leaderboard-slot') || document.querySelector('[data-page-content="leaderboard"]');
   const tiWrap = document.querySelector('[data-page-content="team-insights"]');
   const stWrap = document.querySelector('[data-page-content="sales-team"]');
   const pcWrap = document.querySelector('[data-page-content="profile"]');
@@ -5769,7 +4612,7 @@ async function loadExecutiveRoi() {
           <th class="py-2 px-4">Salesperson</th><th class="py-2 px-3 text-right">Sales</th><th class="py-2 px-3 text-right">Leads</th><th class="py-2 px-3 text-right">&lt; 5 min</th><th class="py-2 px-3 text-right">Follow-up</th><th class="py-2 px-3 text-right">Appraisals</th>
         </tr></thead>
         <tbody>${d.per_rep.map((r, i) => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
-          <td class="py-2.5 px-4 font-semibold text-slate-900 dark:text-white"><span class="inline-flex items-center gap-2">${i < 3 ? rankBadge(i + 1) : `<span class="inline-flex items-center justify-center w-7 h-7 text-[13px] font-black text-slate-400">${i + 1}</span>`}${esc(r.name)}</span></td>
+          <td class="py-2.5 px-4 font-semibold text-slate-900 dark:text-white">${i < 3 ? ['🥇', '🥈', '🥉'][i] + ' ' : ''}${esc(r.name)}</td>
           <td class="py-2.5 px-3 text-right font-black tabular-nums text-emerald-600 dark:text-emerald-400">${r.deals}</td>
           <td class="py-2.5 px-3 text-right tabular-nums text-slate-700 dark:text-slate-200">${r.leads}</td>
           <td class="py-2.5 px-3 text-right tabular-nums text-slate-700 dark:text-slate-200">${r.under_5min_pct}%</td>
@@ -5980,39 +4823,6 @@ async function loadSalesAnalysis() {
       ${stat('Avg days to sell', d.summary.avg_days_to_sell != null ? d.summary.avg_days_to_sell + 'd' : '—', '')}
       ${stat('Median days to sell', d.summary.median_days_to_sell != null ? d.summary.median_days_to_sell + 'd' : '—', '')}
     </div>
-    ${(() => {
-      const s = d.summary;
-      if (s.live_units == null) return '';
-      const supplyCls = s.days_supply == null ? 'text-slate-900 dark:text-white'
-        : s.days_supply <= 60 ? 'text-emerald-600 dark:text-emerald-400'
-        : s.days_supply <= 90 ? 'text-amber-600 dark:text-amber-400'
-        : 'text-rose-600 dark:text-rose-400';
-      const t = (label, value, sub, cls = 'text-slate-900 dark:text-white') => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-        <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${label}</div>
-        <div class="text-2xl font-black ${cls} mt-1">${value}</div>${sub ? `<div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${sub}</div>` : ''}</div>`;
-      const byCond = Array.isArray(d.turn_by_condition) ? d.turn_by_condition : [];
-      const condCard = (c) => {
-        const sc = c.days_supply == null ? 'text-slate-900 dark:text-white'
-          : c.days_supply <= 60 ? 'text-emerald-600 dark:text-emerald-400'
-          : c.days_supply <= 90 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400';
-        return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${c.label}</div>
-          <div class="text-2xl font-black mt-1 ${sc}">${c.days_supply != null ? c.days_supply + 'd' : '—'}<span class="text-xs font-semibold text-slate-400 ml-1">supply</span></div>
-          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${c.live} live · ${c.sales_per_month}/mo · ${c.turns_per_year != null ? c.turns_per_year + '×/yr' : '—'}</div>
-        </div>`;
-      };
-      return `
-      <div class="mb-1 text-sm font-bold text-slate-900 dark:text-white">Turn rate <span class="font-normal text-slate-400 text-xs">— how fast the lot recycles at this pace</span></div>
-      <p class="text-[11px] text-slate-400 mb-2 max-w-3xl">How quickly you sell through what's on the ground. <b>Days of supply</b> = how long today's lot lasts at your recent sales pace (lower is faster — aim under 60). <b>Turns/year</b> = how many times the lot fully recycles. Use it to decide what to stock more (fast turners) or discount (slow movers).</p>
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-        ${t('Sales / month', s.sales_per_month != null ? s.sales_per_month : '—', 'recent pace')}
-        ${t('Days of supply', s.days_supply != null ? s.days_supply + 'd' : '—', `${s.live_units} live units`, supplyCls)}
-        ${t('Turns / year', s.turns_per_year != null ? s.turns_per_year + '×' : '—', 'inventory turns')}
-        ${t('Live units', s.live_units, 'on the ground now')}
-      </div>
-      ${byCond.length ? `<div class="mb-1 text-[11px] uppercase tracking-wider text-slate-400 font-bold">By type</div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">${byCond.map(condCard).join('')}</div>` : ''}`;
-    })()}
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mb-3">
       <div class="flex items-center justify-between mb-2"><div class="text-sm font-bold text-slate-900 dark:text-white">Days to sell</div><div class="text-[10px] uppercase tracking-wider text-slate-400 w-24 text-right">value</div></div>
       ${dtsHtml}
@@ -6031,8 +4841,7 @@ function salesAnalysisCsv() {
   const d = __salesAnalysisData; if (!d) return;
   const grp = (arr) => (arr || []).map(i => [i.key, i.count, i.avg_price ?? '', i.avg_days_to_sell ?? '']);
   const s = [
-    { title: `Sales analysis — last ${d.range_days} days`, headers: ['Metric', 'Value'], rows: [['Units sold', d.summary.units_sold], ['Gross value', d.summary.total_value], ['Avg days to sell', d.summary.avg_days_to_sell], ['Median days to sell', d.summary.median_days_to_sell], ['Sales per month', d.summary.sales_per_month ?? ''], ['Days of supply', d.summary.days_supply ?? ''], ['Turns per year', d.summary.turns_per_year ?? ''], ['Live units', d.summary.live_units ?? '']] },
-    { title: 'Turn rate by type', headers: ['Type', 'Live', 'Sold', 'Sales/mo', 'Days supply', 'Turns/yr'], rows: (d.turn_by_condition || []).map(c => [c.label, c.live, c.sold, c.sales_per_month, c.days_supply ?? '', c.turns_per_year ?? '']) },
+    { title: `Sales analysis — last ${d.range_days} days`, headers: ['Metric', 'Value'], rows: [['Units sold', d.summary.units_sold], ['Gross value', d.summary.total_value], ['Avg days to sell', d.summary.avg_days_to_sell], ['Median days to sell', d.summary.median_days_to_sell]] },
     { title: 'Days to sell', headers: ['Band', 'Count', 'Value'], rows: (d.by_days_to_sell || []).map(i => [i.key, i.count, i.value]) },
     { title: 'By colour', headers: ['Colour', 'Sold', 'Avg price', 'Avg days'], rows: grp(d.by_color) },
     { title: `By mileage (${d.distance_unit || ''})`, headers: ['Band', 'Sold', 'Avg price', 'Avg days'], rows: grp(d.by_mileage) },
@@ -6351,16 +5160,10 @@ async function loadReportBuilder() {
             <h2 class="text-xl font-black text-slate-900 dark:text-white">Custom report</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">Choose who and what with dropdowns, then export.</p>
           </div>
-          <div class="flex items-center gap-2">
-            <button id="rb-print" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold px-4 py-2 rounded-lg transition inline-flex items-center gap-1.5">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
-              Print / PDF
-            </button>
-            <button id="rb-export" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition inline-flex items-center gap-1.5">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
-              Export CSV
-            </button>
-          </div>
+          <button id="rb-export" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition inline-flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+            Export CSV
+          </button>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <label class="block"><span class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Report</span>
@@ -6394,7 +5197,7 @@ async function loadReportBuilder() {
             <input type="checkbox" id="rb-hideblank" class="rounded"> Hide columns we don't capture yet
           </label>
         </div>
-        <div id="rb-result" class="overflow-auto max-h-[65vh] rounded-lg border border-slate-200 dark:border-slate-800"></div>
+        <div id="rb-result" class="overflow-x-auto -mx-4 sm:mx-0"></div>
       </div>`;
     root.querySelector('#rb-source').addEventListener('change', e => { __rbSource = e.target.value; rbSyncControls(); rbRenderColMenu(); rbFetch(); });
     root.querySelector('#rb-rep').addEventListener('change', e => { __rbRep = e.target.value; rbFetch(); });
@@ -6402,7 +5205,6 @@ async function loadReportBuilder() {
     root.querySelector('#rb-range').addEventListener('change', e => { __rbRange = e.target.value; rbFetch(); });
     root.querySelector('#rb-hideblank').addEventListener('change', e => { __rbHideBlank = e.target.checked; rbRenderTable(); });
     root.querySelector('#rb-export').addEventListener('click', rbExportCsv);
-    root.querySelector('#rb-print').addEventListener('click', rbPrint);
     rbSyncControls();
     rbRenderColMenu();
   }
@@ -6460,7 +5262,7 @@ function rbRenderTable() {
   const rows = __rbData?.rows || [];
   const cols = rbActiveCols();
   if (!rows.length) { rr.innerHTML = `<div class="text-sm text-slate-400 italic px-4 py-6">No ${src.noun}s match these filters.</div>`; return; }
-  const dealCol = src.hasDeal && !simpleCrmActive();
+  const dealCol = src.hasDeal;
   const head = `<th class="py-2 px-3 text-right sticky left-0 bg-slate-50 dark:bg-slate-950">#</th>` +
     (dealCol ? `<th class="py-2 px-3"></th>` : '') +
     cols.map(c => `<th class="py-2 px-3 whitespace-nowrap ${c.blank ? 'text-slate-400' : ''}">${esc(c.label)}</th>`).join('');
@@ -6490,33 +5292,6 @@ function rbExportCsv() {
   a.href = url; a.download = `${RB_SOURCES[__rbSource].file()}-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-// Print / Save-as-PDF: opens a clean, print-styled copy of the current report and
-// triggers the browser's print dialog (which offers Save as PDF).
-function rbPrint() {
-  const rows = __rbData?.rows || [];
-  const cols = rbActiveCols();
-  const title = (RB_SOURCES[__rbSource]?.label || 'Report');
-  const esc2 = (s) => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-  const head = ['#', ...cols.map(c => c.label)].map(h => `<th>${esc2(h)}</th>`).join('');
-  const body = rows.map((r, i) => `<tr><td>${i + 1}</td>${cols.map(c => `<td>${esc2(rbFmt(r[c.key], c.type))}</td>`).join('')}</tr>`).join('');
-  const dealer = (profileContext?.dealershipName || 'MarketSync');
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc2(title)}</title>
-    <style>
-      body{font:13px -apple-system,Segoe UI,Roboto,sans-serif;color:#0f172a;margin:24px}
-      h1{font-size:18px;margin:0 0 2px} .sub{color:#64748b;font-size:12px;margin:0 0 16px}
-      table{border-collapse:collapse;width:100%} th,td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left;font-size:12px}
-      th{background:#f1f5f9;text-transform:uppercase;font-size:10px;letter-spacing:.04em;color:#475569}
-      tr:nth-child(even) td{background:#f8fafc}
-      @media print{body{margin:0}}
-    </style></head><body>
-    <h1>${esc2(title)}</h1>
-    <p class="sub">${esc2(dealer)} · ${rows.length} rows · ${new Date().toLocaleString()}</p>
-    <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
-    <script>window.onload=function(){window.print();}<\/script></body></html>`;
-  const w = window.open('', '_blank');
-  if (!w) { showToast('Allow pop-ups to print the report', 'error'); return; }
-  w.document.write(html); w.document.close();
 }
 window.loadReportBuilder = loadReportBuilder;
 
@@ -6632,10 +5407,6 @@ let __deskCustomerNumber = null;  // per-dealership customer #
 let __deskSalesperson = null;     // { name, registration_id } — the rep on this deal
 let __deskAddons = [], __deskFni = [], __deskFees = [];
 let __deskSearchTimer = null, __deskVehTimer = null;
-let __deskCommTouched = false;    // rep manually edited a commission field → stop auto-filling
-let __deskCommTimer = null;       // debounce the commission-preview call
-let __deskFniCatalog = [];        // F&I products catalog (from /fni/products)
-let __deskLenders = [];           // lenders (from /fni/lenders), rate-sorted
 
 const DESK_DEFAULT_APR = 9.99;   // auto-filled rate (editable); financing is stored, not submitted
 const deskM = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -6792,17 +5563,14 @@ async function deskPickCustomer(id) {
 // A dealership-roster dropdown for the desk (F&I manager, split-with). Stores the
 // rep's profile id so commission attributes correctly; the name is saved alongside
 // for the printed docs.
-function deskRepSelect(id, selectedId, blankLabel, filterFn) {
+function deskRepSelect(id, selectedId, blankLabel) {
   const cls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
-  const reps = (__crmReps || []).filter(r => !filterFn || filterFn(r));
+  const reps = __crmReps || [];
   return `<select id="${id}" class="${cls}"><option value="">${esc(blankLabel || '—')}</option>${reps.map(r => `<option value="${r.id}" ${selectedId === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`;
 }
-// F&I manager dropdown only lists people who can carry F&I (F&I role + managers/admins).
-const DESK_FNI_ROLES = ['FNI', 'DEALER_ADMIN', 'OWNER', 'MANAGER'];
 function deskRenderForm(contactId) {
   const wrap = document.getElementById('desk-form');
   if (!wrap) return;
-  __deskCommTouched = false;   // fresh render — let the plan auto-fill commission again
   const d = __deskDeal || {};
   const b = __deskBuyer || {};
   const veh = d.vehicle || {};
@@ -6810,11 +5578,6 @@ function deskRenderForm(contactId) {
   const onFile = !!d.id;
   const buyerName = b.full_name || [b.first_name, b.last_name].filter(Boolean).join(' ') || 'Customer';
   const rate = d.tax_rate != null ? d.tax_rate : deskTaxRate(__deskDealer?.province, __deskDealer?.country);
-  // New deals default their jurisdiction from the dealership's settings location.
-  const _dealerCountry = (() => { const c = (__deskDealer?.country || '').trim().toUpperCase(); return (c === 'US' || c === 'USA' || c === 'UNITED STATES') ? 'US' : 'CA'; })();
-  const dkCountry = d.tax_country || _dealerCountry;
-  const _dealerProv = (__deskDealer?.province || '').trim().toUpperCase();
-  const dkProvince = d.tax_province || (DESK_TAX[dkCountry]?.regions?.[_dealerProv] ? _dealerProv : '');
   const apr = d.apr != null ? d.apr : DESK_DEFAULT_APR;
   const taxOnDiff = d.tax_on_difference !== false;   // default ON = tax on the difference
   const iCls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
@@ -6845,17 +5608,6 @@ function deskRenderForm(contactId) {
 
     <div class="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start">
       <div>
-        ${card('Insurance', `<details ${(ins.company || ins.policy || ins.agent || ins.phone || ins.expiry) ? 'open' : ''} class="group">
-            <summary class="cursor-pointer list-none text-sm font-bold text-indigo-600 dark:text-indigo-400 select-none inline-flex items-center gap-1.5"><span class="group-open:hidden">＋ Add insurance details</span><span class="hidden group-open:inline">Insurance details</span></summary>
-            <div class="grid grid-cols-2 gap-3 mt-3">
-              ${fld('Company', txt('dk-ins-company', ins.company, ''))}
-              ${fld('Policy #', txt('dk-ins-policy', ins.policy, ''))}
-              ${fld('Agent / broker', txt('dk-ins-agent', ins.agent, ''))}
-              ${fld('Agent phone', txt('dk-ins-phone', ins.phone, '', 'tel'))}
-              ${fld('Binder / expiry', txt('dk-ins-expiry', ins.expiry, '', 'date'))}
-            </div>
-          </details>`, 'Optional — fills onto the bill of sale and the customer card.')}
-
         ${card('Vehicle', `
           <div class="relative mb-2">
             <input id="desk-veh-search" type="text" autocomplete="off" placeholder="Search inventory by VIN, stock # or name…" class="${iCls}">
@@ -6891,13 +5643,30 @@ function deskRenderForm(contactId) {
             ${fld('Lien / payoff', money('dk-trade_payoff', d.trade_payoff))}
           </div>`, 'HST is charged on the price after the trade allowance (Ontario tax-on-the-difference). Pull the customer\'s saved appraisal to fill this in.')}
 
+        ${card('Add-ons', `<div id="desk-addons"></div>
+          <button type="button" onclick="deskAddLine('addon')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add an add-on</button>`, 'Accessories, protection packages, etc. Taxable.')}
+
+        ${card('F&amp;I products', `<div id="desk-fni"></div>
+          <button type="button" onclick="deskAddLine('fni')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add an F&amp;I product</button>`, 'Warranty, GAP, appearance protection, etc. Taxable. Financing is arranged through your lender program.')}
+
+        ${card('Fees', `<div id="desk-fees"></div>
+          <button type="button" onclick="deskAddLine('fee')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add a fee</button>`, 'Uncheck “taxable” for government passthroughs like licensing.')}
+
+        ${card('Insurance', `<div class="grid grid-cols-2 gap-3">
+            ${fld('Company', txt('dk-ins-company', ins.company, ''))}
+            ${fld('Policy #', txt('dk-ins-policy', ins.policy, ''))}
+            ${fld('Agent / broker', txt('dk-ins-agent', ins.agent, ''))}
+            ${fld('Agent phone', txt('dk-ins-phone', ins.phone, '', 'tel'))}
+            ${fld('Binder / expiry', txt('dk-ins-expiry', ins.expiry, '', 'date'))}
+          </div>`)}
+
         ${card('Finance terms', `<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             ${fld('Deal type', `<select id="dk-deal_type" class="${iCls}">${['Finance', 'Lease', 'Cash'].map(o => `<option ${d.deal_type === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}
-            ${fld('Lender', `<input id="dk-finance_company" list="desk-lender-list" value="${esc(d.finance_company || '')}" placeholder="e.g. TD Auto Finance" oninput="deskLenderPicked(this.value)" class="${iCls}"><datalist id="desk-lender-list"></datalist><div id="desk-lender-hint" class="text-[11px] text-slate-400 mt-0.5"></div>`)}
+            ${fld('Lender', txt('dk-finance_company', d.finance_company, 'e.g. TD Auto Finance'))}
             ${fld('Program', txt('dk-program', d.program, 'e.g. Finance rates'))}
             ${fld('APR / sell rate %', `<input id="dk-apr" type="number" step="0.01" value="${apr}" oninput="deskRenderSummary()" class="${iCls}">`)}
             ${fld('Buy rate % (reserve)', `<input id="dk-buy_rate" type="number" step="0.01" value="${d.buy_rate == null ? '' : d.buy_rate}" placeholder="lender buy rate" oninput="deskRenderSummary()" class="${iCls}">`)}
-            ${fld('Term (months)', `<select id="dk-term" onchange="deskRenderSummary()" class="${iCls}">${[24, 36, 48, 60, 72, 84, 96].map(t => `<option value="${t}" ${(d.term == null ? 60 : d.term) == t ? 'selected' : ''}>${t}</option>`).join('')}</select>`)}
+            ${fld('Term (months)', `<input id="dk-term" type="number" value="${d.term == null ? 60 : d.term}" oninput="deskRenderSummary()" class="${iCls}">`)}
             ${fld('Payment frequency', `<select id="dk-payment_freq" onchange="deskRenderSummary()" class="${iCls}">${[['monthly', 'Monthly'], ['biweekly', 'Bi-weekly'], ['weekly', 'Weekly']].map(([v, l]) => `<option value="${v}" ${((d.payment_freq || 'monthly') === v) ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
             ${fld('1st payment date', txt('dk-first_payment_date', d.first_payment_date, '', 'date'))}
             ${fld('No-interest deferral (days)', `<input id="dk-deferral_days" type="number" value="${d.deferral_days == null ? '' : d.deferral_days}" placeholder="0" oninput="deskRenderSummary()" class="${iCls}">`)}
@@ -6907,36 +5676,23 @@ function deskRenderForm(contactId) {
             ${fld('Cash down', money('dk-down_payment', d.down_payment))}
             ${fld('Deposit', money('dk-deposit_amount', d.deposit_amount))}
             ${fld('Rebate (after tax)', money('dk-rebate', d.rebate))}
-            ${fld('Country', `<select id="dk-tax_country" onchange="deskSetCountry()" class="${iCls}">${Object.entries(DESK_TAX).map(([code, j]) => `<option value="${code}" ${dkCountry === code ? 'selected' : ''}>${esc(j.label)}</option>`).join('')}</select>`)}
-            ${fld('State / Province (auto tax)', `<select id="dk-tax_province" onchange="deskSetJurisdiction()" class="${iCls}"><option value="">— Select —</option>${Object.entries((DESK_TAX[dkCountry] || DESK_TAX.CA).regions).map(([code, r]) => `<option value="${code}" ${dkProvince === code ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select>`)}
+            ${fld('Country', `<select id="dk-tax_country" onchange="deskSetCountry()" class="${iCls}">${Object.entries(DESK_TAX).map(([code, j]) => `<option value="${code}" ${(d.tax_country || 'CA') === code ? 'selected' : ''}>${esc(j.label)}</option>`).join('')}</select>`)}
+            ${fld('State / Province (auto tax)', `<select id="dk-tax_province" onchange="deskSetJurisdiction()" class="${iCls}"><option value="">— Select —</option>${Object.entries((DESK_TAX[d.tax_country || 'CA'] || DESK_TAX.CA).regions).map(([code, r]) => `<option value="${code}" ${d.tax_province === code ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select>`)}
             ${fld('Tax rate % (total)', `<input id="dk-tax_rate" type="number" step="0.001" value="${rate}" oninput="deskRenderSummary()" class="${iCls}">`)}
             <div class="flex items-end pb-2"><label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"><input type="checkbox" id="dk-tax_on_difference" ${taxOnDiff ? 'checked' : ''} onchange="deskRenderSummary()" class="rounded"> Tax on the difference</label></div>
             <p id="dk-tax-hint" class="col-span-2 text-[11px] text-slate-400 dark:text-slate-500 -mt-1">Pick a state/province to auto-fill the rate. For U.S. deals the rate is <b>state + average local/county</b> — edit it for the buyer's exact jurisdiction.</p>
           </div>`)}
 
-        ${card('Add-ons', `<div id="desk-addons"></div>
-          <button type="button" onclick="deskAddLine('addon')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add an add-on</button>`, 'Accessories, protection packages, etc. Taxable.')}
-
-        ${card('F&amp;I products', `<div id="desk-fni"></div>
-          <div class="mt-2 flex items-center gap-2 flex-wrap">
-            <select id="desk-fni-picker" onchange="deskAddFniFromCatalog(this.value); this.value='';" class="${iCls} text-xs"><option value="">＋ Add from catalog…</option></select>
-            <button type="button" onclick="deskAddLine('fni')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add manually</button>
-            ${['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) ? `<button type="button" onclick="openFniCatalogManager()" class="ml-auto text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">Manage catalog &amp; lenders</button>` : ''}
-          </div>`, 'Warranty, GAP, appearance protection, etc. Taxable. Financing is arranged through your lender program.')}
-
-        ${card('Fees', `<div id="desk-fees"></div>
-          <button type="button" onclick="deskAddLine('fee')" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add a fee</button>`, 'Uncheck “taxable” for government passthroughs like licensing.')}
-
         <details class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden mb-4">
           <summary class="px-5 py-3 cursor-pointer text-sm font-black text-slate-900 dark:text-white">Internal — F&amp;I tracking &amp; delivery</summary>
           <div class="p-5 grid grid-cols-2 gap-3">
             ${(__deskDealer.costOn && (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role) || __deskDealer.costRepVisible)) ? fld('Vehicle cost <span class="normal-case font-normal text-slate-400">(internal — never shown to customers)</span>', `<input id="dk-cost" type="text" inputmode="decimal" data-money value="${d.cost == null ? '' : msFmtMoney(d.cost)}" placeholder="0.00" oninput="deskRenderSummary()" class="${iCls}">`) : ''}
-            ${fld('F&amp;I manager <span class="normal-case font-normal text-slate-400">(gets F&amp;I commission if the plan pays them)</span>', deskRepSelect('dk-fni_manager_id', d.fni_manager_id, '— none —', r => DESK_FNI_ROLES.includes(r.role)))}
+            ${fld('F&amp;I manager <span class="normal-case font-normal text-slate-400">(gets F&amp;I commission if the plan pays them)</span>', deskRepSelect('dk-fni_manager_id', d.fni_manager_id, '— none —'))}
             ${fld('Delivery date', txt('dk-delivery_date', d.delivery_date, '', 'date'))}
             ${fld('Delivery time', txt('dk-delivery_time', d.delivery_time, '', 'time'))}
             ${fld('Plates', `<select id="dk-plates" class="${iCls}"><option value="">—</option>${['New', 'Transfer'].map(o => `<option ${d.plates === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}
-            ${fld('Vehicle commission <span class="normal-case font-normal text-slate-400">(auto from the plan)</span>', `<input id="dk-vehicle_commission" type="number" value="${d.vehicle_commission == null ? '' : d.vehicle_commission}" placeholder="0" oninput="deskCommTouch()" class="${iCls}">`)}
-            ${fld('F&amp;I commission <span class="normal-case font-normal text-slate-400">(auto from the plan)</span>', `<input id="dk-fni_commission" type="number" value="${d.fni_commission == null ? '' : d.fni_commission}" placeholder="0" oninput="deskCommTouch()" class="${iCls}">`)}
+            ${fld('Vehicle commission <span class="normal-case font-normal text-slate-400">(auto from the plan)</span>', txt('dk-vehicle_commission', d.vehicle_commission, '0', 'number'))}
+            ${fld('F&amp;I commission <span class="normal-case font-normal text-slate-400">(auto from the plan)</span>', txt('dk-fni_commission', d.fni_commission, '0', 'number'))}
             ${fld('Split with', deskRepSelect('dk-split_rep_id', d.split_rep_id, '— none —'))}
             ${fld('Split % to co-rep <span class="normal-case font-normal text-slate-400">(their share of the sales commission)</span>', txt('dk-split_pct', d.split_pct != null ? d.split_pct : 50, '50', 'number'))}
             <div class="col-span-2 grid grid-cols-2 gap-2 pt-1">
@@ -6961,7 +5717,7 @@ function deskRenderForm(contactId) {
           </div>
           <button onclick="openCreditApp('${contactId}')" class="w-full inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-3 py-2.5 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Credit application</button>
           <button onclick="deskEsign('${contactId}','bill')" class="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-3 py-2.5 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>Send for e-signature</button>
-          <button id="desk-deposit-btn" onclick="deskCollectDeposit('${contactId}')" class="w-full inline-flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold px-3 py-2.5 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Collect deposit</button>
+          <button onclick="deskCollectDeposit('${contactId}')" class="w-full inline-flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold px-3 py-2.5 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Collect deposit</button>
           <button onclick="openEsignStatus('${contactId}')" class="w-full text-center text-xs font-semibold text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition py-1">View signature status →</button>
         </div>
       </div>
@@ -6976,26 +5732,7 @@ function deskRenderForm(contactId) {
   deskUpdateLinkBadge();
   deskRenderLines();
   deskRenderSummary();
-  deskCheckDeposits();   // grey the Collect-deposit button until payments are connected
-  deskLoadCatalog();     // populate the F&I product picker + lender datalist
 }
-// Collect-deposit requires a connected payments account (Stripe Connect charges
-// enabled). Grey the button until then and point the rep to Integrations.
-let __depositsReady = null;
-async function deskCheckDeposits() {
-  const apply = () => {
-    const btn = document.getElementById('desk-deposit-btn'); if (!btn) return;
-    const blocked = __depositsReady === false;
-    btn.disabled = blocked;
-    btn.classList.toggle('opacity-50', blocked);
-    btn.classList.toggle('cursor-not-allowed', blocked);
-    btn.title = blocked ? 'Connect payments in Settings → Integrations to collect deposits' : '';
-  };
-  if (__depositsReady !== null) apply();
-  try { const d = await apiGetJson('/deposits/config'); __depositsReady = !!d.charges_enabled; } catch { /* unknown → leave enabled */ }
-  apply();
-}
-window.deskCheckDeposits = deskCheckDeposits;
 
 // ── Line items (add-ons / F&I / fees) ────────────────────────────────────────
 function deskLinesFor(kind) { return kind === 'addon' ? __deskAddons : kind === 'fni' ? __deskFni : __deskFees; }
@@ -7021,157 +5758,6 @@ function deskRenderLines() {
   const f = document.getElementById('desk-fni'); if (f) f.innerHTML = __deskFni.map((r, i) => rowHtml('fni', r, i, 'price')).join('') || '<div class="text-xs text-slate-400 italic">None.</div>';
   const e = document.getElementById('desk-fees'); if (e) e.innerHTML = __deskFees.map((r, i) => rowHtml('fee', r, i, 'amount')).join('') || '<div class="text-xs text-slate-400 italic">None.</div>';
 }
-
-// ── F&I catalog + lenders (from the dealership's F&I catalog) ─────────────────
-// Loads the product menu + lender list so the desk can pick from a catalog instead
-// of free-typing. Silent no-op if the catalog is empty (dealer hasn't set one up).
-async function deskLoadCatalog() {
-  try {
-    const [p, l] = await Promise.all([
-      apiGetJson('/fni/products', { retries: 1 }).catch(() => null),
-      apiGetJson('/fni/lenders?sort=rate', { retries: 1 }).catch(() => null),
-    ]);
-    __deskFniCatalog = (p && p.products) || [];
-    __deskLenders = (l && l.lenders) || [];
-  } catch { __deskFniCatalog = []; __deskLenders = []; }
-  deskRenderCatalogControls();
-}
-function deskRenderCatalogControls() {
-  // F&I product picker options.
-  const sel = document.getElementById('desk-fni-picker');
-  if (sel) {
-    if (__deskFniCatalog.length) {
-      sel.innerHTML = '<option value="">＋ Add from catalog…</option>' +
-        __deskFniCatalog.map((p, i) => `<option value="${i}">${esc(p.name)}${p.retail_default != null ? ' — ' + msFmtMoney(p.retail_default) : ''}</option>`).join('');
-      sel.classList.remove('hidden');
-    } else { sel.classList.add('hidden'); }   // no catalog → just the manual button
-  }
-  // Lender datalist (rate-sorted) + "lowest rate" helper (the Lender-by-Rate answer).
-  const dl = document.getElementById('desk-lender-list');
-  if (dl) dl.innerHTML = __deskLenders.map(l => `<option value="${esc(l.name)}">${l.base_rate != null ? l.base_rate + '%' : ''}${l.tier ? ' · ' + esc(l.tier) : ''}</option>`).join('');
-  deskLenderPicked(document.getElementById('dk-finance_company')?.value || '');
-}
-function deskAddFniFromCatalog(idx) {
-  const p = __deskFniCatalog[Number(idx)];
-  if (!p) return;
-  __deskFni.push({ name: p.name, price: p.retail_default != null ? Number(p.retail_default) : null, cost: p.cost != null ? Number(p.cost) : null, product_id: p.id });
-  deskRenderLines(); deskRenderSummary();
-}
-window.deskAddFniFromCatalog = deskAddFniFromCatalog;
-// Show the lowest-rate lender as a nudge, and flag the picked one's rate.
-function deskLenderPicked(name) {
-  const hint = document.getElementById('desk-lender-hint'); if (!hint) return;
-  // "Lender by rate" is an F&I/manager view — reps just pick the lender, they don't
-  // see the buy-rate ranking.
-  if (!DESK_FNI_ROLES.includes(profileContext?.role)) { hint.textContent = ''; return; }
-  if (!__deskLenders.length) { hint.textContent = ''; return; }
-  const rated = __deskLenders.filter(l => l.base_rate != null);
-  const picked = name ? __deskLenders.find(l => l.name.toLowerCase() === name.trim().toLowerCase()) : null;
-  const parts = [];
-  if (rated.length) { const lo = rated[0]; parts.push(`Lowest rate: ${esc(lo.name)} ${lo.base_rate}%`); }
-  if (picked && picked.base_rate != null) parts.push(`${esc(picked.name)} buy rate ${picked.base_rate}%`);
-  hint.textContent = parts.join(' · ');
-}
-window.deskLenderPicked = deskLenderPicked;
-
-// ── F&I catalog manager (managers) ───────────────────────────────────────────
-// Modal to CRUD F&I products (with cost + retail) and lenders (with buy rate).
-let __fniMgr = { products: [], lenders: [] };
-async function openFniCatalogManager() {
-  if (!['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role)) return;
-  const ov = crmOverlay(`<div id="fni-mgr-body" class="p-5"><div class="py-10 text-center text-sm text-slate-400 italic">Loading catalog…</div></div>`, 'max-w-3xl');
-  ov.dataset.fniMgr = '1';
-  await fniMgrReload();
-}
-window.openFniCatalogManager = openFniCatalogManager;
-async function fniMgrReload() {
-  try {
-    const [p, l] = await Promise.all([
-      apiGetJson('/fni/products', { retries: 1 }).catch(() => ({ products: [] })),
-      apiGetJson('/fni/lenders', { retries: 1 }).catch(() => ({ lenders: [] })),
-    ]);
-    __fniMgr = { products: p.products || [], lenders: l.lenders || [] };
-  } catch { __fniMgr = { products: [], lenders: [] }; }
-  fniMgrRender();
-  // Keep the open desk's picker/datalist in sync with catalog edits.
-  if (document.getElementById('desk-fni-picker')) deskLoadCatalog();
-}
-function fniMgrRender() {
-  const body = document.getElementById('fni-mgr-body'); if (!body) return;
-  const iCls = 'bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm';
-  const money = n => n != null ? '$' + Number(n).toLocaleString() : '—';
-  const prodRow = (p) => `<tr class="border-t border-slate-100 dark:border-slate-800">
-    <td class="py-1.5 pr-2 font-semibold text-slate-700 dark:text-slate-200">${esc(p.name)}${p.category ? `<span class="block text-[11px] text-slate-400">${esc(p.category)}</span>` : ''}</td>
-    <td class="py-1.5 px-2 text-right tabular-nums text-slate-500">${money(p.cost)}</td>
-    <td class="py-1.5 px-2 text-right tabular-nums text-slate-700 dark:text-slate-200">${money(p.retail_default)}</td>
-    <td class="py-1.5 pl-2 text-right"><button onclick="fniMgrDelProduct('${p.id}')" class="text-rose-500 hover:text-rose-600 text-xs font-bold">Remove</button></td></tr>`;
-  const lendRow = (l) => `<tr class="border-t border-slate-100 dark:border-slate-800">
-    <td class="py-1.5 pr-2 font-semibold text-slate-700 dark:text-slate-200">${esc(l.name)}${l.tier ? `<span class="block text-[11px] text-slate-400">${esc(l.tier)}</span>` : ''}</td>
-    <td class="py-1.5 px-2 text-right tabular-nums text-slate-700 dark:text-slate-200">${l.base_rate != null ? l.base_rate + '%' : '—'}</td>
-    <td class="py-1.5 pl-2 text-right"><button onclick="fniMgrDelLender('${l.id}')" class="text-rose-500 hover:text-rose-600 text-xs font-bold">Remove</button></td></tr>`;
-  body.innerHTML = `
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-lg font-black text-slate-900 dark:text-white">F&amp;I catalog &amp; lenders</h3>
-      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none">&times;</button>
-    </div>
-    <div class="mb-6">
-      <div class="text-sm font-bold text-slate-900 dark:text-white mb-2">F&amp;I products</div>
-      <table class="w-full text-sm mb-2"><thead><tr class="text-[10px] uppercase tracking-wider text-slate-400"><th class="text-left pb-1">Product</th><th class="text-right px-2 pb-1">Cost</th><th class="text-right px-2 pb-1">Retail</th><th></th></tr></thead>
-        <tbody>${__fniMgr.products.map(prodRow).join('') || '<tr><td colspan="4" class="py-3 text-center text-slate-400 italic text-xs">No products yet.</td></tr>'}</tbody></table>
-      <div class="flex flex-wrap items-end gap-2 bg-slate-50 dark:bg-slate-950/50 rounded-lg p-2.5">
-        <input id="fni-np-name" placeholder="Name (e.g. Extended warranty)" class="${iCls} flex-1 min-w-[160px]">
-        <input id="fni-np-cat" placeholder="Category" class="${iCls} w-28">
-        <input id="fni-np-cost" type="text" inputmode="decimal" placeholder="Cost" class="${iCls} w-24 text-right">
-        <input id="fni-np-retail" type="text" inputmode="decimal" placeholder="Retail" class="${iCls} w-24 text-right">
-        <button onclick="fniMgrAddProduct()" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">Add</button>
-      </div>
-    </div>
-    <div>
-      <div class="text-sm font-bold text-slate-900 dark:text-white mb-2">Lenders <span class="font-normal text-slate-400 text-xs">— buy rate powers the Lender-by-Rate order on the desk</span></div>
-      <table class="w-full text-sm mb-2"><thead><tr class="text-[10px] uppercase tracking-wider text-slate-400"><th class="text-left pb-1">Lender</th><th class="text-right px-2 pb-1">Buy rate</th><th></th></tr></thead>
-        <tbody>${__fniMgr.lenders.map(lendRow).join('') || '<tr><td colspan="3" class="py-3 text-center text-slate-400 italic text-xs">No lenders yet.</td></tr>'}</tbody></table>
-      <div class="flex flex-wrap items-end gap-2 bg-slate-50 dark:bg-slate-950/50 rounded-lg p-2.5">
-        <input id="fni-nl-name" placeholder="Lender (e.g. TD Auto Finance)" class="${iCls} flex-1 min-w-[160px]">
-        <input id="fni-nl-tier" placeholder="Tier" class="${iCls} w-24">
-        <input id="fni-nl-rate" type="number" step="0.01" placeholder="Rate %" class="${iCls} w-24 text-right">
-        <button onclick="fniMgrAddLender()" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">Add</button>
-      </div>
-    </div>`;
-}
-async function fniMgrAddProduct() {
-  const name = document.getElementById('fni-np-name')?.value.trim();
-  if (!name) { showToast('Product name required', 'error'); return; }
-  try {
-    await apiSendJson('/fni/products', 'POST', {
-      name, category: document.getElementById('fni-np-cat')?.value.trim() || null,
-      cost: msNum(document.getElementById('fni-np-cost')?.value), retail_default: msNum(document.getElementById('fni-np-retail')?.value),
-    });
-    await fniMgrReload();
-  } catch (e) { showToast(e.message, 'error'); }
-}
-window.fniMgrAddProduct = fniMgrAddProduct;
-async function fniMgrDelProduct(id) {
-  try { await apiSendJson(`/fni/products/${id}`, 'DELETE'); await fniMgrReload(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-window.fniMgrDelProduct = fniMgrDelProduct;
-async function fniMgrAddLender() {
-  const name = document.getElementById('fni-nl-name')?.value.trim();
-  if (!name) { showToast('Lender name required', 'error'); return; }
-  try {
-    await apiSendJson('/fni/lenders', 'POST', {
-      name, tier: document.getElementById('fni-nl-tier')?.value.trim() || null,
-      base_rate: msNum(document.getElementById('fni-nl-rate')?.value),
-    });
-    await fniMgrReload();
-  } catch (e) { showToast(e.message, 'error'); }
-}
-window.fniMgrAddLender = fniMgrAddLender;
-async function fniMgrDelLender(id) {
-  try { await apiSendJson(`/fni/lenders/${id}`, 'DELETE'); await fniMgrReload(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-window.fniMgrDelLender = fniMgrDelLender;
 
 // ── Inventory search for the vehicle block ───────────────────────────────────
 async function deskVehSearch(q) {
@@ -7199,10 +5785,7 @@ function deskPickVehicle(json) {
   const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
   set('dk-veh-year', v.year); set('dk-veh-make', v.make); set('dk-veh-model', v.model); set('dk-veh-trim', v.trim);
   set('dk-veh-mileage', v.mileage); set('dk-veh-color', v.color); set('dk-veh-vin', v.vin); set('dk-veh-stock', v.stock);
-  // Fill Retail/MSRP from the unit's price and let the selling price derive
-  // (Retail − rebate + adjustment) instead of dropping the price straight into
-  // "selling price".
-  if (v.price != null) { set('dk-retail', msFmtMoney(v.price)); if (typeof deskPriceRecalc === 'function') deskPriceRecalc(); }
+  if (v.price != null) set('dk-selling_price', v.price);
   const vs = document.getElementById('desk-veh-search'); if (vs) vs.value = '';
   deskUpdateLinkBadge();
   deskRenderSummary();
@@ -7296,16 +5879,7 @@ function deskCollect(contactId) {
     buy_rate: num('dk-buy_rate'), residual_amount: num('dk-residual_amount'), mileage_allowance: num('dk-mileage_allowance'),
     finance_company: val('dk-finance_company'), first_payment_date: val('dk-first_payment_date'),
     tax_province: val('dk-tax_province'), tax_rate: num('dk-tax_rate'), tax_on_difference: chk('dk-tax_on_difference'),
-    addons: clean(__deskAddons, 'price'),
-    // F&I lines keep cost + catalog product_id (when picked from the catalog) so the
-    // back-end gross is true and the deal references the product.
-    fni_items: __deskFni.map(r => {
-      const o = { name: (r.name || '').trim(), price: Number(r.price) || 0 };
-      if (r.cost != null && Number.isFinite(Number(r.cost))) o.cost = Number(r.cost);
-      if (r.product_id) o.product_id = r.product_id;
-      return o;
-    }).filter(r => r.name || r.price),
-    fees,
+    addons: clean(__deskAddons, 'price'), fni_items: clean(__deskFni, 'price'), fees,
     insurance: { company: val('dk-ins-company'), policy: val('dk-ins-policy'), agent: val('dk-ins-agent'), phone: val('dk-ins-phone'), expiry: val('dk-ins-expiry') },
     vehicle: { year: val('dk-veh-year'), make: val('dk-veh-make'), model: val('dk-veh-model'), trim: val('dk-veh-trim'), vin: val('dk-veh-vin'), mileage: num('dk-veh-mileage'), color: val('dk-veh-color'), stock: val('dk-veh-stock') },
     // F&I tracking
@@ -7374,8 +5948,7 @@ async function openCreditApp(contactId) {
   const sinField = (path, mask, hasVal) => `<div class="flex gap-1"><input data-f="${path}" value="" placeholder="${hasVal ? (mask || '•••• on file') + ' — reveal or re-enter' : '123-456-789'}" class="${CI}">${hasVal ? `<button type="button" data-reveal="${path}" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 px-2 rounded border border-slate-200 dark:border-slate-700 whitespace-nowrap">Reveal</button>` : ''}</div>`;
 
   const person = (pre, p, sinPath, dobPath, sinMask, hasSin, hasDob) => {
-    const ad = p.address || {}, pad = p.prev_address || {}, em = p.employment || {}, oi = p.other_income || {};
-    const hasPrev = !!(pad.street || pad.city || pad.province || pad.postal);
+    const ad = p.address || {}, em = p.employment || {}, oi = p.other_income || {};
     return `
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
       ${F('First name', IN(pre + '.first', p.first))}${F('Middle', IN(pre + '.middle', p.middle))}${F('Last name', IN(pre + '.last', p.last))}
@@ -7386,11 +5959,6 @@ async function openCreditApp(contactId) {
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
       ${F('Street', IN(pre + '.address.street', ad.street))}${F('City', IN(pre + '.address.city', ad.city))}${F('Province', IN(pre + '.address.province', ad.province))}${F('Postal', IN(pre + '.address.postal', ad.postal))}
       ${F('Status', SEL(pre + '.address.status', ['', 'Own', 'Rent', 'Live with family', 'Other'], ad.status))}${F('Monthly pmt', IN(pre + '.address.payment', ad.payment, '', true))}${F('Years', IN(pre + '.address.years', ad.years, '', true))}${F('Months', IN(pre + '.address.months', ad.months, '', true))}
-    </div>
-    <label class="flex items-center gap-2 text-[12px] font-semibold text-slate-500 dark:text-slate-400 mt-1.5"><input type="checkbox" data-prev-toggle="${pre}" ${hasPrev ? 'checked' : ''} class="rounded"> Add previous address <span class="font-normal text-slate-400">(required by lenders if under 3 years at current)</span></label>
-    <div data-prev-section="${pre}" class="${hasPrev ? '' : 'hidden'} grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
-      ${F('Prev street', IN(pre + '.prev_address.street', pad.street))}${F('Prev city', IN(pre + '.prev_address.city', pad.city))}${F('Prev province', IN(pre + '.prev_address.province', pad.province))}${F('Prev postal', IN(pre + '.prev_address.postal', pad.postal))}
-      ${F('Prev status', SEL(pre + '.prev_address.status', ['', 'Own', 'Rent', 'Live with family', 'Other'], pad.status))}${F('Years', IN(pre + '.prev_address.years', pad.years, '', true))}${F('Months', IN(pre + '.prev_address.months', pad.months, '', true))}
     </div>
     <div class="mt-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Employment &amp; income</div>
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -7444,10 +6012,6 @@ async function openCreditApp(contactId) {
   const close = () => modal.remove();
   modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('[data-x]')) close(); });
   modal.querySelector('[data-co-toggle]').addEventListener('change', e => modal.querySelector('[data-co-section]').classList.toggle('hidden', !e.target.checked));
-  modal.querySelectorAll('[data-prev-toggle]').forEach(t => t.addEventListener('change', e => {
-    const sec = modal.querySelector(`[data-prev-section="${e.target.dataset.prevToggle}"]`);
-    if (sec) sec.classList.toggle('hidden', !e.target.checked);
-  }));
 
   // Reveal a masked SIN/DOB (audited server-side) into its field.
   modal.querySelectorAll('[data-reveal]').forEach(b => b.addEventListener('click', async () => {
@@ -7471,10 +6035,6 @@ async function openCreditApp(contactId) {
       creditSetPath(out, path, val);
     });
     if (!modal.querySelector('[data-co-toggle]').checked) { out.co_applicant = null; delete out.co_sin; delete out.co_dob; }
-    // Drop previous-address blocks when their toggle is off so stale data isn't persisted.
-    modal.querySelectorAll('[data-prev-toggle]').forEach(t => {
-      if (!t.checked) { const tgt = t.dataset.prevToggle === 'co_applicant' ? out.co_applicant : out.applicant; if (tgt) tgt.prev_address = null; }
-    });
     return out;
   };
 
@@ -7828,30 +6388,13 @@ function deskRenderSummary() {
       ${(c.tradeValue || c.tradePayoff) ? row('Net trade', (c.tradeEquity >= 0 ? '−' : '+') + deskM(Math.abs(c.tradeEquity))) : ''}
       ${row('Amount financed', deskM(c.amountFinanced), true)}
       ${c.balloon ? row('Balloon / residual', deskM(c.balloon)) : ''}
-      ${(__deskDealer?.costOn && Number(d.cost) > 0) ? (() => {
-        const cost = Number(d.cost);
-        const frontGross = c.sellingPrice - cost;
-        // Net out F&I product cost when the lines carry it (catalog products do).
-        const fniCost = __deskFni.reduce((s, r) => s + (Number(r.cost) || 0), 0);
-        const fniGross = (c.fniTotal || 0) - fniCost;
-        const backGross = fniGross + (c.reserve || 0);
-        const totalGross = frontGross + backGross;
-        const costKnown = fniCost > 0;
-        return `
+      ${(__deskDealer?.costOn && Number(d.cost) > 0) ? `
       <div class="mt-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-3 py-2 space-y-1">
         <div class="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">Internal — not shown to customer</div>
-        ${row('Vehicle cost', deskM(cost))}
-        <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold pt-1">Front-end</div>
-        ${row('Front gross', deskM(frontGross), true)}
-        ${(c.fniTotal || c.reserve) ? `<div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold pt-1">Back-end (F&amp;I)</div>` : ''}
-        ${c.fniTotal ? row('F&I products', deskM(c.fniTotal)) : ''}
-        ${costKnown ? row('− F&I product cost', '−' + deskM(fniCost)) : ''}
-        ${c.reserve ? row('Finance reserve', deskM(c.reserve)) : ''}
-        ${(c.fniTotal || c.reserve) ? row('Back gross', deskM(backGross), true) : ''}
-        <div class="border-t border-amber-200 dark:border-amber-900 my-1"></div>
-        ${row('Total gross', deskM(totalGross), true)}
-        ${(c.fniTotal && !costKnown) ? `<p class="text-[9.5px] text-amber-600/80 dark:text-amber-400/70 leading-snug">F&amp;I shown at retail — add product cost in the catalog for true back gross.</p>` : ''}
-      </div>`; })() : ''}
+        ${row('Vehicle cost', deskM(Number(d.cost)))}
+        ${row('Front gross', deskM(c.sellingPrice - Number(d.cost)), true)}
+        ${c.fniTotal ? row('Total gross (incl F&I)', deskM(c.sellingPrice - Number(d.cost) + c.fniTotal), true) : ''}
+      </div>` : ''}
     </div>
     ${c.isLease ? `
     <div class="mt-3 bg-violet-600 text-white rounded-lg px-4 py-3">
@@ -7870,35 +6413,7 @@ function deskRenderSummary() {
       <div class="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-bold">Due on delivery</div><div class="font-black text-emerald-700 dark:text-emerald-300">${deskM(c.dueOnDelivery)}</div></div>
     </div>
     <p class="text-[10px] text-slate-400 mt-2 leading-snug">Estimate only, on approved credit. Rate is an example, not a lender commitment. Tax auto-filled from the selected jurisdiction (U.S. = state base rate — add local/county rate); verify vehicle-specific rates and trade-in rules before contract.</p>`;
-  deskScheduleCommPreview();
 }
-// The rep touched a commission field → respect the manual number, stop auto-filling.
-function deskCommTouch() { __deskCommTouched = true; }
-window.deskCommTouch = deskCommTouch;
-// Debounced live commission estimate. Asks the backend what the plan would pay on
-// the current draft and drops it into the Vehicle/F&I commission fields — unless the
-// rep has manually overridden them. Silent no-op when the store has no plan.
-function deskScheduleCommPreview() {
-  clearTimeout(__deskCommTimer);
-  __deskCommTimer = setTimeout(deskPreviewCommission, 500);
-}
-async function deskPreviewCommission() {
-  if (__deskCommTouched) return;
-  const veh = document.getElementById('dk-vehicle_commission');
-  const fni = document.getElementById('dk-fni_commission');
-  if (!veh && !fni) return;
-  const d = deskCollect(null);
-  try {
-    const r = await apiSendJson('/commissions/preview', 'POST', {
-      selling_price: d.selling_price, cost: d.cost,
-      fni_items: d.fni_items, fni_manager_id: d.fni_manager_id,
-    });
-    if (!r?.has_plan || __deskCommTouched) return;   // re-check: rep may have typed while we waited
-    if (veh) veh.value = r.vehicle_commission != null ? r.vehicle_commission : '';
-    if (fni) fni.value = r.fni_commission != null ? r.fni_commission : '';
-  } catch {}
-}
-window.deskPreviewCommission = deskPreviewCommission;
 // Retail/MSRP → Selling price: keep the selling-price input in sync as the manager
 // types Retail, before-tax rebate or adjustment (matches a DMS deal screen).
 function deskPriceRecalc() {
@@ -8511,17 +7026,17 @@ window.openDeskForContact = openDeskForContact;
 
 // ── Settings hub: tab-filter the profile page into named sections ────────────
 let __settingsTab = 'account';
-// Settings organised by department — one section per department, each card lives in
-// exactly one section (no repeated info), laid out in a 2–3 column grid. "My Account"
-// holds the per-user personal settings; the rest are dealership departments (admin).
 const SETTINGS_TAB_SECTIONS = {
-  account: ['profile-form', 'security-section', 'settings-language-card'],
-  admin: ['settings-team', 'billing-section', 'integrations-section', 'settings-texting-card', 'groups-settings-section', 'dealer-features-card', 'email-sending-card'],
-  sales: ['crm-dms-card', 'desk-fees-card', 'dealer-docs-card', 'guardrail-settings-section'],
-  marketing: ['prof-branding-section', 'ai-boost-section'],
-  inventory: ['inv-intel-section'],
-  service: ['settings-service-card'],
-  accounting: ['settings-accounting-card'],
+  team: ['settings-team'],
+  account: ['profile-form', 'email-sending-card'],
+  branding: ['prof-branding-section'],
+  language: ['settings-language-card'],
+  billing: ['billing-section'],
+  aiboost: ['ai-boost-section', 'inv-intel-section'],
+  group: ['groups-settings-section'],
+  dealermgmt: ['crm-dms-card', 'dealer-features-card', 'dealer-docs-card', 'desk-fees-card', 'guardrail-settings-section'],
+  integrations: ['integrations-section'],
+  security: ['security-section'],
 };
 function settingsTab(tab) {
   if (!SETTINGS_TAB_SECTIONS[tab]) tab = 'account';
@@ -8548,167 +7063,23 @@ function settingsTab(tab) {
       !el.classList.contains('stab-hide') && !el.classList.contains('hidden'));
     panel.classList.toggle('is-multi', shown.length > 1);
   });
-  // Administration bundles team, billing, integrations, group, features + texting.
-  if (tab === 'admin') {
-    if (typeof renderCurrentPlanBox === 'function') renderCurrentPlanBox();
-    if (typeof loadDealerFeatures === 'function') loadDealerFeatures();
-    if (typeof loadIntegrations === 'function') loadIntegrations();
-    if (typeof loadTextingStatus === 'function') loadTextingStatus();
-    // Team: MarketSync owner sees SaaS staff/roles; a dealer sees their team + login
-    // management + lead routing (nodes are moved, not cloned, so IDs keep working).
-    if (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode()) {
-      renderSettingsSaasRoles();
-    } else {
-      loadSettingsTeam(document.getElementById('team-picker')?.value || 'sales');
-      const host = document.getElementById('settings-team');
-      const dv = document.getElementById('dealer-view-panel');
-      const lr = document.getElementById('lead-routing-card');
-      const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-      if (host && dv && isAdmin) { dv.classList.remove('hidden'); if (dv.parentElement !== host) host.appendChild(dv); }
-      if (host && lr && isAdmin && lr.parentElement !== host) host.appendChild(lr);
-      if (isAdmin && typeof loadDealerManagementMatrix === 'function') loadDealerManagementMatrix();
-    }
+  if (tab === 'team') {
+    loadSettingsTeam(document.getElementById('team-picker')?.value || 'sales');
+    // Bring the full login/role management + lead-routing setup into Settings →
+    // Team so it's all in one place (they used to live on a separate page). The
+    // nodes are moved (not cloned), so their existing IDs + wiring keep working.
+    const host = document.getElementById('settings-team');
+    const dv = document.getElementById('dealer-view-panel');
+    const lr = document.getElementById('lead-routing-card');
+    const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
+    if (host && dv && isAdmin) { dv.classList.remove('hidden'); if (dv.parentElement !== host) host.appendChild(dv); }
+    if (host && lr && isAdmin && lr.parentElement !== host) host.appendChild(lr);
+    if (isAdmin) loadDealerManagementMatrix();
   }
-  if (tab === 'sales') { if (typeof loadDeskFeeSettings === 'function') loadDeskFeeSettings(); if (typeof loadDealerDocs === 'function') loadDealerDocs(); }
+  if (tab === 'dealermgmt') { loadDealerFeatures(); loadDeskFeeSettings(); loadDealerDocs(); }
+  if (tab === 'integrations') loadIntegrations();
 }
 window.settingsTab = settingsTab;
-
-// ── Text messaging — provision a MarketSync-managed SMS number per dealer ──────
-let __texting = { status: null };
-async function loadTextingStatus() {
-  const root = document.getElementById('texting-root'); if (!root) return;
-  try { __texting.status = await apiGetJson('/integrations/twilio/provision/status'); }
-  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load')}</div>`; return; }
-  renderTexting();
-}
-window.loadTextingStatus = loadTextingStatus;
-const TX_INP = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
-function renderTexting() {
-  const root = document.getElementById('texting-root'); if (!root) return;
-  const s = __texting.status || {};
-  if (!s.available) {
-    root.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400">Automatic number provisioning isn't switched on for this server yet. You can still connect your own Twilio account under <b>Integrations</b> above.</div>`;
-    return;
-  }
-  if (s.platform_managed && s.number) {
-    const a2p = s.a2p_status || 'not_started';
-    const badge = ({ not_started: ['Not registered', 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'], submitted: ['Registration submitted', 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'], approved: ['Registered ✓', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'] })[a2p] || ['—', 'bg-slate-100 text-slate-500'];
-    root.innerHTML = `
-      <div class="flex items-center gap-3 mb-2 flex-wrap">
-        <div class="text-xl font-black text-slate-900 dark:text-white">${esc(s.number)}</div>
-        <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${badge[1]}">${badge[0]}</span>
-        <button onclick="textingRelease()" class="ml-auto text-[12px] font-bold text-rose-500">Release number</button>
-      </div>
-      <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Your automated follow-ups and AI texts send from this number. To text at full volume in the US, complete carrier registration (A2P 10DLC) below.</p>
-      ${textingA2pForm(s.a2p_profile || {})}`;
-    return;
-  }
-  root.innerHTML = `
-    ${s.byo ? '<div class="text-xs text-slate-500 dark:text-slate-400 mb-2">You\'re currently using your own Twilio (Integrations). Provision a MarketSync-managed number instead below.</div>' : ''}
-    <div class="flex gap-2 items-end mb-3 flex-wrap">
-      <div><label class="block text-[11px] font-bold text-slate-500 mb-1">Country</label><select id="tx-country" class="${TX_INP}" style="width:90px"><option value="US">US</option><option value="CA">CA</option></select></div>
-      <div class="flex-1 min-w-[140px]"><label class="block text-[11px] font-bold text-slate-500 mb-1">Area code (optional)</label><input id="tx-area" maxlength="3" placeholder="e.g. 416" class="${TX_INP}"></div>
-      <button onclick="textingSearch(this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg">Search numbers</button>
-    </div>
-    <div id="tx-results"></div>`;
-}
-function textingA2pForm(p) {
-  const lbl = (t) => `<label class="block text-[11px] font-bold text-slate-500 mb-1">${t}</label>`;
-  return `<div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-    <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Carrier registration (A2P 10DLC)</div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-      <div>${lbl('Legal business name')}<input id="a2p-legal" value="${esc(p.legal_name || '')}" class="${TX_INP}"></div>
-      <div>${lbl('Tax ID (EIN / BN)')}<input id="a2p-tax" value="${esc(p.tax_id || '')}" class="${TX_INP}"></div>
-      <div class="sm:col-span-2">${lbl('Business address')}<input id="a2p-address" value="${esc(p.address || '')}" class="${TX_INP}"></div>
-      <div>${lbl('Website')}<input id="a2p-website" value="${esc(p.website || '')}" class="${TX_INP}"></div>
-      <div>${lbl('Contact email')}<input id="a2p-email" value="${esc(p.email || '')}" class="${TX_INP}"></div>
-      <div>${lbl('Contact phone')}<input id="a2p-phone" value="${esc(p.phone || '')}" class="${TX_INP}"></div>
-      <div>${lbl('Contact name')}<input id="a2p-contact" value="${esc(p.contact_name || '')}" class="${TX_INP}"></div>
-    </div>
-    <button onclick="textingSubmitA2p(this)" class="mt-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg">Submit registration</button>
-  </div>`;
-}
-window.textingSearch = async (btn) => {
-  const country = document.getElementById('tx-country')?.value || 'US';
-  const area = (document.getElementById('tx-area')?.value || '').trim();
-  const box = document.getElementById('tx-results'); if (box) box.innerHTML = '<div class="text-sm text-slate-400 italic py-2">Searching…</div>';
-  try {
-    const r = await apiGetJson(`/integrations/twilio/provision/search?country=${encodeURIComponent(country)}&area=${encodeURIComponent(area)}`);
-    const rows = (r.numbers || []).map(n => `<div class="flex items-center gap-3 px-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-        <div class="flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(n.number)}</div><div class="text-[12px] text-slate-500">${esc([n.locality, n.region].filter(Boolean).join(', '))}</div></div>
-        <button onclick="textingProvision('${esc(n.number)}', this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[12px] font-bold px-3 py-1.5 rounded-lg">Use this number</button>
-      </div>`).join('');
-    if (box) box.innerHTML = rows ? `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-1">${rows}</div>` : '<div class="text-sm text-slate-400 italic py-2">No numbers found — try a different area code.</div>';
-  } catch (e) { if (box) box.innerHTML = `<div class="text-sm text-rose-500 py-2">${esc(e.message || 'Search failed')}</div>`; }
-};
-window.textingProvision = async (number, btn) => {
-  if (!confirm(`Provision ${number} as your dealership texting number?`)) return;
-  if (btn) { btn.disabled = true; btn.textContent = 'Provisioning…'; }
-  try { await apiSendJson('/integrations/twilio/provision/buy', 'POST', { number }); showToast('Number provisioned — you can now text from it', 'success'); await loadTextingStatus(); }
-  catch (e) { showToast(e.message || 'Could not provision', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Use this number'; } }
-};
-window.textingSubmitA2p = async (btn) => {
-  const payload = {
-    legal_name: document.getElementById('a2p-legal')?.value.trim(), tax_id: document.getElementById('a2p-tax')?.value.trim(),
-    address: document.getElementById('a2p-address')?.value.trim(), website: document.getElementById('a2p-website')?.value.trim(),
-    email: document.getElementById('a2p-email')?.value.trim(), phone: document.getElementById('a2p-phone')?.value.trim(),
-    contact_name: document.getElementById('a2p-contact')?.value.trim(),
-  };
-  if (!payload.legal_name || !payload.tax_id) return showToast('Legal business name and tax ID are required', 'error');
-  try { await apiSendJson('/integrations/twilio/a2p', 'POST', payload); showToast('Registration submitted', 'success'); await loadTextingStatus(); }
-  catch (e) { showToast(e.message || 'Could not submit', 'error'); }
-};
-window.textingRelease = async () => {
-  if (!confirm('Release this texting number? Automated texts will stop until you provision a new one.')) return;
-  try { await apiSendJson('/integrations/twilio/provision/release', 'POST', {}); showToast('Number released', 'success'); await loadTextingStatus(); }
-  catch (e) { showToast(e.message || 'Could not release', 'error'); }
-};
-
-// MarketSync owner's Settings → Team = SaaS staff + roles (owner/sales/support/
-// marketing/developer) with the permission matrix — not a dealership sales team.
-// Renders into #settings-team, hiding the dealer team markup while active.
-async function renderSettingsSaasRoles() {
-  const host = document.getElementById('settings-team'); if (!host) return;
-  Array.from(host.children).forEach(c => { if (c.id !== 'settings-saas-roles') c.classList.add('hidden'); });
-  let panel = document.getElementById('settings-saas-roles');
-  if (!panel) { panel = document.createElement('div'); panel.id = 'settings-saas-roles'; host.prepend(panel); }
-  panel.classList.remove('hidden');
-  panel.innerHTML = `<div class="text-sm text-slate-400 py-6 text-center">Loading team…</div>`;
-  let d;
-  try { d = await apiGetJson('/saas/employees'); }
-  catch (e) { panel.innerHTML = `<div class="text-sm text-rose-500 py-6 text-center">${esc(e.message || 'Could not load team.')}</div>`; return; }
-  const roles = d.roles || [], matrix = d.permissions_matrix || {};
-  const staff = (d.staff || []).map(s => `
-    <tr class="border-t border-slate-100 dark:border-slate-800">
-      <td class="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">${esc(s.name)}</td>
-      <td class="px-3 py-2"><select onchange="saasSetRole('${s.id}', this.value)" class="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px]">${empRoleOpts(roles, s.saas_role)}</select></td>
-      <td class="px-3 py-2 text-[11px] text-slate-400">${(s.permissions || []).map(p => esc(p)).join(', ')}</td>
-      <td class="px-3 py-2 text-right"><button onclick="saasSetRole('${s.id}','')" class="text-[11px] font-bold text-rose-500 hover:text-rose-600">Remove</button></td>
-    </tr>`).join('') || `<tr><td colspan="4" class="px-3 py-8 text-center text-slate-400 text-sm">No staff yet — add one by email below.</td></tr>`;
-  const matrixRows = roles.map(r => `
-    <div class="flex flex-wrap items-start gap-2 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <span class="w-24 flex-shrink-0 text-[12px] font-black uppercase text-slate-600 dark:text-slate-300">${esc(r)}</span>
-      <span class="flex flex-wrap gap-1">${(matrix[r] || []).map(p => `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${p === '*' ? 'ALL' : esc(p)}</span>`).join('')}</span>
-    </div>`).join('');
-  panel.innerHTML = `
-    <div class="mb-3"><h3 class="text-sm font-black text-slate-800 dark:text-slate-100">MarketSync team &amp; roles</h3>
-      <p class="text-[12px] text-slate-500 dark:text-slate-400">Your staff and what each SaaS role can do. Owner-only.</p></div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
-      <table class="w-full text-sm min-w-[560px]">
-        <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">Name</th><th class="px-3 py-2">Role</th><th class="px-3 py-2">Permissions</th><th class="px-3 py-2"></th></tr></thead>
-        <tbody>${staff}</tbody>
-      </table>
-    </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-wrap items-end gap-2 mt-3">
-      <div><label class="text-[11px] text-slate-400 font-bold">Add staff by email</label><input id="saas-emp-email" placeholder="teammate@marketsync.link" class="w-64 mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
-      <div><label class="text-[11px] text-slate-400 font-bold">Role</label><select id="saas-emp-role" class="mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${empRoleOpts(roles, 'support')}</select></div>
-      <button onclick="saasAddEmployee()" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold transition">Add</button>
-    </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mt-3">
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Permission matrix</div>${matrixRows}
-    </div>`;
-}
-window.renderSettingsSaasRoles = renderSettingsSaasRoles;
 
 // ── Integrations Hub ─────────────────────────────────────────────────────────
 // Lists every connectable service. "Webhooks" is the live outbound glue — a dealer
@@ -9305,9 +7676,9 @@ async function openGbpComposer() {
         <div>
           <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Post type</label>
           <select id="gbp-kind" class="${inp}">
-            <option value="new_arrival">New arrival</option>
+            <option value="new_arrival">🚗 New arrival</option>
             <option value="special">🏷️ Special offer</option>
-            <option value="update" selected>General update</option>
+            <option value="update" selected>📣 General update</option>
           </select>
         </div>
         <div>
@@ -9955,9 +8326,40 @@ window.acctFinForecast = acctFinForecast; window.acctFinPeriods = acctFinPeriods
 window.acctLoadFinancials = acctLoadFinancials;
 
 // ── Affiliates admin (MarketSync owner) ──────────────────────────────────────
-// Affiliates admin renders through the Engine Shell (registered after the shell
-// framework loads, below). This thin wrapper is what switchPage calls.
-function loadAffiliatesAdmin() { renderEngine('affiliates-admin'); }
+async function loadAffiliatesAdmin() {
+  const root = document.getElementById('affadmin-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400">Loading…</div>';
+  try {
+    const d = await apiGetJson('/affiliate/admin/list');
+    const t = d.totals || {};
+    const badge = (s) => `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${s === 'active' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'bg-rose-100 dark:bg-rose-950/40 text-rose-600'}">${esc(s)}</span>`;
+    const rows = (d.affiliates || []).map(a => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
+      <td class="px-3 py-2"><div class="font-semibold">${esc(a.name || a.email)}</div><div class="text-[11px] text-slate-400">${esc(a.email)} · <span class="font-mono">${esc(a.code)}</span></div></td>
+      <td class="px-3 py-2 text-center">${a.referrals} <span class="text-slate-400">/ ${a.active} paying</span></td>
+      <td class="px-3 py-2 text-center">${a.rate_pct}% · ${Number(a.rate_months) > 0 ? a.rate_months + 'mo' : 'life'}</td>
+      <td class="px-3 py-2 text-right text-amber-600 dark:text-amber-400">${commMoney(a.pending)}</td>
+      <td class="px-3 py-2 text-right text-emerald-600 dark:text-emerald-400">${commMoney(a.paid)}</td>
+      <td class="px-3 py-2 text-center">${badge(a.status)}</td>
+      <td class="px-3 py-2 text-right whitespace-nowrap">
+        <button onclick='affAdminEdit(${JSON.stringify(a)})' class="text-xs font-bold text-indigo-600 hover:text-indigo-500">Edit</button>
+        ${a.pending > 0 ? `<button onclick="affAdminPay('${a.id}', ${a.pending})" class="text-xs font-bold text-emerald-600 hover:text-emerald-500 ml-2">Pay out</button>` : ''}
+      </td></tr>`).join('');
+    root.innerHTML = `
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Affiliates</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Manage your referral partners, their rates, and payouts. Affiliates sign up at <a href="affiliates.html" target="_blank" class="text-indigo-600 dark:text-indigo-400 hover:underline">marketsync.link/affiliates</a>.</p></div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Affiliates</div><div class="text-2xl font-black mt-1">${t.affiliates || 0}</div></div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Referrals</div><div class="text-2xl font-black mt-1">${t.referrals || 0}</div></div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Paying</div><div class="text-2xl font-black mt-1 text-emerald-600 dark:text-emerald-400">${t.active || 0}</div></div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Owed (pending)</div><div class="text-2xl font-black mt-1 text-amber-600 dark:text-amber-400">${commMoney(t.pending)}</div></div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Paid out</div><div class="text-2xl font-black mt-1">${commMoney(t.paid)}</div></div>
+      </div>
+      <div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+        <table class="w-full text-sm min-w-[760px]"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">
+          <th class="px-3 py-2">Affiliate</th><th class="px-3 py-2 text-center">Referrals</th><th class="px-3 py-2 text-center">Rate</th><th class="px-3 py-2 text-right">Pending</th><th class="px-3 py-2 text-right">Paid</th><th class="px-3 py-2 text-center">Status</th><th class="px-3 py-2"></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-400">No affiliates yet. Share the program page to get your first partners.</td></tr>'}</tbody></table></div>`;
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load affiliates.')}</div>`; }
+}
 function affAdminEdit(a) {
   crmOverlay(`<div class="p-5 space-y-3">
     <div class="text-lg font-black text-slate-900 dark:text-white">${esc(a.name || a.email)}</div>
@@ -10554,13 +8956,12 @@ async function loadSoloHome() {
     : `${(d.avg_response_min / 60).toFixed(1)} hr`;
   // Big hero tile + supporting tiles. Views/Messages show "—" until an FB insights
   // sync is connected (we never fabricate those numbers).
-  // A stat tile. When `onclick` is supplied it renders as a button that drills in.
-  const tile = (label, val, sub, accent, onclick) => `
-    <${onclick ? 'button' : 'div'} ${onclick ? `onclick="${onclick}"` : ''} class="block text-left w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4 ${onclick ? 'hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition cursor-pointer' : ''}">
+  const tile = (label, val, sub, accent) => `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4">
       <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
       <div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${val}</div>
       ${sub ? `<div class="text-[11px] text-slate-400 mt-0.5">${esc(sub)}</div>` : ''}
-    </${onclick ? 'button' : 'div'}>`;
+    </div>`;
   const pending = (d.views == null || d.messages == null)
     ? `<div class="text-[12px] text-slate-400 flex items-center gap-2 px-1">${svgIcon('info','w-4 h-4')}Views &amp; messages appear once your Facebook account is connected in Settings.</div>` : '';
   root.innerHTML = `
@@ -10572,11 +8973,11 @@ async function loadSoloHome() {
       <button onclick="__inventoryMode='facebook'; switchPage('inventory')" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition">Post Inventory</button>
     </div>
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-      ${tile('Vehicles Posted', num(d.posted), 'live now — view inventory', 'text-blue-600 dark:text-blue-400', "__inventoryMode='facebook'; switchPage('inventory')")}
+      ${tile('Vehicles Posted', num(d.posted), 'live now', 'text-blue-600 dark:text-blue-400')}
       ${tile('Views', num(d.views), 'from Facebook')}
       ${tile('Messages', num(d.messages), 'from Facebook')}
-      ${tile('Leads', num(d.leads), 'captured', '', "switchPage('leads')")}
-      ${tile('Sold via Marketplace', num(d.sold), 'last 30 days', 'text-emerald-600 dark:text-emerald-400', "__inventoryMode='facebook'; switchPage('inventory')")}
+      ${tile('Leads', num(d.leads), 'captured')}
+      ${tile('Sold', num(d.sold), 'this month', 'text-emerald-600 dark:text-emerald-400')}
       ${tile('Avg response', resp, 'to a lead')}
     </div>
     ${pending}
@@ -10588,748 +8989,76 @@ async function loadSoloHome() {
 }
 window.loadSoloHome = loadSoloHome;
 
-// ══ Delivery — Sold Vehicle Queue (workflow engine made visible) ══════════════
-async function loadDeliveryQueue() {
-  const root = document.getElementById('delivery-root');
-  if (!root) return;
-  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading delivery queue…</div>`;
-  let d;
-  try { d = await apiGetJson('/delivery/queue'); }
-  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
-  const queue = d.queue || [];
-  const badge = document.getElementById('delivery-badge');
-  if (badge) { if (queue.length) { badge.textContent = queue.length; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
-  const cards = queue.map(v => {
-    const checks = v.checklist.map(c => `
-      <label class="flex items-center gap-2 text-[13px] cursor-pointer py-0.5">
-        <input type="checkbox" ${c.done ? 'checked' : ''} onchange="deliveryToggle('${v.id}','${c.key}',this.checked)" class="w-4 h-4 rounded border-slate-300 text-lime-600 focus:ring-lime-500">
-        <span class="${c.done ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}">${esc(c.label)}</span>
-      </label>`).join('');
-    return `<div class="bg-white dark:bg-slate-900 border ${v.ready ? 'border-lime-300 dark:border-lime-800' : 'border-slate-200 dark:border-slate-800'} rounded-xl p-4 space-y-3">
-      <div class="flex items-start justify-between gap-2">
-        <div><div class="font-black text-slate-800 dark:text-slate-100">${esc(v.vehicle)}</div>
-          <div class="text-[12px] text-slate-500">${esc(v.customer)}${v.stock ? ' · Stock ' + esc(v.stock) : ''}${v.deal_number ? ' · Deal ' + esc(v.deal_number) : ''}</div></div>
-        ${v.ready ? '<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-lime-100 text-lime-700 dark:bg-lime-950/50 dark:text-lime-300">READY</span>' : ''}
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">${checks}</div>
-      <button onclick="deliveryComplete('${v.id}')" ${v.ready ? '' : 'disabled'} class="w-full px-4 py-2 rounded-lg text-white text-sm font-bold transition ${v.ready ? 'bg-lime-600 hover:bg-lime-500' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed'}">Mark delivered → post to accounting</button>
-    </div>`;
-  }).join('') || `<div class="p-8 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">No vehicles awaiting delivery. Sold deals land here for prep.</div>`;
-  root.innerHTML = `
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Delivery</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Sold vehicles being prepped for pickup. Complete the checklist, then deliver.</p></div>
-      <button onclick="loadDeliveryQueue()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Refresh</button>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div>`;
-}
-async function deliveryToggle(id, key, done) {
-  try { await apiSendJson(`/delivery/${id}/checklist`, 'POST', { key, done }); loadDeliveryQueue(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-async function deliveryComplete(id) {
-  if (!confirm('Mark this vehicle delivered? This posts the sale to accounting and pays commission.')) return;
-  try { await apiSendJson(`/delivery/${id}/deliver`, 'POST'); showToast('Delivered ✓', 'success'); loadDeliveryQueue(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-Object.assign(window, { loadDeliveryQueue, deliveryToggle, deliveryComplete });
-
-// ══ Configuration hub — surfaces the Configuration Engine (managers) ══════════
-const CONFIG_META = {
-  crm_integration:   { label: 'CRM Integration',    desc: 'How captured leads sync out to your CRM (method, lead email, webhook).' },
-  accounting:        { label: 'Accounting',         desc: 'Auto-post delivered deals to the ledger + cost tracking.' },
-  service:           { label: 'Service & Parts',    desc: 'Labor rate, tax, shop supplies, parts markup, RO prefix.' },
-  ai_knowledge:      { label: 'AI Knowledge Base',  desc: 'Facts the chatbot answers from (hours, financing, specials…).' },
-  ai_personality:    { label: 'AI Personality',     desc: 'Chatbot greeting + tone.' },
-  notification_rules:{ label: 'Notification Rules', desc: 'Alert thresholds (e.g. hot-lead score).' },
-};
-const cfgLabel = (k) => CONFIG_META[k]?.label || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-async function loadConfigHub() {
-  const root = document.getElementById('config-root');
-  if (!root) return;
-  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading configuration…</div>`;
-  let d;
-  try { d = await apiGetJson('/config'); }
-  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
-  const keys = (d.keys || []).sort((a, b) => cfgLabel(a.key).localeCompare(cfgLabel(b.key)));
-  const structured = d.structured || [];
-  const cards = keys.map(k => {
-    const meta = CONFIG_META[k.key];
-    const json = JSON.stringify(k.value ?? {}, null, 2);
-    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-2">
-      <div class="flex items-center justify-between gap-2">
-        <div><span class="font-bold text-slate-800 dark:text-slate-100">${esc(cfgLabel(k.key))}</span>
-          ${k.customized ? '<span class="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">Customized</span>' : '<span class="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">Default</span>'}</div>
-        <code class="text-[11px] text-slate-400">${esc(k.key)}</code>
-      </div>
-      ${meta ? `<p class="text-[12px] text-slate-500">${esc(meta.desc)}</p>` : ''}
-      <textarea id="cfg-${esc(k.key)}" rows="${Math.min(12, json.split('\n').length + 1)}" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-[12px] font-mono">${esc(json)}</textarea>
-      <div class="flex gap-2">
-        <button onclick="cfgSave('${esc(k.key)}')" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-[13px] font-bold transition">Save</button>
-        ${k.customized ? `<button onclick="cfgReset('${esc(k.key)}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200">Reset to default</button>` : ''}
-      </div>
-    </div>`;
-  }).join('') || '<div class="text-sm text-slate-400">No configuration keys yet.</div>';
-  const structRows = structured.map(s => `<div class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">${esc(s.label)}</span><span class="text-[11px] text-slate-400">${s.count} rule${s.count === 1 ? '' : 's'} · ${esc(s.editor)}</span></div>`).join('');
-  root.innerHTML = `
-    <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Configuration</h1>
-      <p class="text-sm text-slate-500 dark:text-slate-400">Every dealer-configurable setting, one place. Blank/unset keys inherit the global default.</p></div>
-    ${structured.length ? `<div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Structured domains</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${structRows}</div></div>` : ''}
-    <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Settings</div><div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${cards}</div></div>`;
-}
-async function cfgSave(key) {
-  const el = document.getElementById('cfg-' + key);
-  let value;
-  try { value = JSON.parse(el.value); }
-  catch { return showToast('Invalid JSON — check the formatting', 'error'); }
-  try { await apiSendJson('/config/' + encodeURIComponent(key), 'PUT', { value }); showToast('Saved ✓', 'success'); loadConfigHub(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-async function cfgReset(key) {
-  if (!confirm('Reset this setting to the global default?')) return;
-  try { await apiSendJson('/config/' + encodeURIComponent(key), 'DELETE'); showToast('Reset ✓', 'success'); loadConfigHub(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-Object.assign(window, { loadConfigHub, cfgSave, cfgReset });
-
-// ══ API & MCP — developer access (managers) ══════════════════════════════════
-async function loadApiKeys() {
-  const root = document.getElementById('api-keys-root');
-  if (!root) return;
-  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading…</div>`;
-  let keys = [];
-  try { keys = (await apiGetJson('/api-keys')).keys || []; }
-  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
-  const base = (typeof API !== 'undefined' && API) ? API : '';
-  const rows = keys.map(k => `
-    <tr class="border-t border-slate-100 dark:border-slate-800">
-      <td class="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">${esc(k.name || 'API key')}</td>
-      <td class="px-3 py-2 font-mono text-[12px] text-slate-400">${esc(k.key_prefix || '')}</td>
-      <td class="px-3 py-2 text-[11px] text-slate-400">${k.last_used_at ? 'used ' + new Date(k.last_used_at).toLocaleDateString() : 'never used'}</td>
-      <td class="px-3 py-2 text-right">${k.revoked_at ? '<span class="text-[11px] text-rose-500 font-bold">revoked</span>' : `<button onclick="apiRevokeKey('${k.id}')" class="text-[11px] font-bold text-rose-500 hover:text-rose-600">Revoke</button>`}</td>
-    </tr>`).join('') || `<tr><td colspan="4" class="px-3 py-8 text-center text-slate-400 text-sm">No keys yet — generate one to start.</td></tr>`;
-  root.innerHTML = `
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">API &amp; MCP</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Give external tools + AI agents secure access to your MarketSync data.</p></div>
-      <button onclick="apiGenerateKey()" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Generate key</button>
-    </div>
-    <div id="api-new-key"></div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
-      <table class="w-full text-sm min-w-[520px]">
-        <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">Name</th><th class="px-3 py-2">Key</th><th class="px-3 py-2">Last used</th><th class="px-3 py-2"></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
-      <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Endpoints</div>
-      <p class="text-[13px] text-slate-500">Authenticate with <code class="text-[12px]">Authorization: Bearer YOUR_KEY</code>.</p>
-      <pre class="text-[12px] font-mono bg-slate-50 dark:bg-slate-950 rounded-lg p-3 overflow-x-auto">GET  ${esc(base)}/api/v1/inventory
-GET  ${esc(base)}/api/v1/leads
-POST ${esc(base)}/api/v1/leads      {"name","email"|"phone"}
-GET  ${esc(base)}/api/v1/tools       # MCP tool list
-POST ${esc(base)}/api/v1/mcp         {"method":"tools/call","params":{"name","arguments"}}</pre>
-      <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide pt-1">MCP</div>
-      <p class="text-[13px] text-slate-500">Point an MCP client at <code class="text-[12px]">${esc(base)}/api/v1/mcp</code> with your key. Tools: <code class="text-[12px]">search_inventory</code>, <code class="text-[12px]">create_lead</code>.</p>
-    </div>`;
-}
-async function apiGenerateKey() {
-  const name = prompt('Name this key (e.g. "Zapier", "Website bot"):', 'API key');
-  if (name == null) return;
-  try {
-    const r = await apiSendJson('/api-keys', 'POST', { name });
-    await loadApiKeys();   // rebuild the list first, then reveal the raw key once
-    const box = document.getElementById('api-new-key');
-    if (box) box.innerHTML = `<div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-xl p-4 space-y-2">
-      <div class="text-[13px] font-bold text-amber-800 dark:text-amber-300">Copy your key now — it won't be shown again.</div>
-      <div class="flex gap-2"><input readonly value="${esc(r.key)}" class="flex-1 px-3 py-2 rounded-lg border border-amber-300 dark:border-amber-800 bg-white dark:bg-slate-900 text-[12px] font-mono">
-      <button onclick="navigator.clipboard.writeText('${esc(r.key)}').then(()=>showToast('Copied ✓','success'))" class="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold">Copy</button></div>
-    </div>`;
-  } catch (e) { showToast(e.message, 'error'); }
-}
-async function apiRevokeKey(id) {
-  if (!confirm('Revoke this key? Anything using it will stop working immediately.')) return;
-  try { await apiSendJson(`/api-keys/${id}/revoke`, 'POST'); showToast('Revoked ✓', 'success'); loadApiKeys(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-Object.assign(window, { loadApiKeys, apiGenerateKey, apiRevokeKey });
-
-// ══ AI Employee — AI Chatbot product home (stats · conversations · KB · settings) ══
-let __aiHomeTab = 'overview';
-async function loadAiHome(tab) {
-  const root = document.getElementById('ai-home-root');
-  if (!root) return;
-  root.className = 'space-y-6 sm:space-y-8';
-  if (tab) __aiHomeTab = tab;
-  const t = __aiHomeTab;
-  const tabBtn = (key, label) => `<button onclick="loadAiHome('${key}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${t === key ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${esc(label)}</button>`;
-  const standalone = isAiChatbotOnlyWorkspace();
-  root.innerHTML = `
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">${standalone ? 'AI Chatbot Dashboard' : 'Your AI Employee'}</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">${standalone ? 'Everything your website chatbot is doing — conversations, leads, knowledge and setup.' : 'Your website chatbot — capturing and qualifying leads around the clock.'}</p></div>
-    </div>
-    <div class="flex flex-wrap gap-2">${tabBtn('overview', 'Overview')}${tabBtn('conversations', 'AI Leads & Chats')}${tabBtn('knowledge', 'Knowledge Base')}${tabBtn('settings', 'Chatbot Settings')}</div>
-    <div id="ai-home-body"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
-  const body = document.getElementById('ai-home-body');
-  try {
-    if (t === 'knowledge') return aiHomeKnowledge(body);
-    if (t === 'settings') return aiHomeSettings(body);
-    return aiHomeOverview(body, t);   // overview + conversations share the data fetch
-  } catch (e) { body.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message)}</div>`; }
-}
-// Human labels for the categorization taxonomy (matches ai-runtime.categorizeText).
-const AI_DEPT_LABELS = { sales: 'Sales', service: 'Service', parts: 'Parts', general: 'General' };
-const AI_TYPE_LABELS = {
-  appointment: 'Appointment', parts: 'Parts', service: 'Service', financing: 'Financing',
-  trade: 'Trade-in', vehicle_inquiry: 'Vehicle inquiry', general: 'General question',
-};
-const AI_DEPT_TONE = {
-  sales: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
-  service: 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300',
-  parts: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-  general: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
-};
-let __aiFeed = { department: '', type: '', flag: '', status: '' };
-
-async function aiHomeOverview(body, tab) {
-  if (tab === 'conversations') return aiHomeFeed(body);
-  const d = await apiGetJson('/ai/home');
-  const s = d.stats || {};
-  const chatbot = d.chatbot || {};
-  const byDept = d.by_department || {};
-  const byType = d.by_type || {};
-  const tile = (label, val, accent) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4"><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div><div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${(val ?? 0).toLocaleString()}</div></div>`;
-  // Insight tiles — what the chatbot did.
-  const insights = `
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-      ${tile('Conversations', s.conversations, 'text-emerald-600 dark:text-emerald-400')}
-      ${tile('Leads Captured', s.leads_captured)}
-      ${tile('Appointments Booked', s.booked, 'text-emerald-600 dark:text-emerald-400')}
-      ${tile('Hot Leads', s.hot_leads, 'text-rose-600 dark:text-rose-400')}
-    </div>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-      ${tile('Sales', byDept.sales, 'text-emerald-600 dark:text-emerald-400')}
-      ${tile('Service', byDept.service, 'text-sky-600 dark:text-sky-400')}
-      ${tile('Parts', byDept.parts, 'text-amber-600 dark:text-amber-400')}
-      ${tile('Asked for a Rep', s.asked_for_rep, 'text-indigo-600 dark:text-indigo-400')}
-    </div>`;
-  // Breakdown bars.
-  const breakdown = (title, obj, labels, tone) => {
-    const entries = Object.entries(obj || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-    const max = Math.max(1, ...entries.map(([, v]) => v));
-    if (!entries.length) return '';
-    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2.5">${esc(title)}</div>
-      <div class="space-y-2">${entries.map(([k, v]) => `
-        <div class="flex items-center gap-2">
-          <span class="w-28 flex-shrink-0 text-[12px] font-semibold text-slate-600 dark:text-slate-300 truncate">${esc((labels && labels[k]) || k)}</span>
-          <div class="flex-1 h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full ${tone}" style="width:${Math.round(v / max * 100)}%"></div></div>
-          <span class="w-8 flex-shrink-0 text-right text-[12px] font-black text-slate-700 dark:text-slate-200">${v}</span>
-        </div>`).join('')}</div>
-    </div>`;
-  };
-  const conv = (d.recent || []).map(aiFeedRow).join('')
-    || '<div class="text-sm text-slate-400 py-6 text-center">No conversations yet — add the chatbot to your site (Settings).</div>';
-  body.innerHTML = `
-    <div class="mb-4 flex items-center gap-2 rounded-xl border ${chatbot.active ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30'} px-4 py-3">
-      <span class="w-2.5 h-2.5 rounded-full ${chatbot.active ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
-      <span class="text-sm font-bold text-slate-800 dark:text-slate-100">${chatbot.active ? 'Chatbot is live' : 'Chatbot is not live'}</span>
-      <span class="text-xs text-slate-500 dark:text-slate-400">${chatbot.assistant_name ? '· ' + esc(chatbot.assistant_name) : '· Set your assistant name in Settings'}</span>
-    </div>
-    ${insights}
-    <div class="grid md:grid-cols-2 gap-3 mb-4">
-      ${breakdown('By department', byDept, AI_DEPT_LABELS, 'bg-emerald-500')}
-      ${breakdown('By lead type', byType, AI_TYPE_LABELS, 'bg-indigo-500')}
-    </div>
-    <div class="flex items-center justify-between mb-2 gap-3">
-      <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">Recent AI leads & chats</div><div class="text-[11px] text-slate-400 mt-0.5">Open a chat to see the complete AI transcript and reply to the visitor.</div></div>
-      <button onclick="loadAiHome('conversations')" class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline">View all + filters →</button>
-    </div>
-    <div class="space-y-1.5">${conv}</div>`;
-}
-
-// One row in the categorized feed. Works with the raw ai_conversations shape
-// (lead_score/contact_id/…) and with the /ai/home recent[] shape (score/captured/…).
-function aiFeedRow(c) {
-  const score = c.score ?? c.lead_score ?? 0;
-  const captured = c.captured ?? !!c.contact_id;
-  const dept = c.department || 'general';
-  const type = c.lead_type || 'general';
-  const tags = Array.isArray(c.tags) ? c.tags : [];
-  const when = c.at || c.last_message_at || c.created_at;
-  const chip = (txt, tone) => `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${tone}">${esc(txt)}</span>`;
-  const tagChips = tags.filter(t => t !== 'asked_manager').slice(0, 4)
-    .map(t => chip(t, 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300')).join('');
-  return `<button onclick="aiOpenConversation('${c.id}')" class="w-full text-left px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
-    <div class="flex items-center justify-between gap-2">
-      <div class="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
-        ${chip(AI_DEPT_LABELS[dept] || dept, AI_DEPT_TONE[dept] || AI_DEPT_TONE.general)}
-        ${chip(AI_TYPE_LABELS[type] || type, 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300')}
-        ${c.booked ? chip('Booked', 'bg-emerald-600 text-white') : ''}
-        ${c.requested_rep ? chip('Asked for ' + c.requested_rep, 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300') : ''}
-        ${tags.includes('asked_manager') ? chip('Asked for manager', 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300') : ''}
-        ${tagChips}
-      </div>
-      <span class="flex items-center gap-2 flex-shrink-0">
-        ${c.status === 'handoff' ? chip('Handoff', 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300') : ''}
-        <span class="text-[11px] font-black ${score >= 80 ? 'text-rose-600 dark:text-rose-400' : score >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}">${score}</span>
-      </span>
-    </div>
-    <div class="mt-1 text-[12px] text-slate-500 dark:text-slate-400 truncate">
-      ${c.contact_name ? svgIcon('user', 'w-3.5 h-3.5 inline-block -mt-0.5 text-emerald-500') + ' <span class="font-bold text-slate-700 dark:text-slate-200">' + esc(c.contact_name) + '</span>' : (captured ? svgIcon('user', 'w-3.5 h-3.5 inline-block -mt-0.5 text-emerald-500') + ' Lead captured' : 'Visitor')}${c.website ? ' · ' + esc(String(c.website).replace(/^https?:\/\//, '').slice(0, 30)) : ''}${when ? ' · ' + esc(new Date(when).toLocaleDateString([], { month: 'short', day: 'numeric' })) : ''}
-    </div>
-    ${c.summary ? `<div class="mt-1 text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(c.summary.replace(/\s+/g, ' ').slice(0, 160))}</div>` : ''}
-    <div class="mt-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">Open chat &amp; reply →</div>
-  </button>`;
-}
-
-// Filterable categorized feed (Conversations tab).
-async function aiHomeFeed(body) {
-  const opt = (val, label, cur) => `<option value="${esc(val)}"${cur === val ? ' selected' : ''}>${esc(label)}</option>`;
-  const deptOpts = ['', ...Object.keys(AI_DEPT_LABELS)].map(v => opt(v, v ? AI_DEPT_LABELS[v] : 'All departments', __aiFeed.department)).join('');
-  const typeOpts = ['', ...Object.keys(AI_TYPE_LABELS)].map(v => opt(v, v ? AI_TYPE_LABELS[v] : 'All lead types', __aiFeed.type)).join('');
-  const flagOpts = [['', 'All conversations'], ['booked', 'Booked appointments'], ['captured', 'Leads captured'], ['asked_manager', 'Asked for a manager']]
-    .map(([v, l]) => opt(v, l, __aiFeed.flag)).join('');
-  const statusOpts = [['', 'Any chat status'], ['handoff', 'Needs a reply'], ['active', 'AI is handling'], ['closed', 'Closed chats']]
-    .map(([v, l]) => opt(v, l, __aiFeed.status || '')).join('');
-  const sel = 'px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] font-semibold';
-  body.innerHTML = `
-    <div class="flex flex-wrap gap-2 mb-3">
-      <select id="ai-feed-dept" onchange="aiFeedApply()" class="${sel}">${deptOpts}</select>
-      <select id="ai-feed-type" onchange="aiFeedApply()" class="${sel}">${typeOpts}</select>
-      <select id="ai-feed-flag" onchange="aiFeedApply()" class="${sel}">${flagOpts}</select>
-      <select id="ai-feed-status" onchange="aiFeedApply()" class="${sel}">${statusOpts}</select>
-    </div>
-    <p class="text-[12px] text-slate-400 mb-3">Select a lead or chat to view every message, take over the chat, or reply as yourself or the AI assistant.</p>
-    <div id="ai-feed-list"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
-  await aiFeedLoad();
-}
-async function aiFeedApply() {
-  __aiFeed = {
-    department: document.getElementById('ai-feed-dept')?.value || '',
-    type: document.getElementById('ai-feed-type')?.value || '',
-    flag: document.getElementById('ai-feed-flag')?.value || '',
-    status: document.getElementById('ai-feed-status')?.value || '',
-  };
-  await aiFeedLoad();
-}
-async function aiFeedLoad() {
-  const list = document.getElementById('ai-feed-list');
-  if (!list) return;
-  const p = new URLSearchParams();
-  if (__aiFeed.department) p.set('department', __aiFeed.department);
-  if (__aiFeed.type) p.set('type', __aiFeed.type);
-  if (__aiFeed.status) p.set('status', __aiFeed.status);
-  if (__aiFeed.flag === 'booked') p.set('booked', 'true');
-  else if (__aiFeed.flag === 'captured') p.set('captured', 'true');
-  else if (__aiFeed.flag === 'asked_manager') p.set('tag', 'asked_manager');
-  try {
-    const d = await apiGetJson('/ai/conversations' + (p.toString() ? '?' + p.toString() : ''));
-    const rows = d.conversations || [];
-    list.innerHTML = rows.length
-      ? `<div class="text-[11px] text-slate-400 font-bold mb-2">${rows.length} conversation${rows.length === 1 ? '' : 's'}</div><div class="space-y-1.5">${rows.map(aiFeedRow).join('')}</div>`
-      : '<div class="text-sm text-slate-400 py-10 text-center">No conversations match these filters.</div>';
-  } catch (e) { list.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message)}</div>`; }
-}
-async function aiHomeKnowledge(body) {
-  const { knowledge: k } = await apiGetJson('/ai/knowledge');
-  const field = (id, label, val, ph) => `<div><label class="text-[12px] font-bold text-slate-500">${esc(label)}</label><textarea id="${id}" rows="2" placeholder="${esc(ph)}" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${esc(val || '')}</textarea></div>`;
-  body.innerHTML = `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3 max-w-2xl">
-      <p class="text-[13px] text-slate-500">The AI answers customer questions from this — keep it accurate.</p>
-      ${field('ai-kb-hours', 'Hours', k?.hours, 'Mon–Fri 9–6, Sat 10–4, closed Sunday')}
-      ${field('ai-kb-financing', 'Financing', k?.financing, 'We work with all credit types; $0 down options available.')}
-      ${field('ai-kb-trade', 'Trade-ins', k?.trade_in, 'We appraise any trade — bring it by or send photos.')}
-      ${field('ai-kb-specials', 'Current specials', k?.specials, 'This month: 0% APR on select models.')}
-      ${field('ai-kb-policies', 'Policies', k?.policies, 'Return policy, warranty, delivery, etc.')}
-      <button onclick="aiHomeSaveKnowledge()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save knowledge</button>
-    </div>`;
-}
-async function aiHomeSaveKnowledge() {
-  const body = {
-    hours: document.getElementById('ai-kb-hours').value, financing: document.getElementById('ai-kb-financing').value,
-    trade_in: document.getElementById('ai-kb-trade').value, specials: document.getElementById('ai-kb-specials').value,
-    policies: document.getElementById('ai-kb-policies').value,
-  };
-  try { await apiSendJson('/ai/knowledge', 'PUT', body); showToast('Knowledge saved ✓', 'success'); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-// Ready-to-use assistant personas (name + friendly illustrated headshot). The dealer
-// can pick one as a starting point or upload their own real photo.
-const AI_PERSONA_PRESETS = [
-  { name: 'Ava', hue: '#7c3aed' }, { name: 'Mia', hue: '#db2777' }, { name: 'Sofia', hue: '#e11d48' },
-  { name: 'Noah', hue: '#2563eb' }, { name: 'Liam', hue: '#0891b2' }, { name: 'Ethan', hue: '#ea580c' },
-];
-function aiPresetAvatar(name, hue) {
-  const initial = (name[0] || 'A').toUpperCase();
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${hue}'/><stop offset='1' stop-color='#0f172a'/></linearGradient></defs><rect width='100' height='100' rx='50' fill='url(%23g)'/><text x='50' y='64' font-family='system-ui,sans-serif' font-size='46' font-weight='700' fill='white' text-anchor='middle'>${initial}</text></svg>`;
-  return 'data:image/svg+xml,' + encodeURIComponent(svg).replace(/%23g/g, '%23g');
-}
-const AI_AVATAR_FALLBACK = "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='#e2e8f0'/><circle cx='50' cy='40' r='18' fill='#94a3b8'/><path d='M18 90c0-19 15-30 32-30s32 11 32 30z' fill='#94a3b8'/></svg>");
-async function aiHomeSettings(body) {
-  const standalone = isAiChatbotOnlyWorkspace();
-  const [embed, persona, cfg] = await Promise.all([
-    apiGetJson('/ai/widget/embed').catch(() => ({})),
-    apiGetJson('/ai/personality').catch(() => ({ personality: {} })),
-    standalone ? Promise.resolve({}) : apiGetJson('/ai/config').catch(() => ({})),
-  ]);
-  const p = persona.personality || {};
-  // Assistant capability controls (what the bot is allowed to do) + rep access.
-  const catalog = Array.isArray(cfg.ai_tools_catalog) ? cfg.ai_tools_catalog : [];
-  const toolDisabled = new Set(Array.isArray(cfg.ai_tools_disabled) ? cfg.ai_tools_disabled : []);
-  const toolsHtml = catalog.map(t => `
-    <label class="flex items-start gap-2.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2 cursor-pointer">
-      <input type="checkbox" data-ai2-tool="${esc(t.name)}" ${toolDisabled.has(t.name) ? '' : 'checked'} class="accent-indigo-600 w-4 h-4 mt-0.5">
-      <span class="min-w-0"><span class="block text-sm font-semibold text-slate-700 dark:text-slate-200">${esc(t.label || t.name)}</span><span class="block text-[11px] text-slate-400">${esc(t.desc || '')}</span></span>
-    </label>`).join('');
-  // Real photo headshots shipped in the frontend (Profile Headshot 1–5.png). Stored as
-  // absolute URLs so they load in the chat widget on any external site too.
-  const photoHeadshots = [1, 2, 3, 4, 5].map(n => `${location.origin}/Profile%20Headshot%20${n}.png`);
-  const photoHtml = photoHeadshots.map(uri => `<button type="button" onclick="aiPickPreset('','${uri}')" class="group">
-    <img src="${uri}" class="w-16 h-16 rounded-full object-cover ring-2 ring-transparent group-hover:ring-emerald-400 transition"></button>`).join('');
-  const presetsHtml = AI_PERSONA_PRESETS.map(pr => {
-    const uri = aiPresetAvatar(pr.name, pr.hue);
-    return `<button type="button" onclick="aiPickPreset('${pr.name}','${uri.replace(/'/g, "\\'")}')" class="flex flex-col items-center gap-1 group">
-      <img src="${uri}" class="w-12 h-12 rounded-full ring-2 ring-transparent group-hover:ring-emerald-400 transition"><span class="text-[11px] font-semibold text-slate-500">${esc(pr.name)}</span></button>`;
-  }).join('');
-  body.innerHTML = `
-    <div class="space-y-4 max-w-2xl">
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
-        <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Assistant identity</div>
-        <div class="flex items-center gap-4">
-          <img id="ai-p-avatar-preview" src="${esc(p.avatar_url || AI_AVATAR_FALLBACK)}" class="w-20 h-20 rounded-full object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <div class="flex-1">
-            <label class="text-[12px] font-bold text-slate-500">Assistant name</label>
-            <input id="ai-p-name" value="${esc(p.name || '')}" placeholder="e.g. Ava Miller" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
-            <p class="text-[11px] text-slate-400 mt-1">Shown in the chat header, greeting bubble and next to every reply.</p>
-          </div>
-        </div>
-        <div>
-          <div class="text-[12px] font-bold text-slate-500 mb-2">Pick a headshot</div>
-          <div class="flex flex-wrap gap-3">${photoHtml}</div>
-        </div>
-        <div>
-          <div class="text-[12px] font-bold text-slate-500 mb-2">…or a lettered avatar</div>
-          <div class="flex flex-wrap gap-3">${presetsHtml}</div>
-        </div>
-        <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-          <div class="text-[12px] font-bold text-slate-500 mb-2">…or use your own photo</div>
-          <div class="flex flex-wrap items-center gap-2">
-            <label class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold cursor-pointer transition">Upload photo<input type="file" accept="image/*" class="hidden" onchange="aiUploadAvatar(this)"></label>
-            <button type="button" onclick="aiClearAvatar()" class="px-3 py-2 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm font-bold">Remove photo</button>
-            <span id="ai-p-avatar-status" class="text-[12px] text-slate-400">${p.avatar_url ? 'Photo set ✓' : ''}</span>
-            <input type="hidden" id="ai-p-avatar" value="${esc(p.avatar_url || '')}">
-          </div>
-        </div>
-      </div>
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
-        <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Voice</div>
-        <div><label class="text-[12px] font-bold text-slate-500">Greeting</label><input id="ai-p-greeting" value="${esc(p.greeting || '')}" placeholder="Leave blank to auto-introduce, e.g. “Hi! I'm Ava with [dealership] — what are you looking for today?”" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"><p class="text-[11px] text-slate-400 mt-1">Blank = the assistant introduces itself by name like a sales rep.</p></div>
-        <div><label class="text-[12px] font-bold text-slate-500">Tone</label><input id="ai-p-tone" value="${esc(p.tone || '')}" placeholder="warm, casual, natural — always books the appointment" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
-        <button onclick="aiHomeSavePersonality(this)" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save assistant</button>
-      </div>
-      ${standalone ? '' : `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
-        <div class="flex items-center justify-between">
-          <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">What the assistant can do</div>
-          <button onclick="openAiHistory()" class="text-[12px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">View chat history →</button>
-        </div>
-        <label class="flex items-center gap-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai2-reps" ${cfg.ai_assistant_reps !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Let sales reps use the internal "Ask MarketSync" assistant</label>
-        ${toolsHtml ? `<div><div class="text-[12px] font-bold text-slate-500 mb-1.5">Capabilities</div><div class="grid sm:grid-cols-2 gap-2">${toolsHtml}</div></div>` : ''}
-        <button onclick="aiHomeSaveControls(this)" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save controls</button>
-      </div>`}
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-2">
-        <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Install on your website</div>
-        <p class="text-[13px] text-slate-500">Paste this one line before &lt;/body&gt; on your site (LeadBox, eDealer, WordPress, anywhere).</p>
-        <textarea readonly rows="2" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-[12px] font-mono">${esc(embed.snippet || '')}</textarea>
-        <button onclick="aiCopyEmbed()" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Copy snippet</button>
-      </div>
-    </div>`;
-}
-function aiSetAvatar(uri, status) {
-  const av = document.getElementById('ai-p-avatar'); if (av) av.value = uri || '';
-  const pv = document.getElementById('ai-p-avatar-preview'); if (pv) pv.src = uri || AI_AVATAR_FALLBACK;
-  const st = document.getElementById('ai-p-avatar-status'); if (st) st.textContent = uri ? (status || 'Photo set ✓') : '';
-}
-function aiPickPreset(name, avatarUri) {
-  const nm = document.getElementById('ai-p-name'); if (nm && !nm.value.trim() && name) nm.value = name;
-  aiSetAvatar(avatarUri, 'Selected ✓');
-}
-function aiClearAvatar() { aiSetAvatar('', ''); }
-async function aiUploadAvatar(input) {
-  const file = input.files && input.files[0]; if (!file) return;
-  showToast('Uploading…', 'info');
-  try {
-    const fd = new FormData(); fd.append('file', file);
-    const r = await fetch(`${API}/ai/avatar-upload`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd });
-    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Upload failed');
-    aiSetAvatar(d.url, 'Photo uploaded ✓');
-    showToast('Photo uploaded ✓', 'success');
-  } catch (e) { showToast(e.message, 'error'); }
-}
-async function aiHomeSavePersonality(btn) {
-  if (btn) btn.disabled = true;
-  try {
-    await apiSendJson('/ai/personality', 'PUT', {
-      name: document.getElementById('ai-p-name')?.value || '',
-      avatar_url: document.getElementById('ai-p-avatar')?.value || '',
-      greeting: document.getElementById('ai-p-greeting').value,
-      tone: document.getElementById('ai-p-tone').value,
-    });
-    showToast('Assistant saved ✓', 'success');
-  } catch (e) { showToast(e.message, 'error'); }
-  if (btn) btn.disabled = false;
-}
-async function aiHomeSaveControls(btn) {
-  if (btn) btn.disabled = true;
-  try {
-    await apiSendJson('/ai/config', 'PUT', {
-      ai_assistant_reps: !!document.getElementById('ai2-reps')?.checked,
-      ai_tools_disabled: [...document.querySelectorAll('[data-ai2-tool]')].filter(el => !el.checked).map(el => el.dataset.ai2Tool),
-    });
-    showToast('Controls saved ✓', 'success');
-  } catch (e) { showToast(e.message, 'error'); }
-  if (btn) btn.disabled = false;
-}
-Object.assign(window, { loadAiHome, aiHomeSaveKnowledge, aiHomeSavePersonality, aiHomeSaveControls, aiFeedApply, aiPickPreset, aiUploadAvatar, aiClearAvatar });
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Engine UI Framework — every engine renders inside one reusable shell that
-// enforces the 3-second-rule layout:
-//   ┌ header (icon · title · Refresh) ────────────────────────────────────┐
-//   │ tab bar:  Overview · Work · Insights · Automation · Settings         │
-//   │ ┌ body (active tab's workspace) ──────────┐ ┌ right rail ──────────┐ │
-//   │ │  what needs attention / what's happening│ │ AI · Next · Quick    │ │
-//   │ └─────────────────────────────────────────┘ └──────────────────────┘ │
-//   └─────────────────────────────────────────────────────────────────────┘
-// Engines declare WHAT each tab shows (a render fn); the shell owns the chrome.
-// ═══════════════════════════════════════════════════════════════════════════
-const ENGINE_TAB_ORDER = ['overview', 'work', 'insights', 'automation', 'settings'];
-const ENGINE_TAB_LABEL = { overview: 'Overview', work: 'Work', insights: 'Insights', automation: 'Automation', settings: 'Settings' };
-const ENGINE_ACCENTS = {
-  violet: { text: 'text-violet-700 dark:text-violet-300', bg: 'bg-violet-100 dark:bg-violet-950/50', solid: 'bg-violet-600 hover:bg-violet-700' },
-  indigo:  { text: 'text-indigo-600 dark:text-indigo-400',   bg: 'bg-indigo-50 dark:bg-indigo-950/40',   solid: 'bg-indigo-600 hover:bg-indigo-500' },
-  sky:     { text: 'text-sky-600 dark:text-sky-400',         bg: 'bg-sky-50 dark:bg-sky-950/40',         solid: 'bg-sky-600 hover:bg-sky-500' },
-  emerald: { text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', solid: 'bg-emerald-600 hover:bg-emerald-500' },
-  amber:   { text: 'text-amber-600 dark:text-amber-400',     bg: 'bg-amber-50 dark:bg-amber-950/40',     solid: 'bg-amber-600 hover:bg-amber-500' },
-};
-const ENGINES = {};                 // engineId -> config (registered below)
-const ENGINE_STATE = {};            // engineId -> active tab id
-const ENGINE_DATA = {};             // engineId -> memoized fetch result
-
-// Shared building blocks so every engine's tabs look identical.
-function engKpi(label, val, tone) {
-  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3.5">
-    <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
-    <div class="text-2xl font-black mt-1 ${tone || 'text-slate-800 dark:text-slate-100'}">${val}</div>
-  </div>`;
-}
-function engCard(title, inner, extra) {
-  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 ${extra || ''}">
-    ${title ? `<div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">${esc(title)}</div>` : ''}${inner}</div>`;
-}
-function engEmpty(msg) { return `<div class="text-sm text-slate-400 py-8 text-center">${esc(msg)}</div>`; }
-function engBar(segments) {   // segments: [{pct,cls,label}]
-  const bar = segments.filter(s => s.pct > 0).map(s => `<div class="${s.cls}" style="width:${s.pct}%" title="${esc(s.label || '')}"></div>`).join('');
-  const legend = segments.map(s => `<span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400"><span class="w-2 h-2 rounded-full ${s.cls}"></span>${esc(s.label)}</span>`).join('');
-  return `<div class="h-2.5 rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-800">${bar}</div><div class="flex flex-wrap gap-x-3 gap-y-1 mt-2">${legend}</div>`;
-}
-
-async function engineData(engineId, force) {
-  const eng = ENGINES[engineId];
-  if (!eng || !eng.fetch) return null;
-  if (!force && ENGINE_DATA[engineId] !== undefined) return ENGINE_DATA[engineId];
-  ENGINE_DATA[engineId] = await eng.fetch();
-  return ENGINE_DATA[engineId];
-}
-
-// Switch to a tab within an engine (re-uses cached data unless `force`).
-async function engineTab(engineId, tab, force) {
-  const eng = ENGINES[engineId]; if (!eng) return;
-  ENGINE_STATE[engineId] = tab;
-  document.querySelectorAll(`[data-engine-tabbar="${engineId}"] [data-engine-tab]`).forEach(b => {
-    const on = b.dataset.engineTab === tab;
-    b.classList.toggle('border-current', on);
-    b.classList.toggle('text-slate-900', on);
-    b.classList.toggle('dark:text-white', on);
-    b.classList.toggle('border-transparent', !on);
-    b.classList.toggle('text-slate-400', !on);
-    b.setAttribute('aria-selected', on ? 'true' : 'false');
-  });
-  const body = document.querySelector(`[data-engine-body="${engineId}"]`);
-  if (!body) return;
-  body.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading…</div>`;
-  try {
-    const d = await engineData(engineId, force);
-    await eng.tabs[tab]?.(body, d, eng);
-    const rail = document.querySelector(`[data-engine-rail="${engineId}"]`);
-    if (rail) rail.innerHTML = engineRail(eng, d);
-  } catch (e) {
-    body.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e?.message || e)}</div>`;
-  }
-}
-window.engineTab = engineTab;
-
-// Persistent right rail — AI Assistant · Next Actions · Quick Actions. Engines
-// supply nextActions(d)/quickActions; the rail owns the chrome. Only real,
-// wired actions are shown (no fabricated timelines).
-function engineRail(eng, d) {
-  const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
-  const sec = (title, icon, inner) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
-    <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-slate-400 mb-2">${svgIcon(icon, 'w-3.5 h-3.5')}${esc(title)}</div>${inner}</div>`;
-  const ai = sec('AI Assistant', 'sparkles',
-    `<p class="text-[12px] text-slate-500 dark:text-slate-400 mb-2">Ask about ${esc(eng.title)} — trends, next steps, anything.</p>
-     <button onclick="openAiDock()" class="w-full text-[13px] font-bold ${A.solid} text-white rounded-lg px-3 py-1.5 transition">Ask AI</button>`);
-  const na = (eng.nextActions ? eng.nextActions(d) : []) || [];
-  const naHtml = na.length
-    ? na.map(a => `<button onclick="${a.onclick || ''}" class="w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-        <span class="mt-0.5 ${a.tone || 'text-slate-400'}">${svgIcon(a.icon || 'chevronRight', 'w-3.5 h-3.5')}</span>
-        <span class="text-[12px] font-semibold text-slate-700 dark:text-slate-200">${esc(a.label)}</span></button>`).join('')
-    : `<div class="text-[12px] text-slate-400">Nothing needs attention.</div>`;
-  const qa = (eng.quickActions || []).map(q =>
-    `<button onclick="${q.onclick}" class="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${svgIcon(q.icon || 'bolt', 'w-3.5 h-3.5 ' + A.text)}${esc(q.label)}</button>`
-  ).join('') || '<div class="text-[12px] text-slate-400">—</div>';
-  return ai + sec('Next Actions', 'check', naHtml) + sec('Quick Actions', 'bolt', qa);
-}
-
-// Build the engine shell frame into its root, then render the active tab.
-function renderEngine(engineId) {
-  const eng = ENGINES[engineId]; if (!eng) return;
-  const root = document.getElementById(eng.rootId); if (!root) return;
-  const order = eng.tabOrder || ENGINE_TAB_ORDER;   // engines may show a subset of the 5 tabs
-  let tab = ENGINE_STATE[engineId] || order[0];
-  if (!order.includes(tab)) tab = order[0];          // stored tab may have been removed
-  const A = ENGINE_ACCENTS[eng.accent] || ENGINE_ACCENTS.indigo;
-  const tabBtn = (t) => `<button data-engine-tab="${t}" role="tab" onclick="engineTab('${engineId}','${t}')"
-    class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 ${A.text}">${esc((eng.tabLabels && eng.tabLabels[t]) || ENGINE_TAB_LABEL[t])}</button>`;
-  root.innerHTML = `
-    <div class="flex items-start justify-between flex-wrap gap-3 mb-3">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0">${svgIcon(eng.icon || 'chart', 'w-5 h-5')}</div>
-        <div>
-          <h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">${esc(eng.title)}</h1>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400">${esc(eng.subtitle || '')}</p>
-        </div>
-      </div>
-      <button onclick="renderEngine('${engineId}')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition">${svgIcon('refresh', 'w-3.5 h-3.5')}Refresh</button>
-    </div>
-    <div data-engine-tabbar="${engineId}" role="tablist" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
-      ${order.map(tabBtn).join('')}
-    </div>
-    <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-5 items-start">
-      <div data-engine-body="${engineId}" class="min-w-0 space-y-5"></div>
-      <aside data-engine-rail="${engineId}" class="space-y-3 xl:sticky xl:top-4"></aside>
-    </div>`;
-  engineTab(engineId, tab, true);   // full render always refetches
-}
-window.renderEngine = renderEngine;
-
-// Product monthly prices (client mirror of the server PRODUCT_MRR) for MRR mix.
-const ENGINE_PRODUCT_MRR = { facebook_solo: 79, facebook_dealer: 499, ai_chatbot: 499, dealer_os: 499 };
-const ENGINE_PRODUCT_LABEL = { facebook_solo: 'Facebook Solo', facebook_dealer: 'Facebook Dealer', ai_chatbot: 'AI Chatbot', dealer_os: 'DealerOS' };
-const engMoney0 = (v) => '$' + Math.round(Number(v) || 0).toLocaleString();
-
 // ══ MarketSync HQ — SaaS Command Center (revenue-first company OS home) ═══════
-// Trial row (shared by HQ Work tab + rail).
-function hqTrialRow(t) {
-  const prods = Object.keys(t.products || {}).filter(k => t.products[k]).length;
-  const warn = t.days_left != null && t.days_left <= 5;
-  return `<button onclick="switchPage('owner-users')" class="w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
-    <span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(t.name || 'Account')}</span>
-    <span class="text-[12px] ${warn ? 'text-rose-500 font-bold' : 'text-slate-400'} whitespace-nowrap">${t.days_left == null ? 'trial' : t.days_left + 'd left'} · ${prods} product${prods === 1 ? '' : 's'}</span>
-  </button>`;
+async function loadSaasCommand() {
+  const root = document.getElementById('saas-command-root');
+  if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading MarketSync HQ…</div>`;
+  let d;
+  try { d = await apiGetJson('/saas/overview'); }
+  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
+  const money0 = (v) => '$' + Math.round(Number(v) || 0).toLocaleString();
+  const card = (label, val, accent) => `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4">
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
+      <div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${val}</div>
+    </div>`;
+  const trials = (d.trials || []).map(t => {
+    const prods = Object.keys(t.products || {}).filter(k => t.products[k]).length;
+    const warn = t.days_left != null && t.days_left <= 5;
+    return `<button onclick="switchPage('owner-users')" class="w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+      <span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(t.name || 'Account')}</span>
+      <span class="text-[12px] ${warn ? 'text-rose-500 font-bold' : 'text-slate-400'} whitespace-nowrap">${t.days_left == null ? 'trial' : t.days_left + 'd left'} · ${prods} product${prods === 1 ? '' : 's'}</span>
+    </button>`;
+  }).join('') || '<div class="text-sm text-slate-400 py-4 text-center">No active trials.</div>';
+  const top = (d.top_accounts || []).map(a => `<div class="flex items-center justify-between text-sm py-1.5 border-t border-slate-100 dark:border-slate-800/60"><span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(a.name || 'Account')}</span><span class="font-bold text-slate-800 dark:text-slate-100">${money0(a.mrr)}/mo</span></div>`).join('') || '<div class="text-sm text-slate-400 py-2">No paying accounts yet.</div>';
+  root.innerHTML = `
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">MarketSync HQ</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Your SaaS command center — revenue, trials, and account health.</p></div>
+      <div class="flex gap-2">
+        <button onclick="switchPage('saas-customers')" class="px-3 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-bold transition">Pipeline →</button>
+        <button onclick="switchPage('owner-users')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-200">All accounts →</button>
+        <button onclick="loadSaasCommand()" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200">Refresh</button>
+      </div>
+    </div>
+    <div>
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Revenue</div>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        ${card('MRR', money0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
+        ${card('ARR', money0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
+        ${card('Active Customers', (d.active_customers || 0).toLocaleString())}
+        ${card('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
+        ${card('Churn Risk', (d.churn_risk || 0).toLocaleString(), (d.churn_risk ? 'text-rose-600 dark:text-rose-400' : ''))}
+        ${card('New This Month', (d.new_this_month || 0).toLocaleString())}
+      </div>
+      <div class="text-[11px] text-slate-400 mt-1">MRR estimated from product entitlements across ${d.total_accounts || 0} accounts.</div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div>
+        <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Trials — closest to expiry</div>
+        <div class="space-y-1.5">${trials}</div>
+      </div>
+      <div>
+        <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Top accounts by MRR</div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2">${top}</div>
+      </div>
+    </div>`;
 }
-ENGINES['saas-command'] = {
-  rootId: 'saas-command-root', title: 'MarketSync HQ', subtitle: 'Revenue, trials, and account health',
-  icon: 'chart', accent: 'violet',
-  fetch: () => apiGetJson('/saas/overview'),
-  quickActions: [
-    { label: 'Open Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" },
-    { label: 'All accounts', icon: 'user', onclick: "switchPage('owner-users')" },
-    { label: 'Employees', icon: 'user', onclick: "switchPage('saas-employees')" },
-  ],
-  nextActions: (d) => {
-    const out = [];
-    if (d?.churn_risk) out.push({ label: `${d.churn_risk} account${d.churn_risk === 1 ? '' : 's'} at churn risk`, icon: 'flame', tone: 'text-rose-500', onclick: "switchPage('saas-customers')" });
-    const soon = (d?.trials || []).filter(t => t.days_left != null && t.days_left <= 5).length;
-    if (soon) out.push({ label: `${soon} trial${soon === 1 ? '' : 's'} expiring within 5 days`, icon: 'calendar', tone: 'text-amber-500', onclick: "switchPage('owner-users')" });
-    return out;
-  },
-  tabs: {
-    overview(body, d) {
-      const activePct = d.total_accounts ? Math.round((d.active_customers || 0) / d.total_accounts * 100) : 0;
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          ${engKpi('MRR', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Customers', (d.customers ?? ((d.active_customers || 0) + (d.trial_accounts || 0))).toLocaleString(), 'text-indigo-600 dark:text-indigo-400')}
-          ${engKpi('Paying', (d.active_customers || 0).toLocaleString())}
-          ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
-          ${engKpi('Churn Risk', (d.churn_risk || 0).toLocaleString(), d.churn_risk ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('New This Month', (d.new_this_month || 0).toLocaleString())}
-        </div>
-        <div class="text-[11px] text-slate-400 -mt-2">MRR estimated from product entitlements across ${(d.total_accounts || 0).toLocaleString()} accounts.</div>
-        ${engCard('Account status', engBar([
-          { pct: activePct, cls: 'bg-emerald-500', label: `Active (${d.active_customers || 0})` },
-          { pct: d.total_accounts ? Math.round((d.trial_accounts || 0) / d.total_accounts * 100) : 0, cls: 'bg-blue-500', label: `Trial (${d.trial_accounts || 0})` },
-          { pct: d.total_accounts ? Math.round((d.churn_risk || 0) / d.total_accounts * 100) : 0, cls: 'bg-rose-500', label: `At risk (${d.churn_risk || 0})` },
-        ]))}`;
-    },
-    work(body, d) {
-      const trials = (d.trials || []).map(hqTrialRow).join('') || engEmpty('No active trials.');
-      const top = (d.top_accounts || []).map(a => `<div class="flex items-center justify-between text-sm py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(a.name || 'Account')}</span><span class="font-bold text-slate-800 dark:text-slate-100">${engMoney0(a.mrr)}/mo</span></div>`).join('') || engEmpty('No paying accounts yet.');
-      body.innerHTML = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Trials — closest to expiry</div><div class="space-y-1.5">${trials}</div></div>
-        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Top accounts by MRR</div>${engCard('', top, 'py-2')}</div>
-      </div>`;
-    },
-    insights(body, d) {
-      // MRR mix across the paying accounts we can see (top_accounts).
-      const mix = {};
-      for (const a of (d.top_accounts || [])) for (const k of Object.keys(a.products || {})) if (a.products[k] && ENGINE_PRODUCT_MRR[k]) mix[k] = (mix[k] || 0) + ENGINE_PRODUCT_MRR[k];
-      const mixTotal = Object.values(mix).reduce((s, v) => s + v, 0);
-      const mixRows = Object.keys(ENGINE_PRODUCT_MRR).filter(k => mix[k]).map(k => `
-        <div class="flex items-center gap-2 text-[13px] py-1">
-          <span class="w-32 flex-shrink-0 text-slate-600 dark:text-slate-300 font-semibold">${esc(ENGINE_PRODUCT_LABEL[k])}</span>
-          <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full bg-violet-500" style="width:${mixTotal ? Math.round(mix[k] / mixTotal * 100) : 0}%"></span></span>
-          <span class="w-20 text-right font-bold text-slate-700 dark:text-slate-200">${engMoney0(mix[k])}</span>
-        </div>`).join('') || engEmpty('No paying products yet.');
-      body.innerHTML = `
-        ${engCard('MRR by product · across top accounts', mixRows)}
-        ${engCard('Growth', `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          ${engKpi('New this month', (d.new_this_month || 0).toLocaleString())}
-          ${engKpi('Active', (d.active_customers || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
-          ${engKpi('ARR', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
-        </div>`)}
-        <div class="text-[12px] text-slate-400">Cohort retention curves need historical MRR snapshots — that time-series isn't captured yet, so it's intentionally omitted rather than estimated.</div>`;
-    },
-    automation(body) {
-      body.innerHTML = engCard('Trial &amp; onboarding automation', `
-        <ul class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
-          <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span><b>30-day trial</b> — new accounts start trialing; the drip engine schedules the onboarding + expiry sequence automatically.</span></li>
-          <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span><b>Expiry reminders</b> run as the trial nears its end, and expired trials surface here as churn risk.</span></li>
-          <li class="flex items-start gap-2">${svgIcon('bolt', 'w-4 h-4 text-slate-400 mt-0.5')}<span>Sequence timing is managed in the drip service; per-account overrides live in <button onclick="switchPage('owner-users')" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">All Accounts</button>.</span></li>
-        </ul>`);
-    },
-    settings(body) {
-      body.innerHTML = `
-        ${engCard('HQ settings', `
-          <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Global defaults, branding, and platform parameters live in the Configuration hub.</p>
-          <button onclick="switchPage('config')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Open Configuration →</button>`)}
-        <div id="hq-email-health">${engCard('Email delivery', '<div class="text-sm text-slate-400 py-2">Checking…</div>')}</div>`;
-      loadEmailHealth();
-    },
-  },
-};
-function loadSaasCommand() { renderEngine('saas-command'); }
 window.loadSaasCommand = loadSaasCommand;
 
 // ══ Customer Pipeline — SaaS retention board (stage + health + next action) ═══
 const SAAS_STAGE_LABEL = { lead: 'Lead', trial_started: 'Trial Started', activated: 'Activated', paid: 'Paid', expanded: 'Expanded', churn_risk: 'Churn Risk', cancelled: 'Cancelled' };
 const saasHealthColor = (h) => h >= 70 ? 'bg-emerald-500' : h >= 40 ? 'bg-amber-500' : 'bg-rose-500';
-// Pipeline account card (shared).
-function pipeCard(a) {
-  return `<button onclick="openSaasCustomer('${a.id}')" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 hover:shadow-md transition space-y-1.5">
+async function loadSaasCustomers() {
+  const root = document.getElementById('saas-customers-root');
+  if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading pipeline…</div>`;
+  let d;
+  try { d = await apiGetJson('/saas/customers'); }
+  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
+  const cardOf = (a) => `
+    <button onclick="switchPage('owner-users')" class="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 hover:shadow-md transition space-y-1.5">
       <div class="flex items-center justify-between gap-2">
         <span class="font-bold text-slate-800 dark:text-slate-100 text-[13px] truncate">${esc(a.name || 'Account')}</span>
         <span class="text-[11px] font-black ${a.health >= 70 ? 'text-emerald-600 dark:text-emerald-400' : a.health >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}">${a.health}%</span>
@@ -11339,1103 +9068,104 @@ function pipeCard(a) {
         <span>${a.engines_used} engine${a.engines_used === 1 ? '' : 's'} · ${a.last_activity_days == null ? 'no activity' : a.last_activity_days + 'd ago'}</span>
         ${a.trial_days_left != null ? `<span class="${a.trial_days_left <= 5 ? 'text-rose-500 font-bold' : ''}">${a.trial_days_left}d trial</span>` : ''}
       </div>
-      <div class="text-[11px] font-semibold text-violet-600 dark:text-violet-400">→ ${esc(a.next_action)}</div>
+      <div class="text-[11px] font-semibold text-fuchsia-600 dark:text-fuchsia-400">→ ${esc(a.next_action)}</div>
     </button>`;
-}
-const pipeAllRows = (d) => (d.stages || []).flatMap(s => d.by_stage[s] || []);
-ENGINES['saas-customers'] = {
-  rootId: 'saas-customers-root', title: 'Customer Pipeline', subtitle: 'Every account by stage, health score, and next action',
-  icon: 'chart', accent: 'violet',
-  fetch: () => apiGetJson('/saas/customers'),
-  quickActions: [
-    { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
-    { label: 'All accounts', icon: 'user', onclick: "switchPage('owner-users')" },
-  ],
-  nextActions: (d) => {
-    const risk = (d?.counts?.churn_risk || 0);
-    const out = [];
-    if (risk) out.push({ label: `${risk} account${risk === 1 ? '' : 's'} in Churn Risk`, icon: 'flame', tone: 'text-rose-500', onclick: "engineTab('saas-customers','work')" });
-    const activated = (d?.counts?.activated || 0);
-    if (activated) out.push({ label: `${activated} activated trial${activated === 1 ? '' : 's'} ready to convert`, icon: 'check', tone: 'text-emerald-500', onclick: "engineTab('saas-customers','work')" });
-    return out;
-  },
-  tabs: {
-    overview(body, d) {
-      const rows = pipeAllRows(d);
-      const total = rows.length;
-      const paid = (d.counts?.paid || 0) + (d.counts?.expanded || 0);
-      const trials = (d.counts?.trial_started || 0) + (d.counts?.activated || 0);
-      const convBase = paid + trials + (d.counts?.churn_risk || 0);
-      const conv = convBase ? Math.round(paid / convBase * 100) : 0;
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          ${engKpi('Accounts', total.toLocaleString())}
-          ${engKpi('Paid + Expanded', paid.toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Conversion', conv + '%', 'text-violet-600 dark:text-violet-400')}
-          ${engKpi('Churn Risk', (d.counts?.churn_risk || 0).toLocaleString(), d.counts?.churn_risk ? 'text-rose-600 dark:text-rose-400' : '')}
-        </div>
-        ${engCard('Stage distribution', (d.stages || []).map(s => {
-          const n = (d.counts?.[s] || 0);
-          return `<div class="flex items-center gap-2 text-[13px] py-1">
-            <span class="w-28 flex-shrink-0 text-slate-600 dark:text-slate-300 font-semibold">${esc(SAAS_STAGE_LABEL[s] || s)}</span>
-            <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full ${s === 'churn_risk' ? 'bg-rose-500' : s === 'paid' || s === 'expanded' ? 'bg-emerald-500' : 'bg-violet-400'}" style="width:${total ? Math.round(n / total * 100) : 0}%"></span></span>
-            <span class="w-8 text-right font-bold text-slate-700 dark:text-slate-200">${n}</span></div>`;
-        }).join(''))}`;
-    },
-    work(body, d) {
-      const cols = (d.stages || []).map(s => {
-        const list = (d.by_stage[s] || []);
-        const tint = s === 'churn_risk' ? 'text-rose-600 dark:text-rose-400' : s === 'paid' || s === 'expanded' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400';
-        return `<div class="flex-shrink-0 w-60">
-          <div class="flex items-center justify-between mb-2 px-1"><span class="text-[12px] font-black uppercase tracking-wide ${tint}">${esc(SAAS_STAGE_LABEL[s] || s)}</span><span class="text-[11px] font-bold text-slate-400">${list.length}</span></div>
-          <div class="space-y-2">${list.map(pipeCard).join('') || '<div class="text-[12px] text-slate-400 italic px-1 py-3">—</div>'}</div>
-        </div>`;
-      }).join('');
-      body.innerHTML = `<div class="overflow-x-auto pb-2"><div class="flex gap-4 min-w-max">${cols}</div></div>`;
-    },
-    insights(body, d) {
-      const rows = pipeAllRows(d);
-      const buckets = { healthy: 0, at_risk: 0, critical: 0 };
-      let sum = 0, adoptSum = 0;
-      for (const r of rows) { sum += r.health; adoptSum += (r.engines_used || 0); if (r.health >= 70) buckets.healthy++; else if (r.health >= 40) buckets.at_risk++; else buckets.critical++; }
-      const avg = rows.length ? Math.round(sum / rows.length) : 0;
-      const avgAdopt = rows.length ? (adoptSum / rows.length).toFixed(1) : '0';
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          ${engKpi('Avg health', avg + '%', avg >= 70 ? 'text-emerald-600 dark:text-emerald-400' : avg >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400')}
-          ${engKpi('Healthy ≥70', buckets.healthy.toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('At risk 40–69', buckets.at_risk.toLocaleString(), 'text-amber-600 dark:text-amber-400')}
-          ${engKpi('Critical <40', buckets.critical.toLocaleString(), 'text-rose-600 dark:text-rose-400')}
-        </div>
-        ${engCard('Health distribution', engBar([
-          { pct: rows.length ? Math.round(buckets.healthy / rows.length * 100) : 0, cls: 'bg-emerald-500', label: `Healthy (${buckets.healthy})` },
-          { pct: rows.length ? Math.round(buckets.at_risk / rows.length * 100) : 0, cls: 'bg-amber-500', label: `At risk (${buckets.at_risk})` },
-          { pct: rows.length ? Math.round(buckets.critical / rows.length * 100) : 0, cls: 'bg-rose-500', label: `Critical (${buckets.critical})` },
-        ]))}
-        ${engCard('Adoption', `<div class="text-[13px] text-slate-600 dark:text-slate-300">Accounts use <b class="text-slate-800 dark:text-slate-100">${avgAdopt}</b> engines on average over the last 30 days.</div>`)}`;
-    },
-    automation(body) {
-      body.innerHTML = engCard('Retention automation', `
-        <ul class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
-          <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span>Stages, health, and next actions are recomputed from the live event spine on every load — no manual upkeep.</span></li>
-          <li class="flex items-start gap-2">${svgIcon('bolt', 'w-4 h-4 text-slate-400 mt-0.5')}<span>Automated health-drop alerts are not yet wired; churn-risk accounts surface here and in HQ so they can be worked manually.</span></li>
-        </ul>`);
-    },
-    settings(body) {
-      body.innerHTML = engCard('Health score &amp; stage rules', `
-        <div class="text-[13px] text-slate-600 dark:text-slate-300 space-y-3">
-          <div><div class="font-bold text-slate-800 dark:text-slate-100 mb-1">Health score (0–100)</div>
-            <ul class="space-y-1"><li>• Adoption breadth — up to <b>45 pts</b> (engines touched, capped at 5)</li>
-            <li>• Recency — up to <b>35 pts</b> (≤3d = full, decaying to 0 past 30d)</li>
-            <li>• Billing standing — <b>20 pts</b> active · <b>12 pts</b> trialing</li></ul></div>
-          <div><div class="font-bold text-slate-800 dark:text-slate-100 mb-1">Stages</div>
-            <p>Lead → Trial Started → Activated → Paid → Expanded, with Churn Risk and Cancelled derived from billing status + 30-day activity.</p></div>
-          <p class="text-[12px] text-slate-400">These weights are defined server-side in the SaaS Admin engine; editing them from the UI isn't exposed yet.</p>
-        </div>`);
-    },
-  },
-};
-function loadSaasCustomers() { renderEngine('saas-customers'); }
-window.loadSaasCustomers = loadSaasCustomers;
-
-// ══ Customer 360 drawer — one account: products, MRR/ARR/LTV, tenure, team,
-// usage timeline, billing history, and follow-ups (create + complete inline). ══
-const SAAS_PRODUCT_LABEL = { facebook_solo: 'FB AutoPoster · Solo', facebook_dealer: 'FB AutoPoster · Dealer', ai_chatbot: 'AI ChatBot', dealer_os: 'DealerOS' };
-function saasRel(iso) {
-  if (!iso) return '';
-  const s = Math.floor((Date.now() - new Date(iso)) / 1000);
-  if (s < 60) return 'just now';
-  const m = Math.floor(s / 60); if (m < 60) return m + 'm ago';
-  const h = Math.floor(m / 60); if (h < 24) return h + 'h ago';
-  const d = Math.floor(h / 24); if (d < 30) return d + 'd ago';
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
-}
-async function openSaasCustomer(id) {
-  document.getElementById('saas-cust-drawer')?.remove();
-  const el = document.createElement('div');
-  el.id = 'saas-cust-drawer';
-  el.className = 'fixed inset-0 z-[95] flex items-center justify-center p-4';
-  el.innerHTML = `<div data-close class="absolute inset-0 bg-slate-950/50"></div>
-    <div class="relative w-full max-w-2xl max-h-[90vh] rounded-2xl bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto"><div id="saas-cust-body" class="p-6"><div class="text-sm text-slate-400">Loading account…</div></div></div>`;
-  el.querySelector('[data-close]').onclick = () => el.remove();
-  document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { el.remove(); document.removeEventListener('keydown', esc); } });
-  document.body.appendChild(el);
-  await renderSaasCustomer(id);
-}
-window.openSaasCustomer = openSaasCustomer;
-async function renderSaasCustomer(id) {
-  const body = document.getElementById('saas-cust-body'); if (!body) return;
-  let d; try { d = await apiGetJson('/saas/customers/' + id); } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load account')}</div>`; return; }
-  const money = n => '$' + Math.round(n || 0).toLocaleString();
-  const statusTone = d.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-    : (d.status === 'PAST_DUE' || d.status === 'INACTIVE') ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
-  const chips = (d.product_keys || []).map(k => `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">${esc(SAAS_PRODUCT_LABEL[k] || k)}</span>`).join('') || '<span class="text-xs text-slate-400">No products</span>';
-  const kpi = (label, val, tone = '') => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400">${label}</div><div class="text-xl font-black ${tone || 'text-slate-900 dark:text-white'}">${val}</div></div>`;
-  const open = (d.followups || []).filter(f => !f.completed_at);
-  const fRow = f => `<div class="flex gap-2 items-start py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <button onclick="saasCustCompleteFollowup('${id}','${f.id}')" title="Complete" class="mt-0.5 w-4 h-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-emerald-500 flex-shrink-0"></button>
-      <div class="min-w-0 flex-1"><div class="text-[13px] font-bold text-slate-800 dark:text-slate-100">${esc(f.title)}</div>${f.note ? `<div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(f.note)}</div>` : ''}<div class="text-[11px] text-slate-400">${f.due_at ? 'Due ' + new Date(f.due_at).toLocaleDateString() : 'No due date'} · <span class="uppercase font-bold">${esc(f.priority || 'normal')}</span></div></div></div>`;
-  const tl = (d.timeline || []).slice(0, 18).map(e => `<div class="flex justify-between gap-3 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="text-[12px] text-slate-700 dark:text-slate-200 truncate">${esc(e.name)}</span><span class="text-[11px] text-slate-400 flex-shrink-0">${saasRel(e.at)}</span></div>`).join('') || '<div class="text-xs text-slate-400 italic py-2">No recent activity.</div>';
-  const bill = (d.billing_history || []).map(b => `<div class="flex justify-between gap-3 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="text-[12px] text-slate-600 dark:text-slate-300">${new Date(b.date).toLocaleDateString()} ${b.number ? '· ' + esc(b.number) : ''}</span><span class="text-[12px] font-bold ${b.status === 'paid' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${money(b.amount)} ${esc(b.currency || '')}</span></div>`).join('');
-  const team = (d.team || []).map(t => `<div class="flex justify-between gap-2 py-1 text-[12px]"><span class="text-slate-700 dark:text-slate-200 truncate">${esc(t.name || '—')}</span><span class="text-slate-400">${esc(t.role || '')}</span></div>`).join('') || '<div class="text-xs text-slate-400 italic">No team members.</div>';
-  const liveSeqs = (d.sequences || []).filter(s => s.status === 'active' || s.status === 'paused');
-  const enrolledKeys = new Set(liveSeqs.map(s => s.key));
-  const canEnroll = (d.sequence_catalog || []).filter(c => !enrolledKeys.has(c.key));
-  const seqTone = st => st === 'active' ? 'text-emerald-600 dark:text-emerald-400' : st === 'paused' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400';
-  const seqRow = s => `<div class="flex items-center gap-2 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <div class="min-w-0 flex-1"><div class="text-[13px] font-bold text-slate-800 dark:text-slate-100">${esc(s.name)}</div><div class="text-[11px] text-slate-400">Step ${Math.min((s.current_step || 0) + 1, s.total_steps)}/${s.total_steps} · <span class="font-bold ${seqTone(s.status)}">${esc(s.status)}</span></div></div>
-      ${s.status === 'active' ? `<button onclick="saasCustSeqStatus('${id}','${s.id}','paused')" class="text-[11px] font-bold text-amber-600 dark:text-amber-400">Pause</button>` : s.status === 'paused' ? `<button onclick="saasCustSeqStatus('${id}','${s.id}','active')" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">Resume</button>` : ''}
-      ${(s.status === 'active' || s.status === 'paused') ? `<button onclick="saasCustSeqStatus('${id}','${s.id}','stopped')" class="text-[11px] font-bold text-rose-500">Stop</button>` : ''}</div>`;
-  const seqCard = `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4">
-      <div class="flex items-center justify-between mb-2"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Sequences</div><span class="text-[11px] text-slate-400">${liveSeqs.length} active</span></div>
-      <div>${liveSeqs.map(seqRow).join('') || '<div class="text-xs text-slate-400 italic py-1">Not enrolled in any sequence.</div>'}</div>
-      ${canEnroll.length ? `<div class="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/60">
-        <select id="saas-cust-seqsel" class="flex-1 min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-[13px]">${canEnroll.map(c => `<option value="${c.key}">${esc(c.name)}</option>`).join('')}</select>
-        <button onclick="saasCustEnrollSeq('${id}', document.getElementById('saas-cust-seqsel').value)" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[13px] font-bold flex-shrink-0">Enroll</button></div>` : ''}
-    </div>`;
-  body.innerHTML = `
-    <div class="flex items-start justify-between gap-3 mb-4">
-      <div><div class="text-xl font-black text-slate-900 dark:text-white">${esc(d.name || 'Account')}</div>
-        <div class="flex items-center gap-2 mt-1">${d.status ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${statusTone}">${esc(d.status)}</span>` : ''}<span class="text-[12px] text-slate-400">${d.tenure_months != null ? d.tenure_months + ' mo customer' : ''}</span></div></div>
-      <button data-x class="text-2xl leading-none text-slate-400 hover:text-slate-600">×</button>
-    </div>
-    <div class="grid grid-cols-2 gap-2 mb-4">
-      ${kpi('MRR', money(d.mrr), 'text-violet-600 dark:text-violet-400')}
-      ${kpi('ARR', money(d.arr))}
-      ${kpi('LTV' + (d.ltv_source === 'stripe' ? '' : ' (est.)'), money(d.ltv), 'text-emerald-600 dark:text-emerald-400')}
-      ${kpi('Engines used', (d.engines_used || []).length + ' · ' + (d.last_activity_days == null ? 'idle' : d.last_activity_days + 'd ago'))}
-    </div>
-    <div class="mb-4"><div class="text-[11px] uppercase font-bold tracking-wide text-slate-400 mb-1.5">Products</div><div class="flex flex-wrap gap-1.5">${chips}</div></div>
-    <div class="flex items-center gap-2 mb-4"><span class="text-[11px] uppercase font-bold tracking-wide text-slate-400">Owner</span>
-      <select onchange="saasCustSetOwner('${id}', this.value)" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-[13px]">${['<option value="">Unassigned</option>'].concat((d.owner_options || []).map(o => `<option value="${o.id}" ${d.owner_id === o.id ? 'selected' : ''}>${esc(o.name)}</option>`)).join('')}</select></div>
-    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4">
-      <div class="flex items-center justify-between mb-2"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Follow-ups</div><span class="text-[11px] text-slate-400">${open.length} open</span></div>
-      <div id="saas-cust-fups">${open.map(fRow).join('') || '<div class="text-xs text-slate-400 italic py-1">No open follow-ups.</div>'}</div>
-      <div class="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/60">
-        <input id="saas-cust-ftitle" placeholder="New follow-up…" class="flex-1 min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-[13px]">
-        <input id="saas-cust-fdue" type="date" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-[13px]">
-        <button onclick="saasCustAddFollowup('${id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[13px] font-bold flex-shrink-0">Add</button>
+  const cols = (d.stages || []).map(s => {
+    const list = (d.by_stage[s] || []);
+    const tint = s === 'churn_risk' ? 'text-rose-600 dark:text-rose-400' : s === 'paid' || s === 'expanded' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400';
+    return `<div class="flex-shrink-0 w-64">
+      <div class="flex items-center justify-between mb-2 px-1">
+        <span class="text-[12px] font-black uppercase tracking-wide ${tint}">${esc(SAAS_STAGE_LABEL[s] || s)}</span>
+        <span class="text-[11px] font-bold text-slate-400">${list.length}</span>
       </div>
-    </div>
-    ${seqCard}
-    ${bill ? `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Billing history</div>${bill}</div>` : ''}
-    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Team</div>${team}</div>
-    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100 mb-1">Recent activity</div>${tl}</div>`;
-  body.querySelector('[data-x]').onclick = () => document.getElementById('saas-cust-drawer')?.remove();
-}
-window.saasCustAddFollowup = async (id) => {
-  const t = document.getElementById('saas-cust-ftitle'), due = document.getElementById('saas-cust-fdue');
-  const title = (t?.value || '').trim(); if (!title) return showToast('Enter a follow-up.', 'error');
-  try { await apiSendJson('/saas/followups', 'POST', { dealership_id: id, title, due_at: due?.value ? new Date(due.value).toISOString() : null }); await renderSaasCustomer(id); showToast('Follow-up added', 'success'); }
-  catch (e) { showToast(e.message || 'Could not add follow-up', 'error'); }
-};
-window.saasCustCompleteFollowup = async (id, fid) => {
-  try { await apiSendJson('/saas/followups/' + fid, 'PATCH', { done: true }); await renderSaasCustomer(id); showToast('Follow-up completed', 'success'); }
-  catch (e) { showToast(e.message || 'Could not complete', 'error'); }
-};
-window.saasCustEnrollSeq = async (id, key) => {
-  if (!key) return;
-  try { await apiSendJson('/saas/sequences/enroll', 'POST', { dealership_id: id, sequence_key: key }); await renderSaasCustomer(id); showToast('Enrolled in sequence', 'success'); }
-  catch (e) { showToast(e.message || 'Could not enroll', 'error'); }
-};
-window.saasCustSeqStatus = async (id, eid, status) => {
-  try { await apiSendJson('/saas/sequences/' + eid, 'PATCH', { status }); await renderSaasCustomer(id); showToast('Sequence ' + status, 'success'); }
-  catch (e) { showToast(e.message || 'Could not update sequence', 'error'); }
-};
-window.saasCustSetOwner = async (id, owner_id) => {
-  try { await apiSendJson('/saas/customers/' + id + '/owner', 'PATCH', { owner_id: owner_id || null }); showToast('Owner updated', 'success'); }
-  catch (e) { showToast(e.message || 'Could not update owner', 'error'); }
-};
-
-// ══ Account follow-ups — internal MarketSync customer-success work ═══════════
-let __saasFollowups = [], __saasFollowupAccounts = [];
-function saasFollowupDue(f) {
-  if (!f.due_at) return { label: 'No due date', tone: 'text-slate-400' };
-  const due = new Date(f.due_at), today = new Date(); today.setHours(0, 0, 0, 0);
-  const day = new Date(due); day.setHours(0, 0, 0, 0);
-  const days = Math.round((day - today) / 86400000);
-  return days < 0 ? { label: `${Math.abs(days)}d overdue`, tone: 'text-rose-600 dark:text-rose-400' }
-    : days === 0 ? { label: 'Due today', tone: 'text-amber-600 dark:text-amber-400' }
-    : { label: due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), tone: 'text-slate-400' };
-}
-function saasFollowupRow(f) {
-  const due = saasFollowupDue(f), priority = f.priority === 'high' ? 'text-rose-600 dark:text-rose-400' : f.priority === 'low' ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400';
-  return `<div class="flex gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/30">
-    <button onclick="saasCompleteFollowup('${f.id}',true)" title="Complete" class="mt-0.5 w-5 h-5 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-emerald-500 flex-shrink-0"></button>
-    <button onclick="saasEditFollowup('${f.id}')" class="min-w-0 flex-1 text-left"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(f.title)}</div><div class="text-[12px] font-semibold text-violet-600 dark:text-violet-400">${esc(f.account_name)}</div>${f.note ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">${esc(f.note)}</div>` : ''}<div class="text-[11px] mt-1 ${due.tone}">${due.label}${f.assigned_name ? ` · ${esc(f.assigned_name)}` : ''} <span class="ml-1 uppercase font-bold ${priority}">${esc(f.priority)}</span></div></button>
-  </div>`;
-}
-function saasFollowupModal(f = null) {
-  const editing = !!f, due = f?.due_at ? new Date(f.due_at).toISOString().slice(0, 16) : '';
-  const accounts = __saasFollowupAccounts.map(a => `<option value="${a.id}" ${f?.dealership_id === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
-  const el = document.createElement('div'); el.className = 'fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/45 p-4';
-  el.innerHTML = `<div class="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-5"><div class="flex justify-between mb-4"><div><div class="text-lg font-black text-slate-900 dark:text-white">${editing ? 'Edit follow-up' : 'New follow-up'}</div><div class="text-xs text-slate-400">MarketSync account work</div></div><button data-close class="text-xl text-slate-400">×</button></div><div class="space-y-3"><label class="block text-xs font-bold text-slate-500">Account<select id="sf-account" ${editing ? 'disabled' : ''} class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="">Choose account…</option>${accounts}</select></label><label class="block text-xs font-bold text-slate-500">Follow-up<input id="sf-title" value="${esc(f?.title || '')}" placeholder="e.g. Book activation call" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label><div class="grid grid-cols-2 gap-3"><label class="block text-xs font-bold text-slate-500">Due<input id="sf-due" type="datetime-local" value="${due}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label><label class="block text-xs font-bold text-slate-500">Priority<select id="sf-priority" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${['low','normal','high'].map(x => `<option value="${x}" ${(f?.priority || 'normal') === x ? 'selected' : ''}>${x}</option>`).join('')}</select></label></div><label class="block text-xs font-bold text-slate-500">Note<textarea id="sf-note" rows="4" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(f?.note || '')}</textarea></label></div><div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button><button data-save class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">${editing ? 'Save' : 'Add follow-up'}</button></div></div>`;
-  const close = () => el.remove(); el.querySelectorAll('[data-close]').forEach(x => x.onclick = close);
-  el.querySelector('[data-save]').onclick = async () => {
-    const title = el.querySelector('#sf-title').value.trim(), dealership_id = f?.dealership_id || el.querySelector('#sf-account').value, rawDue = el.querySelector('#sf-due').value;
-    if (!title || !dealership_id) return showToast('Choose an account and enter a follow-up.', 'error');
-    const body = { title, dealership_id, due_at: rawDue ? new Date(rawDue).toISOString() : null, priority: el.querySelector('#sf-priority').value, note: el.querySelector('#sf-note').value.trim() };
-    try { await (editing ? apiSendJson(`/saas/followups/${f.id}`, 'PATCH', body) : apiSendJson('/saas/followups', 'POST', body)); close(); await loadSaasFollowups(); showToast(editing ? 'Follow-up updated' : 'Follow-up added', 'success'); } catch (e) { showToast(e.message || 'Could not save follow-up', 'error'); }
-  }; document.body.appendChild(el);
-}
-window.saasEditFollowup = id => { const f = __saasFollowups.find(x => x.id === id); if (f) saasFollowupModal(f); };
-window.saasCompleteFollowup = async (id, done) => { try { await apiSendJson(`/saas/followups/${id}`, 'PATCH', { done }); await loadSaasFollowups(); showToast(done ? 'Follow-up completed' : 'Follow-up reopened', 'success'); } catch (e) { showToast(e.message || 'Could not update follow-up', 'error'); } };
-window.saasNewFollowup = async () => { if (!__saasFollowupAccounts.length) { const d = await apiGetJson('/saas/customers'); __saasFollowupAccounts = (d.stages || []).flatMap(s => d.by_stage?.[s] || []).map(a => ({ id: a.id, name: a.name })).sort((a,b) => a.name.localeCompare(b.name)); } saasFollowupModal(); };
-ENGINES['saas-followups'] = { rootId: 'saas-followups-root', title: 'Follow-ups', subtitle: 'Every MarketSync account touch, owner, and due date', icon: 'bolt', accent: 'violet', fetch: async () => { const d = await apiGetJson('/saas/followups'); __saasFollowups = d.followups || []; return d; }, quickActions: [{ label: 'Add follow-up', icon: 'bolt', onclick: 'saasNewFollowup()' }, { label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" }], nextActions: d => { const n = (d.followups || []).filter(f => f.due_at && new Date(f.due_at) < new Date()).length; return n ? [{ label: `${n} overdue follow-up${n === 1 ? '' : 's'}`, icon: 'flame', tone: 'text-rose-500', onclick: "engineTab('saas-followups','work')" }] : []; }, tabs: { overview(body, d) { const a = d.followups || [], now = new Date(), today = new Date(); today.setHours(23,59,59,999); const overdue = a.filter(f => f.due_at && new Date(f.due_at) < now), due = a.filter(f => f.due_at && new Date(f.due_at) >= now && new Date(f.due_at) <= today); body.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">${engKpi('Open', a.length)}${engKpi('Overdue', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '')}${engKpi('Due today', due.length, due.length ? 'text-amber-600 dark:text-amber-400' : '')}${engKpi('High priority', a.filter(f => f.priority === 'high').length)}</div>${engCard('Needs attention', (overdue.length ? overdue : a.slice(0, 6)).map(saasFollowupRow).join('') || engEmpty('No open account follow-ups.'))}`; }, work(body, d) { const a = d.followups || [], overdue = a.filter(f => f.due_at && new Date(f.due_at) < new Date()), rest = a.filter(f => !overdue.includes(f)); body.innerHTML = `<div class="flex justify-end mb-3"><button onclick="saasNewFollowup()" class="px-3 py-2 rounded-lg bg-violet-600 text-white text-sm font-bold">＋ Add follow-up</button></div>${overdue.length ? engCard('Overdue', overdue.map(saasFollowupRow).join('')) : ''}${engCard(overdue.length ? 'Upcoming & unscheduled' : 'Open follow-ups', rest.map(saasFollowupRow).join('') || engEmpty('Nothing else is queued.'))}`; }, insights(body, d) { const a = d.followups || []; body.innerHTML = engCard('Workload by priority', ['high','normal','low'].map(p => `<div class="flex justify-between py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold capitalize text-sm">${p}</span><span class="font-black">${a.filter(f => f.priority === p).length}</span></div>`).join('')); }, automation(body) { body.innerHTML = engCard('Follow-up workflow', '<p class="text-[13px] text-slate-600 dark:text-slate-300">Turn a Customer Pipeline risk signal into an owned, dated follow-up. Completion stays separate from dealership CRM tasks, so this queue remains the source of truth for MarketSync account success.</p>'); }, settings(body) { body.innerHTML = engCard('Access', '<p class="text-[13px] text-slate-600 dark:text-slate-300">Pipeline users can see the queue; MarketSync Sales and Support can create, edit, and complete follow-ups.</p>'); } } };
-function loadSaasFollowups() { renderEngine('saas-followups'); }
-window.loadSaasFollowups = loadSaasFollowups;
-
-// ══ Checkout Funnel — signup → checkout → paid, and abandoned-cart recovery ══
-function funnelRow(c) {
-  return `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/30">
-    <button onclick="openSaasCustomer('${c.dealership_id}')" class="min-w-0 flex-1 text-left">
-      <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(c.account)}</div>
-      <div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(c.plan || c.kind || 'plan')}${c.currency ? ' · ' + esc(c.currency) : ''} · started ${c.age_hours}h ago</div>
-    </button>
-    <button onclick="saasRecoverCart('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0">Recover</button>
-  </div>`;
-}
-ENGINES['saas-funnel'] = {
-  rootId: 'saas-funnel-root', title: 'Checkout Funnel', subtitle: 'Signup → checkout → paid, and abandoned-cart recovery',
-  icon: 'chart', accent: 'violet',
-  fetch: () => apiGetJson('/saas/carts'),
-  quickActions: [{ label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" }],
-  nextActions: d => d.abandoned ? [{ label: `${d.abandoned} abandoned cart${d.abandoned === 1 ? '' : 's'} to recover`, icon: 'flame', tone: 'text-rose-500', onclick: "engineTab('saas-funnel','work')" }] : [],
-  tabs: {
-    overview(body, d) {
-      body.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          ${engKpi('Checkouts started', (d.started || 0).toLocaleString())}
-          ${engKpi('Completed', (d.completed || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Conversion', (d.conversion || 0) + '%', 'text-violet-600 dark:text-violet-400')}
-          ${engKpi('Abandoned', (d.abandoned || 0).toLocaleString(), d.abandoned ? 'text-rose-600 dark:text-rose-400' : '')}
-        </div>${engCard('Abandoned carts', (d.abandoned_list || []).length ? (d.abandoned_list || []).map(funnelRow).join('') : engEmpty('No abandoned carts — nice.'))}`;
-    },
-    work(body, d) {
-      body.innerHTML = engCard('Abandoned carts — recover', (d.abandoned_list || []).length ? (d.abandoned_list || []).map(funnelRow).join('') : engEmpty('Nothing to recover right now.'));
-    },
-  },
-};
-function loadSaasFunnel() { renderEngine('saas-funnel'); }
-window.loadSaasFunnel = loadSaasFunnel;
-window.saasRecoverCart = async (id) => {
-  try { await apiSendJson('/saas/carts/' + id + '/recover', 'POST', {}); showToast('Recovery follow-up created', 'success'); await loadSaasFunnel(); }
-  catch (e) { showToast(e.message || 'Could not create recovery follow-up', 'error'); }
-};
-
-// ══ Automation & Email — editable drips (sequences + steps) + template library ══
-let __automation = { view: 'sequences', sequences: [], templates: [] };
-const SAAS_TRIGGER_LABEL = { past_due: 'Payment failed', cancelled: 'Cancelled', trialing: 'On trial', manual: 'Manual' };
-async function loadSaasAutomation() {
-  const root = document.getElementById('saas-automation-root'); if (!root) return;
-  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading automation…</div>`;
-  try {
-    const [seq, tpl, camp] = await Promise.all([apiGetJson('/saas/automation/sequences'), apiGetJson('/saas/automation/templates'), apiGetJson('/saas/automation/campaigns')]);
-    __automation.sequences = seq.sequences || [];
-    __automation.templates = tpl.templates || [];
-    __automation.campaigns = camp.campaigns || [];
-  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message || 'Could not load')}</div>`; return; }
-  renderAutomation();
-}
-window.loadSaasAutomation = loadSaasAutomation;
-function renderAutomation() {
-  const root = document.getElementById('saas-automation-root'); if (!root) return;
-  const v = __automation.view;
-  const pill = (id, label) => `<button onclick="automationView('${id}')" class="px-3.5 py-1.5 rounded-full text-[13px] font-bold transition ${v === id ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
-  root.innerHTML = `
-    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 flex items-center justify-center">${svgIcon('bolt', 'w-5 h-5')}</div>
-        <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Automation &amp; Email</h1>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400">Edit your drips step-by-step and manage reusable email templates.</p></div>
-      </div>
-      <div class="flex items-center gap-2">${pill('sequences', 'Sequences')}${pill('campaigns', 'Campaigns')}${pill('templates', 'Templates')}</div>
-    </div>
-    <div id="automation-body"></div>`;
-  (v === 'campaigns' ? renderAutoCampaigns : v === 'templates' ? renderAutoTemplates : renderAutoSequences)();
-}
-window.automationView = (v) => { __automation.view = v; renderAutomation(); };
-function autoStepChip(s) {
-  const label = s.type === 'task' ? `Task: ${esc(s.title || 'Follow-up')}` : `Email: ${esc(s.subject || '(template)')}`;
-  const tone = s.type === 'task' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300';
-  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold ${tone}">Day ${s.day_offset} · ${label}</span>`;
-}
-function renderAutoSequences() {
-  const body = document.getElementById('automation-body'); if (!body) return;
-  const cards = (__automation.sequences || []).map(s => {
-    const steps = (s.steps || []).slice().sort((a, b) => a.step_order - b.step_order);
-    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="font-black text-slate-900 dark:text-white">${esc(s.name)}</span>
-            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(SAAS_TRIGGER_LABEL[s.trigger] || s.trigger || 'Manual')}</span>
-            ${s.enabled ? '' : '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-500">Off</span>'}
-          </div>
-          ${s.description ? `<p class="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">${esc(s.description)}</p>` : ''}
-          <div class="text-[11px] text-slate-400 mt-1">${steps.length} step${steps.length === 1 ? '' : 's'} · ${s.active || 0} active / ${s.total || 0} enrolled</div>
-        </div>
-        <div class="flex items-center gap-2 flex-shrink-0">
-          <button onclick="automationToggleSeq('${s.id}', ${s.enabled ? 'false' : 'true'})" title="${s.enabled ? 'Turn off' : 'Turn on'}" class="text-[12px] font-bold ${s.enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">${s.enabled ? 'On' : 'Off'}</button>
-          <button onclick="automationEditSeq('${s.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700">Edit</button>
-        </div>
-      </div>
-      <div class="flex flex-wrap gap-1.5 mt-3">${steps.map(autoStepChip).join('') || '<span class="text-[12px] text-slate-400 italic">No steps yet.</span>'}</div>
+      <div class="space-y-2">${list.map(cardOf).join('') || '<div class="text-[12px] text-slate-400 italic px-1 py-3">—</div>'}</div>
     </div>`;
   }).join('');
-  body.innerHTML = `<div class="flex justify-end mb-3"><button onclick="automationNewSeq()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New sequence</button></div>
-    <div class="space-y-3">${cards || '<div class="text-sm text-slate-400 italic py-6 text-center">No sequences yet.</div>'}</div>`;
-}
-function renderAutoTemplates() {
-  const body = document.getElementById('automation-body'); if (!body) return;
-  const rows = (__automation.templates || []).map(t => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(t.name)}</div><div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(t.subject)}</div></div>
-      <button onclick="automationEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700">Edit</button>
-      <button onclick="automationDeleteTmpl('${t.id}')" class="text-[12px] font-bold text-rose-500">Delete</button>
-    </div>`).join('');
-  body.innerHTML = `<div class="flex items-center justify-between mb-3">
-      <p class="text-[12px] text-slate-500 dark:text-slate-400">Reusable email bodies. Use <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code> and <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{account}}</code> merge fields.</p>
-      <button onclick="automationNewTmpl()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New template</button></div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No templates yet.</div>'}</div>`;
-}
-// ── campaigns ──
-const SAAS_SEG_LABEL = { all: 'All customers', trialing: 'On trial', active: 'Active', past_due: 'Past due', cancelled: 'Cancelled' };
-function renderAutoCampaigns() {
-  const body = document.getElementById('automation-body'); if (!body) return;
-  const rows = (__automation.campaigns || []).map(c => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(c.name)}</div>
-        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(c.subject)}</div>
-        <div class="text-[11px] text-slate-400 mt-0.5">${esc(SAAS_SEG_LABEL[c.segment] || c.segment)} · ${c.status === 'sent' ? `sent to ${c.sent_count}${c.fail_count ? ` · ${c.fail_count} failed` : ''}` : 'draft'}</div></div>
-      ${c.status === 'sent' ? '<span class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">Sent</span>' : `<button onclick="automationSendCampaign('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0">Send</button>`}
-    </div>`).join('');
-  body.innerHTML = `<div class="flex items-center justify-between mb-3">
-      <p class="text-[12px] text-slate-500 dark:text-slate-400">One-off email to a customer segment. Uses <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code>/<code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{account}}</code>.</p>
-      <button onclick="automationNewCampaign()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New campaign</button></div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No campaigns yet.</div>'}</div>`;
-}
-window.automationNewCampaign = () => {
-  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__automation.templates || []).map(t => `<option value="${t.id}">${esc(t.name)}</option>`)).join('');
-  const segOpts = Object.entries(SAAS_SEG_LABEL).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
-  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">New campaign</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
-    <div class="space-y-3">
-      <label class="block text-xs font-bold text-slate-500">Name<input id="cp-name" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="e.g. October product update"></label>
-      <label class="block text-xs font-bold text-slate-500">Segment<select id="cp-segment" onchange="automationCampSegCount()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${segOpts}</select></label>
-      <div class="text-[12px] text-slate-500 dark:text-slate-400" id="cp-count">Recipients: …</div>
-      <label class="block text-xs font-bold text-slate-500">Template<select id="cp-template" onchange="automationCampTmplPick()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${tmplOpts}</select></label>
-      <label class="block text-xs font-bold text-slate-500">Subject<input id="cp-subject" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Body<textarea id="cp-body" rows="7" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></textarea></label>
-    </div>
-    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
-      <button onclick="automationSaveCampaign(false)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold">Save draft</button>
-      <button onclick="automationSaveCampaign(true)" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Create &amp; send</button></div>`, 'max-w-lg');
-  automationCampSegCount();
-};
-window.automationCampSegCount = async () => {
-  const seg = document.getElementById('cp-segment')?.value || 'all'; const el = document.getElementById('cp-count'); if (!el) return;
-  el.textContent = 'Recipients: …';
-  try { const r = await apiGetJson('/saas/automation/segment-count?segment=' + encodeURIComponent(seg)); el.textContent = `Recipients: ${r.count}`; }
-  catch { el.textContent = 'Recipients: —'; }
-};
-window.automationCampTmplPick = () => {
-  const t = (__automation.templates || []).find(x => x.id === document.getElementById('cp-template').value);
-  if (t) { document.getElementById('cp-subject').value = t.subject; document.getElementById('cp-body').value = t.body; }
-};
-window.automationSaveCampaign = async (sendNow) => {
-  const payload = { name: document.getElementById('cp-name').value.trim(), segment: document.getElementById('cp-segment').value, subject: document.getElementById('cp-subject').value.trim(), body: document.getElementById('cp-body').value.trim(), template_id: document.getElementById('cp-template').value || null };
-  if (!payload.name || !payload.subject || !payload.body) return showToast('Name, subject and body are required', 'error');
-  if (sendNow && !confirm('Send this campaign now to the selected segment?')) return;
-  try {
-    const c = await apiSendJson('/saas/automation/campaigns', 'POST', payload);
-    if (sendNow) { const sent = await apiSendJson('/saas/automation/campaigns/' + c.id + '/send', 'POST', {}); showToast(`Sent to ${sent.sent_count || 0}${sent.fail_count ? ` · ${sent.fail_count} failed` : ''}`, 'success'); }
-    else showToast('Draft saved', 'success');
-    closeAutomationModal(); await loadSaasAutomation();
-  } catch (e) { showToast(e.message || 'Could not save campaign', 'error'); }
-};
-window.automationSendCampaign = async (id) => {
-  if (!confirm('Send this campaign now?')) return;
-  try { const sent = await apiSendJson('/saas/automation/campaigns/' + id + '/send', 'POST', {}); showToast(`Sent to ${sent.sent_count || 0}${sent.fail_count ? ` · ${sent.fail_count} failed` : ''}`, 'success'); await loadSaasAutomation(); }
-  catch (e) { showToast(e.message || 'Could not send', 'error'); }
-};
-// ── modal helper ──
-function automationModal(html, maxW = 'max-w-lg') {
-  document.getElementById('automation-modal')?.remove();
-  const el = document.createElement('div'); el.id = 'automation-modal';
-  el.className = 'fixed inset-0 z-[96] flex items-center justify-center p-4';
-  el.innerHTML = `<div data-close class="absolute inset-0 bg-slate-950/50"></div><div class="relative w-full ${maxW} max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-5">${html}</div>`;
-  el.querySelectorAll('[data-close]').forEach(x => x.onclick = () => el.remove());
-  document.body.appendChild(el);
-  return el;
-}
-const closeAutomationModal = () => document.getElementById('automation-modal')?.remove();
-// ── sequence editor ──
-window.automationNewSeq = () => {
-  automationModal(`<div class="text-lg font-black text-slate-900 dark:text-white mb-4">New sequence</div>
-    <div class="space-y-3">
-      <label class="block text-xs font-bold text-slate-500">Name<input id="as-name" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="e.g. Renewal reminder"></label>
-      <label class="block text-xs font-bold text-slate-500">Key (unique)<input id="as-key" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="renewal_reminder"></label>
-      <label class="block text-xs font-bold text-slate-500">Trigger<select id="as-trigger" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${['manual', 'past_due', 'cancelled', 'trialing'].map(t => `<option value="${t}">${SAAS_TRIGGER_LABEL[t]}</option>`).join('')}</select></label>
-      <label class="block text-xs font-bold text-slate-500">Description<input id="as-desc" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-    </div>
-    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
-      <button onclick="automationCreateSeq()" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Create</button></div>`);
-};
-window.automationCreateSeq = async () => {
-  const name = document.getElementById('as-name').value.trim(), key = document.getElementById('as-key').value.trim();
-  if (!name || !key) return showToast('Name and key are required', 'error');
-  try {
-    await apiSendJson('/saas/automation/sequences', 'POST', { name, key, trigger: document.getElementById('as-trigger').value, description: document.getElementById('as-desc').value.trim() });
-    closeAutomationModal(); await loadSaasAutomation(); showToast('Sequence created', 'success');
-  } catch (e) { showToast(e.message || 'Could not create', 'error'); }
-};
-window.automationToggleSeq = async (id, enabled) => {
-  try { await apiSendJson('/saas/automation/sequences/' + id, 'PATCH', { enabled }); await loadSaasAutomation(); } catch (e) { showToast(e.message || 'Failed', 'error'); }
-};
-window.automationEditSeq = (id) => {
-  const s = __automation.sequences.find(x => x.id === id); if (!s) return;
-  const steps = (s.steps || []).slice().sort((a, b) => a.step_order - b.step_order);
-  const stepRow = (st, i) => `<div class="flex items-center gap-2 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <span class="text-[11px] font-bold text-slate-400 w-12">Day ${st.day_offset}</span>
-      <div class="min-w-0 flex-1"><div class="text-[13px] font-semibold text-slate-800 dark:text-slate-100">${st.type === 'task' ? 'Task' : 'Email'}: ${esc(st.type === 'task' ? (st.title || '—') : (st.subject || '(from template)'))}</div></div>
-      <button onclick="automationMoveStep('${s.id}','${st.id}',-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 disabled:opacity-30 text-xs">▲</button>
-      <button onclick="automationMoveStep('${s.id}','${st.id}',1)" ${i === steps.length - 1 ? 'disabled' : ''} class="text-slate-400 disabled:opacity-30 text-xs">▼</button>
-      <button onclick="automationEditStep('${s.id}','${st.id}')" class="text-[12px] font-bold text-indigo-600 dark:text-indigo-400">Edit</button>
-      <button onclick="automationDeleteStep('${s.id}','${st.id}')" class="text-[12px] font-bold text-rose-500">✕</button>
-    </div>`;
-  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${esc(s.name)}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
-    <div class="grid grid-cols-2 gap-3 mb-4">
-      <label class="block text-xs font-bold text-slate-500 col-span-2">Name<input id="es-name" value="${esc(s.name)}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Trigger<select id="es-trigger" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${['manual', 'past_due', 'cancelled', 'trialing'].map(t => `<option value="${t}" ${s.trigger === t ? 'selected' : ''}>${SAAS_TRIGGER_LABEL[t]}</option>`).join('')}</select></label>
-      <label class="block text-xs font-bold text-slate-500">Enabled<select id="es-enabled" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="true" ${s.enabled ? 'selected' : ''}>On</option><option value="false" ${!s.enabled ? 'selected' : ''}>Off</option></select></label>
-      <label class="block text-xs font-bold text-slate-500 col-span-2">Description<input id="es-desc" value="${esc(s.description || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-    </div>
-    <div class="flex items-center justify-between mb-1"><div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Steps</div><button onclick="automationEditStep('${s.id}',null)" class="text-[12px] font-bold text-violet-600 dark:text-violet-400">＋ Add step</button></div>
-    <div class="rounded-lg border border-slate-200 dark:border-slate-800 px-3 mb-4">${steps.map(stepRow).join('') || '<div class="text-xs text-slate-400 italic py-3">No steps yet.</div>'}</div>
-    <div class="flex justify-between gap-2"><button onclick="automationDeleteSeq('${s.id}')" class="px-3 py-2 text-sm font-bold text-rose-500">Delete sequence</button>
-      <div class="flex gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Close</button>
-      <button onclick="automationSaveSeq('${s.id}')" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Save</button></div></div>`, 'max-w-xl');
-};
-window.automationSaveSeq = async (id) => {
-  try {
-    await apiSendJson('/saas/automation/sequences/' + id, 'PATCH', {
-      name: document.getElementById('es-name').value.trim(), trigger: document.getElementById('es-trigger').value,
-      enabled: document.getElementById('es-enabled').value === 'true', description: document.getElementById('es-desc').value.trim(),
-    });
-    closeAutomationModal(); await loadSaasAutomation(); showToast('Saved', 'success');
-  } catch (e) { showToast(e.message || 'Could not save', 'error'); }
-};
-window.automationDeleteSeq = async (id) => {
-  if (!confirm('Delete this sequence and all its steps? Active enrollments stop.')) return;
-  try { await apiSendJson('/saas/automation/sequences/' + id, 'DELETE'); closeAutomationModal(); await loadSaasAutomation(); showToast('Sequence deleted', 'success'); }
-  catch (e) { showToast(e.message || 'Could not delete', 'error'); }
-};
-window.automationMoveStep = async (seqId, stepId, dir) => {
-  const s = __automation.sequences.find(x => x.id === seqId); if (!s) return;
-  const steps = (s.steps || []).slice().sort((a, b) => a.step_order - b.step_order);
-  const i = steps.findIndex(x => x.id === stepId); const j = i + dir;
-  if (i < 0 || j < 0 || j >= steps.length) return;
-  const order = steps.map(x => x.id); [order[i], order[j]] = [order[j], order[i]];
-  try { await apiSendJson('/saas/automation/sequences/' + seqId + '/reorder', 'POST', { order }); await loadSaasAutomation(); automationEditSeq(seqId); }
-  catch (e) { showToast(e.message || 'Could not reorder', 'error'); }
-};
-window.automationDeleteStep = async (seqId, stepId) => {
-  try { await apiSendJson('/saas/automation/steps/' + stepId, 'DELETE'); await loadSaasAutomation(); automationEditSeq(seqId); }
-  catch (e) { showToast(e.message || 'Could not delete step', 'error'); }
-};
-// ── step editor ──
-window.automationEditStep = (seqId, stepId) => {
-  const s = __automation.sequences.find(x => x.id === seqId); if (!s) return;
-  const st = stepId ? (s.steps || []).find(x => x.id === stepId) : {};
-  const type = st.type || 'email';
-  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__automation.templates || []).map(t => `<option value="${t.id}" ${st.template_id === t.id ? 'selected' : ''}>${esc(t.name)}</option>`)).join('');
-  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${stepId ? 'Edit step' : 'Add step'}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
-    <div class="grid grid-cols-2 gap-3">
-      <label class="block text-xs font-bold text-slate-500">Day offset<input id="st-day" type="number" min="0" value="${st.day_offset || 0}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Type<select id="st-type" onchange="automationStepTypeToggle()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"><option value="email" ${type === 'email' ? 'selected' : ''}>Email</option><option value="task" ${type === 'task' ? 'selected' : ''}>Task</option></select></label>
-    </div>
-    <div id="st-email" class="${type === 'task' ? 'hidden' : ''} mt-3 space-y-3">
-      <label class="block text-xs font-bold text-slate-500">Template<select id="st-template" onchange="automationTmplPick()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${tmplOpts}</select></label>
-      <label class="block text-xs font-bold text-slate-500">Subject<input id="st-subject" value="${esc(st.subject || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Body<textarea id="st-body" rows="6" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(st.body || '')}</textarea></label>
-    </div>
-    <div id="st-task" class="${type === 'task' ? '' : 'hidden'} mt-3 space-y-3">
-      <label class="block text-xs font-bold text-slate-500">Task title<input id="st-title" value="${esc(st.title || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Note<textarea id="st-note" rows="3" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(st.note || '')}</textarea></label>
-      <label class="block text-xs font-bold text-slate-500">Priority<select id="st-priority" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${['low', 'normal', 'high'].map(p => `<option value="${p}" ${(st.priority || 'normal') === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
-    </div>
-    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
-      <button onclick="automationSaveStep('${seqId}', ${stepId ? `'${stepId}'` : 'null'})" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Save step</button></div>`, 'max-w-lg');
-};
-window.automationStepTypeToggle = () => {
-  const t = document.getElementById('st-type').value;
-  document.getElementById('st-email').classList.toggle('hidden', t === 'task');
-  document.getElementById('st-task').classList.toggle('hidden', t !== 'task');
-};
-window.automationTmplPick = () => {
-  const id = document.getElementById('st-template').value;
-  const t = (__automation.templates || []).find(x => x.id === id);
-  if (t) { document.getElementById('st-subject').value = t.subject; document.getElementById('st-body').value = t.body; }
-};
-window.automationSaveStep = async (seqId, stepId) => {
-  const type = document.getElementById('st-type').value;
-  const payload = { day_offset: parseInt(document.getElementById('st-day').value, 10) || 0, type };
-  if (type === 'email') {
-    payload.template_id = document.getElementById('st-template').value || null;
-    payload.subject = document.getElementById('st-subject').value.trim();
-    payload.body = document.getElementById('st-body').value.trim();
-    if (!payload.subject) return showToast('Email subject is required', 'error');
-  } else {
-    payload.title = document.getElementById('st-title').value.trim();
-    payload.note = document.getElementById('st-note').value.trim();
-    payload.priority = document.getElementById('st-priority').value;
-    if (!payload.title) return showToast('Task title is required', 'error');
-  }
-  try {
-    if (stepId) await apiSendJson('/saas/automation/steps/' + stepId, 'PATCH', payload);
-    else await apiSendJson('/saas/automation/sequences/' + seqId + '/steps', 'POST', payload);
-    await loadSaasAutomation(); automationEditSeq(seqId); showToast('Step saved', 'success');
-  } catch (e) { showToast(e.message || 'Could not save step', 'error'); }
-};
-// ── templates ──
-window.automationNewTmpl = () => automationTmplModal(null);
-window.automationEditTmpl = (id) => automationTmplModal((__automation.templates || []).find(x => x.id === id));
-function automationTmplModal(t) {
-  t = t || {};
-  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${t.id ? 'Edit template' : 'New template'}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
-    <div class="space-y-3">
-      <label class="block text-xs font-bold text-slate-500">Name<input id="tm-name" value="${esc(t.name || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Subject<input id="tm-subject" value="${esc(t.subject || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Body <span class="text-slate-400 font-normal">— {{first_name}}, {{account}}</span><textarea id="tm-body" rows="8" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(t.body || '')}</textarea></label>
-    </div>
-    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
-      <button onclick="automationSaveTmpl(${t.id ? `'${t.id}'` : 'null'})" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Save</button></div>`);
-}
-window.automationSaveTmpl = async (id) => {
-  const payload = { name: document.getElementById('tm-name').value.trim(), subject: document.getElementById('tm-subject').value.trim(), body: document.getElementById('tm-body').value.trim() };
-  if (!payload.name || !payload.subject || !payload.body) return showToast('Name, subject and body are required', 'error');
-  try {
-    if (id) await apiSendJson('/saas/automation/templates/' + id, 'PATCH', payload);
-    else await apiSendJson('/saas/automation/templates', 'POST', payload);
-    closeAutomationModal(); await loadSaasAutomation(); showToast('Template saved', 'success');
-  } catch (e) { showToast(e.message || 'Could not save', 'error'); }
-};
-window.automationDeleteTmpl = async (id) => {
-  if (!confirm('Delete this template?')) return;
-  try { await apiSendJson('/saas/automation/templates/' + id, 'DELETE'); await loadSaasAutomation(); showToast('Template deleted', 'success'); }
-  catch (e) { showToast(e.message || 'Could not delete', 'error'); }
-};
-
-// ══ DealerOS Pro — Email Marketing (template library + broadcast campaigns) ════
-// Dealer-facing sibling of the HQ Automation & Email surface. Sequences live in the
-// existing Automation builder; this covers reusable templates + one-off campaigns to
-// a CRM segment. Pro-gated (os.email_marketing); all data is dealership-scoped by RLS.
-let __dealerEmail = { view: 'campaigns', templates: [], campaigns: [] };
-const DEALER_SEG = {
-  all: { label: 'All contacts', seg: {} },
-  customers: { label: 'Sold customers', seg: { sold: true } },
-  service: { label: 'Service customers', seg: { service_customer: true } },
-  leads: { label: 'Open leads', seg: { status: ['lead', 'new', 'open', 'working', 'contacted'] } },
-};
-async function loadDealerEmail() {
-  const root = document.getElementById('dealer-email-root'); if (!root) return;
-  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading email marketing…</div>`;
-  try {
-    const [tpl, camp] = await Promise.all([apiGetJson('/dealer/email/templates'), apiGetJson('/dealer/email/campaigns')]);
-    __dealerEmail.templates = tpl.templates || [];
-    __dealerEmail.campaigns = camp.campaigns || [];
-  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message || 'Could not load')}</div>`; return; }
-  renderDealerEmail();
-}
-window.loadDealerEmail = loadDealerEmail;
-function renderDealerEmail() {
-  const root = document.getElementById('dealer-email-root'); if (!root) return;
-  const v = __dealerEmail.view;
-  const pill = (id, label) => `<button onclick="dealerEmailView('${id}')" class="px-3.5 py-1.5 rounded-full text-[13px] font-bold transition ${v === id ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
   root.innerHTML = `
-    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 flex items-center justify-center">${svgIcon('megaphone', 'w-5 h-5')}</div>
-        <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Email Marketing</h1>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400">Reusable templates and one-off email campaigns to your CRM contacts.</p></div>
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Customer Pipeline</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Every account by stage, with a health score and next action — from real 30-day usage.</p></div>
+      <div class="flex gap-2">
+        <button onclick="switchPage('saas-command')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-200">← HQ</button>
+        <button onclick="loadSaasCustomers()" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200">Refresh</button>
       </div>
-      <div class="flex items-center gap-2">${pill('campaigns', 'Campaigns')}${pill('templates', 'Templates')}</div>
     </div>
-    <div id="dealer-email-body"></div>`;
-  (v === 'templates' ? renderDealerTemplates : renderDealerCampaigns)();
+    <div class="overflow-x-auto pb-2"><div class="flex gap-4 min-w-max">${cols}</div></div>`;
 }
-window.dealerEmailView = (v) => { __dealerEmail.view = v; renderDealerEmail(); };
-
-function renderDealerTemplates() {
-  const body = document.getElementById('dealer-email-body'); if (!body) return;
-  const rows = (__dealerEmail.templates || []).map(t => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(t.name)}${t.is_seed ? ' <span class="text-[10px] font-bold uppercase text-slate-400">starter</span>' : ''}</div><div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(t.subject)}</div></div>
-      <label title="Turn this template on or off" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0"><input type="checkbox" ${t.active !== false ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','active',this.checked)" class="accent-emerald-600 w-4 h-4"><span class="${t.active !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">On</span></label>
-      <label title="Also make this template available for text (SMS)" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0"><input type="checkbox" ${t.sms_enabled ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','sms_enabled',this.checked)" class="accent-indigo-600 w-4 h-4"><span class="${t.sms_enabled ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}">Text</span></label>
-      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex-shrink-0">Edit</button>
-      <button onclick="dealerEmailDeleteTmpl('${t.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">Delete</button>
-    </div>`).join('');
-  body.innerHTML = `<div class="flex items-center justify-between mb-3">
-      <p class="text-[12px] text-slate-500 dark:text-slate-400">Reusable email bodies. Use <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code> and <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{dealership}}</code> merge fields.</p>
-      <button onclick="dealerEmailNewTmpl()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New template</button></div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No templates yet.</div>'}</div>`;
-}
-function renderDealerCampaigns() {
-  const body = document.getElementById('dealer-email-body'); if (!body) return;
-  const segLabel = (c) => { const p = Object.values(DEALER_SEG).find(x => JSON.stringify(x.seg) === JSON.stringify(c.segment || {})); return p ? p.label : 'Custom segment'; };
-  const rows = (__dealerEmail.campaigns || []).map(c => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(c.name)}</div>
-        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(c.subject)}</div>
-        <div class="text-[11px] text-slate-400 mt-0.5">${esc(segLabel(c))} · ${c.status === 'sent' ? `sent to ${c.sent_count}` : c.status === 'failed' ? 'failed' : 'draft'}</div></div>
-      ${c.status === 'sent' ? '<span class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">Sent</span>'
-        : `<button onclick="dealerEmailSendCampaign('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0">Send</button>`}
-      <button onclick="dealerEmailDeleteCampaign('${c.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">✕</button>
-    </div>`).join('');
-  body.innerHTML = `<div class="flex items-center justify-between mb-3">
-      <p class="text-[12px] text-slate-500 dark:text-slate-400">One-off email to a CRM segment. Only contacts with an address and email consent are reached.</p>
-      <button onclick="dealerEmailNewCampaign()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New campaign</button></div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No campaigns yet.</div>'}</div>`;
-}
-
-// ── segment helper: build jsonb from the modal's preset + tag input ──
-function dealerEmailSegment() {
-  const preset = document.getElementById('cp-segment')?.value || 'all';
-  const seg = { ...(DEALER_SEG[preset]?.seg || {}) };
-  const tags = (document.getElementById('cp-tags')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
-  if (tags.length) seg.tags = tags;
-  return seg;
-}
-window.dealerEmailSegCount = async () => {
-  const el = document.getElementById('cp-count'); if (!el) return;
-  el.textContent = 'Recipients: …';
-  try { const r = await apiSendJson('/dealer/email/segment-count', 'POST', { segment: dealerEmailSegment() }); el.textContent = `Reachable: ${r.reachable} of ${r.matched} matched`; }
-  catch { el.textContent = 'Recipients: —'; }
-};
-
-window.dealerEmailNewCampaign = () => {
-  // Only templates toggled On appear as options in a campaign.
-  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__dealerEmail.templates || []).filter(t => t.active !== false).map(t => `<option value="${t.id}">${esc(t.name)}</option>`)).join('');
-  const segOpts = Object.entries(DEALER_SEG).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
-  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">New campaign</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
-    <div class="space-y-3">
-      <label class="block text-xs font-bold text-slate-500">Name<input id="cp-name" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="e.g. October sales event"></label>
-      <div class="grid grid-cols-2 gap-3">
-        <label class="block text-xs font-bold text-slate-500">Segment<select id="cp-segment" onchange="dealerEmailSegCount()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${segOpts}</select></label>
-        <label class="block text-xs font-bold text-slate-500">Tags (optional)<input id="cp-tags" oninput="dealerEmailSegCount()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="vip, suv"></label>
-      </div>
-      <div class="text-[12px] font-semibold text-violet-600 dark:text-violet-400" id="cp-count">Recipients: …</div>
-      <label class="block text-xs font-bold text-slate-500">Template<select id="cp-template" onchange="dealerEmailCampTmplPick()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${tmplOpts}</select></label>
-      <label class="block text-xs font-bold text-slate-500">Subject<input id="cp-subject" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Body <span class="text-slate-400 font-normal">— {{first_name}}, {{dealership}}</span><textarea id="cp-body" rows="7" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></textarea></label>
-    </div>
-    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
-      <button onclick="dealerEmailSaveCampaign(false)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold">Save draft</button>
-      <button onclick="dealerEmailSaveCampaign(true)" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Create &amp; send</button></div>`, 'max-w-lg');
-  dealerEmailSegCount();
-};
-window.dealerEmailCampTmplPick = () => {
-  const t = (__dealerEmail.templates || []).find(x => x.id === document.getElementById('cp-template').value);
-  if (t) { document.getElementById('cp-subject').value = t.subject; document.getElementById('cp-body').value = t.body; }
-};
-window.dealerEmailSaveCampaign = async (sendNow) => {
-  const payload = {
-    name: document.getElementById('cp-name').value.trim(), segment: dealerEmailSegment(),
-    subject: document.getElementById('cp-subject').value.trim(), body: document.getElementById('cp-body').value.trim(),
-    template_id: document.getElementById('cp-template').value || null,
-  };
-  if (!payload.name) return showToast('Name is required', 'error');
-  if ((!payload.subject || !payload.body) && !payload.template_id) return showToast('Subject and body (or a template) are required', 'error');
-  if (sendNow && !confirm('Send this campaign now to the selected segment?')) return;
-  try {
-    const r = await apiSendJson('/dealer/email/campaigns', 'POST', payload);
-    if (sendNow) { const sent = await apiSendJson('/dealer/email/campaigns/' + r.campaign.id + '/send', 'POST', {}); showToast(`Sent to ${sent.sent || 0}${sent.failed ? ` · ${sent.failed} failed` : ''}`, 'success'); }
-    else showToast('Draft saved', 'success');
-    closeAutomationModal(); await loadDealerEmail();
-  } catch (e) { showToast(e.message || 'Could not save campaign', 'error'); }
-};
-window.dealerEmailSendCampaign = async (id) => {
-  if (!confirm('Send this campaign now?')) return;
-  try { const sent = await apiSendJson('/dealer/email/campaigns/' + id + '/send', 'POST', {}); showToast(`Sent to ${sent.sent || 0}${sent.failed ? ` · ${sent.failed} failed` : ''}`, 'success'); await loadDealerEmail(); }
-  catch (e) { showToast(e.message || 'Could not send', 'error'); }
-};
-window.dealerEmailDeleteCampaign = async (id) => {
-  if (!confirm('Delete this campaign?')) return;
-  try { await apiSendJson('/dealer/email/campaigns/' + id, 'DELETE'); await loadDealerEmail(); showToast('Campaign deleted', 'success'); }
-  catch (e) { showToast(e.message || 'Could not delete', 'error'); }
-};
-
-// ── templates ──
-window.dealerEmailToggleTmpl = async (id, field, value) => {
-  const t = (__dealerEmail.templates || []).find(x => x.id === id); if (t) t[field] = value;
-  renderDealerTemplates();
-  try { await apiSendJson('/dealer/email/templates/' + id, 'PATCH', { [field]: value }); }
-  catch (e) { showToast(e.message || 'Could not update', 'error'); loadDealerEmail(); }
-};
-window.dealerEmailNewTmpl = () => dealerEmailTmplModal(null);
-window.dealerEmailEditTmpl = (id) => dealerEmailTmplModal((__dealerEmail.templates || []).find(x => x.id === id));
-function dealerEmailTmplModal(t) {
-  t = t || {};
-  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${t.id ? 'Edit template' : 'New template'}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
-    <div class="space-y-3">
-      <label class="block text-xs font-bold text-slate-500">Name<input id="dtm-name" value="${esc(t.name || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Subject<input id="dtm-subject" value="${esc(t.subject || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Body <span class="text-slate-400 font-normal">— {{first_name}}, {{full_name}}, {{dealership}}</span><textarea id="dtm-body" rows="9" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(t.body || '')}</textarea></label>
-    </div>
-    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
-      <button onclick="dealerEmailSaveTmpl(${t.id ? `'${t.id}'` : 'null'})" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Save</button></div>`);
-}
-window.dealerEmailSaveTmpl = async (id) => {
-  const payload = { name: document.getElementById('dtm-name').value.trim(), subject: document.getElementById('dtm-subject').value.trim(), body: document.getElementById('dtm-body').value.trim() };
-  if (!payload.name || !payload.subject || !payload.body) return showToast('Name, subject and body are required', 'error');
-  try {
-    if (id) await apiSendJson('/dealer/email/templates/' + id, 'PATCH', payload);
-    else await apiSendJson('/dealer/email/templates', 'POST', payload);
-    closeAutomationModal(); await loadDealerEmail(); showToast('Template saved', 'success');
-  } catch (e) { showToast(e.message || 'Could not save', 'error'); }
-};
-window.dealerEmailDeleteTmpl = async (id) => {
-  if (!confirm('Delete this template?')) return;
-  try { await apiSendJson('/dealer/email/templates/' + id, 'DELETE'); await loadDealerEmail(); showToast('Template deleted', 'success'); }
-  catch (e) { showToast(e.message || 'Could not delete', 'error'); }
-};
-
-// ══ Employees + permissions — MarketSync staff (owner-only) ═══════════════════
-const empRoleOpts = (roles, sel) => (roles || []).map(r => `<option value="${r}" ${r === sel ? 'selected' : ''}>${esc(r)}</option>`).join('');
-ENGINES['saas-employees'] = {
-  rootId: 'saas-employees-root', title: 'Employees', subtitle: 'MarketSync staff and what each role can do',
-  icon: 'user', accent: 'violet',
-  fetch: () => apiGetJson('/saas/employees'),
-  quickActions: [
-    { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
-    { label: 'All accounts', icon: 'user', onclick: "switchPage('owner-users')" },
-  ],
-  tabs: {
-    overview(body, d) {
-      const staff = d.staff || [];
-      const byRole = {};
-      for (const s of staff) byRole[s.saas_role] = (byRole[s.saas_role] || 0) + 1;
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          ${engKpi('Staff', staff.length.toLocaleString())}
-          ${engKpi('Roles', (d.roles || []).length.toLocaleString())}
-          ${engKpi('Owners', (byRole.owner || 0).toLocaleString(), 'text-violet-600 dark:text-violet-400')}
-        </div>
-        ${engCard('Headcount by role', (d.roles || []).map(r => `<div class="flex items-center justify-between text-[13px] py-1 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold uppercase text-slate-600 dark:text-slate-300">${esc(r)}</span><span class="font-bold text-slate-800 dark:text-slate-100">${byRole[r] || 0}</span></div>`).join(''))}`;
-    },
-    work(body, d) {
-      const roles = d.roles || [];
-      const staff = (d.staff || []).map(s => `
-        <tr class="border-t border-slate-100 dark:border-slate-800">
-          <td class="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">${esc(s.name)}</td>
-          <td class="px-3 py-2"><select onchange="saasSetRole('${s.id}', this.value)" class="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px]">${empRoleOpts(roles, s.saas_role)}</select></td>
-          <td class="px-3 py-2 text-[11px] text-slate-400">${(s.permissions || []).map(p => esc(p)).join(', ')}</td>
-          <td class="px-3 py-2 text-right"><button onclick="saasSetRole('${s.id}','')" class="text-[11px] font-bold text-rose-500 hover:text-rose-600">Remove</button></td>
-        </tr>`).join('') || `<tr><td colspan="4" class="px-3 py-8 text-center text-slate-400 text-sm">No staff yet — add one by email below.</td></tr>`;
-      body.innerHTML = `
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
-          <table class="w-full text-sm min-w-[560px]">
-            <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">Name</th><th class="px-3 py-2">Role</th><th class="px-3 py-2">Permissions</th><th class="px-3 py-2"></th></tr></thead>
-            <tbody>${staff}</tbody>
-          </table>
-        </div>
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-wrap items-end gap-2">
-          <div><label class="text-[11px] text-slate-400 font-bold">Add staff by email</label><input id="saas-emp-email" placeholder="teammate@marketsync.link" class="w-64 mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
-          <div><label class="text-[11px] text-slate-400 font-bold">Role</label><select id="saas-emp-role" class="mt-1 px-2 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${empRoleOpts(roles, 'support')}</select></div>
-          <button onclick="saasAddEmployee()" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold transition">Add</button>
-        </div>`;
-    },
-    insights(body, d) {
-      const staff = d.staff || [];
-      const byRole = {};
-      for (const s of staff) byRole[s.saas_role] = (byRole[s.saas_role] || 0) + 1;
-      const total = staff.length;
-      body.innerHTML = engCard('Team composition', (d.roles || []).map(r => `
-        <div class="flex items-center gap-2 text-[13px] py-1">
-          <span class="w-24 flex-shrink-0 uppercase font-semibold text-slate-600 dark:text-slate-300">${esc(r)}</span>
-          <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full bg-violet-500" style="width:${total ? Math.round((byRole[r] || 0) / total * 100) : 0}%"></span></span>
-          <span class="w-8 text-right font-bold text-slate-700 dark:text-slate-200">${byRole[r] || 0}</span></div>`).join('') || engEmpty('No staff yet.'));
-    },
-    automation(body) {
-      body.innerHTML = engCard('Staff automation', `<p class="text-[13px] text-slate-600 dark:text-slate-300">Role changes take effect immediately across every engine's permission gate. Automated onboarding sequences for new staff aren't configured yet.</p>`);
-    },
-    settings(body, d) {
-      const matrix = d.permissions_matrix || {};
-      const matrixRows = (d.roles || []).map(r => `
-        <div class="flex flex-wrap items-start gap-2 py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-          <span class="w-24 flex-shrink-0 text-[12px] font-black uppercase text-slate-600 dark:text-slate-300">${esc(r)}</span>
-          <span class="flex flex-wrap gap-1">${(matrix[r] || []).map(p => `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${p === '*' ? 'ALL' : esc(p)}</span>`).join('')}</span>
-        </div>`).join('');
-      body.innerHTML = engCard('Permission matrix', matrixRows + `<p class="text-[12px] text-slate-400 mt-2">Roles and their permissions are defined server-side; assign them per person on the Work tab.</p>`);
-    },
-  },
-};
-function loadSaasEmployees() { renderEngine('saas-employees'); }
-
-// ══ SaaS Accounting — MarketSync's own P&L (recurring revenue + program cost) ══
-ENGINES['saas-accounting'] = {
-  rootId: 'saas-accounting-root', title: 'Accounting', subtitle: "MarketSync's books — recurring revenue and program cost",
-  icon: 'currency', accent: 'emerald',
-  fetch: () => apiGetJson('/saas/accounting'),
-  quickActions: [
-    { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
-    { label: 'Affiliates', icon: 'trophy', onclick: "switchPage('affiliates-admin')" },
-  ],
-  nextActions: (d) => {
-    const out = [];
-    if (d?.affiliate?.pending) out.push({ label: `${engMoney0(d.affiliate.pending)} affiliate commissions owed`, icon: 'currency', tone: 'text-amber-500', onclick: "switchPage('affiliates-admin')" });
-    return out;
-  },
-  tabs: {
-    overview(body, d) {
-      const netTone = (d.net_mrr || 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          ${engKpi('MRR', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('ARR', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Program cost /mo', engMoney0(d.monthly_expense), 'text-rose-600 dark:text-rose-400')}
-          ${engKpi('Net MRR', engMoney0(d.net_mrr), netTone)}
-          ${engKpi('Net margin', (d.net_margin || 0) + '%', netTone)}
-          ${engKpi('New MRR (mo)', engMoney0(d.new_mrr_this_month), 'text-indigo-600 dark:text-indigo-400')}
-        </div>
-        ${engCard('This month', `<div class="text-[13px] text-slate-600 dark:text-slate-300 space-y-1.5">
-          <div class="flex items-center justify-between"><span>Recurring revenue (MRR)</span><span class="font-bold text-emerald-600 dark:text-emerald-400">${engMoney0(d.mrr)}</span></div>
-          <div class="flex items-center justify-between"><span>Affiliate program cost</span><span class="font-bold text-rose-600 dark:text-rose-400">− ${engMoney0(d.monthly_expense)}</span></div>
-          <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-1.5 mt-1.5"><span class="font-black text-slate-800 dark:text-slate-100">Net recurring</span><span class="font-black ${netTone}">${engMoney0(d.net_mrr)}</span></div>
-        </div>`)}
-        <div class="text-[12px] text-slate-400">Revenue is recognised from live product entitlements across ${(d.paying || 0).toLocaleString()} paying accounts (${(d.trials || 0).toLocaleString()} in trial). Cash settlement reconciles in Stripe.</div>`;
-    },
-    work(body, d) {   // "Revenue" — MRR by product
-      const rows = (d.revenue_by_product || []).filter(p => p.accounts > 0 || p.mrr > 0);
-      const total = d.mrr || 0;
-      const list = rows.length ? rows.map(p => `
-        <div class="flex items-center gap-2 text-[13px] py-1.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-          <span class="w-36 flex-shrink-0 font-semibold text-slate-700 dark:text-slate-200">${esc(p.label)}</span>
-          <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full bg-emerald-500" style="width:${total ? Math.round(p.mrr / total * 100) : 0}%"></span></span>
-          <span class="w-16 text-right text-[12px] text-slate-400">${p.accounts} acct${p.accounts === 1 ? '' : 's'}</span>
-          <span class="w-20 text-right font-bold text-slate-800 dark:text-slate-100">${engMoney0(p.mrr)}</span>
-        </div>`).join('') : engEmpty('No recurring revenue yet.');
-      body.innerHTML = `
-        ${engCard('Recurring revenue by product', list)}
-        ${engCard('Growth', `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          ${engKpi('MRR', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('New this month', engMoney0(d.new_mrr_this_month), 'text-indigo-600 dark:text-indigo-400')}
-          ${engKpi('Paying', (d.paying || 0).toLocaleString())}
-          ${engKpi('Trials', (d.trials || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
-        </div>`)}`;
-    },
-    insights(body, d) {   // Expenses — affiliate program
-      const a = d.affiliate || {};
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          ${engKpi('Owed now', engMoney0(a.pending), a.pending ? 'text-amber-600 dark:text-amber-400' : '')}
-          ${engKpi('Paid this month', engMoney0(a.paid_this_month), 'text-rose-600 dark:text-rose-400')}
-          ${engKpi('Accrued this month', engMoney0(a.accrued_this_month))}
-          ${engKpi('Paid all-time', engMoney0(a.paid))}
-        </div>
-        ${engCard('Affiliate program', `<div class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
-          <p>Affiliate commissions are MarketSync's recurring cost of acquisition — a share of the subscription revenue referred accounts generate. Paying out posts the amount as a MarketSync expense.</p>
-          <button onclick="switchPage('affiliates-admin')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Manage affiliates &amp; payouts →</button>
-        </div>`)}
-        <div class="text-[12px] text-slate-400">Other operating expenses (infrastructure, payroll, Stripe fees) aren't itemised here yet — they'd come from a connected expense feed or Stripe.</div>`;
-    },
-    automation(body) {
-      body.innerHTML = engCard('Revenue &amp; cost automation', `<ul class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
-        <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span>MRR is recomputed live from product entitlements every time you open this page — no manual bookkeeping.</span></li>
-        <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span>Affiliate commissions accrue automatically when a referred account pays, and post as an expense when you pay them out.</span></li>
-      </ul>`);
-    },
-    settings(body) {
-      body.innerHTML = engCard('Accounting settings', `<div class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
-        <p>Recurring revenue is estimated from published product prices (Facebook Solo $79, Facebook Dealer $499, AI Chatbot $499, DealerOS $499). Actual cash and fees settle in Stripe.</p>
-        <p class="text-[12px] text-slate-400">To itemise infrastructure/payroll/Stripe fees as expenses here, connect an expense feed — tell me and I'll wire it in.</p>
-      </div>`);
-    },
-  },
-  tabLabels: { work: 'Revenue', insights: 'Expenses' },
-};
-function loadSaasAccounting() { renderEngine('saas-accounting'); }
-window.loadSaasAccounting = loadSaasAccounting;
-
-// ══ Email delivery diagnostic (owner) — pinpoints why email may be failing ════
-async function loadEmailHealth() {
-  const host = document.getElementById('hq-email-health'); if (!host) return;
-  let h;
-  try { h = await apiGetJson('/owner/email/health'); }
-  catch (e) { host.innerHTML = engCard('Email delivery', `<div class="text-sm text-rose-500">${esc(e.message || 'Could not check email.')}</div>`); return; }
-  const ok = !!h.configured;
-  const domStatus = h.from_domain_status;                 // 'verified' | 'pending' | null
-  const verified = domStatus === 'verified';
-  const dot = !ok ? 'bg-rose-500' : verified ? 'bg-emerald-500' : 'bg-amber-500';
-  const status = !ok
-    ? `<span class="text-rose-600 dark:text-rose-400 font-bold">No API key — email is disabled</span>`
-    : verified
-      ? `<span class="text-emerald-600 dark:text-emerald-400 font-bold">Ready — ${esc(h.from_domain)} is verified</span>`
-      : `<span class="text-amber-600 dark:text-amber-400 font-bold">Key OK, but ${esc(h.from_domain)} is not verified on this key's account</span>`;
-  // Domains this backend key can actually send from.
-  const domRows = Array.isArray(h.domains)
-    ? (h.domains.length
-        ? h.domains.map(d => `<div class="flex items-center justify-between text-[12px] py-0.5"><span class="font-mono text-slate-700 dark:text-slate-200">${esc(d.name)}</span><span class="font-bold ${d.status === 'verified' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">${esc(d.status || '—')}</span></div>`).join('')
-        : `<div class="text-[12px] text-rose-500">This API key's account has <b>no domains</b> — it's a different account than where you verified marketsync.link.</div>`)
-    : (h.domains_error ? `<div class="text-[12px] text-slate-400">Couldn't list domains: ${esc(h.domains_error)}</div>` : '');
-  // Diagnosis when configured but the sending domain isn't verified on this key.
-  const mismatch = ok && !verified;
-  host.innerHTML = engCard('Email delivery', `
-    <div class="space-y-2 text-[13px] text-slate-600 dark:text-slate-300">
-      <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full ${dot}"></span>${status}</div>
-      <div class="flex items-center justify-between"><span>Sending address</span><span class="font-mono text-[12px] text-slate-700 dark:text-slate-200">${esc(h.from || '—')}</span></div>
-      ${Array.isArray(h.domains) ? `<div class="pt-1"><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Domains this key can send from</div>${domRows}</div>` : ''}
-      ${mismatch ? `<div class="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2.5 text-[12px] text-amber-800 dark:text-amber-200">
-        <b>${esc(h.from_domain)} isn't verified on the key the server is using.</b> You verified it 4 days ago — but on a different Resend account/team. Fix either way:
-        <ol class="list-decimal ml-4 mt-1 space-y-0.5">
-          <li>Confirm which Resend account holds the verified <span class="font-mono">${esc(h.from_domain)}</span> (resend.com/domains).</li>
-          <li>Create an API key <b>in that same account</b> and set it as <span class="font-mono">RESEND_API_KEY</span> on the backend, <b>or</b> re-verify the domain in the account this key belongs to.</li>
-          <li>Redeploy, then click <b>Send test email</b> again.</li>
-        </ol></div>` : ''}
-      ${!ok ? `<p class="text-[12px] text-rose-500">Set <span class="font-mono">RESEND_API_KEY</span> on the backend to enable email.</p>` : ''}
-      <div class="flex items-center gap-2 pt-1">
-        <button onclick="emailSendTest(this)" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">Send test email</button>
-        <span id="email-test-result" class="text-[12px]"></span>
-      </div>
-    </div>`);
-}
-window.loadEmailHealth = loadEmailHealth;
-async function emailSendTest(btn) {
-  const out = document.getElementById('email-test-result');
-  if (btn) btn.disabled = true;
-  if (out) { out.className = 'text-[12px] text-slate-400'; out.textContent = 'Sending…'; }
-  try {
-    const r = await apiSendJson('/owner/email/test', 'POST', {});
-    if (out) {
-      if (r.ok) { out.className = 'text-[12px] text-emerald-600 dark:text-emerald-400 font-bold'; out.textContent = `Sent to ${r.sent_to} ✓`; }
-      else { out.className = 'text-[12px] text-rose-600 dark:text-rose-400 font-bold'; out.textContent = r.error || 'Failed'; }
-    }
-  } catch (e) {
-    if (out) { out.className = 'text-[12px] text-rose-600 dark:text-rose-400 font-bold'; out.textContent = e.message || 'Failed'; }
-  } finally { if (btn) btn.disabled = false; }
-}
-window.emailSendTest = emailSendTest;
-
-// Refresh whichever SaaS-roles surface is on screen — the Employees engine or the
-// Settings → Team panel.
-function refreshSaasRoles() {
-  const settingsPanel = document.getElementById('settings-saas-roles');
-  if (settingsPanel && !settingsPanel.classList.contains('hidden')) renderSettingsSaasRoles();
-  else loadSaasEmployees();
-}
-async function saasSetRole(userId, role) {
-  try { await apiSendJson('/saas/employees/role', 'POST', { user_id: userId, saas_role: role }); showToast('Updated ✓', 'success'); refreshSaasRoles(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-async function saasAddEmployee() {
-  const email = document.getElementById('saas-emp-email').value.trim();
-  const role = document.getElementById('saas-emp-role').value;
-  if (!email) return showToast('Email required', 'error');
-  try { await apiSendJson('/saas/employees/role', 'POST', { email, saas_role: role }); showToast('Staff added ✓', 'success'); refreshSaasRoles(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-Object.assign(window, { loadSaasEmployees, saasSetRole, saasAddEmployee });
+window.loadSaasCustomers = loadSaasCustomers;
 
 // ══ Command Center — DealerOS home: today's operations + live exceptions ══════
-// Exception card (shared by Executive Work tab + Operations).
-function execExceptionCard(x) {
-  const sev = OPS_SEV[x.severity] || OPS_SEV.medium;
-  return `<div class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-sm transition cursor-pointer" onclick="opsOpenEntity('${x.entity_type}','${x.entity_id}')">
-    <span class="mt-1.5 w-2 h-2 rounded-full ${sev.dot} flex-shrink-0"></span>
-    <div class="min-w-0 flex-1">
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="text-sm font-bold text-slate-900 dark:text-white">${esc(OPS_KIND_LABEL[x.kind] || x.kind)}</span>
-        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${sev.chip}">${esc(x.severity)}</span>
-        ${x.department ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${esc(x.department)}</span>` : ''}
-      </div>
-      <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${esc(x.description || '')}</div>
-    </div>
-    <button onclick="event.stopPropagation(); cmdResolveException('${x.id}')" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 px-2 py-1 flex-shrink-0">Resolve</button>
-  </div>`;
-}
-// Executive department — the whole business at a glance; uses every engine.
-ENGINES['command'] = {
-  rootId: 'command-root', title: 'Daily Briefing', subtitle: "Today's operations across every department — problems first",
-  icon: 'chart', accent: 'indigo', tabLabels: { work: 'Needs Attention' },
-  tabOrder: ['overview', 'work'],   // Insights/Automation/Settings removed per audit
+async function loadCommandCenter() {
+  const root = document.getElementById('command-root');
+  if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading command center…</div>`;
+  let d;
+  try { d = await apiGetJson('/command-center'); }
+  catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">Couldn't load: ${esc(e.message)}</div>`; return; }
+  const t = d.tiles || {};
+  const exceptions = d.exceptions || [];
+  const badge = document.getElementById('command-badge');
+  if (badge) { const n = d.exception_count || 0; if (n) { badge.textContent = n; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
 
-  fetch: async () => {
-    const [cc, ev] = await Promise.all([
-      apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
-      apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
-    ]);
-    const badge = document.getElementById('command-badge');
-    if (badge) { const n = cc.exception_count || 0; if (n) { badge.textContent = n; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
-    return { cc, events: ev.events || [] };
-  },
-  quickActions: [
-    { label: 'Reports', icon: 'chart', onclick: "switchPage('reports')" },
-    { label: 'Task Board', icon: 'clipboard', onclick: "switchPage('taskboard')" },
-    { label: 'Operations', icon: 'bolt', onclick: "switchPage('operations')" },
-  ],
-  nextActions: (d) => (d.cc.exceptions || []).slice(0, 4).map(x => ({
-    label: `${OPS_KIND_LABEL[x.kind] || x.kind}${x.department ? ' · ' + x.department : ''}`,
-    icon: 'shield', tone: (OPS_SEV[x.severity] || {}).text || 'text-amber-500',
-    onclick: `opsOpenEntity('${x.entity_type}','${x.entity_id}')`,
-  })),
-  tabs: {
-    overview(body, d) {
-      const t = d.cc.tiles || {};
-      const tile = (label, val, page, attention) => {
-        const hot = attention && val > 0;
-        return `<button onclick="switchPage('${page}')" class="text-left bg-white dark:bg-slate-900 border rounded-xl px-4 py-4 transition hover:shadow-md ${hot ? 'border-amber-300 dark:border-amber-800' : 'border-slate-200 dark:border-slate-800'}">
-          <div class="text-3xl font-black ${hot ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100'}">${val}</div>
-          <div class="text-[12px] font-bold text-slate-500 dark:text-slate-400 mt-1">${esc(label)}</div></button>`;
-      };
-      const hour = new Date().getHours();
-      const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-      body.innerHTML = `
-        <div class="text-lg font-black text-slate-900 dark:text-white">${greet}</div>
-        <div>
-          <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's operations</div>
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            ${tile('Leads waiting', t.leads_waiting ?? 0, 'leads', true)}
-            ${tile('Deals in progress', t.deals_in_progress ?? 0, 'desk', false)}
-            ${tile('Deliveries today', t.deliveries_today ?? 0, 'fni', false)}
-            ${tile('Recon delays', t.recon_delays ?? 0, 'recon', true)}
-            ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-ros', true)}
-          </div>
+  // A tile: big number, label, click → jump to the owning page. `attention` tints
+  // it amber/rose when the count is non-zero (something to act on).
+  const tile = (label, val, page, attention) => {
+    const hot = attention && val > 0;
+    return `<button onclick="switchPage('${page}')" class="text-left bg-white dark:bg-slate-900 border rounded-xl px-4 py-4 transition hover:shadow-md ${hot ? 'border-amber-300 dark:border-amber-800' : 'border-slate-200 dark:border-slate-800'}">
+      <div class="text-3xl font-black ${hot ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100'}">${val}</div>
+      <div class="text-[12px] font-bold text-slate-500 dark:text-slate-400 mt-1">${esc(label)}</div>
+    </button>`;
+  };
+
+  const exCards = exceptions.length ? exceptions.slice(0, 12).map(x => {
+    const sev = OPS_SEV[x.severity] || OPS_SEV.medium;
+    return `<div class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-sm transition cursor-pointer" onclick="opsOpenEntity('${x.entity_type}','${x.entity_id}')">
+      <span class="mt-1.5 w-2 h-2 rounded-full ${sev.dot} flex-shrink-0"></span>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-sm font-bold text-slate-900 dark:text-white">${esc(OPS_KIND_LABEL[x.kind] || x.kind)}</span>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${sev.chip}">${esc(x.severity)}</span>
+          ${x.department ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${esc(x.department)}</span>` : ''}
         </div>
-        ${engCard('Needs attention', `<div class="text-[13px] text-slate-600 dark:text-slate-300">${(d.cc.exceptions || []).length ? `<b class="text-slate-900 dark:text-white">${(d.cc.exceptions || []).length}</b> item${(d.cc.exceptions || []).length === 1 ? '' : 's'} across departments — see the Needs Attention tab.` : 'Every workflow is on track.'}</div>`)}`;
-    },
-    work(body, d) {
-      const ex = d.cc.exceptions || [];
-      const exCards = ex.length ? ex.slice(0, 20).map(execExceptionCard).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center gap-2">${svgIcon('check', 'w-6 h-6 text-emerald-400')}Nothing needs attention. Every workflow is on track.</div>`;
-      const feed = (d.events || []).length ? d.events.map(e => `
-        <button onclick="opsOpenEntity('${e.entity_type}','${e.entity_id}')" class="w-full text-left flex items-start gap-2.5 px-1 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition">
-          <span class="mt-0.5 text-slate-400">${svgIcon(ENTITY_ICON[e.entity_type] || 'dot', 'w-4 h-4')}</span>
-          <div class="min-w-0 flex-1"><div class="text-[13px] text-slate-700 dark:text-slate-200 truncate">${esc(e.summary || e.event_name)}</div><div class="text-[11px] text-slate-400">${esc(e.event_name)} · ${opsRelTime(e.created_at)}</div></div>
-        </button>`).join('') : `<div class="text-sm text-slate-400 py-6 text-center">No recent activity.</div>`;
-      body.innerHTML = `<div class="grid lg:grid-cols-2 gap-6">
-        <div class="space-y-2.5"><div class="flex items-center gap-2 text-sm font-black text-slate-800 dark:text-slate-200">${svgIcon('shield', 'w-4 h-4 text-amber-500')}Needs attention <span class="text-xs font-bold text-slate-400">${ex.length}</span></div>${exCards}</div>
-        <div class="space-y-1"><div class="flex items-center gap-2 text-sm font-black text-slate-800 dark:text-slate-200 mb-1.5">${svgIcon('bolt', 'w-4 h-4 text-indigo-500')}Live activity</div><div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 max-h-[70vh] overflow-y-auto">${feed}</div></div>
-      </div>`;
-    },
-    insights(body) {
-      body.innerHTML = engCard('Executive insights', `
-        <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Cross-department performance lives in Reports and the sales dashboard.</p>
-        <div class="flex flex-wrap gap-2">
-          <button onclick="switchPage('reports')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Open Reports →</button>
-          <button onclick="switchPage('insights')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Sales Dashboard →</button>
-        </div>`);
-    },
-    automation(body) {
-      body.innerHTML = engCard('Automation', `<p class="text-[13px] text-slate-600 dark:text-slate-300">The workflow engine watches every department and raises the exceptions on the Needs Attention tab automatically. Configure cadences and follow-up rules in <button onclick="switchPage('automation')" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Automation</button>, or see the full stream in <button onclick="switchPage('operations')" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Operations</button>.</p>`);
-    },
-    settings(body) {
-      body.innerHTML = engCard('Settings', `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Company-wide defaults and access live in Configuration and Administration.</p>
-        <div class="flex flex-wrap gap-2">
-          <button onclick="switchPage('config')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Configuration →</button>
-          <button onclick="switchPage('owner-users')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">All Users & Accounts →</button>
-        </div>`);
-    },
-  },
-};
-function loadCommandCenter() { renderEngine('command'); }
+        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${esc(x.description || '')}</div>
+      </div>
+      <button onclick="event.stopPropagation(); cmdResolveException('${x.id}')" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 px-2 py-1 flex-shrink-0">Resolve</button>
+    </div>`;
+  }).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center gap-2">${svgIcon('check', 'w-6 h-6 text-emerald-400')}Nothing needs attention. Every workflow is on track.</div>`;
+
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  root.innerHTML = `
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-white">${greet}</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Today's operations across every department — problems first.</p>
+      </div>
+      <button onclick="loadCommandCenter()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1">${svgIcon('refresh','w-4 h-4')}Refresh</button>
+    </div>
+    <div>
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's Operations</div>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        ${tile('Leads waiting', t.leads_waiting ?? 0, 'leads', true)}
+        ${tile('Deals in progress', t.deals_in_progress ?? 0, 'desk', false)}
+        ${tile('Deliveries today', t.deliveries_today ?? 0, 'fni', false)}
+        ${tile('Recon delays', t.recon_delays ?? 0, 'recon', true)}
+        ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-ros', true)}
+      </div>
+    </div>
+    <div>
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Exceptions ${exceptions.length ? `· ${exceptions.length}` : ''}</div>
+      <div class="space-y-2">${exCards}</div>
+    </div>
+    <div>
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">AI Insights</div>
+      <div class="p-4 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-900 bg-indigo-50/40 dark:bg-indigo-950/20 text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
+        ${svgIcon('sparkles','w-5 h-5 text-indigo-400')} Inventory-aging, F&I-penetration, and pace insights arrive here with the AI Employee layer.
+      </div>
+    </div>`;
+}
 async function cmdResolveException(id) {
-  try { await apiSendJson(`/exceptions/${id}/resolve`, 'POST'); showToast('Resolved ✓', 'success'); renderEngine('command'); }
+  try { await apiSendJson(`/exceptions/${id}/resolve`, 'POST'); showToast('Resolved ✓', 'success'); loadCommandCenter(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 Object.assign(window, { loadCommandCenter, cmdResolveException });
@@ -12883,139 +9613,88 @@ const ownerTrialTxt = (t) => {
   return `<span class="text-[11px] ${days < 0 ? 'text-rose-500 font-bold' : 'text-slate-400'}">trial ${days < 0 ? 'expired' : 'ends'} ${d.toLocaleDateString()}${days >= 0 ? ` (${days}d)` : ''}</span>`;
 };
 
-// One account card (billing + product/engine toggles + users).
-function ownerAccountCard(a) {
-  const engines = __ownerFlags.map(f => {
-    const on = !!a.engines[f.key];
-    return `<button onclick="ownerToggleEngine('${a.id}','${f.key}',${!on})" class="text-[11px] font-bold px-2.5 py-1 rounded-full transition ${on ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}">${on ? '● ' : '○ '}${esc(f.label)}</button>`;
-  }).join('');
-  const prod = a.products || {};
-  const products = Object.keys(__ownerProductLabels).map(k => {
-    const on = !!prod[k];
-    return `<button onclick="ownerToggleProduct('${a.id}','${k}',${!on})" class="text-[11px] font-bold px-2.5 py-1 rounded-full transition ${on ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}">${on ? '● ' : '○ '}${esc(__ownerProductLabels[k])}</button>`;
-  }).join('');
-  const oneUser = a.is_personal && a.users?.length === 1 ? a.users[0] : null;
-  const billTarget = oneUser ? `ownerBill('user','${oneUser.id}'` : `ownerBill('dealer','${a.id}'`;
-  const effStatus = oneUser ? oneUser.billing_status : a.billing_status;
-  const effTrial = oneUser ? oneUser.trial_ends_at : a.trial_ends_at;
-  const users = (a.users || []).map(u => `
-    <div class="flex flex-wrap items-center gap-2 text-[13px] py-1 border-t border-slate-100 dark:border-slate-800/60">
-      <span class="font-semibold text-slate-700 dark:text-slate-200">${esc(u.name)}</span>
-      <span class="text-[11px] text-slate-400">${esc(u.role || '')}</span>
-      ${ownerBillChip(u.billing_status)}${ownerTrialTxt(u.trial_ends_at)}
-      <span class="ml-auto flex gap-1">
-        <button onclick="ownerBill('user','${u.id}','comp')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100">Comp</button>
-        <button onclick="ownerBill('user','${u.id}','trial30')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200">+30d</button>
-        <button onclick="ownerBill('user','${u.id}','block')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100">Block</button>
-      </span>
-    </div>`).join('') || '<div class="text-[12px] text-slate-400 py-1">No users.</div>';
-  return `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="font-black text-slate-800 dark:text-slate-100">${esc(a.name || 'Account')}</span>
-        ${a.is_personal ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">PERSONAL</span>' : ''}
-        ${a.plan ? `<span class="text-[11px] text-slate-400">${esc(a.plan)}</span>` : ''}
-        ${ownerBillChip(effStatus)}${ownerTrialTxt(effTrial)}
-        <span class="ml-auto text-[11px] text-slate-400">${a.users?.length || 0} user(s)</span>
-      </div>
-      <div class="flex flex-wrap gap-1.5">
-        <button onclick="${billTarget},'comp')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500">Comp (indefinite)</button>
-        <button onclick="${billTarget},'trial30')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-500">+30d trial</button>
-        <button onclick="${billTarget},'trial7')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300">+7d trial</button>
-        <button onclick="${billTarget},'block')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-rose-600 text-white hover:bg-rose-500">Block</button>
-      </div>
-      <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Product (front door)</div><div class="flex flex-wrap gap-1.5">${products}</div></div>
-      <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Engines</div><div class="flex flex-wrap gap-1.5">${engines}</div></div>
-      <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-0.5">Users</div>${users}</div>
-    </div>`;
-}
-function ownerFilteredAccounts() {
-  const q = __ownerSearch;
-  return __ownerAccounts.filter(a => !q || (a.name || '').toLowerCase().includes(q) || (a.users || []).some(u => (u.name || '').toLowerCase().includes(q)));
-}
-// Re-render just the account cards into the Work tab (used by toggles + search).
-function ownerRenderCards() {
-  const host = document.getElementById('owner-work-cards');
-  if (!host) return;
-  const cards = ownerFilteredAccounts().map(ownerAccountCard).join('') || '<div class="text-slate-400 text-sm p-6">No accounts match.</div>';
-  host.innerHTML = cards;
-}
-function ownerSearch(v) { __ownerSearch = (v || '').toLowerCase(); ownerRenderCards(); }
-
-ENGINES['owner-users'] = {
-  rootId: 'owner-users-root', title: 'All Users & Accounts', subtitle: 'Every account — provision products, engines, and billing',
-  icon: 'user', accent: 'violet', tabLabels: { work: 'Accounts' },
-  fetch: async () => {
+async function loadOwnerUsersPage() {
+  const root = document.getElementById('owner-users-root');
+  if (!root) return;
+  root.innerHTML = '<div class="text-slate-400 text-sm p-6">Loading accounts…</div>';
+  try {
     const d = await apiGetJson('/owner/accounts');
     __ownerAccounts = d.accounts || [];
     __ownerFlags = d.engine_flags || [];
     if (d.product_labels) __ownerProductLabels = d.product_labels;
-    return d;
-  },
-  quickActions: [
-    { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
-    { label: 'Customer Pipeline', icon: 'chart', onclick: "switchPage('saas-customers')" },
-  ],
-  tabs: {
-    overview(body) {
-      const accts = __ownerAccounts;
-      const totalUsers = accts.reduce((s, a) => s + (a.users?.length || 0), 0);
-      const S = (a) => { const u = a.is_personal && a.users?.length === 1 ? a.users[0] : null; return String((u ? u.billing_status : a.billing_status) || '').toUpperCase(); };
-      let active = 0, trial = 0, pastdue = 0, personal = 0;
-      for (const a of accts) { const s = S(a); if (s === 'ACTIVE') active++; else if (s === 'TRIALING') trial++; else if (s === 'PAST_DUE' || s === 'INACTIVE') pastdue++; if (a.is_personal) personal++; }
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          ${engKpi('Accounts', accts.length.toLocaleString())}
-          ${engKpi('Users', totalUsers.toLocaleString())}
-          ${engKpi('Active', active.toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Trialing', trial.toLocaleString(), 'text-blue-600 dark:text-blue-400')}
-          ${engKpi('Past due', pastdue.toLocaleString(), pastdue ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('Personal', personal.toLocaleString())}
+    renderOwnerUsers();
+  } catch (e) { root.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message)}</div>`; }
+}
+function ownerSearch(v) { __ownerSearch = (v || '').toLowerCase(); renderOwnerUsers(); }
+function renderOwnerUsers() {
+  const root = document.getElementById('owner-users-root');
+  if (!root) return;
+  const q = __ownerSearch;
+  const list = __ownerAccounts.filter(a => !q || (a.name || '').toLowerCase().includes(q) || (a.users || []).some(u => (u.name || '').toLowerCase().includes(q)));
+  const totalUsers = __ownerAccounts.reduce((s, a) => s + (a.users?.length || 0), 0);
+  const cards = list.map(a => {
+    const engines = __ownerFlags.map(f => {
+      const on = !!a.engines[f.key];
+      return `<button onclick="ownerToggleEngine('${a.id}','${f.key}',${!on})" class="text-[11px] font-bold px-2.5 py-1 rounded-full transition ${on ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}">${on ? '● ' : '○ '}${esc(f.label)}</button>`;
+    }).join('');
+    const prod = a.products || {};
+    const products = Object.keys(__ownerProductLabels).map(k => {
+      const on = !!prod[k];
+      return `<button onclick="ownerToggleProduct('${a.id}','${k}',${!on})" class="text-[11px] font-bold px-2.5 py-1 rounded-full transition ${on ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}">${on ? '● ' : '○ '}${esc(__ownerProductLabels[k])}</button>`;
+    }).join('');
+    // Personal workspaces bill on the profile; normal accounts on the dealership.
+    const oneUser = a.is_personal && a.users?.length === 1 ? a.users[0] : null;
+    const billTarget = oneUser ? `ownerBill('user','${oneUser.id}'` : `ownerBill('dealer','${a.id}'`;
+    const effStatus = oneUser ? oneUser.billing_status : a.billing_status;
+    const effTrial = oneUser ? oneUser.trial_ends_at : a.trial_ends_at;
+    const users = (a.users || []).map(u => `
+      <div class="flex flex-wrap items-center gap-2 text-[13px] py-1 border-t border-slate-100 dark:border-slate-800/60">
+        <span class="font-semibold text-slate-700 dark:text-slate-200">${esc(u.name)}</span>
+        <span class="text-[11px] text-slate-400">${esc(u.role || '')}</span>
+        ${ownerBillChip(u.billing_status)}${ownerTrialTxt(u.trial_ends_at)}
+        <span class="ml-auto flex gap-1">
+          <button onclick="ownerBill('user','${u.id}','comp')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100">Comp</button>
+          <button onclick="ownerBill('user','${u.id}','trial30')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200">+30d</button>
+          <button onclick="ownerBill('user','${u.id}','block')" class="text-[11px] font-bold px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100">Block</button>
+        </span>
+      </div>`).join('') || '<div class="text-[12px] text-slate-400 py-1">No users.</div>';
+    return `
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="font-black text-slate-800 dark:text-slate-100">${esc(a.name || 'Account')}</span>
+          ${a.is_personal ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300">PERSONAL</span>' : ''}
+          ${a.plan ? `<span class="text-[11px] text-slate-400">${esc(a.plan)}</span>` : ''}
+          ${ownerBillChip(effStatus)}${ownerTrialTxt(effTrial)}
+          <span class="ml-auto text-[11px] text-slate-400">${a.users?.length || 0} user(s)</span>
         </div>
-        ${engCard('Billing status', engBar([
-          { pct: accts.length ? Math.round(active / accts.length * 100) : 0, cls: 'bg-emerald-500', label: `Active (${active})` },
-          { pct: accts.length ? Math.round(trial / accts.length * 100) : 0, cls: 'bg-blue-500', label: `Trialing (${trial})` },
-          { pct: accts.length ? Math.round(pastdue / accts.length * 100) : 0, cls: 'bg-rose-500', label: `Past due / blocked (${pastdue})` },
-        ]))}`;
-    },
-    work(body) {
-      body.innerHTML = `
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="text-sm text-slate-500">${__ownerAccounts.length} accounts · ${__ownerAccounts.reduce((s, a) => s + (a.users?.length || 0), 0)} users</div>
-          <input oninput="ownerSearch(this.value)" value="${esc(__ownerSearch)}" placeholder="Search account or user…" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
+        <div class="flex flex-wrap gap-1.5">
+          <button onclick="${billTarget},'comp')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500">Comp (indefinite)</button>
+          <button onclick="${billTarget},'trial30')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-500">+30d trial</button>
+          <button onclick="${billTarget},'trial7')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300">+7d trial</button>
+          <button onclick="${billTarget},'block')" class="text-[11px] font-bold px-3 py-1 rounded-lg bg-rose-600 text-white hover:bg-rose-500">Block</button>
         </div>
-        <div id="owner-work-cards" class="grid grid-cols-1 lg:grid-cols-2 gap-3"></div>`;
-      ownerRenderCards();
-    },
-    insights(body) {
-      const accts = __ownerAccounts;
-      const prodCounts = {};
-      for (const k of Object.keys(__ownerProductLabels)) prodCounts[k] = accts.filter(a => a.products && a.products[k]).length;
-      const engCounts = {};
-      for (const f of __ownerFlags) engCounts[f.key] = accts.filter(a => a.engines && a.engines[f.key]).length;
-      const barRow = (label, n) => `<div class="flex items-center gap-2 text-[13px] py-1">
-        <span class="w-40 flex-shrink-0 text-slate-600 dark:text-slate-300 font-semibold truncate">${esc(label)}</span>
-        <span class="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span class="block h-full bg-indigo-500" style="width:${accts.length ? Math.round(n / accts.length * 100) : 0}%"></span></span>
-        <span class="w-8 text-right font-bold text-slate-700 dark:text-slate-200">${n}</span></div>`;
-      body.innerHTML = `
-        ${engCard('Product adoption', Object.keys(__ownerProductLabels).map(k => barRow(__ownerProductLabels[k], prodCounts[k])).join(''))}
-        ${engCard('Engine adoption', __ownerFlags.map(f => barRow(f.label, engCounts[f.key])).join(''))}`;
-    },
-    automation(body) {
-      body.innerHTML = engCard('Provisioning', `<p class="text-[13px] text-slate-600 dark:text-slate-300">Paid subscriptions provision products and engines automatically via Stripe webhooks. The toggles on the Accounts tab are manual overrides — use them to comp an account, extend a trial, or grant an engine outside of billing.</p>`);
-    },
-    settings(body) {
-      body.innerHTML = engCard('Engine flags', `<div class="text-[13px] text-slate-600 dark:text-slate-300"><p class="mb-2">These entitlements can be toggled per account on the Accounts tab:</p><div class="flex flex-wrap gap-1.5">${__ownerFlags.map(f => `<span class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${esc(f.label)}</span>`).join('')}</div><p class="text-[12px] text-slate-400 mt-3">Stripe price IDs and plan limits are configured via environment variables on the server.</p></div>`);
-    },
-  },
-};
-function loadOwnerUsersPage() { renderEngine('owner-users'); }
+        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Product (front door)</div><div class="flex flex-wrap gap-1.5">${products}</div></div>
+        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1">Engines</div><div class="flex flex-wrap gap-1.5">${engines}</div></div>
+        <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-0.5">Users</div>${users}</div>
+      </div>`;
+  }).join('') || '<div class="text-slate-400 text-sm p-6">No accounts match.</div>';
+  root.innerHTML = `
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div><h1 class="text-xl font-black text-slate-800 dark:text-slate-100">All Users &amp; Accounts</h1>
+        <div class="text-sm text-slate-500">${__ownerAccounts.length} accounts · ${totalUsers} users</div></div>
+      <div class="flex gap-2">
+        <input oninput="ownerSearch(this.value)" value="${esc(__ownerSearch)}" placeholder="Search account or user…" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
+        <button onclick="loadOwnerUsersPage()" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200">Refresh</button>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${cards}</div>`;
+}
 async function ownerToggleEngine(dealerId, key, active) {
   try {
     await apiSendJson(`/owner/dealership/${dealerId}/engines`, 'POST', { key, active });
     const acc = __ownerAccounts.find(a => a.id === dealerId);
     if (acc) acc.engines[key] = active;
-    ownerRenderCards();
+    renderOwnerUsers();
   } catch (e) { showToast(e.message, 'error'); }
 }
 async function ownerToggleProduct(dealerId, key, active) {
@@ -13023,7 +9702,7 @@ async function ownerToggleProduct(dealerId, key, active) {
     const r = await apiSendJson(`/owner/dealership/${dealerId}/products`, 'POST', { key, active });
     const acc = __ownerAccounts.find(a => a.id === dealerId);
     if (acc) acc.products = r.products || acc.products;
-    ownerRenderCards();
+    renderOwnerUsers();
   } catch (e) { showToast(e.message, 'error'); }
 }
 async function ownerBill(kind, id, action) {
@@ -13039,77 +9718,6 @@ async function ownerBill(kind, id, action) {
   } catch (e) { showToast(e.message, 'error'); }
 }
 Object.assign(window, { loadOwnerUsersPage, ownerSearch, ownerToggleEngine, ownerToggleProduct, ownerBill });
-
-// ══ Affiliates — referral partners, rates, and payouts (owner) ════════════════
-const affBadge = (s) => `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${s === 'active' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'bg-rose-100 dark:bg-rose-950/40 text-rose-600'}">${esc(s)}</span>`;
-function affRow(a) {
-  return `<tr class="border-b border-slate-100 dark:border-slate-800/60">
-    <td class="px-3 py-2"><div class="font-semibold">${esc(a.name || a.email)}</div><div class="text-[11px] text-slate-400">${esc(a.email)} · <span class="font-mono">${esc(a.code)}</span></div></td>
-    <td class="px-3 py-2 text-center">${a.referrals} <span class="text-slate-400">/ ${a.active} paying</span></td>
-    <td class="px-3 py-2 text-center">${a.rate_pct}% · ${Number(a.rate_months) > 0 ? a.rate_months + 'mo' : 'life'}</td>
-    <td class="px-3 py-2 text-right text-amber-600 dark:text-amber-400">${commMoney(a.pending)}</td>
-    <td class="px-3 py-2 text-right text-emerald-600 dark:text-emerald-400">${commMoney(a.paid)}</td>
-    <td class="px-3 py-2 text-center">${affBadge(a.status)}</td>
-    <td class="px-3 py-2 text-right whitespace-nowrap">
-      <button onclick='affAdminEdit(${JSON.stringify(a)})' class="text-xs font-bold text-indigo-600 hover:text-indigo-500">Edit</button>
-      ${a.pending > 0 ? `<button onclick="affAdminPay('${a.id}', ${a.pending})" class="text-xs font-bold text-emerald-600 hover:text-emerald-500 ml-2">Pay out</button>` : ''}
-    </td></tr>`;
-}
-ENGINES['affiliates-admin'] = {
-  rootId: 'affadmin-root', title: 'Affiliates', subtitle: 'Referral partners, their rates, and payouts',
-  icon: 'trophy', accent: 'amber',
-  fetch: () => apiGetJson('/affiliate/admin/list'),
-  quickActions: [
-    { label: 'Program page', icon: 'globe', onclick: "window.open('affiliates.html','_blank')" },
-    { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
-  ],
-  nextActions: (d) => {
-    const owed = (d?.affiliates || []).filter(a => a.pending > 0).length;
-    return owed ? [{ label: `${owed} affiliate${owed === 1 ? '' : 's'} owed a payout`, icon: 'currency', tone: 'text-amber-500', onclick: "engineTab('affiliates-admin','work')" }] : [];
-  },
-  tabs: {
-    overview(body, d) {
-      const t = d.totals || {};
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-          ${engKpi('Affiliates', (t.affiliates || 0).toLocaleString())}
-          ${engKpi('Referrals', (t.referrals || 0).toLocaleString())}
-          ${engKpi('Paying', (t.active || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Owed', commMoney(t.pending), 'text-amber-600 dark:text-amber-400')}
-          ${engKpi('Paid out', commMoney(t.paid))}
-        </div>
-        <p class="text-[13px] text-slate-500 dark:text-slate-400">Affiliates sign up at <a href="affiliates.html" target="_blank" class="text-indigo-600 dark:text-indigo-400 hover:underline">marketsync.link/affiliates</a>.</p>`;
-    },
-    work(body, d) {
-      const rows = (d.affiliates || []).map(affRow).join('');
-      body.innerHTML = `<div class="overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
-        <table class="w-full text-sm min-w-[760px]"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">
-          <th class="px-3 py-2">Affiliate</th><th class="px-3 py-2 text-center">Referrals</th><th class="px-3 py-2 text-center">Rate</th><th class="px-3 py-2 text-right">Pending</th><th class="px-3 py-2 text-right">Paid</th><th class="px-3 py-2 text-center">Status</th><th class="px-3 py-2"></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-400">No affiliates yet. Share the program page to get your first partners.</td></tr>'}</tbody></table></div>`;
-    },
-    insights(body, d) {
-      const affs = (d.affiliates || []).slice().sort((a, b) => (b.paid + b.pending) - (a.paid + a.pending));
-      const totalRef = affs.reduce((s, a) => s + (a.referrals || 0), 0);
-      const totalPaying = affs.reduce((s, a) => s + (a.active || 0), 0);
-      const conv = totalRef ? Math.round(totalPaying / totalRef * 100) : 0;
-      const top = affs.slice(0, 8).map(a => `<div class="flex items-center justify-between text-[13px] py-1 border-t border-slate-100 dark:border-slate-800/60 first:border-0"><span class="font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(a.name || a.email)}</span><span class="font-bold text-slate-800 dark:text-slate-100">${commMoney((a.paid || 0) + (a.pending || 0))}</span></div>`).join('') || engEmpty('No affiliates yet.');
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          ${engKpi('Referrals → paying', conv + '%', 'text-amber-600 dark:text-amber-400')}
-          ${engKpi('Total referrals', totalRef.toLocaleString())}
-          ${engKpi('Paying customers', totalPaying.toLocaleString(), 'text-emerald-600 dark:text-emerald-400')}
-        </div>
-        ${engCard('Top affiliates by earnings', top)}`;
-    },
-    automation(body) {
-      body.innerHTML = engCard('Commission automation', `<p class="text-[13px] text-slate-600 dark:text-slate-300">Commissions accrue automatically when a referred account pays, using each affiliate's rate and duration. Paying out posts the amount as a MarketSync expense in Accounting.</p>`);
-    },
-    settings(body) {
-      body.innerHTML = engCard('Program settings', `<div class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2"><p>Each affiliate's commission % and duration (months, or lifetime) are set per partner — edit them on the Affiliates tab.</p><p class="text-[12px] text-slate-400">The public sign-up page is <a href="affiliates.html" target="_blank" class="text-indigo-600 dark:text-indigo-400 hover:underline">affiliates.html</a>.</p></div>`);
-    },
-  },
-};
-window.loadAffiliatesAdmin = loadAffiliatesAdmin;
 
 // ══ AI Chat inbox — live AI conversations + the embeddable widget snippet ═════
 const AI_SCORE_TONE = (s) => s >= 80 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' : s >= 50 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
@@ -13157,138 +9765,33 @@ function aiCopyEmbed() {
   const el = document.getElementById('ai-embed-code'); if (!el) return;
   navigator.clipboard?.writeText(el.textContent).then(() => showToast('Snippet copied ✓', 'success')).catch(() => showToast('Copy failed', 'error'));
 }
-// Mirrors the backend scoreConversation() so we can explain how a lead score was
-// reached. Keep in sync with routes/ai-runtime.js:scoreConversation.
-function aiScoreFactors(messages, captured, memory) {
-  const text = (messages || []).filter(m => m.role === 'user').map(m => m.message).join(' ').toLowerCase();
-  const eng = Math.min(20, (messages || []).length * 2);
-  return [
-    { label: 'Engagement (message count)', pts: eng, on: eng > 0 },
-    { label: 'Shared contact info', pts: 25, on: !!captured },
-    { label: 'Mentioned a trade-in', pts: 12, on: /trade|trade-in|my car/.test(text) },
-    { label: 'Asked about financing / payments', pts: 15, on: /financ|payment|apr|monthly|approv|credit/.test(text) },
-    { label: 'Wants a test drive / to visit', pts: 15, on: /test drive|appointment|come in|visit|see it/.test(text) },
-    { label: 'Buying-intent language', pts: 8, on: /buy|purchase|deal|price|available|in stock/.test(text) },
-    { label: 'Named a vehicle of interest', pts: 5, on: (memory || []).some(m => m.memory_type === 'vehicle_interest') },
-  ];
-}
-let __aiConvo = null;   // last opened conversation cache (for print / share)
 async function aiOpenConversation(id) {
   const overlay = crmOverlay(`<div class="p-5"><div class="text-sm text-slate-400 py-16 text-center">Loading…</div></div>`, 'max-w-2xl');
   const panel = overlay.firstElementChild;
   let convo = null, messages = [], memory = [];
   try { const d = await apiGetJson(`/ai/conversations/${id}`); convo = d.conversation; messages = d.messages || []; memory = d.memory || []; } catch { if (panel) panel.innerHTML = '<div class="p-6 text-rose-500 text-sm">Could not load.</div>'; return; }
   if (!panel || !overlay.isConnected) return;
-  // Persona name for the "Reply as" toggle (cached).
-  if (window.__aiAssistantName === undefined) { try { const pr = await apiGetJson('/ai/personality'); window.__aiAssistantName = pr.personality?.name || ''; } catch { window.__aiAssistantName = ''; } }
-  convo.assistant_name = window.__aiAssistantName || 'AI assistant';
-  __aiConvo = { id, convo, messages, memory };
-  const bubbles = messages.map(m => {
-    const isUser = m.role === 'user';
-    const isHuman = !isUser && m.sender_type === 'human';   // a rep's reply, not the AI
-    const label = isUser ? '' : (isHuman ? 'You' : 'AI');
-    const tone = isUser ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
-      : isHuman ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white';
-    return `<div class="flex flex-col ${isUser ? 'items-start' : 'items-end'}">
-      ${label ? `<span class="text-[10px] font-bold mb-0.5 px-1 ${isHuman ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-500 dark:text-indigo-400'}">${label}</span>` : ''}
-      <div class="max-w-[80%] px-3 py-2 rounded-2xl text-[13px] whitespace-pre-wrap ${tone}">${esc(m.message)}</div></div>`;
-  }).join('');
+  const bubbles = messages.map(m => `<div class="flex ${m.role === 'user' ? 'justify-start' : 'justify-end'}">
+    <div class="max-w-[80%] px-3 py-2 rounded-2xl text-[13px] ${m.role === 'user' ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200' : 'bg-indigo-600 text-white'}">${esc(m.message)}</div></div>`).join('');
   const memHtml = memory.length ? `<div class="flex flex-wrap gap-1.5 mb-3">${memory.map(m => `<span class="text-[11px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(m.memory_type)}: ${esc(m.value)}</span>`).join('')}</div>` : '';
-  const score = convo.lead_score || 0;
-  const factors = aiScoreFactors(messages, !!convo.contact_id, memory);
-  const factorRows = factors.map(f => `<div class="flex items-center justify-between text-[12px] py-0.5">
-    <span class="flex items-center gap-1.5 ${f.on ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 line-through'}">${f.on ? svgIcon('dot', 'w-3 h-3 text-emerald-500') : ''}${esc(f.label)}</span>
-    <span class="font-bold ${f.on ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}">+${f.pts}</span></div>`).join('');
-  const handoff = convo.status === 'handoff';
   panel.innerHTML = `<div class="p-5 space-y-3">
     <div class="flex items-center justify-between">
-      <div class="min-w-0">
-        <div class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2 truncate">${convo.contact_name ? esc(convo.contact_name) : 'AI Conversation'}
-          <button onclick="document.getElementById('ai-score-explain').classList.toggle('hidden')" title="How is this scored?" class="text-[11px] font-bold px-2 py-0.5 rounded-lg flex-shrink-0 ${AI_SCORE_TONE(score)}">score ${score} ⓘ</button>
-        </div>
-        ${(convo.contact_phone || convo.contact_email) ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(convo.contact_phone || '')}${convo.contact_phone && convo.contact_email ? ' · ' : ''}${esc(convo.contact_email || '')}</div>` : ''}
-      </div>
+      <div class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">AI Conversation <span class="text-[11px] font-bold px-2 py-0.5 rounded-lg ${AI_SCORE_TONE(convo.lead_score||0)}">score ${convo.lead_score||0}</span></div>
       <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
-    <div id="ai-score-explain" class="hidden bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1.5">Lead score — how it's calculated (0–100)</div>
-      ${factorRows}
-      <div class="text-[11px] text-slate-400 mt-2">Higher = hotter. 80+ triggers a hot-lead alert to the team.</div>
-    </div>
-    ${convo.summary ? `<div class="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2"><div class="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-1">AI summary</div><div class="text-[12px] text-slate-600 dark:text-slate-300 whitespace-pre-wrap">${esc(convo.summary)}</div></div>` : ''}
+    ${convo.summary ? `<div class="text-[12px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2 whitespace-pre-wrap">${esc(convo.summary)}</div>` : ''}
     ${memHtml}
-    <div id="ai-convo-log" class="space-y-2 max-h-72 overflow-y-auto p-1">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
-    <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-2 space-y-2">
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="text-[11px] font-bold text-slate-500">Reply as:</span>
-        <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-[11px] font-bold">
-          <button type="button" id="ai-as-rep" onclick="aiSetReplyAs('rep')" class="px-2.5 py-1 rounded transition">👤 You (rep)</button>
-          <button type="button" id="ai-as-ai" onclick="aiSetReplyAs('ai')" class="px-2.5 py-1 rounded transition">🤖 ${esc(convo.assistant_name || 'AI assistant')}</button>
-        </div>
-      </div>
-      <textarea id="ai-reply-box" rows="2" placeholder="Type your reply to the customer…" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></textarea>
-      <div class="flex items-center gap-2">
-        <button onclick="aiSendReply('${id}',null,this)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Send</button>
-        <button onclick="aiDraftReply('${id}',this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg" title="Draft a reply with AI into the box — edit it, then Send">✨ Draft with AI</button>
-        ${handoff ? `<button onclick="aiSetConvStatus('${id}','active',this)" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">Hand back to AI</button>` : ''}
-        <div class="flex-1"></div>
-        <button onclick="aiRefreshConvo('${id}')" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2" title="Refresh">↻</button>
-      </div>
-      <p class="text-[11px] text-slate-400">Sending as <b>You</b> takes over the chat from the AI. Sending as the assistant keeps the AI persona.</p>
-    </div>
-    <div class="flex items-center gap-1 pt-1 border-t border-slate-100 dark:border-slate-800 flex-wrap">
-      <button onclick="aiPrintConversation()" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">🖨 Save / Print PDF</button>
-      <div class="relative">
-        <button onclick="document.getElementById('ai-share-menu').classList.toggle('hidden')" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">↗ Share</button>
-        <div id="ai-share-menu" class="hidden absolute bottom-full left-0 mb-1 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg py-1 z-10">
-          <button onclick="aiShareConversation('email')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800">✉️ Email</button>
-          <button onclick="aiShareConversation('sms')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800">💬 Text</button>
-          <button onclick="aiShareConversation('copy')" class="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800">🔗 Copy link</button>
-        </div>
-      </div>
+    <div class="space-y-2 max-h-80 overflow-y-auto p-1">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
+    <div class="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+      ${convo.status !== 'handoff' ? `<button onclick="aiSetConvStatus('${id}','handoff',this)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg">Take over</button>` : `<button onclick="aiSetConvStatus('${id}','active',this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg">Return to AI</button>`}
+      <button onclick="aiSummarize('${id}',this)" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">Summarize</button>
       <div class="flex-1"></div>
       <button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-3 py-2">Close</button>
     </div></div>`;
-  aiSetReplyAs(__aiReplyAs);   // paint the "Reply as" toggle's active state
 }
-let __aiReplyAs = 'rep';   // who the typed reply is attributed to: 'rep' or 'ai'
-function aiSetReplyAs(who) {
-  __aiReplyAs = who === 'ai' ? 'ai' : 'rep';
-  const on = 'bg-indigo-600 text-white', off = 'text-slate-600 dark:text-slate-300';
-  const rep = document.getElementById('ai-as-rep'), ai = document.getElementById('ai-as-ai');
-  if (rep) rep.className = `px-2.5 py-1 rounded transition ${__aiReplyAs === 'rep' ? on : off}`;
-  if (ai) ai.className = `px-2.5 py-1 rounded transition ${__aiReplyAs === 'ai' ? on : off}`;
-}
-async function aiSendReply(id, mode, btn) {
-  // mode null → use the "Reply as" toggle (rep = human, ai = AI avatar).
-  const sendMode = mode || (__aiReplyAs === 'ai' ? 'ai' : 'human');
-  const box = document.getElementById('ai-reply-box');
-  const message = (box?.value || '').trim();
-  if (!message) { showToast('Type a reply first', 'error'); return; }
-  if (btn) btn.disabled = true;
-  try {
-    await apiSendJson(`/ai/conversations/${id}/reply`, 'POST', { mode: sendMode, message });
-    if (box) box.value = '';
-    showToast(sendMode === 'ai' ? 'Sent as the assistant ✓' : 'Sent as you ✓', 'success');
-    aiOpenConversation(id);   // refresh transcript
-  } catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) btn.disabled = false; }
-}
-// ✨ AI draft — generate a suggested reply and drop it in the box for the rep to
-// edit and send (it does NOT send on its own).
-async function aiDraftReply(id, btn) {
-  if (btn) { btn.disabled = true; btn.textContent = '✨ Drafting…'; }
-  try {
-    const d = await apiSendJson(`/ai/conversations/${id}/reply`, 'POST', { mode: 'draft' });
-    const box = document.getElementById('ai-reply-box');
-    if (box) { box.value = d.draft || ''; box.focus(); }
-    showToast('Draft ready — edit, then Send', 'success');
-  } catch (e) { showToast(e.message || 'Failed', 'error'); }
-  if (btn) { btn.disabled = false; btn.textContent = '✨ AI draft'; }
-}
-async function aiRefreshConvo(id) { aiOpenConversation(id); }
 async function aiSetConvStatus(id, status, btn) {
   if (btn) btn.disabled = true;
-  try { await apiSendJson(`/ai/conversations/${id}/status`, 'POST', { status }); showToast(status === 'handoff' ? 'You have taken over' : 'Returned to AI', 'success'); aiOpenConversation(id); }
+  try { await apiSendJson(`/ai/conversations/${id}/status`, 'POST', { status }); showToast(status === 'handoff' ? 'You have taken over' : 'Returned to AI', 'success'); document.querySelector('.fixed')?.remove(); loadAiInbox(); }
   catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) btn.disabled = false; }
 }
 async function aiSummarize(id, btn) {
@@ -13296,40 +9799,7 @@ async function aiSummarize(id, btn) {
   try { await apiSendJson(`/ai/conversations/${id}/summarize`, 'POST'); showToast('Summary saved ✓', 'success'); aiOpenConversation(id); }
   catch (e) { showToast(e.message || 'Failed', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Summarize'; } }
 }
-function aiConvoTranscriptText() {
-  if (!__aiConvo) return '';
-  return (__aiConvo.messages || []).map(m => `${m.role === 'user' ? 'Customer' : 'Dealership'}: ${m.message}`).join('\n\n');
-}
-function aiPrintConversation() {
-  if (!__aiConvo) return;
-  const c = __aiConvo.convo || {};
-  const rows = (__aiConvo.messages || []).map(m => `<div style="margin:8px 0"><div style="font-size:11px;color:#64748b;font-weight:700">${m.role === 'user' ? 'Customer' : 'Dealership'}</div><div style="background:${m.role === 'user' ? '#f1f5f9' : '#e0e7ff'};padding:8px 12px;border-radius:10px;display:inline-block;max-width:80%;white-space:pre-wrap">${esc(m.message)}</div></div>`).join('');
-  const w = window.open('', '_blank');
-  if (!w) { showToast('Allow pop-ups to print', 'error'); return; }
-  w.document.write(`<!doctype html><html><head><title>AI Conversation</title><meta charset="utf-8"><style>body{font-family:system-ui,sans-serif;max-width:720px;margin:24px auto;padding:0 16px;color:#0f172a}</style></head><body>
-    <h2>AI Conversation</h2>
-    <p style="color:#64748b;font-size:13px">Lead score: ${c.lead_score || 0} · ${c.department || 'general'} · ${c.lead_type || 'general'}${c.website ? ' · ' + esc(c.website) : ''}</p>
-    ${c.summary ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;white-space:pre-wrap;font-size:13px">${esc(c.summary)}</div>` : ''}
-    <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0">${rows}
-    <script>window.onload=function(){window.print()}<\/script></body></html>`);
-  w.document.close();
-}
-function aiShareConversation(how) {
-  document.getElementById('ai-share-menu')?.classList.add('hidden');
-  if (!__aiConvo) return;
-  const link = `${location.origin}${location.pathname}#ai-convo=${__aiConvo.id}`;
-  const body = aiConvoTranscriptText();
-  if (how === 'copy') { navigator.clipboard?.writeText(link).then(() => showToast('Link copied ✓', 'success')).catch(() => showToast('Copy failed', 'error')); return; }
-  if (how === 'email') { window.open(`mailto:?subject=${encodeURIComponent('AI Conversation')}&body=${encodeURIComponent(body + '\n\n' + link)}`); return; }
-  if (how === 'sms') { window.open(`sms:?&body=${encodeURIComponent('AI Conversation — ' + link)}`); return; }
-}
-// Deep link: open a conversation from a shared #ai-convo=<id> link.
-function aiCheckConvoHash() {
-  const m = (location.hash || '').match(/ai-convo=([\w-]+)/);
-  if (m && typeof aiOpenConversation === 'function') aiOpenConversation(m[1]);
-}
-window.addEventListener('hashchange', aiCheckConvoHash);
-Object.assign(window, { loadAiInbox, aiCopyEmbed, aiOpenConversation, aiSetConvStatus, aiSummarize, aiSendReply, aiSetReplyAs, aiDraftReply, aiRefreshConvo, aiPrintConversation, aiShareConversation });
+Object.assign(window, { loadAiInbox, aiCopyEmbed, aiOpenConversation, aiSetConvStatus, aiSummarize });
 
 // Budget — a monthly spending target per expense category, tracked against actual spend.
 async function acctLoadBudget() {
@@ -13620,217 +10090,16 @@ function loadCommissionsPage() {
     </div>
     <div class="flex flex-wrap gap-1.5">
       ${tab('mine', 'My commission')}
-      ${tab('statements', 'My statements')}
       ${commIsMgr() ? tab('team', 'Team') : ''}
-      ${commIsMgr() ? tab('periods', 'Pay periods') : ''}
-      ${commIsMgr() ? tab('exceptions', 'Exceptions') : ''}
     </div>
     <div id="comm-body" class="pt-1"><div class="text-sm text-slate-400">Loading…</div></div>`;
   __commPlansTarget = 'comm-body';
   if (__commState.tab === 'mine') commLoadMine();
-  else if (__commState.tab === 'statements') commLoadStatements();
-  else if (__commState.tab === 'periods') commLoadPeriods();
-  else if (__commState.tab === 'exceptions') commLoadExceptions();
   else commLoadTeam();
 }
 function commSetTab(t) { __commState.tab = t; loadCommissionsPage(); }
 function commSetMonth(m) { __commState.month = m; loadCommissionsPage(); }
 window.loadCommissionsPage = loadCommissionsPage; window.commSetTab = commSetTab; window.commSetMonth = commSetMonth;
-
-// ── Group 7: Pay periods · Statements · Exceptions ───────────────────────────
-const commMoney2 = (v) => '$' + (Number(v) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-function commPeriodBadge(s) {
-  const m = { open: ['bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300', 'Open'],
-    locked: ['bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300', 'Locked'],
-    paid: ['bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300', 'Paid'] };
-  const [c, l] = m[s] || ['bg-slate-100 dark:bg-slate-800 text-slate-600', s];
-  return `<span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${c}">${l}</span>`;
-}
-const commBtn = (label, onclick, kind) => {
-  const styles = { primary: 'bg-indigo-600 text-white hover:bg-indigo-500', ghost: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700', danger: 'bg-rose-600 text-white hover:bg-rose-500', ok: 'bg-emerald-600 text-white hover:bg-emerald-500' };
-  return `<button onclick="${onclick}" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${styles[kind] || styles.ghost}">${label}</button>`;
-};
-
-// Authenticated CSV download (a plain <a> can't send the Bearer token → 401).
-async function commDownloadCsv(path, filename) {
-  try {
-    const r = await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
-    if (!r.ok) throw new Error('Export failed');
-    const blob = await r.blob(); const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = filename || 'export.csv';
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  } catch (e) { showToast(e.message || 'Export failed', 'error'); }
-}
-window.commDownloadCsv = commDownloadCsv;
-
-// ── Pay periods (managers) ──
-async function commLoadPeriods() {
-  const body = document.getElementById('comm-body'); if (!body) return;
-  body.innerHTML = '<div class="text-sm text-slate-400">Loading pay periods…</div>';
-  let data; try { data = await apiGetJson('/commissions/pay-periods'); } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; return; }
-  const periods = data.periods || [];
-  const types = data.period_types || ['weekly', 'biweekly', 'semi_monthly', 'monthly', 'custom'];
-  const typeOpts = types.map(t => `<option value="${t}">${t.replace('_', '-')}</option>`).join('');
-  const cards = periods.length ? periods.map(p => {
-    const acts = [];
-    if (p.status === 'open') { acts.push(commBtn('Assign earned', `commPeriodAssign('${p.id}')`, 'ghost')); acts.push(commBtn('Lock', `commPeriodStatus('${p.id}','locked')`, 'primary')); }
-    if (p.status === 'locked' && !p.reviewed_at) acts.push(commBtn('Review', `commPeriodReview('${p.id}')`, 'primary'));
-    if (p.status === 'locked' && p.reviewed_at && !p.approved_at) acts.push(commBtn('Approve', `commPeriodApprove('${p.id}')`, 'primary'));
-    if (p.status === 'locked' && p.approved_at) acts.push(commBtn('Mark paid', `commPeriodStatus('${p.id}','paid')`, 'ok'));
-    if (p.status === 'locked') acts.push(commBtn('Unlock', `commPeriodStatus('${p.id}','open')`, 'ghost'));
-    acts.push(commBtn('Payroll CSV', `commDownloadCsv('/commissions/pay-periods/${p.id}/export.csv','payroll-${esc(p.name)}.csv')`, 'ghost'));
-    const gate = `${p.reviewed_at ? '✓ reviewed' : ''}${p.approved_at ? ' · ✓ approved' : ''}`;
-    return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3.5">
-      <div class="flex items-center justify-between gap-2 flex-wrap">
-        <div><span class="font-bold text-slate-900 dark:text-white">${esc(p.name)}</span> ${commPeriodBadge(p.status)}
-          <div class="text-xs text-slate-400">${p.start_date} → ${p.end_date} · ${p.lines || 0} lines · ${commMoney2(p.total)} ${gate ? '· ' + gate : ''}</div></div>
-        <div class="flex flex-wrap gap-1.5">${acts.join('')}</div>
-      </div></div>`;
-  }).join('') : '<div class="text-sm text-slate-400 py-6 text-center">No pay periods yet — create one to group and pay commissions.</div>';
-  body.innerHTML = `
-    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 mb-3 flex flex-wrap items-end gap-2">
-      <div><label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Type</label>
-        <select id="pp-type" onchange="document.getElementById('pp-custom').style.display=this.value==='custom'?'flex':'none'" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">${typeOpts}</select></div>
-      <div><label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Anchor date</label>
-        <input id="pp-anchor" type="date" value="${new Date().toISOString().slice(0,10)}" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></div>
-      <div id="pp-custom" style="display:none" class="gap-2 items-end">
-        <div><label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Start</label><input id="pp-start" type="date" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></div>
-        <div><label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">End</label><input id="pp-end" type="date" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></div>
-      </div>
-      ${commBtn('Create period', 'commCreatePeriod()', 'primary')}
-    </div>
-    <div class="space-y-2">${cards}</div>`;
-}
-async function commCreatePeriod() {
-  const type = document.getElementById('pp-type')?.value || 'monthly';
-  const b = { period_type: type };
-  if (type === 'custom') { b.start_date = document.getElementById('pp-start')?.value; b.end_date = document.getElementById('pp-end')?.value; }
-  else b.anchor_date = document.getElementById('pp-anchor')?.value;
-  try { await apiSendJson('/commissions/pay-periods', 'POST', b); showToast('Pay period created', 'success'); commLoadPeriods(); }
-  catch (e) { showToast(e.message || 'Could not create period', 'error'); }
-}
-async function commPeriodAssign(id) {
-  try { const r = await apiSendJson(`/commissions/pay-periods/${id}/assign`, 'POST', {}); showToast(`Assigned ${r.assigned} earned line(s)`, 'success'); commLoadPeriods(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-async function commPeriodStatus(id, status) {
-  if (status === 'paid' && !confirm('Mark this period paid? This books the pay run and locks the lines as paid.')) return;
-  try { await apiSendJson(`/commissions/pay-periods/${id}/status`, 'POST', { status }); showToast(`Period ${status}`, 'success'); commLoadPeriods(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-async function commPeriodReview(id) {
-  try { await apiSendJson(`/commissions/pay-periods/${id}/review`, 'POST', {}); showToast('Period reviewed', 'success'); commLoadPeriods(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-async function commPeriodApprove(id) {
-  try { await apiSendJson(`/commissions/pay-periods/${id}/approve`, 'POST', {}); showToast('Period approved', 'success'); commLoadPeriods(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-window.commLoadPeriods = commLoadPeriods; window.commCreatePeriod = commCreatePeriod; window.commPeriodAssign = commPeriodAssign;
-window.commPeriodStatus = commPeriodStatus; window.commPeriodReview = commPeriodReview; window.commPeriodApprove = commPeriodApprove;
-
-// ── Exceptions (managers) ──
-async function commLoadExceptions() {
-  const body = document.getElementById('comm-body'); if (!body) return;
-  body.innerHTML = '<div class="text-sm text-slate-400">Loading exceptions…</div>';
-  let data; try { data = await apiGetJson('/commissions/exceptions'); } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; return; }
-  const list = data.exceptions || [];
-  const rows = list.length ? list.map(x => {
-    const sev = x.severity === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400';
-    const acts = x.status === 'open'
-      ? commBtn('Acknowledge', `commExceptionStatus('${x.id}','acknowledged')`, 'ghost') + ' ' + commBtn('Resolve', `commExceptionStatus('${x.id}','resolved')`, 'ok')
-      : commBtn('Resolve', `commExceptionStatus('${x.id}','resolved')`, 'ok');
-    return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex items-center justify-between gap-2 flex-wrap">
-      <div><span class="font-bold ${sev}">${esc(x.type.replace(/_/g,' '))}</span> <span class="text-[10px] uppercase tracking-wider text-slate-400">${esc(x.status)}</span>
-        <div class="text-xs text-slate-500 dark:text-slate-400">${esc(x.detail || '')}</div></div>
-      <div class="flex gap-1.5">${acts}</div></div>`;
-  }).join('') : '<div class="text-sm text-slate-400 py-6 text-center">No open exceptions. 🎉</div>';
-  body.innerHTML = `
-    <div class="flex justify-end mb-3">${commBtn('Scan now', 'commScanExceptions()', 'primary')}</div>
-    <div class="space-y-2">${rows}</div>`;
-}
-async function commScanExceptions() {
-  try { const r = await apiSendJson('/commissions/exceptions/scan', 'POST', {}); showToast(`Scan complete — ${r.found} found, ${r.auto_resolved} auto-resolved`, 'success'); commLoadExceptions(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-async function commExceptionStatus(id, status) {
-  try { await apiSendJson(`/commissions/exceptions/${id}/status`, 'POST', { status }); commLoadExceptions(); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-window.commLoadExceptions = commLoadExceptions; window.commScanExceptions = commScanExceptions; window.commExceptionStatus = commExceptionStatus;
-
-// ── Statements (reps: own; managers see their own here too) ──
-async function commLoadStatements() {
-  const body = document.getElementById('comm-body'); if (!body) return;
-  body.innerHTML = '<div class="text-sm text-slate-400">Loading statements…</div>';
-  let data; try { data = await apiGetJson('/commissions/statements/mine'); } catch (e) { body.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; return; }
-  const st = data.statements || [];
-  const rows = st.length ? st.map(s => {
-    const p = s.period, ack = s.acknowledgment;
-    const badge = ack ? (ack.status === 'disputed' ? '<span class="text-[10px] font-bold text-rose-600">Disputed</span>' : '<span class="text-[10px] font-bold text-emerald-600">Acknowledged</span>') : '<span class="text-[10px] text-slate-400">Not signed</span>';
-    return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex items-center justify-between gap-2 flex-wrap">
-      <div><span class="font-bold text-slate-900 dark:text-white">${esc(p.name)}</span> ${commPeriodBadge(p.status)} ${badge}
-        <div class="text-xs text-slate-400">${p.start_date} → ${p.end_date}</div></div>
-      <div class="flex gap-1.5">${commBtn('View', `commViewStatement('${p.id}')`, 'primary')}</div></div>`;
-  }).join('') : '<div class="text-sm text-slate-400 py-6 text-center">No statements yet — they appear once your commissions are assigned to a pay period.</div>';
-  body.innerHTML = `<div class="space-y-2">${rows}</div><div id="comm-stmt-detail" class="mt-4"></div>`;
-}
-async function commViewStatement(periodId) {
-  const box = document.getElementById('comm-stmt-detail'); if (box) box.innerHTML = '<div class="text-sm text-slate-400">Loading…</div>';
-  let d; try { d = await apiGetJson(`/commissions/statements/mine?period_id=${encodeURIComponent(periodId)}`); } catch (e) { if (box) box.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message)}</div>`; return; }
-  __commStmt = d;   // stash for print
-  const t = d.totals, ack = d.acknowledgment;
-  const lines = (d.lines || []).map(l => `<tr class="border-t border-slate-100 dark:border-slate-800">
-    <td class="py-1.5 pr-3">${esc(l.deal_number || '—')}</td><td class="py-1.5 pr-3">${esc(l.customer || '—')}</td>
-    <td class="py-1.5 pr-3 text-right">${commMoney2(l.front)}</td><td class="py-1.5 pr-3 text-right">${commMoney2(l.back)}</td>
-    <td class="py-1.5 pr-3 text-right">${commMoney2(l.spiff)}</td><td class="py-1.5 pr-3 text-right font-bold">${commMoney2(l.total)}</td>
-    <td class="py-1.5">${commStatusBadge(l.status)}</td></tr>`).join('');
-  const signed = ack ? `<span class="text-xs ${ack.status === 'disputed' ? 'text-rose-600' : 'text-emerald-600'} font-bold">${ack.status === 'disputed' ? 'You disputed this statement' : 'You acknowledged this statement'}</span>` : '';
-  if (box) box.innerHTML = `
-    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4">
-      <div class="flex items-center justify-between gap-2 flex-wrap mb-3">
-        <h3 class="font-black text-slate-900 dark:text-white">${esc(d.period.name)} — Statement</h3>
-        <div class="flex flex-wrap gap-1.5">
-          ${commBtn('Print / PDF', `commPrintStatement()`, 'ghost')}
-          ${commBtn('CSV', `commDownloadCsv('/commissions/statements/mine.csv?period_id=${periodId}','statement-${esc(d.period.name)}.csv')`, 'ghost')}
-          ${ack ? '' : commBtn('Acknowledge', `commAckStatement('${periodId}')`, 'ok')}
-          ${ack ? '' : commBtn('Dispute', `commDisputeStatement('${periodId}')`, 'danger')}
-        </div>
-      </div>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-        <div class="rounded-lg bg-slate-50 dark:bg-slate-950 p-2.5"><div class="text-[10px] uppercase tracking-wider text-slate-400">Units</div><div class="font-black text-slate-900 dark:text-white">${t.units}</div></div>
-        <div class="rounded-lg bg-slate-50 dark:bg-slate-950 p-2.5"><div class="text-[10px] uppercase tracking-wider text-slate-400">Front</div><div class="font-black text-slate-900 dark:text-white">${commMoney2(t.front)}</div></div>
-        <div class="rounded-lg bg-slate-50 dark:bg-slate-950 p-2.5"><div class="text-[10px] uppercase tracking-wider text-slate-400">F&I + Spiff</div><div class="font-black text-slate-900 dark:text-white">${commMoney2(t.back + t.spiff)}</div></div>
-        <div class="rounded-lg bg-indigo-50 dark:bg-indigo-950/40 p-2.5"><div class="text-[10px] uppercase tracking-wider text-indigo-500">Payable</div><div class="font-black text-indigo-700 dark:text-indigo-300">${commMoney2(t.payable)}</div></div>
-      </div>
-      <div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-left text-slate-400"><th class="pb-1 pr-3">Deal</th><th class="pb-1 pr-3">Customer</th><th class="pb-1 pr-3 text-right">Front</th><th class="pb-1 pr-3 text-right">F&I</th><th class="pb-1 pr-3 text-right">Spiff</th><th class="pb-1 pr-3 text-right">Total</th><th class="pb-1">Status</th></tr></thead><tbody>${lines || '<tr><td colspan="7" class="py-3 text-center text-slate-400">No lines in this period.</td></tr>'}</tbody></table></div>
-      <div class="mt-2">${signed}</div>
-    </div>`;
-}
-let __commStmt = null;
-function commPrintStatement() {
-  const d = __commStmt; if (!d) return;
-  const rows = (d.lines || []).map(l => `<tr><td>${esc(l.deal_number || '—')}</td><td>${esc(l.customer || '—')}</td><td style="text-align:right">${commMoney2(l.front)}</td><td style="text-align:right">${commMoney2(l.back)}</td><td style="text-align:right">${commMoney2(l.spiff)}</td><td style="text-align:right">${commMoney2(l.total)}</td><td>${esc(l.status)}</td></tr>`).join('');
-  const w = window.open('', '_blank'); if (!w) { showToast('Allow pop-ups to print', 'error'); return; }
-  w.document.write(`<!doctype html><html><head><title>Statement — ${esc(d.period.name)}</title>
-    <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;padding:32px;color:#0f172a}h1{font-size:18px}table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}th,td{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left}.tot{margin-top:16px;font-weight:800}</style></head>
-    <body><h1>Commission Statement — ${esc(d.period.name)}</h1><div>${d.period.start_date} → ${d.period.end_date}</div>
-    <table><thead><tr><th>Deal</th><th>Customer</th><th style="text-align:right">Front</th><th style="text-align:right">F&I</th><th style="text-align:right">Spiff</th><th style="text-align:right">Total</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="tot">Payable: ${commMoney2(d.totals.payable)} · Units: ${d.totals.units}</div>
-    </body></html>`);
-  w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
-}
-async function commAckStatement(periodId) {
-  try { await apiSendJson(`/commissions/statements/${periodId}/acknowledge`, 'POST', {}); showToast('Statement acknowledged', 'success'); commViewStatement(periodId); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-async function commDisputeStatement(periodId) {
-  const note = prompt('What’s wrong with this statement? (a manager will review)'); if (note == null) return;
-  try { await apiSendJson(`/commissions/statements/${periodId}/dispute`, 'POST', { note }); showToast('Dispute submitted', 'success'); commViewStatement(periodId); }
-  catch (e) { showToast(e.message, 'error'); }
-}
-window.commLoadStatements = commLoadStatements; window.commViewStatement = commViewStatement; window.commPrintStatement = commPrintStatement;
-window.commAckStatement = commAckStatement; window.commDisputeStatement = commDisputeStatement;
 
 function commStatCards(s) {
   const card = (label, val, cls) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4"><div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">${label}</div><div class="text-2xl font-black mt-1 ${cls || 'text-slate-900 dark:text-white'}">${commMoney(val)}</div></div>`;
@@ -14154,17 +10423,17 @@ let __rptTab = 'overview';
 let __rptRange = '90';
 const REPORT_DEFS = [
   { key: 'overview', label: 'Overview' },
-  { key: 'sales', label: 'Sales' },
-  { key: 'fni', label: 'F&I' },
-  { key: 'leads', label: 'Leads & sources' },
-  { key: 'reps', label: 'Rep scorecard' },
-  { key: 'appraisals', label: 'Appraisals' },
-  { key: 'appointments', label: 'Appointments' },
-  { key: 'service', label: 'Service' },
-  { key: 'esign', label: 'E-signatures' },
-  { key: 'marketing', label: 'Marketing ROI' },
-  { key: 'activity', label: 'Activity' },
-  { key: 'customers', label: 'Customers' },
+  { key: 'sales', label: '🚗 Sales' },
+  { key: 'fni', label: '💰 F&I' },
+  { key: 'leads', label: '📥 Leads & sources' },
+  { key: 'reps', label: '🏆 Rep scorecard' },
+  { key: 'appraisals', label: '🔑 Appraisals' },
+  { key: 'appointments', label: '📅 Appointments' },
+  { key: 'service', label: '🔧 Service' },
+  { key: 'esign', label: '✍️ E-signatures' },
+  { key: 'marketing', label: '📣 Marketing ROI' },
+  { key: 'activity', label: '📞 Activity' },
+  { key: 'customers', label: '👥 Customers' },
 ];
 function renderReportTabs() {
   const host = document.getElementById('reports-tabs'); if (!host) return;
@@ -14277,55 +10546,8 @@ function exportReportCsv() {
 }
 window.exportReportCsv = exportReportCsv;
 
-// Sales snapshot — clickable "what needs me now" tiles at the top of the Sales
-// dashboard (managers / DealerOS). Each tile deep-links to its filtered view.
-async function loadSalesSnapshot() {
-  const el = document.getElementById('sales-snapshot');
-  if (!el) return;
-  const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-  // Only the DealerOS store dashboard — not Facebook-only tiers or MarketSync owner mode.
-  if (!isMgr || __fbOnly || document.documentElement.getAttribute('data-dash-mode') === 'marketsync') { el.className = 'hidden'; return; }
-  let d;
-  try { d = await apiGetJson('/dashboard/sales-snapshot', { retries: 1 }); }
-  catch { el.className = 'hidden'; return; }
-  if (!d || d.empty) { el.className = 'hidden'; return; }
-  // label, value, tone, target page, optional invmode, urgent-when-positive?
-  const tiles = [
-    { label: 'Unanswered leads', val: d.unanswered_leads, page: 'leads', tone: 'rose', urgent: true },
-    { label: 'Follow-ups due today', val: d.followups_today, page: 'tasks', tone: 'amber' },
-    { label: 'Overdue follow-ups', val: d.followups_overdue, page: 'tasks', tone: 'rose', urgent: true },
-    { label: 'Appointments today', val: d.appointments_today, page: 'appointments', tone: 'violet' },
-    { label: 'Deals working', val: d.deals_working, page: 'fni', tone: 'indigo' },
-    { label: 'Deliveries pending', val: d.deliveries_pending, page: 'delivery', tone: 'sky' },
-    { label: 'Sold this month', val: d.sold_this_month, page: 'reports', tone: 'emerald' },
-  ];
-  const toneCls = {
-    rose: 'text-rose-600 dark:text-rose-400', amber: 'text-amber-600 dark:text-amber-400',
-    violet: 'text-violet-600 dark:text-violet-400', indigo: 'text-indigo-600 dark:text-indigo-400',
-    sky: 'text-sky-600 dark:text-sky-400', emerald: 'text-emerald-600 dark:text-emerald-400',
-  };
-  const go = (page) => `deptGo && typeof deptGo==='function' ? deptGo('${page}') : switchPage('${page}')`;
-  el.className = 'space-y-2';
-  el.innerHTML = `
-    <div class="flex items-center gap-2">
-      <span class="text-sm font-black text-slate-900 dark:text-white">Sales snapshot</span>
-      <span class="text-xs text-slate-400">what needs you now — tap a tile</span>
-    </div>
-    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-      ${tiles.map(t => {
-        const hot = t.urgent && t.val > 0;
-        return `<button type="button" onclick="${go(t.page)}" class="text-left bg-white dark:bg-slate-900 border ${hot ? 'border-rose-300 dark:border-rose-800' : 'border-slate-200 dark:border-slate-800'} rounded-xl px-3 py-2.5 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-sm transition">
-          <div class="text-2xl font-black tabular-nums ${toneCls[t.tone] || 'text-slate-900 dark:text-white'}">${t.val}</div>
-          <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight mt-0.5">${t.label}</div>
-        </button>`;
-      }).join('')}
-    </div>`;
-}
-window.loadSalesSnapshot = loadSalesSnapshot;
-
 async function loadInsights() {
   loadSyncHealth();
-  loadSalesSnapshot();
   try {
     const res = await fetch(`${API}/dashboard/insights?range=${insightsRange}`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) {
@@ -14445,36 +10667,20 @@ document.addEventListener('click', (e) => {
 
 document.addEventListener('DOMContentLoaded', syncRangePillsUI);
 
-// The Chrome extension is only for posting to Facebook Marketplace, so its CTA +
-// header button only make sense for Facebook products and full DealerOS. The
-// MarketSync owner (SaaS back office) and AI-Chatbot-only accounts never post to
-// Facebook, so they should never see the install prompt.
-function extensionRelevant() {
-  if (marketsyncOwnerMode()) return false;              // owner's SaaS back office
-  const prod = document.documentElement.getAttribute('data-product') || '';
-  if (!prod) return true;                                // full DealerOS uses FB posting
-  return /facebook/.test(prod);                          // product-restricted → only FB tiers
-}
-// Decide the install-extension CTA visibility once the product/workspace is known.
-function applyExtensionVisibility() {
+// Install-extension CTA: sits at the top of the dashboard until the user dismisses
+// it, then stays hidden forever (persisted in localStorage).
+document.addEventListener('DOMContentLoaded', () => {
   const banner = document.getElementById('ext-cta-banner');
   const headerBtn = document.getElementById('ext-header-btn');
-  if (!extensionRelevant()) { banner?.classList.add('hidden'); headerBtn?.classList.add('hidden'); return; }
   let dismissed = false;
   try { dismissed = localStorage.getItem('ms_ext_cta_dismissed') === '1'; } catch {}
   // Not dismissed → big banner at the top. Dismissed → compact "Install extension"
-  // button beside Tour in the header.
-  if (dismissed) { banner?.classList.add('hidden'); headerBtn?.classList.remove('hidden'); }
+  // button beside Tour in the header (stays there forever).
+  const applyDismissed = () => { banner?.classList.add('hidden'); headerBtn?.classList.remove('hidden'); };
+  if (dismissed) applyDismissed();
   else { banner?.classList.remove('hidden'); headerBtn?.classList.add('hidden'); }
-}
-window.applyExtensionVisibility = applyExtensionVisibility;
-// Wire the dismiss action once; visibility itself is driven by applyExtensionVisibility
-// (called from init after the product/workspace is resolved), so nothing flashes for
-// non-Facebook accounts.
-document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('ext-cta-dismiss')?.addEventListener('click', () => {
-    document.getElementById('ext-cta-banner')?.classList.add('hidden');
-    document.getElementById('ext-header-btn')?.classList.remove('hidden');
+    applyDismissed();
     try { localStorage.setItem('ms_ext_cta_dismissed', '1'); } catch {}
   });
 });
@@ -14482,16 +10688,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // DEALER DOMAIN: Real team roster from /dealership/team
 async function loadDealerManagementMatrix() {
   const tableBody = document.getElementById('dealer-team-table-body');
-  if (!tableBody) return;
-  const isFacebookTeam = !!__productAllowedPages;
-  const title = document.getElementById('dealer-team-title');
-  const subtitle = document.getElementById('dealer-team-subtitle');
-  const invite = document.getElementById('invite-rep-btn');
-  if (title) title.textContent = isFacebookTeam ? 'Sales Team' : 'Users & Team';
-  if (subtitle) subtitle.textContent = isFacebookTeam
-    ? 'Add or remove sales reps for your dealership.'
-    : 'Invite, edit, assign roles, pause, or remove users in this dealership.';
-  if (invite) invite.textContent = isFacebookTeam ? '+ Invite Rep' : '+ Invite User';
   tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-slate-500 italic">Loading team...</td></tr>`;
 
   try {
@@ -14934,7 +11130,7 @@ function leaderboardLegendHTML() {
   const tierRows = LB_TIERS.map(t => {
     const isLegend = t.name === 'Legend';
     const marker = isLegend
-      ? `<span class="text-indigo-500">${svgIcon('trophy', 'w-3.5 h-3.5')}</span>`
+      ? '<span class="text-indigo-500">👑</span>'
       : `<span class="inline-block w-2.5 h-2.5 rounded-full" style="background:${TIER_DOT[t.name] || '#94a3b8'}"></span>`;
     return `
       <div class="flex items-center justify-between px-3 py-2.5 rounded-lg ${isLegend ? 'bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800' : 'bg-slate-50 dark:bg-slate-950/60'}">
@@ -14962,45 +11158,7 @@ function ensureLeaderboardLegend(panelId) {
   panel.insertAdjacentHTML('beforeend', leaderboardLegendHTML());
 }
 
-function facebookLeaderboardActive() {
-  return __fbOnly || /facebook/.test(document.documentElement.getAttribute('data-product') || '');
-}
-
-// Facebook tiers are deliberately scored only from Marketplace activity. The full
-// DealerOS leaderboard still includes its sales and appraisal incentives.
-const calcPoints = (m) => (m.total_listings || 0) * 100 + (m.sold_listings || 0) * 500
-  + (facebookLeaderboardActive() ? 0 : (m.deals_closed || 0) * 500 + (m.appraisals || 0) * 50);
-
-function applyLeaderboardProductPresentation() {
-  const facebook = facebookLeaderboardActive();
-  const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
-  set('lb-title', facebook ? '🏆 Facebook Posting Leaderboard' : '🏆 Leaderboard');
-  set('lb-subtitle', facebook
-    ? '100 pts per Facebook post · 500 pts per Facebook sale · Build your posting streak and lead the board.'
-    : '500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.');
-  set('lb-conv-label', facebook ? 'Facebook Conversion' : 'Team Conversion');
-  set('lb-rankings-title', facebook ? 'Facebook posting rankings' : 'Full rankings');
-  set('lb-tab-global', facebook ? '🌎 Facebook Community' : '🌎 Global');
-  set('gl-subtitle', facebook
-    ? 'How your Facebook posting stacks up across MarketSync. Other accounts are anonymized.'
-    : 'How you stack up across every dealer & rep on MarketSync. Others are anonymized — only you see your name.');
-  set('gl-posted-label', facebook ? 'Your Facebook Posts' : 'Your Listings');
-}
-
-function leaderboardRanking(rows) {
-  let ranking = (rows || []).map(r => {
-    const points = calcPoints(r);
-    return { ...r, points, tier: tierFor(points) };
-  });
-  // The standard endpoint also powers DealerOS, so it returns its richer all-sales
-  // rank. Re-rank only the Facebook experience from Facebook posts and FB sales.
-  if (facebookLeaderboardActive()) {
-    ranking = ranking
-      .sort((a, b) => b.points - a.points || b.sold_listings - a.sold_listings || b.total_listings - a.total_listings || String(a.name || '').localeCompare(String(b.name || '')))
-      .map((r, index) => ({ ...r, rank: index + 1 }));
-  }
-  return ranking;
-}
+const calcPoints = (m) => (m.total_listings || 0) * 100 + (m.sold_listings || 0) * 500 + (m.deals_closed || 0) * 500 + (m.appraisals || 0) * 50;
 const tierFor = (points) => {
   let current = LB_TIERS[0];
   for (const t of LB_TIERS) if (points >= t.min) current = t;
@@ -15011,7 +11169,6 @@ const nextTierFor = (points) => LB_TIERS.find(t => t.min > points) || null;
 async function loadLeaderboard() {
   const body = document.getElementById('leaderboard-body');
   if (!body) return;
-  applyLeaderboardProductPresentation();
   body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-500 italic">Loading leaderboard...</td></tr>`;
   try {
     const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -15023,7 +11180,10 @@ async function loadLeaderboard() {
     setText('lb-team-sold', data.team_total_sold ?? 0);
     setText('lb-team-total', data.team_total_listings ?? 0);
 
-    const ranking = leaderboardRanking(data.ranking);
+    const ranking = (data.ranking || []).map(r => {
+      const points = calcPoints(r);
+      return { ...r, points, tier: tierFor(points) };
+    });
 
     renderPodium(ranking);
     renderYourPosition(ranking);
@@ -15036,65 +11196,6 @@ async function loadLeaderboard() {
     body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-red-500 italic">Failed to load leaderboard.</td></tr>`;
   }
 }
-
-// ── Internal sales-performance board (Dashboard) ─────────────────────────────
-// The SECOND, internal leaderboard: ranks reps by REAL deals — units sold, F&I
-// gross, and appraisals. No Facebook-posting points (that competitive/teaser
-// board lives under Marketing). Rendered into the dashboard's leaderboard slot.
-async function loadInternalBoard() {
-  const slot = document.getElementById('dash-leaderboard-slot');
-  if (!slot) return;
-  slot.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6"><div class="text-center text-sm text-slate-400 italic py-8">Loading sales performance…</div></div>`;
-  let data;
-  try {
-    const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
-    if (!res.ok) throw new Error('failed');
-    data = await res.json();
-  } catch { slot.innerHTML = ''; return; }
-  const soldOf = (r) => (r.units_sold || r.deals_closed || 0);
-  const scoreOf = (r) => soldOf(r) * 500 + (r.appraisals || 0) * 50 + Math.round((r.fni_gross || 0) / 100);
-  const ranking = (data.ranking || []).slice()
-    .map(r => ({ ...r, _sold: soldOf(r), _score: scoreOf(r) }))
-    .sort((a, b) => b._score - a._score || b._sold - a._sold || (b.fni_gross || 0) - (a.fni_gross || 0) || String(a.name || '').localeCompare(String(b.name || '')))
-    .map((r, i) => ({ ...r, _rank: i + 1 }));
-  const money = (n) => '$' + Number(n || 0).toLocaleString();
-  const stat = (label, val) => `<div class="flex-1 min-w-[110px]"><div class="text-2xl font-black text-slate-900 dark:text-white tabular-nums">${val}</div><div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">${label}</div></div>`;
-  const medal = (rank) => rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span class="text-slate-400 font-mono">${rank}</span>`;
-  const selfId = (typeof user !== 'undefined' && user) ? user.id : null;
-  const rows = ranking.length ? ranking.map(r => {
-    const me = r.id === selfId;
-    return `<tr class="border-b border-slate-100 dark:border-slate-800/60 ${me ? 'bg-indigo-50/60 dark:bg-indigo-950/30' : ''}">
-      <td class="py-2.5 px-3 text-center w-12">${medal(r._rank)}</td>
-      <td class="py-2.5 px-3"><span class="text-sm font-semibold text-slate-800 dark:text-slate-100">${esc(r.name || '—')}</span>${me ? '<span class="ml-1.5 text-[10px] font-bold text-indigo-500">YOU</span>' : ''}</td>
-      <td class="py-2.5 px-3 text-right tabular-nums font-bold text-slate-900 dark:text-white">${r._sold}</td>
-      <td class="py-2.5 px-3 text-right tabular-nums text-slate-700 dark:text-slate-200">${money(r.fni_gross)}</td>
-      <td class="py-2.5 px-3 text-right tabular-nums text-slate-700 dark:text-slate-200">${r.appraisals || 0}</td>
-      <td class="py-2.5 px-3 text-right tabular-nums font-bold text-indigo-600 dark:text-indigo-400">${r._score.toLocaleString()}</td>
-    </tr>`;
-  }).join('') : '<tr><td colspan="6" class="py-10 text-center text-sm text-slate-400 italic">No sales activity yet.</td></tr>';
-  slot.innerHTML = `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-      <div class="flex items-start justify-between gap-3 flex-wrap px-5 py-4 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <div class="flex items-center gap-2"><span class="text-amber-500">${svgIcon('trophy', 'w-5 h-5')}</span><h3 class="text-base font-black text-slate-900 dark:text-white">Sales performance</h3></div>
-          <p class="text-xs text-slate-400 mt-0.5">Real deals — units sold, F&amp;I gross, and appraisals.</p>
-        </div>
-        <button onclick="switchPage('leaderboard')" class="text-xs font-bold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 whitespace-nowrap">Full leaderboard →</button>
-      </div>
-      <div class="flex flex-wrap gap-4 px-5 py-4 border-b border-slate-100 dark:border-slate-800/60">
-        ${stat('Units sold', data.team_total_units ?? 0)}
-        ${stat('F&amp;I gross', money(data.team_total_fni_gross))}
-        ${stat('Appraisals', data.team_total_appraisals ?? 0)}
-      </div>
-      <div class="overflow-x-auto"><table class="w-full text-left min-w-[520px]">
-        <thead><tr class="text-slate-500 dark:text-slate-400 uppercase text-[11px] tracking-wider border-b border-slate-200 dark:border-slate-800">
-          <th class="py-2.5 px-3 text-center w-12">#</th><th class="py-2.5 px-3">Rep</th><th class="py-2.5 px-3 text-right">Sold</th><th class="py-2.5 px-3 text-right">F&amp;I gross</th><th class="py-2.5 px-3 text-right">Appraisals</th><th class="py-2.5 px-3 text-right">Score</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-    </div>`;
-}
-window.loadInternalBoard = loadInternalBoard;
 
 // ── Badges everywhere: the always-on header rank/tier chip ────────────────────
 // Reflects the signed-in rep's live tier + rank on every page. Fed from a ranking
@@ -15117,7 +11218,10 @@ async function loadMyTierChip() {
     const res = await fetch(`${API}/dealership/leaderboard`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) return;
     const data = await res.json();
-    const ranking = leaderboardRanking(data.ranking);
+    const ranking = (data.ranking || []).map(r => {
+      const points = calcPoints(r);
+      return { ...r, points, tier: tierFor(points) };
+    });
     updateTierChip(ranking);
   } catch (e) { /* non-fatal — chip just stays hidden */ }
 }
@@ -15131,23 +11235,14 @@ async function loadAchievements() {
     if (!res.ok) throw new Error('gamification failed');
     const d = await res.json();
     if (!d.me && !d.dealership) { wrap.innerHTML = ''; return; }
-    const facebook = facebookLeaderboardActive();
-    const facebookBadge = (badge) => {
-      if (!facebook) return badge;
-      if (badge.key === 'closer') return { ...badge, label: 'Facebook Closer', description: 'Cars you sold through Facebook Marketplace' };
-      return badge;
-    };
-    const onlyFacebook = (badges) => (badges || [])
-      .filter(b => !facebook || ['closer', 'mover', 'speed', 'coverage', 'fastlot', 'sellthrough'].includes(b.key))
-      .map(facebookBadge);
     wrap.innerHTML = `
       ${d.me ? `<div class="mb-4">
-        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">${facebook ? 'Your Facebook achievements' : 'Your achievements'}</div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${onlyFacebook(d.me.badges).map(badgeCard).join('')}</div>
+        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Your achievements</div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${(d.me.badges || []).map(badgeCard).join('')}</div>
       </div>` : ''}
       ${d.dealership ? `<div>
-        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">${esc(d.dealership.name || 'Dealership')} ${facebook ? 'Facebook achievements' : 'achievements'}</div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${onlyFacebook(d.dealership.badges).map(badgeCard).join('')}</div>
+        <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">${esc(d.dealership.name || 'Dealership')} achievements</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${(d.dealership.badges || []).map(badgeCard).join('')}</div>
       </div>` : ''}`;
   } catch (e) {
     console.warn('Achievements failed:', e.message);
@@ -15200,16 +11295,16 @@ function renderPodium(ranking) {
   // Visual order: 2nd · 1st · 3rd (1st is centered and tallest).
   // Always render all 3 slots — empty slots become placeholders.
   const positions = [
-    { m: ranking[1], rankNum: 2, height: 'h-24', bar: 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500', crown: `<span class="text-slate-400">${svgIcon('star', 'w-6 h-6')}</span>` },
-    { m: ranking[0], rankNum: 1, height: 'h-32', bar: 'from-amber-300 to-amber-500',                                       crown: `<span class="text-amber-500">${svgIcon('trophy', 'w-7 h-7')}</span>` },
-    { m: ranking[2], rankNum: 3, height: 'h-20', bar: 'from-orange-300 to-orange-500',                                     crown: `<span class="text-orange-400">${svgIcon('star', 'w-6 h-6')}</span>` }
+    { m: ranking[1], rankNum: 2, height: 'h-24', bar: 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500', crown: '🥈' },
+    { m: ranking[0], rankNum: 1, height: 'h-32', bar: 'from-amber-300 to-amber-500',                                       crown: '👑' },
+    { m: ranking[2], rankNum: 3, height: 'h-20', bar: 'from-orange-300 to-orange-500',                                     crown: '🥉' }
   ];
 
   el.innerHTML = positions.map(p => {
     if (!p.m) {
       return `
         <div class="flex flex-col items-center text-center opacity-40">
-          <div class="mb-1 flex items-center justify-center h-8">${p.crown}</div>
+          <div class="text-3xl mb-1 grayscale">${p.crown}</div>
           <div class="font-bold text-sm text-slate-400 italic w-full">Open</div>
           <div class="text-xs text-slate-400 mt-1 mb-2">—</div>
           <div class="w-full mt-2 rounded-t-lg bg-slate-200 dark:bg-slate-800 ${p.height} flex items-start justify-center pt-2 text-slate-400 font-black text-xl">${p.rankNum}</div>
@@ -15219,7 +11314,7 @@ function renderPodium(ranking) {
     const isMe = p.m.id === user.id;
     return `
       <div class="flex flex-col items-center text-center">
-        <div class="mb-1 flex items-center justify-center h-8">${p.crown}</div>
+        <div class="text-3xl mb-1">${p.crown}</div>
         <div class="font-bold text-sm text-slate-900 dark:text-white truncate w-full">${p.m.name}${isMe ? ' <span class="text-xs text-indigo-600 dark:text-indigo-400">(you)</span>' : ''}</div>
         <div class="inline-flex items-center gap-1 mt-1 mb-2 px-2 py-0.5 rounded-full text-xs font-bold border ${p.m.tier.cls}">
           <span>${p.m.tier.icon}</span><span>${p.m.tier.name}</span>
@@ -15259,20 +11354,6 @@ function renderYourPosition(ranking) {
   badge.innerHTML = `<span>${me.tier.icon}</span><span>${me.tier.name}</span>`;
 }
 
-// Clean rank badge (proper icon, not an emoji medal): #1 gets a trophy in a gold
-// pill, #2/#3 a number in silver/bronze, the rest a plain slate number.
-function rankBadge(rank) {
-  const map = {
-    1: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-    2: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-200',
-    3: 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300',
-  };
-  const cls = map[rank] || 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400';
-  const inner = rank === 1 ? svgIcon('trophy', 'w-3.5 h-3.5') : String(rank);
-  return `<span class="inline-flex items-center justify-center w-7 h-7 rounded-full text-[13px] font-black ${cls}">${inner}</span>`;
-}
-window.rankBadge = rankBadge;
-
 function renderRankingTable(ranking) {
   const body = document.getElementById('leaderboard-body');
   if (!body) return;
@@ -15280,10 +11361,13 @@ function renderRankingTable(ranking) {
     body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-500 italic">No team members yet.</td></tr>`;
     return;
   }
+  const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
   body.innerHTML = ranking.map(r => {
     const isMe = r.id === user.id;
     const rowBg = isMe ? 'bg-indigo-50 dark:bg-indigo-950/30' : '';
-    const rankCell = rankBadge(r.rank);
+    const rankCell = medals[r.rank]
+      ? `<span class="text-base">${medals[r.rank]}</span>`
+      : `<span class="text-slate-500 dark:text-slate-400 font-mono">${r.rank}</span>`;
     return `
       <tr class="${rowBg} hover:bg-slate-50 dark:hover:bg-slate-900/60 transition">
         <td class="py-3 px-3">${rankCell}</td>
@@ -15296,8 +11380,8 @@ function renderRankingTable(ranking) {
           </span>
         </td>
         <td class="py-3 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">${r.points.toLocaleString()}</td>
-        <td data-lb-non-fb class="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">${r.deals_closed || 0}</td>
-        <td data-lb-non-fb class="py-3 px-3 text-right font-mono text-amber-600 dark:text-amber-400">${r.appraisals || 0}</td>
+        <td class="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">${r.deals_closed || 0}</td>
+        <td class="py-3 px-3 text-right font-mono text-amber-600 dark:text-amber-400">${r.appraisals || 0}</td>
         <td class="py-3 px-3 text-right font-mono text-indigo-600 dark:text-indigo-400">${r.total_listings}</td>
         <td class="py-3 px-3 text-right font-mono text-slate-500 dark:text-slate-400">${r.sold_listings}</td>
         <td class="py-3 px-3 text-right font-mono text-slate-500 dark:text-slate-400">${r.conversion_rate}%</td>
@@ -15319,13 +11403,13 @@ async function loadActivity() {
     }
     el.innerHTML = data.events.map(e => {
       const isSold = e.type === 'sold';
+      const icon = isSold ? '🏆' : '🚗';
       const verb = isSold ? 'sold' : 'posted';
       const accent = isSold ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400';
-      const icon = `<span class="${accent}">${svgIcon(isSold ? 'trophy' : 'car', 'w-5 h-5')}</span>`;
       const when = e.timestamp ? timeAgo(new Date(e.timestamp)) : '';
       return `
         <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2">
-          <div>${icon}</div>
+          <div class="text-lg">${icon}</div>
           <div class="flex-1 min-w-0 text-sm">
             <span class="font-semibold text-slate-900 dark:text-white">${e.user_name}</span>
             <span class="text-slate-600 dark:text-slate-400">${verb}</span>
@@ -15924,64 +12008,14 @@ let __fniTab = 'worklist';
 function fniSwitchTab(tab) {
   __fniTab = tab;
   if (tab === 'reports') renderFniReports();
-  else if (tab === 'esign') renderFniEsign();
   else renderFniPage();
 }
 window.fniSwitchTab = fniSwitchTab;
 
 function fniTabsHtml() {
   const btn = (id, label) => `<button onclick="fniSwitchTab('${id}')" class="px-3 py-1.5 rounded-lg text-sm font-bold transition ${__fniTab === id ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}">${label}</button>`;
-  return `<div class="inline-flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl mb-4">${btn('worklist', 'Worklist')}${btn('esign', 'E-signatures')}${btn('reports', 'Reports')}</div>`;
+  return `<div class="inline-flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl mb-4">${btn('worklist', 'Worklist')}${btn('reports', 'Reports')}</div>`;
 }
-
-// E-signatures tab — every signing request across the store, in one place under F&I.
-// (The per-deal view is still on the desk; this is the whole pipeline.)
-async function renderFniEsign() {
-  const root = document.getElementById('fni-root');
-  if (!root) return;
-  root.innerHTML = `${fniTabsHtml()}<div class="py-12 text-center text-sm text-slate-400 italic">Loading signing requests…</div>`;
-  let reqs = [];
-  try { const r = await apiGetJson('/esign', { retries: 1 }); reqs = r.requests || []; }
-  catch (e) { root.innerHTML = `${fniTabsHtml()}<div class="py-12 text-center text-sm text-red-400">Could not load signing requests: ${esc(e.message)}<br><button onclick="renderFniEsign()" class="mt-3 text-indigo-500 font-bold">Retry</button></div>`; return; }
-  const badge = (s) => {
-    const map = { signed: ['Signed', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'], viewed: ['Viewed', 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'], sent: ['Sent', 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'], declined: ['Declined', 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'], void: ['Void', 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'] };
-    const [t, cls] = map[s] || [s || '—', 'bg-slate-100 text-slate-600'];
-    return `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full ${cls}">${t}</span>`;
-  };
-  const counts = reqs.reduce((m, x) => { m[x.status] = (m[x.status] || 0) + 1; return m; }, {});
-  const chip = (label, n, cls) => `<span class="text-[11px] font-bold px-2.5 py-1 rounded-full ${cls}">${label} ${n || 0}</span>`;
-  const rowsHtml = reqs.length ? reqs.map(x => {
-    const when = x.signed_at ? 'Signed ' + new Date(x.signed_at).toLocaleString('en-US') : 'Created ' + new Date(x.created_at).toLocaleDateString('en-US');
-    const action = x.status === 'signed'
-      ? `<button onclick="openEsignDetail('${x.id}')" class="text-xs font-bold text-indigo-600 hover:text-indigo-500">View</button>`
-      : `<button onclick="esignCopyLink('${esc(x.url || '')}')" class="text-xs font-bold text-indigo-600 hover:text-indigo-500">Copy link</button>`;
-    const openDeal = x.contact_id ? `<button onclick="openDeskForContact('${esc(x.contact_id)}')" class="text-xs font-bold text-slate-500 hover:text-indigo-500 ml-3">Open deal</button>` : '';
-    return `<tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40">
-      <td class="py-2.5 px-3"><div class="text-sm font-semibold text-slate-800 dark:text-slate-100">${esc(x.doc_title || 'Document')}</div></td>
-      <td class="py-2.5 px-3 text-sm text-slate-600 dark:text-slate-300">${esc(x.signer_name || x.signer_email || '—')}</td>
-      <td class="py-2.5 px-3 whitespace-nowrap">${badge(x.status)}</td>
-      <td class="py-2.5 px-3 text-sm text-slate-500 dark:text-slate-400 whitespace-nowrap">${esc(when)}</td>
-      <td class="py-2.5 px-3 text-right whitespace-nowrap">${action}${openDeal}</td>
-    </tr>`;
-  }).join('') : '<tr><td colspan="5" class="py-10 text-center text-sm text-slate-400 italic">No signing requests yet. Use “Send for e-signature” on a deal to create one.</td></tr>';
-  root.innerHTML = `
-    ${fniTabsHtml()}
-    <div class="flex items-center gap-2 flex-wrap mb-3">
-      ${chip('Awaiting', (counts.sent || 0) + (counts.viewed || 0), 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300')}
-      ${chip('Signed', counts.signed, 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300')}
-      ${chip('Declined', counts.declined, 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300')}
-      <span class="ml-auto text-xs text-slate-500 dark:text-slate-400">${reqs.length} total</span>
-    </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-      <div class="overflow-x-auto"><table class="w-full text-left min-w-[680px]">
-        <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-xs tracking-wider">
-          <th class="py-3 px-3">Document</th><th class="py-3 px-3">Signer</th><th class="py-3 px-3">Status</th><th class="py-3 px-3">When</th><th class="py-3 px-3 text-right">Action</th>
-        </tr></thead>
-        <tbody>${rowsHtml}</tbody>
-      </table></div>
-    </div>`;
-}
-window.renderFniEsign = renderFniEsign;
 
 function renderFniPage() {
   const root = document.getElementById('fni-root');
@@ -15991,10 +12025,7 @@ function renderFniPage() {
     ${fniTabsHtml()}
     <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
       <input id="fni-search" placeholder="Search customer, vehicle, stock #, deal #…" class="flex-1 min-w-[220px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
-      <div class="flex items-center gap-3">
-        <span class="text-xs text-slate-500 dark:text-slate-400">${deals.length} in the pipeline</span>
-        ${SALES_ROLES.includes(profileContext?.role) ? `<button onclick="openDeskForContact(null)" class="inline-flex items-center gap-1.5 text-sm font-bold bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>Desk a deal</button>` : ''}
-      </div>
+      <span class="text-xs text-slate-500 dark:text-slate-400">${deals.length} in the pipeline</span>
     </div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
       <div class="overflow-x-auto"><table class="w-full text-left min-w-[760px]">
@@ -16560,7 +12591,6 @@ let __glTab = 'reps';
 function initGlobalLeaderboard() {
   if (window.__glWired) return;
   window.__glWired = true;
-  applyLeaderboardProductPresentation();
 
   // Populate compact tier dots in #lb-legend-tiers
   const tiersEl = document.getElementById('lb-legend-tiers');
@@ -16568,7 +12598,7 @@ function initGlobalLeaderboard() {
     tiersEl.innerHTML = LB_TIERS.map(t => {
       const isLegend = t.name === 'Legend';
       const marker = isLegend
-        ? `<span class="text-indigo-500">${svgIcon('trophy', 'w-3.5 h-3.5')}</span>`
+        ? '<span class="text-indigo-500">👑</span>'
         : `<span class="inline-block w-2 h-2 rounded-full" style="background:${TIER_DOT[t.name] || '#94a3b8'}"></span>`;
       return `<span class="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">${marker}${t.name} <span class="text-slate-400">${t.min >= 1000 ? (t.min/1000)+'k' : t.min}pts</span></span>`;
     }).join('');
@@ -16662,10 +12692,7 @@ function renderGlobalLeaderboard() {
     const top3 = rows.slice(0, 3);
     const order = [top3[1], top3[0], top3[2]].filter(Boolean); // 2nd, 1st, 3rd
     const heights = ['h-20', 'h-28', 'h-16'];
-    // Winner (center, i===1) gets a trophy; the runners-up get a star.
-    const medalIcon = (i) => i === 1
-      ? `<span class="text-amber-500">${svgIcon('trophy', 'w-7 h-7')}</span>`
-      : `<span class="text-slate-400">${svgIcon('star', 'w-5 h-5')}</span>`;
+    const medals = ['🥈', '👑', '🥉'];
     const gradients = ['from-slate-300 to-slate-400', 'from-yellow-300 to-amber-500', 'from-orange-300 to-orange-500'];
     const nums = ['2', '1', '3'];
     podiumEl.innerHTML = order.map((r, i) => {
@@ -16674,7 +12701,7 @@ function renderGlobalLeaderboard() {
         : `<div class="w-10 h-10 rounded-full bg-indigo-200 dark:bg-indigo-700 flex items-center justify-center text-indigo-700 dark:text-indigo-200 font-bold text-base mb-1 mt-1">${(r.name || '?')[0].toUpperCase()}</div>`;
       return `
         <div class="flex flex-col items-center text-center">
-          <div class="mb-1 flex items-center justify-center h-8">${medalIcon(i)}</div>
+          <div class="text-3xl mb-1">${medals[i]}</div>
           ${avatarHtml}
           <div class="font-bold text-sm text-slate-900 dark:text-white truncate w-full">${r.name}${r.isYou ? ' <span class="text-xs text-indigo-500 font-normal">(you)</span>' : ''}</div>
           <div class="text-xs font-mono text-slate-600 dark:text-slate-300 mt-1 mb-2">${(r.points || 0).toLocaleString()} pts</div>
@@ -16695,7 +12722,7 @@ function renderGlobalLeaderboard() {
   const youInList = rows.some(r => r.isYou);
   const makeRow = (r, pinned) => {
     const hl = r.isYou ? 'bg-indigo-50 dark:bg-indigo-950/40 font-semibold' : '';
-    const rank = rankBadge(r.rank);
+    const rank = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : `#${r.rank}`;
     const sep = pinned ? '<tr><td colspan="5" class="py-0"><div class="border-t-2 border-dashed border-indigo-300 dark:border-indigo-700"></div></td></tr>' : '';
     const avatarCell = r.avatar_url
       ? `<img src="${r.avatar_url}" class="w-6 h-6 rounded-full object-cover inline-block mr-1.5 align-middle border ${r.isYou ? 'border-indigo-300' : 'border-slate-300 dark:border-slate-600'}" />`
@@ -17315,13 +13342,7 @@ async function vehDelete(id) {
     if (typeof loadInventoryCatalog === 'function') loadInventoryCatalog();
   } catch (e) { showToast(e.message, 'error'); }
 }
-async function editVehicle(id) {
-  const cached = (typeof __catalogCache !== 'undefined' ? __catalogCache : []).find(x => x.id === id);
-  if (cached) { openVehicleForm(cached); return; }
-  // Not in the inventory-page cache (e.g. opened from the health panel) — fetch it.
-  try { const v = await apiGetJson(`/inventory/${id}`, { retries: 1 }); openVehicleForm(v.vehicle || v); }
-  catch { showToast('Could not open that unit', 'error'); }
-}
+function editVehicle(id) { const v = (typeof __catalogCache !== 'undefined' ? __catalogCache : []).find(x => x.id === id); if (v) openVehicleForm(v); }
 
 // ── Inventory CSV import / export ────────────────────────────────────────────
 async function invExportCsv(btn) {
@@ -17464,10 +13485,6 @@ async function verifyDomain(btn) {
 function siteSettingsFields(cfg) {
   const c = cfg.content || {};
   const publicUrl = cfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(cfg.site_slug)}` : null;
-  // Suggest the dealership name as the web address until one is set, so the field is
-  // pre-filled (and saving it just keeps that address — no manual typing needed).
-  const suggestedSlug = String(c.name || cfg.name || '').trim().toLowerCase()
-    .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
   const inp = (id, v, ph, cls = '') => `<input id="${id}" value="${esc(v == null ? '' : v)}" placeholder="${esc(ph)}" class="${cls} bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">`;
   const lbl = (t) => `<label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${t}</label>`;
   const ta = (id, v, ph, rows, mono) => `<textarea id="${id}" rows="${rows}" placeholder="${esc(ph)}" class="w-full ${mono ? 'font-mono text-[11px]' : 'text-sm'} bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">${esc(v || '')}</textarea>`;
@@ -17486,7 +13503,7 @@ function siteSettingsFields(cfg) {
       </div>` : ''}
       <div class="flex items-center gap-2">
         <div class="flex-1">${lbl('Site address (letters, numbers, dashes)')}
-          <div class="flex items-center gap-1 text-sm"><span class="text-xs text-slate-400 whitespace-nowrap">…/site.html?d=</span>${inp('site-slug', cfg.site_slug || suggestedSlug, suggestedSlug || 'your-dealership', 'flex-1')}</div>
+          <div class="flex items-center gap-1 text-sm"><span class="text-xs text-slate-400 whitespace-nowrap">…/site.html?d=</span>${inp('site-slug', cfg.site_slug, 'your-dealership', 'flex-1')}</div>
         </div>
         <label class="flex items-center gap-1.5 text-sm font-bold mt-4 whitespace-nowrap"><input id="site-pub" type="checkbox" ${cfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Published</label>
       </div>
@@ -18001,13 +14018,12 @@ const SEC_META = {
   staff:              { label: 'Meet the team', fields: [['title','Title','text']] },
   reviews:            { label: 'Reviews', fields: [['title','Title','text'],['google_rating','Overall rating (e.g. 4.8)','text'],['reviews_url','“Read our Google reviews” link','text'],['items','Reviews — one per line: Name :: 5 :: Their comment','reviews'],['embed_html','Or paste a reviews widget embed (optional)','textarea']] },
   faq:                { label: 'FAQ', fields: [['title','Title','text'],['items','Questions (one per line: Question :: Answer)','faq']] },
-  blog:               { label: 'Blog / news (latest posts)', fields: [['title','Title','text'],['count','How many to show','number']] },
   gallery:            { label: 'Photo gallery', fields: [['title','Title','text'],['images','Images','images']] },
   map:                { label: 'Map', fields: [['title','Title','text'],['address','Address (blank = your address)','text']] },
   contact:            { label: 'Contact form', fields: [['title','Title','text']] },
   html:               { label: 'Custom HTML', fields: [['html','HTML','textarea']] },
 };
-const SEC_ORDER = ['hero','feature_cards','two_col','cards','featured_inventory','text_image','body_style','payment_calc','ad_banner','inventory_grid','trade_cta','finance_cta','service_cta','staff','reviews','faq','blog','gallery','map','contact','cta_banner','html'];
+const SEC_ORDER = ['hero','feature_cards','two_col','cards','featured_inventory','text_image','body_style','payment_calc','ad_banner','inventory_grid','trade_cta','finance_cta','service_cta','staff','reviews','faq','gallery','map','contact','cta_banner','html'];
 
 async function loadWebsitePage() {
   const root = document.getElementById('website-root');
@@ -18067,11 +14083,11 @@ function renderWebsitePage() {
         </div>
         ${url ? `<a href="${url}" target="_blank" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">View site ↗</a>` : ''}
         <label class="flex items-center gap-1.5 text-sm font-bold"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Published</label>
-        <button onclick="wsTab('settings')" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">Settings</button>
+        <button onclick="switchPage('website-settings')" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">Settings</button>
         <button onclick="saveWebsite(this)" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save</button>
       </div>
     </div>
-    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 flex-wrap">${tab('builder', 'Builder')}${tab('design', 'Design')}${tab('pages', 'Pages')}${tab('blog', 'Blog')}${tab('settings', 'Settings')}</div>
+    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 flex-wrap">${tab('builder', 'Builder')}${tab('design', 'Design')}${tab('pages', 'Pages')}</div>
     <div id="ws-body"></div>`;
   renderWsBody();
 }
@@ -18170,7 +14186,7 @@ function renderLiveBuilder(body) {
     <div class="flex items-center gap-2 mt-4 mb-2 flex-wrap">
       <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Editing:</span>
       <select onchange="wsSetTarget(this.value)" class="text-sm font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
-        <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home page</option>${pageOpts}${builtinOpts ? `<optgroup label="Built-in pages">${builtinOpts}</optgroup>` : ''}
+        <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>🏠 Home page</option>${pageOpts}${builtinOpts ? `<optgroup label="Built-in pages">${builtinOpts}</optgroup>` : ''}
       </select>
       <span class="text-[11px] text-indigo-500 dark:text-indigo-400 font-semibold flex-1">Live preview — click a section in the preview to jump to its editor. Edits show instantly; hit <b>Save</b> to publish.</span>
     </div>
@@ -18196,7 +14212,6 @@ function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
   if (__wsTab === 'design') { body.innerHTML = wsDesign(); return; }
   if (__wsTab === 'pages') { body.innerHTML = wsPages(); renderMenuList(); return; }
-  if (__wsTab === 'blog') { body.innerHTML = '<div id="ws-blog-root" class="pt-4"></div>'; loadDealerBlog(); return; }
   if (__wsTab === 'team') { body.innerHTML = wsTeam(); renderSiteStaff(); return; }
   if (__wsTab === 'settings') { body.innerHTML = wsSettings(); __siteWidgets = Array.isArray(__siteCfg?.content?.widgets) ? __siteCfg.content.widgets.slice() : []; renderSiteWidgets(); return; }
   if (__wsTab === 'builder' && __builderMode === 'live') { renderLiveBuilder(body); return; }
@@ -18208,7 +14223,7 @@ function renderWsBody() {
     <div class="flex items-center gap-2 mt-4 mb-2 flex-wrap">
       <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Editing:</span>
       <select onchange="wsSetTarget(this.value)" class="text-sm font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
-        <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home page</option>${pageOpts}${builtinOpts ? `<optgroup label="Built-in pages — add a hero/intro on top">${builtinOpts}</optgroup>` : ''}
+        <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>🏠 Home page</option>${pageOpts}${builtinOpts ? `<optgroup label="Built-in pages — add a hero/intro on top">${builtinOpts}</optgroup>` : ''}
       </select>
       <button onclick="wsTab('pages')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">＋ Add / manage pages</button>
       <span class="text-[11px] text-slate-400 flex-1">${(__sitePages || []).length ? 'Pick a page to build it — its own hero, CTAs and sections, just like home.' : 'Only Home so far. Add pages in the Pages tab, then pick them here to customize.'}</span>
@@ -18358,30 +14373,13 @@ const WS_PALETTES = [
 ];
 const WS_FONTS = ['Inter', 'Poppins', 'Montserrat', 'Oswald', 'Bebas Neue', 'Anton', 'Archivo', 'Rubik', 'Barlow', 'Raleway', 'Playfair Display', 'Roboto Slab', 'Merriweather', 'Teko', 'Roboto', 'Open Sans', 'Lato', 'Source Sans 3', 'Nunito Sans', 'Work Sans', 'Mulish', 'PT Sans'];
 function wsApplyPalette(p, s, a) { const g = id => document.getElementById(id); if (g('ws-c1')) g('ws-c1').value = p; if (g('ws-c2')) g('ws-c2').value = s; if (g('ws-c3')) g('ws-c3').value = a; showToast('Palette applied — Save to publish', 'info'); }
-function wsSetTheme(id) { __siteCfg.content = __siteCfg.content || {}; __siteCfg.content.theme = id; renderWsBody(); showToast('Theme selected — Save to publish', 'info'); }
-window.wsSetTheme = wsSetTheme;
 function wsFontOpts(sel) { return `<option value="">— Use preset —</option>` + WS_FONTS.map(f => `<option value="${f}" ${sel === f ? 'selected' : ''}>${f}</option>`).join(''); }
 function wsDesign() {
   const c = __siteCfg.content || {};
   const swatch = (id, label, val) => `<div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${label}</label><input id="${id}" type="color" value="${esc(val || '#1e3a8a')}" class="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg"></div>`;
   const typos = [['modern','Modern'],['luxury','Luxury'],['bold','Bold'],['corporate','Corporate'],['minimal','Minimal']];
   const sel = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
-  const themes = [
-    ['classic', 'Classic', 'Balanced, familiar dealer look'],
-    ['prestige', 'Prestige', 'Refined, spacious, serif headings'],
-    ['modern', 'Modern', 'Crisp, soft depth, rounded'],
-    ['bold', 'Bold', 'High-contrast, punchy'],
-    ['minimal', 'Minimal', 'Flat, airy, bordered'],
-  ];
-  const curTheme = c.theme || 'classic';
   return `<div class="mt-4 max-w-lg space-y-5">
-    <div>
-      <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Design theme <span class="font-normal text-slate-400 text-[11px]">— one click restyles the whole site</span></div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">${themes.map(([id, nm, desc]) => `<button type="button" onclick="wsSetTheme('${id}')" class="text-left rounded-xl border-2 p-3 transition ${curTheme === id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'}">
-        <div class="text-[13px] font-black text-slate-900 dark:text-white flex items-center gap-1">${nm}${curTheme === id ? ' <span class="text-indigo-500">✓</span>' : ''}</div>
-        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">${desc}</div></button>`).join('')}</div>
-      <p class="text-[11px] text-slate-400 mt-1.5">Themes set spacing, corners, shadows and heading style. Save, then “View site” to see it live.</p>
-    </div>
     <div>
       <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Quick palettes</div>
       <div class="flex flex-wrap gap-2">${WS_PALETTES.map(([n, p, s, a]) => `<button type="button" onclick="wsApplyPalette('${p}','${s}','${a}')" class="flex items-center gap-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 hover:border-indigo-400"><span class="flex"><span class="w-3.5 h-3.5 rounded-l" style="background:${p}"></span><span class="w-3.5 h-3.5" style="background:${s}"></span><span class="w-3.5 h-3.5 rounded-r" style="background:${a}"></span></span>${n}</button>`).join('')}</div>
@@ -18497,7 +14495,6 @@ async function saveWebsite(btn) {
     site_published: document.getElementById('ws-pub')?.checked || false,
     primary_color: c.primary_color, secondary_color: c.secondary_color, accent_color: c.accent_color, typography: c.typography,
     heading_font: c.heading_font || '', body_font: c.body_font || '', hero_photos: !!c.hero_photos,
-    theme: c.theme || 'classic',
   };
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
   try { await apiSendJson('/dealership/site', 'PUT', body); showToast('Website saved', 'success'); btn.disabled = false; btn.textContent = orig; }
@@ -18514,8 +14511,8 @@ function aiMenu(ev, i, key, kind) {
   if (kind === 'faq') acts = [['faq', 'Generate FAQ']];
   else {
     acts = [['boost', '✨ Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite']];
-    if (AI_TITLE_KINDS.includes(kind)) acts.push(['title', 'SEO title + hook']);
-    if (AI_RICH_KINDS.includes(kind)) acts.push(['links', 'Add links']);
+    if (AI_TITLE_KINDS.includes(kind)) acts.push(['title', '🎯 SEO title + hook']);
+    if (AI_RICH_KINDS.includes(kind)) acts.push(['links', '🔗 Add links']);
   }
   const m = document.createElement('div');
   m.className = 'ai-menu fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[170px]';
@@ -18550,7 +14547,7 @@ function siteInternalLinks() {
 function aiAboutMenu(ev) {
   ev.stopPropagation();
   document.querySelectorAll('.ai-menu').forEach(m => m.remove());
-  const acts = [['boost', '✨ Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite'], ['links', 'Add links']];
+  const acts = [['boost', '✨ Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite'], ['links', '🔗 Add links']];
   const m = document.createElement('div');
   m.className = 'ai-menu fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[170px]';
   const r = ev.currentTarget.getBoundingClientRect();
@@ -18760,134 +14757,9 @@ async function applyTemplate(id) {
   document.querySelector('.fixed')?.remove();
   __wsTab = 'pages';   // show the freshly laid-out menu + pages
   renderWebsitePage();
-  // Auto-publish: assign a web address (server-side) + push the whole site live so it
-  // shows immediately — no separate Save/Publish step, no slug to hand-pick.
-  await publishSiteNow('Template applied — your site is live. Edit anything and Save to update.');
+  showToast('Template applied — full site laid out with content. Review the menu, tweak, then Save.', 'success');
 }
-// Save the full in-memory site and publish it, letting the server auto-assign a slug
-// (domain) on first publish. Used by the template flow so a site is live in one click.
-async function publishSiteNow(msg) {
-  const c = __siteCfg.content || (__siteCfg.content = {});
-  wsFlushTarget();
-  const body = {
-    sections: __homeSections,
-    pages: __sitePages.filter(p => (p.title || '').trim()),
-    staff: __siteStaff.filter(m => (m.name || '').trim()),
-    builtins: Object.keys(__siteBuiltins).length ? __siteBuiltins : defaultBuiltins(),
-    menu_order: __menuOrder,
-    site_published: true,
-    primary_color: c.primary_color, secondary_color: c.secondary_color, accent_color: c.accent_color,
-    typography: c.typography, heading_font: c.heading_font || '', body_font: c.body_font || '',
-    hero_photos: !!c.hero_photos, theme: c.theme || 'classic',
-  };
-  if (__siteCfg.site_slug) body.site_slug = __siteCfg.site_slug;
-  try {
-    const r = await apiSendJson('/dealership/site', 'PUT', body);
-    if (r && r.site_slug) __siteCfg.site_slug = r.site_slug;
-    __siteCfg.site_published = true;
-    renderWebsitePage();
-    const url = __siteCfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
-    showToast(msg, 'success');
-    if (url) showToast('Live at ' + url.replace(/^https?:\/\//, ''), 'info');
-  } catch (e) { showToast(e.message || 'Could not publish the site', 'error'); }
-}
-window.publishSiteNow = publishSiteNow;
 Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, menuIndent, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette });
-
-// ══ Website builder — Blog / News (per-dealer, RLS-scoped) ═════════════════════
-let __dealerBlog = [];
-async function loadDealerBlog() {
-  const root = document.getElementById('ws-blog-root'); if (!root) return;
-  root.innerHTML = '<div class="py-10 text-center text-sm text-slate-400 italic">Loading posts…</div>';
-  try { const r = await apiGetJson('/dealership/blog'); __dealerBlog = r.posts || []; }
-  catch (e) { root.innerHTML = `<div class="py-10 text-center text-sm text-rose-500">${esc(e.message || 'Could not load')}</div>`; return; }
-  renderDealerBlog();
-}
-function renderDealerBlog() {
-  const root = document.getElementById('ws-blog-root'); if (!root) return;
-  const rows = (__dealerBlog || []).map(p => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      ${p.cover_image_url ? `<img src="${esc(p.cover_image_url)}" class="w-16 h-11 object-cover rounded-md flex-shrink-0">` : '<div class="w-16 h-11 rounded-md bg-slate-100 dark:bg-slate-800 flex-shrink-0"></div>'}
-      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">${esc(p.title)}</div>
-        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">/${esc(p.slug)}${p.excerpt ? ' · ' + esc(p.excerpt) : ''}</div></div>
-      <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${p.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'} flex-shrink-0">${p.status === 'published' ? 'Published' : 'Draft'}</span>
-      <button onclick="dealerBlogEdit('${p.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold flex-shrink-0">Edit</button>
-      <button onclick="dealerBlogDelete('${p.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">Delete</button>
-    </div>`).join('');
-  root.innerHTML = `<div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-      <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-2xl">Posts show on your public site at <b>/blog</b> — each gets its own page, and you can drop a “Latest posts” section on any page. Great for SEO and specials.</p>
-      <button onclick="dealerBlogEdit(null)" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold flex-shrink-0">＋ New post</button></div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-8 text-center">No posts yet — write your first to start ranking.</div>'}</div>`;
-}
-function dealerBlogModal(p) {
-  p = p || {};
-  document.getElementById('blog-modal')?.remove();
-  const el = document.createElement('div'); el.id = 'blog-modal';
-  el.className = 'fixed inset-0 z-[96] flex items-center justify-center p-4';
-  el.innerHTML = `<div data-close class="absolute inset-0 bg-slate-950/50"></div>
-    <div class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-5">
-      <div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${p.id ? 'Edit post' : 'New post'}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
-      <div class="space-y-3">
-        <div class="flex items-center gap-3">
-          <div id="bp-cover-prev" class="w-24 h-16 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center flex-shrink-0" style="${p.cover_image_url ? `background-image:url('${esc(p.cover_image_url)}')` : ''}"></div>
-          <div><label class="text-xs font-bold text-slate-500">Cover image</label>
-            <div><input type="file" accept="image/*" onchange="dealerBlogUploadCover(this.files[0])" class="text-xs mt-1"></div>
-            <input type="hidden" id="bp-cover" value="${esc(p.cover_image_url || '')}"></div>
-        </div>
-        <label class="block text-xs font-bold text-slate-500">Title<input id="bp-title" value="${esc(p.title || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="block text-xs font-bold text-slate-500">URL slug (optional)<input id="bp-slug" value="${esc(p.slug || '')}" placeholder="auto from title" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-          <label class="block text-xs font-bold text-slate-500">Tags (comma-separated)<input id="bp-tags" value="${esc((p.tags || []).join(', '))}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-        </div>
-        <label class="block text-xs font-bold text-slate-500">Excerpt <span class="text-slate-400 font-normal">— short summary for cards + SEO</span><textarea id="bp-excerpt" rows="2" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(p.excerpt || '')}</textarea></label>
-        <label class="block text-xs font-bold text-slate-500">Body <span class="text-slate-400 font-normal">— HTML allowed (headings, paragraphs, images, links)</span><textarea id="bp-body" rows="11" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-mono">${esc(p.content_html || '')}</textarea></label>
-      </div>
-      <div class="mt-5 flex justify-between gap-2">
-        ${p.id ? `<button onclick="dealerBlogDelete('${p.id}')" class="px-3 py-2 text-sm font-bold text-rose-500">Delete</button>` : '<span></span>'}
-        <div class="flex gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
-          <button onclick="dealerBlogSave('${p.id || ''}','draft')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold">Save draft</button>
-          <button onclick="dealerBlogSave('${p.id || ''}','published')" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">${p.status === 'published' ? 'Update (published)' : 'Publish'}</button></div>
-      </div>
-    </div>`;
-  el.querySelectorAll('[data-close]').forEach(x => x.onclick = () => el.remove());
-  document.body.appendChild(el);
-}
-window.dealerBlogEdit = (id) => dealerBlogModal(id ? (__dealerBlog || []).find(x => x.id === id) : null);
-window.dealerBlogUploadCover = async (file) => {
-  if (!file) return; showToast('Uploading…', 'info');
-  try {
-    const fd = new FormData(); fd.append('image', file);
-    const r = await fetch(`${API}/dealership/site-image`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
-    const d = await r.json(); if (!r.ok) throw new Error(d.error);
-    document.getElementById('bp-cover').value = d.url;
-    document.getElementById('bp-cover-prev').style.backgroundImage = `url('${d.url}')`;
-    showToast('Cover uploaded', 'success');
-  } catch (e) { showToast(e.message || 'Upload failed', 'error'); }
-};
-window.dealerBlogSave = async (id, status) => {
-  const payload = {
-    title: document.getElementById('bp-title').value.trim(),
-    slug: document.getElementById('bp-slug').value.trim(),
-    excerpt: document.getElementById('bp-excerpt').value.trim(),
-    content_html: document.getElementById('bp-body').value,
-    cover_image_url: document.getElementById('bp-cover').value || null,
-    tags: document.getElementById('bp-tags').value.split(',').map(s => s.trim()).filter(Boolean),
-    status,
-  };
-  if (!payload.title) return showToast('Title is required', 'error');
-  try {
-    if (id) await apiSendJson('/dealership/blog/' + id, 'PATCH', payload);
-    else await apiSendJson('/dealership/blog', 'POST', payload);
-    document.getElementById('blog-modal')?.remove();
-    await loadDealerBlog();
-    showToast(status === 'published' ? 'Post published' : 'Draft saved', 'success');
-  } catch (e) { showToast(e.message || 'Could not save', 'error'); }
-};
-window.dealerBlogDelete = async (id) => {
-  if (!confirm('Delete this post? This cannot be undone.')) return;
-  try { await apiSendJson('/dealership/blog/' + id, 'DELETE'); document.getElementById('blog-modal')?.remove(); await loadDealerBlog(); showToast('Post deleted', 'success'); }
-  catch (e) { showToast(e.message || 'Could not delete', 'error'); }
-};
-window.loadDealerBlog = loadDealerBlog;
 
 // ══ Automation engine — manager workspace (inline toggles + message boxes) ═══
 // State: __autoCfg { campaigns[], settings{}, region{}, can_manage }; __autoHol = working holiday rows.
@@ -19393,7 +15265,7 @@ function openServiceBooking(prefill) {
   const types = (__serviceCfg?.service_types) || ['Oil change', 'Tire change / rotation', 'Brakes', 'Diagnostic', 'Scheduled maintenance', 'Recall', 'Detailing', 'Other'];
   const inp = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
   crmOverlay(`<div class="p-5">
-    <div class="flex items-center justify-between mb-3"><div class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">${svgIcon('wrench', 'w-5 h-5 text-teal-600')} Book service</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="flex items-center justify-between mb-3"><div class="text-lg font-black text-slate-900 dark:text-white">🔧 Book service</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="space-y-3">
       <div><label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Customer name</label><input id="svcb-name" class="${inp}" placeholder="Full name" value="${esc(prefill?.name || '')}"></div>
       <div class="grid grid-cols-2 gap-2">
@@ -19494,7 +15366,7 @@ function renderAutomationSettings() {
     <div class="flex items-start justify-between gap-3 flex-wrap">
       <div>
         <h2 class="text-xl font-bold text-slate-900 dark:text-white">Automation settings</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">The engine, your professional email setup, and global settings. Manage the actual touches — the email &amp; text templates — under <button onclick="switchPage('automation-builder')" class="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">New Lead, Delivery &amp; Holiday follow-ups &rarr;</button></p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">The engine, your professional email setup, and global settings. Manage the actual touches under <span class="font-semibold">Holidays</span>, <span class="font-semibold">New Lead Follow-ups</span> and <span class="font-semibold">Delivery Follow-ups</span>.</p>
       </div>
       <label class="flex items-center gap-1.5 text-sm font-bold"><input type="checkbox" ${s.enabled !== false ? 'checked' : ''} onchange="autoToggleEngine(this.checked)" class="accent-indigo-600 w-4 h-4">Engine on</label>
     </div>
@@ -19524,8 +15396,7 @@ async function loadAutoBuilderPage() {
   const tabsEl = document.getElementById('auto-builder-tabs');
   if (!tabsEl) return;
   const tab = (id, label) => `<button onclick="autoTab('${id}')" class="px-4 py-2 text-sm font-bold border-b-2 transition ${__autoTab === id ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">${label}</button>`;
-  tabsEl.innerHTML = tab('leads', 'New Lead Follow-ups') + tab('delivery', 'Delivery Follow-ups') + tab('holidays', 'Holidays')
-    + `<button onclick="switchPage('automation')" class="ml-auto px-3 py-2 text-sm font-bold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap">⚙ Settings</button>`;
+  tabsEl.innerHTML = tab('leads', 'New Lead Follow-ups') + tab('delivery', 'Delivery Follow-ups') + tab('holidays', 'Holidays');
   const roots = { leads: 'auto-leads-root', delivery: 'auto-delivery-root', holidays: 'auto-holidays-root' };
   Object.entries(roots).forEach(([k, id]) => document.getElementById(id)?.classList.toggle('hidden', k !== __autoTab));
   if (__autoTab === 'delivery') await loadAutoDelivery();
@@ -20060,10 +15931,10 @@ async function loadInventoryCatalog() {
 let __catalogStatusFilter = 'all';
 let __catalogTypeFilter = 'all';
 let __catalogSegmentFilter = 'all';
-// Both inventory experiences use the same dealership inventory pool. A vehicle may come
-// from a website feed, a CSV, a manual entry, or a won trade appraisal — all of them can
-// be prepared and posted from the Facebook Marketplace experience.
-let __catalogSourceFilter = 'all';
+// The two inventory pages are strictly separate feeds, scoped by mode — no user-facing
+// source toggle. Facebook = the synced website feed (to post on Facebook Marketplace);
+// Inventory Intelligence = the dealer's own stock (manually added + trade appraisals won).
+let __catalogSourceFilter = 'mine';   // set from __inventoryMode: 'synced' (Facebook) | 'mine' (Intelligence)
 
 // The Inventory page serves two nav entries: the Facebook posting hub (feed sync +
 // synced stock) and the Inventory-Intelligence manual list (own stock only).
@@ -20074,38 +15945,18 @@ function applyInventoryMode() {
   const feeds = document.getElementById('feeds-panel');
   const title = document.getElementById('catalog-title');
   const sub = document.getElementById('catalog-sub');
-  // The feed/sync panel is a permanent fixture on the inventory view (both the
-  // Facebook Marketplace catalog and the Inventory list) so the "pull from your
-  // website feed" controls are always in reach — no need to hunt for a toggle.
-  if (feeds) feeds.classList.remove('hidden');
-  // Keep one shared inventory pool. Filtering Facebook to website-synced units made a
-  // vehicle disappear immediately after an owner added it manually or imported a CSV.
-  __catalogSourceFilter = 'all';
+  // Feed sync lives only under Facebook. The source is fixed by mode (no user-facing
+  // toggle) — each page shows exactly its own feed.
+  if (feeds) feeds.classList.toggle('hidden', !facebook);
+  __catalogSourceFilter = facebook ? 'synced' : 'mine';
   if (title) title.textContent = facebook ? 'Inventory Catalog' : 'Inventory List';
   if (sub) sub.textContent = facebook
-    ? 'All of your stock, ready to post on Facebook Marketplace.'
-    : 'Your whole lot — Facebook-synced, manually added, and won trade appraisals.';
-  applyInventoryProductGating();
+    ? 'Feed-synced stock, ready to post on Facebook Marketplace.'
+    : 'Your own stock — manually added vehicles & trade appraisals won.';
   // Re-render if the catalog is already loaded; first open loads it via page init.
   if (typeof __catalogCache !== 'undefined' && __catalogCache && document.getElementById('catalog-list')) renderCatalog();
 }
 window.applyInventoryMode = applyInventoryMode;
-// The feed panel is always shown on the inventory view now; the "Sync Inventory"
-// button just scrolls up to it (it never hides the panel).
-function toggleFeedsPanel() {
-  const f = document.getElementById('feeds-panel'); if (!f) return;
-  f.classList.remove('hidden');
-  f.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-window.toggleFeedsPanel = toggleFeedsPanel;
-// Inventory creation is an RBAC capability, not a product restriction. Facebook users
-// with inventory.edit can add a single vehicle or import a CSV as well as sync a feed.
-// The server independently enforces this permission on every write.
-function applyInventoryProductGating() {
-  const canManageInventory = window.canDo('inventory.edit');
-  document.querySelectorAll('.inv-raw-add').forEach(el => el.classList.toggle('hidden', !canManageInventory));
-}
-window.applyInventoryProductGating = applyInventoryProductGating;
 
 // A vehicle the dealer entered themselves: manually added, imported, or acquired
 // from a trade appraisal. Everything else came in from a synced website feed.
@@ -20113,39 +15964,6 @@ function catalogIsMine(v) {
   return ['manual', 'appraisal', 'import'].includes(v.source) || !!v.source_appraisal_id;
 }
 function catalogIsSynced(v) { return !catalogIsMine(v); }
-
-// Days-in-stock aging badge — the core lot metric, shown on every live card (no AI
-// add-on required). Bands: 0-30 fresh (green), 31-60 (amber), 61-90 (orange), 90+
-// aged (red). Sold/archived units don't age. Uses created_at (when the unit first
-// landed in our system) as the in-stock proxy.
-function catalogDaysInStock(v) {
-  if (!v.created_at) return null;
-  const d = Math.floor((Date.now() - new Date(v.created_at).getTime()) / 86400000);
-  return Number.isFinite(d) && d >= 0 ? d : null;
-}
-function catalogAgeBadge(v) {
-  if (v.status === 'sold') return '';
-  const days = catalogDaysInStock(v);
-  if (days == null) return '';
-  const TAG = 'inline-flex items-center text-[10px] uppercase font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm';
-  const cls = days <= 30 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-    : days <= 60 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
-    : days <= 90 ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30'
-    : 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30';
-  const tip = `In stock ${days} day${days === 1 ? '' : 's'}${days > 90 ? ' — aged unit, prioritise moving it' : days > 60 ? ' — getting old' : ''}`;
-  return `<span class="${TAG} ${cls}" title="${tip}">${days}d in stock</span>`;
-}
-// Merchandising-completeness flag — a live unit missing photos or a price won't
-// sell and hurts the lot. Universal (no add-on), and only nags on live stock.
-function catalogGapBadge(v) {
-  if (v.status === 'sold') return '';
-  const gaps = [];
-  if (!(v.image_urls && v.image_urls.length)) gaps.push('photos');
-  if (!(Number(v.price) > 0)) gaps.push('price');
-  if (!gaps.length) return '';
-  const TAG = 'inline-flex items-center text-[10px] uppercase font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm';
-  return `<span class="${TAG} bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30" title="Missing ${gaps.join(' & ')} — this unit isn't merchandising-ready">Needs ${gaps.join(' + ')}</span>`;
-}
 
 function renderCatalog() {
   const list = document.getElementById('catalog-list');
@@ -20195,12 +16013,12 @@ function renderCatalog() {
 
   if (!filtered.length) {
     document.getElementById('catalog-value-summary')?.classList.add('hidden');
-    // Mode-aware empty state: Facebook inventory can be feed-synced or added directly.
+    // Mode-aware empty state: Facebook waits on a synced feed; Intelligence on own stock.
     const noFilters = q === '' && statusFilter === 'all' && typeFilter === 'all' && segmentFilter === 'all';
     let msg = 'No vehicles match.';
     if (noFilters) {
       msg = __inventoryMode === 'facebook'
-        ? 'No vehicles yet. Use “Add vehicle”, import a CSV, or sync an inventory feed.'
+        ? 'No synced vehicles yet. Add an inventory feed above, then click Sync Now.'
         : 'No vehicles yet. Use “Add vehicle” or import a CSV — trade appraisals you win also land here.';
     }
     list.innerHTML = `<div class="text-xs text-slate-500 italic col-span-full">${msg}</div>`;
@@ -20215,8 +16033,7 @@ function renderCatalog() {
       pending:   'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
       sold:      'bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/30'
     };
-    const tip = { available: 'Available — live and sellable', pending: 'Pending — a deal is in progress on this unit', sold: 'Sold — off the live lot' }[s] || 'Status unknown';
-    return `<span class="${TAG} ${map[s] || map.sold}" title="${tip}">${s || 'unknown'}</span>`;
+    return `<span class="${TAG} ${map[s] || map.sold}">${s || 'unknown'}</span>`;
   };
   const conditionBadge = (c) => {
     if (!c) return '';
@@ -20226,8 +16043,7 @@ function renderCatalog() {
       : lc === 'demo'
         ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30'
         : 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30';
-    const tip = lc === 'new' ? 'New — never registered/retailed' : lc === 'demo' ? 'Demo — dealer-driven demonstrator' : 'Used — previously owned';
-    return `<span class="${TAG} ${cls}" title="${tip}">${c}</span>`;
+    return `<span class="${TAG} ${cls}">${c}</span>`;
   };
 
   // Manager value summary (internal): retail, cost & potential gross on the live lot.
@@ -20236,27 +16052,17 @@ function renderCatalog() {
     const isMgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     const avail = filtered.filter(v => v.status !== 'sold');
     const withCost = avail.filter(v => v.invoice_amount != null && v.price);
-    if (!isMgr || !avail.length) { sum.className = 'hidden'; return; }
+    if (!isMgr || !withCost.length) { sum.className = 'hidden'; return; }
     const totRetail = avail.reduce((s, v) => s + (Number(v.price) || 0), 0);
     const totCost = withCost.reduce((s, v) => s + (Number(v.invoice_amount) || 0), 0);
     const totGross = withCost.reduce((s, v) => s + ((Number(v.price) || 0) - (Number(v.invoice_amount) || 0)), 0);
-    // Lot health: how much of the live inventory is aging past 60 / 90 days.
-    const ages = avail.map(catalogDaysInStock).filter(d => d != null);
-    const aged60 = ages.filter(d => d > 60).length;
-    const aged90 = ages.filter(d => d > 90).length;
-    const avgAge = ages.length ? Math.round(ages.reduce((s, d) => s + d, 0) / ages.length) : null;
     const m = (n) => '$' + Math.round(n).toLocaleString();
-    const tile = (label, val, cls = 'text-slate-900 dark:text-white', tip = '') => `<div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2"${tip ? ` title="${tip}"` : ''}><div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">${label}</div><div class="text-base font-black ${cls}">${val}</div></div>`;
-    // Show cost/gross tiles only when we actually have cost data; always show units,
-    // retail, average age and the aged-unit count (the lot-health signal).
-    const costTiles = withCost.length ? (m(totCost) && (tile('Cost in stock', m(totCost)) + tile('Potential gross', (totGross >= 0 ? '' : '−') + m(Math.abs(totGross)), totGross >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'))) : '';
-    const agedCls = aged90 > 0 ? 'text-rose-600 dark:text-rose-400' : aged60 > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400';
+    const tile = (label, val, cls = 'text-slate-900 dark:text-white') => `<div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">${label}</div><div class="text-base font-black ${cls}">${val}</div></div>`;
     sum.className = 'grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3';
     sum.innerHTML = tile('Units (live)', avail.length)
       + tile('Retail value', m(totRetail))
-      + (avgAge != null ? tile('Avg days in stock', avgAge + 'd', avgAge > 60 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-white') : '')
-      + tile('Aged 60d+', aged60 + (aged90 ? ` · ${aged90} over 90` : ''), agedCls, 'Live units in stock more than 60 (and 90) days — prioritise moving these')
-      + costTiles;
+      + tile('Cost in stock', m(totCost))
+      + tile('Potential gross', (totGross >= 0 ? '' : '−') + m(Math.abs(totGross)), totGross >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400');
   })();
 
   list.innerHTML = filtered.map(v => {
@@ -20295,15 +16101,13 @@ function renderCatalog() {
         <div class="flex items-center gap-1 flex-wrap">
           ${conditionBadge(v.condition)}
           ${statusBadge(v.status)}
-          ${catalogAgeBadge(v)}
-          ${catalogGapBadge(v)}
           ${v.awaiting_possession ? `<span class="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md border bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" title="Acquired trade — hidden from your website until the deal is delivered (possession)">⏳ Awaiting possession</span>` : ''}
           ${(() => {
             const makeModel = `${v.make} ${v.model}`.toLowerCase()
             const gtag = 'inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm'
             const hotColdTag = __aiBoostActive
-              ? (__hotMakeModels.has(makeModel) ? `<span class="${gtag} bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30" title="Hot — this make/model is selling fast off your lot; stock more / price with confidence">${svgIcon('flame', 'w-3 h-3 inline-block -mt-0.5')} Hot</span>`
-                : __coldMakeModels.has(makeModel) ? `<span class="${gtag} bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30" title="Cold — slow mover; consider sharper pricing or wholesaling">❄️ Cold</span>`
+              ? (__hotMakeModels.has(makeModel) ? `<span class="${gtag} bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30">🔥 Hot</span>`
+                : __coldMakeModels.has(makeModel) ? `<span class="${gtag} bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30">❄️ Cold</span>`
                 : '')
               : ''
             const healthScore = __aiBoostActive && __vehicleHealthScores[v.id] != null ? __vehicleHealthScores[v.id] : null
@@ -20311,7 +16115,7 @@ function renderCatalog() {
               const cls = healthScore >= 80 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
                 : healthScore >= 50 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
                 : 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30'
-              return `<span class="${gtag} ${cls}" title="Merchandising health 0–100 (photos, price, mileage, description, days on lot). Open the unit to see the breakdown.">⚡ ${healthScore}/100</span>`
+              return `<span class="${gtag} ${cls}">⚡ ${healthScore}/100</span>`
             })() : ''
             // Pricing action verdict (from the AI market report): green = priced right,
             // amber = underpriced (raise), red = overpriced (lower). Hidden if the price
@@ -20461,23 +16265,12 @@ function setupActionListeners() {
       phone: document.getElementById('prof-phone')?.value.trim() || '',
       email: document.getElementById('prof-email').value.trim(),
       password: document.getElementById('prof-password').value,
+      dealershipName: document.getElementById('prof-dealername').value.trim(),
+      websiteUrl: document.getElementById('prof-website').value.trim(),
       avatarUrl,
     };
-    // Dealership identity has a stricter server-side permission than a personal
-    // profile. Do not include its already-populated fields when the user only
-    // changes their own name, email, phone, password, or avatar.
-    const normalized = value => String(value || '').trim();
-    const dealershipName = normalized(document.getElementById('prof-dealername')?.value);
-    const websiteUrl = normalized(document.getElementById('prof-website')?.value);
-    const savedDealershipName = normalized(profileContext?.dealership?.name);
-    const savedWebsiteUrl = normalized(profileContext?.dealership?.website_url);
-    if (dealershipName !== savedDealershipName) payload.dealershipName = dealershipName;
-    if (websiteUrl !== savedWebsiteUrl) payload.websiteUrl = websiteUrl;
     // Strip empties so we only send fields the user actually changed
     Object.keys(payload).forEach(k => { if (!payload[k]) delete payload[k]; });
-    // Keep intentionally-cleared dealership website fields: an authorized admin
-    // must be able to remove an obsolete website URL.
-    if (websiteUrl !== savedWebsiteUrl) payload.websiteUrl = websiteUrl;
 
     const showMsg = (text, kind) => {
       msg.textContent = text;
@@ -20591,9 +16384,7 @@ function setupActionListeners() {
     try {
       const data = await inviteRep(payload);
       showInviteResult(
-        data.invitation_sent
-          ? `Invitation sent to <b>${data.email}</b> through MarketSync email.`
-          : `Created <b>${data.email}</b>.`,
+        `Created <b>${data.email}</b>. Temporary password: <code class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">${data.temp_password}</code> — share securely.`,
         'ok'
       );
       inviteForm.reset();
@@ -20607,10 +16398,14 @@ function setupActionListeners() {
   // Launch Dedicated Stripe Gateway Session
   document.getElementById('launch-portal-btn')?.addEventListener('click', launchStripeLifecycle);
 
-  // Global Session Exits — also wired via inline onclick="msSignOut()" so sign-out works
-  // even if this listener never attaches. Optional chaining so a missing button can't
-  // throw and abort the rest of setup.
-  document.getElementById('logout-btn')?.addEventListener('click', (e) => { e.preventDefault(); msSignOut(); });
+  // Global Session Exits
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    // Tell the extension bridge this is a deliberate sign-out so it logs the
+    // extension out too instead of auto-logging the site back in.
+    sessionStorage.setItem('ms_logged_out', '1');
+    clearLocalStorage();
+    window.location.href = 'login.html';
+  });
 }
 
 async function launchStripeLifecycle() {
@@ -20685,15 +16480,6 @@ async function initSecurityPanel() {
         await refreshMfaStatus();
       } finally { btn.disabled = false; }
     } else {
-      // A second click while the QR is visible means "cancel setup", not "start a
-      // second factor". The next attempt safely clears the unfinished factor server-side.
-      if (currentEnrollment) {
-        currentEnrollment = null;
-        document.getElementById('mfa-enroll-panel').classList.add('hidden');
-        document.getElementById('mfa-enroll-error').classList.add('hidden');
-        btn.disabled = false; btn.textContent = 'Turn On';
-        return;
-      }
       btn.disabled = true; btn.textContent = 'Loading…';
       try {
         const res = await fetch(`${API}/auth/2fa/enroll`, {
@@ -20739,14 +16525,6 @@ async function initSecurityPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'That code did not work.');
 
-      // verify-enroll promotes the Supabase session to aal2. Replace the old aal1
-      // session immediately so MFA-protected settings work without a logout/login.
-      if (data.access_token) {
-        token = data.access_token;
-        localStorage.setItem('token', data.access_token);
-      }
-      if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
-
       document.getElementById('mfa-enroll-panel').classList.add('hidden');
       document.getElementById('mfa-enroll-code').value = '';
       await refreshMfaStatus();
@@ -20776,14 +16554,6 @@ async function initSecurityPanel() {
 
   // Add passkey button
   document.getElementById('add-passkey-btn')?.addEventListener('click', registerNewPasskey);
-  document.getElementById('phone-mfa-start')?.addEventListener('click', () => {
-    const panel = document.getElementById('phone-mfa-enroll');
-    panel?.classList.toggle('hidden');
-    const input = document.getElementById('phone-mfa-number');
-    if (input && !input.value && profileContext?.phone) input.value = profileContext.phone;
-  });
-  document.getElementById('phone-mfa-send')?.addEventListener('click', startPhoneMfaEnrollment);
-  document.getElementById('phone-mfa-confirm')?.addEventListener('click', verifyPhoneMfaEnrollment);
 
   // Dealership activity log — admins/owners only.
   initAuditLog();
@@ -20815,64 +16585,6 @@ async function initSecurityPanel() {
 }
 
 let currentEnrollment = null;
-let currentPhoneEnrollment = null;
-
-async function startPhoneMfaEnrollment() {
-  const phone = document.getElementById('phone-mfa-number')?.value.trim();
-  const button = document.getElementById('phone-mfa-send');
-  const errorBox = document.getElementById('phone-mfa-error');
-  errorBox?.classList.add('hidden');
-  if (!/^\+[1-9]\d{7,14}$/.test(String(phone || '').replace(/[\s()-]/g, ''))) {
-    errorBox.textContent = 'Enter the country code and mobile number, for example +19055551234.';
-    errorBox.classList.remove('hidden'); return;
-  }
-  button.disabled = true; button.textContent = 'Sending…';
-  try {
-    const res = await fetch(`${API}/auth/2fa/phone/enroll`, {
-      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.code === 'PHONE_MFA_NOT_CONFIGURED'
-      ? 'Text-message MFA is not enabled in this Supabase project yet. Enable Phone MFA and its SMS provider, then try again.'
-      : (data.message || data.error || 'Could not send a verification text.'));
-    currentPhoneEnrollment = { factor_id: data.factor_id, challenge_id: data.challenge_id };
-    document.getElementById('phone-mfa-enroll')?.classList.add('hidden');
-    document.getElementById('phone-mfa-verify')?.classList.remove('hidden');
-    document.getElementById('phone-mfa-status').textContent = `Code sent to ${data.phone || 'your phone'}.`;
-    document.getElementById('phone-mfa-code')?.focus();
-  } catch (error) {
-    errorBox.textContent = error.message; errorBox.classList.remove('hidden');
-  } finally { button.disabled = false; button.textContent = 'Send verification text'; }
-}
-
-async function verifyPhoneMfaEnrollment() {
-  const code = document.getElementById('phone-mfa-code')?.value.trim();
-  const button = document.getElementById('phone-mfa-confirm');
-  const errorBox = document.getElementById('phone-mfa-error');
-  errorBox?.classList.add('hidden');
-  if (!currentPhoneEnrollment || !/^\d{6,10}$/.test(code || '')) {
-    errorBox.textContent = 'Enter the code sent to your phone.'; errorBox.classList.remove('hidden'); return;
-  }
-  button.disabled = true; button.textContent = 'Verifying…';
-  try {
-    const res = await fetch(`${API}/auth/2fa/phone/verify-enroll`, {
-      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...currentPhoneEnrollment, code })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'That code did not work.');
-    if (data.access_token) { token = data.access_token; localStorage.setItem('token', data.access_token); }
-    if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
-    currentPhoneEnrollment = null;
-    document.getElementById('phone-mfa-verify')?.classList.add('hidden');
-    document.getElementById('phone-mfa-code').value = '';
-    await refreshMfaStatus();
-    if (Array.isArray(data.recovery_codes) && data.recovery_codes.length) showBackupCodes(data.recovery_codes);
-  } catch (error) {
-    errorBox.textContent = error.message; errorBox.classList.remove('hidden');
-  } finally { button.disabled = false; button.textContent = 'Verify and turn on'; }
-}
 
 async function refreshMfaStatus() {
   try {
@@ -20881,11 +16593,8 @@ async function refreshMfaStatus() {
     const statusText = document.getElementById('mfa-status-text');
     const btn = document.getElementById('mfa-toggle-btn');
     const regenBtn = document.getElementById('regen-codes-btn');
-    const phoneStatus = document.getElementById('phone-mfa-status');
-    const phoneMethod = (data.methods || []).find(method => method.factor_type === 'phone');
     if (data.enabled) {
-      const methods = (data.methods || []).map(method => method.factor_type === 'phone' ? 'text message' : 'authenticator app').join(' or ');
-      statusText.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-semibold">✓ On</span> — protected by ${methods || 'a verified second factor'}.`;
+      statusText.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-semibold">✓ On</span> — asks for a 6-digit code from your phone each time you sign in.';
       btn.textContent = 'Turn Off';
       btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
       btn.classList.add('bg-slate-200', 'dark:bg-slate-700', 'text-slate-900', 'dark:text-white', 'hover:bg-slate-300');
@@ -20897,9 +16606,6 @@ async function refreshMfaStatus() {
       btn.classList.remove('bg-slate-200', 'dark:bg-slate-700', 'text-slate-900', 'dark:text-white', 'hover:bg-slate-300');
       regenBtn?.classList.add('hidden');
     }
-    if (phoneStatus) phoneStatus.textContent = phoneMethod
-      ? `✓ Text-message MFA is on for ${phoneMethod.phone || 'your verified phone'}.`
-      : 'Add a verified mobile number as another true MFA method.';
     btn.disabled = false;
   } catch (e) {
     document.getElementById('mfa-status-text').textContent = "Couldn't load status. Try refreshing the page.";
@@ -21431,7 +17137,7 @@ const UPGRADE_PLANS = {
       'Lot Average Report — your lot vs the market',
       'Hot / cold detection, turn rate & health scores',
       'Duplicate VIN detection & automated repricing rules',
-      'Direct competition monitoring',
+      'Competitor lot monitoring',
       'VIN decoder, recalls & factory window stickers',
     ],
   },
@@ -21710,23 +17416,15 @@ async function openLotReport() {
     const rowColor = pct => pct > 5 ? 'text-red-600 dark:text-red-400' : pct < -5 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400';
     document.getElementById('lr-rows').innerHTML = (data.vehicles || []).map(v => `
       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer" data-lr-report="${v.inventory_id}">
-        <td class="px-3 py-2 font-medium text-slate-900 dark:text-white">
-          <div class="flex items-center gap-2">
-            <span>${esc(v.label)}</span>
-            <button type="button" data-lr-stock="${v.inventory_id}" title="Open stock card" class="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex-shrink-0"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          </div>
-        </td>
+        <td class="px-3 py-2 font-medium text-slate-900 dark:text-white">${esc(v.label)}</td>
         <td class="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">${money(v.your_price)}</td>
         <td class="px-3 py-2 text-right tabular-nums text-slate-500 dark:text-slate-400">${money(v.market_avg)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-bold ${rowColor(v.pct_diff)}">${(v.pct_diff > 0 ? '+' : '') + v.pct_diff}%</td>
       </tr>`).join('');
 
-    // Click a row to open that vehicle's full price report; the pencil opens the stock card.
+    // Click a row to open that vehicle's full price report
     document.getElementById('lr-rows').querySelectorAll('[data-lr-report]').forEach(tr => {
       tr.addEventListener('click', () => { modal.classList.add('hidden'); openPriceReport(tr.dataset.lrReport); });
-    });
-    document.getElementById('lr-rows').querySelectorAll('[data-lr-stock]').forEach(btn => {
-      btn.addEventListener('click', (e) => { e.stopPropagation(); modal.classList.add('hidden'); editVehicle(btn.dataset.lrStock); });
     });
 
     content?.classList.remove('hidden');
@@ -22289,73 +17987,6 @@ function applyPaidBadges() {
   });
 }
 
-// Render the assistant management controls: reps-access toggle + per-tool checkboxes.
-// Reads the catalog + current disabled list from /ai/config (cfg passed in).
-function renderAiAssistantMgmt(cfg) {
-  const panel = document.getElementById('ai-assistant-mgmt');
-  if (!panel) return;
-  const reps = document.getElementById('ai-assistant-reps');
-  if (reps) reps.checked = cfg.ai_assistant_reps !== false;
-  const list = document.getElementById('ai-tools-list');
-  const catalog = Array.isArray(cfg.ai_tools_catalog) ? cfg.ai_tools_catalog : [];
-  const disabled = new Set(Array.isArray(cfg.ai_tools_disabled) ? cfg.ai_tools_disabled : []);
-  if (list) {
-    list.innerHTML = catalog.map(t => `
-      <label class="flex items-start gap-2.5 rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2 cursor-pointer">
-        <input type="checkbox" data-ai-tool="${esc(t.name)}" ${disabled.has(t.name) ? '' : 'checked'} class="accent-indigo-600 w-4 h-4 mt-0.5">
-        <span class="min-w-0"><span class="block text-sm font-semibold text-slate-700 dark:text-slate-200">${esc(t.label || t.name)}</span><span class="block text-[11px] text-slate-400">${esc(t.desc || '')}</span></span>
-      </label>`).join('');
-  }
-  panel.classList.remove('hidden');
-}
-window.renderAiAssistantMgmt = renderAiAssistantMgmt;
-
-// Manager review of recent "Ask MarketSync" transcripts (who asked what, when).
-async function openAiHistory() {
-  const ov = crmOverlay('<div id="ai-hist-body" class="p-5"><div class="py-10 text-center text-sm text-slate-400 italic">Loading chat history…</div></div>', 'max-w-2xl');
-  const body = () => ov.querySelector('#ai-hist-body');
-  let chats = [];
-  try { const r = await apiGetJson('/ai/assistant/history?limit=100', { retries: 1 }); chats = r.chats || []; }
-  catch (e) { if (body()) body().innerHTML = `<div class="py-10 text-center text-sm text-red-400">${esc(e.message || 'Could not load history')}</div>`; return; }
-  const fmt = (iso) => { try { return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch { return ''; } };
-  const rows = chats.length ? chats.map(c => `
-    <div class="py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
-      <div class="flex items-center justify-between gap-2 mb-1">
-        <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">${esc(c.user_name || 'Someone')}</span>
-        <span class="text-[11px] text-slate-400">${esc(fmt(c.created_at))}${Array.isArray(c.tools) && c.tools.length ? ' · ' + esc(c.tools.join(', ')) : ''}</span>
-      </div>
-      <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 whitespace-pre-wrap break-words">${esc(c.question || '')}</div>
-      ${c.answer ? `<div class="text-sm text-slate-600 dark:text-slate-300 mt-1 break-words">${aiDockRichText(c.answer)}</div>` : ''}
-    </div>`).join('') : '<div class="py-10 text-center text-sm text-slate-400 italic">No assistant questions logged yet.</div>';
-  if (body()) body().innerHTML = `
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="text-lg font-black text-slate-900 dark:text-white">Assistant chat history</h3>
-      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none">&times;</button>
-    </div>
-    <div class="max-h-[65vh] overflow-y-auto">${rows}</div>`;
-}
-window.openAiHistory = openAiHistory;
-
-// Fill the AI usage panel: today's assistant questions + this month's AI/market ops.
-async function loadAiUsage() {
-  const panel = document.getElementById('ai-usage-panel');
-  if (!panel) return;
-  let u;
-  try { u = await apiGetJson('/ai/usage', { retries: 1 }); } catch { panel.classList.add('hidden'); return; }
-  const pct = (used, limit) => limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
-  const set = (barId, txtId, used, limit, suffix) => {
-    const bar = document.getElementById(barId), txt = document.getElementById(txtId);
-    const p = pct(used, limit);
-    if (bar) { bar.style.width = p + '%'; bar.classList.toggle('bg-rose-500', p >= 90); }
-    if (txt) txt.textContent = `${(used || 0).toLocaleString()} / ${(limit || 0).toLocaleString()}${suffix ? ' ' + suffix : ''}`;
-  };
-  set('ai-use-asst-bar', 'ai-use-asst-txt', u.assistant?.used, u.assistant?.limit, 'today');
-  set('ai-use-ai-bar', 'ai-use-ai-txt', u.monthly?.ai?.used, u.monthly?.ai?.limit);
-  set('ai-use-mc-bar', 'ai-use-mc-txt', u.monthly?.marketcheck?.used, u.monthly?.marketcheck?.limit);
-  panel.classList.remove('hidden');
-}
-window.loadAiUsage = loadAiUsage;
-
 async function loadAIBoostSection() {
   const section = document.getElementById('ai-boost-section');
   if (!section) return;
@@ -22377,15 +18008,12 @@ async function loadAIBoostSection() {
     __bgProviderReady = !!cfg.background_provider_ready;
     // Trade Appraisal is part of the Inventory Intelligence add-on — hide otherwise.
     document.getElementById('nav-appraisal')?.classList.toggle('hidden', !__invIntelActive);
-    // Header quick-launch (Desk a deal + Appraise): for every sales user — reps
-    // included — on the full DealerOS. Not the Facebook-only / restricted-product /
-    // MarketSync-owner / specialized-staff tiers (those run their own workspaces).
-    const canQuickSell = !__fbOnly && !__productAllowedPages && !__staffAllowedPages && !marketsyncOwnerMode();
-    const deskHdr = document.getElementById('header-desk-btn');
-    if (deskHdr) { deskHdr.classList.toggle('hidden', !canQuickSell); deskHdr.classList.toggle('inline-flex', canQuickSell); }
+    // Header "Appraise a vehicle" quick-launch — shown for managers (same as Desk a
+    // deal) once Inventory Intelligence is active.
     const apprHdr = document.getElementById('header-appraise-btn');
     if (apprHdr) {
-      const showAppr = canQuickSell && __invIntelActive;
+      const deskShown = !document.getElementById('header-desk-btn')?.classList.contains('hidden');
+      const showAppr = __invIntelActive && deskShown;
       apprHdr.classList.toggle('hidden', !showAppr);
       apprHdr.classList.toggle('inline-flex', showAppr);
     }
@@ -22394,10 +18022,7 @@ async function loadAIBoostSection() {
     // Paint the nav "Paid" badges: green when the dealer is entitled, grey when not.
     applyPaidBadges();
     applyFeatureFlags();   // re-hide any feature the dealer switched off (e.g. Appraisals)
-    applyProductNav(legacyProductsFromAccess(window.__access) || profileContext?.products);   // keep the product front door applied after config load
-    renderDeptNav(profileContext?.role);   // rebuild the department nav once feature flags settle
-    renderUpgradeCta();
-    applyExtensionVisibility();
+    applyProductNav(profileContext?.products);   // keep the product front door applied after config load
     // Reveal the floating AI assistant dock for entitled dealers (owner exempt).
     updateAiDockVisibility();
     applyAssistantName(cfg.ai_assistant_name);
@@ -22405,9 +18030,6 @@ async function loadAIBoostSection() {
     updateReportRailVisibility();
     // Stash dealership location for the appraisal PDFs' header.
     __apprDealerInfo = { city: cfg.city, province: cfg.province, postal_code: cfg.postal_code, country: cfg.country };
-    // Localization defaults — new customer/appraisal forms inherit the dealer's
-    // country/province instead of hardcoded ON/US.
-    window.__dealerLocale = { country: (cfg.country || 'CA').toUpperCase(), province: cfg.province || '' };
     __aiVisionActive = !!cfg.ai_vision_active;               // = AI Boost
     renderAiVisionNav();
     __aiBoostConfigLoaded = true;
@@ -22486,8 +18108,6 @@ function renderAIBoostSection(cfg) {
     const costRep = document.getElementById('ai-cost-rep'); if (costRep) costRep.checked = !!cfg.cost_rep_visible;
     const arMode = document.getElementById('ai-ar-mode'); if (arMode) arMode.value = cfg.autoresponder_mode || 'off';
     const arCh = document.getElementById('ai-ar-channel'); if (arCh) arCh.value = cfg.autoresponder_channel || 'email';
-    renderAiAssistantMgmt(cfg);   // capabilities + access toggles
-    loadAiUsage();   // fill the usage panel (today's assistant + monthly AI/market)
   } else {
     badge.textContent = 'Not Active';
     badge.className = 'text-xs font-bold px-2 py-0.5 rounded-full border border-slate-500 bg-slate-800 text-slate-400';
@@ -22650,13 +18270,6 @@ function setupAIBoostListeners() {
       autoresponder_mode: document.getElementById('ai-ar-mode')?.value || 'off',
       autoresponder_channel: document.getElementById('ai-ar-channel')?.value || 'email',
     };
-    // Assistant capabilities/access — only send when the panel is actually shown
-    // (entitled), so a non-entitled save can't blank the tool list or reps access.
-    const mgmt = document.getElementById('ai-assistant-mgmt');
-    if (mgmt && !mgmt.classList.contains('hidden')) {
-      payload.ai_assistant_reps = !!document.getElementById('ai-assistant-reps')?.checked;
-      payload.ai_tools_disabled = [...document.querySelectorAll('#ai-tools-list [data-ai-tool]')].filter(el => !el.checked).map(el => el.dataset.aiTool);
-    }
 
     try {
       const res = await fetch(`${API}/ai/config`, {
@@ -23401,7 +19014,7 @@ function renderAiVisionResults(data) {
     const flags = (v.flags || []).map(f => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">${esc(f)}</span>`).join(' ');
     const thumb = v.thumb
       ? `<img src="${esc(v.thumb)}" alt="" class="w-14 h-14 rounded object-cover flex-shrink-0 bg-slate-100 dark:bg-slate-800">`
-      : `<div class="w-14 h-14 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 flex-shrink-0">${svgIcon('car', 'w-6 h-6')}</div>`;
+      : `<div class="w-14 h-14 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-lg flex-shrink-0">🚗</div>`;
     return `
       <div class="px-5 py-3.5 flex items-center gap-3.5">
         ${thumb}
@@ -23811,7 +19424,7 @@ async function startVinStickerTrial() {
   const LABELS = { quickbooks: 'QuickBooks', xero: 'Xero', google_business: 'Google Business', stripe_deposits: 'Online Deposits', square: 'Square' };
   const label = LABELS[provider] || 'Integration';
   history.replaceState({}, '', window.location.pathname);
-  const openHub = () => { if (typeof switchPage === 'function') { switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('admin'); }, 250); } };
+  const openHub = () => { if (typeof switchPage === 'function') { switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('integrations'); }, 250); } };
   const show = () => {
     if (typeof showToast !== 'function') { setTimeout(show, 400); return; }
     // Stripe Connect returns here after onboarding — re-check the account, then open the hub.
@@ -24847,25 +20460,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const vehicleLine = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')
 
       // Score bar segments
-      // Human notes for the market-aware metrics.
-      const priceNote = v.price_vs_market_pct != null
-        ? (v.price_vs_market_pct >= -3 ? 'priced to market' : `${Math.abs(v.price_vs_market_pct)}% under market`)
-        : null;
-      const mileNote = v.mileage != null
-        ? Number(v.mileage).toLocaleString() + (v.mileage_ratio != null ? (v.mileage_ratio <= 1.0 ? ' · below avg' : v.mileage_ratio <= 1.25 ? ' · slightly high' : ' · high for age') : '')
-        : null;
-      // Each row shows the ACTUAL value (days, km, price…) + how much it's worth of
-      // the 100-pt score (its max = its weight), with the bar coloured by the score.
-      const money0 = (n) => n != null ? '$' + Number(n).toLocaleString() : '—';
-      const priceActual = v.price > 0 ? money0(v.price) + (priceNote ? ' · ' + priceNote : '') : 'No price';
-      const mileActual = v.mileage > 0 ? (mileNote || Number(v.mileage).toLocaleString()) : 'No mileage';
       const segments = [
-        { label: 'Photos',      val: b.photos,      max: 30, icon: 'camera',   actual: `${v.photos || 0} photo${v.photos === 1 ? '' : 's'}` },
-        { label: 'Days on lot', val: b.days,         max: 25, icon: 'calendar', actual: `${v.days}d on lot` },
-        { label: 'Price',       val: b.price,        max: 15, icon: 'currency', actual: priceActual },
-        { label: 'Mileage',     val: b.mileage,      max: 10, icon: 'hashtag',  actual: mileActual },
-        { label: 'Description', val: b.description,  max: 10, icon: 'document', actual: b.description >= 10 ? 'Written' : 'Short / missing' },
-        { label: 'VIN decode',  val: b.fields,       max: 10, icon: 'check',    actual: b.fields >= 10 ? 'Decoded' : 'Incomplete' },
+        { label: 'Photos',      val: b.photos,      max: 30, icon: 'camera' },
+        { label: 'Days on lot', val: b.days,         max: 25, icon: 'calendar' },
+        { label: 'Price',       val: b.price,        max: 15, icon: 'currency' },
+        { label: 'Mileage',     val: b.mileage,      max: 10, icon: 'hashtag' },
+        { label: 'Description', val: b.description,  max: 10, icon: 'document' },
+        { label: 'Fields',      val: b.fields,       max: 10, icon: 'check' },
       ].filter(s => s.val != null)
 
       const breakdownId = `hbd-${idx}`
@@ -24875,14 +20476,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ${segments.map(s => {
               const pct = Math.round((s.val / s.max) * 100)
               const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400'
-              const valColor = pct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : pct >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500'
-              return `<div title="Worth ${s.max}% of the health score">
-                <div class="flex justify-between items-baseline text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1 gap-2">
-                  <span class="inline-flex items-center gap-1">${svgIcon(s.icon, 'w-3 h-3')}${s.label}</span>
-                  <span class="text-[9px] font-bold uppercase tracking-wide text-slate-300 dark:text-slate-600">worth ${s.max}%</span>
-                </div>
-                <div class="flex justify-between items-baseline mb-1 gap-2">
-                  <span class="text-[12px] font-bold ${valColor} truncate">${esc(s.actual)}</span>
+              return `<div>
+                <div class="flex justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                  <span class="inline-flex items-center gap-1">${svgIcon(s.icon, 'w-3 h-3')}${s.label}</span><span>${s.val}/${s.max}</span>
                 </div>
                 <div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
                   <div class="h-1.5 rounded-full ${barColor}" style="width:${pct}%"></div>
@@ -24905,19 +20501,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<div class="mb-3 rounded-lg bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 p-2.5">
               <div class="flex justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
                 <span class="flex items-center gap-1"><svg viewBox="0 0 24 24" width="12" height="12" class="inline-block flex-shrink-0" aria-hidden="true"><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg> AI Vision — Photo Quality</span>
-                <span>${ps}%</span>
+                <span>${ps}/100</span>
               </div>
               <div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-1.5 rounded-full ${barColor}" style="width:${ps}%"></div></div>
-              <div class="text-[10px] text-slate-400 mt-1">AI-rated photo quality (lighting, framing, clarity) — aim for 80%+. Click “Score photos” to (re)run it.</div>
               ${flags.length ? `<div class="flex flex-wrap gap-1 mt-1.5">${flags.map(f => `<span class="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">${esc(f)}</span>`).join('')}</div>` : '<div class="text-[10px] text-emerald-500 font-semibold mt-1.5">✓ Photos look good</div>'}
             </div>`;
           })()}
           ${v.issues.length ? `<div class="flex flex-wrap gap-1">${issueList}</div>` : '<div class="text-emerald-500 text-xs font-semibold">✓ No issues</div>'}
-          <div class="mt-3 flex justify-end">
-            <button onclick="event.stopPropagation(); editVehicle('${v.id}')" class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Open stock card to fix →
-            </button>
-          </div>
         </div>`
 
       return `<tr class="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition border-t border-slate-100 dark:border-slate-800" onclick="
@@ -25018,55 +20608,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // updateAiDockVisibility() call in loadAIBoostSection().
 let aiDockMessages = [];
 let aiDockBusy = false;
-let aiDockPendingCommissionImport = null;
 let __aiAssistantName = 'MarketSync';   // dealer-set internal assistant name
-
-// Safe, small Markdown renderer for assistant replies. The previous textContent
-// rendering exposed **, #, and list markers to users. Escape first, then recognize
-// only a narrow readable subset; arbitrary HTML from the model can never execute.
-function aiDockInline(text) {
-  const links = [];
-  const raw = String(text == null ? '' : text).replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_match, label, href) => {
-    try {
-      const url = new URL(href);
-      if (!['http:', 'https:'].includes(url.protocol)) return label;
-      const token = `@@AI_LINK_${links.length}@@`;
-      links.push(`<a href="${esc(url.href)}" target="_blank" rel="noopener" class="underline text-indigo-600 dark:text-indigo-400">${esc(label)}</a>`);
-      return token;
-    } catch { return `${label} (${href})`; }
-  });
-  let s = esc(raw);
-  s = s.replace(/`([^`]+)`/g, '<code class="bg-slate-200/70 dark:bg-slate-700 px-1 py-0.5 rounded text-[.92em]">$1</code>');
-  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>');
-  s = s.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, '$1<em>$2</em>');
-  s = s.replace(/@@AI_LINK_(\d+)@@/g, (_match, index) => links[Number(index)] || '');
-  return s;
-}
-function aiDockRichText(text) {
-  const lines = String(text || '').split(/\r?\n/);
-  const out = []; let list = null; let para = [];
-  const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
-  const flushPara = () => { if (para.length) { out.push(`<p class="mb-2 last:mb-0">${para.map(aiDockInline).join('<br>')}</p>`); para = []; } };
-  for (const raw of lines) {
-    const line = raw.trim(); let match;
-    if (!line) { flushPara(); closeList(); continue; }
-    if (/^```[a-z0-9_-]*$/i.test(line)) { flushPara(); closeList(); continue; }
-    if (/^([-*_])\1{2,}$/.test(line)) { flushPara(); closeList(); out.push('<hr class="my-2 border-slate-300 dark:border-slate-700">'); continue; }
-    if ((match = line.match(/^#{1,6}\s+(.*)$/))) { flushPara(); closeList(); out.push(`<div class="font-bold mt-2 mb-1">${aiDockInline(match[1])}</div>`); continue; }
-    if ((match = line.match(/^[-*•]\s+(.*)$/))) {
-      flushPara(); if (list !== 'ul') { closeList(); out.push('<ul class="list-disc pl-5 my-2 space-y-1">'); list = 'ul'; }
-      out.push(`<li>${aiDockInline(match[1])}</li>`); continue;
-    }
-    if ((match = line.match(/^\d+[.)]\s+(.*)$/))) {
-      flushPara(); if (list !== 'ol') { closeList(); out.push('<ol class="list-decimal pl-5 my-2 space-y-1">'); list = 'ol'; }
-      out.push(`<li>${aiDockInline(match[1])}</li>`); continue;
-    }
-    closeList(); para.push(line);
-  }
-  flushPara(); closeList();
-  return out.join('') || aiDockInline(text);
-}
 
 // Rename the "Ask MarketSync" dock (launcher, header, greeting) to the dealer's
 // chosen assistant name. Falls back to "MarketSync" when blank.
@@ -25163,9 +20705,6 @@ function updateAiDockVisibility() {
   // Launcher hides while the panel is open, or when not entitled.
   btn.classList.toggle('hidden', !show || panelOpen);
   if (!show && panel) panel.classList.add('hidden');
-  const attach = document.getElementById('ai-dock-attach');
-  const canImportCommission = profileContext?.workspace !== 'saas_admin' && ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(profileContext?.role);
-  if (attach) attach.classList.toggle('hidden', !canImportCommission);
 }
 
 function renderAiDockMessages() {
@@ -25186,10 +20725,6 @@ function renderAiDockMessages() {
       suggestions
         .map(s => `<button type="button" data-ai-suggest="${s}" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">${s}</button>`)
         .join('') +
-      // Lookups need a name/stock #, so these chips pre-fill the box instead of sending.
-      `<button type="button" data-ai-fill="What's the status on " class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">Look up a customer…</button>` +
-      `<button type="button" data-ai-fill="What's the story on stock #" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">Look up a vehicle…</button>` +
-      (isMgr ? `<button type="button" data-ai-attach="1" class="text-xs bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 rounded-full px-3 py-1.5 text-indigo-700 dark:text-indigo-300 transition">Build commission plan from a document…</button>` : '') +
       '</div>';
     box.appendChild(intro);
   }
@@ -25199,19 +20734,15 @@ function renderAiDockMessages() {
     const bubble = document.createElement('div');
     bubble.className = m.role === 'user'
       ? 'max-w-[85%] bg-indigo-600 text-white rounded-2xl rounded-br-sm px-3.5 py-2 whitespace-pre-wrap break-words'
-      : 'max-w-[85%] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl rounded-bl-sm px-3.5 py-2 break-words leading-relaxed';
-    if (m.role === 'user') bubble.textContent = m.content;
-    else bubble.innerHTML = aiDockRichText(m.content);
+      : 'max-w-[85%] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl rounded-bl-sm px-3.5 py-2 whitespace-pre-wrap break-words';
+    bubble.textContent = m.content;
     row.appendChild(bubble);
     // Agentic action: a confirm chip under the assistant bubble (nothing runs until clicked).
     if (m.role === 'assistant' && m.action && !m.action_done) {
       const a = m.action;
-      let label = 'Confirm';
-      if (a.action === 'create_task') label = `✓ Create task: "${a.title}"${a.due_hours ? ` (due in ${a.due_hours}h)` : ''}`;
-      else if (a.action === 'bulk_outreach') label = `✉️ Set up: "${a.instruction}"`;
-      else if (a.action === 'book_appointment') { let w = a.when_iso; try { w = new Date(a.when_iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch {} label = `📅 Book appointment — ${a.customer} (${w})`; }
-      else if (a.action === 'reassign_lead') label = `🔄 Reassign ${a.customer} → ${a.to_rep}`;
-      else if (a.action === 'review_commission_plans') label = 'Review commission-plan drafts';
+      const label = a.action === 'create_task'
+        ? `✓ Create task: "${a.title}"${a.due_hours ? ` (due in ${a.due_hours}h)` : ''}`
+        : a.action === 'bulk_outreach' ? `✉️ Set up: "${a.instruction}"` : 'Confirm';
       const wrap = document.createElement('div');
       wrap.className = 'mt-1.5 flex items-center gap-2';
       wrap.innerHTML = `<button onclick="aiDockRunAction(${idx})" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg">${esc(label)}</button><button onclick="aiDockCancelAction(${idx})" class="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">Cancel</button>`;
@@ -25219,7 +20750,7 @@ function renderAiDockMessages() {
     } else if (m.role === 'assistant' && m.action_done) {
       const done = document.createElement('div');
       done.className = 'mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400';
-      done.textContent = m.action_done === 'handoff' ? '✓ Opened for review' : '✓ Done';
+      done.textContent = m.action_done === 'handoff' ? '✓ Opened — review & send' : '✓ Done';
       row.appendChild(done);
     }
     box.appendChild(row);
@@ -25236,108 +20767,16 @@ function renderAiDockMessages() {
   box.scrollTop = box.scrollHeight;
 }
 
-let __mammothPromise = null;
-function loadMammothJs() {
-  if (window.mammoth) return Promise.resolve(window.mammoth);
-  if (__mammothPromise) return __mammothPromise;
-  __mammothPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.9.1/mammoth.browser.min.js';
-    script.onload = () => window.mammoth ? resolve(window.mammoth) : reject(new Error('Word document reader did not load'));
-    script.onerror = () => { __mammothPromise = null; reject(new Error('Word document reader did not load')); };
-    document.head.appendChild(script);
-  });
-  return __mammothPromise;
-}
-function aiDockRtfText(raw) {
-  return String(raw || '')
-    .replace(/\\par[d]?\b/g, '\n')
-    .replace(/\\'[0-9a-f]{2}/gi, match => { try { return String.fromCharCode(parseInt(match.slice(2), 16)); } catch { return ' '; } })
-    .replace(/\\[a-z]+-?\d*\s?/gi, '')
-    .replace(/[{}]/g, '')
-    .replace(/\n{3,}/g, '\n\n');
-}
-async function readAiCommissionFile(file) {
-  if (!file) throw new Error('Choose a commission plan document.');
-  if (file.size > 8 * 1024 * 1024) throw new Error('Keep the commission document under 8 MB.');
-  const lower = file.name.toLowerCase();
-  let text = '';
-  if (lower.endsWith('.pdf')) text = await extractPdfText(file, { maxChars: 60000, maxPages: 80 });
-  else if (lower.endsWith('.docx')) {
-    const mammoth = await loadMammothJs();
-    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
-    text = result?.value || '';
-  } else if (lower.endsWith('.rtf')) text = aiDockRtfText(await file.text());
-  else if (/\.(txt|md|csv|json)$/i.test(lower) || /^text\//i.test(file.type || '')) text = await file.text();
-  else if (lower.endsWith('.doc')) throw new Error('Older .doc files are not supported. Save it as DOCX or PDF, then drop it here.');
-  else throw new Error('Use a PDF, DOCX, RTF, TXT, Markdown, CSV, or JSON document.');
-  text = String(text || '').replace(/[ \t]{3,}/g, ' ').replace(/\n{4,}/g, '\n\n').trim().slice(0, 60000);
-  if (text.length < 80) throw new Error('I could not read enough text. Use a text-based PDF or DOCX, or paste the plan into chat.');
-  return text;
-}
-function setAiDockFileStatus(message, kind = 'info') {
-  const status = document.getElementById('ai-dock-file-status');
-  if (!status) return;
-  if (!message) { status.textContent = ''; status.classList.add('hidden'); return; }
-  status.textContent = message;
-  status.className = `border-t px-3 py-2 text-xs ${kind === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300' : kind === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300' : 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-300'}`;
-}
-async function sendAiCommissionImport(file, answers = '') {
-  if (aiDockBusy) return;
-  let state = aiDockPendingCommissionImport;
-  try {
-    if (file) {
-      setAiDockFileStatus(`Reading ${file.name}…`);
-      const text = await readAiCommissionFile(file);
-      state = { name: file.name, text, questions: [] };
-      aiDockPendingCommissionImport = state;
-      aiDockMessages.push({ role: 'user', content: `Attached commission plan: ${file.name}` });
-    } else if (state && answers.trim()) {
-      aiDockMessages.push({ role: 'user', content: answers.trim() });
-    } else return;
-    aiDockBusy = true;
-    setAiDockFileStatus(`Building an inactive commission-plan draft from ${state.name}…`);
-    renderAiDockMessages();
-    const response = await fetch(`${API}/ai/assistant/commission-plan-import`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: state.name, text: state.text, questions: state.questions || [], answers: answers.trim() }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Could not build the commission plan.');
-    aiDockMessages.push({ role: 'assistant', content: data.reply || 'The commission document was processed.', action: data.action || null });
-    if (data.status === 'needs_clarification') {
-      aiDockPendingCommissionImport = { ...state, questions: data.questions || [] };
-      setAiDockFileStatus('Answer the important question in chat. I will build the draft from your answer.');
-    } else {
-      aiDockPendingCommissionImport = null;
-      setAiDockFileStatus('Inactive commission-plan draft created. Review it before activation or assignment.', 'success');
-    }
-  } catch (error) {
-    aiDockMessages.push({ role: 'assistant', content: error.message || 'Could not read that commission document.' });
-    setAiDockFileStatus(error.message || 'Could not read that commission document.', 'error');
-    if (file) aiDockPendingCommissionImport = null;
-  } finally {
-    aiDockBusy = false;
-    const input = document.getElementById('ai-dock-input');
-    if (input) { input.value = ''; input.style.height = 'auto'; }
-    renderAiDockMessages();
-  }
-}
-
 async function sendAiDock(text) {
   text = (text || '').trim();
   if (!text || aiDockBusy) return;
-  if (aiDockPendingCommissionImport) return sendAiCommissionImport(null, text);
   aiDockMessages.push({ role: 'user', content: text });
   aiDockBusy = true;
   renderAiDockMessages();
   const input = document.getElementById('ai-dock-input');
   if (input) { input.value = ''; input.style.height = 'auto'; }
   try {
-    // MarketSync HQ (saas_admin) gets its own copilot; dealers get the dealership assistant.
-    const aiEndpoint = (profileContext?.workspace === 'saas_admin') ? '/saas/assistant' : '/ai/assistant';
-    const r = await fetch(`${API}${aiEndpoint}`, {
+    const r = await fetch(`${API}/ai/assistant`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: aiDockMessages.slice(-10) }),
@@ -25367,17 +20806,6 @@ async function aiDockRunAction(idx) {
       m.action_done = 'handoff';
       closeAiDock();
       openBulkOutreach(a.instruction);
-    } else if (a.action === 'book_appointment' || a.action === 'reassign_lead') {
-      // Server executes these with strict matching; show its message back in the thread.
-      const r = await apiSendJson('/ai/assistant/action', 'POST', a);
-      m.action_done = 'done';
-      aiDockMessages.push({ role: 'assistant', content: r.message || 'Done ✓' });
-      showToast(r.message || 'Done ✓', 'success');
-    } else if (a.action === 'review_commission_plans') {
-      m.action_done = 'handoff';
-      closeAiDock();
-      switchPage('acct-settings');
-      setTimeout(() => document.getElementById('acct-comm-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
     }
   } catch (e) { showToast(e.message || 'Could not do that', 'error'); return; }
   renderAiDockMessages();
@@ -25401,8 +20829,6 @@ function closeAiDock() {
   updateAiDockVisibility();
   updateReportRailVisibility();   // restore the reports rail
 }
-window.openAiDock = openAiDock;
-window.closeAiDock = closeAiDock;
 
 function initAiDock() {
   const btn = document.getElementById('ai-dock-btn');
@@ -25412,28 +20838,11 @@ function initAiDock() {
   document.getElementById('ai-dock-close')?.addEventListener('click', closeAiDock);
   document.getElementById('ai-dock-clear')?.addEventListener('click', () => {
     aiDockMessages = [];
-    aiDockPendingCommissionImport = null;
-    setAiDockFileStatus('');
     renderAiDockMessages();
     document.getElementById('ai-dock-input')?.focus();
   });
   const form = document.getElementById('ai-dock-form');
   const input = document.getElementById('ai-dock-input');
-  const fileInput = document.getElementById('ai-dock-file');
-  document.getElementById('ai-dock-attach')?.addEventListener('click', () => fileInput?.click());
-  fileInput?.addEventListener('change', () => {
-    const file = fileInput.files?.[0];
-    if (file) sendAiCommissionImport(file);
-    fileInput.value = '';
-  });
-  const panel = document.getElementById('ai-dock-panel');
-  panel?.addEventListener('dragover', (e) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; panel.classList.add('ring-2', 'ring-indigo-500'); });
-  panel?.addEventListener('dragleave', (e) => { if (!panel.contains(e.relatedTarget)) panel.classList.remove('ring-2', 'ring-indigo-500'); });
-  panel?.addEventListener('drop', (e) => {
-    e.preventDefault(); panel.classList.remove('ring-2', 'ring-indigo-500');
-    const file = e.dataTransfer?.files?.[0];
-    if (file) sendAiCommissionImport(file);
-  });
   form?.addEventListener('submit', (e) => { e.preventDefault(); sendAiDock(input?.value); });
   input?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiDock(input.value); }
@@ -25444,15 +20853,7 @@ function initAiDock() {
   });
   document.getElementById('ai-dock-messages')?.addEventListener('click', (e) => {
     const chip = e.target.closest('[data-ai-suggest]');
-    if (chip) { sendAiDock(chip.getAttribute('data-ai-suggest')); return; }
-    // Fill chips pre-load the input (e.g. customer lookup needs a name typed in).
-    const fill = e.target.closest('[data-ai-fill]');
-    if (fill) {
-      const input = document.getElementById('ai-dock-input');
-      if (input) { input.value = fill.getAttribute('data-ai-fill'); input.focus(); input.dispatchEvent(new Event('input')); }
-    }
-    const attach = e.target.closest('[data-ai-attach]');
-    if (attach) fileInput?.click();
+    if (chip) sendAiDock(chip.getAttribute('data-ai-suggest'));
   });
 }
 document.addEventListener('DOMContentLoaded', initAiDock);
@@ -26064,3 +21465,857 @@ document.addEventListener('change', (e) => {
     } catch {}
   }
 });
+
+// ── Department OPENing Workflow, Shared Data Sync & DEALER Gamification ──────
+
+let __activeOpenDeptId = null;
+
+const DEPARTMENTS_CONFIG = {
+  command: {
+    id: 'command',
+    title: 'Command Center',
+    subtitle: 'Executive overview & store velocity metrics',
+    icon: '🛡️',
+    badgeTitle: 'Command Master',
+    badgeDesc: 'Opened & configured the Executive Command Center!',
+    stages: [
+      { name: '1. Ingestion', desc: 'Real-time store metrics & sales velocity feed.' },
+      { name: '2. Monitoring', desc: 'Cross-department performance & team health.' },
+      { name: '3. Execution', desc: 'Quick-action launchpad for deals, appraisals & posts.' }
+    ],
+    tutorials: [
+      'Understand real-time gross profit and unit velocity metrics.',
+      'Track active sales reps, open leads, and lot inventory health at a glance.',
+      'Use quick-launch buttons to desk deals or appraise trades instantly.'
+    ],
+    fields: [
+      { id: 'ms_shared_dealership_name', label: 'Dealership Legal Name', type: 'text', placeholder: 'Apex Motors Inc.', shared: true },
+      { id: 'ms_shared_phone', label: 'Store Contact Phone', type: 'tel', placeholder: '(555) 019-2831', shared: true }
+    ]
+  },
+  crm: {
+    id: 'crm',
+    title: 'CRM & Customer Management',
+    subtitle: 'Manage shopper leads, driver licence scans & communication history',
+    icon: '👥',
+    badgeTitle: 'CRM Commander',
+    badgeDesc: 'Opened & configured the CRM Customer Pipeline!',
+    stages: [
+      { name: '1. Ingestion (Left)', desc: 'Leads land automatically from Facebook, Web Chat & Calls.' },
+      { name: '2. Pipeline (Center)', desc: 'Uncontacted → Contacted → Appointment → Sold.' },
+      { name: '3. Actions (Right)', desc: 'Scan driver licences & run two-way SMS communication.' }
+    ],
+    tutorials: [
+      'Import existing lead spreadsheets or connect your intake email.',
+      'Drag and drop customer cards through custom pipeline stages.',
+      'Use the mobile camera to scan driver licences for automatic profile creation.'
+    ],
+    fields: [
+      { id: 'ms_shared_crm_email', label: 'CRM Lead Intake Email', type: 'email', placeholder: 'leads@apexmotors.com', shared: true },
+      { id: 'ms_shared_email', label: 'Primary Contact Email', type: 'email', placeholder: 'contact@apexmotors.com', shared: true }
+    ]
+  },
+  sales: {
+    id: 'sales',
+    title: 'Sales & Deal Desk',
+    subtitle: 'Structure retail deals, trades, F&I products, and bill of sale contracts',
+    icon: '💰',
+    badgeTitle: 'Deal Desk Specialist',
+    badgeDesc: 'Opened & configured the Deal Desk & F&I Engine!',
+    stages: [
+      { name: '1. Input (Left)', desc: 'Select stock unit, trade-in, pay-off & buyer profile.' },
+      { name: '2. Structuring (Center)', desc: 'Calculate taxes, warranties, lender APR & payments.' },
+      { name: '3. Delivery (Right)', desc: 'Print Buyers Order, send for e-Sign & mark Delivered.' }
+    ],
+    tutorials: [
+      'Select stock units to auto-populate price, VIN, and cost info.',
+      'Structure trade allowance, tax savings, and monthly payment options.',
+      'Generate printable Bill of Sale PDFs and send for legal e-signature.'
+    ],
+    fields: [
+      { id: 'ms_shared_tax_rate', label: 'Local Sales Tax Rate (%)', type: 'number', placeholder: '7.5' },
+      { id: 'ms_shared_doc_fee', label: 'Default Documentation Fee ($)', type: 'number', placeholder: '499' }
+    ]
+  },
+  inventory: {
+    id: 'inventory',
+    title: 'Inventory & Feeds',
+    subtitle: 'Auto-sync vehicle inventory and post to Facebook Marketplace',
+    icon: '📦',
+    badgeTitle: 'Inventory Genius',
+    badgeDesc: 'Opened & configured Inventory Feeds & Facebook Auto-Posting!',
+    stages: [
+      { name: '1. Ingestion (Left)', desc: 'Auto-sync from dealer website XML/CSV feed.' },
+      { name: '2. Management (Center)', desc: 'Review pricing, AI copy, photos & status.' },
+      { name: '3. Execution (Right)', desc: 'One-click post to Facebook Marketplace.' }
+    ],
+    tutorials: [
+      'Connect your website feed URL for automatic inventory updates.',
+      'Use AI Boost to generate captivating vehicle descriptions.',
+      'Post vehicles to Facebook Marketplace in seconds using Chrome Extension.'
+    ],
+    fields: [
+      { id: 'ms_shared_feed_url', label: 'Website Inventory Feed URL (XML/CSV)', type: 'url', placeholder: 'https://apexmotors.com/inventory.xml' },
+      { id: 'ms_shared_website', label: 'Dealer Website URL', type: 'url', placeholder: 'https://apexmotors.com', shared: true }
+    ]
+  },
+  ii: {
+    id: 'ii',
+    title: 'Inventory Intelligence',
+    subtitle: 'Market pricing diagnostics, VIN decoding & factory window stickers',
+    icon: '🔍',
+    badgeTitle: 'Pricing Mastermind',
+    badgeDesc: 'Activated Inventory Intelligence & Price Reports!',
+    stages: [
+      { name: '1. Diagnostics (Left)', desc: 'Scan lot for mispriced units & aging alerts.' },
+      { name: '2. Pricing (Center)', desc: 'Live market comp reports across US & Canada.' },
+      { name: '3. Assets (Right)', desc: 'Factory VIN decoding & window stickers.' }
+    ],
+    tutorials: [
+      'Scan your inventory against live regional market listings.',
+      'Identify overpriced or slow-moving units before they lose value.',
+      'Generate window stickers and 2-page AI brochures for print or digital sharing.'
+    ],
+    fields: [
+      { id: 'ms_shared_market_radius', label: 'Target Market Search Radius (Miles)', type: 'number', placeholder: '100' }
+    ]
+  },
+  web: {
+    id: 'web',
+    title: 'Marketing & Dealer Website',
+    subtitle: 'Drag-and-drop website builder with built-in 24/7 AI Sales Assistant',
+    icon: '🌐',
+    badgeTitle: 'Web Pioneer',
+    badgeDesc: 'Opened & launched Dealer Website & AI Chat widget!',
+    stages: [
+      { name: '1. Layout (Left)', desc: 'Select layout blocks, hero banners & featured stock.' },
+      { name: '2. Content (Center)', desc: 'Customize theme colors, logo & AI Chat Assistant.' },
+      { name: '3. Publish (Right)', desc: 'Connect custom domain & publish website live.' }
+    ],
+    tutorials: [
+      'Arrange hero sliders, inventory search widgets, and specials.',
+      'Set custom branding colors to match your dealership identity.',
+      'Enable the AI Sales Chatbot to qualify website shoppers round the clock.'
+    ],
+    fields: [
+      { id: 'ms_shared_website', label: 'Dealership Website Domain', type: 'url', placeholder: 'https://apexmotors.com', shared: true },
+      { id: 'ms_shared_logo', label: 'Dealership Logo URL', type: 'url', placeholder: 'https://apexmotors.com/logo.png', shared: true }
+    ]
+  },
+  'ai-inbox': {
+    id: 'ai-inbox',
+    title: 'AI Inbox & Copilot',
+    subtitle: 'Multi-channel shopper conversation hub powered by AI Boost',
+    icon: '🤖',
+    badgeTitle: 'AI Strategist',
+    badgeDesc: 'Configured AI Multi-Channel Copilot & Lead Automation!',
+    stages: [
+      { name: '1. Inbox (Left)', desc: 'Unified messages from Facebook, SMS & Web Chat.' },
+      { name: '2. Copilot (Center)', desc: 'AI drafts responses using live inventory data.' },
+      { name: '3. Booking (Right)', desc: 'Book test drives directly to rep calendars.' }
+    ],
+    tutorials: [
+      'Review inbound conversations from Facebook Messenger and Website Chat.',
+      'Click ✨ to let AI Boost craft intelligent vehicle responses.',
+      'Hand off qualified leads to sales reps with one click.'
+    ],
+    fields: [
+      { id: 'ms_shared_ai_name', label: 'AI Assistant Persona Name', type: 'text', placeholder: 'Sarah - AI Concierge' }
+    ]
+  },
+  service: {
+    id: 'service',
+    title: 'Service & Parts',
+    subtitle: 'Schedule repair orders, track maintenance & mine trade-up equity',
+    icon: '🛠️',
+    badgeTitle: 'Service Champion',
+    badgeDesc: 'Opened & configured Service Department & Equity Mining!',
+    stages: [
+      { name: '1. Intake (Left)', desc: 'Book repair orders against customer records.' },
+      { name: '2. Dispatch (Center)', desc: 'Track technician status & parts requisitions.' },
+      { name: '3. Equity Mining (Right)', desc: 'Identify past buyers ready for trade-up.' }
+    ],
+    tutorials: [
+      'Schedule service appointments tied directly to customer buying records.',
+      'Track technician repair order statuses in real time.',
+      'Use Equity Mining to contact service customers in positive trade equity.'
+    ],
+    fields: [
+      { id: 'ms_shared_labor_rate', label: 'Standard Hourly Service Rate ($)', type: 'number', placeholder: '135' }
+    ]
+  },
+  accounting: {
+    id: 'accounting',
+    title: 'Dealership Accounting',
+    subtitle: 'Automated ledger posting for delivered deals, tax & commissions',
+    icon: '📊',
+    badgeTitle: 'Financial Maestro',
+    badgeDesc: 'Opened & configured General Ledger & Daily Reconciliation!',
+    stages: [
+      { name: '1. Ledger (Left)', desc: 'Delivered deals post automatically to ledger.' },
+      { name: '2. Expenses (Center)', desc: 'Track vendor bills, pack & rep commission pay.' },
+      { name: '3. Audit (Right)', desc: 'Daily automated reconciliation & tax exports.' }
+    ],
+    tutorials: [
+      'Delivered deals post income, F&I profit, and sales tax automatically.',
+      'Record vendor expenses and parts inventory costs easily.',
+      'Run automated daily ledger reconciliation and export CSVs for your CPA.'
+    ],
+    fields: [
+      { id: 'ms_shared_address', label: 'Dealership Legal Address', type: 'text', placeholder: '100 Main St, Dallas, TX 75001', shared: true }
+    ]
+  },
+  reports: {
+    id: 'reports',
+    title: 'Executive Reports',
+    subtitle: 'Deep performance analytics, rep scorecards & store health summaries',
+    icon: '📈',
+    badgeTitle: 'Analytics Ace',
+    badgeDesc: 'Configured Executive Reports & Automated Digests!',
+    stages: [
+      { name: '1. Filters (Left)', desc: 'Select date ranges, locations & reps.' },
+      { name: '2. Analytics (Center)', desc: 'Review gross profit, lead velocity & conversion.' },
+      { name: '3. Export (Right)', desc: 'Download CSVs or schedule weekly executive emails.' }
+    ],
+    tutorials: [
+      'Filter metrics by date, department, or individual sales representative.',
+      'Analyze gross profit margins, lead response speed, and deal close rates.',
+      'Schedule automated weekly executive summary emails to store leadership.'
+    ],
+    fields: [
+      { id: 'ms_shared_exec_email', label: 'Executive Report Recipient Email', type: 'email', placeholder: 'owner@apexmotors.com' }
+    ]
+  },
+  operations: {
+    id: 'operations',
+    title: 'Operations & Task Board',
+    subtitle: 'Store task Kanban, employee permissions & security audit logs',
+    icon: '⚡',
+    badgeTitle: 'Operations Lead',
+    badgeDesc: 'Opened Store Operations & Kanban Task Board!',
+    stages: [
+      { name: '1. Operations (Left)', desc: 'Manage store schedules & department access.' },
+      { name: '2. Kanban (Center)', desc: 'Assign tasks across sales, detail & recon.' },
+      { name: '3. Audit Trail (Right)', desc: 'Review security logs & user activity.' }
+    ],
+    tutorials: [
+      'Create and assign tasks across sales, detail, and reconditioning teams.',
+      'Track task statuses from To-Do to Done on an interactive Kanban board.',
+      'Inspect security logs and user activity for full compliance.'
+    ],
+    fields: [
+      { id: 'ms_shared_store_hours', label: 'Store Operating Hours', type: 'text', placeholder: 'Mon-Sat 9AM-8PM' }
+    ]
+  },
+  auto: {
+    id: 'auto',
+    title: 'Automation Engine',
+    subtitle: 'Automated SMS & email follow-up touchpoints that run 24/7',
+    icon: '🚀',
+    badgeTitle: 'Automation Architect',
+    badgeDesc: 'Activated 24/7 Automated Follow-Up Drip Sequences!',
+    stages: [
+      { name: '1. Triggers (Left)', desc: 'Pick triggers: New Lead, Delivery, Holiday.' },
+      { name: '2. Builder (Center)', desc: 'Draft multi-step SMS & email sequences.' },
+      { name: '3. Engine (Right)', desc: 'Toggle Engine ON for 24/7 automated execution.' }
+    ],
+    tutorials: [
+      'Choose pre-built automation triggers for new leads, deliveries, or birthdays.',
+      'Customize message copy using dynamic tags like {first_name} and {vehicle}.',
+      'Turn the Automation Engine ON to ensure no lead is ever left uncontacted.'
+    ],
+    fields: [
+      { id: 'ms_shared_twilio_sid', label: 'Twilio Account SID (for SMS)', type: 'text', placeholder: 'ACxxxxxxxxxxxxxxxxxxxxxxxx' }
+    ]
+  },
+  'email-campaigns': {
+    id: 'email-campaigns',
+    title: 'Email Campaigns',
+    subtitle: 'Targeted vehicle marketing broadcasts, newsletters & price drops',
+    icon: '📧',
+    badgeTitle: 'Campaign Director',
+    badgeDesc: 'Opened & configured Email Campaigns & Deliverability!',
+    stages: [
+      { name: '1. Audience (Left)', desc: 'Filter segments: Active Shoppers, Past Buyers.' },
+      { name: '2. Composer (Center)', desc: 'Design emails with AI copy & vehicle cards.' },
+      { name: '3. Broadcast (Right)', desc: 'Send campaigns & track open rates & clicks.' }
+    ],
+    tutorials: [
+      'Segment your customer database by buying stage, interest, or past purchase.',
+      'Compose high-converting vehicle showcase emails with AI copy assistance.',
+      'Track open rates, link clicks, and direct vehicle sales from campaign broadcasts.'
+    ],
+    fields: [
+      { id: 'ms_shared_email_sender', label: 'Campaign Sender Email', type: 'email', placeholder: 'promotions@apexmotors.com', shared: true }
+    ]
+  },
+  academy: {
+    id: 'academy',
+    title: 'MarketSync Academy',
+    subtitle: 'Masterclasses, completion progress, printable diplomas & LinkedIn credentials',
+    icon: '🎓',
+    badgeTitle: 'Academy Scholar',
+    badgeDesc: 'Enrolled in MarketSync Academy & Earned Credentials!',
+    stages: [
+      { name: '1. Catalog (Left)', desc: 'Browse courses with live completion progress bars.' },
+      { name: '2. Player (Center)', desc: 'Watch videos, read classes & complete modules.' },
+      { name: '3. Certification (Right)', desc: 'Print diploma PDFs & add credentials to LinkedIn!' }
+    ],
+    tutorials: [
+      'Complete interactive video and reading modules at your own pace.',
+      'Track your progress on course cards with real-time status bars.',
+      'Earn official certifications, print diploma PDFs, and add credentials to your LinkedIn profile.'
+    ],
+    fields: [
+      { id: 'ms_shared_student_name', label: 'Student / Rep Name for Certificates', type: 'text', placeholder: 'Alex Johnson', shared: true }
+    ]
+  }
+};
+
+function checkDepartmentOpen(deptId) {
+  if (!deptId || !DEPARTMENTS_CONFIG[deptId]) return;
+  const key = `ms_dept_opened_${deptId}`;
+  let opened = false;
+  try { opened = localStorage.getItem(key) === '1'; } catch {}
+  if (!opened) {
+    showThingsToKnowModal(deptId);
+  }
+}
+
+function showThingsToKnowModal(deptId) {
+  const cfg = DEPARTMENTS_CONFIG[deptId];
+  if (!cfg) return;
+  __activeOpenDeptId = deptId;
+
+  const iconEl = document.getElementById('ttk-dept-badge-icon');
+  const titleEl = document.getElementById('ttk-dept-title');
+  const subEl = document.getElementById('ttk-dept-subtitle');
+
+  if (iconEl) iconEl.textContent = cfg.icon;
+  if (titleEl) titleEl.textContent = `OPENing ${cfg.title}`;
+  if (subEl) subEl.textContent = cfg.subtitle;
+
+  // Stages
+  const stagesEl = document.getElementById('ttk-workflow-stages');
+  if (stagesEl) {
+    stagesEl.innerHTML = cfg.stages.map(st => `
+      <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
+        <div class="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">${st.name}</div>
+        <div class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">${st.desc}</div>
+      </div>
+    `).join('');
+  }
+
+  // Tutorials
+  const tutEl = document.getElementById('ttk-tutorial-list');
+  if (tutEl) {
+    tutEl.innerHTML = cfg.tutorials.map(t => `
+      <li class="flex items-start gap-2.5">
+        <svg class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+        <span>${t}</span>
+      </li>
+    `).join('');
+  }
+
+  document.getElementById('dept-things-to-know-modal')?.classList.remove('hidden');
+}
+
+function closeThingsToKnowModal() {
+  document.getElementById('dept-things-to-know-modal')?.classList.add('hidden');
+}
+
+function startDepartmentTourAndWizard() {
+  closeThingsToKnowModal();
+  const deptId = __activeOpenDeptId;
+  if (!deptId) return;
+
+  // Launch guided spotlight tour
+  if (typeof window.startAreaTour === 'function') {
+    window.startAreaTour(deptId);
+  }
+
+  // Automatically open setup wizard after brief spotlight
+  setTimeout(() => {
+    openDepartmentSetupWizard(deptId);
+  }, 1200);
+}
+
+function openDepartmentSetupWizard(deptId) {
+  const cfg = DEPARTMENTS_CONFIG[deptId];
+  if (!cfg) return;
+  __activeOpenDeptId = deptId;
+
+  const tagEl = document.getElementById('dsw-dept-tag');
+  const titleEl = document.getElementById('dsw-dept-title');
+
+  if (tagEl) tagEl.textContent = `${cfg.title} Setup Wizard`;
+  if (titleEl) titleEl.textContent = `Configure ${cfg.title} Integrations & Required Info`;
+
+  const container = document.getElementById('dsw-fields-container');
+  if (container) {
+    container.innerHTML = cfg.fields.map(f => {
+      let savedVal = '';
+      try { savedVal = localStorage.getItem(f.id) || ''; } catch {}
+      return `
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+            ${f.label} ${f.shared ? '<span class="text-indigo-500 text-[10px] font-normal lowercase">(auto-synced)</span>' : ''}
+          </label>
+          <input type="${f.type}" id="dsw-input-${f.id}" data-field-key="${f.id}" value="${esc(savedVal)}" placeholder="${f.placeholder}"
+            oninput="handleSharedDataInput('${f.id}', this.value)"
+            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
+        </div>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('dept-setup-wizard-modal')?.classList.remove('hidden');
+}
+
+function handleSharedDataInput(key, value) {
+  try { localStorage.setItem(key, value); } catch {}
+  syncSharedDealerData(key, value);
+}
+
+function syncSharedDealerData(key, value) {
+  document.querySelectorAll(`[data-field-key="${key}"], #${key}`).forEach(el => {
+    if (el && el.value !== value) el.value = value;
+  });
+
+  if (key === 'ms_shared_dealership_name') {
+    const d = document.getElementById('ui-dealership-name');
+    if (d) d.textContent = value || '---';
+  }
+  if (key === 'ms_shared_phone') {
+    const p = document.getElementById('prof-phone');
+    if (p && p.value !== value) p.value = value;
+  }
+  if (key === 'ms_shared_email') {
+    const e = document.getElementById('prof-email');
+    if (e && e.value !== value) e.value = value;
+  }
+}
+
+function closeSetupWizardModal() {
+  document.getElementById('dept-setup-wizard-modal')?.classList.add('hidden');
+}
+
+function completeDepartmentWizard() {
+  const deptId = __activeOpenDeptId;
+  if (!deptId) return;
+
+  try { localStorage.setItem(`ms_dept_opened_${deptId}`, '1'); } catch {}
+
+  closeSetupWizardModal();
+  awardDealerBadge(deptId);
+}
+
+function awardDealerBadge(deptId) {
+  const cfg = DEPARTMENTS_CONFIG[deptId];
+  if (!cfg) return;
+
+  let badges = [];
+  try { badges = JSON.parse(localStorage.getItem('ms_dealer_badges') || '[]'); } catch {}
+
+  if (!badges.includes(deptId)) {
+    badges.push(deptId);
+    try { localStorage.setItem('ms_dealer_badges', JSON.stringify(badges)); } catch {}
+  }
+
+  if (typeof window.fireConfetti === 'function') {
+    window.fireConfetti();
+  }
+
+  const iconEl = document.getElementById('dbr-badge-icon');
+  const titleEl = document.getElementById('dbr-badge-title');
+  const descEl = document.getElementById('dbr-badge-desc');
+
+  if (iconEl) iconEl.textContent = cfg.icon;
+  if (titleEl) titleEl.textContent = cfg.badgeTitle;
+  if (descEl) descEl.textContent = cfg.badgeDesc;
+
+  document.getElementById('dealer-badge-reveal-modal')?.classList.remove('hidden');
+
+  renderDealerBadgeShowcase();
+}
+
+function closeBadgeRevealModal() {
+  document.getElementById('dealer-badge-reveal-modal')?.classList.add('hidden');
+  showToast('DEALER Gamification Badge unlocked! Check your showcase.', 'success');
+}
+
+function renderDealerBadgeShowcase() {
+  let badges = [];
+  try { badges = JSON.parse(localStorage.getItem('ms_dealer_badges') || '[]'); } catch {}
+  const count = badges.length;
+
+  const chip = document.getElementById('ui-tier-chip');
+  if (chip) {
+    chip.classList.remove('hidden');
+    chip.innerHTML = `
+      <span class="text-amber-500 font-bold">🎖️ ${count} Badges</span>
+      <span class="text-[10px] text-slate-400">DEALER Level ${Math.min(6, Math.max(1, count))}</span>
+    `;
+  }
+}
+
+// ── MarketSync Academy & LinkedIn Certification Engine ────────────────────────
+
+const ACADEMY_COURSES = [
+  {
+    id: 'email-campaigns',
+    title: 'Email Campaigns & Audience Monetization',
+    category: 'Marketing',
+    icon: '📧',
+    modulesCount: 5,
+    runtime: '45 mins',
+    desc: 'Master deliverability, audience segmentation, broadcast copy templates, drip sequences, and ROI tracking.',
+    lessons: [
+      { id: 'ec-1', title: '1. Sender Authentication & Deliverability (SPF/DKIM)', content: '<p>Learn how to configure SPF, DKIM, and DMARC DNS records to ensure your emails reach the primary inbox rather than spam folders.</p>' },
+      { id: 'ec-2', title: '2. Building Targeted Audience Segments', content: '<p>Segment your customer database by lead age, vehicle interest, past purchases, and service records for maximum engagement.</p>' },
+      { id: 'ec-3', title: '3. High-Converting Vehicle Offer Copy', content: '<p>Craft irresistible subject lines and email body templates highlighting fresh inventory arrivals and price drops.</p>' },
+      { id: 'ec-4', title: '4. Automated Multi-Step Drip Campaigns', content: '<p>Configure automated multi-day drip campaigns that nurture uncontacted leads and prompt past buyers for trade-ups.</p>' },
+      { id: 'ec-5', title: '5. Campaign Analytics & Sales Attribution', content: '<p>Measure Open Rates, Click Rates, and directly attribute closed vehicle deals to your email broadcasts.</p>' }
+    ]
+  },
+  {
+    id: 'fb-posting',
+    title: 'Facebook Marketplace Auto-Posting & Growth',
+    category: 'Sales & Marketing',
+    icon: '🚀',
+    modulesCount: 4,
+    runtime: '35 mins',
+    desc: 'Learn how to post vehicles to Facebook Marketplace in 1-click, manage rep scorecards, and avoid policy flags.',
+    lessons: [
+      { id: 'fb-1', title: '1. Installing Chrome Extension & Initial Setup', content: '<p>Walkthrough of extension installation, login pairing, and setting up listing templates.</p>' },
+      { id: 'fb-2', title: '2. Posting Vehicles & Managing Statuses', content: '<p>One-click posting vehicles and marking sold units to clear Facebook posts automatically.</p>' },
+      { id: 'fb-3', title: '3. Facebook Safety & Avoid Flags', content: '<p>Best practices to keep your Facebook rep accounts in good standing and prevent shadowbans.</p>' },
+      { id: 'fb-4', title: '4. Sales Floor Leaderboard Competition', content: '<p>Gamifying your sales floor with points for postings and sold vehicles.</p>' }
+    ]
+  },
+  {
+    id: 'ai-boost',
+    title: 'AI Boost & Automated Lead Nurturing',
+    category: 'AI & Automation',
+    icon: '🤖',
+    modulesCount: 4,
+    runtime: '40 mins',
+    desc: 'Configure AI listing copy generators, photo scoring algorithms, and 24/7 web chat assistants.',
+    lessons: [
+      { id: 'ai-1', title: '1. AI Description Copy Generator', content: '<p>Setting your dealership tone of voice and generating high-converting vehicle copy.</p>' },
+      { id: 'ai-2', title: '2. AI Photo Scoring & Hero Cover Selection', content: '<p>How the AI grades vehicle photos (0-100) and selects optimal hero covers for Facebook.</p>' },
+      { id: 'ai-3', title: '3. 24/7 Website AI Chat Assistant', content: '<p>Deploying the website AI chatbot to qualify shoppers and book test drives round the clock.</p>' },
+      { id: 'ai-4', title: '4. Multi-Channel AI Copilot Inbox', content: '<p>Handling Facebook, SMS, and Web chat leads inside the unified AI Copilot inbox.</p>' }
+    ]
+  },
+  {
+    id: 'inv-intel',
+    title: 'Inventory Intelligence & Market Pricing',
+    category: 'Inventory',
+    icon: '📦',
+    modulesCount: 3,
+    runtime: '30 mins',
+    desc: 'Scan lot for mispriced units, decode factory VINs, and print 2-page AI vehicle brochures.',
+    lessons: [
+      { id: 'ii-1', title: '1. Scanning Lot for Price Red Flags', content: '<p>Identify overpriced units and aging inventory before gross profit deteriorates.</p>' },
+      { id: 'ii-2', title: '2. Regional Market Price Distribution', content: '<p>Compare your inventory against live US & Canada market listings in real time.</p>' },
+      { id: 'ii-3', title: '3. Window Stickers & 2-Page AI Brochures', content: '<p>Generate factory VIN decodes, window stickers, and shareable vehicle brochures.</p>' }
+    ]
+  },
+  {
+    id: 'deal-desk',
+    title: 'Deal Desking & Bill of Sale Structuring',
+    category: 'Sales & F&I',
+    icon: '💰',
+    modulesCount: 4,
+    runtime: '40 mins',
+    desc: 'Structure retail deals, trades, F&I products, tax calculations, and e-signatures.',
+    lessons: [
+      { id: 'dd-1', title: '1. Vehicle & Trade Ingestion', content: '<p>Selecting stock units, trade allowances, and trade tax credit calculations.</p>' },
+      { id: 'dd-2', title: '2. F&I Product Penetration & Margin', content: '<p>Adding warranties, GAP insurance, and backend F&I products into payment structures.</p>' },
+      { id: 'dd-3', title: '3. Printing Bill of Sale & Buyers Orders', content: '<p>Generating official legal paperwork and sending for remote customer e-signature.</p>' },
+      { id: 'dd-4', title: '4. Delivery & Auto Accounting Ledger', content: '<p>Marking deal Delivered to trigger commission calculation and ledger posting.</p>' }
+    ]
+  },
+  {
+    id: 'accounting',
+    title: 'Dealership Accounting & Ledger Automation',
+    category: 'Accounting',
+    icon: '📊',
+    modulesCount: 3,
+    runtime: '30 mins',
+    desc: 'Automated deal income posting, expense tracking, daily reconciliation, and CPA exports.',
+    lessons: [
+      { id: 'ac-1', title: '1. Automated General Ledger Flow', content: '<p>How delivered deals, F&I profits, and trade-ins post themselves to the general ledger.</p>' },
+      { id: 'ac-2', title: '2. Expense Tracking & Rep Payroll', content: '<p>Logging vendor invoices, inventory pack, and rep commission payouts.</p>' },
+      { id: 'ac-3', title: '3. Automated Daily Reconciliation', content: '<p>Running daily audits, checking sales tax, and exporting CSVs for accounting staff.</p>' }
+    ]
+  }
+];
+
+let __activeCourseId = null;
+let __activeLessonIdx = 0;
+
+function getAcademyProgress() {
+  try { return JSON.parse(localStorage.getItem('ms_academy_progress') || '{}'); } catch { return {}; }
+}
+
+function saveAcademyProgress(courseId, lessonIdx) {
+  const p = getAcademyProgress();
+  if (!p[courseId]) p[courseId] = [];
+  if (!p[courseId].includes(lessonIdx)) p[courseId].push(lessonIdx);
+  try { localStorage.setItem('ms_academy_progress', JSON.stringify(p)); } catch {}
+}
+
+function getCourseCompletionPercent(courseId) {
+  const course = ACADEMY_COURSES.find(c => c.id === courseId);
+  if (!course) return 0;
+  const p = getAcademyProgress()[courseId] || [];
+  return Math.round((p.length / course.lessons.length) * 100);
+}
+
+function initAcademy() {
+  renderAcademyCourses();
+  updateAcademyOverallProgress();
+}
+
+function updateAcademyOverallProgress() {
+  let totalLessons = 0;
+  let completedLessons = 0;
+
+  ACADEMY_COURSES.forEach(c => {
+    totalLessons += c.lessons.length;
+    const done = (getAcademyProgress()[c.id] || []).length;
+    completedLessons += done;
+  });
+
+  const overallPct = totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0;
+  const textEl = document.getElementById('academy-total-progress-text');
+  const barEl = document.getElementById('academy-total-progress-bar');
+
+  if (textEl) textEl.textContent = `${overallPct}% Completed`;
+  if (barEl) barEl.style.width = `${overallPct}%`;
+}
+
+function renderAcademyCourses() {
+  const grid = document.getElementById('academy-course-grid');
+  if (!grid) return;
+
+  grid.innerHTML = ACADEMY_COURSES.map(c => {
+    const pct = getCourseCompletionPercent(c.id);
+    const isDone = pct >= 100;
+    return `
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition flex flex-col justify-between space-y-4">
+        <div>
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <span class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-xl shrink-0">${c.icon}</span>
+            <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">${c.category}</span>
+          </div>
+          <h3 class="text-lg font-black text-slate-900 dark:text-white leading-snug">${c.title}</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">${c.desc}</p>
+          <div class="flex items-center gap-3 text-xs text-slate-400 font-medium mt-3">
+            <span>📚 ${c.modulesCount} Lessons</span>
+            <span>⏱️ ${c.runtime}</span>
+          </div>
+        </div>
+
+        <div class="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div>
+            <div class="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <span>Course Progress</span>
+              <span class="${isDone ? 'text-emerald-500 font-extrabold' : 'text-indigo-600 dark:text-indigo-400'}">${pct}%</span>
+            </div>
+            <div class="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full ${isDone ? 'bg-emerald-500' : 'bg-indigo-600'} rounded-full transition-all duration-500" style="width:${pct}%"></div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="openAcademyPlayer('${c.id}')" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-xl text-xs transition text-center shadow-sm shadow-indigo-500/30">
+              ${pct === 0 ? 'Start Course' : isDone ? 'Review Course' : 'Continue Lesson'}
+            </button>
+            ${isDone ? `
+              <button type="button" onclick="openAcademyCertificateModal('${c.id}')" title="Print Certificate & Add to LinkedIn" class="bg-amber-500 hover:bg-amber-400 text-white font-bold px-3 py-2 rounded-xl text-xs transition">
+                🎓 Cert
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openAcademyPlayer(courseId) {
+  const course = ACADEMY_COURSES.find(c => c.id === courseId);
+  if (!course) return;
+  __activeCourseId = courseId;
+  __activeLessonIdx = 0;
+
+  const titleEl = document.getElementById('ac-player-course-title');
+  if (titleEl) titleEl.textContent = course.title;
+  document.getElementById('academy-player-container')?.classList.remove('hidden');
+
+  renderAcademyLessonList();
+  renderAcademyLessonScreen();
+
+  document.getElementById('academy-player-container')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeAcademyPlayer() {
+  document.getElementById('academy-player-container')?.classList.add('hidden');
+}
+
+function renderAcademyLessonList() {
+  const course = ACADEMY_COURSES.find(c => c.id === __activeCourseId);
+  if (!course) return;
+  const completed = getAcademyProgress()[__activeCourseId] || [];
+
+  const listEl = document.getElementById('ac-player-lesson-list');
+  if (listEl) {
+    listEl.innerHTML = course.lessons.map((l, idx) => {
+      const isDone = completed.includes(idx);
+      const isActive = idx === __activeLessonIdx;
+      return `
+        <button type="button" onclick="jumpAcademyLesson(${idx})" class="w-full text-left p-3 rounded-xl border text-xs transition flex items-start gap-2.5 ${
+          isActive ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 font-bold text-indigo-900 dark:text-indigo-200'
+          : isDone ? 'border-slate-200 dark:border-slate-800 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300'
+          : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+        }">
+          <span class="w-4 h-4 rounded-full ${isDone ? 'bg-emerald-500 text-white' : isActive ? 'bg-indigo-600 text-white' : 'bg-slate-300 dark:bg-slate-700 text-slate-600'} flex items-center justify-center text-[10px] shrink-0 mt-0.5 font-mono">
+            ${isDone ? '✓' : idx + 1}
+          </span>
+          <span class="truncate">${l.title}</span>
+        </button>
+      `;
+    }).join('');
+  }
+}
+
+function renderAcademyLessonScreen() {
+  const course = ACADEMY_COURSES.find(c => c.id === __activeCourseId);
+  if (!course) return;
+  const lesson = course.lessons[__activeLessonIdx];
+  if (!lesson) return;
+
+  const pct = getCourseCompletionPercent(__activeCourseId);
+  const badgeEl = document.getElementById('ac-player-progress-badge');
+  const stepEl = document.getElementById('ac-lesson-step-label');
+  const titleEl = document.getElementById('ac-lesson-title');
+  const bodyEl = document.getElementById('ac-lesson-body');
+
+  if (badgeEl) badgeEl.textContent = `Course Progress: ${pct}%`;
+  if (stepEl) stepEl.textContent = `Module ${__activeLessonIdx + 1} of ${course.lessons.length}`;
+  if (titleEl) titleEl.textContent = lesson.title;
+  if (bodyEl) bodyEl.innerHTML = lesson.content;
+
+  const nextBtn = document.getElementById('ac-next-btn');
+  if (nextBtn) {
+    const isLast = __activeLessonIdx === course.lessons.length - 1;
+    nextBtn.textContent = isLast ? 'Complete Course & Unlock Diploma 🎓' : 'Mark Completed & Next Class →';
+  }
+}
+
+function jumpAcademyLesson(idx) {
+  __activeLessonIdx = idx;
+  renderAcademyLessonList();
+  renderAcademyLessonScreen();
+}
+
+function nextAcademyLesson() {
+  saveAcademyProgress(__activeCourseId, __activeLessonIdx);
+  const course = ACADEMY_COURSES.find(c => c.id === __activeCourseId);
+
+  if (__activeLessonIdx < course.lessons.length - 1) {
+    __activeLessonIdx++;
+    renderAcademyLessonList();
+    renderAcademyLessonScreen();
+  } else {
+    updateAcademyOverallProgress();
+    renderAcademyCourses();
+    awardDealerBadge('academy');
+    openAcademyCertificateModal(__activeCourseId);
+  }
+}
+
+function prevAcademyLesson() {
+  if (__activeLessonIdx > 0) {
+    __activeLessonIdx--;
+    renderAcademyLessonList();
+    renderAcademyLessonScreen();
+  }
+}
+
+function openAcademyCertificateModal(courseId) {
+  const course = ACADEMY_COURSES.find(c => c.id === courseId);
+  if (!course) return;
+
+  let studentName = 'Alex Johnson';
+  try {
+    studentName = localStorage.getItem('ms_shared_student_name') || document.getElementById('prof-name')?.value || 'Alex Johnson';
+  } catch {}
+
+  const certId = `MS-CERT-2026-${Math.floor(10000 + Math.random() * 90000)}`;
+
+  const studentEl = document.getElementById('cert-student-name');
+  const courseEl = document.getElementById('cert-course-name');
+  const codeEl = document.getElementById('cert-id-code');
+
+  if (studentEl) studentEl.textContent = studentName;
+  if (courseEl) courseEl.textContent = `Certified ${course.title} Master`;
+  if (codeEl) codeEl.textContent = certId;
+
+  const linkedinBtn = document.getElementById('cert-linkedin-btn');
+  if (linkedinBtn) {
+    linkedinBtn.href = getLinkedInCertUrl(`Certified ${course.title} Master`, certId);
+  }
+
+  document.getElementById('academy-certificate-modal')?.classList.remove('hidden');
+}
+
+function closeAcademyCertificateModal() {
+  document.getElementById('academy-certificate-modal')?.classList.add('hidden');
+}
+
+function getLinkedInCertUrl(courseTitle, certId) {
+  const name = encodeURIComponent(courseTitle);
+  const org = encodeURIComponent('MarketSync Technologies Inc.');
+  const issueYear = new Date().getFullYear();
+  const issueMonth = new Date().getMonth() + 1;
+  const certUrl = encodeURIComponent('https://marketsync.link/academy');
+  const id = encodeURIComponent(certId);
+  return `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${name}&organizationName=${org}&issueYear=${issueYear}&issueMonth=${issueMonth}&certUrl=${certUrl}&certId=${id}`;
+}
+
+// ── Email Campaigns Helper Functions ─────────────────────────────────────────
+
+function openNewCampaignComposer() {
+  switchPage('email-campaigns');
+  document.getElementById('ec-subject')?.focus();
+}
+
+function generateAiEmailCopy() {
+  const subjectEl = document.getElementById('ec-subject');
+  const bodyEl = document.getElementById('ec-body');
+
+  if (subjectEl) subjectEl.value = '🔥 Exclusive Dealership Invite: VIP Trade-Up Event & Price Drops';
+  if (bodyEl) {
+    bodyEl.value = `Hi {first_name},\n\nWe have exciting news! Based on your vehicle search history, we just added 3 new premium units that match your exact specs.\n\nPlus, for the next 72 hours, we are offering an extra $1,500 over book value for trade-ins!\n\nClick below to view the latest inventory cards and reserve your VIP test drive:\nhttps://marketsync.link/inventory\n\nBest regards,\nThe Sales Team`;
+  }
+  showToast('✨ AI Vehicle Campaign Copy Generated!', 'success');
+}
+
+function sendBroadcastCampaign() {
+  const subject = document.getElementById('ec-subject')?.value;
+  if (!subject) {
+    showToast('Please enter an email subject line.', 'error');
+    return;
+  }
+
+  showToast('🚀 Sending email broadcast campaign to segment...', 'info');
+
+  setTimeout(() => {
+    showToast('Campaign successfully delivered to 1,420 contacts!', 'success');
+    if (typeof window.fireConfetti === 'function') window.fireConfetti();
+  }, 1000);
+}

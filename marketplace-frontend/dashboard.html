@@ -42,14 +42,17 @@
        card stays full-width instead of hugging the left half. */
     .settings-cols { column-count: 1; }
     @media (min-width: 1024px) { .settings-cols.is-multi { column-count: 2; } }
-    @media (min-width: 1536px) { .settings-cols.is-multi { column-count: 3; } }
 
     /* Per-dealer feature toggle: hides a nav item independent of role gating. */
     .ff-off { display: none !important; }
 
-    /* ── MarketSync HQ workspace ───────────────────────────────────────────────
-       Platform owners operate the SaaS business here. Product demonstrations use
-       separate tenant accounts and never switch the HQ session into dealer data. */
+    /* ── MarketSync workspace mode ─────────────────────────────────────────────
+       The owner's dashboard flips between a vehicle-dealer DEMO and running
+       MarketSync itself. In MarketSync mode we trim the nav to the SaaS-relevant
+       pages, trim Settings, and repaint the whole UI purple to make the mode
+       unmistakable. The mode switcher itself is hidden unless JS reveals it. */
+    #ms-mode-switch { display: none; }
+    html[data-dash-owner="1"] #ms-mode-switch { display: flex; }
 
     /* Trimmed nav in MarketSync mode: hide the vehicle-only groups + pages. */
     html[data-dash-mode="marketsync"] .nav-group[data-group="fb"],
@@ -57,11 +60,10 @@
     html[data-dash-mode="marketsync"] .nav-group[data-group="web"],
     html[data-dash-mode="marketsync"] .nav-group[data-group="auto"],
     html[data-dash-mode="marketsync"] .nav-item[data-page="inventory"],
-    html[data-dash-mode="marketsync"] #grp-acquisition [data-page="appraisal"],
+    html[data-dash-mode="marketsync"] #grp-sales [data-page="appraisal"],
     html[data-dash-mode="marketsync"] #grp-sales [data-page="recon"],
-    html[data-dash-mode="marketsync"] #grp-acquisition [data-page="equity"],
+    html[data-dash-mode="marketsync"] #grp-sales [data-page="equity"],
     html[data-dash-mode="marketsync"] #grp-sales [data-page="desk"],
-    html[data-dash-mode="marketsync"] .nav-group[data-group="acquisition"],
     html[data-dash-mode="marketsync"] #nav-appraisal,
     html[data-dash-mode="marketsync"] #nav-fni-deals,
     html[data-dash-mode="marketsync"] #chev-sales,
@@ -85,13 +87,11 @@
     html[data-dash-tier="fb"] #header-appraise-btn,
     html[data-dash-tier="fb"] #idscan-btn,
     html[data-dash-tier="fb"] #dashboard-nav [data-page="crm"].md\:hidden,
-    html[data-dash-tier="fb"] #nav-reports-m { display: none !important; }
+    html[data-dash-tier="fb"] #nav-reports-m,
+    html[data-dash-tier="fb"] #nav-more { display: none !important; }
     html[data-dash-tier="fb"] .fb-only-nav { display: flex !important; }
     /* In the Facebook-only tier the Dashboard is trimmed to just the leaderboard. */
     html[data-dash-tier="fb"] [data-page-content="insights"] > *:not(#dash-leaderboard-slot) { display: none !important; }
-    /* Facebook plans rank Facebook activity only. Keep general deal-desk columns and
-       point rules out of this focused posting leaderboard. */
-    html[data-dash-tier="fb"] [data-lb-non-fb] { display: none !important; }
     /* Report rail in MarketSync mode: hide the vehicle / F&I reports — MarketSync
        sells software, so keep only the SaaS-relevant reports (leads, marketing,
        appointments, activity, customers, rep scorecard, all). */
@@ -112,11 +112,10 @@
     /* Affiliate admin lives in the MarketSync workspace only. */
     html[data-dash-mode="marketsync"] #nav-affiliates { display: flex !important; }
     /* Trimmed Settings tabs in MarketSync mode (hide vehicle-specific tabs). */
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="sales"],
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="marketing"],
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="inventory"],
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="service"],
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="accounting"] { display: none !important; }
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="branding"],
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="language"],
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="aiboost"],
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="dealermgmt"] { display: none !important; }
 
     /* Repaint indigo → violet across the app while in MarketSync mode. */
     html[data-dash-mode="marketsync"] .bg-indigo-600{background-color:#7c3aed!important}
@@ -162,27 +161,30 @@
     html[data-dash-mode="marketsync"] button.bg-indigo-600,
     html[data-dash-mode="marketsync"] a.bg-indigo-600{box-shadow:0 1px 2px rgba(124,58,237,.35),0 4px 12px -2px rgba(124,58,237,.35)!important}
     html[data-dash-mode="marketsync"] .text-slate-400{color:#8b7fb0!important}
+    /* The mode switch sits on a stronger purple in MarketSync mode. */
+    html[data-dash-mode="marketsync"] #ms-mode-switch{background:#ede9fe}
+    html[data-dash-mode="marketsync"].dark #ms-mode-switch{background:#2e1065}
     /* Dashboard reflects MarketSync leads: show only the MarketSync panel there. */
     #ms-insights{display:none}
     html[data-dash-mode="marketsync"] #ms-insights{display:block}
     html[data-dash-mode="marketsync"] [data-page-content="insights"] > *:not(#ms-insights){display:none!important}
-    /* Department mode: the legacy deep nav tree is replaced by a flat department
-       list (#dept-nav). Hide every legacy child except the
-       setup bar, and the department list itself. Reversible: remove .dept-mode. */
-    #nav-desktop.dept-mode > *:not(#dept-nav):not(#setup-bar-host){display:none!important}
-    /* Pre-decision state: hide the legacy tree until renderDeptNav picks the mode, so
-       the hardcoded sidebar never flashes before the department nav loads. Cleared by
-       renderDeptNav (removes .nav-init) once the correct nav is in place. */
-    #nav-desktop.nav-init > *:not(#dept-nav):not(#setup-bar-host){display:none!important}
+    /* The mode switch pills. */
+    #ms-mode-switch{align-items:center;gap:2px;background:#eef2f7;border-radius:9px;padding:3px;margin:0 0 8px}
+    html.dark #ms-mode-switch{background:#1e293b}
+    #ms-mode-switch button{flex:1;font-size:12px;font-weight:800;padding:6px 8px;border-radius:7px;border:0;cursor:pointer;color:#64748b;background:transparent}
+    #ms-mode-switch button[data-on="1"]{background:#fff;color:#0f172a;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+    html.dark #ms-mode-switch button[data-on="1"]{background:#0f172a;color:#fff}
+    html[data-dash-mode="marketsync"] #ms-mode-switch button[data-mode="marketsync"][data-on="1"]{background:#7c3aed;color:#fff}
+    /* Reset-demo link: only in Demo mode for the owner. */
+    #ms-demo-reset{display:none;width:100%;margin:0 0 8px;font-size:11px;font-weight:700;color:#94a3b8;background:none;border:0;cursor:pointer;text-align:center}
+    #ms-demo-reset:hover{color:#64748b}
+    html[data-dash-owner="1"][data-dash-mode="demo"] #ms-demo-reset{display:block}
 
     /* Report rail: minimized (icon-only) unless expanded via the toggle. */
     #report-rail:not(.rr-open) button[data-report] span,
     #report-rail:not(.rr-open) .rr-head-label { display: none; }
     #report-rail:not(.rr-open) button[data-report] { justify-content: center; }
     #report-rail.rr-open #rr-chevron { transform: rotate(180deg); }
-    /* Reports overview: drop empty sections (a manager-only report with no data
-       renders nothing) so space-y-10 doesn't leave big blank gaps between cards. */
-    #reports-overview > div:empty { display: none; }
   </style>
   <style id="ms-font-bump">html{font-size:17px}@media (max-width:640px){html{font-size:16px}}</style>
   <style>.chip{display:inline-flex;align-items:center;font-size:0.7rem;padding:1px 7px;border-radius:999px;background:rgb(241 245 249);color:rgb(71 85 105);border:1px solid rgb(226 232 240);white-space:nowrap}.dark .chip{background:rgb(30 41 59);color:rgb(148 163 184);border-color:rgb(51 65 85)}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}.scrollbar-none::-webkit-scrollbar{display:none}</style>
@@ -195,13 +197,11 @@
     #nav-desktop > [data-page="command"]   { order:10; border-left-color:#6366f1; }  /* Command Center — indigo */
     #nav-desktop > [data-page="insights"]  { order:11; }                              /* Dashboard */
     #nav-desktop > .nav-group[data-group="crm"]     { order:12; border-left-color:#10b981; }  /* CRM — emerald */
-    #nav-desktop > .nav-group[data-group="acquisition"] { order:13; border-left-color:#0ea5e9; } /* Acquisition — sky */
     #nav-desktop > .nav-group[data-group="sales"]   { order:13; border-left-color:#f59e0b; }  /* Sales — amber */
     #nav-desktop > .nav-group[data-group="ii"]      { order:14; border-left-color:#06b6d4; }  /* Inventory — cyan */
     #nav-desktop > .nav-group[data-group="web"]     { order:15; border-left-color:#a855f7; }  /* Marketing/Website — purple */
-    #nav-desktop > [data-page="delivery"]  { order:16; border-left-color:#65a30d; }  /* Delivery — lime */
-    #nav-desktop > .nav-group[data-group="service"] { order:17; border-left-color:#14b8a6; }  /* Service — teal */
-    #nav-desktop > .nav-group[data-group="parts"]   { order:18; border-left-color:#f97316; }  /* Parts — orange */
+    #nav-desktop > [data-page="ai-inbox"]  { order:16; border-left-color:#22c55e; }  /* AI Chat — green */
+    #nav-desktop > .nav-group[data-group="service"] { order:17; border-left-color:#14b8a6; }  /* Service & Parts — teal */
     #nav-desktop > #grp-accounting-wrap    { order:18; border-left-color:#3b82f6; }  /* Accounting — blue */
     #nav-desktop > #nav-reports            { order:19; border-left-color:#ef4444; }  /* Reports — red */
     #nav-desktop > [data-page="operations"]{ order:20; border-left-color:#f97316; }  /* Operations — orange */
@@ -209,9 +209,7 @@
     #nav-desktop > #nav-commissions        { order:22; border-left-color:#10b981; }  /* Commissions — emerald */
     #nav-desktop > .nav-group[data-group="auto"]    { order:23; border-left-color:#64748b; }  /* Automation — slate */
     #nav-desktop > #nav-affiliates         { order:24; border-left-color:#8b5cf6; }  /* Affiliates (owner) — violet */
-    #nav-desktop > #nav-owner-users        { order:25; border-left-color:#d946ef; }  /* All Users (owner) — violet */
-    #nav-desktop > #nav-config             { order:26; border-left-color:#64748b; }  /* Configuration — slate */
-    #nav-desktop > #nav-api                { order:27; border-left-color:#64748b; }  /* API & MCP — slate */
+    #nav-desktop > #nav-owner-users        { order:25; border-left-color:#d946ef; }  /* All Users (owner) — fuchsia */
   </style>
   <!-- Google Translate widget: hide its injected top banner so it can't shove the fixed shell down -->
   <style>
@@ -260,11 +258,10 @@
       <button id="fb-post-btn" onclick="postToFacebook()" title="Post inventory to Facebook Marketplace" class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-blue-600 shadow-sm shadow-blue-500/40 transition whitespace-nowrap"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Post to Facebook</button>
       <button id="idscan-btn" onclick="identityScan()" title="Add a customer — scan their driver's licence to fill in all the details" class="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-teal-600 shadow-sm shadow-teal-500/40 transition whitespace-nowrap"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6"/></svg>Add customer</button>
       <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="hidden bg-purple-600 hover:bg-purple-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-purple-600 shadow-sm shadow-purple-500/40 transition whitespace-nowrap">Install extension</a>
-      <!-- Role/plan-aware internal Training Academy -->
-      <a id="training-btn" href="/training.html" title="Training Academy — step-by-step help" aria-label="Training Academy" class="inline-flex items-center gap-1.5 p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition">
+      <!-- How-to guide -->
+      <button type="button" id="guide-btn" onclick="openGuideModal()" title="How-to guide — learn every feature" aria-label="How-to guide" class="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition">
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 640 512"><path d="M320 32c-8.1 0-16.1 1.4-23.7 4.1L15.8 137.4C6.3 140.9 0 149.9 0 160s6.3 19.1 15.8 22.6l57.9 20.9C57.3 229.3 48 259.8 48 292.6l0 3.4c0 28.6-8.9 57.1-25.1 82.9c-6.8 10.9-8.4 24.4-4.3 36.6c4 12.1 13.2 21.9 25.1 26.6l7 2.8c-3.5 27.6-13.3 51.9-26.5 71.6c-3.3 4.9-3.6 11.2-.8 16.4c2.8 5.2 8.2 8.5 14.2 8.5l72 0c6 0 11.4-3.3 14.2-8.5c2.8-5.2 2.5-11.5-.8-16.4c-13.2-19.7-23-44-26.5-71.6l7-2.8c11.9-4.7 21.1-14.5 25.1-26.6c4.1-12.2 2.5-25.7-4.3-36.6C121 353.1 112 324.6 112 296l0-3.4c0-27 7.6-52.5 20.9-74.4l163.4 59c7.6 2.7 15.6 4.1 23.7 4.1s16.1-1.4 23.7-4.1L624.2 182.6c9.5-3.5 15.8-12.5 15.8-22.6s-6.3-19.1-15.8-22.6L343.7 36.1C336.1 33.4 328.1 32 320 32zM178.3 315.9L160 320l0 80c0 44.2 71.6 80 160 80s160-35.8 160-80l0-80-18.3-4.1L343.7 356c-7.6 2.7-15.6 4.1-23.7 4.1s-16.1-1.4-23.7-4.1l-118-40.1z"/></svg>
-        <span class="hidden xl:inline text-xs font-bold">Training</span>
-      </a>
+      </button>
       <!-- Upgrades / add-ons hub -->
       <button id="open-upgrades" onclick="openUpgradesHub()" title="Upgrades & add-ons" aria-label="Upgrades and add-ons" class="relative p-1.5 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/40 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1L12 3z"/></svg>
@@ -279,7 +276,7 @@
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
         <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span>
       </button>
-      <button id="logout-btn" onclick="msSignOut()" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-medium border border-slate-300 dark:border-slate-700 transition whitespace-nowrap">Sign Out</button>
+      <button id="logout-btn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-medium border border-slate-300 dark:border-slate-700 transition whitespace-nowrap">Sign Out</button>
     </div>
   </header>
 
@@ -303,7 +300,7 @@
     </aside>
   </div>
 
-  <main class="flex-1 w-full p-5 sm:p-7 lg:p-10 flex flex-col md:grid md:grid-cols-[248px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-5 md:gap-10 min-h-0 overflow-hidden">
+  <main class="flex-1 w-full p-4 sm:p-6 lg:p-8 flex flex-col md:grid md:grid-cols-[248px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-4 md:gap-8 min-h-0 overflow-hidden">
 
     <section class="flex flex-col shrink-0 md:col-span-1 md:h-full md:min-h-0 md:overflow-y-auto">
 
@@ -387,15 +384,8 @@
 
           <div id="billing-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Billing &amp; Subscription</h3>
-            <!-- Current plan (populated from /billing/plans; the active subscription is what grants access) -->
-            <div id="current-plan-box" class="hidden mb-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2.5">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Current plan</div>
-              <div id="current-plan-name" class="text-sm font-black text-slate-900 dark:text-white">—</div>
-              <div id="current-plan-detail" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5"></div>
-            </div>
-            <p class="text-sm text-slate-500 leading-relaxed mb-3">Change your plan, download invoices, or update payment method.</p>
-            <button onclick="openPlanUpgradeModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition mb-2">Change plan</button>
-            <button onclick="openUpgradesHub()" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold py-2 rounded border border-slate-300 dark:border-slate-700 transition mb-2">Add-ons</button>
+            <p class="text-sm text-slate-500 leading-relaxed mb-3">Choose or change your package, download invoices, or update payment method.</p>
+            <button onclick="openUpgradesHub()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded transition mb-2">View plans &amp; upgrade</button>
             <button id="launch-portal-btn" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold py-2 rounded border border-slate-300 dark:border-slate-700 transition">Manage Billing</button>
           </div>
 
@@ -612,39 +602,6 @@
                 </div>
               </div>
 
-              <!-- AI assistant — capabilities & access (management controls) -->
-              <div id="ai-assistant-mgmt" class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-3 hidden">
-                <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Assistant access</label>
-                <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai-assistant-reps" class="accent-indigo-600 w-4 h-4">Let sales reps use “Ask MarketSync” (managers always can)</label>
-                <div>
-                  <div class="text-[11px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Assistant capabilities</div>
-                  <p class="text-[11px] text-slate-400 mb-2">Turn off any tool the assistant shouldn't use. With everything off it still answers from your live data and knowledge base.</p>
-                  <div id="ai-tools-list" class="space-y-2"></div>
-                </div>
-                <div class="pt-1">
-                  <button type="button" onclick="openAiHistory()" class="text-xs font-bold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">View chat history →</button>
-                  <p class="text-[11px] text-slate-400 mt-0.5">See what your team has been asking the assistant.</p>
-                </div>
-              </div>
-
-              <!-- AI usage — today's assistant questions + this month's AI/market ops -->
-              <div id="ai-usage-panel" class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-3 hidden">
-                <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Usage</label>
-                <div>
-                  <div class="flex items-center justify-between text-[12px] mb-1"><span class="font-semibold text-slate-700 dark:text-slate-200">Assistant questions — today</span><span id="ai-use-asst-txt" class="text-slate-500 dark:text-slate-400 tabular-nums">—</span></div>
-                  <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div id="ai-use-asst-bar" class="h-full bg-indigo-600 rounded-full" style="width:0%"></div></div>
-                </div>
-                <div>
-                  <div class="flex items-center justify-between text-[12px] mb-1"><span class="font-semibold text-slate-700 dark:text-slate-200">AI operations — this month</span><span id="ai-use-ai-txt" class="text-slate-500 dark:text-slate-400 tabular-nums">—</span></div>
-                  <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div id="ai-use-ai-bar" class="h-full bg-emerald-600 rounded-full" style="width:0%"></div></div>
-                </div>
-                <div>
-                  <div class="flex items-center justify-between text-[12px] mb-1"><span class="font-semibold text-slate-700 dark:text-slate-200">Market lookups — this month</span><span id="ai-use-mc-txt" class="text-slate-500 dark:text-slate-400 tabular-nums">—</span></div>
-                  <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div id="ai-use-mc-bar" class="h-full bg-amber-500 rounded-full" style="width:0%"></div></div>
-                </div>
-                <p class="text-[11px] text-slate-400">Caching keeps real market usage well below the cap. Limits are soft — the assistant falls back rather than hard-stopping mid-task.</p>
-              </div>
-
               <!-- Vehicle cost & gross — internal only, never shown to customers -->
               <div class="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-2">
                 <label class="block text-[11px] uppercase font-bold text-slate-400 tracking-wider">Vehicle cost &amp; gross</label>
@@ -723,12 +680,12 @@
           </div>
 
           <div id="security-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Multi-factor authentication (MFA) &amp; account security</h3>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Keep Your Account Safe</h3>
 
             <!-- ─── Extra login code (2FA) ─────────────────────────────── -->
             <div id="mfa-status-row" class="flex items-start justify-between gap-2 mb-3">
               <div class="flex-1">
-                <div class="text-xs font-bold text-slate-900 dark:text-white">Multi-factor authentication (MFA)</div>
+                <div class="text-xs font-bold text-slate-900 dark:text-white">Extra Login Code</div>
                 <div id="mfa-status-text" class="text-xs text-slate-500 leading-snug mt-0.5">Loading…</div>
               </div>
               <button id="mfa-toggle-btn" class="text-xs font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap">Turn On</button>
@@ -748,28 +705,6 @@
                 class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5 text-base text-center font-mono mb-2 tracking-widest">
               <button id="mfa-enroll-verify-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded">Turn It On</button>
               <div id="mfa-enroll-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
-            </div>
-
-            <!-- Native Supabase Phone MFA (requires Phone MFA + SMS provider in the project). -->
-            <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3 mb-3">
-              <div class="flex items-start justify-between gap-3">
-                <div><div class="text-xs font-bold text-slate-900 dark:text-white">Text-message code</div><div id="phone-mfa-status" class="text-xs text-slate-500 mt-0.5">Add a verified mobile number as another true MFA method.</div></div>
-                <button id="phone-mfa-start" class="text-xs font-bold px-3 py-1.5 rounded border border-indigo-300 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300 whitespace-nowrap">Set up</button>
-              </div>
-              <div id="phone-mfa-enroll" class="hidden mt-3 space-y-2">
-                <input id="phone-mfa-number" type="tel" autocomplete="tel" placeholder="+19055551234" class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-2 text-sm">
-                <p class="text-[10px] text-slate-500">Include country code. MarketSync uses Supabase Phone MFA and the configured SMS provider.</p>
-                <button id="phone-mfa-send" class="w-full rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2">Send verification text</button>
-              </div>
-              <div id="phone-mfa-verify" class="hidden mt-3 space-y-2">
-                <input id="phone-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="Verification code" class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-2 text-center text-base font-mono tracking-widest">
-                <button id="phone-mfa-confirm" class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2">Verify and turn on</button>
-              </div>
-              <div id="phone-mfa-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
-            </div>
-
-            <div class="rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-3 mb-3 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
-              <strong class="text-slate-800 dark:text-slate-200">About the other sign-in choices:</strong> Passkeys are available below for fingerprint/face passwordless sign-in. Email codes are a first sign-in factor, and voice-call codes are not a native Supabase MFA method, so MarketSync does not falsely label either one as completed MFA.
             </div>
 
             <!-- ─── Backup codes shown ONCE after enrollment ─────────────── -->
@@ -854,20 +789,21 @@
         </button>
 
         <!-- ═══════ DESKTOP grouped sidebar ═══════ -->
-        <div id="nav-desktop" class="nav-init hidden md:flex md:flex-col md:w-full md:space-y-0.5">
+        <div id="nav-desktop" class="hidden md:flex md:flex-col md:w-full md:space-y-0.5">
+          <!-- Owner-only workspace switch: vehicle-dealer Demo ↔ running MarketSync. -->
+          <div id="ms-mode-switch" role="tablist" aria-label="Workspace mode">
+            <button type="button" data-mode="demo" data-on="1" onclick="setDashMode('demo')">🚗 MarketSync Automotive</button>
+            <button type="button" data-mode="marketsync" onclick="setDashMode('marketsync')">🟣 MarketSync</button>
+          </div>
+          <button id="ms-demo-reset" type="button" onclick="demoReset()" title="Reset the demo dealership to its starting data">↻ Reset demo data</button>
+
           <!-- Guided-setup progress bar (populated by renderSetupBar; hidden when complete) -->
           <div id="setup-bar-host"></div>
 
           <!-- Command Center — DealerOS home (today's operations + live exceptions) -->
-          <button type="button" id="nav-command" data-page="command" title="Daily Briefing" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <button type="button" id="nav-command" data-page="command" title="Command Center" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6"/></svg>
-            <span>Executive</span><span id="command-badge" class="hidden ml-auto text-[10px] font-black bg-rose-500 text-white rounded-full px-1.5 py-0.5 leading-none"></span>
-          </button>
-
-          <!-- AI Chatbot home — AI Chatbot product workspace (revealed by product) -->
-          <button type="button" id="nav-ai-home" data-page="ai-home" title="AI Employee" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.7 9.7 0 01-4-.85L3 21l1.85-4.5A8 8 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-            <span>AI Employee</span>
+            <span>Command Center</span><span id="command-badge" class="hidden ml-auto text-[10px] font-black bg-rose-500 text-white rounded-full px-1.5 py-0.5 leading-none"></span>
           </button>
 
           <!-- Marketplace home — Facebook Solo/Dealer product workspace (revealed by product) -->
@@ -882,12 +818,6 @@
             <span>Dashboard</span>
           </button>
 
-          <!-- Sales Reps — Facebook Dealer product (rep management; revealed by product) -->
-          <button type="button" id="nav-sales-team" data-page="sales-team" title="Sales Reps" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
-            <span>Sales Reps</span>
-          </button>
-
           <!-- Facebook posting moved to the "Post to Facebook" header button; the
                Leaderboard now lives on the Dashboard. -->
 
@@ -900,10 +830,6 @@
           <button type="button" data-page="insights" title="Leaderboard" class="nav-item fb-only-nav hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0"/></svg>
             <span>Leaderboard</span>
-          </button>
-          <button type="button" data-page="profile" title="Settings" class="nav-item fb-only-nav hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-slate-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.526-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <span>Settings</span>
           </button>
 
           <!-- ─── CRM ─── -->
@@ -941,68 +867,29 @@
 
           <!-- ─── MarketSync HQ (owner) — SaaS Command Center: revenue, trials, churn ─── -->
           <button type="button" id="nav-saas-command" data-page="saas-command" title="MarketSync HQ" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg>
+            <svg class="w-4 h-4 flex-shrink-0 text-fuchsia-600 dark:text-fuchsia-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg>
             <span>MarketSync HQ</span>
           </button>
 
           <!-- ─── Customer Pipeline (owner) — SaaS retention board ─── -->
           <button type="button" id="nav-saas-customers" data-page="saas-customers" title="Customer Pipeline" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
+            <svg class="w-4 h-4 flex-shrink-0 text-fuchsia-600 dark:text-fuchsia-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
             <span>Customer Pipeline</span>
-          </button>
-
-          <button type="button" id="nav-saas-followups" data-page="saas-followups" title="Follow-ups" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a3 3 0 016 0M9 12h6m-6 4h6"/></svg>
-            <span>Follow-ups</span>
-          </button>
-
-          <!-- ─── Funnel (checkout / abandoned carts) ─── -->
-          <button type="button" id="nav-saas-funnel" data-page="saas-funnel" title="Funnel" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18l-7 8v6l-4 2v-8L3 4z"/></svg>
-            <span>Funnel</span>
-          </button>
-
-          <!-- ─── Automation & Email (editable drips + templates) ─── -->
-          <button type="button" id="nav-saas-automation" data-page="saas-automation" title="Automation" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            <span>Automation</span>
-          </button>
-
-          <!-- ─── Employees (owner) — MarketSync staff + permissions ─── -->
-          <button type="button" id="nav-saas-employees" data-page="saas-employees" title="Employees" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
-            <span>Employees</span>
           </button>
 
           <!-- ─── Platform admin (MarketSync owner only) — all accounts + billing/engines ─── -->
           <button type="button" id="nav-owner-users" data-page="owner-users" title="All Users (owner)" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
+            <svg class="w-4 h-4 flex-shrink-0 text-fuchsia-600 dark:text-fuchsia-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
             <span>All Users</span>
           </button>
 
-          <!-- ─── Delivery (sold vehicle queue) — managers/admins ─── -->
-          <button type="button" data-page="delivery" data-admin-nav title="Delivery" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-lime-600 dark:text-lime-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg>
-            <span>Delivery</span><span id="delivery-badge" class="hidden ml-auto text-[10px] font-black bg-lime-600 text-white rounded-full px-1.5 py-0.5 leading-none"></span>
+          <!-- ─── AI Chat inbox (live AI conversations + embed) — managers/admins ─── -->
+          <button type="button" data-page="ai-inbox" title="AI Chat" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 opacity-60" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.7 9.7 0 01-4-.85L3 21l1.85-4.5A8 8 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            <span>AI Chat</span><span id="ai-inbox-badge" class="hidden ml-auto text-[10px] font-black bg-emerald-500 text-white rounded-full px-1.5 py-0.5 leading-none"></span>
           </button>
 
-
-          <!-- ─── Acquisition (buying: appraisals + equity mining) ─── -->
-          <div class="nav-group" data-group="acquisition" data-admin-nav>
-            <div class="flex items-center">
-              <button type="button" onclick="toggleNavGroup('acquisition')" title="Acquisition" class="flex-1 flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-                <svg class="w-4 h-4 flex-shrink-0 text-sky-600 dark:text-sky-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/></svg>
-                <span>Acquisition</span>
-              </button>
-              <button type="button" onclick="toggleNavGroup('acquisition')" aria-label="Toggle Acquisition" class="px-2 py-2 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg id="chev-acquisition" class="w-3.5 h-3.5 transition-transform -rotate-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
-            </div>
-            <div id="grp-acquisition" class="nav-group-body space-y-0.5 mt-0.5 hidden">
-              <button type="button" id="nav-appraisal" data-page="appraisal" title="Appraisals" class="nav-item nav-sub hidden w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Appraisals</button>
-              <button type="button" data-page="equity" title="Equity Mining" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Equity Mining</button>
-            </div>
-          </div>
-
-          <!-- ─── Sales (F&I, cleanup, desking) ─── -->
+          <!-- ─── Sales (appraisals, F&I, cleanup, equity, desking) ─── -->
           <div class="nav-group" data-group="sales">
             <div class="flex items-center">
               <button type="button" id="nav-sales-head" onclick="toggleNavGroup('sales')" title="Sales" class="flex-1 flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -1012,6 +899,8 @@
               <button type="button" onclick="toggleNavGroup('sales')" aria-label="Toggle Sales" class="px-2 py-2 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg id="chev-sales" class="w-3.5 h-3.5 transition-transform -rotate-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
             </div>
             <div id="grp-sales" class="nav-group-body space-y-0.5 mt-0.5 hidden">
+              <!-- Appraisals — regular nav word (hidden until Inventory Intelligence active) -->
+              <button type="button" id="nav-appraisal" data-page="appraisal" title="Appraisals" class="nav-item nav-sub hidden w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Appraisals</button>
               <!-- F&I deals list (managers) -->
               <button type="button" id="nav-fni-deals" data-page="fni" title="F&amp;I" class="nav-item nav-sub hidden w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>F&amp;I</button>
               <button type="button" data-page="recon" title="Cleanup" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Cleanup</button>
@@ -1031,22 +920,10 @@
             </div>
             <div id="grp-service" class="nav-group-body space-y-0.5 mt-0.5 hidden">
               <button type="button" data-page="service-ros" title="Repair Orders" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Repair Orders</button>
+              <button type="button" data-page="service-parts" title="Parts" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Parts</button>
               <button type="button" data-page="service-appointments" title="Service appointments" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Appointments</button>
+              <button type="button" data-page="equity" title="Equity Mining" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Equity Mining</button>
               <button type="button" data-page="service-settings" title="Service settings" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Settings</button>
-            </div>
-          </div>
-
-          <!-- ─── Parts (inventory + stock) — its own department ─── -->
-          <div class="nav-group" data-group="parts" data-admin-nav>
-            <div class="flex items-center">
-              <button type="button" onclick="toggleNavGroup('parts')" title="Parts" class="flex-1 flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-                <svg class="w-4 h-4 flex-shrink-0 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
-                <span>Parts</span>
-              </button>
-              <button type="button" onclick="toggleNavGroup('parts')" aria-label="Toggle Parts" class="px-2 py-2 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg id="chev-parts" class="w-3.5 h-3.5 transition-transform -rotate-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
-            </div>
-            <div id="grp-parts" class="nav-group-body space-y-0.5 mt-0.5 hidden">
-              <button type="button" data-page="service-parts" title="Parts inventory" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Parts Inventory</button>
             </div>
           </div>
 
@@ -1067,7 +944,7 @@
             </div>
             <div id="grp-ii" class="nav-group-body space-y-0.5 mt-0.5 hidden">
               <button type="button" data-page="inventory" data-invmode="manual" title="Inventory List" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Inventory List</button>
-              <button type="button" data-page="inv-intel" title="Inventory Intelligence" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Inventory Intelligence</button>
+              <button type="button" data-page="inv-intel" title="Pricing &amp; Acquisition" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Pricing &amp; Acquisition</button>
               <button type="button" data-page="market" title="Market &amp; Competitors" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Market &amp; Competitors</button>
             </div>
           </div>
@@ -1118,14 +995,12 @@
             <div class="flex items-center">
               <button type="button" onclick="toggleNavGroup('web')" title="Website" class="flex-1 flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
                 <svg class="w-4 h-4 flex-shrink-0 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path stroke-linecap="round" d="M3 9h18M7 4v5"/></svg>
-                <span>Marketing</span>              </button>
+                <span>Website</span>              </button>
               <button type="button" onclick="toggleNavGroup('web')" aria-label="Toggle Website" class="px-2 py-2 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><svg id="chev-web" class="w-3.5 h-3.5 transition-transform -rotate-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
             </div>
             <div id="grp-web" class="nav-group-body space-y-0.5 mt-0.5 hidden">
-              <button type="button" data-page="inventory" data-invmode="facebook" title="Facebook Marketplace" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Marketplace</button>
-              <button type="button" data-page="ai-home" title="AI Chat" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>AI Chat<span id="ai-inbox-badge" class="hidden ml-auto text-[10px] font-black bg-emerald-500 text-white rounded-full px-1.5 py-0.5 leading-none"></span></button>
-              <button type="button" data-page="website" title="Builder" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Website Builder</button>
-              <button type="button" data-page="website-settings" title="Website Settings" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Website Settings</button>
+              <button type="button" data-page="website" title="Builder" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Builder</button>
+              <button type="button" data-page="website-settings" title="Website Settings" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Settings</button>
             </div>
           </div>
 
@@ -1140,21 +1015,17 @@
             </div>
             <div id="grp-auto" class="nav-group-body space-y-0.5 mt-0.5 hidden">
               <button type="button" data-page="automation-builder" title="Builder" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Builder</button>
+              <button type="button" data-page="email-campaigns" title="Email Campaigns" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Email Campaigns</button>
               <button type="button" data-page="automation" title="Settings" class="nav-item nav-sub w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>Settings</button>
             </div>
           </div>
 
-          <!-- API & MCP (managers) — developer access to the platform -->
-          <button type="button" id="nav-api" data-page="api-keys" data-admin-nav title="API &amp; MCP" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/></svg>
-            <span>API &amp; MCP</span>
+          <!-- Academy — MarketSync Masterclasses & Certification -->
+          <button type="button" data-page="academy" onclick="switchPage('academy')" title="MarketSync Academy" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition mt-1 border-l-3 border-amber-500">
+            <svg class="w-4 h-4 flex-shrink-0 text-amber-500" fill="currentColor" viewBox="0 0 640 512"><path d="M320 32c-8.1 0-16.1 1.4-23.7 4.1L15.8 137.4C6.3 140.9 0 149.9 0 160s6.3 19.1 15.8 22.6l57.9 20.9C57.3 229.3 48 259.8 48 292.6l0 3.4c0 28.6-8.9 57.1-25.1 82.9c-6.8 10.9-8.4 24.4-4.3 36.6c4 12.1 13.2 21.9 25.1 26.6l7 2.8c-3.5 27.6-13.3 51.9-26.5 71.6c-3.3 4.9-3.6 11.2-.8 16.4c2.8 5.2 8.2 8.5 14.2 8.5l72 0c6 0 11.4-3.3 14.2-8.5c2.8-5.2 2.5-11.5-.8-16.4c-13.2-19.7-23-44-26.5-71.6l7-2.8c11.9-4.7 21.1-14.5 25.1-26.6c4.1-12.2 2.5-25.7-4.3-36.6C121 353.1 112 324.6 112 296l0-3.4c0-27 7.6-52.5 20.9-74.4l163.4 59c7.6 2.7 15.6 4.1 23.7 4.1s16.1-1.4 23.7-4.1L624.2 182.6c9.5-3.5 15.8-12.5 15.8-22.6s-6.3-19.1-15.8-22.6L343.7 36.1C336.1 33.4 328.1 32 320 32zM178.3 315.9L160 320l0 80c0 44.2 71.6 80 160 80s160-35.8 160-80l0-80-18.3-4.1L343.7 356c-7.6 2.7-15.6 4.1-23.7 4.1s-16.1-1.4-23.7-4.1l-118-40.1z"/></svg>
+            <span>Academy &amp; Certs</span>
           </button>
 
-          <!-- Configuration (managers) — surfaces the Configuration Engine -->
-          <button type="button" id="nav-config" data-page="config" data-admin-nav title="Configuration" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <svg class="w-4 h-4 flex-shrink-0 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <span>Configuration</span>
-          </button>
 
         </div>
       </nav>
@@ -1177,12 +1048,7 @@
     <section class="w-full md:col-span-1 min-w-0 flex-1 md:flex-none min-h-0 overflow-y-auto md:h-full md:overflow-y-auto">
       <!-- Full-width scroll region (scrollbar hugs the screen edge); an inner
            wrapper caps the readable content width so nothing sprawls edge-to-edge. -->
-      <div class="w-full md:max-w-[1450px] pt-3 sm:pt-5 lg:pt-6 pb-4">
-
-      <!-- Department tab-bar — when the active page belongs to a multi-page
-           department (Sales, Service, …), its sibling pages appear here as tabs.
-           Populated by renderDeptTabbar() in switchPage; hidden otherwise. -->
-      <div id="dept-tabbar" class="hidden mb-5"></div>
+      <div class="w-full md:max-w-[1450px]">
 
       <!-- Extension CTA — sits at the top of the dashboard (all pages) until dismissed.
            Dismissal is remembered forever (localStorage), then a compact "Install
@@ -1210,13 +1076,16 @@
         </div>
         <!-- Settings sub-nav — each tab reveals only its own section(s). -->
         <div id="settings-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none -mx-1 px-1">
-          <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">My Account</button>
-          <button data-stab="admin" data-admin-only onclick="settingsTab('admin')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Administration</button>
-          <button data-stab="sales" data-admin-only onclick="settingsTab('sales')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Sales</button>
-          <button data-stab="marketing" data-admin-only onclick="settingsTab('marketing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Marketing</button>
-          <button data-stab="inventory" data-admin-only onclick="settingsTab('inventory')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Inventory</button>
-          <button data-stab="service" data-admin-only onclick="settingsTab('service')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Service</button>
-          <button data-stab="accounting" data-admin-only onclick="settingsTab('accounting')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Accounting</button>
+          <button data-stab="team" data-admin-only onclick="settingsTab('team')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Team</button>
+          <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Account</button>
+          <button data-stab="branding" data-dealer-only onclick="settingsTab('branding')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Branding</button>
+          <button data-stab="language" onclick="settingsTab('language')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Language</button>
+          <button data-stab="billing" onclick="settingsTab('billing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Billing</button>
+          <button data-stab="aiboost" data-admin-only onclick="settingsTab('aiboost')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">AI Boost</button>
+          <button data-stab="group" data-admin-only onclick="settingsTab('group')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Dealer Group</button>
+          <button data-stab="dealermgmt" data-admin-only onclick="settingsTab('dealermgmt')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Dealer Management</button>
+          <button data-stab="integrations" data-admin-only onclick="settingsTab('integrations')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Integrations</button>
+          <button data-stab="security" onclick="settingsTab('security')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Security</button>
         </div>
 
         <!-- These tab sections flow into two columns on wide screens (settings-cols);
@@ -1298,26 +1167,6 @@
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Translate your dashboard into any language — it's saved to your browser, just for you. Your choice also becomes the language for your AI-written Facebook listings.</p>
           <div id="google_translate_element"></div>
         </div>
-        <!-- Text messaging — provision a dedicated SMS number under MarketSync, no
-             Twilio account needed. Powers automated follow-ups + AI autoresponder texts. -->
-        <div id="settings-texting-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
-          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Text messaging (SMS)</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Get your own texting number to send automated follow-ups and AI replies — carrier-compliant, no Twilio account to set up.</p>
-          <div id="texting-root"><div class="text-sm text-slate-400 italic py-3">Loading…</div></div>
-        </div>
-        <!-- Service department settings live on their own page — linked here so the
-             Service section exists under Settings without duplicating those controls. -->
-        <div id="settings-service-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
-          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Service &amp; Parts</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Labour rate, tax, shop supplies, parts markup and RO prefix.</p>
-          <button onclick="switchPage('service-settings')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Open Service settings →</button>
-        </div>
-        <!-- Accounting department settings live on the Accounting page. -->
-        <div id="settings-accounting-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
-          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Accounting</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Chart of accounts, auto-posting rules and cost tracking.</p>
-          <button onclick="switchPage('accounting')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Open Accounting →</button>
-        </div>
         </div><!-- /#settings-panel-extra -->
       </div>
 
@@ -1343,16 +1192,8 @@
         <div id="solo-home-root"></div>
       </div>
 
-      <div data-page-content="ai-home" class="page-content hidden space-y-6">
-        <div id="ai-home-root"></div>
-      </div>
-
       <div data-page-content="operations" class="page-content hidden space-y-6">
         <div id="operations-root"></div>
-      </div>
-
-      <div data-page-content="delivery" class="page-content hidden space-y-6">
-        <div id="delivery-root"></div>
       </div>
 
       <div data-page-content="service-ros" class="page-content hidden space-y-6">
@@ -1371,41 +1212,8 @@
         <div id="saas-customers-root"></div>
       </div>
 
-      <div data-page-content="saas-followups" class="page-content hidden space-y-6">
-        <div id="saas-followups-root"></div>
-      </div>
-
-      <div data-page-content="saas-funnel" class="page-content hidden space-y-6">
-        <div id="saas-funnel-root"></div>
-      </div>
-
-      <div data-page-content="saas-automation" class="page-content hidden space-y-6">
-        <div id="saas-automation-root"></div>
-      </div>
-
-      <div data-page-content="email-marketing" class="page-content hidden space-y-6">
-        <div id="dealer-email-root"></div>
-      </div>
-
-      <div data-page-content="saas-employees" class="page-content hidden space-y-6">
-        <div id="saas-employees-root"></div>
-      </div>
-
-      <!-- MarketSync SaaS Accounting — the company P&L (recurring revenue + program cost). -->
-      <div data-page-content="saas-accounting" class="page-content hidden space-y-6">
-        <div id="saas-accounting-root"></div>
-      </div>
-
       <div data-page-content="owner-users" class="page-content hidden space-y-6">
         <div id="owner-users-root"></div>
-      </div>
-
-      <div data-page-content="config" class="page-content hidden space-y-6">
-        <div id="config-root"></div>
-      </div>
-
-      <div data-page-content="api-keys" class="page-content hidden space-y-6">
-        <div id="api-keys-root"></div>
       </div>
 
       <!-- AI Chat inbox — live AI conversations + the embeddable widget snippet. -->
@@ -1472,10 +1280,6 @@
         </div>
       </div>
 
-      <!-- Sales snapshot — clickable "what needs me now" tiles (managers / DealerOS).
-           Populated by loadSalesSnapshot(); each tile deep-links to its filtered view. -->
-      <div id="sales-snapshot" class="hidden"></div>
-
       <!-- Today's Briefing — AI daily operator digest (dealer admins) -->
       <div id="daily-digest" data-admin-only class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
         <div class="flex items-center gap-2 mb-2">
@@ -1528,11 +1332,11 @@
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="metrics-strip">
-        <button type="button" onclick="switchPage('inventory')" title="Open your inventory" class="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-sm transition cursor-pointer">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
           <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Available Inventory</div>
           <div class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="metric-synced">—</div>
           <div class="text-xs text-slate-500 mt-0.5"><span id="metric-synced-total">—</span> total synced</div>
-        </button>
+        </div>
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg">
           <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Listings Posted</div>
           <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="metric-listings">—</div>
@@ -1724,14 +1528,9 @@
               </button>
               <button id="gen-pitches-btn" data-admin-only onclick="generateAllPitches(this)" title="Write an AI sales pitch for every car that doesn't have one" class="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0">✨ Sales pitches</button>
               <input type="file" id="inv-import-file" accept=".csv,text/csv" class="hidden" onchange="invImportCsv(this.files[0])">
-              <button data-admin-only onclick="document.getElementById('inv-import-file').click()" title="Bulk import vehicles from a CSV" class="inv-raw-add flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">Import CSV</button>
+              <button data-admin-only onclick="document.getElementById('inv-import-file').click()" title="Bulk import vehicles from a CSV" class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">Import CSV</button>
               <button data-admin-only onclick="invExportCsv(this)" title="Download all inventory as CSV" class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">Export CSV</button>
-              <!-- Sync Inventory: reveals the (otherwise hidden) feed panel on demand. -->
-              <button id="sync-inventory-btn" data-admin-only onclick="toggleFeedsPanel(this)" title="Pull inventory from your website feed" class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0 border border-slate-300 dark:border-slate-700">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                Sync Inventory
-              </button>
-              <button id="add-vehicle-btn" data-admin-only onclick="openVehicleForm()" class="inv-raw-add flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0">
+              <button id="add-vehicle-btn" data-admin-only onclick="openVehicleForm()" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded transition whitespace-nowrap flex-shrink-0">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                 Add vehicle
               </button>
@@ -1755,7 +1554,7 @@
           <!-- Segment pill row (AI Boost only — hidden until caches load) -->
           <div class="flex flex-wrap gap-1.5 hidden" id="catalog-segment-pills">
             <button data-seg="all"  class="catalog-segment-pill active px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white transition">All</button>
-            <button data-seg="hot"  class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Hot</button>
+            <button data-seg="hot"  class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">🔥 Hot</button>
             <button data-seg="cold" class="catalog-segment-pill px-3 py-1 rounded-full text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">❄️ Cold</button>
           </div>
           <!-- hidden select kept for JS compatibility -->
@@ -1801,15 +1600,15 @@
         <!-- Header row: title + team conversion + carousel tabs -->
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 id="lb-title" class="text-lg font-bold text-slate-900 dark:text-white">🏆 Leaderboard</h2>
-            <p id="lb-subtitle" class="text-slate-500 dark:text-slate-400 text-xs">500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.</p>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">🏆 Leaderboard</h2>
+            <p class="text-slate-500 dark:text-slate-400 text-xs">500 pts / deal · 50 pts / appraisal · 100 pts / listing · Climb the tiers, top the team.</p>
           </div>
           <div class="flex items-center gap-3 flex-wrap">
             <!-- Team conversion (hidden on global view) -->
             <div id="lb-conv-wrap" class="text-right">
-              <div id="lb-conv-label" class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">Team Conversion</div>
+              <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">Team Conversion</div>
               <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 leading-none"><span id="lb-conv">—</span>%</div>
-              <div id="lb-team-summary" class="text-xs text-slate-500"><span id="lb-team-sold">0</span> sold of <span id="lb-team-total">0</span> posted</div>
+              <div class="text-xs text-slate-500"><span id="lb-team-sold">0</span> sold of <span id="lb-team-total">0</span> posted</div>
             </div>
             <!-- Carousel tab pills -->
             <div class="inline-flex bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold">
@@ -1821,8 +1620,8 @@
 
         <!-- ── Legend (compact, always visible at top) ── -->
         <div class="lb-legend border-b border-slate-200 dark:border-slate-800 pb-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-          <span data-lb-non-fb><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Close a deal</span>
-          <span data-lb-non-fb><span class="font-bold text-amber-600 dark:text-amber-400">+50</span> Trade appraisal</span>
+          <span><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Close a deal</span>
+          <span><span class="font-bold text-amber-600 dark:text-amber-400">+50</span> Trade appraisal</span>
           <span><span class="font-bold text-indigo-600 dark:text-indigo-400">+100</span> Post a car</span>
           <span><span class="font-bold text-emerald-600 dark:text-emerald-400">+500</span> Sell what you posted</span>
           <div id="lb-legend-tiers" class="w-full flex flex-wrap gap-x-5 gap-y-0.5 mt-0.5"></div>
@@ -1867,7 +1666,7 @@
 
           <!-- Full ranking table -->
           <div>
-            <div id="lb-rankings-title" class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Full rankings</div>
+            <div class="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-2">Full rankings</div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm border-collapse">
                 <thead>
@@ -1876,8 +1675,8 @@
                     <th class="py-3 px-3 text-left">Player</th>
                     <th class="py-3 px-3 text-left">Tier</th>
                     <th class="py-3 px-3 text-right">Points</th>
-                    <th data-lb-non-fb class="py-3 px-3 text-right">Deals</th>
-                    <th data-lb-non-fb class="py-3 px-3 text-right">Appr.</th>
+                    <th class="py-3 px-3 text-right">Deals</th>
+                    <th class="py-3 px-3 text-right">Appr.</th>
                     <th class="py-3 px-3 text-right">Listings</th>
                     <th class="py-3 px-3 text-right">FB Sold</th>
                     <th class="py-3 px-3 text-right">Conv.</th>
@@ -1902,7 +1701,7 @@
         <!-- ── GLOBAL VIEW ── (hidden by default) -->
         <div id="lb-view-global" class="hidden" id="global-leaderboard-panel">
           <div class="flex items-center justify-between mb-3">
-            <p id="gl-subtitle" class="text-xs text-slate-500 dark:text-slate-400">How you stack up across every dealer &amp; rep on MarketSync. Others are anonymized — only you see your name.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">How you stack up across every dealer &amp; rep on MarketSync. Others are anonymized — only you see your name.</p>
             <!-- Reps / Dealers toggle -->
             <div class="inline-flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs font-bold flex-shrink-0 ml-3">
               <button type="button" data-gl-tab="reps" class="gl-tab px-3 py-1.5 rounded bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition">Reps</button>
@@ -1920,7 +1719,7 @@
               <div class="text-xs text-slate-400 mt-0.5">Avg: <span id="gl-avg-pts">—</span></div>
             </div>
             <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg px-4 py-3 text-center">
-              <div id="gl-posted-label" class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Your Listings</div>
+              <div class="text-xs uppercase font-bold tracking-wider text-slate-400 mb-1">Your Listings</div>
               <div id="gl-your-posted" class="text-xl font-black text-indigo-600 dark:text-indigo-400">—</div>
               <div class="text-xs text-slate-400 mt-0.5">Avg: <span id="gl-avg-posted">—</span></div>
             </div>
@@ -1960,8 +1759,8 @@
       <div id="dealer-view-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
         <div class="flex justify-between items-start mb-4 gap-4 flex-wrap">
           <div>
-            <h2 id="dealer-team-title" class="text-lg font-bold text-slate-900 dark:text-white">Users &amp; Team</h2>
-            <p id="dealer-team-subtitle" class="text-slate-500 dark:text-slate-400 text-xs">Invite, edit, assign roles, pause, or remove users in this dealership.</p>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Sales Team</h2>
+            <p class="text-slate-500 dark:text-slate-400 text-xs">Add or remove sales reps for your dealership.</p>
           </div>
           <div class="flex gap-2">
             <button id="invite-rep-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
@@ -2053,7 +1852,7 @@
             <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
               <div class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-sky-500 flex-shrink-0"></span>
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">Direct Competition <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg></h3>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">Competitor Monitoring <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg></h3>
                 <span class="text-xs text-slate-400 font-normal">— track nearby dealership lots</span>
               </div>
               <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
@@ -2292,7 +2091,7 @@
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div class="bg-white dark:bg-slate-800/60 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4">
                   <div class="flex items-center gap-2 mb-3">
-                    <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z"/></svg>
+                    <span class="text-base">🔥</span>
                     <span class="text-sm font-bold text-slate-900 dark:text-white">Top 5 Hot Vehicles</span>
                     <span class="text-xs text-slate-400">Low stock · selling fast</span>
                   </div>
@@ -2370,7 +2169,7 @@
           <!-- ── Pricing & Acquisition section header ──────────────────────── -->
           <div class="pt-2">
             <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span class="w-1.5 h-4 rounded-full bg-orange-500 flex-shrink-0"></span> Inventory Intelligence
+              <span class="w-1.5 h-4 rounded-full bg-orange-500 flex-shrink-0"></span> Pricing &amp; Acquisition
             </h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 ml-3.5">Auto-flag stale, overpriced units and get AI recommendations on what to stock next.</p>
           </div>
@@ -2386,10 +2185,6 @@
               <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
             </button>
             <div class="ai-accordion-body p-5 space-y-4">
-              <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
-                <strong class="text-slate-700 dark:text-slate-200">What this is:</strong> a watchdog that flags units sitting too long or priced above market so you can act before they go stale.
-                <strong class="text-slate-700 dark:text-slate-200">How to use it:</strong> turn it on, set the days-on-lot trigger and how far above market counts as "overpriced," and MarketSync raises a Needs-Attention flag on each unit that trips a rule (prices are never changed automatically — you stay in control).
-              </p>
               <div class="flex items-center gap-3">
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" id="repricing-enabled" class="sr-only peer">
@@ -2426,7 +2221,7 @@
             <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
               <div class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Stock Recommendations</h3>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Stocking Recommendations</h3>
                 <span class="text-xs text-slate-400 font-normal">— AI-driven acquisition targets</span>
               </div>
               <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
@@ -2487,6 +2282,127 @@
           </div>
 
 
+          <!-- Reference: everything included in the add-on -->
+          <!-- What's Included accordion -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0"></span>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">What's Included</h3>
+              </div>
+              <svg class="w-4 h-4 text-slate-400 transition-transform ai-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body divide-y divide-slate-100 dark:divide-slate-800">
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">🔥</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Hot &amp; Cold Vehicle Detection</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">See which make/model combos are flying off the lot and which ones are collecting dust — updated every time you refresh.</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">📈</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Turn Rate Analysis</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Monthly sell-through rates and months-of-supply for every vehicle — built from your actual sold history over the last 90 days.</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">🏥</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Per-Vehicle Health Scores</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Every unit scored 0–100 across photos, price, mileage, description quality, and days on lot. Lowest-scoring units surface first.</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <svg viewBox="0 0 24 24" width="14" height="14" class="inline-block flex-shrink-0" aria-hidden="true"><title>AI Boost feature — included in your plan</title><path d="M12 2.5l2.4 6.6 6.6 2.4-6.6 2.4L12 20.5l-2.4-6.6L3 11.5l6.6-2.4z" fill="#c4b5fd" fill-opacity="0.5" stroke="#6d28d9" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">AI-Written Lot Narrative</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Five plain-English bullet points from Claude summarizing your lot's health, risks, and stocking opportunities each time you run a refresh.</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">🔍</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Duplicate VIN Detection</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Automatically flags any VINs listed more than once across your available inventory before they cause problems at deal time.</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">⚖️</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Automated Repricing Rules</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Set days-on-lot and overprice thresholds — flag or adjust prices automatically when a vehicle drifts from market.</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">📦</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Stocking Recommendations</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">AI analyses your sell-through history and regional demand to recommend the 5 best vehicles to acquire next.</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">👁️</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Competitor Lot Monitoring</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Track nearby dealerships' listings, price changes, and new arrivals. Know when a competitor undercuts you on a similar unit.</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">📬</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Weekly Lot Health Report</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Monday-morning email digest: aging units, price drift alerts, slow movers, and acquisition opportunities — delivered automatically.</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">🔄</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Inventory Scan &amp; Activity Log</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">One-click scan across your entire lot. Every AI check is timestamped and logged — price flags, missing fields, and copy generation all appear in the live activity feed.</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">🏷️</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">Live Auction Reference Data</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Pulls Copart Canada auction results — wholesale salvage reference pricing shown alongside your retail comparables in every price report.</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3.5 px-5 py-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center mt-0.5">
+                  <span class="text-base">📊</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">vAuto-Style Market Price Report</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Per-vehicle one-pager with live-scraped data from AutoTrader Canada and CarGurus Canada. Shows retail price range, price-to-market %, mileage analysis, and avg days on market. Exports to PDF.</div>
+                </div>
+              </div>
+            </div>
+          </div>
 
         </div><!-- /inv-intel-active-content -->
       </div><!-- /inv-intel page -->
@@ -2650,6 +2566,21 @@
         <div class="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_360px]">
           <div class="space-y-6 min-w-0">
 
+        <!-- Card: standalone VIN decode report — opens the full specs & recall modal -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Decode VIN report <span class="normal-case font-normal text-slate-400">(view full specs &amp; recalls — opens a report, doesn't change the fields)</span></label>
+          <div class="flex gap-2">
+            <input id="appr-vin-lookup" maxlength="17" placeholder="Enter a VIN to decode" class="flex-1 uppercase tracking-wider bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+            <button type="button" onclick="openVinScanner('appr-vin-lookup', () => document.getElementById('appr-vin-lookup-btn').click())" title="Scan VIN barcode" class="flex items-center gap-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-bold px-3 py-2 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10"/></svg>Scan</button>
+            <button id="appr-vin-lookup-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Decode VIN</button>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 mt-2">
+            <button id="appr-oem-sticker" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">OEM Window Sticker</button>
+            <button id="appr-oem-brochure" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">OEM Brochure</button>
+            <span id="appr-oem-msg" class="text-xs text-slate-400"></span>
+          </div>
+        </div>
+
         <!-- Card: the appraisal form -->
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
           <!-- License plate → VIN (optional; shown only when a plate-decode provider is provisioned) -->
@@ -2675,12 +2606,6 @@
               <svg class="w-4 h-4 flex-shrink-0 mt-px" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
               <span><span class="font-bold">Decoded:</span> <span id="appr-vin-decoded-text"></span> — this only identifies the vehicle. Add mileage and click <span class="font-semibold">Appraise</span>; the value comes from live market comps, not the VIN.</span>
             </div>
-            <div class="flex flex-wrap items-center gap-2 mt-2">
-              <button type="button" id="appr-view-decode" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 transition">View full VIN decode</button>
-              <button type="button" id="appr-oem-sticker" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">OEM Window Sticker</button>
-              <button type="button" id="appr-oem-brochure" class="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">OEM Brochure</button>
-              <span id="appr-oem-msg" class="text-xs text-slate-400"></span>
-            </div>
           </div>
 
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -2697,7 +2622,6 @@
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Target gross ($)</label><input id="appr-gross" inputmode="numeric" data-money value="2,500" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Book value ($) <span class="text-slate-400 font-normal">— optional</span></label><input id="appr-book" inputmode="numeric" data-money placeholder="Black Book / guide" title="Black Book or your guide value. If set, the suggested offer is capped so it never exceeds book." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
           </div>
-          <div id="appr-defaults-slot"></div>
 
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Drivetrain</label><select id="appr-drivetrain" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">Any</option><option value="FWD">FWD</option><option value="RWD">RWD</option><option value="AWD">AWD</option><option value="4WD">4WD / 4x4</option></select></div>
@@ -2933,6 +2857,162 @@
 
       </div><!-- /content max-width wrapper -->
 
+      <!-- ── Email Campaigns Page ─────────────────────────────────────────────── -->
+      <div data-page-content="email-campaigns" class="page-content hidden space-y-6">
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 class="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+              Email Campaigns &amp; Broadcasts
+            </h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Send targeted vehicle showcases, price drop alerts, and newsletter broadcasts to customer segments.</p>
+          </div>
+          <button type="button" onclick="openNewCampaignComposer()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm shadow-indigo-500/30 transition flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            New Broadcast Campaign
+          </button>
+        </div>
+
+        <!-- Campaign Stats Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+            <div class="text-xs text-slate-400 font-bold uppercase">Total Broadcasts</div>
+            <div class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="ec-stat-total">14</div>
+          </div>
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+            <div class="text-xs text-slate-400 font-bold uppercase">Delivered Emails</div>
+            <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="ec-stat-delivered">4,820</div>
+          </div>
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+            <div class="text-xs text-slate-400 font-bold uppercase">Avg Open Rate</div>
+            <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1" id="ec-stat-open">48.2%</div>
+          </div>
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+            <div class="text-xs text-slate-400 font-bold uppercase">Vehicle Inquiries</div>
+            <div class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1" id="ec-stat-clicks">312</div>
+          </div>
+        </div>
+
+        <!-- Composer & History Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Campaign Composer -->
+          <div class="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+            <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center justify-between">
+              <span>Campaign Builder</span>
+              <span class="text-xs text-emerald-500 font-semibold flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Sender Authenticated</span>
+            </h3>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Audience Segment</label>
+              <select id="ec-segment" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white font-medium">
+                <option value="active-shoppers">Active Shoppers (Viewed Inventory in last 30 days)</option>
+                <option value="past-buyers">Past Vehicle Buyers (Equity Mining & Trade-Up)</option>
+                <option value="uncontacted-leads">Uncontacted & Aged Leads</option>
+                <option value="service-customers">Service & Maintenance Customers</option>
+                <option value="all-subscribers">All Dealership Subscribers (5,400+)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Email Subject Line</label>
+              <input type="text" id="ec-subject" placeholder="🔥 New Arrival: 2024 Ford F-150 Lariat just landed on the lot!" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Email Template / Content</label>
+              <textarea id="ec-body" rows="6" placeholder="Hi {first_name},&#10;&#10;We just received a pristine unit that matches your vehicle preferences! Check out the specs, photos, and special pricing below..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm text-slate-900 dark:text-white font-mono"></textarea>
+            </div>
+            <div class="flex items-center justify-between pt-2">
+              <button type="button" onclick="generateAiEmailCopy()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+                ✨ Generate AI Vehicle Offer Copy
+              </button>
+              <button type="button" onclick="sendBroadcastCampaign()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2.5 rounded-lg text-sm transition">
+                Send Campaign Now 🚀
+              </button>
+            </div>
+          </div>
+
+          <!-- History Feed -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Recent Broadcasts</h3>
+            <div class="space-y-3" id="ec-history-list">
+              <div class="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50">
+                <div class="text-xs font-bold text-slate-900 dark:text-white truncate">Weekend Price Drop Alert</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">Sent to Active Shoppers · 2 days ago</div>
+                <div class="flex items-center gap-3 mt-2 text-xs font-semibold text-emerald-600">
+                  <span>Open: 52.4%</span>
+                  <span>Clicks: 184</span>
+                </div>
+              </div>
+              <div class="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50">
+                <div class="text-xs font-bold text-slate-900 dark:text-white truncate">Spring Trade-Up VIP Invitation</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">Sent to Past Buyers · 1 week ago</div>
+                <div class="flex items-center gap-3 mt-2 text-xs font-semibold text-emerald-600">
+                  <span>Open: 44.1%</span>
+                  <span>Clicks: 98</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MarketSync Academy Page ────────────────────────────────────────────── -->
+      <div data-page-content="academy" class="page-content hidden space-y-6">
+        <!-- Academy Header -->
+        <div class="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 text-xs font-bold uppercase tracking-wider mb-3">
+              🎓 MarketSync Academy &amp; Certification
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-black tracking-tight">Master Dealership Software &amp; Earn Credentials</h2>
+            <p class="text-sm text-indigo-200 mt-1 max-w-2xl">Complete interactive courses on inventory posting, AI marketing, deal desking, and email campaigns. Print official diplomas &amp; add credentials directly to your LinkedIn resume!</p>
+          </div>
+          <div class="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4 shrink-0 min-w-[220px]">
+            <div class="text-xs text-indigo-200 font-bold uppercase">Overall Completion</div>
+            <div class="text-2xl font-black mt-0.5" id="academy-total-progress-text">66% Completed</div>
+            <div class="w-full h-2.5 bg-black/30 rounded-full overflow-hidden mt-2">
+              <div id="academy-total-progress-bar" class="h-full bg-amber-400 rounded-full transition-all duration-500" style="width:66%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Course Blocks Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="academy-course-grid">
+          <!-- Populated by renderAcademyCourses() in dashboard.js -->
+        </div>
+
+        <!-- Interactive Course Player Container -->
+        <div id="academy-player-container" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+            <div class="flex items-center gap-3">
+              <button type="button" onclick="closeAcademyPlayer()" class="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1">
+                ← Back to Courses
+              </button>
+              <span class="text-slate-300">|</span>
+              <h3 class="text-base font-black text-slate-900 dark:text-white" id="ac-player-course-title">Course Title</h3>
+            </div>
+            <div class="text-xs font-bold text-indigo-600 dark:text-indigo-400" id="ac-player-progress-badge">Progress: 0%</div>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-3 min-h-[500px]">
+            <!-- Lesson Sidebar -->
+            <div class="border-r border-slate-200 dark:border-slate-800 p-4 space-y-2 bg-slate-50/50 dark:bg-slate-950/30" id="ac-player-lesson-list">
+              <!-- Lessons rendered dynamically -->
+            </div>
+            <!-- Main Lesson Screen -->
+            <div class="lg:col-span-2 p-6 flex flex-col justify-between space-y-6">
+              <div>
+                <div class="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1" id="ac-lesson-step-label">Step 1</div>
+                <h4 class="text-xl font-bold text-slate-900 dark:text-white mb-3" id="ac-lesson-title">Lesson Title</h4>
+                <div class="prose dark:prose-invert text-sm leading-relaxed text-slate-600 dark:text-slate-300 space-y-3" id="ac-lesson-body">
+                  <!-- Lesson HTML -->
+                </div>
+              </div>
+              <div class="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
+                <button type="button" onclick="prevAcademyLesson()" id="ac-prev-btn" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold">Previous Class</button>
+                <button type="button" onclick="nextAcademyLesson()" id="ac-next-btn" class="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-500/30 transition">Mark Completed &amp; Next Class →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -2968,8 +3048,8 @@
       <svg class="w-5 h-5 flex-shrink-0 text-teal-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       <span class="text-xs font-bold whitespace-nowrap">Equity Mining</span>
     </button>
-    <button type="button" data-report="marketing" title="Marketing ROI — spend vs leads, sales & ROI by channel" class="group flex items-center gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 hover:text-violet-700 dark:hover:text-violet-300 transition">
-      <svg class="w-5 h-5 flex-shrink-0 text-violet-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9A9.004 9.004 0 0015 3.512V9h5.488z"/></svg>
+    <button type="button" data-report="marketing" title="Marketing ROI — spend vs leads, sales & ROI by channel" class="group flex items-center gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/40 hover:text-fuchsia-700 dark:hover:text-fuchsia-300 transition">
+      <svg class="w-5 h-5 flex-shrink-0 text-fuchsia-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9A9.004 9.004 0 0015 3.512V9h5.488z"/></svg>
       <span class="text-xs font-bold whitespace-nowrap">Marketing ROI</span>
     </button>
     <button type="button" data-report="appointments" title="Appointments & show-rate — booked, shown, no-show by rep" class="group flex items-center gap-2.5 w-full text-left px-2.5 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition">
@@ -3045,12 +3125,7 @@
       </div>
     </div>
     <div id="ai-dock-messages" class="flex-1 overflow-y-auto px-3.5 py-3 space-y-3 text-sm"></div>
-    <div id="ai-dock-file-status" class="hidden border-t border-slate-200 dark:border-slate-800 px-3 py-2 text-xs text-slate-600 dark:text-slate-300 bg-indigo-50 dark:bg-indigo-950/30"></div>
     <form id="ai-dock-form" class="border-t border-slate-200 dark:border-slate-800 p-2.5 flex items-end gap-2">
-      <input id="ai-dock-file" type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.txt,.md,.csv,.json,.rtf" class="hidden">
-      <button id="ai-dock-attach" type="button" title="Attach a commission plan PDF or document" class="flex-shrink-0 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition" aria-label="Attach commission plan document">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m20.5 11.5-8.8 8.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
-      </button>
       <textarea id="ai-dock-input" rows="1" placeholder="Ask about your lot, leads, pricing…" class="flex-1 resize-none max-h-28 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
       <button id="ai-dock-send" type="submit" class="flex-shrink-0 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white p-2 rounded-lg transition" aria-label="Send">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></svg>
@@ -3401,9 +3476,152 @@
     </div>
   </div>
 
-  <!-- Bump this revision whenever dashboard.js changes so an already-open browser
-       cannot reuse an older bundle from its cache after a staging deployment. -->
-  <script src="dashboard.js?v=20260805c"></script>
+  <!-- ── 1. Department OPENing: Full-Page "Things to Know" Modal ── -->
+  <div id="dept-things-to-know-modal" class="hidden fixed inset-0 z-[85] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto flex flex-col max-h-[90vh]">
+      <!-- Header banner -->
+      <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 p-6 text-white shrink-0 relative">
+        <button onclick="closeThingsToKnowModal()" class="absolute top-4 right-4 text-white/80 hover:text-white text-2xl font-bold leading-none">&times;</button>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-bold uppercase tracking-wider mb-2">
+          <span id="ttk-dept-badge-icon">🛡️</span> Department Onboarding
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-black tracking-tight" id="ttk-dept-title">OPENing CRM &amp; Customers</h2>
+        <p class="text-xs sm:text-sm text-indigo-100 mt-1" id="ttk-dept-subtitle">Things to know before you start operating this department.</p>
+      </div>
+      <!-- Body content -->
+      <div class="p-6 space-y-6 overflow-y-auto flex-1">
+        <div class="space-y-4">
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider text-xs">Left-to-Right Workflow Overview</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="ttk-workflow-stages">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider text-xs">Tutorial Highlights &amp; Key Features</h3>
+          <ul class="space-y-2.5 text-sm text-slate-600 dark:text-slate-300" id="ttk-tutorial-list">
+            <!-- Rendered by JS -->
+          </ul>
+        </div>
+      </div>
+      <!-- Footer actions -->
+      <div class="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <button type="button" onclick="closeThingsToKnowModal()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Skip to Page</button>
+        <button type="button" id="ttk-start-btn" onclick="startDepartmentTourAndWizard()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-md shadow-indigo-500/30 transition flex items-center gap-2">
+          <span>Start Guided Tour &amp; Setup Wizard</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 2. Department Setup Wizard Modal ── -->
+  <div id="dept-setup-wizard-modal" class="hidden fixed inset-0 z-[86] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950 shrink-0">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400" id="dsw-dept-tag">Setup Wizard</div>
+          <h3 class="text-lg font-black text-slate-900 dark:text-white" id="dsw-dept-title">Configure Integrations &amp; Store Info</h3>
+        </div>
+        <button onclick="closeSetupWizardModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      </div>
+
+      <div class="p-6 space-y-5 overflow-y-auto flex-1">
+        <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+          <svg class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div>
+            <strong>Cross-Platform Auto-Sync Active:</strong> Information entered here (Legal Name, Address, Phone, Website, CRM Intake Email) automatically syncs across all department wizards and settings. No double-entry!
+          </div>
+        </div>
+
+        <form id="dsw-form" class="space-y-4">
+          <!-- Dynamically populated per department -->
+          <div id="dsw-fields-container" class="space-y-4"></div>
+        </form>
+      </div>
+
+      <div class="p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between shrink-0">
+        <button type="button" onclick="closeSetupWizardModal()" class="text-xs font-bold text-slate-500">Cancel</button>
+        <button type="button" onclick="completeDepartmentWizard()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-md shadow-emerald-500/30 transition flex items-center gap-2">
+          <span>Complete Setup &amp; Unlock Badge 🎖️</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. Dealer Gamification Badge Reveal Modal ── -->
+  <div id="dealer-badge-reveal-modal" class="hidden fixed inset-0 z-[90] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl p-8 text-center shadow-2xl border border-amber-500/40 relative overflow-hidden animate-bounce-short">
+      <div class="w-24 h-24 rounded-full bg-gradient-to-tr from-amber-400 via-amber-500 to-yellow-300 mx-auto flex items-center justify-center text-4xl shadow-xl shadow-amber-500/30 mb-4" id="dbr-badge-icon">
+        🛡️
+      </div>
+      <div class="text-xs font-black uppercase tracking-widest text-amber-500">DEALER Gamification Badge Earned!</div>
+      <h3 class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="dbr-badge-title">CRM Commander</h3>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" id="dbr-badge-desc">You have successfully OPENed and configured the CRM &amp; Customer Management department!</p>
+
+      <div class="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center gap-3">
+        <button type="button" onclick="closeBadgeRevealModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition">
+          Claim Badge &amp; Continue
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 4. Printable Academy Certificate Modal ── -->
+  <div id="academy-certificate-modal" class="hidden fixed inset-0 z-[95] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-950 w-full max-w-4xl rounded-2xl shadow-2xl border border-amber-500/40 overflow-hidden my-auto flex flex-col">
+      <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900 shrink-0 print:hidden">
+        <div class="text-sm font-bold text-slate-900 dark:text-white">Official Certificate of Completion</div>
+        <div class="flex items-center gap-3">
+          <!-- LinkedIn Button -->
+          <a id="cert-linkedin-btn" href="#" target="_blank" rel="noopener" class="bg-[#0a66c2] hover:bg-[#084e96] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>
+            Add to LinkedIn
+          </a>
+          <button type="button" onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231a1.125 1.125 0 01-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-19.126 0C1.081 7.441.313 8.375.313 9.456v6.294c0 1.081.768 2.015 1.837 2.175h1.091"/></svg>
+            Print Diploma
+          </button>
+          <button onclick="closeAcademyCertificateModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none p-1">&times;</button>
+        </div>
+      </div>
+
+      <!-- Printable Diploma Sheet -->
+      <div id="printable-certificate-sheet" class="p-8 sm:p-12 bg-[#fffdfa] text-slate-900 relative overflow-hidden border-8 border-double border-amber-600/40 m-4 rounded-xl shadow-inner">
+        <!-- Certificate Watermark Seal -->
+        <div class="absolute -right-16 -bottom-16 w-64 h-64 opacity-5 pointer-events-none">
+          <svg fill="currentColor" viewBox="0 0 640 512"><path d="M320 32c-8.1 0-16.1 1.4-23.7 4.1L15.8 137.4C6.3 140.9 0 149.9 0 160s6.3 19.1 15.8 22.6l57.9 20.9C57.3 229.3 48 259.8 48 292.6l0 3.4c0 28.6-8.9 57.1-25.1 82.9c-6.8 10.9-8.4 24.4-4.3 36.6c4 12.1 13.2 21.9 25.1 26.6l7 2.8c-3.5 27.6-13.3 51.9-26.5 71.6c-3.3 4.9-3.6 11.2-.8 16.4c2.8 5.2 8.2 8.5 14.2 8.5l72 0c6 0 11.4-3.3 14.2-8.5c2.8-5.2 2.5-11.5-.8-16.4c-13.2-19.7-23-44-26.5-71.6l7-2.8c11.9-4.7 21.1-14.5 25.1-26.6c4.1-12.2 2.5-25.7-4.3-36.6C121 353.1 112 324.6 112 296l0-3.4c0-27 7.6-52.5 20.9-74.4l163.4 59c7.6 2.7 15.6 4.1 23.7 4.1s16.1-1.4 23.7-4.1L624.2 182.6c9.5-3.5 15.8-12.5 15.8-22.6s-6.3-19.1-15.8-22.6L343.7 36.1C336.1 33.4 328.1 32 320 32z"/></svg>
+        </div>
+
+        <div class="text-center space-y-4">
+          <div class="text-xs font-black uppercase tracking-widest text-amber-700">MarketSync Academy · Official Certification</div>
+          <h1 class="text-3xl sm:text-4xl font-serif font-bold text-slate-900 tracking-wide" style="font-family: Georgia, serif;">Certificate of Mastery</h1>
+          <p class="text-xs text-slate-500 uppercase tracking-widest">This certifies that</p>
+          <div class="text-2xl sm:text-3xl font-black text-indigo-900 border-b border-slate-300 pb-2 max-w-lg mx-auto" id="cert-student-name">Alex Johnson</div>
+          <p class="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">has successfully completed all required modules, practical assignments, and exams for</p>
+          <div class="text-xl font-bold text-amber-800 font-serif my-2" id="cert-course-name">Certified Email Campaign Specialist</div>
+          <p class="text-xs text-slate-500">Issued by MarketSync Technologies Inc.</p>
+
+          <div class="pt-8 flex items-center justify-between text-left text-xs text-slate-600 max-w-xl mx-auto">
+            <div>
+              <div class="font-bold text-slate-900" id="cert-date font-mono">August 5, 2026</div>
+              <div class="text-[10px] text-slate-400">Issue Date</div>
+            </div>
+            <div class="text-center">
+              <div class="w-12 h-12 rounded-full border-2 border-amber-500 mx-auto flex items-center justify-center text-amber-600 font-bold text-[10px]">VERIFIED</div>
+              <div class="text-[9px] font-mono text-slate-400 mt-1" id="cert-id-code">MS-CERT-2026-98421</div>
+            </div>
+            <div class="text-right">
+              <div class="font-serif italic font-bold text-indigo-900 text-sm" style="font-family: Georgia, serif;">MarketSync Academic Board</div>
+              <div class="text-[10px] text-slate-400">Official Signature</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js?v=20260726g"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
@@ -3411,7 +3629,7 @@
     };
   </script>
   <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
-  <script src="tour.js?v=20260727k"></script>
+  <script src="tour.js?v=20260721c"></script>
   <script src="table-sort.js?v=20260706a"></script>
 </body>
 </html>
