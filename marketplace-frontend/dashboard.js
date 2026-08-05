@@ -3,26 +3,6 @@
 // other (the "logs in then logs out" bug). Keep in sync with login/register/reset pages.
 const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
 
-// Wrap fetch so EVERY call to our API carries the demo-workspace header when the
-// owner is in Demo mode — keeps all pages (even those using raw fetch) consistently
-// scoped to the sandboxed demo dealership. No-op for non-API URLs and other users.
-(function () {
-  const _fetch = window.fetch.bind(window);
-  window.fetch = function (input, init) {
-    try {
-      const url = typeof input === 'string' ? input : (input && input.url) || '';
-      if (url.indexOf(API) === 0 &&
-          document.documentElement.getAttribute('data-dash-owner') === '1' &&
-          document.documentElement.getAttribute('data-dash-mode') === 'demo') {
-        init = init || {};
-        const h = new Headers(init.headers || (typeof input !== 'string' && input.headers) || {});
-        h.set('X-Act-Demo', '1');
-        init = { ...init, headers: h };
-      }
-    } catch (e) {}
-    return _fetch(input, init);
-  };
-})();
 // Carfax Canada report link by VIN. Swap to your dealer badge/report URL if you
 // wire the Carfax account (the VIN is appended, URL-encoded).
 const CARFAX_BASE = 'https://www.carfax.ca/vehicle-history-reports?vin=';
@@ -152,14 +132,9 @@ function msIco(name, cls) {
 // return a 502/503/504 for ~30–60s while it wakes. We retry those (and network
 // errors) a few times with backoff, and surface the real status/message on final
 // failure instead of a generic "could not load".
-// In owner Demo mode, scope every API call to the sandboxed demo workspace via a
-// header the backend honors only for the MarketSync owner. Read from the DOM so it
-// works regardless of when the mode variables initialize.
+// Reserved extension point for request-scoped headers. Tenant identity always comes
+// from the authenticated profile; the browser cannot switch dealerships by header.
 function actHeaders() {
-  try {
-    if (document.documentElement.getAttribute('data-dash-owner') === '1' &&
-        document.documentElement.getAttribute('data-dash-mode') === 'demo') return { 'X-Act-Demo': '1' };
-  } catch (e) {}
   return {};
 }
 async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}) {
@@ -430,11 +405,9 @@ if (!token) {
 const user = userRaw ? JSON.parse(userRaw) : {};
 let profileContext = null;
 
-// ── Owner workspace mode: vehicle-dealer DEMO ↔ running MarketSync ────────────
-// Only the MarketSync owner sees the switch. MarketSync mode trims the nav to the
-// SaaS pages, trims Settings, and repaints the UI purple (all via CSS driven by the
-// html[data-dash-mode] attribute). Persisted per-browser.
-let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
+// MarketSync HQ is a SaaS-only workspace. Demonstrations use separate, tenant-scoped
+// accounts; there is intentionally no browser-side dealership switch.
+let __dashMode = 'marketsync';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
 const MS_ALLOWED_PAGES = new Set(['command', 'saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-employees', 'insights', 'crm', 'tasks', 'appointments', 'leads', 'fni', 'reports', 'profile', 'accounting', 'commissions', 'affiliates-admin', 'owner-users']);
 
@@ -1134,38 +1107,17 @@ window.simpleCrmActive = simpleCrmActive;
 // In MarketSync mode the Reports hub shows only the SaaS-relevant reports (no
 // vehicle inventory, F&I, appraisals or service — MarketSync sells software).
 const MS_REPORT_KEYS = new Set(['leads', 'marketing', 'appointments', 'activity', 'customers', 'reps']);
-function applyDashMode(mode) {
-  __dashMode = mode === 'marketsync' ? 'marketsync' : 'demo';
-  document.documentElement.setAttribute('data-dash-mode', __dashMode);
-  document.querySelectorAll('#ms-mode-switch button').forEach(b => b.setAttribute('data-on', b.dataset.mode === __dashMode ? '1' : '0'));
+function applyMarketsyncWorkspace() {
+  __dashMode = 'marketsync';
+  document.documentElement.setAttribute('data-dash-mode', 'marketsync');
   // In MarketSync mode "Sales" is a direct page (the F&I/subscriptions list), not a
   // collapsible group — point its header at the page and open it.
   const salesHead = document.getElementById('nav-sales-head');
   if (salesHead) {
-    salesHead.onclick = __dashMode === 'marketsync'
-      ? () => { if (typeof switchPage === 'function') switchPage('fni'); }
-      : () => { if (typeof toggleNavGroup === 'function') toggleNavGroup('sales'); };
+    salesHead.onclick = () => { if (typeof switchPage === 'function') switchPage('fni'); };
   }
-  if (__dashMode === 'marketsync') { try { renderMarketsyncInsights(); } catch (e) {} }
+  try { renderMarketsyncInsights(); } catch (e) {}
 }
-function setDashMode(mode) {
-  applyDashMode(mode);
-  localStorage.setItem('ms_dash_mode', __dashMode);
-  // Full reload so every page re-fetches under the new workspace header cleanly.
-  if (__dashMode === 'demo') {
-    if (typeof showToast === 'function') showToast('Loading demo workspace…', 'info');
-    apiSendJson('/demo/seed', 'POST', {}).catch(() => {}).finally(() => location.reload());
-  } else {
-    location.reload();
-  }
-}
-window.setDashMode = setDashMode;
-async function demoReset() {
-  if (!confirm('Reset the demo dealership back to its starting data? Your real MarketSync data is untouched.')) return;
-  try { await apiSendJson('/demo/reset', 'POST', {}); showToast('Demo reset', 'success'); location.reload(); }
-  catch (e) { showToast(e.message || 'Could not reset', 'error'); }
-}
-window.demoReset = demoReset;
 // Walk a demo customer forward/back through the pipeline for a live demo.
 const DEMO_STAGES = ['uncontacted', 'contacted', 'appointment', 'sold', 'fni', 'delivered'];
 async function demoStepStage(id, dir, cur) {
@@ -1240,7 +1192,7 @@ async function marketsyncCleanup(btn) {
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Cleanup failed', 'error'); }
 }
 window.marketsyncCleanup = marketsyncCleanup;
-// Reveal the switch + apply the saved mode once we know this is the MarketSync owner.
+// Reveal the SaaS console once we know this is the MarketSync owner.
 function initDashModeForOwner() {
   const isOwner = profileContext?.is_marketsync === true || ['JMS Automotive', 'MarketSync'].includes(profileContext?.dealership?.name);
   if (!isOwner) return;
@@ -1253,11 +1205,10 @@ function initDashModeForOwner() {
   document.getElementById('nav-saas-funnel')?.classList.remove('hidden');    // Checkout funnel / abandoned carts
   document.getElementById('nav-saas-automation')?.classList.remove('hidden');// Automation & email (editable drips)
   document.getElementById('nav-saas-employees')?.classList.remove('hidden'); // Employees + permissions
-  // The demo dealership workspace has been retired — the owner runs the MarketSync
-  // SaaS business only, so force the SaaS back office and land on the HQ.
-  __dashMode = 'marketsync';
-  localStorage.setItem('ms_dash_mode', 'marketsync');
-  applyDashMode('marketsync');
+  // HQ never impersonates or switches into a dealer tenant. Dedicated demo accounts
+  // are prepared in the background and accessed through their own logins.
+  applyMarketsyncWorkspace();
+  apiSendJson('/demo/seed-all', 'POST', {}).catch(() => {});
   // Dealer-only Settings tabs don't apply to the SaaS owner (Team becomes SaaS
   // roles via renderSettingsSaasRoles). Hide the purely dealership ones.
   ['group', 'branding', 'aiboost', 'dealermgmt'].forEach(t =>
@@ -1359,6 +1310,16 @@ async function initializeDashboardEcosystem() {
     profileContext = await res.json();
     clearTimeout(timeoutId);
 
+    // Dedicated demo logins keep their fictional records inside their own tenant.
+    // Seed before the first page loaders run; regular dealer and HQ accounts are
+    // rejected by the backend and are never modified.
+    const dedicatedDemo = /(?:^|\b)demo(?:\b|$)/i.test(profileContext?.dealership?.name || '');
+    document.documentElement.setAttribute('data-demo-account', dedicatedDemo ? '1' : '0');
+    if (dedicatedDemo) {
+      try { await apiSendJson('/demo/seed', 'POST', {}); }
+      catch (e) { console.warn('[demo] seed unavailable:', e.message); }
+    }
+
     // `/auth/me` carries the safe, normalized entitlement summary too. Use it first
     // so plan-aware navigation is available even if the follow-up request hits a
     // transient Render cold start; /access/context below refreshes the same snapshot
@@ -1410,7 +1371,7 @@ async function initializeDashboardEcosystem() {
       document.getElementById('ui-profile-name').textContent = personName;
       document.getElementById('ui-dealership-name').textContent = dealershipName;
     }
-    // Owner-only Demo ↔ MarketSync workspace switch.
+    // Platform owners always stay inside the MarketSync HQ workspace.
     try { initDashModeForOwner(); } catch (e) {}
 
     // Pre-fill profile form
@@ -3682,7 +3643,7 @@ function crmDetailHtml(d) {
     </div>
   </div>
   <div class="p-5 space-y-4">
-    ${document.documentElement.getAttribute('data-dash-mode') === 'demo' ? `
+    ${document.documentElement.getAttribute('data-demo-account') === '1' ? `
     <div class="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-3 py-2">
       <span class="text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">Demo</span>
       <span class="text-xs text-slate-600 dark:text-slate-300">Walk this deal along the pipeline:</span>

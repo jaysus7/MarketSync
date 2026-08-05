@@ -19,17 +19,6 @@ function requestScopedClient(token) {
   })
 }
 
-// Cache the demo dealership id (created by POST /demo/seed). Only positive results
-// are cached, so it resolves as soon as the workspace is seeded.
-let _demoDealerId = null
-export function bustDemoDealerCache(id) { _demoDealerId = id || null }
-async function resolveDemoDealership() {
-  if (_demoDealerId) return _demoDealerId
-  const { data } = await supabaseAdmin.from('dealerships').select('id').eq('name', 'MarketSync Demo').maybeSingle()
-  if (data?.id) _demoDealerId = data.id
-  return data?.id || null
-}
-
 // ── AUTH MIDDLEWARE ──
 export async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '')
@@ -113,12 +102,6 @@ export async function requireAuth(req, res, next) {
     // RLS-enforcing client bound to this caller's token (see requestScopedClient).
     req.supabase = requestScopedClient(token)
 
-    // Demo mode is limited to an explicit platform owner; dealer names and mutable
-    // user metadata must never grant cross-tenant elevation.
-    if (req.headers['x-act-demo'] === '1' && hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)) {
-      const demoId = await resolveDemoDealership()
-      if (demoId) { req.dealershipId = demoId; req.isDemo = true }
-    }
     next()
   } catch (err) {
     return res.status(500).json({ error: 'Internal server authorization error' })

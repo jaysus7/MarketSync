@@ -47,13 +47,9 @@
     /* Per-dealer feature toggle: hides a nav item independent of role gating. */
     .ff-off { display: none !important; }
 
-    /* ── MarketSync workspace mode ─────────────────────────────────────────────
-       The owner's dashboard flips between a vehicle-dealer DEMO and running
-       MarketSync itself. In MarketSync mode we trim the nav to the SaaS-relevant
-       pages, trim Settings, and repaint the whole UI purple to make the mode
-       unmistakable. The mode switcher itself is hidden unless JS reveals it. */
-    #ms-mode-switch { display: none; }
-    html[data-dash-owner="1"] #ms-mode-switch { display: flex; }
+    /* ── MarketSync HQ workspace ───────────────────────────────────────────────
+       Platform owners operate the SaaS business here. Product demonstrations use
+       separate tenant accounts and never switch the HQ session into dealer data. */
 
     /* Trimmed nav in MarketSync mode: hide the vehicle-only groups + pages. */
     html[data-dash-mode="marketsync"] .nav-group[data-group="fb"],
@@ -166,32 +162,18 @@
     html[data-dash-mode="marketsync"] button.bg-indigo-600,
     html[data-dash-mode="marketsync"] a.bg-indigo-600{box-shadow:0 1px 2px rgba(124,58,237,.35),0 4px 12px -2px rgba(124,58,237,.35)!important}
     html[data-dash-mode="marketsync"] .text-slate-400{color:#8b7fb0!important}
-    /* The mode switch sits on a stronger purple in MarketSync mode. */
-    html[data-dash-mode="marketsync"] #ms-mode-switch{background:#ede9fe}
-    html[data-dash-mode="marketsync"].dark #ms-mode-switch{background:#2e1065}
     /* Dashboard reflects MarketSync leads: show only the MarketSync panel there. */
     #ms-insights{display:none}
     html[data-dash-mode="marketsync"] #ms-insights{display:block}
     html[data-dash-mode="marketsync"] [data-page-content="insights"] > *:not(#ms-insights){display:none!important}
     /* Department mode: the legacy deep nav tree is replaced by a flat department
-       list (#dept-nav). Hide every legacy child except the owner controls, the
+       list (#dept-nav). Hide every legacy child except the
        setup bar, and the department list itself. Reversible: remove .dept-mode. */
-    #nav-desktop.dept-mode > *:not(#dept-nav):not(#ms-mode-switch):not(#ms-demo-reset):not(#setup-bar-host){display:none!important}
+    #nav-desktop.dept-mode > *:not(#dept-nav):not(#setup-bar-host){display:none!important}
     /* Pre-decision state: hide the legacy tree until renderDeptNav picks the mode, so
        the hardcoded sidebar never flashes before the department nav loads. Cleared by
        renderDeptNav (removes .nav-init) once the correct nav is in place. */
-    #nav-desktop.nav-init > *:not(#dept-nav):not(#ms-mode-switch):not(#ms-demo-reset):not(#setup-bar-host){display:none!important}
-    /* The mode switch pills. */
-    #ms-mode-switch{align-items:center;gap:2px;background:#eef2f7;border-radius:9px;padding:3px;margin:0 0 8px}
-    html.dark #ms-mode-switch{background:#1e293b}
-    #ms-mode-switch button{flex:1;font-size:12px;font-weight:800;padding:6px 8px;border-radius:7px;border:0;cursor:pointer;color:#64748b;background:transparent}
-    #ms-mode-switch button[data-on="1"]{background:#fff;color:#0f172a;box-shadow:0 1px 2px rgba(0,0,0,.08)}
-    html.dark #ms-mode-switch button[data-on="1"]{background:#0f172a;color:#fff}
-    html[data-dash-mode="marketsync"] #ms-mode-switch button[data-mode="marketsync"][data-on="1"]{background:#7c3aed;color:#fff}
-    /* Reset-demo link: only in Demo mode for the owner. */
-    #ms-demo-reset{display:none;width:100%;margin:0 0 8px;font-size:11px;font-weight:700;color:#94a3b8;background:none;border:0;cursor:pointer;text-align:center}
-    #ms-demo-reset:hover{color:#64748b}
-    html[data-dash-owner="1"][data-dash-mode="demo"] #ms-demo-reset{display:block}
+    #nav-desktop.nav-init > *:not(#dept-nav):not(#setup-bar-host){display:none!important}
 
     /* Report rail: minimized (icon-only) unless expanded via the toggle. */
     #report-rail:not(.rr-open) button[data-report] span,
@@ -3421,7 +3403,7 @@
 
   <!-- Bump this revision whenever dashboard.js changes so an already-open browser
        cannot reuse an older bundle from its cache after a staging deployment. -->
-  <script src="dashboard.js?v=20260805a"></script>
+  <script src="dashboard.js?v=20260805c"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
