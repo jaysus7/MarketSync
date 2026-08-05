@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-const verified = '2026-08-04'
+const verified = '2026-08-05'
 const productWho = {
   shared: 'Every MarketSync user. Some security actions require a recently verified MFA session.',
   dealer_os: 'Dealership users whose plan and role include this department. Managers see dealership-wide controls; individual contributors may see only assigned records.',
@@ -1711,6 +1711,511 @@ const lessons = [
   }),
 ]
 
+lessons.push(
+  lesson({
+    id: 'PF-037', title: 'Recover a sign-in on a new or unrecognized device', summary: 'Verify the account safely, complete the security challenge, and remove sessions you do not recognize.', product: 'shared', course: 'Security', keywords: ['new device', 'sign in', 'session', 'recovery'],
+    steps: [
+      ['Confirm the site', 'Use the official MarketSync address and confirm whether you are entering staging or production.'],
+      ['Enter your own credentials', 'Use your assigned email and password; never borrow another employee’s login.'],
+      ['Complete the security challenge', 'Use an enrolled authenticator, passkey, email, text, or call method that the screen offers.'],
+      ['Review the new session', 'Confirm browser, device, location, and time match the sign-in you just completed.'],
+      ['Secure unexpected activity', 'Revoke unfamiliar sessions, change the password, and notify the account administrator.'],
+    ], success: 'The intended device is signed in and every active session is recognized.',
+  }),
+  lesson({
+    id: 'PF-041', title: 'Set accessible display and notification preferences', summary: 'Adjust readable display, motion, language, time zone, and alerts without changing dealership-wide settings.', product: 'shared', course: 'Getting started', keywords: ['accessibility', 'notifications', 'language', 'timezone'],
+    steps: [
+      ['Open personal settings', 'Choose the header gear and confirm the page is your profile rather than dealership settings.'],
+      ['Set locale and time zone', 'Choose the language, date format, and time zone used for your own dates and reminders.'],
+      ['Adjust display preferences', 'Select supported contrast, text size, reduced motion, or density options needed for comfortable work.'],
+      ['Choose useful notifications', 'Keep required security alerts and select the operational email, browser, or SMS alerts you need.'],
+      ['Save and test', 'Refresh one dashboard and trigger a safe test notification to verify the result.'],
+    ], success: 'Your account displays information clearly and sends only the selected alerts through verified channels.',
+  }),
+  lesson({
+    id: 'ADMIN-032', title: 'Resend or replace an expired user invitation', summary: 'Verify the recipient and intended access before issuing a fresh single-use invitation.', product: 'dealer_os', course: 'Administration and security', features: ['os.team'], permissions: ['users.manage'], keywords: ['invite', 'expired', 'resend', 'user'],
+    steps: [
+      ['Open Administration → Users', 'Find the pending invitation and confirm it belongs to this dealership.'],
+      ['Verify the recipient', 'Confirm the employee, email spelling, role, location, and start date through an approved channel.'],
+      ['Cancel the stale invitation', 'Expire the old link so only one valid invitation remains.'],
+      ['Send a fresh invitation', 'Resend from MarketSync and tell the recipient when it expires without forwarding the link yourself.'],
+      ['Verify activation', 'Confirm the user completes setup, MFA when required, and sees only the expected navigation.'],
+    ], success: 'One verified user has one valid invitation and receives the correct role and dealership access.',
+  }),
+  lesson({
+    id: 'ADMIN-036', title: 'Run a quarterly role and access review', summary: 'Compare active users with real job duties and remove unnecessary access through an approved review.', product: 'dealer_os', course: 'Administration and security', features: ['os.team', 'os.settings'], permissions: ['users.manage'], keywords: ['access review', 'roles', 'least privilege', 'quarterly'],
+    steps: [
+      ['Open the access review', 'Export or open the current users, roles, locations, status, MFA state, and last activity.'],
+      ['Confirm employment and duties', 'Ask department owners to verify each active person and the work they currently perform.'],
+      ['Identify exceptions', 'Flag inactive accounts, shared-looking identities, excess departments, missing MFA, or stale invitations.'],
+      ['Apply approved corrections', 'Deactivate or narrow access only after the responsible manager confirms the change.'],
+      ['Record completion', 'Save reviewer, date, decisions, unresolved exceptions, and the next review date.'],
+    ], success: 'Every active user has justified least-privilege access and every exception has an owner and deadline.',
+  }),
+  lesson({
+    id: 'ADMIN-040', title: 'Change the dealership billing owner safely', summary: 'Transfer billing responsibility without exposing payment data or interrupting the active subscription.', product: 'dealer_os', course: 'Administration and security', features: ['os.settings'], permissions: ['billing.manage'], keywords: ['billing owner', 'subscription', 'payment', 'transfer'],
+    steps: [
+      ['Verify both parties', 'Confirm current owner authorization and the new billing contact’s identity and dealership authority.'],
+      ['Review the subscription', 'Confirm products, plan, currency, renewal date, invoice recipients, and current payment state.'],
+      ['Update the billing contact', 'Enter the verified business email and contact details without copying full payment credentials.'],
+      ['Confirm sensitive access', 'Require MFA and verify only authorized roles can view invoices or change payment methods.'],
+      ['Test the handoff', 'Send a billing notification test and record approval and effective time in the audit trail.'],
+    ], success: 'The new authorized owner receives billing notices and the subscription continues without an access gap.',
+  }),
+  lesson({
+    id: 'ADMIN-044', title: 'Respond to an exposed API key', summary: 'Revoke an exposed integration secret, replace it safely, and verify that no unauthorized requests succeeded.', product: 'dealer_os', course: 'Administration and security', features: ['os.integrations'], permissions: ['api_keys.manage'], keywords: ['api key incident', 'revoke', 'secret', 'integration'],
+    steps: [
+      ['Treat the report as urgent', 'Record the key name, discovery time, suspected exposure, connected system, and incident owner.'],
+      ['Revoke the key', 'Disable the exact key immediately without deleting its usage history.'],
+      ['Review activity', 'Inspect last-used time, endpoint, IP, permission scope, exports, and unusual requests since exposure.'],
+      ['Issue a replacement', 'Create a least-privilege expiring key and deliver it once through an approved secret channel.'],
+      ['Verify and close', 'Test the integration, remove the old secret everywhere, document impact, and complete required notifications.'],
+    ], success: 'The exposed key cannot authenticate, the integration uses a scoped replacement, and activity review is documented.',
+    safety: 'Never paste raw API keys into chat, tickets, email, screenshots, source code, or lesson notes.',
+  }),
+  lesson({
+    id: 'CRM-056', title: 'Correct a lead source without losing attribution history', summary: 'Fix an incorrect source while preserving the original value, evidence, and reporting explanation.', product: 'dealer_os', course: 'CRM and leads', features: ['os.crm'], permissions: ['lead.assign'], keywords: ['lead source', 'attribution', 'correction', 'campaign'],
+    steps: [
+      ['Open the lead timeline', 'Confirm customer, created time, original source, campaign data, messages, and assigned owner.'],
+      ['Find source evidence', 'Use the form, tracking parameters, phone record, AI chat, walk-in note, or integration delivery.'],
+      ['Choose the corrected source', 'Select the narrowest supported source and campaign without inventing missing attribution.'],
+      ['Record the reason', 'Explain why the original value was wrong and attach or reference the evidence.'],
+      ['Verify reporting', 'Save, refresh the lead and source report, and confirm the change is visible in history.'],
+    ], success: 'The lead reports under the evidenced source and the original attribution remains auditable.',
+  }),
+  lesson({
+    id: 'CRM-060', title: 'Fulfil a controlled customer data export', summary: 'Export only the authorized customers and fields for a documented business purpose.', product: 'dealer_os', course: 'CRM and leads', features: ['os.crm', 'os.reports'], permissions: ['customer.export'], keywords: ['customer export', 'privacy', 'csv', 'approval'],
+    steps: [
+      ['Confirm purpose and approval', 'Record requester, business reason, audience, required fields, retention, and approving manager.'],
+      ['Build the narrow filter', 'Select only the required dealership, owner, status, date, and consent conditions.'],
+      ['Remove unnecessary fields', 'Exclude identity, finance, free-text, or consent data not needed for the stated purpose.'],
+      ['Create and protect the export', 'Use the approved export action and store or share it only through a restricted expiring location.'],
+      ['Record and dispose', 'Verify recipient, log the export, confirm use, and delete temporary copies at the approved time.'],
+    ], success: 'The authorized recipient receives the minimum required data and the export has a complete audit record.',
+  }),
+  lesson({
+    id: 'CRM-064', title: 'Bulk reassign customer ownership after a team change', summary: 'Move open customer responsibility in a controlled batch while preserving history and active work.', product: 'dealer_os', course: 'CRM and leads', features: ['os.crm', 'os.team'], permissions: ['lead.assign'], keywords: ['bulk reassignment', 'ownership', 'customers', 'salesperson'],
+    steps: [
+      ['Define the departing scope', 'Filter the exact employee, dealership, open leads, active customers, tasks, and future appointments.'],
+      ['Choose eligible new owners', 'Confirm role, location, workload, schedule, language, and manager-approved distribution rule.'],
+      ['Preview the batch', 'Review record count, protected accounts, duplicates, open deals, and exceptions before saving.'],
+      ['Apply the reassignment', 'Run the approved batch and preserve the prior owner in each customer timeline.'],
+      ['Verify continuity', 'Confirm tasks, appointments, unread replies, and manager queues now show an accountable owner.'],
+    ], success: 'Every in-scope customer and open action has an eligible new owner with preserved ownership history.',
+  }),
+  lesson({
+    id: 'CRM-068', title: 'Escalate a customer complaint to the right manager', summary: 'Capture the concern neutrally, protect evidence, assign accountability, and close the loop with the customer.', product: 'dealer_os', course: 'CRM and leads', features: ['os.crm', 'os.team'], permissions: ['customer.view'], keywords: ['complaint', 'escalation', 'manager', 'customer'],
+    steps: [
+      ['Open the customer record', 'Verify identity and review the related messages, deal, delivery, service, or payment history.'],
+      ['Record the concern', 'Write the customer’s facts, desired resolution, urgency, safety issue, and promised response time without blame.'],
+      ['Classify and route', 'Assign the correct sales, service, finance, privacy, safety, or general manager and due time.'],
+      ['Protect the next interaction', 'Pause unsuitable automation and tell the customer who will respond and when.'],
+      ['Resolve and document', 'Record decision, authorization, customer communication, corrective action, and final acknowledgement.'],
+    ], success: 'The complaint has one accountable manager, timely communication, documented resolution, and no conflicting automation.',
+  }),
+  lesson({
+    id: 'SALES-060', title: 'Revise an expired customer quote', summary: 'Create a new accurate proposal version without changing what the customer previously received.', product: 'dealer_os', course: 'Sales and deal desk', features: ['os.sales'], permissions: ['deal.create'], keywords: ['quote', 'expiry', 'proposal', 'revision'],
+    steps: [
+      ['Open the prior proposal', 'Confirm customer, vehicle, version, expiry, assumptions, accepted items, and reason a revision is needed.'],
+      ['Refresh variable inputs', 'Verify availability, price, incentives, trade, tax, fees, lender estimate, term, and product eligibility.'],
+      ['Create a new version', 'Copy the proposal and update only verified changes while keeping the expired version read-only.'],
+      ['Review differences', 'Explain changed price, payment, expiry, conditions, and approvals before presenting.'],
+      ['Send and record outcome', 'Deliver through the approved channel and record acceptance, rejection, questions, and next action.'],
+    ], success: 'The customer receives a current clearly versioned quote and the expired terms remain preserved.',
+  }),
+  lesson({
+    id: 'SALES-064', title: 'Set up and approve a split deal', summary: 'Allocate responsibility and commission credit transparently when more than one salesperson participates.', product: 'dealer_os', course: 'Sales and deal desk', features: ['os.sales', 'os.accounting'], permissions: ['deal.approve'], keywords: ['split deal', 'salespeople', 'commission', 'approval'],
+    steps: [
+      ['Open the deal team', 'Confirm customer, vehicle, lead owner, appointment owner, closer, delivery owner, and recorded activity.'],
+      ['Review dealership policy', 'Use the active split rules and identify any manager discretion or written exception.'],
+      ['Set participants and shares', 'Choose eligible employees and percentages or credits that total the required amount.'],
+      ['Collect approval', 'Add evidence and obtain manager approval before the commission period is locked.'],
+      ['Verify downstream totals', 'Confirm deal ownership, forecast, leaderboard, commission preview, and audit history agree.'],
+    ], success: 'The split is approved, totals correctly, and is visible consistently without rewriting customer history.',
+  }),
+  lesson({
+    id: 'SALES-068', title: 'Reschedule a vehicle delivery', summary: 'Change a promised delivery safely and realign every department and customer commitment.', product: 'dealer_os', course: 'Sales and deal desk', features: ['os.sales', 'os.team'], permissions: ['deal.finalize'], keywords: ['delivery', 'reschedule', 'handoff', 'customer'],
+    steps: [
+      ['Open the delivery checklist', 'Confirm deal, vehicle, customer, current promise, blockers, assigned departments, and readiness.'],
+      ['Agree on a realistic time', 'Check funding, registration, service, parts, detail, transport, staff, and customer availability.'],
+      ['Update the delivery', 'Set the new date, reason, customer confirmation, and any pickup or transportation need.'],
+      ['Realign department tasks', 'Update owners and due times for every affected checklist item rather than only the calendar.'],
+      ['Confirm the handoff', 'Send the approved confirmation and verify the dashboard no longer shows conflicting promises.'],
+    ], success: 'The customer and every department share one achievable delivery time with updated tasks and history.',
+  }),
+  lesson({
+    id: 'SALES-072', title: 'Approve a discount while protecting deal gross', summary: 'Review the whole deal economics and authorize a price change with a documented limit and reason.', product: 'dealer_os', course: 'Sales and deal desk', features: ['os.sales', 'os.accounting'], permissions: ['deal.approve'], keywords: ['discount', 'gross', 'manager approval', 'price'],
+    steps: [
+      ['Open the requested structure', 'Confirm vehicle, customer, selling price, cost, trade, incentives, fees, products, and requested discount.'],
+      ['Validate the reason', 'Review market evidence, competing offer, aging plan, customer concern, and salesperson notes.'],
+      ['Review total economics', 'Check front gross, back assumptions, commission impact, floorplan, recon, taxes, and policy minimums.'],
+      ['Approve, counter, or decline', 'Record the exact authorized amount, conditions, approver, expiry, and reason.'],
+      ['Verify the customer version', 'Ensure the proposal uses the approved figure and internal cost or gross remains private.'],
+    ], success: 'The customer proposal matches a time-bounded manager decision and the gross impact is traceable.',
+  }),
+  lesson({
+    id: 'INV-066', title: 'Respond to an inventory feed outage', summary: 'Protect public accuracy, diagnose the source, restore synchronization, and reconcile missed changes.', product: 'dealer_os', course: 'Inventory', features: ['os.inventory', 'os.integrations'], permissions: ['inventory.edit'], keywords: ['feed outage', 'sync', 'inventory', 'incident'],
+    steps: [
+      ['Confirm the outage', 'Check last success, failed runs, affected feed, dealership, channels, and whether data is stale or missing.'],
+      ['Protect public inventory', 'Pause destructive removals or clearly stale publishing when the approved safeguard is available.'],
+      ['Inspect the failure', 'Review authentication, source availability, format, mapping, rate limit, timeout, and delivery errors.'],
+      ['Restore and run safely', 'Correct the verified cause, test a small preview, then run the full sync once.'],
+      ['Reconcile results', 'Compare counts and changed VINs, inspect exceptions, verify public listings, and record incident duration.'],
+    ], success: 'Synchronization is healthy, missed changes are reconciled, and no good inventory was removed by the outage.',
+  }),
+  lesson({
+    id: 'INV-070', title: 'Wholesale or dispose of an aged vehicle', summary: 'Approve a non-retail exit using real valuation, costs, documents, and accounting treatment.', product: 'dealer_os', course: 'Inventory', features: ['os.inventory', 'os.accounting'], permissions: ['inventory.edit'], keywords: ['wholesale', 'disposal', 'aged inventory', 'auction'],
+    steps: [
+      ['Open the aged vehicle', 'Confirm VIN, ownership, status, days, landed cost, recon, liens, market activity, and action-plan history.'],
+      ['Choose an exit path', 'Compare auction, dealer trade, direct wholesale, return, salvage, or continued retail using supported estimates.'],
+      ['Obtain approval', 'Record expected proceeds, fees, transport, write-down, buyer, reserve, documents, and manager authorization.'],
+      ['Complete the transfer', 'Record sale or disposal evidence and change status so retail channels stop publishing the unit.'],
+      ['Reconcile the vehicle', 'Confirm proceeds, fees, inventory relief, gain or loss, title transfer, and retained history.'],
+    ], success: 'The vehicle leaves retail inventory through an approved documented path and accounting reflects the real result.',
+  }),
+  lesson({
+    id: 'INV-074', title: 'Manage a demo or service-loaner vehicle', summary: 'Track assignment, mileage, condition, availability, insurance, and return for a non-standard inventory unit.', product: 'dealer_os', course: 'Inventory', features: ['os.inventory', 'os.service'], permissions: ['inventory.edit'], keywords: ['demo', 'loaner', 'mileage', 'availability'],
+    steps: [
+      ['Open the vehicle record', 'Confirm VIN, stock, ownership, current status, location, mileage, insurance, and program eligibility.'],
+      ['Create the assignment', 'Record driver or customer, purpose, start, expected return, authorization, fuel, and current condition.'],
+      ['Change availability correctly', 'Set demo or loaner status so the unit is not promised as immediately available retail stock.'],
+      ['Complete the return inspection', 'Record actual time, mileage, fuel, damage, tolls, cleaning, service needs, and signatures.'],
+      ['Release or route the vehicle', 'Return it to available, service, recon, continued demo, or disposal with updated mileage and history.'],
+    ], success: 'The vehicle’s location, user, condition, mileage, cost, and sale availability are accurate throughout the assignment.',
+  }),
+  lesson({
+    id: 'INV-078', title: 'Track an incoming factory or dealer-trade vehicle', summary: 'Create a reliable incoming record and update milestones until the exact vehicle is received.', product: 'dealer_os', course: 'Inventory', features: ['os.inventory'], permissions: ['inventory.edit'], keywords: ['incoming vehicle', 'factory order', 'dealer trade', 'eta'],
+    steps: [
+      ['Create the incoming unit', 'Enter order or trade reference, expected VIN, model, trim, colour, source, buyer, and customer link if applicable.'],
+      ['Record financial commitments', 'Capture approved purchase price, deposit, transport, fees, trade terms, and cancellation conditions.'],
+      ['Maintain milestones', 'Update ordered, allocated, built, shipped, arrived, inspected, and available only from verified evidence.'],
+      ['Communicate realistic timing', 'Record ETA source and notify the customer when the promise materially changes.'],
+      ['Receive the exact vehicle', 'Verify VIN, mileage, condition, documents, costs, location, and status before replacing the incoming record.'],
+    ], success: 'The incoming record matches the received vehicle and every promise, milestone, and cost has evidence.',
+  }),
+  lesson({
+    id: 'FNI-031', title: 'Handle a declined credit application respectfully', summary: 'Record the lender decision accurately, protect the applicant, and present only legitimate next steps.', product: 'dealer_os', course: 'F&I', features: ['os.sales'], permissions: ['deal.approve'], keywords: ['credit decline', 'lender', 'application', 'adverse decision'],
+    steps: [
+      ['Open the lender decision', 'Verify applicant, submission, lender, decision time, reason codes, notice requirements, and current deal.'],
+      ['Record the decision exactly', 'Set declined without rewriting the lender reason or exposing internal score data to unauthorized users.'],
+      ['Complete required notice', 'Use the approved jurisdiction and lender process for any adverse-action or disclosure obligation.'],
+      ['Review legitimate alternatives', 'Consider a different structure, verified co-applicant, cash down, vehicle, or lender only with applicant consent.'],
+      ['Close or continue transparently', 'Record what was explained, customer choice, consent, next action, and secure retention of credit data.'],
+    ], success: 'The decline and required notice are documented, sensitive information is protected, and no approval is implied.',
+  }),
+  lesson({
+    id: 'FNI-035', title: 'Reconcile lender reserve after funding', summary: 'Compare expected and received reserve, investigate differences, and post the supported final amount.', product: 'dealer_os', course: 'F&I', features: ['os.sales', 'os.accounting'], permissions: ['accounting.edit'], keywords: ['lender reserve', 'funding', 'reconciliation', 'finance income'],
+    steps: [
+      ['Open the funded deal', 'Confirm contract, lender, funded amount, rate, term, expected reserve, dates, and commission period.'],
+      ['Match the remittance', 'Find the lender statement or deposit and identify reserve, fees, holdbacks, adjustments, or chargebacks.'],
+      ['Explain the difference', 'Compare the lender calculation with the contracted structure and request support for any unexplained variance.'],
+      ['Post the final amount', 'Record actual reserve and related receivable, cash, fee, and income entries with evidence.'],
+      ['Verify downstream results', 'Confirm deal gross, F&I report, commission preview, bank reconciliation, and funding status agree.'],
+    ], success: 'Expected and actual lender reserve reconcile to evidence and all downstream totals use the final amount.',
+  }),
+  lesson({
+    id: 'FNI-039', title: 'Correct a funded deal without erasing history', summary: 'Coordinate lender, customer, documents, accounting, and commissions when a funded contract must change.', product: 'dealer_os', course: 'F&I', features: ['os.sales', 'os.accounting'], permissions: ['deal.finalize'], keywords: ['funding correction', 'contract', 'rebook', 'audit'],
+    steps: [
+      ['Confirm the correction', 'Identify the wrong term, amount, product, lien, customer detail, fee, or document and who discovered it.'],
+      ['Assess impact and authority', 'Check lender instructions, customer consent, delivery status, legal requirements, accounting period, and approval level.'],
+      ['Create linked correction records', 'Preserve the original deal and documents while preparing amended contracts, reversals, or rebooking entries.'],
+      ['Collect required approvals', 'Obtain lender, customer, management, and accounting authorization before marking the correction complete.'],
+      ['Reconcile every result', 'Verify funding, receivables, cash, taxes, products, reserve, commissions, documents, and audit history.'],
+    ], success: 'The corrected funded deal is supported by linked approvals and documents while the original history remains intact.',
+  }),
+  lesson({
+    id: 'FNI-043', title: 'Build and disclose a lease deal', summary: 'Create a lease from verified program values and explain payment, kilometre, wear, and end-of-term obligations.', product: 'dealer_os', course: 'F&I', features: ['os.sales'], permissions: ['deal.create'], keywords: ['lease', 'residual', 'kilometres', 'disclosure'],
+    steps: [
+      ['Confirm vehicle and program', 'Verify eligible VIN, term, residual, rate or money factor, incentives, mileage allowance, and program expiry.'],
+      ['Build the structure', 'Enter price, trade, down payment, fees, taxes, capitalization, term, frequency, and approved products.'],
+      ['Review lease-specific limits', 'Confirm annual kilometres, excess charge, wear obligations, disposition, purchase option, and insurance.'],
+      ['Present the disclosure', 'Explain due-at-signing, payment, total obligation, assumptions, estimate status, and end-of-term choices.'],
+      ['Save the accepted version', 'Record customer choice, signatures or next action, program evidence, and manager or lender approval state.'],
+    ], success: 'The saved lease matches the current program and clearly discloses costs, limits, assumptions, and approval status.',
+  }),
+  lesson({
+    id: 'SVC-057', title: 'Cancel a service appointment and fill the opening', summary: 'Record the customer decision, stop unnecessary reminders, and offer capacity to an eligible waiting customer.', product: 'dealer_os', course: 'Service', features: ['os.service', 'os.automations'], permissions: ['service.write_repair_order'], keywords: ['cancel appointment', 'waitlist', 'service calendar', 'reminder'],
+    steps: [
+      ['Open the appointment', 'Verify customer, vehicle, time, concern, advisor, transportation, parts, and linked repair order.'],
+      ['Record the cancellation', 'Choose the real reason, customer channel, time, reschedule interest, and any deposit or parts effect.'],
+      ['Stop linked work', 'Cancel reminders and release reserved technician, bay, loaner, pickup, and eligible parts commitments.'],
+      ['Offer the opening fairly', 'Contact eligible waitlisted customers in approved priority order without exposing another customer’s information.'],
+      ['Confirm the final calendar', 'Record replacement or open capacity and verify both customer timelines and notifications.'],
+    ], success: 'The cancelled customer has an accurate outcome and released capacity is either filled or visibly available.',
+  }),
+  lesson({
+    id: 'SVC-061', title: 'Manage a parts backorder on an open repair order', summary: 'Protect the customer promise while tracking the exact part, alternatives, cost, and next update.', product: 'dealer_os', course: 'Service and parts', features: ['os.service'], permissions: ['service.write_repair_order'], keywords: ['parts backorder', 'repair order', 'eta', 'customer update'],
+    steps: [
+      ['Open the affected operation', 'Confirm RO, vehicle, authorized work, exact part, supplier, order, quantity, and current promise.'],
+      ['Verify backorder evidence', 'Record supplier status, order date, updated ETA, supersession, availability, and cancellation terms.'],
+      ['Assess safe alternatives', 'Review approved alternate supplier, equivalent part, temporary repair, transportation, or rescheduling options.'],
+      ['Update the customer', 'Explain the delay and available choices accurately and record the agreed next update time.'],
+      ['Maintain the exception', 'Update parts order, technician schedule, vehicle status, promise, cost, and follow-up until receipt.'],
+    ], success: 'The backorder has one owner, evidenced ETA, safe plan, accurate costs, and a customer-approved next step.',
+  }),
+  lesson({
+    id: 'SVC-065', title: 'Send and reconcile sublet repair work', summary: 'Control work completed by an outside vendor from authorization through customer billing and vendor payment.', product: 'dealer_os', course: 'Service', features: ['os.service', 'os.accounting'], permissions: ['service.write_repair_order'], keywords: ['sublet', 'vendor', 'repair order', 'invoice'],
+    steps: [
+      ['Open the repair order', 'Confirm customer concern, authorized operation, vendor need, promised time, estimate, and responsible advisor.'],
+      ['Choose an approved vendor', 'Verify capability, price, tax, transport, insurance, warranty, turnaround, and purchase authorization.'],
+      ['Create the sublet line', 'Record vendor, scope, expected cost, customer price, approval, vehicle release, and tracking reference.'],
+      ['Receive and inspect work', 'Match invoice to approved scope and confirm quality, completion, evidence, warranty, and actual cost.'],
+      ['Close both sides', 'Post customer charge and vendor payable, update RO status, and retain documents and approval history.'],
+    ], success: 'The outside work is authorized, quality checked, correctly billed, and matched to the vendor payable.',
+  }),
+  lesson({
+    id: 'SVC-069', title: 'Resolve a rejected warranty claim', summary: 'Understand the rejection, correct supported defects, and route responsibility without charging the customer unfairly.', product: 'dealer_os', course: 'Service', features: ['os.service', 'os.accounting'], permissions: ['service.write_repair_order'], keywords: ['warranty claim', 'rejected', 'service', 'recovery'],
+    steps: [
+      ['Open the claim and RO', 'Confirm VIN, repair, authorization, labour, parts, diagnosis, claim amount, submission, and customer responsibility.'],
+      ['Read the exact rejection', 'Record code, reason, deadline, missing evidence, coverage rule, and whether correction or appeal is allowed.'],
+      ['Validate the repair evidence', 'Compare story, codes, measurements, technician notes, photos, parts, time, and policy requirements.'],
+      ['Correct or appeal', 'Submit only supported corrections through the approved manufacturer or provider process and retain confirmation.'],
+      ['Resolve the balance', 'Update claim status, receivable, parts or labour adjustments, customer communication, and any approved internal responsibility.'],
+    ], success: 'The claim is paid or closed with a supported decision and the remaining financial responsibility is explicit.',
+  }),
+  lesson({
+    id: 'ACC-082', title: 'Enter and approve a vendor bill', summary: 'Turn a real supplier invoice into a correctly coded payable without needing accounting expertise.', product: 'dealer_os', course: 'Accounting for non-accountants', features: ['os.accounting'], permissions: ['accounting.edit'], keywords: ['vendor bill', 'payable', 'invoice', 'approval'],
+    steps: [
+      ['Find or create the vendor', 'Search legal name, tax number, address, and payment details to avoid a duplicate supplier.'],
+      ['Check the invoice', 'Verify invoice number, date, due date, dealership, purchase approval, goods or service, tax, and total.'],
+      ['Code the expense', 'Choose the department and account that describe what was purchased, then attach vehicle, RO, or campaign if relevant.'],
+      ['Review the journal preview', 'Confirm expense or asset and tax debits equal the payable credit and the period is correct.'],
+      ['Submit and approve', 'Attach the invoice, add reviewer notes, follow approval limits, and schedule payment only once.'],
+    ], success: 'One supported vendor bill is approved in the correct period, department, tax treatment, and payable account.',
+  }),
+  lesson({
+    id: 'ACC-086', title: 'Reconcile a dealership bank deposit', summary: 'Match one deposit to its sales, service, finance, and processor sources and explain every difference.', product: 'dealer_os', course: 'Accounting for non-accountants', features: ['os.accounting'], permissions: ['accounting.edit'], keywords: ['bank deposit', 'reconciliation', 'cash', 'processor'],
+    steps: [
+      ['Open the bank transaction', 'Confirm account, deposit date, amount, reference, processor batch, and dealership.'],
+      ['Gather source activity', 'Find deal deposits, service receipts, parts sales, processor payouts, refunds, fees, and cash-sheet evidence.'],
+      ['Match the components', 'Allocate exact source amounts and dates without forcing an unrelated transaction to make the total balance.'],
+      ['Resolve differences', 'Investigate timing, fees, chargebacks, duplicate posting, missing receipt, or bank error and attach support.'],
+      ['Complete the reconciliation', 'Post approved entries and confirm matched amount equals the bank deposit with zero unexplained difference.'],
+    ], success: 'The deposit is fully matched to real source activity and every fee or timing difference is supported.',
+  }),
+  lesson({
+    id: 'ACC-090', title: 'Record a customer deposit as a liability', summary: 'Account for money received before delivery and apply or return it only through the linked customer deal.', product: 'dealer_os', course: 'Accounting for non-accountants', features: ['os.accounting', 'os.sales'], permissions: ['accounting.edit'], keywords: ['customer deposit', 'liability', 'deal', 'receipt'],
+    steps: [
+      ['Open the verified payment', 'Confirm customer, deal, amount, date, method, processor reference, receipt, and refund terms.'],
+      ['Confirm delivery has not occurred', 'Use a customer-deposit liability rather than revenue while the dealership still owes value or money.'],
+      ['Review the entry', 'Confirm cash or processor receivable increases and customer-deposit liability increases by the same amount.'],
+      ['Link and reconcile', 'Attach the payment to the correct customer and deal and match the processor or bank deposit.'],
+      ['Apply or refund later', 'On delivery move it into the deal settlement, or use the approved refund process without deleting the original receipt.'],
+    ], success: 'The deposit is traceable to one customer and deal and remains a liability until correctly applied or returned.',
+  }),
+  lesson({
+    id: 'ACC-094', title: 'Prepare a controlled payroll and commission export', summary: 'Deliver approved earnings to payroll with correct period, employees, adjustments, and access controls.', product: 'dealer_os', course: 'Accounting for non-accountants', features: ['os.accounting', 'os.reports'], permissions: ['accounting.edit'], keywords: ['payroll export', 'commissions', 'employees', 'approval'],
+    steps: [
+      ['Confirm the pay period', 'Verify start, end, dealership, employee population, cutoff, approval status, and locked commission plan versions.'],
+      ['Resolve exceptions', 'Clear missing employees, unfunded deals, duplicate earnings, negative adjustments, clawbacks, and unapproved splits.'],
+      ['Review totals', 'Compare employee statements, department totals, prior period, unusual changes, and authorized adjustments.'],
+      ['Create the protected export', 'Include only required payroll identifiers and earning fields and use the approved file format and secure channel.'],
+      ['Confirm receipt and retention', 'Record recipient, delivery time, checksum or confirmation, accepted totals, and deletion of temporary copies.'],
+    ], success: 'Payroll receives one approved protected file whose employee and grand totals match MarketSync statements.',
+  }),
+  lesson({
+    id: 'ACC-098', title: 'Explain a budget variance and assign an action', summary: 'Trace the difference between budget and actual results back to real operational activity.', product: 'dealer_os', course: 'Accounting for non-accountants', features: ['os.accounting', 'os.reports'], permissions: ['accounting.view'], keywords: ['budget variance', 'actual', 'forecast', 'department'],
+    steps: [
+      ['Choose a consistent view', 'Set dealership, department, account group, period, budget version, and comparison basis.'],
+      ['Find material variances', 'Sort by dollar and percentage impact and separate timing from recurring performance.'],
+      ['Open the source activity', 'Trace the amount to journals, invoices, payroll, deals, ROs, campaigns, or allocations.'],
+      ['Write the explanation', 'State the evidenced price, volume, mix, timing, error, or one-time driver without guessing.'],
+      ['Assign the response', 'Record owner, action, due date, expected financial effect, and when the forecast will be updated.'],
+    ], success: 'Every material variance has an evidenced explanation and an owned measurable response or accepted reason.',
+  }),
+  lesson({
+    id: 'ACC-102', title: 'Record and dispose of a fixed asset', summary: 'Track a long-lived purchase from approval through depreciation and eventual sale or disposal.', product: 'dealer_os', course: 'Accounting for non-accountants', features: ['os.accounting'], permissions: ['accounting.edit'], keywords: ['fixed asset', 'depreciation', 'purchase', 'disposal'],
+    steps: [
+      ['Review the purchase', 'Confirm vendor, invoice, approval, description, location, in-service date, tax, cost, and capitalization policy.'],
+      ['Create the asset record', 'Choose the correct asset class, useful life, depreciation method, department, custodian, and identifier.'],
+      ['Verify the opening entry', 'Confirm asset and recoverable tax debits equal payable or cash and no normal expense is duplicated.'],
+      ['Maintain the asset', 'Record transfers, impairment, maintenance distinction, depreciation, inventory check, and supporting documents.'],
+      ['Complete disposal', 'Enter proceeds, removal date, approval, accumulated depreciation, gain or loss, and proof of sale or destruction.'],
+    ], success: 'The asset register and general ledger agree from supported acquisition through authorized disposal.',
+  }),
+  lesson({
+    id: 'MKT-056', title: 'Publish a holiday or special-hours closure', summary: 'Update public hours consistently and verify customers do not receive conflicting booking promises.', product: 'dealer_os', course: 'Marketing and website', features: ['os.website', 'os.automations'], permissions: ['site.manage'], keywords: ['holiday hours', 'closure', 'website', 'booking'],
+    steps: [
+      ['Confirm the approved schedule', 'Verify date, time zone, departments, locations, emergency contacts, and reopening time.'],
+      ['Update dealership hours', 'Enter the special hours in the central settings rather than changing only visible page text.'],
+      ['Update affected experiences', 'Review website, AI knowledge, booking, email, automation, maps, and connected calendars.'],
+      ['Publish and test', 'Check desktop and mobile displays and attempt bookings inside and outside the closed period.'],
+      ['Schedule restoration', 'Confirm normal hours resume automatically or assign a dated task and retain approval history.'],
+    ], success: 'Every customer-facing channel shows the same approved special hours and booking rules.',
+  }),
+  lesson({
+    id: 'MKT-060', title: 'Fix a website redirect or 404 page', summary: 'Repair a broken public path while preserving search value, tracking, and a useful customer destination.', product: 'dealer_os', course: 'Marketing and website', features: ['os.website'], permissions: ['site.manage'], keywords: ['404', 'redirect', 'website', 'seo'],
+    steps: [
+      ['Reproduce the broken path', 'Record exact URL, source link, device, status code, intended page, and whether it receives traffic.'],
+      ['Choose the correct outcome', 'Restore the page, correct the source link, or create a permanent redirect to the closest equivalent content.'],
+      ['Configure the change', 'Avoid redirect chains, loops, unrelated home-page redirects, and overwriting a valid route.'],
+      ['Test the full path', 'Verify HTTP result, destination content, mobile navigation, forms, inventory links, analytics, and canonical metadata.'],
+      ['Monitor after publish', 'Confirm search console or error reporting clears and record the old and new path in history.'],
+    ], success: 'The broken URL reliably reaches the intended useful page with correct tracking and no redirect chain.',
+  }),
+  lesson({
+    id: 'MKT-064', title: 'Reconnect a disconnected advertising account', summary: 'Restore an ad integration to the correct dealership and validate spend, campaigns, and lead attribution.', product: 'dealer_os', course: 'Marketing and website', features: ['os.marketing', 'os.integrations'], permissions: ['webhooks.manage'], keywords: ['ads connection', 'google ads', 'meta ads', 'reconnect'],
+    steps: [
+      ['Confirm the affected connection', 'Identify dealership, platform, account ID, last success, token state, failed jobs, and reporting gap.'],
+      ['Verify administrator authority', 'Use the correct business account and approved platform administrator without sharing personal credentials.'],
+      ['Reconnect with minimum access', 'Authorize the requested scopes and select the exact dealership ad account.'],
+      ['Backfill and validate', 'Sync the missing period and compare campaign names, currency, time zone, spend, leads, and sold outcomes.'],
+      ['Close the incident', 'Confirm scheduled sync succeeds, duplicates are absent, and the outage and owner are recorded.'],
+    ], success: 'The intended ad account synchronizes current and missing data with verified dealership attribution.',
+  }),
+  lesson({
+    id: 'MKT-068', title: 'Prepare an advertising co-op claim', summary: 'Collect campaign, creative, invoice, payment, and performance evidence for a compliant reimbursement claim.', product: 'dealer_os', course: 'Marketing and website', features: ['os.marketing', 'os.accounting'], permissions: ['accounting.edit'], keywords: ['co-op', 'reimbursement', 'advertising', 'claim'],
+    steps: [
+      ['Open the program requirements', 'Confirm eligible brand, campaign dates, media, creative rules, claim deadline, allowance, and required documents.'],
+      ['Select eligible activity', 'Match campaigns and creative to the approved dealership, models, markets, dates, and program identifiers.'],
+      ['Reconcile financial evidence', 'Match platform invoices, vendor bills, payment proof, credits, taxes, and claimed eligible amount.'],
+      ['Build the evidence package', 'Include screenshots or tear sheets, approvals, invoices, payment, results, and required declarations.'],
+      ['Submit and track', 'Record claim number, amount, date, status, follow-up owner, received credit, and final accounting match.'],
+    ], success: 'The claim is submitted by deadline with complete eligible evidence and later reconciles to the received credit.',
+  }),
+  lesson({
+    id: 'RPT-017', title: 'Export a sensitive report with approval', summary: 'Use exact scope, redaction, secure delivery, and audit evidence for customer or financial report exports.', product: 'dealer_os', course: 'Reporting', features: ['os.reports'], permissions: ['customer.export'], keywords: ['report export', 'sensitive data', 'approval', 'secure link'],
+    steps: [
+      ['Confirm the request', 'Record purpose, recipient, authority, dealership, date range, fields, format, and retention period.'],
+      ['Build and review filters', 'Preview the exact rows and confirm the report does not cross locations or include unintended statuses.'],
+      ['Minimize the fields', 'Remove unnecessary identity, contact, free-text, banking, credit, or employee information.'],
+      ['Obtain approval and export', 'Use required MFA and approval, then create the protected file or expiring secure link.'],
+      ['Verify delivery and disposal', 'Record recipient and download, confirm use, and remove temporary copies when due.'],
+    ], success: 'Only the approved recipient receives the minimum required report and every export action is audited.',
+  }),
+  lesson({
+    id: 'RPT-021', title: 'Read the inventory aging report', summary: 'Identify capital and turn risk by age bucket and turn the findings into vehicle-level actions.', product: 'dealer_os', course: 'Reporting', features: ['os.reports', 'os.inventory'], permissions: ['inventory.view'], keywords: ['inventory aging', 'days in stock', 'turn', 'report'],
+    steps: [
+      ['Set the report scope', 'Choose dealership, condition, status, ownership, age basis, as-of date, and relevant exclusions.'],
+      ['Validate totals', 'Compare unit count and inventory cost with the live inventory list before analysing buckets.'],
+      ['Review age and value', 'Compare units and dollars in 0–30, 31–60, 61–90, 91–120, and older groups.'],
+      ['Open material vehicles', 'Inspect cost, price, market position, leads, photos, recon, feed health, and prior action plan.'],
+      ['Assign action and review date', 'Choose a supported price, merchandising, repair, transfer, or disposal action and owner.'],
+    ], success: 'The aging report agrees with inventory and every material aged unit has a dated evidence-based action.',
+  }),
+  lesson({
+    id: 'RPT-025', title: 'Build a sales source performance report', summary: 'Compare lead sources fairly from inquiry through sold gross using consistent attribution and dates.', product: 'dealer_os', course: 'Reporting', features: ['os.reports', 'os.crm', 'os.sales'], permissions: ['accounting.view'], keywords: ['lead source report', 'sales', 'conversion', 'gross'],
+    steps: [
+      ['Set consistent definitions', 'Choose dealership, lead-created period, sold period, source hierarchy, attribution rule, and excluded test records.'],
+      ['Validate source quality', 'Review unknown, duplicate, manually corrected, offline, AI, referral, and campaign-specific sources.'],
+      ['Compare the funnel', 'Review leads, contact rate, appointments, shows, sold, revenue, front gross, back gross, and time to close.'],
+      ['Account for spend and timing', 'Use reconciled channel spend and clearly state when sold outcomes lag the lead period.'],
+      ['Record decisions', 'Document budget, routing, training, tracking, or campaign actions with owner and review date.'],
+    ], success: 'Source comparisons use consistent attributable data and lead to a specific measurable business decision.',
+  }),
+  lesson({
+    id: 'RPT-029', title: 'Verify a dashboard number before acting', summary: 'Trace a surprising KPI from filter and definition to the underlying records and calculation.', product: 'dealer_os', course: 'Reporting', features: ['os.reports'], permissions: ['accounting.view'], keywords: ['dashboard number', 'kpi', 'validation', 'report'],
+    steps: [
+      ['Capture the displayed state', 'Record KPI, value, dealership, filters, date range, time zone, comparison, and refresh time.'],
+      ['Read the definition', 'Confirm numerator, denominator, qualifying status, event date, exclusions, and currency or unit.'],
+      ['Open supporting records', 'Drill into the included deals, leads, vehicles, ROs, entries, or events and sample edge cases.'],
+      ['Explain the difference', 'Identify filter, timing, stale data, duplicate, missing field, definition, or real operational change.'],
+      ['Correct the source or escalate', 'Fix verified source data through normal workflows or report a reproducible calculation issue.'],
+    ], success: 'The KPI is either validated and actionable or has a precise evidenced defect ready for correction.',
+  }),
+  lesson({
+    id: 'AI-028', title: 'Build a commission plan from a PDF or document', summary: 'Drag an existing pay plan into MarketSync AI, answer only essential gaps, and review inactive drafts before use.', product: 'ai_dealer', course: 'AI Chatbot', features: ['ai.conversations'], permissions: ['accounting.edit'], keywords: ['commission plan', 'pdf', 'document import', 'ai'],
+    steps: [
+      ['Open the MarketSync AI chat', 'Use the manager AI assistant in DealerOS and confirm the current dealership and accounting access.'],
+      ['Attach the source document', 'Drag in a PDF, DOCX, RTF, TXT, Markdown, CSV, or JSON file under 8 MB and wait for text extraction.'],
+      ['Answer only essential questions', 'Provide a missing payable percentage or amount when asked; do not invent details absent from the approved document.'],
+      ['Open the created drafts', 'Choose Review commission plans and compare names, rules, tiers, bonuses, evidence, warnings, and source filename.'],
+      ['Approve before activation', 'Correct supported details, obtain management approval, activate intentionally, and assign only to eligible employees.'],
+    ], success: 'The document creates reviewable inactive commission drafts with source evidence and no silent payroll effect.',
+    safety: 'AI drafts are not accounting approval. Verify every rate, threshold, basis, effective date, assignment, and legal obligation before activation.',
+  }),
+  lesson({
+    id: 'AI-032', title: 'Take over an AI conversation after a failed answer', summary: 'Pause automation, give the customer an accurate human response, and improve the source knowledge safely.', product: 'ai_dealer', course: 'AI Chatbot', features: ['ai.conversations', 'ai.knowledge'], keywords: ['ai failure', 'takeover', 'reply', 'knowledge'],
+    steps: [
+      ['Open the flagged conversation', 'Review the complete customer message, AI reply, inventory results, tools, timing, and lead state.'],
+      ['Take human ownership', 'Pause AI replies before sending a correction so the customer does not receive competing answers.'],
+      ['Verify the real answer', 'Use dealership records, inventory source, approved policy, department owner, or manager rather than guessing.'],
+      ['Reply clearly', 'Acknowledge the confusion, provide the verified answer, and give one useful next step or handoff.'],
+      ['Improve the system', 'Correct source data or knowledge, test a safe example, classify the failure, and resume AI only when appropriate.'],
+    ], success: 'The customer receives one accurate human response and the underlying source or rule is corrected and tested.',
+  }),
+  lesson({
+    id: 'AI-036', title: 'Replace and version an AI knowledge document', summary: 'Update dealership knowledge without leaving conflicting copies or publishing unverified instructions.', product: 'ai_dealer', course: 'AI Chatbot', features: ['ai.knowledge'], keywords: ['knowledge document', 'version', 'replace', 'ai'],
+    steps: [
+      ['Find the current source', 'Confirm dealership, topic, active document, owner, effective date, and conversations that rely on it.'],
+      ['Review the replacement', 'Verify authority, accuracy, dates, departments, links, privacy, and removal of outdated or unsupported claims.'],
+      ['Upload as a new version', 'Use a descriptive name and effective date and link it to the prior source instead of overwriting history.'],
+      ['Retire the old version', 'Deactivate the superseded document so retrieval cannot return conflicting instructions.'],
+      ['Test realistic questions', 'Verify answers, citations or source context, escalation behavior, and affected sales or service scenarios.'],
+    ], success: 'Only the approved current knowledge version is active and representative questions return accurate answers.',
+  }),
+  lesson({
+    id: 'FB-022', title: 'Correct or remove a live Facebook vehicle post', summary: 'Change the source inventory first, then update or remove the exact public listing without duplicates.', product: 'facebook', course: 'Facebook Marketplace', features: ['fb.inventory'], keywords: ['facebook listing', 'edit', 'remove', 'sold'],
+    steps: [
+      ['Open Posting Activity', 'Find the exact VIN, stock, poster, Facebook account, public URL, status, and last sync.'],
+      ['Verify the required change', 'Confirm real price, mileage, condition, availability, photos, description, location, or sold status.'],
+      ['Correct the source record', 'Update MarketSync inventory so future listings and channels use the same verified information.'],
+      ['Update or remove the public post', 'Use the linked Facebook action or extension on the exact post and avoid creating a replacement duplicate.'],
+      ['Verify both systems', 'Open the public link, refresh activity, and record the final status, time, and any platform error.'],
+    ], success: 'The public listing matches verified inventory or is removed, and MarketSync retains its posting history.',
+  }),
+  lesson({
+    id: 'FB-026', title: 'Transfer Facebook posting responsibility to another rep', summary: 'Move dealership posting work without sharing personal Facebook credentials or corrupting leaderboard credit.', product: 'facebook', course: 'Facebook Marketplace', features: ['fb.sales_reps', 'fb.leaderboard'], keywords: ['facebook rep', 'transfer', 'leaderboard', 'posting'],
+    steps: [
+      ['Review the current rep', 'Confirm employment status, connected identity, assigned inventory, live posts, failures, and open posting tasks.'],
+      ['Select an eligible replacement', 'Verify dealership role, active MarketSync user, approved Facebook profile, extension, and posting capacity.'],
+      ['Reassign future work', 'Transfer unposted inventory and tasks while leaving historic posts and leaderboard credit with the original rep.'],
+      ['Handle live listings', 'Assign an owner for monitoring, customer replies, corrections, and removals without sharing account passwords.'],
+      ['Verify the transition', 'Confirm both reps’ access, posting queue, activity, badges, and current-period leaderboard behavior.'],
+    ], success: 'Future work has an eligible owner while historic posting evidence and leaderboard credit remain accurate.',
+  }),
+  lesson({
+    id: 'MS-REL-045', title: 'Promote a tested staging release to production', summary: 'Move an approved MarketSync release through evidence, change control, deployment, and post-release verification.', product: 'marketsync_os', course: 'MarketSync OS', keywords: ['release', 'staging', 'production', 'deployment'],
+    steps: [
+      ['Define the release', 'List commits, features, migrations, configuration, affected products, risk, owner, and rollback point.'],
+      ['Review staging evidence', 'Confirm automated tests, permissions, tenant isolation, workflows, browser checks, and stakeholder acceptance.'],
+      ['Approve the change', 'Record release window, communications, backups, database order, deployment order, and rollback criteria.'],
+      ['Deploy in controlled order', 'Apply approved schema and services, monitor logs and health, and avoid unrelated production changes.'],
+      ['Verify and close', 'Test sign-in and critical journeys, review errors and metrics, notify stakeholders, and record outcome or rollback.'],
+    ], success: 'Production runs the approved release with healthy critical journeys and complete deployment evidence.',
+  }),
+  lesson({
+    id: 'MS-INC-049', title: 'Run a customer-impacting outage incident', summary: 'Stabilize service, communicate clearly, recover safely, and turn evidence into lasting prevention.', product: 'marketsync_os', course: 'MarketSync OS', keywords: ['incident', 'outage', 'status', 'recovery'],
+    steps: [
+      ['Declare and assign', 'Record detection time, impact, affected services and customers, severity, incident lead, technical lead, and communicator.'],
+      ['Stabilize safely', 'Stop harmful jobs, restrict risky actions, preserve logs, and choose the fastest reversible mitigation.'],
+      ['Communicate on cadence', 'Share confirmed impact, work underway, workaround, and next update without unsupported recovery promises.'],
+      ['Recover and verify', 'Restore dependencies in order and test authentication, tenant boundaries, writes, jobs, billing, and key customer journeys.'],
+      ['Complete follow-up', 'Document timeline, root and contributing causes, data impact, actions, owners, deadlines, and customer communication.'],
+    ], success: 'Service is verified healthy, stakeholders have accurate closure, and prevention actions are owned and tracked.',
+  }),
+  lesson({
+    id: 'MS-QA-053', title: 'Test tenant isolation before a release', summary: 'Prove that dealer users, APIs, exports, storage, realtime, and background jobs cannot cross dealership boundaries.', product: 'marketsync_os', course: 'MarketSync OS', keywords: ['tenant isolation', 'rls', 'security test', 'release'],
+    steps: [
+      ['Prepare isolated test tenants', 'Use approved staging dealerships, users, roles, records, files, API keys, and distinctive non-production data.'],
+      ['Test direct reads and writes', 'Attempt another tenant’s identifiers through UI, API, database client, filters, bulk actions, and guessed URLs.'],
+      ['Test indirect paths', 'Check exports, search, AI tools, reports, realtime, storage links, webhooks, jobs, support tools, and cached responses.'],
+      ['Verify denial and logging', 'Confirm unauthorized requests return the expected denial without leaking existence or data and create security evidence.'],
+      ['Record release evidence', 'Save cases, roles, tenant IDs, results, failures, fixes, retests, reviewer, and release decision.'],
+    ], success: 'Every tested path preserves tenant isolation and any failure blocks release until fixed and retested.',
+  }),
+  lesson({
+    id: 'MS-OPS-057', title: 'Diagnose and retry a failed webhook delivery', summary: 'Use delivery evidence to correct the destination and replay one event without duplication.', product: 'marketsync_os', course: 'MarketSync OS', keywords: ['webhook', 'retry', 'delivery', 'signature'],
+    steps: [
+      ['Open the delivery', 'Confirm dealership, integration, event ID and version, endpoint, attempts, response, time, and next retry.'],
+      ['Classify the failure', 'Identify DNS, TLS, timeout, authentication, signature, rate limit, validation, server, or permanent endpoint error.'],
+      ['Protect delivery semantics', 'Confirm timestamp, event ID, idempotency, secret version, payload, and whether the receiver processed an earlier attempt.'],
+      ['Correct the cause', 'Update only the approved endpoint or credential and test without exposing payload secrets or customer data.'],
+      ['Retry and verify once', 'Replay the same event ID, inspect response and receiver confirmation, then close or escalate with evidence.'],
+    ], success: 'The intended receiver processes the event once and delivery history preserves every attempt and response.',
+  }),
+  lesson({
+    id: 'MS-FIN-061', title: 'Reconcile Stripe subscription revenue', summary: 'Match customer subscriptions, invoices, cash, fees, refunds, tax, and deferred timing to MarketSync accounts.', product: 'marketsync_os', course: 'MarketSync OS', keywords: ['stripe', 'subscription revenue', 'reconciliation', 'billing'],
+    steps: [
+      ['Set the reconciliation period', 'Confirm currency, legal entity, Stripe account, settlement time zone, products, and accounting cutoff.'],
+      ['Reconcile subscription activity', 'Match active, trialing, upgraded, downgraded, cancelled, failed, credited, and refunded subscriptions to accounts.'],
+      ['Match invoice economics', 'Reconcile gross invoices, discounts, tax, refunds, disputes, fees, net payouts, receivables, and deferred revenue.'],
+      ['Investigate differences', 'Open missing webhooks, duplicate events, unmatched accounts, price IDs, currency, timing, and manual adjustments.'],
+      ['Post and review', 'Record supported entries, reconcile bank payouts, save evidence, and assign unresolved exceptions before close.'],
+    ], success: 'Stripe, MarketSync subscriptions, the general ledger, and bank payouts reconcile with explained timing differences.',
+  }),
+)
+
 const output = fileURLToPath(new URL('../../marketplace-frontend/training/catalog-expanded.json', import.meta.url))
-writeFileSync(output, `${JSON.stringify({ version: '2026.08.04-expanded', lessons }, null, 2)}\n`)
+writeFileSync(output, `${JSON.stringify({ version: '2026.08.05-expanded', lessons }, null, 2)}\n`)
 console.log(`[training] wrote ${output} — ${lessons.length} expanded lessons`)

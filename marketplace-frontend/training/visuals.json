@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.04-screen-blueprints",
+  "version": "2026.08.05-screen-blueprints",
   "visuals": {
     "PF-004": {
       "kind": "login",
@@ -6409,6 +6409,1606 @@
         ]
       ],
       "action": "Approve secure response package"
+    },
+    "PF-037": {
+      "kind": "security",
+      "nav": "Account",
+      "page": "Sign in",
+      "title": "Verify this new device",
+      "state": "Password accepted; a verified factor is required before the session starts",
+      "tabs": [
+        "Passkey",
+        "Authenticator",
+        "Text",
+        "Email",
+        "Call"
+      ],
+      "activeTab": "Passkey",
+      "fields": [
+        "Device · Chrome on macOS",
+        "Location · Welland, Ontario",
+        "Requested · Aug 5 · 10:42 AM"
+      ],
+      "action": "Verify with passkey"
+    },
+    "PF-041": {
+      "kind": "settings",
+      "nav": "Settings",
+      "page": "Preferences",
+      "title": "Display & notifications",
+      "state": "Personal accessibility and alert choices are ready to test",
+      "tabs": [
+        "Display",
+        "Locale",
+        "Notifications"
+      ],
+      "activeTab": "Display",
+      "fields": [
+        "Text size · Large",
+        "Motion · Reduced",
+        "Time zone · America/Toronto",
+        "Security alerts · Always on"
+      ],
+      "action": "Save & send test"
+    },
+    "ADMIN-032": {
+      "kind": "users",
+      "nav": "Administration",
+      "page": "Users",
+      "title": "Expired invitation",
+      "state": "Verified employee has one stale invitation awaiting replacement",
+      "metrics": [
+        [
+          "Pending invites",
+          "3"
+        ],
+        [
+          "Expired",
+          "1"
+        ],
+        [
+          "Active users",
+          "24"
+        ]
+      ],
+      "fields": [
+        "Recipient · Taylor Singh",
+        "Role · Salesperson",
+        "Location · Welland Chev",
+        "Old link · Expired Aug 4"
+      ],
+      "action": "Cancel & resend invite"
+    },
+    "ADMIN-036": {
+      "kind": "users",
+      "nav": "Administration",
+      "page": "Access Review",
+      "title": "Quarterly role review",
+      "state": "Department owners confirmed 23 of 25 active users",
+      "metrics": [
+        [
+          "Users reviewed",
+          "23 / 25"
+        ],
+        [
+          "Excess access",
+          "2"
+        ],
+        [
+          "Missing MFA",
+          "1"
+        ],
+        [
+          "Stale invites",
+          "1"
+        ]
+      ],
+      "columns": [
+        "User",
+        "Current role",
+        "Finding",
+        "Owner"
+      ],
+      "rows": [
+        [
+          "Taylor Singh",
+          "Sales Manager",
+          "Confirmed",
+          "GM"
+        ],
+        [
+          "Sam Patel",
+          "Admin",
+          "Narrow to Sales",
+          "Dealer Owner"
+        ]
+      ],
+      "action": "Approve access corrections"
+    },
+    "ADMIN-040": {
+      "kind": "billing",
+      "nav": "Settings",
+      "page": "Billing",
+      "title": "Transfer billing ownership",
+      "state": "Subscription is healthy and the verified new owner awaits confirmation",
+      "tabs": [
+        "Subscription",
+        "Invoices",
+        "Payment",
+        "Billing access"
+      ],
+      "activeTab": "Billing access",
+      "fields": [
+        "Current owner · Jason Massie",
+        "New owner · Morgan Chen",
+        "Products · Dealer OS Pro",
+        "Renewal · Sep 1 · CAD"
+      ],
+      "action": "Confirm owner transfer"
+    },
+    "ADMIN-044": {
+      "kind": "security",
+      "nav": "Administration",
+      "page": "API Keys",
+      "title": "Exposed key response",
+      "state": "Production DMS key is revoked; replacement scope is under review",
+      "metrics": [
+        [
+          "Status",
+          "Revoked"
+        ],
+        [
+          "Last used",
+          "18 min ago"
+        ],
+        [
+          "Requests reviewed",
+          "486"
+        ],
+        [
+          "Suspicious",
+          "0"
+        ]
+      ],
+      "fields": [
+        "Key · DMS nightly sync",
+        "Scope · inventory.read · inventory.write",
+        "Exposure · Public support screenshot",
+        "Replacement expiry · 90 days"
+      ],
+      "action": "Issue scoped replacement"
+    },
+    "CRM-056": {
+      "kind": "crm",
+      "nav": "CRM",
+      "page": "Lead Attribution",
+      "title": "Correct lead source",
+      "state": "Website evidence conflicts with the manually selected walk-in source",
+      "tabs": [
+        "Timeline",
+        "Attribution",
+        "Evidence",
+        "History"
+      ],
+      "activeTab": "Attribution",
+      "fields": [
+        "Original source · Walk-in",
+        "Verified source · Website form",
+        "Campaign · Equinox Search · August",
+        "Evidence · Form event LE-8421"
+      ],
+      "action": "Save source correction"
+    },
+    "CRM-060": {
+      "kind": "reports",
+      "nav": "CRM",
+      "page": "Customer Export",
+      "title": "Controlled customer export",
+      "state": "Narrow audience and six approved fields await MFA and manager approval",
+      "metrics": [
+        [
+          "Customers",
+          "184"
+        ],
+        [
+          "Fields",
+          "6"
+        ],
+        [
+          "Excluded fields",
+          "14"
+        ],
+        [
+          "Link expiry",
+          "24 hours"
+        ]
+      ],
+      "fields": [
+        "Purpose · Lease maturity outreach",
+        "Consent · Email marketing allowed",
+        "Recipient · BDC Manager",
+        "Retention · Delete after 14 days"
+      ],
+      "action": "Approve protected export"
+    },
+    "CRM-064": {
+      "kind": "users",
+      "nav": "CRM",
+      "page": "Ownership",
+      "title": "Bulk customer reassignment",
+      "state": "Open work from a departing rep is previewed across three eligible owners",
+      "metrics": [
+        [
+          "Customers",
+          "86"
+        ],
+        [
+          "Open tasks",
+          "31"
+        ],
+        [
+          "Appointments",
+          "7"
+        ],
+        [
+          "Exceptions",
+          "2"
+        ]
+      ],
+      "columns": [
+        "New owner",
+        "Customers",
+        "Tasks",
+        "Capacity"
+      ],
+      "rows": [
+        [
+          "Alex Morgan",
+          "29",
+          "10",
+          "Available"
+        ],
+        [
+          "Mia Chen",
+          "28",
+          "11",
+          "Available"
+        ],
+        [
+          "Sam Patel",
+          "27",
+          "10",
+          "Available"
+        ]
+      ],
+      "action": "Apply approved reassignment"
+    },
+    "CRM-068": {
+      "kind": "crm",
+      "nav": "CRM",
+      "page": "Customer Timeline",
+      "title": "Complaint escalation",
+      "state": "Safety-related service complaint is paused from automation and assigned to management",
+      "tabs": [
+        "Timeline",
+        "Complaint",
+        "Evidence",
+        "Resolution"
+      ],
+      "activeTab": "Complaint",
+      "fields": [
+        "Customer · Jordan Lee",
+        "Category · Service safety",
+        "Owner · Service Manager",
+        "Response due · Today · 11:30 AM"
+      ],
+      "action": "Acknowledge & escalate"
+    },
+    "SALES-060": {
+      "kind": "deal",
+      "nav": "Sales",
+      "page": "Proposals",
+      "title": "Quote revision · Deal #1048",
+      "state": "Expired version remains read-only while current incentives are refreshed",
+      "tabs": [
+        "Version 2 · expired",
+        "Version 3 · draft",
+        "Differences"
+      ],
+      "activeTab": "Differences",
+      "metrics": [
+        [
+          "Old payment",
+          "$318 biweekly"
+        ],
+        [
+          "New payment",
+          "$324 biweekly"
+        ],
+        [
+          "Price change",
+          "$0"
+        ],
+        [
+          "Incentive change",
+          "-$750"
+        ]
+      ],
+      "action": "Send current version"
+    },
+    "SALES-064": {
+      "kind": "deal",
+      "nav": "Sales",
+      "page": "Deal Team",
+      "title": "Split deal approval",
+      "state": "Two contributors total 100% and manager evidence is attached",
+      "metrics": [
+        [
+          "Participants",
+          "2"
+        ],
+        [
+          "Split total",
+          "100%"
+        ],
+        [
+          "Commission preview",
+          "$1,842"
+        ],
+        [
+          "Approval",
+          "Pending"
+        ]
+      ],
+      "columns": [
+        "Salesperson",
+        "Contribution",
+        "Share"
+      ],
+      "rows": [
+        [
+          "Alex Morgan",
+          "Lead + appointment",
+          "50%"
+        ],
+        [
+          "Mia Chen",
+          "Demo + close",
+          "50%"
+        ]
+      ],
+      "action": "Approve split"
+    },
+    "SALES-068": {
+      "kind": "calendar",
+      "nav": "Sales",
+      "page": "Deliveries",
+      "title": "Reschedule delivery",
+      "state": "Funding delay moved the promise and all department deadlines are previewed",
+      "fields": [
+        "Customer · Jordan Lee",
+        "Vehicle · 2025 Equinox RS",
+        "Old promise · Aug 6 · 4:00 PM",
+        "New promise · Aug 7 · 2:30 PM",
+        "Reason · Lender funding condition"
+      ],
+      "action": "Confirm new delivery"
+    },
+    "SALES-072": {
+      "kind": "deal",
+      "nav": "Sales",
+      "page": "Desk Approval",
+      "title": "Discount and gross review",
+      "state": "Requested discount is above salesperson authority but inside manager floor",
+      "metrics": [
+        [
+          "Current price",
+          "$39,995"
+        ],
+        [
+          "Requested discount",
+          "$1,250"
+        ],
+        [
+          "Front gross after",
+          "$2,184"
+        ],
+        [
+          "Approval expires",
+          "Today"
+        ]
+      ],
+      "fields": [
+        "Reason · Competitive written offer",
+        "Market position · $420 above median",
+        "Aged · 64 days",
+        "Approver · Sales Manager"
+      ],
+      "action": "Approve with conditions"
+    },
+    "INV-066": {
+      "kind": "integration",
+      "nav": "Inventory",
+      "page": "Feed Health",
+      "title": "Inventory feed outage",
+      "state": "Public-removal safeguard is active while authentication failure is repaired",
+      "metrics": [
+        [
+          "Last success",
+          "11 hours ago"
+        ],
+        [
+          "Vehicles at risk",
+          "511"
+        ],
+        [
+          "Failed runs",
+          "3"
+        ],
+        [
+          "Public removals",
+          "Paused"
+        ]
+      ],
+      "columns": [
+        "Check",
+        "Result",
+        "Next action"
+      ],
+      "rows": [
+        [
+          "Source website",
+          "Healthy",
+          "None"
+        ],
+        [
+          "Authentication",
+          "Expired",
+          "Rotate credential"
+        ],
+        [
+          "Mapping preview",
+          "Not run",
+          "Test after reconnect"
+        ]
+      ],
+      "action": "Reconnect & preview sync"
+    },
+    "INV-070": {
+      "kind": "inventory",
+      "nav": "Inventory",
+      "page": "Disposal",
+      "title": "Wholesale aged vehicle",
+      "state": "Approved auction exit shows expected proceeds and accounting impact",
+      "metrics": [
+        [
+          "Days in stock",
+          "142"
+        ],
+        [
+          "Landed cost",
+          "$32,840"
+        ],
+        [
+          "Reserve",
+          "$27,500"
+        ],
+        [
+          "Expected write-down",
+          "$5,340"
+        ]
+      ],
+      "fields": [
+        "Vehicle · 2023 Blazer RS · U842",
+        "Channel · Niagara Auto Auction",
+        "Sale date · Aug 12",
+        "Approval · Used Car Manager"
+      ],
+      "action": "Release to wholesale"
+    },
+    "INV-074": {
+      "kind": "inventory",
+      "nav": "Inventory",
+      "page": "Demo & Loaners",
+      "title": "Loaner return inspection",
+      "state": "Customer returned the unit; mileage and condition changes await release decision",
+      "fields": [
+        "Vehicle · 2024 Equinox LT · L014",
+        "Driver · Jordan Lee",
+        "Mileage · 18,420 → 18,684 km",
+        "Fuel · 7/8",
+        "Condition · New right-rear scratch"
+      ],
+      "action": "Route to inspection"
+    },
+    "INV-078": {
+      "kind": "inventory",
+      "nav": "Inventory",
+      "page": "Incoming",
+      "title": "Factory order milestones",
+      "state": "Allocated VIN is in transit and the customer ETA changed by three days",
+      "tabs": [
+        "Order",
+        "Milestones",
+        "Costs",
+        "Customer updates"
+      ],
+      "activeTab": "Milestones",
+      "fields": [
+        "Vehicle · 2026 Equinox EV RS",
+        "VIN · 3GNK…6612 · allocated",
+        "Status · In transit",
+        "ETA · Aug 18",
+        "Customer · Jordan Lee"
+      ],
+      "action": "Send verified ETA update"
+    },
+    "FNI-031": {
+      "kind": "deal",
+      "nav": "F&I",
+      "page": "Lender Decisions",
+      "title": "Declined application",
+      "state": "Decision is recorded and compliant next-step options await customer choice",
+      "tabs": [
+        "Decision",
+        "Notice",
+        "Alternatives",
+        "Timeline"
+      ],
+      "activeTab": "Decision",
+      "fields": [
+        "Applicant · Jordan Lee",
+        "Lender · TD Auto Finance",
+        "Status · Declined",
+        "Reason code · Insufficient bureau history",
+        "Notice · Required · ready"
+      ],
+      "action": "Complete decision notice"
+    },
+    "FNI-035": {
+      "kind": "accounting",
+      "nav": "F&I",
+      "page": "Reserve Reconciliation",
+      "title": "Funded reserve difference",
+      "state": "Lender remittance is $125 below estimate because of a documented program fee",
+      "metrics": [
+        [
+          "Expected reserve",
+          "$1,250"
+        ],
+        [
+          "Received reserve",
+          "$1,125"
+        ],
+        [
+          "Program fee",
+          "$125"
+        ],
+        [
+          "Unexplained",
+          "$0"
+        ]
+      ],
+      "fields": [
+        "Deal · #1048",
+        "Lender · TD Auto Finance",
+        "Funding · Aug 5",
+        "Evidence · Statement TDA-8842"
+      ],
+      "action": "Post final reserve"
+    },
+    "FNI-039": {
+      "kind": "deal",
+      "nav": "F&I",
+      "page": "Funded Corrections",
+      "title": "Correct funded contract",
+      "state": "Original contract is preserved and linked amended documents await final approval",
+      "tabs": [
+        "Original",
+        "Correction",
+        "Documents",
+        "Accounting",
+        "Approvals"
+      ],
+      "activeTab": "Correction",
+      "fields": [
+        "Deal · #1048",
+        "Issue · Lienholder address",
+        "Lender approval · Received",
+        "Customer signature · Received",
+        "Accounting impact · None"
+      ],
+      "action": "Finalize linked correction"
+    },
+    "FNI-043": {
+      "kind": "deal",
+      "nav": "F&I",
+      "page": "Lease Desk",
+      "title": "Lease proposal",
+      "state": "Current program values and customer limits are ready for disclosure",
+      "metrics": [
+        [
+          "Term",
+          "36 months"
+        ],
+        [
+          "Payment",
+          "$289 biweekly"
+        ],
+        [
+          "Annual allowance",
+          "20,000 km"
+        ],
+        [
+          "Residual",
+          "$24,420"
+        ]
+      ],
+      "fields": [
+        "Vehicle · 2025 Equinox RS",
+        "Due at signing · $2,000",
+        "Excess distance · $0.16 / km",
+        "Program expiry · Aug 31"
+      ],
+      "action": "Present lease disclosure"
+    },
+    "SVC-057": {
+      "kind": "calendar",
+      "nav": "Service",
+      "page": "Appointments",
+      "title": "Cancelled appointment opening",
+      "state": "Resources are released and two eligible waitlist customers can accept 10:30 AM",
+      "metrics": [
+        [
+          "Opening",
+          "2.0 hours"
+        ],
+        [
+          "Waitlist matches",
+          "2"
+        ],
+        [
+          "Loaner released",
+          "1"
+        ],
+        [
+          "Reminders stopped",
+          "2"
+        ]
+      ],
+      "rows": [
+        [
+          "Taylor Singh",
+          "Brake inspection",
+          "Requested this week"
+        ],
+        [
+          "Jordan Lee",
+          "Maintenance",
+          "Flexible time"
+        ]
+      ],
+      "action": "Offer opening to next customer"
+    },
+    "SVC-061": {
+      "kind": "service",
+      "nav": "Service",
+      "page": "Parts Exceptions",
+      "title": "Backordered part · RO 2084",
+      "state": "Supplier confirmed no stock and a safe approved alternative is available tomorrow",
+      "fields": [
+        "Part · Front rotor · 13542118",
+        "Supplier · GM Canada",
+        "Status · Backordered",
+        "Original ETA · Unknown",
+        "Alternative · Approved equivalent · Aug 6"
+      ],
+      "action": "Present customer options"
+    },
+    "SVC-065": {
+      "kind": "service",
+      "nav": "Service",
+      "page": "Sublet",
+      "title": "Outside alignment work",
+      "state": "Vendor invoice matches approved scope and quality inspection passed",
+      "metrics": [
+        [
+          "Approved cost",
+          "$145"
+        ],
+        [
+          "Invoice cost",
+          "$145"
+        ],
+        [
+          "Customer price",
+          "$229"
+        ],
+        [
+          "Difference",
+          "$0"
+        ]
+      ],
+      "fields": [
+        "RO · 2084",
+        "Vendor · Niagara Alignment",
+        "Completion · Aug 5 · 2:10 PM",
+        "Warranty · 90 days"
+      ],
+      "action": "Post sublet & payable"
+    },
+    "SVC-069": {
+      "kind": "service",
+      "nav": "Service",
+      "page": "Warranty Claims",
+      "title": "Rejected warranty claim",
+      "state": "Missing diagnostic measurement is corrected before the appeal deadline",
+      "metrics": [
+        [
+          "Claim",
+          "$842.60"
+        ],
+        [
+          "Rejected",
+          "Aug 4"
+        ],
+        [
+          "Appeal due",
+          "Aug 12"
+        ],
+        [
+          "Customer due",
+          "$0"
+        ]
+      ],
+      "fields": [
+        "Claim · WC-18422",
+        "Reason · Measurement not supplied",
+        "Evidence · Rotor runout attached",
+        "Owner · Warranty Administrator"
+      ],
+      "action": "Submit supported appeal"
+    },
+    "ACC-082": {
+      "kind": "accounting",
+      "nav": "Accounting",
+      "page": "Vendor Bills",
+      "title": "Enter vendor invoice",
+      "state": "Invoice coding balances and awaits department approval",
+      "metrics": [
+        [
+          "Subtotal",
+          "$1,200"
+        ],
+        [
+          "HST",
+          "$156"
+        ],
+        [
+          "Total",
+          "$1,356"
+        ],
+        [
+          "Journal difference",
+          "$0.00"
+        ]
+      ],
+      "fields": [
+        "Vendor · Niagara Vehicle Transport",
+        "Invoice · NVT-8821",
+        "Department · Used Vehicles",
+        "Account · Vehicle transport expense",
+        "Due · Aug 30"
+      ],
+      "action": "Submit bill for approval"
+    },
+    "ACC-086": {
+      "kind": "accounting",
+      "nav": "Accounting",
+      "page": "Bank Reconciliation",
+      "title": "Match dealership deposit",
+      "state": "Processor batch and source receipts explain the bank amount exactly",
+      "metrics": [
+        [
+          "Bank deposit",
+          "$18,426.40"
+        ],
+        [
+          "Matched",
+          "$18,426.40"
+        ],
+        [
+          "Processor fees",
+          "$284.60"
+        ],
+        [
+          "Difference",
+          "$0.00"
+        ]
+      ],
+      "columns": [
+        "Source",
+        "Gross",
+        "Fee",
+        "Net"
+      ],
+      "rows": [
+        [
+          "Sales deposits",
+          "$12,500",
+          "$0",
+          "$12,500"
+        ],
+        [
+          "Service card batch",
+          "$6,211",
+          "$284.60",
+          "$5,926.40"
+        ]
+      ],
+      "action": "Complete deposit match"
+    },
+    "ACC-090": {
+      "kind": "accounting",
+      "nav": "Accounting",
+      "page": "Customer Deposits",
+      "title": "Deposit liability · Deal #1048",
+      "state": "Payment is reconciled but remains a liability until delivery",
+      "metrics": [
+        [
+          "Deposit",
+          "$1,000"
+        ],
+        [
+          "Applied to revenue",
+          "$0"
+        ],
+        [
+          "Liability",
+          "$1,000"
+        ],
+        [
+          "Bank match",
+          "Complete"
+        ]
+      ],
+      "fields": [
+        "Customer · Jordan Lee",
+        "Payment · Visa ending 8421",
+        "Receipt · RC-1048-1",
+        "Delivery · Aug 7 · pending"
+      ],
+      "action": "Confirm deposit liability"
+    },
+    "ACC-094": {
+      "kind": "reports",
+      "nav": "Accounting",
+      "page": "Payroll Export",
+      "title": "August commission payroll",
+      "state": "Approved period has no exceptions and protected export totals are verified",
+      "metrics": [
+        [
+          "Employees",
+          "18"
+        ],
+        [
+          "Gross commissions",
+          "$48,220"
+        ],
+        [
+          "Adjustments",
+          "-$850"
+        ],
+        [
+          "Export total",
+          "$47,370"
+        ]
+      ],
+      "fields": [
+        "Period · Aug 1–15",
+        "Status · Approved & locked",
+        "Format · Payroll CSV",
+        "Recipient · Payroll Manager",
+        "Retention · 14 days"
+      ],
+      "action": "Create protected payroll file"
+    },
+    "ACC-098": {
+      "kind": "reports",
+      "nav": "Accounting",
+      "page": "Budget Variance",
+      "title": "Service expense variance",
+      "state": "Overtime and sublet explain the material overspend and actions are assigned",
+      "metrics": [
+        [
+          "Budget",
+          "$48,000"
+        ],
+        [
+          "Actual",
+          "$57,840"
+        ],
+        [
+          "Variance",
+          "+$9,840"
+        ],
+        [
+          "Unexplained",
+          "$0"
+        ]
+      ],
+      "columns": [
+        "Driver",
+        "Impact",
+        "Owner",
+        "Action"
+      ],
+      "rows": [
+        [
+          "Overtime",
+          "$5,620",
+          "Service Manager",
+          "Rebalance capacity"
+        ],
+        [
+          "Sublet",
+          "$4,220",
+          "Fixed Ops Director",
+          "Vendor review"
+        ]
+      ],
+      "action": "Approve variance actions"
+    },
+    "ACC-102": {
+      "kind": "accounting",
+      "nav": "Accounting",
+      "page": "Fixed Assets",
+      "title": "Vehicle lift acquisition",
+      "state": "Approved asset is in service and monthly depreciation preview is ready",
+      "metrics": [
+        [
+          "Asset cost",
+          "$18,400"
+        ],
+        [
+          "Useful life",
+          "10 years"
+        ],
+        [
+          "Monthly depreciation",
+          "$153.33"
+        ],
+        [
+          "Book value",
+          "$18,400"
+        ]
+      ],
+      "fields": [
+        "Asset · Rotary two-post lift",
+        "Location · Service bay 4",
+        "In service · Aug 5",
+        "Class · Shop equipment",
+        "Custodian · Service Manager"
+      ],
+      "action": "Activate asset record"
+    },
+    "MKT-056": {
+      "kind": "calendar",
+      "nav": "Website",
+      "page": "Special Hours",
+      "title": "Labour Day closure",
+      "state": "Central hours update is previewed across web, booking, AI, and calendars",
+      "fields": [
+        "Date · Sep 7, 2026",
+        "Sales · Closed",
+        "Service · Closed",
+        "Reopens · Sep 8 · 7:30 AM",
+        "Time zone · America/Toronto"
+      ],
+      "metrics": [
+        [
+          "Channels updated",
+          "5 / 5"
+        ],
+        [
+          "Booking tests",
+          "4 / 4"
+        ]
+      ],
+      "action": "Publish special hours"
+    },
+    "MKT-060": {
+      "kind": "builder",
+      "nav": "Website",
+      "page": "Redirects",
+      "title": "Repair broken service-special URL",
+      "state": "Permanent redirect has no chain and the mobile destination passes tests",
+      "fields": [
+        "Broken path · /service/summer-special",
+        "Destination · /service-specials",
+        "Redirect type · 301 permanent",
+        "Source links corrected · 3",
+        "Canonical · Destination page"
+      ],
+      "action": "Publish verified redirect"
+    },
+    "MKT-064": {
+      "kind": "integration",
+      "nav": "Marketing",
+      "page": "Ad Connections",
+      "title": "Reconnect Meta Ads",
+      "state": "Correct business account is authorized and the missing reporting period is previewed",
+      "metrics": [
+        [
+          "Reporting gap",
+          "3 days"
+        ],
+        [
+          "Campaigns found",
+          "14"
+        ],
+        [
+          "Spend to backfill",
+          "$1,842"
+        ],
+        [
+          "Duplicates",
+          "0"
+        ]
+      ],
+      "fields": [
+        "Dealership · Welland Chev",
+        "Account · 884-201-1942",
+        "Currency · CAD",
+        "Time zone · America/Toronto"
+      ],
+      "action": "Reconnect & backfill"
+    },
+    "MKT-068": {
+      "kind": "reports",
+      "nav": "Marketing",
+      "page": "Co-op Claims",
+      "title": "August Chevrolet co-op claim",
+      "state": "Eligible media and financial evidence are complete before submission",
+      "metrics": [
+        [
+          "Eligible spend",
+          "$8,420"
+        ],
+        [
+          "Claim rate",
+          "50%"
+        ],
+        [
+          "Claim amount",
+          "$4,210"
+        ],
+        [
+          "Deadline",
+          "Aug 31"
+        ]
+      ],
+      "fields": [
+        "Program · Chevrolet Retail Co-op",
+        "Campaign · Equinox EV August",
+        "Invoices · 3 · matched",
+        "Creative proofs · 8 · approved",
+        "Payment evidence · Complete"
+      ],
+      "action": "Submit co-op claim"
+    },
+    "RPT-017": {
+      "kind": "reports",
+      "nav": "Reports",
+      "page": "Secure Export",
+      "title": "Customer finance report export",
+      "state": "Sensitive fields are minimized and an expiring recipient link awaits approval",
+      "metrics": [
+        [
+          "Rows",
+          "84"
+        ],
+        [
+          "Included fields",
+          "7"
+        ],
+        [
+          "Redacted fields",
+          "12"
+        ],
+        [
+          "Link expiry",
+          "24 hours"
+        ]
+      ],
+      "fields": [
+        "Purpose · Lender reconciliation",
+        "Recipient · Controller",
+        "Dealership · Welland Chev",
+        "Period · July 2026",
+        "Approval · MFA verified"
+      ],
+      "action": "Create secure export"
+    },
+    "RPT-021": {
+      "kind": "reports",
+      "nav": "Reports",
+      "page": "Inventory Aging",
+      "title": "Inventory aging by value",
+      "state": "91+ day units hold 18% of cost and five vehicle actions are overdue",
+      "metrics": [
+        [
+          "Units",
+          "511"
+        ],
+        [
+          "Inventory cost",
+          "$21.4M"
+        ],
+        [
+          "91+ day cost",
+          "$3.85M"
+        ],
+        [
+          "Overdue actions",
+          "5"
+        ]
+      ],
+      "columns": [
+        "Age bucket",
+        "Units",
+        "Cost",
+        "Action due"
+      ],
+      "rows": [
+        [
+          "0–30 days",
+          "218",
+          "$9.4M",
+          "0"
+        ],
+        [
+          "61–90 days",
+          "86",
+          "$3.5M",
+          "3"
+        ],
+        [
+          "91+ days",
+          "74",
+          "$3.85M",
+          "5"
+        ]
+      ],
+      "action": "Open oldest action plan"
+    },
+    "RPT-025": {
+      "kind": "reports",
+      "nav": "Reports",
+      "page": "Source Performance",
+      "title": "Lead source performance",
+      "state": "Consistent attribution shows sold gross after spend for the same lead cohort",
+      "metrics": [
+        [
+          "Leads",
+          "842"
+        ],
+        [
+          "Appointments",
+          "214"
+        ],
+        [
+          "Sold",
+          "68"
+        ],
+        [
+          "Attributed gross",
+          "$184,200"
+        ]
+      ],
+      "columns": [
+        "Source",
+        "Leads",
+        "Sold",
+        "Gross after spend"
+      ],
+      "rows": [
+        [
+          "Google Ads",
+          "284",
+          "24",
+          "$48,420"
+        ],
+        [
+          "AI Chat",
+          "126",
+          "15",
+          "$42,100"
+        ],
+        [
+          "Referral",
+          "82",
+          "12",
+          "$39,840"
+        ]
+      ],
+      "action": "Record source action"
+    },
+    "RPT-029": {
+      "kind": "reports",
+      "nav": "Reports",
+      "page": "KPI Validation",
+      "title": "Verify surprising close rate",
+      "state": "Definition and source drilldown isolate three test leads in the production cohort",
+      "metrics": [
+        [
+          "Displayed close rate",
+          "19.4%"
+        ],
+        [
+          "Corrected preview",
+          "18.1%"
+        ],
+        [
+          "Included leads",
+          "186"
+        ],
+        [
+          "Test records",
+          "3"
+        ]
+      ],
+      "fields": [
+        "KPI · Lead-to-sold close rate",
+        "Period · July 2026",
+        "Date basis · Lead created",
+        "Status basis · Delivered",
+        "Issue · Test leads not excluded"
+      ],
+      "action": "Open source records"
+    },
+    "AI-028": {
+      "kind": "ai",
+      "nav": "MarketSync AI",
+      "page": "Manager Assistant",
+      "title": "Build commission plan from a document",
+      "state": "PDF text is extracted and one inactive plan draft is ready for review",
+      "messages": [
+        [
+          "You",
+          "Dropped: 2026 Sales Commission Plan.pdf"
+        ],
+        [
+          "MarketSync AI",
+          "I found the payable rules and created one inactive draft. Nothing is assigned or used for payroll yet."
+        ]
+      ],
+      "fields": [
+        "Source · 2026 Sales Commission Plan.pdf",
+        "Draft · New Vehicle Sales · inactive",
+        "Rule · 25% of front gross",
+        "Volume bonus · $500 at 12 units",
+        "Warnings · 0"
+      ],
+      "action": "Review commission plans"
+    },
+    "AI-032": {
+      "kind": "conversation",
+      "nav": "AI Chatbot",
+      "page": "AI Leads & Chats",
+      "title": "Human correction after failed answer",
+      "state": "AI is paused and the verified service-hours reply is ready to send",
+      "messages": [
+        [
+          "Customer",
+          "Are you open for service Sunday?"
+        ],
+        [
+          "AI",
+          "Yes, service opens at 9 AM Sunday."
+        ],
+        [
+          "System",
+          "Human takeover · AI paused"
+        ],
+        [
+          "You",
+          "Sorry for the confusion. Our service department is closed Sunday and opens Monday at 7:30 AM."
+        ]
+      ],
+      "action": "Send verified correction"
+    },
+    "AI-036": {
+      "kind": "ai",
+      "nav": "AI Chatbot",
+      "page": "Knowledge Base",
+      "title": "Replace policy document",
+      "state": "New version passes tests while the superseded document is ready to retire",
+      "tabs": [
+        "Documents",
+        "Versions",
+        "Test questions"
+      ],
+      "activeTab": "Versions",
+      "fields": [
+        "Topic · Return and exchange policy",
+        "Current · v3 · Aug 5, 2026",
+        "Supersedes · v2 · retired",
+        "Owner · General Manager",
+        "Test result · 8 / 8 passed"
+      ],
+      "action": "Publish current version"
+    },
+    "FB-022": {
+      "kind": "vehicle",
+      "nav": "Facebook",
+      "page": "Posting Activity",
+      "title": "Correct live Marketplace post",
+      "state": "Source price is updated and the exact public post awaits synchronized correction",
+      "vehicle": "2025 Chevrolet Equinox RS",
+      "price": "$38,995",
+      "stock": "N1042",
+      "badges": [
+        "Live post",
+        "Source updated",
+        "No duplicate"
+      ],
+      "fields": [
+        "Old public price · $39,995",
+        "Verified source price · $38,995",
+        "Poster · Alex Morgan",
+        "Public post · facebook.com/marketplace/item/8421"
+      ],
+      "action": "Update linked Facebook post"
+    },
+    "FB-026": {
+      "kind": "leaderboard",
+      "nav": "Facebook",
+      "page": "Sales Reps",
+      "title": "Transfer posting responsibility",
+      "state": "Future inventory is split to eligible reps while historic credit remains locked",
+      "metrics": [
+        [
+          "Open posting tasks",
+          "42"
+        ],
+        [
+          "Live posts monitored",
+          "31"
+        ],
+        [
+          "Eligible replacements",
+          "2"
+        ],
+        [
+          "Historic posts moved",
+          "0"
+        ]
+      ],
+      "columns": [
+        "Rep",
+        "Future tasks",
+        "Live monitoring",
+        "Historic credit"
+      ],
+      "rows": [
+        [
+          "Alex Morgan",
+          "21",
+          "16",
+          "Preserved"
+        ],
+        [
+          "Mia Chen",
+          "21",
+          "15",
+          "Preserved"
+        ]
+      ],
+      "action": "Confirm responsibility transfer"
+    },
+    "MS-REL-045": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Releases",
+      "title": "Promote staging release",
+      "state": "All gates pass and production change window is approved with rollback ready",
+      "metrics": [
+        [
+          "Automated tests",
+          "154 / 154"
+        ],
+        [
+          "Critical journeys",
+          "12 / 12"
+        ],
+        [
+          "Tenant tests",
+          "Passed"
+        ],
+        [
+          "Rollback",
+          "Ready"
+        ]
+      ],
+      "fields": [
+        "Release · 2026.08.05",
+        "Source · staging · 8a60074",
+        "Window · Aug 5 · 9:00 PM ET",
+        "Owner · Platform Engineering",
+        "Approval · Product + Operations"
+      ],
+      "action": "Begin production release"
+    },
+    "MS-INC-049": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Incidents",
+      "title": "Customer login outage",
+      "state": "Restricted mode stabilizes writes while authentication recovery is verified",
+      "metrics": [
+        [
+          "Severity",
+          "SEV-1"
+        ],
+        [
+          "Affected accounts",
+          "38"
+        ],
+        [
+          "Duration",
+          "24 min"
+        ],
+        [
+          "Next update",
+          "10 min"
+        ]
+      ],
+      "fields": [
+        "Incident · INC-2026-084",
+        "Lead · Platform Operations",
+        "Cause area · Auth dependency",
+        "Mitigation · Session validation restored",
+        "Status · Monitoring"
+      ],
+      "action": "Publish recovery update"
+    },
+    "MS-QA-053": {
+      "kind": "security",
+      "nav": "MarketSync OS",
+      "page": "Security QA",
+      "title": "Tenant isolation release gate",
+      "state": "UI, API, storage, exports, realtime, and jobs deny cross-dealer access",
+      "metrics": [
+        [
+          "Test paths",
+          "48"
+        ],
+        [
+          "Passed",
+          "48"
+        ],
+        [
+          "Leaks",
+          "0"
+        ],
+        [
+          "Release blockers",
+          "0"
+        ]
+      ],
+      "columns": [
+        "Path",
+        "Role",
+        "Expected",
+        "Result"
+      ],
+      "rows": [
+        [
+          "Customer API",
+          "Salesperson A",
+          "Deny dealer B",
+          "Passed"
+        ],
+        [
+          "Secure export",
+          "Manager A",
+          "Exclude dealer B",
+          "Passed"
+        ],
+        [
+          "Storage URL",
+          "User A",
+          "Deny dealer B",
+          "Passed"
+        ]
+      ],
+      "action": "Approve isolation gate"
+    },
+    "MS-OPS-057": {
+      "kind": "integration",
+      "nav": "MarketSync OS",
+      "page": "Webhook Deliveries",
+      "title": "Retry failed delivery",
+      "state": "Signature configuration is corrected and the same event ID is ready for one replay",
+      "metrics": [
+        [
+          "Attempts",
+          "3"
+        ],
+        [
+          "Last response",
+          "401"
+        ],
+        [
+          "Age",
+          "18 min"
+        ],
+        [
+          "Duplicate receipt",
+          "No"
+        ]
+      ],
+      "fields": [
+        "Event · sales.deal.closed",
+        "Event ID · evt_8421",
+        "Endpoint · dms.example.com/hooks",
+        "Cause · Old signing secret",
+        "Next retry · Manual approval"
+      ],
+      "action": "Replay same event once"
+    },
+    "MS-FIN-061": {
+      "kind": "accounting",
+      "nav": "MarketSync OS",
+      "page": "Revenue Reconciliation",
+      "title": "Stripe revenue · July 2026",
+      "state": "Subscriptions, invoices, fees, payouts, and ledger reconcile with timing identified",
+      "metrics": [
+        [
+          "Gross invoices",
+          "$184,220"
+        ],
+        [
+          "Refunds",
+          "-$3,840"
+        ],
+        [
+          "Stripe fees",
+          "-$5,426"
+        ],
+        [
+          "Unexplained",
+          "$0"
+        ]
+      ],
+      "columns": [
+        "Component",
+        "Stripe",
+        "Ledger",
+        "Difference"
+      ],
+      "rows": [
+        [
+          "Subscription revenue",
+          "$176,400",
+          "$176,400",
+          "$0"
+        ],
+        [
+          "Tax liability",
+          "$4,820",
+          "$4,820",
+          "$0"
+        ],
+        [
+          "Payout timing",
+          "$12,840",
+          "$12,840",
+          "$0"
+        ]
+      ],
+      "action": "Approve revenue reconciliation"
     }
   }
 }
