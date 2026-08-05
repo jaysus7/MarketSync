@@ -18694,8 +18694,38 @@ async function applyTemplate(id) {
   document.querySelector('.fixed')?.remove();
   __wsTab = 'pages';   // show the freshly laid-out menu + pages
   renderWebsitePage();
-  showToast('Template applied — full site laid out with content. Review the menu, tweak, then Save.', 'success');
+  // Auto-publish: assign a web address (server-side) + push the whole site live so it
+  // shows immediately — no separate Save/Publish step, no slug to hand-pick.
+  await publishSiteNow('Template applied — your site is live. Edit anything and Save to update.');
 }
+// Save the full in-memory site and publish it, letting the server auto-assign a slug
+// (domain) on first publish. Used by the template flow so a site is live in one click.
+async function publishSiteNow(msg) {
+  const c = __siteCfg.content || (__siteCfg.content = {});
+  wsFlushTarget();
+  const body = {
+    sections: __homeSections,
+    pages: __sitePages.filter(p => (p.title || '').trim()),
+    staff: __siteStaff.filter(m => (m.name || '').trim()),
+    builtins: Object.keys(__siteBuiltins).length ? __siteBuiltins : defaultBuiltins(),
+    menu_order: __menuOrder,
+    site_published: true,
+    primary_color: c.primary_color, secondary_color: c.secondary_color, accent_color: c.accent_color,
+    typography: c.typography, heading_font: c.heading_font || '', body_font: c.body_font || '',
+    hero_photos: !!c.hero_photos, theme: c.theme || 'classic',
+  };
+  if (__siteCfg.site_slug) body.site_slug = __siteCfg.site_slug;
+  try {
+    const r = await apiSendJson('/dealership/site', 'PUT', body);
+    if (r && r.site_slug) __siteCfg.site_slug = r.site_slug;
+    __siteCfg.site_published = true;
+    renderWebsitePage();
+    const url = __siteCfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
+    showToast(msg, 'success');
+    if (url) showToast('Live at ' + url.replace(/^https?:\/\//, ''), 'info');
+  } catch (e) { showToast(e.message || 'Could not publish the site', 'error'); }
+}
+window.publishSiteNow = publishSiteNow;
 Object.assign(window, { loadWebsitePage, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, menuIndent, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette });
 
 // ══ Website builder — Blog / News (per-dealer, RLS-scoped) ═════════════════════

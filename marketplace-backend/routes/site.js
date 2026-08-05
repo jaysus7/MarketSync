@@ -808,6 +808,26 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     }
     if (b.site_published !== undefined) update.site_published = !!b.site_published
 
+    // Auto-assign a web address the first time a site is published (e.g. right after a
+    // template is applied) so it goes live immediately without the dealer hand-picking a
+    // slug. Derived from the dealership name; de-duplicated with a numeric suffix.
+    if (update.site_published === true && update.site_slug === undefined) {
+      const { data: cur } = await supabaseAdmin.from('dealerships').select('name, site_slug').eq('id', req.dealershipId).maybeSingle()
+      if (!cur?.site_slug) {
+        let base = slugify(cur?.name || '') || 'dealer'
+        if (base.length < 3) base = ('dealer-' + base).replace(/-$/, '').slice(0, 40)
+        let slug = base, n = 1
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { data: taken } = await supabaseAdmin.from('dealerships')
+            .select('id').ilike('site_slug', slug).neq('id', req.dealershipId).maybeSingle()
+          if (!taken) break
+          slug = (base.slice(0, 36) + '-' + (++n)).slice(0, 40)
+        }
+        update.site_slug = slug
+      }
+    }
+
     if (b.custom_domain !== undefined) {
       const dom = String(b.custom_domain || '').toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
       const { data: cur } = await supabaseAdmin.from('dealerships').select('custom_domain, custom_domain_cf_id').eq('id', req.dealershipId).single()
