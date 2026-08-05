@@ -96,19 +96,62 @@ function section(title, body, tone = 'slate') {
   return `<section class="rounded-xl border p-5 ${tones[tone] || tones.slate}"><h3 class="mb-3 text-sm font-black uppercase tracking-wider">${esc(title)}</h3>${body}</section>`;
 }
 
+function visualTabs(v) {
+  if (!v.tabs?.length) return '';
+  return `<div class="training-render-tabs">${v.tabs.map(tab => `<span class="${tab === v.activeTab ? 'is-active' : ''}">${esc(tab)}</span>`).join('')}</div>`;
+}
+
+function visualMetrics(v) {
+  if (!v.metrics?.length) return '';
+  return `<div class="training-render-metrics">${v.metrics.map(([label, value]) => `<div><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join('')}</div>`;
+}
+
+function visualFields(v) {
+  if (!v.fields?.length) return '';
+  return `<div class="training-render-fields">${v.fields.map((field, index) => {
+    const [label, value] = String(field).split(' · ');
+    return `<div class="${index === 0 ? 'is-focus' : ''}"><span>${esc(label)}</span><strong>${esc(value || 'Ready')}</strong></div>`;
+  }).join('')}</div>`;
+}
+
+function visualTable(v) {
+  if (!v.rows?.length) return '';
+  const columns = v.columns?.length ? v.columns : ['Time', 'Activity', 'Status'];
+  return `<div class="training-render-table"><div class="training-render-tr is-head">${columns.map(column => `<span>${esc(column)}</span>`).join('')}</div>${v.rows.map((row, rowIndex) => `<div class="training-render-tr ${rowIndex === 0 ? 'is-focus' : ''}">${row.map(cell => `<span>${esc(cell)}</span>`).join('')}</div>`).join('')}</div>`;
+}
+
+function visualAction(v) {
+  return v.action ? `<button type="button" tabindex="-1" class="training-render-action">${esc(v.action)}</button>` : '';
+}
+
+function visualBody(v) {
+  if (!v) return '';
+  if (v.kind === 'login') return `<div class="training-login-card"><div class="training-login-mark">MS</div><h4>${esc(v.title)}</h4><p>${esc(v.state)}</p>${visualFields(v)}${visualAction(v)}</div>`;
+  if (v.kind === 'conversation') return `<div class="training-conversation"><div class="training-conversation-list"><strong>Conversations</strong><span class="is-focus">Jordan Lee <small>Appointment intent</small></span><span>Taylor Singh <small>Vehicle question</small></span><span>Website visitor <small>New</small></span></div><div class="training-chat"><div class="training-chat-title">${esc(v.title)} <span>● Live</span></div><div class="training-messages">${(v.messages || []).map(([sender, message], i) => `<div class="${i % 2 ? 'from-customer' : ''}"><small>${esc(sender)}</small>${esc(message)}</div>`).join('')}</div><div class="training-composer">Type a reply… ${visualAction(v)}</div></div></div>`;
+  if (v.kind === 'vehicle') return `<div class="training-vehicle"><div class="training-vehicle-photo"><span>Vehicle photo</span><strong>${esc(v.vehicle)}</strong></div><div class="training-vehicle-copy"><div class="training-render-pills">${(v.badges || []).map(badge => `<span>${esc(badge)}</span>`).join('')}</div><h4>${esc(v.vehicle)}</h4><div class="training-vehicle-price">${esc(v.price)} <small>Stock #${esc(v.stock)}</small></div>${visualFields(v)}${visualAction(v)}</div></div>`;
+  if (v.kind === 'calendar') return `<div class="training-calendar"><div class="training-calendar-grid">${['MON 3','TUE 4','WED 5','THU 6','FRI 7'].map((day, i) => `<div><strong>${day}</strong>${i === 3 ? '<span class="is-focus">2:30<br>Test drive</span>' : '<span>Available</span>'}</div>`).join('')}</div><div class="training-sidecard"><strong>${esc(v.title)}</strong>${visualFields(v)}${visualAction(v)}</div></div>`;
+  if (v.kind === 'pipeline') return `<div>${visualMetrics(v)}<div class="training-pipeline">${(v.stages || [['New','4'],['Working','7'],['Won','2']]).map(([stage, count], i) => `<div><strong>${esc(stage)} <span>${esc(count)}</span></strong>${i === 0 ? `<article class="is-focus">${esc(v.rows?.[0]?.[0] || 'Open record')}<small>${esc(v.rows?.[0]?.[1] || v.state)}</small></article>` : `<article>${esc(v.rows?.[i]?.[0] || 'No urgent items')}<small>${esc(v.rows?.[i]?.[2] || 'In progress')}</small></article>`}</div>`).join('')}</div><div class="training-render-footer">${visualAction(v)}</div></div>`;
+  if (v.kind === 'builder') return `<div>${visualTabs(v)}${visualMetrics(v)}<div class="training-builder"><div class="training-builder-controls"><strong>Editor</strong>${visualFields(v)}${visualTable(v)}${visualAction(v)}</div><div class="training-builder-preview"><span>${esc(v.notice || 'Live preview')}</span><div><strong>${esc(v.title)}</strong><p>${esc(v.state)}</p><button tabindex="-1">Preview action</button></div></div></div>`;
+  if (v.kind === 'security' || v.kind === 'form' || v.kind === 'integration' || v.kind === 'ai') return `<div>${visualTabs(v)}${visualMetrics(v)}<div class="training-form-layout"><div class="training-form-card"><div class="training-render-pills"><span>${esc(v.state)}</span></div>${visualFields(v)}${visualAction(v)}</div><aside><strong>${v.kind === 'security' ? 'Security check' : v.kind === 'integration' ? 'Connection status' : v.kind === 'ai' ? 'Safe AI setup' : 'Before saving'}</strong><p>${esc(v.notice || 'Review the highlighted field and confirm the current record before saving.')}</p></aside></div>${visualTable(v)}</div>`;
+  if (v.kind === 'crm') return `<div>${visualTabs(v)}<div class="training-crm"><aside><div class="training-avatar">JL</div><strong>${esc(v.title)}</strong>${visualFields(v)}${visualAction(v)}</aside><div><strong>${esc(v.activeTab || 'Timeline')}</strong>${visualTable(v)}</div></div></div>`;
+  if (v.kind === 'deal') return `<div>${visualTabs(v)}${visualMetrics(v)}<div class="training-deal"><div><strong>Customer & vehicle</strong><p>Jordan Lee</p><p>2025 Chevrolet Equinox RS</p></div><div class="is-focus"><strong>${esc(v.state)}</strong>${visualTable(v)}${visualAction(v)}</div></div></div>`;
+  if (v.kind === 'leaderboard') return `<div>${visualMetrics(v)}<div class="training-podium"><div>2<span>Mia</span></div><div class="first">1<span>Alex</span></div><div>3<span>Sam</span></div></div>${visualTable(v)}<div class="training-render-footer">${visualAction(v)}</div></div>`;
+  if (v.kind === 'inventory') return `<div>${visualMetrics(v)}<div class="training-inventory"><div class="training-lot-score"><strong>${esc(v.metrics?.[0]?.[1] || '78')}</strong><span>Lot health</span></div>${visualTable(v)}</div><div class="training-render-footer">${visualAction(v)}</div></div>`;
+  if (v.kind === 'marketing') return `<div>${visualMetrics(v)}<div class="training-marketing-chart">${[42,70,54,82,64,91,76].map((h, i) => `<span style="height:${h}%"><small>${['M','T','W','T','F','S','S'][i]}</small></span>`).join('')}</div>${visualTable(v)}<div class="training-render-footer">${visualAction(v)}</div></div>`;
+  return `<div>${visualTabs(v)}${visualMetrics(v)}${visualFields(v)}${visualTable(v)}<div class="training-render-footer">${visualAction(v)}</div></div>`;
+}
+
 function lessonVisual(lesson) {
+  const v = lesson.visual;
+  if (!v) return '';
   const product = productLabels[lesson.product] || lesson.product;
-  const callouts = lesson.steps.slice(0, 4).map((step, index) => `
-    <div class="training-screen-callout rounded-xl border border-indigo-200 bg-white p-3 dark:border-indigo-900 dark:bg-slate-900">
-      <div class="flex items-start gap-3"><span class="grid h-7 w-7 flex-none place-items-center rounded-full bg-indigo-600 text-xs font-black text-white">${index + 1}</span><div><div class="text-xs font-black text-slate-900 dark:text-white">${esc(step.title)}</div><div class="mt-1 text-[11px] leading-4 text-slate-500 dark:text-slate-400">${esc(step.body)}</div></div></div>
-    </div>`).join('');
-  const nav = [product, lesson.course, 'Help & Training'].map((label, index) => `<div class="rounded-lg px-2.5 py-2 text-[11px] font-bold ${index === 1 ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-slate-400'}">${esc(label)}</div>`).join('');
+  const nav = [product, v.nav, v.page].map((label, index) => `<div class="rounded-lg px-2.5 py-2 text-[11px] font-bold ${index === 2 ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-slate-400'}">${esc(label)}</div>`).join('');
   return `<figure class="overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm dark:border-indigo-900 dark:bg-slate-950">
-    <div class="flex items-center justify-between border-b border-indigo-100 bg-white px-4 py-3 dark:border-indigo-950 dark:bg-slate-900"><div class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span><span class="h-2.5 w-2.5 rounded-full bg-amber-400"></span><span class="h-2.5 w-2.5 rounded-full bg-emerald-400"></span></div><div class="text-[10px] font-black uppercase tracking-[.18em] text-indigo-500">Visual walkthrough · rendered from HTML/CSS</div><div class="w-12"></div></div>
+    <div class="flex items-center justify-between border-b border-indigo-100 bg-white px-4 py-3 dark:border-indigo-950 dark:bg-slate-900"><div class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span><span class="h-2.5 w-2.5 rounded-full bg-amber-400"></span><span class="h-2.5 w-2.5 rounded-full bg-emerald-400"></span></div><div class="text-[10px] font-black uppercase tracking-[.18em] text-indigo-500">Lesson screen · rendered from dashboard HTML/CSS</div><div class="w-12"></div></div>
     <div class="training-screen training-screen-grid">
       <aside class="training-screen-nav border-r border-indigo-100/80 bg-white/75 p-3 dark:border-indigo-950 dark:bg-slate-950/70"><div class="mb-4 px-2 text-sm font-black">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></div><div class="space-y-1">${nav}</div></aside>
-      <div class="p-4 sm:p-6"><div class="mb-4"><div class="text-[10px] font-black uppercase tracking-widest text-indigo-500">${esc(product)} · ${esc(lesson.course)}</div><div class="mt-1 text-xl font-black text-slate-950 dark:text-white">${esc(lesson.title)}</div><div class="mt-1 text-xs text-slate-500 dark:text-slate-400">Follow the numbered areas, then use the detailed steps below.</div></div><div class="grid gap-3 sm:grid-cols-2">${callouts}</div><div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">✓ Success: ${esc(lesson.success)}</div></div>
-    </div><figcaption class="border-t border-slate-200 px-4 py-3 text-[11px] leading-4 text-slate-500 dark:border-slate-800">This is a simplified screen map generated from the live lesson content. Button names and the detailed workflow below are the source of truth.</figcaption>
+      <div class="min-w-0 p-4 sm:p-6"><div class="training-render-header"><div><div class="text-[10px] font-black uppercase tracking-widest text-indigo-500">${esc(v.nav)} · ${esc(v.page)}</div><h3>${esc(v.title)}</h3><p>${esc(v.state)}</p></div><span class="training-step-marker">${esc(lesson.steps[0]?.title || 'Start here')}</span></div>${visualBody(v)}</div>
+    </div><figcaption class="border-t border-slate-200 px-4 py-3 text-[11px] leading-4 text-slate-500 dark:border-slate-800">Lesson-specific training render based on the current MarketSync dashboard structure. Live names, counts, dates, and permissions will reflect your account.</figcaption>
   </figure>`;
 }
 
@@ -167,17 +210,18 @@ async function bootAcademy() {
     const catalogRequest = window.__TRAINING_CATALOG__
       ? Promise.resolve(window.__TRAINING_CATALOG__)
       : Promise.all([
-          fetch('/training/catalog.json?v=20260804b'),
-          fetch('/training/catalog-expanded.json?v=20260804b'),
+          fetch('/training/catalog.json?v=20260804c'),
+          fetch('/training/catalog-expanded.json?v=20260804c'),
+          fetch('/training/visuals.json?v=20260804c'),
         ]).then(async responses => {
           if (responses.some(response => !response.ok)) throw new Error('CATALOG');
-          const catalogs = await Promise.all(responses.map(response => response.json()));
-          return { lessons: catalogs.flatMap(catalog => catalog.lessons || []) };
+          const [core, expanded, visualCatalog] = await Promise.all(responses.map(response => response.json()));
+          return { lessons: [...(core.lessons || []), ...(expanded.lessons || [])], visuals: visualCatalog.visuals || {} };
         });
     const [profile, catalog] = await Promise.all([LOCAL_PREVIEW ? Promise.resolve(previewProfile) : authenticatedJson('/auth/me'), catalogRequest]);
     academyUser = profile;
     academyAccess = profile.access || await authenticatedJson('/access/context');
-    allLessons = catalog.lessons || [];
+    allLessons = (catalog.lessons || []).map(lesson => ({ ...lesson, visual: catalog.visuals?.[lesson.id] || lesson.visual }));
     visibleLessons = allLessons.filter(lessonAllowed);
     loadCompletion();
     document.getElementById('academy-identity').textContent = `${profile.full_name || profile.email || 'Signed in'} · ${profile.dealership?.name || (academyAccess.isPlatformStaff ? 'MarketSync OS' : 'My workspace')}`;

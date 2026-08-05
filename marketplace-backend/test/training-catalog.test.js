@@ -9,9 +9,11 @@ const catalogUrls = [
 ]
 const catalogs = await Promise.all(catalogUrls.map(async url => JSON.parse(await readFile(url, 'utf8'))))
 const lessons = catalogs.flatMap(catalog => catalog.lessons || [])
+const visualCatalog = JSON.parse(await readFile(new URL('../../marketplace-frontend/training/visuals.json', import.meta.url), 'utf8'))
+const visuals = visualCatalog.visuals || {}
 
 test('training academy ships the complete feature recording catalog', () => {
-  assert.equal(lessons.length, 52)
+  assert.equal(lessons.length, 60)
   assert.equal(new Set(lessons.map(lesson => lesson.id)).size, lessons.length, 'lesson ids must be unique')
 })
 
@@ -58,8 +60,18 @@ test('academy renders an HTML/CSS visual walkthrough for every lesson', async ()
     readFile(new URL('../../marketplace-frontend/training.html', import.meta.url), 'utf8'),
     readFile(new URL('../../marketplace-frontend/training.js', import.meta.url), 'utf8'),
   ])
-  assert.match(html, /training-screen-grid/)
+  assert.equal(Object.keys(visuals).length, lessons.length)
+  assert.deepEqual(new Set(Object.keys(visuals)), new Set(lessons.map(lesson => lesson.id)))
+  assert.equal(new Set(Object.values(visuals).map(visual => JSON.stringify(visual))).size, lessons.length, 'every lesson needs a distinct screen blueprint')
+  for (const lesson of lessons) {
+    const visual = visuals[lesson.id]
+    assert.ok(visual.kind && visual.nav && visual.page && visual.title && visual.state, `${lesson.id} visual is incomplete`)
+  }
+  assert.match(html, /training-conversation/)
+  assert.match(html, /training-calendar/)
+  assert.match(html, /training-builder/)
   assert.match(js, /function lessonVisual\(lesson\)/)
-  assert.match(js, /rendered from HTML\/CSS/)
+  assert.match(js, /rendered from dashboard HTML\/CSS/)
   assert.match(js, /catalog-expanded\.json/)
+  assert.match(js, /visuals\.json/)
 })
