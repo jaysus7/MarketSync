@@ -30,6 +30,16 @@ async function loadCatalog() {
     supabaseAdmin.from('plan_features').select('plan_id, feature_id'),
     supabaseAdmin.from('products').select('id, name, sort_order'),
   ])
+  const failed = [
+    ['features', features.error],
+    ['plan_features', planFeatures.error],
+    ['products', products.error],
+  ].filter(([, error]) => error)
+  if (failed.length) {
+    const detail = failed.map(([table, error]) => `${table}: ${error.message}`).join('; ')
+    console.error(`[access] entitlement catalog unavailable — ${detail}`)
+    throw new Error('Entitlement catalog unavailable')
+  }
   _catalog = {
     features: features.data || [],
     planFeatures: planFeatures.data || [],
@@ -57,10 +67,21 @@ export async function getCurrentAccessContext(req) {
   if (dealershipId && userId) {
     const [roleRes, subRes, memRes, ovrRes] = await Promise.all([
       supabaseAdmin.from('user_roles').select('role_id').eq('user_id', userId).eq('dealership_id', dealershipId),
-      supabaseAdmin.from('subscriptions').select('product_id, plan_id, status').eq('dealership_id', dealershipId),
+      supabaseAdmin.from('subscriptions').select('product_id, plan_id, status, trial_ends_at').eq('dealership_id', dealershipId),
       supabaseAdmin.from('product_memberships').select('product_id').eq('user_id', userId).eq('dealership_id', dealershipId),
       supabaseAdmin.from('member_permission_overrides').select('permission_id, effect').eq('user_id', userId).eq('dealership_id', dealershipId),
     ])
+    const failed = [
+      ['user_roles', roleRes.error],
+      ['subscriptions', subRes.error],
+      ['product_memberships', memRes.error],
+      ['member_permission_overrides', ovrRes.error],
+    ].filter(([, error]) => error)
+    if (failed.length) {
+      const detail = failed.map(([table, error]) => `${table}: ${error.message}`).join('; ')
+      console.error(`[access] caller entitlement rows unavailable — ${detail}`)
+      throw new Error('Caller entitlement data unavailable')
+    }
     roleRows = roleRes.data || []
     subscriptions = subRes.data || []
     memberships = (memRes.data || []).map(m => m.product_id)

@@ -20508,6 +20508,14 @@ async function initSecurityPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'That code did not work.');
 
+      // verify-enroll promotes the Supabase session to aal2. Replace the old aal1
+      // session immediately so MFA-protected settings work without a logout/login.
+      if (data.access_token) {
+        token = data.access_token;
+        localStorage.setItem('token', data.access_token);
+      }
+      if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+
       document.getElementById('mfa-enroll-panel').classList.add('hidden');
       document.getElementById('mfa-enroll-code').value = '';
       await refreshMfaStatus();

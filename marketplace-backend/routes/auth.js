@@ -498,7 +498,7 @@ export function registerRoutes(app) {
       const { data: challenge, error: chErr } = await userClient.auth.mfa.challenge({ factorId: factor_id })
       if (chErr) return res.status(400).json({ error: chErr.message })
 
-      const { error: verifyErr } = await userClient.auth.mfa.verify({
+      const { data: verifiedSession, error: verifyErr } = await userClient.auth.mfa.verify({
         factorId: factor_id,
         challengeId: challenge.id,
         code
@@ -521,6 +521,12 @@ export function registerRoutes(app) {
       res.json({
         success: true,
         message: 'Two-factor authentication is now active on this account.',
+        // Supabase promotes the session used for verify() from aal1 to aal2. Return
+        // that replacement session so the dashboard stops using the older aal1 JWT;
+        // otherwise protected actions incorrectly keep saying MFA is required until
+        // the user signs out and completes a second login.
+        access_token: verifiedSession?.access_token || null,
+        refresh_token: verifiedSession?.refresh_token || null,
         recovery_codes: codes,
         recovery_codes_note: 'Save these somewhere safe (password manager, printed). Each one works ONCE if you lose your phone. They will not be shown again.'
       })
