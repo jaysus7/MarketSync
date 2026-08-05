@@ -20545,6 +20545,14 @@ async function initSecurityPanel() {
 
   // Add passkey button
   document.getElementById('add-passkey-btn')?.addEventListener('click', registerNewPasskey);
+  document.getElementById('phone-mfa-start')?.addEventListener('click', () => {
+    const panel = document.getElementById('phone-mfa-enroll');
+    panel?.classList.toggle('hidden');
+    const input = document.getElementById('phone-mfa-number');
+    if (input && !input.value && profileContext?.phone) input.value = profileContext.phone;
+  });
+  document.getElementById('phone-mfa-send')?.addEventListener('click', startPhoneMfaEnrollment);
+  document.getElementById('phone-mfa-confirm')?.addEventListener('click', verifyPhoneMfaEnrollment);
 
   // Dealership activity log — admins/owners only.
   initAuditLog();
@@ -20576,6 +20584,64 @@ async function initSecurityPanel() {
 }
 
 let currentEnrollment = null;
+let currentPhoneEnrollment = null;
+
+async function startPhoneMfaEnrollment() {
+  const phone = document.getElementById('phone-mfa-number')?.value.trim();
+  const button = document.getElementById('phone-mfa-send');
+  const errorBox = document.getElementById('phone-mfa-error');
+  errorBox?.classList.add('hidden');
+  if (!/^\+[1-9]\d{7,14}$/.test(String(phone || '').replace(/[\s()-]/g, ''))) {
+    errorBox.textContent = 'Enter the country code and mobile number, for example +19055551234.';
+    errorBox.classList.remove('hidden'); return;
+  }
+  button.disabled = true; button.textContent = 'Sending…';
+  try {
+    const res = await fetch(`${API}/auth/2fa/phone/enroll`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.code === 'PHONE_MFA_NOT_CONFIGURED'
+      ? 'Text-message MFA is not enabled in this Supabase project yet. Enable Phone MFA and its SMS provider, then try again.'
+      : (data.message || data.error || 'Could not send a verification text.'));
+    currentPhoneEnrollment = { factor_id: data.factor_id, challenge_id: data.challenge_id };
+    document.getElementById('phone-mfa-enroll')?.classList.add('hidden');
+    document.getElementById('phone-mfa-verify')?.classList.remove('hidden');
+    document.getElementById('phone-mfa-status').textContent = `Code sent to ${data.phone || 'your phone'}.`;
+    document.getElementById('phone-mfa-code')?.focus();
+  } catch (error) {
+    errorBox.textContent = error.message; errorBox.classList.remove('hidden');
+  } finally { button.disabled = false; button.textContent = 'Send verification text'; }
+}
+
+async function verifyPhoneMfaEnrollment() {
+  const code = document.getElementById('phone-mfa-code')?.value.trim();
+  const button = document.getElementById('phone-mfa-confirm');
+  const errorBox = document.getElementById('phone-mfa-error');
+  errorBox?.classList.add('hidden');
+  if (!currentPhoneEnrollment || !/^\d{6,10}$/.test(code || '')) {
+    errorBox.textContent = 'Enter the code sent to your phone.'; errorBox.classList.remove('hidden'); return;
+  }
+  button.disabled = true; button.textContent = 'Verifying…';
+  try {
+    const res = await fetch(`${API}/auth/2fa/phone/verify-enroll`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...currentPhoneEnrollment, code })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'That code did not work.');
+    if (data.access_token) { token = data.access_token; localStorage.setItem('token', data.access_token); }
+    if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+    currentPhoneEnrollment = null;
+    document.getElementById('phone-mfa-verify')?.classList.add('hidden');
+    document.getElementById('phone-mfa-code').value = '';
+    await refreshMfaStatus();
+    if (Array.isArray(data.recovery_codes) && data.recovery_codes.length) showBackupCodes(data.recovery_codes);
+  } catch (error) {
+    errorBox.textContent = error.message; errorBox.classList.remove('hidden');
+  } finally { button.disabled = false; button.textContent = 'Verify and turn on'; }
+}
 
 async function refreshMfaStatus() {
   try {
@@ -20584,8 +20650,11 @@ async function refreshMfaStatus() {
     const statusText = document.getElementById('mfa-status-text');
     const btn = document.getElementById('mfa-toggle-btn');
     const regenBtn = document.getElementById('regen-codes-btn');
+    const phoneStatus = document.getElementById('phone-mfa-status');
+    const phoneMethod = (data.methods || []).find(method => method.factor_type === 'phone');
     if (data.enabled) {
-      statusText.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-semibold">✓ On</span> — asks for a 6-digit code from your phone each time you sign in.';
+      const methods = (data.methods || []).map(method => method.factor_type === 'phone' ? 'text message' : 'authenticator app').join(' or ');
+      statusText.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-semibold">✓ On</span> — protected by ${methods || 'a verified second factor'}.`;
       btn.textContent = 'Turn Off';
       btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
       btn.classList.add('bg-slate-200', 'dark:bg-slate-700', 'text-slate-900', 'dark:text-white', 'hover:bg-slate-300');
@@ -20597,6 +20666,9 @@ async function refreshMfaStatus() {
       btn.classList.remove('bg-slate-200', 'dark:bg-slate-700', 'text-slate-900', 'dark:text-white', 'hover:bg-slate-300');
       regenBtn?.classList.add('hidden');
     }
+    if (phoneStatus) phoneStatus.textContent = phoneMethod
+      ? `✓ Text-message MFA is on for ${phoneMethod.phone || 'your verified phone'}.`
+      : 'Add a verified mobile number as another true MFA method.';
     btn.disabled = false;
   } catch (e) {
     document.getElementById('mfa-status-text').textContent = "Couldn't load status. Try refreshing the page.";

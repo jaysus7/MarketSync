@@ -16,6 +16,21 @@ import {
   listUserPasskeys, deletePasskey
 } from '../passkeys.js'
 
+function maskPhone(phone) {
+  const value = String(phone || '')
+  if (value.length < 5) return 'your phone'
+  return `${value.slice(0, 2)}••• ••• ${value.slice(-4)}`
+}
+
+async function replaceMfaRecoveryCodes(userId) {
+  const codes = generateRecoveryCodes(10)
+  const rows = codes.map(code => ({ user_id: userId, code_hash: hashRecoveryCode(code) }))
+  await supabaseAdmin.from('recovery_codes').delete().eq('user_id', userId)
+  const { error } = await supabaseAdmin.from('recovery_codes').insert(rows)
+  if (error) throw error
+  return codes
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // EMAIL TEMPLATES — plain language, branded, with a clear call to action
 // ──────────────────────────────────────────────────────────────────────────────
@@ -122,18 +137,26 @@ export function registerRoutes(app) {
       })
     }
 
-    // 2FA gate — if user has a verified TOTP factor, return a partial session and require
-    // a code via /auth/2fa/challenge before they get a usable access token.
+    // MFA gate — if the user has a verified Supabase TOTP or phone factor, retain
+    // the aal1 session server-side and require one chosen factor before returning
+    // a usable token. Passkeys/email OTP are first-factor sign-in methods, not aal2.
     try {
       const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
         global: { headers: { Authorization: `Bearer ${data.session.access_token}` } }
       })
-      const { data: factors } = await userClient.auth.mfa.listFactors()
-      const verified = (factors?.totp || []).find(f => f.status === 'verified')
-      if (verified) {
+      const { data: factors, error: factorError } = await userClient.auth.mfa.listFactors()
+      if (factorError) throw factorError
+      const verifiedFactors = [
+        ...(factors?.totp || []).filter(f => f.status === 'verified').map(f => ({ id: f.id, factor_type: 'totp', friendly_name: f.friendly_name || 'Authenticator app' })),
+        ...(factors?.phone || []).filter(f => f.status === 'verified').map(f => ({ id: f.id, factor_type: 'phone', friendly_name: f.friendly_name || 'Text message', phone: maskPhone(f.phone) })),
+      ]
+      if (verifiedFactors.length) {
+        const preferred = verifiedFactors[0]
         return res.status(202).json({
           mfa_required: true,
-          factor_id: verified.id,
+          factor_id: preferred.id,
+          factor_type: preferred.factor_type,
+          factors: verifiedFactors,
           partial_token: createMfaLoginChallenge({
             accessToken: data.session.access_token,
             refreshToken: data.session.refresh_token,
@@ -507,15 +530,9 @@ export function registerRoutes(app) {
 
       // Issue 10 recovery codes — returned ONCE, hashed in DB. If the user loses
       // their phone they can use one of these to get back in.
-      const codes = generateRecoveryCodes(10)
-      const rows = codes.map(c => ({
-        user_id: req.user.id,
-        code_hash: hashRecoveryCode(c)
-      }))
-      // Wipe any previous codes (e.g. user re-enrolled after disabling) then write fresh ones
-      await supabaseAdmin.from('recovery_codes').delete().eq('user_id', req.user.id)
-      const { error: codeErr } = await supabaseAdmin.from('recovery_codes').insert(rows)
-      if (codeErr) console.warn('recovery_codes insert failed:', codeErr.message)
+      let codes = []
+      try { codes = await replaceMfaRecoveryCodes(req.user.id) }
+      catch (codeErr) { console.warn('recovery_codes insert failed:', codeErr.message) }
 
       audit(req, AuditAction.MFA_ENROLLED, { factor_id })
       res.json({
@@ -529,6 +546,69 @@ export function registerRoutes(app) {
         refresh_token: verifiedSession?.refresh_token || null,
         recovery_codes: codes,
         recovery_codes_note: 'Save these somewhere safe (password manager, printed). Each one works ONCE if you lose your phone. They will not be shown again.'
+      })
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  // Native Supabase Phone MFA. The staging/production Supabase project must have
+  // Phone MFA enabled and an SMS provider configured; errors are returned clearly
+  // instead of pretending an ordinary email/passkey login reached aal2.
+  app.post('/auth/2fa/phone/enroll', requireAuth, rateLimit('mfa-phone-enroll', 5, 60 * 60 * 1000), async (req, res) => {
+    const phone = String(req.body?.phone || '').replace(/[\s()-]/g, '')
+    if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
+      return res.status(400).json({ error: 'Enter a mobile number with country code, for example +19055551234.' })
+    }
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '')
+      const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${token}` } }
+      })
+      const { data: factors, error: factorsError } = await userClient.auth.mfa.listFactors()
+      if (factorsError) throw factorsError
+      const phoneFactors = factors?.phone || []
+      if (phoneFactors.some(factor => factor.status === 'verified' && factor.phone === phone)) {
+        return res.status(409).json({ error: 'PHONE_MFA_ALREADY_ENABLED', message: 'Text-message MFA is already enabled for this number.' })
+      }
+      await Promise.all(phoneFactors.filter(factor => factor.status !== 'verified').map(async factor => {
+        const { error } = await userClient.auth.mfa.unenroll({ factorId: factor.id })
+        if (error) throw error
+      }))
+      const { data: enrolled, error: enrollError } = await userClient.auth.mfa.enroll({
+        factorType: 'phone', phone,
+        friendlyName: `MarketSync-SMS-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`,
+      })
+      if (enrollError) return res.status(400).json({ error: enrollError.message, code: 'PHONE_MFA_NOT_CONFIGURED' })
+      const { data: challenge, error: challengeError } = await userClient.auth.mfa.challenge({ factorId: enrolled.id })
+      if (challengeError) return res.status(400).json({ error: challengeError.message, code: 'PHONE_MFA_SEND_FAILED' })
+      res.json({ factor_id: enrolled.id, challenge_id: challenge.id, phone: maskPhone(phone), message: 'Verification code sent by text message.' })
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.post('/auth/2fa/phone/verify-enroll', requireAuth, rateLimit('mfa-phone-verify', 10, 60 * 60 * 1000), async (req, res) => {
+    const { factor_id, challenge_id, code } = req.body || {}
+    if (!factor_id || !challenge_id || !/^\d{6,10}$/.test(String(code || ''))) {
+      return res.status(400).json({ error: 'factor_id, challenge_id, and the texted code are required' })
+    }
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '')
+      const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${token}` } }
+      })
+      const { data: verifiedSession, error } = await userClient.auth.mfa.verify({ factorId: factor_id, challengeId: challenge_id, code: String(code) })
+      if (error) return res.status(400).json({ error: 'That text-message code is invalid or expired.' })
+      let codes = []
+      try { codes = await replaceMfaRecoveryCodes(req.user.id) }
+      catch (codeErr) { console.warn('recovery_codes insert failed:', codeErr.message) }
+      audit(req, AuditAction.MFA_ENROLLED, { factor_id, factor_type: 'phone' })
+      res.json({
+        success: true, message: 'Text-message MFA is now active.',
+        access_token: verifiedSession?.access_token || null,
+        refresh_token: verifiedSession?.refresh_token || null,
+        recovery_codes: codes,
       })
     } catch (err) {
       res.status(500).json({ error: err.message })
@@ -628,6 +708,28 @@ export function registerRoutes(app) {
         return res.status(500).json({ error: 'Session mint failed: ' + (verifyErr?.message || 'unknown') })
       }
 
+      // A passkey is a phishing-resistant first-factor sign-in, but Supabase does
+      // not label this custom WebAuthn session aal2. If the user opted into MFA,
+      // require their verified Supabase second factor before releasing the session.
+      const passkeySessionClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${verifyData.session.access_token}` } }
+      })
+      const { data: passkeyFactors, error: passkeyFactorError } = await passkeySessionClient.auth.mfa.listFactors()
+      if (passkeyFactorError) return res.status(503).json({ error: 'MFA_STATUS_UNAVAILABLE', message: 'We could not verify your multi-factor sign-in status.' })
+      const verifiedPasskeyFactors = [
+        ...(passkeyFactors?.totp || []).filter(f => f.status === 'verified').map(f => ({ id: f.id, factor_type: 'totp', friendly_name: f.friendly_name || 'Authenticator app' })),
+        ...(passkeyFactors?.phone || []).filter(f => f.status === 'verified').map(f => ({ id: f.id, factor_type: 'phone', friendly_name: f.friendly_name || 'Text message', phone: maskPhone(f.phone) })),
+      ]
+      if (verifiedPasskeyFactors.length) {
+        const preferred = verifiedPasskeyFactors[0]
+        return res.status(202).json({
+          mfa_required: true, factor_id: preferred.id, factor_type: preferred.factor_type,
+          factors: verifiedPasskeyFactors,
+          partial_token: createMfaLoginChallenge({ accessToken: verifyData.session.access_token, refreshToken: verifyData.session.refresh_token }),
+          message: 'Multi-factor code required.',
+        })
+      }
+
       // Log + suspicious-login check (best-effort)
       const currentIp = getClientIp(req)
       const currentUa = (req.headers['user-agent'] || '').slice(0, 500) + ' [passkey]'
@@ -660,14 +762,16 @@ export function registerRoutes(app) {
         global: { headers: { Authorization: `Bearer ${token}` } }
       })
 
-      const { data: factors } = await userClient.auth.mfa.listFactors()
-      const totp = (factors?.totp || []).find(f => f.status === 'verified')
-      if (!totp) return res.json({ success: true, message: 'No active 2FA factor.' })
-
-      const { error } = await userClient.auth.mfa.unenroll({ factorId: totp.id })
-      if (error) throw error
-      audit(req, AuditAction.MFA_DISABLED, { factor_id: totp.id })
-      res.json({ success: true, message: 'Two-factor authentication has been disabled.' })
+      const { data: factors, error: factorError } = await userClient.auth.mfa.listFactors()
+      if (factorError) throw factorError
+      const verified = [...(factors?.totp || []), ...(factors?.phone || [])].filter(f => f.status === 'verified')
+      if (!verified.length) return res.json({ success: true, message: 'No active MFA factor.' })
+      for (const factor of verified) {
+        const { error } = await userClient.auth.mfa.unenroll({ factorId: factor.id })
+        if (error) throw error
+        audit(req, AuditAction.MFA_DISABLED, { factor_id: factor.id, factor_type: factor.factor_type || factor.type || null })
+      }
+      res.json({ success: true, message: 'Multi-factor authentication has been disabled.' })
     } catch (err) {
       res.status(500).json({ error: err.message })
     }
@@ -681,8 +785,38 @@ export function registerRoutes(app) {
         global: { headers: { Authorization: `Bearer ${token}` } }
       })
       const { data: factors } = await userClient.auth.mfa.listFactors()
-      const verified = (factors?.totp || []).find(f => f.status === 'verified')
-      res.json({ enabled: !!verified, factor_id: verified?.id || null })
+      const verifiedTotp = (factors?.totp || []).find(f => f.status === 'verified')
+      const verifiedPhone = (factors?.phone || []).find(f => f.status === 'verified')
+      res.json({
+        enabled: !!(verifiedTotp || verifiedPhone),
+        factor_id: (verifiedTotp || verifiedPhone)?.id || null,
+        methods: [
+          ...(verifiedTotp ? [{ factor_type: 'totp', factor_id: verifiedTotp.id }] : []),
+          ...(verifiedPhone ? [{ factor_type: 'phone', factor_id: verifiedPhone.id, phone: maskPhone(verifiedPhone.phone) }] : []),
+        ],
+      })
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  // Send a login-time phone challenge after the password step. The partial token
+  // is opaque and short-lived; verify the requested factor belongs to that session.
+  app.post('/auth/2fa/send-code', rateLimit('mfa-send-code', 5, 15 * 60 * 1000), async (req, res) => {
+    const { factor_id, partial_token } = req.body || {}
+    const loginChallenge = getMfaLoginChallenge(partial_token)
+    if (!factor_id || !loginChallenge) return res.status(401).json({ error: 'MFA challenge expired. Please sign in again.' })
+    try {
+      const userClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${loginChallenge.accessToken}` } }
+      })
+      const { data: factors, error: factorError } = await userClient.auth.mfa.listFactors()
+      if (factorError) throw factorError
+      const phoneFactor = (factors?.phone || []).find(f => f.id === factor_id && f.status === 'verified')
+      if (!phoneFactor) return res.status(400).json({ error: 'Choose a verified text-message factor.' })
+      const { data: challenge, error } = await userClient.auth.mfa.challenge({ factorId: factor_id })
+      if (error) return res.status(400).json({ error: error.message })
+      res.json({ challenge_id: challenge.id, phone: maskPhone(phoneFactor.phone), message: 'Code sent.' })
     } catch (err) {
       res.status(500).json({ error: err.message })
     }
@@ -691,7 +825,7 @@ export function registerRoutes(app) {
   // Login-time challenge. Called after the password step when login responds with
   // MFA_REQUIRED. Accepts a TOTP code OR an 8-char recovery code (XXXX-XXXX format).
   app.post('/auth/2fa/challenge', rateLimit('mfa-challenge', 5, 15 * 60 * 1000), async (req, res) => {
-    const { factor_id, code, partial_token } = req.body || {}
+    const { factor_id, challenge_id, code, partial_token } = req.body || {}
     if (!factor_id || !code || !partial_token) {
       return res.status(400).json({ error: 'factor_id, code, and partial_token are required' })
     }
@@ -753,16 +887,29 @@ export function registerRoutes(app) {
         })
       }
 
-      // Otherwise treat as TOTP code
-      const { data: challenge, error: chErr } = await userClient.auth.mfa.challenge({ factorId: factor_id })
-      if (chErr) return res.status(400).json({ error: chErr.message })
+      const { data: factors, error: factorError } = await userClient.auth.mfa.listFactors()
+      if (factorError) throw factorError
+      const totpFactor = (factors?.totp || []).find(f => f.id === factor_id && f.status === 'verified')
+      const phoneFactor = (factors?.phone || []).find(f => f.id === factor_id && f.status === 'verified')
+      if (!totpFactor && !phoneFactor) return res.status(400).json({ error: 'That MFA method is not available on this account.' })
+
+      // TOTP challenges can be created immediately. Phone challenges send a code,
+      // so they are created once by /send-code and the returned id is reused here.
+      let activeChallengeId = challenge_id
+      if (totpFactor) {
+        const { data: challenge, error: chErr } = await userClient.auth.mfa.challenge({ factorId: factor_id })
+        if (chErr) return res.status(400).json({ error: chErr.message })
+        activeChallengeId = challenge.id
+      } else if (!activeChallengeId) {
+        return res.status(400).json({ error: 'Send a text-message code before verifying.' })
+      }
 
       const { data, error } = await userClient.auth.mfa.verify({
         factorId: factor_id,
-        challengeId: challenge.id,
+        challengeId: activeChallengeId,
         code
       })
-      if (error) return res.status(401).json({ error: 'Invalid 2FA code.' })
+      if (error) return res.status(401).json({ error: 'Invalid or expired MFA code.' })
 
       consumeMfaLoginChallenge(partial_token)
 
@@ -770,7 +917,7 @@ export function registerRoutes(app) {
       supabaseAdmin.from('logins').insert({
         user_id: data.user?.id,
         ip: getClientIp(req),
-        user_agent: (req.headers['user-agent'] || '').slice(0, 500) + ' [totp]'
+        user_agent: (req.headers['user-agent'] || '').slice(0, 500) + (phoneFactor ? ' [phone-mfa]' : ' [totp]')
       }).then(({ error: logErr }) => {
         if (logErr) console.warn('login log failed:', logErr.message)
       })
