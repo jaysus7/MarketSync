@@ -25,20 +25,16 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="color-scheme" content="light dark">
   <style id="ms-font-bump">html{font-size:17px}@media (max-width:640px){html{font-size:16px}}</style>
+    <!-- Automatic OS dark/light before first paint (no flash) -->
+    <script>(function(){try{if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark');}catch(e){}})();</script>
+    <script src="/assets/auth.js" defer></script>
+    <script src="/assets/public-shell.js" defer></script>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased overflow-x-hidden">
 
-  <nav class="border-b border-slate-200 dark:border-slate-800/80 backdrop-blur-sm sticky top-0 bg-slate-50/80 dark:bg-slate-950/80 z-50">
-    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-      <a href="index.html" class="flex items-center gap-2.5">
-        <span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>
-        <span class="text-xl font-black tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
-      </a>
-      <a href="index.html" class="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">← Back to home</a>
-    </div>
-  </nav>
+  <div id="ms-public-header"></div>
 
-  <header class="max-w-5xl mx-auto px-6 pt-16 pb-10">
+<header class="max-w-5xl mx-auto px-6 pt-16 pb-10">
     <p class="text-xs uppercase font-bold tracking-widest text-indigo-600 dark:text-indigo-400 mb-3">Blog</p>
     <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4">The MarketSync Blog</h1>
     <p class="text-base text-slate-600 dark:text-slate-400 max-w-2xl">Playbooks for selling more cars on Facebook Marketplace — faster posting, better listings, and closing more deals.</p>
@@ -50,17 +46,9 @@
     </div>
   </main>
 
-  <footer class="border-t border-slate-200 dark:border-slate-800/60 py-8">
-    <div class="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-      <div class="flex items-center gap-2.5">
-        <span class="w-1.5 h-5 bg-indigo-500 rounded-sm"></span>
-        <span class="text-sm font-bold tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
-      </div>
-      <div class="text-xs text-slate-500">&copy; 2026 MarketSync · Not affiliated with Meta or Facebook</div>
-    </div>
-  </footer>
+  <div id="ms-public-footer"></div>
 
-  <script>
+<script>
     const API = 'https://vehicle-marketplace-s0e4.onrender.com';
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const fmtDate = (d) => { try { return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); } catch { return ''; } };
