@@ -14,6 +14,12 @@
     .lesson-copy ol{counter-reset:lesson-step}
     .lesson-step{counter-increment:lesson-step}
     .lesson-step::before{content:counter(lesson-step);display:flex;align-items:center;justify-content:center;width:2rem;height:2rem;flex:0 0 2rem;border-radius:9999px;background:#4f46e5;color:#fff;font-weight:900;font-size:.8rem}
+    .training-screen{background:linear-gradient(135deg,#eef2ff 0%,#f8fafc 48%,#f5f3ff 100%)}
+    .training-screen-grid{display:grid;grid-template-columns:9rem minmax(0,1fr);min-height:25rem}
+    .training-screen-callout{position:relative;box-shadow:0 10px 30px rgba(15,23,42,.08)}
+    .training-screen-callout::after{content:"";position:absolute;left:-1.05rem;top:1.35rem;width:1.05rem;border-top:2px dashed #818cf8}
+    @media(max-width:640px){.training-screen-grid{grid-template-columns:1fr}.training-screen-nav{display:none}.training-screen-callout::after{display:none}}
+    @media(prefers-color-scheme:dark){.training-screen{background:linear-gradient(135deg,#1e1b4b 0%,#0f172a 48%,#2e1065 100%)}}
     @media print{header,#academy-sidebar,#academy-toolbar,#lesson-actions{display:none!important}#academy-layout{display:block!important}#lesson-panel{max-width:none!important;border:0!important;box-shadow:none!important}}
   </style>
 </head>
@@ -65,6 +71,6 @@
     </div>
   </main>
 
-  <script src="/training.js?v=20260804a"></script>
+  <script src="/training.js?v=20260804b"></script>
 </body>
 </html>

@@ -3,12 +3,15 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { FEATURES_BY_PRODUCT } from '../plan-catalog.js'
 
-const catalogUrl = new URL('../../marketplace-frontend/training/catalog.json', import.meta.url)
-const catalog = JSON.parse(await readFile(catalogUrl, 'utf8'))
-const lessons = catalog.lessons || []
+const catalogUrls = [
+  new URL('../../marketplace-frontend/training/catalog.json', import.meta.url),
+  new URL('../../marketplace-frontend/training/catalog-expanded.json', import.meta.url),
+]
+const catalogs = await Promise.all(catalogUrls.map(async url => JSON.parse(await readFile(url, 'utf8'))))
+const lessons = catalogs.flatMap(catalog => catalog.lessons || [])
 
-test('training foundation ships the complete first recording batch', () => {
-  assert.equal(lessons.length, 15)
+test('training academy ships the complete feature recording catalog', () => {
+  assert.equal(lessons.length, 52)
   assert.equal(new Set(lessons.map(lesson => lesson.id)).size, lessons.length, 'lesson ids must be unique')
 })
 
@@ -43,3 +46,20 @@ test('academy foundation includes security, point products, accounting, and Mark
   assert.ok(lessons.some(lesson => lesson.product === 'marketsync_os'))
 })
 
+test('every paid feature has at least one training lesson', () => {
+  const covered = new Set(lessons.flatMap(lesson => lesson.features || []))
+  for (const feature of Object.values(FEATURES_BY_PRODUCT).flat()) {
+    assert.ok(covered.has(feature), `training catalog does not cover ${feature}`)
+  }
+})
+
+test('academy renders an HTML/CSS visual walkthrough for every lesson', async () => {
+  const [html, js] = await Promise.all([
+    readFile(new URL('../../marketplace-frontend/training.html', import.meta.url), 'utf8'),
+    readFile(new URL('../../marketplace-frontend/training.js', import.meta.url), 'utf8'),
+  ])
+  assert.match(html, /training-screen-grid/)
+  assert.match(js, /function lessonVisual\(lesson\)/)
+  assert.match(js, /rendered from HTML\/CSS/)
+  assert.match(js, /catalog-expanded\.json/)
+})
