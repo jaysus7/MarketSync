@@ -3063,7 +3063,12 @@
       </div>
     </div>
     <div id="ai-dock-messages" class="flex-1 overflow-y-auto px-3.5 py-3 space-y-3 text-sm"></div>
+    <div id="ai-dock-file-status" class="hidden border-t border-slate-200 dark:border-slate-800 px-3 py-2 text-xs text-slate-600 dark:text-slate-300 bg-indigo-50 dark:bg-indigo-950/30"></div>
     <form id="ai-dock-form" class="border-t border-slate-200 dark:border-slate-800 p-2.5 flex items-end gap-2">
+      <input id="ai-dock-file" type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.txt,.md,.csv,.json,.rtf" class="hidden">
+      <button id="ai-dock-attach" type="button" title="Attach a commission plan PDF or document" class="flex-shrink-0 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition" aria-label="Attach commission plan document">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m20.5 11.5-8.8 8.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+      </button>
       <textarea id="ai-dock-input" rows="1" placeholder="Ask about your lot, leads, pricing…" class="flex-1 resize-none max-h-28 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
       <button id="ai-dock-send" type="submit" class="flex-shrink-0 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white p-2 rounded-lg transition" aria-label="Send">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></svg>
@@ -3416,7 +3421,7 @@
 
   <!-- Bump this revision whenever dashboard.js changes so an already-open browser
        cannot reuse an older bundle from its cache after a staging deployment. -->
-  <script src="dashboard.js?v=20260804r"></script>
+  <script src="dashboard.js?v=20260805a"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

@@ -2412,19 +2412,20 @@ function loadPdfJs() {
   });
   return __pdfjsPromise;
 }
-async function extractPdfText(file) {
+async function extractPdfText(file, options = {}) {
   const pdfjs = await loadPdfJs();
   const buf = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: buf }).promise;
   let out = '';
-  const maxPages = Math.min(pdf.numPages, 40);
+  const maxPages = Math.min(pdf.numPages, Number(options.maxPages) > 0 ? Number(options.maxPages) : 40);
+  const maxChars = Number(options.maxChars) > 0 ? Number(options.maxChars) : 20000;
   for (let i = 1; i <= maxPages; i++) {
     const page = await pdf.getPage(i);
     const tc = await page.getTextContent();
     out += tc.items.map(it => it.str).join(' ') + '\n';
-    if (out.length > 20000) break;
+    if (out.length > maxChars) break;
   }
-  return out;
+  return out.slice(0, maxChars);
 }
 
 async function openVinScanner(targetId, afterFill) {
@@ -22363,7 +22364,7 @@ async function openAiHistory() {
         <span class="text-[11px] text-slate-400">${esc(fmt(c.created_at))}${Array.isArray(c.tools) && c.tools.length ? ' · ' + esc(c.tools.join(', ')) : ''}</span>
       </div>
       <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 whitespace-pre-wrap break-words">${esc(c.question || '')}</div>
-      ${c.answer ? `<div class="text-sm text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-wrap break-words">${esc(c.answer)}</div>` : ''}
+      ${c.answer ? `<div class="text-sm text-slate-600 dark:text-slate-300 mt-1 break-words">${aiDockRichText(c.answer)}</div>` : ''}
     </div>`).join('') : '<div class="py-10 text-center text-sm text-slate-400 italic">No assistant questions logged yet.</div>';
   if (body()) body().innerHTML = `
     <div class="flex items-center justify-between mb-3">
@@ -25056,7 +25057,55 @@ document.addEventListener('DOMContentLoaded', () => {
 // updateAiDockVisibility() call in loadAIBoostSection().
 let aiDockMessages = [];
 let aiDockBusy = false;
+let aiDockPendingCommissionImport = null;
 let __aiAssistantName = 'MarketSync';   // dealer-set internal assistant name
+
+// Safe, small Markdown renderer for assistant replies. The previous textContent
+// rendering exposed **, #, and list markers to users. Escape first, then recognize
+// only a narrow readable subset; arbitrary HTML from the model can never execute.
+function aiDockInline(text) {
+  const links = [];
+  const raw = String(text == null ? '' : text).replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_match, label, href) => {
+    try {
+      const url = new URL(href);
+      if (!['http:', 'https:'].includes(url.protocol)) return label;
+      const token = `@@AI_LINK_${links.length}@@`;
+      links.push(`<a href="${esc(url.href)}" target="_blank" rel="noopener" class="underline text-indigo-600 dark:text-indigo-400">${esc(label)}</a>`);
+      return token;
+    } catch { return `${label} (${href})`; }
+  });
+  let s = esc(raw);
+  s = s.replace(/`([^`]+)`/g, '<code class="bg-slate-200/70 dark:bg-slate-700 px-1 py-0.5 rounded text-[.92em]">$1</code>');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  s = s.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, '$1<em>$2</em>');
+  s = s.replace(/@@AI_LINK_(\d+)@@/g, (_match, index) => links[Number(index)] || '');
+  return s;
+}
+function aiDockRichText(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const out = []; let list = null; let para = [];
+  const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  const flushPara = () => { if (para.length) { out.push(`<p class="mb-2 last:mb-0">${para.map(aiDockInline).join('<br>')}</p>`); para = []; } };
+  for (const raw of lines) {
+    const line = raw.trim(); let match;
+    if (!line) { flushPara(); closeList(); continue; }
+    if (/^```[a-z0-9_-]*$/i.test(line)) { flushPara(); closeList(); continue; }
+    if (/^([-*_])\1{2,}$/.test(line)) { flushPara(); closeList(); out.push('<hr class="my-2 border-slate-300 dark:border-slate-700">'); continue; }
+    if ((match = line.match(/^#{1,6}\s+(.*)$/))) { flushPara(); closeList(); out.push(`<div class="font-bold mt-2 mb-1">${aiDockInline(match[1])}</div>`); continue; }
+    if ((match = line.match(/^[-*•]\s+(.*)$/))) {
+      flushPara(); if (list !== 'ul') { closeList(); out.push('<ul class="list-disc pl-5 my-2 space-y-1">'); list = 'ul'; }
+      out.push(`<li>${aiDockInline(match[1])}</li>`); continue;
+    }
+    if ((match = line.match(/^\d+[.)]\s+(.*)$/))) {
+      flushPara(); if (list !== 'ol') { closeList(); out.push('<ol class="list-decimal pl-5 my-2 space-y-1">'); list = 'ol'; }
+      out.push(`<li>${aiDockInline(match[1])}</li>`); continue;
+    }
+    closeList(); para.push(line);
+  }
+  flushPara(); closeList();
+  return out.join('') || aiDockInline(text);
+}
 
 // Rename the "Ask MarketSync" dock (launcher, header, greeting) to the dealer's
 // chosen assistant name. Falls back to "MarketSync" when blank.
@@ -25153,6 +25202,9 @@ function updateAiDockVisibility() {
   // Launcher hides while the panel is open, or when not entitled.
   btn.classList.toggle('hidden', !show || panelOpen);
   if (!show && panel) panel.classList.add('hidden');
+  const attach = document.getElementById('ai-dock-attach');
+  const canImportCommission = profileContext?.workspace !== 'saas_admin' && ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(profileContext?.role);
+  if (attach) attach.classList.toggle('hidden', !canImportCommission);
 }
 
 function renderAiDockMessages() {
@@ -25176,6 +25228,7 @@ function renderAiDockMessages() {
       // Lookups need a name/stock #, so these chips pre-fill the box instead of sending.
       `<button type="button" data-ai-fill="What's the status on " class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">Look up a customer…</button>` +
       `<button type="button" data-ai-fill="What's the story on stock #" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">Look up a vehicle…</button>` +
+      (isMgr ? `<button type="button" data-ai-attach="1" class="text-xs bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 rounded-full px-3 py-1.5 text-indigo-700 dark:text-indigo-300 transition">Build commission plan from a document…</button>` : '') +
       '</div>';
     box.appendChild(intro);
   }
@@ -25185,8 +25238,9 @@ function renderAiDockMessages() {
     const bubble = document.createElement('div');
     bubble.className = m.role === 'user'
       ? 'max-w-[85%] bg-indigo-600 text-white rounded-2xl rounded-br-sm px-3.5 py-2 whitespace-pre-wrap break-words'
-      : 'max-w-[85%] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl rounded-bl-sm px-3.5 py-2 whitespace-pre-wrap break-words';
-    bubble.textContent = m.content;
+      : 'max-w-[85%] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl rounded-bl-sm px-3.5 py-2 break-words leading-relaxed';
+    if (m.role === 'user') bubble.textContent = m.content;
+    else bubble.innerHTML = aiDockRichText(m.content);
     row.appendChild(bubble);
     // Agentic action: a confirm chip under the assistant bubble (nothing runs until clicked).
     if (m.role === 'assistant' && m.action && !m.action_done) {
@@ -25196,6 +25250,7 @@ function renderAiDockMessages() {
       else if (a.action === 'bulk_outreach') label = `✉️ Set up: "${a.instruction}"`;
       else if (a.action === 'book_appointment') { let w = a.when_iso; try { w = new Date(a.when_iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch {} label = `📅 Book appointment — ${a.customer} (${w})`; }
       else if (a.action === 'reassign_lead') label = `🔄 Reassign ${a.customer} → ${a.to_rep}`;
+      else if (a.action === 'review_commission_plans') label = 'Review commission-plan drafts';
       const wrap = document.createElement('div');
       wrap.className = 'mt-1.5 flex items-center gap-2';
       wrap.innerHTML = `<button onclick="aiDockRunAction(${idx})" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg">${esc(label)}</button><button onclick="aiDockCancelAction(${idx})" class="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">Cancel</button>`;
@@ -25203,7 +25258,7 @@ function renderAiDockMessages() {
     } else if (m.role === 'assistant' && m.action_done) {
       const done = document.createElement('div');
       done.className = 'mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400';
-      done.textContent = m.action_done === 'handoff' ? '✓ Opened — review & send' : '✓ Done';
+      done.textContent = m.action_done === 'handoff' ? '✓ Opened for review' : '✓ Done';
       row.appendChild(done);
     }
     box.appendChild(row);
@@ -25220,9 +25275,99 @@ function renderAiDockMessages() {
   box.scrollTop = box.scrollHeight;
 }
 
+let __mammothPromise = null;
+function loadMammothJs() {
+  if (window.mammoth) return Promise.resolve(window.mammoth);
+  if (__mammothPromise) return __mammothPromise;
+  __mammothPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.9.1/mammoth.browser.min.js';
+    script.onload = () => window.mammoth ? resolve(window.mammoth) : reject(new Error('Word document reader did not load'));
+    script.onerror = () => { __mammothPromise = null; reject(new Error('Word document reader did not load')); };
+    document.head.appendChild(script);
+  });
+  return __mammothPromise;
+}
+function aiDockRtfText(raw) {
+  return String(raw || '')
+    .replace(/\\par[d]?\b/g, '\n')
+    .replace(/\\'[0-9a-f]{2}/gi, match => { try { return String.fromCharCode(parseInt(match.slice(2), 16)); } catch { return ' '; } })
+    .replace(/\\[a-z]+-?\d*\s?/gi, '')
+    .replace(/[{}]/g, '')
+    .replace(/\n{3,}/g, '\n\n');
+}
+async function readAiCommissionFile(file) {
+  if (!file) throw new Error('Choose a commission plan document.');
+  if (file.size > 8 * 1024 * 1024) throw new Error('Keep the commission document under 8 MB.');
+  const lower = file.name.toLowerCase();
+  let text = '';
+  if (lower.endsWith('.pdf')) text = await extractPdfText(file, { maxChars: 60000, maxPages: 80 });
+  else if (lower.endsWith('.docx')) {
+    const mammoth = await loadMammothJs();
+    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    text = result?.value || '';
+  } else if (lower.endsWith('.rtf')) text = aiDockRtfText(await file.text());
+  else if (/\.(txt|md|csv|json)$/i.test(lower) || /^text\//i.test(file.type || '')) text = await file.text();
+  else if (lower.endsWith('.doc')) throw new Error('Older .doc files are not supported. Save it as DOCX or PDF, then drop it here.');
+  else throw new Error('Use a PDF, DOCX, RTF, TXT, Markdown, CSV, or JSON document.');
+  text = String(text || '').replace(/[ \t]{3,}/g, ' ').replace(/\n{4,}/g, '\n\n').trim().slice(0, 60000);
+  if (text.length < 80) throw new Error('I could not read enough text. Use a text-based PDF or DOCX, or paste the plan into chat.');
+  return text;
+}
+function setAiDockFileStatus(message, kind = 'info') {
+  const status = document.getElementById('ai-dock-file-status');
+  if (!status) return;
+  if (!message) { status.textContent = ''; status.classList.add('hidden'); return; }
+  status.textContent = message;
+  status.className = `border-t px-3 py-2 text-xs ${kind === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300' : kind === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300' : 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-300'}`;
+}
+async function sendAiCommissionImport(file, answers = '') {
+  if (aiDockBusy) return;
+  let state = aiDockPendingCommissionImport;
+  try {
+    if (file) {
+      setAiDockFileStatus(`Reading ${file.name}…`);
+      const text = await readAiCommissionFile(file);
+      state = { name: file.name, text, questions: [] };
+      aiDockPendingCommissionImport = state;
+      aiDockMessages.push({ role: 'user', content: `Attached commission plan: ${file.name}` });
+    } else if (state && answers.trim()) {
+      aiDockMessages.push({ role: 'user', content: answers.trim() });
+    } else return;
+    aiDockBusy = true;
+    setAiDockFileStatus(`Building an inactive commission-plan draft from ${state.name}…`);
+    renderAiDockMessages();
+    const response = await fetch(`${API}/ai/assistant/commission-plan-import`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: state.name, text: state.text, questions: state.questions || [], answers: answers.trim() }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Could not build the commission plan.');
+    aiDockMessages.push({ role: 'assistant', content: data.reply || 'The commission document was processed.', action: data.action || null });
+    if (data.status === 'needs_clarification') {
+      aiDockPendingCommissionImport = { ...state, questions: data.questions || [] };
+      setAiDockFileStatus('Answer the important question in chat. I will build the draft from your answer.');
+    } else {
+      aiDockPendingCommissionImport = null;
+      setAiDockFileStatus('Inactive commission-plan draft created. Review it before activation or assignment.', 'success');
+    }
+  } catch (error) {
+    aiDockMessages.push({ role: 'assistant', content: error.message || 'Could not read that commission document.' });
+    setAiDockFileStatus(error.message || 'Could not read that commission document.', 'error');
+    if (file) aiDockPendingCommissionImport = null;
+  } finally {
+    aiDockBusy = false;
+    const input = document.getElementById('ai-dock-input');
+    if (input) { input.value = ''; input.style.height = 'auto'; }
+    renderAiDockMessages();
+  }
+}
+
 async function sendAiDock(text) {
   text = (text || '').trim();
   if (!text || aiDockBusy) return;
+  if (aiDockPendingCommissionImport) return sendAiCommissionImport(null, text);
   aiDockMessages.push({ role: 'user', content: text });
   aiDockBusy = true;
   renderAiDockMessages();
@@ -25267,6 +25412,11 @@ async function aiDockRunAction(idx) {
       m.action_done = 'done';
       aiDockMessages.push({ role: 'assistant', content: r.message || 'Done ✓' });
       showToast(r.message || 'Done ✓', 'success');
+    } else if (a.action === 'review_commission_plans') {
+      m.action_done = 'handoff';
+      closeAiDock();
+      switchPage('acct-settings');
+      setTimeout(() => document.getElementById('acct-comm-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
     }
   } catch (e) { showToast(e.message || 'Could not do that', 'error'); return; }
   renderAiDockMessages();
@@ -25301,11 +25451,28 @@ function initAiDock() {
   document.getElementById('ai-dock-close')?.addEventListener('click', closeAiDock);
   document.getElementById('ai-dock-clear')?.addEventListener('click', () => {
     aiDockMessages = [];
+    aiDockPendingCommissionImport = null;
+    setAiDockFileStatus('');
     renderAiDockMessages();
     document.getElementById('ai-dock-input')?.focus();
   });
   const form = document.getElementById('ai-dock-form');
   const input = document.getElementById('ai-dock-input');
+  const fileInput = document.getElementById('ai-dock-file');
+  document.getElementById('ai-dock-attach')?.addEventListener('click', () => fileInput?.click());
+  fileInput?.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (file) sendAiCommissionImport(file);
+    fileInput.value = '';
+  });
+  const panel = document.getElementById('ai-dock-panel');
+  panel?.addEventListener('dragover', (e) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; panel.classList.add('ring-2', 'ring-indigo-500'); });
+  panel?.addEventListener('dragleave', (e) => { if (!panel.contains(e.relatedTarget)) panel.classList.remove('ring-2', 'ring-indigo-500'); });
+  panel?.addEventListener('drop', (e) => {
+    e.preventDefault(); panel.classList.remove('ring-2', 'ring-indigo-500');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) sendAiCommissionImport(file);
+  });
   form?.addEventListener('submit', (e) => { e.preventDefault(); sendAiDock(input?.value); });
   input?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiDock(input.value); }
@@ -25323,6 +25490,8 @@ function initAiDock() {
       const input = document.getElementById('ai-dock-input');
       if (input) { input.value = fill.getAttribute('data-ai-fill'); input.focus(); input.dispatchEvent(new Event('input')); }
     }
+    const attach = e.target.closest('[data-ai-attach]');
+    if (attach) fileInput?.click();
   });
 }
 document.addEventListener('DOMContentLoaded', initAiDock);
