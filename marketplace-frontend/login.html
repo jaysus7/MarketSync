@@ -101,6 +101,17 @@
       localStorage.setItem('ms_remember_until', String(Date.now() + days * 86400000));
     }
 
+    async function fetchWithRetry(url, options, retries = 2) {
+      for (let i = 0; i <= retries; i++) {
+        try {
+          return await fetch(url, options);
+        } catch (err) {
+          if (i === retries) throw new Error('Server connection taking a moment. Please click Sign In again in a few seconds.');
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      }
+    }
+
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('submit-btn');
@@ -109,7 +120,7 @@
       errBox.classList.add('hidden');
 
       try {
-        const res = await fetch(`${API}/auth/login`, {
+        const res = await fetchWithRetry(`${API}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
