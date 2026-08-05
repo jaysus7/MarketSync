@@ -276,10 +276,11 @@
       <button id="fb-post-btn" onclick="postToFacebook()" title="Post inventory to Facebook Marketplace" class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-blue-600 shadow-sm shadow-blue-500/40 transition whitespace-nowrap"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Post to Facebook</button>
       <button id="idscan-btn" onclick="identityScan()" title="Add a customer — scan their driver's licence to fill in all the details" class="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-teal-600 shadow-sm shadow-teal-500/40 transition whitespace-nowrap"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6"/></svg>Add customer</button>
       <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="hidden bg-purple-600 hover:bg-purple-500 text-white px-2.5 sm:px-3 py-1.5 rounded text-sm sm:text-xs font-bold border border-purple-600 shadow-sm shadow-purple-500/40 transition whitespace-nowrap">Install extension</a>
-      <!-- How-to guide -->
-      <button type="button" id="guide-btn" onclick="openGuideModal()" title="How-to guide — learn every feature" aria-label="How-to guide" class="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition">
+      <!-- Role/plan-aware internal Training Academy -->
+      <a id="training-btn" href="/training.html" title="Training Academy — step-by-step help" aria-label="Training Academy" class="inline-flex items-center gap-1.5 p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition">
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 640 512"><path d="M320 32c-8.1 0-16.1 1.4-23.7 4.1L15.8 137.4C6.3 140.9 0 149.9 0 160s6.3 19.1 15.8 22.6l57.9 20.9C57.3 229.3 48 259.8 48 292.6l0 3.4c0 28.6-8.9 57.1-25.1 82.9c-6.8 10.9-8.4 24.4-4.3 36.6c4 12.1 13.2 21.9 25.1 26.6l7 2.8c-3.5 27.6-13.3 51.9-26.5 71.6c-3.3 4.9-3.6 11.2-.8 16.4c2.8 5.2 8.2 8.5 14.2 8.5l72 0c6 0 11.4-3.3 14.2-8.5c2.8-5.2 2.5-11.5-.8-16.4c-13.2-19.7-23-44-26.5-71.6l7-2.8c11.9-4.7 21.1-14.5 25.1-26.6c4.1-12.2 2.5-25.7-4.3-36.6C121 353.1 112 324.6 112 296l0-3.4c0-27 7.6-52.5 20.9-74.4l163.4 59c7.6 2.7 15.6 4.1 23.7 4.1s16.1-1.4 23.7-4.1L624.2 182.6c9.5-3.5 15.8-12.5 15.8-22.6s-6.3-19.1-15.8-22.6L343.7 36.1C336.1 33.4 328.1 32 320 32zM178.3 315.9L160 320l0 80c0 44.2 71.6 80 160 80s160-35.8 160-80l0-80-18.3-4.1L343.7 356c-7.6 2.7-15.6 4.1-23.7 4.1s-16.1-1.4-23.7-4.1l-118-40.1z"/></svg>
-      </button>
+        <span class="hidden xl:inline text-xs font-bold">Training</span>
+      </a>
       <!-- Upgrades / add-ons hub -->
       <button id="open-upgrades" onclick="openUpgradesHub()" title="Upgrades & add-ons" aria-label="Upgrades and add-ons" class="relative p-1.5 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/40 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1L12 3z"/></svg>
@@ -318,7 +319,7 @@
     </aside>
   </div>
 
-  <main class="flex-1 w-full p-4 sm:p-6 lg:p-8 flex flex-col md:grid md:grid-cols-[248px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-4 md:gap-8 min-h-0 overflow-hidden">
+  <main class="flex-1 w-full p-5 sm:p-7 lg:p-10 flex flex-col md:grid md:grid-cols-[248px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-5 md:gap-10 min-h-0 overflow-hidden">
 
     <section class="flex flex-col shrink-0 md:col-span-1 md:h-full md:min-h-0 md:overflow-y-auto">
 
@@ -738,12 +739,12 @@
           </div>
 
           <div id="security-section" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Keep Your Account Safe</h3>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Multi-factor authentication (MFA) &amp; account security</h3>
 
             <!-- ─── Extra login code (2FA) ─────────────────────────────── -->
             <div id="mfa-status-row" class="flex items-start justify-between gap-2 mb-3">
               <div class="flex-1">
-                <div class="text-xs font-bold text-slate-900 dark:text-white">Extra Login Code</div>
+                <div class="text-xs font-bold text-slate-900 dark:text-white">Multi-factor authentication (MFA)</div>
                 <div id="mfa-status-text" class="text-xs text-slate-500 leading-snug mt-0.5">Loading…</div>
               </div>
               <button id="mfa-toggle-btn" class="text-xs font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap">Turn On</button>
@@ -763,6 +764,28 @@
                 class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5 text-base text-center font-mono mb-2 tracking-widest">
               <button id="mfa-enroll-verify-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded">Turn It On</button>
               <div id="mfa-enroll-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
+            </div>
+
+            <!-- Native Supabase Phone MFA (requires Phone MFA + SMS provider in the project). -->
+            <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3 mb-3">
+              <div class="flex items-start justify-between gap-3">
+                <div><div class="text-xs font-bold text-slate-900 dark:text-white">Text-message code</div><div id="phone-mfa-status" class="text-xs text-slate-500 mt-0.5">Add a verified mobile number as another true MFA method.</div></div>
+                <button id="phone-mfa-start" class="text-xs font-bold px-3 py-1.5 rounded border border-indigo-300 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300 whitespace-nowrap">Set up</button>
+              </div>
+              <div id="phone-mfa-enroll" class="hidden mt-3 space-y-2">
+                <input id="phone-mfa-number" type="tel" autocomplete="tel" placeholder="+19055551234" class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-2 text-sm">
+                <p class="text-[10px] text-slate-500">Include country code. MarketSync uses Supabase Phone MFA and the configured SMS provider.</p>
+                <button id="phone-mfa-send" class="w-full rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2">Send verification text</button>
+              </div>
+              <div id="phone-mfa-verify" class="hidden mt-3 space-y-2">
+                <input id="phone-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="Verification code" class="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-2 text-center text-base font-mono tracking-widest">
+                <button id="phone-mfa-confirm" class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2">Verify and turn on</button>
+              </div>
+              <div id="phone-mfa-error" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></div>
+            </div>
+
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-3 mb-3 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
+              <strong class="text-slate-800 dark:text-slate-200">About the other sign-in choices:</strong> Passkeys are available below for fingerprint/face passwordless sign-in. Email codes are a first sign-in factor, and voice-call codes are not a native Supabase MFA method, so MarketSync does not falsely label either one as completed MFA.
             </div>
 
             <!-- ─── Backup codes shown ONCE after enrollment ─────────────── -->
@@ -1170,7 +1193,7 @@
     <section class="w-full md:col-span-1 min-w-0 flex-1 md:flex-none min-h-0 overflow-y-auto md:h-full md:overflow-y-auto">
       <!-- Full-width scroll region (scrollbar hugs the screen edge); an inner
            wrapper caps the readable content width so nothing sprawls edge-to-edge. -->
-      <div class="w-full md:max-w-[1450px]">
+      <div class="w-full md:max-w-[1450px] pt-3 sm:pt-5 lg:pt-6 pb-4">
 
       <!-- Department tab-bar — when the active page belongs to a multi-page
            department (Sales, Service, …), its sibling pages appear here as tabs.
@@ -1205,6 +1228,7 @@
         <div id="settings-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none -mx-1 px-1">
           <button data-stab="team" data-admin-only onclick="settingsTab('team')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Team</button>
           <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Account</button>
+          <button data-stab="security" onclick="settingsTab('security')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">MFA &amp; Security</button>
           <button data-stab="branding" data-dealer-only onclick="settingsTab('branding')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Branding</button>
           <button data-stab="language" onclick="settingsTab('language')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Language</button>
           <button data-stab="billing" onclick="settingsTab('billing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Billing</button>
@@ -1212,7 +1236,6 @@
           <button data-stab="group" data-admin-only onclick="settingsTab('group')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Dealer Group</button>
           <button data-stab="dealermgmt" data-admin-only onclick="settingsTab('dealermgmt')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Dealer Management</button>
           <button data-stab="integrations" data-admin-only onclick="settingsTab('integrations')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Integrations</button>
-          <button data-stab="security" onclick="settingsTab('security')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Security</button>
         </div>
 
         <!-- These tab sections flow into two columns on wide screens (settings-cols);
@@ -3374,7 +3397,7 @@
 
   <!-- Bump this revision whenever dashboard.js changes so an already-open browser
        cannot reuse an older bundle from its cache after a staging deployment. -->
-  <script src="dashboard.js?v=20260804e"></script>
+  <script src="dashboard.js?v=20260804r"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

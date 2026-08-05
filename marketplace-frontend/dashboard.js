@@ -816,6 +816,14 @@ const PRODUCT_HOME = { facebook_solo: 'leaderboard', facebook_dealer: 'leaderboa
 // just the leaderboard (no full dealer dashboard).
 const FB_PRODUCTS = new Set(['facebook_solo', 'facebook_dealer']);
 let __productAllowedPages = null;   // Set of reachable pages under a restricted product, else null
+
+// The standalone AI Chatbot plan deliberately has a smaller surface than DealerOS.
+// It must never show the internal "Ask MarketSync" assistant controls — that is a
+// separate employee tool, not something a chatbot-only customer bought.
+function isAiChatbotOnlyWorkspace() {
+  const products = document.documentElement.getAttribute('data-product') || '';
+  return /(?:^|\s)ai_chatbot(?:\s|$)/.test(products) && !/(?:^|\s)dealer_os(?:\s|$)/.test(products);
+}
 let __productHome = null;           // Where a product-restricted tier lands / bounces to
 
 // ── Access-context helpers (frontend mirror of the backend access service) ────
@@ -999,9 +1007,13 @@ window.renderCurrentPlanBox = renderCurrentPlanBox;
 function applyProductNav(products) {
   products = products || {};
   // The "Post to Facebook" header button belongs to the dealer tiers (Facebook Dealer
-  // and the full DealerOS bundle). Facebook SOLO is deliberately minimal — Inventory +
-  // Leaderboard only, posting via the browser extension — so the button is hidden for it.
-  const showFbPost = !!(products.dealer_os || products.facebook_dealer);
+  // and DealerOS Pro, which includes Facebook). It must not leak into Starter/Growth
+  // merely because they are DealerOS accounts.
+  const access = window.__access;
+  const planFallback = typeof dealerPlanFallback === 'function' ? dealerPlanFallback() : null;
+  const showFbPost = !!products.facebook_dealer
+    || !!(access && (access.isPlatformStaff || (access.products || []).includes('facebook')))
+    || !!planFallback?.products?.has('facebook');
   document.getElementById('fb-post-btn')?.classList.toggle('hidden', !showFbPost);
   // DealerOS (or nothing set) → the full department sidebar; clear any restriction.
   if (products.dealer_os) { __productAllowedPages = null; __productHome = null; document.documentElement.removeAttribute('data-product'); applyMobileQuickRow(); return; }
@@ -1096,7 +1108,7 @@ function restrictedNavPages() {
   const INV = (label) => ({ page: 'inventory', label, icon: 'megaphone', invmode: 'facebook' });
   const LEADER = { page: 'leaderboard', label: 'Leaderboard', icon: 'trophy' };
   const SALES_REPS = { page: 'sales-team', label: 'Sales Reps', icon: 'user' };
-  const AI = { page: 'ai-home', label: 'AI Dealer', icon: 'sparkles' };
+  const AI = { page: 'ai-home', label: 'AI Chatbot', icon: 'sparkles' };
 
   if (/facebook_dealer/.test(product)) {
     return canManageTeam ? [INV('Inventory'), SALES_REPS, LEADER] : [INV('My Inventory'), LEADER];
@@ -1346,6 +1358,14 @@ async function initializeDashboardEcosystem() {
 
     profileContext = await res.json();
     clearTimeout(timeoutId);
+
+    // `/auth/me` carries the safe, normalized entitlement summary too. Use it first
+    // so plan-aware navigation is available even if the follow-up request hits a
+    // transient Render cold start; /access/context below refreshes the same snapshot
+    // when it succeeds.
+    if (profileContext?.access && Array.isArray(profileContext.access.features)) {
+      window.__access = profileContext.access;
+    }
 
     // Normalized access context (products / entitled features / permissions / defaultRoute)
     // from the central authorization service — the SINGLE source both desktop and mobile
@@ -1931,15 +1951,16 @@ let __activeDept = null;
 let __currentPage = null;
 
 // ── Plan-tier feature gating for the Dealer OS department nav ─────────────────
-// Maps a nav page → the access-context feature that must be entitled for it to show.
-// This is what makes a Starter account NOT see Accounting/Service/Website while Pro
-// sees everything — driven by the plan's entitlements (/access/context.features), the
-// same truth the API + RLS enforce. Only the higher-tier pages are listed; unmapped
-// pages stay visible and fall through to the existing role / legacy-flag gating.
+// Maps every DealerOS nav page → the access-context entitlement required for it to
+// show. This makes each plan's sidebar match the plan catalog instead of treating
+// every DealerOS account as Pro.
 const PAGE_FEATURE = {
+  command: 'os.dashboard', insights: 'os.dashboard',
+  crm: 'os.crm', leads: 'os.crm', appointments: 'os.crm', tasks: 'os.crm',
+  appraisal: 'os.crm', equity: 'os.crm',
+  inventory: 'os.inventory', recon: 'os.inventory',
   accounting: 'os.accounting',
   'service-ros': 'os.service', 'service-appointments': 'os.service', 'service-parts': 'os.service',
-  recon: 'os.service',
   website: 'os.website',
   'automation-builder': 'os.automations', operations: 'os.automations', taskboard: 'os.automations',
   'email-marketing': 'os.email_marketing',
@@ -1947,28 +1968,66 @@ const PAGE_FEATURE = {
   reports: 'os.reports',
   'inv-intel': 'os.inventory', market: 'os.inventory',
   'ai-home': 'os.marketing',
+  'api-keys': 'os.integrations',
+  'owner-users': 'os.team', 'sales-team': 'os.team',
+  config: 'os.settings',
+};
+const PAGE_PRODUCT = { leaderboard: 'facebook' };
+// The dealership record also carries its server-authored package name. This fallback
+// keeps the DealerOS menu stable during an access-context retry/cold start; it only
+// affects navigation presentation — API permissions remain enforced on the server.
+const DEALER_OS_PLAN_FEATURES = {
+  starter: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings']),
+  growth: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.reports', 'os.team', 'os.settings', 'os.sales', 'os.accounting', 'os.marketing', 'os.website', 'os.automations', 'os.integrations']),
+  pro: new Set(['os.dashboard', 'os.crm', 'os.inventory', 'os.sales', 'os.accounting', 'os.service', 'os.marketing', 'os.website', 'os.reports', 'os.automations', 'os.email_marketing', 'os.integrations', 'os.team', 'os.settings', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings']),
+};
+function dealerPlanFallback() {
+  const plan = String(profileContext?.plan || profileContext?.dealership?.plan || '').toLowerCase();
+  const features = DEALER_OS_PLAN_FEATURES[plan];
+  if (!features) return { features: null, products: null };
+  return { features, products: plan === 'pro' ? new Set(['dealer_os', 'facebook', 'ai_dealer']) : new Set(['dealer_os']) };
+}
+// Dealer-controlled switches are a second visibility layer after the paid plan.
+// Keep this mapping page-based rather than deriving it from the legacy sidebar DOM:
+// the department nav is its own renderer and must not disappear merely because the
+// old nested menu happens to be collapsed or hidden for presentation reasons.
+const PAGE_DEALER_FLAG = {
+  website: 'website',
+  'automation-builder': 'automation', operations: 'automation', taskboard: 'automation',
+  equity: 'equity',
+  appraisal: 'appraisals',
+  reports: 'reports',
+  'inv-intel': 'inv_intel', market: 'inv_intel',
 };
 // True unless this page maps to a feature the plan doesn't include. Scoped to full
 // Dealer OS mode: restricted product tiers (Facebook / AI) use their own page sets, and
 // window.hasFeature fails OPEN when /access/context is unavailable, so legacy accounts
 // and an older backend are never over-filtered.
-function pageFeatureOk(pg) {
+function pageFeatureOk(pg, invmode = null) {
   if (__productAllowedPages || __fbOnly) return true;   // restricted tiers handled by product nav
+  const access = window.__access;
+  const fallback = dealerPlanFallback();
+  const requiredProduct = (pg === 'inventory' && (invmode || __inventoryMode) === 'facebook')
+    ? 'facebook' : PAGE_PRODUCT[pg];
+  if (requiredProduct) {
+    // The entitlement context is derived server-side from live subscription rows. Until
+    // it is available, do not advertise an add-on as part of a lower DealerOS plan.
+    return !!((access && (access.isPlatformStaff || (access.products || []).includes(requiredProduct)))
+      || fallback.products?.has(requiredProduct));
+  }
   const feat = PAGE_FEATURE[pg];
   if (!feat) return true;
-  return typeof window.hasFeature === 'function' ? window.hasFeature(feat) : true;
+  return !!((access && (access.isPlatformStaff || (access.features || []).includes(feat)))
+    || fallback.features?.has(feat));
 }
 
 // Is a page reachable for this user? Respect the per-item gating that product /
 // role / feature flags apply by toggling the `hidden` class on nav items.
-function deptPageVisible(pg) {
-  if (!pageFeatureOk(pg)) return false;   // plan-tier entitlement gate
+function deptPageVisible(pg, invmode = null) {
+  if (!pageFeatureOk(pg, invmode)) return false;   // plan-tier entitlement gate
   if (__staffAllowedPages && !__staffAllowedPages.has(pg)) return false;
-  const els = document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${pg}"]`);
-  if (!els.length) return true;   // no nav item (e.g. sub-view) — don't over-filter
-  // A page is reachable only if a nav item for it is neither role/entitlement-hidden
-  // (`hidden`) nor feature-flag-off (`ff-off`).
-  return [...els].some(el => !el.classList.contains('hidden') && !el.classList.contains('ff-off'));
+  const dealerFlag = PAGE_DEALER_FLAG[pg];
+  return !dealerFlag || __featureFlags?.[dealerFlag] !== false;
 }
 function renderDeptTabbar(pageId) {
   const bar = document.getElementById('dept-tabbar');
@@ -2043,18 +2102,13 @@ function deptNavEligible(role) {
     && __productAllowedPages == null;
 }
 // A page the current user may actually open: role-allowed AND not entitlement/flag hidden.
-function deptPageAllowed(p) { return deptRoleOk(p) && deptPageVisible(p.page); }
+function deptPageAllowed(p) { return deptRoleOk(p) && deptPageVisible(p.page, p.invmode); }
 function deptHomePage(dept) { return dept.pages.find(deptPageAllowed) || dept.pages.find(deptRoleOk) || dept.pages[0]; }
-// A page "counts" toward department visibility only if the user's role may see it AND
-// it has a real nav item that isn't gated off — pages without their own nav item
-// (e.g. accounting) fall through to the department's `probe`/`always`.
+// A department is present when it has one page the user's role and plan both permit.
+// Do not inspect the old nested sidebar here: it is merely a legacy presentation tree
+// and its hidden/collapsed classes are not an entitlement signal.
 function deptHasRealPage(dept) {
-  return dept.pages.some(p => {
-    if (!deptRoleOk(p)) return false;
-    if (!pageFeatureOk(p.page)) return false;   // plan-tier entitlement gate
-    const els = document.querySelectorAll(`#dashboard-nav .nav-item[data-page="${p.page}"]`);
-    return els.length && [...els].some(el => !el.classList.contains('hidden') && !el.classList.contains('ff-off'));
-  });
+  return dept.pages.some(deptPageAllowed);
 }
 function deptVisible(dept) {
   if (!deptRoleOk(dept)) return false;   // role gate first (managers-only departments)
@@ -10644,15 +10698,17 @@ let __aiHomeTab = 'overview';
 async function loadAiHome(tab) {
   const root = document.getElementById('ai-home-root');
   if (!root) return;
+  root.className = 'space-y-6 sm:space-y-8';
   if (tab) __aiHomeTab = tab;
   const t = __aiHomeTab;
   const tabBtn = (key, label) => `<button onclick="loadAiHome('${key}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${t === key ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${esc(label)}</button>`;
+  const standalone = isAiChatbotOnlyWorkspace();
   root.innerHTML = `
     <div class="flex items-center justify-between flex-wrap gap-2">
-      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Your AI Employee</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Your website chatbot — capturing and qualifying leads around the clock.</p></div>
+      <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">${standalone ? 'AI Chatbot Dashboard' : 'Your AI Employee'}</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">${standalone ? 'Everything your website chatbot is doing — conversations, leads, knowledge and setup.' : 'Your website chatbot — capturing and qualifying leads around the clock.'}</p></div>
     </div>
-    <div class="flex flex-wrap gap-2">${tabBtn('overview', 'Overview')}${tabBtn('conversations', 'Conversations')}${tabBtn('knowledge', 'Knowledge Base')}${tabBtn('settings', 'Settings')}</div>
+    <div class="flex flex-wrap gap-2">${tabBtn('overview', 'Overview')}${tabBtn('conversations', 'AI Leads & Chats')}${tabBtn('knowledge', 'Knowledge Base')}${tabBtn('settings', 'Chatbot Settings')}</div>
     <div id="ai-home-body"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
   const body = document.getElementById('ai-home-body');
   try {
@@ -10673,12 +10729,13 @@ const AI_DEPT_TONE = {
   parts: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
   general: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
 };
-let __aiFeed = { department: '', type: '', flag: '' };
+let __aiFeed = { department: '', type: '', flag: '', status: '' };
 
 async function aiHomeOverview(body, tab) {
   if (tab === 'conversations') return aiHomeFeed(body);
   const d = await apiGetJson('/ai/home');
   const s = d.stats || {};
+  const chatbot = d.chatbot || {};
   const byDept = d.by_department || {};
   const byType = d.by_type || {};
   const tile = (label, val, accent) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-4"><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div><div class="text-3xl font-black mt-1 ${accent || 'text-slate-800 dark:text-slate-100'}">${(val ?? 0).toLocaleString()}</div></div>`;
@@ -10714,13 +10771,18 @@ async function aiHomeOverview(body, tab) {
   const conv = (d.recent || []).map(aiFeedRow).join('')
     || '<div class="text-sm text-slate-400 py-6 text-center">No conversations yet — add the chatbot to your site (Settings).</div>';
   body.innerHTML = `
+    <div class="mb-4 flex items-center gap-2 rounded-xl border ${chatbot.active ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30'} px-4 py-3">
+      <span class="w-2.5 h-2.5 rounded-full ${chatbot.active ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
+      <span class="text-sm font-bold text-slate-800 dark:text-slate-100">${chatbot.active ? 'Chatbot is live' : 'Chatbot is not live'}</span>
+      <span class="text-xs text-slate-500 dark:text-slate-400">${chatbot.assistant_name ? '· ' + esc(chatbot.assistant_name) : '· Set your assistant name in Settings'}</span>
+    </div>
     ${insights}
     <div class="grid md:grid-cols-2 gap-3 mb-4">
       ${breakdown('By department', byDept, AI_DEPT_LABELS, 'bg-emerald-500')}
       ${breakdown('By lead type', byType, AI_TYPE_LABELS, 'bg-indigo-500')}
     </div>
-    <div class="flex items-center justify-between mb-2">
-      <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">Recent conversations</div>
+    <div class="flex items-center justify-between mb-2 gap-3">
+      <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">Recent AI leads & chats</div><div class="text-[11px] text-slate-400 mt-0.5">Open a chat to see the complete AI transcript and reply to the visitor.</div></div>
       <button onclick="loadAiHome('conversations')" class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline">View all + filters →</button>
     </div>
     <div class="space-y-1.5">${conv}</div>`;
@@ -10756,6 +10818,8 @@ function aiFeedRow(c) {
     <div class="mt-1 text-[12px] text-slate-500 dark:text-slate-400 truncate">
       ${c.contact_name ? svgIcon('user', 'w-3.5 h-3.5 inline-block -mt-0.5 text-emerald-500') + ' <span class="font-bold text-slate-700 dark:text-slate-200">' + esc(c.contact_name) + '</span>' : (captured ? svgIcon('user', 'w-3.5 h-3.5 inline-block -mt-0.5 text-emerald-500') + ' Lead captured' : 'Visitor')}${c.website ? ' · ' + esc(String(c.website).replace(/^https?:\/\//, '').slice(0, 30)) : ''}${when ? ' · ' + esc(new Date(when).toLocaleDateString([], { month: 'short', day: 'numeric' })) : ''}
     </div>
+    ${c.summary ? `<div class="mt-1 text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(c.summary.replace(/\s+/g, ' ').slice(0, 160))}</div>` : ''}
+    <div class="mt-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">Open chat &amp; reply →</div>
   </button>`;
 }
 
@@ -10766,13 +10830,17 @@ async function aiHomeFeed(body) {
   const typeOpts = ['', ...Object.keys(AI_TYPE_LABELS)].map(v => opt(v, v ? AI_TYPE_LABELS[v] : 'All lead types', __aiFeed.type)).join('');
   const flagOpts = [['', 'All conversations'], ['booked', 'Booked appointments'], ['captured', 'Leads captured'], ['asked_manager', 'Asked for a manager']]
     .map(([v, l]) => opt(v, l, __aiFeed.flag)).join('');
+  const statusOpts = [['', 'Any chat status'], ['handoff', 'Needs a reply'], ['active', 'AI is handling'], ['closed', 'Closed chats']]
+    .map(([v, l]) => opt(v, l, __aiFeed.status || '')).join('');
   const sel = 'px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] font-semibold';
   body.innerHTML = `
     <div class="flex flex-wrap gap-2 mb-3">
       <select id="ai-feed-dept" onchange="aiFeedApply()" class="${sel}">${deptOpts}</select>
       <select id="ai-feed-type" onchange="aiFeedApply()" class="${sel}">${typeOpts}</select>
       <select id="ai-feed-flag" onchange="aiFeedApply()" class="${sel}">${flagOpts}</select>
+      <select id="ai-feed-status" onchange="aiFeedApply()" class="${sel}">${statusOpts}</select>
     </div>
+    <p class="text-[12px] text-slate-400 mb-3">Select a lead or chat to view every message, take over the chat, or reply as yourself or the AI assistant.</p>
     <div id="ai-feed-list"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
   await aiFeedLoad();
 }
@@ -10781,6 +10849,7 @@ async function aiFeedApply() {
     department: document.getElementById('ai-feed-dept')?.value || '',
     type: document.getElementById('ai-feed-type')?.value || '',
     flag: document.getElementById('ai-feed-flag')?.value || '',
+    status: document.getElementById('ai-feed-status')?.value || '',
   };
   await aiFeedLoad();
 }
@@ -10790,6 +10859,7 @@ async function aiFeedLoad() {
   const p = new URLSearchParams();
   if (__aiFeed.department) p.set('department', __aiFeed.department);
   if (__aiFeed.type) p.set('type', __aiFeed.type);
+  if (__aiFeed.status) p.set('status', __aiFeed.status);
   if (__aiFeed.flag === 'booked') p.set('booked', 'true');
   else if (__aiFeed.flag === 'captured') p.set('captured', 'true');
   else if (__aiFeed.flag === 'asked_manager') p.set('tag', 'asked_manager');
@@ -10837,10 +10907,11 @@ function aiPresetAvatar(name, hue) {
 }
 const AI_AVATAR_FALLBACK = "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='#e2e8f0'/><circle cx='50' cy='40' r='18' fill='#94a3b8'/><path d='M18 90c0-19 15-30 32-30s32 11 32 30z' fill='#94a3b8'/></svg>");
 async function aiHomeSettings(body) {
+  const standalone = isAiChatbotOnlyWorkspace();
   const [embed, persona, cfg] = await Promise.all([
     apiGetJson('/ai/widget/embed').catch(() => ({})),
     apiGetJson('/ai/personality').catch(() => ({ personality: {} })),
-    apiGetJson('/ai/config').catch(() => ({})),
+    standalone ? Promise.resolve({}) : apiGetJson('/ai/config').catch(() => ({})),
   ]);
   const p = persona.personality || {};
   // Assistant capability controls (what the bot is allowed to do) + rep access.
@@ -10897,7 +10968,7 @@ async function aiHomeSettings(body) {
         <div><label class="text-[12px] font-bold text-slate-500">Tone</label><input id="ai-p-tone" value="${esc(p.tone || '')}" placeholder="warm, casual, natural — always books the appointment" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></div>
         <button onclick="aiHomeSavePersonality(this)" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save assistant</button>
       </div>
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+      ${standalone ? '' : `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
         <div class="flex items-center justify-between">
           <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">What the assistant can do</div>
           <button onclick="openAiHistory()" class="text-[12px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">View chat history →</button>
@@ -10905,7 +10976,7 @@ async function aiHomeSettings(body) {
         <label class="flex items-center gap-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ai2-reps" ${cfg.ai_assistant_reps !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Let sales reps use the internal "Ask MarketSync" assistant</label>
         ${toolsHtml ? `<div><div class="text-[12px] font-bold text-slate-500 mb-1.5">Capabilities</div><div class="grid sm:grid-cols-2 gap-2">${toolsHtml}</div></div>` : ''}
         <button onclick="aiHomeSaveControls(this)" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Save controls</button>
-      </div>
+      </div>`}
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-2">
         <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wide">Install on your website</div>
         <p class="text-[13px] text-slate-500">Paste this one line before &lt;/body&gt; on your site (LeadBox, eDealer, WordPress, anywhere).</p>
@@ -20276,12 +20347,23 @@ function setupActionListeners() {
       phone: document.getElementById('prof-phone')?.value.trim() || '',
       email: document.getElementById('prof-email').value.trim(),
       password: document.getElementById('prof-password').value,
-      dealershipName: document.getElementById('prof-dealername').value.trim(),
-      websiteUrl: document.getElementById('prof-website').value.trim(),
       avatarUrl,
     };
+    // Dealership identity has a stricter server-side permission than a personal
+    // profile. Do not include its already-populated fields when the user only
+    // changes their own name, email, phone, password, or avatar.
+    const normalized = value => String(value || '').trim();
+    const dealershipName = normalized(document.getElementById('prof-dealername')?.value);
+    const websiteUrl = normalized(document.getElementById('prof-website')?.value);
+    const savedDealershipName = normalized(profileContext?.dealership?.name);
+    const savedWebsiteUrl = normalized(profileContext?.dealership?.website_url);
+    if (dealershipName !== savedDealershipName) payload.dealershipName = dealershipName;
+    if (websiteUrl !== savedWebsiteUrl) payload.websiteUrl = websiteUrl;
     // Strip empties so we only send fields the user actually changed
     Object.keys(payload).forEach(k => { if (!payload[k]) delete payload[k]; });
+    // Keep intentionally-cleared dealership website fields: an authorized admin
+    // must be able to remove an obsolete website URL.
+    if (websiteUrl !== savedWebsiteUrl) payload.websiteUrl = websiteUrl;
 
     const showMsg = (text, kind) => {
       msg.textContent = text;
@@ -20487,6 +20569,15 @@ async function initSecurityPanel() {
         await refreshMfaStatus();
       } finally { btn.disabled = false; }
     } else {
+      // A second click while the QR is visible means "cancel setup", not "start a
+      // second factor". The next attempt safely clears the unfinished factor server-side.
+      if (currentEnrollment) {
+        currentEnrollment = null;
+        document.getElementById('mfa-enroll-panel').classList.add('hidden');
+        document.getElementById('mfa-enroll-error').classList.add('hidden');
+        btn.disabled = false; btn.textContent = 'Turn On';
+        return;
+      }
       btn.disabled = true; btn.textContent = 'Loading…';
       try {
         const res = await fetch(`${API}/auth/2fa/enroll`, {
@@ -20532,6 +20623,14 @@ async function initSecurityPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'That code did not work.');
 
+      // verify-enroll promotes the Supabase session to aal2. Replace the old aal1
+      // session immediately so MFA-protected settings work without a logout/login.
+      if (data.access_token) {
+        token = data.access_token;
+        localStorage.setItem('token', data.access_token);
+      }
+      if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+
       document.getElementById('mfa-enroll-panel').classList.add('hidden');
       document.getElementById('mfa-enroll-code').value = '';
       await refreshMfaStatus();
@@ -20561,6 +20660,14 @@ async function initSecurityPanel() {
 
   // Add passkey button
   document.getElementById('add-passkey-btn')?.addEventListener('click', registerNewPasskey);
+  document.getElementById('phone-mfa-start')?.addEventListener('click', () => {
+    const panel = document.getElementById('phone-mfa-enroll');
+    panel?.classList.toggle('hidden');
+    const input = document.getElementById('phone-mfa-number');
+    if (input && !input.value && profileContext?.phone) input.value = profileContext.phone;
+  });
+  document.getElementById('phone-mfa-send')?.addEventListener('click', startPhoneMfaEnrollment);
+  document.getElementById('phone-mfa-confirm')?.addEventListener('click', verifyPhoneMfaEnrollment);
 
   // Dealership activity log — admins/owners only.
   initAuditLog();
@@ -20592,6 +20699,64 @@ async function initSecurityPanel() {
 }
 
 let currentEnrollment = null;
+let currentPhoneEnrollment = null;
+
+async function startPhoneMfaEnrollment() {
+  const phone = document.getElementById('phone-mfa-number')?.value.trim();
+  const button = document.getElementById('phone-mfa-send');
+  const errorBox = document.getElementById('phone-mfa-error');
+  errorBox?.classList.add('hidden');
+  if (!/^\+[1-9]\d{7,14}$/.test(String(phone || '').replace(/[\s()-]/g, ''))) {
+    errorBox.textContent = 'Enter the country code and mobile number, for example +19055551234.';
+    errorBox.classList.remove('hidden'); return;
+  }
+  button.disabled = true; button.textContent = 'Sending…';
+  try {
+    const res = await fetch(`${API}/auth/2fa/phone/enroll`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.code === 'PHONE_MFA_NOT_CONFIGURED'
+      ? 'Text-message MFA is not enabled in this Supabase project yet. Enable Phone MFA and its SMS provider, then try again.'
+      : (data.message || data.error || 'Could not send a verification text.'));
+    currentPhoneEnrollment = { factor_id: data.factor_id, challenge_id: data.challenge_id };
+    document.getElementById('phone-mfa-enroll')?.classList.add('hidden');
+    document.getElementById('phone-mfa-verify')?.classList.remove('hidden');
+    document.getElementById('phone-mfa-status').textContent = `Code sent to ${data.phone || 'your phone'}.`;
+    document.getElementById('phone-mfa-code')?.focus();
+  } catch (error) {
+    errorBox.textContent = error.message; errorBox.classList.remove('hidden');
+  } finally { button.disabled = false; button.textContent = 'Send verification text'; }
+}
+
+async function verifyPhoneMfaEnrollment() {
+  const code = document.getElementById('phone-mfa-code')?.value.trim();
+  const button = document.getElementById('phone-mfa-confirm');
+  const errorBox = document.getElementById('phone-mfa-error');
+  errorBox?.classList.add('hidden');
+  if (!currentPhoneEnrollment || !/^\d{6,10}$/.test(code || '')) {
+    errorBox.textContent = 'Enter the code sent to your phone.'; errorBox.classList.remove('hidden'); return;
+  }
+  button.disabled = true; button.textContent = 'Verifying…';
+  try {
+    const res = await fetch(`${API}/auth/2fa/phone/verify-enroll`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...currentPhoneEnrollment, code })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'That code did not work.');
+    if (data.access_token) { token = data.access_token; localStorage.setItem('token', data.access_token); }
+    if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+    currentPhoneEnrollment = null;
+    document.getElementById('phone-mfa-verify')?.classList.add('hidden');
+    document.getElementById('phone-mfa-code').value = '';
+    await refreshMfaStatus();
+    if (Array.isArray(data.recovery_codes) && data.recovery_codes.length) showBackupCodes(data.recovery_codes);
+  } catch (error) {
+    errorBox.textContent = error.message; errorBox.classList.remove('hidden');
+  } finally { button.disabled = false; button.textContent = 'Verify and turn on'; }
+}
 
 async function refreshMfaStatus() {
   try {
@@ -20600,8 +20765,11 @@ async function refreshMfaStatus() {
     const statusText = document.getElementById('mfa-status-text');
     const btn = document.getElementById('mfa-toggle-btn');
     const regenBtn = document.getElementById('regen-codes-btn');
+    const phoneStatus = document.getElementById('phone-mfa-status');
+    const phoneMethod = (data.methods || []).find(method => method.factor_type === 'phone');
     if (data.enabled) {
-      statusText.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-semibold">✓ On</span> — asks for a 6-digit code from your phone each time you sign in.';
+      const methods = (data.methods || []).map(method => method.factor_type === 'phone' ? 'text message' : 'authenticator app').join(' or ');
+      statusText.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-semibold">✓ On</span> — protected by ${methods || 'a verified second factor'}.`;
       btn.textContent = 'Turn Off';
       btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
       btn.classList.add('bg-slate-200', 'dark:bg-slate-700', 'text-slate-900', 'dark:text-white', 'hover:bg-slate-300');
@@ -20613,6 +20781,9 @@ async function refreshMfaStatus() {
       btn.classList.remove('bg-slate-200', 'dark:bg-slate-700', 'text-slate-900', 'dark:text-white', 'hover:bg-slate-300');
       regenBtn?.classList.add('hidden');
     }
+    if (phoneStatus) phoneStatus.textContent = phoneMethod
+      ? `✓ Text-message MFA is on for ${phoneMethod.phone || 'your verified phone'}.`
+      : 'Add a verified mobile number as another true MFA method.';
     btn.disabled = false;
   } catch (e) {
     document.getElementById('mfa-status-text').textContent = "Couldn't load status. Try refreshing the page.";

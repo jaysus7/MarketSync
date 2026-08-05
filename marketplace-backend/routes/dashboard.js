@@ -94,7 +94,6 @@ export function registerRoutes(app) {
 
   app.get('/dealership/leaderboard', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.json({ ranking: [], total_members: 0 })
-    if (req.profile.dealerships?.is_personal === true) return res.json({ ranking: [], total_members: 0 })
 
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 

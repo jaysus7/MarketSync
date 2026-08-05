@@ -76,6 +76,20 @@ test('stripePriceForPlan selects by currency with fallback', () => {
   assert.equal(stripePriceForPlan('nope', 'usd', env), null)
 })
 
+test('legacy Render Stripe variable names still map to their sold plans', () => {
+  const env = {
+    STRIPE_SOLO_PRICE_ID_CAD: 'price_legacy_solo_cad',
+    STRIPE_DEALER_PRICE_ID_USD: 'price_legacy_dealer_usd',
+    STRIPE_AI_CHATBOT_PRICE_ID_CAD: 'price_legacy_ai_cad',
+  }
+  assert.equal(stripePriceForPlan('fb_solo', 'cad', env), 'price_legacy_solo_cad')
+  assert.equal(stripePriceForPlan('fb_dealership', 'usd', env), 'price_legacy_dealer_usd')
+  assert.equal(stripePriceForPlan('ai_standard', 'cad', env), 'price_legacy_ai_cad')
+  assert.equal(planForStripePrice('price_legacy_solo_cad', env), 'fb_solo')
+  assert.equal(planForStripePrice('price_legacy_dealer_usd', env), 'fb_dealership')
+  assert.equal(planForStripePrice('price_legacy_ai_cad', env), 'ai_standard')
+})
+
 test('legacy flags reflect the plan (Pro sets pro + AI + chatbot, solo sets fb_only)', () => {
   assert.equal(PLAN_CATALOG.os_pro.legacy.plan, 'pro')
   assert.equal(PLAN_CATALOG.os_pro.legacy.ai_boost_active, true)

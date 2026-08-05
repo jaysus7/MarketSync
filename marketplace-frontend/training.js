@@ -1,0 +1,172 @@
+const API = location.hostname.includes('staging')
+  ? 'https://marketsync-staging-backend.onrender.com'
+  : 'https://vehicle-marketplace-s0e4.onrender.com';
+const LOCAL_PREVIEW = window.__TRAINING_PREVIEW__ === true || (['127.0.0.1', 'localhost'].includes(location.hostname)
+  && new URLSearchParams(location.search).get('preview') === '1');
+
+let academyUser = null;
+let academyAccess = null;
+let allLessons = [];
+let visibleLessons = [];
+let completed = new Set();
+
+const esc = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const productLabels = { shared: 'Platform basics', dealer_os: 'DealerOS', facebook: 'Facebook Marketplace', ai_dealer: 'AI Dealer', marketsync_os: 'MarketSync OS' };
+
+function completionKey() { return `ms_training_completed_${academyUser?.id || 'guest'}`; }
+function loadCompletion() {
+  try { completed = new Set(JSON.parse(localStorage.getItem(completionKey()) || '[]')); }
+  catch { completed = new Set(); }
+}
+function saveCompletion() { localStorage.setItem(completionKey(), JSON.stringify([...completed])); }
+
+async function refreshAccessToken() {
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) return null;
+  const response = await fetch(`${API}/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: refreshToken }) });
+  if (!response.ok) return null;
+  const data = await response.json();
+  localStorage.setItem('token', data.access_token);
+  if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+  return data.access_token;
+}
+
+async function authenticatedJson(path) {
+  let token = localStorage.getItem('token');
+  if (!token) throw new Error('NO_SESSION');
+  let response = await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (response.status === 401) {
+    token = await refreshAccessToken();
+    if (!token) throw new Error('NO_SESSION');
+    response = await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  }
+  if (!response.ok) throw new Error(`REQUEST_${response.status}`);
+  return response.json();
+}
+
+function roleMatches(lesson) {
+  if (!lesson.roles?.length) return true;
+  const roles = new Set([academyUser?.role, ...(academyAccess?.roleIds || [])].filter(Boolean).map(v => String(v).toLowerCase()));
+  return lesson.roles.some(role => roles.has(String(role).toLowerCase()));
+}
+
+function lessonAllowed(lesson) {
+  if (academyAccess?.isPlatformStaff) return true;
+  if (lesson.product === 'marketsync_os') return false;
+  if (lesson.product !== 'shared' && !(academyAccess?.products || []).includes(lesson.product)) return false;
+  if (lesson.features?.length && !lesson.features.every(feature => (academyAccess?.features || []).includes(feature))) return false;
+  if (lesson.permissions?.length && !lesson.permissions.every(permission => (academyAccess?.permissions || []).includes('*') || (academyAccess?.permissions || []).includes(permission))) return false;
+  return roleMatches(lesson);
+}
+
+function setOptions() {
+  const product = document.getElementById('training-product');
+  const course = document.getElementById('training-course');
+  const products = [...new Set(visibleLessons.map(item => item.product))];
+  const courses = [...new Set(visibleLessons.map(item => item.course))].sort();
+  product.innerHTML = '<option value="">All my products</option>' + products.map(id => `<option value="${esc(id)}">${esc(productLabels[id] || id)}</option>`).join('');
+  course.innerHTML = '<option value="">All departments</option>' + courses.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
+}
+
+function filteredLessons() {
+  const query = document.getElementById('training-search').value.trim().toLowerCase();
+  const product = document.getElementById('training-product').value;
+  const course = document.getElementById('training-course').value;
+  return visibleLessons.filter(item => {
+    const haystack = [item.id, item.title, item.summary, item.course, ...(item.keywords || []), ...(item.problems || [])].join(' ').toLowerCase();
+    return (!query || haystack.includes(query)) && (!product || item.product === product) && (!course || item.course === course);
+  });
+}
+
+function renderList() {
+  const lessons = filteredLessons();
+  document.getElementById('lesson-result-count').textContent = `${lessons.length} lesson${lessons.length === 1 ? '' : 's'}`;
+  document.getElementById('lesson-list').innerHTML = lessons.length ? lessons.map(item => `
+    <button type="button" data-lesson="${esc(item.id)}" class="lesson-link mb-1 w-full rounded-lg border border-transparent p-3 text-left hover:border-indigo-200 hover:bg-indigo-50 dark:hover:border-indigo-900 dark:hover:bg-indigo-950/30">
+      <div class="mb-1 flex items-center justify-between gap-2"><span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">${esc(item.id)} · ${esc(productLabels[item.product] || item.product)}</span><span class="text-sm">${completed.has(item.id) ? '✅' : '○'}</span></div>
+      <div class="text-sm font-black text-slate-900 dark:text-white">${esc(item.title)}</div>
+      <div class="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">${esc(item.summary)}</div>
+      <div class="mt-2 text-[10px] font-semibold text-slate-400">${esc(item.minutes)} min · ${esc(item.course)}</div>
+    </button>`).join('') : '<div class="p-8 text-center text-sm text-slate-500">No lessons match those filters.</div>';
+  document.querySelectorAll('.lesson-link').forEach(button => button.addEventListener('click', () => openLesson(button.dataset.lesson)));
+}
+
+function section(title, body, tone = 'slate') {
+  const tones = { slate: 'border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/60', indigo: 'border-indigo-200 bg-indigo-50 dark:border-indigo-900 dark:bg-indigo-950/30', emerald: 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30', amber: 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30' };
+  return `<section class="rounded-xl border p-5 ${tones[tone] || tones.slate}"><h3 class="mb-3 text-sm font-black uppercase tracking-wider">${esc(title)}</h3>${body}</section>`;
+}
+
+function openLesson(id, updateUrl = true) {
+  const lesson = visibleLessons.find(item => item.id === id);
+  if (!lesson) return;
+  document.getElementById('lesson-empty').classList.add('hidden');
+  const panel = document.getElementById('lesson-content');
+  panel.classList.remove('hidden');
+  const steps = lesson.steps.map(step => `<li class="lesson-step flex gap-4 py-4"><div><div class="font-black text-slate-900 dark:text-white">${esc(step.title)}</div><p class="mt-1 text-sm text-slate-600 dark:text-slate-300">${esc(step.body)}</p></div></li>`).join('');
+  panel.innerHTML = `
+    <div class="border-b border-slate-200 p-6 dark:border-slate-800 sm:p-8">
+      <div class="mb-3 flex flex-wrap gap-2"><span class="rounded-full bg-indigo-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">${esc(productLabels[lesson.product] || lesson.product)}</span><span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">${esc(lesson.course)}</span><span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">${esc(lesson.minutes)} minutes</span></div>
+      <div class="text-xs font-black uppercase tracking-widest text-slate-400">${esc(lesson.id)}</div><h2 class="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">${esc(lesson.title)}</h2><p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">${esc(lesson.summary)}</p>
+      <div id="lesson-actions" class="mt-5 flex flex-wrap gap-2"><button id="complete-lesson" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-500">${completed.has(lesson.id) ? '✓ Completed' : 'Mark complete'}</button><button onclick="window.print()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold dark:border-slate-700">Print steps</button></div>
+    </div>
+    <div class="lesson-copy space-y-5 p-6 sm:p-8">
+      ${section('What you will accomplish', `<p class="text-sm text-slate-700 dark:text-slate-300">${esc(lesson.outcome)}</p>`, 'indigo')}
+      ${section('Who can do this', `<p class="text-sm text-slate-700 dark:text-slate-300">${esc(lesson.who)}</p>`)}
+      ${section('Before you start', `<ul class="list-disc space-y-1 pl-5 text-sm text-slate-700 dark:text-slate-300">${lesson.before.map(item => `<li>${esc(item)}</li>`).join('')}</ul>`, 'amber')}
+      <section><h3 class="mb-2 text-lg font-black">Step by step</h3><ol class="divide-y divide-slate-200 dark:divide-slate-800">${steps}</ol></section>
+      ${section('What success looks like', `<p class="text-sm font-semibold text-emerald-900 dark:text-emerald-200">${esc(lesson.success)}</p>`, 'emerald')}
+      ${section('What MarketSync does automatically', `<ul class="list-disc space-y-1 pl-5 text-sm text-slate-700 dark:text-slate-300">${lesson.automatic.map(item => `<li>${esc(item)}</li>`).join('')}</ul>`, 'indigo')}
+      ${section('Common problems', `<ul class="space-y-2 text-sm text-slate-700 dark:text-slate-300">${lesson.problems.map(item => `<li class="rounded-lg bg-white p-3 shadow-sm dark:bg-slate-900">${esc(item)}</li>`).join('')}</ul>`, 'amber')}
+      ${lesson.safety ? section('Safety and compliance', `<p class="text-sm text-slate-700 dark:text-slate-300">${esc(lesson.safety)}</p>`, 'slate') : ''}
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5 text-xs text-slate-500 dark:border-slate-800"><span>Last verified: ${esc(lesson.verified)} · Video script: ${lesson.videoStatus === 'ready' ? 'ready to record' : 'planned'}</span><a href="/support.html?topic=training&lesson=${encodeURIComponent(lesson.id)}" class="font-bold text-indigo-600 dark:text-indigo-400">This did not match my screen →</a></div>
+    </div>`;
+  document.getElementById('complete-lesson').addEventListener('click', () => {
+    completed.has(lesson.id) ? completed.delete(lesson.id) : completed.add(lesson.id);
+    saveCompletion(); renderSummary(); renderList(); openLesson(lesson.id, false);
+  });
+  if (updateUrl) history.replaceState({}, '', `${location.pathname}?lesson=${encodeURIComponent(lesson.id)}`);
+  document.getElementById('lesson-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderSummary() {
+  const finished = visibleLessons.filter(item => completed.has(item.id)).length;
+  document.getElementById('academy-visible-count').textContent = visibleLessons.length;
+  document.getElementById('academy-complete-count').textContent = finished;
+  document.getElementById('academy-progress').textContent = visibleLessons.length ? `${Math.round(finished / visibleLessons.length * 100)}%` : '0%';
+}
+
+async function bootAcademy() {
+  try {
+    const previewProfile = {
+      id: 'academy-preview', full_name: 'DealerOS Pro Preview', role: 'DEALER_ADMIN',
+      dealership: { name: 'Training Dealership' },
+      access: {
+        isPlatformStaff: false, roleIds: ['dealer_owner'],
+        products: ['dealer_os', 'facebook', 'ai_dealer'],
+        features: ['os.dashboard', 'os.crm', 'os.inventory', 'os.sales', 'os.accounting', 'os.service', 'os.marketing', 'os.website', 'os.reports', 'os.automations', 'os.email_marketing', 'os.integrations', 'os.team', 'os.settings', 'fb.inventory', 'fb.leaderboard', 'fb.sales_reps', 'ai.overview', 'ai.conversations', 'ai.agents', 'ai.knowledge', 'ai.settings'],
+        permissions: ['*'],
+      },
+    };
+    const catalogRequest = window.__TRAINING_CATALOG__
+      ? Promise.resolve(window.__TRAINING_CATALOG__)
+      : fetch('/training/catalog.json?v=20260804a').then(res => { if (!res.ok) throw new Error('CATALOG'); return res.json(); });
+    const [profile, catalog] = await Promise.all([LOCAL_PREVIEW ? Promise.resolve(previewProfile) : authenticatedJson('/auth/me'), catalogRequest]);
+    academyUser = profile;
+    academyAccess = profile.access || await authenticatedJson('/access/context');
+    allLessons = catalog.lessons || [];
+    visibleLessons = allLessons.filter(lessonAllowed);
+    loadCompletion();
+    document.getElementById('academy-identity').textContent = `${profile.full_name || profile.email || 'Signed in'} · ${profile.dealership?.name || (academyAccess.isPlatformStaff ? 'MarketSync OS' : 'My workspace')}`;
+    setOptions(); renderSummary(); renderList();
+    ['training-search', 'training-product', 'training-course'].forEach(id => document.getElementById(id).addEventListener(id === 'training-search' ? 'input' : 'change', renderList));
+    const requested = new URLSearchParams(location.search).get('lesson');
+    if (requested && visibleLessons.some(item => item.id === requested)) openLesson(requested, false);
+    else if (visibleLessons[0]) openLesson(visibleLessons[0].id, false);
+    document.getElementById('academy-loading').classList.add('hidden');
+  } catch (error) {
+    if (error.message === 'NO_SESSION' || error.message === 'REQUEST_401') location.replace(`/login.html?next=${encodeURIComponent('/training.html')}`);
+    else document.getElementById('academy-loading').innerHTML = '<div class="max-w-md p-8 text-center"><div class="mb-3 text-4xl">⚠️</div><h1 class="text-lg font-black">Training could not load</h1><p class="mt-2 text-sm text-slate-500">Return to the dashboard and try again. If this continues, contact MarketSync support.</p><a href="/dashboard.html" class="mt-5 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white">Back to dashboard</a></div>';
+  }
+}
+
+bootAcademy();

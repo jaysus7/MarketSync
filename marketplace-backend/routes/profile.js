@@ -4,6 +4,7 @@ import { validatePassword, rateLimit, getClientIp } from '../security.js'
 import { audit, AuditAction, exportReason } from '../audit.js'
 import { SYSTEM_ROLES, hasPermission, hasSystemRole, requirePermission, syncDealerRole } from '../authorization.js'
 import { grantProductMembership, setPermissionOverrides, PRODUCTS } from '../entitlements.js'
+import { getCurrentAccessContext } from '../access.js'
 import multer from 'multer'
 import { randomBytes, createHash } from 'node:crypto'
 
@@ -59,6 +60,22 @@ export function registerRoutes(app) {
         if (aff && aff.status !== 'suspended') workspace = 'affiliate'
       } catch { /* affiliates table optional — default stays 'dealer' */ }
     }
+    // This is the same safe, derived entitlement snapshot exposed by /access/context.
+    // Include it with the profile bootstrap as a resilient fallback: the dashboard must
+    // not lose its plan-specific nav just because the second, optional request times
+    // out during a Render cold start. It never exposes raw RBAC or subscription rows.
+    let access = null
+    try {
+      const ctx = await getCurrentAccessContext(req)
+      access = {
+        isPlatformStaff: ctx.isPlatformStaff,
+        products: ctx.products,
+        features: ctx.features,
+        permissions: ctx.permissions,
+        dataScope: ctx.dataScope,
+      }
+    } catch { /* profile remains available; /access/context can still retry independently */ }
+
     res.json({
       id: req.user.id,
       email: req.user.email,
@@ -71,9 +88,13 @@ export function registerRoutes(app) {
       email_signature: req.profile.email_signature || null,
       email_reply_to: req.profile.email_reply_to || null,
       dealership: req.profile.dealerships,
+      // A compact plan identifier gives the dashboard a resilient, server-authored
+      // source for its paid navigation if an entitlement refresh is delayed.
+      plan: req.profile.dealerships?.plan || null,
       is_marketsync: isMarketsync,
       // Product entitlements → the frontend builds the sidebar + landing from these.
       products: resolveProducts(req.profile.dealerships),
+      access,
       // Which workspace this login opens into (see resolver above).
       workspace,
       // MarketSync staff role + derived permissions (only meaningful in saas_admin).

@@ -4,6 +4,7 @@ import {
   computeAccessContext, hasProductAccess, hasFeature, can,
   getDataScope, getDefaultRoute, getVisibleNavigation, PRODUCT_ROUTES,
 } from '../access-policy.js'
+import { FEATURES_BY_PRODUCT, PLAN_CATALOG } from '../plan-catalog.js'
 
 // Minimal catalog fixture mirroring the seeded rows.
 const FEATURES = [
@@ -33,6 +34,28 @@ function rolePerms(...roles) {
 function ctxFor(raw) {
   return computeAccessContext({ features: FEATURES, planFeatures: PLAN_FEATURES, ...raw })
 }
+
+test('the real Pro bundle resolves every DealerOS, Facebook, and AI feature', () => {
+  const features = Object.entries(FEATURES_BY_PRODUCT).flatMap(([product_id, ids]) =>
+    ids.map(id => ({ id, product_id }))
+  )
+  const planFeatures = PLAN_CATALOG.os_pro.features.map(feature_id => ({
+    plan_id: 'os_pro', feature_id,
+  }))
+  const subscriptions = PLAN_CATALOG.os_pro.products.map(product_id => ({
+    product_id, plan_id: 'os_pro', status: 'active',
+  }))
+
+  const ctx = computeAccessContext({
+    userId: 'pro-owner', dealershipId: 'pro-dealer', roleIds: ['dealer_owner'],
+    subscriptions, features, planFeatures,
+  })
+
+  assert.deepEqual(new Set(ctx.products), new Set(['dealer_os', 'facebook', 'ai_dealer']))
+  for (const featureId of PLAN_CATALOG.os_pro.features) {
+    assert.ok(hasFeature(ctx, featureId), `Pro access context missing ${featureId}`)
+  }
+})
 
 // 1. dealer_os owner on os_pro sees the OS, its plan features, and lands on /dealer-os.
 test('owner with dealer_os pro plan', () => {
