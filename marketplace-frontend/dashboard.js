@@ -21799,7 +21799,7 @@ function showThingsToKnowModal(deptId) {
   const subEl = document.getElementById('ttk-dept-subtitle');
 
   if (iconEl) iconEl.textContent = cfg.icon;
-  if (titleEl) titleEl.textContent = `OPENing ${cfg.title}`;
+  if (titleEl) titleEl.textContent = `Opening ${cfg.title}`;
   if (subEl) subEl.textContent = cfg.subtitle;
 
   // Stages
@@ -21836,15 +21836,13 @@ function startDepartmentTourAndWizard() {
   const deptId = __activeOpenDeptId;
   if (!deptId) return;
 
+  // Mark department opened
+  try { localStorage.setItem(`ms_dept_opened_${deptId}`, '1'); } catch {}
+
   // Launch guided spotlight tour
   if (typeof window.startAreaTour === 'function') {
     window.startAreaTour(deptId);
   }
-
-  // Automatically open setup wizard after brief spotlight
-  setTimeout(() => {
-    openDepartmentSetupWizard(deptId);
-  }, 1200);
 }
 
 function openDepartmentSetupWizard(deptId) {

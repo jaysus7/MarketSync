@@ -795,12 +795,6 @@
             <button type="button" data-mode="marketsync" onclick="setDashMode('marketsync')">🟣 MarketSync</button>
           </div>
           <button id="ms-demo-reset" type="button" onclick="demoReset()" title="Reset the demo dealership to its starting data">↻ Reset demo data</button>
-          <button id="ms-reopen-tour" type="button" onclick="reopenCurrentDepartmentTour()" class="w-full text-xs font-bold py-1.5 px-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition flex items-center justify-center gap-1.5 my-1" title="Re-open guided tour & setup wizard for current department">
-            🎓 OPEN Tour &amp; Setup Wizard
-          </button>
-
-          <!-- Guided-setup progress bar (populated by renderSetupBar; hidden when complete) -->
-          <div id="setup-bar-host"></div>
 
           <!-- Command Center — DealerOS home (today's operations + live exceptions) -->
           <button type="button" id="nav-command" data-page="command" title="Command Center" class="nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
@@ -3478,7 +3472,7 @@
     </div>
   </div>
 
-  <!-- ── 1. Department OPENing: Full-Page "Things to Know" Modal ── -->
+  <!-- ── 1. Department Opening: Full-Page "Things to Know" Modal ── -->
   <div id="dept-things-to-know-modal" class="hidden fixed inset-0 z-[85] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
     <div class="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto flex flex-col max-h-[90vh]">
       <!-- Header banner -->
@@ -3487,7 +3481,7 @@
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-bold uppercase tracking-wider mb-2">
           <span id="ttk-dept-badge-icon">🛡️</span> Department Onboarding
         </div>
-        <h2 class="text-2xl sm:text-3xl font-black tracking-tight" id="ttk-dept-title">OPENing CRM &amp; Customers</h2>
+        <h2 class="text-2xl sm:text-3xl font-black tracking-tight" id="ttk-dept-title">Opening CRM &amp; Customers</h2>
         <p class="text-xs sm:text-sm text-indigo-100 mt-1" id="ttk-dept-subtitle">Things to know before you start operating this department.</p>
       </div>
       <!-- Body content -->
@@ -3509,10 +3503,15 @@
       <!-- Footer actions -->
       <div class="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
         <button type="button" onclick="closeThingsToKnowModal()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Skip to Page</button>
-        <button type="button" id="ttk-start-btn" onclick="startDepartmentTourAndWizard()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-md shadow-indigo-500/30 transition flex items-center gap-2">
-          <span>Start Guided Tour &amp; Setup Wizard</span>
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
-        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeThingsToKnowModal(); openDepartmentSetupWizard(__activeOpenDeptId);" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 font-bold px-4 py-2.5 rounded-xl text-xs transition">
+            ⚙️ Configure Setup Wizard
+          </button>
+          <button type="button" id="ttk-start-btn" onclick="startDepartmentTourAndWizard()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-md shadow-indigo-500/30 transition flex items-center gap-2">
+            <span>Start Guided Tour</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -3559,7 +3558,7 @@
       </div>
       <div class="text-xs font-black uppercase tracking-widest text-amber-500">DEALER Gamification Badge Earned!</div>
       <h3 class="text-2xl font-black text-slate-900 dark:text-white mt-1" id="dbr-badge-title">CRM Commander</h3>
-      <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" id="dbr-badge-desc">You have successfully OPENed and configured the CRM &amp; Customer Management department!</p>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" id="dbr-badge-desc">You have successfully Opened and configured the CRM &amp; Customer Management department!</p>
 
       <div class="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center gap-3">
         <button type="button" onclick="closeBadgeRevealModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition">
