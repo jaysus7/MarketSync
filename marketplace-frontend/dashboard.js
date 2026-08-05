@@ -1923,6 +1923,7 @@ const DEPARTMENTS = {
       // The builder holds the email/text templates (New Lead, Delivery, Holidays);
       // the settings page (engine on/off, email setup) is reached from within it.
       { page: 'automation-builder', label: 'Automation', mgr: true },
+      { page: 'email-marketing', label: 'Email Marketing', mgr: true },
       { page: 'leaderboard', label: 'Leaderboard', mgr: true },
     ],
   },
@@ -1962,6 +1963,7 @@ const PAGE_FEATURE = {
   'service-ros': 'os.service', 'service-appointments': 'os.service', 'service-parts': 'os.service',
   website: 'os.website',
   'automation-builder': 'os.automations', operations: 'os.automations', taskboard: 'os.automations',
+  'email-marketing': 'os.email_marketing',
   delivery: 'os.sales', fni: 'os.sales',
   reports: 'os.reports',
   'inv-intel': 'os.inventory', market: 'os.inventory',
@@ -2301,6 +2303,7 @@ function switchPage(pageId) {
   if (pageId === 'website-settings') loadWebsiteSettings();
   if (pageId === 'automation') loadAutomationPage();
   if (pageId === 'automation-builder') loadAutoBuilderPage();
+  if (pageId === 'email-marketing') loadDealerEmail();
   if (pageId === 'fni') loadFniPage();
   if (pageId === 'equity') loadEquityPage();
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }
@@ -11857,6 +11860,170 @@ window.automationSaveTmpl = async (id) => {
 window.automationDeleteTmpl = async (id) => {
   if (!confirm('Delete this template?')) return;
   try { await apiSendJson('/saas/automation/templates/' + id, 'DELETE'); await loadSaasAutomation(); showToast('Template deleted', 'success'); }
+  catch (e) { showToast(e.message || 'Could not delete', 'error'); }
+};
+
+// ══ DealerOS Pro — Email Marketing (template library + broadcast campaigns) ════
+// Dealer-facing sibling of the HQ Automation & Email surface. Sequences live in the
+// existing Automation builder; this covers reusable templates + one-off campaigns to
+// a CRM segment. Pro-gated (os.email_marketing); all data is dealership-scoped by RLS.
+let __dealerEmail = { view: 'campaigns', templates: [], campaigns: [] };
+const DEALER_SEG = {
+  all: { label: 'All contacts', seg: {} },
+  customers: { label: 'Sold customers', seg: { sold: true } },
+  service: { label: 'Service customers', seg: { service_customer: true } },
+  leads: { label: 'Open leads', seg: { status: ['lead', 'new', 'open', 'working', 'contacted'] } },
+};
+async function loadDealerEmail() {
+  const root = document.getElementById('dealer-email-root'); if (!root) return;
+  root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading email marketing…</div>`;
+  try {
+    const [tpl, camp] = await Promise.all([apiGetJson('/dealer/email/templates'), apiGetJson('/dealer/email/campaigns')]);
+    __dealerEmail.templates = tpl.templates || [];
+    __dealerEmail.campaigns = camp.campaigns || [];
+  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message || 'Could not load')}</div>`; return; }
+  renderDealerEmail();
+}
+window.loadDealerEmail = loadDealerEmail;
+function renderDealerEmail() {
+  const root = document.getElementById('dealer-email-root'); if (!root) return;
+  const v = __dealerEmail.view;
+  const pill = (id, label) => `<button onclick="dealerEmailView('${id}')" class="px-3.5 py-1.5 rounded-full text-[13px] font-bold transition ${v === id ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
+  root.innerHTML = `
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 flex items-center justify-center">${svgIcon('megaphone', 'w-5 h-5')}</div>
+        <div><h1 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Email Marketing</h1>
+          <p class="text-[13px] text-slate-500 dark:text-slate-400">Reusable templates and one-off email campaigns to your CRM contacts.</p></div>
+      </div>
+      <div class="flex items-center gap-2">${pill('campaigns', 'Campaigns')}${pill('templates', 'Templates')}</div>
+    </div>
+    <div id="dealer-email-body"></div>`;
+  (v === 'templates' ? renderDealerTemplates : renderDealerCampaigns)();
+}
+window.dealerEmailView = (v) => { __dealerEmail.view = v; renderDealerEmail(); };
+
+function renderDealerTemplates() {
+  const body = document.getElementById('dealer-email-body'); if (!body) return;
+  const rows = (__dealerEmail.templates || []).map(t => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(t.name)}${t.is_seed ? ' <span class="text-[10px] font-bold uppercase text-slate-400">starter</span>' : ''}</div><div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(t.subject)}</div></div>
+      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700">Edit</button>
+      <button onclick="dealerEmailDeleteTmpl('${t.id}')" class="text-[12px] font-bold text-rose-500">Delete</button>
+    </div>`).join('');
+  body.innerHTML = `<div class="flex items-center justify-between mb-3">
+      <p class="text-[12px] text-slate-500 dark:text-slate-400">Reusable email bodies. Use <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code> and <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{dealership}}</code> merge fields.</p>
+      <button onclick="dealerEmailNewTmpl()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New template</button></div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No templates yet.</div>'}</div>`;
+}
+function renderDealerCampaigns() {
+  const body = document.getElementById('dealer-email-body'); if (!body) return;
+  const segLabel = (c) => { const p = Object.values(DEALER_SEG).find(x => JSON.stringify(x.seg) === JSON.stringify(c.segment || {})); return p ? p.label : 'Custom segment'; };
+  const rows = (__dealerEmail.campaigns || []).map(c => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(c.name)}</div>
+        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(c.subject)}</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">${esc(segLabel(c))} · ${c.status === 'sent' ? `sent to ${c.sent_count}` : c.status === 'failed' ? 'failed' : 'draft'}</div></div>
+      ${c.status === 'sent' ? '<span class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">Sent</span>'
+        : `<button onclick="dealerEmailSendCampaign('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0">Send</button>`}
+      <button onclick="dealerEmailDeleteCampaign('${c.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">✕</button>
+    </div>`).join('');
+  body.innerHTML = `<div class="flex items-center justify-between mb-3">
+      <p class="text-[12px] text-slate-500 dark:text-slate-400">One-off email to a CRM segment. Only contacts with an address and email consent are reached.</p>
+      <button onclick="dealerEmailNewCampaign()" class="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">＋ New campaign</button></div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No campaigns yet.</div>'}</div>`;
+}
+
+// ── segment helper: build jsonb from the modal's preset + tag input ──
+function dealerEmailSegment() {
+  const preset = document.getElementById('cp-segment')?.value || 'all';
+  const seg = { ...(DEALER_SEG[preset]?.seg || {}) };
+  const tags = (document.getElementById('cp-tags')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (tags.length) seg.tags = tags;
+  return seg;
+}
+window.dealerEmailSegCount = async () => {
+  const el = document.getElementById('cp-count'); if (!el) return;
+  el.textContent = 'Recipients: …';
+  try { const r = await apiSendJson('/dealer/email/segment-count', 'POST', { segment: dealerEmailSegment() }); el.textContent = `Reachable: ${r.reachable} of ${r.matched} matched`; }
+  catch { el.textContent = 'Recipients: —'; }
+};
+
+window.dealerEmailNewCampaign = () => {
+  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__dealerEmail.templates || []).map(t => `<option value="${t.id}">${esc(t.name)}</option>`)).join('');
+  const segOpts = Object.entries(DEALER_SEG).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">New campaign</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
+    <div class="space-y-3">
+      <label class="block text-xs font-bold text-slate-500">Name<input id="cp-name" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="e.g. October sales event"></label>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block text-xs font-bold text-slate-500">Segment<select id="cp-segment" onchange="dealerEmailSegCount()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${segOpts}</select></label>
+        <label class="block text-xs font-bold text-slate-500">Tags (optional)<input id="cp-tags" oninput="dealerEmailSegCount()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="vip, suv"></label>
+      </div>
+      <div class="text-[12px] font-semibold text-violet-600 dark:text-violet-400" id="cp-count">Recipients: …</div>
+      <label class="block text-xs font-bold text-slate-500">Template<select id="cp-template" onchange="dealerEmailCampTmplPick()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${tmplOpts}</select></label>
+      <label class="block text-xs font-bold text-slate-500">Subject<input id="cp-subject" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Body <span class="text-slate-400 font-normal">— {{first_name}}, {{dealership}}</span><textarea id="cp-body" rows="7" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></textarea></label>
+    </div>
+    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
+      <button onclick="dealerEmailSaveCampaign(false)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold">Save draft</button>
+      <button onclick="dealerEmailSaveCampaign(true)" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Create &amp; send</button></div>`, 'max-w-lg');
+  dealerEmailSegCount();
+};
+window.dealerEmailCampTmplPick = () => {
+  const t = (__dealerEmail.templates || []).find(x => x.id === document.getElementById('cp-template').value);
+  if (t) { document.getElementById('cp-subject').value = t.subject; document.getElementById('cp-body').value = t.body; }
+};
+window.dealerEmailSaveCampaign = async (sendNow) => {
+  const payload = {
+    name: document.getElementById('cp-name').value.trim(), segment: dealerEmailSegment(),
+    subject: document.getElementById('cp-subject').value.trim(), body: document.getElementById('cp-body').value.trim(),
+    template_id: document.getElementById('cp-template').value || null,
+  };
+  if (!payload.name) return showToast('Name is required', 'error');
+  if ((!payload.subject || !payload.body) && !payload.template_id) return showToast('Subject and body (or a template) are required', 'error');
+  if (sendNow && !confirm('Send this campaign now to the selected segment?')) return;
+  try {
+    const r = await apiSendJson('/dealer/email/campaigns', 'POST', payload);
+    if (sendNow) { const sent = await apiSendJson('/dealer/email/campaigns/' + r.campaign.id + '/send', 'POST', {}); showToast(`Sent to ${sent.sent || 0}${sent.failed ? ` · ${sent.failed} failed` : ''}`, 'success'); }
+    else showToast('Draft saved', 'success');
+    closeAutomationModal(); await loadDealerEmail();
+  } catch (e) { showToast(e.message || 'Could not save campaign', 'error'); }
+};
+window.dealerEmailSendCampaign = async (id) => {
+  if (!confirm('Send this campaign now?')) return;
+  try { const sent = await apiSendJson('/dealer/email/campaigns/' + id + '/send', 'POST', {}); showToast(`Sent to ${sent.sent || 0}${sent.failed ? ` · ${sent.failed} failed` : ''}`, 'success'); await loadDealerEmail(); }
+  catch (e) { showToast(e.message || 'Could not send', 'error'); }
+};
+window.dealerEmailDeleteCampaign = async (id) => {
+  if (!confirm('Delete this campaign?')) return;
+  try { await apiSendJson('/dealer/email/campaigns/' + id, 'DELETE'); await loadDealerEmail(); showToast('Campaign deleted', 'success'); }
+  catch (e) { showToast(e.message || 'Could not delete', 'error'); }
+};
+
+// ── templates ──
+window.dealerEmailNewTmpl = () => dealerEmailTmplModal(null);
+window.dealerEmailEditTmpl = (id) => dealerEmailTmplModal((__dealerEmail.templates || []).find(x => x.id === id));
+function dealerEmailTmplModal(t) {
+  t = t || {};
+  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">${t.id ? 'Edit template' : 'New template'}</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
+    <div class="space-y-3">
+      <label class="block text-xs font-bold text-slate-500">Name<input id="dtm-name" value="${esc(t.name || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Subject<input id="dtm-subject" value="${esc(t.subject || '')}" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
+      <label class="block text-xs font-bold text-slate-500">Body <span class="text-slate-400 font-normal">— {{first_name}}, {{full_name}}, {{dealership}}</span><textarea id="dtm-body" rows="9" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${esc(t.body || '')}</textarea></label>
+    </div>
+    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
+      <button onclick="dealerEmailSaveTmpl(${t.id ? `'${t.id}'` : 'null'})" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Save</button></div>`);
+}
+window.dealerEmailSaveTmpl = async (id) => {
+  const payload = { name: document.getElementById('dtm-name').value.trim(), subject: document.getElementById('dtm-subject').value.trim(), body: document.getElementById('dtm-body').value.trim() };
+  if (!payload.name || !payload.subject || !payload.body) return showToast('Name, subject and body are required', 'error');
+  try {
+    if (id) await apiSendJson('/dealer/email/templates/' + id, 'PATCH', payload);
+    else await apiSendJson('/dealer/email/templates', 'POST', payload);
+    closeAutomationModal(); await loadDealerEmail(); showToast('Template saved', 'success');
+  } catch (e) { showToast(e.message || 'Could not save', 'error'); }
+};
+window.dealerEmailDeleteTmpl = async (id) => {
+  if (!confirm('Delete this template?')) return;
+  try { await apiSendJson('/dealer/email/templates/' + id, 'DELETE'); await loadDealerEmail(); showToast('Template deleted', 'success'); }
   catch (e) { showToast(e.message || 'Could not delete', 'error'); }
 };
 

@@ -25,6 +25,7 @@ import { registerLeads } from './routes/leads.js'
 import { registerCrm } from './routes/crm.js'
 import { registerSite } from './routes/site.js'
 import { registerAutomation } from './routes/automation.js'
+import { registerDealerEmailMarketing } from './routes/dealer-automation.js'
 import { registerEquity } from './routes/equity.js'
 import { registerRecon } from './routes/recon.js'
 import { registerFni } from './routes/fni.js'
@@ -136,6 +137,7 @@ registerLeads(app)
 registerCrm(app)
 registerSite(app)
 registerAutomation(app)
+registerDealerEmailMarketing(app)
 registerEquity(app)
 registerRecon(app)
 registerFni(app)
