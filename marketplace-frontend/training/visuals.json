@@ -3163,6 +3163,424 @@
         ]
       ],
       "action": "Send secure billing link"
+    },
+    "FB-014": {
+      "kind": "integration",
+      "nav": "Facebook",
+      "page": "Extension setup",
+      "title": "Chrome extension connection",
+      "state": "Extension and both account sessions are connected; one timed-out listing is recoverable",
+      "metrics": [
+        [
+          "Extension version",
+          "2.8.1 current"
+        ],
+        [
+          "MarketSync",
+          "Connected"
+        ],
+        [
+          "Facebook",
+          "Connected"
+        ],
+        [
+          "Timed-out posts",
+          "1"
+        ]
+      ],
+      "fields": [
+        "Dealership · MarketSync Motors",
+        "Facebook profile · Jason M. · Marketplace enabled",
+        "Chrome site access · facebook.com allowed",
+        "Timed-out vehicle · 2025 Equinox RS · no duplicate found"
+      ],
+      "rows": [
+        [
+          "Connection check",
+          "Passed",
+          "Just now"
+        ],
+        [
+          "Post attempt N1042",
+          "Timed out",
+          "Resume available"
+        ]
+      ],
+      "action": "Resume posting once"
+    },
+    "AI-016": {
+      "kind": "ai",
+      "nav": "AI Chatbot",
+      "page": "Widget installation",
+      "title": "Website widget test",
+      "state": "Staging widget answered inventory and captured a test handoff",
+      "tabs": [
+        "Install",
+        "Allowed domains",
+        "Test checklist",
+        "Live health"
+      ],
+      "activeTab": "Test checklist",
+      "metrics": [
+        [
+          "Tests passed",
+          "7 / 8"
+        ],
+        [
+          "Lead captured",
+          "1"
+        ],
+        [
+          "Human handoff",
+          "Passed"
+        ],
+        [
+          "Mobile",
+          "Passed"
+        ]
+      ],
+      "fields": [
+        "Allowed domain · staging.marketsyncmotors.ca",
+        "Widget dealership · MarketSync Motors",
+        "Inventory result · 3 Equinox units with dealer links",
+        "CRM test lead · AI Widget Test · assigned to BDC",
+        "Remaining test · Production page-speed check"
+      ],
+      "action": "Approve production install"
+    },
+    "ADMIN-016": {
+      "kind": "users",
+      "nav": "Administration",
+      "page": "Users",
+      "title": "Change dealership role",
+      "state": "Sales Manager role selected with an explicit access comparison",
+      "metrics": [
+        [
+          "Current role",
+          "Salesperson"
+        ],
+        [
+          "New role",
+          "Sales Manager"
+        ],
+        [
+          "Added permissions",
+          "6"
+        ],
+        [
+          "MFA",
+          "Verified"
+        ]
+      ],
+      "columns": [
+        "Department",
+        "Before",
+        "After",
+        "Reason"
+      ],
+      "rows": [
+        [
+          "CRM",
+          "Assigned records",
+          "Dealership team",
+          "Manage leads"
+        ],
+        [
+          "Sales",
+          "Create deals",
+          "Approve deals",
+          "Desk coverage"
+        ],
+        [
+          "Accounting",
+          "No access",
+          "No access",
+          "Not required"
+        ]
+      ],
+      "action": "Save verified role change"
+    },
+    "SALES-032": {
+      "kind": "deal",
+      "nav": "Sales",
+      "page": "E-signature",
+      "title": "Signature request",
+      "state": "Customer and dealership signer fields are placed on the approved document",
+      "tabs": [
+        "Documents",
+        "Recipients",
+        "Fields",
+        "Status"
+      ],
+      "activeTab": "Fields",
+      "metrics": [
+        [
+          "Documents",
+          "2"
+        ],
+        [
+          "Recipients",
+          "2"
+        ],
+        [
+          "Required fields",
+          "14"
+        ],
+        [
+          "Missing fields",
+          "0"
+        ]
+      ],
+      "columns": [
+        "Recipient",
+        "Method",
+        "Fields",
+        "Order"
+      ],
+      "rows": [
+        [
+          "Jordan Lee",
+          "Email · verified",
+          "9 required",
+          "1"
+        ],
+        [
+          "Sales Manager",
+          "MarketSync account",
+          "5 required",
+          "2"
+        ]
+      ],
+      "action": "Send signature request"
+    },
+    "PARTS-013": {
+      "kind": "service",
+      "nav": "Parts",
+      "page": "Purchase Orders",
+      "title": "PO #PO-2841",
+      "state": "Vendor-confirmed brake parts shipment is open for receiving",
+      "tabs": [
+        "Order",
+        "Vendor confirmation",
+        "Receive",
+        "Documents"
+      ],
+      "activeTab": "Receive",
+      "metrics": [
+        [
+          "Ordered lines",
+          "4"
+        ],
+        [
+          "Received",
+          "3"
+        ],
+        [
+          "Backordered",
+          "1"
+        ],
+        [
+          "Order total",
+          "$1,842.60"
+        ]
+      ],
+      "columns": [
+        "Part",
+        "Ordered",
+        "Received",
+        "Result"
+      ],
+      "rows": [
+        [
+          "Front brake pad kit",
+          "6",
+          "6",
+          "Bin B-14"
+        ],
+        [
+          "Front rotor",
+          "12",
+          "10",
+          "2 backordered"
+        ],
+        [
+          "Oil filter PF64",
+          "24",
+          "24",
+          "Bin A-03"
+        ]
+      ],
+      "action": "Post actual receipt"
+    },
+    "RPT-009": {
+      "kind": "reports",
+      "nav": "Reports",
+      "page": "Employee performance",
+      "title": "Sales team performance",
+      "state": "Opportunity and outcome metrics are compared for the same 30-day period",
+      "tabs": [
+        "Sales",
+        "BDC",
+        "F&I",
+        "Service",
+        "Facebook"
+      ],
+      "activeTab": "Sales",
+      "metrics": [
+        [
+          "Team leads",
+          "284"
+        ],
+        [
+          "Appointments",
+          "96"
+        ],
+        [
+          "Sold",
+          "41"
+        ],
+        [
+          "Median response",
+          "4m 12s"
+        ]
+      ],
+      "columns": [
+        "Employee",
+        "Assigned",
+        "Contact rate",
+        "Appointments",
+        "Sold"
+      ],
+      "rows": [
+        [
+          "Alex Morgan",
+          "72",
+          "91%",
+          "27",
+          "12"
+        ],
+        [
+          "Mia Chen",
+          "68",
+          "88%",
+          "24",
+          "11"
+        ],
+        [
+          "Sam Patel",
+          "74",
+          "84%",
+          "22",
+          "9"
+        ]
+      ],
+      "action": "Record coaching action"
+    },
+    "MKT-032": {
+      "kind": "builder",
+      "nav": "Website",
+      "page": "Forms",
+      "title": "Test-drive lead form",
+      "state": "Staging submission reached CRM with consent and routing evidence",
+      "tabs": [
+        "Fields",
+        "Consent",
+        "Routing",
+        "Test results"
+      ],
+      "activeTab": "Test results",
+      "metrics": [
+        [
+          "Validation",
+          "Passed"
+        ],
+        [
+          "CRM lead",
+          "Created"
+        ],
+        [
+          "Owner",
+          "Assigned in 3 sec"
+        ],
+        [
+          "Notification",
+          "Delivered"
+        ]
+      ],
+      "fields": [
+        "Form purpose · Book a test drive",
+        "Required fields · Name · email or phone · vehicle · preferred time",
+        "Consent · SMS optional · email purpose stated",
+        "CRM source · Website · Test Drive Form",
+        "Fallback owner · BDC Manager"
+      ],
+      "action": "Publish verified form"
+    },
+    "MS-ONB-025": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Customer onboarding",
+      "title": "Northside Auto onboarding",
+      "state": "Account is provisioned and the first production workflow awaits customer acceptance",
+      "tabs": [
+        "Commercial",
+        "Provisioning",
+        "Configuration",
+        "Testing",
+        "Launch"
+      ],
+      "activeTab": "Testing",
+      "metrics": [
+        [
+          "Plan",
+          "DealerOS Pro"
+        ],
+        [
+          "Users",
+          "6 / 8 invited"
+        ],
+        [
+          "Milestones",
+          "9 / 11"
+        ],
+        [
+          "Target launch",
+          "Aug 8"
+        ]
+      ],
+      "columns": [
+        "Acceptance test",
+        "Owner",
+        "Status",
+        "Next step"
+      ],
+      "rows": [
+        [
+          "Owner login + MFA",
+          "Customer",
+          "Passed",
+          "—"
+        ],
+        [
+          "Inventory sync",
+          "Implementation",
+          "Passed · 184 units",
+          "—"
+        ],
+        [
+          "Lead routing",
+          "Sales Manager",
+          "Passed",
+          "—"
+        ],
+        [
+          "Customer approval",
+          "Dealer Owner",
+          "Waiting",
+          "Review Aug 6"
+        ]
+      ],
+      "action": "Record customer acceptance"
     }
   }
 }

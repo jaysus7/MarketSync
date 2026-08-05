@@ -4625,6 +4625,535 @@
       "safety": "Never collect card details directly. Use Stripe-hosted billing updates and disclose only the minimum payment information needed.",
       "verified": "2026-08-04",
       "videoStatus": "ready"
+    },
+    {
+      "id": "FB-014",
+      "title": "Install the Facebook extension and recover a timed-out post",
+      "summary": "Connect the approved Chrome extension, verify dealership identity, and safely resume a Marketplace post after a timeout.",
+      "keywords": [
+        "Facebook Marketplace",
+        "Install the Facebook extension and recover a timed-out post",
+        "chrome extension",
+        "timeout",
+        "cord",
+        "facebook posting"
+      ],
+      "product": "facebook",
+      "course": "Facebook Marketplace",
+      "roles": [],
+      "features": [
+        "fb.inventory"
+      ],
+      "permissions": [],
+      "minutes": 8,
+      "outcome": "The extension reports connected, the listing exists exactly once on Marketplace, and MarketSync records its successful posting URL.",
+      "who": "Facebook Marketplace subscribers. Dealership rep management requires a dealer owner or manager.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open Facebook setup",
+          "body": "Choose Facebook → Inventory and open the extension setup panel from the posting instructions."
+        },
+        {
+          "title": "Install the approved extension",
+          "body": "Use the official MarketSync extension link, review the publisher and requested permissions, and pin it in Chrome."
+        },
+        {
+          "title": "Sign into the correct accounts",
+          "body": "Confirm MarketSync shows the intended dealership and Facebook shows the authorized Marketplace profile."
+        },
+        {
+          "title": "Run the connection check",
+          "body": "Open the extension status and verify version, MarketSync session, dealership, Facebook tab, and allowed site access."
+        },
+        {
+          "title": "Retry a timed-out post safely",
+          "body": "Return to the source vehicle, verify it was not already posted, refresh the Facebook tab, and choose Resume or Post again once."
+        },
+        {
+          "title": "Confirm the result",
+          "body": "Open the actual Marketplace listing and verify vehicle, price, stock, photos, description, seller, and MarketSync posting history."
+        }
+      ],
+      "success": "The extension reports connected, the listing exists exactly once on Marketplace, and MarketSync records its successful posting URL.",
+      "automatic": [
+        "MarketSync keeps the posting record connected to the source inventory unit.",
+        "Leaderboard and activity totals update from successful posting activity."
+      ],
+      "problems": [
+        "Posting controls are missing: confirm the Facebook product is active and the extension is installed.",
+        "A vehicle is missing: confirm it is available and included in the synced inventory."
+      ],
+      "safety": "Do not install lookalike extensions or grant remote-control access. Check for an existing listing before retrying a timeout.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "AI-016",
+      "title": "Install and test the AI chatbot widget",
+      "summary": "Publish the dealership AI widget, test inventory answers and handoff, and verify captured leads reach the right inbox.",
+      "keywords": [
+        "AI Dealer",
+        "Install and test the AI chatbot widget",
+        "widget",
+        "embed",
+        "chatbot install",
+        "test lead"
+      ],
+      "product": "ai_dealer",
+      "course": "AI Dealer",
+      "roles": [],
+      "features": [
+        "ai.settings",
+        "ai.conversations"
+      ],
+      "permissions": [],
+      "minutes": 8,
+      "outcome": "The production widget answers verified dealership facts, links real inventory, captures a test lead, and completes human handoff.",
+      "who": "AI Dealer subscribers. AI settings and knowledge changes require a dealer owner or authorized manager.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open Chatbot Settings",
+          "body": "Confirm the assistant identity, dealership, allowed website domains, hours, handoff, booking, and knowledge are approved."
+        },
+        {
+          "title": "Copy the widget code",
+          "body": "Use the current dealership-specific embed snippet and do not substitute another account’s widget or public key."
+        },
+        {
+          "title": "Install on staging first",
+          "body": "Place the script before the closing body tag or use the approved tag manager, then publish the staging website."
+        },
+        {
+          "title": "Test common customer paths",
+          "body": "Ask about a real in-stock vehicle, price, hours, directions, financing, service, and an unsupported question."
+        },
+        {
+          "title": "Test lead capture and handoff",
+          "body": "Provide approved internal contact details, request a person, and confirm notification, conversation, owner, and CRM lead."
+        },
+        {
+          "title": "Publish and monitor",
+          "body": "Add the verified code to production, confirm mobile behavior, page speed, privacy disclosure, errors, and early conversations."
+        }
+      ],
+      "success": "The production widget answers verified dealership facts, links real inventory, captures a test lead, and completes human handoff.",
+      "automatic": [
+        "MarketSync keeps AI conversations and leads inside the current dealership.",
+        "Conversation status, summaries, and lead signals update from the saved interaction."
+      ],
+      "problems": [
+        "AI controls are missing: confirm AI Dealer is active and your role can manage settings.",
+        "A conversation is missing: clear status filters and confirm the widget is using this dealership."
+      ],
+      "safety": "Use approved training data on staging. Confirm the customer, vehicle, dealership, amount, and recipient before saving or sending anything.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "ADMIN-016",
+      "title": "Change a dealership user role and verify access",
+      "summary": "Apply least privilege, require strong verification, and prove the user sees exactly the departments needed for the job.",
+      "keywords": [
+        "Administration",
+        "Change a dealership user role and verify access",
+        "role",
+        "permissions",
+        "user access",
+        "rbac"
+      ],
+      "product": "dealer_os",
+      "course": "Administration",
+      "roles": [],
+      "features": [
+        "os.team"
+      ],
+      "permissions": [
+        "users.manage"
+      ],
+      "minutes": 8,
+      "outcome": "The user can perform required work, cannot enter unrelated departments, and the complete role change is auditable.",
+      "who": "Dealership users whose plan and role include this department. Managers see dealership-wide controls; individual contributors may see only assigned records.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open Administration → Users",
+          "body": "Find the person by company email and confirm dealership, active status, current role, products, and recent activity."
+        },
+        {
+          "title": "Confirm the job requirement",
+          "body": "List the departments and actions required now, including any temporary responsibility and expiry."
+        },
+        {
+          "title": "Choose the least-privilege role",
+          "body": "Select the closest standard role and use explicit overrides only when approved and documented."
+        },
+        {
+          "title": "Complete security verification",
+          "body": "Use a recently verified MFA session and review the access-change summary before saving."
+        },
+        {
+          "title": "Test as the user",
+          "body": "Have the user refresh or sign in again and verify required navigation and actions appear while unrelated ones remain blocked."
+        },
+        {
+          "title": "Review the audit record",
+          "body": "Confirm actor, affected user, dealership, old role, new role, overrides, reason, timestamp, and any expiry."
+        }
+      ],
+      "success": "The user can perform required work, cannot enter unrelated departments, and the complete role change is auditable.",
+      "automatic": [
+        "MarketSync keeps every saved record inside the current dealership.",
+        "Related dashboards, timelines, and reports refresh from the same saved data."
+      ],
+      "problems": [
+        "A page is missing: the current plan, feature switch, or role may not include it.",
+        "A record is missing: clear filters and confirm it belongs to the current dealership."
+      ],
+      "safety": "Use approved training data on staging. Confirm the customer, vehicle, dealership, amount, and recipient before saving or sending anything.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "SALES-032",
+      "title": "Send a deal document for electronic signature",
+      "summary": "Choose the approved document, place required signers and fields, and preserve the completed evidence package.",
+      "keywords": [
+        "Sales and deal desk",
+        "Send a deal document for electronic signature",
+        "esign",
+        "document",
+        "signature",
+        "contract"
+      ],
+      "product": "dealer_os",
+      "course": "Sales and deal desk",
+      "roles": [],
+      "features": [
+        "os.sales"
+      ],
+      "permissions": [
+        "deal.finalize"
+      ],
+      "minutes": 8,
+      "outcome": "Every required signer completed the approved document and the deal retains the final signed copy and certificate.",
+      "who": "Dealership users whose plan and role include this department. Managers see dealership-wide controls; individual contributors may see only assigned records.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open the finalized document set",
+          "body": "Confirm customer, vehicle, deal version, amounts, disclosures, required forms, and signer identities."
+        },
+        {
+          "title": "Create the signature request",
+          "body": "Choose only the approved current document and assign each customer and dealership signer in the correct order."
+        },
+        {
+          "title": "Place required fields",
+          "body": "Add signatures, initials, names, dates, acknowledgements, and optional fields exactly where the form requires."
+        },
+        {
+          "title": "Review the recipient message",
+          "body": "Confirm email or phone, dealership identity, secure link, expiry, support path, and no sensitive data in the message."
+        },
+        {
+          "title": "Send and monitor",
+          "body": "Track sent, viewed, signed, declined, expired, or delivery-failed status without manually marking completion."
+        },
+        {
+          "title": "Verify the completed package",
+          "body": "Confirm all signatures, timestamps, certificate, final document hash, customer copy, deal attachment, and audit history."
+        }
+      ],
+      "success": "Every required signer completed the approved document and the deal retains the final signed copy and certificate.",
+      "automatic": [
+        "MarketSync keeps every saved record inside the current dealership.",
+        "Related dashboards, timelines, and reports refresh from the same saved data."
+      ],
+      "problems": [
+        "A page is missing: the current plan, feature switch, or role may not include it.",
+        "A record is missing: clear filters and confirm it belongs to the current dealership."
+      ],
+      "safety": "Never reuse a signature, sign for a customer, or change a completed document. Create a new version when corrections are required.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "PARTS-013",
+      "title": "Create and receive a parts purchase order",
+      "summary": "Replenish the correct quantities, track vendor commitments, and receive actual parts and costs into inventory.",
+      "keywords": [
+        "Parts",
+        "Create and receive a parts purchase order",
+        "purchase order",
+        "reorder",
+        "vendor",
+        "parts receiving"
+      ],
+      "product": "dealer_os",
+      "course": "Parts",
+      "roles": [],
+      "features": [
+        "os.service"
+      ],
+      "permissions": [
+        "service.write_repair_order"
+      ],
+      "minutes": 8,
+      "outcome": "The purchase order, vendor confirmation, received quantities, cost, bins, backorders, and repair-order allocations agree.",
+      "who": "Dealership users whose plan and role include this department. Managers see dealership-wide controls; individual contributors may see only assigned records.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open Parts Inventory",
+          "body": "Review low-stock, backordered, reserved, open-RO, and sales-history signals before ordering."
+        },
+        {
+          "title": "Create the purchase order",
+          "body": "Choose the verified vendor and enter part number, description, quantity, unit cost, core, freight, tax, and expected date."
+        },
+        {
+          "title": "Check duplicates and supersessions",
+          "body": "Review open purchase orders, alternate vendors, superseded numbers, and existing stock before submission."
+        },
+        {
+          "title": "Approve and send",
+          "body": "Use the required purchasing approval and retain the vendor confirmation and reference."
+        },
+        {
+          "title": "Receive the shipment",
+          "body": "Match packing slip, part numbers, quantities, condition, serials, costs, cores, shortages, and backorders."
+        },
+        {
+          "title": "Post and put away",
+          "body": "Receive only actual quantities, update bins and costs, attach documents, and allocate reserved parts to the correct repair order."
+        }
+      ],
+      "success": "The purchase order, vendor confirmation, received quantities, cost, bins, backorders, and repair-order allocations agree.",
+      "automatic": [
+        "MarketSync keeps every saved record inside the current dealership.",
+        "Related dashboards, timelines, and reports refresh from the same saved data."
+      ],
+      "problems": [
+        "A page is missing: the current plan, feature switch, or role may not include it.",
+        "A record is missing: clear filters and confirm it belongs to the current dealership."
+      ],
+      "safety": "Use approved training data on staging. Confirm the customer, vehicle, dealership, amount, and recipient before saving or sending anything.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "RPT-009",
+      "title": "Review employee performance without misreading the numbers",
+      "summary": "Compare activity and outcomes fairly, open supporting records, and turn the report into a specific coaching action.",
+      "keywords": [
+        "Reports",
+        "Review employee performance without misreading the numbers",
+        "employee performance",
+        "sales reps",
+        "service advisor",
+        "coaching"
+      ],
+      "product": "dealer_os",
+      "course": "Reports",
+      "roles": [],
+      "features": [
+        "os.reports",
+        "os.team"
+      ],
+      "permissions": [],
+      "minutes": 8,
+      "outcome": "The review connects verified comparable data to one fair, specific, measurable coaching action and follow-up date.",
+      "who": "Dealership users whose plan and role include this department. Managers see dealership-wide controls; individual contributors may see only assigned records.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open the employee report",
+          "body": "Choose the department, role, reporting period, location, and comparable active employees."
+        },
+        {
+          "title": "Review activity and opportunity",
+          "body": "Compare assigned leads, appointments, traffic, inventory, repair orders, hours, and other workload before outcomes."
+        },
+        {
+          "title": "Review results",
+          "body": "Compare response time, contact rate, appointments, shows, sold units, gross, postings, labour, efficiency, CSI, or relevant role metrics."
+        },
+        {
+          "title": "Open supporting records",
+          "body": "Inspect representative examples and data quality instead of relying on one total or rank."
+        },
+        {
+          "title": "Account for context",
+          "body": "Consider schedule, tenure, leave, lead mix, inventory, department role, split deals, reversals, and incomplete data."
+        },
+        {
+          "title": "Record one coaching action",
+          "body": "Agree on one measurable behavior, support needed, owner, review date, and how progress will be evaluated."
+        }
+      ],
+      "success": "The review connects verified comparable data to one fair, specific, measurable coaching action and follow-up date.",
+      "automatic": [
+        "MarketSync keeps every saved record inside the current dealership.",
+        "Related dashboards, timelines, and reports refresh from the same saved data."
+      ],
+      "problems": [
+        "A page is missing: the current plan, feature switch, or role may not include it.",
+        "A record is missing: clear filters and confirm it belongs to the current dealership."
+      ],
+      "safety": "Use approved training data on staging. Confirm the customer, vehicle, dealership, amount, and recipient before saving or sending anything.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "MKT-032",
+      "title": "Publish and test a dealership lead form",
+      "summary": "Create a clear consent-aware form, route its leads correctly, and verify the complete customer experience.",
+      "keywords": [
+        "Marketing and website",
+        "Publish and test a dealership lead form",
+        "lead form",
+        "website form",
+        "routing",
+        "consent"
+      ],
+      "product": "dealer_os",
+      "course": "Marketing and website",
+      "roles": [],
+      "features": [
+        "os.website",
+        "os.crm"
+      ],
+      "permissions": [
+        "site.manage"
+      ],
+      "minutes": 8,
+      "outcome": "A live test form creates one correctly attributed lead, assigns it on time, sends expected confirmations, and preserves consent evidence.",
+      "who": "Dealership users whose plan and role include this department. Managers see dealership-wide controls; individual contributors may see only assigned records.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open the website form builder",
+          "body": "Choose the intended page and form purpose such as vehicle inquiry, test drive, trade value, service, or contact."
+        },
+        {
+          "title": "Choose only necessary fields",
+          "body": "Collect the minimum customer, vehicle, timing, and consent information needed for the promised response."
+        },
+        {
+          "title": "Configure disclosure and confirmation",
+          "body": "Add dealership identity, privacy link, consent language, expected response, and a useful confirmation message."
+        },
+        {
+          "title": "Set routing and notifications",
+          "body": "Choose the CRM source, department, round-robin rule, owner fallback, acknowledgement, and internal alert."
+        },
+        {
+          "title": "Submit a staging test",
+          "body": "Use approved internal details and verify validation, mobile layout, spam protection, confirmation, lead record, owner, and notification."
+        },
+        {
+          "title": "Publish and verify production",
+          "body": "Submit one controlled live test, confirm analytics and attribution, then remove or label the test record."
+        }
+      ],
+      "success": "A live test form creates one correctly attributed lead, assigns it on time, sends expected confirmations, and preserves consent evidence.",
+      "automatic": [
+        "MarketSync keeps every saved record inside the current dealership.",
+        "Related dashboards, timelines, and reports refresh from the same saved data."
+      ],
+      "problems": [
+        "A page is missing: the current plan, feature switch, or role may not include it.",
+        "A record is missing: clear filters and confirm it belongs to the current dealership."
+      ],
+      "safety": "Use approved training data on staging. Confirm the customer, vehicle, dealership, amount, and recipient before saving or sending anything.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "MS-ONB-025",
+      "title": "Onboard a new paying dealership",
+      "summary": "Move a verified payment into a secure configured customer account with owners, milestones, and a successful first outcome.",
+      "keywords": [
+        "MarketSync OS",
+        "Onboard a new paying dealership",
+        "onboarding",
+        "new customer",
+        "provisioning",
+        "activation"
+      ],
+      "product": "marketsync_os",
+      "course": "MarketSync OS",
+      "roles": [],
+      "features": [],
+      "permissions": [],
+      "minutes": 8,
+      "outcome": "The dealership has paid, secure access to exactly its purchased products and completes one verified production workflow with owned next milestones.",
+      "who": "MarketSync platform owners and authorized MarketSync staff. Dealership users cannot access this internal workspace.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Confirm the commercial record",
+          "body": "Verify signed plan, products, price, currency, term, billing contact, payment, legal dealership, locations, and implementation scope."
+        },
+        {
+          "title": "Provision the account",
+          "body": "Create or verify the dealership, subscription, owner login, products, plan, features, role, and required MFA without broad overrides."
+        },
+        {
+          "title": "Assign the onboarding team",
+          "body": "Set customer owner, implementation owner, technical contact, kickoff date, target launch, and escalation path."
+        },
+        {
+          "title": "Complete core configuration",
+          "body": "Configure dealership identity, users, inventory, integrations, AI or Facebook products, service, accounting, or website based on purchase."
+        },
+        {
+          "title": "Run acceptance tests",
+          "body": "Test login, permissions, one primary workflow, notifications, data isolation, customer-facing output, and rollback or support path."
+        },
+        {
+          "title": "Record activation and next milestone",
+          "body": "Confirm the customer’s first successful outcome, training completion, open risks, owner, due dates, and 7- and 30-day reviews."
+        }
+      ],
+      "success": "The dealership has paid, secure access to exactly its purchased products and completes one verified production workflow with owned next milestones.",
+      "automatic": [
+        "MarketSync recalculates internal account and revenue views from the saved SaaS data.",
+        "Cross-customer actions remain restricted to authorized MarketSync staff."
+      ],
+      "problems": [
+        "DealerOS appears: switch to MarketSync OS and confirm the purple platform identity.",
+        "An account is missing: clear filters and search by dealership, contact, or email."
+      ],
+      "safety": "Use approved training data on staging. Confirm the customer, vehicle, dealership, amount, and recipient before saving or sending anything.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
     }
   ]
 }
