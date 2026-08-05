@@ -110,7 +110,7 @@ function visualFields(v) {
   if (!v.fields?.length) return '';
   return `<div class="training-render-fields">${v.fields.map((field, index) => {
     const [label, value] = String(field).split(' · ');
-    return `<div class="${index === 0 ? 'is-focus' : ''}"><span>${esc(label)}</span><strong>${esc(value || 'Ready')}</strong></div>`;
+    return `<div class="${index === 0 ? 'is-focus' : ''}"><span>${esc(label)}</span><strong>${esc(value || 'Review this setting')}</strong></div>`;
   }).join('')}</div>`;
 }
 
@@ -134,7 +134,7 @@ function visualBody(v) {
   if (v.kind === 'builder') return `<div>${visualTabs(v)}${visualMetrics(v)}<div class="training-builder"><div class="training-builder-controls"><strong>Editor</strong>${visualFields(v)}${visualTable(v)}${visualAction(v)}</div><div class="training-builder-preview"><span>${esc(v.notice || 'Live preview')}</span><div><strong>${esc(v.title)}</strong><p>${esc(v.state)}</p><button tabindex="-1">Preview action</button></div></div></div>`;
   if (v.kind === 'security' || v.kind === 'form' || v.kind === 'integration' || v.kind === 'ai') return `<div>${visualTabs(v)}${visualMetrics(v)}<div class="training-form-layout"><div class="training-form-card"><div class="training-render-pills"><span>${esc(v.state)}</span></div>${visualFields(v)}${visualAction(v)}</div><aside><strong>${v.kind === 'security' ? 'Security check' : v.kind === 'integration' ? 'Connection status' : v.kind === 'ai' ? 'Safe AI setup' : 'Before saving'}</strong><p>${esc(v.notice || 'Review the highlighted field and confirm the current record before saving.')}</p></aside></div>${visualTable(v)}</div>`;
   if (v.kind === 'crm') return `<div>${visualTabs(v)}<div class="training-crm"><aside><div class="training-avatar">JL</div><strong>${esc(v.title)}</strong>${visualFields(v)}${visualAction(v)}</aside><div><strong>${esc(v.activeTab || 'Timeline')}</strong>${visualTable(v)}</div></div></div>`;
-  if (v.kind === 'deal') return `<div>${visualTabs(v)}${visualMetrics(v)}<div class="training-deal"><div><strong>Customer & vehicle</strong><p>Jordan Lee</p><p>2025 Chevrolet Equinox RS</p></div><div class="is-focus"><strong>${esc(v.state)}</strong>${visualTable(v)}${visualAction(v)}</div></div></div>`;
+  if (v.kind === 'deal') return `<div>${visualTabs(v)}${visualMetrics(v)}<div class="training-deal"><div><strong>Customer & vehicle</strong><p>Jordan Lee</p><p>2025 Chevrolet Equinox RS</p></div><div class="is-focus"><strong>${esc(v.state)}</strong>${visualFields(v)}${visualTable(v)}${visualAction(v)}</div></div></div>`;
   if (v.kind === 'leaderboard') return `<div>${visualMetrics(v)}<div class="training-podium"><div>2<span>Mia</span></div><div class="first">1<span>Alex</span></div><div>3<span>Sam</span></div></div>${visualTable(v)}<div class="training-render-footer">${visualAction(v)}</div></div>`;
   if (v.kind === 'inventory') return `<div>${visualMetrics(v)}<div class="training-inventory"><div class="training-lot-score"><strong>${esc(v.metrics?.[0]?.[1] || '78')}</strong><span>Lot health</span></div>${visualTable(v)}</div><div class="training-render-footer">${visualAction(v)}</div></div>`;
   if (v.kind === 'marketing') return `<div>${visualMetrics(v)}<div class="training-marketing-chart">${[42,70,54,82,64,91,76].map((h, i) => `<span style="height:${h}%"><small>${['M','T','W','T','F','S','S'][i]}</small></span>`).join('')}</div>${visualTable(v)}<div class="training-render-footer">${visualAction(v)}</div></div>`;
