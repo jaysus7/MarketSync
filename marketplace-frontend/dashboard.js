@@ -26123,11 +26123,7 @@ const DEPARTMENTS_CONFIG = {
       { num: '2', title: 'Operational Flow', desc: 'Track department health across sales, inventory & service.' },
       { num: '3', title: 'Action Launchpad', desc: 'Execute quick actions directly from the header.' }
     ],
-    tutorials: [
-      'Daily revenue & exception monitoring',
-      'Department health velocity cards',
-      'Quick action header buttons for instant deal desking'
-    ],
+    tutorials: ['Daily revenue & exception monitoring', 'Department health velocity cards', 'Quick action header buttons for instant deal desking'],
     fields: [
       { key: 'legal_name', label: 'Legal Dealership Name', placeholder: 'e.g. Apex Motors Inc.', sharedKey: 'legal_name' },
       { key: 'store_tz', label: 'Store Time Zone', placeholder: 'America/Toronto' }
@@ -26144,11 +26140,7 @@ const DEPARTMENTS_CONFIG = {
       { num: '2', title: 'Pipeline Stages', desc: 'Drag customers from Uncontacted to Appointment and Sold.' },
       { num: '3', title: 'Verification', desc: 'Scan driver\'s licences to auto-fill customer profiles.' }
     ],
-    tutorials: [
-      'Multi-channel lead consolidation (Facebook, Web, SMS)',
-      'Kanban drag-and-drop customer pipeline',
-      'Driver\'s licence barcode scanner for instant profile creation'
-    ],
+    tutorials: ['Multi-channel lead consolidation (Facebook, Web, SMS)', 'Kanban drag-and-drop customer pipeline', 'Driver\'s licence barcode scanner for instant profile creation'],
     fields: [
       { key: 'crm_email', label: 'Lead Intake Email', placeholder: 'leads@dealership.com', sharedKey: 'crm_email' },
       { key: 'phone', label: 'Sales Line Phone', placeholder: '(555) 019-2831', sharedKey: 'phone' }
@@ -26165,14 +26157,45 @@ const DEPARTMENTS_CONFIG = {
       { num: '2', title: 'Catalog Management', desc: 'Edit specs, photos, and AI-generated vehicle descriptions.' },
       { num: '3', title: 'Market Execution', desc: 'One-click post to Facebook Marketplace in seconds.' }
     ],
-    tutorials: [
-      'Automated inventory feed sync (CSV / Website Feed)',
-      'AI vehicle sales pitch generator',
-      'Chrome Extension one-click Facebook Marketplace posting'
-    ],
+    tutorials: ['Automated inventory feed sync (CSV / Website Feed)', 'AI vehicle sales pitch generator', 'Chrome Extension one-click Facebook Marketplace posting'],
     fields: [
       { key: 'feed_url', label: 'Inventory Feed URL (CSV/XML)', placeholder: 'https://feed.provider.com/stock.csv' },
       { key: 'dms_platform', label: 'DMS Provider', placeholder: 'vAuto / Homenet / PBS / Reynolds' }
+    ]
+  },
+  'inv-intel': {
+    id: 'inv-intel',
+    title: 'Inventory Intelligence & Pricing Watchdog',
+    badgeTitle: 'Pricing Strategist',
+    badgeIcon: '📈',
+    badgeDesc: 'You have configured Inventory Intelligence & Market Watchdog!',
+    stages: [
+      { num: '1', title: 'Market Watchdog', desc: 'Auto-flag stale or overpriced units against live comps.' },
+      { num: '2', title: 'Turn Rate Analysis', desc: 'Track days-on-lot and monthly sell-through velocity.' },
+      { num: '3', title: 'AI Lot Narrative', desc: 'Generate daily AI executive lot recommendations.' }
+    ],
+    tutorials: ['Days-on-lot watchdog triggers', 'vAuto-style market comp pricing analysis', 'Copart live auction reference data'],
+    fields: [
+      { key: 'stale_days', label: 'Stale Vehicle Alert Threshold (Days)', placeholder: '45' },
+      { key: 'overprice_pct', label: 'Overpriced Alert Threshold (% above market)', placeholder: '5.0' },
+      { key: 'auto_reprice', label: 'Automated Repricing Watchdog', placeholder: 'Enabled' }
+    ]
+  },
+  market: {
+    id: 'market',
+    title: 'Market & Competitor Intelligence',
+    badgeTitle: 'Market Analyst',
+    badgeIcon: '🔍',
+    badgeDesc: 'You have configured Market & Competitor Lot Monitoring!',
+    stages: [
+      { num: '1', title: 'Competitor Tracking', desc: 'Monitor nearby dealership lots and price adjustments.' },
+      { num: '2', title: 'Scraper Radius', desc: 'Set regional geographical market boundary for comp matching.' },
+      { num: '3', title: 'Price Positioning', desc: 'Benchmark inventory against local market averages.' }
+    ],
+    tutorials: ['Competitor lot URL tracking', 'Regional comp radius configuration', 'Price change notification alerts'],
+    fields: [
+      { key: 'comp_radius', label: 'Competitor Monitoring Radius (KM / Miles)', placeholder: '150' },
+      { key: 'target_market_pct', label: 'Target Price-to-Market (%)', placeholder: '98.5' }
     ]
   },
   sales: {
@@ -26186,14 +26209,96 @@ const DEPARTMENTS_CONFIG = {
       { num: '2', title: 'Deal Structuring', desc: 'Calculate taxes, F&I back-end products, and payments.' },
       { num: '3', title: 'Delivery & Printing', desc: 'Print Buyers Orders, Bill of Sale, and mark unit Delivered.' }
     ],
-    tutorials: [
-      'Interactive Deal Desk calculator with trade payoff',
-      'F&I menu pricing & margin calculator',
-      'Printable Buyers Order, Bill of Sale, and e-Signature workflow'
-    ],
+    tutorials: ['Interactive Deal Desk calculator with trade payoff', 'F&I menu pricing & margin calculator', 'Printable Buyers Order, Bill of Sale, and e-Signature workflow'],
     fields: [
       { key: 'default_tax_rate', label: 'Default Sales Tax Rate (%)', placeholder: '13.0' },
       { key: 'default_doc_fee', label: 'Default Documentation Fee ($)', placeholder: '499.00' }
+    ]
+  },
+  appraisal: {
+    id: 'appraisal',
+    title: 'Vehicle Appraisals & Acquisition',
+    badgeTitle: 'Appraisal Master',
+    badgeIcon: '🏷️',
+    badgeDesc: 'You have configured the Vehicle Appraisal & Trade-In department!',
+    stages: [
+      { num: '1', title: 'VIN & Specs', desc: 'Decode VIN, pull specs, options, and recall status.' },
+      { num: '2', title: 'Condition & Recon', desc: 'Estimate reconditioning cost and target front-end gross.' },
+      { num: '3', title: 'Offer Calculation', desc: 'Generate suggested trade-in offer capped by market book value.' }
+    ],
+    tutorials: ['VIN barcode scanner and NHTSA decode', 'Reconditioning cost calculator', 'Market-based suggested trade offer capping'],
+    fields: [
+      { key: 'default_recon_cost', label: 'Default Recon Cost Estimate ($)', placeholder: '1,200.00' },
+      { key: 'target_front_gross', label: 'Target Front Gross ($)', placeholder: '2,500.00' },
+      { key: 'max_acq_pct', label: 'Max Acquisition % of Market Value', placeholder: '88.0' }
+    ]
+  },
+  equity: {
+    id: 'equity',
+    title: 'Equity Mining & Trade-Up Scanner',
+    badgeTitle: 'Equity Specialist',
+    badgeIcon: '💎',
+    badgeDesc: 'You have configured Equity Mining & Trade-Up Acquisitions!',
+    stages: [
+      { num: '1', title: 'Database Scanning', desc: 'Scan CRM and Service database for positive equity units.' },
+      { num: '2', title: 'Trade-Up Calculation', desc: 'Calculate lower monthly payments into newer inventory.' },
+      { num: '3', title: 'Automated Outreach', desc: 'Trigger SMS & Email trade-up invitations.' }
+    ],
+    tutorials: ['Automated equity database scanner', 'Payment parity trade-up calculator', 'One-click VIP campaign trigger'],
+    fields: [
+      { key: 'min_equity', label: 'Minimum Positive Equity Target ($)', placeholder: '2,000.00' },
+      { key: 'min_vehicle_age', label: 'Minimum Vehicle Age for Trade-Up (Years)', placeholder: '2' }
+    ]
+  },
+  delivery: {
+    id: 'delivery',
+    title: 'Vehicle Delivery Queue',
+    badgeTitle: 'Delivery Specialist',
+    badgeIcon: '🚚',
+    badgeDesc: 'You have configured the Vehicle Delivery department!',
+    stages: [
+      { num: '1', title: 'Sold Queue', desc: 'Track pending deliveries and sold vehicle holds.' },
+      { num: '2', title: 'Pre-Delivery Inspection', desc: 'Complete wash, detail, and accessory installation checklist.' },
+      { num: '3', title: 'Handover & Review', desc: 'Hand over keys, complete e-sign, and request Google Review.' }
+    ],
+    tutorials: ['Sold vehicle queue tracking', 'Pre-delivery detail checklist', 'Automated review request follow-up'],
+    fields: [
+      { key: 'delivery_manager', label: 'Delivery Coordinator Name', placeholder: 'Sarah Connor' },
+      { key: 'review_link', label: 'Google Review Link', placeholder: 'https://g.page/apexmotors/review' }
+    ]
+  },
+  'fni-worklist': {
+    id: 'fni-worklist',
+    title: 'F&I Deals & Lender Routing',
+    badgeTitle: 'F&I Manager',
+    badgeIcon: '💳',
+    badgeDesc: 'You have configured F&I Deals & Lender Routing!',
+    stages: [
+      { num: '1', title: 'Credit Application', desc: 'Gather applicant income, housing, and credit details.' },
+      { num: '2', title: 'Lender Submissions', desc: 'Route applications to preferred prime & subprime lenders.' },
+      { num: '3', title: 'Back-End Menu', desc: 'Present warranties, GAP insurance, and tire protection.' }
+    ],
+    tutorials: ['Credit application intake & validation', 'Lender portal credit routing', 'F&I product menu presentation'],
+    fields: [
+      { key: 'preferred_lender', label: 'Primary Lender Portal', placeholder: 'DealerTrack / RouteOne / Bank' },
+      { key: 'target_pvr', label: 'Target PVR Back-End Gross ($)', placeholder: '1,850.00' }
+    ]
+  },
+  'fni-esignatures': {
+    id: 'fni-esignatures',
+    title: 'eSignatures & Digital Contracts',
+    badgeTitle: 'Digital Signing Officer',
+    badgeIcon: '✍️',
+    badgeDesc: 'You have configured Digital eSignatures & Contracts!',
+    stages: [
+      { num: '1', title: 'Document Prep', desc: 'Generate Buyers Order, Bill of Sale, and disclosure forms.' },
+      { num: '2', title: 'In-Person / Remote Sign', desc: 'Send e-sign link via SMS/Email or present on tablet.' },
+      { num: '3', title: 'Vault & Archive', desc: 'Store tamper-proof PDF contracts in digital deal jacket.' }
+    ],
+    tutorials: ['Tamper-proof digital e-signature engine', 'Remote customer signing via SMS', 'Automated deal jacket PDF archiving'],
+    fields: [
+      { key: 'esign_provider', label: 'e-Sign Engine Status', placeholder: 'Enabled (MarketSync Native)' },
+      { key: 'contract_retention', label: 'Contract Retention Period (Years)', placeholder: '7' }
     ]
   },
   service: {
@@ -26207,14 +26312,44 @@ const DEPARTMENTS_CONFIG = {
       { num: '2', title: 'Repair Dispatch', desc: 'Manage open repair orders, parts, and technician assignments.' },
       { num: '3', title: 'Equity Mining', desc: 'Identify high-equity service customers to trade up.' }
     ],
-    tutorials: [
-      'Service scheduling and repair order tracking',
-      'Parts inventory requisitions',
-      'Automated Equity Mining scanner for trade-in acquisitions'
-    ],
+    tutorials: ['Service scheduling and repair order tracking', 'Parts inventory requisitions', 'Automated Equity Mining scanner for trade-in acquisitions'],
     fields: [
       { key: 'service_phone', label: 'Service Desk Phone', placeholder: '(555) 019-2832', sharedKey: 'phone' },
       { key: 'labor_rate', label: 'Hourly Labor Rate ($)', placeholder: '145.00' }
+    ]
+  },
+  'service-parts': {
+    id: 'service-parts',
+    title: 'Parts Inventory & Reordering',
+    badgeTitle: 'Parts Manager',
+    badgeIcon: '⚙️',
+    badgeDesc: 'You have configured Parts Inventory & Vendor Reordering!',
+    stages: [
+      { num: '1', title: 'Parts Catalog', desc: 'Track OEM and aftermarket parts numbers and quantities.' },
+      { num: '2', title: 'Reorder Alerts', desc: 'Set minimum stock levels for fast-moving maintenance items.' },
+      { num: '3', title: 'RO Requisitions', desc: 'Issue parts directly to active Repair Orders.' }
+    ],
+    tutorials: ['Parts SKU barcode inventory management', 'Automated vendor reorder alerts', 'Repair order parts billing'],
+    fields: [
+      { key: 'parts_markup', label: 'Default Parts Markup %', placeholder: '40.0' },
+      { key: 'primary_parts_vendor', label: 'Primary Parts Supplier', placeholder: 'OEM Direct / NAPA' }
+    ]
+  },
+  recon: {
+    id: 'recon',
+    title: 'Cleanup & Detail Reconditioning',
+    badgeTitle: 'Recon Supervisor',
+    badgeIcon: '🧼',
+    badgeDesc: 'You have configured Cleanup & Detail Reconditioning!',
+    stages: [
+      { num: '1', title: 'Intake Queue', desc: 'Log acquired trade-ins into detail and wash queue.' },
+      { num: '2', title: 'Wash & Photo', desc: 'Complete 360 photo booth capture and interior detailing.' },
+      { num: '3', title: 'Lot Release', desc: 'Release vehicle to live inventory as Ready for Sale.' }
+    ],
+    tutorials: ['Detail turnaround SLA tracker', 'Photo booth image upload workflow', 'Automated Ready for Sale status update'],
+    fields: [
+      { key: 'recon_sla', label: 'Target Recon Turnaround SLA (Hours)', placeholder: '48' },
+      { key: 'photo_booth_bay', label: 'Photo Bay Location', placeholder: 'Building B - Bay 3' }
     ]
   },
   accounting: {
@@ -26222,20 +26357,51 @@ const DEPARTMENTS_CONFIG = {
     title: 'Accounting & Dealership Books',
     badgeTitle: 'Controller',
     badgeIcon: '💼',
-    badgeDesc: 'You have configured the Accounting department!',
+    badgeDesc: 'You have configured Accounting & Dealership Books!',
     stages: [
       { num: '1', title: 'Ledger Ingestion', desc: 'Delivered deals automatically post to general ledger.' },
       { num: '2', title: 'Expenses & Payroll', desc: 'Track vendor invoices, inventory pack, and rep commissions.' },
       { num: '3', title: 'Reconciliation & Tax', desc: 'Run daily bank reconciliation and export tax reports.' }
     ],
-    tutorials: [
-      'Automated deal posting from Sales Desk to General Ledger',
-      'Commission calculation and rep payroll export',
-      'One-click tax report generation & bank reconciliation'
-    ],
+    tutorials: ['Automated deal posting from Sales Desk to General Ledger', 'Commission calculation and rep payroll export', 'One-click tax report generation & bank reconciliation'],
     fields: [
       { key: 'accounting_email', label: 'Accounting Contact Email', placeholder: 'accounting@dealership.com' },
       { key: 'currency', label: 'Primary Currency', placeholder: 'CAD / USD' }
+    ]
+  },
+  'acct-tax': {
+    id: 'acct-tax',
+    title: 'Tax Rates & Accountant Setup',
+    badgeTitle: 'Tax Administrator',
+    badgeIcon: '🏛️',
+    badgeDesc: 'You have configured Tax Rates & Corporate Accountant Settings!',
+    stages: [
+      { num: '1', title: 'Tax Jurisdiction', desc: 'Set regional sales tax rates (HST/PST/GST/State Tax).' },
+      { num: '2', title: 'Corporate Registration', desc: 'Enter Business Tax Registration # for official invoice printing.' },
+      { num: '3', title: 'Accountant Export', desc: 'Automate monthly tax ledger export to corporate accountant.' }
+    ],
+    tutorials: ['Multi-jurisdiction sales tax configuration', 'Tax ID printing on Buyers Orders & Bills of Sale', 'Automated monthly CPA ledger export'],
+    fields: [
+      { key: 'default_tax_rate', label: 'Default Sales Tax Rate (%)', placeholder: '13.0' },
+      { key: 'tax_id_number', label: 'Tax Registration ID / HST #', placeholder: 'RT0001-984210' },
+      { key: 'cpa_email', label: 'Corporate Accountant Email', placeholder: 'cpa@accountingfirm.com' }
+    ]
+  },
+  'acct-recon': {
+    id: 'acct-recon',
+    title: 'Daily Bank Reconciliation',
+    badgeTitle: 'Reconciliation Manager',
+    badgeIcon: '🏦',
+    badgeDesc: 'You have configured Daily Bank Reconciliation!',
+    stages: [
+      { num: '1', title: 'Bank Feeds', desc: 'Sync daily bank transaction statement feeds.' },
+      { num: '2', title: 'Auto-Matching', desc: 'Match bank deposits against delivered deal receipts.' },
+      { num: '3', title: 'Exception Clearing', desc: 'Clear outstanding deposits and fee variances.' }
+    ],
+    tutorials: ['Automated bank feed deposit matching', 'Deal receipt reconciliation', 'Variance exception clearing'],
+    fields: [
+      { key: 'bank_name', label: 'Primary Operating Bank', placeholder: 'RBC / TD / Chase' },
+      { key: 'match_tolerance', label: 'Auto-Match Tolerance ($)', placeholder: '0.05' }
     ]
   },
   web: {
@@ -26249,11 +26415,7 @@ const DEPARTMENTS_CONFIG = {
       { num: '2', title: 'AI Assistant Widget', desc: 'Configure 24/7 AI chat widget to capture leads.' },
       { num: '3', title: 'Custom Domain', desc: 'Connect custom domain name and publish site.' }
     ],
-    tutorials: [
-      'Drag-and-drop website block builder',
-      '24/7 AI Assistant lead capture widget',
-      'Custom domain & SSL auto-provisioning'
-    ],
+    tutorials: ['Drag-and-drop website block builder', '24/7 AI Assistant lead capture widget', 'Custom domain & SSL auto-provisioning'],
     fields: [
       { key: 'website_url', label: 'Dealership Website URL', placeholder: 'https://www.apexmotors.com', sharedKey: 'website_url' },
       { key: 'subdomain', label: 'MarketSync Subdomain', placeholder: 'apexmotors' }
@@ -26270,14 +26432,95 @@ const DEPARTMENTS_CONFIG = {
       { num: '2', title: 'Sequences', desc: 'Craft multi-step SMS and email follow-up drips.' },
       { num: '3', title: 'Engine Control', desc: 'Turn Engine ON for automated 24/7 follow-up.' }
     ],
-    tutorials: [
-      'Event-driven automation triggers',
-      'Personalized SMS & Email template tags',
-      '24/7 background campaign execution engine'
-    ],
+    tutorials: ['Event-driven automation triggers', 'Personalized SMS & Email template tags', '24/7 background campaign execution engine'],
     fields: [
       { key: 'sender_name', label: 'Email Sender Name', placeholder: 'Apex Motors Sales Team' },
       { key: 'sender_email', label: 'Sender Email Address', placeholder: 'info@apexmotors.com' }
+    ]
+  },
+  'email-campaigns': {
+    id: 'email-campaigns',
+    title: 'Email Campaigns & Broadcasts',
+    badgeTitle: 'Email Campaign Specialist',
+    badgeIcon: '📧',
+    badgeDesc: 'You have configured Email Broadcasts & Newsletters!',
+    stages: [
+      { num: '1', title: 'Audience Targeting', desc: 'Filter customer segments: Active Shoppers, Past Buyers, Aged Leads.' },
+      { num: '2', title: 'AI Copy Builder', desc: 'Generate vehicle showcase copy and promotional offers.' },
+      { num: '3', title: 'Broadcast Analytics', desc: 'Send campaign and track real-time open rates and inquiries.' }
+    ],
+    tutorials: ['Audience segment filtering', 'AI-generated promo email copy', 'Real-time open & click tracking analytics'],
+    fields: [
+      { key: 'broadcast_sender', label: 'Broadcast Sender Name', placeholder: 'Apex Motors Deals' },
+      { key: 'reply_to', label: 'Reply-To Email Address', placeholder: 'sales@apexmotors.com' }
+    ]
+  },
+  'owner-users': {
+    id: 'owner-users',
+    title: 'User Administration & Staff Roles',
+    badgeTitle: 'User Administrator',
+    badgeIcon: '👥',
+    badgeDesc: 'You have configured User Administration & Permissions!',
+    stages: [
+      { num: '1', title: 'User Roster', desc: 'Add sales reps, F&I managers, service advisors, and accounting staff.' },
+      { num: '2', title: 'Role Access', desc: 'Assign granular permissions: Rep, Manager, Admin, Accountant.' },
+      { num: '3', title: 'MFA Security', desc: 'Enforce multi-factor authentication for team accounts.' }
+    ],
+    tutorials: ['Role-based access control (RBAC)', 'Sales team roster management', 'MFA security enforcement'],
+    fields: [
+      { key: 'default_role', label: 'Default New User Role', placeholder: 'Sales Rep' },
+      { key: 'require_mfa', label: 'Require MFA for Managers', placeholder: 'Enabled' }
+    ]
+  },
+  operations: {
+    id: 'operations',
+    title: 'Store Operations & Compliance',
+    badgeTitle: 'Operations Director',
+    badgeIcon: '🏢',
+    badgeDesc: 'You have configured Store Operations & Compliance!',
+    stages: [
+      { num: '1', title: 'Store Schedule', desc: 'Set operating hours for sales, service, and parts.' },
+      { num: '2', title: 'Vendor Logins', desc: 'Manage DMS, CRM, and website vendor integration keys.' },
+      { num: '3', title: 'Security Audit', desc: 'Monitor store audit log and security events.' }
+    ],
+    tutorials: ['Store operating hours configuration', 'Vendor credential management', 'System audit log monitoring'],
+    fields: [
+      { key: 'store_address', label: 'Dealership Street Address', placeholder: '100 Motorway Blvd', sharedKey: 'address' },
+      { key: 'store_hours', label: 'Sales Operating Hours', placeholder: 'Mon-Fri: 9am-8pm, Sat: 9am-6pm' }
+    ]
+  },
+  config: {
+    id: 'config',
+    title: 'System Configuration Engine',
+    badgeTitle: 'System Architect',
+    badgeIcon: '⚙️',
+    badgeDesc: 'You have configured the System Configuration Engine!',
+    stages: [
+      { num: '1', title: 'Engine Overview', desc: 'Control platform feature flags, timeouts, and system defaults.' },
+      { num: '2', title: 'Rule Scoping', desc: 'Configure regional rules for pricing, taxes, and notifications.' },
+      { num: '3', title: 'System Health', desc: 'Monitor API health, database sync status, and background workers.' }
+    ],
+    tutorials: ['Global platform feature flags', 'API timeout & retry policy settings', 'Background queue health monitoring'],
+    fields: [
+      { key: 'api_timeout_ms', label: 'API Call Timeout (ms)', placeholder: '10000' },
+      { key: 'log_level', label: 'System Log Level', placeholder: 'INFO' }
+    ]
+  },
+  'api-keys': {
+    id: 'api-keys',
+    title: 'API & MCP Keys',
+    badgeTitle: 'API Developer',
+    badgeIcon: '🔑',
+    badgeDesc: 'You have configured Developer API & MCP Keys!',
+    stages: [
+      { num: '1', title: 'API Tokens', desc: 'Generate REST API keys for custom inventory & CRM integrations.' },
+      { num: '2', title: 'Webhooks', desc: 'Register webhook endpoints for real-time lead and deal events.' },
+      { num: '3', title: 'MCP Servers', desc: 'Connect Model Context Protocol servers for AI assistant tools.' }
+    ],
+    tutorials: ['Developer REST API key generation', 'Real-time webhook event subscriptions', 'MCP AI server endpoint configuration'],
+    fields: [
+      { key: 'webhook_url', label: 'Lead Webhook Callback URL', placeholder: 'https://api.yourdomain.com/webhook' },
+      { key: 'mcp_server_url', label: 'MCP Server Endpoint', placeholder: 'https://mcp.yourdomain.com/sse' }
     ]
   }
 };
@@ -26285,15 +26528,17 @@ const DEPARTMENTS_CONFIG = {
 function checkDepartmentOpen(pageId) {
   if (!pageId) return;
   let deptId = pageId;
-  if (pageId === 'inv-intel' || pageId === 'market') deptId = 'inventory';
-  if (pageId === 'fni' || pageId === 'desk' || pageId === 'recon') deptId = 'sales';
-  if (pageId === 'appraisal' || pageId === 'equity') deptId = 'sales';
-  if (pageId === 'service-ros' || pageId === 'service-appointments' || pageId === 'service-parts') deptId = 'service';
-  if (typeof pageId === 'string' && pageId.startsWith('acct-')) deptId = 'accounting';
-  if (pageId === 'website' || pageId === 'website-settings') deptId = 'web';
-  if (pageId === 'automation' || pageId === 'automation-builder' || pageId === 'email-campaigns') deptId = 'auto';
 
-  const deptConfig = DEPARTMENTS_CONFIG[deptId];
+  // Exact page to department schema mapping
+  if (pageId === 'inv-intel' || pageId === 'market') deptId = pageId;
+  if (pageId === 'fni' || pageId === 'desk' || pageId === 'recon') deptId = pageId === 'fni' ? 'fni-worklist' : (pageId === 'recon' ? 'recon' : 'sales');
+  if (pageId === 'appraisal' || pageId === 'equity' || pageId === 'delivery') deptId = pageId;
+  if (pageId === 'service-ros' || pageId === 'service-appointments' || pageId === 'service-parts') deptId = pageId === 'service-parts' ? 'service-parts' : 'service';
+  if (typeof pageId === 'string' && pageId.startsWith('acct-')) deptId = pageId;
+  if (pageId === 'website' || pageId === 'website-settings') deptId = 'web';
+  if (pageId === 'automation' || pageId === 'automation-builder' || pageId === 'email-campaigns') deptId = pageId === 'email-campaigns' ? 'email-campaigns' : 'auto';
+
+  const deptConfig = DEPARTMENTS_CONFIG[deptId] || DEPARTMENTS_CONFIG[pageId];
   if (!deptConfig) return;
 
   const key = `ms_dept_opened_${deptId}`;

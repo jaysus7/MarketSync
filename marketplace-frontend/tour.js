@@ -129,10 +129,15 @@
       { target: '#inventory-table', before: () => goPage('inventory'), title: '2. Manage Stock (Center)', body: `Review photos, edit pricing, AI listing copy, and mark units as active or pending.` },
       { target: '#install-ext-btn', before: () => goPage('inventory'), title: '3. Market Execution (Right)', body: `Click <b>Post to Facebook</b> to push listings to Facebook Marketplace in seconds.` }
     ],
-    ii: [
+    'inv-intel': [
       { target: '#nav-inv-intel', before: () => { openGroup('ii'); goPage('inv-intel'); }, title: '1. Intelligence Scan (Left)', body: `Scan your entire lot for mispriced units, market flags, and days-on-lot alerts.` },
       { target: '[data-page-content="inv-intel"]', before: () => goPage('inv-intel'), title: '2. Market Pricing (Center)', body: `Analyze real-time regional vehicle price distribution and competitive positioning.` },
       { target: '#nav-vin-sticker', before: () => goPage('vin-sticker'), title: '3. Assets & Stickers (Right)', body: `Generate factory VIN decodes, window stickers, and 2-page AI vehicle brochures.` }
+    ],
+    market: [
+      { target: '[data-page-content="market"]', before: () => { openGroup('ii'); goPage('market'); }, title: '1. Competitor Lot Scan (Left)', body: `Track competitor dealership listings, price changes, and new arrivals.` },
+      { target: '[data-page-content="market"]', before: () => goPage('market'), title: '2. Radius Boundary (Center)', body: `Set your regional competitive radius to compare price positioning.` },
+      { target: '[data-page-content="market"]', before: () => goPage('market'), title: '3. Under-cut Alerts (Right)', body: `Get notified whenever a competitor drops price on a matching unit!` }
     ],
     crm: [
       { target: '#dashboard-nav [data-page="crm"]', before: () => { openGroup('crm'); goPage('crm'); }, title: '1. Lead Ingestion (Left)', body: `All shopper leads from Facebook, Website AI Chat, and phone calls land directly here.` },
@@ -143,6 +148,31 @@
       { target: '#header-desk-btn', before: () => goPage('desk'), title: '1. Vehicle & Trade Input (Left)', body: `Select the vehicle, trade-in, pay-off, and customer details on the deal desk.` },
       { target: '[data-page-content="desk"]', before: () => goPage('desk'), title: '2. Deal Structuring (Center)', body: `Calculate tax, backend F&I products, lender rates, and monthly payment options.` },
       { target: '[data-page-content="desk"]', before: () => goPage('desk'), title: '3. Contract & Delivery (Right)', body: `Print Buyers Order, Bill of Sale, e-Sign contracts, and mark deal as <b>Delivered</b>!` }
+    ],
+    appraisal: [
+      { target: '[data-page-content="appraisal"]', before: () => { openGroup('sales'); goPage('appraisal'); }, title: '1. VIN Scanner & Specs (Left)', body: `Decode VIN, pull specs, options, and recall history in one click.` },
+      { target: '[data-page-content="appraisal"]', before: () => goPage('appraisal'), title: '2. Recon & Target Gross (Center)', body: `Set reconditioning estimates and target front-end gross profit.` },
+      { target: '[data-page-content="appraisal"]', before: () => goPage('appraisal'), title: '3. Market Offer Capping (Right)', body: `Calculate suggested trade-in offer capped by live market book value.` }
+    ],
+    equity: [
+      { target: '[data-page-content="equity"]', before: () => { openGroup('sales'); goPage('equity'); }, title: '1. Database Scanner (Left)', body: `Scan CRM and Service records for customers in a positive equity position.` },
+      { target: '[data-page-content="equity"]', before: () => goPage('equity'), title: '2. Trade-Up Parity (Center)', body: `Match customers into new vehicles with equal or lower monthly payments.` },
+      { target: '[data-page-content="equity"]', before: () => goPage('equity'), title: '3. VIP Invitation (Right)', body: `Trigger automated trade-up SMS and Email campaign invites!` }
+    ],
+    delivery: [
+      { target: '[data-page-content="delivery"]', before: () => goPage('delivery'), title: '1. Sold Queue (Left)', body: `Monitor pending customer deliveries and vehicle holds.` },
+      { target: '[data-page-content="delivery"]', before: () => goPage('delivery'), title: '2. Detail Checklist (Center)', body: `Verify pre-delivery wash, detail, and accessory installation.` },
+      { target: '[data-page-content="delivery"]', before: () => goPage('delivery'), title: '3. Key Handover & Review (Right)', body: `Hand over keys, complete digital signatures, and trigger Google Review request!` }
+    ],
+    'fni-worklist': [
+      { target: '[data-page-content="fni"]', before: () => { openGroup('sales'); goPage('fni'); }, title: '1. Credit Application (Left)', body: `Capture customer income, employment, and credit application details.` },
+      { target: '[data-page-content="fni"]', before: () => goPage('fni'), title: '2. Lender Routing (Center)', body: `Submit applications directly to prime and subprime lender portals.` },
+      { target: '[data-page-content="fni"]', before: () => goPage('fni'), title: '3. F&I Menu Presentation (Right)', body: `Present warranties, GAP insurance, and chemical protection menus.` }
+    ],
+    'fni-esignatures': [
+      { target: '[data-page-content="fni"]', before: () => { openGroup('sales'); goPage('fni'); }, title: '1. Document Prep (Left)', body: `Generate Buyers Order, Bill of Sale, and disclosure forms.` },
+      { target: '[data-page-content="fni"]', before: () => goPage('fni'), title: '2. Remote Signing (Center)', body: `Send secure e-sign link via SMS or sign live on tablet.` },
+      { target: '[data-page-content="fni"]', before: () => goPage('fni'), title: '3. Digital Archive (Right)', body: `Archive signed tamper-proof PDFs in the digital deal jacket.` }
     ],
     web: [
       { target: '#dashboard-nav [data-page="website"]', before: () => { openGroup('web'); goPage('website'); }, title: '1. Structure & Hero (Left)', body: `Choose your layout blocks, hero banners, and featured vehicle showcases.` },
@@ -159,10 +189,30 @@
       { target: '[data-page-content="service-appointments"]', before: () => goPage('service-appointments'), title: '2. Repair Dispatch (Center)', body: `Track open repair orders, parts requisitions, and technician status.` },
       { target: '#dashboard-nav [data-page="equity"]', before: () => { openGroup('sales'); goPage('equity'); }, title: '3. Equity Mining (Right)', body: `Identify service customers with high equity ready to trade up into new vehicles!` }
     ],
+    'service-parts': [
+      { target: '[data-page-content="service-parts"]', before: () => { openGroup('service'); goPage('service-parts'); }, title: '1. Parts Catalog (Left)', body: `Manage OEM and aftermarket parts numbers and inventory counts.` },
+      { target: '[data-page-content="service-parts"]', before: () => goPage('service-parts'), title: '2. Reorder Thresholds (Center)', body: `Set automatic reorder alerts for fast-moving maintenance items.` },
+      { target: '[data-page-content="service-parts"]', before: () => goPage('service-parts'), title: '3. RO Requisitions (Right)', body: `Bill parts directly to active Repair Orders.` }
+    ],
+    recon: [
+      { target: '[data-page-content="recon"]', before: () => { openGroup('sales'); goPage('recon'); }, title: '1. Recon Intake Queue (Left)', body: `Log newly acquired trades into the detail and wash queue.` },
+      { target: '[data-page-content="recon"]', before: () => goPage('recon'), title: '2. Wash & Photo (Center)', body: `Complete 360 photo booth capture and interior detailing.` },
+      { target: '[data-page-content="recon"]', before: () => goPage('recon'), title: '3. Lot Release (Right)', body: `Mark vehicle Ready for Sale to release it to live inventory.` }
+    ],
     accounting: [
       { target: '#grp-accounting-wrap', before: () => { openGroup('accounting'); goPage('accounting'); }, title: '1. Ledger Ingestion (Left)', body: `Delivered deals, trade-ins, and F&I profits automatically post to your general ledger.` },
       { target: '[data-page-content="accounting"]', before: () => goPage('accounting'), title: '2. Expenses & Payroll (Center)', body: `Log vendor invoices, inventory pack, and automatically computed rep commissions.` },
       { target: '[data-page-content="accounting"]', before: () => goPage('accounting'), title: '3. Tax & Daily Recon (Right)', body: `Run automated daily reconciliation and export tax reports in one click.` }
+    ],
+    'acct-tax': [
+      { target: '[data-page-content="accounting"]', before: () => { openGroup('accounting'); goPage('acct-tax'); }, title: '1. Sales Tax Rates (Left)', body: `Configure regional sales tax rates (HST / PST / GST / State Tax).` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-tax'), title: '2. Tax Registration # (Center)', body: `Enter official Tax Registration ID for invoice printing.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-tax'), title: '3. Accountant Export (Right)', body: `Automate monthly tax report export to your CPA.` }
+    ],
+    'acct-recon': [
+      { target: '[data-page-content="accounting"]', before: () => { openGroup('accounting'); goPage('acct-recon'); }, title: '1. Bank Statement Feed (Left)', body: `Sync daily bank transaction feeds.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-recon'), title: '2. Deposit Auto-Match (Center)', body: `Auto-match bank deposits against delivered deal receipts.` },
+      { target: '[data-page-content="accounting"]', before: () => goPage('acct-recon'), title: '3. Exception Clearing (Right)', body: `Clear fee variances and outstanding deposits.` }
     ],
     reports: [
       { target: '#nav-reports', before: () => goPage('reports'), title: '1. Filter & Date Selector (Left)', body: `Choose date ranges, store locations, or individual sales reps.` },
@@ -188,6 +238,16 @@
       { target: '#dashboard-nav [data-page="academy"]', before: () => goPage('academy'), title: '1. Course Dashboard (Left)', body: `Explore MarketSync masterclasses with live completion progress bars.` },
       { target: '[data-page-content="academy"]', before: () => goPage('academy'), title: '2. Interactive Class Player (Center)', body: `Watch video lessons, read step-by-step guides, and track your progress.` },
       { target: '[data-page-content="academy"]', before: () => goPage('academy'), title: '3. Printable Certificates & LinkedIn (Right)', body: `Earn official certifications, print diploma PDFs, and add credentials to your LinkedIn profile!` }
+    ],
+    config: [
+      { target: '[data-page-content="config"]', before: () => goPage('config'), title: '1. Feature Flags (Left)', body: `Toggle system-wide feature flags and operational rules.` },
+      { target: '[data-page-content="config"]', before: () => goPage('config'), title: '2. Timeout & Retry Policy (Center)', body: `Configure API call timeout limits and background retry policies.` },
+      { target: '[data-page-content="config"]', before: () => goPage('config'), title: '3. Engine Health (Right)', body: `Monitor background task execution and database sync queues.` }
+    ],
+    'api-keys': [
+      { target: '[data-page-content="api-keys"]', before: () => goPage('api-keys'), title: '1. REST API Keys (Left)', body: `Generate API tokens for custom DMS, CRM, and inventory integrations.` },
+      { target: '[data-page-content="api-keys"]', before: () => goPage('api-keys'), title: '2. Webhook Callbacks (Center)', body: `Subscribe to real-time events for new leads, deal deliveries, and inventory changes.` },
+      { target: '[data-page-content="api-keys"]', before: () => goPage('api-keys'), title: '3. MCP Server Connections (Right)', body: `Connect Model Context Protocol (MCP) servers for AI copilot tool expansion.` }
     ]
   };
 
