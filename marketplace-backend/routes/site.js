@@ -197,6 +197,7 @@ function cleanSections(arr) {
   })
 }
 const TYPOGRAPHY = ['modern', 'luxury', 'bold', 'corporate', 'minimal']
+const SITE_THEMES = ['classic', 'prestige', 'modern', 'bold', 'minimal']
 
 // Placed widgets: where they can go and their shape.
 const WIDGET_SLOTS = ['top_banner', 'hero_below', 'above_inventory', 'below_inventory', 'above_footer']
@@ -254,6 +255,9 @@ function siteContent(d) {
     // Page builder: ordered sections + global styling.
     sections: cleanSections(b.site_sections),
     typography: TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern',
+    // One-click design theme — a bundle of tokens (radius, shadow, spacing, hero/card
+    // style) applied by the public site for an eDealer/LeadBox-grade look.
+    theme: SITE_THEMES.includes(b.site_theme) ? b.site_theme : 'classic',
     // Optional dealer-chosen Google Fonts (override the typography preset).
     heading_font: b.heading_font || null,
     body_font: b.body_font || null,
@@ -828,7 +832,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
 
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
     const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'hero_photos', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image']
-    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined || b.sales_chat !== undefined || b.chat_name !== undefined || b.chat_kb !== undefined || b.chat_instructions !== undefined || b.chat_disclaimer !== undefined
+    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.theme !== undefined || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined || b.sales_chat !== undefined || b.chat_name !== undefined || b.chat_kb !== undefined || b.chat_instructions !== undefined || b.chat_disclaimer !== undefined
     if (touchesContent) {
       const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
       const branding = { ...(cur?.branding || {}) }
@@ -847,6 +851,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       if (b.menu_order !== undefined) branding.site_menu_order = cleanMenuOrder(b.menu_order)
       if (b.sections !== undefined) branding.site_sections = cleanSections(b.sections)
       if (b.typography !== undefined) branding.typography = TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern'
+      if (b.theme !== undefined) branding.site_theme = SITE_THEMES.includes(b.theme) ? b.theme : 'classic'
       update.branding = branding
     }
 

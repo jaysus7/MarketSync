@@ -18203,13 +18203,30 @@ const WS_PALETTES = [
 ];
 const WS_FONTS = ['Inter', 'Poppins', 'Montserrat', 'Oswald', 'Bebas Neue', 'Anton', 'Archivo', 'Rubik', 'Barlow', 'Raleway', 'Playfair Display', 'Roboto Slab', 'Merriweather', 'Teko', 'Roboto', 'Open Sans', 'Lato', 'Source Sans 3', 'Nunito Sans', 'Work Sans', 'Mulish', 'PT Sans'];
 function wsApplyPalette(p, s, a) { const g = id => document.getElementById(id); if (g('ws-c1')) g('ws-c1').value = p; if (g('ws-c2')) g('ws-c2').value = s; if (g('ws-c3')) g('ws-c3').value = a; showToast('Palette applied — Save to publish', 'info'); }
+function wsSetTheme(id) { __siteCfg.content = __siteCfg.content || {}; __siteCfg.content.theme = id; renderWsBody(); showToast('Theme selected — Save to publish', 'info'); }
+window.wsSetTheme = wsSetTheme;
 function wsFontOpts(sel) { return `<option value="">— Use preset —</option>` + WS_FONTS.map(f => `<option value="${f}" ${sel === f ? 'selected' : ''}>${f}</option>`).join(''); }
 function wsDesign() {
   const c = __siteCfg.content || {};
   const swatch = (id, label, val) => `<div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${label}</label><input id="${id}" type="color" value="${esc(val || '#1e3a8a')}" class="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg"></div>`;
   const typos = [['modern','Modern'],['luxury','Luxury'],['bold','Bold'],['corporate','Corporate'],['minimal','Minimal']];
   const sel = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
+  const themes = [
+    ['classic', 'Classic', 'Balanced, familiar dealer look'],
+    ['prestige', 'Prestige', 'Refined, spacious, serif headings'],
+    ['modern', 'Modern', 'Crisp, soft depth, rounded'],
+    ['bold', 'Bold', 'High-contrast, punchy'],
+    ['minimal', 'Minimal', 'Flat, airy, bordered'],
+  ];
+  const curTheme = c.theme || 'classic';
   return `<div class="mt-4 max-w-lg space-y-5">
+    <div>
+      <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Design theme <span class="font-normal text-slate-400 text-[11px]">— one click restyles the whole site</span></div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">${themes.map(([id, nm, desc]) => `<button type="button" onclick="wsSetTheme('${id}')" class="text-left rounded-xl border-2 p-3 transition ${curTheme === id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'}">
+        <div class="text-[13px] font-black text-slate-900 dark:text-white flex items-center gap-1">${nm}${curTheme === id ? ' <span class="text-indigo-500">✓</span>' : ''}</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">${desc}</div></button>`).join('')}</div>
+      <p class="text-[11px] text-slate-400 mt-1.5">Themes set spacing, corners, shadows and heading style. Save, then “View site” to see it live.</p>
+    </div>
     <div>
       <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Quick palettes</div>
       <div class="flex flex-wrap gap-2">${WS_PALETTES.map(([n, p, s, a]) => `<button type="button" onclick="wsApplyPalette('${p}','${s}','${a}')" class="flex items-center gap-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 hover:border-indigo-400"><span class="flex"><span class="w-3.5 h-3.5 rounded-l" style="background:${p}"></span><span class="w-3.5 h-3.5" style="background:${s}"></span><span class="w-3.5 h-3.5 rounded-r" style="background:${a}"></span></span>${n}</button>`).join('')}</div>
@@ -18325,6 +18342,7 @@ async function saveWebsite(btn) {
     site_published: document.getElementById('ws-pub')?.checked || false,
     primary_color: c.primary_color, secondary_color: c.secondary_color, accent_color: c.accent_color, typography: c.typography,
     heading_font: c.heading_font || '', body_font: c.body_font || '', hero_photos: !!c.hero_photos,
+    theme: c.theme || 'classic',
   };
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
   try { await apiSendJson('/dealership/site', 'PUT', body); showToast('Website saved', 'success'); btn.disabled = false; btn.textContent = orig; }
