@@ -11958,7 +11958,8 @@ window.dealerEmailSegCount = async () => {
 };
 
 window.dealerEmailNewCampaign = () => {
-  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__dealerEmail.templates || []).map(t => `<option value="${t.id}">${esc(t.name)}</option>`)).join('');
+  // Only templates toggled On appear as options in a campaign.
+  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__dealerEmail.templates || []).filter(t => t.active !== false).map(t => `<option value="${t.id}">${esc(t.name)}</option>`)).join('');
   const segOpts = Object.entries(DEALER_SEG).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
   automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">New campaign</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
     <div class="space-y-3">
