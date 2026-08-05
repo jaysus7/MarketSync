@@ -398,7 +398,9 @@ export function invalidateTwilioCache(dealershipId) { if (dealershipId) __twilio
 async function sendSms(to, body, from, creds) {
   const sid = creds?.sid || process.env.TWILIO_ACCOUNT_SID
   const tok = creds?.tok || process.env.TWILIO_AUTH_TOKEN
-  const msid = creds?.messagingServiceSid
+  // Prefer a per-dealer Messaging Service; fall back to a platform-wide one from env
+  // (TWILIO_MESSAGING_SERVICE_SID) so sends work before per-dealer provisioning.
+  const msid = creds?.messagingServiceSid || process.env.TWILIO_MESSAGING_SERVICE_SID
   const fromNum = from || creds?.from
   if (!sid || !tok || !to || (!fromNum && !msid)) return { ok: false, simulated: true }
   try {
