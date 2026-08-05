@@ -1,0 +1,249 @@
+/*
+ * MarketSync public marketing shell — shared chrome styling.
+ *
+ * Self-contained on purpose: these rules do NOT depend on Tailwind (or any other
+ * framework) so the exact same header/footer render identically on every public
+ * page, whether or not that page loads Tailwind. Dark mode follows the operating
+ * system automatically via `prefers-color-scheme` (no manual toggle, no flash —
+ * the rules apply at first paint). Colours, spacing and type mirror the approved
+ * homepage (index.html) design.
+ *
+ * All classes are namespaced `msps-*` to avoid clashing with page or legacy
+ * `ms-*` styles.
+ */
+
+:root {
+  --msps-accent: #6366F1;   /* brand indigo (sync-color) */
+  --msps-accent-600: #4f46e5;
+  --msps-accent-500: #6366F1;
+  --msps-bg: #f8fafc;       /* slate-50 */
+  --msps-bg-blur: rgba(248, 250, 251, .8);
+  --msps-text: #0f172a;     /* slate-900 */
+  --msps-nav: #475569;      /* slate-600 */
+  --msps-nav-hover: #4f46e5;
+  --msps-border: rgba(226, 232, 240, .6);
+  --msps-border-solid: #e2e8f0;
+  --msps-muted: #64748b;    /* slate-500 */
+  --msps-announce-bg: rgba(79, 70, 229, .10);
+  --msps-announce-border: rgba(99, 102, 241, .20);
+  --msps-footer-border: #e2e8f0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --msps-bg: #0B0F19;
+    --msps-bg-blur: rgba(11, 15, 25, .8);
+    --msps-text: #f3f4f6;
+    --msps-nav: #9ca3af;    /* gray-400 */
+    --msps-nav-hover: #ffffff;
+    --msps-border: rgba(31, 41, 55, .6);
+    --msps-border-solid: #1f2937;
+    --msps-muted: #64748b;
+    --msps-announce-bg: rgba(79, 70, 229, .10);
+    --msps-announce-border: rgba(99, 102, 241, .20);
+    --msps-footer-border: #111827; /* gray-900 */
+  }
+}
+
+/* ── Announcement bar ─────────────────────────────────────────────── */
+.msps-announce {
+  width: 100%;
+  background: var(--msps-announce-bg);
+  border-bottom: 1px solid var(--msps-announce-border);
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--msps-accent-600);
+  line-height: 1.4;
+}
+@media (prefers-color-scheme: dark) { .msps-announce { color: #818cf8; } }
+.msps-announce svg { width: 15px; height: 15px; vertical-align: -2px; margin-right: 5px; }
+
+/* ── Header ───────────────────────────────────────────────────────── */
+.msps-hd {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--msps-bg-blur);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--msps-border);
+}
+.msps-hd-in {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.msps-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--msps-text);
+}
+.msps-logo .msps-logo-bar { font-size: 30px; font-weight: 400; line-height: 1; color: var(--msps-text); }
+.msps-logo .msps-logo-word { font-size: 20px; font-weight: 700; letter-spacing: -.02em; color: var(--msps-text); }
+.msps-logo .msps-logo-accent { color: var(--msps-accent); }
+
+.msps-nav { display: none; align-items: center; gap: 32px; }
+.msps-nav a {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--msps-nav);
+  text-decoration: none;
+  transition: color .2s;
+}
+.msps-nav a:hover { color: var(--msps-nav-hover); }
+.msps-nav a.msps-active { color: var(--msps-accent-600); font-weight: 600; }
+@media (prefers-color-scheme: dark) { .msps-nav a.msps-active { color: #fff; } }
+
+.msps-cta { display: flex; align-items: center; gap: 12px; }
+
+.msps-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--msps-border-solid);
+  color: var(--msps-accent-600);
+  text-decoration: none;
+  transition: background .2s, color .2s;
+}
+@media (prefers-color-scheme: dark) { .msps-icon-btn { border-color: #1f2937; color: #818cf8; } }
+.msps-icon-btn:hover { background: rgba(99, 102, 241, .10); }
+.msps-icon-btn svg { width: 20px; height: 20px; }
+
+.msps-link {
+  display: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  text-decoration: none;
+  padding: 8px 12px;
+  transition: color .2s;
+}
+@media (prefers-color-scheme: dark) { .msps-link { color: #d1d5db; } }
+.msps-link:hover { color: var(--msps-accent-600); }
+@media (prefers-color-scheme: dark) { .msps-link:hover { color: #fff; } }
+
+.msps-btn {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--msps-accent-600);
+  padding: 8px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background .2s;
+  white-space: nowrap;
+}
+.msps-btn:hover { background: var(--msps-accent-500); }
+.msps-btn svg { width: 16px; height: 16px; }
+
+.msps-burger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--msps-border-solid);
+  background: none;
+  color: #334155;
+  cursor: pointer;
+  padding: 0;
+}
+@media (prefers-color-scheme: dark) { .msps-burger { border-color: #1f2937; color: #d1d5db; } }
+.msps-burger svg { width: 20px; height: 20px; }
+.msps-burger .msps-x { display: none; }
+.msps-burger.msps-open .msps-bars { display: none; }
+.msps-burger.msps-open .msps-x { display: block; }
+
+/* ── Mobile menu ──────────────────────────────────────────────────── */
+.msps-mobile {
+  border-top: 1px solid var(--msps-border);
+  background: var(--msps-bg);
+  padding: 16px 24px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.msps-mobile[hidden] { display: none; }
+.msps-mobile a {
+  display: block;
+  padding: 10px 0;
+  color: var(--msps-nav);
+  text-decoration: none;
+  transition: color .2s;
+}
+.msps-mobile a:hover { color: var(--msps-nav-hover); }
+.msps-mobile a.msps-active { color: var(--msps-accent-600); font-weight: 600; }
+@media (prefers-color-scheme: dark) { .msps-mobile a.msps-active { color: #fff; } }
+.msps-mobile .msps-m-actions {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--msps-border-solid);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.msps-mobile .msps-m-actions a {
+  text-align: center;
+  padding: 10px 0;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.msps-mobile .msps-m-login { color: #334155; }
+@media (prefers-color-scheme: dark) { .msps-mobile .msps-m-login { color: #d1d5db; } }
+.msps-mobile .msps-m-signup, .msps-mobile .msps-m-dash { background: var(--msps-accent-600); color: #fff; }
+.msps-mobile .msps-m-signup:hover, .msps-mobile .msps-m-dash:hover { background: var(--msps-accent-500); }
+
+/* ── Footer ───────────────────────────────────────────────────────── */
+.msps-ft {
+  max-width: 80rem;
+  margin: 48px auto 0;
+  padding: 48px 24px;
+  border-top: 1px solid var(--msps-footer-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  font-size: 12px;
+  color: var(--msps-muted);
+  text-align: center;
+}
+.msps-ft-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  font-weight: 500;
+  color: var(--msps-nav);
+}
+.msps-ft-links a { color: var(--msps-nav); text-decoration: none; transition: color .2s; }
+.msps-ft-links a:hover { color: var(--msps-text); }
+
+/* ── Scroll-reveal (shared contract with site-marketing.css) ──────── */
+.ms-reveal { opacity: 0; transform: translateY(28px); transition: opacity .7s cubic-bezier(.16, 1, .3, 1), transform .7s cubic-bezier(.16, 1, .3, 1); }
+.ms-reveal.ms-in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .ms-reveal { opacity: 1; transform: none; transition: none; } }
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .msps-nav { display: flex; }
+  .msps-link { display: inline-flex; }
+  .msps-btn { display: inline-flex; }
+  .msps-burger { display: none; }
+  .msps-mobile { display: none !important; }
+  .msps-ft { flex-direction: row; justify-content: space-between; text-align: left; }
+}

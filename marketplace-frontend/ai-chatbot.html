@@ -32,9 +32,11 @@
     {"@type":"Question","name":"Does it use my real inventory?","acceptedAnswer":{"@type":"Answer","text":"Yes. The chatbot shows live vehicle cards drawn from your actual inventory, so shoppers see cars you really have."}}
   ]}
   </script>
+  <!-- Automatic OS dark/light before first paint (no flash) -->
+  <script>(function(){try{if(window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");}catch(e){}})();</script>
 </head>
 <body>
-  <div id="ms-header"></div>
+  <div id="ms-public-header"></div>
 
   <section class="hero">
     <div class="wrap">
@@ -99,7 +101,8 @@
     </div>
   </section>
 
-  <div id="ms-footer"></div>
-  <script src="/site-nav.js" defer></script>
+  <div id="ms-public-footer"></div>
+  <script src="/assets/auth.js" defer></script>
+  <script src="/assets/public-shell.js" defer></script>
 </body>
 </html>

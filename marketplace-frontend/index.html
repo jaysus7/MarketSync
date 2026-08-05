@@ -229,106 +229,16 @@
     }
     </script>
   <style id="ms-font-bump">html{font-size:17px}@media (max-width:640px){html{font-size:16px}}</style>
+    <!-- Automatic OS dark/light before first paint (no flash) -->
+    <script>(function(){try{if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark');}catch(e){}})();</script>
+    <script src="/assets/auth.js" defer></script>
+    <script src="/assets/public-shell.js" defer></script>
 </head>
 <body class="antialiased selection:bg-indigo-500 selection:text-white transition-colors duration-300 bg-slate-50 text-slate-900 dark:bg-[#0B0F19] dark:text-gray-100">
 
-    <div class="w-full bg-indigo-600/10 border-b border-indigo-500/20 py-2 text-center text-sm font-medium text-indigo-600 dark:text-indigo-400">
-        <i class="fa-solid fa-gift mr-1"></i> 30-day free trial · No credit card required
-    </div>
+    <div id="ms-public-header"></div>
 
-    <header class="sticky top-0 z-40 bg-slate-50/80 dark:bg-[#0B0F19]/80 backdrop-blur-md border-b border-slate-200/60 dark:border-gray-800/60">
-      <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <a href="/" class="flex items-center space-x-3">
-            <span class="text-3xl font-normal text-slate-900 dark:text-white">|</span>
-            <span class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Market<span class="sync-color">Sync</span>
-            </span>
-        </a>
-
-        <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-600 dark:text-gray-400" aria-label="Primary">
-            <a href="#loop" class="hover:text-indigo-600 dark:hover:text-white transition">The Loop</a>
-            <a href="#what-is-it" class="hover:text-indigo-600 dark:hover:text-white transition">What is it?</a>
-            <a href="#products" class="hover:text-indigo-600 dark:hover:text-white transition">Platform</a>
-            <a href="https://marketsync.link/workflow.html" class="hover:text-indigo-600 dark:hover:text-white transition">Workflow</a>
-            <a href="https://marketsync.link/features.html" class="hover:text-indigo-600 dark:hover:text-white transition">Features</a>
-            <a href="https://marketsync.link/compare.html" class="hover:text-indigo-600 dark:hover:text-white transition">Compare</a>
-            <a href="#pricing" class="hover:text-indigo-600 dark:hover:text-white transition">Pricing</a>
-            <a href="#faq" class="hover:text-indigo-600 dark:hover:text-white transition">FAQ</a>
-            <a href="https://marketsync.link/blog.html" class="hover:text-indigo-600 dark:hover:text-white transition">Blog</a>
-        </nav>
-
-        <div class="flex items-center space-x-3">
-            <a href="https://marketsync.link/guide.html" title="How-to guide — learn every feature" aria-label="How-to guide" class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-gray-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition"><i class="fa-solid fa-graduation-cap text-lg"></i></a>
-            <!-- Logged-out: shown by default, hidden by JS if token exists -->
-            <a id="nav-login" href="https://marketsync.link/login.html" class="hidden sm:inline-flex text-sm font-semibold text-slate-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-white px-3 py-2 transition">Log in</a>
-            <a id="nav-signup" href="https://marketsync.link/register.html" class="hidden sm:inline-flex bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">Sign up free</a>
-            <!-- Logged-in: hidden by default, shown by JS if token exists -->
-            <a id="nav-dashboard-btn" href="https://marketsync.link/dashboard.html" title="Go to your dashboard" style="display:none" class="hidden sm:inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
-                <span id="nav-user-name">Dashboard</span>
-            </a>
-            <button id="ms-menu-btn" type="button" class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-gray-800 text-slate-700 dark:text-gray-300" aria-label="Open menu" aria-expanded="false" aria-controls="ms-mobile-menu" onclick="msToggleMenu()">
-                <i class="fa-solid fa-bars text-lg" id="ms-menu-icon"></i>
-            </button>
-        </div>
-      </div>
-
-      <nav id="ms-mobile-menu" class="md:hidden hidden border-t border-slate-200/60 dark:border-gray-800/60 bg-slate-50 dark:bg-[#0B0F19] px-6 py-4 space-y-1 text-sm font-medium text-slate-600 dark:text-gray-400" aria-label="Mobile">
-        <a href="#loop" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition" onclick="msToggleMenu()">The Loop</a>
-        <a href="#what-is-it" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition" onclick="msToggleMenu()">What is it?</a>
-        <a href="#products" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition" onclick="msToggleMenu()">Platform</a>
-        <a href="https://marketsync.link/workflow.html" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition">Workflow</a>
-        <a href="https://marketsync.link/features.html" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition">Features</a>
-        <a href="https://marketsync.link/compare.html" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition">Compare</a>
-        <a href="#pricing" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition" onclick="msToggleMenu()">Pricing</a>
-        <a href="#faq" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition" onclick="msToggleMenu()">FAQ</a>
-        <a href="https://marketsync.link/guide.html" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition"><i class="fa-solid fa-graduation-cap mr-2"></i>How-to Guide</a>
-        <a href="https://marketsync.link/blog.html" class="block py-2.5 hover:text-indigo-600 dark:hover:text-white transition">Blog</a>
-        <div class="pt-3 mt-2 border-t border-slate-200 dark:border-gray-800 flex flex-col gap-2">
-            <a id="mob-login" href="https://marketsync.link/login.html" class="text-center py-2.5 font-semibold text-slate-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-white transition">Log in</a>
-            <a id="mob-signup" href="https://marketsync.link/register.html" class="text-center py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition">Sign up free</a>
-            <a id="mob-dashboard" href="https://marketsync.link/dashboard.html" style="display:none" class="text-center py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition">My Dashboard</a>
-        </div>
-      </nav>
-    </header>
-
-    <script>
-        function msToggleMenu() {
-            const menu = document.getElementById('ms-mobile-menu')
-            const btn = document.getElementById('ms-menu-btn')
-            const icon = document.getElementById('ms-menu-icon')
-            const isOpen = !menu.classList.contains('hidden')
-            menu.classList.toggle('hidden')
-            btn.setAttribute('aria-expanded', String(!isOpen))
-            icon.className = isOpen ? 'fa-solid fa-bars text-lg' : 'fa-solid fa-xmark text-lg'
-        }
-
-        // Swap Log in / Sign up for a user avatar button when already authenticated
-        ;(function() {
-            try {
-                const token = localStorage.getItem('token')
-                if (!token) return
-                // Show logged-in nav, hide logged-out nav
-                const show = (id) => { const el = document.getElementById(id); if (el) el.style.display = '' }
-                const hide = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none' }
-                hide('nav-login'); hide('nav-signup')
-                hide('mob-login'); hide('mob-signup')
-                show('nav-dashboard-btn'); show('mob-dashboard')
-                // Try to set the user's first name on the button
-                try {
-                    const user = JSON.parse(localStorage.getItem('user') || '{}')
-                    const name = user.user_metadata?.full_name || user.email || ''
-                    const first = name.split(/\s+/)[0]
-                    if (first) {
-                        const el = document.getElementById('nav-user-name')
-                        if (el) el.textContent = first
-                    }
-                } catch {}
-            } catch {}
-        })()
-    </script>
-
-    <section class="max-w-5xl mx-auto px-6 pt-16 pb-20 text-center">
+<section class="max-w-5xl mx-auto px-6 pt-16 pb-20 text-center">
         <div class="inline-flex items-center gap-2 bg-indigo-100 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
             <i class="fa-solid fa-bolt text-[10px]"></i>
             The all-in-one platform for car dealerships
@@ -1298,35 +1208,9 @@
         </div>
     </div>
 
-    <footer class="max-w-7xl mx-auto px-6 py-12 mt-12 border-t border-slate-200 dark:border-gray-900 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-slate-500">
-        <div>
-            <p>© 2026 MarketSync Technologies Inc. All rights reserved.</p>
-        </div>
-        <div class="flex flex-wrap items-center justify-center gap-6 font-medium text-slate-600 dark:text-gray-400">
-            <a href="https://marketsync.link/login.html" class="hover:text-slate-900 dark:hover:text-white transition">Log In</a>
-            <a href="https://marketsync.link/register.html" class="hover:text-slate-900 dark:hover:text-white transition">Sign Up</a>
-            <a href="https://marketsync.link/features.html" class="hover:text-slate-900 dark:hover:text-white transition">Features</a>
-            <a href="https://marketsync.link/upgrade.html" class="hover:text-slate-900 dark:hover:text-white transition">Pricing</a>
-            <a href="https://marketsync.link/blog.html" class="hover:text-slate-900 dark:hover:text-white transition">Blog</a>
-            <a href="https://marketsync.link/faq.html" class="hover:text-slate-900 dark:hover:text-white transition">FAQ</a>
-            <a href="https://marketsync.link/security.html" class="hover:text-slate-900 dark:hover:text-white transition">Security</a>
-            <a href="https://marketsync.link/support.html" class="hover:text-slate-900 dark:hover:text-white transition">Support</a>
-            <a href="https://marketsync.link/terms.html" class="hover:text-slate-900 dark:hover:text-white transition">Terms</a>
-            <a href="https://marketsync.link/privacy-policy.html" class="hover:text-slate-900 dark:hover:text-white transition">Privacy</a>
-            <a href="https://marketsync.link/affiliates.html" class="hover:text-slate-900 dark:hover:text-white transition">Become an affiliate</a>
-        </div>
-    </footer>
+    <div id="ms-public-footer"></div>
 
-    <script>
-        function checkSystemTheme() {
-            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
-        }
-        checkSystemTheme();
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', checkSystemTheme);
+<script>
 
         const videoModal = document.getElementById('videoModal');
         const videoPlayer = document.getElementById('videoPlayer');
