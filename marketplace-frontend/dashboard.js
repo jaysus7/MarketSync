@@ -12053,46 +12053,483 @@ window.dealerEmailSegCount = async () => {
   catch { el.textContent = 'Recipients: —'; }
 };
 
-window.dealerEmailNewCampaign = () => {
-  // Only templates toggled On appear as options in a campaign.
-  const tmplOpts = ['<option value="">— Custom (write below) —</option>'].concat((__dealerEmail.templates || []).filter(t => t.active !== false).map(t => `<option value="${t.id}">${esc(t.name)}</option>`)).join('');
+// ── Mailchimp-Style Drag-and-Drop Visual Email Builder ──
+let __builderBlocks = [];
+let __builderActiveBlockIdx = null;
+let __builderDeviceView = 'desktop'; // 'desktop' | 'mobile'
+
+const BUILDER_STARTER_TEMPLATES = {
+  inventory: {
+    name: 'New Inventory Showcase',
+    subject: '🔥 Fresh Arrivals at {{dealership}} — Check Them Out!',
+    blocks: [
+      { type: 'header', logoText: '{{dealership}}', subtitle: 'Exclusive Vehicle Showroom', bgColor: '#0f172a' },
+      { type: 'hero', imageUrl: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80', headline: 'Fresh Inventory Just Arrived!', body: 'Hi {{first_name}}, check out our latest trade-ins and premium arrivals fresh on the lot this week.' },
+      { type: 'vehicle', stockNumber: 'STK-9821', yearMakeModel: '2023 Chevrolet Silverado 1500 RST', price: '$44,900', img: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80', ctaText: 'Schedule Test Drive', url: '#' },
+      { type: 'cta', label: 'View Full Inventory →', url: 'https://dealership.com/inventory', bgColor: '#4f46e5' },
+      { type: 'footer', storeName: '{{dealership}}', phone: '(555) 019-2831', address: '100 Motorway Blvd', unsubscribeText: 'Unsubscribe' }
+    ]
+  },
+  trade_up: {
+    name: 'VIP Trade-Up Event',
+    subject: '🎁 {{first_name}}, your trade is worth more this month at {{dealership}}',
+    blocks: [
+      { type: 'header', logoText: '{{dealership}} VIP Program', subtitle: 'Trade-Up Private Sale', bgColor: '#1e1b4b' },
+      { type: 'promo', badge: 'VIP EXCLUSIVE BONUS', text: '$1,000 Trade-In Bonus Allowance', expire: 'Valid Through End of Month' },
+      { type: 'text', title: 'Upgrade Your Ride for the Same Monthly Payment', content: 'Hi {{first_name}},\n\nDue to high pre-owned vehicle demand, we are actively acquiring pre-owned vehicles like yours. Upgrade to a new unit today with zero down and keep your monthly payment unchanged.' },
+      { type: 'cta', label: 'Claim Your $1,000 Bonus →', url: 'https://dealership.com/trade-value', bgColor: '#059669' },
+      { type: 'footer', storeName: '{{dealership}}', phone: '(555) 019-2831', address: '100 Motorway Blvd', unsubscribeText: 'Unsubscribe' }
+    ]
+  },
+  service: {
+    name: 'Service & Maintenance Special',
+    subject: '🔧 Seasonal Maintenance Special for {{first_name}}',
+    blocks: [
+      { type: 'header', logoText: '{{dealership}} Service Center', subtitle: 'Certified Technician Care', bgColor: '#0284c7' },
+      { type: 'promo', badge: 'SERVICE SPECIAL', text: '15% Off Full Vehicle Inspection & Service', expire: 'Limited Appointments Available' },
+      { type: 'text', title: 'Keep Your Vehicle Running Smoothly', content: 'Hi {{first_name}}, is your vehicle due for routine maintenance? Book your appointment online today and receive a complimentary 30-point safety inspection.' },
+      { type: 'cta', label: 'Book Service Appointment →', url: 'https://dealership.com/service', bgColor: '#0284c7' },
+      { type: 'footer', storeName: '{{dealership}} Service', phone: '(555) 019-2832', address: '100 Motorway Blvd', unsubscribeText: 'Unsubscribe' }
+    ]
+  }
+};
+
+function compileBlocksToHtml(blocks) {
+  const blockHtmls = (blocks || []).map(b => {
+    if (b.type === 'header') {
+      return `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: ${b.bgColor || '#0f172a'}; padding: 24px 30px; text-align: center; border-radius: 12px 12px 0 0;">
+          <tr>
+            <td>
+              <h1 style="color: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">${esc(b.logoText || 'Dealership')}</h1>
+              <p style="color: #94a3b8; font-family: system-ui, -apple-system, sans-serif; font-size: 12px; margin: 4px 0 0 0; text-transform: uppercase; letter-spacing: 1px;">${esc(b.subtitle || '')}</p>
+            </td>
+          </tr>
+        </table>`;
+    }
+    if (b.type === 'hero') {
+      return `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 24px 30px; border-bottom: 1px solid #f1f5f9;">
+          <tr>
+            <td>
+              ${b.imageUrl ? `<img src="${esc(b.imageUrl)}" alt="Hero" style="width: 100%; max-height: 280px; object-fit: cover; border-radius: 8px; margin-bottom: 16px;">` : ''}
+              <h2 style="color: #0f172a; font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; margin: 0 0 10px 0;">${esc(b.headline || '')}</h2>
+              <p style="color: #475569; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; margin: 0;">${esc(b.body || '').replace(/\n/g, '<br>')}</p>
+            </td>
+          </tr>
+        </table>`;
+    }
+    if (b.type === 'text') {
+      return `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 20px 30px;">
+          <tr>
+            <td>
+              ${b.title ? `<h3 style="color: #0f172a; font-family: system-ui, -apple-system, sans-serif; font-size: 16px; font-weight: 700; margin: 0 0 8px 0;">${esc(b.title)}</h3>` : ''}
+              <p style="color: #334155; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; margin: 0;">${esc(b.content || '').replace(/\n/g, '<br>')}</p>
+            </td>
+          </tr>
+        </table>`;
+    }
+    if (b.type === 'vehicle') {
+      return `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; margin: 16px 0;">
+          <tr>
+            <td width="40%" style="vertical-align: top; padding-right: 16px;">
+              <img src="${esc(b.img || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80')}" alt="Vehicle" style="width: 100%; border-radius: 8px; object-fit: cover; aspect-ratio: 4/3;">
+            </td>
+            <td width="60%" style="vertical-align: top;">
+              <span style="background-color: #e0e7ff; color: #4338ca; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">${esc(b.stockNumber || 'FEATURED UNIT')}</span>
+              <h4 style="color: #0f172a; font-family: system-ui, -apple-system, sans-serif; font-size: 16px; font-weight: 800; margin: 8px 0 4px 0;">${esc(b.yearMakeModel || 'Vehicle Name')}</h4>
+              <div style="color: #059669; font-family: system-ui, -apple-system, sans-serif; font-size: 18px; font-weight: 900; margin-bottom: 12px;">${esc(b.price || '$0')}</div>
+              <a href="${esc(b.url || '#')}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 700; padding: 8px 16px; border-radius: 6px; text-decoration: none;">${esc(b.ctaText || 'View Details')}</a>
+            </td>
+          </tr>
+        </table>`;
+    }
+    if (b.type === 'promo') {
+      return `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #fefce8; border: 2px dashed #eab308; padding: 20px 24px; border-radius: 12px; text-align: center; margin: 16px 0;">
+          <tr>
+            <td>
+              <span style="background-color: #ca8a04; color: #ffffff; font-size: 10px; font-weight: 900; padding: 3px 10px; border-radius: 12px; text-transform: uppercase; letter-spacing: 1px;">${esc(b.badge || 'PROMO')}</span>
+              <h3 style="color: #854d0e; font-family: system-ui, -apple-system, sans-serif; font-size: 18px; font-weight: 900; margin: 10px 0 4px 0;">${esc(b.text || '')}</h3>
+              <p style="color: #a16207; font-family: system-ui, -apple-system, sans-serif; font-size: 12px; margin: 0; font-weight: 600;">${esc(b.expire || '')}</p>
+            </td>
+          </tr>
+        </table>`;
+    }
+    if (b.type === 'cta') {
+      return `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 20px 30px; text-align: center;">
+          <tr>
+            <td>
+              <a href="${esc(b.url || '#')}" style="display: inline-block; background-color: ${b.bgColor || '#4f46e5'}; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-size: 15px; font-weight: 800; padding: 14px 28px; border-radius: 8px; text-decoration: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">${esc(b.label || 'Click Here')}</a>
+            </td>
+          </tr>
+        </table>`;
+    }
+    if (b.type === 'footer') {
+      return `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 24px 30px; text-align: center; border-radius: 0 0 12px 12px; border-top: 1px solid #e2e8f0;">
+          <tr>
+            <td>
+              <p style="color: #64748b; font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 700; margin: 0 0 4px 0;">${esc(b.storeName || 'Dealership')}</p>
+              <p style="color: #94a3b8; font-family: system-ui, -apple-system, sans-serif; font-size: 11px; margin: 0 0 10px 0;">${esc(b.address || '')} · ${esc(b.phone || '')}</p>
+              <p style="color: #cbd5e1; font-family: system-ui, -apple-system, sans-serif; font-size: 10px; margin: 0;"><a href="#" style="color: #94a3b8; text-decoration: underline;">${esc(b.unsubscribeText || 'Unsubscribe')}</a></p>
+            </td>
+          </tr>
+        </table>`;
+    }
+    return '';
+  }).join('');
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="background-color: #f1f5f9; margin: 0; padding: 20px; font-family: system-ui, -apple-system, sans-serif;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table role="presentation" width="100%" style="max-width: 620px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);" cellpadding="0" cellspacing="0"><tr><td>${blockHtmls}</td></tr></table></td></tr></table></body></html>`;
+}
+
+function openMailchimpEmailBuilder(initialPresetKey = 'inventory') {
+  const preset = BUILDER_STARTER_TEMPLATES[initialPresetKey] || BUILDER_STARTER_TEMPLATES['inventory'];
+  __builderBlocks = JSON.parse(JSON.stringify(preset.blocks));
+  __builderActiveBlockIdx = 0;
+
   const segOpts = Object.entries(DEALER_SEG).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
-  automationModal(`<div class="flex items-center justify-between mb-4"><div class="text-lg font-black text-slate-900 dark:text-white">New campaign</div><button data-close class="text-2xl leading-none text-slate-400">×</button></div>
-    <div class="space-y-3">
-      <label class="block text-xs font-bold text-slate-500">Name<input id="cp-name" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="e.g. October sales event"></label>
-      <div class="grid grid-cols-2 gap-3">
-        <label class="block text-xs font-bold text-slate-500">Segment<select id="cp-segment" onchange="dealerEmailSegCount()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${segOpts}</select></label>
-        <label class="block text-xs font-bold text-slate-500">Tags (optional)<input id="cp-tags" oninput="dealerEmailSegCount()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="vip, suv"></label>
+
+  const modalHtml = `
+    <div class="flex flex-col h-[90vh] max-h-[850px]">
+      <!-- Builder Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-violet-600 text-white flex items-center justify-center font-black">🎨</div>
+          <div>
+            <h2 class="text-lg font-black text-slate-900 dark:text-white leading-tight">Mailchimp-Style Email Builder</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Drag, customize blocks &amp; send responsive email campaigns.</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+            <button onclick="setBuilderDevice('desktop')" id="btn-device-desktop" class="px-2.5 py-1 text-xs font-bold rounded-md bg-white dark:bg-slate-900 text-indigo-600 shadow-sm">💻 Desktop</button>
+            <button onclick="setBuilderDevice('mobile')" id="btn-device-mobile" class="px-2.5 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">📱 Mobile</button>
+          </div>
+          <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2">✕</button>
+        </div>
       </div>
-      <div class="text-[12px] font-semibold text-violet-600 dark:text-violet-400" id="cp-count">Recipients: …</div>
-      <label class="block text-xs font-bold text-slate-500">Template<select id="cp-template" onchange="dealerEmailCampTmplPick()" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">${tmplOpts}</select></label>
-      <label class="block text-xs font-bold text-slate-500">Subject<input id="cp-subject" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></label>
-      <label class="block text-xs font-bold text-slate-500">Body <span class="text-slate-400 font-normal">— {{first_name}}, {{dealership}}</span><textarea id="cp-body" rows="7" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm"></textarea></label>
+
+      <!-- Builder Main 2-Column Studio -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-4 flex-1 min-h-0 overflow-hidden">
+        <!-- Left Column: Settings, Palette & Block Inspector -->
+        <div class="lg:col-span-5 flex flex-col space-y-4 overflow-y-auto pr-2 scrollbar-thin">
+          <!-- Campaign Settings -->
+          <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
+            <div class="text-xs font-black uppercase tracking-wider text-slate-400">Campaign Details</div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Campaign Name</label>
+              <input id="mb-name" value="${esc(preset.name)}" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white font-bold">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Segment</label>
+                <select id="mb-segment" onchange="dealerEmailSegCount()" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-xs font-semibold">${segOpts}</select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Preset Theme</label>
+                <select onchange="applyBuilderPreset(this.value)" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-xs font-semibold">
+                  <option value="inventory" ${initialPresetKey === 'inventory' ? 'selected' : ''}>New Arrivals</option>
+                  <option value="trade_up" ${initialPresetKey === 'trade_up' ? 'selected' : ''}>VIP Trade-Up</option>
+                  <option value="service" ${initialPresetKey === 'service' ? 'selected' : ''}>Service Special</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email Subject Line</label>
+              <div class="flex gap-2">
+                <input id="mb-subject" value="${esc(preset.subject)}" class="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
+                <button onclick="generateAiEmailSubject()" title="AI Write Subject" class="px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg text-xs font-black shadow-sm shrink-0 flex items-center gap-1">✨ AI</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add Block Palette -->
+          <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
+            <div class="text-xs font-black uppercase tracking-wider text-slate-400">Add Content Blocks</div>
+            <div class="grid grid-cols-3 gap-2">
+              <button onclick="addBuilderBlock('header')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition">📌 Header</button>
+              <button onclick="addBuilderBlock('hero')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition">🖼️ Hero</button>
+              <button onclick="addBuilderBlock('text')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition">📝 Text</button>
+              <button onclick="addBuilderBlock('vehicle')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition">🚘 Vehicle</button>
+              <button onclick="addBuilderBlock('promo')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition">🏷️ Promo</button>
+              <button onclick="addBuilderBlock('cta')" class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 rounded-lg text-center text-xs font-bold text-slate-700 dark:text-slate-300 transition">🔘 Button</button>
+            </div>
+          </div>
+
+          <!-- Active Block Inspector -->
+          <div class="p-4 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl space-y-3 flex-1">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+              <div class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Block Settings</div>
+              <div id="inspector-block-tag" class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600">Header</div>
+            </div>
+            <div id="builder-block-inspector" class="space-y-3">
+              <!-- Dynamically populated by renderBlockInspector() -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Live Visual Canvas -->
+        <div class="lg:col-span-7 flex flex-col bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 overflow-y-auto items-center min-h-0">
+          <div id="builder-canvas-wrapper" class="w-full transition-all duration-300 max-w-[620px]">
+            <div id="builder-canvas" class="bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden divide-y divide-dashed divide-slate-200 dark:divide-slate-800">
+              <!-- Live compiled blocks render here -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Builder Footer CTA -->
+      <div class="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800 shrink-0">
+        <div class="text-xs text-slate-500">Merge tags: <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">{{first_name}}</code> <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">{{dealership}}</code></div>
+        <div class="flex gap-2">
+          <button onclick="saveMailchimpCampaign(false)" class="px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition">Save Draft</button>
+          <button onclick="saveMailchimpCampaign(true)" class="px-5 py-2.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-bold shadow-md shadow-indigo-500/30 transition">🚀 Send Campaign Now</button>
+        </div>
+      </div>
     </div>
-    <div class="mt-5 flex justify-end gap-2"><button data-close class="px-3 py-2 text-sm font-bold text-slate-500">Cancel</button>
-      <button onclick="dealerEmailSaveCampaign(false)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold">Save draft</button>
-      <button onclick="dealerEmailSaveCampaign(true)" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold">Create &amp; send</button></div>`, 'max-w-lg');
-  dealerEmailSegCount();
-};
-window.dealerEmailCampTmplPick = () => {
-  const t = (__dealerEmail.templates || []).find(x => x.id === document.getElementById('cp-template').value);
-  if (t) { document.getElementById('cp-subject').value = t.subject; document.getElementById('cp-body').value = t.body; }
-};
-window.dealerEmailSaveCampaign = async (sendNow) => {
+  `;
+
+  automationModal(modalHtml, 'max-w-6xl');
+  renderBuilderCanvas();
+  renderBlockInspector();
+}
+window.openMailchimpEmailBuilder = openMailchimpEmailBuilder;
+
+function setBuilderDevice(mode) {
+  __builderDeviceView = mode;
+  const wrap = document.getElementById('builder-canvas-wrapper');
+  const btnDesktop = document.getElementById('btn-device-desktop');
+  const btnMobile = document.getElementById('btn-device-mobile');
+
+  if (mode === 'mobile') {
+    if (wrap) { wrap.style.maxWidth = '375px'; }
+    if (btnMobile) { btnMobile.className = 'px-2.5 py-1 text-xs font-bold rounded-md bg-white dark:bg-slate-900 text-indigo-600 shadow-sm'; }
+    if (btnDesktop) { btnDesktop.className = 'px-2.5 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'; }
+  } else {
+    if (wrap) { wrap.style.maxWidth = '620px'; }
+    if (btnDesktop) { btnDesktop.className = 'px-2.5 py-1 text-xs font-bold rounded-md bg-white dark:bg-slate-900 text-indigo-600 shadow-sm'; }
+    if (btnMobile) { btnMobile.className = 'px-2.5 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'; }
+  }
+}
+window.setBuilderDevice = setBuilderDevice;
+
+function applyBuilderPreset(key) {
+  const preset = BUILDER_STARTER_TEMPLATES[key];
+  if (!preset) return;
+  __builderBlocks = JSON.parse(JSON.stringify(preset.blocks));
+  __builderActiveBlockIdx = 0;
+  const nameEl = document.getElementById('mb-name');
+  if (nameEl) nameEl.value = preset.name;
+  const subjEl = document.getElementById('mb-subject');
+  if (subjEl) subjEl.value = preset.subject;
+  renderBuilderCanvas();
+  renderBlockInspector();
+}
+window.applyBuilderPreset = applyBuilderPreset;
+
+function addBuilderBlock(type) {
+  let newBlock = { type };
+  if (type === 'header') newBlock = { type: 'header', logoText: '{{dealership}}', subtitle: 'Special Announcement', bgColor: '#0f172a' };
+  if (type === 'hero') newBlock = { type: 'hero', imageUrl: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80', headline: 'Special Promotion', body: 'Add your message here.' };
+  if (type === 'text') newBlock = { type: 'text', title: 'Special Notice', content: 'Write your email body copy here...' };
+  if (type === 'vehicle') newBlock = { type: 'vehicle', stockNumber: 'STK-101', yearMakeModel: '2024 Vehicle Model', price: '$39,900', img: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80', ctaText: 'View Details', url: '#' };
+  if (type === 'promo') newBlock = { type: 'promo', badge: 'SPECIAL OFFER', text: 'Save Big This Weekend', expire: 'Limited Time Only' };
+  if (type === 'cta') newBlock = { type: 'cta', label: 'Claim Offer Now →', url: '#', bgColor: '#4f46e5' };
+  if (type === 'footer') newBlock = { type: 'footer', storeName: '{{dealership}}', phone: '(555) 019-2831', address: '100 Motorway Blvd', unsubscribeText: 'Unsubscribe' };
+
+  __builderBlocks.push(newBlock);
+  __builderActiveBlockIdx = __builderBlocks.length - 1;
+  renderBuilderCanvas();
+  renderBlockInspector();
+}
+window.addBuilderBlock = addBuilderBlock;
+
+function selectBuilderBlock(idx) {
+  __builderActiveBlockIdx = idx;
+  renderBuilderCanvas();
+  renderBlockInspector();
+}
+window.selectBuilderBlock = selectBuilderBlock;
+
+function moveBuilderBlock(idx, dir) {
+  const target = idx + dir;
+  if (target < 0 || target >= __builderBlocks.length) return;
+  const temp = __builderBlocks[idx];
+  __builderBlocks[idx] = __builderBlocks[target];
+  __builderBlocks[target] = temp;
+  __builderActiveBlockIdx = target;
+  renderBuilderCanvas();
+  renderBlockInspector();
+}
+window.moveBuilderBlock = moveBuilderBlock;
+
+function deleteBuilderBlock(idx) {
+  if (__builderBlocks.length <= 1) return showToast('Email must have at least 1 block', 'error');
+  __builderBlocks.splice(idx, 1);
+  __builderActiveBlockIdx = Math.max(0, idx - 1);
+  renderBuilderCanvas();
+  renderBlockInspector();
+}
+window.deleteBuilderBlock = deleteBuilderBlock;
+
+function updateActiveBlockField(key, val) {
+  if (__builderActiveBlockIdx == null || !__builderBlocks[__builderActiveBlockIdx]) return;
+  __builderBlocks[__builderActiveBlockIdx][key] = val;
+  renderBuilderCanvas();
+}
+window.updateActiveBlockField = updateActiveBlockField;
+
+function renderBuilderCanvas() {
+  const canvas = document.getElementById('builder-canvas');
+  if (!canvas) return;
+
+  canvas.innerHTML = __builderBlocks.map((b, idx) => {
+    const isSel = idx === __builderActiveBlockIdx;
+    const blockHtml = compileBlocksToHtml([b]);
+
+    return `
+      <div onclick="selectBuilderBlock(${idx})" class="relative group cursor-pointer border-2 transition-all ${isSel ? 'border-indigo-600 shadow-md ring-2 ring-indigo-500/20' : 'border-transparent hover:border-indigo-300'}">
+        <!-- Floating Block Control Bar -->
+        <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition flex items-center gap-1 bg-slate-900/90 text-white rounded-lg p-1 z-20 shadow-lg text-[11px]">
+          <button onclick="event.stopPropagation(); moveBuilderBlock(${idx}, -1)" title="Move Up" class="p-1 hover:bg-slate-800 rounded">⬆</button>
+          <button onclick="event.stopPropagation(); moveBuilderBlock(${idx}, 1)" title="Move Down" class="p-1 hover:bg-slate-800 rounded">⬇</button>
+          <button onclick="event.stopPropagation(); deleteBuilderBlock(${idx})" title="Delete Block" class="p-1 hover:bg-rose-600 rounded text-rose-300">🗑️</button>
+        </div>
+        ${blockHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+function renderBlockInspector() {
+  const inspector = document.getElementById('builder-block-inspector');
+  const tagEl = document.getElementById('inspector-block-tag');
+  if (!inspector) return;
+
+  const b = __builderBlocks[__builderActiveBlockIdx];
+  if (!b) { inspector.innerHTML = '<div class="text-xs text-slate-400 italic">Select a block on the right to edit.</div>'; return; }
+  if (tagEl) tagEl.textContent = (b.type || 'block').toUpperCase();
+
+  if (b.type === 'header') {
+    inspector.innerHTML = `
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Header Title</label>
+        <input value="${esc(b.logoText || '')}" oninput="updateActiveBlockField('logoText', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Subtitle Tagline</label>
+        <input value="${esc(b.subtitle || '')}" oninput="updateActiveBlockField('subtitle', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Background Color</label>
+        <input type="color" value="${b.bgColor || '#0f172a'}" onchange="updateActiveBlockField('bgColor', this.value)" class="h-9 w-full rounded-lg cursor-pointer"></div>
+    `;
+  } else if (b.type === 'hero') {
+    inspector.innerHTML = `
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Hero Image URL</label>
+        <input value="${esc(b.imageUrl || '')}" oninput="updateActiveBlockField('imageUrl', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="https://..."></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Headline</label>
+        <input value="${esc(b.headline || '')}" oninput="updateActiveBlockField('headline', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Body Text</label>
+        <textarea rows="3" oninput="updateActiveBlockField('body', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${esc(b.body || '')}</textarea></div>
+    `;
+  } else if (b.type === 'text') {
+    inspector.innerHTML = `
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Section Title</label>
+        <input value="${esc(b.title || '')}" oninput="updateActiveBlockField('title', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Paragraph Content</label>
+        <textarea rows="4" oninput="updateActiveBlockField('content', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${esc(b.content || '')}</textarea></div>
+    `;
+  } else if (b.type === 'vehicle') {
+    inspector.innerHTML = `
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Stock # / Badge</label>
+        <input value="${esc(b.stockNumber || '')}" oninput="updateActiveBlockField('stockNumber', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Year Make Model</label>
+        <input value="${esc(b.yearMakeModel || '')}" oninput="updateActiveBlockField('yearMakeModel', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Listed Price</label>
+        <input value="${esc(b.price || '')}" oninput="updateActiveBlockField('price', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Vehicle Photo URL</label>
+        <input value="${esc(b.img || '')}" oninput="updateActiveBlockField('img', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+    `;
+  } else if (b.type === 'promo') {
+    inspector.innerHTML = `
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Badge Title</label>
+        <input value="${esc(b.badge || '')}" oninput="updateActiveBlockField('badge', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Promo Offer Text</label>
+        <input value="${esc(b.text || '')}" oninput="updateActiveBlockField('text', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Expiration / Disclaimer</label>
+        <input value="${esc(b.expire || '')}" oninput="updateActiveBlockField('expire', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+    `;
+  } else if (b.type === 'cta') {
+    inspector.innerHTML = `
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Button Text</label>
+        <input value="${esc(b.label || '')}" oninput="updateActiveBlockField('label', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Button Link URL</label>
+        <input value="${esc(b.url || '')}" oninput="updateActiveBlockField('url', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Button Color</label>
+        <input type="color" value="${b.bgColor || '#4f46e5'}" onchange="updateActiveBlockField('bgColor', this.value)" class="h-9 w-full rounded-lg cursor-pointer"></div>
+    `;
+  } else if (b.type === 'footer') {
+    inspector.innerHTML = `
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Dealership Name</label>
+        <input value="${esc(b.storeName || '')}" oninput="updateActiveBlockField('storeName', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Store Phone</label>
+        <input value="${esc(b.phone || '')}" oninput="updateActiveBlockField('phone', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Street Address</label>
+        <input value="${esc(b.address || '')}" oninput="updateActiveBlockField('address', this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+    `;
+  }
+}
+
+async function generateAiEmailSubject() {
+  const name = document.getElementById('mb-name')?.value || 'Sales Campaign';
+  try {
+    const r = await apiSendJson('/ai/generate-copy', 'POST', { prompt: `Generate a short catchy subject line for an automotive email campaign titled: ${name}` }).catch(() => ({}));
+    if (r?.text) {
+      const clean = r.text.replace(/^["']|["']$/g, '').trim();
+      const subjEl = document.getElementById('mb-subject');
+      if (subjEl) subjEl.value = clean;
+      showToast('AI generated subject line ✓', 'success');
+    }
+  } catch {
+    const subjEl = document.getElementById('mb-subject');
+    if (subjEl) subjEl.value = `🔥 Special Dealership Offer for {{first_name}}!`;
+  }
+}
+window.generateAiEmailSubject = generateAiEmailSubject;
+
+async function saveMailchimpCampaign(sendNow = false) {
+  const name = document.getElementById('mb-name')?.value.trim();
+  const subject = document.getElementById('mb-subject')?.value.trim();
+  const segment = dealerEmailSegment();
+  const htmlBody = compileBlocksToHtml(__builderBlocks);
+
+  if (!name) return showToast('Campaign name is required', 'error');
+  if (!subject) return showToast('Email subject line is required', 'error');
+  if (sendNow && !confirm('Send this email campaign to the selected segment now?')) return;
+
   const payload = {
-    name: document.getElementById('cp-name').value.trim(), segment: dealerEmailSegment(),
-    subject: document.getElementById('cp-subject').value.trim(), body: document.getElementById('cp-body').value.trim(),
-    template_id: document.getElementById('cp-template').value || null,
+    name, subject, body: htmlBody, segment,
   };
-  if (!payload.name) return showToast('Name is required', 'error');
-  if ((!payload.subject || !payload.body) && !payload.template_id) return showToast('Subject and body (or a template) are required', 'error');
-  if (sendNow && !confirm('Send this campaign now to the selected segment?')) return;
+
   try {
     const r = await apiSendJson('/dealer/email/campaigns', 'POST', payload);
-    if (sendNow) { const sent = await apiSendJson('/dealer/email/campaigns/' + r.campaign.id + '/send', 'POST', {}); showToast(`Sent to ${sent.sent || 0}${sent.failed ? ` · ${sent.failed} failed` : ''}`, 'success'); }
-    else showToast('Draft saved', 'success');
-    closeAutomationModal(); await loadDealerEmail();
-  } catch (e) { showToast(e.message || 'Could not save campaign', 'error'); }
+    if (sendNow) {
+      const sent = await apiSendJson('/dealer/email/campaigns/' + r.campaign.id + '/send', 'POST', {});
+      showToast(`Campaign sent to ${sent.sent || 0} recipients ✓`, 'success');
+    } else {
+      showToast('Campaign draft saved ✓', 'success');
+    }
+    closeAutomationModal();
+    await loadDealerEmail();
+  } catch (e) {
+    showToast(e.message || 'Could not save campaign', 'error');
+  }
+}
+window.saveMailchimpCampaign = saveMailchimpCampaign;
+
+window.dealerEmailNewCampaign = () => {
+  openMailchimpEmailBuilder('inventory');
 };
 window.dealerEmailSendCampaign = async (id) => {
   if (!confirm('Send this campaign now?')) return;
