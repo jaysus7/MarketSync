@@ -8009,6 +8009,942 @@
         ]
       ],
       "action": "Approve revenue reconciliation"
+    },
+    "PF-045": {
+      "kind": "form",
+      "nav": "Help",
+      "page": "Support Request",
+      "title": "Contact support with a complete problem report",
+      "state": "Reproduction steps and safe evidence are complete",
+      "fields": [
+        "Workflow · Contact support with a complete problem report",
+        "Current status · Reproduction steps and safe evidence are complete",
+        "Next action · Submit support request"
+      ],
+      "action": "Submit support request"
+    },
+    "PF-049": {
+      "kind": "billing",
+      "nav": "Settings",
+      "page": "Billing",
+      "title": "Read invoices and understand a plan change",
+      "state": "Plan-change preview shows price, features, and effective date",
+      "fields": [
+        "Workflow · Read invoices and understand a plan change",
+        "Current status · Plan-change preview shows price, features, and effective date",
+        "Next action · Confirm plan change"
+      ],
+      "action": "Confirm plan change"
+    },
+    "PF-053": {
+      "kind": "settings",
+      "nav": "Profile",
+      "page": "Language & Region",
+      "title": "Change language and understand translated content",
+      "state": "French interface preview is active for this user only",
+      "fields": [
+        "Workflow · Change language and understand translated content",
+        "Current status · French interface preview is active for this user only",
+        "Next action · Save language preference"
+      ],
+      "action": "Save language preference"
+    },
+    "DS-018": {
+      "kind": "form",
+      "nav": "Administration",
+      "page": "Fees & Disclosures",
+      "title": "Configure dealer fees and disclosure text",
+      "state": "Approved fee schedule is previewed on a training proposal",
+      "fields": [
+        "Workflow · Configure dealer fees and disclosure text",
+        "Current status · Approved fee schedule is previewed on a training proposal",
+        "Next action · Publish fee schedule"
+      ],
+      "action": "Publish fee schedule"
+    },
+    "DS-022": {
+      "kind": "settings",
+      "nav": "Administration",
+      "page": "Notification Routing",
+      "title": "Configure operational notification recipients",
+      "state": "All critical alert categories have verified primary and fallback owners",
+      "fields": [
+        "Workflow · Configure operational notification recipients",
+        "Current status · All critical alert categories have verified primary and fallback owners",
+        "Next action · Save routing map"
+      ],
+      "action": "Save routing map"
+    },
+    "DS-026": {
+      "kind": "settings",
+      "nav": "Administration",
+      "page": "Products & Features",
+      "title": "Enable or disable a dealership feature safely",
+      "state": "Entitlement and user-impact preview pass before the switch changes",
+      "fields": [
+        "Workflow · Enable or disable a dealership feature safely",
+        "Current status · Entitlement and user-impact preview pass before the switch changes",
+        "Next action · Apply approved feature change"
+      ],
+      "action": "Apply approved feature change"
+    },
+    "DS-030": {
+      "kind": "dashboard",
+      "nav": "Dealer Group",
+      "page": "Location Switcher",
+      "title": "Switch dealer-group location without mixing data",
+      "state": "Destination branding and tenant-scoped totals are verified",
+      "fields": [
+        "Workflow · Switch dealer-group location without mixing data",
+        "Current status · Destination branding and tenant-scoped totals are verified",
+        "Next action · Continue in selected dealership"
+      ],
+      "action": "Continue in selected dealership"
+    },
+    "DS-034": {
+      "kind": "dashboard",
+      "nav": "Get Started",
+      "page": "Setup Checklist",
+      "title": "Complete the first-login dealership checklist",
+      "state": "Required launch items are complete and optional integrations are assigned",
+      "fields": [
+        "Workflow · Complete the first-login dealership checklist",
+        "Current status · Required launch items are complete and optional integrations are assigned",
+        "Next action · Mark dealership ready"
+      ],
+      "action": "Mark dealership ready"
+    },
+    "DB-009": {
+      "kind": "dashboard",
+      "nav": "DealerOS",
+      "page": "Daily Briefing",
+      "title": "Open a Daily Briefing warning and fix its source",
+      "state": "Top warning is linked to its source record and ready for correction",
+      "fields": [
+        "Workflow · Open a Daily Briefing warning and fix its source",
+        "Current status · Top warning is linked to its source record and ready for correction",
+        "Next action · Open source record"
+      ],
+      "action": "Open source record"
+    },
+    "DB-013": {
+      "kind": "ai",
+      "nav": "Daily Briefing",
+      "page": "Ask MarketSync",
+      "title": "Ask MarketSync an operational question",
+      "state": "Operational answer includes scoped totals and source links for verification",
+      "fields": [
+        "Workflow · Ask MarketSync an operational question",
+        "Current status · Operational answer includes scoped totals and source links for verification",
+        "Next action · Open supporting records"
+      ],
+      "action": "Open supporting records"
+    },
+    "DB-017": {
+      "kind": "dashboard",
+      "nav": "DealerOS",
+      "page": "Recommended Actions",
+      "title": "Complete or dismiss a recommended action",
+      "state": "Source outcome is complete and close reason is ready for review",
+      "fields": [
+        "Workflow · Complete or dismiss a recommended action",
+        "Current status · Source outcome is complete and close reason is ready for review",
+        "Next action · Complete recommended action"
+      ],
+      "action": "Complete recommended action"
+    },
+    "DB-021": {
+      "kind": "dashboard",
+      "nav": "DealerOS",
+      "page": "Dealership Health",
+      "title": "Read dealership health and set daily priorities",
+      "state": "Five highest-impact exceptions are ranked with owners and due times",
+      "fields": [
+        "Workflow · Read dealership health and set daily priorities",
+        "Current status · Five highest-impact exceptions are ranked with owners and due times",
+        "Next action · Publish today’s priorities"
+      ],
+      "action": "Publish today’s priorities"
+    },
+    "CRM-072": {
+      "kind": "form",
+      "nav": "CRM",
+      "page": "Licence Scan",
+      "title": "Scan a driver licence into a customer record",
+      "state": "Extracted identity fields await human verification against the document",
+      "fields": [
+        "Workflow · Scan a driver licence into a customer record",
+        "Current status · Extracted identity fields await human verification against the document",
+        "Next action · Verify & save customer"
+      ],
+      "action": "Verify & save customer"
+    },
+    "CRM-076": {
+      "kind": "crm",
+      "nav": "CRM",
+      "page": "Customer Timeline",
+      "title": "Add a customer note and secure attachment",
+      "state": "Objective note and restricted attachment pass the privacy review",
+      "fields": [
+        "Workflow · Add a customer note and secure attachment",
+        "Current status · Objective note and restricted attachment pass the privacy review",
+        "Next action · Add timeline activity"
+      ],
+      "action": "Add timeline activity"
+    },
+    "CRM-080": {
+      "kind": "conversation",
+      "nav": "CRM",
+      "page": "Communications",
+      "title": "Call, text, or email a customer and log the result",
+      "state": "Approved message is ready and customer consent is visible",
+      "fields": [
+        "Workflow · Call, text, or email a customer and log the result",
+        "Current status · Approved message is ready and customer consent is visible",
+        "Next action · Send & record outcome"
+      ],
+      "action": "Send & record outcome"
+    },
+    "CRM-084": {
+      "kind": "calendar",
+      "nav": "Settings",
+      "page": "Calendar Connections",
+      "title": "Connect a Google or Microsoft calendar",
+      "state": "Two-way test appointment synchronized to the selected business calendar",
+      "fields": [
+        "Workflow · Connect a Google or Microsoft calendar",
+        "Current status · Two-way test appointment synchronized to the selected business calendar",
+        "Next action · Confirm calendar connection"
+      ],
+      "action": "Confirm calendar connection"
+    },
+    "CRM-088": {
+      "kind": "integration",
+      "nav": "Integrations",
+      "page": "CRM Delivery",
+      "title": "Configure ADF/XML lead delivery",
+      "state": "Staging ADF/XML payload is validated and acknowledged by the destination",
+      "fields": [
+        "Workflow · Configure ADF/XML lead delivery",
+        "Current status · Staging ADF/XML payload is validated and acknowledged by the destination",
+        "Next action · Activate lead delivery"
+      ],
+      "action": "Activate lead delivery"
+    },
+    "CRM-092": {
+      "kind": "integration",
+      "nav": "CRM",
+      "page": "Delivery History",
+      "title": "Troubleshoot and resend a failed lead delivery",
+      "state": "Required-field error is corrected and duplicate check is clear",
+      "fields": [
+        "Workflow · Troubleshoot and resend a failed lead delivery",
+        "Current status · Required-field error is corrected and duplicate check is clear",
+        "Next action · Retry same delivery once"
+      ],
+      "action": "Retry same delivery once"
+    },
+    "CRM-096": {
+      "kind": "ai",
+      "nav": "CRM",
+      "page": "AI Autoresponder",
+      "title": "Configure and test the AI lead autoresponder",
+      "state": "Seven controlled lead scenarios pass routing and consent checks",
+      "fields": [
+        "Workflow · Configure and test the AI lead autoresponder",
+        "Current status · Seven controlled lead scenarios pass routing and consent checks",
+        "Next action · Activate tested autoresponder"
+      ],
+      "action": "Activate tested autoresponder"
+    },
+    "INV-082": {
+      "kind": "form",
+      "nav": "Inventory",
+      "page": "CSV Import",
+      "title": "Import inventory by CSV and correct rejected rows",
+      "state": "Preview separates 42 adds, 18 updates, and 3 correctable rejects",
+      "fields": [
+        "Workflow · Import inventory by CSV and correct rejected rows",
+        "Current status · Preview separates 42 adds, 18 updates, and 3 correctable rejects",
+        "Next action · Import validated rows"
+      ],
+      "action": "Import validated rows"
+    },
+    "INV-086": {
+      "kind": "form",
+      "nav": "Inventory",
+      "page": "Plate Lookup",
+      "title": "Scan a licence plate to retrieve a VIN",
+      "state": "Provider result awaits comparison with the physical VIN plate",
+      "fields": [
+        "Workflow · Scan a licence plate to retrieve a VIN",
+        "Current status · Provider result awaits comparison with the physical VIN plate",
+        "Next action · Verify VIN & continue"
+      ],
+      "action": "Verify VIN & continue"
+    },
+    "INV-090": {
+      "kind": "vehicle",
+      "nav": "Inventory",
+      "page": "Vehicle Photos",
+      "title": "Reorder, replace, and remove vehicle photos",
+      "state": "Twenty-four approved photos are ordered and the new primary image is selected",
+      "fields": [
+        "Workflow · Reorder, replace, and remove vehicle photos",
+        "Current status · Twenty-four approved photos are ordered and the new primary image is selected",
+        "Next action · Save photo sequence"
+      ],
+      "action": "Save photo sequence"
+    },
+    "INV-094": {
+      "kind": "ai",
+      "nav": "Inventory",
+      "page": "AI Description",
+      "title": "Generate, translate, and approve an AI vehicle description",
+      "state": "English source is approved and French translation awaits human review",
+      "fields": [
+        "Workflow · Generate, translate, and approve an AI vehicle description",
+        "Current status · English source is approved and French translation awaits human review",
+        "Next action · Approve translated description"
+      ],
+      "action": "Approve translated description"
+    },
+    "INV-098": {
+      "kind": "vehicle",
+      "nav": "Inventory",
+      "page": "Vehicle History",
+      "title": "Request and read a vehicle history report",
+      "state": "Current report shows one accident record requiring appraisal review",
+      "fields": [
+        "Workflow · Request and read a vehicle history report",
+        "Current status · Current report shows one accident record requiring appraisal review",
+        "Next action · Record material finding"
+      ],
+      "action": "Record material finding"
+    },
+    "INV-102": {
+      "kind": "inventory",
+      "nav": "Inventory Intelligence",
+      "page": "Competitor Set",
+      "title": "Configure competitor dealerships for pricing comparisons",
+      "state": "Eight relevant local sellers produce a clean comparable-vehicle preview",
+      "fields": [
+        "Workflow · Configure competitor dealerships for pricing comparisons",
+        "Current status · Eight relevant local sellers produce a clean comparable-vehicle preview",
+        "Next action · Save market set"
+      ],
+      "action": "Save market set"
+    },
+    "INV-106": {
+      "kind": "reports",
+      "nav": "Inventory",
+      "page": "Secure Export",
+      "title": "Export inventory without exposing restricted data",
+      "state": "Approved 511-row public inventory export excludes cost and customer fields",
+      "fields": [
+        "Workflow · Export inventory without exposing restricted data",
+        "Current status · Approved 511-row public inventory export excludes cost and customer fields",
+        "Next action · Create protected export"
+      ],
+      "action": "Create protected export"
+    },
+    "FB-030": {
+      "kind": "integration",
+      "nav": "Facebook",
+      "page": "Extension Setup",
+      "title": "Install and sign in to the Facebook posting extension",
+      "state": "Official extension is connected to the intended staging dealership and rep",
+      "fields": [
+        "Workflow · Install and sign in to the Facebook posting extension",
+        "Current status · Official extension is connected to the intended staging dealership and rep",
+        "Next action · Run extension test"
+      ],
+      "action": "Run extension test"
+    },
+    "FB-034": {
+      "kind": "settings",
+      "nav": "Facebook",
+      "page": "Posting Guardrails",
+      "title": "Configure Facebook posting guardrails and rest periods",
+      "state": "Nine reps fit safely inside dealership timing and daily limits",
+      "fields": [
+        "Workflow · Configure Facebook posting guardrails and rest periods",
+        "Current status · Nine reps fit safely inside dealership timing and daily limits",
+        "Next action · Publish guardrails"
+      ],
+      "action": "Publish guardrails"
+    },
+    "FB-038": {
+      "kind": "integration",
+      "nav": "Facebook",
+      "page": "Extension Diagnostics",
+      "title": "Fix extension timeout and browser permission errors",
+      "state": "Connection passes after site permission is restored and duplicate check is clear",
+      "fields": [
+        "Workflow · Fix extension timeout and browser permission errors",
+        "Current status · Connection passes after site permission is restored and duplicate check is clear",
+        "Next action · Resume safe checkpoint"
+      ],
+      "action": "Resume safe checkpoint"
+    },
+    "FB-042": {
+      "kind": "vehicle",
+      "nav": "Facebook",
+      "page": "Duplicate Resolution",
+      "title": "Fix a wrong Facebook account or duplicate listing",
+      "state": "Two public URLs are identified and the correct survivor is selected",
+      "fields": [
+        "Workflow · Fix a wrong Facebook account or duplicate listing",
+        "Current status · Two public URLs are identified and the correct survivor is selected",
+        "Next action · Remove verified duplicate"
+      ],
+      "action": "Remove verified duplicate"
+    },
+    "DEAL-024": {
+      "kind": "security",
+      "nav": "F&I",
+      "page": "Identity Verification",
+      "title": "Verify customer identity and handle a failed check",
+      "state": "Address mismatch requires approved secondary verification before delivery",
+      "fields": [
+        "Workflow · Verify customer identity and handle a failed check",
+        "Current status · Address mismatch requires approved secondary verification before delivery",
+        "Next action · Start secondary verification"
+      ],
+      "action": "Start secondary verification"
+    },
+    "DEAL-028": {
+      "kind": "deal",
+      "nav": "Sales",
+      "page": "E-sign Requests",
+      "title": "Track, remind, cancel, and download an e-sign request",
+      "state": "One signer remains and the package is valid for a single reminder",
+      "fields": [
+        "Workflow · Track, remind, cancel, and download an e-sign request",
+        "Current status · One signer remains and the package is valid for a single reminder",
+        "Next action · Send approved reminder"
+      ],
+      "action": "Send approved reminder"
+    },
+    "DEAL-032": {
+      "kind": "integration",
+      "nav": "Integrations",
+      "page": "Customer Payments",
+      "title": "Configure and test a customer deposit processor",
+      "state": "Payment, refund, webhook, and ledger tests balance in CAD",
+      "fields": [
+        "Workflow · Configure and test a customer deposit processor",
+        "Current status · Payment, refund, webhook, and ledger tests balance in CAD",
+        "Next action · Activate deposit processor"
+      ],
+      "action": "Activate deposit processor"
+    },
+    "DEAL-036": {
+      "kind": "deal",
+      "nav": "Sales",
+      "page": "Scenario Comparison",
+      "title": "Compare cash, finance, and lease scenarios",
+      "state": "Cash, finance, and lease use the same vehicle and current program date",
+      "fields": [
+        "Workflow · Compare cash, finance, and lease scenarios",
+        "Current status · Cash, finance, and lease use the same vehicle and current program date",
+        "Next action · Present comparable options"
+      ],
+      "action": "Present comparable options"
+    },
+    "DEAL-040": {
+      "kind": "reports",
+      "nav": "F&I",
+      "page": "Pipeline & Profitability",
+      "title": "Read the F&I pipeline and profitability report",
+      "state": "Three stale funding deals and one reserve variance require owners",
+      "fields": [
+        "Workflow · Read the F&I pipeline and profitability report",
+        "Current status · Three stale funding deals and one reserve variance require owners",
+        "Next action · Assign funding actions"
+      ],
+      "action": "Assign funding actions"
+    },
+    "DEAL-044": {
+      "kind": "deal",
+      "nav": "Sales",
+      "page": "Delivery Checklist",
+      "title": "Complete delivery and trigger customer follow-up",
+      "state": "All required handoff items pass and post-delivery messages are previewed",
+      "fields": [
+        "Workflow · Complete delivery and trigger customer follow-up",
+        "Current status · All required handoff items pass and post-delivery messages are previewed",
+        "Next action · Complete vehicle delivery"
+      ],
+      "action": "Complete vehicle delivery"
+    },
+    "DEAL-048": {
+      "kind": "form",
+      "nav": "F&I",
+      "page": "Lender Configuration",
+      "title": "Configure a lender and submission rules",
+      "state": "Approved lender profile and fictional submission test pass",
+      "fields": [
+        "Workflow · Configure a lender and submission rules",
+        "Current status · Approved lender profile and fictional submission test pass",
+        "Next action · Activate lender"
+      ],
+      "action": "Activate lender"
+    },
+    "DEAL-052": {
+      "kind": "deal",
+      "nav": "F&I",
+      "page": "Product Menu",
+      "title": "Record F&I product acceptance or decline",
+      "state": "Customer selections and required disclosures are ready for signature",
+      "fields": [
+        "Workflow · Record F&I product acceptance or decline",
+        "Current status · Customer selections and required disclosures are ready for signature",
+        "Next action · Record product decisions"
+      ],
+      "action": "Record product decisions"
+    },
+    "SVC-073": {
+      "kind": "calendar",
+      "nav": "Service",
+      "page": "Department Settings",
+      "title": "Configure service hours, labour rates, and booking rules",
+      "state": "Hours, capacity, and rate tests pass for the next booking week",
+      "fields": [
+        "Workflow · Configure service hours, labour rates, and booking rules",
+        "Current status · Hours, capacity, and rate tests pass for the next booking week",
+        "Next action · Publish service settings"
+      ],
+      "action": "Publish service settings"
+    },
+    "SVC-077": {
+      "kind": "service",
+      "nav": "Service",
+      "page": "Repair Order Story",
+      "title": "Add customer concerns and technician notes to a repair order",
+      "state": "Concern, cause, correction, and measured evidence are complete",
+      "fields": [
+        "Workflow · Add customer concerns and technician notes to a repair order",
+        "Current status · Concern, cause, correction, and measured evidence are complete",
+        "Next action · Save RO notes"
+      ],
+      "action": "Save RO notes"
+    },
+    "SVC-081": {
+      "kind": "service",
+      "nav": "Service",
+      "page": "Estimate Builder",
+      "title": "Add parts and calculate a service estimate",
+      "state": "Parts are available and itemized estimate totals are ready for customer approval",
+      "fields": [
+        "Workflow · Add parts and calculate a service estimate",
+        "Current status · Parts are available and itemized estimate totals are ready for customer approval",
+        "Next action · Send approval request"
+      ],
+      "action": "Send approval request"
+    },
+    "SVC-085": {
+      "kind": "calendar",
+      "nav": "Service",
+      "page": "Maintenance Reminder",
+      "title": "Create a maintenance reminder from service history",
+      "state": "Verified oil-service interval and consent produce one future reminder",
+      "fields": [
+        "Workflow · Create a maintenance reminder from service history",
+        "Current status · Verified oil-service interval and consent produce one future reminder",
+        "Next action · Schedule reminder"
+      ],
+      "action": "Schedule reminder"
+    },
+    "PARTS-017": {
+      "kind": "inventory",
+      "nav": "Parts",
+      "page": "Part Transaction",
+      "title": "Adjust, issue, return, and transfer a part",
+      "state": "Transfer preview balances quantity and value between approved locations",
+      "fields": [
+        "Workflow · Adjust, issue, return, and transfer a part",
+        "Current status · Transfer preview balances quantity and value between approved locations",
+        "Next action · Post parts transaction"
+      ],
+      "action": "Post parts transaction"
+    },
+    "RECON-008": {
+      "kind": "pipeline",
+      "nav": "Recon",
+      "page": "Blockers",
+      "title": "Add and resolve a recon blocker",
+      "state": "Backordered mirror is owned and the retail-ready date is recalculated",
+      "fields": [
+        "Workflow · Add and resolve a recon blocker",
+        "Current status · Backordered mirror is owned and the retail-ready date is recalculated",
+        "Next action · Save blocker plan"
+      ],
+      "action": "Save blocker plan"
+    },
+    "RECON-012": {
+      "kind": "vehicle",
+      "nav": "Recon",
+      "page": "Retail-ready Review",
+      "title": "Complete recon and verify a vehicle is retail-ready",
+      "state": "Safety, documents, costs, merchandising, and quality checks all pass",
+      "fields": [
+        "Workflow · Complete recon and verify a vehicle is retail-ready",
+        "Current status · Safety, documents, costs, merchandising, and quality checks all pass",
+        "Next action · Release vehicle for sale"
+      ],
+      "action": "Release vehicle for sale"
+    },
+    "AUTO-012": {
+      "kind": "pipeline",
+      "nav": "Automations",
+      "page": "New Lead Follow-up",
+      "title": "Enable the standard new-lead follow-up",
+      "state": "Five test leads pass timing, ownership, consent, and stop rules",
+      "fields": [
+        "Workflow · Enable the standard new-lead follow-up",
+        "Current status · Five test leads pass timing, ownership, consent, and stop rules",
+        "Next action · Activate sequence"
+      ],
+      "action": "Activate sequence"
+    },
+    "AUTO-016": {
+      "kind": "builder",
+      "nav": "Automations",
+      "page": "Sequence Builder",
+      "title": "Build a custom email or SMS sequence",
+      "state": "Three-step sequence and all stop branches pass fictional tests",
+      "fields": [
+        "Workflow · Build a custom email or SMS sequence",
+        "Current status · Three-step sequence and all stop branches pass fictional tests",
+        "Next action · Activate controlled audience"
+      ],
+      "action": "Activate controlled audience"
+    },
+    "AUTO-020": {
+      "kind": "builder",
+      "nav": "Automations",
+      "page": "Workflow Steps",
+      "title": "Add, reorder, and delay workflow steps",
+      "state": "Version 4 branch simulation passes before active-run migration",
+      "fields": [
+        "Workflow · Add, reorder, and delay workflow steps",
+        "Current status · Version 4 branch simulation passes before active-run migration",
+        "Next action · Publish version 4"
+      ],
+      "action": "Publish version 4"
+    },
+    "AUTO-024": {
+      "kind": "builder",
+      "nav": "Automations",
+      "page": "Automation Controls",
+      "title": "Preview, test, pause, clone, and delete an automation",
+      "state": "Pause preview shows 14 active runs and preserves their scheduled-state decision",
+      "fields": [
+        "Workflow · Preview, test, pause, clone, and delete an automation",
+        "Current status · Pause preview shows 14 active runs and preserves their scheduled-state decision",
+        "Next action · Pause new enrolments"
+      ],
+      "action": "Pause new enrolments"
+    },
+    "AUTO-028": {
+      "kind": "crm",
+      "nav": "CRM",
+      "page": "Customer Automations",
+      "title": "Enrol or remove a customer from an automation",
+      "state": "Customer eligibility and conflict check pass for one sequence",
+      "fields": [
+        "Workflow · Enrol or remove a customer from an automation",
+        "Current status · Customer eligibility and conflict check pass for one sequence",
+        "Next action · Confirm enrolment"
+      ],
+      "action": "Confirm enrolment"
+    },
+    "AUTO-032": {
+      "kind": "integration",
+      "nav": "Automations",
+      "page": "Workflow Run",
+      "title": "Read and retry a failed workflow action",
+      "state": "Provider timeout is resolved and external duplicate check is clear",
+      "fields": [
+        "Workflow · Read and retry a failed workflow action",
+        "Current status · Provider timeout is resolved and external duplicate check is clear",
+        "Next action · Retry failed action once"
+      ],
+      "action": "Retry failed action once"
+    },
+    "OPS-006": {
+      "kind": "dashboard",
+      "nav": "Operations",
+      "page": "Exceptions",
+      "title": "Resolve, dismiss, or reopen an operational exception",
+      "state": "Source is corrected and resolution evidence awaits final review",
+      "fields": [
+        "Workflow · Resolve, dismiss, or reopen an operational exception",
+        "Current status · Source is corrected and resolution evidence awaits final review",
+        "Next action · Resolve exception"
+      ],
+      "action": "Resolve exception"
+    },
+    "TASK-006": {
+      "kind": "pipeline",
+      "nav": "Task Board",
+      "page": "Card Dependencies",
+      "title": "Add dependencies and complete a task-board card",
+      "state": "Detail waits on completed service work and all handoff owners are assigned",
+      "fields": [
+        "Workflow · Add dependencies and complete a task-board card",
+        "Current status · Detail waits on completed service work and all handoff owners are assigned",
+        "Next action · Complete prerequisite card"
+      ],
+      "action": "Complete prerequisite card"
+    },
+    "WEB-012": {
+      "kind": "builder",
+      "nav": "Website",
+      "page": "Launch Checklist",
+      "title": "Claim a dealership site URL and publish the first site",
+      "state": "Public journeys pass on desktop and mobile with rollback ready",
+      "fields": [
+        "Workflow · Claim a dealership site URL and publish the first site",
+        "Current status · Public journeys pass on desktop and mobile with rollback ready",
+        "Next action · Publish first site"
+      ],
+      "action": "Publish first site"
+    },
+    "WEB-016": {
+      "kind": "builder",
+      "nav": "Website",
+      "page": "Page Sections",
+      "title": "Add and configure website page sections",
+      "state": "New inventory and lead-form sections pass responsive and accessibility tests",
+      "fields": [
+        "Workflow · Add and configure website page sections",
+        "Current status · New inventory and lead-form sections pass responsive and accessibility tests",
+        "Next action · Publish page version"
+      ],
+      "action": "Publish page version"
+    },
+    "WEB-020": {
+      "kind": "builder",
+      "nav": "Website",
+      "page": "Inventory Experience",
+      "title": "Configure inventory search and vehicle detail pages",
+      "state": "Search, VDP, sold, no-results, and lead-attribution tests pass",
+      "fields": [
+        "Workflow · Configure inventory search and vehicle detail pages",
+        "Current status · Search, VDP, sold, no-results, and lead-attribution tests pass",
+        "Next action · Publish inventory experience"
+      ],
+      "action": "Publish inventory experience"
+    },
+    "WEB-024": {
+      "kind": "conversation",
+      "nav": "AI Dealer",
+      "page": "Widget Test",
+      "title": "Install and verify the AI chat widget",
+      "state": "Inventory, lead, appointment, and human-handoff scenarios reach the correct dealership",
+      "fields": [
+        "Workflow · Install and verify the AI chat widget",
+        "Current status · Inventory, lead, appointment, and human-handoff scenarios reach the correct dealership",
+        "Next action · Approve widget installation"
+      ],
+      "action": "Approve widget installation"
+    },
+    "MKT-076": {
+      "kind": "reports",
+      "nav": "Marketing",
+      "page": "Spend Import",
+      "title": "Import and verify advertising spend",
+      "state": "Platform billing and import preview reconcile with zero unexplained difference",
+      "fields": [
+        "Workflow · Import and verify advertising spend",
+        "Current status · Platform billing and import preview reconcile with zero unexplained difference",
+        "Next action · Import verified spend"
+      ],
+      "action": "Import verified spend"
+    },
+    "AI-040": {
+      "kind": "conversation",
+      "nav": "AI Dealer",
+      "page": "AI Leads & Chats",
+      "title": "Search and filter AI conversations",
+      "state": "Unread appointment-intent conversations are filtered with no unowned urgent result",
+      "fields": [
+        "Workflow · Search and filter AI conversations",
+        "Current status · Unread appointment-intent conversations are filtered with no unowned urgent result",
+        "Next action · Open highest-intent chat"
+      ],
+      "action": "Open highest-intent chat"
+    },
+    "AI-044": {
+      "kind": "ai",
+      "nav": "AI Dealer",
+      "page": "Agent Configuration",
+      "title": "Create and configure an AI agent persona",
+      "state": "Sales Concierge persona and eight boundary tests are ready for approval",
+      "fields": [
+        "Workflow · Create and configure an AI agent persona",
+        "Current status · Sales Concierge persona and eight boundary tests are ready for approval",
+        "Next action · Activate tested agent"
+      ],
+      "action": "Activate tested agent"
+    },
+    "AI-048": {
+      "kind": "ai",
+      "nav": "AI Dealer",
+      "page": "Conversion Settings",
+      "title": "Configure AI lead capture, booking, and human handoff",
+      "state": "Lead, booking, consent, and six handoff scenarios pass end to end",
+      "fields": [
+        "Workflow · Configure AI lead capture, booking, and human handoff",
+        "Current status · Lead, booking, consent, and six handoff scenarios pass end to end",
+        "Next action · Publish conversion rules"
+      ],
+      "action": "Publish conversion rules"
+    },
+    "AI-052": {
+      "kind": "reports",
+      "nav": "AI Dealer",
+      "page": "Usage & Limits",
+      "title": "Review AI usage, limits, costs, and plan status",
+      "state": "Forecast is inside budget and an 80% alert has an accountable owner",
+      "fields": [
+        "Workflow · Review AI usage, limits, costs, and plan status",
+        "Current status · Forecast is inside budget and an 80% alert has an accountable owner",
+        "Next action · Save usage controls"
+      ],
+      "action": "Save usage controls"
+    },
+    "RPT-033": {
+      "kind": "reports",
+      "nav": "Reports",
+      "page": "Dealership Performance",
+      "title": "Read the dealership performance dashboard",
+      "state": "Material gross decline is traced to mix while lead conversion improved",
+      "fields": [
+        "Workflow · Read the dealership performance dashboard",
+        "Current status · Material gross decline is traced to mix while lead conversion improved",
+        "Next action · Record management action"
+      ],
+      "action": "Record management action"
+    },
+    "RPT-037": {
+      "kind": "reports",
+      "nav": "Reports",
+      "page": "Service & Parts",
+      "title": "Read service and parts performance",
+      "state": "Technician capacity and parts fill-rate exceptions are traced to source records",
+      "fields": [
+        "Workflow · Read service and parts performance",
+        "Current status · Technician capacity and parts fill-rate exceptions are traced to source records",
+        "Next action · Assign fixed-ops actions"
+      ],
+      "action": "Assign fixed-ops actions"
+    },
+    "RPT-041": {
+      "kind": "reports",
+      "nav": "Reports",
+      "page": "Custom Report Builder",
+      "title": "Build, save, rerun, and delete a custom report",
+      "state": "Saved report matches source totals and has restricted manager visibility",
+      "fields": [
+        "Workflow · Build, save, rerun, and delete a custom report",
+        "Current status · Saved report matches source totals and has restricted manager visibility",
+        "Next action · Save verified report"
+      ],
+      "action": "Save verified report"
+    },
+    "ACC-106": {
+      "kind": "accounting",
+      "nav": "Accounting",
+      "page": "Bank Feed",
+      "title": "Match and categorize bank-feed transactions",
+      "state": "One supplier payment matches an approved bill with zero difference",
+      "fields": [
+        "Workflow · Match and categorize bank-feed transactions",
+        "Current status · One supplier payment matches an approved bill with zero difference",
+        "Next action · Confirm bank match"
+      ],
+      "action": "Confirm bank match"
+    },
+    "COMM-008": {
+      "kind": "accounting",
+      "nav": "Accounting Settings",
+      "page": "Commission Structures",
+      "title": "Create a commission plan in plain language",
+      "state": "Inactive plan passes nine payout examples and awaits owner approval",
+      "fields": [
+        "Workflow · Create a commission plan in plain language",
+        "Current status · Inactive plan passes nine payout examples and awaits owner approval",
+        "Next action · Approve & activate plan"
+      ],
+      "action": "Approve & activate plan"
+    },
+    "COMM-012": {
+      "kind": "accounting",
+      "nav": "Commissions",
+      "page": "My Statement",
+      "title": "Acknowledge or dispute a commission statement",
+      "state": "One deal-level split requires evidence before the review deadline",
+      "fields": [
+        "Workflow · Acknowledge or dispute a commission statement",
+        "Current status · One deal-level split requires evidence before the review deadline",
+        "Next action · Submit precise dispute"
+      ],
+      "action": "Submit precise dispute"
+    },
+    "SEC-009": {
+      "kind": "security",
+      "nav": "Administration",
+      "page": "Security Events",
+      "title": "Review security and activity events",
+      "state": "Unexpected export is correlated with one session and awaits owner verification",
+      "fields": [
+        "Workflow · Review security and activity events",
+        "Current status · Unexpected export is correlated with one session and awaits owner verification",
+        "Next action · Start security review"
+      ],
+      "action": "Start security review"
+    },
+    "API-009": {
+      "kind": "integration",
+      "nav": "Integrations",
+      "page": "Webhook Security Test",
+      "title": "Verify webhook signatures and prevent duplicate delivery",
+      "state": "Valid event passes while tampered, old, and duplicate cases are safely handled",
+      "fields": [
+        "Workflow · Verify webhook signatures and prevent duplicate delivery",
+        "Current status · Valid event passes while tampered, old, and duplicate cases are safely handled",
+        "Next action · Approve endpoint security"
+      ],
+      "action": "Approve endpoint security"
+    },
+    "MS-SUP-069": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Support Case",
+      "title": "Handle an account, billing, outage, or escalation support case",
+      "state": "Dealer login escalation is classified with one technical owner and update time",
+      "fields": [
+        "Workflow · Handle an account, billing, outage, or escalation support case",
+        "Current status · Dealer login escalation is classified with one technical owner and update time",
+        "Next action · Send verified support update"
+      ],
+      "action": "Send verified support update"
+    },
+    "MS-OPS-073": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Operating Checklists",
+      "title": "Run MarketSync daily, weekly, and monthly operating checks",
+      "state": "Daily and weekly checks pass; two monthly exceptions have owners",
+      "fields": [
+        "Workflow · Run MarketSync daily, weekly, and monthly operating checks",
+        "Current status · Daily and weekly checks pass; two monthly exceptions have owners",
+        "Next action · Close operating review"
+      ],
+      "action": "Close operating review"
     }
   }
 }

@@ -1,5 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { finalLessonSpecs } from './training-final-lessons.js'
 
 // These blueprints deliberately model the visible state for each lesson instead
 // of reusing a generic tutorial card. Labels mirror the current dashboard UI.
@@ -210,6 +211,11 @@ Object.assign(visuals, {
   'MS-OPS-057': visual('integration', 'MarketSync OS', 'Webhook Deliveries', 'Retry failed delivery', 'Signature configuration is corrected and the same event ID is ready for one replay', { metrics: [['Attempts', '3'], ['Last response', '401'], ['Age', '18 min'], ['Duplicate receipt', 'No']], fields: ['Event · sales.deal.closed', 'Event ID · evt_8421', 'Endpoint · dms.example.com/hooks', 'Cause · Old signing secret', 'Next retry · Manual approval'], action: 'Replay same event once' }),
   'MS-FIN-061': visual('accounting', 'MarketSync OS', 'Revenue Reconciliation', 'Stripe revenue · July 2026', 'Subscriptions, invoices, fees, payouts, and ledger reconcile with timing identified', { metrics: [['Gross invoices', '$184,220'], ['Refunds', '-$3,840'], ['Stripe fees', '-$5,426'], ['Unexplained', '$0']], columns: ['Component', 'Stripe', 'Ledger', 'Difference'], rows: [['Subscription revenue', '$176,400', '$176,400', '$0'], ['Tax liability', '$4,820', '$4,820', '$0'], ['Payout timing', '$12,840', '$12,840', '$0']], action: 'Approve revenue reconciliation' }),
 })
+
+for (const spec of finalLessonSpecs) {
+  const { kind, nav, page, state, fields, action } = spec.screen
+  visuals[spec.id] = visual(kind, nav, page, spec.title, state, { fields, action })
+}
 
 const output = fileURLToPath(new URL('../../marketplace-frontend/training/visuals.json', import.meta.url))
 writeFileSync(output, `${JSON.stringify({ version: '2026.08.05-screen-blueprints', visuals }, null, 2)}\n`)

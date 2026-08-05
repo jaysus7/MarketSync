@@ -1,5 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { finalLessonSpecs } from './training-final-lessons.js'
 
 const verified = '2026-08-05'
 const productWho = {
@@ -2215,6 +2216,8 @@ lessons.push(
     ], success: 'Stripe, MarketSync subscriptions, the general ledger, and bank payouts reconcile with explained timing differences.',
   }),
 )
+
+for (const { screen: _screen, ...spec } of finalLessonSpecs) lessons.push(lesson(spec))
 
 const output = fileURLToPath(new URL('../../marketplace-frontend/training/catalog-expanded.json', import.meta.url))
 writeFileSync(output, `${JSON.stringify({ version: '2026.08.05-expanded', lessons }, null, 2)}\n`)
