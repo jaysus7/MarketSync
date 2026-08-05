@@ -11915,8 +11915,10 @@ function renderDealerTemplates() {
   const body = document.getElementById('dealer-email-body'); if (!body) return;
   const rows = (__dealerEmail.templates || []).map(t => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
       <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${esc(t.name)}${t.is_seed ? ' <span class="text-[10px] font-bold uppercase text-slate-400">starter</span>' : ''}</div><div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">${esc(t.subject)}</div></div>
-      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700">Edit</button>
-      <button onclick="dealerEmailDeleteTmpl('${t.id}')" class="text-[12px] font-bold text-rose-500">Delete</button>
+      <label title="Turn this template on or off" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0"><input type="checkbox" ${t.active !== false ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','active',this.checked)" class="accent-emerald-600 w-4 h-4"><span class="${t.active !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">On</span></label>
+      <label title="Also make this template available for text (SMS)" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0"><input type="checkbox" ${t.sms_enabled ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','sms_enabled',this.checked)" class="accent-indigo-600 w-4 h-4"><span class="${t.sms_enabled ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}">Text</span></label>
+      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex-shrink-0">Edit</button>
+      <button onclick="dealerEmailDeleteTmpl('${t.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">Delete</button>
     </div>`).join('');
   body.innerHTML = `<div class="flex items-center justify-between mb-3">
       <p class="text-[12px] text-slate-500 dark:text-slate-400">Reusable email bodies. Use <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{first_name}}</code> and <code class="px-1 rounded bg-slate-100 dark:bg-slate-800">{{dealership}}</code> merge fields.</p>
@@ -12007,6 +12009,12 @@ window.dealerEmailDeleteCampaign = async (id) => {
 };
 
 // ── templates ──
+window.dealerEmailToggleTmpl = async (id, field, value) => {
+  const t = (__dealerEmail.templates || []).find(x => x.id === id); if (t) t[field] = value;
+  renderDealerTemplates();
+  try { await apiSendJson('/dealer/email/templates/' + id, 'PATCH', { [field]: value }); }
+  catch (e) { showToast(e.message || 'Could not update', 'error'); loadDealerEmail(); }
+};
 window.dealerEmailNewTmpl = () => dealerEmailTmplModal(null);
 window.dealerEmailEditTmpl = (id) => dealerEmailTmplModal((__dealerEmail.templates || []).find(x => x.id === id));
 function dealerEmailTmplModal(t) {

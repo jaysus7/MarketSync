@@ -101,8 +101,9 @@ export function registerDealerEmailMarketing(app) {
 
   app.patch('/dealer/email/templates/:id', ...guards, async (req, res) => {
     const patch = { updated_at: nowIso() }
-    for (const k of ['name', 'subject', 'body', 'category', 'active']) {
-      if (req.body?.[k] !== undefined) patch[k] = (k === 'active') ? !!req.body[k] : clean(req.body[k])
+    const bools = new Set(['active', 'sms_enabled'])
+    for (const k of ['name', 'subject', 'body', 'category', 'active', 'sms_enabled']) {
+      if (req.body?.[k] !== undefined) patch[k] = bools.has(k) ? !!req.body[k] : clean(req.body[k])
     }
     const { data, error } = await req.supabase.from('dealer_email_templates')
       .update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().single()
