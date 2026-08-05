@@ -1930,11 +1930,14 @@ const DEPARTMENTS = {
   administration: {
     label: 'Administration', icon: 'shield', accent: 'indigo', mgr: true,
     pages: [
+      // Dealer users are managed in the dealership-scoped team workspace. The
+      // owner-users page calls /owner/accounts and is reserved for MarketSync HQ.
+      // Keep Users first so Administration opens directly into user management.
+      { page: 'sales-team', label: 'Users' },
       { page: 'operations', label: 'Operations' },
       { page: 'taskboard', label: 'Task Board' },
       { page: 'config', label: 'Configuration' },
       { page: 'api-keys', label: 'API Keys' },
-      { page: 'owner-users', label: 'All Users' },
     ],
   },
 };
@@ -2218,6 +2221,11 @@ function switchPage(pageId) {
     pageId = __productHome || 'profile';
     if (pageId === 'inventory') __inventoryMode = 'facebook';
   }
+
+  // Old DealerOS bookmarks used the MarketSync-only owner-users route. Keep those
+  // bookmarks useful without ever sending a dealership admin to the platform-wide
+  // account API. MarketSync HQ continues to use owner-users unchanged.
+  if (pageId === 'owner-users' && !marketsyncOwnerMode()) pageId = 'sales-team';
 
   // Specialized staff role (F&I, Service, Accounting, Cleanup): anything outside
   // their workspace bounces to their home page. Guards deep links & stale nav too.
@@ -14412,6 +14420,16 @@ document.addEventListener('DOMContentLoaded', () => {
 // DEALER DOMAIN: Real team roster from /dealership/team
 async function loadDealerManagementMatrix() {
   const tableBody = document.getElementById('dealer-team-table-body');
+  if (!tableBody) return;
+  const isFacebookTeam = !!__productAllowedPages;
+  const title = document.getElementById('dealer-team-title');
+  const subtitle = document.getElementById('dealer-team-subtitle');
+  const invite = document.getElementById('invite-rep-btn');
+  if (title) title.textContent = isFacebookTeam ? 'Sales Team' : 'Users & Team';
+  if (subtitle) subtitle.textContent = isFacebookTeam
+    ? 'Add or remove sales reps for your dealership.'
+    : 'Invite, edit, assign roles, pause, or remove users in this dealership.';
+  if (invite) invite.textContent = isFacebookTeam ? '+ Invite Rep' : '+ Invite User';
   tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-slate-500 italic">Loading team...</td></tr>`;
 
   try {
@@ -20477,7 +20495,9 @@ function setupActionListeners() {
     try {
       const data = await inviteRep(payload);
       showInviteResult(
-        `Created <b>${data.email}</b>. Temporary password: <code class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">${data.temp_password}</code> — share securely.`,
+        data.invitation_sent
+          ? `Invitation sent to <b>${data.email}</b> through MarketSync email.`
+          : `Created <b>${data.email}</b>.`,
         'ok'
       );
       inviteForm.reset();

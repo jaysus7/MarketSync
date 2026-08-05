@@ -28,3 +28,13 @@ test('every dashboard page entitlement references a canonical feature', async ()
     assert.ok(knownFeatures.has(featureId), `dashboard references unknown feature ${featureId}`)
   }
 })
+
+test('DealerOS Administration uses dealership-scoped user management', async () => {
+  const source = await readFile(dashboardPath, 'utf8')
+  const administration = source.match(/administration:\s*\{[\s\S]*?\n  \},\n\};/)?.[0] || ''
+
+  assert.ok(administration, 'could not locate the Administration department')
+  assert.match(administration, /page:\s*['"]sales-team['"]/)
+  assert.doesNotMatch(administration, /page:\s*['"]owner-users['"]/)
+  assert.match(source, /pageId === ['"]owner-users['"] && !marketsyncOwnerMode\(\)/)
+})
