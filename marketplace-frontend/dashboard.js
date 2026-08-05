@@ -12163,7 +12163,7 @@ function compileBlocksToHtml(blocks) {
     if (b.type === 'header') {
       const titleText = (b.logoText || bBrand.name).replace(/\{\{dealership\}\}/gi, bBrand.name);
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: ${b.bgColor || '#0f172a'}; padding: 32px 36px; text-align: center; border-radius: 16px 16px 0 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: ${b.bgColor || '#0f172a'}; padding: 25px; text-align: center; border-radius: 16px 16px 0 0;">
           <tr>
             <td>
               ${(b.logoUrl || bBrand.logo) ? `<img src="${esc(b.logoUrl || bBrand.logo)}" alt="${esc(titleText)}" style="max-height: 48px; max-width: 200px; margin-bottom: 12px; object-fit: contain;">` : ''}
@@ -12177,7 +12177,7 @@ function compileBlocksToHtml(blocks) {
       const headlineText = (b.headline || '').replace(/\{\{dealership\}\}/gi, bBrand.name);
       const bodyText = (b.body || '').replace(/\{\{dealership\}\}/gi, bBrand.name);
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 32px 36px; border-bottom: 1px solid #f1f5f9;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 25px; border-bottom: 1px solid #f1f5f9;">
           <tr>
             <td>
               ${b.imageUrl ? `<img src="${esc(b.imageUrl)}" alt="Hero" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">` : ''}
@@ -12191,7 +12191,7 @@ function compileBlocksToHtml(blocks) {
       const titleText = (b.title || '').replace(/\{\{dealership\}\}/gi, bBrand.name);
       const contentText = (b.content || '').replace(/\{\{dealership\}\}/gi, bBrand.name);
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 28px 36px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 25px;">
           <tr>
             <td>
               ${titleText ? `<h3 style="color: #0f172a; font-family: system-ui, -apple-system, sans-serif; font-size: 17px; font-weight: 700; margin: 0 0 10px 0;">${esc(titleText)}</h3>` : ''}
@@ -12202,7 +12202,7 @@ function compileBlocksToHtml(blocks) {
     }
     if (b.type === 'vehicle') {
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-radius: 14px; margin: 20px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 25px; border: 1px solid #e2e8f0; border-radius: 14px; margin: 16px 0;">
           <tr>
             <td width="42%" style="vertical-align: top; padding-right: 20px;">
               <img src="${esc(b.img || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80')}" alt="Vehicle" style="width: 100%; border-radius: 10px; object-fit: cover; aspect-ratio: 4/3; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
@@ -12218,7 +12218,7 @@ function compileBlocksToHtml(blocks) {
     }
     if (b.type === 'promo') {
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #fefce8; border: 2px dashed #eab308; padding: 24px 28px; border-radius: 14px; text-align: center; margin: 20px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #fefce8; border: 2px dashed #eab308; padding: 25px; border-radius: 14px; text-align: center; margin: 16px 0;">
           <tr>
             <td>
               <span style="background-color: #ca8a04; color: #ffffff; font-size: 11px; font-weight: 900; padding: 4px 12px; border-radius: 12px; text-transform: uppercase; letter-spacing: 1px;">${esc(b.badge || 'PROMO')}</span>
@@ -12230,7 +12230,7 @@ function compileBlocksToHtml(blocks) {
     }
     if (b.type === 'cta') {
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 28px 36px; text-align: center;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; padding: 25px; text-align: center;">
           <tr>
             <td>
               <a href="${esc(b.url || bBrand.website || '#')}" style="display: inline-block; background-color: ${b.bgColor || '#4f46e5'}; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-size: 16px; font-weight: 800; padding: 14px 32px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 12px rgba(79,70,229,0.25);">${esc(b.label || 'Click Here')}</a>
@@ -12243,7 +12243,7 @@ function compileBlocksToHtml(blocks) {
       const addrText = b.address || bBrand.address;
       const phoneText = b.phone || bBrand.phone;
       return `
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 32px 36px; text-align: center; border-radius: 0 0 16px 16px; border-top: 1px solid #e2e8f0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 25px; text-align: center; border-radius: 0 0 16px 16px; border-top: 1px solid #e2e8f0;">
           <tr>
             <td>
               <p style="color: #475569; font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 800; margin: 0 0 6px 0;">${esc(storeText)}</p>
@@ -12256,7 +12256,7 @@ function compileBlocksToHtml(blocks) {
     return '';
   }).join('');
 
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="background-color: #f1f5f9; margin: 0; padding: 40px 20px; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table role="presentation" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04); border: 1px solid #e2e8f0;" cellpadding="0" cellspacing="0"><tr><td style="padding: 0;">${blockHtmls}</td></tr></table></td></tr></table></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="background-color: #f1f5f9; margin: 0; padding: 40px 25px; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table role="presentation" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04); border: 1px solid #e2e8f0;" cellpadding="0" cellspacing="0"><tr><td style="padding: 25px;">${blockHtmls}</td></tr></table></td></tr></table></body></html>`;
 }
 
 function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false) {
@@ -12373,9 +12373,9 @@ function openMailchimpEmailBuilder(targetItem = 'inventory', isTemplate = false)
         </div>
 
         <!-- Right Column: Live Visual Canvas -->
-        <div class="lg:col-span-7 flex flex-col bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-6 overflow-y-auto items-center min-h-0">
-          <div id="builder-canvas-wrapper" class="w-full transition-all duration-300 max-w-[620px] p-6 bg-slate-200/80 dark:bg-slate-900/80 rounded-2xl border border-slate-300/60 dark:border-slate-800/60 shadow-inner">
-            <div id="builder-canvas" class="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden divide-y divide-dashed divide-slate-200 dark:divide-slate-800">
+        <div class="lg:col-span-7 flex flex-col bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-8 overflow-y-auto items-center min-h-0">
+          <div id="builder-canvas-wrapper" class="w-full transition-all duration-300 max-w-[680px] p-8 sm:p-10 bg-slate-200/90 dark:bg-slate-900/90 rounded-3xl border border-slate-300/60 dark:border-slate-800/60 shadow-inner flex justify-center">
+            <div id="builder-canvas" class="w-full max-w-[600px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden divide-y divide-dashed divide-slate-200 dark:divide-slate-800 p-4 space-y-4">
               <!-- Live compiled blocks render here -->
             </div>
           </div>
@@ -18768,6 +18768,138 @@ function wireLiveMessages() {
     }
   });
 }
+// ── Elementor-Style Simplified Visual Palette ─────────────────────────────────
+let __wsPaletteCat = 'all';
+let __wsPaletteSearch = '';
+
+const WIDGET_CATEGORIES = [
+  ['all', '⚡ All'],
+  ['banners', '🖼️ Banners'],
+  ['inventory', '🚘 Inventory'],
+  ['content', '📝 Content'],
+  ['trust', '⭐ Trust'],
+  ['contact', '📍 Contact']
+];
+
+const WIDGET_META_EXT = {
+  hero: { icon: '🖼️', category: 'banners', name: 'Hero Showcase', desc: 'Full-width top header banner with background style & call to action.' },
+  feature_cards: { icon: '✨', category: 'inventory', name: 'Feature Cards', desc: 'Quick links to Inventory, Financing, and Service departments.' },
+  featured_inventory: { icon: '🚘', category: 'inventory', name: 'Featured Inventory', desc: 'Highlight top new & pre-owned vehicles on your lot.' },
+  inventory_grid: { icon: '📊', category: 'inventory', name: 'Inventory Grid', desc: 'Complete searchable vehicle grid with filtering.' },
+  text_image: { icon: '📝', category: 'content', name: 'Text + Image Split', desc: 'Side-by-side content block for dealership stories or announcements.' },
+  two_col: { icon: '🍱', category: 'content', name: 'Two Columns', desc: '2-column responsive layout for custom features and text.' },
+  cards: { icon: '🎴', category: 'content', name: 'Card Grid', desc: 'Grid of feature cards with custom titles & descriptions.' },
+  body_style: { icon: '🏎️', category: 'inventory', name: 'Body Styles', desc: 'Browse vehicles by Sedan, SUV, Truck, Coupe.' },
+  payment_calc: { icon: '🧮', category: 'inventory', name: 'Payment Calculator', desc: 'Interactive monthly payment estimator for buyers.' },
+  ad_banner: { icon: '🏷️', category: 'banners', name: 'Specials Banner', desc: 'Promotional ad banner for sales events & discount offers.' },
+  trade_cta: { icon: '🔄', category: 'banners', name: 'Trade-In Banner', desc: 'Instant trade valuation banner for lead generation.' },
+  finance_cta: { icon: '💳', category: 'banners', name: 'Finance Banner', desc: 'Credit pre-approval CTA banner.' },
+  service_cta: { icon: '🔧', category: 'banners', name: 'Service Banner', desc: 'Service appointment scheduling CTA banner.' },
+  cta_banner: { icon: '📢', category: 'banners', name: 'CTA Banner', desc: 'Bold full-width call to action banner.' },
+  staff: { icon: '👥', category: 'trust', name: 'Meet The Team', desc: 'Showcase sales reps, managers, and staff photos.' },
+  reviews: { icon: '⭐', category: 'trust', name: 'Customer Reviews', desc: 'Google reviews carousel & rating badge.' },
+  faq: { icon: '❓', category: 'trust', name: 'FAQ Accordion', desc: 'Frequently asked questions dropdown accordion.' },
+  blog: { icon: '📰', category: 'content', name: 'Latest Articles', desc: 'Recent blog posts and news updates.' },
+  gallery: { icon: '📸', category: 'content', name: 'Photo Gallery', desc: 'Showroom & vehicle photo grid gallery.' },
+  map: { icon: '🗺️', category: 'contact', name: 'Location Map', desc: 'Interactive map & dealership address.' },
+  contact: { icon: '📞', category: 'contact', name: 'Contact Form', desc: 'Lead inquiry form with instant CRM notification.' },
+  html: { icon: '💻', category: 'content', name: 'Custom HTML', desc: 'Embed custom HTML code or external widgets.' },
+};
+
+function setWsPaletteCat(cat) {
+  __wsPaletteCat = cat;
+  const p = document.getElementById('ws-palette-container');
+  if (p) p.innerHTML = renderElementorPalette();
+}
+window.setWsPaletteCat = setWsPaletteCat;
+
+function setWsPaletteSearch(val) {
+  __wsPaletteSearch = val;
+  const p = document.getElementById('ws-palette-container');
+  if (p) p.innerHTML = renderElementorPalette();
+}
+window.setWsPaletteSearch = setWsPaletteSearch;
+
+async function aiBuildPageLayout() {
+  if (__siteSections.length > 0 && !confirm('Replace current sections with an AI-generated high-converting layout?')) return;
+  const bBrand = typeof getDealerBranding === 'function' ? getDealerBranding() : { name: 'MarketSync Motors' };
+  if (typeof showToast === 'function') showToast('✨ AI Copilot generating custom dealership layout…', 'info');
+  
+  __siteSections = [
+    { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'hero', settings: { herobg: 'g1', headline: `Welcome to ${bBrand.name}`, subheadline: 'Explore our premium selection of new & certified pre-owned vehicles.', button_label: 'View Inventory →', button_target: 'inventory' } },
+    { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'featured_inventory', settings: { title: '🔥 Featured Vehicles This Week', count: 6 } },
+    { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'trade_cta', settings: { title: 'What Is Your Trade Worth?', subtitle: 'Get an instant market-backed valuation in under 2 minutes.', button_label: 'Value My Trade →' } },
+    { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'reviews', settings: { title: 'Why Drivers Choose Us', google_rating: '4.9' } },
+    { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'contact', settings: { title: 'Visit Our Showroom & Schedule a Test Drive' } }
+  ];
+  
+  renderWsSections();
+  if (typeof showToast === 'function') showToast('✨ AI Layout Generated! Click Save to publish.', 'success');
+}
+window.aiBuildPageLayout = aiBuildPageLayout;
+
+function renderElementorPalette() {
+  const catNav = WIDGET_CATEGORIES.map(([id, label]) => `
+    <button onclick="setWsPaletteCat('${id}')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition ${__wsPaletteCat === id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>
+  `).join('');
+
+  const searchQ = (__wsPaletteSearch || '').toLowerCase().trim();
+
+  const filteredSecs = SEC_ORDER.filter(t => {
+    const ext = WIDGET_META_EXT[t] || { category: 'content', name: SEC_META[t]?.label || t, desc: '' };
+    if (__wsPaletteCat !== 'all' && ext.category !== __wsPaletteCat) return false;
+    if (searchQ && !ext.name.toLowerCase().includes(searchQ) && !ext.desc.toLowerCase().includes(searchQ)) return false;
+    return true;
+  });
+
+  const cardsHtml = filteredSecs.map(t => {
+    const ext = WIDGET_META_EXT[t] || { icon: '🧩', category: 'content', name: SEC_META[t]?.label || t, desc: 'Add element section' };
+    return `
+      <button onclick="addSection('${t}')" class="group p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md rounded-xl text-left transition flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs shrink-0">${ext.icon}</span>
+            <span class="font-bold text-xs text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition truncate">${esc(ext.name)}</span>
+          </div>
+          <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug line-clamp-2">${esc(ext.desc)}</p>
+        </div>
+        <div class="mt-2 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+          ＋ Add Widget
+        </div>
+      </button>
+    `;
+  }).join('');
+
+  return `
+    <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="text-xs font-black uppercase tracking-wider text-slate-400">Elementor Widget Panel</div>
+        <button onclick="aiBuildPageLayout()" class="text-[11px] font-extrabold text-violet-600 dark:text-violet-400 hover:text-violet-500 flex items-center gap-1">✨ AI Build Layout</button>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="relative">
+        <input type="text" value="${esc(__wsPaletteSearch)}" oninput="setWsPaletteSearch(this.value)" placeholder="Search widgets (e.g. hero, inventory, reviews)..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200">
+        <span class="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">${catNav}</div>
+
+      <!-- Insert Hint -->
+      <div id="ws-insert-hint" class="hidden text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg p-2 flex items-center justify-between">
+        <span>Inserting at highlighted spot — pick a widget:</span>
+        <button onclick="cancelInsert()" class="underline font-extrabold">cancel</button>
+      </div>
+
+      <!-- Widget Grid -->
+      <div class="grid grid-cols-2 gap-2 max-h-[340px] overflow-y-auto pr-1 scrollbar-thin">
+        ${cardsHtml || '<div class="col-span-2 text-center text-xs text-slate-400 italic py-4">No widgets match your search.</div>'}
+      </div>
+    </div>
+  `;
+}
+
 function renderLiveBuilder(body) {
   wireLiveMessages();
   __livePreviewReady = false;
@@ -18778,7 +18910,6 @@ function renderLiveBuilder(body) {
   }
   const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>📄 ${esc(p.title || 'Untitled page')}</option>`).join('');
   const builtinOpts = BUILTIN_META.filter(([k]) => (__siteBuiltins[k]?.enabled !== false)).map(([k, label]) => `<option value="b:${k}" ${__wsTarget === 'b:' + k ? 'selected' : ''}>🧩 ${esc((__siteBuiltins[k] && __siteBuiltins[k].label) || label)} — top section</option>`).join('');
-  const palette = SEC_ORDER.map(t => `<button onclick="addSection('${t}')" class="text-left text-xs font-semibold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 hover:border-indigo-400 transition">+ ${SEC_META[t].label}</button>`).join('');
   body.innerHTML = `
     <div class="flex items-center gap-2 mt-4 mb-2 flex-wrap">
       <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Editing:</span>
@@ -18787,18 +18918,14 @@ function renderLiveBuilder(body) {
       </select>
       <span class="text-[11px] text-indigo-500 dark:text-indigo-400 font-semibold flex-1">Live preview — click a section in the preview to jump to its editor. Edits show instantly; hit <b>Save</b> to publish.</span>
     </div>
-    <div class="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
+    <div class="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-4 items-start">
       <div class="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white shadow-sm" style="height:78vh">
         <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1" class="w-full h-full border-0" title="Live site preview"></iframe>
       </div>
       <div class="lg:sticky lg:top-4 self-start space-y-3" style="max-height:78vh;overflow:auto">
-        <div id="ws-palette">
-          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">+ Add section</div>
-          <div id="ws-insert-hint" class="hidden text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-md px-2 py-1 mb-1.5">Inserting at the chosen spot — pick a section. <button onclick="cancelInsert()" class="underline">cancel</button></div>
-          <div class="grid grid-cols-2 gap-1.5">${palette}</div>
-        </div>
+        <div id="ws-palette-container">${renderElementorPalette()}</div>
         <div>
-          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Sections — drag to reorder</div>
+          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Active Sections — drag to reorder</div>
           <div id="ws-sections" class="space-y-2"></div>
         </div>
       </div>
@@ -18813,8 +18940,7 @@ function renderWsBody() {
   if (__wsTab === 'team') { body.innerHTML = wsTeam(); renderSiteStaff(); return; }
   if (__wsTab === 'settings') { body.innerHTML = wsSettings(); __siteWidgets = Array.isArray(__siteCfg?.content?.widgets) ? __siteCfg.content.widgets.slice() : []; renderSiteWidgets(); return; }
   if (__wsTab === 'builder' && __builderMode === 'live') { renderLiveBuilder(body); return; }
-  // Builder
-  const palette = SEC_ORDER.map(t => `<button onclick="addSection('${t}')" class="text-left text-xs font-semibold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:border-indigo-400">+ ${SEC_META[t].label}</button>`).join('');
+  // Builder Classic
   const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>📄 ${esc(p.title || 'Untitled page')}</option>`).join('');
   const builtinOpts = BUILTIN_META.filter(([k]) => (__siteBuiltins[k]?.enabled !== false)).map(([k, label]) => `<option value="b:${k}" ${__wsTarget === 'b:' + k ? 'selected' : ''}>🧩 ${esc((__siteBuiltins[k] && __siteBuiltins[k].label) || label)} — top section</option>`).join('');
   body.innerHTML = `
@@ -18846,11 +18972,10 @@ function renderWsBody() {
       <textarea id="pg-seo-desc" rows="2" oninput="setPageStyle('seo_description',this.value)" placeholder="Meta description (~155 chars, include your focus keyword)" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5">${esc(cp.seo_description || '')}</textarea>
       <input id="pg-seo-kw" value="${esc(cp.seo_keyword || '')}" oninput="setPageStyle('seo_keyword',this.value)" placeholder="Focus keyword (e.g. used trucks in ${esc((__siteCfg?.content?.city) || 'your city')})" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5">
     </div>`; })() : ''}
-    <div class="grid lg:grid-cols-[minmax(0,1fr)_240px] gap-4">
+    <div class="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-4">
       <div id="ws-sections" class="space-y-2"></div>
       <div class="lg:sticky lg:top-4 self-start">
-        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">+ Add section</div>
-        <div class="grid grid-cols-1 gap-1.5">${palette}</div>
+        <div id="ws-palette-container">${renderElementorPalette()}</div>
       </div>
     </div>`;
   renderWsSections();
