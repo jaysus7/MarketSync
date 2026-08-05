@@ -13,7 +13,7 @@ const visualCatalog = JSON.parse(await readFile(new URL('../../marketplace-front
 const visuals = visualCatalog.visuals || {}
 
 test('training academy ships the complete feature recording catalog', () => {
-  assert.equal(lessons.length, 108)
+  assert.equal(lessons.length, 116)
   assert.equal(new Set(lessons.map(lesson => lesson.id)).size, lessons.length, 'lesson ids must be unique')
 })
 

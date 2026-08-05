@@ -4342,6 +4342,404 @@
         ]
       ],
       "action": "Record incident classification"
+    },
+    "PF-025": {
+      "kind": "security",
+      "nav": "Settings",
+      "page": "Notifications",
+      "title": "Personal notification preferences",
+      "state": "Urgent assignments and security alerts are enabled with local quiet hours",
+      "tabs": [
+        "Account",
+        "Security",
+        "Notifications"
+      ],
+      "activeTab": "Notifications",
+      "metrics": [
+        [
+          "Alert types",
+          "9"
+        ],
+        [
+          "Channels verified",
+          "3"
+        ],
+        [
+          "Quiet hours",
+          "10 PM–7 AM"
+        ],
+        [
+          "Test result",
+          "Delivered"
+        ]
+      ],
+      "fields": [
+        "Time zone · America/Toronto",
+        "Security alerts · In-app + email + SMS",
+        "Assigned leads · In-app + push",
+        "Customer replies · In-app + push",
+        "Reports & updates · Email digest"
+      ],
+      "action": "Save notification preferences"
+    },
+    "ADMIN-020": {
+      "kind": "users",
+      "nav": "Administration",
+      "page": "Security",
+      "title": "Dealership MFA policy",
+      "state": "Sensitive roles are required and two users remain inside the enrolment window",
+      "tabs": [
+        "MFA policy",
+        "Enrolment",
+        "Recovery events",
+        "Audit"
+      ],
+      "activeTab": "Enrolment",
+      "metrics": [
+        [
+          "Required users",
+          "11"
+        ],
+        [
+          "Enrolled",
+          "9"
+        ],
+        [
+          "Grace period",
+          "3 days"
+        ],
+        [
+          "Locked users",
+          "0"
+        ]
+      ],
+      "columns": [
+        "User",
+        "Role",
+        "Factors",
+        "Status"
+      ],
+      "rows": [
+        [
+          "Jason Massie",
+          "Dealer Owner",
+          "Passkey + authenticator",
+          "Compliant"
+        ],
+        [
+          "Alex Morgan",
+          "Sales Manager",
+          "Authenticator",
+          "Compliant"
+        ],
+        [
+          "Mia Chen",
+          "F&I Manager",
+          "None",
+          "Due Aug 8"
+        ]
+      ],
+      "action": "Publish MFA policy"
+    },
+    "CRM-044": {
+      "kind": "crm",
+      "nav": "CRM",
+      "page": "Lead outcome",
+      "title": "Close lead · Jordan Lee",
+      "state": "Lost reason is selected and eligible future nurture is under review",
+      "tabs": [
+        "Outcome",
+        "Open work",
+        "Nurture",
+        "Timeline"
+      ],
+      "activeTab": "Nurture",
+      "metrics": [
+        [
+          "Open tasks",
+          "2"
+        ],
+        [
+          "Sequences stopping",
+          "1"
+        ],
+        [
+          "Consent",
+          "Email only"
+        ],
+        [
+          "Next review",
+          "90 days"
+        ]
+      ],
+      "fields": [
+        "Outcome · Purchased elsewhere",
+        "Reason detail · Needed immediate delivery",
+        "Owner · Alex Morgan",
+        "Nurture · 90-day vehicle check-in · email",
+        "SMS · Suppressed · no consent"
+      ],
+      "action": "Close lead & schedule nurture"
+    },
+    "INV-046": {
+      "kind": "inventory",
+      "nav": "Inventory",
+      "page": "Location transfer",
+      "title": "Transfer 2025 Equinox RS",
+      "state": "Vehicle is in transit with public activity paused and destination receipt pending",
+      "tabs": [
+        "Vehicle",
+        "Terms",
+        "Transit",
+        "Destination receipt",
+        "History"
+      ],
+      "activeTab": "Transit",
+      "metrics": [
+        [
+          "Transfer value",
+          "$34,200"
+        ],
+        [
+          "Distance",
+          "31 km"
+        ],
+        [
+          "Listings paused",
+          "3"
+        ],
+        [
+          "Expected",
+          "Today · 3 PM"
+        ]
+      ],
+      "fields": [
+        "Origin · Welland Chevrolet",
+        "Destination · St. Catharines Chevrolet",
+        "VIN · 1G1…8421 · stock N1042",
+        "Transport owner · Internal driver · Mia C.",
+        "Arrival checklist · condition · mileage · keys · documents"
+      ],
+      "action": "Record destination receipt"
+    },
+    "SVC-037": {
+      "kind": "service",
+      "nav": "Parts",
+      "page": "Returns & cores",
+      "title": "Return RA-1884",
+      "state": "Unused rotor and refundable core are shipped; vendor credit is pending",
+      "tabs": [
+        "Return items",
+        "Shipment",
+        "Vendor credit",
+        "Accounting"
+      ],
+      "activeTab": "Vendor credit",
+      "metrics": [
+        [
+          "Parts value",
+          "$286.40"
+        ],
+        [
+          "Core value",
+          "$95.00"
+        ],
+        [
+          "Expected credit",
+          "$381.40"
+        ],
+        [
+          "Received credit",
+          "$0.00"
+        ]
+      ],
+      "columns": [
+        "Item",
+        "Quantity",
+        "Reason",
+        "Status"
+      ],
+      "rows": [
+        [
+          "Front rotor 13591593",
+          "1",
+          "Unused",
+          "Shipped · tracking saved"
+        ],
+        [
+          "Brake caliper core",
+          "1",
+          "Core return",
+          "Shipped · eligible"
+        ]
+      ],
+      "action": "Match vendor credit"
+    },
+    "ACC-058": {
+      "kind": "accounting",
+      "nav": "Accounting",
+      "page": "Tax obligations",
+      "title": "HST return · Jul 2026",
+      "state": "Ledger reconciliation balances and the approved return awaits submission",
+      "tabs": [
+        "Periods",
+        "Reconciliation",
+        "Return",
+        "Payments",
+        "History"
+      ],
+      "activeTab": "Return",
+      "metrics": [
+        [
+          "Tax collected",
+          "$82,418.21"
+        ],
+        [
+          "Input credits",
+          "$34,205.16"
+        ],
+        [
+          "Net remittance",
+          "$48,213.05"
+        ],
+        [
+          "Difference",
+          "$0.00"
+        ]
+      ],
+      "fields": [
+        "Legal entity · MarketSync Motors Inc.",
+        "Period · Jul 1–31, 2026",
+        "Filing due · Aug 31, 2026",
+        "Reviewer · Controller · approved Aug 5",
+        "Evidence · reconciliation + source exception report"
+      ],
+      "action": "Record filing confirmation"
+    },
+    "MKT-040": {
+      "kind": "marketing",
+      "nav": "Marketing",
+      "page": "Campaign results",
+      "title": "Summer service campaign",
+      "state": "Delivery failures and opt-outs are classified before any retry",
+      "tabs": [
+        "Overview",
+        "Delivery",
+        "Replies",
+        "Suppressions"
+      ],
+      "activeTab": "Delivery",
+      "metrics": [
+        [
+          "Delivered",
+          "1,842"
+        ],
+        [
+          "Temporary failures",
+          "17"
+        ],
+        [
+          "Hard bounces",
+          "11"
+        ],
+        [
+          "Unsubscribed",
+          "8"
+        ]
+      ],
+      "columns": [
+        "Recipient result",
+        "Count",
+        "Treatment",
+        "Next action"
+      ],
+      "rows": [
+        [
+          "Mailbox temporarily full",
+          "9",
+          "Eligible temporary",
+          "Retry once"
+        ],
+        [
+          "Invalid address",
+          "11",
+          "Suppressed",
+          "Do not retry"
+        ],
+        [
+          "STOP reply",
+          "6",
+          "Suppressed immediately",
+          "No marketing"
+        ]
+      ],
+      "action": "Retry 17 eligible deliveries"
+    },
+    "MS-OPS-037": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Access diagnostic",
+      "title": "DealerOS Pro access mismatch",
+      "state": "Subscription is active but two plan features are missing from the access context",
+      "tabs": [
+        "Subscription",
+        "Entitlements",
+        "User roles",
+        "Access context",
+        "Audit"
+      ],
+      "activeTab": "Access context",
+      "metrics": [
+        [
+          "Purchased features",
+          "12"
+        ],
+        [
+          "Context features",
+          "10"
+        ],
+        [
+          "Role permissions",
+          "28"
+        ],
+        [
+          "MFA",
+          "Satisfied"
+        ]
+      ],
+      "columns": [
+        "Layer",
+        "Expected",
+        "Actual",
+        "Finding"
+      ],
+      "rows": [
+        [
+          "Stripe price",
+          "DealerOS Pro CAD",
+          "DealerOS Pro CAD",
+          "Match"
+        ],
+        [
+          "Subscription plan",
+          "pkg_pro",
+          "pkg_pro",
+          "Match"
+        ],
+        [
+          "Feature map",
+          "Service + Parts",
+          "Missing",
+          "Stale entitlement"
+        ],
+        [
+          "User role",
+          "Dealer Owner",
+          "Dealer Owner",
+          "Match"
+        ]
+      ],
+      "action": "Repair entitlement & refresh context"
     }
   }
 }
