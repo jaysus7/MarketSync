@@ -648,8 +648,10 @@ export function registerSite(app) {
     let facts = [
       `Dealership: ${d.name}${loc ? ` — ${loc}` : ''}.`,
       b.phone ? `Phone: ${b.phone}.` : '',
+      b.email ? `Email: ${b.email}.` : '',
       b.address ? `Address: ${b.address}.` : '',
       b.hours ? `Hours: ${String(b.hours).slice(0, 300)}.` : '',
+      b.about ? `About: ${String(b.about).slice(0, 600)}.` : '',
       `Vehicles in stock: ${list.length}. By make: ${byMake || 'n/a'}.`,
       `Financing available: ${can('finance') ? 'yes' : 'ask'}. Trade-in appraisals: ${can('trade') ? 'yes' : 'ask'}.`,
     ].filter(Boolean).join('\n')

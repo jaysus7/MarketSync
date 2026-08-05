@@ -291,7 +291,7 @@ function showToast(message, type = 'info', duration = 4000) {
     const label = provider === 'google' ? 'Google Calendar' : provider === 'microsoft' ? 'Outlook Calendar' : 'Calendar'
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
-        if (state === 'connected') { showToast(`${label} connected`, 'success'); if (typeof switchPage === 'function') { switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('integrations'); }, 250); } }
+        if (state === 'connected') { showToast(`${label} connected`, 'success'); if (typeof switchPage === 'function') { switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('admin'); }, 250); } }
         else showToast(`Couldn’t connect ${label}${q.get('msg') ? ': ' + q.get('msg') : ''}`, 'error', 7000)
       }, 400)
     })
@@ -755,7 +755,7 @@ function setupGoIntegration(which) {
   setupCloseAll();
   __focusIntegration = which;   // 'twilio' → Twilio card · 'calendar' → calendar sync card
   switchPage('profile');
-  setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('integrations'); }, 200);
+  setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('admin'); }, 200);
 }
 let __focusIntegration = null;
 // After the Integrations tab renders, scroll to + flash the targeted card.
@@ -8549,17 +8549,17 @@ window.openDeskForContact = openDeskForContact;
 
 // ── Settings hub: tab-filter the profile page into named sections ────────────
 let __settingsTab = 'account';
+// Settings organised by department — one section per department, each card lives in
+// exactly one section (no repeated info), laid out in a 2–3 column grid. "My Account"
+// holds the per-user personal settings; the rest are dealership departments (admin).
 const SETTINGS_TAB_SECTIONS = {
-  team: ['settings-team'],
-  account: ['profile-form', 'email-sending-card'],
-  branding: ['prof-branding-section'],
-  language: ['settings-language-card'],
-  billing: ['billing-section'],
-  aiboost: ['ai-boost-section', 'inv-intel-section'],
-  group: ['groups-settings-section'],
-  dealermgmt: ['crm-dms-card', 'dealer-features-card', 'dealer-docs-card', 'desk-fees-card', 'guardrail-settings-section'],
-  integrations: ['integrations-section'],
-  security: ['security-section'],
+  account: ['profile-form', 'security-section', 'settings-language-card'],
+  admin: ['settings-team', 'billing-section', 'integrations-section', 'groups-settings-section', 'dealer-features-card', 'email-sending-card'],
+  sales: ['crm-dms-card', 'desk-fees-card', 'dealer-docs-card', 'guardrail-settings-section'],
+  marketing: ['prof-branding-section', 'ai-boost-section'],
+  inventory: ['inv-intel-section'],
+  service: ['settings-service-card'],
+  accounting: ['settings-accounting-card'],
 };
 function settingsTab(tab) {
   if (!SETTINGS_TAB_SECTIONS[tab]) tab = 'account';
@@ -23758,7 +23758,7 @@ async function startVinStickerTrial() {
   const LABELS = { quickbooks: 'QuickBooks', xero: 'Xero', google_business: 'Google Business', stripe_deposits: 'Online Deposits', square: 'Square' };
   const label = LABELS[provider] || 'Integration';
   history.replaceState({}, '', window.location.pathname);
-  const openHub = () => { if (typeof switchPage === 'function') { switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('integrations'); }, 250); } };
+  const openHub = () => { if (typeof switchPage === 'function') { switchPage('profile'); setTimeout(() => { if (typeof settingsTab === 'function') settingsTab('admin'); }, 250); } };
   const show = () => {
     if (typeof showToast !== 'function') { setTimeout(show, 400); return; }
     // Stripe Connect returns here after onboarding — re-check the account, then open the hub.

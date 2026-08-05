@@ -42,6 +42,7 @@
        card stays full-width instead of hugging the left half. */
     .settings-cols { column-count: 1; }
     @media (min-width: 1024px) { .settings-cols.is-multi { column-count: 2; } }
+    @media (min-width: 1536px) { .settings-cols.is-multi { column-count: 3; } }
 
     /* Per-dealer feature toggle: hides a nav item independent of role gating. */
     .ff-off { display: none !important; }
@@ -115,10 +116,11 @@
     /* Affiliate admin lives in the MarketSync workspace only. */
     html[data-dash-mode="marketsync"] #nav-affiliates { display: flex !important; }
     /* Trimmed Settings tabs in MarketSync mode (hide vehicle-specific tabs). */
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="branding"],
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="language"],
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="aiboost"],
-    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="dealermgmt"] { display: none !important; }
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="sales"],
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="marketing"],
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="inventory"],
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="service"],
+    html[data-dash-mode="marketsync"] #settings-tabs [data-stab="accounting"] { display: none !important; }
 
     /* Repaint indigo → violet across the app while in MarketSync mode. */
     html[data-dash-mode="marketsync"] .bg-indigo-600{background-color:#7c3aed!important}
@@ -1226,16 +1228,13 @@
         </div>
         <!-- Settings sub-nav — each tab reveals only its own section(s). -->
         <div id="settings-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none -mx-1 px-1">
-          <button data-stab="team" data-admin-only onclick="settingsTab('team')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Team</button>
-          <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Account</button>
-          <button data-stab="security" onclick="settingsTab('security')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">MFA &amp; Security</button>
-          <button data-stab="branding" data-dealer-only onclick="settingsTab('branding')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Branding</button>
-          <button data-stab="language" onclick="settingsTab('language')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Language</button>
-          <button data-stab="billing" onclick="settingsTab('billing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Billing</button>
-          <button data-stab="aiboost" data-admin-only onclick="settingsTab('aiboost')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">AI Boost</button>
-          <button data-stab="group" data-admin-only onclick="settingsTab('group')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Dealer Group</button>
-          <button data-stab="dealermgmt" data-admin-only onclick="settingsTab('dealermgmt')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Dealer Management</button>
-          <button data-stab="integrations" data-admin-only onclick="settingsTab('integrations')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Integrations</button>
+          <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">My Account</button>
+          <button data-stab="admin" data-admin-only onclick="settingsTab('admin')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Administration</button>
+          <button data-stab="sales" data-admin-only onclick="settingsTab('sales')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Sales</button>
+          <button data-stab="marketing" data-admin-only onclick="settingsTab('marketing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Marketing</button>
+          <button data-stab="inventory" data-admin-only onclick="settingsTab('inventory')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Inventory</button>
+          <button data-stab="service" data-admin-only onclick="settingsTab('service')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Service</button>
+          <button data-stab="accounting" data-admin-only onclick="settingsTab('accounting')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Accounting</button>
         </div>
 
         <!-- These tab sections flow into two columns on wide screens (settings-cols);
@@ -1316,6 +1315,19 @@
           <h2 class="text-lg font-bold text-slate-900 dark:text-white">Language</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Translate your dashboard into any language — it's saved to your browser, just for you. Your choice also becomes the language for your AI-written Facebook listings.</p>
           <div id="google_translate_element"></div>
+        </div>
+        <!-- Service department settings live on their own page — linked here so the
+             Service section exists under Settings without duplicating those controls. -->
+        <div id="settings-service-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Service &amp; Parts</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Labour rate, tax, shop supplies, parts markup and RO prefix.</p>
+          <button onclick="switchPage('service-settings')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Open Service settings →</button>
+        </div>
+        <!-- Accounting department settings live on the Accounting page. -->
+        <div id="settings-accounting-card" data-admin-only class="stab-hide bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 break-inside-avoid mb-5">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white">Accounting</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Chart of accounts, auto-posting rules and cost tracking.</p>
+          <button onclick="switchPage('accounting')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition">Open Accounting →</button>
         </div>
         </div><!-- /#settings-panel-extra -->
       </div>
