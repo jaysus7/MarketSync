@@ -1014,6 +1014,92 @@ const lessons = [
     ],
     success: 'The dealership has paid, secure access to exactly its purchased products and completes one verified production workflow with owned next milestones.',
   }),
+  lesson({
+    id: 'CRM-036', title: 'Handle a missed appointment and book the next action', summary: 'Record the real appointment outcome, contact the customer appropriately, and prevent a no-show from disappearing.', product: 'dealer_os', course: 'CRM and leads', features: ['os.crm'], permissions: ['customer.view'], keywords: ['no show', 'missed appointment', 'reschedule', 'followup'],
+    steps: [
+      ['Open the appointment', 'Confirm customer, vehicle or purpose, assigned owner, date, time, reminders, and whether the customer arrived another way.'],
+      ['Record the accurate outcome', 'Choose No-show only after the appointment window and avoid marking canceled, completed, or sold without evidence.'],
+      ['Review recent communication', 'Check customer replies, delivery failures, time-zone issues, duplicate bookings, and contact preferences before outreach.'],
+      ['Contact through an allowed channel', 'Send a respectful message that acknowledges the missed time and offers a simple reschedule path.'],
+      ['Set the next action', 'Book the new appointment when confirmed or create one assigned follow-up with a real due time.'],
+      ['Verify the timeline', 'Confirm appointment outcome, message, reply, new booking or task, owner, and next due time appear once on the customer timeline.'],
+    ],
+    success: 'The missed appointment has an accurate outcome and one owned reschedule, follow-up, or closed reason on the customer timeline.',
+  }),
+  lesson({
+    id: 'SALES-036', title: 'Unwind or cancel a vehicle deal safely', summary: 'Reverse a deal through controlled approvals while restoring inventory, money, documents, and commissions accurately.', product: 'dealer_os', course: 'Sales and deal desk', features: ['os.sales', 'os.accounting'], permissions: ['deal.finalize'], keywords: ['unwind', 'cancel deal', 'clawback', 'restore inventory'],
+    steps: [
+      ['Open the finalized deal', 'Confirm customer, vehicle, delivery, funding, deposit, trade, products, commissions, posting, documents, and current ownership.'],
+      ['Record the authorized reason', 'Choose the correct cancellation or unwind reason and attach manager, accounting, lender, or legal approval.'],
+      ['Stop external activity', 'Cancel or correct funding, registration, insurance, products, signatures, payment requests, and delivery tasks as required.'],
+      ['Reverse financial effects', 'Process approved refunds, receivables, taxes, inventory cost, product amounts, commissions, and accounting entries.'],
+      ['Restore or dispose inventory correctly', 'Return the vehicle to the appropriate status only after ownership, condition, mileage, keys, and availability are verified.'],
+      ['Verify every linked record', 'Confirm deal status, customer timeline, inventory, listings, lender, trade, documents, accounting, commissions, and audit history agree.'],
+    ],
+    success: 'The unwind is approved, fully traceable, financially balanced, and leaves inventory and every linked record in the correct final state.',
+    safety: 'Do not delete the deal. Preserve original documents and use reversal records so the complete before-and-after history remains available.',
+  }),
+  lesson({
+    id: 'INV-038', title: 'Mark a vehicle sold and remove it from every channel', summary: 'Complete the sold transition once, preserve the source record, and verify public listings disappear without deleting history.', product: 'dealer_os', course: 'Inventory', features: ['os.inventory'], permissions: ['inventory.edit'], keywords: ['sold', 'remove listing', 'syndication', 'archive'],
+    steps: [
+      ['Open the inventory vehicle', 'Confirm VIN, stock, customer deal or sale reference, delivery status, source URL, and current listing channels.'],
+      ['Choose Mark sold', 'Enter the actual sold date, selling source, sale reference, salesperson, and required price or outcome fields.'],
+      ['Review automated effects', 'Confirm MarketSync will stop posting, remove public listings, close recon, preserve history, and update reports.'],
+      ['Save the sold status', 'Complete the transition once and avoid deleting the inventory record or manually creating a duplicate sold record.'],
+      ['Verify channel removal', 'Review website, Facebook history, partner feeds, hosted vehicle page, and any retry queue until removal is accepted.'],
+      ['Confirm internal history', 'Check inventory, customer or deal, salesperson activity, reporting, documents, and audit history retain the sold unit.'],
+    ],
+    success: 'The vehicle is sold internally, absent from active public channels, and still traceable through its original inventory and sale history.',
+  }),
+  lesson({
+    id: 'SVC-029', title: 'Invoice a repair order and complete customer pickup', summary: 'Turn finished authorized work into an accurate invoice, collect payment securely, and close the service visit.', product: 'dealer_os', course: 'Service', features: ['os.service', 'os.accounting'], permissions: ['service.write_repair_order'], keywords: ['service invoice', 'pickup', 'payment', 'close repair order'],
+    steps: [
+      ['Open the completed repair order', 'Confirm technician completion, quality check, customer approvals, labour, parts, sublet, shop supplies, tax, and notes.'],
+      ['Review the customer invoice', 'Compare the original concern, estimate, approved additions, final work, declined items, warranty, discounts, and total.'],
+      ['Prepare the handoff', 'Confirm vehicle location, keys, protective materials, maintenance reset, documents, next service, and pickup contact.'],
+      ['Explain and collect', 'Review completed work and invoice in plain language, then collect through an approved payment or account process.'],
+      ['Issue the final documents', 'Provide the paid invoice, warranty information, inspection evidence, declined recommendations, and receipt.'],
+      ['Close the visit', 'Mark picked up, record mileage and payment reference, update customer history, parts, accounting, technician metrics, and reminder.'],
+    ],
+    success: 'The paid invoice matches authorized completed work and the vehicle, documents, payment, history, inventory, and next maintenance are closed correctly.',
+  }),
+  lesson({
+    id: 'ACC-050', title: 'Prepare accounting records for year-end review', summary: 'Organize reconciled statements, ledgers, tax evidence, schedules, and open exceptions for an accountant or auditor.', product: 'dealer_os', course: 'Accounting for non-accountants', features: ['os.accounting', 'os.reports'], permissions: ['accounting.view'], keywords: ['year end', 'accountant', 'audit package', 'financial statements'],
+    steps: [
+      ['Confirm the review period', 'Set the legal entity, dealership locations, fiscal year, currency, accounting basis, and requested deliverables.'],
+      ['Complete core reconciliations', 'Verify bank, payment processors, inventory, receivables, payables, loans, taxes, deposits, and clearing accounts.'],
+      ['Review open exceptions', 'Resolve or explain unposted deals, missing costs, stale receivables, duplicate vendors, negative inventory, and out-of-balance items.'],
+      ['Generate the review package', 'Prepare trial balance, income statement, balance sheet, general ledger, journal detail, inventory, sales, expenses, and tax reports.'],
+      ['Attach supporting schedules', 'Include reconciliations, statements, invoices, contracts, lender schedules, fixed assets, payroll, commissions, and adjustment evidence.'],
+      ['Transfer and track questions', 'Use approved secure delivery, record report versions and filters, and maintain an owned question-and-adjustment log.'],
+    ],
+    success: 'The reviewer receives a reconciled, versioned, securely delivered package with every unresolved item documented and owned.',
+    safety: 'Year-end exports contain sensitive financial and customer information. Verify recipient and use access-controlled delivery with expiry.',
+  }),
+  lesson({
+    id: 'AI-020', title: 'Review an AI conversation and improve the answer safely', summary: 'Trace a weak chatbot response to inventory, knowledge, configuration, or escalation and verify the correction.', product: 'ai_dealer', course: 'AI Dealer', features: ['ai.conversations', 'ai.knowledge', 'ai.settings'], keywords: ['conversation review', 'quality', 'knowledge improvement', 'ai safety'],
+    steps: [
+      ['Open the flagged conversation', 'Review the complete customer exchange, timestamps, detected intent, tools, inventory results, lead signals, and human actions.'],
+      ['Identify the exact failure', 'Classify incorrect fact, missing knowledge, weak clarification, wrong inventory result, tone, policy, booking, or failed handoff.'],
+      ['Check the source of truth', 'Verify the real dealership fact, inventory record, business rule, integration result, or approved policy before editing AI behavior.'],
+      ['Make the smallest correction', 'Update the specific knowledge fact, setting, tool data, agent instruction, or escalation rule without adding unsupported claims.'],
+      ['Run controlled tests', 'Repeat the original question plus useful variations, edge cases, unavailable inventory, and human-handoff phrasing.'],
+      ['Monitor the correction', 'Save the review reason, change, tester, results, and follow-up window, then watch similar conversations for regression.'],
+    ],
+    success: 'The original and related test questions now produce verified answers or correct escalation, with the change and evidence recorded.',
+  }),
+  lesson({
+    id: 'MS-RET-029', title: 'Handle a cancellation request and protect customer trust', summary: 'Understand the reason, offer only relevant help, complete the authorized subscription outcome, and preserve export and access obligations.', product: 'marketsync_os', course: 'MarketSync OS', keywords: ['cancellation', 'retention', 'churn', 'offboarding'],
+    steps: [
+      ['Open the customer account', 'Confirm authorized requester, products, plan, term, invoices, usage, support history, users, integrations, and requested cancellation timing.'],
+      ['Understand the reason', 'Record the customer’s own reason and impact without forcing a retention script or delaying a valid request.'],
+      ['Offer relevant resolution once', 'When appropriate, offer support, configuration, training, plan correction, pause, or documented commercial option.'],
+      ['Confirm the decision', 'State effective date, billing or refund treatment, access end, data export, integration shutdown, and what remains retained.'],
+      ['Complete offboarding', 'Update Stripe and MarketSync consistently, revoke scheduled activity and access at the right time, and securely deliver approved data.'],
+      ['Close the loop', 'Confirm completion with the customer and record reason, owner, approvals, final invoice, export, access changes, and learning.'],
+    ],
+    success: 'The customer receives the agreed outcome on time and billing, access, data, integrations, communication, and audit history all agree.',
+  }),
 ]
 
 const output = fileURLToPath(new URL('../../marketplace-frontend/training/catalog-expanded.json', import.meta.url))

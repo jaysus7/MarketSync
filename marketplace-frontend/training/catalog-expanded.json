@@ -5154,6 +5154,474 @@
       "safety": "Use approved training data on staging. Confirm the customer, vehicle, dealership, amount, and recipient before saving or sending anything.",
       "verified": "2026-08-04",
       "videoStatus": "ready"
+    },
+    {
+      "id": "CRM-036",
+      "title": "Handle a missed appointment and book the next action",
+      "summary": "Record the real appointment outcome, contact the customer appropriately, and prevent a no-show from disappearing.",
+      "keywords": [
+        "CRM and leads",
+        "Handle a missed appointment and book the next action",
+        "no show",
+        "missed appointment",
+        "reschedule",
+        "followup"
+      ],
+      "product": "dealer_os",
+      "course": "CRM and leads",
+      "roles": [],
+      "features": [
+        "os.crm"
+      ],
+      "permissions": [
+        "customer.view"
+      ],
+      "minutes": 8,
+      "outcome": "The missed appointment has an accurate outcome and one owned reschedule, follow-up, or closed reason on the customer timeline.",
+      "who": "Dealership users whose plan and role include this department. Managers see dealership-wide controls; individual contributors may see only assigned records.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open the appointment",
+          "body": "Confirm customer, vehicle or purpose, assigned owner, date, time, reminders, and whether the customer arrived another way."
+        },
+        {
+          "title": "Record the accurate outcome",
+          "body": "Choose No-show only after the appointment window and avoid marking canceled, completed, or sold without evidence."
+        },
+        {
+          "title": "Review recent communication",
+          "body": "Check customer replies, delivery failures, time-zone issues, duplicate bookings, and contact preferences before outreach."
+        },
+        {
+          "title": "Contact through an allowed channel",
+          "body": "Send a respectful message that acknowledges the missed time and offers a simple reschedule path."
+        },
+        {
+          "title": "Set the next action",
+          "body": "Book the new appointment when confirmed or create one assigned follow-up with a real due time."
+        },
+        {
+          "title": "Verify the timeline",
+          "body": "Confirm appointment outcome, message, reply, new booking or task, owner, and next due time appear once on the customer timeline."
+        }
+      ],
+      "success": "The missed appointment has an accurate outcome and one owned reschedule, follow-up, or closed reason on the customer timeline.",
+      "automatic": [
+        "MarketSync keeps every saved record inside the current dealership.",
+        "Related dashboards, timelines, and reports refresh from the same saved data."
+      ],
+      "problems": [
+        "A page is missing: the current plan, feature switch, or role may not include it.",
+        "A record is missing: clear filters and confirm it belongs to the current dealership."
+      ],
+      "safety": "Use approved training data on staging. Confirm the customer, vehicle, dealership, amount, and recipient before saving or sending anything.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "SALES-036",
+      "title": "Unwind or cancel a vehicle deal safely",
+      "summary": "Reverse a deal through controlled approvals while restoring inventory, money, documents, and commissions accurately.",
+      "keywords": [
+        "Sales and deal desk",
+        "Unwind or cancel a vehicle deal safely",
+        "unwind",
+        "cancel deal",
+        "clawback",
+        "restore inventory"
+      ],
+      "product": "dealer_os",
+      "course": "Sales and deal desk",
+      "roles": [],
+      "features": [
+        "os.sales",
+        "os.accounting"
+      ],
+      "permissions": [
+        "deal.finalize"
+      ],
+      "minutes": 8,
+      "outcome": "The unwind is approved, fully traceable, financially balanced, and leaves inventory and every linked record in the correct final state.",
+      "who": "Dealership users whose plan and role include this department. Managers see dealership-wide controls; individual contributors may see only assigned records.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open the finalized deal",
+          "body": "Confirm customer, vehicle, delivery, funding, deposit, trade, products, commissions, posting, documents, and current ownership."
+        },
+        {
+          "title": "Record the authorized reason",
+          "body": "Choose the correct cancellation or unwind reason and attach manager, accounting, lender, or legal approval."
+        },
+        {
+          "title": "Stop external activity",
+          "body": "Cancel or correct funding, registration, insurance, products, signatures, payment requests, and delivery tasks as required."
+        },
+        {
+          "title": "Reverse financial effects",
+          "body": "Process approved refunds, receivables, taxes, inventory cost, product amounts, commissions, and accounting entries."
+        },
+        {
+          "title": "Restore or dispose inventory correctly",
+          "body": "Return the vehicle to the appropriate status only after ownership, condition, mileage, keys, and availability are verified."
+        },
+        {
+          "title": "Verify every linked record",
+          "body": "Confirm deal status, customer timeline, inventory, listings, lender, trade, documents, accounting, commissions, and audit history agree."
+        }
+      ],
+      "success": "The unwind is approved, fully traceable, financially balanced, and leaves inventory and every linked record in the correct final state.",
+      "automatic": [
+        "MarketSync keeps every saved record inside the current dealership.",
+        "Related dashboards, timelines, and reports refresh from the same saved data."
+      ],
+      "problems": [
+        "A page is missing: the current plan, feature switch, or role may not include it.",
+        "A record is missing: clear filters and confirm it belongs to the current dealership."
+      ],
+      "safety": "Do not delete the deal. Preserve original documents and use reversal records so the complete before-and-after history remains available.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "INV-038",
+      "title": "Mark a vehicle sold and remove it from every channel",
+      "summary": "Complete the sold transition once, preserve the source record, and verify public listings disappear without deleting history.",
+      "keywords": [
+        "Inventory",
+        "Mark a vehicle sold and remove it from every channel",
+        "sold",
+        "remove listing",
+        "syndication",
+        "archive"
+      ],
+      "product": "dealer_os",
+      "course": "Inventory",
+      "roles": [],
+      "features": [
+        "os.inventory"
+      ],
+      "permissions": [
+        "inventory.edit"
+      ],
+      "minutes": 8,
+      "outcome": "The vehicle is sold internally, absent from active public channels, and still traceable through its original inventory and sale history.",
+      "who": "Dealership users whose plan and role include this department. Managers see dealership-wide controls; individual contributors may see only assigned records.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open the inventory vehicle",
+          "body": "Confirm VIN, stock, customer deal or sale reference, delivery status, source URL, and current listing channels."
+        },
+        {
+          "title": "Choose Mark sold",
+          "body": "Enter the actual sold date, selling source, sale reference, salesperson, and required price or outcome fields."
+        },
+        {
+          "title": "Review automated effects",
+          "body": "Confirm MarketSync will stop posting, remove public listings, close recon, preserve history, and update reports."
+        },
+        {
+          "title": "Save the sold status",
+          "body": "Complete the transition once and avoid deleting the inventory record or manually creating a duplicate sold record."
+        },
+        {
+          "title": "Verify channel removal",
+          "body": "Review website, Facebook history, partner feeds, hosted vehicle page, and any retry queue until removal is accepted."
+        },
+        {
+          "title": "Confirm internal history",
+          "body": "Check inventory, customer or deal, salesperson activity, reporting, documents, and audit history retain the sold unit."
+        }
+      ],
+      "success": "The vehicle is sold internally, absent from active public channels, and still traceable through its original inventory and sale history.",
+      "automatic": [
+        "MarketSync keeps every saved record inside the current dealership.",
+        "Related dashboards, timelines, and reports refresh from the same saved data."
+      ],
+      "problems": [
+        "A page is missing: the current plan, feature switch, or role may not include it.",
+        "A record is missing: clear filters and confirm it belongs to the current dealership."
+      ],
+      "safety": "Use approved training data on staging. Confirm the customer, vehicle, dealership, amount, and recipient before saving or sending anything.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "SVC-029",
+      "title": "Invoice a repair order and complete customer pickup",
+      "summary": "Turn finished authorized work into an accurate invoice, collect payment securely, and close the service visit.",
+      "keywords": [
+        "Service",
+        "Invoice a repair order and complete customer pickup",
+        "service invoice",
+        "pickup",
+        "payment",
+        "close repair order"
+      ],
+      "product": "dealer_os",
+      "course": "Service",
+      "roles": [],
+      "features": [
+        "os.service",
+        "os.accounting"
+      ],
+      "permissions": [
+        "service.write_repair_order"
+      ],
+      "minutes": 8,
+      "outcome": "The paid invoice matches authorized completed work and the vehicle, documents, payment, history, inventory, and next maintenance are closed correctly.",
+      "who": "Dealership users whose plan and role include this department. Managers see dealership-wide controls; individual contributors may see only assigned records.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open the completed repair order",
+          "body": "Confirm technician completion, quality check, customer approvals, labour, parts, sublet, shop supplies, tax, and notes."
+        },
+        {
+          "title": "Review the customer invoice",
+          "body": "Compare the original concern, estimate, approved additions, final work, declined items, warranty, discounts, and total."
+        },
+        {
+          "title": "Prepare the handoff",
+          "body": "Confirm vehicle location, keys, protective materials, maintenance reset, documents, next service, and pickup contact."
+        },
+        {
+          "title": "Explain and collect",
+          "body": "Review completed work and invoice in plain language, then collect through an approved payment or account process."
+        },
+        {
+          "title": "Issue the final documents",
+          "body": "Provide the paid invoice, warranty information, inspection evidence, declined recommendations, and receipt."
+        },
+        {
+          "title": "Close the visit",
+          "body": "Mark picked up, record mileage and payment reference, update customer history, parts, accounting, technician metrics, and reminder."
+        }
+      ],
+      "success": "The paid invoice matches authorized completed work and the vehicle, documents, payment, history, inventory, and next maintenance are closed correctly.",
+      "automatic": [
+        "MarketSync keeps every saved record inside the current dealership.",
+        "Related dashboards, timelines, and reports refresh from the same saved data."
+      ],
+      "problems": [
+        "A page is missing: the current plan, feature switch, or role may not include it.",
+        "A record is missing: clear filters and confirm it belongs to the current dealership."
+      ],
+      "safety": "Use approved training data on staging. Confirm the customer, vehicle, dealership, amount, and recipient before saving or sending anything.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "ACC-050",
+      "title": "Prepare accounting records for year-end review",
+      "summary": "Organize reconciled statements, ledgers, tax evidence, schedules, and open exceptions for an accountant or auditor.",
+      "keywords": [
+        "Accounting for non-accountants",
+        "Prepare accounting records for year-end review",
+        "year end",
+        "accountant",
+        "audit package",
+        "financial statements"
+      ],
+      "product": "dealer_os",
+      "course": "Accounting for non-accountants",
+      "roles": [],
+      "features": [
+        "os.accounting",
+        "os.reports"
+      ],
+      "permissions": [
+        "accounting.view"
+      ],
+      "minutes": 8,
+      "outcome": "The reviewer receives a reconciled, versioned, securely delivered package with every unresolved item documented and owned.",
+      "who": "Dealership users whose plan and role include this department. Managers see dealership-wide controls; individual contributors may see only assigned records.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Confirm the review period",
+          "body": "Set the legal entity, dealership locations, fiscal year, currency, accounting basis, and requested deliverables."
+        },
+        {
+          "title": "Complete core reconciliations",
+          "body": "Verify bank, payment processors, inventory, receivables, payables, loans, taxes, deposits, and clearing accounts."
+        },
+        {
+          "title": "Review open exceptions",
+          "body": "Resolve or explain unposted deals, missing costs, stale receivables, duplicate vendors, negative inventory, and out-of-balance items."
+        },
+        {
+          "title": "Generate the review package",
+          "body": "Prepare trial balance, income statement, balance sheet, general ledger, journal detail, inventory, sales, expenses, and tax reports."
+        },
+        {
+          "title": "Attach supporting schedules",
+          "body": "Include reconciliations, statements, invoices, contracts, lender schedules, fixed assets, payroll, commissions, and adjustment evidence."
+        },
+        {
+          "title": "Transfer and track questions",
+          "body": "Use approved secure delivery, record report versions and filters, and maintain an owned question-and-adjustment log."
+        }
+      ],
+      "success": "The reviewer receives a reconciled, versioned, securely delivered package with every unresolved item documented and owned.",
+      "automatic": [
+        "MarketSync keeps every saved record inside the current dealership.",
+        "Related dashboards, timelines, and reports refresh from the same saved data."
+      ],
+      "problems": [
+        "A page is missing: the current plan, feature switch, or role may not include it.",
+        "A record is missing: clear filters and confirm it belongs to the current dealership."
+      ],
+      "safety": "Year-end exports contain sensitive financial and customer information. Verify recipient and use access-controlled delivery with expiry.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "AI-020",
+      "title": "Review an AI conversation and improve the answer safely",
+      "summary": "Trace a weak chatbot response to inventory, knowledge, configuration, or escalation and verify the correction.",
+      "keywords": [
+        "AI Dealer",
+        "Review an AI conversation and improve the answer safely",
+        "conversation review",
+        "quality",
+        "knowledge improvement",
+        "ai safety"
+      ],
+      "product": "ai_dealer",
+      "course": "AI Dealer",
+      "roles": [],
+      "features": [
+        "ai.conversations",
+        "ai.knowledge",
+        "ai.settings"
+      ],
+      "permissions": [],
+      "minutes": 8,
+      "outcome": "The original and related test questions now produce verified answers or correct escalation, with the change and evidence recorded.",
+      "who": "AI Dealer subscribers. AI settings and knowledge changes require a dealer owner or authorized manager.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open the flagged conversation",
+          "body": "Review the complete customer exchange, timestamps, detected intent, tools, inventory results, lead signals, and human actions."
+        },
+        {
+          "title": "Identify the exact failure",
+          "body": "Classify incorrect fact, missing knowledge, weak clarification, wrong inventory result, tone, policy, booking, or failed handoff."
+        },
+        {
+          "title": "Check the source of truth",
+          "body": "Verify the real dealership fact, inventory record, business rule, integration result, or approved policy before editing AI behavior."
+        },
+        {
+          "title": "Make the smallest correction",
+          "body": "Update the specific knowledge fact, setting, tool data, agent instruction, or escalation rule without adding unsupported claims."
+        },
+        {
+          "title": "Run controlled tests",
+          "body": "Repeat the original question plus useful variations, edge cases, unavailable inventory, and human-handoff phrasing."
+        },
+        {
+          "title": "Monitor the correction",
+          "body": "Save the review reason, change, tester, results, and follow-up window, then watch similar conversations for regression."
+        }
+      ],
+      "success": "The original and related test questions now produce verified answers or correct escalation, with the change and evidence recorded.",
+      "automatic": [
+        "MarketSync keeps AI conversations and leads inside the current dealership.",
+        "Conversation status, summaries, and lead signals update from the saved interaction."
+      ],
+      "problems": [
+        "AI controls are missing: confirm AI Dealer is active and your role can manage settings.",
+        "A conversation is missing: clear status filters and confirm the widget is using this dealership."
+      ],
+      "safety": "Use approved training data on staging. Confirm the customer, vehicle, dealership, amount, and recipient before saving or sending anything.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
+    },
+    {
+      "id": "MS-RET-029",
+      "title": "Handle a cancellation request and protect customer trust",
+      "summary": "Understand the reason, offer only relevant help, complete the authorized subscription outcome, and preserve export and access obligations.",
+      "keywords": [
+        "MarketSync OS",
+        "Handle a cancellation request and protect customer trust",
+        "cancellation",
+        "retention",
+        "churn",
+        "offboarding"
+      ],
+      "product": "marketsync_os",
+      "course": "MarketSync OS",
+      "roles": [],
+      "features": [],
+      "permissions": [],
+      "minutes": 8,
+      "outcome": "The customer receives the agreed outcome on time and billing, access, data, integrations, communication, and audit history all agree.",
+      "who": "MarketSync platform owners and authorized MarketSync staff. Dealership users cannot access this internal workspace.",
+      "before": [
+        "A signed-in MarketSync account in the correct workspace",
+        "A real training record or approved test record to work with"
+      ],
+      "steps": [
+        {
+          "title": "Open the customer account",
+          "body": "Confirm authorized requester, products, plan, term, invoices, usage, support history, users, integrations, and requested cancellation timing."
+        },
+        {
+          "title": "Understand the reason",
+          "body": "Record the customer’s own reason and impact without forcing a retention script or delaying a valid request."
+        },
+        {
+          "title": "Offer relevant resolution once",
+          "body": "When appropriate, offer support, configuration, training, plan correction, pause, or documented commercial option."
+        },
+        {
+          "title": "Confirm the decision",
+          "body": "State effective date, billing or refund treatment, access end, data export, integration shutdown, and what remains retained."
+        },
+        {
+          "title": "Complete offboarding",
+          "body": "Update Stripe and MarketSync consistently, revoke scheduled activity and access at the right time, and securely deliver approved data."
+        },
+        {
+          "title": "Close the loop",
+          "body": "Confirm completion with the customer and record reason, owner, approvals, final invoice, export, access changes, and learning."
+        }
+      ],
+      "success": "The customer receives the agreed outcome on time and billing, access, data, integrations, communication, and audit history all agree.",
+      "automatic": [
+        "MarketSync recalculates internal account and revenue views from the saved SaaS data.",
+        "Cross-customer actions remain restricted to authorized MarketSync staff."
+      ],
+      "problems": [
+        "DealerOS appears: switch to MarketSync OS and confirm the purple platform identity.",
+        "An account is missing: clear filters and search by dealership, contact, or email."
+      ],
+      "safety": "Use approved training data on staging. Confirm the customer, vehicle, dealership, amount, and recipient before saving or sending anything.",
+      "verified": "2026-08-04",
+      "videoStatus": "ready"
     }
   ]
 }

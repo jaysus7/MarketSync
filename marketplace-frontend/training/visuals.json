@@ -3581,6 +3581,375 @@
         ]
       ],
       "action": "Record customer acceptance"
+    },
+    "CRM-036": {
+      "kind": "calendar",
+      "nav": "CRM",
+      "page": "Appointments",
+      "title": "Missed appointment",
+      "state": "No-show outcome is recorded and the reschedule panel is open",
+      "metrics": [
+        [
+          "No-shows today",
+          "2"
+        ],
+        [
+          "Reached",
+          "1"
+        ],
+        [
+          "Rescheduled",
+          "0"
+        ]
+      ],
+      "fields": [
+        "Customer · Jordan Lee",
+        "Original appointment · Aug 5 at 2:30 PM",
+        "Outcome · No-show · confirmed after appointment window",
+        "Last message · Delivered · no reply",
+        "Next action · Call tomorrow at 10:00 AM · Alex Morgan"
+      ],
+      "action": "Save follow-up"
+    },
+    "SALES-036": {
+      "kind": "deal",
+      "nav": "Sales",
+      "page": "Deal unwind",
+      "title": "Unwind deal #1048",
+      "state": "Manager approval is recorded and linked reversals are waiting for Accounting",
+      "tabs": [
+        "Reason",
+        "External actions",
+        "Financial reversal",
+        "Inventory",
+        "Audit"
+      ],
+      "activeTab": "Financial reversal",
+      "metrics": [
+        [
+          "Deposit refund",
+          "$1,000"
+        ],
+        [
+          "Funding",
+          "Cancel pending"
+        ],
+        [
+          "Commission",
+          "Clawback $640"
+        ],
+        [
+          "Journal difference",
+          "$0.00"
+        ]
+      ],
+      "columns": [
+        "Linked area",
+        "Current state",
+        "Required outcome"
+      ],
+      "rows": [
+        [
+          "Inventory N1042",
+          "Sold",
+          "Hold · inspect before available"
+        ],
+        [
+          "Website listing",
+          "Removed",
+          "Remain removed"
+        ],
+        [
+          "Commission",
+          "Earned",
+          "Claw back"
+        ],
+        [
+          "Accounting posting",
+          "Posted",
+          "Reverse in current period"
+        ]
+      ],
+      "action": "Submit controlled unwind"
+    },
+    "INV-038": {
+      "kind": "inventory",
+      "nav": "Inventory",
+      "page": "Sold transition",
+      "title": "2025 Equinox RS · N1042",
+      "state": "Internal sold status is saved and channel removals are in progress",
+      "metrics": [
+        [
+          "Internal status",
+          "Sold"
+        ],
+        [
+          "Channels removed",
+          "2 / 3"
+        ],
+        [
+          "Retrying",
+          "1"
+        ],
+        [
+          "History",
+          "Preserved"
+        ]
+      ],
+      "columns": [
+        "Channel",
+        "Before",
+        "Removal result",
+        "Public state"
+      ],
+      "rows": [
+        [
+          "Dealer website",
+          "Published",
+          "Accepted",
+          "Listing removed"
+        ],
+        [
+          "Partner feed",
+          "Published",
+          "Accepted",
+          "Listing removed"
+        ],
+        [
+          "Facebook history",
+          "Active post",
+          "Retrying",
+          "Check in 4 min"
+        ]
+      ],
+      "action": "Verify final channel removal"
+    },
+    "SVC-029": {
+      "kind": "service",
+      "nav": "Service",
+      "page": "Repair Orders",
+      "title": "RO #2084 · Customer pickup",
+      "state": "Authorized work is complete and the paid invoice is ready for handoff",
+      "tabs": [
+        "Work summary",
+        "Invoice",
+        "Payment",
+        "Pickup"
+      ],
+      "activeTab": "Pickup",
+      "metrics": [
+        [
+          "Invoice total",
+          "$1,284.62"
+        ],
+        [
+          "Payment",
+          "Paid · Visa"
+        ],
+        [
+          "Technician QC",
+          "Passed"
+        ],
+        [
+          "Keys",
+          "Advisor desk"
+        ]
+      ],
+      "columns": [
+        "Invoice line",
+        "Approved",
+        "Final"
+      ],
+      "rows": [
+        [
+          "Brake inspection",
+          "$135.20",
+          "$135.20"
+        ],
+        [
+          "Front pads & rotors",
+          "$1,075.42",
+          "$1,075.42"
+        ],
+        [
+          "Air filter",
+          "Declined",
+          "Reminder created"
+        ]
+      ],
+      "action": "Complete customer pickup"
+    },
+    "ACC-050": {
+      "kind": "accounting",
+      "nav": "Accounting",
+      "page": "Year-end review",
+      "title": "2026 review package",
+      "state": "Core reconciliations are complete and two documented exceptions remain",
+      "tabs": [
+        "Checklist",
+        "Financial reports",
+        "Schedules",
+        "Documents",
+        "Questions"
+      ],
+      "activeTab": "Checklist",
+      "metrics": [
+        [
+          "Checklist",
+          "18 / 20"
+        ],
+        [
+          "Reconciled accounts",
+          "12 / 12"
+        ],
+        [
+          "Open exceptions",
+          "2"
+        ],
+        [
+          "Package version",
+          "v3"
+        ]
+      ],
+      "columns": [
+        "Review item",
+        "Owner",
+        "Status",
+        "Evidence"
+      ],
+      "rows": [
+        [
+          "Bank reconciliations",
+          "Accounting",
+          "Complete",
+          "12 statements"
+        ],
+        [
+          "Inventory schedule",
+          "Controller",
+          "Complete",
+          "511 units"
+        ],
+        [
+          "Missing vendor tax form",
+          "AP",
+          "Open",
+          "Due Aug 8"
+        ],
+        [
+          "Accountant question log",
+          "Controller",
+          "Open",
+          "2 questions"
+        ]
+      ],
+      "action": "Create secure review package"
+    },
+    "AI-020": {
+      "kind": "conversation",
+      "nav": "AI Chatbot",
+      "page": "Quality review",
+      "title": "Flagged conversation #AI-841",
+      "state": "Incorrect Saturday service hours traced to an outdated knowledge entry",
+      "metrics": [
+        [
+          "Quality flag",
+          "Incorrect fact"
+        ],
+        [
+          "Affected source",
+          "Service hours"
+        ],
+        [
+          "Test cases",
+          "5 / 5 passed"
+        ]
+      ],
+      "messages": [
+        [
+          "Customer",
+          "Is service open Saturday afternoon?"
+        ],
+        [
+          "AI",
+          "Yes, service is open until 5:00 PM."
+        ],
+        [
+          "Verified source",
+          "Service closes Saturday at 2:00 PM."
+        ],
+        [
+          "Correction",
+          "Knowledge updated · handoff retained for uncertain hours"
+        ]
+      ],
+      "action": "Close verified quality review"
+    },
+    "MS-RET-029": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Retention",
+      "title": "Cancellation request",
+      "state": "Authorized customer chose cancellation after one relevant resolution offer",
+      "tabs": [
+        "Request",
+        "History",
+        "Options",
+        "Offboarding",
+        "Confirmation"
+      ],
+      "activeTab": "Offboarding",
+      "metrics": [
+        [
+          "MRR ending",
+          "$499"
+        ],
+        [
+          "Effective date",
+          "Aug 31"
+        ],
+        [
+          "Users to revoke",
+          "8"
+        ],
+        [
+          "Export expires",
+          "48 hours"
+        ]
+      ],
+      "columns": [
+        "Offboarding item",
+        "Owner",
+        "Status",
+        "Due"
+      ],
+      "rows": [
+        [
+          "Final invoice",
+          "Finance",
+          "Confirmed",
+          "Aug 31"
+        ],
+        [
+          "Customer export",
+          "Support",
+          "Approved",
+          "Aug 7"
+        ],
+        [
+          "Inventory integration",
+          "Technical",
+          "Scheduled disconnect",
+          "Aug 31"
+        ],
+        [
+          "Access revocation",
+          "Platform",
+          "Scheduled",
+          "Aug 31"
+        ]
+      ],
+      "action": "Confirm cancellation schedule"
     }
   }
 }
