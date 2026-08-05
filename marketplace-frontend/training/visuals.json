@@ -2380,6 +2380,1207 @@
         ]
       ],
       "action": "Inspect delivery"
+    },
+    "PF-017": {
+      "kind": "security",
+      "nav": "Settings",
+      "page": "Security",
+      "title": "Passkeys & recovery",
+      "state": "MacBook Touch ID passkey is enrolled and awaiting sign-in test",
+      "tabs": [
+        "MFA",
+        "Passkeys",
+        "Sessions",
+        "Recovery"
+      ],
+      "activeTab": "Passkeys",
+      "metrics": [
+        [
+          "Passkeys",
+          "1"
+        ],
+        [
+          "Recovery codes",
+          "10 unused"
+        ],
+        [
+          "Last security review",
+          "Today"
+        ]
+      ],
+      "fields": [
+        "Friendly name · MacBook Touch ID",
+        "Created · Aug 5, 2026 at 9:42 AM",
+        "Last used · Not tested yet",
+        "Recovery storage · Password manager vault"
+      ],
+      "action": "Test this passkey",
+      "notice": "A separate recovery method remains available if this device is lost"
+    },
+    "CRM-028": {
+      "kind": "builder",
+      "nav": "CRM",
+      "page": "Bulk message",
+      "title": "Recent SUV shoppers",
+      "state": "Audience preview is filtered and suppressed recipients are removed",
+      "tabs": [
+        "Audience",
+        "Message",
+        "Test",
+        "Results"
+      ],
+      "activeTab": "Test",
+      "metrics": [
+        [
+          "Matched",
+          "1,291"
+        ],
+        [
+          "Suppressed",
+          "43"
+        ],
+        [
+          "Will receive",
+          "1,248"
+        ]
+      ],
+      "fields": [
+        "Channel · Email + SMS where consented",
+        "Subject · New SUV arrivals selected for you",
+        "Sender · Alex at MarketSync Motors",
+        "Reply owner · CRM round robin"
+      ],
+      "rows": [
+        [
+          "jordan@example.com",
+          "Email + SMS",
+          "Personalization passed"
+        ],
+        [
+          "taylor@example.com",
+          "Email only",
+          "SMS not consented"
+        ]
+      ],
+      "action": "Send internal test"
+    },
+    "FNI-007": {
+      "kind": "deal",
+      "nav": "F&I",
+      "page": "Lender submissions",
+      "title": "Compare lender decisions",
+      "state": "Two approvals returned; conditions and total cost are visible",
+      "tabs": [
+        "Application",
+        "Submissions",
+        "Decisions",
+        "Stipulations"
+      ],
+      "activeTab": "Decisions",
+      "metrics": [
+        [
+          "Submitted",
+          "3"
+        ],
+        [
+          "Approved",
+          "2"
+        ],
+        [
+          "Pending",
+          "1"
+        ],
+        [
+          "Open stips",
+          "2"
+        ]
+      ],
+      "columns": [
+        "Lender",
+        "Decision",
+        "Rate / term",
+        "Condition"
+      ],
+      "rows": [
+        [
+          "TD Auto",
+          "Approved",
+          "7.49% · 72 mo",
+          "Proof of income"
+        ],
+        [
+          "Scotiabank",
+          "Approved",
+          "7.79% · 84 mo",
+          "None"
+        ],
+        [
+          "RBC",
+          "Pending",
+          "—",
+          "Under review"
+        ]
+      ],
+      "action": "Select customer option"
+    },
+    "INV-030": {
+      "kind": "inventory",
+      "nav": "Inventory",
+      "page": "Syndication",
+      "title": "Vehicle listing delivery",
+      "state": "Dealer website accepted the current vehicle payload",
+      "metrics": [
+        [
+          "Connected channels",
+          "3"
+        ],
+        [
+          "Published",
+          "2"
+        ],
+        [
+          "Retrying",
+          "1"
+        ],
+        [
+          "Rejected",
+          "0"
+        ]
+      ],
+      "columns": [
+        "Channel",
+        "Status",
+        "Last delivery",
+        "Public result"
+      ],
+      "rows": [
+        [
+          "Dealer website",
+          "Accepted",
+          "2 min ago",
+          "Open listing"
+        ],
+        [
+          "Facebook queue",
+          "Prepared",
+          "5 min ago",
+          "Open extension"
+        ],
+        [
+          "Partner feed",
+          "Retrying",
+          "12 min ago",
+          "Next retry 4 min"
+        ]
+      ],
+      "action": "Open public listing"
+    },
+    "SVC-021": {
+      "kind": "service",
+      "nav": "Service",
+      "page": "Settings",
+      "title": "Service capacity & labour",
+      "state": "Technician schedule and customer-pay labour rate are selected",
+      "tabs": [
+        "Hours & capacity",
+        "Technicians",
+        "Labour rates",
+        "Operations"
+      ],
+      "activeTab": "Labour rates",
+      "metrics": [
+        [
+          "Technicians",
+          "8 active"
+        ],
+        [
+          "Bays",
+          "10"
+        ],
+        [
+          "Daily capacity",
+          "42 hr"
+        ]
+      ],
+      "fields": [
+        "Customer-pay rate · $169.00 / hour · effective Aug 1",
+        "Warranty rate · $142.50 / hour",
+        "Internal rate · $98.00 / hour",
+        "Approval owner · Service Manager"
+      ],
+      "rows": [
+        [
+          "Riley Gomez",
+          "Brakes · electrical",
+          "Mon–Fri 8–5"
+        ],
+        [
+          "Morgan Chen",
+          "Engine · drivability",
+          "Tue–Sat 8–5"
+        ]
+      ],
+      "action": "Save labour rates"
+    },
+    "ACC-042": {
+      "kind": "accounting",
+      "nav": "Accounting",
+      "page": "Bank account",
+      "title": "Create transaction rule",
+      "state": "Historical preview shows twelve correct matches and no false positives",
+      "tabs": [
+        "Transactions",
+        "Rules",
+        "Imports"
+      ],
+      "activeTab": "Rules",
+      "metrics": [
+        [
+          "Preview matches",
+          "12"
+        ],
+        [
+          "False positives",
+          "0"
+        ],
+        [
+          "Requires review",
+          "Yes"
+        ]
+      ],
+      "fields": [
+        "When description contains · ROGERS BUSINESS",
+        "Vendor · Rogers Communications",
+        "Account · Telephone & internet",
+        "Tax · HST 13%",
+        "Review threshold · Amount over $500"
+      ],
+      "action": "Enable rule",
+      "notice": "The original bank description remains visible on every matched transaction"
+    },
+    "MKT-024": {
+      "kind": "integration",
+      "nav": "Marketing",
+      "page": "Ad connections",
+      "title": "Google Ads account",
+      "state": "Spend sync is verified and one test lead is mapped to its campaign",
+      "tabs": [
+        "Google Ads",
+        "Meta Ads",
+        "Attribution"
+      ],
+      "activeTab": "Google Ads",
+      "metrics": [
+        [
+          "Yesterday spend",
+          "$842.16"
+        ],
+        [
+          "Active campaigns",
+          "7"
+        ],
+        [
+          "Mapped leads",
+          "38"
+        ],
+        [
+          "Unmapped",
+          "0"
+        ]
+      ],
+      "fields": [
+        "Ad account · 123-456-7890 · MarketSync Motors",
+        "Currency · CAD",
+        "Time zone · America/Toronto",
+        "Test conversion · Equinox form · received 10:14 AM"
+      ],
+      "action": "Confirm connection"
+    },
+    "MS-DATA-017": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Data exports",
+      "title": "Customer export request",
+      "state": "Authorization verified; minimized dataset is waiting for final approval",
+      "tabs": [
+        "Requests",
+        "Approvals",
+        "Delivery",
+        "Audit"
+      ],
+      "activeTab": "Approvals",
+      "metrics": [
+        [
+          "Records",
+          "284"
+        ],
+        [
+          "Fields",
+          "7 approved"
+        ],
+        [
+          "Expires",
+          "48 hours"
+        ],
+        [
+          "MFA",
+          "Verified"
+        ]
+      ],
+      "fields": [
+        "Requester · Dealer Owner · Northside Auto",
+        "Purpose · CRM migration",
+        "Date range · Jan 1–Aug 5, 2026",
+        "Delivery · Encrypted download · named recipient",
+        "Excluded · Internal notes · credentials · unrelated financial data"
+      ],
+      "action": "Approve secure export"
+    },
+    "PF-021": {
+      "kind": "security",
+      "nav": "Settings",
+      "page": "Security",
+      "title": "Password & sessions",
+      "state": "Password changed; two older sessions are selected for revocation",
+      "tabs": [
+        "MFA",
+        "Passkeys",
+        "Sessions",
+        "Recovery"
+      ],
+      "activeTab": "Sessions",
+      "metrics": [
+        [
+          "Active sessions",
+          "3"
+        ],
+        [
+          "Current device",
+          "1"
+        ],
+        [
+          "Selected to revoke",
+          "2"
+        ]
+      ],
+      "fields": [
+        "Current session · Chrome on macOS · Toronto · active now",
+        "Older session · Safari on iPhone · last active Jul 18",
+        "Unknown session · Chrome on Windows · last active Jul 2",
+        "MFA status · Authenticator + passkey enabled"
+      ],
+      "action": "Sign out other devices",
+      "notice": "The current verified session remains signed in"
+    },
+    "CRM-032": {
+      "kind": "pipeline",
+      "nav": "CRM",
+      "page": "Lead routing",
+      "title": "Round-robin assignment",
+      "state": "Website SUV leads route to three scheduled salespeople",
+      "stages": [
+        [
+          "Incoming",
+          "Test"
+        ],
+        [
+          "Assigned",
+          "Alex"
+        ],
+        [
+          "Accepted",
+          "28 sec"
+        ],
+        [
+          "Fallback",
+          "Manager"
+        ]
+      ],
+      "metrics": [
+        [
+          "Eligible users",
+          "3"
+        ],
+        [
+          "Acceptance window",
+          "5 min"
+        ],
+        [
+          "After-hours owner",
+          "BDC"
+        ]
+      ],
+      "rows": [
+        [
+          "Website · SUV inquiry",
+          "Alex Morgan",
+          "Assigned"
+        ],
+        [
+          "AI Chat · appointment intent",
+          "Mia Chen",
+          "Accepted"
+        ]
+      ],
+      "action": "Publish routing rules"
+    },
+    "SALES-028": {
+      "kind": "deal",
+      "nav": "Sales",
+      "page": "Proposal",
+      "title": "Customer payment options",
+      "state": "Approved three-option proposal is open in customer preview",
+      "tabs": [
+        "Deal summary",
+        "Options",
+        "Customer preview",
+        "History"
+      ],
+      "activeTab": "Customer preview",
+      "metrics": [
+        [
+          "Vehicle price",
+          "$39,995"
+        ],
+        [
+          "Trade equity",
+          "$3,200"
+        ],
+        [
+          "Option 1",
+          "$318 biweekly"
+        ],
+        [
+          "Option 2",
+          "$289 biweekly"
+        ]
+      ],
+      "fields": [
+        "Customer · Jordan Lee",
+        "Vehicle · 2025 Chevrolet Equinox RS",
+        "Proposal expires · Aug 8, 2026",
+        "Internal gross · Hidden from customer"
+      ],
+      "action": "Present & save outcome"
+    },
+    "FNI-011": {
+      "kind": "deal",
+      "nav": "F&I",
+      "page": "Products & contracts",
+      "title": "Product presentation",
+      "state": "Customer choices are recorded and contracts await validation",
+      "tabs": [
+        "Eligible products",
+        "Presentation",
+        "Contracts",
+        "Signatures"
+      ],
+      "activeTab": "Contracts",
+      "metrics": [
+        [
+          "Presented",
+          "4"
+        ],
+        [
+          "Accepted",
+          "2"
+        ],
+        [
+          "Declined",
+          "2"
+        ],
+        [
+          "Contracts",
+          "2 drafts"
+        ]
+      ],
+      "columns": [
+        "Product",
+        "Choice",
+        "Price",
+        "Contract"
+      ],
+      "rows": [
+        [
+          "Extended warranty",
+          "Accepted",
+          "$2,495",
+          "Draft ready"
+        ],
+        [
+          "GAP protection",
+          "Accepted",
+          "$895",
+          "Draft ready"
+        ],
+        [
+          "Appearance protection",
+          "Declined",
+          "$799",
+          "Waiver saved"
+        ]
+      ],
+      "action": "Validate contracts"
+    },
+    "INV-034": {
+      "kind": "inventory",
+      "nav": "Inventory",
+      "page": "Market comparison",
+      "title": "Vehicle price report",
+      "state": "Fourteen relevant comparables position the vehicle above market",
+      "metrics": [
+        [
+          "Current price",
+          "$42,995"
+        ],
+        [
+          "Market median",
+          "$40,850"
+        ],
+        [
+          "Price position",
+          "+5.3%"
+        ],
+        [
+          "Relevant comps",
+          "14"
+        ]
+      ],
+      "columns": [
+        "Comparable",
+        "Mileage",
+        "Distance",
+        "Price"
+      ],
+      "rows": [
+        [
+          "2024 Blazer RS",
+          "31,200 km",
+          "18 km",
+          "$40,995"
+        ],
+        [
+          "2024 Blazer RS",
+          "28,840 km",
+          "42 km",
+          "$41,500"
+        ],
+        [
+          "2024 Blazer 3LT",
+          "24,100 km",
+          "31 km",
+          "$39,880"
+        ]
+      ],
+      "action": "Save pricing decision"
+    },
+    "SVC-025": {
+      "kind": "builder",
+      "nav": "Service",
+      "page": "Maintenance reminders",
+      "title": "Equinox maintenance follow-up",
+      "state": "Oil service reminder is scheduled from verified mileage and consent",
+      "tabs": [
+        "Due customers",
+        "Message",
+        "Schedule",
+        "Results"
+      ],
+      "activeTab": "Schedule",
+      "metrics": [
+        [
+          "Due in 30 days",
+          "84"
+        ],
+        [
+          "Consented",
+          "71"
+        ],
+        [
+          "Already booked",
+          "9"
+        ],
+        [
+          "Will send",
+          "62"
+        ]
+      ],
+      "fields": [
+        "Service · Oil and filter change",
+        "Due rule · 8,000 km or 6 months",
+        "First reminder · 14 days before estimated due",
+        "Channel · SMS then email",
+        "Booking link · Service calendar"
+      ],
+      "action": "Activate reminder"
+    },
+    "ACC-046": {
+      "kind": "accounting",
+      "nav": "Accounting",
+      "page": "Deal posting",
+      "title": "Post deal #1048",
+      "state": "Posting preview balances and all source documents are attached",
+      "tabs": [
+        "Unposted deals",
+        "Preview",
+        "Journal",
+        "History"
+      ],
+      "activeTab": "Preview",
+      "metrics": [
+        [
+          "Debits",
+          "$48,214.32"
+        ],
+        [
+          "Credits",
+          "$48,214.32"
+        ],
+        [
+          "Difference",
+          "$0.00"
+        ],
+        [
+          "Exceptions",
+          "0"
+        ]
+      ],
+      "columns": [
+        "Account",
+        "Debit",
+        "Credit"
+      ],
+      "rows": [
+        [
+          "Lender receivable",
+          "$41,784.32",
+          "—"
+        ],
+        [
+          "Cash deposit",
+          "$1,000.00",
+          "—"
+        ],
+        [
+          "Vehicle inventory",
+          "—",
+          "$34,200.00"
+        ],
+        [
+          "Vehicle sales & tax",
+          "—",
+          "$8,584.32"
+        ]
+      ],
+      "action": "Post finalized deal"
+    },
+    "MKT-028": {
+      "kind": "builder",
+      "nav": "Website",
+      "page": "Settings",
+      "title": "Domain & SEO",
+      "state": "Custom domain is verified and the search preview is open",
+      "tabs": [
+        "Domain",
+        "SEO",
+        "Tracking",
+        "Widgets"
+      ],
+      "activeTab": "SEO",
+      "metrics": [
+        [
+          "Domain",
+          "Verified"
+        ],
+        [
+          "HTTPS",
+          "Active"
+        ],
+        [
+          "Forms tested",
+          "3 / 3"
+        ]
+      ],
+      "fields": [
+        "Primary domain · www.marketsyncmotors.ca",
+        "Page title · New & Used Vehicles | MarketSync Motors",
+        "Meta description · Shop local inventory and book a test drive",
+        "Canonical URL · https://www.marketsyncmotors.ca/",
+        "Analytics · GA4 · consent-controlled"
+      ],
+      "action": "Publish settings",
+      "notice": "Google search preview · mobile and desktop"
+    },
+    "MS-BILL-021": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Customer billing",
+      "title": "Failed subscription payment",
+      "state": "Stripe decline and MarketSync grace-period state are synchronized",
+      "tabs": [
+        "Subscription",
+        "Invoices",
+        "Payment attempts",
+        "Access history"
+      ],
+      "activeTab": "Payment attempts",
+      "metrics": [
+        [
+          "Invoice",
+          "$499 CAD"
+        ],
+        [
+          "Attempts",
+          "2"
+        ],
+        [
+          "Grace remaining",
+          "5 days"
+        ],
+        [
+          "Access",
+          "Restricted soon"
+        ]
+      ],
+      "columns": [
+        "Time",
+        "Result",
+        "Reason",
+        "Next action"
+      ],
+      "rows": [
+        [
+          "Aug 5 · 9:10 AM",
+          "Failed",
+          "Insufficient funds",
+          "Dunning email sent"
+        ],
+        [
+          "Aug 3 · 9:10 AM",
+          "Failed",
+          "Insufficient funds",
+          "Retry scheduled"
+        ]
+      ],
+      "action": "Send secure billing link"
+    },
+    "FB-014": {
+      "kind": "integration",
+      "nav": "Facebook",
+      "page": "Extension setup",
+      "title": "Chrome extension connection",
+      "state": "Extension and both account sessions are connected; one timed-out listing is recoverable",
+      "metrics": [
+        [
+          "Extension version",
+          "2.8.1 current"
+        ],
+        [
+          "MarketSync",
+          "Connected"
+        ],
+        [
+          "Facebook",
+          "Connected"
+        ],
+        [
+          "Timed-out posts",
+          "1"
+        ]
+      ],
+      "fields": [
+        "Dealership · MarketSync Motors",
+        "Facebook profile · Jason M. · Marketplace enabled",
+        "Chrome site access · facebook.com allowed",
+        "Timed-out vehicle · 2025 Equinox RS · no duplicate found"
+      ],
+      "rows": [
+        [
+          "Connection check",
+          "Passed",
+          "Just now"
+        ],
+        [
+          "Post attempt N1042",
+          "Timed out",
+          "Resume available"
+        ]
+      ],
+      "action": "Resume posting once"
+    },
+    "AI-016": {
+      "kind": "ai",
+      "nav": "AI Chatbot",
+      "page": "Widget installation",
+      "title": "Website widget test",
+      "state": "Staging widget answered inventory and captured a test handoff",
+      "tabs": [
+        "Install",
+        "Allowed domains",
+        "Test checklist",
+        "Live health"
+      ],
+      "activeTab": "Test checklist",
+      "metrics": [
+        [
+          "Tests passed",
+          "7 / 8"
+        ],
+        [
+          "Lead captured",
+          "1"
+        ],
+        [
+          "Human handoff",
+          "Passed"
+        ],
+        [
+          "Mobile",
+          "Passed"
+        ]
+      ],
+      "fields": [
+        "Allowed domain · staging.marketsyncmotors.ca",
+        "Widget dealership · MarketSync Motors",
+        "Inventory result · 3 Equinox units with dealer links",
+        "CRM test lead · AI Widget Test · assigned to BDC",
+        "Remaining test · Production page-speed check"
+      ],
+      "action": "Approve production install"
+    },
+    "ADMIN-016": {
+      "kind": "users",
+      "nav": "Administration",
+      "page": "Users",
+      "title": "Change dealership role",
+      "state": "Sales Manager role selected with an explicit access comparison",
+      "metrics": [
+        [
+          "Current role",
+          "Salesperson"
+        ],
+        [
+          "New role",
+          "Sales Manager"
+        ],
+        [
+          "Added permissions",
+          "6"
+        ],
+        [
+          "MFA",
+          "Verified"
+        ]
+      ],
+      "columns": [
+        "Department",
+        "Before",
+        "After",
+        "Reason"
+      ],
+      "rows": [
+        [
+          "CRM",
+          "Assigned records",
+          "Dealership team",
+          "Manage leads"
+        ],
+        [
+          "Sales",
+          "Create deals",
+          "Approve deals",
+          "Desk coverage"
+        ],
+        [
+          "Accounting",
+          "No access",
+          "No access",
+          "Not required"
+        ]
+      ],
+      "action": "Save verified role change"
+    },
+    "SALES-032": {
+      "kind": "deal",
+      "nav": "Sales",
+      "page": "E-signature",
+      "title": "Signature request",
+      "state": "Customer and dealership signer fields are placed on the approved document",
+      "tabs": [
+        "Documents",
+        "Recipients",
+        "Fields",
+        "Status"
+      ],
+      "activeTab": "Fields",
+      "metrics": [
+        [
+          "Documents",
+          "2"
+        ],
+        [
+          "Recipients",
+          "2"
+        ],
+        [
+          "Required fields",
+          "14"
+        ],
+        [
+          "Missing fields",
+          "0"
+        ]
+      ],
+      "columns": [
+        "Recipient",
+        "Method",
+        "Fields",
+        "Order"
+      ],
+      "rows": [
+        [
+          "Jordan Lee",
+          "Email · verified",
+          "9 required",
+          "1"
+        ],
+        [
+          "Sales Manager",
+          "MarketSync account",
+          "5 required",
+          "2"
+        ]
+      ],
+      "action": "Send signature request"
+    },
+    "PARTS-013": {
+      "kind": "service",
+      "nav": "Parts",
+      "page": "Purchase Orders",
+      "title": "PO #PO-2841",
+      "state": "Vendor-confirmed brake parts shipment is open for receiving",
+      "tabs": [
+        "Order",
+        "Vendor confirmation",
+        "Receive",
+        "Documents"
+      ],
+      "activeTab": "Receive",
+      "metrics": [
+        [
+          "Ordered lines",
+          "4"
+        ],
+        [
+          "Received",
+          "3"
+        ],
+        [
+          "Backordered",
+          "1"
+        ],
+        [
+          "Order total",
+          "$1,842.60"
+        ]
+      ],
+      "columns": [
+        "Part",
+        "Ordered",
+        "Received",
+        "Result"
+      ],
+      "rows": [
+        [
+          "Front brake pad kit",
+          "6",
+          "6",
+          "Bin B-14"
+        ],
+        [
+          "Front rotor",
+          "12",
+          "10",
+          "2 backordered"
+        ],
+        [
+          "Oil filter PF64",
+          "24",
+          "24",
+          "Bin A-03"
+        ]
+      ],
+      "action": "Post actual receipt"
+    },
+    "RPT-009": {
+      "kind": "reports",
+      "nav": "Reports",
+      "page": "Employee performance",
+      "title": "Sales team performance",
+      "state": "Opportunity and outcome metrics are compared for the same 30-day period",
+      "tabs": [
+        "Sales",
+        "BDC",
+        "F&I",
+        "Service",
+        "Facebook"
+      ],
+      "activeTab": "Sales",
+      "metrics": [
+        [
+          "Team leads",
+          "284"
+        ],
+        [
+          "Appointments",
+          "96"
+        ],
+        [
+          "Sold",
+          "41"
+        ],
+        [
+          "Median response",
+          "4m 12s"
+        ]
+      ],
+      "columns": [
+        "Employee",
+        "Assigned",
+        "Contact rate",
+        "Appointments",
+        "Sold"
+      ],
+      "rows": [
+        [
+          "Alex Morgan",
+          "72",
+          "91%",
+          "27",
+          "12"
+        ],
+        [
+          "Mia Chen",
+          "68",
+          "88%",
+          "24",
+          "11"
+        ],
+        [
+          "Sam Patel",
+          "74",
+          "84%",
+          "22",
+          "9"
+        ]
+      ],
+      "action": "Record coaching action"
+    },
+    "MKT-032": {
+      "kind": "builder",
+      "nav": "Website",
+      "page": "Forms",
+      "title": "Test-drive lead form",
+      "state": "Staging submission reached CRM with consent and routing evidence",
+      "tabs": [
+        "Fields",
+        "Consent",
+        "Routing",
+        "Test results"
+      ],
+      "activeTab": "Test results",
+      "metrics": [
+        [
+          "Validation",
+          "Passed"
+        ],
+        [
+          "CRM lead",
+          "Created"
+        ],
+        [
+          "Owner",
+          "Assigned in 3 sec"
+        ],
+        [
+          "Notification",
+          "Delivered"
+        ]
+      ],
+      "fields": [
+        "Form purpose · Book a test drive",
+        "Required fields · Name · email or phone · vehicle · preferred time",
+        "Consent · SMS optional · email purpose stated",
+        "CRM source · Website · Test Drive Form",
+        "Fallback owner · BDC Manager"
+      ],
+      "action": "Publish verified form"
+    },
+    "MS-ONB-025": {
+      "kind": "saas",
+      "nav": "MarketSync OS",
+      "page": "Customer onboarding",
+      "title": "Northside Auto onboarding",
+      "state": "Account is provisioned and the first production workflow awaits customer acceptance",
+      "tabs": [
+        "Commercial",
+        "Provisioning",
+        "Configuration",
+        "Testing",
+        "Launch"
+      ],
+      "activeTab": "Testing",
+      "metrics": [
+        [
+          "Plan",
+          "DealerOS Pro"
+        ],
+        [
+          "Users",
+          "6 / 8 invited"
+        ],
+        [
+          "Milestones",
+          "9 / 11"
+        ],
+        [
+          "Target launch",
+          "Aug 8"
+        ]
+      ],
+      "columns": [
+        "Acceptance test",
+        "Owner",
+        "Status",
+        "Next step"
+      ],
+      "rows": [
+        [
+          "Owner login + MFA",
+          "Customer",
+          "Passed",
+          "—"
+        ],
+        [
+          "Inventory sync",
+          "Implementation",
+          "Passed · 184 units",
+          "—"
+        ],
+        [
+          "Lead routing",
+          "Sales Manager",
+          "Passed",
+          "—"
+        ],
+        [
+          "Customer approval",
+          "Dealer Owner",
+          "Waiting",
+          "Review Aug 6"
+        ]
+      ],
+      "action": "Record customer acceptance"
     }
   }
 }
