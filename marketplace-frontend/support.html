@@ -25,20 +25,19 @@
   <meta property="og:image" content="https://marketsync.link/og-image.png">
   <meta property="og:site_name" content="MarketSync">
   <style id="word-break-mobile-css">@media (max-width: 640px) { body { word-wrap: break-word; overflow-wrap: anywhere; } code { white-space: pre-wrap; word-break: break-all; } }</style>
-  <script>tailwind = { config: { darkMode: 'media' } }</script>
+  <script>tailwind = { config: { darkMode:'media' } }</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="/site-marketing.css">
   <style id="ms-font-bump">html{font-size:17px}@media (max-width:640px){html{font-size:16px}}</style>
-    <!-- Automatic OS dark/light before first paint (no flash) -->
-    <script>(function(){try{if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark');}catch(e){}})();</script>
-    <script src="/assets/auth.js" defer></script>
-    <script src="/assets/public-shell.js" defer></script>
+  <!-- Automatic OS dark/light before first paint (no flash) -->
+  <script>(function(){try{if(window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");}catch(e){}})();</script>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased overflow-x-hidden">
 
   <div id="ms-public-header"></div>
 
-<header class="max-w-3xl mx-auto px-6 pt-16 pb-10">
+  <header class="max-w-3xl mx-auto px-6 pt-16 pb-10">
     <p class="text-xs uppercase font-bold tracking-widest text-indigo-600 dark:text-indigo-400 mb-3">Support</p>
     <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4">Get in touch</h1>
     <p class="text-base text-slate-600 dark:text-slate-400 max-w-2xl">Have a question, hit a bug, or want to share feedback? Drop us a note below — we read every message and respond within 1 business day.</p>
@@ -101,9 +100,11 @@
   </main>
 
   <div id="ms-public-footer"></div>
+  <script src="/assets/auth.js" defer></script>
+  <script src="/assets/public-shell.js" defer></script>
 
-<script>
-    const API = 'https://vehicle-marketplace-s0e4.onrender.com';
+  <script>
+    const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
     document.getElementById('support-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const msg = document.getElementById('msg');
@@ -216,7 +217,7 @@
     </style>
     <script>
       (function(){
-        var API='https://vehicle-marketplace-s0e4.onrender.com';
+        var API=(location.hostname.includes('staging')?'https://marketsync-staging-backend.onrender.com':'https://vehicle-marketplace-s0e4.onrender.com');
         var root=document.getElementById('msc-root'),fab=document.getElementById('msc-fab'),panel=document.getElementById('msc-panel'),
             msgs=document.getElementById('msc-msgs'),form=document.getElementById('msc-form'),input=document.getElementById('msc-input'),
             lead=document.getElementById('msc-lead'),chips=document.getElementById('msc-chips'),closeBtn=document.getElementById('msc-close');
