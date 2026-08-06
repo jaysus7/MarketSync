@@ -320,7 +320,6 @@ async function buildSiteResponse(d) {
 export function registerSite(app) {
   registerSitePublicRoutes(app)
 
-  })
 
   // ── PUBLIC: AI sales concierge chat for a dealer's website ─────────────────
   // Answers shopper questions strictly from THIS dealer's live inventory + info,
