@@ -13296,32 +13296,33 @@ function execExceptionCard(x) {
 // Daily Briefing Workstation (Time Clock & Safety Courses for all Dealer OS staff)
 function renderDailyBriefingWorkstation() {
   const timeClockHtml = typeof renderTimeClockWidget === 'function' ? renderTimeClockWidget() : '';
-  const courses = typeof DEALERSHIP_TRAINING_COURSES !== 'undefined' ? DEALERSHIP_TRAINING_COURSES : [
-    { id: 'whmis', title: 'WHMIS 2015 & Chemical Safety', duration: '12 min', role: 'All Dealership Staff', icon: '🧪', desc: 'Canadian GHS hazard classification, SDS sheets, and shop chemical handling.' },
-    { id: 'bill168', title: 'Workplace Violence & Harassment (Bill 168 / OHSA)', duration: '18 min', role: 'All Dealership Staff', icon: '🛡️', desc: 'Ontario OHSA / Canadian Provincial standards for workplace harassment prevention.' },
-    { id: 'hoist', title: 'Automotive Lift & Hoist Safety Inspection', duration: '22 min', role: 'Service & Detail Staff', icon: '🔧', desc: 'Pre-use lift lock checks, weight capacity limits, and emergency disconnects.' },
-    { id: 'demo_driver', title: 'Dealer Demo Vehicle & Customer Test Drive Safety', duration: '15 min', role: 'Sales & Managers', icon: '🚘', desc: 'Licence verification, demo plate tracking, test drive routes & insurance requirements.' },
-    { id: 'ev_safety', title: 'EV & Hybrid High-Voltage Battery Rescue Safety', duration: '25 min', role: 'Service, Parts & Recon', icon: '⚡', desc: 'High-voltage disconnect procedures, orange cable safety, thermal runaway protocol.' },
-    { id: 'pipeda', title: 'PIPEDA & Customer Financial Privacy Protection', duration: '14 min', role: 'F&I, Sales & Desk', icon: '🔒', desc: 'Handling customer credit applications, SIN masking, deal jacket document destruction.' },
-  ];
+  const courses = typeof DEALERSHIP_TRAINING_COURSES !== 'undefined' ? DEALERSHIP_TRAINING_COURSES : [];
 
-  const courseCards = courses.map(c => `
-    <div class="p-3 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col justify-between space-y-2 shadow-sm hover:border-indigo-500 transition">
-      <div>
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-lg">${c.icon}</span>
-          <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60">${c.duration}</span>
+  let completedMap = {};
+  try { completedMap = JSON.parse(localStorage.getItem('ms_completed_courses') || '{}'); } catch {}
+
+  const courseCards = courses.map(c => {
+    const isDone = !!completedMap[c.id];
+    return `
+      <div class="p-3 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col justify-between space-y-2 shadow-sm hover:border-indigo-500 transition">
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-lg">${c.icon}</span>
+            <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isDone ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60'}">${isDone ? '✓ Passed (100%)' : c.duration}</span>
+          </div>
+          <h4 class="text-xs font-black text-slate-900 dark:text-white leading-tight line-clamp-1">${esc(c.title)}</h4>
+          <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">${esc(c.desc)}</p>
         </div>
-        <h4 class="text-xs font-black text-slate-900 dark:text-white leading-tight line-clamp-1">${esc(c.title)}</h4>
-        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">${esc(c.desc)}</p>
-      </div>
 
-      <div class="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-1">
-        <button onclick="openTrainingVideoModal('${c.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] shadow transition">▶️ Watch Video</button>
-        <button onclick="openEmployeeCertificateModal('Active Employee', '${esc(c.title)}', '${new Date().toISOString().split('T')[0]}', 'CERT-${c.id.toUpperCase()}-2026')" class="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px] transition">🏆 Cert</button>
+        <div class="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-1">
+          <button onclick="openTrainingCourseModal('${c.id}')" class="px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] shadow transition flex items-center gap-1">
+            <span>📖</span><span>${isDone ? 'Review' : 'Start'}</span>
+          </button>
+          <button onclick="openEmployeeCertificateModal('Active Employee', '${esc(c.title)}', '${new Date().toISOString().split('T')[0]}', 'CERT-${c.id.toUpperCase()}-2026')" class="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px] transition">🏆 Cert</button>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   return `
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 mb-6">
@@ -29126,66 +29127,688 @@ window.openEmployeeProfileModal = openEmployeeProfileModal;
 
 // ── 3. Compliance, Safety & Training Tab ─────────────────────────────────────
 const DEALERSHIP_TRAINING_COURSES = [
-  { id: 'whmis', title: 'WHMIS 2015 & Chemical Safety', duration: '12 min', role: 'All Dealership Staff', icon: '🧪', desc: 'Canadian GHS hazard classification, SDS sheets, and shop chemical handling.' },
-  { id: 'bill168', title: 'Workplace Violence & Harassment (Bill 168 / OHSA)', duration: '18 min', role: 'All Dealership Staff', icon: '🛡️', desc: 'Ontario OHSA / Canadian Provincial standards for workplace harassment prevention.' },
-  { id: 'hoist', title: 'Automotive Lift & Hoist Safety Inspection', duration: '22 min', role: 'Service & Detail Staff', icon: '🔧', desc: 'Pre-use lift lock checks, weight capacity limits, and emergency disconnects.' },
-  { id: 'demo_driver', title: 'Dealer Demo Vehicle & Customer Test Drive Safety', duration: '15 min', role: 'Sales & Managers', icon: '🚘', desc: 'Licence verification, demo plate tracking, test drive routes & insurance requirements.' },
-  { id: 'ev_safety', title: 'EV & Hybrid High-Voltage Battery Rescue Safety', duration: '25 min', role: 'Service, Parts & Recon', icon: '⚡', desc: 'High-voltage disconnect procedures, orange cable safety, thermal runaway protocol.' },
-  { id: 'pipeda', title: 'PIPEDA & Customer Financial Privacy Protection', duration: '14 min', role: 'F&I, Sales & Desk', icon: '🔒', desc: 'Handling customer credit applications, SIN masking, deal jacket document destruction.' },
+  {
+    id: 'whmis',
+    title: 'WHMIS 2015 & Chemical Safety',
+    duration: '4 Slides · 3 Questions',
+    role: 'All Dealership Staff',
+    icon: '🧪',
+    desc: 'Canadian GHS hazard classification, SDS 16-section sheets, and shop chemical handling.',
+    slides: [
+      {
+        title: 'Introduction to WHMIS 2015 & GHS Standard',
+        subtitle: 'Canada Workplace Hazardous Materials Information System',
+        points: [
+          'WHMIS is Canada’s national hazard communication standard updated for GHS alignment.',
+          'Applies to all shop solvents, detail acids, brake cleaners, paints, and lubricants.',
+          'Protects workers through standardized labels, Safety Data Sheets (SDS), and training.',
+          'Mandated under Canadian Occupational Health & Safety Regulations.'
+        ],
+        speakerText: 'Welcome to WHMIS 2015 and Chemical Safety. WHMIS is Canada’s national hazard communication standard. Aligning with the Globally Harmonized System, WHMIS ensures you have clear safety data for all dealership chemicals, shop solvents, and detail products.'
+      },
+      {
+        title: 'Supplier Labels & Workplace Labels',
+        subtitle: 'Recognizing GHS Pictograms & Secondary Container Labels',
+        points: [
+          'Supplier Labels feature red diamond GHS pictograms and Signal Words (DANGER / WARNING).',
+          'Workplace Labels MUST be applied when chemicals are transferred to secondary spray bottles.',
+          'Workplace labels require Product Name, Safe Handling Instructions, and reference to SDS.',
+          'Never use unlabelled chemical containers anywhere in the dealership.'
+        ],
+        speakerText: 'Supplier labels must feature a hatching border, signal words, and GHS pictograms. If you decant solvents, brake cleaners, or detail acids into secondary bottles, you MUST affix a Workplace Label showing product identifier, safe handling instructions, and reference to the SDS.'
+      },
+      {
+        title: '16-Section Safety Data Sheets (SDS)',
+        subtitle: 'Comprehensive Chemical Hazard Information',
+        points: [
+          'SDS binders or electronic access MUST be available to all staff 24/7.',
+          'Section 4: First-Aid Measures (Immediate steps for skin/eye contact or inhalation).',
+          'Section 8: Exposure Controls & Personal Protection (Nitrile gloves, safety goggles, respirators).',
+          'Section 11: Toxicological Information (Acute and chronic health effects).'
+        ],
+        speakerText: 'Safety Data Sheets provide comprehensive hazard information across sixteen standard sections. Before using any chemical in service or detail bays, check Section 8 for required PPE like nitrile gloves or eye protection, and Section 4 for first aid emergency steps.'
+      },
+      {
+        title: 'Shop Chemical Spills & Emergency Eyewash Protocol',
+        subtitle: 'Immediate Response Procedures for Shop Safety',
+        points: [
+          'Eyewash Stations: Flush eyes continuously for 15 MINUTES minimum following contact.',
+          'Spill Kits: Use shop absorbent pads and socks to contain spills before reaching floor drains.',
+          'Personal Protective Equipment: Always wear eye protection and gloves when handling bulk drums.',
+          'Report all chemical spills or exposure incidents to your Manager immediately.'
+        ],
+        speakerText: 'In case of a chemical spill or eye contact, immediately flush eyes at the nearest eyewash station for fifteen minutes continuous. Contain shop spills using absorbent spill kits and notify your shop foreman or HR compliance lead immediately.'
+      }
+    ],
+    quiz: [
+      {
+        question: 'What border shape and color identifies WHMIS 2015 / GHS hazard pictograms?',
+        options: ['Yellow Triangle', 'Red Diamond', 'Blue Circle', 'Black Square'],
+        answer: 1,
+        explanation: 'WHMIS 2015 GHS pictograms feature a black symbol on a white background with a square set on a point (Red Diamond).'
+      },
+      {
+        question: 'How long must you flush your eyes at an eyewash station after chemical contact?',
+        options: ['2 minutes', '5 minutes', '15 continuous minutes', '30 seconds'],
+        answer: 2,
+        explanation: 'Emergency eyewash guidelines mandate flushing eyes for at least 15 continuous minutes.'
+      },
+      {
+        question: 'What must be applied when transferring brake cleaner or solvent into a secondary spray bottle?',
+        options: ['A price sticker', 'A Workplace Label', 'A shipping tag', 'Nothing is needed'],
+        answer: 1,
+        explanation: 'Workplace Labels are mandatory on all secondary containers containing hazardous products.'
+      }
+    ]
+  },
+  {
+    id: 'bill168',
+    title: 'Workplace Violence & Harassment (Bill 168 / OHSA)',
+    duration: '4 Slides · 3 Questions',
+    role: 'All Dealership Staff',
+    icon: '🛡️',
+    desc: 'Ontario OHSA / Canadian Provincial standards for workplace harassment prevention.',
+    slides: [
+      {
+        title: 'Bill 168 & Canadian OHSA Legal Framework',
+        subtitle: 'Right to a Safe & Respectful Workplace',
+        points: [
+          'Bill 168 amends Occupational Health and Safety legislation to cover violence and harassment.',
+          'Applies across showroom, service drive, customer test drives, and off-site events.',
+          'Harassment includes unwelcome comments, intimidation, sexual harassment, or bullying.',
+          'Violence includes physical force, threats of force, or aggressive behavior.'
+        ],
+        speakerText: 'Under Ontario Bill 168 and Canadian provincial occupational health legislation, every worker has the right to a workplace free from violence and harassment. This applies in showroom, service drive, customer lounges, and off-site dealer events.'
+      },
+      {
+        title: 'Dealership Risk Assessments & Lone Worker Safety',
+        subtitle: 'Identifying & Mitigating High-Risk Situations',
+        points: [
+          'High-risk areas: Cash handling, late-night customer test drives, isolated lot areas.',
+          'Sales reps taking customer test drives must log customer ID and planned route.',
+          'Showroom panic buttons and emergency protocols are tested quarterly.',
+          'Never enter an unlit lot or customer vehicle alone if you feel unsafe.'
+        ],
+        speakerText: 'Dealerships conduct annual risk assessments for high-risk roles like test drive reps and cash handlers. Employees working late or taking customer test drives must follow buddy system rules and log route destinations.'
+      },
+      {
+        title: 'Domestic Violence Protections in the Workplace',
+        subtitle: 'Employer Duty of Protection',
+        points: [
+          'Employers must take precautions if domestic violence might spill over into the workplace.',
+          'Staff can confidentially report domestic threats to HR without career penalty.',
+          'Safety plans include parking escorts, building access restrictions, and schedule changes.',
+          'All disclosures are kept strictly confidential by HR Management.'
+        ],
+        speakerText: 'If an employee discloses threats of domestic violence that could put them or coworkers in danger at the dealership, management must implement safety measures, such as parking assistance, security alerts, and schedule adjustments.'
+      },
+      {
+        title: 'Incident Reporting & Zero-Reprisal Policy',
+        subtitle: 'How to File a Complaint & Formal Investigation',
+        points: [
+          'Report incidents immediately to your HR Lead, General Manager, or Health & Safety Rep.',
+          'Strict Zero-Reprisal policy: Filing a complaint will never jeopardize your job.',
+          'All complaints are investigated promptly by an impartial investigator.',
+          'Corrective actions range from mandatory training to immediate termination of offenders.'
+        ],
+        speakerText: 'All incidents of harassment or violence must be reported to HR or management without fear of reprisal. Complaints are thoroughly investigated, and appropriate corrective measures are enforced up to termination.'
+      }
+    ],
+    quiz: [
+      {
+        question: 'Does Bill 168 workplace harassment protection apply during off-site dealership test drives or events?',
+        options: ['No, only inside the dealership building', 'Yes, it covers all work-related environments', 'Only if a manager is present', 'Only during business hours'],
+        answer: 1,
+        explanation: 'Bill 168 protection applies to all work-related environments, including test drives, customer visits, and dealership events.'
+      },
+      {
+        question: 'What is the dealership policy regarding reprisal against an employee filing a harassment complaint?',
+        options: ['Allowed if minor', 'Strictly prohibited / Zero tolerance', 'Subject to manager discretion', 'Only allowed after 30 days'],
+        answer: 1,
+        explanation: 'Canadian health and safety law strictly prohibits reprisal or retaliation against any worker reporting harassment.'
+      },
+      {
+        question: 'What should a sales rep do if a customer displays aggressive or threatening behavior during a test drive?',
+        options: ['Ignore it and keep driving', 'Safely return or pull over into a populated area and contact management', 'Argue back', 'Finish the 30-minute route'],
+        answer: 1,
+        explanation: 'Your safety is priority #1. Safely abort the test drive into a well-lit populated area and notify management immediately.'
+      }
+    ]
+  },
+  {
+    id: 'hoist',
+    title: 'Automotive Lift & Hoist Safety Inspection',
+    duration: '4 Slides · 3 Questions',
+    role: 'Service & Detail Staff',
+    icon: '🔧',
+    desc: 'ALI Certified hoist standards, pre-operational lock checks, and 3-point lifting safety.',
+    slides: [
+      {
+        title: 'ALI Certified Hoist Standards & Daily Inspection',
+        subtitle: 'Automotive Lift Institute Safety Protocols',
+        points: [
+          'Lifts are high-capacity machinery requiring daily pre-use visual and operational checks.',
+          'Inspect hydraulic lines, fittings, and cylinder seals for fluid leaks.',
+          'Check mechanical arm restraint locks to ensure automatic engagement when raised.',
+          'Never operate a hoist with damaged pads, missing safety pins, or hydraulic leaks.'
+        ],
+        speakerText: 'Automotive lifts are high-capacity machinery. Prior to lifting any vehicle, technicians must perform a pre-operational inspection checking hydraulic hoses, lift arm locks, and pad condition.'
+      },
+      {
+        title: '3-Point & 4-Point Vehicle Lifting Procedures',
+        subtitle: 'Proper Pad Positioning & Weight Verification',
+        points: [
+          'Verify vehicle curb weight does not exceed hoist rated lifting capacity.',
+          'Position adapter pads squarely under OEM manufacturer-designated lifting points.',
+          'Check vehicle center of gravity (heavy diesel trucks vs front-engine sedans).',
+          'Perform 6-Inch Safety Nudge Test before fully elevating any vehicle.'
+        ],
+        speakerText: 'Always verify the vehicle weight does not exceed hoist capacity. Position lift pads squarely on manufacturer-designated jack points. Raise the vehicle six inches off the ground and perform a firm nudge test to verify stability before elevating.'
+      },
+      {
+        title: 'Mechanical Safety Locks & Under-Vehicle Work',
+        subtitle: 'Lockout Protocols & Overhead Hazard Prevention',
+        points: [
+          'Always lower hoist onto mechanical safety locks before stepping underneath.',
+          'NEVER rely solely on hydraulic pressure to hold a vehicle overhead.',
+          'Wear CSA-approved steel-toe boots and safety glasses in service bays at all times.',
+          'Keep shop floor around hoist clear of oil, tools, air hoses, and debris.'
+        ],
+        speakerText: 'Never stand or work under a vehicle supported solely by hydraulic pressure. Always lower the hoist onto its mechanical safety locks before stepping beneath. Defective hoists must be locked out immediately.'
+      },
+      {
+        title: 'Lockout/Tagout & Defective Hoist Reporting',
+        subtitle: 'Preventing Unintended Hoist Operation',
+        points: [
+          'Apply LOTO (Lockout/Tagout) padlocks to main electrical disconnect if hoist is defective.',
+          'Attach a high-visibility RED DANGER / OUT OF SERVICE tag to the control box.',
+          'Report hoist defects immediately to the Service Manager and Shop Safety Officer.',
+          'Only ALI certified technicians may perform repair or annual safety certification.'
+        ],
+        speakerText: 'If a hoist fails inspection or shows hydraulic leaks, lock out the power box immediately, attach an Out of Service tag, and notify the Service Manager for certified repair.'
+      }
+    ],
+    quiz: [
+      {
+        question: 'What test must be performed when a vehicle is raised 6 inches off the shop floor?',
+        options: ['Engine rev test', 'A firm stability nudge test', 'Tire pressure check', 'Brake test'],
+        answer: 1,
+        explanation: 'A 6-inch lift stability nudge test verifies that pads are seated correctly before high elevation.'
+      },
+      {
+        question: 'Is it safe to work under a raised vehicle supported only by hydraulic pressure?',
+        options: ['Yes, if under 10 minutes', 'No, hoist must be lowered onto mechanical safety locks', 'Yes, for light sedans', 'Only if wearing a hard hat'],
+        answer: 1,
+        explanation: 'Never rely on hydraulic pressure alone. The hoist MUST rest on mechanical safety locks before working underneath.'
+      },
+      {
+        question: 'What action is required if a hoist shows hydraulic leaks or cracked arm restraints?',
+        options: ['Use it carefully', 'Apply Lockout/Tagout and mark Out of Service', 'Wipe the oil and continue', 'Only lift small cars'],
+        answer: 1,
+        explanation: 'Defective hoists must be locked out immediately to prevent catastrophic failure.'
+      }
+    ]
+  },
+  {
+    id: 'demo_driver',
+    title: 'Dealer Demo Vehicle & Customer Test Drive Safety',
+    duration: '4 Slides · 3 Questions',
+    role: 'Sales & Managers',
+    icon: '🚘',
+    desc: 'Licence verification, demo plate tracking, test drive routes & insurance compliance.',
+    slides: [
+      {
+        title: 'Driver Licence & Identity Verification',
+        subtitle: 'Mandatory Pre-Drive Document Checks',
+        points: [
+          'Sales reps MUST physically inspect the customer’s unexpired photo driver’s licence.',
+          'Verify licence class, expiry date, photo match, and licence restrictions (e.g., corrective lenses).',
+          'Make a clear copy or scan into MarketSync CRM before keys leave the showroom.',
+          'Never permit test drives with G1 / Learner licences or expired IDs.'
+        ],
+        speakerText: 'Before any customer test drive or sales rep demo assignment, reps must inspect the driver’s physical photo licence. Verify the licence is valid, unexpired, and matches the customer’s face.'
+      },
+      {
+        title: 'Dealer Trade Plate Regulations & Logbook',
+        subtitle: 'Canadian Highway Traffic Act Trade Plate Compliance',
+        points: [
+          'Dealer trade plates MUST be securely fastened to the rear of the vehicle.',
+          'Never place trade plates loose on the rear parcel shelf or dashboard.',
+          'Every trade plate movement MUST be logged in the Master Trade Plate Register.',
+          'Log entry requires Date, Time, Stock #, Plate #, Customer Name, and Rep Signature.'
+        ],
+        speakerText: 'Dealer trade license plates are strictly regulated. Plates must be securely attached to the rear of the vehicle. Every plate movement must be logged in the dealership trade plate register showing date, stock number, and rep name.'
+      },
+      {
+        title: 'Approved Test Drive Routes & Fleet Insurance',
+        subtitle: 'Customer Risk Waiver & Route Control',
+        points: [
+          'Customers must sign the Dealership Test Drive Agreement prior to departure.',
+          'Waiver specifies customer responsibility for red light, speed camera, and toll violations.',
+          'Sales reps should accompany all test drives using pre-approved dealership routes.',
+          'Test drives are strictly prohibited in severe weather warnings or unsafe road conditions.'
+        ],
+        speakerText: 'Sales reps must accompany customers on pre-approved test drive routes. Customers must sign the Test Drive Agreement acknowledging responsibility for red light and speed camera violations.'
+      },
+      {
+        title: 'Overnight Demo Vehicle Rules for Sales Staff',
+        subtitle: 'Executive Demo & Staff Vehicle Usage Policy',
+        points: [
+          'Staff demo vehicles are for business commuting and customer demonstrations only.',
+          'Family members or unauthorized third parties are strictly prohibited from driving demo units.',
+          'Rep is responsible for maintaining clean vehicle condition and low fuel alerts.',
+          'Report any collisions, scratches, or parking incidents to HR/Management within 2 hours.'
+        ],
+        speakerText: 'Executive demo vehicles assigned to sales staff are restricted to authorized employees. Family members are prohibited from operating demo units. Report any vehicle damage immediately.'
+      }
+    ],
+    quiz: [
+      {
+        question: 'When must a customer’s photo driver’s licence be physically inspected?',
+        options: ['After the test drive', 'Prior to handing over vehicle keys', 'Only if requested by police', 'When signing finance papers'],
+        answer: 1,
+        explanation: 'Driver licence verification MUST occur prior to handing over keys.'
+      },
+      {
+        question: 'Where must a dealer trade license plate be mounted during a test drive?',
+        options: ['On the front windshield', 'On the rear parcel shelf inside', 'Securely on the rear of the vehicle exterior', 'In the glove box'],
+        answer: 2,
+        explanation: 'Highway Traffic Act rules require dealer trade plates to be securely mounted on the exterior rear of the vehicle.'
+      },
+      {
+        question: 'Who is authorized to drive a dealership staff demo vehicle?',
+        options: ['Anyone with a valid licence', 'Only the authorized dealership employee', 'Friends and family', 'Any customer'],
+        answer: 1,
+        explanation: 'Dealership insurance policies restrict demo vehicle operation strictly to authorized employees.'
+      }
+    ]
+  },
+  {
+    id: 'ev_safety',
+    title: 'EV & Hybrid High-Voltage Battery Rescue Safety',
+    duration: '4 Slides · 3 Questions',
+    role: 'Service, Parts & Recon',
+    icon: '⚡',
+    desc: 'High-voltage disconnect procedures, orange cable safety, thermal runaway protocol.',
+    slides: [
+      {
+        title: 'EV Powertrain Architecture & High Voltage Standards',
+        subtitle: '400V - 800V Direct Current Hazards',
+        points: [
+          'Electric & Hybrid vehicles utilize High Voltage DC systems ranging from 400V to 800V+.',
+          'Bright ORANGE conduits and wiring identify all High Voltage circuits.',
+          'High voltage can cause severe electrocution, arc flash, or fatal cardiac arrest.',
+          'Never touch or cut orange cables without certified High Voltage isolation.'
+        ],
+        speakerText: 'Electric and hybrid vehicles operate on high-voltage direct current ranging from 400 to 800 volts. All high-voltage wiring and components are insulated in bright orange conduits.'
+      },
+      {
+        title: 'Service De-Energization & Disconnect (MSD)',
+        subtitle: 'Lockout/Tagout Procedures for EV Technicians',
+        points: [
+          'Remove the Manual Service Disconnect (MSD) plug before servicing EV components.',
+          'Wear Class 0 (1000V rated) insulated rubber gloves with protective leather outer gloves.',
+          'Wait 10 MINUTES minimum after pulling MSD for high-voltage capacitors to discharge.',
+          'Test zero voltage using a CAT IV 1000V rated digital multimeter before touching terminals.'
+        ],
+        speakerText: 'Before servicing high-voltage components or performing body/structural repairs on an EV, technicians must pull the Manual Service Disconnect plug, apply lockout locks, and wear Class 0 rated insulated gloves.'
+      },
+      {
+        title: 'Thermal Runaway & EV Battery Fire Emergency',
+        subtitle: 'Recognizing Battery Fire Hazards & Shop Response',
+        points: [
+          'Thermal Runaway: Chemical chain reaction causing extreme heat, toxic gas, and fire.',
+          'Warning signs: Popping sounds, sweet chemical odor, dense white/gray smoke.',
+          'IMMEDIATE ACTION: Evacuate the service bay immediately and call Emergency Services 911.',
+          'EV battery fires require 10,000+ liters of water cooling; never use standard fire extinguishers.'
+        ],
+        speakerText: 'If an EV battery pack emits popping sounds, white sweet-smelling smoke, or intense heat, evacuate the bay immediately. Thermal runaway requires continuous large-volume water cooling by fire emergency services.'
+      },
+      {
+        title: 'EV Collision Damage & Storage Isolation',
+        subtitle: 'Damaged EV Handling & Quarantined Lot Parking',
+        points: [
+          'Damaged EVs with battery impact MUST be quarantined 50 feet away from buildings/vehicles.',
+          'Monitor battery temperature with infrared thermal camera for 48 hours post-collision.',
+          'Never store a flood-damaged or compromised EV inside the main dealership shop.',
+          'Notify towing operators of high-voltage status prior to vehicle transport.'
+        ],
+        speakerText: 'Damaged EVs involved in collisions must be quarantined fifty feet away from structures and other vehicles in the yard to prevent fire propagation.'
+      }
+    ],
+    quiz: [
+      {
+        question: 'What color identifies high-voltage cables and conduits in electric and hybrid vehicles?',
+        options: ['Yellow', 'Bright Orange', 'Red', 'Blue'],
+        answer: 1,
+        explanation: 'International automotive standards mandate bright orange insulation for all high-voltage conduits.'
+      },
+      {
+        question: 'What rating must rubber insulated gloves have for EV high-voltage service?',
+        options: ['Household dish gloves', 'Class 0 (1000V rated) gloves with leather protectors', 'Kevlar cut gloves', 'Standard nitrile gloves'],
+        answer: 1,
+        explanation: 'Class 0 rated gloves (certified up to 1000V) with leather outer protectors are mandatory.'
+      },
+      {
+        question: 'What is the immediate action if an EV battery begins popping and emitting dense white smoke?',
+        options: ['Try to extinguish with shop hose', 'Evacuate the shop immediately and call 911', 'Drive vehicle outside', 'Open shop windows'],
+        answer: 1,
+        explanation: 'EV thermal runaway releases toxic HF gas and explosive heat. Evacuate immediately and call emergency services.'
+      }
+    ]
+  },
+  {
+    id: 'pipeda',
+    title: 'PIPEDA & Customer Financial Privacy Protection',
+    duration: '4 Slides · 3 Questions',
+    role: 'F&I, Sales & Desk',
+    icon: '🔒',
+    desc: 'Handling credit applications, SIN masking, deal jacket destruction & privacy laws.',
+    slides: [
+      {
+        title: 'Canadian PIPEDA Privacy Law & 10 Principles',
+        subtitle: 'Personal Information Protection and Electronic Documents Act',
+        points: [
+          'PIPEDA governs how Canadian businesses collect, use, and store customer data.',
+          'Key principle: Collect ONLY data required for vehicle purchase, lease, or financing.',
+          'Explicit customer consent is required before pulling credit reports or sharing with lenders.',
+          'Customers have the legal right to inspect their personal file stored at the dealership.'
+        ],
+        speakerText: 'PIPEDA governs how dealerships collect, use, and disclose customer personal information. Staff may only collect data necessary for vehicle sale, lease, or financing with explicit customer consent.'
+      },
+      {
+        title: 'Safeguarding Financial Credit Apps & SIN Masking',
+        subtitle: 'Protecting Sensitive Financial Documents',
+        points: [
+          'Social Insurance Numbers (SIN) are OPTIONAL for credit checks under Canadian law.',
+          'If a customer provides a SIN, it must be masked or encrypted on physical deal sheets.',
+          'Credit application forms must never be left visible on open sales desks.',
+          'Lock digital screens whenever walking away from CRM or lender portals.'
+        ],
+        speakerText: 'Customer financial information, credit scores, and bank details must be stored securely. Social Insurance Numbers are optional for credit checks and should never be left visible on open desks.'
+      },
+      {
+        title: 'Physical Deal Jacket Security & Clean Desk Policy',
+        subtitle: 'Showroom Clean Desk Guidelines & Locked Storage',
+        points: [
+          'All physical deal jackets containing credit info MUST be locked in F&I cabinets overnight.',
+          'Clean Desk Policy: Clear all customer paper files before leaving your workspace.',
+          'Discarded documents containing PII must go directly into locked shredding consoles.',
+          'Never discard customer documents into standard open trash cans or recycling bins.'
+        ],
+        speakerText: 'Paper documents containing customer names, addresses, or financial data must be deposited into locked shredding bins when no longer needed. Never leave customer deal jackets unattended on showroom desks.'
+      },
+      {
+        title: 'Digital Privacy, Password Safety & Breach Reporting',
+        subtitle: 'Data Encryption & Mandatory Breach Escalation',
+        points: [
+          'Never share MarketSync passwords, CRM logins, or lender credentials.',
+          'Report lost laptops, iPads, or USB drives to IT/Management immediately.',
+          'PIPEDA mandates reporting real-risk data breaches to the Privacy Commissioner of Canada.',
+          'Fines for deliberate privacy violations can reach $100,000 per violation.'
+        ],
+        speakerText: 'Protect digital logins at all times. Any lost device or unauthorized access to customer data must be reported to management immediately to comply with federal breach notification rules.'
+      }
+    ],
+    quiz: [
+      {
+        question: 'What federal Canadian privacy act governs dealership handling of customer financial data?',
+        options: ['HIPAA', 'PIPEDA', 'GDPR', 'OSHA'],
+        answer: 1,
+        explanation: 'PIPEDA (Personal Information Protection and Electronic Documents Act) is Canada’s federal private sector privacy law.'
+      },
+      {
+        question: 'Is a customer legally required to provide their Social Insurance Number (SIN) for a car loan credit check?',
+        options: ['Yes, mandatory by law', 'No, SIN is optional for credit bureau inquiries', 'Only for leases', 'Only if buying a truck'],
+        answer: 1,
+        explanation: 'Providing a SIN is optional under Canadian credit reporting rules.'
+      },
+      {
+        question: 'Where must paper files containing customer financial details be placed when discarding?',
+        options: ['Standard blue recycling bin', 'Open desk trash can', 'Locked security shredding console', 'Save in desk drawer'],
+        answer: 2,
+        explanation: 'Customer PII paper documents must be deposited directly into locked security shredding bins.'
+      }
+    ]
+  }
 ];
 
-function openTrainingVideoModal(courseId) {
-  const c = DEALERSHIP_TRAINING_COURSES.find(x => x.id === courseId) || DEALERSHIP_TRAINING_COURSES[0];
-
-  const modalHtml = `
-    <div class="space-y-4 max-h-[85vh] overflow-y-auto p-1">
-      <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
-        <div class="flex items-center gap-2">
-          <span class="text-2xl">${c.icon}</span>
-          <div>
-            <h3 class="text-base font-black text-slate-900 dark:text-white leading-tight">${esc(c.title)}</h3>
-            <p class="text-xs text-slate-500">${c.duration} Video Module · ${c.role}</p>
-          </div>
-        </div>
-        <button data-close class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
-      </div>
-
-      <!-- Simulated HD Video Player -->
-      <div class="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex flex-col justify-between p-4 shadow-xl group">
-        <div class="flex justify-between text-xs text-white/80 font-bold">
-          <span>MarketSync Compliance Video Player HD</span>
-          <span class="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">Live Stream</span>
-        </div>
-
-        <div class="text-center space-y-2 my-auto">
-          <div class="w-16 h-16 rounded-full bg-indigo-600/90 hover:bg-indigo-500 text-white flex items-center justify-center mx-auto text-2xl shadow-lg shadow-indigo-600/40 transition cursor-pointer transform group-hover:scale-105">
-            ▶️
-          </div>
-          <div class="text-xs text-slate-300 font-bold">${esc(c.title)} Video Stream</div>
-          <div class="text-[11px] text-slate-500">Press play to watch module video and complete quiz</div>
-        </div>
-
-        <div class="space-y-1">
-          <div class="flex justify-between text-[11px] text-slate-400 font-bold"><span>Progress</span><span>100% Watched</span></div>
-          <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-            <div class="h-full bg-emerald-500 rounded-full" style="width: 100%"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2 text-xs">
-        <div class="font-black text-slate-900 dark:text-white">Module Description &amp; Requirements</div>
-        <p class="text-slate-600 dark:text-slate-400 leading-relaxed">${esc(c.desc)}</p>
-      </div>
-
-      <button onclick="closeAutomationModal(); openEmployeeCertificateModal('Active Employee', '${esc(c.title)}', '${new Date().toISOString().split('T')[0]}', 'CERT-${c.id.toUpperCase()}-2026');" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2">
-        <span>🏆 Complete Module &amp; Generate Certificate</span>
-      </button>
-    </div>
-  `;
-  automationModal(modalHtml, 'max-w-2xl');
+let __currentSpeechUtterance = null;
+function speakText(text) {
+  stopSpeech();
+  if ('speechSynthesis' in window) {
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.95;
+      u.pitch = 1.0;
+      __currentSpeechUtterance = u;
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
 }
-window.openTrainingVideoModal = openTrainingVideoModal;
+function stopSpeech() {
+  if ('speechSynthesis' in window) {
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+  }
+}
+window.speakText = speakText;
+window.stopSpeech = stopSpeech;
+
+let __activeCourseState = { courseId: '', slideIdx: 0, answers: {} };
+
+function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
+  stopSpeech();
+  const c = DEALERSHIP_TRAINING_COURSES.find(x => x.id === courseId) || DEALERSHIP_TRAINING_COURSES[0];
+  __activeCourseState.courseId = c.id;
+
+  if (mode === 'slides') {
+    const totalSlides = c.slides.length;
+    const slideIdx = Math.max(0, Math.min(slideIndex, totalSlides - 1));
+    __activeCourseState.slideIdx = slideIdx;
+    const s = c.slides[slideIdx];
+    const pct = Math.round(((slideIdx + 1) / totalSlides) * 100);
+
+    const modalHtml = `
+      <div class="space-y-4 max-h-[85vh] overflow-y-auto p-1">
+        <!-- Header -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+          <div class="flex items-center gap-2.5">
+            <div class="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xl">${c.icon}</div>
+            <div>
+              <h3 class="text-base font-black text-slate-900 dark:text-white leading-tight">${esc(c.title)}</h3>
+              <div class="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                <span class="font-bold text-indigo-600 dark:text-indigo-400">Slide ${slideIdx + 1} of ${totalSlides}</span>
+                <span>·</span>
+                <span>${esc(c.role)}</span>
+              </div>
+            </div>
+          </div>
+          <button onclick="stopSpeech(); closeAutomationModal();" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">✕</button>
+        </div>
+
+        <!-- Slide Progress Bar -->
+        <div class="space-y-1">
+          <div class="flex justify-between text-[11px] font-bold text-slate-400">
+            <span>Progress: ${pct}% Read</span>
+            <span>Module ${c.id.toUpperCase()}</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div class="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+          </div>
+        </div>
+
+        <!-- Text-to-Speech Control Bar -->
+        <div class="bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/80 rounded-xl p-3 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">🔊</span>
+            <div>
+              <div class="text-xs font-black text-slate-900 dark:text-white">Audio Voice Readout</div>
+              <div class="text-[10px] text-slate-500 dark:text-slate-400">Listen to spoken narration for this slide</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="speakText('${esc(s.speakerText).replace(/'/g, "\\'")}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm transition flex items-center gap-1">
+              <span>▶️</span><span>Read Out Loud</span>
+            </button>
+            <button onclick="stopSpeech()" class="px-2.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300 font-bold text-xs transition">
+              ⏸️ Stop
+            </button>
+          </div>
+        </div>
+
+        <!-- Main Slide Content Card -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+          <div>
+            <span class="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">${esc(s.subtitle)}</span>
+            <h2 class="text-lg font-black text-slate-900 dark:text-white mt-2 leading-tight">${esc(s.title)}</h2>
+          </div>
+
+          <div class="space-y-2.5">
+            ${s.points.map(pt => `
+              <div class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80">
+                <span class="text-emerald-500 font-black flex-shrink-0 mt-0.5">✓</span>
+                <span class="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed">${esc(pt)}</span>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Official Guideline Box -->
+          <div class="p-3.5 bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/80 rounded-xl space-y-1 text-xs">
+            <div class="font-black text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+              <span>💡 Official Compliance &amp; Policy Guideline</span>
+            </div>
+            <p class="text-amber-900/80 dark:text-amber-200/80 leading-relaxed text-[11px]">${esc(s.speakerText)}</p>
+          </div>
+        </div>
+
+        <!-- Slide Navigation Buttons -->
+        <div class="pt-2 flex items-center justify-between gap-3">
+          <button onclick="stopSpeech(); openTrainingCourseModal('${c.id}', ${slideIdx - 1}, 'slides')" class="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 font-bold text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition ${slideIdx === 0 ? 'opacity-40 pointer-events-none' : ''}">
+            ← Previous Slide
+          </button>
+
+          ${slideIdx < totalSlides - 1 ? `
+            <button onclick="stopSpeech(); openTrainingCourseModal('${c.id}', ${slideIdx + 1}, 'slides')" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition flex items-center gap-1.5">
+              <span>Next Slide</span><span>→</span>
+            </button>
+          ` : `
+            <button onclick="stopSpeech(); openTrainingCourseModal('${c.id}', 0, 'quiz')" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5">
+              <span>📝 Begin Compliance Test</span><span>→</span>
+            </button>
+          `}
+        </div>
+      </div>
+    `;
+    automationModal(modalHtml, 'max-w-2xl');
+
+  } else if (mode === 'quiz') {
+    __activeCourseState.answers = {};
+    const quizHtml = c.quiz.map((q, idx) => `
+      <div class="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
+        <div class="font-black text-xs text-slate-900 dark:text-white">
+          <span class="text-indigo-600 dark:text-indigo-400">Q${idx + 1}.</span> ${esc(q.question)}
+        </div>
+        <div class="space-y-2">
+          ${q.options.map((opt, optIdx) => `
+            <label class="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 hover:border-indigo-400 transition cursor-pointer text-xs">
+              <input type="radio" name="q_${c.id}_${idx}" value="${optIdx}" onchange="__activeCourseState.answers['${idx}'] = ${optIdx}" class="accent-indigo-600 w-4 h-4">
+              <span class="font-bold text-slate-700 dark:text-slate-200">${esc(opt)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    const modalHtml = `
+      <div class="space-y-4 max-h-[85vh] overflow-y-auto p-1">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+          <div class="flex items-center gap-2.5">
+            <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-xl">📝</div>
+            <div>
+              <h3 class="text-base font-black text-slate-900 dark:text-white leading-tight">${esc(c.title)}</h3>
+              <p class="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">Mandatory Compliance Knowledge Test (${c.quiz.length} Questions)</p>
+            </div>
+          </div>
+          <button onclick="closeAutomationModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">✕</button>
+        </div>
+
+        <div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-800 dark:text-amber-300 font-semibold">
+          ⚠️ 100% Score is required to earn your Official Certificate of Completion. Select your answers below.
+        </div>
+
+        <div class="space-y-4">
+          ${quizHtml}
+        </div>
+
+        <div class="pt-2 flex items-center justify-between gap-3">
+          <button onclick="openTrainingCourseModal('${c.id}', ${c.slides.length - 1}, 'slides')" class="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 font-bold text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            ← Back to Slides
+          </button>
+          <button onclick="submitTrainingCourseQuiz('${c.id}')" class="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-600/30 transition flex items-center gap-2">
+            <span>Submit Test &amp; Grade</span><span>✓</span>
+          </button>
+        </div>
+      </div>
+    `;
+    automationModal(modalHtml, 'max-w-2xl');
+  }
+}
+window.openTrainingCourseModal = openTrainingCourseModal;
+window.openTrainingVideoModal = openTrainingCourseModal;
+
+function submitTrainingCourseQuiz(courseId) {
+  const c = DEALERSHIP_TRAINING_COURSES.find(x => x.id === courseId);
+  if (!c) return;
+
+  const userAns = __activeCourseState.answers || {};
+  let correctCount = 0;
+  const total = c.quiz.length;
+
+  c.quiz.forEach((q, idx) => {
+    if (parseInt(userAns[idx], 10) === q.answer) {
+      correctCount++;
+    }
+  });
+
+  const passed = correctCount === total;
+  const pct = Math.round((correctCount / total) * 100);
+
+  if (passed) {
+    try {
+      let completed = JSON.parse(localStorage.getItem('ms_completed_courses') || '{}');
+      completed[courseId] = { date: new Date().toISOString().split('T')[0], score: '100%' };
+      localStorage.setItem('ms_completed_courses', JSON.stringify(completed));
+    } catch {}
+
+    if (typeof showToast === 'function') showToast(`🎉 Congratulations! 100% Score on ${c.title}`, 'success');
+
+    openEmployeeCertificateModal('Active Employee', c.title, new Date().toISOString().split('T')[0], `CERT-${c.id.toUpperCase()}-2026`);
+
+    if (typeof renderPeopleCompliance === 'function') { try { renderPeopleCompliance(); } catch (e) {} }
+    const host = document.getElementById('daily-briefing-workstation-host');
+    if (host && typeof renderDailyBriefingWorkstation === 'function') {
+      try { host.innerHTML = renderDailyBriefingWorkstation(); } catch (e) {}
+    }
+  } else {
+    const modalHtml = `
+      <div class="space-y-4 p-1">
+        <div class="text-center space-y-2 p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl">
+          <div class="text-3xl">❌</div>
+          <div class="text-lg font-black text-rose-900 dark:text-rose-200">Test Score: ${pct}% (${correctCount} / ${total} Correct)</div>
+          <p class="text-xs text-rose-700 dark:text-rose-300">100% passing score is required for Canadian Dealership Compliance Standards. Please review the slides and retake the test.</p>
+        </div>
+
+        <div class="pt-2 flex justify-center gap-3">
+          <button onclick="openTrainingCourseModal('${c.id}', 0, 'slides')" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition">
+            🔄 Review Slides &amp; Retake Test
+          </button>
+        </div>
+      </div>
+    `;
+    automationModal(modalHtml, 'max-w-md');
+  }
+}
+window.submitTrainingCourseQuiz = submitTrainingCourseQuiz;
 
 function openEmployeeCertificateModal(empName, certTitle, dateStr, certId) {
   const modalHtml = `
@@ -29217,23 +29840,33 @@ function openEmployeeCertificateModal(empName, certTitle, dateStr, certId) {
 window.openEmployeeCertificateModal = openEmployeeCertificateModal;
 
 function renderPeopleComplianceTab(body, employees) {
-  const trainingCards = DEALERSHIP_TRAINING_COURSES.map(c => `
-    <div class="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3 shadow-sm hover:border-indigo-500 transition flex flex-col justify-between">
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-2xl">${c.icon}</span>
-          <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 border border-indigo-200/60">${c.duration}</span>
-        </div>
-        <h4 class="text-sm font-black text-slate-900 dark:text-white leading-tight">${esc(c.title)}</h4>
-        <p class="text-xs text-slate-500 mt-1 line-clamp-2">${esc(c.desc)}</p>
-      </div>
+  let completedMap = {};
+  try { completedMap = JSON.parse(localStorage.getItem('ms_completed_courses') || '{}'); } catch {}
 
-      <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-        <span class="text-[11px] font-bold text-slate-400">${c.role}</span>
-        <button onclick="openTrainingVideoModal('${c.id}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow transition">▶️ Watch Video</button>
+  const trainingCards = DEALERSHIP_TRAINING_COURSES.map(c => {
+    const isDone = !!completedMap[c.id];
+    return `
+      <div class="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3 shadow-sm hover:border-indigo-500 transition flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-2xl">${c.icon}</span>
+            <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${isDone ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 border border-indigo-200/60'}">${isDone ? '✓ Passed (100%)' : c.duration}</span>
+          </div>
+          <h4 class="text-sm font-black text-slate-900 dark:text-white leading-tight">${esc(c.title)}</h4>
+          <p class="text-xs text-slate-500 mt-1 line-clamp-2">${esc(c.desc)}</p>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1">
+          <button onclick="openTrainingCourseModal('${c.id}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow transition flex items-center gap-1">
+            <span>📖</span><span>${isDone ? 'Review Slides' : 'Start Course'}</span>
+          </button>
+          <button onclick="openEmployeeCertificateModal('Active Employee', '${esc(c.title)}', '${new Date().toISOString().split('T')[0]}', 'CERT-${c.id.toUpperCase()}-2026')" class="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-xs transition">
+            🏆 Certificate
+          </button>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   body.innerHTML = `
     <div class="space-y-6">
@@ -29242,10 +29875,10 @@ function renderPeopleComplianceTab(body, employees) {
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <span>🎬 Dealership Training Videos &amp; Safety Courses</span>
+              <span>🎓 Dealership Compliance Interactive Slideshows &amp; Audio Courses</span>
               <span class="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 px-2 py-0.5 rounded-full">All Staff Access</span>
             </h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Mandatory safety modules, WHMIS, driver safety, and privacy video courses. Watch and claim certificate.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Read through interactive slides, listen to audio readout, and complete the end-of-course test for official certification.</p>
           </div>
         </div>
 
