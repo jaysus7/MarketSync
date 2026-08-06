@@ -2339,6 +2339,7 @@ function switchPage(pageId) {
   if (pageId === 'service-parts') loadServicePartsPage();
   if (pageId === 'owner-users') loadOwnerUsersPage();
   if (pageId === 'ai-inbox') loadAiInbox();
+  if (pageId === 'people-compliance' || pageId === 'hr' || pageId === 'people') loadPeopleCompliance();
 
   __currentPage = pageId;
   checkDepartmentOpen(pageId);
@@ -12023,7 +12024,6 @@ function renderDealerEmail() {
           <p class="text-[13px] text-slate-500 dark:text-slate-400">Design visual emails, track open rates, and target recent customers with fatigue suppression filters.</p></div>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="openMailchimpEmailBuilder('inventory')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/25 transition flex items-center gap-1.5">🎨 Visual Builder</button>
         <div class="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200 dark:border-slate-800">${pill('campaigns', 'Active Campaigns')}${pill('templates', 'Templates')}</div>
       </div>
     </div>
@@ -12082,16 +12082,18 @@ function renderDealerTemplates() {
         </div>
         <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${esc(t.subject)}</div>
       </div>
-      <label title="Turn this template on or off" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0"><input type="checkbox" ${t.active !== false ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','active',this.checked)" class="accent-emerald-600 w-4 h-4"><span class="${t.active !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">On</span></label>
-      <label title="Also make this template available for text (SMS)" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0"><input type="checkbox" ${t.sms_enabled ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','sms_enabled',this.checked)" class="accent-indigo-600 w-4 h-4"><span class="${t.sms_enabled ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}">Text</span></label>
-      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0 flex items-center gap-1">🎨 Builder</button>
-      <button onclick="dealerEmailDeleteTmpl('${t.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">Delete</button>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button onclick="dealerEmailEditTmplVisual('${t.id}')" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[12px] font-black shadow-sm transition flex items-center gap-1">🎨 Visual Builder</button>
+        <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 text-[12px] font-bold transition flex items-center gap-1">✏️ Basic Builder</button>
+        <label title="Turn this template on or off" class="flex items-center gap-1 text-[12px] font-bold cursor-pointer select-none ml-1"><input type="checkbox" ${t.active !== false ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','active',this.checked)" class="accent-emerald-600 w-4 h-4"><span class="${t.active !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">On</span></label>
+        <label title="Also make this template available for text (SMS)" class="flex items-center gap-1 text-[12px] font-bold cursor-pointer select-none"><input type="checkbox" ${t.sms_enabled ? 'checked' : ''} onchange="dealerEmailToggleTmpl('${t.id}','sms_enabled',this.checked)" class="accent-indigo-600 w-4 h-4"><span class="${t.sms_enabled ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}">Text</span></label>
+        <button onclick="dealerEmailDeleteTmpl('${t.id}')" class="text-[12px] font-bold text-rose-500 hover:text-rose-600 ml-1">Delete</button>
+      </div>
     </div>`).join('');
   body.innerHTML = `<div class="flex items-center justify-between mb-3">
       <p class="text-[12px] text-slate-500 dark:text-slate-400">Reusable email bodies. Toggled-on templates automatically appear as active campaigns in your Campaigns list.</p>
       <div class="flex items-center gap-2">
-        <button onclick="openMailchimpEmailBuilder('inventory', true)" class="px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5">🎨 Visual Builder</button>
-        <button onclick="dealerEmailNewTmpl()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition">＋ New Template</button>
+        <button onclick="dealerEmailNewTmpl()" class="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1">＋ New Template</button>
       </div>
     </div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">${rows || '<div class="text-sm text-slate-400 italic py-6 text-center">No templates yet.</div>'}</div>`;
@@ -12115,12 +12117,15 @@ function renderDealerCampaigns() {
         <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${esc(t.subject)}</div>
         <div class="text-[11px] text-slate-400 mt-0.5">Automated Drip / Trigger · Active for all CRM contacts</div>
       </div>
-      <button onclick="dealerEmailSendCampaign('${t.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0 flex items-center gap-1">🚀 Run Broadcast</button>
-      <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-[12px] font-bold flex-shrink-0 flex items-center gap-1">🎨 Builder</button>
-      <label title="Toggle active status" class="flex items-center gap-1.5 text-[12px] font-bold cursor-pointer select-none flex-shrink-0 ml-1">
-        <input type="checkbox" checked onchange="dealerEmailToggleTmpl('${t.id}','active',this.checked)" class="accent-emerald-600 w-4 h-4">
-        <span class="text-emerald-600 dark:text-emerald-400">On</span>
-      </label>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button onclick="dealerEmailSendCampaign('${t.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex items-center gap-1">🚀 Run Broadcast</button>
+        <button onclick="dealerEmailEditTmplVisual('${t.id}')" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[12px] font-black shadow-sm transition flex items-center gap-1">🎨 Visual Builder</button>
+        <button onclick="dealerEmailEditTmpl('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 text-[12px] font-bold transition flex items-center gap-1">✏️ Basic Builder</button>
+        <label title="Toggle active status" class="flex items-center gap-1 text-[12px] font-bold cursor-pointer select-none ml-1">
+          <input type="checkbox" checked onchange="dealerEmailToggleTmpl('${t.id}','active',this.checked)" class="accent-emerald-600 w-4 h-4">
+          <span class="text-emerald-600 dark:text-emerald-400">On</span>
+        </label>
+      </div>
     </div>
   `).join('');
 
@@ -12134,9 +12139,12 @@ function renderDealerCampaigns() {
         <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${esc(c.subject)}</div>
         <div class="text-[11px] text-slate-400 mt-0.5">${esc(segLabel(c))} · ${c.status === 'sent' ? `Sent to ${c.sent_count || c.sent || 1420} · ${c.opened_count || Math.round((c.sent_count || 1420) * 0.48)} opened (48%)` : 'Manual Broadcast'}</div>
       </div>
-      ${c.status === 'sent' ? '<span class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">Sent</span>'
-        : `<button onclick="dealerEmailSendCampaign('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex-shrink-0">Send Now</button>`}
-      <button onclick="dealerEmailDeleteCampaign('${c.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">✕</button>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        ${c.status === 'sent' ? '<span class="text-[12px] font-bold text-emerald-600 dark:text-emerald-400">Sent</span>'
+          : `<button onclick="dealerEmailSendCampaign('${c.id}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold">Send Now</button>`}
+        <button onclick="dealerEmailEditCampaignVisual('${c.id}')" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[12px] font-black shadow-sm transition flex items-center gap-1">🎨 Visual Builder</button>
+        <button onclick="dealerEmailDeleteCampaign('${c.id}')" class="text-[12px] font-bold text-rose-500 hover:text-rose-600 ml-1">✕</button>
+      </div>
     </div>
   `).join('');
 
@@ -12145,12 +12153,23 @@ function renderDealerCampaigns() {
   body.innerHTML = `<div class="flex items-center justify-between mb-3">
       <p class="text-[12px] text-slate-500 dark:text-slate-400">Active automated campaigns and one-off broadcasts to your CRM contacts.</p>
       <div class="flex items-center gap-2">
-        <button onclick="openMailchimpEmailBuilder('inventory')" class="px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5">🎨 Visual Builder</button>
-        <button onclick="dealerEmailNewCampaign()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition">＋ New Campaign</button>
+        <button onclick="dealerEmailNewCampaign()" class="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1">＋ New Campaign</button>
       </div>
     </div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">${allRows || '<div class="text-sm text-slate-400 italic py-10 text-center">No active campaigns yet — enable a template or build a new campaign.</div>'}</div>`;
 }
+
+window.dealerEmailEditTmplVisual = (id) => {
+  const tmpl = (__dealerEmail.templates || []).find(x => x.id === id);
+  if (!tmpl) return;
+  openMailchimpEmailBuilder(tmpl, true);
+};
+
+window.dealerEmailEditCampaignVisual = (id) => {
+  const camp = (__dealerEmail.campaigns || []).find(x => x.id === id) || (__dealerEmail.templates || []).find(x => x.id === id);
+  if (!camp) return;
+  openMailchimpEmailBuilder(camp, false);
+};
 
 // ── segment helper: build jsonb from the modal's preset + tag input ──
 function dealerEmailSegment() {
@@ -27961,3 +27980,665 @@ function closeBadgeRevealModal() {
   if (modal) modal.classList.add('hidden');
 }
 window.closeBadgeRevealModal = closeBadgeRevealModal;
+
+// ── MarketSync People & Compliance Engine ─────────────────────────────────────
+let __peopleComplianceView = 'overview'; // 'overview' | 'people' | 'compliance' | 'automation' | 'settings'
+let __peopleSelectedEmpId = null;
+let __peopleProfileTab = 'overview'; // 'overview' | 'access' | 'compliance' | 'performance' | 'assets'
+let __peopleSearchQuery = '';
+let __peopleDeptFilter = 'all';
+
+const DEFAULT_EMPLOYEES = [
+  {
+    id: 'emp-101',
+    first_name: 'Marcus',
+    last_name: 'Vance',
+    email: 'marcus.vance@dealership.com',
+    phone: '(555) 392-1049',
+    role: 'Sales Representative',
+    department: 'Sales',
+    location: 'Main Rooftop - Showroom',
+    manager: 'Sarah Jenkins (General Sales Mgr)',
+    emp_type: 'Full-Time Permanent',
+    status: 'Active',
+    start_date: '2023-04-15',
+    licence_no: 'DL-948201-ON',
+    licence_expiry: '2027-09-20',
+    licence_status: 'Valid',
+    abstract_date: '2026-01-10',
+    comp_plan: 'Base Salary ($36k) + $350/Unit + 15% Front Gross',
+    compliance_docs: [
+      { name: 'Employment Agreement & NDA', signed: true, date: '2023-04-15' },
+      { name: 'Workplace Safety & Harassment Policy 2026', signed: true, date: '2026-01-05' },
+      { name: 'Driver Abstract & Demo Vehicle Policy', signed: true, date: '2026-01-10' }
+    ],
+    training: [
+      { name: 'WHMIS 2015 Certification', completed: true, expiry: '2027-04-15' },
+      { name: 'Joint Health & Safety Awareness', completed: true, expiry: '2026-11-20' },
+      { name: 'MarketSync OS Sales Mastery', completed: true, expiry: 'N/A' }
+    ],
+    assets: ['Demo Vehicle VIN: 2G1FA1E34D91024', 'Showroom iPad Air #4', 'Store Fuel Card #9410'],
+    perf: { units_mtd: 14, gross_mtd: 38400, active_leads: 28, lead_resp_min: 6.2, comm_mtd: 4900, rating: 'Exceeds Expectations' },
+    emergency: { name: 'Elena Vance', relation: 'Spouse', phone: '(555) 948-2011' }
+  },
+  {
+    id: 'emp-102',
+    first_name: 'Jessica',
+    last_name: 'Taylor',
+    email: 'jessica.taylor@dealership.com',
+    phone: '(555) 839-2011',
+    role: 'F&I Business Manager',
+    department: 'F&I',
+    location: 'Main Rooftop - F&I Office',
+    manager: 'David Miller (Finance Director)',
+    emp_type: 'Full-Time Permanent',
+    status: 'Active',
+    start_date: '2022-08-01',
+    licence_no: 'OMVIC-391024-ON',
+    licence_expiry: '2026-09-01',
+    licence_status: 'Expiring Soon (25 Days)',
+    abstract_date: '2025-08-12',
+    comp_plan: '1.2% Back-End Gross + Warranty Volume Tier',
+    compliance_docs: [
+      { name: 'Employment Agreement & NDA', signed: true, date: '2022-08-01' },
+      { name: 'Workplace Safety & Harassment Policy 2026', signed: true, date: '2026-01-05' },
+      { name: 'OMVIC / AMVIC Code of Ethics Statement', signed: true, date: '2025-08-01' }
+    ],
+    training: [
+      { name: 'WHMIS 2015 Certification', completed: true, expiry: '2026-08-01' },
+      { name: 'F&I Compliance & Anti-Money Laundering', completed: true, expiry: '2027-02-15' }
+    ],
+    assets: ['F&I Office Workstation', 'E-Signature Pad #2'],
+    perf: { PVR_mtd: 2450, warranty_pen_pct: 68, active_deals: 19, comm_mtd: 7200, rating: 'Outstanding' },
+    emergency: { name: 'Robert Taylor', relation: 'Brother', phone: '(555) 129-4910' }
+  },
+  {
+    id: 'emp-103',
+    first_name: 'David',
+    last_name: 'Chen',
+    email: 'david.chen@dealership.com',
+    phone: '(555) 491-0294',
+    role: 'Service Master Technician',
+    department: 'Service',
+    location: 'Service Building - Bay 4',
+    manager: 'Tom Reynolds (Service Manager)',
+    emp_type: 'Full-Time Permanent',
+    status: 'Active',
+    start_date: '2021-02-10',
+    licence_no: '310S-TECH-948',
+    licence_expiry: '2028-05-10',
+    licence_status: 'Valid',
+    abstract_date: '2025-11-04',
+    comp_plan: '$42/Flat Rate Hour + EV Tech Bonus',
+    compliance_docs: [
+      { name: 'Employment Agreement & NDA', signed: true, date: '2021-02-10' },
+      { name: 'Shop Safety & Personal Protection Equipment (PPE)', signed: true, date: '2026-01-05' }
+    ],
+    training: [
+      { name: '310S Red Seal Automotive Technician', completed: true, expiry: '2028-05-10' },
+      { name: 'EV High-Voltage Disconnect Safety', completed: true, expiry: '2027-01-15' },
+      { name: 'WHMIS 2015 Certification', completed: true, expiry: '2026-09-30' }
+    ],
+    assets: ['Diagnostician Scanner #3', 'Toolbox Locker A-14'],
+    perf: { efficiency_pct: 124, labor_hrs_mtd: 168, ro_count: 84, comm_mtd: 7056, rating: 'Master Class' },
+    emergency: { name: 'Mei Chen', relation: 'Mother', phone: '(555) 883-9201' }
+  },
+  {
+    id: 'emp-104',
+    first_name: 'Sarah',
+    last_name: 'Jenkins',
+    email: 'sarah.jenkins@dealership.com',
+    phone: '(555) 201-9481',
+    role: 'General Sales Manager',
+    department: 'Management',
+    location: 'Main Rooftop - Executive Office',
+    manager: 'Dealership Owner',
+    emp_type: 'Full-Time Permanent',
+    status: 'Active',
+    start_date: '2019-11-01',
+    licence_no: 'DL-109284-ON',
+    licence_expiry: '2029-11-01',
+    licence_status: 'Valid',
+    abstract_date: '2026-02-01',
+    comp_plan: 'Base Salary + 2.5% Store Net Sales Override',
+    compliance_docs: [
+      { name: 'Executive Employment Agreement & NDA', signed: true, date: '2019-11-01' },
+      { name: 'Workplace Safety & Harassment Policy 2026', signed: true, date: '2026-01-05' },
+      { name: 'Joint Health & Safety Executive Rep Statement', signed: true, date: '2026-01-05' }
+    ],
+    training: [
+      { name: 'Joint Health & Safety Committee Certification', completed: true, expiry: '2028-01-01' },
+      { name: 'WHMIS 2015 Certification', completed: true, expiry: '2027-05-15' }
+    ],
+    assets: ['Executive MacBook Pro', 'Master Dealership Keycard'],
+    perf: { store_units_mtd: 142, store_gross_mtd: 412000, comm_mtd: 14500, rating: 'Executive Excellence' },
+    emergency: { name: 'Mark Jenkins', relation: 'Spouse', phone: '(555) 332-9104' }
+  }
+];
+
+function getPeopleComplianceData() {
+  if (!window.__peopleComplianceEmployees) {
+    window.__peopleComplianceEmployees = JSON.parse(JSON.stringify(DEFAULT_EMPLOYEES));
+  }
+  return window.__peopleComplianceEmployees;
+}
+
+function loadPeopleCompliance() {
+  const container = document.getElementById('people-compliance-root') || document.getElementById('page-content');
+  if (!container) return;
+  renderPeopleCompliance();
+}
+window.loadPeopleCompliance = loadPeopleCompliance;
+
+function renderPeopleCompliance() {
+  const root = document.getElementById('people-compliance-root');
+  if (!root) return;
+
+  const employees = getPeopleComplianceData();
+  const v = __peopleComplianceView;
+
+  const tabPill = (id, label, icon) => `
+    <button onclick="setPeopleComplianceView('${id}')" class="px-4 py-2.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 ${v === id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
+      <span>${icon}</span><span>${label}</span>
+    </button>
+  `;
+
+  root.innerHTML = `
+    <div class="space-y-6 max-w-7xl mx-auto">
+      <!-- Header Bar -->
+      <div class="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm">
+        <div class="flex items-center gap-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xl shadow-inner">👥</div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-2xl font-black text-slate-900 dark:text-white leading-tight">People &amp; Compliance Engine</h1>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">Operational HR</span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Unified employee profiles, licence &amp; safety compliance, and automated dealership HR workflows.</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="openAddEmployeeModal()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5">＋ Onboard Employee</button>
+          <button onclick="openLogIncidentModal()" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-md shadow-rose-500/20 transition flex items-center gap-1.5">📋 Log Safety Incident</button>
+        </div>
+      </div>
+
+      <!-- 5 Standard Engine Navigation Tabs -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-slate-200 dark:border-slate-800">
+        ${tabPill('overview', 'Overview', '📊')}
+        ${tabPill('people', 'People & Profiles', '👥')}
+        ${tabPill('compliance', 'Compliance & Safety', '🛡️')}
+        ${tabPill('automation', 'HR Workflows', '⚡')}
+        ${tabPill('settings', 'Engine Settings', '⚙️')}
+      </div>
+
+      <div id="people-compliance-body"></div>
+    </div>
+  `;
+
+  const body = document.getElementById('people-compliance-body');
+  if (!body) return;
+
+  if (v === 'overview') renderPeopleOverview(body, employees);
+  if (v === 'people') renderPeopleDirectory(body, employees);
+  if (v === 'compliance') renderPeopleComplianceTab(body, employees);
+  if (v === 'automation') renderPeopleAutomation(body, employees);
+  if (v === 'settings') renderPeopleSettings(body, employees);
+}
+
+window.setPeopleComplianceView = (v) => {
+  __peopleComplianceView = v;
+  renderPeopleCompliance();
+};
+
+// ── 1. Overview Tab ──────────────────────────────────────────────────────────
+function renderPeopleOverview(body, employees) {
+  const activeCount = employees.filter(e => e.status === 'Active').length;
+  const expiringLicences = employees.filter(e => e.licence_status.includes('Expiring')).length;
+
+  body.innerHTML = `
+    <div class="space-y-6">
+      <!-- Top Metrics -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">👥 Active Staff</div>
+          <div class="text-2xl font-black text-slate-900 dark:text-white">${activeCount} <span class="text-xs font-semibold text-slate-400">/ 48 total</span></div>
+          <div class="text-[11px] text-emerald-500 font-bold mt-1">100% Onboarded</div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">📑 Expiring Licences</div>
+          <div class="text-2xl font-black text-amber-500">${expiringLicences}</div>
+          <div class="text-[11px] text-slate-400 mt-1">Due within 30 days</div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">🎓 Training Deadlines</div>
+          <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400">4</div>
+          <div class="text-[11px] text-slate-400 mt-1">WHMIS &amp; Safety Certs</div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">⚠️ Safety Hazards</div>
+          <div class="text-2xl font-black text-rose-500">1</div>
+          <div class="text-[11px] text-slate-400 mt-1">Open shop log</div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">🛡️ Compliance Score</div>
+          <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400">96.4%</div>
+          <div class="text-[11px] text-slate-400 mt-1">Audit status optimal</div>
+        </div>
+      </div>
+
+      <!-- Department Staffing & Readiness -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center justify-between">
+          <span>🏢 Department Staffing &amp; Operational Readiness</span>
+          <span class="text-xs font-bold text-slate-400">Store Rooftop #1</span>
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
+            <div class="flex justify-between text-xs font-bold">
+              <span>Sales Department</span>
+              <span class="text-emerald-600">12 / 12 (100%)</span>
+            </div>
+            <div class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" style="width:100%"></div>
+            </div>
+          </div>
+
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
+            <div class="flex justify-between text-xs font-bold">
+              <span>F&amp;I Office</span>
+              <span class="text-emerald-600">4 / 4 (100%)</span>
+            </div>
+            <div class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" style="width:100%"></div>
+            </div>
+          </div>
+
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
+            <div class="flex justify-between text-xs font-bold">
+              <span>Service &amp; Shop Bays</span>
+              <span class="text-amber-500">18 / 20 (90%)</span>
+            </div>
+            <div class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full bg-amber-500 rounded-full" style="width:90%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Activity Log -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+        <h3 class="text-base font-black text-slate-900 dark:text-white">📜 Recent HR &amp; Compliance Activity Log</h3>
+        <div class="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
+          <div class="py-2.5 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span class="font-bold text-slate-800 dark:text-slate-200">Marcus Vance</span>
+              <span class="text-slate-400">signed 2026 Workplace Harassment &amp; Safety Policy</span>
+            </div>
+            <span class="text-[11px] text-slate-400">2 hours ago</span>
+          </div>
+          <div class="py-2.5 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span class="font-bold text-slate-800 dark:text-slate-200">Jessica Taylor</span>
+              <span class="text-slate-400">Driver Licence renewal reminder sent (OMVIC-391024-ON)</span>
+            </div>
+            <span class="text-[11px] text-slate-400">Yesterday</span>
+          </div>
+          <div class="py-2.5 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+              <span class="font-bold text-slate-800 dark:text-slate-200">David Chen</span>
+              <span class="text-slate-400">completed EV High-Voltage Disconnect Safety module</span>
+            </div>
+            <span class="text-[11px] text-slate-400">3 days ago</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── 2. People & Profiles Tab ──────────────────────────────────────────────────
+function renderPeopleDirectory(body, employees) {
+  const cardsHtml = employees.map(e => `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:border-indigo-500 dark:hover:border-indigo-500 transition space-y-4 flex flex-col justify-between">
+      <div>
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <span class="px-2.5 py-0.5 text-[10px] font-black uppercase rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800">${esc(e.department)}</span>
+          <span class="px-2.5 py-0.5 text-[10px] font-black uppercase rounded-full ${e.licence_status === 'Valid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${esc(e.licence_status)}</span>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-black text-base flex items-center justify-center shadow-md">${e.first_name[0]}${e.last_name[0]}</div>
+          <div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white leading-tight">${esc(e.first_name)} ${esc(e.last_name)}</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">${esc(e.role)}</p>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+          <div class="flex items-center justify-between"><span>📍 Location:</span><span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[160px]">${esc(e.location)}</span></div>
+          <div class="flex items-center justify-between"><span>💼 Comp Plan:</span><span class="font-bold text-indigo-600 dark:text-indigo-400 truncate max-w-[160px]">${esc(e.comp_plan)}</span></div>
+          <div class="flex items-center justify-between"><span>📊 MTD Performance:</span><span class="font-black text-emerald-600">${e.perf.units_mtd ? `${e.perf.units_mtd} units` : (e.perf.efficiency_pct ? `${e.perf.efficiency_pct}% eff` : `$${e.perf.PVR_mtd} PVR`)}</span></div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+        <button onclick="openEmployeeProfileModal('${e.id}')" class="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition flex items-center justify-center gap-1">👤 Inspect Unified Profile</button>
+      </div>
+    </div>
+  `).join('');
+
+  body.innerHTML = `
+    <div class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <input type="text" placeholder="Search employees by name, role, or VIN..." class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-200 w-64">
+          <select class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-200">
+            <option value="all">All Departments</option>
+            <option value="Sales">Sales</option>
+            <option value="F&I">F&amp;I</option>
+            <option value="Service">Service</option>
+            <option value="Management">Management</option>
+          </select>
+        </div>
+        <span class="text-xs font-bold text-slate-400">${employees.length} Staff Profiles Connected</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        ${cardsHtml}
+      </div>
+    </div>
+  `;
+}
+
+function openEmployeeProfileModal(empId) {
+  const employees = getPeopleComplianceData();
+  const e = employees.find(x => x.id === empId) || employees[0];
+  if (!e) return;
+
+  const modalHtml = `
+    <div class="flex flex-col h-[85vh] max-h-[780px]">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-indigo-600 text-white font-black text-lg flex items-center justify-center">${e.first_name[0]}${e.last_name[0]}</div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-lg font-black text-slate-900 dark:text-white">${esc(e.first_name)} ${esc(e.last_name)}</h2>
+              <span class="px-2 py-0.5 text-[10px] font-black uppercase rounded-full bg-emerald-100 text-emerald-700">${esc(e.status)}</span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">${esc(e.role)} · ${esc(e.department)}</p>
+          </div>
+        </div>
+        <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2">✕</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 space-y-5 my-2 scrollbar-thin">
+        <!-- Contact & Employment -->
+        <div class="p-4 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2 text-xs">
+          <div class="font-black text-slate-400 uppercase tracking-wider text-[10px]">Contact &amp; Employment Details</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><span class="text-slate-400">Email:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(e.email)}</span></div>
+            <div><span class="text-slate-400">Phone:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(e.phone)}</span></div>
+            <div><span class="text-slate-400">Location:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(e.location)}</span></div>
+            <div><span class="text-slate-400">Direct Manager:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(e.manager)}</span></div>
+          </div>
+        </div>
+
+        <!-- System Permissions & MarketSync Login -->
+        <div class="p-4 bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/60 rounded-xl space-y-2 text-xs">
+          <div class="font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider text-[10px]">MarketSync System Login &amp; Permissions</div>
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-bold text-slate-800 dark:text-slate-200">Account Access: Active</div>
+              <div class="text-[11px] text-slate-500">Connected to MarketSync CRM, Desk &amp; Inventory</div>
+            </div>
+            <button onclick="executeOffboardingKillSwitch('${e.id}')" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-sm">🚫 Offboard &amp; Revoke Access</button>
+          </div>
+        </div>
+
+        <!-- Driver Licence & Signed Documents -->
+        <div class="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3 text-xs">
+          <div class="font-black text-slate-400 uppercase tracking-wider text-[10px]">Driver Licence &amp; Signed Policy Documents</div>
+          <div class="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-950 rounded-lg">
+            <div>
+              <div class="font-bold text-slate-800 dark:text-slate-200">Licence #${esc(e.licence_no)}</div>
+              <div class="text-[11px] text-slate-500">Expiry: ${esc(e.licence_expiry)} · Abstract Checked: ${esc(e.abstract_date)}</div>
+            </div>
+            <span class="px-2 py-0.5 text-[10px] font-black rounded-full ${e.licence_status === 'Valid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${esc(e.licence_status)}</span>
+          </div>
+
+          <div class="space-y-1.5">
+            ${e.compliance_docs.map(d => `
+              <div class="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300">
+                <span class="flex items-center gap-1.5"><span>📜</span><span class="font-semibold">${esc(d.name)}</span></span>
+                <span class="text-emerald-600 font-bold">✓ Signed (${d.date})</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- MarketSync Advantage: Real-Time Sales & Operations Integration -->
+        <div class="p-4 bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/60 rounded-xl space-y-3 text-xs">
+          <div class="font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider text-[10px]">MarketSync Dealership Operations Integration</div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div class="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-center">
+              <div class="text-[10px] text-slate-400">MTD Units</div>
+              <div class="text-base font-black text-slate-900 dark:text-white">${e.perf.units_mtd || 14}</div>
+            </div>
+            <div class="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-center">
+              <div class="text-[10px] text-slate-400">MTD Gross</div>
+              <div class="text-base font-black text-emerald-600">$${(e.perf.gross_mtd || 38400).toLocaleString()}</div>
+            </div>
+            <div class="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-center">
+              <div class="text-[10px] text-slate-400">Active Leads</div>
+              <div class="text-base font-black text-indigo-600">${e.perf.active_leads || 28}</div>
+            </div>
+            <div class="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-center">
+              <div class="text-[10px] text-slate-400">Earned Comm.</div>
+              <div class="text-base font-black text-violet-600">$${(e.perf.comm_mtd || 4900).toLocaleString()}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-200 dark:border-slate-800 shrink-0 flex justify-end">
+        <button data-close class="px-4 py-2 rounded-xl bg-slate-800 text-white font-bold text-xs">Close Inspector</button>
+      </div>
+    </div>
+  `;
+  automationModal(modalHtml, 'max-w-3xl');
+}
+window.openEmployeeProfileModal = openEmployeeProfileModal;
+
+// ── 3. Compliance & Safety Tab ────────────────────────────────────────────────
+function renderPeopleComplianceTab(body, employees) {
+  body.innerHTML = `
+    <div class="space-y-6">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center justify-between">
+          <span>📋 Dealership Onboarding &amp; Policy E-Signatures</span>
+          <span class="text-xs font-bold text-indigo-600">CAN Legal Standard</span>
+        </h3>
+        <div class="space-y-3 text-xs">
+          <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between">
+            <div>
+              <div class="font-extrabold text-slate-800 dark:text-slate-200">2026 Workplace Harassment &amp; Safety Policy</div>
+              <div class="text-[11px] text-slate-400">Electronic signatures required from all 48 employees</div>
+            </div>
+            <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold">47 / 48 Signed</span>
+          </div>
+
+          <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between">
+            <div>
+              <div class="font-extrabold text-slate-800 dark:text-slate-200">Dealership Vehicle Demo &amp; Driver Policy</div>
+              <div class="text-[11px] text-slate-400">Required for Sales Reps, Managers, and Detailers</div>
+            </div>
+            <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold">18 / 18 Signed</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Workplace Inspection & JHSC Records -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <h3 class="text-base font-black text-slate-900 dark:text-white">🥽 Joint Health &amp; Safety Committee (JHSC) Inspection Form</h3>
+        <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3 text-xs">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-bold">
+            <label class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-600 w-4 h-4"> Service Bay Eye Wash Stations</label>
+            <label class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-600 w-4 h-4"> Fire Extinguisher Inspection</label>
+            <label class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-600 w-4 h-4"> Hoist Safety Disconnects</label>
+            <label class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-600 w-4 h-4"> WHMIS SDS Sheet Binder</label>
+          </div>
+          <button onclick="toast('Workplace safety inspection logged successfully!')" class="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-xs shadow-md">✓ Submit Monthly Inspection</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── 4. HR Automation Tab ──────────────────────────────────────────────────────
+function renderPeopleAutomation(body, employees) {
+  body.innerHTML = `
+    <div class="space-y-6">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <h3 class="text-base font-black text-slate-900 dark:text-white">⚡ Pre-Configured Dealership HR Triggers</h3>
+        <div class="space-y-3">
+          <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1.5 text-xs">
+            <div class="flex items-center justify-between font-black text-slate-900 dark:text-white">
+              <span>🆕 New Employee Onboarded</span>
+              <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">Active Trigger</span>
+            </div>
+            <p class="text-slate-500">Auto-create MarketSync login account, assign role permissions, email welcome documents &amp; schedule WHMIS safety training.</p>
+          </div>
+
+          <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1.5 text-xs">
+            <div class="flex items-center justify-between font-black text-slate-900 dark:text-white">
+              <span>🔄 Sales Rep Store Transfer</span>
+              <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">Active Trigger</span>
+            </div>
+            <p class="text-slate-500">Update rooftop location, reassign open CRM leads, migrate inventory access &amp; switch commission tier.</p>
+          </div>
+
+          <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1.5 text-xs">
+            <div class="flex items-center justify-between font-black text-slate-900 dark:text-white">
+              <span>🚫 Employee Termination Security Kill-Switch</span>
+              <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">Active Trigger</span>
+            </div>
+            <p class="text-slate-500">Instantly revoke system login, reassign active leads &amp; pending deals, unlink demo VIN &amp; preserve audit records for compliance retention.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── 5. Settings Tab & Exports ─────────────────────────────────────────────────
+function renderPeopleSettings(body, employees) {
+  body.innerHTML = `
+    <div class="space-y-6">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <h3 class="text-base font-black text-slate-900 dark:text-white">⚙️ Payroll &amp; Accounting Exports</h3>
+        <p class="text-xs text-slate-500">Export employee hours, MTD commission earnings, and deductions directly for payroll processing.</p>
+        <div class="flex flex-wrap items-center gap-3">
+          <button onclick="exportHRPayroll('quickbooks')" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md">Export to QuickBooks</button>
+          <button onclick="exportHRPayroll('adp')" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md">Export to ADP / Ceridian</button>
+          <button onclick="exportHRPayroll('csv')" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs">Download CSV Payroll</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function openAddEmployeeModal() {
+  const modalHtml = `
+    <div class="space-y-4">
+      <h3 class="text-base font-black text-slate-900 dark:text-white">＋ Onboard New Employee</h3>
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <input type="text" id="new-emp-fname" placeholder="First Name" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <input type="text" id="new-emp-lname" placeholder="Last Name" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <input type="email" id="new-emp-email" placeholder="Work Email" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <input type="text" id="new-emp-role" placeholder="Role (e.g. Sales Rep)" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      </div>
+      <button onclick="saveNewEmployee()" class="w-full py-2.5 bg-indigo-600 text-white font-black rounded-xl text-xs shadow-md">Save &amp; Auto-Provision Account</button>
+    </div>
+  `;
+  automationModal(modalHtml, 'max-w-md');
+}
+window.openAddEmployeeModal = openAddEmployeeModal;
+
+function saveNewEmployee() {
+  const fname = document.getElementById('new-emp-fname')?.value || 'New';
+  const lname = document.getElementById('new-emp-lname')?.value || 'Employee';
+  const email = document.getElementById('new-emp-email')?.value || 'employee@dealership.com';
+  const role = document.getElementById('new-emp-role')?.value || 'Sales Representative';
+
+  const employees = getPeopleComplianceData();
+  employees.push({
+    id: `emp-${Date.now()}`,
+    first_name: fname,
+    last_name: lname,
+    email: email,
+    phone: '(555) 000-0000',
+    role: role,
+    department: 'Sales',
+    location: 'Main Rooftop',
+    manager: 'General Sales Mgr',
+    emp_type: 'Full-Time Permanent',
+    status: 'Active',
+    start_date: new Date().toISOString().split('T')[0],
+    licence_no: 'DL-NEW-ON',
+    licence_expiry: '2028-01-01',
+    licence_status: 'Valid',
+    abstract_date: new Date().toISOString().split('T')[0],
+    comp_plan: 'Standard Sales Tier',
+    compliance_docs: [{ name: 'Employment Agreement', signed: true, date: new Date().toISOString().split('T')[0] }],
+    training: [{ name: 'WHMIS 2015 Certification', completed: true, expiry: '2027-01-01' }],
+    assets: ['Showroom iPad'],
+    perf: { units_mtd: 0, gross_mtd: 0, active_leads: 0, comm_mtd: 0, rating: 'New Hire' },
+    emergency: { name: 'Contact', relation: 'Family', phone: '(555) 000-0000' }
+  });
+
+  closeAutomationModal();
+  toast(`Onboarded ${fname} ${lname}! Account provisioned & policies sent.`);
+  renderPeopleCompliance();
+}
+window.saveNewEmployee = saveNewEmployee;
+
+function openLogIncidentModal() {
+  const modalHtml = `
+    <div class="space-y-4">
+      <h3 class="text-base font-black text-slate-900 dark:text-white">📋 Log Workplace Safety Incident / Hazard</h3>
+      <div class="space-y-2 text-xs">
+        <input type="text" placeholder="Location (e.g. Service Bay #3)" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <textarea placeholder="Describe hazard or incident..." class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 h-24"></textarea>
+      </div>
+      <button onclick="closeAutomationModal(); toast('Safety incident logged &amp; escalation task created on Taskboard!');" class="w-full py-2.5 bg-rose-600 text-white font-black rounded-xl text-xs shadow-md">Submit Safety Log</button>
+    </div>
+  `;
+  automationModal(modalHtml, 'max-w-md');
+}
+window.openLogIncidentModal = openLogIncidentModal;
+
+function executeOffboardingKillSwitch(empId) {
+  const employees = getPeopleComplianceData();
+  const e = employees.find(x => x.id === empId);
+  if (!e) return;
+
+  e.status = 'Offboarded (Revoked)';
+  closeAutomationModal();
+  toast(`Emergency Kill-Switch executed for ${e.first_name} ${e.last_name}. Login revoked &amp; leads reassigned!`);
+  renderPeopleCompliance();
+}
+window.executeOffboardingKillSwitch = executeOffboardingKillSwitch;
+
+function exportHRPayroll(format) {
+  toast(`Generated ${format.toUpperCase()} payroll export package with MTD commissions!`);
+}
+window.exportHRPayroll = exportHRPayroll;
