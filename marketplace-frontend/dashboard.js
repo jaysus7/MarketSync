@@ -28029,6 +28029,23 @@ function renderSettingsHrCard() {
 }
 window.renderSettingsHrCard = renderSettingsHrCard;
 
+function getPeopleComplianceData() {
+  if (!window.__peopleComplianceEmployees) {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem('ms_people_employees')); } catch {}
+    window.__peopleComplianceEmployees = (saved && Array.isArray(saved) && saved.length > 0) ? saved : JSON.parse(JSON.stringify(DEFAULT_EMPLOYEES));
+  }
+  return window.__peopleComplianceEmployees;
+}
+window.getPeopleComplianceData = getPeopleComplianceData;
+
+function loadPeopleCompliance() {
+  const container = document.getElementById('people-compliance-root') || document.getElementById('page-content');
+  if (!container) return;
+  renderPeopleCompliance();
+}
+window.loadPeopleCompliance = loadPeopleCompliance;
+
 function renderPeopleCompliance() {
   const root = document.getElementById('people-compliance-root');
   if (!root) return;
