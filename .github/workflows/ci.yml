@@ -7,9 +7,9 @@ name: CI — audit & sanity
 # Kept intentionally fast and dependency-light so it never blocks a hotfix.
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
   workflow_dispatch: {}
 
 jobs:
@@ -33,3 +33,5 @@ jobs:
         run: |
           find . -path ./node_modules -prune -o -name '*.js' -print \
             | xargs -r -n1 node --check
+      - name: Validate ESM module import resolution
+        run: node scripts/validate-imports.js
