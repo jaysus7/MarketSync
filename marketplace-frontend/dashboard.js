@@ -29299,12 +29299,89 @@ window.setPeopleComplianceView = (v) => {
 };
 
 // ── 1. Time Clock & Shift Attendance Sub-System ─────────────────────────────
+let __shiftTimerInterval = null;
+
 function getTimeClockState() {
-  let state = { status: 'out', time: null };
-  try { state = JSON.parse(localStorage.getItem('ms_timeclock_state') || '{"status":"out","time":null}'); } catch {}
+  let state = { status: 'out', startTime: null, breakTotalMs: 0, breakStartTime: null, time: null };
+  try {
+    const raw = localStorage.getItem('ms_timeclock_state');
+    if (raw) state = JSON.parse(raw);
+  } catch (e) {}
   return state;
 }
 window.getTimeClockState = getTimeClockState;
+
+function formatDurationHMS(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+}
+window.formatDurationHMS = formatDurationHMS;
+
+function updateShiftClockUI() {
+  const clockChip = document.getElementById('header-shift-clock-chip');
+  const timerDisplay = document.getElementById('header-shift-timer-display');
+  const clockState = getTimeClockState();
+
+  if (clockChip && timerDisplay) {
+    if (clockState.status === 'in' || clockState.status === 'break') {
+      clockChip.classList.remove('hidden');
+      clockChip.classList.add('flex');
+
+      const now = Date.now();
+      const startTime = clockState.startTime || now;
+      const breakTotalMs = clockState.breakTotalMs || 0;
+
+      if (clockState.status === 'in') {
+        const elapsedMs = Math.max(0, now - startTime - breakTotalMs);
+        clockChip.className = 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20';
+        timerDisplay.innerHTML = `🟢 SHIFT: <span class="font-mono font-bold">${formatDurationHMS(elapsedMs)}</span>`;
+      } else if (clockState.status === 'break') {
+        const currentBreakMs = clockState.breakStartTime ? (now - clockState.breakStartTime) : 0;
+        const elapsedMs = Math.max(0, (clockState.breakStartTime || now) - startTime - breakTotalMs);
+        clockChip.className = 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20';
+        timerDisplay.innerHTML = `☕ BREAK (${formatDurationHMS(currentBreakMs)}): <span class="font-mono font-bold">${formatDurationHMS(elapsedMs)}</span>`;
+      }
+    } else {
+      clockChip.classList.add('hidden');
+      clockChip.classList.remove('flex');
+    }
+  }
+
+  const widgetLiveTimer = document.getElementById('workstation-live-timer');
+  if (widgetLiveTimer) {
+    const now = Date.now();
+    const startTime = clockState.startTime || now;
+    const breakTotalMs = clockState.breakTotalMs || 0;
+
+    if (clockState.status === 'in') {
+      const elapsedMs = Math.max(0, now - startTime - breakTotalMs);
+      widgetLiveTimer.textContent = formatDurationHMS(elapsedMs);
+    } else if (clockState.status === 'break') {
+      const elapsedMs = Math.max(0, (clockState.breakStartTime || now) - startTime - breakTotalMs);
+      widgetLiveTimer.textContent = formatDurationHMS(elapsedMs) + ' (Paused)';
+    } else {
+      widgetLiveTimer.textContent = '00:00:00';
+    }
+  }
+}
+window.updateShiftClockUI = updateShiftClockUI;
+
+function startShiftClockTimer() {
+  if (__shiftTimerInterval) clearInterval(__shiftTimerInterval);
+  __shiftTimerInterval = setInterval(updateShiftClockUI, 1000);
+  updateShiftClockUI();
+}
+window.startShiftClockTimer = startShiftClockTimer;
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startShiftClockTimer);
+} else {
+  startShiftClockTimer();
+}
 
 // Automated Sign-In Clock Prompt (fires once per day upon login if clocked out)
 function checkLoginPunchClockPrompt() {
@@ -29399,7 +29476,7 @@ function openSignOutClockModal() {
           <span>⚠️</span><span>You are currently clocked in!</span>
         </div>
         <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
-          Your shift is active (clocked in at <strong>${esc(clockState.time || '8:30 AM')}</strong>). Would you like to clock out of your shift before signing out?
+          Your shift is active (clocked in at <strong>${esc(clockState.time || 'Today')}</strong>). Would you like to clock out of your shift before signing out?
         </p>
       </div>
 
@@ -29423,22 +29500,44 @@ window.openSignOutClockModal = openSignOutClockModal;
 
 function handleTimeClockAction(action) {
   let state = getTimeClockState();
+  const now = Date.now();
   const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   if (action === 'in') {
-    state = { status: 'in', time: timeNow };
-    toast(`🟢 Clocked in for shift at ${timeNow}!`);
+    state = {
+      status: 'in',
+      startTime: now,
+      breakTotalMs: 0,
+      breakStartTime: null,
+      time: timeNow
+    };
+    try { apiSendJson('/hr/timeclock/in', 'POST', { notes: 'Shift Started' }).catch(() => {}); } catch(e) {}
+    toast(`🟢 Clocked in for shift at ${timeNow}! Live clock active in top header.`);
   } else if (action === 'break') {
-    const nextStatus = state.status === 'break' ? 'in' : 'break';
-    state = { status: nextStatus, time: timeNow };
-    toast(nextStatus === 'break' ? `☕ Started lunch break at ${timeNow}` : `🟢 Resumed shift from break at ${timeNow}`);
+    if (state.status === 'break') {
+      const currentBreakMs = state.breakStartTime ? (now - state.breakStartTime) : 0;
+      state.breakTotalMs = (state.breakTotalMs || 0) + currentBreakMs;
+      state.breakStartTime = null;
+      state.status = 'in';
+      toast(`🟢 Resumed shift from break at ${timeNow}`);
+    } else {
+      state.status = 'break';
+      state.breakStartTime = now;
+      toast(`☕ Started lunch break at ${timeNow}`);
+    }
   } else if (action === 'out') {
-    state = { status: 'out', time: timeNow };
-    toast(`🔴 Clocked out from shift at ${timeNow}. Have a great day!`);
+    const elapsedMs = state.startTime ? Math.max(0, now - state.startTime - (state.breakTotalMs || 0)) : 0;
+    const finalDurationStr = formatDurationHMS(elapsedMs);
+    state = { status: 'out', startTime: null, breakTotalMs: 0, breakStartTime: null, time: timeNow };
+    try { apiSendJson('/hr/timeclock/out', 'POST', { notes: 'Shift Completed' }).catch(() => {}); } catch(e) {}
+    toast(`🔴 Clocked out from shift at ${timeNow}. Total shift duration: ${finalDurationStr}. Have a great day!`);
   }
 
   try { localStorage.setItem('ms_timeclock_state', JSON.stringify(state)); } catch {}
-  renderPeopleCompliance();
+  startShiftClockTimer();
+  if (typeof renderPeopleCompliance === 'function') {
+    try { renderPeopleCompliance(); } catch (e) {}
+  }
 }
 window.handleTimeClockAction = handleTimeClockAction;
 
@@ -29448,6 +29547,16 @@ function renderTimeClockWidget() {
   const isOnBreak = clockState.status === 'break';
   const isClockedOut = clockState.status === 'out';
 
+  const now = Date.now();
+  const startTime = clockState.startTime || now;
+  const breakTotalMs = clockState.breakTotalMs || 0;
+  let elapsedMs = 0;
+  if (isClockedIn) {
+    elapsedMs = Math.max(0, now - startTime - breakTotalMs);
+  } else if (isOnBreak) {
+    elapsedMs = Math.max(0, (clockState.breakStartTime || now) - startTime - breakTotalMs);
+  }
+
   return `
     <div class="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 border border-slate-800 rounded-2xl p-5 shadow-lg text-white space-y-4">
       <div class="flex items-center justify-between">
@@ -29456,17 +29565,17 @@ function renderTimeClockWidget() {
             ⏱️
           </div>
           <div>
-            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Employee Time Clock &amp; Shift Tracker</div>
+            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Employee Time Clock &amp; Live Shift Tracker</div>
             <div class="text-sm font-black flex items-center gap-2">
               <span>Status:</span>
-              <span class="${isClockedIn ? 'text-emerald-400' : isOnBreak ? 'text-amber-400' : 'text-slate-400'}">${isClockedIn ? `🟢 Clocked In (${clockState.time || '8:30 AM'})` : isOnBreak ? `☕ On Lunch / Break` : `🔴 Clocked Out`}</span>
+              <span class="${isClockedIn ? 'text-emerald-400' : isOnBreak ? 'text-amber-400' : 'text-slate-400'}">${isClockedIn ? `🟢 Clocked In (${clockState.time || 'Today'})` : isOnBreak ? `☕ On Lunch / Break` : `🔴 Clocked Out`}</span>
             </div>
           </div>
         </div>
 
         <div class="text-right hidden sm:block">
-          <div class="text-xs text-slate-400">Shift Total Today</div>
-          <div class="text-base font-black text-indigo-400">${isClockedIn ? '7.5 Hours' : '0.0 Hours'}</div>
+          <div class="text-xs text-slate-400">Live Shift Duration</div>
+          <div class="text-base font-mono font-black text-emerald-400" id="workstation-live-timer">${isClockedOut ? '00:00:00' : formatDurationHMS(elapsedMs)}</div>
         </div>
       </div>
 
