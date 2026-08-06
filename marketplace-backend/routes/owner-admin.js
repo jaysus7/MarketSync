@@ -2,7 +2,7 @@
  * Owner / Platform admin — the "back office" of MarketSync itself (not a dealership
  * feature). Lets the MarketSync owner see every account + user and manually control
  * access: flip an account's engines on/off, extend/shorten trials, or comp an account
- * to work indefinitely. Owner-gated by OWNER_EMAIL (robust to workspace renames).
+ * to work indefinitely. Owner-gated by a server-managed platform role.
  *
  * Access model recap (why both dealership- AND user-level billing controls exist):
  *  - Normal dealerships bill on the dealerships row (billing_status/trial_ends_at).
@@ -13,10 +13,10 @@
 import { supabaseAdmin, sendEmail, emailHealth, resend } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { PRODUCT_KEYS, resolveProducts } from './profile.js'
+import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
 const PRODUCT_LABELS = { facebook_solo: 'Facebook Solo', facebook_dealer: 'Facebook Dealer', ai_chatbot: 'AI Chatbot', dealer_os: 'DealerOS' }
-const isOwner = (req) => (req.user?.email || '').toLowerCase() === OWNER_EMAIL || req.profile?.is_marketsync === true
+const isOwner = (req) => hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
 
 // The engine/entitlement flags the owner can toggle per dealership (column → label).
 const ENGINE_FLAGS = [

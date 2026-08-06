@@ -1,7 +1,8 @@
 import express from 'express'
 import cors from 'cors'
-import { securityHeaders, corsOriginCheck } from './security.js'
-import { CANONICAL_FRONTEND } from './shared.js'
+import { securityHeaders, corsOriginCheck, rateLimitHealth } from './security.js'
+import { startWebhookRetryWorker, registerWebhookRoutes } from './webhooks.js'
+import { CANONICAL_FRONTEND, supabaseAdmin } from './shared.js'
 import { registerRoutes as registerAuth } from './routes/auth.js'
 import { registerRoutes as registerProfile } from './routes/profile.js'
 import { registerRoutes as registerBlog } from './routes/blog.js'
@@ -74,6 +75,18 @@ app.use(cors({ origin: corsOriginCheck, credentials: true }))
 // free-tier instance from spinning down (which caused ~50s cold-start hangs on
 // the first request to the dashboard, pipeline/leads, and the extension).
 app.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }))
+app.get('/ready', async (req, res) => {
+  const { error } = await supabaseAdmin.from('dealerships').select('id', { head: true }).limit(1)
+  const rate_limiting = rateLimitHealth()
+  if (error || !rate_limiting.ok) {
+    return res.status(503).json({
+      ok: false,
+      database: error ? 'unavailable' : 'ready',
+      rate_limiting,
+    })
+  }
+  res.json({ ok: true, ts: Date.now(), database: 'ready', rate_limiting })
+})
 
 // Bounce any stale *.html requests to the canonical frontend
 app.get(/\.html$/, (req, res) => {
@@ -148,10 +161,12 @@ registerDelivery(app)
 registerPublicApi(app)
 registerPlaid(app)
 registerAffiliate(app)
+registerWebhookRoutes(app)
 
 // Durable event bus: start the catch-up poller AFTER every engine has registered
 // its onEvent subscribers, so a replayed event reaches all of them.
 startEventDispatcher()
+startWebhookRetryWorker()
 
 app.use((err, req, res, next) => {
   console.error('Unhandled Express error:', {

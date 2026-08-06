@@ -4,14 +4,12 @@
  * revenue-first Command Center overview; Customers/Trials/CRM/Support/Marketing/
  * Employees are subsequent stages that register into the same workspace.
  *
- * Owner-gated (OWNER_EMAIL / MarketSync org). Reads across accounts — no new tables.
+ * Access is derived from server-managed MarketSync staff roles. Reads across
+ * accounts — no new tables.
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { resolveProducts, saasCan, saasRoleOf, SAAS_ROLES, SAAS_PERMISSIONS } from './profile.js'
-
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
-const isOwner = (req) => (req.user?.email || '').toLowerCase() === OWNER_EMAIL || req.profile?.is_marketsync === true
 
 // Monthly price per product (used for MRR estimation from entitlements).
 const PRODUCT_MRR = { facebook_solo: 79, facebook_dealer: 499, ai_chatbot: 499, dealer_os: 499 }
@@ -166,6 +164,65 @@ export function registerSaasAdmin(app) {
     for (const r of rows) (byStage[r.stage] = byStage[r.stage] || []).push(r)
     for (const s of STAGES) byStage[s].sort((x, y) => x.health - y.health)   // most at-risk first
     res.json({ stages: STAGES, by_stage: byStage, counts: Object.fromEntries(STAGES.map(s => [s, byStage[s].length])) })
+  })
+
+  // ── Account follow-ups — internal customer-success / sales work queue ───────
+  // Kept separate from crm_tasks because MarketSync staff work accounts, not a
+  // dealer's individual shoppers. Every mutation is permission-gated and uses the
+  // service role only after that gate.
+  app.get('/saas/followups', requireAuth, async (req, res) => {
+    if (!need('view_pipeline')(req, res)) return
+    const includeCompleted = String(req.query?.completed || '') === 'true'
+    let query = supabaseAdmin.from('saas_account_followups').select('*').order('due_at', { ascending: true, nullsFirst: false }).limit(1000)
+    query = includeCompleted ? query.not('completed_at', 'is', null) : query.is('completed_at', null)
+    const { data: tasks, error } = await query
+    if (error) return res.status(500).json({ error: error.message })
+    const dealerIds = [...new Set((tasks || []).map(t => t.dealership_id).filter(Boolean))]
+    const userIds = [...new Set((tasks || []).flatMap(t => [t.assigned_to, t.created_by, t.completed_by]).filter(Boolean))]
+    const [{ data: dealers }, { data: people }] = await Promise.all([
+      dealerIds.length ? supabaseAdmin.from('dealerships').select('id, name').in('id', dealerIds) : Promise.resolve({ data: [] }),
+      userIds.length ? supabaseAdmin.from('profiles').select('id, full_name').in('id', userIds) : Promise.resolve({ data: [] }),
+    ])
+    const dealerById = Object.fromEntries((dealers || []).map(d => [d.id, d.name]))
+    const personById = Object.fromEntries((people || []).map(p => [p.id, p.full_name || '—']))
+    res.json({ followups: (tasks || []).map(t => ({ ...t, account_name: dealerById[t.dealership_id] || 'Unknown account', assigned_name: personById[t.assigned_to] || null })) })
+  })
+
+  app.post('/saas/followups', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const body = req.body || {}
+    const title = String(body.title || '').trim().slice(0, 240)
+    const dealershipId = String(body.dealership_id || '').trim()
+    if (!title || !dealershipId) return res.status(400).json({ error: 'Account and follow-up title are required' })
+    const priority = ['low', 'normal', 'high'].includes(body.priority) ? body.priority : 'normal'
+    const dueAt = body.due_at ? new Date(body.due_at) : null
+    if (dueAt && Number.isNaN(dueAt.getTime())) return res.status(400).json({ error: 'Invalid due date' })
+    const { data: account } = await supabaseAdmin.from('dealerships').select('id').eq('id', dealershipId).maybeSingle()
+    if (!account) return res.status(404).json({ error: 'Account not found' })
+    const { data, error } = await supabaseAdmin.from('saas_account_followups').insert({
+      dealership_id: dealershipId, title, priority,
+      note: String(body.note || '').trim().slice(0, 4000) || null,
+      due_at: dueAt ? dueAt.toISOString() : null,
+      assigned_to: body.assigned_to || req.user.id,
+      created_by: req.user.id,
+    }).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.status(201).json({ followup: data })
+  })
+
+  app.patch('/saas/followups/:id', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const body = req.body || {}, patch = { updated_at: new Date().toISOString() }
+    if (body.title !== undefined) { const title = String(body.title || '').trim().slice(0, 240); if (!title) return res.status(400).json({ error: 'Title cannot be empty' }); patch.title = title }
+    if (body.note !== undefined) patch.note = String(body.note || '').trim().slice(0, 4000) || null
+    if (body.priority !== undefined) { if (!['low', 'normal', 'high'].includes(body.priority)) return res.status(400).json({ error: 'Invalid priority' }); patch.priority = body.priority }
+    if (body.due_at !== undefined) { const dueAt = body.due_at ? new Date(body.due_at) : null; if (dueAt && Number.isNaN(dueAt.getTime())) return res.status(400).json({ error: 'Invalid due date' }); patch.due_at = dueAt ? dueAt.toISOString() : null }
+    if (body.assigned_to !== undefined) patch.assigned_to = body.assigned_to || null
+    if (body.done !== undefined) { patch.completed_at = body.done ? new Date().toISOString() : null; patch.completed_by = body.done ? req.user.id : null }
+    const { data, error } = await supabaseAdmin.from('saas_account_followups').update(patch).eq('id', req.params.id).select().maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!data) return res.status(404).json({ error: 'Follow-up not found' })
+    res.json({ followup: data })
   })
 
   // ── SaaS Accounting — MarketSync's OWN books (recurring revenue + program cost) ──

@@ -8,6 +8,7 @@
 //   - CASL + CAN-SPAM (newsletter consent is captured at registration; tracked elsewhere)
 
 import { createHash, randomBytes } from 'crypto'
+export { corsOriginCheck } from './cors-policy.js'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // PASSWORD POLICY
@@ -155,20 +156,38 @@ export function hashRecoveryCode(code) {
 import Redis from 'ioredis'
 
 let redis = null
+const requireRedisRateLimiting = process.env.REQUIRE_REDIS_RATE_LIMITING === 'true'
+let redisHealthy = false
 if (process.env.REDIS_URL) {
   redis = new Redis(process.env.REDIS_URL, {
     maxRetriesPerRequest: 1,
     enableReadyCheck: false,
     lazyConnect: true
   })
+  // ioredis connects lazily on the first command; treat a configured client as
+  // available until it reports a connection error, then fail closed in strict mode.
+  redisHealthy = true
   redis.on('error', (e) => {
-    // Log but don't crash — fall through to in-memory on Redis errors
-    console.warn('[rate-limit] Redis error, falling back to in-memory:', e.message)
+    redisHealthy = false
+    console.warn('[rate-limit] Redis error:', e.message)
     redis = null
   })
+  redis.on('ready', () => { redisHealthy = true })
   console.log('[rate-limit] Redis-backed rate limiting enabled (multi-node safe)')
 } else {
   console.log('[rate-limit] No REDIS_URL — using in-memory rate limiting (single-node only)')
+}
+
+// Safe dependency signal for readiness checks and uptime monitors. It never
+// exposes the Redis URL or credentials, only whether strict production mode is
+// actually protected by a working shared limiter.
+export function rateLimitHealth() {
+  const redisReady = !!redis && redisHealthy
+  return {
+    ok: !requireRedisRateLimiting || redisReady,
+    mode: redisReady ? 'redis' : 'memory',
+    redis_required: requireRedisRateLimiting,
+  }
 }
 
 // In-memory fallback store
@@ -181,6 +200,9 @@ setInterval(() => {
 }, 10 * 60 * 1000).unref?.()
 
 async function checkRateLimit(key, max, windowSecs) {
+  if (requireRedisRateLimiting && (!redis || !redisHealthy)) {
+    return { allowed: false, unavailable: true, retryAfter: 30 }
+  }
   // Redis path: atomic INCR + EXPIRE (fixed window)
   if (redis) {
     try {
@@ -192,7 +214,8 @@ async function checkRateLimit(key, max, windowSecs) {
       }
       return { allowed: true }
     } catch (e) {
-      console.warn('[rate-limit] Redis check failed, falling back:', e.message)
+      console.warn('[rate-limit] Redis check failed:', e.message)
+      if (requireRedisRateLimiting) return { allowed: false, unavailable: true, retryAfter: 30 }
     }
   }
 
@@ -219,16 +242,20 @@ export async function consumeQuota(key, max, windowSecs) {
   return checkRateLimit(`q:${key}`, max, windowSecs)
 }
 
-export function rateLimit(name, max, windowMs) {
+export function rateLimit(name, max, windowMs, { email = false, dealership = false } = {}) {
   const windowSecs = Math.ceil(windowMs / 1000)
   return async (req, res, next) => {
     const ip = (req.headers['x-forwarded-for']?.toString().split(',')[0].trim())
              || req.socket?.remoteAddress
              || 'unknown'
-    const key = `rl:${name}:${ip}`
-    const { allowed, retryAfter } = await checkRateLimit(key, max, windowSecs)
+    const parts = [ip]
+    if (email) parts.push(String(req.body?.email || '').trim().toLowerCase() || 'no-email')
+    if (dealership) parts.push(String(req.dealershipId || req.body?.dealership_id || 'no-dealer'))
+    const key = `rl:${name}:${parts.join(':')}`
+    const { allowed, unavailable = false, retryAfter } = await checkRateLimit(key, max, windowSecs)
     if (!allowed) {
       res.set('Retry-After', String(retryAfter))
+      if (unavailable) return res.status(503).json({ error: 'Rate limiting is temporarily unavailable. Try again shortly.' })
       return res.status(429).json({
         error: `Too many requests. Try again in ${retryAfter} seconds.`,
         retry_after_seconds: retryAfter
@@ -294,31 +321,6 @@ export function securityHeaders(req, res, next) {
   // Content Security Policy — see CSP_DIRECTIVES above for what's allowed
   res.set('Content-Security-Policy', CSP_DIRECTIVES)
   next()
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// CORS — locked down to known origins
-// ──────────────────────────────────────────────────────────────────────────────
-// Pass to cors({ origin: corsOriginCheck }) so dev (localhost), the marketing
-// site, the dashboard, and the Chrome extension all work — and nothing else.
-
-export function corsOriginCheck(origin, callback) {
-  if (!origin) return callback(null, true)  // server-to-server, curl, etc.
-  const allowed = [
-    'https://marketsync.link',
-    'https://www.marketsync.link',
-    'https://www.facebook.com',
-    'https://facebook.com',
-    'https://m.facebook.com'
-  ]
-  if (allowed.includes(origin)) return callback(null, true)
-  if (origin.startsWith('chrome-extension://')) return callback(null, true)
-  if (process.env.NODE_ENV !== 'production') {
-    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-      return callback(null, true)
-    }
-  }
-  return callback(new Error(`CORS blocked: ${origin}`), false)
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

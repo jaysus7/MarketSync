@@ -6,6 +6,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, browserFetch } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { audit } from '../audit.js'
 import { marketcheckMarket, marketcheckListings, marketcheckEnabled, marketcheckCompetitorStats, marketcheckPing, marketcheckDecodeVin, marketcheckPredictPrice, marketcheckMarketStats } from '../marketcheck.js'
 import { getMarketData, getSoldData, recordUsage, aiAllowed, getUsage, assistantDailyAllowed, recordAssistantChat, ASSISTANT_DAILY_LIMIT, marketcheckAllowed, recordMarketcheckCall } from '../usage.js'
 import { findOrCreateContact } from './crm.js'
@@ -16,7 +17,7 @@ import { runPhotoVision, scoreVehiclePhotos } from '../sync/photoVision.js'
 import { fetchOemWindowStickerPdf } from '../utils/oemWindowSticker.js'
 import { lookupPlate, plateLookupConfigured } from '../providers/plateLookup.js'
 import {
-  OWNER_EMAIL, attachOemStickerToInventory, LANG_NAME, langName,
+  isPlatformOwner, attachOemStickerToInventory, LANG_NAME, langName,
   PRODUCT_KB, ASSISTANT_TOOLS, REPORT_TOPICS,
   buildDealershipReport, runAssistantTool,
   skipPriceComp, PRICE_MIN_COMPS, buildPriceFlag, aiErrorMessage,
@@ -33,7 +34,7 @@ export function registerAiPricing(app) {
     if (!req.dealershipId) return res.json({ positions: {}, active: false })
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('inv_intel_active').eq('id', req.dealershipId).maybeSingle()
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer?.inv_intel_active) return res.json({ positions: {}, active: false })
 
     const { data: acts } = await supabaseAdmin
@@ -85,7 +86,7 @@ export function registerAiPricing(app) {
 
     const { data: dealer } = await supabaseAdmin
       .from('dealerships').select('inv_intel_active').eq('id', req.dealershipId).single()
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     // Lot Average Report is part of the Inventory Scan → Inventory Intelligence.
     if (!isOwner && !dealer?.inv_intel_active) {
       return res.status(403).json({ error: 'Inventory Intelligence add-on required' })
@@ -258,7 +259,7 @@ Only choose "raise" or "lower" when the price should actually change. When comps
     // the AI only for a short written insight. Falls through to an AI-only estimate
     // below when there's no key or MarketCheck has no comps for this exact vehicle.
     if (marketcheckEnabled()) {
-      const _prIsOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+      const _prIsOwner = isPlatformOwner(req)
       const { data: mc } = await getMarketData({
         dealershipId: req.dealershipId, isOwner: _prIsOwner, allowLive: true,
         params: {
@@ -587,7 +588,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
       .eq('id', req.dealershipId)
       .single()
 
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence not active' })
 
     const rules = dealer.repricing_rules || { enabled: false, days_on_lot_threshold: 45, price_drop_pct: 5, overprice_threshold_pct: 20 }
@@ -622,7 +623,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
       // line with the store's own copies. Fall back to the internal-inventory median
       // when no market data is available.
       let med = null, medCount = null, trimMatched = null
-      const mm = await marketMedianForScan({ vehicle, dealer, isUS: _reIsUS, dealershipId: req.dealershipId, isOwner: (req.user.email || '').toLowerCase() === OWNER_EMAIL, allowLive: true })
+      const mm = await marketMedianForScan({ vehicle, dealer, isUS: _reIsUS, dealershipId: req.dealershipId, isOwner: isPlatformOwner(req), allowLive: true })
       if (mm?.median) { med = mm.median; medCount = mm.count ?? null; trimMatched = mm.matched_on ? !!mm.matched_on.trim : null }
       if (!med) {
         const { data: comps } = await supabaseAdmin
@@ -688,7 +689,7 @@ Respond with ONLY valid JSON (no markdown, no explanation, no trailing commas):
       .eq('id', req.dealershipId)
       .single()
 
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence not active' })
 
     // Serve the cached set for 24h unless a refresh is explicitly requested. Keeps the
@@ -868,7 +869,7 @@ Return ONLY valid JSON array (no markdown):
       .eq('id', req.dealershipId)
       .single()
 
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer?.inv_intel_active) return res.status(403).json({ error: 'Inventory Intelligence not active' })
 
     // Distance unit + expected-annual-distance for the mileage-vs-market check.
@@ -1071,7 +1072,7 @@ Return ONLY valid JSON array (no markdown):
   // ── Inventory Narrative (separate — Anthropic call kept off the hot path) ─
   app.post('/ai/inventory-narrative', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     const { data: dealer } = await supabaseAdmin
       .from('dealerships')
       .select('inv_intel_active')
@@ -1106,17 +1107,17 @@ Units 60d+ on lot: ${stale}`
 
   // ── AI Vision — photo quality scoring (part of AI Boost) ─────────────────
 
-  async function visionActive(dealershipId, email) {
-    if ((email || '').toLowerCase() === OWNER_EMAIL) return true
+  async function visionActive(req) {
+    if (isPlatformOwner(req)) return true
     const { data } = await supabaseAdmin
-      .from('dealerships').select('ai_boost_active').eq('id', dealershipId).single()
+      .from('dealerships').select('ai_boost_active').eq('id', req.dealershipId).single()
     return !!data?.ai_boost_active
   }
 
   // Kick off a background photo scan of the dealership's inventory.
   app.post('/ai/vision/scan', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
-    if (!await visionActive(req.dealershipId, req.user.email)) {
+    if (!await visionActive(req)) {
       return res.status(403).json({ error: 'AI Vision not active' })
     }
     const rescan = req.query.rescan === '1' || req.body?.rescan === true
@@ -1241,12 +1242,16 @@ Units 60d+ on lot: ${stale}`
 
   app.delete('/ai/competitors/:id', requireAuth, requireDealerAdmin, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const { data: before } = await supabaseAdmin
+      .from('competitor_dealerships').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Competitor not found' })
     const { error } = await supabaseAdmin
       .from('competitor_dealerships')
       .delete()
       .eq('id', req.params.id)
       .eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'inventory.competitor_deleted', { before_state: before, after_state: null })
     res.json({ deleted: true })
   })
 
@@ -1259,7 +1264,7 @@ Units 60d+ on lot: ${stale}`
       .eq('id', req.dealershipId)
       .single()
 
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = isPlatformOwner(req)
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
 
     const _compIsUS = (() => {

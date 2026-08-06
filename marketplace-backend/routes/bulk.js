@@ -11,13 +11,13 @@
  */
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { aiAllowed, recordUsage } from '../usage.js'
 import { sendDealerSms } from './automation.js'
 import { buildEquityRadar } from './equity.js'
+import { SYSTEM_ROLES, hasSystemRole, requirePermission } from '../authorization.js'
+import { audit } from '../audit.js'
 
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 const STATUSES = ['uncontacted', 'contacted', 'appointment', 'sold', 'fni', 'delivered', 'lost']
 const MAX_SEND = 200   // hard ceiling per run, whatever the filter matches
 
@@ -113,10 +113,9 @@ function renderMsg(tpl, r, dealerName) {
 
 export function registerBulk(app) {
   // Parse a natural-language ask → structured plan + audience preview. Nothing sends.
-  app.post('/ai/bulk/plan', requireAuth, async (req, res) => {
+  app.post('/ai/bulk/plan', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
-    const isOwner = (req.user.email || '').toLowerCase() === OWNER_EMAIL
+    const isOwner = hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('name, ai_boost_active, ai_tone, ai_internal_style, ai_customer_style').eq('id', req.dealershipId).maybeSingle()
     if (!isOwner && !dealer?.ai_boost_active) return res.status(403).json({ error: 'AI Boost not active' })
     if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI is not configured.' })
@@ -170,9 +169,8 @@ Request: "${instruction}"`
 
   // Execute a reviewed plan. Re-resolves the audience server-side (never trusts a
   // client-sent recipient list), enforces consent, caps at MAX_SEND, logs each send.
-  app.post('/ai/bulk/execute', requireAuth, async (req, res) => {
+  app.post('/ai/bulk/execute', requireAuth, requireMfa, requirePermission('lead.assign'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const channel = req.body?.channel === 'sms' ? 'sms' : 'email'
     const filter = cleanFilter(req.body?.filter || {})
     const message = String(req.body?.message || '').trim()
@@ -204,6 +202,9 @@ Request: "${instruction}"`
         })
       } catch { failed++ }
     }
+    audit(req, 'communications.bulk_outreach_sent', {
+      channel, matched: audience.length, attempted: targets.length, sent, failed,
+    })
     res.json({ ok: true, sent, failed, matched: audience.length, capped: audience.length > MAX_SEND })
   })
 }

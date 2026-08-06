@@ -10,12 +10,14 @@
  */
 import crypto from 'node:crypto'
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { emitEvent } from './events.js'
 import { findOrCreateContact } from './crm.js'
+import { audit, AuditAction } from '../audit.js'
+import { keyIsExpired, requestedExpiry, requestedScopes } from '../api-key-policy.js'
 
 const hashKey = (raw) => crypto.createHash('sha256').update(String(raw)).digest('hex')
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)
 
 // ── API-safe tool set (MCP-shaped) ────────────────────────────────────────────
 const API_TOOLS = [
@@ -64,8 +66,9 @@ async function apiAuth(req, res, next) {
   const raw = h.startsWith('Bearer ') ? h.slice(7).trim() : String(req.headers['x-api-key'] || '').trim()
   if (!raw) return res.status(401).json({ error: 'API key required' })
   try {
-    const { data: key } = await supabaseAdmin.from('api_keys').select('id, dealership_id, scopes').eq('key_hash', hashKey(raw)).is('revoked_at', null).maybeSingle()
+    const { data: key } = await supabaseAdmin.from('api_keys').select('id, dealership_id, scopes, expires_at').eq('key_hash', hashKey(raw)).is('revoked_at', null).maybeSingle()
     if (!key) return res.status(401).json({ error: 'invalid or revoked API key' })
+    if (keyIsExpired(key.expires_at)) return res.status(401).json({ error: 'API key expired' })
     req.dealershipId = key.dealership_id
     req.apiScopes = key.scopes || []
     supabaseAdmin.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', key.id).then(() => {}, () => {})
@@ -73,36 +76,46 @@ async function apiAuth(req, res, next) {
   } catch { res.status(500).json({ error: 'auth error' }) }
 }
 
+function requireApiScope(scope) {
+  return (req, res, next) => {
+    if (!req.apiScopes?.includes(scope)) return res.status(403).json({ error: `API key lacks ${scope} scope` })
+    next()
+  }
+}
+
 export function registerPublicApi(app) {
   // ── Key management (dashboard, managers) ──
-  app.post('/api-keys', requireAuth, async (req, res) => {
+  app.post('/api-keys', requireAuth, requireMfa, requirePermission('api_keys.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+    const scopes = requestedScopes(req.body?.scopes)
+    if (!scopes) return res.status(400).json({ error: 'scopes must include read and/or leads' })
+    const expiry = requestedExpiry(req.body?.expires_at)
+    if (expiry.error) return res.status(400).json({ error: expiry.error })
     const raw = 'msk_live_' + crypto.randomBytes(24).toString('hex')
     const prefix = raw.slice(0, 16) + '…'
     const { data, error } = await supabaseAdmin.from('api_keys').insert({
       dealership_id: req.dealershipId, name: String(req.body?.name || 'API key').slice(0, 80),
-      key_prefix: prefix, key_hash: hashKey(raw), created_by: req.user?.id || null,
-    }).select('id, name, key_prefix, created_at').single()
+      key_prefix: prefix, key_hash: hashKey(raw), scopes, expires_at: expiry.value, created_by: req.user?.id || null,
+    }).select('id, name, key_prefix, scopes, expires_at, created_at').single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, AuditAction.API_KEY_CREATED, { api_key_id: data.id, name: data.name })
     res.json({ ok: true, key: raw, meta: data })   // raw key returned ONCE
   })
-  app.get('/api-keys', requireAuth, async (req, res) => {
+  app.get('/api-keys', requireAuth, requireMfa, requirePermission('api_keys.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
-    const { data } = await supabaseAdmin.from('api_keys').select('id, name, key_prefix, created_at, last_used_at, revoked_at')
+    const { data } = await supabaseAdmin.from('api_keys').select('id, name, key_prefix, scopes, expires_at, created_at, last_used_at, revoked_at')
       .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(50)
     res.json({ keys: data || [] })
   })
-  app.post('/api-keys/:id/revoke', requireAuth, async (req, res) => {
+  app.post('/api-keys/:id/revoke', requireAuth, requireMfa, requirePermission('api_keys.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     await supabaseAdmin.from('api_keys').update({ revoked_at: new Date().toISOString() }).eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    audit(req, AuditAction.API_KEY_REVOKED, { api_key_id: req.params.id })
     res.json({ ok: true })
   })
 
   // ── Public REST API v1 (key auth) ──
-  app.get('/api/v1/inventory', apiAuth, async (req, res) => {
+  app.get('/api/v1/inventory', apiAuth, requireApiScope('read'), async (req, res) => {
     let q = supabaseAdmin.from('inventory').select('id, year, make, model, trim, price, mileage, stocknumber, vin, status, image_urls')
       .eq('dealership_id', req.dealershipId).is('archived_at', null).limit(Math.min(200, Number(req.query.limit) || 50))
     if (req.query.status) q = q.eq('status', String(req.query.status)); else q = q.neq('status', 'sold')
@@ -110,24 +123,26 @@ export function registerPublicApi(app) {
     if (error) return res.status(500).json({ error: error.message })
     res.json({ data: data || [] })
   })
-  app.get('/api/v1/leads', apiAuth, async (req, res) => {
+  app.get('/api/v1/leads', apiAuth, requireApiScope('read'), async (req, res) => {
     const { data } = await supabaseAdmin.from('leads').select('id, name, email, phone, source, status, created_at')
       .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(Math.min(200, Number(req.query.limit) || 50))
     res.json({ data: data || [] })
   })
-  app.post('/api/v1/leads', apiAuth, async (req, res) => {
+  app.post('/api/v1/leads', apiAuth, requireApiScope('leads'), async (req, res) => {
     const b = req.body || {}
     const out = await callApiTool('create_lead', { name: b.name, email: b.email, phone: b.phone, source: b.source || 'API', comments: b.comments }, { dealershipId: req.dealershipId })
     res.status(out?.error ? 400 : 200).json(out)
   })
 
   // ── Tools + MCP ──
-  app.get('/api/v1/tools', apiAuth, (req, res) => res.json({ tools: apiToolDefs() }))
+  app.get('/api/v1/tools', apiAuth, requireApiScope('read'), (req, res) => res.json({ tools: apiToolDefs() }))
   // Minimal MCP-over-HTTP (JSON-RPC): tools/list + tools/call.
   app.post('/api/v1/mcp', apiAuth, async (req, res) => {
     const { method, params, id = null } = req.body || {}
     if (method === 'tools/list') return res.json({ jsonrpc: '2.0', id, result: { tools: apiToolDefs() } })
     if (method === 'tools/call') {
+      const scope = params?.name === 'create_lead' ? 'leads' : 'read'
+      if (!req.apiScopes?.includes(scope)) return res.status(403).json({ jsonrpc: '2.0', id, error: { code: -32003, message: `API key lacks ${scope} scope` } })
       const out = await callApiTool(params?.name, params?.arguments || {}, { dealershipId: req.dealershipId })
       return res.json({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(out) }], isError: !!out?.error } })
     }

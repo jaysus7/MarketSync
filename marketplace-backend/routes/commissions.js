@@ -19,10 +19,11 @@
  * gross uses the internally-tracked vehicle cost and is never shown to customers.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
 import { emitEvent, onEvent } from './events.js'
+import { audit } from '../audit.js'
 
-const isMgr = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(req.profile?.role)
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
 const monthStart = (d) => { const t = new Date(d); return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), 1)) }
@@ -304,9 +305,8 @@ export function registerCommissions(app) {
   onEvent(onDealEvent)   // subscribe the Commission Engine to deal save + state-change events
 
   // ── Plans (managers) ────────────────────────────────────────────────────────
-  app.get('/commissions/plans', requireAuth, async (req, res) => {
+  app.get('/commissions/plans', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const [{ data: plans }, { data: reps }] = await Promise.all([
       supabaseAdmin.from('commission_plans').select('*').eq('dealership_id', req.dealershipId).order('created_at', { ascending: true }),
       supabaseAdmin.from('profiles').select('id, full_name, display_name, role, commission_plan_id').eq('dealership_id', req.dealershipId),
@@ -314,9 +314,8 @@ export function registerCommissions(app) {
     res.json({ ok: true, plans: plans || [], reps: (reps || []).filter(r => r.role !== 'CUSTOMER') })
   })
 
-  app.post('/commissions/plans', requireAuth, async (req, res) => {
+  app.post('/commissions/plans', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const name = String(req.body?.name || '').trim().slice(0, 80)
     if (!name) return res.status(400).json({ error: 'Name required' })
     const isDefault = !!req.body?.is_default
@@ -326,12 +325,14 @@ export function registerCommissions(app) {
       config: req.body?.config && typeof req.body.config === 'object' ? req.body.config : {},
     }).select().single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.plan_created', { after_state: data })
     res.json({ ok: true, plan: data })
   })
 
-  app.put('/commissions/plans/:id', requireAuth, async (req, res) => {
+  app.put('/commissions/plans/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+    const { data: before } = await supabaseAdmin.from('commission_plans').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Commission plan not found' })
     const patch = { updated_at: new Date().toISOString() }
     if (req.body?.name !== undefined) patch.name = String(req.body.name || '').trim().slice(0, 80)
     if (req.body?.active !== undefined) patch.active = !!req.body.active
@@ -340,32 +341,40 @@ export function registerCommissions(app) {
     else if (req.body?.is_default === false) patch.is_default = false
     const { data, error } = await supabaseAdmin.from('commission_plans').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.plan_updated', { before_state: before, after_state: data })
     res.json({ ok: true, plan: data })
   })
 
-  app.delete('/commissions/plans/:id', requireAuth, async (req, res) => {
+  app.delete('/commissions/plans/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
+    const { data: before } = await supabaseAdmin.from('commission_plans').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Commission plan not found' })
     await supabaseAdmin.from('profiles').update({ commission_plan_id: null }).eq('dealership_id', req.dealershipId).eq('commission_plan_id', req.params.id)
-    await supabaseAdmin.from('commission_plans').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
-    res.json({ ok: true })
+    const { data, error } = await supabaseAdmin.from('commission_plans')
+      .update({ active: false, is_default: false, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
+    if (error) return res.status(500).json({ error: 'Could not deactivate commission plan' })
+    audit(req, 'commission.plan_deactivated', { before_state: before, after_state: data })
+    res.json({ ok: true, deactivated: true })
   })
 
   // Assign a plan to a rep (or clear it to fall back to the default).
-  app.put('/commissions/assign', requireAuth, async (req, res) => {
+  app.put('/commissions/assign', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const repId = String(req.body?.rep_id || '')
     const planId = req.body?.plan_id || null
     if (!repId) return res.status(400).json({ error: 'rep_id required' })
-    await supabaseAdmin.from('profiles').update({ commission_plan_id: planId }).eq('id', repId).eq('dealership_id', req.dealershipId)
+    const { data: before } = await supabaseAdmin.from('profiles').select('id, commission_plan_id').eq('id', repId).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!before) return res.status(404).json({ error: 'Team member not found' })
+    const { data, error } = await supabaseAdmin.from('profiles').update({ commission_plan_id: planId }).eq('id', repId).eq('dealership_id', req.dealershipId).select('id, commission_plan_id').single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.plan_assigned', { target_user_id: repId, before_state: before, after_state: data })
     res.json({ ok: true })
   })
 
   // Manual bonus / spiff / clawback / adjustment on a rep (managers).
-  app.post('/commissions/adjust', requireAuth, async (req, res) => {
+  app.post('/commissions/adjust', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const repId = String(req.body?.rep_id || '')
     const type = String(req.body?.type || '').toLowerCase()
     if (!repId || !['bonus', 'spiff', 'clawback', 'adjustment'].includes(type)) return res.status(400).json({ error: 'rep_id and a valid type required' })
@@ -376,13 +385,13 @@ export function registerCommissions(app) {
       reason: String(req.body?.reason || '').slice(0, 300) || null, created_by: req.user?.id || null,
     }).select().single()
     if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'commission.adjusted', { target_user_id: repId, after_state: data })
     res.json({ ok: true, adjustment: data })
   })
 
   // Mark a deal funded/paid → its commission becomes "earned".
-  app.post('/commissions/mark-funded', requireAuth, async (req, res) => {
+  app.post('/commissions/mark-funded', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const dealId = String(req.body?.deal_id || '')
     if (!dealId) return res.status(400).json({ error: 'deal_id required' })
     const funded = req.body?.funded !== false
@@ -391,13 +400,13 @@ export function registerCommissions(app) {
     await supabaseAdmin.from('deal_commissions')
       .update({ status: funded ? 'earned' : 'pending', updated_at: new Date().toISOString() })
       .eq('deal_id', dealId).eq('dealership_id', req.dealershipId).in('status', funded ? ['pending'] : ['earned'])
+    audit(req, 'commission.funding_updated', { entity_type: 'deal', entity_id: dealId, after_state: { funded } })
     res.json({ ok: true, funded })
   })
 
   // Mark earned commissions paid (payroll run). Optional rep_id + month scope.
-  app.post('/commissions/mark-paid', requireAuth, async (req, res) => {
+  app.post('/commissions/mark-paid', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     // Select the rows first so we know the total being paid (for the accounting event).
     let sel = supabaseAdmin.from('deal_commissions').select('id, total').eq('dealership_id', req.dealershipId).eq('status', 'earned')
     if (req.body?.rep_id) sel = sel.eq('rep_id', String(req.body.rep_id))
@@ -415,16 +424,17 @@ export function registerCommissions(app) {
       summary: `Commission pay run — $${total.toLocaleString('en-US')}`, department: 'Accounting', createdBy: req.user?.id || null,
       payload: { amount: total, ref: `payrun:${new Date().toISOString().slice(0, 10)}:${req.body?.rep_id || 'all'}:${req.body?.month || 'all'}` },
     })
+    audit(req, 'commission.marked_paid', { after_state: { count: ids.length, total, rep_id: req.body?.rep_id || null, month: req.body?.month || null } })
     res.json({ ok: true, paid: total })
   })
 
   // Manual clawback on a specific deal (repair came back, chargeback, unwound).
-  app.post('/commissions/clawback', requireAuth, async (req, res) => {
+  app.post('/commissions/clawback', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const dealId = String(req.body?.deal_id || '')
     if (!dealId) return res.status(400).json({ error: 'deal_id required' })
     await clawbackDealCommission(req.dealershipId, dealId, req.body?.reason || 'Reversed')
+    audit(req, 'commission.clawed_back', { entity_type: 'deal', entity_id: dealId, after_state: { reason: String(req.body?.reason || 'Reversed').slice(0, 300) } })
     res.json({ ok: true })
   })
 
@@ -467,16 +477,14 @@ export function registerCommissions(app) {
   })
 
   // A specific rep (managers).
-  app.get('/commissions/rep/:repId', requireAuth, async (req, res) => {
+  app.get('/commissions/rep/:repId', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     res.json({ ok: true, ...(await repSummary(req.dealershipId, req.params.repId, req.query.month || null)) })
   })
 
   // Whole-team rollup for a month (managers).
-  app.get('/commissions/team', requireAuth, async (req, res) => {
+  app.get('/commissions/team', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    if (!isMgr(req)) return res.status(403).json({ error: 'Manager access required' })
     const month = req.query.month || null
     const base = month ? new Date(month + '-01T00:00:00Z') : new Date()
     const from = monthStart(base).toISOString().slice(0, 10)

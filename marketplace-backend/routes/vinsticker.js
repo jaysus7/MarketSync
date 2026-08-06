@@ -10,6 +10,7 @@ import { recordUsage, marketcheckAllowed, recordMarketcheckCall } from '../usage
 import { marketcheckEnabled, marketcheckDecodeVin } from '../marketcheck.js'
 import { carapiEnabled, carapiDecodeVin } from '../carapi.js'
 import multer from 'multer'
+import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024 } })
 
@@ -23,18 +24,16 @@ function requireDealerAdmin(req, res, next) {
   next()
 }
 
-const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
-
 // Entitlements:
 //  • The VIN decoder + factory (OEM) window stickers/brochures are part of the
 //    Inventory Intelligence tier.
 //  • The generated/branded MarketSync sticker and AI-written brochure require AI Boost.
-function hasAiBoost(dealer, email) {
-  if ((email || '').toLowerCase() === OWNER_EMAIL) return true
+function hasAiBoost(dealer, req) {
+  if (hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)) return true
   return !!dealer?.ai_boost_active
 }
-function hasInvIntel(dealer, email) {
-  if ((email || '').toLowerCase() === OWNER_EMAIL) return true
+function hasInvIntel(dealer, req) {
+  if (hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)) return true
   return !!dealer?.inv_intel_active
 }
 
@@ -1114,7 +1113,7 @@ export function registerRoutes(app) {
 
     // VIN decoder is part of the Inventory Intelligence tier.
     const dealer = await loadDealershipData(req.dealershipId)
-    if (!hasInvIntel(dealer, req.user.email)) {
+    if (!hasInvIntel(dealer, req)) {
       return res.status(403).json({ error: 'The VIN decoder is part of Inventory Intelligence' })
     }
 
@@ -1249,7 +1248,7 @@ export function registerRoutes(app) {
       // if over cap or unavailable. Richer paid fields are prepended so they show
       // first in the modal's full field list.
       try {
-        const isOwner = (req.user.email || '').toLowerCase() === (process.env.OWNER_EMAIL || 'massiejay@gmail.com').toLowerCase()
+        const isOwner = hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)
         const extra = []
         const push = (label, val) => { if (val != null && String(val).trim() !== '') extra.push({ label, value: String(val).trim() }) }
         if (marketcheckEnabled() && vin.length === 17 && await marketcheckAllowed(req.dealershipId, isOwner)) {
@@ -1332,7 +1331,7 @@ export function registerRoutes(app) {
   app.post('/vin/oem-window-sticker', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const dealer = await loadDealershipData(req.dealershipId)
-    if (!hasInvIntel(dealer, req.user.email)) return res.status(403).json({ error: 'Factory window stickers are part of Inventory Intelligence' })
+    if (!hasInvIntel(dealer, req)) return res.status(403).json({ error: 'Factory window stickers are part of Inventory Intelligence' })
     const vin = String(req.body?.vin || '').trim().toUpperCase()
     if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return res.status(400).json({ error: 'Enter a valid 17-character VIN' })
     try {
@@ -1346,7 +1345,7 @@ export function registerRoutes(app) {
   app.post('/vin/oem-brochure', requireAuth, async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const dealer = await loadDealershipData(req.dealershipId)
-    if (!hasInvIntel(dealer, req.user.email)) return res.status(403).json({ error: 'Factory brochures are part of Inventory Intelligence' })
+    if (!hasInvIntel(dealer, req)) return res.status(403).json({ error: 'Factory brochures are part of Inventory Intelligence' })
     const vin = String(req.body?.vin || '').trim().toUpperCase()
     if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return res.status(400).json({ error: 'Enter a valid 17-character VIN' })
     try {
@@ -1362,12 +1361,12 @@ export function registerRoutes(app) {
 
     const dealer = await loadDealershipData(req.dealershipId)
     // VIN decoder + factory OEM stickers are part of Inventory Intelligence.
-    if (!hasInvIntel(dealer, req.user.email)) {
+    if (!hasInvIntel(dealer, req)) {
       return res.status(403).json({ error: 'The VIN decoder & window stickers are part of Inventory Intelligence' })
     }
     // The generated (branded) MarketSync sticker additionally needs AI Boost.
     // Anything that isn't an explicit OEM pull is the AI-generated variant.
-    if (req.query.source !== 'oem' && !hasAiBoost(dealer, req.user.email)) {
+    if (req.query.source !== 'oem' && !hasAiBoost(dealer, req)) {
       return res.status(403).json({ error: 'Generating a branded sticker requires AI Boost' })
     }
 
@@ -1472,10 +1471,10 @@ export function registerRoutes(app) {
     // Inventory Intelligence; the branded/AI-written dealer brochure needs AI Boost.
     const wantsOem = req.query.source === 'oem'
     if (wantsOem) {
-      if (!hasInvIntel(dealer, req.user.email)) {
+      if (!hasInvIntel(dealer, req)) {
         return res.status(403).json({ error: 'The OEM brochure is part of Inventory Intelligence' })
       }
-    } else if (!hasAiBoost(dealer, req.user.email)) {
+    } else if (!hasAiBoost(dealer, req)) {
       return res.status(403).json({ error: 'The dealer brochure requires AI Boost' })
     }
 

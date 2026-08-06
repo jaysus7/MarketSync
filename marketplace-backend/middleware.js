@@ -1,4 +1,6 @@
 import { supabase, supabaseAdmin } from './shared.js'
+import { SYSTEM_ROLES, hasSystemRole } from './authorization.js'
+import { createClient } from '@supabase/supabase-js'
 
 // Cache the demo dealership id (created by POST /demo/seed). Only positive results
 // are cached, so it resolves as soon as the workspace is seeded.
@@ -27,6 +29,9 @@ export async function requireAuth(req, res, next) {
       .single()
 
     if (profileError || !profile) return res.status(401).json({ error: 'Profile not found' })
+    // Retain deactivated team members for audit/history, but never allow their
+    // existing or newly issued sessions to reach the application.
+    if (profile.active === false) return res.status(403).json({ error: 'ACCOUNT_DEACTIVATED' })
 
     if (!req.path.startsWith('/billing')) {
       const isPersonal = profile.dealerships?.is_personal === true
@@ -68,19 +73,33 @@ export async function requireAuth(req, res, next) {
     req.profile = profile
     req.dealershipId = profile.dealership_id
 
-    // Owner-only DEMO workspace override: the MarketSync owner can flip the whole
-    // dashboard into a sandboxed demo dealership (seeded fake cars/customers) without
-    // touching their real MarketSync data. Gated to the JMS Automotive owner + an
-    // explicit header, and scoped by dealership_id like everything else.
-    const ownerEmail = (process.env.OWNER_EMAIL || '').toLowerCase()
-    const isMsOwner = (ownerEmail && (user.email || '').toLowerCase() === ownerEmail)
-      || ['JMS Automotive', 'MarketSync'].includes(profile.dealerships?.name)
-    if (req.headers['x-act-demo'] === '1' && isMsOwner) {
+    // Demo mode is limited to an explicit platform owner; dealer names and mutable
+    // user metadata must never grant cross-tenant elevation.
+    if (req.headers['x-act-demo'] === '1' && hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)) {
       const demoId = await resolveDemoDealership()
       if (demoId) { req.dealershipId = demoId; req.isDemo = true }
     }
     next()
   } catch (err) {
     return res.status(500).json({ error: 'Internal server authorization error' })
+  }
+}
+
+// Re-check Supabase's authenticated assurance level for high-risk operations.
+// A normal password session is aal1; a verified TOTP/passkey challenge is aal2.
+export async function requireMfa(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  if (!token) return res.status(401).json({ error: 'No token provided' })
+  try {
+    const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    })
+    const { data, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (error || data?.currentLevel !== 'aal2') {
+      return res.status(403).json({ error: 'MFA_REQUIRED', message: 'Complete multi-factor authentication to continue.' })
+    }
+    next()
+  } catch {
+    return res.status(503).json({ error: 'MFA verification temporarily unavailable.' })
   }
 }
