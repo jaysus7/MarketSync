@@ -1,7 +1,9 @@
 // Resolve the backend by host so the staging site talks to the staging backend and
 // production talks to production — otherwise a token minted by one is rejected by the
 // other (the "logs in then logs out" bug). Keep in sync with login/register/reset pages.
-var API = window.API || (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
+if (typeof API === 'undefined') {
+  window.API = location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com';
+}
 
 // Wrap fetch so EVERY call to our API carries the demo-workspace header when the
 // owner is in Demo mode — keeps all pages (even those using raw fetch) consistently
@@ -25,7 +27,9 @@ var API = window.API || (location.hostname.includes('staging') ? 'https://market
 })();
 // Carfax Canada report link by VIN. Swap to your dealer badge/report URL if you
 // wire the Carfax account (the VIN is appended, URL-encoded).
-const CARFAX_BASE = 'https://www.carfax.ca/vehicle-history-reports?vin=';
+if (typeof CARFAX_BASE === 'undefined') {
+  window.CARFAX_BASE = 'https://www.carfax.ca/vehicle-history-reports?vin=';
+}
 
 // Global HTML escaper. Used throughout the pipeline board, leads table, and other
 // renderers. It was previously only defined locally inside one function, so those
@@ -40,7 +44,8 @@ function esc(s) {
 // Inline line-icon set (Font Awesome / Heroicons style) — no external library, so
 // it's CSP-safe and inherits currentColor like the rest of the UI. Use svgIcon()
 // everywhere instead of emojis.
-const SVG_ICONS = {
+if (typeof SVG_ICONS === 'undefined') {
+  window.SVG_ICONS = {
   dot: '<circle cx="12" cy="12" r="3"/>',
   sparkles: '<path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/><path d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/>',
   fuel: '<path d="M3.75 21h10.5M4.5 21V5.25A2.25 2.25 0 016.75 3h4.5a2.25 2.25 0 012.25 2.25V21M13.5 9h2.25a2.25 2.25 0 012.25 2.25v6a1.5 1.5 0 003 0V9.257a1.5 1.5 0 00-.44-1.06l-2.06-2.06M7.5 7.5h3"/>',
@@ -80,7 +85,8 @@ const SVG_ICONS = {
   hashtag: '<path d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5l-3.9 19.5m-2.1-19.5l-3.9 19.5"/>',
   document: '<path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>',
   car: '<path d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>',
-};
+  };
+}
 function svgIcon(name, cls = 'w-4 h-4') {
   return `<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">${SVG_ICONS[name] || SVG_ICONS.dot}</svg>`;
 }
@@ -374,8 +380,8 @@ window.msSignOut = function msSignOut(skipClockCheck = false) {
 })();
 
 // Local Security Handshake Validations
-let token = localStorage.getItem('token');
-const userRaw = localStorage.getItem('user');
+if (typeof token === 'undefined') token = localStorage.getItem('token');
+if (typeof userRaw === 'undefined') userRaw = localStorage.getItem('user');
 
 // A dashboard that redirected to login can be restored from the browser back/forward
 // cache with its old in-memory `token`, even though login has since stored a fresh
@@ -390,7 +396,7 @@ window.addEventListener('pageshow', (event) => {
 // re-authenticating. Runs on load and every 30 minutes.
 // Returns true when it obtained a fresh access token, false otherwise. Single-flight so
 // several 401s at once share one refresh call instead of stampeding /auth/refresh.
-let __refreshInFlight = null;
+if (typeof __refreshInFlight === 'undefined') __refreshInFlight = null;
 async function refreshSessionSilently() {
   if (__refreshInFlight) return __refreshInFlight;
   const rt = localStorage.getItem('refresh_token');
@@ -5048,9 +5054,9 @@ const PL_MOVE_LABEL = { posted: 'Posted', appointment_set: 'Appointment Set', cl
 let PL_DATA = { columns: {}, counts: {} };
 // Cards the user has collapsed (kept across re-renders so a move/refresh doesn't
 // re-expand everything). Board-wide collapse toggles every card at once.
-const PL_COLLAPSED = new Set();
+if (typeof PL_COLLAPSED === 'undefined') window.PL_COLLAPSED = new Set();
 // Whether we've applied the default "all collapsed" state on first render yet.
-let PL_COLLAPSED_INITED = false;
+if (typeof PL_COLLAPSED_INITED === 'undefined') window.PL_COLLAPSED_INITED = false;
 const plMoney = (n) => n != null ? '$' + Number(n).toLocaleString() : '';
 const plKm = (n) => n != null ? Number(n).toLocaleString() + ' km' : '';
 const plPosted = (d) => { try { const days = Math.floor((Date.now() - new Date(d)) / 86400000); return days <= 0 ? 'today' : days + 'd ago'; } catch { return ''; } };

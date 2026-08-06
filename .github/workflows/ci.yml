@@ -37,5 +37,7 @@ jobs:
         run: npm run check:exports
       - name: Validate Express route registration
         run: npm run check:routes
+      - name: Validate frontend scripts & top-level identifiers
+        run: npm run check:frontend
       - name: Validate server startup (dry-run mode)
         run: npm run check:startup
