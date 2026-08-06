@@ -1,5 +1,6 @@
 node_modules
 *.pem
+*.key
 *.crx
 *.zip
 .env
@@ -9,3 +10,4 @@ test.http
 commit_signing_key
 commit_signing_key.pub
 .claude/worktrees/
+.claude/settings.local.json
