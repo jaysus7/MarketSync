@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { supabaseAdmin, isPlatformOwner, requireAuth } from '../../routes/ai-helpers.js'
+import { supabaseAdmin, isPlatformOwner, requireAuth } from '../ai-helpers.js'
 
 export function registerAiInventoryIntelRoutes(app) {
   // ── Inventory Intelligence ────────────────────────────────────────────────

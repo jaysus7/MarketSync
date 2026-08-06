@@ -1,6 +1,6 @@
-import { supabaseAdmin, isPlatformOwner, audit, browserFetch, requireMfa, requirePermission, requireAuth } from '../../routes/ai-helpers.js'
-import { marketcheckEnabled, marketcheckCompetitorStats, recordUsage } from '../../routes/ai-runtime.js'
-import { runPhotoVision, scoreVehiclePhotos } from '../../services/photoVisionService.js'
+import { supabaseAdmin, isPlatformOwner, audit, browserFetch, requireMfa, requirePermission, requireAuth } from '../ai-helpers.js'
+import { marketcheckEnabled, marketcheckCompetitorStats, recordUsage } from '../ai-runtime.js'
+import { runPhotoVision, scoreVehiclePhotos } from '../../sync/photoVision.js'
 
 export function registerAiCompetitorVisionRoutes(app) {
   // ── AI Vision — photo quality scoring (part of AI Boost) ─────────────────

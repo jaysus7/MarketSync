@@ -2,9 +2,9 @@ import { supabaseAdmin } from '../../shared.js'
 import { requireAuth, requireMfa } from '../../middleware.js'
 import { requirePermission } from '../../authorization.js'
 import { emitWebhook } from '../../webhooks.js'
-import { ensureGetReadyCard } from '../../routes/recon.js'
-import { ensureDealTasks } from '../../routes/dealertasks.js'
-import { emitEvent } from '../../routes/events.js'
+import { ensureGetReadyCard } from '../recon.js'
+import { ensureDealTasks } from '../dealertasks.js'
+import { emitEvent } from '../events.js'
 import { audit } from '../../audit.js'
 
 export function registerDashboardReportsRoutes(app) {
