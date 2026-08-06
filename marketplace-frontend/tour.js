@@ -618,7 +618,13 @@
       btn.type = 'button';
       btn.textContent = 'Tour';
       btn.className = 'bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-2.5 sm:px-3 py-1.5 rounded text-[11px] sm:text-xs font-medium border border-indigo-200 dark:border-indigo-800 transition whitespace-nowrap';
-      btn.onclick = start;
+      btn.onclick = () => {
+        if (typeof window.openDepartmentSetupWizard === 'function') {
+          window.openDepartmentSetupWizard(window.__activeOpenDeptId || 'crm');
+        } else {
+          start();
+        }
+      };
       logout.parentNode.insertBefore(btn, logout);
     }
     let done = false;

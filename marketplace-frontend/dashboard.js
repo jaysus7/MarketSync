@@ -10679,11 +10679,11 @@ async function deliveryComplete(id) {
 }
 Object.assign(window, { loadDeliveryQueue, deliveryToggle, deliveryComplete });
 
-// ══ Configuration hub — surfaces the Configuration Engine (managers) ══════════
 const CONFIG_META = {
   crm_integration:   { label: 'CRM Integration',    desc: 'How captured leads sync out to your CRM (method, lead email, webhook).' },
   accounting:        { label: 'Accounting',         desc: 'Auto-post delivered deals to the ledger + cost tracking.' },
   service:           { label: 'Service & Parts',    desc: 'Labor rate, tax, shop supplies, parts markup, RO prefix.' },
+  hr_compliance:     { label: 'People & Compliance (HR)', desc: 'Provincial rules (Ontario OHSA/ESA), licence check intervals, mandatory policy documents & escalation rules.' },
   ai_knowledge:      { label: 'AI Knowledge Base',  desc: 'Facts the chatbot answers from (hours, financing, specials…).' },
   ai_personality:    { label: 'AI Personality',     desc: 'Chatbot greeting + tone.' },
   notification_rules:{ label: 'Notification Rules', desc: 'Alert thresholds (e.g. hot-lead score).' },
@@ -10716,9 +10716,24 @@ async function loadConfigHub() {
     </div>`;
   }).join('') || '<div class="text-sm text-slate-400">No configuration keys yet.</div>';
   const structRows = structured.map(s => `<div class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">${esc(s.label)}</span><span class="text-[11px] text-slate-400">${s.count} rule${s.count === 1 ? '' : 's'} · ${esc(s.editor)}</span></div>`).join('');
+  
+  const hrFeaturedCard = `
+    <div class="bg-gradient-to-r from-indigo-900 via-slate-900 to-slate-900 border border-indigo-700/60 rounded-2xl p-5 text-white flex flex-wrap items-center justify-between gap-4 col-span-1 lg:col-span-2 shadow-md mb-2">
+      <div class="flex items-center gap-3.5">
+        <div class="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow">👥</div>
+        <div>
+          <h3 class="font-black text-base text-white leading-tight">People &amp; Compliance (HR Engine)</h3>
+          <p class="text-xs text-indigo-200 mt-0.5">Unified employee CRM profiles, driver licence tracking, safety policies, and automated HR workflows.</p>
+        </div>
+      </div>
+      <button onclick="switchPage('people-compliance')" class="px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-black text-xs shadow-md transition flex items-center gap-1.5">Open HR &amp; Compliance Engine 👥</button>
+    </div>
+  `;
+
   root.innerHTML = `
     <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Configuration</h1>
       <p class="text-sm text-slate-500 dark:text-slate-400">Every dealer-configurable setting, one place. Blank/unset keys inherit the global default.</p></div>
+    ${hrFeaturedCard}
     ${structured.length ? `<div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Structured domains</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${structRows}</div></div>` : ''}
     <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Settings</div><div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${cards}</div></div>`;
 }
