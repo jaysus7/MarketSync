@@ -68,6 +68,7 @@ import { registerDelivery } from './routes/delivery.js'
 import { registerPublicApi } from './routes/public-api.js'
 import { registerPlaid } from './routes/plaid.js'
 import { registerAffiliate } from './routes/affiliate.js'
+import { registerHR } from './routes/hr.js'
 
 const app = express()
 const PORT = process.env.PORT || 10000
@@ -179,6 +180,7 @@ registerDelivery(app)
 registerPublicApi(app)
 registerPlaid(app)
 registerAffiliate(app)
+registerHR(app)
 registerWebhookRoutes(app)
 
 // Durable event bus: start the catch-up poller AFTER every engine has registered
