@@ -207,8 +207,8 @@
     host.innerHTML = html;
     return host;
   }
-  function wireMobileMenu(host) {
-    var burger = host.querySelector('.ms-burger'), mobile = host.querySelector('.ms-mobile');
+  function wireMobileMenu(host, mobile) {
+    var burger = host.querySelector('.ms-burger');
     if (!burger || !mobile) return;
     burger.addEventListener('click', function () {
       var open = burger.classList.toggle('ms-open'); mobile.hidden = !open;
@@ -227,7 +227,12 @@
     initTheme();
     var header = mountInto(['ms-public-header', 'ms-header'], '<div class="ms-hd-in">' + headerHTML() + '</div>', true, 'ms-hd');
     mountInto(['ms-public-footer', 'ms-footer'], footerHTML(), false, 'ms-ft');
-    wireMobileMenu(header);
+    // Relocate the mobile sheet to <body>: the header's backdrop-filter would
+    // otherwise be the containing block for its position:fixed, clipping it to
+    // the 56px header box (only "Solutions" showed).
+    var mobile = header.querySelector('.ms-mobile');
+    if (mobile) document.body.appendChild(mobile);
+    wireMobileMenu(header, mobile);
     var onScroll = function () { header.classList.toggle('ms-scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
     scanReveal();
