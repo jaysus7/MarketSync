@@ -332,18 +332,27 @@ function clearLocalStorage() {
 // so it works even if a later listener in setupActionListeners fails to attach. Belt-and-
 // suspenders: explicitly drop the session keys, flag the extension bridge not to re-login,
 // then bounce to the login page.
-window.msSignOut = function msSignOut() {
+function executeActualSignOut() {
   try { sessionStorage.setItem('ms_logged_out', '1'); } catch {}
-  // Best-effort server-side revoke so the refresh token can't be reused. Fire-and-forget
-  // — never block or fail the local sign-out on the network.
   try {
     const tk = localStorage.getItem('token');
     if (tk) fetch(`${API}/auth/logout`, { method: 'POST', headers: { 'Authorization': `Bearer ${tk}` } }).catch(() => {});
   } catch {}
   try { ['token', 'refresh_token', 'user', 'ms_remember_until'].forEach(k => localStorage.removeItem(k)); } catch {}
   try { clearLocalStorage(); } catch {}
-  // replace() (not href) so the browser Back button can't restore the authenticated dashboard.
   window.location.replace('login.html');
+}
+window.executeActualSignOut = executeActualSignOut;
+
+window.msSignOut = function msSignOut(skipClockCheck = false) {
+  if (!skipClockCheck && typeof getTimeClockState === 'function') {
+    const clockState = getTimeClockState();
+    if (clockState && (clockState.status === 'in' || clockState.status === 'break')) {
+      openSignOutClockModal();
+      return;
+    }
+  }
+  executeActualSignOut();
 };
 
 // "Keep me signed in" window: if it has lapsed, drop the stored session so the
@@ -1595,6 +1604,9 @@ async function initializeDashboardEcosystem() {
         }, 900);
       }
     } catch (e) {}
+
+    // Daily Punch Clock Prompt (once per day on login)
+    try { if (typeof checkLoginPunchClockPrompt === 'function') checkLoginPunchClockPrompt(); } catch (e) {}
 
     // The Leaderboard is its own page (the home for the Facebook / fb-only tiers,
     // a Marketing tab in DealerOS). Wire the loader for EVERYONE so navigating to it
@@ -28487,6 +28499,122 @@ function getTimeClockState() {
   try { state = JSON.parse(localStorage.getItem('ms_timeclock_state') || '{"status":"out","time":null}'); } catch {}
   return state;
 }
+window.getTimeClockState = getTimeClockState;
+
+// Automated Sign-In Clock Prompt (fires once per day upon login if clocked out)
+function checkLoginPunchClockPrompt() {
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const lastPromptDate = localStorage.getItem('ms_timeclock_prompt_date');
+    const clockState = getTimeClockState();
+
+    if (lastPromptDate !== todayStr && clockState.status === 'out') {
+      localStorage.setItem('ms_timeclock_prompt_date', todayStr);
+
+      let userName = 'Team Member';
+      try {
+        const u = JSON.parse(localStorage.getItem('user') || '{}');
+        userName = u.first_name || u.full_name || 'Team Member';
+      } catch {}
+
+      const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const dateNow = new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+
+      setTimeout(() => {
+        const modalHtml = `
+          <div class="space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-2xl font-black shadow-lg shadow-indigo-500/30">
+                  ⏱️
+                </div>
+                <div>
+                  <h3 class="text-lg font-black text-slate-900 dark:text-white">Good Morning, ${esc(userName)}!</h3>
+                  <p class="text-xs text-indigo-600 dark:text-indigo-400 font-bold">${esc(dateNow)} · ${esc(timeNow)}</p>
+                </div>
+              </div>
+              <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold">×</button>
+            </div>
+
+            <div class="bg-gradient-to-br from-indigo-50 to-slate-50 dark:from-indigo-950/40 dark:to-slate-900 border border-indigo-100 dark:border-indigo-900/40 p-4 rounded-2xl text-xs space-y-2">
+              <div class="font-black text-indigo-950 dark:text-indigo-200 text-sm flex items-center gap-1.5">
+                <span>📋</span><span>Daily Shift Punch Clock</span>
+              </div>
+              <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
+                Welcome to MarketSync! Please record your shift start time for HR attendance and automated payroll logs.
+              </p>
+            </div>
+
+            <div class="space-y-2 pt-1">
+              <button onclick="handleTimeClockAction('in'); document.querySelector('#automation-modal [data-close]')?.click();" class="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm shadow-md shadow-emerald-600/30 transition flex items-center justify-center gap-2">
+                <span>🟢</span><span>Clock In Now (${esc(timeNow)})</span>
+              </button>
+              <div class="grid grid-cols-2 gap-2">
+                <button onclick="handleTimeClockAction('break'); document.querySelector('#automation-modal [data-close]')?.click();" class="py-2.5 px-3 rounded-xl bg-amber-500/10 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 font-bold text-xs border border-amber-200 dark:border-amber-800 transition">
+                  ☕ Start on Break
+                </button>
+                <button onclick="document.querySelector('#automation-modal [data-close]')?.click();" class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 font-bold text-xs transition">
+                  Remind Me Later
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        if (typeof automationModal === 'function') {
+          automationModal(modalHtml, 'max-w-md');
+        }
+      }, 1200);
+    }
+  } catch (e) {
+    console.warn('Login punch clock check failed:', e);
+  }
+}
+window.checkLoginPunchClockPrompt = checkLoginPunchClockPrompt;
+
+// Automated Sign-Out / Exit Clock Out Intercept Modal
+function openSignOutClockModal() {
+  const clockState = getTimeClockState();
+  const modalHtml = `
+    <div class="space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center text-xl font-black">
+            ⏱️
+          </div>
+          <div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Clock Out & Sign Out</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Shift Clock Out Prompt on Exit</p>
+          </div>
+        </div>
+        <button data-close class="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
+      </div>
+
+      <div class="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 p-4 rounded-2xl text-xs space-y-2">
+        <div class="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+          <span>⚠️</span><span>You are currently clocked in!</span>
+        </div>
+        <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
+          Your shift is active (clocked in at <strong>${esc(clockState.time || '8:30 AM')}</strong>). Would you like to clock out of your shift before signing out?
+        </p>
+      </div>
+
+      <div class="space-y-2 pt-1">
+        <button onclick="handleTimeClockAction('out'); executeActualSignOut();" class="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-md shadow-rose-600/30 transition flex items-center justify-center gap-2">
+          <span>🔴</span><span>Clock Out & Sign Out</span>
+        </button>
+        <button onclick="executeActualSignOut();" class="w-full py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition">
+          Sign Out Only (Stay Clocked In)
+        </button>
+      </div>
+    </div>
+  `;
+  if (typeof automationModal === 'function') {
+    automationModal(modalHtml, 'max-w-md');
+  } else {
+    executeActualSignOut();
+  }
+}
+window.openSignOutClockModal = openSignOutClockModal;
 
 function handleTimeClockAction(action) {
   let state = getTimeClockState();
