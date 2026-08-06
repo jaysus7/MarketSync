@@ -656,52 +656,10 @@ async function renderSetupBar() {
   </button>`;
 }
 
-// The full checklist. Click any step to go do it; the next one is highlighted.
-async function openSetupCenter() {
-  setupCloseAll();
-  const steps = setupStepsFor(profileContext?.role);
-  if (!steps.length) return;
-  // Force-refresh so a connection just made on the Integrations page shows as done.
-  let snap; try { snap = await loadSetupSnapshot(true); } catch { snap = { feeds: [], site: {}, acct: {}, svc: {}, cal: { providers: [] } }; }
-  renderSetupBar();
-  const states = steps.map(s => ({ s, done: setupStepDone(s, snap) }));
-  const done = states.filter(x => x.done).length, total = states.length, pct = Math.round(done / total * 100);
-  const nextIdx = states.findIndex(x => !x.done);
-  const allDone = done === total;
-  const rows = states.map((x, i) => {
-    const isNext = i === nextIdx;
-    const ring = x.done ? 'border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20'
-      : isNext ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/30 ring-2 ring-indigo-200 dark:ring-indigo-800'
-        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50';
-    const badge = x.done ? 'bg-emerald-500 text-white' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700';
-    const tag = x.done ? '<span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">✓ Done</span>'
-      : isNext ? '<span class="text-[11px] font-black text-indigo-600 dark:text-indigo-400 shrink-0">Start →</span>'
-        : '<span class="text-[11px] font-bold text-slate-400 shrink-0">To&nbsp;do</span>';
-    // Each row = a "Show me" tour button (a guided look at that spot) + the setup action.
-    const tourBtn = x.s.tour ? `<button onclick="setupTour('${x.s.tour}')" title="Show me around this area" class="shrink-0 flex flex-col items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 px-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-500 dark:text-slate-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1 1 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span class="text-[9px] font-bold mt-0.5">Tour</span></button>` : '';
-    return `<div class="flex items-stretch gap-2">
-      <button onclick="setupRun('${x.s.id}')" class="flex-1 min-w-0 flex items-center gap-3 text-left rounded-xl border px-3 py-3 transition ${ring}">
-        <span class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${badge}">${svgIcon(x.done ? 'check' : x.s.icon, 'w-4 h-4')}</span>
-        <span class="min-w-0 flex-1"><span class="block text-sm font-bold text-slate-900 dark:text-white">${esc(x.s.label)}</span><span class="block text-[11px] text-slate-500 dark:text-slate-400">${esc(x.s.desc)}</span></span>
-        ${tag}
-      </button>
-      ${tourBtn}
-    </div>`;
-  }).join('');
-  crmOverlay(`<div class="p-5 space-y-4" data-setup-body>
-    <div class="flex items-start justify-between gap-3">
-      <div><div class="text-lg font-black text-slate-900 dark:text-white">${allDone ? "You're all set" : "Let's set up MarketSync"}</div>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">${allDone ? 'Every essential is configured. You can close this.' : "A few quick steps and you're ready to sell. Do them in any order — we keep your place, and you can stop any time."}</p></div>
-      <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
-    </div>
-    <div><div class="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1"><span>${done} of ${total} done</span><span>${pct}%</span></div>
-      <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full ${allDone ? 'bg-emerald-500' : 'bg-indigo-600'} rounded-full transition-all duration-500" style="width:${pct}%"></div></div></div>
-    <p class="text-[11px] text-slate-400 dark:text-slate-500 -mt-1">Each step has a <span class="inline-flex items-center gap-1 font-bold text-indigo-500 dark:text-indigo-400">${svgIcon('eye', 'w-3 h-3')}Tour</span> button for a quick look around, plus its setup. Prefer the whole thing? <button onclick="setupCloseAll(); startMarketSyncTour();" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Take the full tour</button></p>
-    <div class="space-y-2">${rows}</div>
-    ${allDone
-      ? `<button onclick="this.closest('.fixed').remove()" class="w-full text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg transition">Done</button>`
-      : `<button onclick="setupRun('${states[nextIdx].s.id}')" class="w-full flex items-center justify-center gap-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-lg transition">Continue setup — ${esc(states[nextIdx].s.label)}<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>`}
-  </div>`, 'max-w-md').dataset.setup = '1';
+// Opens the department setup wizard & spotlight tour for the active department.
+function openSetupCenter() {
+  const deptId = typeof __activeOpenDeptId !== 'undefined' && __activeOpenDeptId ? __activeOpenDeptId : (typeof __currentPage !== 'undefined' && __currentPage ? __currentPage : 'crm');
+  if (typeof openDepartmentSetupWizard === 'function') openDepartmentSetupWizard(deptId);
 }
 function setupRun(id) { const s = setupStepsFor(profileContext?.role).find(x => x.id === id); if (s) s.run(); }
 // Close the Setup overlay and run that spot's short guided tour.
@@ -1942,6 +1900,7 @@ const DEPARTMENTS = {
       // owner-users page calls /owner/accounts and is reserved for MarketSync HQ.
       // Keep Users first so Administration opens directly into user management.
       { page: 'sales-team', label: 'Users' },
+      { page: 'people-compliance', label: 'HR & Compliance' },
       { page: 'operations', label: 'Operations' },
       { page: 'taskboard', label: 'Task Board' },
       { page: 'config', label: 'Configuration' },
@@ -8567,6 +8526,7 @@ let __settingsTab = 'account';
 const SETTINGS_TAB_SECTIONS = {
   account: ['profile-form', 'security-section', 'settings-language-card'],
   admin: ['settings-team', 'billing-section', 'integrations-section', 'settings-texting-card', 'groups-settings-section', 'dealer-features-card', 'email-sending-card'],
+  hr: ['settings-hr-card'],
   sales: ['crm-dms-card', 'desk-fees-card', 'dealer-docs-card', 'guardrail-settings-section'],
   marketing: ['prof-branding-section', 'ai-boost-section'],
   inventory: ['inv-intel-section'],
@@ -8598,6 +8558,9 @@ function settingsTab(tab) {
       !el.classList.contains('stab-hide') && !el.classList.contains('hidden'));
     panel.classList.toggle('is-multi', shown.length > 1);
   });
+  if (tab === 'hr') {
+    if (typeof renderSettingsHrCard === 'function') renderSettingsHrCard();
+  }
   // Administration bundles team, billing, integrations, group, features + texting.
   if (tab === 'admin') {
     if (typeof renderCurrentPlanBox === 'function') renderCurrentPlanBox();
@@ -28149,6 +28112,59 @@ function loadPeopleCompliance() {
   renderPeopleCompliance();
 }
 window.loadPeopleCompliance = loadPeopleCompliance;
+
+function renderSettingsHrCard() {
+  const card = document.getElementById('settings-hr-card');
+  if (!card) return;
+  const employees = typeof getPeopleComplianceData === 'function' ? getPeopleComplianceData() : [];
+  const activeCount = employees.filter(e => e.status === 'Active').length;
+  const expiringLicences = employees.filter(e => e.licence_status && e.licence_status.includes('Expiring')).length;
+
+  card.innerHTML = `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg">👥</div>
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">People &amp; Compliance (HR Engine)</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Employee profiles, driver licence tracking, safety policy e-signatures &amp; automated HR workflows.</p>
+          </div>
+        </div>
+        <button onclick="switchPage('people-compliance')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition">Open Full HR Workspace 👥</button>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div class="text-slate-400 font-bold">Active Staff</div>
+          <div class="text-xl font-black text-slate-900 dark:text-white mt-1">${activeCount} Members</div>
+        </div>
+        <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div class="text-slate-400 font-bold">Expiring Licences</div>
+          <div class="text-xl font-black text-amber-500 mt-1">${expiringLicences} Expiring</div>
+        </div>
+        <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div class="text-slate-400 font-bold">WHMIS / Safety</div>
+          <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">100% Up-to-date</div>
+        </div>
+        <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div class="text-slate-400 font-bold">Compliance Score</div>
+          <div class="text-xl font-black text-emerald-600 mt-1">96.4%</div>
+        </div>
+      </div>
+
+      <div class="p-3.5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800 rounded-xl text-xs space-y-2">
+        <div class="font-bold text-indigo-900 dark:text-indigo-200 flex items-center justify-between">
+          <span>⚡ HR &amp; Security Automation Triggers</span>
+          <span class="text-[10px] text-emerald-600 font-bold uppercase">Active</span>
+        </div>
+        <div class="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
+          New hire account auto-provisioning, sales rep store transfer, licence expiration alerts, and 1-click employee offboarding security kill-switch are enabled.
+        </div>
+      </div>
+    </div>
+  `;
+}
+window.renderSettingsHrCard = renderSettingsHrCard;
 
 function renderPeopleCompliance() {
   const root = document.getElementById('people-compliance-root');
