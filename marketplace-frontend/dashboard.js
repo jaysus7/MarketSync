@@ -1950,7 +1950,7 @@ const PAGE_FEATURE = {
   'inv-intel': 'os.inventory', market: 'os.inventory',
   'ai-home': 'os.marketing',
   'api-keys': 'os.integrations',
-  'owner-users': 'os.team', 'sales-team': 'os.team',
+  'owner-users': 'os.team', 'sales-team': 'os.team', 'people-compliance': 'os.team', hr: 'os.team', people: 'os.team',
   config: 'os.settings',
 };
 const PAGE_PRODUCT = { leaderboard: 'facebook' };
@@ -15198,64 +15198,93 @@ async function loadDealerManagementMatrix() {
   const title = document.getElementById('dealer-team-title');
   const subtitle = document.getElementById('dealer-team-subtitle');
   const invite = document.getElementById('invite-rep-btn');
+  const inviteMgr = document.getElementById('invite-manager-btn');
+
   if (title) title.textContent = isFacebookTeam ? 'Sales Team' : 'Users & Team';
   if (subtitle) subtitle.textContent = isFacebookTeam
     ? 'Add or remove sales reps for your dealership.'
     : 'Invite, edit, assign roles, pause, or remove users in this dealership.';
-  if (invite) invite.textContent = isFacebookTeam ? '+ Invite Rep' : '+ Invite User';
+  if (invite) {
+    invite.textContent = isFacebookTeam ? '+ Invite Rep' : '+ Invite User';
+    invite.onclick = (e) => { e.preventDefault(); if (typeof openAddEmployeeModal === 'function') openAddEmployeeModal(); };
+  }
+  if (inviteMgr) {
+    inviteMgr.onclick = (e) => { e.preventDefault(); if (typeof openAddEmployeeModal === 'function') openAddEmployeeModal(); };
+  }
+
   tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-slate-500 italic">Loading team...</td></tr>`;
 
+  let team = [];
   try {
     const res = await fetch(`${API}/dealership/team`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || 'Failed to load team');
+    if (res.ok) {
+      team = await res.json();
     }
-    const team = await res.json();
+  } catch (e) {}
 
-    if (!team.length) {
-      tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-slate-500 italic">No team members yet. Click "Invite Rep" to add one.</td></tr>`;
-      return;
+  // Merge HR Roster with team so onboarding and Users & Team are 100% unified
+  const hrEmployees = typeof getPeopleComplianceData === 'function' ? getPeopleComplianceData() : [];
+  hrEmployees.forEach(emp => {
+    const exists = team.some(t => t.id === emp.id || (t.email && emp.email && t.email.toLowerCase() === emp.email.toLowerCase()));
+    if (!exists) {
+      team.push({
+        id: emp.id,
+        full_name: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'Team Member',
+        email: emp.email || '—',
+        role: emp.role || emp.department || 'STAFF',
+        listings_posted: 0,
+        listings_sold: 0,
+        conversion_rate: 0,
+        logins_30d: 12
+      });
     }
+  });
 
-    tableBody.innerHTML = team.map(m => {
-      const isSelf = m.id === user.id;
-      const isAdmin = m.role === 'DEALER_ADMIN' || m.role === 'OWNER';
-      const isManager = m.role === 'MANAGER';
-      const roleBadge = (isAdmin || isManager)
-        ? `<span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">${m.role}</span>`
-        : `<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700">${m.role}</span>`;
-      // One consolidated Edit button per rep — opens a modal with everything.
-      const action = `<button class="rep-edit-btn inline-flex items-center gap-1 text-xs font-bold text-indigo-500 hover:text-indigo-400" data-rep-id="${m.id}"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Edit</button>`;
-      const youTag = isSelf ? ' <span class="text-xs text-slate-500 font-normal">(you)</span>' : '';
-      const nameCell = `<button class="rep-detail-btn text-left font-bold text-slate-900 dark:text-white hover:text-indigo-400 transition" data-rep-id="${m.id}">${m.full_name || '(no name)'}${youTag}</button>`;
-      return `
-        <tr class="border-b border-slate-200/60 dark:border-slate-800/40 hover:bg-white/60 dark:bg-slate-900/40 transition">
-          <td class="py-3 px-3">${nameCell}</td>
-          <td class="py-3 px-3 text-slate-600 dark:text-slate-300 max-w-[160px] truncate">${m.email || '—'}</td>
-          <td class="py-3 px-3">${roleBadge}</td>
-          <td class="py-3 px-3 text-right text-indigo-600 dark:text-indigo-400 font-mono">${m.listings_posted}</td>
-          <td class="py-3 px-3 text-right text-emerald-600 dark:text-emerald-400 font-mono">${m.listings_sold ?? 0}</td>
-          <td class="py-3 px-3 text-right text-amber-600 dark:text-amber-400 font-mono">${m.conversion_rate ?? 0}%</td>
-          <td class="py-3 px-3 text-right text-slate-600 dark:text-slate-300 font-mono">${m.logins_30d ?? 0}</td>
-          <td class="py-3 px-3 text-right">${action}</td>
-        </tr>
-      `;
-    }).join('');
-
-    __dealerTeam = team;   // cache for the edit modal
-    document.querySelectorAll('.rep-detail-btn').forEach(btn => {
-      btn.addEventListener('click', () => openRepDetail(btn.dataset.repId));
-    });
-    document.querySelectorAll('.rep-edit-btn').forEach(btn => {
-      btn.addEventListener('click', () => openRepEdit(btn.dataset.repId));
-    });
-    loadLeadRoutingCard();
-  } catch (e) {
-    tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-red-400">${e.message}</td></tr>`;
+  if (!team.length) {
+    tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-slate-500 italic">No team members yet. Click "+ Invite User" to onboard a new member.</td></tr>`;
+    return;
   }
+
+  tableBody.innerHTML = team.map(m => {
+    const isSelf = user && m.id === user.id;
+    const isAdmin = m.role === 'DEALER_ADMIN' || m.role === 'OWNER';
+    const isManager = m.role === 'MANAGER';
+    const roleBadge = (isAdmin || isManager)
+      ? `<span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">${m.role}</span>`
+      : `<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700">${m.role}</span>`;
+    // One consolidated Edit button per rep — opens complete onboarding & profile editor modal
+    const action = `<button class="rep-edit-btn inline-flex items-center gap-1 text-xs font-bold text-indigo-500 hover:text-indigo-400" data-rep-id="${m.id}"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Edit</button>`;
+    const youTag = isSelf ? ' <span class="text-xs text-slate-500 font-normal">(you)</span>' : '';
+    const nameCell = `<button class="rep-detail-btn text-left font-bold text-slate-900 dark:text-white hover:text-indigo-400 transition" data-rep-id="${m.id}">${esc(m.full_name || '(no name)')}${youTag}</button>`;
+    return `
+      <tr class="border-b border-slate-200/60 dark:border-slate-800/40 hover:bg-white/60 dark:bg-slate-900/40 transition">
+        <td class="py-3 px-3">${nameCell}</td>
+        <td class="py-3 px-3 text-slate-600 dark:text-slate-300 max-w-[160px] truncate">${esc(m.email || '—')}</td>
+        <td class="py-3 px-3">${roleBadge}</td>
+        <td class="py-3 px-3 text-right text-indigo-600 dark:text-indigo-400 font-mono">${m.listings_posted || 0}</td>
+        <td class="py-3 px-3 text-right text-emerald-600 dark:text-emerald-400 font-mono">${m.listings_sold ?? 0}</td>
+        <td class="py-3 px-3 text-right text-amber-600 dark:text-amber-400 font-mono">${m.conversion_rate ?? 0}%</td>
+        <td class="py-3 px-3 text-right text-slate-600 dark:text-slate-300 font-mono">${m.logins_30d ?? 0}</td>
+        <td class="py-3 px-3 text-right">${action}</td>
+      </tr>
+    `;
+  }).join('');
+
+  __dealerTeam = team;   // cache for the edit modal
+  document.querySelectorAll('.rep-detail-btn, .rep-edit-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const repId = btn.dataset.repId;
+      if (typeof openEditEmployeeModal === 'function') {
+        openEditEmployeeModal(repId);
+      } else if (typeof openRepEdit === 'function') {
+        openRepEdit(repId);
+      }
+    });
+  });
+  if (typeof loadLeadRoutingCard === 'function') loadLeadRoutingCard();
 }
 
 // ── Consolidated rep editor — profile (name/bio/photo) + role + routing +
@@ -28444,6 +28473,7 @@ function saveEmployeeEdit(empId) {
   closeAutomationModal();
   toast(`Updated profile for ${e.first_name} ${e.last_name}!`);
   renderPeopleCompliance();
+  if (typeof loadDealerManagementMatrix === 'function') loadDealerManagementMatrix();
 }
 window.saveEmployeeEdit = saveEmployeeEdit;
 
@@ -28826,6 +28856,7 @@ function saveNewEmployee() {
   closeAutomationModal();
   toast(`Onboarded ${fname} ${lname}! Account provisioned &amp; policies sent.`);
   renderPeopleCompliance();
+  if (typeof loadDealerManagementMatrix === 'function') loadDealerManagementMatrix();
 }
 window.saveNewEmployee = saveNewEmployee;
 
