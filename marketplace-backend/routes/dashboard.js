@@ -1366,20 +1366,21 @@ export function registerRoutes(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const contactId = String(req.query.contact_id || '')
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
-    const { data } = await supabaseAdmin.from('deals')
+    const { data } = await req.supabase.from('deals')
       .select('*').eq('dealership_id', req.dealershipId).eq('contact_id', contactId).maybeSingle()
     // Vehicle cost is internal + feature-flagged. Strip it from the payload unless
     // cost tracking is on (managers reach this endpoint; the flags drive UI display).
-    const { data: dlr } = await supabaseAdmin.from('dealerships')
+    const { data: dlr } = await req.supabase.from('dealerships')
       .select('cost_tracking_enabled, cost_rep_visible').eq('id', req.dealershipId).maybeSingle()
     if (data && !dlr?.cost_tracking_enabled) delete data.cost
     // Customer # lives on the contact; the deal carries deal #. Surface both plus the
     // salesperson (name + registration/OMVIC #) so the bill of sale can print them.
-    const { data: cust } = await supabaseAdmin.from('contacts')
+    const { data: cust } = await req.supabase.from('contacts')
       .select('customer_number').eq('id', contactId).maybeSingle()
     let salesperson = null
     const repId = data?.created_by
     if (repId) {
+      // Salesperson name/registration kept on supabaseAdmin (profiles RLS restricts cross-user reads).
       const { data: rep } = await supabaseAdmin.from('profiles').select('full_name, registration_id').eq('id', repId).maybeSingle()
       if (rep) salesperson = { name: rep.full_name || null, registration_id: rep.registration_id || null }
     }
@@ -1388,6 +1389,8 @@ export function registerRoutes(app) {
 
   // Next sequential number for a dealership (max+1, base-offset so it reads like a
   // real dealer number). Low-concurrency per dealer, so max+1 is safe enough.
+  // Per-dealership sequence generator (deal #, customer #). Kept on supabaseAdmin: a
+  // shared helper with an explicit dealershipId and no request context.
   async function nextDealershipNumber(table, col, dealershipId, base) {
     const { data } = await supabaseAdmin.from(table).select(col)
       .eq('dealership_id', dealershipId).not(col, 'is', null).order(col, { ascending: false }).limit(1).maybeSingle()
@@ -1400,7 +1403,7 @@ export function registerRoutes(app) {
     const contactId = String(req.body?.contact_id || '')
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
     // Confirm the contact belongs to this dealership before writing.
-    const { data: ct } = await supabaseAdmin.from('contacts').select('id').eq('id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: ct } = await req.supabase.from('contacts').select('id').eq('id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!ct) return res.status(404).json({ error: 'Contact not found' })
 
     const num = (v) => { if (v == null || v === '') return null; const n = Number(v); return Number.isFinite(n) ? n : null }
@@ -1417,26 +1420,26 @@ export function registerRoutes(app) {
     // Vehicle cost only persists when cost tracking is switched on for the store —
     // otherwise never touch it (so it can't be set by accident, and stays internal).
     if ('cost' in row) {
-      const { data: dlrCost } = await supabaseAdmin.from('dealerships').select('cost_tracking_enabled').eq('id', req.dealershipId).maybeSingle()
+      const { data: dlrCost } = await req.supabase.from('dealerships').select('cost_tracking_enabled').eq('id', req.dealershipId).maybeSingle()
       if (!dlrCost?.cost_tracking_enabled) delete row.cost
     }
 
     // Assign a permanent deal # (once) and make sure the customer has a customer #.
     // Both are per-dealership sequential and stay attached: the deal references the
     // contact, and the bill of sale prints both numbers together.
-    const { data: existingDeal } = await supabaseAdmin.from('deals')
+    const { data: existingDeal } = await req.supabase.from('deals')
       .select('id, deal_number, deal_status, inventory_id, selling_price, total_price, amount_financed, cost').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (existingDeal?.deal_number) row.deal_number = existingDeal.deal_number
     else row.deal_number = await nextDealershipNumber('deals', 'deal_number', req.dealershipId, 1000)
 
-    const { data: custRow } = await supabaseAdmin.from('contacts').select('customer_number').eq('id', contactId).maybeSingle()
+    const { data: custRow } = await req.supabase.from('contacts').select('customer_number').eq('id', contactId).maybeSingle()
     let customerNumber = custRow?.customer_number || null
     if (!customerNumber) {
       customerNumber = await nextDealershipNumber('contacts', 'customer_number', req.dealershipId, 1000)
-      await supabaseAdmin.from('contacts').update({ customer_number: customerNumber }).eq('id', contactId)
+      await req.supabase.from('contacts').update({ customer_number: customerNumber }).eq('id', contactId)
     }
 
-    const { data, error } = await supabaseAdmin.from('deals')
+    const { data, error } = await req.supabase.from('deals')
       .upsert(row, { onConflict: 'contact_id' }).select().maybeSingle()
     if (error) { console.error('deal upsert failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
     // Once F&I has added products and saved, the vehicle is no longer up for grabs —
@@ -1445,6 +1448,9 @@ export function registerRoutes(app) {
     let vehiclePending = false
     const fniItems = Array.isArray(data?.fni_items) ? data.fni_items : []
     if (data?.inventory_id && fniItems.some(x => (x?.name || '').trim() || Number(x?.price) > 0)) {
+      // Inventory side-effect kept on supabaseAdmin: this route is deal.create-guarded,
+      // but deal.create actors (salesperson, F&I) don't hold inventory.view/edit, so an
+      // RLS-enforced client would fail this pending flip. Dealership-scoped, own deal's car.
       const { data: veh } = await supabaseAdmin.from('inventory')
         .select('status').eq('id', data.inventory_id).eq('dealership_id', req.dealershipId).maybeSingle()
       if (veh && String(veh.status || 'available').toLowerCase() === 'available') {
@@ -1472,6 +1478,7 @@ export function registerRoutes(app) {
     }
     let salesperson = null
     if (row.created_by) {
+      // Salesperson name/registration kept on supabaseAdmin (profiles RLS restricts cross-user reads).
       const { data: rep } = await supabaseAdmin.from('profiles').select('full_name, registration_id').eq('id', row.created_by).maybeSingle()
       if (rep) salesperson = { name: rep.full_name || null, registration_id: rep.registration_id || null }
     }
@@ -1522,19 +1529,21 @@ export function registerRoutes(app) {
     }
     const m = MAP[action]
     if (!m) return res.status(400).json({ error: 'Invalid action' })
-    const { data: deal } = await supabaseAdmin.from('deals')
+    const { data: deal } = await req.supabase.from('deals')
       .select('id, inventory_id, deal_status').eq('contact_id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!deal) return res.status(404).json({ error: 'Save the deal first, then set its status.' })
     const patch = { deal_status: m.deal, updated_at: now }
     if (m.stamp) patch[m.stamp] = now
-    const { error } = await supabaseAdmin.from('deals').update(patch).eq('id', deal.id).eq('dealership_id', req.dealershipId)
+    const { error } = await req.supabase.from('deals').update(patch).eq('id', deal.id).eq('dealership_id', req.dealershipId)
     if (error) { console.error('deal status update failed:', error.message); return res.status(500).json({ error: 'Update failed' }) }
     // Flip the vehicle to match. Never touch a car that isn't linked to this deal.
+    // req.supabase here is safe: this route is deal.finalize-guarded, and every
+    // finalize-holding role (owners, GM) also holds inventory.edit.
     if (deal.inventory_id) {
       const invPatch = { status: m.inv }
       if (m.inv === 'sold') invPatch.sold_at = now
       if (m.inv === 'available') invPatch.sold_at = null
-      await supabaseAdmin.from('inventory').update(invPatch).eq('id', deal.inventory_id).eq('dealership_id', req.dealershipId)
+      await req.supabase.from('inventory').update(invPatch).eq('id', deal.inventory_id).eq('dealership_id', req.dealershipId)
       // Sold → make sure the car shows on the Cleanup/get-ready board. Marking sold
       // is enough; the F&I "Approve" step is optional. (Delivered leaves the board.)
       if (m.deal === 'sold') {
@@ -1578,7 +1587,7 @@ export function registerRoutes(app) {
   app.get('/deals/customers', requireAuth, requirePermission('deal.create'), async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, rows: [] })
     const q = String(req.query.q || '').trim()
-    let query = supabaseAdmin.from('contacts')
+    let query = req.supabase.from('contacts')
       .select('id, first_name, last_name, full_name, email, phone, phone_mobile, city, province')
       .eq('dealership_id', req.dealershipId).order('last_activity_at', { ascending: false, nullsFirst: false }).limit(25)
     if (q) {
@@ -1601,12 +1610,14 @@ export function registerRoutes(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const id = String(req.query.id || '')
     if (!id) return res.status(400).json({ error: 'id required' })
-    const { data: c } = await supabaseAdmin.from('contacts')
+    const { data: c } = await req.supabase.from('contacts')
       .select('id, first_name, last_name, full_name, email, phone, phone_mobile, phone_home, phone_work, address, city, province, postal_code, country, dl_number, dl_expiry, interest_inventory_id, interest_vehicle, trade_vehicle')
       .eq('id', id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!c) return res.status(404).json({ error: 'Contact not found' })
     let vehicle = null
     if (c.interest_inventory_id) {
+      // Vehicle prefill kept on supabaseAdmin: this route is deal.create-guarded, but an
+      // F&I desker holds deal.create without inventory.view — RLS would blank the prefill.
       const { data: v } = await supabaseAdmin.from('inventory')
         .select('id, vin, year, make, model, trim, mileage, exterior_color, stocknumber, price')
         .eq('id', c.interest_inventory_id).eq('dealership_id', req.dealershipId).maybeSingle()
@@ -1622,19 +1633,19 @@ export function registerRoutes(app) {
     if (!contactId) return res.json({ ok: true, rows: [] })
     const cols = 'id, year, make, model, trim, vin, mileage, color, suggested_offer, retail_median, created_at, contact_id, customer'
     // Primary match: appraisals explicitly linked to this contact.
-    const { data: linked } = await supabaseAdmin.from('trade_appraisals')
+    const { data: linked } = await req.supabase.from('trade_appraisals')
       .select(cols).eq('dealership_id', req.dealershipId).eq('contact_id', contactId)
       .order('created_at', { ascending: false }).limit(10)
     const rows = [...(linked || [])]
     // Fallback: an appraisal may have been saved before the contact existed (or under a
     // separate contact record for the same person) — match on the customer's email/phone
     // captured on the appraisal so it still pulls into the deal.
-    const { data: c } = await supabaseAdmin.from('contacts')
+    const { data: c } = await req.supabase.from('contacts')
       .select('email, phone, phone_mobile').eq('id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     const email = (c?.email || '').trim().toLowerCase()
     const phone = (c?.phone || c?.phone_mobile || '').replace(/\D/g, '')
     if (email || phone) {
-      const { data: recent } = await supabaseAdmin.from('trade_appraisals')
+      const { data: recent } = await req.supabase.from('trade_appraisals')
         .select(cols).eq('dealership_id', req.dealershipId)
         .order('created_at', { ascending: false }).limit(200)
       const seen = new Set(rows.map(r => r.id))
@@ -1657,6 +1668,8 @@ export function registerRoutes(app) {
   app.get('/deals/vehicles', requireAuth, requirePermission('deal.create'), async (req, res) => {
     if (!req.dealershipId) return res.json({ ok: true, rows: [] })
     const q = String(req.query.q || '').trim()
+    // Vehicle search kept on supabaseAdmin: deal.create-guarded, but an F&I desker holds
+    // deal.create without inventory.view — RLS would return no vehicles for the desk.
     let query = supabaseAdmin.from('inventory')
       .select('id, vin, year, make, model, trim, mileage, exterior_color, stocknumber, price, status')
       .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(25)
