@@ -183,10 +183,11 @@ registerAffiliate(app)
 registerHR(app)
 registerWebhookRoutes(app)
 
-// Durable event bus: start the catch-up poller AFTER every engine has registered
-// its onEvent subscribers, so a replayed event reaches all of them.
-startEventDispatcher()
-startWebhookRetryWorker()
+// Background event dispatcher and webhook retry worker: start only on dedicated worker instances (RUN_WORKERS=true)
+if (process.env.RUN_WORKERS === 'true') {
+  startEventDispatcher()
+  startWebhookRetryWorker()
+}
 
 app.use((err, req, res, next) => {
   console.error('Unhandled Express error:', {
@@ -198,5 +199,10 @@ app.use((err, req, res, next) => {
   if (res.headersSent) return next(err)
   res.status(500).json({ error: 'Internal server error' })
 })
+
+if (process.env.VALIDATE_STARTUP === 'true') {
+  console.log('[startup-validation] Server startup & route registration validated successfully.')
+  process.exit(0)
+}
 
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Secure Marketplace engine live on port ${PORT}`))

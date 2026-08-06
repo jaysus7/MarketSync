@@ -30,8 +30,12 @@ jobs:
       - name: Audit — fail on high/critical
         run: npm audit --audit-level=high --omit=dev
       - name: Syntax-check all backend sources
-        run: |
-          find . -path ./node_modules -prune -o -name '*.js' -print \
-            | xargs -r -n1 node --check
+        run: npm run check:syntax
       - name: Validate ESM module import resolution
         run: npm run check:imports
+      - name: Validate named export bindings
+        run: npm run check:exports
+      - name: Validate Express route registration
+        run: npm run check:routes
+      - name: Validate server startup (dry-run mode)
+        run: npm run check:startup
