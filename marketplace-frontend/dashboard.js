@@ -10659,15 +10659,16 @@ async function deliveryComplete(id) {
 Object.assign(window, { loadDeliveryQueue, deliveryToggle, deliveryComplete });
 
 const CONFIG_META = {
-  crm_integration:   { label: 'CRM Integration',    desc: 'How captured leads sync out to your CRM (method, lead email, webhook).' },
-  accounting:        { label: 'Accounting',         desc: 'Auto-post delivered deals to the ledger + cost tracking.' },
-  service:           { label: 'Service & Parts',    desc: 'Labor rate, tax, shop supplies, parts markup, RO prefix.' },
-  hr_compliance:     { label: 'People & Compliance (HR)', desc: 'Provincial rules (Ontario OHSA/ESA), licence check intervals, mandatory policy documents & escalation rules.' },
-  ai_knowledge:      { label: 'AI Knowledge Base',  desc: 'Facts the chatbot answers from (hours, financing, specials…).' },
-  ai_personality:    { label: 'AI Personality',     desc: 'Chatbot greeting + tone.' },
-  notification_rules:{ label: 'Notification Rules', desc: 'Alert thresholds (e.g. hot-lead score).' },
+  crm_integration:   { label: 'CRM Integration', category: 'crm', icon: '🔄', desc: 'How captured leads sync out to your CRM (method, lead email, webhook, ADF/XML).' },
+  accounting:        { label: 'Accounting & General Ledger', category: 'finance', icon: '💼', desc: 'Auto-post delivered deals to the ledger, chart of accounts mapping + cost tracking.' },
+  service:           { label: 'Service & Parts Parameters', category: 'service', icon: '🔧', desc: 'Labor rate ($/hr), sales tax %, shop supplies %, parts markup, and repair order prefix.' },
+  hr_compliance:     { label: 'People & Compliance (HR)', category: 'hr', icon: '👥', desc: 'Provincial rules (Ontario OHSA/ESA), licence check intervals, mandatory policy documents & safety rules.' },
+  ai_knowledge:      { label: 'AI Knowledge Base', category: 'ai', icon: '🧠', desc: 'Facts the chatbot answers from (hours, financing options, inventory specials, trade-in policy).' },
+  ai_personality:    { label: 'AI Personality & Greeting', category: 'ai', icon: '🤖', desc: 'Chatbot greeting message, conversation tone, and off-hours auto-reply policies.' },
+  notification_rules:{ label: 'Notification & Alert Rules', category: 'crm', icon: '🔔', desc: 'Real-time alert thresholds (hot-lead score cutoffs, SMS numbers, daily digest).' },
 };
 const cfgLabel = (k) => CONFIG_META[k]?.label || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
 async function loadConfigHub() {
   const root = document.getElementById('config-root');
   if (!root) return;
@@ -10677,27 +10678,113 @@ async function loadConfigHub() {
   catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message)}</div>`; return; }
   const keys = (d.keys || []).sort((a, b) => cfgLabel(a.key).localeCompare(cfgLabel(b.key)));
   const structured = d.structured || [];
+
   const cards = keys.map(k => {
-    const meta = CONFIG_META[k.key];
-    const json = JSON.stringify(k.value ?? {}, null, 2);
-    return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-2">
-      <div class="flex items-center justify-between gap-2">
-        <div><span class="font-bold text-slate-800 dark:text-slate-100">${esc(cfgLabel(k.key))}</span>
-          ${k.customized ? '<span class="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">Customized</span>' : '<span class="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">Default</span>'}</div>
-        <code class="text-[11px] text-slate-400">${esc(k.key)}</code>
+    const meta = CONFIG_META[k.key] || {
+      label: cfgLabel(k.key),
+      category: 'general',
+      icon: '⚙️',
+      desc: 'System configuration parameter for your dealership.'
+    };
+    const valObj = (k.value && typeof k.value === 'object' && !Array.isArray(k.value)) ? k.value : null;
+    const jsonStr = JSON.stringify(k.value ?? {}, null, 2);
+    const isCustom = k.customized;
+
+    // Build Visual Form Fields if valObj exists
+    let formFieldsHtml = '';
+    if (valObj && Object.keys(valObj).length > 0) {
+      formFieldsHtml = Object.entries(valObj).map(([propKey, propVal]) => {
+        const fieldId = `cfg-field-${k.key}-${propKey}`;
+        const propLabel = propKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const type = typeof propVal;
+
+        if (type === 'boolean') {
+          return `
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800">
+              <div>
+                <label for="${fieldId}" class="block text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">${esc(propLabel)}</label>
+                <span class="text-[10px] text-slate-400 font-mono">${esc(propKey)}</span>
+              </div>
+              <input type="checkbox" id="${fieldId}" data-prop="${esc(propKey)}" ${propVal ? 'checked' : ''} class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+            </div>
+          `;
+        } else if (type === 'number') {
+          return `
+            <div class="space-y-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800">
+              <label for="${fieldId}" class="block text-xs font-bold text-slate-800 dark:text-slate-200">${esc(propLabel)}</label>
+              <input type="number" step="any" id="${fieldId}" data-prop="${esc(propKey)}" value="${propVal}" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono focus:border-indigo-500 focus:outline-none">
+            </div>
+          `;
+        } else {
+          return `
+            <div class="space-y-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800">
+              <label for="${fieldId}" class="block text-xs font-bold text-slate-800 dark:text-slate-200">${esc(propLabel)}</label>
+              <input type="text" id="${fieldId}" data-prop="${esc(propKey)}" value="${esc(String(propVal ?? ''))}" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono focus:border-indigo-500 focus:outline-none">
+            </div>
+          `;
+        }
+      }).join('');
+    }
+
+    return `
+      <div class="cfg-row-item w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-5 shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition space-y-4" data-category="${meta.category || 'general'}" data-key="${esc(k.key)}" data-search="${esc(meta.label.toLowerCase() + ' ' + k.key + ' ' + meta.desc.toLowerCase())}">
+        <!-- Header Row -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800/80">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xl shrink-0 font-bold">
+              ${meta.icon || '⚙️'}
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="text-sm font-black text-slate-900 dark:text-white truncate">${esc(meta.label)}</h3>
+                <code class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-mono">${esc(k.key)}</code>
+                ${isCustom 
+                  ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">Customized</span>' 
+                  : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">System Default</span>'}
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">${esc(meta.desc)}</p>
+            </div>
+          </div>
+
+          <!-- Action Controls Right -->
+          <div class="flex items-center gap-2 shrink-0">
+            ${valObj ? `<button onclick="cfgToggleView('${esc(k.key)}')" id="btn-toggle-${esc(k.key)}" class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-300 hover:bg-slate-100 text-xs font-bold transition flex items-center gap-1">💻 Code View</button>` : ''}
+            <button onclick="${valObj ? `cfgSaveForm('${esc(k.key)}')` : `cfgSave('${esc(k.key)}')`}" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-sm transition flex items-center gap-1">💾 Save Changes</button>
+            ${isCustom ? `<button onclick="cfgReset('${esc(k.key)}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-slate-600 hover:text-rose-600 dark:text-slate-300 text-xs font-bold transition">↺ Reset</button>` : ''}
+          </div>
+        </div>
+
+        <!-- Editor Content Row -->
+        <div id="cfg-form-wrap-${esc(k.key)}" class="w-full">
+          ${valObj ? `
+            <div id="cfg-form-mode-${esc(k.key)}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              ${formFieldsHtml}
+            </div>
+          ` : ''}
+          <div id="cfg-code-mode-${esc(k.key)}" class="${valObj ? 'hidden' : ''} space-y-1">
+            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">JSON Data Payload</label>
+            <textarea id="cfg-${esc(k.key)}" rows="${Math.min(10, jsonStr.split('\n').length + 2)}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-950 text-emerald-400 text-xs font-mono focus:border-indigo-500 focus:outline-none leading-relaxed">${esc(jsonStr)}</textarea>
+          </div>
+        </div>
       </div>
-      ${meta ? `<p class="text-[12px] text-slate-500">${esc(meta.desc)}</p>` : ''}
-      <textarea id="cfg-${esc(k.key)}" rows="${Math.min(12, json.split('\n').length + 1)}" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-[12px] font-mono">${esc(json)}</textarea>
-      <div class="flex gap-2">
-        <button onclick="cfgSave('${esc(k.key)}')" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-[13px] font-bold transition">Save</button>
-        ${k.customized ? `<button onclick="cfgReset('${esc(k.key)}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200">Reset to default</button>` : ''}
+    `;
+  }).join('') || '<div class="text-sm text-slate-400 py-6 text-center">No configuration keys found.</div>';
+
+  const structRows = structured.map(s => `
+    <div class="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-indigo-300 dark:hover:border-indigo-700 transition">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm">📋</div>
+        <div>
+          <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200">${esc(s.label)}</h4>
+          <span class="text-[10px] text-slate-400 font-mono">Editor: ${esc(s.editor)}</span>
+        </div>
       </div>
-    </div>`;
-  }).join('') || '<div class="text-sm text-slate-400">No configuration keys yet.</div>';
-  const structRows = structured.map(s => `<div class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">${esc(s.label)}</span><span class="text-[11px] text-slate-400">${s.count} rule${s.count === 1 ? '' : 's'} · ${esc(s.editor)}</span></div>`).join('');
+      <span class="px-2.5 py-1 text-xs font-black rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">${s.count} rule${s.count === 1 ? '' : 's'} active</span>
+    </div>
+  `).join('');
   
   const hrFeaturedCard = `
-    <div class="bg-gradient-to-r from-indigo-900 via-slate-900 to-slate-900 border border-indigo-700/60 rounded-2xl p-5 text-white flex flex-wrap items-center justify-between gap-4 col-span-1 lg:col-span-2 shadow-md mb-2">
+    <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 border border-indigo-700/60 rounded-2xl p-5 text-white flex flex-wrap items-center justify-between gap-4 shadow-md">
       <div class="flex items-center gap-3.5">
         <div class="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow">👥</div>
         <div>
@@ -10705,17 +10792,114 @@ async function loadConfigHub() {
           <p class="text-xs text-indigo-200 mt-0.5">Unified employee CRM profiles, driver licence tracking, safety policies, and automated HR workflows.</p>
         </div>
       </div>
-      <button onclick="switchPage('people-compliance')" class="px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-black text-xs shadow-md transition flex items-center gap-1.5">Open HR &amp; Compliance Engine 👥</button>
+      <button onclick="switchPage('people-compliance')" class="px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-black text-xs shadow-md transition flex items-center gap-1.5">Open HR Engine 👥</button>
+    </div>
+  `;
+
+  const categoryTabs = `
+    <div class="flex items-center justify-between flex-wrap gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="cfgFilterCategory('all')" id="cfg-cat-all" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-black bg-indigo-600 text-white shadow-sm transition">⚡ All Settings (${keys.length})</button>
+        <button onclick="cfgFilterCategory('crm')" id="cfg-cat-crm" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">🔄 CRM &amp; Alerts</button>
+        <button onclick="cfgFilterCategory('ai')" id="cfg-cat-ai" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">🤖 AI &amp; Personality</button>
+        <button onclick="cfgFilterCategory('hr')" id="cfg-cat-hr" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">👥 People &amp; Compliance</button>
+        <button onclick="cfgFilterCategory('service')" id="cfg-cat-service" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">🔧 Service &amp; Parts</button>
+        <button onclick="cfgFilterCategory('finance')" id="cfg-cat-finance" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">💼 Accounting &amp; Ledger</button>
+      </div>
+      <div class="relative w-full sm:w-64">
+        <input type="text" id="cfg-search-input" onkeyup="cfgSearchFilter()" placeholder="🔍 Filter settings..." class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+      </div>
     </div>
   `;
 
   root.innerHTML = `
-    <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">Configuration</h1>
-      <p class="text-sm text-slate-500 dark:text-slate-400">Every dealer-configurable setting, one place. Blank/unset keys inherit the global default.</p></div>
-    ${hrFeaturedCard}
-    ${structured.length ? `<div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Structured domains</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${structRows}</div></div>` : ''}
-    <div><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Settings</div><div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${cards}</div></div>`;
+    <div class="space-y-6">
+      <!-- Main Settings Header -->
+      <div class="flex items-start justify-between flex-wrap gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-black text-slate-900 dark:text-white">Dealership Master Configuration</h1>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">${keys.length} Master Keys</span>
+          </div>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Configure operational rules, CRM lead delivery, AI personality, service parameters, and general ledger defaults.</p>
+        </div>
+      </div>
+
+      ${hrFeaturedCard}
+
+      ${categoryTabs}
+
+      <!-- Structured Domains Header & Rows -->
+      ${structured.length ? `
+        <div class="space-y-3">
+          <div class="flex items-center justify-between pt-2">
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-md bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xs">📋</div>
+              <h2 class="text-xs font-black uppercase tracking-wider text-slate-400">Structured System Domains</h2>
+            </div>
+            <span class="text-[11px] font-bold text-slate-400">${structured.length} Domains</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${structRows}</div>
+        </div>
+      ` : ''}
+
+      <!-- Configuration Settings Full-Width Rows -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between pt-2">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-md bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold text-xs">⚙️</div>
+            <h2 class="text-xs font-black uppercase tracking-wider text-slate-400">Core Configuration Parameters</h2>
+          </div>
+          <span class="text-[11px] font-bold text-slate-400">Full-Width Row View</span>
+        </div>
+        <div id="cfg-rows-container" class="space-y-4 w-full">
+          ${cards}
+        </div>
+      </div>
+    </div>
+  `;
 }
+
+function cfgToggleView(key) {
+  const formMode = document.getElementById(`cfg-form-mode-${key}`);
+  const codeMode = document.getElementById(`cfg-code-mode-${key}`);
+  const btn = document.getElementById(`btn-toggle-${key}`);
+  if (!formMode || !codeMode) return;
+  if (formMode.classList.contains('hidden')) {
+    formMode.classList.remove('hidden');
+    codeMode.classList.add('hidden');
+    if (btn) btn.innerHTML = '💻 Code View';
+  } else {
+    formMode.classList.add('hidden');
+    codeMode.classList.remove('hidden');
+    if (btn) btn.innerHTML = '📋 Form View';
+  }
+}
+
+async function cfgSaveForm(key) {
+  const container = document.getElementById(`cfg-form-mode-${key}`);
+  if (!container) return cfgSave(key);
+  const inputs = container.querySelectorAll('[data-prop]');
+  const obj = {};
+  inputs.forEach(inp => {
+    const prop = inp.dataset.prop;
+    if (inp.type === 'checkbox') {
+      obj[prop] = inp.checked;
+    } else if (inp.type === 'number') {
+      obj[prop] = parseFloat(inp.value) || 0;
+    } else {
+      obj[prop] = inp.value;
+    }
+  });
+  try {
+    await apiSendJson('/config/' + encodeURIComponent(key), 'PUT', { value: obj });
+    showToast(`Saved ${key} ✓`, 'success');
+    loadConfigHub();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
 async function cfgSave(key) {
   const el = document.getElementById('cfg-' + key);
   let value;
@@ -10724,12 +10908,44 @@ async function cfgSave(key) {
   try { await apiSendJson('/config/' + encodeURIComponent(key), 'PUT', { value }); showToast('Saved ✓', 'success'); loadConfigHub(); }
   catch (e) { showToast(e.message, 'error'); }
 }
+
 async function cfgReset(key) {
   if (!confirm('Reset this setting to the global default?')) return;
   try { await apiSendJson('/config/' + encodeURIComponent(key), 'DELETE'); showToast('Reset ✓', 'success'); loadConfigHub(); }
   catch (e) { showToast(e.message, 'error'); }
 }
-Object.assign(window, { loadConfigHub, cfgSave, cfgReset });
+
+function cfgFilterCategory(cat) {
+  document.querySelectorAll('.cfg-cat-btn').forEach(btn => {
+    btn.className = 'cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition';
+  });
+  const activeBtn = document.getElementById(`cfg-cat-${cat}`);
+  if (activeBtn) activeBtn.className = 'cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-black bg-indigo-600 text-white shadow-sm transition';
+
+  const rows = document.querySelectorAll('.cfg-row-item');
+  rows.forEach(r => {
+    if (cat === 'all' || r.dataset.category === cat) {
+      r.classList.remove('hidden');
+    } else {
+      r.classList.add('hidden');
+    }
+  });
+}
+
+function cfgSearchFilter() {
+  const q = (document.getElementById('cfg-search-input')?.value || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('.cfg-row-item');
+  rows.forEach(r => {
+    const haystack = r.dataset.search || '';
+    if (!q || haystack.includes(q)) {
+      r.classList.remove('hidden');
+    } else {
+      r.classList.add('hidden');
+    }
+  });
+}
+
+Object.assign(window, { loadConfigHub, cfgSave, cfgSaveForm, cfgReset, cfgToggleView, cfgFilterCategory, cfgSearchFilter });
 
 // ══ API & MCP — developer access (managers) ══════════════════════════════════
 async function loadApiKeys() {
