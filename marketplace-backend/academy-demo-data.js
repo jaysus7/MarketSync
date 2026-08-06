@@ -9,8 +9,15 @@ const catalogUrls = [
 ]
 
 export async function loadAcademyDemoLessons() {
-  const catalogs = await Promise.all(catalogUrls.map(async url => JSON.parse(await readFile(url, 'utf8'))))
-  return catalogs.flatMap(catalog => catalog.lessons || [])
+  const loaded = []
+  for (const url of catalogUrls) {
+    try {
+      const content = await readFile(url, 'utf8')
+      const parsed = JSON.parse(content)
+      if (parsed.lessons) loaded.push(...parsed.lessons)
+    } catch (e) {}
+  }
+  return loaded
 }
 
 export function demoLessonsForAccess(lessons, { products = [], features = [] } = {}) {
