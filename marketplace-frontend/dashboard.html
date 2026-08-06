@@ -37,12 +37,12 @@
 
     /* Settings hub: each tab shows only its own section cards. */
     .stab-hide { display: none !important; }
-    /* Settings cards flow into two columns on wide screens — but only when the
-       active tab actually has more than one card (JS adds .is-multi), so a lone
-       card stays full-width instead of hugging the left half. */
-    .settings-cols { column-count: 1; }
-    @media (min-width: 1024px) { .settings-cols.is-multi { column-count: 2; } }
-    @media (min-width: 1536px) { .settings-cols.is-multi { column-count: 3; } }
+    /* Settings cards flow into aligned 3-column grid on wide screens */
+    .settings-cols { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 1.25rem; width: 100%; align-items: start; }
+    @media (min-width: 1024px) { .settings-cols.is-multi { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .settings-cols > .col-span-full,
+    .settings-cols > .lg\:col-span-3,
+    .settings-cols > [data-full-width="true"] { grid-column: 1 / -1; }
 
     /* Per-dealer feature toggle: hides a nav item independent of role gating. */
     .ff-off { display: none !important; }
@@ -417,7 +417,7 @@
             <button id="launch-portal-btn" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold py-2 rounded border border-slate-300 dark:border-slate-700 transition">Manage Billing</button>
           </div>
 
-          <div id="guardrail-settings-section" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5" data-dealer-only>
+          <div id="guardrail-settings-section" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5" data-dealer-only data-full-width="true">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Facebook Posting Safety</h3>
             <p class="text-sm text-slate-500 leading-relaxed mb-3">Protect your reps' Facebook accounts by capping daily posts and letting them post in short bursts with a rest between — a high posting rate is what triggers Marketplace bans.</p>
             <label class="flex items-center gap-2 mb-3 text-sm text-slate-700 dark:text-slate-300">
@@ -1248,11 +1248,11 @@
              JS adds .is-multi only when the active tab has more than one card. -->
         <div id="settings-panel-extra" class="settings-cols gap-5 [column-fill:_balance]">
         <!-- HR & Compliance section in Settings -->
-        <div id="settings-hr-card" data-admin-only class="stab-hide space-y-4 break-inside-avoid mb-5"></div>
+        <div id="settings-hr-card" data-admin-only data-full-width="true" class="stab-hide space-y-4 break-inside-avoid mb-5"></div>
         <!-- Integrations Hub — connect MarketSync to the rest of the dealership stack.
              Webhooks are our own outbound "glue" (live today); the F&I / accounting
              rails show as coming-soon until we're certified with the partner. -->
-        <div id="integrations-section" data-admin-only class="stab-hide space-y-4 break-inside-avoid mb-5">
+        <div id="integrations-section" data-admin-only data-full-width="true" class="stab-hide space-y-4 break-inside-avoid mb-5">
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
             <h2 class="text-lg font-bold text-slate-900 dark:text-white">Integrations</h2>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Connect MarketSync to the tools you already use. Send events out to Zapier, Make, or your own app — and plug in the F&amp;I and accounting rails as they come online.</p>
@@ -1261,7 +1261,7 @@
         </div>
 
         <!-- Team — Sales/Management are login users; Service/Admin/Cleanup/Lot are label rosters -->
-        <div id="settings-team" data-stab-panel="team" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
+        <div id="settings-team" data-stab-panel="team" data-full-width="true" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 break-inside-avoid mb-5">
           <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
             <div>
               <h2 class="text-lg font-bold text-slate-900 dark:text-white">Team</h2>
@@ -1320,7 +1320,7 @@
           </div>
         </div>
         <!-- Language: per-rep dashboard translation (Google Translate) + AI listing-copy language -->
-        <div id="settings-language-card" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 notranslate break-inside-avoid mb-5">
+        <div id="settings-language-card" data-full-width="true" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 notranslate break-inside-avoid mb-5">
           <h2 class="text-lg font-bold text-slate-900 dark:text-white">Language</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Translate your dashboard into any language — it's saved to your browser, just for you. Your choice also becomes the language for your AI-written Facebook listings.</p>
           <div id="google_translate_element"></div>

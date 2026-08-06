@@ -28416,7 +28416,8 @@ function loadPeopleCompliance() {
   if (!container) return;
   renderPeopleCompliance();
 }
-window.loadPeopleCompliance = loadPeopleCompliance;
+let __peopleComplianceView = 'overview';
+window.__peopleComplianceView = __peopleComplianceView;
 
 function renderPeopleCompliance() {
   const root = document.getElementById('people-compliance-root');
