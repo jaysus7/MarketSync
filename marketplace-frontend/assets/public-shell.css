@@ -338,6 +338,9 @@ transition:none;
 }
 }
 
+/* Full-width mobile buttons must include padding in their width (no right overflow) */
+.ms-btn{box-sizing:border-box;}
+
 /* Active-page highlighting */
 .ms-nav-link.ms-active,.ms-dd-item.ms-active .ms-dd-t,.ms-m-link.ms-active{color:var(--ms-accent);}
 .ms-dd-item.ms-active{background:rgba(99,102,241,.08);}
