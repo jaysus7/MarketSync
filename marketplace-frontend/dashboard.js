@@ -30835,6 +30835,13 @@ function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
     const s = c.slides[slideIdx];
     const pct = Math.round(((slideIdx + 1) / totalSlides) * 100);
 
+    const fullSlideAudioText = [
+      `${s.title}. ${s.subtitle}.`,
+      `Key Points:`,
+      ...(s.points || []),
+      `Compliance Policy Guideline: ${s.speakerText}`
+    ].join('. ');
+
     const modalHtml = `
       <div class="space-y-4 max-h-[85vh] overflow-y-auto p-1">
         <!-- Header -->
@@ -30869,13 +30876,13 @@ function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
           <div class="flex items-center gap-2">
             <span class="text-lg">🔊</span>
             <div>
-              <div class="text-xs font-black text-slate-900 dark:text-white">Audio Voice Narration</div>
-              <div class="text-[10px] text-slate-500 dark:text-slate-400">Listen to Web Speech spoken narration for this module</div>
+              <div class="text-xs font-black text-slate-900 dark:text-white">Full Slide Audio Narration</div>
+              <div class="text-[10px] text-slate-500 dark:text-slate-400">Listens to 100% of title, subtitle, bullet points, and guidelines out loud</div>
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="speakText('${esc(s.speakerText).replace(/'/g, "\\'")}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm transition flex items-center gap-1">
-              <span>▶️</span><span>Read Out Loud</span>
+            <button onclick="speakText(decodeURIComponent('${encodeURIComponent(fullSlideAudioText)}'))" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm transition flex items-center gap-1">
+              <span>▶️</span><span>Read 100% Out Loud</span>
             </button>
             <button onclick="stopSpeech()" class="px-2.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300 font-bold text-xs transition">
               ⏸️ Stop
