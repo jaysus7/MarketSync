@@ -263,6 +263,10 @@ function showToast(message, type = 'info', duration = 4000) {
   document.body.appendChild(el);
   setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, duration);
 }
+function toast(message, type = 'info', duration = 4000) {
+  showToast(message, type, duration);
+}
+window.toast = showToast;
 
 // If the extension passed a token in the URL hash (#tk=...), store it into
 // localStorage so the user is automatically logged in, then strip the hash.
@@ -13289,6 +13293,74 @@ function execExceptionCard(x) {
     <button onclick="event.stopPropagation(); cmdResolveException('${x.id}')" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 px-2 py-1 flex-shrink-0">Resolve</button>
   </div>`;
 }
+// Daily Briefing Workstation (Time Clock & Safety Courses for all Dealer OS staff)
+function renderDailyBriefingWorkstation() {
+  const timeClockHtml = typeof renderTimeClockWidget === 'function' ? renderTimeClockWidget() : '';
+  const courses = typeof DEALERSHIP_TRAINING_COURSES !== 'undefined' ? DEALERSHIP_TRAINING_COURSES : [
+    { id: 'whmis', title: 'WHMIS 2015 & Chemical Safety', duration: '12 min', role: 'All Dealership Staff', icon: '🧪', desc: 'Canadian GHS hazard classification, SDS sheets, and shop chemical handling.' },
+    { id: 'bill168', title: 'Workplace Violence & Harassment (Bill 168 / OHSA)', duration: '18 min', role: 'All Dealership Staff', icon: '🛡️', desc: 'Ontario OHSA / Canadian Provincial standards for workplace harassment prevention.' },
+    { id: 'hoist', title: 'Automotive Lift & Hoist Safety Inspection', duration: '22 min', role: 'Service & Detail Staff', icon: '🔧', desc: 'Pre-use lift lock checks, weight capacity limits, and emergency disconnects.' },
+    { id: 'demo_driver', title: 'Dealer Demo Vehicle & Customer Test Drive Safety', duration: '15 min', role: 'Sales & Managers', icon: '🚘', desc: 'Licence verification, demo plate tracking, test drive routes & insurance requirements.' },
+    { id: 'ev_safety', title: 'EV & Hybrid High-Voltage Battery Rescue Safety', duration: '25 min', role: 'Service, Parts & Recon', icon: '⚡', desc: 'High-voltage disconnect procedures, orange cable safety, thermal runaway protocol.' },
+    { id: 'pipeda', title: 'PIPEDA & Customer Financial Privacy Protection', duration: '14 min', role: 'F&I, Sales & Desk', icon: '🔒', desc: 'Handling customer credit applications, SIN masking, deal jacket document destruction.' },
+  ];
+
+  const courseCards = courses.map(c => `
+    <div class="p-3 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col justify-between space-y-2 shadow-sm hover:border-indigo-500 transition">
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-lg">${c.icon}</span>
+          <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60">${c.duration}</span>
+        </div>
+        <h4 class="text-xs font-black text-slate-900 dark:text-white leading-tight line-clamp-1">${esc(c.title)}</h4>
+        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">${esc(c.desc)}</p>
+      </div>
+
+      <div class="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-1">
+        <button onclick="openTrainingVideoModal('${c.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] shadow transition">▶️ Watch Video</button>
+        <button onclick="openEmployeeCertificateModal('Active Employee', '${esc(c.title)}', '${new Date().toISOString().split('T')[0]}', 'CERT-${c.id.toUpperCase()}-2026')" class="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px] transition">🏆 Cert</button>
+      </div>
+    </div>
+  `).join('');
+
+  return `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 mb-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+            <span>☀️ My Employee Workstation &amp; Safety Station</span>
+            <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 px-2 py-0.5 rounded-full">All Staff Access</span>
+          </h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Clock in/out for your shift, complete safety training courses, and view certificates of completion.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- Time Clock Column -->
+        <div class="lg:col-span-1">
+          ${timeClockHtml}
+        </div>
+
+        <!-- Safety Courses Column -->
+        <div class="lg:col-span-2 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>🎓 Mandatory Safety &amp; Compliance Video Courses</span>
+              <span class="text-[10px] font-bold text-emerald-600">6 Modules</span>
+            </div>
+            <button onclick="switchPage('people-compliance')" class="text-[11px] font-bold text-indigo-600 hover:underline">HR Admin Hub &rarr;</button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            ${courseCards}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+window.renderDailyBriefingWorkstation = renderDailyBriefingWorkstation;
+
 // Executive department — the whole business at a glance; uses every engine.
 ENGINES['command'] = {
   rootId: 'command-root', title: 'Daily Briefing', subtitle: "Today's operations across every department — problems first",
@@ -13325,8 +13397,12 @@ ENGINES['command'] = {
       };
       const hour = new Date().getHours();
       const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+      const workstationHtml = typeof renderDailyBriefingWorkstation === 'function' ? renderDailyBriefingWorkstation() : '';
       body.innerHTML = `
-        <div class="text-lg font-black text-slate-900 dark:text-white">${greet}</div>
+        <div class="text-lg font-black text-slate-900 dark:text-white mb-2">${greet}</div>
+        <div id="daily-briefing-workstation-host">
+          ${workstationHtml}
+        </div>
         <div>
           <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's operations</div>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
