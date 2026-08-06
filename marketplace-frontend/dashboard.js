@@ -28274,6 +28274,133 @@ function renderSettingsHrCard() {
 }
 window.renderSettingsHrCard = renderSettingsHrCard;
 
+const DEFAULT_EMPLOYEES = [
+  {
+    id: 'emp-101',
+    first_name: 'Marcus',
+    last_name: 'Vance',
+    email: 'marcus.vance@dealership.com',
+    phone: '(555) 234-5678',
+    role: 'General Sales Manager',
+    department: 'Sales',
+    location: 'Main Showroom',
+    manager: 'Dealership Principal',
+    emp_type: 'Full-Time Permanent',
+    status: 'Active',
+    start_date: '2021-03-15',
+    licence_no: 'DL-8934201-ON',
+    licence_expiry: '2027-11-20',
+    licence_status: 'Valid',
+    abstract_date: '2024-01-10',
+    comp_plan: 'Management Gross Tier',
+    compliance_docs: [
+      { name: 'Employment Agreement', signed: true, date: '2021-03-15' },
+      { name: 'Workplace Harassment Policy (Bill 168)', signed: true, date: '2023-09-01' },
+      { name: 'Demo Drive & Fleet Policy', signed: true, date: '2023-09-01' }
+    ],
+    training: [
+      { name: 'WHMIS 2015 Certification', completed: true, expiry: '2026-09-01' },
+      { name: 'Workplace Harassment (Bill 168)', completed: true, expiry: '2025-09-01' },
+      { name: 'Demo Driver Safety', completed: true, expiry: '2026-05-15' }
+    ],
+    assets: ['Dealership iPhone 15', 'Showroom iPad Pro', 'Keys to Demo Unit 2024 F-150'],
+    perf: { units_mtd: 18, gross_mtd: 42500, active_leads: 34, comm_mtd: 8400, rating: 'Top Producer' },
+    emergency: { name: 'Sarah Vance', relation: 'Spouse', phone: '(555) 987-6543' }
+  },
+  {
+    id: 'emp-102',
+    first_name: 'Sarah',
+    last_name: 'Jenkins',
+    email: 's.jenkins@dealership.com',
+    phone: '(555) 345-6789',
+    role: 'Senior Sales Representative',
+    department: 'Sales',
+    location: 'Main Showroom',
+    manager: 'Marcus Vance',
+    emp_type: 'Full-Time Permanent',
+    status: 'Active',
+    start_date: '2022-06-01',
+    licence_no: 'DL-4482910-ON',
+    licence_expiry: '2028-04-14',
+    licence_status: 'Valid',
+    abstract_date: '2024-02-15',
+    comp_plan: 'Standard Sales Tier A',
+    compliance_docs: [
+      { name: 'Employment Agreement', signed: true, date: '2022-06-01' },
+      { name: 'Workplace Harassment Policy (Bill 168)', signed: true, date: '2023-09-01' }
+    ],
+    training: [
+      { name: 'WHMIS 2015 Certification', completed: true, expiry: '2026-06-01' },
+      { name: 'EV High-Voltage Safety', completed: true, expiry: '2026-01-10' }
+    ],
+    assets: ['Showroom iPad Air', 'Sales Desk Locker Key'],
+    perf: { units_mtd: 14, gross_mtd: 31200, active_leads: 28, comm_mtd: 6100, rating: 'Exceeds Expectations' },
+    emergency: { name: 'David Jenkins', relation: 'Brother', phone: '(555) 876-5432' }
+  },
+  {
+    id: 'emp-103',
+    first_name: 'David',
+    last_name: 'Miller',
+    email: 'd.miller@dealership.com',
+    phone: '(555) 456-7890',
+    role: 'F&I Finance Manager',
+    department: 'Finance',
+    location: 'Finance Office B',
+    manager: 'Marcus Vance',
+    emp_type: 'Full-Time Permanent',
+    status: 'Active',
+    start_date: '2020-01-10',
+    licence_no: 'DL-1192834-ON',
+    licence_expiry: '2026-08-30',
+    licence_status: 'Valid',
+    abstract_date: '2024-01-05',
+    comp_plan: 'F&I Reserve Tier',
+    compliance_docs: [
+      { name: 'Employment Agreement', signed: true, date: '2020-01-10' },
+      { name: 'PIPEDA Customer Privacy Policy', signed: true, date: '2023-11-15' }
+    ],
+    training: [
+      { name: 'PIPEDA Customer Privacy', completed: true, expiry: '2025-11-15' },
+      { name: 'WHMIS 2015 Certification', completed: true, expiry: '2026-01-10' }
+    ],
+    assets: ['Secure Finance Workstation', 'Digital Signature Pad'],
+    perf: { units_mtd: 22, gross_mtd: 58000, active_leads: 19, comm_mtd: 11200, rating: 'Top Producer' },
+    emergency: { name: 'Elena Miller', relation: 'Spouse', phone: '(555) 765-4321' }
+  },
+  {
+    id: 'emp-104',
+    first_name: 'Elena',
+    last_name: 'Rostova',
+    email: 'e.rostova@dealership.com',
+    phone: '(555) 567-8901',
+    role: 'Service Manager & Master Tech',
+    department: 'Service',
+    location: 'Service Bay 1',
+    manager: 'General Manager',
+    emp_type: 'Full-Time Permanent',
+    status: 'Active',
+    start_date: '2019-08-20',
+    licence_no: 'DL-7728193-ON',
+    licence_expiry: '2027-02-18',
+    licence_status: 'Valid',
+    abstract_date: '2024-03-01',
+    comp_plan: 'Service Department Labor Tier',
+    compliance_docs: [
+      { name: 'Employment Agreement', signed: true, date: '2019-08-20' },
+      { name: 'JHSC Safety Responsibilities', signed: true, date: '2024-01-15' }
+    ],
+    training: [
+      { name: 'Automotive Hoist Safety Inspection', completed: true, expiry: '2026-03-01' },
+      { name: 'EV High-Voltage Rescue Protocol', completed: true, expiry: '2026-08-20' },
+      { name: 'WHMIS 2015 Certification', completed: true, expiry: '2026-08-20' }
+    ],
+    assets: ['Diagnostic Scanner Tablet', 'Master Shop Keycard', 'JHSC Inspection Clipboard'],
+    perf: { units_mtd: 142, gross_mtd: 89000, active_leads: 12, comm_mtd: 9500, rating: 'Top Producer' },
+    emergency: { name: 'Igor Rostov', relation: 'Father', phone: '(555) 654-3210' }
+  }
+];
+window.DEFAULT_EMPLOYEES = DEFAULT_EMPLOYEES;
+
 function getPeopleComplianceData() {
   if (!window.__peopleComplianceEmployees) {
     let saved = null;
