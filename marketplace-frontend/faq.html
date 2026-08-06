@@ -50,20 +50,16 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="color-scheme" content="light dark">
   <style id="ms-font-bump">html{font-size:17px}@media (max-width:640px){html{font-size:16px}}</style>
+    <!-- Automatic OS dark/light before first paint (no flash) -->
+    <script>(function(){try{if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark');}catch(e){}})();</script>
+    <script src="/assets/auth.js" defer></script>
+    <script src="/assets/public-shell.js" defer></script>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased overflow-x-hidden">
 
-  <nav class="border-b border-slate-200 dark:border-slate-800/80 backdrop-blur-sm sticky top-0 bg-slate-50/80 dark:bg-slate-950/80 z-50">
-    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-      <a href="index.html" class="flex items-center gap-2.5">
-        <span class="w-1.5 h-6 bg-indigo-500 rounded-sm"></span>
-        <span class="text-xl font-black tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
-      </a>
-      <a href="index.html" class="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">← Back to home</a>
-    </div>
-  </nav>
+  <div id="ms-public-header"></div>
 
-  <header class="max-w-3xl mx-auto px-6 pt-16 pb-10">
+<header class="max-w-3xl mx-auto px-6 pt-16 pb-10">
     <p class="text-xs uppercase font-bold tracking-widest text-indigo-600 dark:text-indigo-400 mb-3">FAQ</p>
     <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4">Frequently asked questions</h1>
     <p class="text-base text-slate-600 dark:text-slate-400">Quick answers to what we hear most. Still stuck? <a href="support.html" class="text-indigo-600 dark:text-indigo-400 hover:underline">Contact support</a>.</p>
@@ -213,18 +209,9 @@
 
   </main>
 
-  <footer class="border-t border-slate-200 dark:border-slate-800/60 py-8">
-    <div class="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-      <div class="flex items-center gap-2.5">
-        <span class="w-1.5 h-5 bg-indigo-500 rounded-sm"></span>
-        <span class="text-sm font-bold tracking-tight text-slate-900 dark:text-white">Market<span class="text-indigo-600 dark:text-indigo-400">Sync</span></span>
-      </div>
-      <div class="text-xs text-slate-500">&copy; 2026 MarketSync · Not affiliated with Meta or Facebook</div>
-    </div>
-  </footer>
+  <div id="ms-public-footer"></div>
 
-
-    <!-- MarketSync sales assistant — grounded in the site knowledge base -->
+<!-- MarketSync sales assistant — grounded in the site knowledge base -->
     <div id="msc-root">
       <button id="msc-fab" type="button" aria-label="Chat with MarketSync" aria-expanded="false">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
