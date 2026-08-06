@@ -8818,11 +8818,11 @@ function renderIntegrations(data) {
         <h3 class="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">${esc(cat)}</h3>
         ${CATEGORY_BLURB[cat] ? `<p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">${esc(CATEGORY_BLURB[cat])}</p>` : ''}
       </div>
-      <div class="space-y-3">${byCat[cat].slice().sort((a, b) => rank(a) - rank(b)).map(p => {
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">${byCat[cat].slice().sort((a, b) => rank(a) - rank(b)).map(p => {
         const card = p.provider === 'webhook' ? webhookCard(p, events) : p.provider === 'twilio' ? twilioCard(p) : p.provider === 'google_business' ? googleBusinessCard(p) : p.provider === 'square_deposits' ? squareCard(p) : (p.deposits && p.live) ? depositsCard(p) : (p.oauth && p.live) ? oauthCard(p) : (p.manual && Array.isArray(p.fields)) ? fniCredsCard(p) : providerCard(p);
         // Grey out anything not set up yet; full colour on hover so it's still usable.
-        const inner = isIntegrationConnected(p) ? card : `<div class="opacity-60 hover:opacity-100 transition-opacity">${card}</div>`;
-        return `<div data-provider="${esc(p.provider)}">${inner}</div>`;   // anchor for guided-setup focus
+        const inner = isIntegrationConnected(p) ? card : `<div class="opacity-60 hover:opacity-100 transition-opacity h-full">${card}</div>`;
+        return `<div data-provider="${esc(p.provider)}" class="h-full">${inner}</div>`;   // anchor for guided-setup focus
       }).join('')}</div>
     </div>`).join('');
   if (!data.pii_ready) {
@@ -8983,40 +8983,67 @@ async function loadCalendarSyncCard() {
   let data;
   try { data = await apiGetJson('/calendar/status', { retries: 1 }); }
   catch { host.remove(); return; }
-  const icon = { google: 'calendar', microsoft: 'calendar' };
-  const rows = (data.providers || []).map(p => {
-    let right;
+
+  const providerIcons = {
+    google: { emoji: '📅', bg: 'bg-rose-100 dark:bg-rose-950/40 text-rose-600' },
+    microsoft: { emoji: '📆', bg: 'bg-sky-100 dark:bg-sky-950/40 text-sky-600' }
+  };
+
+  const cards = (data.providers || []).map(p => {
+    let actionBtn;
     if (!p.configured) {
-      right = '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">Setup pending</span>';
+      actionBtn = '<span class="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">Setup pending</span>';
     } else if (p.connected) {
-      right = `<button onclick="calDisconnect('${p.provider}')" class="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline">Disconnect</button>`;
+      actionBtn = `<button onclick="calDisconnect('${p.provider}')" class="text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 px-3 py-1.5 rounded-lg transition border border-rose-200 dark:border-rose-900">Disconnect</button>`;
     } else {
-      right = `<button onclick="calConnect('${p.provider}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition">Connect</button>`;
+      actionBtn = `<button onclick="calConnect('${p.provider}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1.5 rounded-lg shadow transition">Connect</button>`;
     }
+
     const sub = p.connected
-      ? `Connected${p.account ? ' · ' + esc(p.account) : ''}${p.last_synced_at ? ' · synced ' + new Date(p.last_synced_at).toLocaleDateString('en-US') : ''}${p.last_error ? ' · <span class="text-rose-500">' + esc(p.last_error.slice(0, 60)) + '</span>' : ''}`
-      : p.configured ? 'Two-way sync for your appointments' : 'Built and ready — switches on once the one-time server keys are set.';
-    return `<div class="flex items-center gap-3 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
-      <div class="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-950/40 flex items-center justify-center text-lg shrink-0">${icon[p.provider] || '📅'}</div>
-      <div class="min-w-0 flex-1"><div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">${esc(p.label)}${p.connected ? '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Connected</span>' : ''}</div>
-        <div class="text-xs text-slate-500 dark:text-slate-400 truncate">${sub}</div></div>
-      <div class="shrink-0">${right}</div>
-    </div>`;
+      ? `Connected${p.account ? ' · ' + esc(p.account) : ''}${p.last_synced_at ? ' · synced ' + new Date(p.last_synced_at).toLocaleDateString('en-US') : ''}`
+      : p.configured ? 'Two-way sync for your appointments' : 'Built and ready — switches on once server keys are set.';
+
+    const ic = providerIcons[p.provider] || { emoji: '📅', bg: 'bg-blue-100 dark:bg-blue-950/40 text-blue-600' };
+
+    return `
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col justify-between h-full shadow-sm hover:border-indigo-500 transition">
+        <div>
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <div class="w-10 h-10 rounded-xl ${ic.bg} flex items-center justify-center text-xl shrink-0 font-bold shadow-inner">
+              ${ic.emoji}
+            </div>
+            ${p.connected ? '<span class="text-[10px] font-black uppercase tracking-wide px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200">Connected</span>' : ''}
+          </div>
+          <h4 class="font-black text-sm text-slate-900 dark:text-white leading-tight">${esc(p.label)}</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">${sub}</p>
+        </div>
+
+        <div class="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <span class="text-[10px] font-bold text-slate-400">Two-Way Sync</span>
+          <div>${actionBtn}</div>
+        </div>
+      </div>
+    `;
   }).join('');
+
   const anyConnected = (data.providers || []).some(p => p.connected);
+
   host.innerHTML = `
-    <div class="mb-2">
-      <h3 class="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Calendar sync</h3>
-      <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Appointments booked in MarketSync appear on your calendar, and events on your calendar flow back in — both directions.</p>
+    <div class="mb-3 flex items-center justify-between">
+      <div>
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Calendar Sync</h3>
+        <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Appointments booked in MarketSync appear on your calendar, and events flow back in both directions.</p>
+      </div>
+      ${anyConnected ? `
+        <button onclick="calSyncNow(this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg transition shadow-sm">
+          🔄 Sync Now
+        </button>
+      ` : ''}
     </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4">
-      ${rows}
-      ${anyConnected ? `<div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-        <span class="text-[11px] text-slate-400">Inbound events also sync automatically in the background.</span>
-        <button onclick="calSyncNow(this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg transition">Sync now</button>
-      </div>` : ''}
-      ${!data.any_configured ? '<div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">Calendar sync turns on once the Google/Microsoft OAuth keys are set on the server.</div>' : ''}
-    </div>`;
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      ${cards}
+    </div>
+  `;
 }
 async function calConnect(provider) {
   try {
