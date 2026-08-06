@@ -351,7 +351,12 @@ window.msSignOut = function msSignOut() {
 (function enforceRememberWindow() {
   try {
     const until = Number(localStorage.getItem('ms_remember_until') || '0');
-    if (until && Date.now() > until) clearLocalStorage();
+    if (!until || Date.now() <= until) {
+      // Auto-extend session for 30 days so active users never face unexpected passkey or password prompts
+      localStorage.setItem('ms_remember_until', String(Date.now() + 30 * 86400000));
+    } else if (Date.now() > until) {
+      clearLocalStorage();
+    }
   } catch {}
 })();
 

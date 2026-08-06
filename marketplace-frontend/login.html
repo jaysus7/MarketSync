@@ -93,12 +93,11 @@
     // window the dashboard uses to silently refresh the access token; unchecked
     // falls back to a 12-hour window.
     function storeSession(data) {
-      const remember = document.getElementById('remember-me')?.checked !== false;
       localStorage.setItem('token', data.access_token);
       localStorage.setItem('user', JSON.stringify(data.user));
       if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
-      const days = remember ? 30 : 0.5;
-      localStorage.setItem('ms_remember_until', String(Date.now() + days * 86400000));
+      // Persist login session for 30 days — no passkey or password re-entry required
+      localStorage.setItem('ms_remember_until', String(Date.now() + 30 * 86400000));
     }
 
     async function fetchWithRetry(url, options, retries = 2) {
