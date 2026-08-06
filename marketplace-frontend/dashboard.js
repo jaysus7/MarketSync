@@ -636,9 +636,20 @@ function setupStepsFor(role) {
   const p = currentProductKey();
   if (p === 'marketsync') return [];                          // owner SaaS — no dealer setup wizard
   if (PRODUCT_SETUP_STEPS[p]) return PRODUCT_SETUP_STEPS[p];  // AI / Facebook tiers
-  return SETUP_STEPS.filter(s => s.roles.includes(role));     // full DealerOS
+  if (typeof DEPARTMENTS_CONFIG === 'object' && DEPARTMENTS_CONFIG) {
+    return Object.values(DEPARTMENTS_CONFIG).map(config => ({
+      id: config.id,
+      icon: config.badgeIcon || '🛡️',
+      label: config.title,
+      desc: config.badgeDesc || `Configure ${config.title}`,
+      roles: MGR_SET,
+      done: () => localStorage.getItem(`ms_dept_opened_${config.id}`) === '1',
+      run: () => openDepartmentSetupWizard(config.id)
+    }));
+  }
+  return SETUP_STEPS.filter(s => s.roles.includes(role));     // full DealerOS fallback
 }
-function setupStepDone(step, snap) { return setupAck(step.id) || !!(step.done && step.done(snap)); }
+function setupStepDone(step, snap) { return setupAck(step.id) || (typeof step.done === 'function' ? step.done(snap) : false); }
 function setupCloseAll() { document.querySelectorAll('.fixed').forEach(el => { if (el.dataset.setup) el.remove(); }); }
 
 // The compact progress bar at the top of the sidebar. Vanishes when all done.
@@ -27927,6 +27938,7 @@ function completeDepartmentWizard() {
   if (!deptId) return;
   try { localStorage.setItem(`ms_dept_opened_${deptId}`, '1'); } catch {}
   awardDealerBadge(deptId);
+  if (typeof renderSetupBar === 'function') renderSetupBar();
 }
 window.completeDepartmentWizard = completeDepartmentWizard;
 
