@@ -1007,9 +1007,9 @@
           </button>
 
           <!-- ─── Platform admin (MarketSync owner only) — all accounts + billing/engines ─── -->
-          <button type="button" id="nav-owner-users" data-page="owner-users" title="All Users (owner)" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <button type="button" id="nav-owner-users" data-page="owner-users" title="All Staff (owner)" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
-            <span>All Users</span>
+            <span>All Staff</span>
           </button>
 
           <!-- ─── Delivery (sold vehicle queue) — managers/admins ─── -->
@@ -1996,12 +1996,12 @@
       <div id="dealer-view-panel" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6">
         <div class="flex justify-between items-start mb-4 gap-4 flex-wrap">
           <div>
-            <h2 id="dealer-team-title" class="text-lg font-bold text-slate-900 dark:text-white">Users &amp; Team</h2>
-            <p id="dealer-team-subtitle" class="text-slate-500 dark:text-slate-400 text-xs">Invite, edit, assign roles, pause, or remove users in this dealership.</p>
+            <h2 id="dealer-team-title" class="text-lg font-bold text-slate-900 dark:text-white">Staff &amp; Team</h2>
+            <p id="dealer-team-subtitle" class="text-slate-500 dark:text-slate-400 text-xs">Invite, edit, assign roles, comp plans, and manage staff members.</p>
           </div>
           <div class="flex gap-2">
             <button id="invite-rep-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
-              + Invite Rep
+              + Invite Staff
             </button>
             <button id="invite-manager-btn" data-admin-only class="bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded transition whitespace-nowrap">
               + Invite Manager
@@ -2010,16 +2010,16 @@
         </div>
 
         <form id="invite-rep-form" class="hidden mb-4 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded space-y-2">
-          <div id="invite-form-title" class="text-xs font-bold text-slate-700 dark:text-slate-200">Invite a sales rep</div>
+          <div id="invite-form-title" class="text-xs font-bold text-slate-700 dark:text-slate-200">Invite a staff member</div>
           <input type="hidden" id="invite-role" value="SALES_REP">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <input type="text" id="invite-name" required placeholder="Full name" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-            <input type="email" id="invite-email" required placeholder="rep@dealership.com" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+            <input type="email" id="invite-email" required placeholder="staff@dealership.com" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
           </div>
           <input type="password" id="invite-password" placeholder="Temporary password (leave blank to auto-generate)" class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
           <div class="flex gap-2 justify-end">
             <button type="button" id="invite-cancel-btn" class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:hover:text-slate-700 dark:text-slate-200 px-3 py-2">Cancel</button>
-            <button type="submit" id="invite-submit-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition">Create Rep</button>
+            <button type="submit" id="invite-submit-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded transition">Create Staff Member</button>
           </div>
         </form>
 
@@ -2032,9 +2032,9 @@
                 <th class="py-3 px-3">Name</th>
                 <th class="py-3 px-3 max-w-[160px]">Email</th>
                 <th class="py-3 px-3">Role</th>
-                <th class="py-3 px-3 text-right">Listed</th>
-                <th class="py-3 px-3 text-right">Sold</th>
-                <th class="py-3 px-3 text-right">Conv.</th>
+                <th class="py-3 px-3">Location</th>
+                <th class="py-3 px-3">Comp Plan</th>
+                <th class="py-3 px-3 text-center">Compliance</th>
                 <th class="py-3 px-3 text-right">Logins</th>
                 <th class="py-3 px-3 text-right">Action</th>
               </tr>

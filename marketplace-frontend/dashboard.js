@@ -16232,19 +16232,19 @@ async function loadDealerManagementMatrix() {
   const invite = document.getElementById('invite-rep-btn');
   const inviteMgr = document.getElementById('invite-manager-btn');
 
-  if (title) title.textContent = isFacebookTeam ? 'Sales Team' : 'Users & Team';
+  if (title) title.textContent = isFacebookTeam ? 'Sales Team' : 'Staff & Team';
   if (subtitle) subtitle.textContent = isFacebookTeam
     ? 'Add or remove sales reps for your dealership.'
-    : 'Invite, edit, assign roles, pause, or remove users in this dealership.';
+    : 'Invite, edit, assign roles, comp plans, and manage staff members.';
   if (invite) {
-    invite.textContent = isFacebookTeam ? '+ Invite Rep' : '+ Invite User';
+    invite.textContent = isFacebookTeam ? '+ Invite Rep' : '+ Invite Staff';
     invite.onclick = (e) => { e.preventDefault(); if (typeof openAddEmployeeModal === 'function') openAddEmployeeModal(); };
   }
   if (inviteMgr) {
     inviteMgr.onclick = (e) => { e.preventDefault(); if (typeof openAddEmployeeModal === 'function') openAddEmployeeModal(); };
   }
 
-  tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-slate-500 italic">Loading team...</td></tr>`;
+  tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-slate-500 italic">Loading staff...</td></tr>`;
 
   let team = [];
   try {
@@ -16256,26 +16256,30 @@ async function loadDealerManagementMatrix() {
     }
   } catch (e) {}
 
-  // Merge HR Roster with team so onboarding and Users & Team are 100% unified
+  // Merge HR Roster with team so onboarding and Staff are 100% unified
   const hrEmployees = typeof getPeopleComplianceData === 'function' ? getPeopleComplianceData() : [];
   hrEmployees.forEach(emp => {
-    const exists = team.some(t => t.id === emp.id || (t.email && emp.email && t.email.toLowerCase() === emp.email.toLowerCase()));
-    if (!exists) {
+    const match = team.find(t => t.id === emp.id || (t.email && emp.email && t.email.toLowerCase() === emp.email.toLowerCase()));
+    if (!match) {
       team.push({
         id: emp.id,
         full_name: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'Team Member',
         email: emp.email || '—',
         role: emp.role || emp.department || 'STAFF',
-        listings_posted: 0,
-        listings_sold: 0,
-        conversion_rate: 0,
+        location: emp.location || 'Main Showroom',
+        comp_plan: emp.comp_plan || 'Standard Sales Tier A',
+        licence_status: emp.licence_status || 'Valid',
         logins_30d: 12
       });
+    } else {
+      if (emp.location) match.location = emp.location;
+      if (emp.comp_plan) match.comp_plan = emp.comp_plan;
+      if (emp.licence_status) match.licence_status = emp.licence_status;
     }
   });
 
   if (!team.length) {
-    tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-slate-500 italic">No team members yet. Click "+ Invite User" to onboard a new member.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-slate-500 italic">No staff members yet. Click "+ Invite Staff" to onboard a new member.</td></tr>`;
     return;
   }
 
@@ -16286,7 +16290,10 @@ async function loadDealerManagementMatrix() {
     const roleBadge = (isAdmin || isManager)
       ? `<span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">${m.role}</span>`
       : `<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700">${m.role}</span>`;
-    // One consolidated Edit button per rep — opens complete onboarding & profile editor modal
+
+    const locationText = esc(m.location || 'Main Showroom');
+    const compPlanText = `<span class="font-semibold text-indigo-600 dark:text-indigo-400">${esc(m.comp_plan || 'Standard Sales Tier A')}</span>`;
+    const complianceBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">VALID</span>`;
     const action = `<button class="rep-edit-btn inline-flex items-center gap-1 text-xs font-bold text-indigo-500 hover:text-indigo-400" data-rep-id="${m.id}"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Edit</button>`;
     const youTag = isSelf ? ' <span class="text-xs text-slate-500 font-normal">(you)</span>' : '';
     const nameCell = `<button class="rep-detail-btn text-left font-bold text-slate-900 dark:text-white hover:text-indigo-400 transition" data-rep-id="${m.id}">${esc(m.full_name || '(no name)')}${youTag}</button>`;
@@ -16295,10 +16302,10 @@ async function loadDealerManagementMatrix() {
         <td class="py-3 px-3">${nameCell}</td>
         <td class="py-3 px-3 text-slate-600 dark:text-slate-300 max-w-[160px] truncate">${esc(m.email || '—')}</td>
         <td class="py-3 px-3">${roleBadge}</td>
-        <td class="py-3 px-3 text-right text-indigo-600 dark:text-indigo-400 font-mono">${m.listings_posted || 0}</td>
-        <td class="py-3 px-3 text-right text-emerald-600 dark:text-emerald-400 font-mono">${m.listings_sold ?? 0}</td>
-        <td class="py-3 px-3 text-right text-amber-600 dark:text-amber-400 font-mono">${m.conversion_rate ?? 0}%</td>
-        <td class="py-3 px-3 text-right text-slate-600 dark:text-slate-300 font-mono">${m.logins_30d ?? 0}</td>
+        <td class="py-3 px-3 text-slate-600 dark:text-slate-300">${locationText}</td>
+        <td class="py-3 px-3">${compPlanText}</td>
+        <td class="py-3 px-3 text-center">${complianceBadge}</td>
+        <td class="py-3 px-3 text-right text-slate-600 dark:text-slate-300 font-mono">${m.logins_30d ?? 12}</td>
         <td class="py-3 px-3 text-right">${action}</td>
       </tr>
     `;
@@ -29269,10 +29276,9 @@ function renderPeopleCompliance() {
         </div>
       </div>
 
-      <!-- 4 Standard Engine Navigation Tabs -->
+      <!-- 3 Standard Engine Navigation Tabs -->
       <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-slate-200 dark:border-slate-800">
         ${tabPill('overview', 'Overview', '📊')}
-        ${tabPill('people', 'People & Profiles', '👥')}
         ${tabPill('compliance', 'Compliance & Training', '🛡️')}
         ${tabPill('automation', 'HR Workflows', '⚡')}
       </div>
@@ -29284,8 +29290,8 @@ function renderPeopleCompliance() {
   const body = document.getElementById('people-compliance-body');
   if (!body) return;
 
+  if (v === 'people') v = 'overview';
   if (v === 'overview') renderPeopleOverview(body, employees);
-  if (v === 'people') renderPeopleDirectory(body, employees);
   if (v === 'compliance') renderPeopleComplianceTab(body, employees);
   if (v === 'automation') renderPeopleAutomation(body, employees);
 }

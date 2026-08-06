@@ -1,3 +1,4 @@
+import multer from 'multer'
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { createNotification } from '../notifications.js'
