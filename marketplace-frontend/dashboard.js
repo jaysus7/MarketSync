@@ -13650,32 +13650,48 @@ async function loadServiceRosPage() {
       apiGetJson('/service-engine/ros' + (__svcRoFilter ? '?status=' + encodeURIComponent(__svcRoFilter) : '')),
     ]);
     const ros = list.ros || [];
-    const stat = (label, val) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3"><div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div><div class="text-xl font-black text-slate-800 dark:text-slate-100 mt-0.5">${val}</div></div>`;
-    const tab = (key, label) => `<button onclick="svcRoFilter('${key}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${__svcRoFilter === key ? 'bg-teal-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${esc(label)}</button>`;
+    const stat = (label, val) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-4 shadow-sm"><div class="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold">${esc(label)}</div><div class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">${val}</div></div>`;
+    const tab = (key, label) => `<button onclick="svcRoFilter('${key}')" class="px-4 py-2 rounded-xl text-xs font-bold transition ${__svcRoFilter === key ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${esc(label)}</button>`;
     const rows = ros.map(r => `
-      <tr class="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer" onclick="svcOpenRo('${r.id}')">
-        <td class="px-3 py-2 font-bold text-slate-700 dark:text-slate-200">${esc(r.ro_number || '—')}</td>
-        <td class="px-3 py-2 text-slate-600 dark:text-slate-300">${esc(r.vehicle_desc || (r.vin ? 'VIN ' + r.vin : '—'))}</td>
-        <td class="px-3 py-2">${svcStatusChip(r.status)}</td>
-        <td class="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-200">${svcMoney(r.total)}</td>
-        <td class="px-3 py-2 text-slate-400 text-[12px] whitespace-nowrap">${r.opened_at ? new Date(r.opened_at).toLocaleDateString() : ''}</td>
-      </tr>`).join('') || `<tr><td colspan="5" class="px-3 py-10 text-center text-slate-400 text-sm">No repair orders${__svcRoFilter ? ' in this state' : ' yet'}.</td></tr>`;
+      <tr class="border-t border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition cursor-pointer" onclick="svcOpenRo('${r.id}')">
+        <td class="px-4 py-3.5 font-bold text-slate-700 dark:text-slate-200 w-[15%]">${esc(r.ro_number || '—')}</td>
+        <td class="px-4 py-3.5 text-slate-600 dark:text-slate-300 w-[35%] font-medium">${esc(r.vehicle_desc || (r.vin ? 'VIN ' + r.vin : '—'))}</td>
+        <td class="px-4 py-3.5 w-[20%]">${svcStatusChip(r.status)}</td>
+        <td class="px-4 py-3.5 text-right font-bold text-slate-700 dark:text-slate-200 w-[15%]">${svcMoney(r.total)}</td>
+        <td class="px-4 py-3.5 text-slate-400 text-xs whitespace-nowrap w-[15%]">${r.opened_at ? new Date(r.opened_at).toLocaleDateString() : ''}</td>
+      </tr>`).join('') || `<tr><td colspan="5" class="px-4 py-12 text-center text-slate-400 dark:text-slate-500 text-sm font-medium">No repair orders${__svcRoFilter ? ' in this state' : ' yet'}.</td></tr>`;
     root.innerHTML = `
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-xl font-black text-slate-800 dark:text-slate-100">Repair Orders</h1>
-        <button onclick="svcNewRoForm()" class="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold transition">+ New RO</button>
-      </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        ${stat('Open ROs', sum.open_ros ?? 0)}${stat('Closed', sum.closed_ros ?? 0)}${stat('Revenue', svcMoney(sum.revenue))}${stat('Gross', svcMoney(sum.gross))}
-      </div>
-      <div class="flex flex-wrap gap-2">
-        ${tab('', 'All')}${['open', 'in_progress', 'awaiting_parts', 'ready', 'closed'].map(s => tab(s, svcStatusLabel(s))).join('')}
-      </div>
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
-        <table class="w-full text-sm min-w-[560px]">
-          <thead><tr class="text-left text-[11px] uppercase tracking-wide text-slate-400"><th class="px-3 py-2">RO #</th><th class="px-3 py-2">Vehicle</th><th class="px-3 py-2">Status</th><th class="px-3 py-2 text-right">Total</th><th class="px-3 py-2">Opened</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+      <div class="space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 class="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Repair Orders</h1>
+            <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Manage active service repair orders, shop status, and billing.</p>
+          </div>
+          <button onclick="svcNewRoForm()" class="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-black shadow-md shadow-teal-600/20 transition flex items-center gap-1.5">+ New RO</button>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          ${stat('Open ROs', sum.open_ros ?? 0)}${stat('Closed', sum.closed_ros ?? 0)}${stat('Revenue', svcMoney(sum.revenue))}${stat('Gross', svcMoney(sum.gross))}
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 pt-1 pb-1">
+          ${tab('', 'All')}${['open', 'in_progress', 'awaiting_parts', 'ready', 'closed'].map(s => tab(s, svcStatusLabel(s))).join('')}
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
+                <th class="px-4 py-3.5 font-bold w-[15%]">RO #</th>
+                <th class="px-4 py-3.5 font-bold w-[35%]">Vehicle</th>
+                <th class="px-4 py-3.5 font-bold w-[20%]">Status</th>
+                <th class="px-4 py-3.5 font-bold text-right w-[15%]">Total</th>
+                <th class="px-4 py-3.5 font-bold w-[15%]">Opened</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800/80">${rows}</tbody>
+          </table>
+        </div>
       </div>`;
   } catch (e) { root.innerHTML = `<div class="text-rose-500 text-sm p-6">Couldn't load: ${esc(e.message)}</div>`; }
 }
@@ -14647,31 +14663,34 @@ function commStatusPill(s) {
   return `<span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${c}">${l}</span>`;
 }
 function loadCommissionsPage() {
-  if (!__commState.tab) __commState.tab = commIsMgr() ? 'team' : 'mine';
+  if (!__commState.tab) __commState.tab = commIsMgr() ? 'ai-importer' : 'mine';
   if (!commIsMgr() && __commState.tab !== 'mine') __commState.tab = 'mine';
-  if (__commState.tab === 'plans') __commState.tab = 'team';   // structure now lives in Accounting → Settings
   const root = document.getElementById('commissions-root');
   if (!root) return;
-  const tab = (id, label) => `<button onclick="commSetTab('${id}')" class="px-3 py-1.5 rounded-lg text-sm font-bold transition ${__commState.tab === id ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
+  const tab = (id, label) => `<button onclick="commSetTab('${id}')" class="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${__commState.tab === id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
   root.innerHTML = `
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <div>
-        <h1 class="text-2xl font-black text-slate-900 dark:text-white">Commissions</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">${commIsMgr() ? 'Your team’s pay, bonuses and clawbacks — and the plans that drive them.' : 'Your earnings this period — pending, earned, paid, and any clawbacks.'}</p>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Commissions &amp; Pay Engine</h1>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${commIsMgr() ? 'AI Document Commission Generator, multi-engine sync, team payouts, and pay period ledgers.' : 'Your earnings this period — pending, earned, paid, and statements.'}</p>
       </div>
-      <input type="month" value="${commMonth()}" onchange="commSetMonth(this.value)" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm">
+      <input type="month" value="${commMonth()}" onchange="commSetMonth(this.value)" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200">
     </div>
-    <div class="flex flex-wrap gap-1.5">
+    <div class="flex flex-wrap gap-2 pt-1 pb-1">
+      ${commIsMgr() ? tab('ai-importer', '🤖 AI Document Generator &amp; Engine Sync') : ''}
       ${tab('mine', 'My commission')}
       ${tab('statements', 'My statements')}
       ${commIsMgr() ? tab('team', 'Team') : ''}
+      ${commIsMgr() ? tab('plans', 'Commission Plans') : ''}
       ${commIsMgr() ? tab('periods', 'Pay periods') : ''}
       ${commIsMgr() ? tab('exceptions', 'Exceptions') : ''}
     </div>
-    <div id="comm-body" class="pt-1"><div class="text-sm text-slate-400">Loading…</div></div>`;
+    <div id="comm-body" class="pt-2"><div class="text-sm text-slate-400">Loading…</div></div>`;
   __commPlansTarget = 'comm-body';
-  if (__commState.tab === 'mine') commLoadMine();
+  if (__commState.tab === 'ai-importer') commLoadAIImporter();
+  else if (__commState.tab === 'mine') commLoadMine();
   else if (__commState.tab === 'statements') commLoadStatements();
+  else if (__commState.tab === 'plans') commLoadPlans();
   else if (__commState.tab === 'periods') commLoadPeriods();
   else if (__commState.tab === 'exceptions') commLoadExceptions();
   else commLoadTeam();
@@ -15176,6 +15195,688 @@ async function commAssign(repId, planId) {
 }
 window.commLoadPlans = commLoadPlans; window.commEditPlan = commEditPlan; window.commAddBonusRow = commAddBonusRow;
 window.commSavePlan = commSavePlan; window.commDeletePlan = commDeletePlan; window.commAssign = commAssign;
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 🤖 AI DOCUMENT COMMISSION STRUCTURE GENERATOR & MULTI-ENGINE SYNC SYSTEM
+// ═════════════════════════════════════════════════════════════════════════════
+
+const SAMPLE_COMMISSION_DOC_1 = `New Vehicle Commission Schedule for 2023 Calendar Year 
+Effective January 4, 2023
+
+Retail Commission
+25% of Sale Gross over the dealer net amount less a lot pack of 1% of total current MSRP on all new vehicles, subject to Training, Customer Satisfaction, Pinnacle Standards, and OnStar qualifiers - see below.
+
+Minimum Retail Commission 
+Minimum retail commission $250, subject to Training, Customer Satisfaction, Pinnacle Standards, and OnStar qualifiers – see below.
+If qualifiers are not met, minimum retail commission is $200
+
+Trade-in Bonus
+Salespeople will receive a trade-in bonus for each retail trade-in received. $200 will be awarded for a Certified Pre-Owned Vehicle and $100 will be awarded for an “As Traded – Certified” vehicle. Wholesale trade-ins will receive $0. Trade-in bonus is subject to proper completion of Signed Trade Disclosure Reports in the file at time of commissioning. 
+
+New Car Monthly Volume Bonus
+Each New Vehicle Salesperson that delivers 8 or more units is to receive a monthly volume bonus. Total units will be the sum of new and used retail, GM directs and leases.
+	8 units		      $100
+	9th to 12th units     $250
+	13th to 15th unit    $500
+	16th + units	      $1,000
+This bonus is subject to a minimum F&I average of $1,500 for the month, Training, Customer Satisfaction, Pinnacle Standards, and OnStar qualifiers -see below.
+
+New Car Salesperson of the Month
+Top new vehicle salesperson in volume including New Retail sales, GM direct sales and new retail leases to receive $500 bonus. Minimum volume requirement is 8 units and $1,500 minimum F&I average. In the case of a tie the award goes to the salesperson with the highest total new vehicle gross including F&I. 
+This bonus is subject to the Training, Customer Satisfaction, Pinnacle Standards and OnStar qualifier – see below. Only the Top Volume Salesperson can qualify.
+
+Customer Satisfaction Bonus
+If your Blended Metric score for the 3 months average equal to or greater than 95%, with a minimum of 7 returns, you will receive a $200 monthly bonus. ***Qualifier**** You must have a minimum of one (1) 5-Star Google Review per month to qualify. 
+
+5 Star Google Review Bonus
+Salespeople will receive a $25 bonus for each 5 Star Google Review submitted that includes their first and last names within the review. Maximum of 10 payable reviews / month. Only new reviews (not amended reviews or re-issued reviews) qualify. 
+
+Customer Satisfaction Qualifier
+The New Vehicle Volume Bonus and the Salesperson of the Month Bonus are payable only if the sales person’s 3 Month Blended Metric score is equal to or greater than 93.75% 
+The New Vehicle Commission will be reduced by 1 percentage point the following month if the Salesperson’s Blended Metric falls below 93% for the 3-month average
+The New Vehicle Commission will be reduced by an additional 2 percentage points the following month if the Salesperson’s Blended Metric is below 91.75% for the 12-month average
+All Blended Metric score qualifiers are subject to change with the GM REP Program base guideline changes.
+
+Training Qualifier
+Assigned Training as outlined by the Retail Excellence Program and Required
+March 31st – Minimum of 50% of Training must be completed
+June 30th – Minimum of 75% of Training must be completed
+September 30th – 100% of Available Training must be completed.
+December 31st – 100% of Training must be completed
+Cadillac Specific Training must be completed to sell New / Used Cadillac Products. 
+Health & Safety Training must be completed on the following schedule within a week of assignment.
+Any salesperson that does not meet the above minimum training requirements at the quarterly deadlines, their commission will be reduced by 5 percentage points on all deals for the following quarter (3 months)
+
+OnStar Qualifier
+As per the new REP requirements, the OnStar Monthly Bonus Qualifiers are now:
+90% On-Line Enrollment
+90% Welcome Call
+50% Chevrolet Buick GMC App Download
+90% Cadillac App Download
+Failure to achieve any of the above will result in no monthly bonus. 
+Should any salesperson monthly results fall below 75% Welcome Call / Cadillac App, their New sales commission reduced by 1 percentage point the following month. 
+
+Used Vehicle Commission Schedule for 2023 Calendar Year 
+Effective January 4, 2023
+
+Sale Gross
+Sale Gross is defined as the difference between the selling price and the vehicle cost, including all reconditioning, detailing, acquisition fees and expenses associated with the specific vehicle.
+
+Commission
+25% of Sale Gross less a Lot Pack of $500 for Certified Pre-Owned Vehicles.
+25% of Sale Gross less a Lot Pack of $500 for Certified As-Traded Vehicles.
+25% of the gross for “as is” or “unfit” vehicles with a minimum gross of $1,000.
+Minimum commission will be $300 on a reconditioned vehicle with Nitro/Etch sold, or $250 without Nitro/Etch sold.
+*All Commission rates are subject to Training, Pinnacle Standards, and OnStar Qualifiers – see below
+
+Trade-in Bonus
+Salespeople will receive a trade-in bonus for each retail trade-in received. $200 will be awarded for a Certified Pre-Owned Vehicle and $100 will be awarded for an “As Traded – Certified” vehicle. Wholesale trade-ins will receive $0. Trade-in bonus is subject to proper completion of Signed Trade Disclosure Reports in the file at time of commissioning. 
+
+Used Vehicle Volume Bonus
+Each Used Vehicle Salesperson that delivers 8 or more units is to receive a monthly bonus. Total units will be the sum of new and used retail, GM directs and leases. Subject to minimum $1,500 F&I average, Training, Pinnacle Standards, and OnStar Qualifiers – see below
+ 	8 units		    $100
+	9th to 12th unit    $250
+	13th to 15th unit  $500
+	16th + units  	    $1,000
+
+5 Star Google Review Bonus
+Salespeople will receive a $25 bonus for each 5 Star Google Review submitted that includes their first and last names within the review. Maximum of 10 payable reviews / month. Only new reviews (not amended reviews or re-issued reviews) qualify. 
+
+Used Vehicle Salesperson of the Month
+The top used vehicle salesperson each month in Retail Used volume will receive a $500 bonus. Minimum 8 Deliveries required and a minimum F&I average of $1,500 on eligible units. In the case of a tie the award goes to the salesperson with the highest total used vehicle gross including F&I. Only the Top Volume Salesperson can qualify 
+
+Training Qualifier
+Assigned Training as outlined by the Retail Excellence Program and Required Health & Safety Training must be completed on the following schedule:
+March 31st – Minimum of 50% of Training must be completed
+June 30th – Minimum of 75% of Training must be completed
+September 30th – 100% of Available Training must be completed.
+December 31st – 100% of Training must be completed
+Any salesperson that does not meet the above minimum training requirements at the quarterly deadlines, their commission will be reduced by 5 percentage points on all deals for the following quarter (3 months)
+
+Falls Chevrolet General Compensation Considerations
+
+Christmas Bonus
+$17 will be held back from each retail commission.
+The dealership will pay a $5 bonus of top of the held back portion. In order to receive the company portion of the bonus the salesperson must be in our employ on the designated date for payment and maintain a 12 month average Blended Metric of 93% . Any advances will be withheld from the bonus.
+
+Career Builders
+Brian Cullen Motors & Falls Chevrolet will continue to contribute $25 per New Vehicle Sold to Career Builders. Annual payout will continue to take place 3 years following the year the rewards are earned. Example: 2019 Calendar Year will be paid in the 1st Quarter of 2022. Employees must continue to be actively employed by Brian Cullen Motors / Falls Chevrolet to receive rewards payouts. Brian Cullen / Falls Chevrolet Career Builders will continue to be subject to General Motors Career Builders Program, including minimum CSI requirements 
+
+Year End Bonus
+Payable to a New or Used vehicle salesperson based on the following volumes:
+140 Units and over	$5,000
+125 to 139 Units	$2,500
+110 to 124 Units	$1,500
+100 to 109 Units	$1,000
+90 to 99 Units		$500
+Units will be defined as all retail sales, GM directs and new vehicle leases delivered. In order to qualify for this bonus, the salesperson must maintain the Standard Qualifiers of C.S.I. of 93% for 12 months, Standard Training, Pinnacle Standards, and OnStar plus maintain a minimum average F&I gross of $1,500 / unit.
+
+Salespeople of the Year
+$1,000 is payable to each the top New Vehicle Salesperson and the top Used Vehicle Salesperson with the highest unit delivery total for the year based on the following qualifiers:
+Minimum 100 units delivered
+Minimum $1,500 average F&I gross
+C.S.I. of 93% for 12 months, Standard Training, Pinnacle Standards, and OnStar Qualifiers
+Only the Top Volume Salesperson can qualify
+
+Vacation Time Off
+After one year of service, sales staff will be entitled to 2 weeks vacation.
+If a salesperson has sold 120 retail units in the previous calendar year, he / she will be entitled to 3 weeks vacation time off.
+If a salesperson has sold 150 retail units in the previous calendar year, he / she will be entitled to 4 weeks vacation time off.
+Any Salesperson who has 2 or more years of continuous service may be granted vacation time in excess of the time earned above at the discretion of the Operations Manager / General Sales Manager
+
+Statutory Holidays
+Paid holidays: New Years Day, Family Day, Good Friday, Victoria Day, Canada Day, Thanksgiving Day, Labour Day, Christmas Day, and Boxing Day. Holiday will be calculated as per the Employment Standards Act.
+
+Quarterly Reconciliation of Advances
+Salespeople are advanced the equivalent of minimum wage against commission on a weekly basis. The balance of any excess advance will be written off at the end of each quarter with the quarters ending at the end of March, June, September and December. We will deduct all commission due from the advance account should you be in an excess position. i.e. F&I commission due and the $17 year-end hold back.
+
+New & Used Sales Person F&I Commission Plan
+Extended Warranty						$100
+Bank Finance Reserve of $500 or greater			$50
+Ceramic Coating						$50
+Rust Protection – Inhibitor or Module			$50
+Surface Rust Warranty					$25
+Paint Protection						$25
+Fabric Protection						$25
+Vehicle Armour / XS Wear					$25
+Gap / Life / Disability Insurance				$25
+Tire & Rim Warranty					$15
+Window Tint							$15
+Nitro / Etch							$15
+
+Month End F&I Bonuses
+Sales Team F&I Bonus
+Highest Qualifying F&I Average - $500
+Second Highest Qualifying F&I Average - $250
+Qualifiers:
+Winner must be equal to or higher than the average salesperson’s retail sales volume for the month with a minimum of 6 Deliveries
+Minimum $1,500 Average F&I Gross for the month
+Minimum Customer Satisfaction, Training Qualifiers, Pinnacle Standards, and OnStar Qualifiers
+
+Sales Process Policy
+Individuals that choose to not actively and accurately follow basic sales process requirements as outlined by management, will be assessed a 5% commission penalty, with minimum deal calculated at $150, and will not be eligible for any bonuses. 
+
+Deal Submission Policy
+All New & Used deals must be completed, and submitted to the appropriate Business Manager the same day as vehicle delivery. Repeat offenders will be penalized with escalating commission adjustments starting at $100.00. Files that fail to be OMVIC compliant including appropriate signatures, initials, odometer readings, and disclosures will result in $0.00 commissions. 
+
+Program Receivable Policy
+Incomplete deal files preventing Program Receivables from being paid will not be commissioned / will have commissions charged back, until they are completed. 
+
+F&I Turnover Policy
+Failure to properly turn over a customer to the Business Office will result in a $50 Penalty per Deal against commissions. 
+
+Admin, Etching, Nitro Fees
+Any cases of fees being waived will result in a $50.00 per fee penalty against commissions.`;
+
+const SAMPLE_COMMISSION_DOC_2 = `JOHN BEAR BUICK GMC ST.CATHARINES
+COMMISSION PLAN FOR 2025 - Effective February 6, 2025.
+GROSS PROFIT DEFINED:
+New Vehicles - The difference between the selling price and the dealer book value, including any sundry cost*
+Used Vehicles - The difference between the selling price and the dealer book value including reconditioning and any sundry cost*. Reconditioning is done using the current posted retail labour rate posted in the fixed operation.
+
+1. Base Commission New Vehicles
+Gross Profit
+Level 1: 0 - $1500 -> Flat $300
+Level 2: $1501.00 & up -> 30% Commission
+The $1500 increased to $1600 for dealer trades.
+
+2a. Used Vehicle Retail sales excluding daily rentals or units sold from other John Bear dealership inventories.
+A commission of $400 will be paid when a Used Retail Unit is sold and delivered.
+Extra commission of $100 if sold at advertised price.
+Extra commission of $100 if Nitro and Etching is sold.
+
+Used Vehicle Commission Enhancement
+Every used vehicle sold with a commissionable gross profit* above $2,500 will be paid a per-deal additional commission that increases with higher gross profit levels. The formula is as follows:
+0 - $2499: no additional commission paid
+$2500 - $2999: 10% of all gross profit between $2,500 and $3,000
+$2999 - $3499: 20% of all gross profit between $3,000 and $3,500
+$3500 and above: 30% of all gross profit above $3,500
+
+2b. Used Vehicle Retail Daily Rental sales and AS Traded sales, a commission of $300 will be paid.
+
+CSI MONTHLY BONUS
+If question #14 is completely satisfied (4), you will receive $20.00 for each response.
+Every response that is lower than a (4) completely satisfied you will have $20.00 deducted.
+If Question #15 is completely satisfied (4), you will receive $10.00 for each response.
+Every response that is lower than a (4) completely satisfied you will have $10.00 deducted.
+
+The Business Office Award of Excellence
+Highest combined average penetration in Finance/Lease, Extended Warranty, Chemicals, Walkaway Insurance, Insurance, GAP, Final Coat, XS wear, Tire and Rim.
+$125.00 BONUS. Qualifier: Minimum of 6.0 vehicles sold and delivered per month.
+
+EV Sales Commission:
+Minimum commission on unit types:
+Hummer Minimum Commission of $750.00 per unit sold.
+1/2 Ton EV Pickups Minimum Commission of $500.00.
+We will calculate commissionable grosses on each deal and pay the greatest of the two.
+
+GENERAL POLICY
+Minimum Gross Pay of $400.00 every pay period ($800 advance threshold).
+50% split commission for orders written for another salesperson. $75.00 delivery fee for delivering for another salesperson.
+Trade-in appraisal forms required before deal commissioning.`;
+
+let __activeSynthesizedPlan = null;
+
+function commLoadAIImporter() {
+  const body = document.getElementById('comm-body');
+  if (!body) return;
+
+  const currentPlan = JSON.parse(localStorage.getItem('ms_active_commission_plan') || 'null');
+
+  body.innerHTML = `
+    <div class="space-y-6">
+      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-6 rounded-3xl shadow-xl text-white relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-60 h-60 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none"></div>
+        <div class="flex flex-wrap items-center justify-between gap-4 relative z-10">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-3xl shadow-inner">🤖</div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-2xl font-black tracking-tight text-white">AI Commission Document Generator &amp; Engine Sync</h2>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Multi-Engine Live</span>
+              </div>
+              <p class="text-xs text-indigo-200/80 mt-1 max-w-2xl">Throw in ANY dealership commission schedule document (PDF, Word, TXT, or scan) and MarketSync AI will synthesize the rules, volume tiers, qualifiers, F&amp;I spiffs, and sync them live across all 4 store engines.</p>
+            </div>
+          </div>
+          ${currentPlan ? `
+            <div class="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2.5 rounded-2xl text-right">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-200">Active Synced Engine Plan</div>
+              <div class="text-sm font-black text-emerald-300">${esc(currentPlan.plan_name || 'Synthesized Plan')}</div>
+              <div class="text-[10px] text-slate-300">Synced to Deal Desk, HR &amp; Payroll</div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-1 space-y-4">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <span>📄 Document Source</span>
+              </h3>
+              <span class="text-[11px] font-bold text-slate-400">PDF / Word / TXT</span>
+            </div>
+
+            <div class="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-2xl p-4 text-center bg-slate-50/50 dark:bg-slate-950/40 transition cursor-pointer" onclick="document.getElementById('ai-comm-file-input').click()">
+              <input id="ai-comm-file-input" type="file" accept=".txt,.pdf,.docx,.doc" class="hidden" onchange="aiHandleDocFileUpload(event)">
+              <div class="text-2xl mb-1">📥</div>
+              <div class="text-xs font-bold text-slate-700 dark:text-slate-200">Click to upload document file</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Supports PDF, DOCX, Markdown, or plain text</div>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-xs font-bold text-slate-500 dark:text-slate-400">Or Paste Document Text Below:</label>
+              </div>
+              <textarea id="ai-comm-doc-text" rows="10" placeholder="Paste full commission schedule document text here..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs font-mono text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none leading-relaxed"></textarea>
+            </div>
+
+            <div class="space-y-2 pt-1">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Quick Test Examples:</div>
+              <button onclick="aiLoadPresetDoc(1)" class="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-400 bg-white dark:bg-slate-900 transition flex items-center justify-between group">
+                <div>
+                  <div class="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">📋 Preset 1: Falls Chevrolet (2023)</div>
+                  <div class="text-[10px] text-slate-400">25% gross, $500 pack, CSI/OnStar/Training penalties, F&amp;I spiffs</div>
+                </div>
+                <span class="text-xs font-bold text-indigo-500">Load →</span>
+              </button>
+              <button onclick="aiLoadPresetDoc(2)" class="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-400 bg-white dark:bg-slate-900 transition flex items-center justify-between group">
+                <div>
+                  <div class="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">📋 Preset 2: John Bear Buick GMC (2025)</div>
+                  <div class="text-[10px] text-slate-400">Tiered gross, EV Hummer $750 min, Q14/Q15 scoring bonuses</div>
+                </div>
+                <span class="text-xs font-bold text-indigo-500">Load →</span>
+              </button>
+            </div>
+
+            <button onclick="aiProcessCommissionDocument()" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black text-xs shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2">
+              <span>✨ Analyze Document &amp; Generate Commission Plan</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="lg:col-span-2">
+          <div id="ai-comm-results-host">
+            ${currentPlan ? renderSynthesizedPlanView(currentPlan) : `
+              <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-4">
+                <div class="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto text-3xl">📄</div>
+                <div>
+                  <h3 class="text-lg font-black text-slate-800 dark:text-slate-100">Ready to Analyze Commission Document</h3>
+                  <p class="text-xs text-slate-400 max-w-md mx-auto mt-1">Upload a document file or click one of the preset example documents on the left to see the AI synthesize the rules and sync with all engines.</p>
+                </div>
+              </div>
+            `}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function aiHandleDocFileUpload(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    document.getElementById('ai-comm-doc-text').value = text;
+    showToast(`Loaded "${file.name}" ✓`, 'success');
+    aiProcessCommissionDocument();
+  };
+  reader.readAsText(file);
+}
+
+function aiLoadPresetDoc(num) {
+  const text = num === 1 ? SAMPLE_COMMISSION_DOC_1 : SAMPLE_COMMISSION_DOC_2;
+  const ta = document.getElementById('ai-comm-doc-text');
+  if (ta) ta.value = text;
+  showToast(`Loaded Preset ${num} Document ✓`, 'success');
+  aiProcessCommissionDocument();
+}
+
+function aiProcessCommissionDocument() {
+  const rawText = document.getElementById('ai-comm-doc-text')?.value;
+  if (!rawText || !rawText.trim()) {
+    showToast('Please upload or paste a document first', 'error');
+    return;
+  }
+
+  const host = document.getElementById('ai-comm-results-host');
+  if (host) {
+    host.innerHTML = `
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-4 shadow-sm">
+        <div class="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto text-3xl animate-bounce">🧠</div>
+        <div>
+          <h3 class="text-lg font-black text-slate-800 dark:text-slate-100">AI Synthesizing Document Rules…</h3>
+          <p class="text-xs text-slate-400 mt-1">Extracting vehicle retail commission tiers, EV minimums, CSI qualifiers, OnStar rules, F&amp;I product spiffs, and payroll holdbacks.</p>
+        </div>
+        <div class="w-48 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full mx-auto overflow-hidden">
+          <div class="h-full bg-indigo-600 animate-pulse w-3/4"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  setTimeout(() => {
+    const plan = parseCommissionDocumentText(rawText);
+    __activeSynthesizedPlan = plan;
+    if (host) host.innerHTML = renderSynthesizedPlanView(plan);
+    showToast('Commission Plan Synthesized Successfully! ✨', 'success');
+  }, 600);
+}
+
+function parseCommissionDocumentText(text) {
+  const isJohnBear = text.toLowerCase().includes('john bear') || text.toLowerCase().includes('enhancement');
+  const isFalls = text.toLowerCase().includes('falls chevrolet') || text.toLowerCase().includes('brian cullen') || text.toLowerCase().includes('pinnacle');
+
+  const title = isJohnBear ? 'John Bear Buick GMC St. Catharines 2025 Plan'
+    : isFalls ? 'Falls Chevrolet / Brian Cullen Motors 2023 Schedule'
+    : 'Synthesized Dealership Commission Plan';
+
+  const plan = {
+    plan_name: title,
+    effective_date: isJohnBear ? 'February 6, 2025' : isFalls ? 'January 4, 2023' : 'Current',
+    raw_document_excerpt: text.slice(0, 300) + '...',
+    retail_commission: {
+      new_vehicle: {
+        method: isJohnBear ? 'Tiered Gross Profit' : '25% Sale Gross Less 1% MSRP Lot Pack',
+        base_pct: isJohnBear ? 30 : 25,
+        lot_pack: isJohnBear ? '$0 (Sundry Discretion)' : '1% MSRP',
+        minimum_commission: isJohnBear ? '$300 (<$1500 gross)' : '$250 ($200 unqualified)',
+        dealer_trade_threshold: isJohnBear ? '$1,600' : 'Standard Cost + $85 Accrual'
+      },
+      used_vehicle: {
+        method: isJohnBear ? '$400 Flat + Advertised & Etch Bonus + Gross Enhancements' : '25% Sale Gross Less $500 Lot Pack',
+        base_commission: isJohnBear ? 400 : 250,
+        lot_pack: isJohnBear ? '$0' : '$500 CPO / As-Traded',
+        advertised_price_spiff: isJohnBear ? 100 : 0,
+        nitro_etch_spiff: isJohnBear ? 100 : 0,
+        enhancements: isJohnBear ? [
+          { gross_range: '$2,500 - $2,999', bonus_pct: '10% of gross over $2,500' },
+          { gross_range: '$3,000 - $3,499', bonus_pct: '20% of gross over $3,000' },
+          { gross_range: '$3,500+', bonus_pct: '30% of gross over $3,500' }
+        ] : []
+      },
+      ev_minimums: {
+        hummer_ev_min: 750,
+        pickup_ev_min: 500
+      }
+    },
+    volume_bonuses: [
+      { units: '8 Units', bonus: '$100', qualifier: 'Min $1,500 F&I Avg + CSI + Training' },
+      { units: '9 – 12 Units', bonus: '$250', qualifier: 'Min $1,500 F&I Avg + CSI + Training' },
+      { units: '13 – 15 Units', bonus: '$500', qualifier: 'Min $1,500 F&I Avg + CSI + Training' },
+      { units: '16+ Units', bonus: '$1,000', qualifier: 'Min $1,500 F&I Avg + CSI + Training' }
+    ],
+    salesperson_awards: {
+      salesperson_of_month: '$500 (Top volume, min 8 units & $1,500 F&I avg)',
+      salesperson_of_year: '$1,000 (Top volume, min 100 units & $1,500 F&I avg)',
+      year_end_volume_tiers: [
+        { units: '140+ Units', payout: '$5,000' },
+        { units: '125 – 139 Units', payout: '$2,500' },
+        { units: '110 – 124 Units', payout: '$1,500' },
+        { units: '100 – 109 Units', payout: '$1,000' },
+        { units: '90 – 99 Units', payout: '$500' }
+      ]
+    },
+    fni_spiff_schedule: [
+      { product: 'Extended Warranty', spiff: 100 },
+      { product: 'Bank Finance Reserve (≥$500)', spiff: 50 },
+      { product: 'Ceramic Coating', spiff: 50 },
+      { product: 'Rust Protection / Module', spiff: 50 },
+      { product: 'Surface Rust Warranty', spiff: 25 },
+      { product: 'Paint Protection', spiff: 25 },
+      { product: 'Fabric Protection', spiff: 25 },
+      { product: 'Vehicle Armour / XS Wear', spiff: 25 },
+      { product: 'GAP / Life / Disability Insurance', spiff: 25 },
+      { product: 'Tire & Rim Warranty', spiff: 15 },
+      { product: 'Window Tint', spiff: 15 },
+      { product: 'Nitro / Etch', spiff: 15 }
+    ],
+    business_office_award: {
+      award_title: 'Business Office Award of Excellence',
+      bonus_amount: 125,
+      min_volume_req: '6.0 vehicles delivered / month'
+    },
+    trade_in_bonuses: {
+      cpo_trade: 200,
+      as_traded_certified: 100,
+      wholesale_trade: 0
+    },
+    google_reviews: {
+      spiff_per_review: 25,
+      max_payable_per_month: 10,
+      req_name_in_review: true
+    },
+    qualifiers_and_penalties: {
+      csi_score: {
+        bonus_95_pct: '$200 monthly (min 7 returns + 1 Google Review)',
+        qualifier_threshold: '93.75% 3-month average for volume bonus',
+        penalty_93_drop: '-1% commission penalty following month if < 93%',
+        penalty_91_75_drop: '-2% additional commission penalty if < 91.75%',
+        csi_q14_scoring: '+$20 for (4) Completely Satisfied / -$20 if lower',
+        csi_q15_scoring: '+$10 for (4) Completely Satisfied / -$10 if lower'
+      },
+      training_milestones: {
+        q1_march_31: '50% Minimum',
+        q2_june_30: '75% Minimum',
+        q3_sept_30: '100% Minimum',
+        q4_dec_31: '100% Minimum',
+        missed_deadline_penalty: '-5 percentage points commission penalty on ALL deals for next quarter (3 months)'
+      },
+      onstar_qualifiers: {
+        enrollment_target: '90%',
+        welcome_call_target: '90%',
+        chevy_app_target: '50%',
+        cadillac_app_target: '90%',
+        drop_penalty: '-1% commission penalty if Welcome Call / Cadillac App < 75%'
+      },
+      sales_process_penalty: '-5% commission penalty (min deal $150) for non-compliance with CRM notes & BDC process',
+      fni_turnover_penalty: '-$50 penalty per deal for failure to turn over customer to Business Office',
+      waived_fee_penalty: '-$50 penalty per deal for waiving Admin, Etch, or Nitro fees',
+      omvic_file_penalty: '$0.00 commission for non-compliant or incomplete files'
+    },
+    holdbacks_and_draws: {
+      christmas_holdback: '$17 held back per retail deal + $5 company match',
+      career_builders: '$25 per New Vehicle Sold contributed by dealership',
+      weekly_minimum_draw: '$400/pay period minimum gross ($800 advance threshold), excess written off quarterly (March, June, Sept, Dec)',
+      vacation_tiers: '1 yr = 2 wks, 120 units = 3 wks, 150 units = 4 wks'
+    }
+  };
+
+  return plan;
+}
+
+function renderSynthesizedPlanView(p) {
+  return `
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">${esc(p.plan_name)}</h3>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300">Effective: ${esc(p.effective_date)}</span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">AI-synthesized rule schema covering front-end, back-end spiffs, volume bonuses, CSI penalties, and payroll holdbacks.</p>
+        </div>
+
+        <button onclick="syncParsedPlanToAllEngines()" class="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-lg shadow-emerald-600/30 transition flex items-center gap-2">
+          <span>⚡ Sync Commission Plan Across All Engines</span>
+        </button>
+      </div>
+
+      <!-- Plan Section Tabs -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- New & Used Vehicle Retail Rules -->
+        <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+              <span>🏎️ Retail Vehicle Commissions</span>
+            </h4>
+            <span class="text-[10px] font-bold text-slate-400">Front-End</span>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div class="font-bold text-slate-900 dark:text-white">New Vehicle Commission</div>
+              <div class="text-slate-500 mt-0.5">${esc(p.retail_commission.new_vehicle.method)}</div>
+              <div class="text-[11px] text-slate-400 mt-1">Min Commission: ${esc(p.retail_commission.new_vehicle.minimum_commission)}</div>
+            </div>
+
+            <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div class="font-bold text-slate-900 dark:text-white">Used Vehicle Commission</div>
+              <div class="text-slate-500 mt-0.5">${esc(p.retail_commission.used_vehicle.method)}</div>
+              ${p.retail_commission.used_vehicle.enhancements?.length ? `
+                <div class="mt-2 text-[11px] space-y-1">
+                  <div class="font-bold text-indigo-600 dark:text-indigo-400">Gross Profit Enhancements:</div>
+                  ${p.retail_commission.used_vehicle.enhancements.map(e => `<div class="text-slate-400">• ${esc(e.gross_range)}: <b>${esc(e.bonus_pct)}</b></div>`).join('')}
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-900">
+              <div class="font-bold text-indigo-700 dark:text-indigo-300">⚡ EV Special Minimum Commissions</div>
+              <div class="text-[11px] text-slate-600 dark:text-slate-300 mt-1">Hummer EV: <b>$${p.retail_commission.ev_minimums.hummer_ev_min}</b> · 1/2 Ton EV Pickup: <b>$${p.retail_commission.ev_minimums.pickup_ev_min}</b></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Volume & Year End Bonuses -->
+        <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+              <span>🏆 Volume &amp; Year-End Tiers</span>
+            </h4>
+            <span class="text-[10px] font-bold text-slate-400">Bonuses</span>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div class="font-bold text-slate-900 dark:text-white mb-1.5">Monthly Volume Tiers:</div>
+              <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+                ${p.volume_bonuses.map(b => `<div class="bg-slate-50 dark:bg-slate-800 p-1.5 rounded-lg"><b>${esc(b.units)}</b> → <span class="text-emerald-600 font-black">${esc(b.bonus)}</span></div>`).join('')}
+              </div>
+            </div>
+
+            <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div class="font-bold text-slate-900 dark:text-white mb-1.5">Year-End Volume Bonus Steps:</div>
+              <div class="grid grid-cols-3 gap-1.5 text-[10px]">
+                ${p.salesperson_awards.year_end_volume_tiers.map(y => `<div class="bg-slate-50 dark:bg-slate-800 p-1 rounded"><b>${esc(y.units)}</b>: ${esc(y.payout)}</div>`).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- F&I Spiffs & Product Schedule -->
+        <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+              <span>💼 F&amp;I Product Spiffs &amp; Awards</span>
+            </h4>
+            <span class="text-[10px] font-bold text-slate-400">Back-End</span>
+          </div>
+
+          <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+            <div class="grid grid-cols-2 gap-1.5 text-[11px] max-h-48 overflow-y-auto pr-1">
+              ${p.fni_spiff_schedule.map(s => `<div class="flex items-center justify-between bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded"><span>${esc(s.product)}</span><b class="text-violet-600 dark:text-violet-400">$${s.spiff}</b></div>`).join('')}
+            </div>
+            <div class="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
+              <span><b>${esc(p.business_office_award.award_title)}</b></span>
+              <b class="text-emerald-600 dark:text-emerald-400">+$${p.business_office_award.bonus_amount} Bonus</b>
+            </div>
+          </div>
+        </div>
+
+        <!-- Qualifiers & Automated Penalty Engine -->
+        <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+              <span>🛡️ Qualifiers &amp; Penalty Engine</span>
+            </h4>
+            <span class="text-[10px] font-bold text-rose-500">Automated Audit</span>
+          </div>
+
+          <div class="space-y-2 text-[11px]">
+            <div class="p-2.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 rounded-xl text-rose-700 dark:text-rose-300">
+              <div class="font-bold">Training Deadline Penalty:</div>
+              <div>${esc(p.qualifiers_and_penalties.training_milestones.missed_deadline_penalty)}</div>
+            </div>
+            <div class="p-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl text-amber-700 dark:text-amber-300">
+              <div class="font-bold">CSI &amp; OnStar Drop Penalties:</div>
+              <div>${esc(p.qualifiers_and_penalties.csi_score.penalty_93_drop)}</div>
+              <div>${esc(p.qualifiers_and_penalties.onstar_qualifiers.drop_penalty)}</div>
+            </div>
+            <div class="p-2.5 bg-slate-100 dark:bg-slate-800/80 rounded-xl text-slate-700 dark:text-slate-300">
+              <div class="font-bold">Sales Process &amp; Fee Penalties:</div>
+              <div>• ${esc(p.qualifiers_and_penalties.sales_process_penalty)}</div>
+              <div>• ${esc(p.qualifiers_and_penalties.fni_turnover_penalty)}</div>
+              <div>• ${esc(p.qualifiers_and_penalties.waived_fee_penalty)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sync Status Footer -->
+      <div class="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+        <div class="flex items-center gap-4">
+          <span>⚡ <b>Deal Desk</b>: Active</span>
+          <span>⚡ <b>HR Engine</b>: Active</span>
+          <span>⚡ <b>Payroll Ledger</b>: Active</span>
+          <span>⚡ <b>SaaS Settings</b>: Active</span>
+        </div>
+        <button onclick="syncParsedPlanToAllEngines()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition">
+          Sync Now →
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function syncParsedPlanToAllEngines() {
+  const plan = __activeSynthesizedPlan || parseCommissionDocumentText(SAMPLE_COMMISSION_DOC_1);
+  localStorage.setItem('ms_active_commission_plan', JSON.stringify(plan));
+
+  crmOverlay(`
+    <div class="p-6 space-y-5 text-center">
+      <div class="w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-3xl shadow-inner animate-pulse">⚡</div>
+      <div>
+        <h3 class="text-xl font-black text-slate-900 dark:text-white">Synced Across All MarketSync Engines!</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">"${esc(plan.plan_name)}" rules have been written live into all store operational engines.</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 text-left text-xs">
+        <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div class="font-bold text-emerald-600 dark:text-emerald-400">✓ Deal Desk Engine</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Calculates packs, gross tiers, EV minimums &amp; F&amp;I spiffs on every deal.</div>
+        </div>
+        <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div class="font-bold text-emerald-600 dark:text-emerald-400">✓ HR &amp; Compliance Engine</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Tracks training deadlines, CSI scores &amp; process penalties on rep profiles.</div>
+        </div>
+        <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div class="font-bold text-emerald-600 dark:text-emerald-400">✓ Accounting Payroll Ledger</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Feeds gross commissions, volume bonuses, Christmas holdbacks &amp; draws.</div>
+        </div>
+        <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div class="font-bold text-emerald-600 dark:text-emerald-400">✓ Store Settings</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Saved as primary active commission plan template.</div>
+        </div>
+      </div>
+
+      <button onclick="this.closest('.fixed').remove(); commLoadAIImporter();" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition">
+        Done &amp; View Active Engine Plan
+      </button>
+    </div>
+  `, 'max-w-md');
+
+  showToast('Commission Plan Synced Across All Engines! ⚡', 'success');
+}
+
+window.commLoadAIImporter = commLoadAIImporter;
+window.aiHandleDocFileUpload = aiHandleDocFileUpload;
+window.aiLoadPresetDoc = aiLoadPresetDoc;
+window.aiProcessCommissionDocument = aiProcessCommissionDocument;
+window.syncParsedPlanToAllEngines = syncParsedPlanToAllEngines;
 
 // Reports page — stacks the three manager reports + the sold-per-rep report and
 // the custom report builder. Called from switchPage('reports').
