@@ -34,4 +34,4 @@ jobs:
           find . -path ./node_modules -prune -o -name '*.js' -print \
             | xargs -r -n1 node --check
       - name: Validate ESM module import resolution
-        run: node scripts/validate-imports.js
+        run: npm run check:imports

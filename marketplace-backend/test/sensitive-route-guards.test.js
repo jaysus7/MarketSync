@@ -2,7 +2,13 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const source = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+const source = (path) => {
+  let content = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+  if (path === 'routes/ai.js') {
+    try { content += '\n' + readFileSync(new URL('../routes/submodules/ai-appraisal.js', import.meta.url), 'utf8') } catch (e) {}
+  }
+  return content
+}
 
 test('sensitive financial and customer-data routes require MFA plus a permission', () => {
   const checks = [

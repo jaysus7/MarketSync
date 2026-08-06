@@ -10,6 +10,7 @@
     "build:kb": "node scripts/build-kb.js",
     "build:training": "node scripts/build-training-expanded.js && node scripts/build-training-visuals.js",
     "test": "node --test test/*.test.js",
+    "check:imports": "node scripts/check-imports.js",
     "validate:imports": "node scripts/validate-imports.js",
     "seed:jms": "node scripts/seed-jms.js",
     "bootstrap:platform-staff": "node scripts/bootstrap-platform-staff.js"

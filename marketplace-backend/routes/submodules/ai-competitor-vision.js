@@ -3,7 +3,8 @@ import { requireAuth, requireMfa } from '../../middleware.js'
 import { requirePermission } from '../../authorization.js'
 import { audit } from '../../audit.js'
 import { isPlatformOwner } from '../ai-helpers.js'
-import { marketcheckEnabled, marketcheckCompetitorStats, recordUsage } from '../ai-runtime.js'
+import { marketcheckEnabled, marketcheckCompetitorStats } from '../../marketcheck.js'
+import { recordUsage } from '../../usage.js'
 import { runPhotoVision, scoreVehiclePhotos } from '../../sync/photoVision.js'
 
 export function registerAiCompetitorVisionRoutes(app) {
