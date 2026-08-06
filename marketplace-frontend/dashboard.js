@@ -27976,155 +27976,6 @@ function closeBadgeRevealModal() {
 }
 window.closeBadgeRevealModal = closeBadgeRevealModal;
 
-// ── MarketSync People & Compliance Engine ─────────────────────────────────────
-let __peopleComplianceView = 'overview'; // 'overview' | 'people' | 'compliance' | 'automation' | 'settings'
-let __peopleSelectedEmpId = null;
-let __peopleProfileTab = 'overview'; // 'overview' | 'access' | 'compliance' | 'performance' | 'assets'
-let __peopleSearchQuery = '';
-let __peopleDeptFilter = 'all';
-
-const DEFAULT_EMPLOYEES = [
-  {
-    id: 'emp-101',
-    first_name: 'Marcus',
-    last_name: 'Vance',
-    email: 'marcus.vance@dealership.com',
-    phone: '(555) 392-1049',
-    role: 'Sales Representative',
-    department: 'Sales',
-    location: 'Main Rooftop - Showroom',
-    manager: 'Sarah Jenkins (General Sales Mgr)',
-    emp_type: 'Full-Time Permanent',
-    status: 'Active',
-    start_date: '2023-04-15',
-    licence_no: 'DL-948201-ON',
-    licence_expiry: '2027-09-20',
-    licence_status: 'Valid',
-    abstract_date: '2026-01-10',
-    comp_plan: 'Base Salary ($36k) + $350/Unit + 15% Front Gross',
-    compliance_docs: [
-      { name: 'Employment Agreement & NDA', signed: true, date: '2023-04-15' },
-      { name: 'Workplace Safety & Harassment Policy 2026', signed: true, date: '2026-01-05' },
-      { name: 'Driver Abstract & Demo Vehicle Policy', signed: true, date: '2026-01-10' }
-    ],
-    training: [
-      { name: 'WHMIS 2015 Certification', completed: true, expiry: '2027-04-15' },
-      { name: 'Joint Health & Safety Awareness', completed: true, expiry: '2026-11-20' },
-      { name: 'MarketSync OS Sales Mastery', completed: true, expiry: 'N/A' }
-    ],
-    assets: ['Demo Vehicle VIN: 2G1FA1E34D91024', 'Showroom iPad Air #4', 'Store Fuel Card #9410'],
-    perf: { units_mtd: 14, gross_mtd: 38400, active_leads: 28, lead_resp_min: 6.2, comm_mtd: 4900, rating: 'Exceeds Expectations' },
-    emergency: { name: 'Elena Vance', relation: 'Spouse', phone: '(555) 948-2011' }
-  },
-  {
-    id: 'emp-102',
-    first_name: 'Jessica',
-    last_name: 'Taylor',
-    email: 'jessica.taylor@dealership.com',
-    phone: '(555) 839-2011',
-    role: 'F&I Business Manager',
-    department: 'F&I',
-    location: 'Main Rooftop - F&I Office',
-    manager: 'David Miller (Finance Director)',
-    emp_type: 'Full-Time Permanent',
-    status: 'Active',
-    start_date: '2022-08-01',
-    licence_no: 'OMVIC-391024-ON',
-    licence_expiry: '2026-09-01',
-    licence_status: 'Expiring Soon (25 Days)',
-    abstract_date: '2025-08-12',
-    comp_plan: '1.2% Back-End Gross + Warranty Volume Tier',
-    compliance_docs: [
-      { name: 'Employment Agreement & NDA', signed: true, date: '2022-08-01' },
-      { name: 'Workplace Safety & Harassment Policy 2026', signed: true, date: '2026-01-05' },
-      { name: 'OMVIC / AMVIC Code of Ethics Statement', signed: true, date: '2025-08-01' }
-    ],
-    training: [
-      { name: 'WHMIS 2015 Certification', completed: true, expiry: '2026-08-01' },
-      { name: 'F&I Compliance & Anti-Money Laundering', completed: true, expiry: '2027-02-15' }
-    ],
-    assets: ['F&I Office Workstation', 'E-Signature Pad #2'],
-    perf: { PVR_mtd: 2450, warranty_pen_pct: 68, active_deals: 19, comm_mtd: 7200, rating: 'Outstanding' },
-    emergency: { name: 'Robert Taylor', relation: 'Brother', phone: '(555) 129-4910' }
-  },
-  {
-    id: 'emp-103',
-    first_name: 'David',
-    last_name: 'Chen',
-    email: 'david.chen@dealership.com',
-    phone: '(555) 491-0294',
-    role: 'Service Master Technician',
-    department: 'Service',
-    location: 'Service Building - Bay 4',
-    manager: 'Tom Reynolds (Service Manager)',
-    emp_type: 'Full-Time Permanent',
-    status: 'Active',
-    start_date: '2021-02-10',
-    licence_no: '310S-TECH-948',
-    licence_expiry: '2028-05-10',
-    licence_status: 'Valid',
-    abstract_date: '2025-11-04',
-    comp_plan: '$42/Flat Rate Hour + EV Tech Bonus',
-    compliance_docs: [
-      { name: 'Employment Agreement & NDA', signed: true, date: '2021-02-10' },
-      { name: 'Shop Safety & Personal Protection Equipment (PPE)', signed: true, date: '2026-01-05' }
-    ],
-    training: [
-      { name: '310S Red Seal Automotive Technician', completed: true, expiry: '2028-05-10' },
-      { name: 'EV High-Voltage Disconnect Safety', completed: true, expiry: '2027-01-15' },
-      { name: 'WHMIS 2015 Certification', completed: true, expiry: '2026-09-30' }
-    ],
-    assets: ['Diagnostician Scanner #3', 'Toolbox Locker A-14'],
-    perf: { efficiency_pct: 124, labor_hrs_mtd: 168, ro_count: 84, comm_mtd: 7056, rating: 'Master Class' },
-    emergency: { name: 'Mei Chen', relation: 'Mother', phone: '(555) 883-9201' }
-  },
-  {
-    id: 'emp-104',
-    first_name: 'Sarah',
-    last_name: 'Jenkins',
-    email: 'sarah.jenkins@dealership.com',
-    phone: '(555) 201-9481',
-    role: 'General Sales Manager',
-    department: 'Management',
-    location: 'Main Rooftop - Executive Office',
-    manager: 'Dealership Owner',
-    emp_type: 'Full-Time Permanent',
-    status: 'Active',
-    start_date: '2019-11-01',
-    licence_no: 'DL-109284-ON',
-    licence_expiry: '2029-11-01',
-    licence_status: 'Valid',
-    abstract_date: '2026-02-01',
-    comp_plan: 'Base Salary + 2.5% Store Net Sales Override',
-    compliance_docs: [
-      { name: 'Executive Employment Agreement & NDA', signed: true, date: '2019-11-01' },
-      { name: 'Workplace Safety & Harassment Policy 2026', signed: true, date: '2026-01-05' },
-      { name: 'Joint Health & Safety Executive Rep Statement', signed: true, date: '2026-01-05' }
-    ],
-    training: [
-      { name: 'Joint Health & Safety Committee Certification', completed: true, expiry: '2028-01-01' },
-      { name: 'WHMIS 2015 Certification', completed: true, expiry: '2027-05-15' }
-    ],
-    assets: ['Executive MacBook Pro', 'Master Dealership Keycard'],
-    perf: { store_units_mtd: 142, store_gross_mtd: 412000, comm_mtd: 14500, rating: 'Executive Excellence' },
-    emergency: { name: 'Mark Jenkins', relation: 'Spouse', phone: '(555) 332-9104' }
-  }
-];
-
-function getPeopleComplianceData() {
-  if (!window.__peopleComplianceEmployees) {
-    window.__peopleComplianceEmployees = JSON.parse(JSON.stringify(DEFAULT_EMPLOYEES));
-  }
-  return window.__peopleComplianceEmployees;
-}
-
-function loadPeopleCompliance() {
-  const container = document.getElementById('people-compliance-root') || document.getElementById('page-content');
-  if (!container) return;
-  renderPeopleCompliance();
-}
-window.loadPeopleCompliance = loadPeopleCompliance;
-
 function renderSettingsHrCard() {
   const card = document.getElementById('settings-hr-card');
   if (!card) return;
@@ -28216,7 +28067,7 @@ function renderPeopleCompliance() {
       <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-slate-200 dark:border-slate-800">
         ${tabPill('overview', 'Overview', '📊')}
         ${tabPill('people', 'People & Profiles', '👥')}
-        ${tabPill('compliance', 'Compliance & Safety', '🛡️')}
+        ${tabPill('compliance', 'Compliance & Training', '🛡️')}
         ${tabPill('automation', 'HR Workflows', '⚡')}
         ${tabPill('settings', 'Engine Settings', '⚙️')}
       </div>
@@ -28240,13 +28091,87 @@ window.setPeopleComplianceView = (v) => {
   renderPeopleCompliance();
 };
 
+// ── 1. Time Clock & Shift Attendance Sub-System ─────────────────────────────
+function getTimeClockState() {
+  let state = { status: 'out', time: null };
+  try { state = JSON.parse(localStorage.getItem('ms_timeclock_state') || '{"status":"out","time":null}'); } catch {}
+  return state;
+}
+
+function handleTimeClockAction(action) {
+  let state = getTimeClockState();
+  const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  if (action === 'in') {
+    state = { status: 'in', time: timeNow };
+    toast(`🟢 Clocked in for shift at ${timeNow}!`);
+  } else if (action === 'break') {
+    const nextStatus = state.status === 'break' ? 'in' : 'break';
+    state = { status: nextStatus, time: timeNow };
+    toast(nextStatus === 'break' ? `☕ Started lunch break at ${timeNow}` : `🟢 Resumed shift from break at ${timeNow}`);
+  } else if (action === 'out') {
+    state = { status: 'out', time: timeNow };
+    toast(`🔴 Clocked out from shift at ${timeNow}. Have a great day!`);
+  }
+
+  try { localStorage.setItem('ms_timeclock_state', JSON.stringify(state)); } catch {}
+  renderPeopleCompliance();
+}
+window.handleTimeClockAction = handleTimeClockAction;
+
+function renderTimeClockWidget() {
+  const clockState = getTimeClockState();
+  const isClockedIn = clockState.status === 'in';
+  const isOnBreak = clockState.status === 'break';
+  const isClockedOut = clockState.status === 'out';
+
+  return `
+    <div class="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 border border-slate-800 rounded-2xl p-5 shadow-lg text-white space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl ${isClockedIn ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : isOnBreak ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'} flex items-center justify-center font-black text-lg">
+            ⏱️
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Employee Time Clock &amp; Shift Tracker</div>
+            <div class="text-sm font-black flex items-center gap-2">
+              <span>Status:</span>
+              <span class="${isClockedIn ? 'text-emerald-400' : isOnBreak ? 'text-amber-400' : 'text-slate-400'}">${isClockedIn ? `🟢 Clocked In (${clockState.time || '8:30 AM'})` : isOnBreak ? `☕ On Lunch / Break` : `🔴 Clocked Out`}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-right hidden sm:block">
+          <div class="text-xs text-slate-400">Shift Total Today</div>
+          <div class="text-base font-black text-indigo-400">${isClockedIn ? '7.5 Hours' : '0.0 Hours'}</div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800">
+        <button onclick="handleTimeClockAction('in')" class="flex-1 min-w-[120px] py-2.5 rounded-xl font-black text-xs transition ${isClockedIn ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30'}">
+          🟢 Clock In Shift
+        </button>
+        <button onclick="handleTimeClockAction('break')" class="flex-1 min-w-[120px] py-2.5 rounded-xl font-black text-xs transition ${isOnBreak ? 'bg-amber-600 text-white shadow-md' : 'bg-slate-800 hover:bg-slate-700 text-amber-300'}">
+          ☕ ${isOnBreak ? 'End Break' : 'Start Break'}
+        </button>
+        <button onclick="handleTimeClockAction('out')" class="flex-1 min-w-[120px] py-2.5 rounded-xl font-black text-xs transition ${isClockedOut ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/30'}">
+          🔴 Clock Out Shift
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 // ── 1. Overview Tab ──────────────────────────────────────────────────────────
 function renderPeopleOverview(body, employees) {
   const activeCount = employees.filter(e => e.status === 'Active').length;
-  const expiringLicences = employees.filter(e => e.licence_status.includes('Expiring')).length;
+  const expiringLicences = employees.filter(e => e.licence_status && e.licence_status.includes('Expiring')).length;
 
   body.innerHTML = `
     <div class="space-y-6">
+      <!-- Time Clock Banner -->
+      ${renderTimeClockWidget()}
+
       <!-- Top Metrics -->
       <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
@@ -28379,7 +28304,9 @@ function renderPeopleDirectory(body, employees) {
       </div>
 
       <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
-        <button onclick="openEmployeeProfileModal('${e.id}')" class="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition flex items-center justify-center gap-1">👤 Inspect Unified Profile</button>
+        <button onclick="openEmployeeProfileModal('${e.id}')" class="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition flex items-center justify-center gap-1">👤 Profile</button>
+        <button onclick="openEditEmployeeModal('${e.id}')" class="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition">✏️ Edit</button>
+        <button onclick="openEmployeeCertificateModal('${esc(e.first_name)} ${esc(e.last_name)}', 'WHMIS 2015 &amp; Chemical Safety', '${e.start_date}', 'CERT-ON-9402')" class="py-2 px-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold text-xs border border-amber-200/60 transition">🎓 Certs</button>
       </div>
     </div>
   `).join('');
@@ -28407,6 +28334,102 @@ function renderPeopleDirectory(body, employees) {
   `;
 }
 
+function openEditEmployeeModal(empId) {
+  const employees = getPeopleComplianceData();
+  const e = employees.find(x => x.id === empId);
+  if (!e) return;
+
+  const modalHtml = `
+    <div class="space-y-4 max-h-[80vh] overflow-y-auto p-1">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+        <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+          <span>✏️ Edit Employee Profile:</span>
+          <span class="text-indigo-600">${esc(e.first_name)} ${esc(e.last_name)}</span>
+        </h3>
+        <button data-close class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-500 mb-1">First Name</label>
+          <input type="text" id="edit-emp-fname" value="${esc(e.first_name)}" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-500 mb-1">Last Name</label>
+          <input type="text" id="edit-emp-lname" value="${esc(e.last_name)}" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-500 mb-1">Email Address</label>
+          <input type="email" id="edit-emp-email" value="${esc(e.email)}" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-500 mb-1">Phone Number</label>
+          <input type="text" id="edit-emp-phone" value="${esc(e.phone)}" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-500 mb-1">Department</label>
+          <select id="edit-emp-dept" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold">
+            <option value="Sales" ${e.department === 'Sales' ? 'selected' : ''}>Sales</option>
+            <option value="F&I" ${e.department === 'F&I' ? 'selected' : ''}>F&amp;I Office</option>
+            <option value="Service" ${e.department === 'Service' ? 'selected' : ''}>Service &amp; Shop</option>
+            <option value="Recon" ${e.department === 'Recon' ? 'selected' : ''}>Cleanup &amp; Detail</option>
+            <option value="Management" ${e.department === 'Management' ? 'selected' : ''}>Management</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-500 mb-1">Role / Position Title</label>
+          <input type="text" id="edit-emp-role" value="${esc(e.role)}" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-500 mb-1">Store Location</label>
+          <input type="text" id="edit-emp-location" value="${esc(e.location)}" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-500 mb-1">Direct Manager</label>
+          <input type="text" id="edit-emp-manager" value="${esc(e.manager)}" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-500 mb-1">Driver Licence Number</label>
+          <input type="text" id="edit-emp-licence" value="${esc(e.licence_no)}" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-500 mb-1">Licence Expiry</label>
+          <input type="date" id="edit-emp-licence-expiry" value="${esc(e.licence_expiry)}" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <button onclick="saveEmployeeEdit('${e.id}')" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-xs shadow-md transition">💾 Save Profile Changes</button>
+      </div>
+    </div>
+  `;
+  automationModal(modalHtml, 'max-w-lg');
+}
+window.openEditEmployeeModal = openEditEmployeeModal;
+
+function saveEmployeeEdit(empId) {
+  const employees = getPeopleComplianceData();
+  const e = employees.find(x => x.id === empId);
+  if (!e) return;
+
+  e.first_name = document.getElementById('edit-emp-fname')?.value || e.first_name;
+  e.last_name = document.getElementById('edit-emp-lname')?.value || e.last_name;
+  e.email = document.getElementById('edit-emp-email')?.value || e.email;
+  e.phone = document.getElementById('edit-emp-phone')?.value || e.phone;
+  e.department = document.getElementById('edit-emp-dept')?.value || e.department;
+  e.role = document.getElementById('edit-emp-role')?.value || e.role;
+  e.location = document.getElementById('edit-emp-location')?.value || e.location;
+  e.manager = document.getElementById('edit-emp-manager')?.value || e.manager;
+  e.licence_no = document.getElementById('edit-emp-licence')?.value || e.licence_no;
+  e.licence_expiry = document.getElementById('edit-emp-licence-expiry')?.value || e.licence_expiry;
+
+  try { localStorage.setItem('ms_people_employees', JSON.stringify(employees)); } catch {}
+  closeAutomationModal();
+  toast(`Updated profile for ${e.first_name} ${e.last_name}!`);
+  renderPeopleCompliance();
+}
+window.saveEmployeeEdit = saveEmployeeEdit;
+
 function openEmployeeProfileModal(empId) {
   const employees = getPeopleComplianceData();
   const e = employees.find(x => x.id === empId) || employees[0];
@@ -28425,7 +28448,10 @@ function openEmployeeProfileModal(empId) {
             <p class="text-xs text-slate-500 dark:text-slate-400">${esc(e.role)} · ${esc(e.department)}</p>
           </div>
         </div>
-        <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2">✕</button>
+        <div class="flex items-center gap-2">
+          <button onclick="openEditEmployeeModal('${e.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm">✏️ Edit Profile</button>
+          <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2">✕</button>
+        </div>
       </div>
 
       <div class="flex-1 overflow-y-auto p-4 space-y-5 my-2 scrollbar-thin">
@@ -28506,10 +28532,137 @@ function openEmployeeProfileModal(empId) {
 }
 window.openEmployeeProfileModal = openEmployeeProfileModal;
 
-// ── 3. Compliance & Safety Tab ────────────────────────────────────────────────
+// ── 3. Compliance, Safety & Training Tab ─────────────────────────────────────
+const DEALERSHIP_TRAINING_COURSES = [
+  { id: 'whmis', title: 'WHMIS 2015 & Chemical Safety', duration: '12 min', role: 'All Dealership Staff', icon: '🧪', desc: 'Canadian GHS hazard classification, SDS sheets, and shop chemical handling.' },
+  { id: 'bill168', title: 'Workplace Violence & Harassment (Bill 168 / OHSA)', duration: '18 min', role: 'All Dealership Staff', icon: '🛡️', desc: 'Ontario OHSA / Canadian Provincial standards for workplace harassment prevention.' },
+  { id: 'hoist', title: 'Automotive Lift & Hoist Safety Inspection', duration: '22 min', role: 'Service & Detail Staff', icon: '🔧', desc: 'Pre-use lift lock checks, weight capacity limits, and emergency disconnects.' },
+  { id: 'demo_driver', title: 'Dealer Demo Vehicle & Customer Test Drive Safety', duration: '15 min', role: 'Sales & Managers', icon: '🚘', desc: 'Licence verification, demo plate tracking, test drive routes & insurance requirements.' },
+  { id: 'ev_safety', title: 'EV & Hybrid High-Voltage Battery Rescue Safety', duration: '25 min', role: 'Service, Parts & Recon', icon: '⚡', desc: 'High-voltage disconnect procedures, orange cable safety, thermal runaway protocol.' },
+  { id: 'pipeda', title: 'PIPEDA & Customer Financial Privacy Protection', duration: '14 min', role: 'F&I, Sales & Desk', icon: '🔒', desc: 'Handling customer credit applications, SIN masking, deal jacket document destruction.' },
+];
+
+function openTrainingVideoModal(courseId) {
+  const c = DEALERSHIP_TRAINING_COURSES.find(x => x.id === courseId) || DEALERSHIP_TRAINING_COURSES[0];
+
+  const modalHtml = `
+    <div class="space-y-4 max-h-[85vh] overflow-y-auto p-1">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">${c.icon}</span>
+          <div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white leading-tight">${esc(c.title)}</h3>
+            <p class="text-xs text-slate-500">${c.duration} Video Module · ${c.role}</p>
+          </div>
+        </div>
+        <button data-close class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+      </div>
+
+      <!-- Simulated HD Video Player -->
+      <div class="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex flex-col justify-between p-4 shadow-xl group">
+        <div class="flex justify-between text-xs text-white/80 font-bold">
+          <span>MarketSync Compliance Video Player HD</span>
+          <span class="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">Live Stream</span>
+        </div>
+
+        <div class="text-center space-y-2 my-auto">
+          <div class="w-16 h-16 rounded-full bg-indigo-600/90 hover:bg-indigo-500 text-white flex items-center justify-center mx-auto text-2xl shadow-lg shadow-indigo-600/40 transition cursor-pointer transform group-hover:scale-105">
+            ▶️
+          </div>
+          <div class="text-xs text-slate-300 font-bold">${esc(c.title)} Video Stream</div>
+          <div class="text-[11px] text-slate-500">Press play to watch module video and complete quiz</div>
+        </div>
+
+        <div class="space-y-1">
+          <div class="flex justify-between text-[11px] text-slate-400 font-bold"><span>Progress</span><span>100% Watched</span></div>
+          <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div class="h-full bg-emerald-500 rounded-full" style="width: 100%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2 text-xs">
+        <div class="font-black text-slate-900 dark:text-white">Module Description &amp; Requirements</div>
+        <p class="text-slate-600 dark:text-slate-400 leading-relaxed">${esc(c.desc)}</p>
+      </div>
+
+      <button onclick="closeAutomationModal(); openEmployeeCertificateModal('Active Employee', '${esc(c.title)}', '${new Date().toISOString().split('T')[0]}', 'CERT-${c.id.toUpperCase()}-2026');" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2">
+        <span>🏆 Complete Module &amp; Generate Certificate</span>
+      </button>
+    </div>
+  `;
+  automationModal(modalHtml, 'max-w-2xl');
+}
+window.openTrainingVideoModal = openTrainingVideoModal;
+
+function openEmployeeCertificateModal(empName, certTitle, dateStr, certId) {
+  const modalHtml = `
+    <div class="p-6 bg-amber-50/40 dark:bg-slate-950 border-4 border-double border-amber-500/60 rounded-3xl text-center space-y-4 relative overflow-hidden">
+      <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-900 font-black text-2xl flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20">
+        🏆
+      </div>
+
+      <div class="text-xs font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Official Certificate of Completion</div>
+      <h2 class="text-2xl font-black text-slate-900 dark:text-white leading-tight">${esc(certTitle)}</h2>
+
+      <p class="text-xs text-slate-500 dark:text-slate-400">This certifies that</p>
+      <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 border-b-2 border-slate-300 dark:border-slate-700 inline-block px-8 py-1">${esc(empName)}</div>
+      <p class="text-xs text-slate-500 dark:text-slate-400">has successfully completed the Canadian Dealership Compliance &amp; Safety Standard curriculum.</p>
+
+      <div class="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-400 font-bold">
+        <span>Verified ID: ${esc(certId || 'CERT-2026-ON')}</span>
+        <span>Issued: ${esc(dateStr || new Date().toISOString().split('T')[0])}</span>
+      </div>
+
+      <div class="pt-2 flex justify-center gap-3">
+        <button onclick="window.print()" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-slate-900 font-black rounded-xl text-xs shadow-md">🖨️ Print Diploma</button>
+        <button data-close class="px-4 py-2 bg-slate-800 text-white font-bold rounded-xl text-xs">Close</button>
+      </div>
+    </div>
+  `;
+  automationModal(modalHtml, 'max-w-xl');
+}
+window.openEmployeeCertificateModal = openEmployeeCertificateModal;
+
 function renderPeopleComplianceTab(body, employees) {
+  const trainingCards = DEALERSHIP_TRAINING_COURSES.map(c => `
+    <div class="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3 shadow-sm hover:border-indigo-500 transition flex flex-col justify-between">
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-2xl">${c.icon}</span>
+          <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 border border-indigo-200/60">${c.duration}</span>
+        </div>
+        <h4 class="text-sm font-black text-slate-900 dark:text-white leading-tight">${esc(c.title)}</h4>
+        <p class="text-xs text-slate-500 mt-1 line-clamp-2">${esc(c.desc)}</p>
+      </div>
+
+      <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <span class="text-[11px] font-bold text-slate-400">${c.role}</span>
+        <button onclick="openTrainingVideoModal('${c.id}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow transition">▶️ Watch Video</button>
+      </div>
+    </div>
+  `).join('');
+
   body.innerHTML = `
     <div class="space-y-6">
+      <!-- Training Video Library (Accessible to Everyone) -->
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <span>🎬 Dealership Training Videos &amp; Safety Courses</span>
+              <span class="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 px-2 py-0.5 rounded-full">All Staff Access</span>
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Mandatory safety modules, WHMIS, driver safety, and privacy video courses. Watch and claim certificate.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          ${trainingCards}
+        </div>
+      </div>
+
+      <!-- Policy E-Signatures -->
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
         <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center justify-between">
           <span>📋 Dealership Onboarding &amp; Policy E-Signatures</span>
@@ -28628,7 +28781,7 @@ function saveNewEmployee() {
   const role = document.getElementById('new-emp-role')?.value || 'Sales Representative';
 
   const employees = getPeopleComplianceData();
-  employees.push({
+  const newEmp = {
     id: `emp-${Date.now()}`,
     first_name: fname,
     last_name: lname,
@@ -28651,10 +28804,13 @@ function saveNewEmployee() {
     assets: ['Showroom iPad'],
     perf: { units_mtd: 0, gross_mtd: 0, active_leads: 0, comm_mtd: 0, rating: 'New Hire' },
     emergency: { name: 'Contact', relation: 'Family', phone: '(555) 000-0000' }
-  });
+  };
+
+  employees.push(newEmp);
+  try { localStorage.setItem('ms_people_employees', JSON.stringify(employees)); } catch {}
 
   closeAutomationModal();
-  toast(`Onboarded ${fname} ${lname}! Account provisioned & policies sent.`);
+  toast(`Onboarded ${fname} ${lname}! Account provisioned &amp; policies sent.`);
   renderPeopleCompliance();
 }
 window.saveNewEmployee = saveNewEmployee;
@@ -28680,6 +28836,8 @@ function executeOffboardingKillSwitch(empId) {
   if (!e) return;
 
   e.status = 'Offboarded (Revoked)';
+  try { localStorage.setItem('ms_people_employees', JSON.stringify(employees)); } catch {}
+
   closeAutomationModal();
   toast(`Emergency Kill-Switch executed for ${e.first_name} ${e.last_name}. Login revoked &amp; leads reassigned!`);
   renderPeopleCompliance();
