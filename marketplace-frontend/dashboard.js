@@ -28496,9 +28496,6 @@ function openEmployeeProfileModal(empId) {
                 <span class="text-emerald-600 font-bold">✓ Signed (${d.date})</span>
               </div>
             `).join('')}
-          </div>
-        </div>
-
         <!-- MarketSync Advantage: Real-Time Sales & Operations Integration -->
         <div class="p-4 bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/60 rounded-xl space-y-3 text-xs">
           <div class="font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider text-[10px]">MarketSync Dealership Operations Integration</div>
