@@ -8553,7 +8553,6 @@ let __settingsTab = 'account';
 const SETTINGS_TAB_SECTIONS = {
   account: ['profile-form', 'security-section', 'settings-language-card'],
   admin: ['settings-team', 'billing-section', 'integrations-section', 'settings-texting-card', 'groups-settings-section', 'dealer-features-card', 'email-sending-card'],
-  hr: ['settings-hr-card'],
   sales: ['crm-dms-card', 'desk-fees-card', 'dealer-docs-card', 'guardrail-settings-section'],
   marketing: ['prof-branding-section', 'ai-boost-section'],
   inventory: ['inv-intel-section'],
@@ -29270,13 +29269,12 @@ function renderPeopleCompliance() {
         </div>
       </div>
 
-      <!-- 5 Standard Engine Navigation Tabs -->
+      <!-- 4 Standard Engine Navigation Tabs -->
       <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-slate-200 dark:border-slate-800">
         ${tabPill('overview', 'Overview', '📊')}
         ${tabPill('people', 'People & Profiles', '👥')}
         ${tabPill('compliance', 'Compliance & Training', '🛡️')}
         ${tabPill('automation', 'HR Workflows', '⚡')}
-        ${tabPill('settings', 'Engine Settings', '⚙️')}
       </div>
 
       <div id="people-compliance-body"></div>
@@ -29290,7 +29288,6 @@ function renderPeopleCompliance() {
   if (v === 'people') renderPeopleDirectory(body, employees);
   if (v === 'compliance') renderPeopleComplianceTab(body, employees);
   if (v === 'automation') renderPeopleAutomation(body, employees);
-  if (v === 'settings') renderPeopleSettings(body, employees);
 }
 
 window.setPeopleComplianceView = (v) => {

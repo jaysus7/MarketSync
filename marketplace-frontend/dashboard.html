@@ -1244,7 +1244,6 @@
         <div id="settings-tabs" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none -mx-1 px-1">
           <button data-stab="account" onclick="settingsTab('account')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">My Account</button>
           <button data-stab="admin" data-admin-only onclick="settingsTab('admin')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Administration</button>
-          <button data-stab="hr" data-admin-only onclick="settingsTab('hr')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">HR &amp; Compliance</button>
           <button data-stab="sales" data-admin-only onclick="settingsTab('sales')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Sales</button>
           <button data-stab="marketing" data-admin-only onclick="settingsTab('marketing')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Marketing</button>
           <button data-stab="inventory" data-admin-only onclick="settingsTab('inventory')" class="stab-btn whitespace-nowrap px-3.5 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition">Inventory</button>
@@ -1255,8 +1254,6 @@
         <!-- These tab sections flow into two columns on wide screens (settings-cols);
              JS adds .is-multi only when the active tab has more than one card. -->
         <div id="settings-panel-extra" class="settings-cols gap-5 [column-fill:_balance]">
-        <!-- HR & Compliance section in Settings -->
-        <div id="settings-hr-card" data-admin-only data-full-width="true" class="stab-hide space-y-4 break-inside-avoid mb-5"></div>
         <!-- Integrations Hub — connect MarketSync to the rest of the dealership stack.
              Webhooks are our own outbound "glue" (live today); the F&I / accounting
              rails show as coming-soon until we're certified with the partner. -->
