@@ -1,7 +1,7 @@
 // Resolve the backend by host so the staging site talks to the staging backend and
 // production talks to production — otherwise a token minted by one is rejected by the
 // other (the "logs in then logs out" bug). Keep in sync with login/register/reset pages.
-const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
+var API = window.API || (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
 
 // Wrap fetch so EVERY call to our API carries the demo-workspace header when the
 // owner is in Demo mode — keeps all pages (even those using raw fetch) consistently
@@ -1308,114 +1308,121 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 async function initializeDashboardEcosystem() {
+  console.log('[boot:auth] Initializing dashboard ecosystem...');
+  const currentToken = token || localStorage.getItem('token');
+  if (!currentToken) {
+    console.warn('[boot:auth] Aborting initialization: No token found.');
+    return;
+  }
+
   try {
-    // Fetch unified server profile context. Render free/starter tier can cold-start
-    // (30-60s) — give it real time instead of letting a default browser timeout
-    // produce a confusing error that looks identical to an auth failure.
+    console.log('[boot:profile] Fetching profile context from /auth/me...');
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 45000);
-    let res = await fetch(`${API}/auth/me`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-      signal: controller.signal
-    });
-    // Keep the abort timer armed until the body is fully read (same reasoning as
-    // apiGetJson): a response whose headers arrive but whose body stalls must
-    // still time out, otherwise the dashboard hangs on a blank/loading screen.
-    // The silent refresh starts as the dashboard loads. If the first profile
-    // request races an expired/restored access token, wait for that one refresh
-    // and retry with the newest token before declaring the session invalid.
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    let res;
+    try {
+      res = await fetch(`${API}/auth/me`, {
+        headers: { 'Authorization': `Bearer ${currentToken}`, ...actHeaders() },
+        signal: controller.signal
+      });
+    } catch (e) {
+      if (e.name === 'AbortError') throw new Error('PROFILE_TIMEOUT');
+      throw e;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
     if (res.status === 401) {
+      console.log('[boot:profile] Received 401, attempting silent token refresh...');
       const refreshed = await refreshSessionSilently();
       if (refreshed) {
-        res = await fetch(`${API}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-          signal: controller.signal
-        });
+        const retryToken = token || localStorage.getItem('token');
+        const retryCtrl = new AbortController();
+        const retryTimer = setTimeout(() => retryCtrl.abort(), 15000);
+        try {
+          res = await fetch(`${API}/auth/me`, {
+            headers: { 'Authorization': `Bearer ${retryToken}`, ...actHeaders() },
+            signal: retryCtrl.signal
+          });
+        } finally {
+          clearTimeout(retryTimer);
+        }
       }
     }
+
     if (res.status === 401 || res.status === 402) {
       if (res.status === 402) {
-        const body = await res.json().catch(() => ({}))
-        clearTimeout(timeoutId);
-        throw new Error(body.error === 'TRIAL_EXPIRED' ? 'TRIAL_EXPIRED' : 'SUBSCRIPTION_REQUIRED')
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error === 'TRIAL_EXPIRED' ? 'TRIAL_EXPIRED' : 'SUBSCRIPTION_REQUIRED');
       }
-      clearTimeout(timeoutId);
-      throw new Error('SESSION_EXPIRED')
+      throw new Error('SESSION_EXPIRED');
     }
 
     profileContext = await res.json();
-    clearTimeout(timeoutId);
+    console.log('[boot:profile] Profile loaded successfully for user:', profileContext.email || profileContext.full_name);
 
-    // `/auth/me` carries the safe, normalized entitlement summary too. Use it first
-    // so plan-aware navigation is available even if the follow-up request hits a
-    // transient Render cold start; /access/context below refreshes the same snapshot
-    // when it succeeds.
     if (profileContext?.access && Array.isArray(profileContext.access.features)) {
       window.__access = profileContext.access;
     }
 
-    // Normalized access context (products / entitled features / permissions / defaultRoute)
-    // from the central authorization service — the SINGLE source both desktop and mobile
-    // nav filter from. Falls back to the legacy /auth/me products object if unavailable,
-    // so an older backend keeps working.
-    // CRITICAL: this must NEVER block the dashboard from rendering. It is bounded by its
-    // own abort timeout so a slow/hanging response (e.g. a cold-started or down backend)
-    // can't stall the nav + skeleton screen — worst case we fall through to legacy gating.
+    console.log('[boot:access-context] Fetching access context from /access/context...');
     try {
       const acCtrl = new AbortController();
       const acTimer = setTimeout(() => acCtrl.abort(), 8000);
       const ac = await fetch(`${API}/access/context`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { 'Authorization': `Bearer ${currentToken}`, ...actHeaders() },
         signal: acCtrl.signal,
       });
       clearTimeout(acTimer);
-      if (ac.ok) window.__access = await ac.json();
-    } catch { /* timed out / unavailable → leave window.__access unset, legacy gating applies */ }
+      if (ac.ok) {
+        window.__access = await ac.json();
+        console.log('[boot:access-context] Access context updated.');
+      }
+    } catch (acErr) {
+      console.warn('[boot:access-context-failed] Bypassing access context timeout:', acErr.message || acErr);
+    }
 
-    // Render Shared Header Components
-    // For dealer admins: lead with the DEALERSHIP NAME (so it visually distinguishes the
-    // dealer admin view from rep views). Person's name moves to the subtitle line.
-    // For reps / solo: lead with the person's name (their own dashboard, not the team's).
-    const personName = profileContext.full_name || user.email;
+    console.log('[boot:workspace] Updating header labels & role attributes...');
+    const personName = profileContext.full_name || (profileContext.email ? profileContext.email.split('@')[0] : 'User');
     const isPersonalDealership = profileContext.dealership?.is_personal === true;
     const dealershipName = isPersonalDealership
       ? 'Independent'
       : (profileContext.dealership?.name || 'Independent');
     const isAdminHeader = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext.role);
 
-    // Purple "Desk a deal" quick-launch — any admin/manager/F&I (including a solo
-    // "Independent" account, which is still allowed to desk deals).
     if (isAdminHeader) {
       const deskBtn = document.getElementById('header-desk-btn');
       if (deskBtn) { deskBtn.classList.remove('hidden'); deskBtn.classList.add('inline-flex'); }
     }
 
+    const profileNameEl = document.getElementById('ui-profile-name');
+    const dealerNameEl = document.getElementById('ui-dealership-name');
+
     if (isAdminHeader && !isPersonalDealership) {
-      document.getElementById('ui-profile-name').textContent = dealershipName;
-      document.getElementById('ui-dealership-name').textContent = `${personName} · Admin`;
+      if (profileNameEl) profileNameEl.textContent = dealershipName;
+      if (dealerNameEl) dealerNameEl.textContent = `${personName} · Admin`;
     } else {
-      document.getElementById('ui-profile-name').textContent = personName;
-      document.getElementById('ui-dealership-name').textContent = dealershipName;
+      if (profileNameEl) profileNameEl.textContent = personName;
+      if (dealerNameEl) dealerNameEl.textContent = dealershipName;
     }
-    // Owner-only Demo ↔ MarketSync workspace switch.
+
     try { initDashModeForOwner(); } catch (e) {}
 
-    // Pre-fill profile form
-    document.getElementById('prof-name').value = profileContext.full_name || '';
-    document.getElementById('prof-email').value = profileContext.email || user.email || '';
+    // Form pre-fill
+    { const el = document.getElementById('prof-name'); if (el) el.value = profileContext.full_name || ''; }
+    { const el = document.getElementById('prof-email'); if (el) el.value = profileContext.email || (user ? user.email : '') || ''; }
     { const p = document.getElementById('prof-phone'); if (p) p.value = profileContext.phone || ''; }
-    // Email-sending card: signature + reply-to override (placeholder = login email).
     { const s = document.getElementById('es-signature'); if (s) s.value = profileContext.email_signature || ''; }
-    { const r = document.getElementById('es-reply-to'); if (r) { r.value = profileContext.email_reply_to || ''; r.placeholder = profileContext.email || user.email || 'your login email'; } }
-    document.getElementById('prof-dealername').value = profileContext.dealership?.name || '';
-    document.getElementById('prof-website').value = profileContext.dealership?.website_url || '';
-    document.getElementById('prof-display-name').value = profileContext.display_name || '';
+    { const r = document.getElementById('es-reply-to'); if (r) { r.value = profileContext.email_reply_to || ''; r.placeholder = profileContext.email || 'your login email'; } }
+    { const el = document.getElementById('prof-dealername'); if (el) el.value = profileContext.dealership?.name || ''; }
+    { const el = document.getElementById('prof-website'); if (el) el.value = profileContext.dealership?.website_url || ''; }
+    { const el = document.getElementById('prof-display-name'); if (el) el.value = profileContext.display_name || ''; }
 
-    // Avatar preview
     const avatarImg = document.getElementById('prof-avatar-img');
     const avatarInitial = document.getElementById('prof-avatar-initial');
     const avatarRemove = document.getElementById('prof-avatar-remove');
     const setAvatarPreview = (url) => {
+      if (!avatarImg || !avatarInitial || !avatarRemove) return;
       if (url) {
         avatarImg.src = url; avatarImg.classList.remove('hidden');
         avatarInitial.classList.add('hidden'); avatarRemove.classList.remove('hidden');
@@ -1427,71 +1434,42 @@ async function initializeDashboardEcosystem() {
     };
     setAvatarPreview(profileContext.avatar_url || null);
 
-    document.getElementById('prof-avatar-file').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      if (file.size > 2 * 1024 * 1024) { alert('Image must be under 2 MB'); e.target.value = ''; return; }
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        // Compress: resize to max 256px and convert to JPEG at 70% quality
-        const img = new Image();
-        img.onload = () => {
-          const MAX = 256;
-          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.70);
-          setAvatarPreview(dataUrl);
-          // Replace file input with compressed blob for upload
-          canvas.toBlob(blob => {
-            const dt = new DataTransfer();
-            dt.items.add(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
-            document.getElementById('prof-avatar-file').files = dt.files;
-          }, 'image/jpeg', 0.70);
-        };
-        img.src = ev.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-    avatarRemove.addEventListener('click', () => {
-      document.getElementById('prof-avatar-file').value = '';
-      setAvatarPreview(null);
-    });
-
-    // Route Workspace Rendering Logic based on Account Role
-    const role = profileContext.role || 'SALES_REP'; // Standard safe fallback role assignment
+    const role = profileContext.role || 'SALES_REP';
     const isPersonalForPill = profileContext.dealership?.is_personal === true;
     const rolePillLabel = (role === 'SALES_REP' && isPersonalForPill) ? 'SOLO_REP' : (STAFF_ROLE_LABELS[role] || role);
-    document.getElementById('ui-role-pill').textContent = rolePillLabel;
+    const rolePillEl = document.getElementById('ui-role-pill');
+    if (rolePillEl) rolePillEl.textContent = rolePillLabel;
 
-    // Hide dealer-only profile fields for sales reps
     if (role !== 'DEALER_ADMIN' && role !== 'OWNER' && role !== 'MANAGER') {
       document.querySelectorAll('[data-dealer-only]').forEach(el => el.classList.add('hidden'));
     }
 
-    // Load transactional data + insights
-    const [fleet, totalListings] = await Promise.all([
-      fetchMetrics('/inventory'),
-      fetchMetrics('/listings')
-    ]);
+    console.log('[boot:metrics] Loading fleet & listings metrics...');
+    try {
+      await Promise.allSettled([
+        fetchMetrics('/inventory'),
+        fetchMetrics('/listings')
+      ]);
+    } catch (mErr) {
+      console.warn('[boot:metrics-failed]', mErr);
+    }
 
-    loadInsights();
-    loadMyTierChip();
-    initSecurityPanel();
+    console.log('[boot:insights] Triggering loadInsights...');
+    try { await loadInsights(); } catch (iErr) { console.warn('[boot:insights-failed]', iErr); }
+    try { await loadMyTierChip(); } catch (tErr) { console.warn('[boot:tier-failed]', tErr); }
+    try { initSecurityPanel(); } catch (sErr) { console.warn('[boot:security-failed]', sErr); }
 
-    // If returning from Stripe checkout, verify payment then load AI config
     const aiSessionId = new URLSearchParams(window.location.search).get('ai_boost_session');
     if (aiSessionId) {
       window.history.replaceState({}, '', window.location.pathname);
-      await verifyAIBoostSession(aiSessionId);
+      try { await verifyAIBoostSession(aiSessionId); } catch (aiErr) {}
     }
 
-    loadAIBoostSection();
-    setupAIBoostListeners();
-    setupInvIntelListeners();
-    setupAiVisionListeners();
+    console.log('[boot:widgets] Initializing background widgets & panels...');
+    try { loadAIBoostSection(); } catch (e) {}
+    try { setupAIBoostListeners(); } catch (e) {}
+    try { setupInvIntelListeners(); } catch (e) {}
+    try { setupAiVisionListeners(); } catch (e) {}
 
     const isAdmin = role === 'DEALER_ADMIN' || role === 'OWNER' || role === 'MANAGER';
     const inDealership = !!profileContext.dealership?.id;
@@ -1500,67 +1478,49 @@ async function initializeDashboardEcosystem() {
     const isDealerRep = role === 'SALES_REP' && inDealership && !isPersonal;
     const canManageFeeds = isAdmin || isSolo;
 
-    // Feeds + Catalog visible to anyone with a dealership (team or personal)
     if (inDealership) {
-      document.getElementById('feeds-panel').classList.remove('hidden');
-      document.getElementById('catalog-panel').classList.remove('hidden');
-      // Defer the actual data loads until the Inventory page is first opened.
-      __pageInit.inventory = () => { loadInventoryFeeds(); loadInventoryCatalog(); prefetchInvIntelTags(); };
+      document.getElementById('feeds-panel')?.classList.remove('hidden');
+      document.getElementById('catalog-panel')?.classList.remove('hidden');
+      __pageInit.inventory = () => { try { loadInventoryFeeds(); } catch (e) {} try { loadInventoryCatalog(); } catch (e) {} try { prefetchInvIntelTags(); } catch (e) {} };
     }
 
     if (!canManageFeeds) {
-      // Dealer reps see feeds read-only — hide add/sync controls
       document.querySelectorAll('[data-admin-only]').forEach(el => el.classList.add('hidden'));
     }
 
-    // Billing section: lives inside the Profile card now. Dealer reps don't pay (covered by dealer).
     if (isDealerRep) {
       document.getElementById('billing-section')?.classList.add('hidden');
     }
 
-    // Hide admin-only nav items for non-admins
     if (!isAdmin) {
       document.querySelectorAll('[data-admin-nav]').forEach(el => el.classList.add('hidden'));
     }
 
-    // Groups live inside Profile & Settings — reveal that section for anyone who
-    // can create or join a group (dealer admins, group admins, owner).
     if (role === 'DEALER_GROUP' || role === 'OWNER' || role === 'DEALER_ADMIN') {
       document.getElementById('groups-settings-section')?.classList.remove('hidden');
     }
 
-    // Today's Briefing (AI daily digest) on the Insights home page — admins only.
-    if (isAdmin) loadDailyDigest();
+    if (isAdmin) {
+      try { loadDailyDigest(); } catch (e) {}
+    }
 
-    // Posting-safety (FB ban protection) settings — dealer-level.
     if (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)) {
       document.getElementById('guardrail-settings-section')?.classList.remove('hidden');
-      __pageInit.profile = () => loadGuardrailSettings();
-    }
-    // Reports page + Desk-a-deal (stacked manager reports, custom builder,
-    // deal desk) — managers only. Reveal both desktop and mobile entries.
-    if (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role)) {
+      __pageInit.profile = () => { try { loadGuardrailSettings(); } catch (e) {} };
       document.getElementById('nav-reports')?.classList.remove('hidden');
       document.getElementById('nav-reports-m')?.classList.remove('hidden');
       document.getElementById('nav-desk')?.classList.remove('hidden');
-      // Managers get the Accounting group; their commission lives under it, so hide
-      // the standalone "My commission" entry for them.
       document.getElementById('grp-accounting-wrap')?.classList.remove('hidden');
       document.getElementById('nav-commissions')?.classList.add('hidden');
     }
-    // Hide team-only nav items (Leaderboard) for solo reps — nothing to rank
+
     if (isSolo || !inDealership) {
       document.querySelectorAll('[data-team-nav]').forEach(el => el.classList.add('hidden'));
     }
 
-    // Solo / personal reps get ONLY Facebook posting & CRM. `canManageFeeds`
-    // treats them like admins for feeds, so the dealer-grade features (Inv
-    // Intelligence, Website, Equity, Automation, Reports, Desking, Appraisals)
-    // and the dealer Settings tabs would otherwise show. Hide them explicitly.
     if (isSolo) {
       document.querySelectorAll('.nav-group[data-group="ii"], .nav-group[data-group="web"], .nav-group[data-group="sales"], [data-page="equity"], [data-page="automation"], #nav-reports, #nav-reports-m, #nav-desk, #nav-appraisal, #grp-accounting-wrap')
         .forEach(el => el.classList.add('hidden'));
-      // Dealer-only Settings tabs + their section cards.
       ['team', 'branding', 'aiboost', 'group', 'dealermgmt'].forEach(t =>
         document.querySelector(`#settings-tabs [data-stab="${t}"]`)?.classList.add('hidden'));
       ['settings-team', 'prof-branding-section', 'ai-boost-section', 'inv-intel-section', 'groups-settings-section', 'crm-dms-card', 'guardrail-settings-section']
@@ -1568,10 +1528,6 @@ async function initializeDashboardEcosystem() {
       __settingsTab = 'account';
     }
 
-    // Specialized sub-roles (F&I / Service / Accounting / Cleanup) are not admins,
-    // so the dealer-management Settings tabs don't apply to them either — leave only
-    // the personal Account tab (name, password, photo). The sidebar itself is locked
-    // to their workspace later by applyStaffRoleNav().
     if (STAFF_ROLE_NAV[role]) {
       ['team', 'branding', 'aiboost', 'group', 'dealermgmt'].forEach(t =>
         document.querySelector(`#settings-tabs [data-stab="${t}"]`)?.classList.add('hidden'));
@@ -1580,23 +1536,15 @@ async function initializeDashboardEcosystem() {
       __settingsTab = 'account';
     }
 
-    // All role-based hide rules above have run. Reveal the page now (the head CSS
-    // kept role-gated items hidden until this point, so nothing dealer-only ever
-    // flashed for a solo rep). This happens synchronously after the hides, so the
-    // browser paints the correct nav in one go.
+    console.log('[boot:ready] Finalizing role readiness & revealing dashboard...');
     document.body.classList.add('ms-role-ready');
-    personalizeSalesNav();
-    syncNavGroupVisibility();
-    // Final word for specialized sub-roles: lock the sidebar to their workspace.
-    // Runs after the generic hides so it can reveal an otherwise admin-only group.
-    applyStaffRoleNav(role);
+    try { personalizeSalesNav(); } catch (e) {}
+    try { syncNavGroupVisibility(); } catch (e) {}
+    try { applyStaffRoleNav(role); } catch (e) {}
     document.getElementById('insights-skeleton')?.classList.add('hidden');
 
-    // Overdue-task badge on the Task Board nav item.
     try { if (typeof taskUpdateBadge === 'function') taskUpdateBadge(); } catch (e) {}
 
-    // Guided setup: show the sidebar progress bar, and on the very first login for
-    // this dealership walk them straight into the Setup Center if anything's unset.
     try {
       renderSetupBar();
       const introKey = `ms_setup_intro_${profileContext?.dealership?.id || 'x'}`;
@@ -1609,123 +1557,92 @@ async function initializeDashboardEcosystem() {
       }
     } catch (e) {}
 
-    // Daily Punch Clock Prompt (once per day on login)
     try { if (typeof checkLoginPunchClockPrompt === 'function') checkLoginPunchClockPrompt(); } catch (e) {}
 
-    // The Leaderboard is its own page (the home for the Facebook / fb-only tiers,
-    // a Marketing tab in DealerOS). Wire the loader for EVERYONE so navigating to it
-    // never lands on an empty panel — this was the "leaderboard doesn't show" bug on
-    // the Facebook Solo/Dealer tiers, where the account is personal / has no team.
     __pageInit.leaderboard = () => { try { initGlobalLeaderboard(); } catch (e) {} try { loadLeaderboard(); } catch (e) {} };
-    // No real team to rank against (solo / personal): default the carousel to the
-    // Global view and drop the "My Team" toggle — Global is the meaningful board.
     if (!(inDealership && !isPersonal)) {
       document.getElementById('lb-tab-team')?.classList.add('hidden');
     }
 
-    // Set permission flags used by switchPage to mirror panels into Insights
     __canSeeLeaderboard = inDealership && !isPersonal;
     __canSeeTeamInsights = isAdmin;
     __canSeeSalesTeam = isAdmin;
 
-    // The Dashboard hosts the internal sales-performance board (real deals: sold +
-    // F&I + appraisals). The full Team+Global "teaser" board is a Marketing page.
-    // Facebook-only tier is the exception — its dashboard IS the full board.
     if (__canSeeLeaderboard) {
       if (__fbOnly) { try { loadLeaderboard(); } catch {} }
       else { try { loadInternalBoard(); } catch {} }
     }
     if (['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role) && typeof loadDealerDash === 'function') {
       document.getElementById('dealer-dash')?.classList.remove('hidden');
-      loadDealerDash();
+      try { loadDealerDash(); } catch (e) {}
     }
 
-    // Wire up the sidebar nav — leaves navigate; some carry a CRM tab to open.
     document.querySelectorAll('#dashboard-nav .nav-item').forEach(btn => {
       btn.addEventListener('click', () => {
         const page = btn.dataset.page, tab = btn.dataset.tab;
-        // The Customers page can be pre-filtered (Sold view), scoped to the rep's own
-        // book ("My Customer Database"), or opened straight into the Add form.
         if (page === 'crm') {
           __crmStatusFilter = btn.dataset.filter === 'sold' ? 'sold,fni,delivered' : '';
-          __crmSourceFilter = '';   // start each CRM view unfiltered by source
-
+          __crmSourceFilter = '';
           __crmInitRep = btn.dataset.crmView === 'mine' ? (profileContext?.id || '') : '';
-          // "Search Customers" spans the whole dealership; "My Customer Database" is the rep's own.
           __crmSearchAll = btn.dataset.crmView === 'all';
           __crmPendingAdd = btn.dataset.crmAction === 'add';
         }
-        // The Inventory page renders differently for the Facebook posting hub vs
-        // the manual (Inventory Intelligence) list — the nav leaf carries the mode.
         if (page === 'inventory' && btn.dataset.invmode) __inventoryMode = btn.dataset.invmode;
         if (page === 'profile' && tab) __settingsTab = tab;
         switchPage(page);
-        btn.blur();   // drop the focus outline so it doesn't linger on the old item
+        btn.blur();
       });
     });
-    setupMobileMoreMenu();
-    // DealerOS: managers/admins land on the Command Center (today's operations +
-    // exceptions); reps keep the Dashboard as home.
+    try { setupMobileMoreMenu(); } catch (e) {}
     const __mgrHome = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    // SaaS Admin in MarketSync mode → the company command center; otherwise the
-    // dealership Command Center (managers) or the rep Dashboard.
     if (__dashMode === 'marketsync' && (profileContext?.workspace === 'saas_admin' || document.documentElement.getAttribute('data-dash-owner') === '1')) switchPage('saas-command');
     else switchPage(__mgrHome ? 'command' : 'insights');
-    applyFeatureFlags();   // hide nav for features the dealer switched off
-    // Entitlement-driven front door. Prefer the normalized access context (composes
-    // subscription tier + product membership + role) and fall back to the legacy
-    // /auth/me products object. This is what stops every login landing on Facebook.
-    applyProductNav(legacyProductsFromAccess(window.__access) || profileContext?.products);
-    // Flatten the left nav to departments for the full DealerOS manager/admin view
-    // (runs after all gating so it derives visibility from the settled nav).
-    renderDeptNav(profileContext?.role);
-    renderUpgradeCta();           // "Upgrade plan" CTA unless already on the full bundle
-    applyExtensionVisibility();   // hide the FB extension CTA for SaaS / AI-only accounts
 
-    // Global leaderboard — available to EVERYONE (solo reps included). Loaded lazily on first carousel switch.
-    initGlobalLeaderboard();
+    try { applyFeatureFlags(); } catch (e) {}
+    try { applyProductNav(legacyProductsFromAccess(window.__access) || profileContext?.products); } catch (e) {}
+    try { renderDeptNav(profileContext?.role); } catch (e) {}
+    try { renderUpgradeCta(); } catch (e) {}
+    try { applyExtensionVisibility(); } catch (e) {}
+    try { initGlobalLeaderboard(); } catch (e) {}
 
     if (isAdmin) {
       document.getElementById('leaderboard-panel')?.classList.remove('hidden');
       document.getElementById('dealer-view-panel')?.classList.remove('hidden');
-      // Team players + trend charts now live on the Insights page (admin only)
       document.getElementById('insights-team-section')?.classList.remove('hidden');
-      loadCharts();
-      loadDealerManagementMatrix();
+      try { loadCharts(); } catch (e) {}
+      try { loadDealerManagementMatrix(); } catch (e) {}
     } else {
-      document.getElementById('rep-view-panel').classList.remove('hidden');
-      loadMyStats();
+      document.getElementById('rep-view-panel')?.classList.remove('hidden');
+      try { loadMyStats(); } catch (e) {}
     }
+    console.log('[boot:ready] Dashboard ecosystem initialization complete!');
 
-} catch (err) {
+  } catch (err) {
     if (err.message === 'TRIAL_EXPIRED') {
-      // Free trial lapsed — show the blocking paywall popup with all packages to choose.
       openPaywallModal('trial_ended');
       return;
     }
     if (err.message === 'SUBSCRIPTION_REQUIRED') {
-      // No active subscription — same paywall (pick a package to continue).
       openPaywallModal('subscription_required');
       return;
     }
     if (err.message === 'SESSION_EXPIRED') {
-      // Genuine 401 from the server — token really is invalid/expired. Safe to log out.
       clearLocalStorage();
       window.location.href = 'login.html';
       return;
     }
-    // Anything else (network blip, cold-start timeout, a render-time JS error, etc.)
-    // is NOT proof the session is invalid. Logging out here is what causes the
-    // dashboard <-> login flicker loop. Show an inline error and let the user retry
-    // instead of nuking their session.
-   console.error('Dashboard init failed (non-auth error):', err);
+    console.error('[boot:error] Dashboard init encountered error:', err);
     const banner = document.createElement('div');
     banner.className = 'fixed top-0 left-0 right-0 z-50 bg-red-600 text-white text-sm text-center py-2';
     banner.innerHTML = `Something went wrong loading the dashboard. <button onclick="window.location.reload()" class="underline font-bold ml-2">Retry</button>`;
     document.body.prepend(banner);
-    document.body.classList.add('ms-role-ready'); // reveal page instead of leaving it stuck hidden
+  } finally {
+    document.body.classList.add('ms-role-ready');
+    document.getElementById('insights-skeleton')?.classList.add('hidden');
+    console.log('[boot:ready] Guaranteed fallback executed: ms-role-ready set & skeleton hidden.');
   }
 }
+
 
 // Sidebar nav page switcher. Each page shows only its own content — no panel
 // mirroring, so Insights stays clean and each nav item lands on a focused view.
@@ -5718,9 +5635,17 @@ function ensurePanelsInOriginalLocations() {
   if (pc && pcWrap && pc.parentElement !== pcWrap) { pcWrap.appendChild(pc); pc.classList.remove('hidden'); }
 }
 
-async function fetchMetrics(path) {
-  const r = await fetch(`${API}${path}`, { headers: { 'Authorization': `Bearer ${token}` } });
-  return r.ok ? r.json() : [];
+async function fetchMetrics(path, timeoutMs = 12000) {
+  try {
+    const fetchFn = window.fetchWithTimeout || fetch;
+    const r = await fetchFn(`${API}${path}`, { headers: { 'Authorization': `Bearer ${token}` } }, timeoutMs);
+    if (!r.ok) return [];
+    const data = await r.json().catch(() => ([]));
+    return Array.isArray(data) ? data : (data.inventory || data.listings || []);
+  } catch (e) {
+    console.warn(`[boot:metrics-failed] ${path}:`, e.message || e);
+    return [];
+  }
 }
 
 // Shared insights range — persists in localStorage so the user's choice survives reload
@@ -14649,7 +14574,7 @@ window.acctSaveSettings = acctSaveSettings;
 // ── Commissions page ─────────────────────────────────────────────────────────
 // Reps see their own earnings (status, clawback reasons, bonuses); managers get a
 // team rollup and the plan builder. All figures come from the commission engine.
-let __commState = { tab: null, month: null };
+var __commState = window.__commState || { tab: null, month: null };
 const commIsMgr = () => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
 function commMoney(v) { const n = Number(v) || 0; return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 }); }
 function commMonth() { return __commState.month || new Date().toISOString().slice(0, 7); }
@@ -29302,7 +29227,7 @@ window.setPeopleComplianceView = (v) => {
 };
 
 // ── 1. Time Clock & Shift Attendance Sub-System ─────────────────────────────
-let __shiftTimerInterval = null;
+var __shiftTimerInterval = window.__shiftTimerInterval || null;
 
 function getTimeClockState() {
   let state = { status: 'out', startTime: null, breakTotalMs: 0, breakStartTime: null, time: null };
@@ -29966,7 +29891,7 @@ function openEmployeeProfileModal(empId) {
 window.openEmployeeProfileModal = openEmployeeProfileModal;
 
 // ── 3. Compliance, Safety & Training Tab ─────────────────────────────────────
-const DEALERSHIP_TRAINING_COURSES = [
+var DEALERSHIP_TRAINING_COURSES = window.DEALERSHIP_TRAINING_COURSES || [
   {
     id: 'whmis',
     title: 'WHMIS 2015 & Chemical Safety',
@@ -30810,7 +30735,7 @@ function stopSpeech() {
 window.speakText = speakText;
 window.stopSpeech = stopSpeech;
 
-let __activeCourseState = { courseId: '', slideIdx: 0, answers: {} };
+var __activeCourseState = window.__activeCourseState || { courseId: '', slideIdx: 0, answers: {} };
 
 function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
   stopSpeech();

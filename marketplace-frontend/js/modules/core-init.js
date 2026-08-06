@@ -77,6 +77,20 @@ function actHeaders() {
 let token = localStorage.getItem('token');
 const userRaw = localStorage.getItem('user');
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: options.signal || controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+window.fetchWithTimeout = fetchWithTimeout;
+
 async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}) {
   let lastErr;
   let triedRefresh = false;
