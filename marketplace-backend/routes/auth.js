@@ -251,12 +251,11 @@ export function registerRoutes(app) {
       createdUserId = authData.user.id
       confirmActionLink = authData.properties?.action_link || null
 
-      // Auto-confirm the email so the account can sign in immediately. The
-      // confirmation email is a welcome/nice-to-have, NOT a gate — this keeps
-      // sign-up and sign-in working even when email delivery is down (e.g. the
-      // sending domain isn't verified in Resend yet).
-      try { await supabaseAdmin.auth.admin.updateUserById(createdUserId, { email_confirm: true }) }
-      catch (e) { console.error('[register] auto-confirm failed:', e?.message || e) }
+      // Email verification is a REAL gate — do NOT auto-confirm. The account stays
+      // unconfirmed until the user clicks the link we email below (sendVerificationEmail);
+      // until then login is blocked with 403 EMAIL_NOT_VERIFIED and the user can re-send
+      // via /auth/resend-verification. NOTE: this requires working email delivery in
+      // production (Resend sending domain verified) — otherwise users cannot verify.
 
       // 30-day free trial — NO credit card required at sign-up. The account gets full
       // access to the chosen plan for the trial window; when it ends, the middleware
