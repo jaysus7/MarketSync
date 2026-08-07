@@ -47,34 +47,7 @@
     /* Per-dealer feature toggle: hides a nav item independent of role gating. */
     .ff-off { display: none !important; }
 
-    /* ── MarketSync workspace mode ─────────────────────────────────────────────
-       The owner's dashboard flips between a vehicle-dealer DEMO and running
-       MarketSync itself. In MarketSync mode we trim the nav to the SaaS-relevant
-       pages, trim Settings, and repaint the whole UI purple to make the mode
-       unmistakable. The mode switcher itself is hidden unless JS reveals it. */
-    #ms-mode-switch { display: none; }
-    html[data-dash-owner="1"] #ms-mode-switch { display: flex; }
 
-    /* Trimmed nav in MarketSync mode: hide the vehicle-only groups + pages. */
-    html[data-dash-mode="marketsync"] .nav-group[data-group="fb"],
-    html[data-dash-mode="marketsync"] .nav-group[data-group="ii"],
-    html[data-dash-mode="marketsync"] .nav-group[data-group="web"],
-    html[data-dash-mode="marketsync"] .nav-group[data-group="auto"],
-    html[data-dash-mode="marketsync"] .nav-item[data-page="inventory"],
-    html[data-dash-mode="marketsync"] #grp-acquisition [data-page="appraisal"],
-    html[data-dash-mode="marketsync"] #grp-sales [data-page="recon"],
-    html[data-dash-mode="marketsync"] #grp-acquisition [data-page="equity"],
-    html[data-dash-mode="marketsync"] #grp-sales [data-page="desk"],
-    html[data-dash-mode="marketsync"] .nav-group[data-group="acquisition"],
-    html[data-dash-mode="marketsync"] #nav-appraisal,
-    html[data-dash-mode="marketsync"] #nav-fni-deals,
-    html[data-dash-mode="marketsync"] #chev-sales,
-    html[data-dash-mode="marketsync"] #nav-desk,
-    html[data-dash-mode="marketsync"] #header-appraise-btn,
-    html[data-dash-mode="marketsync"] #idscan-btn,
-    html[data-dash-mode="marketsync"] #nav-commissions,
-    html[data-dash-mode="marketsync"] #fb-post-btn,
-    html[data-dash-mode="marketsync"] .nav-group[data-group="service"] { display: none !important; }
 
     /* ── Facebook-only tier ──────────────────────────────────────────────────
        A dealer who only pays for Facebook posting sees just the Facebook nav
@@ -3588,16 +3561,16 @@
   </div>
 
   <!-- MarketSync Modular Sub-Files -->
-  <script src="js/modules/core-init.js?v=20260806_v4"></script>
-  <script src="js/modules/timeclock-hr.js?v=20260806_v4"></script>
-  <script src="js/modules/compliance-academy.js?v=20260806_v4"></script>
-  <script src="js/modules/commission-engine.js?v=20260806_v4"></script>
-  <script src="js/modules/crm-pipeline.js?v=20260806_v4"></script>
-  <script src="js/modules/inventory-intel.js?v=20260806_v4"></script>
-  <script src="js/modules/fni-desking.js?v=20260806_v4"></script>
-  <script src="js/modules/service-parts.js?v=20260806_v4"></script>
-  <script src="js/modules/analytics-reports.js?v=20260806_v4"></script>
-  <script src="dashboard.js?v=20260806_v4"></script>
+  <script src="js/modules/core-init.js?v=20260806_v5"></script>
+  <script src="js/modules/timeclock-hr.js?v=20260806_v5"></script>
+  <script src="js/modules/compliance-academy.js?v=20260806_v5"></script>
+  <script src="js/modules/commission-engine.js?v=20260806_v5"></script>
+  <script src="js/modules/crm-pipeline.js?v=20260806_v5"></script>
+  <script src="js/modules/inventory-intel.js?v=20260806_v5"></script>
+  <script src="js/modules/fni-desking.js?v=20260806_v5"></script>
+  <script src="js/modules/service-parts.js?v=20260806_v5"></script>
+  <script src="js/modules/analytics-reports.js?v=20260806_v5"></script>
+  <script src="dashboard.js?v=20260806_v5"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {
