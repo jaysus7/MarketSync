@@ -59,6 +59,7 @@ import { registerAiEngine } from './routes/ai-engine.js'
 import { registerAiRuntime } from './routes/ai-runtime.js'
 import { registerIntegrationEngine } from './routes/integration-engine.js'
 import { registerServiceEngine } from './routes/service-engine.js'
+import { registerTimeClock } from './routes/time.js'
 import { registerOwnerAdmin } from './routes/owner-admin.js'
 import { registerCommandCenter } from './routes/command-center.js'
 import { registerMarketplaceHome } from './routes/marketplace-home.js'
@@ -171,6 +172,7 @@ registerAiEngine(app)
 registerAiRuntime(app)
 registerIntegrationEngine(app)
 registerServiceEngine(app)
+registerTimeClock(app)
 registerOwnerAdmin(app)
 registerCommandCenter(app)
 registerMarketplaceHome(app)
