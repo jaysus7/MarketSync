@@ -598,6 +598,12 @@ window.openLeaderboardOnDash = openLeaderboardOnDash;
 // A sales rep therefore sees Sales, Detail/Cleanup and Marketing — with the
 // manager/analyst pages inside them hidden — and nothing else. Settings isn't a
 // department; the header gear owns it.
+//
+// ✅ SOURCE OF TRUTH for the dashboard sidebar navigation. renderDeptNav() builds
+//    the live nav (#dept-nav) from this registry. To add/rename/reorder/gate a
+//    nav item or department, edit HERE (and SAAS_DEPARTMENTS below for owner mode).
+//    The static #nav-desktop tree in dashboard.html is LEGACY and hidden — never
+//    edit nav there. See the "LEGACY HARDCODED SIDEBAR" banner in dashboard.html.
 const DEPARTMENTS = {
   executive: {
     label: 'Daily Briefing', icon: 'chart', accent: 'indigo', mgr: true,
