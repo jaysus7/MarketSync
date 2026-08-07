@@ -301,6 +301,16 @@ function registerServiceTools() {
 }
 
 // ── HTTP surface ──────────────────────────────────────────────────────────────
+// NOTE (RLS): all repair-order / parts data access lives in the exported engine
+// helpers above (getRepairOrder, listRepairOrders, openRepairOrder, addRoLine,
+// closeRepairOrder, moveStock, upsertPart, …), which are ALSO called with no request
+// context by the AI service tools (registerServiceTools) and the events/workflow
+// engines. They therefore stay on supabaseAdmin. The routes below are all tightly
+// guarded by requirePermission('service.write_repair_order') (held only by owners /
+// service_manager / technician), and the repair_orders/ro_lines/parts/part_txns RLS
+// (service.view read, service.write_repair_order write) still applies to any direct
+// Data-API access. Follow-up: thread an optional `db` arg through these helpers (as
+// done for accountBalances) so route-driven calls run under req.supabase too.
 export function registerServiceEngine(app) {
   registerServiceTools()
 
