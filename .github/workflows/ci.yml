@@ -41,3 +41,9 @@ jobs:
         run: npm run check:frontend
       - name: Validate server startup (dry-run mode)
         run: npm run check:startup
+      # Full behavioral/security test suite. This is the real release gate: a commit
+      # can parse, import and start cleanly while still failing business/security tests.
+      # Make this a REQUIRED status check in branch protection for `main` (and `staging`)
+      # once the suite is green.
+      - name: Run test suite
+        run: npm test
