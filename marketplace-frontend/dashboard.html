@@ -879,7 +879,22 @@
           <span class="text-[9px] leading-none">Menu</span>
         </button>
 
-        <!-- ═══════ DESKTOP grouped sidebar ═══════ -->
+        <!-- ═══════════════════════════════════════════════════════════════════
+             ⛔ LEGACY HARDCODED SIDEBAR — DO NOT EDIT / DO NOT ADD NAV ITEMS HERE.
+
+             This static #nav-desktop tree is NOT the live navigation. At runtime it
+             is hidden (.nav-init / .dept-mode) and REPLACED by the data-driven
+             department nav (#dept-nav), which renderDeptNav() builds from the
+             DEPARTMENTS registry in js/modules/dashboard-part2.js.
+
+             → To change the dashboard navigation, edit DEPARTMENTS (and
+               SAAS_DEPARTMENTS) in js/modules/dashboard-part2.js — nowhere else.
+
+             This block is kept ONLY so existing role/tier feature-gating selectors
+             (#nav-desktop .nav-group / .nav-item, data-dash-tier CSS) keep working.
+             Agents: do not "restore", expand, surface, or wire up this tree.
+             ═══════════════════════════════════════════════════════════════════ -->
+        <!-- ═══════ DESKTOP grouped sidebar (LEGACY — see banner above) ═══════ -->
         <div id="nav-desktop" class="nav-init hidden md:flex md:flex-col md:w-full md:space-y-0.5">
           <!-- Guided-setup progress bar (populated by renderSetupBar; hidden when complete) -->
           <div id="setup-bar-host"></div>
