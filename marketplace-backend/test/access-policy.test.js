@@ -185,16 +185,18 @@ test('platform staff have universal access', () => {
   assert.equal(getDataScope(ctx), 'all')
 })
 
-// 11. Legacy fallback: an org with no subscription rows keeps dealer_os (existing accounts).
-test('no subscription rows fall back to legacy dealer_os', () => {
+// 11. No automatic dealer_os fallback: an org with no subscriptions AND no legacy
+// product flags is entitled to NOTHING (paywall). This is the P0 security fix — empty
+// subscriptions + empty legacy must never silently grant full DealerOS.
+test('no subscriptions and no legacy flags yields zero products (no dealer_os fallback)', () => {
   const ctx = ctxFor({
     userId: 'u11', dealershipId: 'd11', roleIds: ['dealer_owner'],
     rolePermissions: rolePerms('dealer_owner'),
     subscriptions: [], legacyProducts: null,
   })
-  assert.ok(hasProductAccess(ctx, 'dealer_os'))
-  assert.ok(hasFeature(ctx, 'os.accounting'), 'legacy access ⇒ all product features')
-  assert.equal(getDefaultRoute(ctx), PRODUCT_ROUTES.dealer_os)
+  assert.ok(!hasProductAccess(ctx, 'dealer_os'), 'no fallback grant')
+  assert.ok(!hasFeature(ctx, 'os.accounting'), 'no products ⇒ no entitled features')
+  assert.equal(getDefaultRoute(ctx), null, 'no products ⇒ no default route')
 })
 
 // 12. Legacy fallback honors the specific legacy jsonb keys.

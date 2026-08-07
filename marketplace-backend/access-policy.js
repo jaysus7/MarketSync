@@ -71,10 +71,11 @@ export function computeAccessContext(raw = {}) {
   if (orgHasSubs) {
     orgProducts = new Set(activeSubs.map(s => s.product_id))
   } else {
-    // Pre-backfill fallback: derive org products from the legacy jsonb (empty ⇒ dealer_os,
-    // matching profile.js resolveProducts so existing accounts keep their access).
-    const legacy = raw.legacyProducts && Object.keys(raw.legacyProducts).some(k => raw.legacyProducts[k])
-      ? raw.legacyProducts : { dealer_os: true }
+    // Pre-backfill path: derive org products from the legacy jsonb ONLY. An org with no
+    // subscriptions AND no legacy product flags gets ZERO products (paywall) — there is
+    // no automatic dealer_os grant (matches profile.js resolveProducts). Legacy orgs must
+    // be backfilled with a subscription or explicit legacy flags before launch.
+    const legacy = (raw.legacyProducts && typeof raw.legacyProducts === 'object') ? raw.legacyProducts : {}
     orgProducts = new Set(
       Object.keys(legacy).filter(k => legacy[k]).map(k => LEGACY_PRODUCT_KEY_MAP[k]).filter(Boolean)
     )

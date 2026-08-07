@@ -14,13 +14,16 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 *
 // Gated by the server-managed platform-owner role. Returns CSV-ready data of
 // everyone who opted in to marketing emails during signup.
 
-// Which MarketSync product(s) this dealership has. Empty → full DealerOS (so existing
-// accounts and personal workspaces keep everything). The frontend generates the nav +
-// landing screen from this.
+// Which MarketSync product(s) this dealership has, derived from the legacy `products`
+// jsonb. Empty → NO products (paywall). There is no automatic DealerOS grant: an org
+// with no subscription and no legacy product flags is entitled to nothing until it is
+// backfilled with a subscription or explicit legacy flags. The frontend generates the
+// nav + landing screen from this.
 export const PRODUCT_KEYS = ['facebook_solo', 'facebook_dealer', 'ai_chatbot', 'dealer_os']
 export function resolveProducts(dealer) {
   const p = (dealer && typeof dealer.products === 'object' && dealer.products) ? dealer.products : {}
-  return PRODUCT_KEYS.some(k => p[k]) ? p : { dealer_os: true }
+  // Return only the explicitly-set legacy flags; empty stays empty (no dealer_os fallback).
+  return PRODUCT_KEYS.some(k => p[k]) ? p : {}
 }
 
 // ── MarketSync staff roles + permissions (the saas_admin workspace's access model) ──
