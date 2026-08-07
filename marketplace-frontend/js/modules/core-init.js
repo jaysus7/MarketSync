@@ -1,5 +1,5 @@
 // ── MarketSync Frontend Module: Core Engine Boot, Auth & Navigation ───────────
-var API = window.API || (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
+const API = (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
 
 // Wrap fetch so EVERY call to our API carries the demo-workspace header when the
 // owner is in Demo mode — keeps all pages consistently scoped to the demo dealership.
@@ -21,7 +21,7 @@ var API = window.API || (location.hostname.includes('staging') ? 'https://market
   };
 })();
 
-var CARFAX_BASE = window.CARFAX_BASE || 'https://www.carfax.ca/vehicle-history-reports?vin=';
+const CARFAX_BASE = 'https://www.carfax.ca/vehicle-history-reports?vin=';
 
 // Global HTML escaper.
 function esc(s) {
@@ -32,7 +32,7 @@ function esc(s) {
 window.esc = esc;
 
 // SVG icons utility
-var SVG_ICONS = window.SVG_ICONS || {
+const SVG_ICONS = {
   dot: '<circle cx="12" cy="12" r="3"/>',
   sparkles: '<path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>',
   check: '<path d="M4.5 12.75l6 6 9-13.5"/>',
@@ -76,20 +76,6 @@ function actHeaders() {
 
 let token = localStorage.getItem('token');
 const userRaw = localStorage.getItem('user');
-
-async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: options.signal || controller.signal,
-    });
-  } finally {
-    clearTimeout(timer);
-  }
-}
-window.fetchWithTimeout = fetchWithTimeout;
 
 async function apiGetJson(path, { retries = 4, timeoutMs = 15000, onRetry } = {}) {
   let lastErr;

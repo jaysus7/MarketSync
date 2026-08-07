@@ -2,21 +2,21 @@
 // MarketSync CRM — Frontend Submodule: Sales Pipeline Board & CRM Workflow
 // ─────────────────────────────────────────────────────────────────────────────
 
-var PL_COLS = PL_COLS || [
+const PL_COLS = [
   { key: 'posted', label: 'Posted', dot: 'bg-blue-500' },
   { key: 'appointment_set', label: 'Appointment Set', dot: 'bg-indigo-500' },
   { key: 'claimed_sale', label: 'Claimed Sales', dot: 'bg-emerald-500' },
   { key: 'need_relisting', label: 'Need Relisting', dot: 'bg-amber-500' },
 ];
-var PL_MOVE_LABEL = PL_MOVE_LABEL || { posted: 'Posted', appointment_set: 'Appointment Set', claimed_sale: 'Mark Sold', need_relisting: 'Need Relisting' };
-var PL_DATA = PL_DATA || { columns: {}, counts: {} };
-var PL_COLLAPSED = PL_COLLAPSED || new Set();
-var PL_COLLAPSED_INITED = PL_COLLAPSED_INITED || false;
+const PL_MOVE_LABEL = { posted: 'Posted', appointment_set: 'Appointment Set', claimed_sale: 'Mark Sold', need_relisting: 'Need Relisting' };
+let PL_DATA = { columns: {}, counts: {} };
+const PL_COLLAPSED = new Set();
+let PL_COLLAPSED_INITED = false;
 
-var plMoney = (n) => n != null ? '$' + Number(n).toLocaleString() : '';
-var plKm = (n) => n != null ? Number(n).toLocaleString() + ' km' : '';
-var plPosted = (d) => { try { const days = Math.floor((Date.now() - new Date(d)) / 86400000); return days <= 0 ? 'today' : days + 'd ago'; } catch { return ''; } };
-var plAppt = (d) => { try { return new Date(d).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch { return ''; } };
+const plMoney = (n) => n != null ? '$' + Number(n).toLocaleString() : '';
+const plKm = (n) => n != null ? Number(n).toLocaleString() + ' km' : '';
+const plPosted = (d) => { try { const days = Math.floor((Date.now() - new Date(d)) / 86400000); return days <= 0 ? 'today' : days + 'd ago'; } catch { return ''; } };
+const plAppt = (d) => { try { return new Date(d).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch { return ''; } };
 
 function plAskAppointment(label, existingAt, existingNote) {
   return new Promise(resolve => {

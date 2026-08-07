@@ -1,6 +1,6 @@
 // ── MarketSync Frontend Module: Commission Engine & AI Document Generator ─────
-var __commState = __commState || { tab: null, month: null };
-var commIsMgr = window.commIsMgr || (() => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role));
+let __commState = { tab: null, month: null };
+const commIsMgr = () => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
 function commMoney(v) { const n = Number(v) || 0; return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 }); }
 function commMonth() { return __commState.month || new Date().toISOString().slice(0, 7); }
 function commStatusPill(s) {
