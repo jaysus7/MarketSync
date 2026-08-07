@@ -235,7 +235,7 @@ export function registerAccounting(app) {
   app.get('/accounting/accounts', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     await ensureChart(req.dealershipId)
-    const { data } = await supabaseAdmin.from('gl_accounts').select('*').eq('dealership_id', req.dealershipId).order('code', { ascending: true })
+    const { data } = await req.supabase.from('gl_accounts').select('*').eq('dealership_id', req.dealershipId).order('code', { ascending: true })
     res.json({ ok: true, accounts: data || [] })
   })
   app.post('/accounting/accounts', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
@@ -243,7 +243,7 @@ export function registerAccounting(app) {
     const name = String(req.body?.name || '').trim().slice(0, 80)
     const category = String(req.body?.category || '').toLowerCase()
     if (!name || !['income', 'expense', 'asset', 'liability', 'equity'].includes(category)) return res.status(400).json({ error: 'name and a valid category required' })
-    const { data, error } = await supabaseAdmin.from('gl_accounts').insert({ dealership_id: req.dealershipId, name, category, code: String(req.body?.code || '').slice(0, 20) || null }).select().single()
+    const { data, error } = await req.supabase.from('gl_accounts').insert({ dealership_id: req.dealershipId, name, category, code: String(req.body?.code || '').slice(0, 20) || null }).select().single()
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'accounting.account_created', { after_state: data })
     res.json({ ok: true, account: data })
@@ -255,9 +255,9 @@ export function registerAccounting(app) {
     if (req.body?.code !== undefined) patch.code = String(req.body.code || '').slice(0, 20) || null
     if (req.body?.category !== undefined) patch.category = String(req.body.category).toLowerCase()
     if (req.body?.active !== undefined) patch.active = !!req.body.active
-    const { data: before } = await supabaseAdmin.from('gl_accounts').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: before } = await req.supabase.from('gl_accounts').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Account not found' })
-    const { data, error } = await supabaseAdmin.from('gl_accounts').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
+    const { data, error } = await req.supabase.from('gl_accounts').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'accounting.account_updated', { before_state: before, after_state: data })
     res.json({ ok: true, account: data })
@@ -265,16 +265,16 @@ export function registerAccounting(app) {
   app.delete('/accounting/accounts/:id', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!guard(req, res)) return
     // Don't hard-delete an account that has entries — deactivate it instead.
-    const { data: account } = await supabaseAdmin.from('gl_accounts').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: account } = await req.supabase.from('gl_accounts').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!account) return res.status(404).json({ error: 'Account not found' })
-    const { data: used } = await supabaseAdmin.from('gl_entries').select('id').eq('account_id', req.params.id).limit(1)
+    const { data: used } = await req.supabase.from('gl_entries').select('id').eq('account_id', req.params.id).limit(1)
     if (used && used.length) {
-      const { data: deactivated, error } = await supabaseAdmin.from('gl_accounts').update({ active: false }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
+      const { data: deactivated, error } = await req.supabase.from('gl_accounts').update({ active: false }).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().maybeSingle()
       if (error) return res.status(500).json({ error: 'Could not deactivate account' })
       audit(req, 'accounting.account_deactivated', { before_state: account, after_state: deactivated })
       return res.json({ ok: true, deactivated: true })
     }
-    await supabaseAdmin.from('gl_accounts').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    await req.supabase.from('gl_accounts').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
     audit(req, 'accounting.account_deleted', { before_state: account, after_state: null })
     res.json({ ok: true })
   })
@@ -285,7 +285,7 @@ export function registerAccounting(app) {
     const from = String(req.query.from || today())
     const to = String(req.query.to || from)
     const toEnd = new Date(new Date(to + 'T00:00:00Z').getTime() + 86400000).toISOString().slice(0, 10)
-    const { data } = await supabaseAdmin.from('gl_entries').select('*').eq('dealership_id', req.dealershipId).gte('entry_date', from).lt('entry_date', toEnd).order('entry_date', { ascending: false }).order('created_at', { ascending: false }).limit(2000)
+    const { data } = await req.supabase.from('gl_entries').select('*').eq('dealership_id', req.dealershipId).gte('entry_date', from).lt('entry_date', toEnd).order('entry_date', { ascending: false }).order('created_at', { ascending: false }).limit(2000)
     res.json({ ok: true, entries: data || [] })
   })
   app.post('/accounting/entries', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
@@ -293,7 +293,7 @@ export function registerAccounting(app) {
     const amount = round2(req.body?.amount)
     const direction = req.body?.direction === 'in' ? 'in' : 'out'   // accounting mostly adds expenses (out)
     if (!amount) return res.status(400).json({ error: 'amount required' })
-    const { data, error } = await supabaseAdmin.from('gl_entries').insert({
+    const { data, error } = await req.supabase.from('gl_entries').insert({
       dealership_id: req.dealershipId, entry_date: String(req.body?.entry_date || today()).slice(0, 10),
       account_id: req.body?.account_id || null, description: String(req.body?.description || '').slice(0, 200) || null,
       amount: Math.abs(amount), direction, source: 'manual', created_by: req.user?.id || null,
@@ -307,11 +307,11 @@ export function registerAccounting(app) {
     // Financial history must not be erased. A manual correction is represented by
     // an equal-and-opposite line so reports continue to reconcile and the original
     // entry remains reviewable.
-    const { data: original } = await supabaseAdmin.from('gl_entries')
+    const { data: original } = await req.supabase.from('gl_entries')
       .select('id, entry_date, account_id, description, amount, direction, source')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).eq('source', 'manual').maybeSingle()
     if (!original) return res.status(404).json({ error: 'Manual entry not found' })
-    const { data: reversal, error } = await supabaseAdmin.from('gl_entries').insert({
+    const { data: reversal, error } = await req.supabase.from('gl_entries').insert({
       dealership_id: req.dealershipId,
       entry_date: today(),
       account_id: original.account_id,
@@ -335,7 +335,7 @@ export function registerAccounting(app) {
   app.get('/accounting/reconciliations', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const { from, to } = monthBounds(req.query.month)
-    const { data } = await supabaseAdmin.from('reconciliations').select('*').eq('dealership_id', req.dealershipId).gte('recon_date', from).lt('recon_date', to).order('recon_date', { ascending: false })
+    const { data } = await req.supabase.from('reconciliations').select('*').eq('dealership_id', req.dealershipId).gte('recon_date', from).lt('recon_date', to).order('recon_date', { ascending: false })
     res.json({ ok: true, reconciliations: data || [] })
   })
 
@@ -345,8 +345,8 @@ export function registerAccounting(app) {
     await ensureChart(req.dealershipId)
     const { from, to } = monthBounds(req.query.month)
     const [{ data: entries }, { data: accounts }] = await Promise.all([
-      supabaseAdmin.from('gl_entries').select('account_id, amount, direction, source').eq('dealership_id', req.dealershipId).gte('entry_date', from).lt('entry_date', to),
-      supabaseAdmin.from('gl_accounts').select('id, name, category').eq('dealership_id', req.dealershipId),
+      req.supabase.from('gl_entries').select('account_id, amount, direction, source').eq('dealership_id', req.dealershipId).gte('entry_date', from).lt('entry_date', to),
+      req.supabase.from('gl_accounts').select('id, name, category').eq('dealership_id', req.dealershipId),
     ])
     const acct = Object.fromEntries((accounts || []).map(a => [a.id, a]))
     const byAccount = {}
@@ -368,10 +368,10 @@ export function registerAccounting(app) {
     if (!guard(req, res)) return
     await ensureChart(req.dealershipId)
     const { from, to } = monthBounds(req.query.month)
-    const { data: dlr } = await supabaseAdmin.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
+    const { data: dlr } = await req.supabase.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
     const st = settingsOf(dlr)
     const paidAcct = await accountByKey(req.dealershipId, 'tax_paid')
-    const { data: entries } = await supabaseAdmin.from('gl_entries')
+    const { data: entries } = await req.supabase.from('gl_entries')
       .select('id, entry_date, description, amount, source, account_id, ref_deal_id')
       .eq('dealership_id', req.dealershipId).gte('entry_date', from).lt('entry_date', to)
     const collected = round2((entries || []).filter(e => e.source === 'tax').reduce((s, e) => s + n(e.amount), 0))
@@ -389,7 +389,7 @@ export function registerAccounting(app) {
     const amount = Math.abs(round2(req.body?.amount))
     if (!amount) return res.status(400).json({ error: 'amount required' })
     const paidAcct = await accountByKey(req.dealershipId, 'tax_paid')
-    const { data, error } = await supabaseAdmin.from('gl_entries').insert({
+    const { data, error } = await req.supabase.from('gl_entries').insert({
       dealership_id: req.dealershipId, entry_date: String(req.body?.entry_date || today()).slice(0, 10), account_id: paidAcct,
       description: String(req.body?.description || 'Tax paid / ITC').slice(0, 200), amount, direction: 'out', source: 'manual', created_by: req.user?.id || null,
     }).select().single()
@@ -401,7 +401,7 @@ export function registerAccounting(app) {
   // ── Settings ──────────────────────────────────────────────────────────────────
   app.get('/accounting/settings', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
-    const { data } = await supabaseAdmin.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
+    const { data } = await req.supabase.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
     res.json({ ok: true, settings: settingsOf(data) })
   })
   app.put('/accounting/settings', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
@@ -410,7 +410,7 @@ export function registerAccounting(app) {
     const parseEmails = (v) => (Array.isArray(v) ? v : String(v || '').split(/[,\s]+/)).map(s => String(s).trim().toLowerCase()).filter(e => /.+@.+\..+/.test(e)).slice(0, 20)
     // Carry over the parts of accounting_settings this form doesn't own (budgets),
     // since the write replaces the whole object.
-    const { data: curRow } = await supabaseAdmin.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
+    const { data: curRow } = await req.supabase.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
     const curRaw = (curRow?.accounting_settings && typeof curRow.accounting_settings === 'object') ? curRow.accounting_settings : {}
     const next = {
       enabled: b.enabled !== false,
@@ -423,6 +423,7 @@ export function registerAccounting(app) {
       tax_frequency: ['monthly', 'quarterly', 'annual'].includes(b.tax_frequency) ? b.tax_frequency : 'quarterly',
       ...(curRaw.budgets ? { budgets: curRaw.budgets } : {}),
     }
+    // dealerships has no RLS UPDATE policy — kept on supabaseAdmin (route is MFA + accounting.edit gated).
     await supabaseAdmin.from('dealerships').update({ accounting_settings: next }).eq('id', req.dealershipId)
     res.json({ ok: true, settings: settingsOf({ accounting_settings: next }) })
   })
@@ -434,13 +435,13 @@ export function registerAccounting(app) {
   app.get('/accounting/budget', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!guard(req, res)) return
     const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7)
-    const { data: row } = await supabaseAdmin.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
+    const { data: row } = await req.supabase.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
     const raw = (row?.accounting_settings && typeof row.accounting_settings === 'object') ? row.accounting_settings : {}
     const budgets = (raw.budgets && typeof raw.budgets === 'object') ? raw.budgets : {}
     // Actual expense spend for the month, grouped by account.
     const from = month + '-01'
     const toEnd = new Date(new Date(from + 'T00:00:00Z').getTime() + 32 * 86400000).toISOString().slice(0, 7) + '-01'
-    const { data: entries } = await supabaseAdmin.from('gl_entries')
+    const { data: entries } = await req.supabase.from('gl_entries')
       .select('account_id, amount, direction').eq('dealership_id', req.dealershipId)
       .eq('direction', 'out').gte('entry_date', from).lt('entry_date', toEnd).limit(5000)
     const actuals = {}
@@ -455,8 +456,9 @@ export function registerAccounting(app) {
       const amt = round2(v)
       if (amt && amt > 0) budgets[k] = Math.abs(amt)   // drop zero/blank = "no budget set"
     }
-    const { data: row } = await supabaseAdmin.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
+    const { data: row } = await req.supabase.from('dealerships').select('accounting_settings').eq('id', req.dealershipId).maybeSingle()
     const raw = (row?.accounting_settings && typeof row.accounting_settings === 'object') ? row.accounting_settings : {}
+    // dealerships has no RLS UPDATE policy — kept on supabaseAdmin (route is MFA + accounting.edit gated).
     await supabaseAdmin.from('dealerships').update({ accounting_settings: { ...raw, budgets } }).eq('id', req.dealershipId)
     res.json({ ok: true, budgets })
   })
