@@ -1,6 +1,6 @@
 // ── MarketSync Frontend: Main Dashboard Controller & Navigation Orchestrator ────
 // Keeps dashboard operations modular, under 1000 lines, delegating domain logic to
-// submodules loaded in dashboard.html (core-init, timeclock-hr, compliance-academy,
+// submodules loaded in dashboard.html (dept-nav, core-init, timeclock-hr, compliance-academy,
 // commission-engine, crm-pipeline, inventory-intel, fni-desking, service-parts, analytics-reports).
 
 var profileContext = window.profileContext || null;
@@ -9,11 +9,7 @@ var activePageId = window.activePageId || 'insights';
 // ── DOM Initialization ────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    // Instantly reveal UI shell, set default MarketSync mode, and unblock role-ready state
     document.body.classList.add('ms-role-ready');
-    if (!document.documentElement.getAttribute('data-dash-mode')) {
-      document.documentElement.setAttribute('data-dash-mode', 'marketsync');
-    }
     const navDesktop = document.getElementById('nav-desktop');
     if (navDesktop) navDesktop.classList.remove('nav-init');
 
@@ -34,15 +30,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ── Session & User Context Bootstrapping ──────────────────────────────────────
 async function initDashboardSession() {
   document.body.classList.add('ms-role-ready');
-  if (!document.documentElement.getAttribute('data-dash-mode')) {
-    document.documentElement.setAttribute('data-dash-mode', 'marketsync');
-  }
   const navDesktop = document.getElementById('nav-desktop');
   if (navDesktop) navDesktop.classList.remove('nav-init');
 
   const storedToken = localStorage.getItem('token');
   if (!storedToken) {
-    // If no token in local dev / staging test, create anonymous guest session context
     profileContext = profileContext || { name: 'Demo User', role: 'DEALER_ADMIN', email: 'admin@marketsync.com' };
   } else {
     try {
@@ -53,7 +45,6 @@ async function initDashboardSession() {
     }
   }
 
-  // Fetch updated profile and access context asynchronously with timeout protection
   try {
     if (typeof apiGetJson === 'function' && storedToken) {
       const userPromise = apiGetJson('/auth/me', { retries: 1, timeoutMs: 3000 }).catch(() => null);
@@ -103,6 +94,10 @@ function updateRolePermissionsUI() {
     else el.classList.add('hidden');
   });
 
+  if (typeof renderDeptNav === 'function') {
+    renderDeptNav(role);
+  }
+
   if (typeof updateShiftClockUI === 'function') {
     updateShiftClockUI();
   }
@@ -113,7 +108,6 @@ function switchPage(pageId, options = {}) {
   if (!pageId) return;
   document.body.classList.add('ms-role-ready');
 
-  // Page alias mappings
   if (pageId === 'overview' || pageId === 'dashboard') pageId = 'insights';
 
   // 1. Hide all .page-content elements
@@ -142,6 +136,15 @@ function switchPage(pageId, options = {}) {
   });
 
   activePageId = pageId;
+  window.activePageId = pageId;
+
+  if (typeof renderDeptTabbar === 'function') {
+    renderDeptTabbar(pageId);
+  }
+  if (typeof highlightDeptNav === 'function') {
+    highlightDeptNav(pageId);
+  }
+
   try {
     if (window.location.hash !== `#${pageId}`) {
       window.history.replaceState(null, '', `#${pageId}`);
@@ -279,11 +282,9 @@ function filterDashboardGlobalSearch(query) {
 
 function initializeDefaultView() {
   document.body.classList.add('ms-role-ready');
-  if (!document.documentElement.getAttribute('data-dash-mode')) {
-    document.documentElement.setAttribute('data-dash-mode', 'marketsync');
+  if (typeof renderDeptNav === 'function') {
+    renderDeptNav(profileContext?.role);
   }
-  const navDesktop = document.getElementById('nav-desktop');
-  if (navDesktop) navDesktop.classList.remove('nav-init');
 
   const hashPage = window.location.hash.replace('#', '');
   if (hashPage) {
