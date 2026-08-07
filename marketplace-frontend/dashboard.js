@@ -118,6 +118,17 @@ function switchPage(pageId, options = {}) {
                      document.getElementById(`page-${pageId}`) ||
                      document.getElementById(pageId);
 
+  if (!targetPage) {
+    const pagesHost = document.getElementById('pages-container') || document.querySelector('main section:nth-child(2) > div');
+    if (pagesHost) {
+      targetPage = document.createElement('div');
+      targetPage.setAttribute('data-page-content', pageId);
+      targetPage.className = 'page-content hidden space-y-6';
+      targetPage.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6"><h2 class="text-xl font-bold capitalize text-slate-900 dark:text-white mb-2">${pageId.replace(/-/g, ' ')}</h2><p class="text-sm text-slate-500">Loading module workspace...</p></div>`;
+      pagesHost.appendChild(targetPage);
+    }
+  }
+
   if (targetPage) {
     targetPage.classList.remove('hidden');
   }
@@ -283,7 +294,7 @@ function filterDashboardGlobalSearch(query) {
 function initializeDefaultView() {
   document.body.classList.add('ms-role-ready');
   if (typeof renderDeptNav === 'function') {
-    renderDeptNav(profileContext?.role);
+    renderDeptNav(profileContext?.role || 'DEALER_ADMIN');
   }
 
   const hashPage = window.location.hash.replace('#', '');

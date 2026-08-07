@@ -478,6 +478,21 @@
            department (Sales, Service, …), its sibling pages appear here as tabs.
            Populated by renderDeptTabbar() in switchPage; hidden otherwise. -->
       <div id="dept-tabbar" class="hidden mb-5"></div>
+      <div id="pages-container"></div>
+      <script>
+        (function loadDashboardPages() {
+          fetch('components/dashboard-pages.html?v=20260806_v5')
+            .then(function(res) { return res.text(); })
+            .then(function(html) {
+              var host = document.getElementById('pages-container');
+              if (host) host.innerHTML = html;
+              if (window.switchPage && window.activePageId) {
+                window.switchPage(window.activePageId);
+              }
+            })
+            .catch(function(err) { console.error('Failed to load dashboard-pages:', err); });
+        })();
+      </script>
 
       <!-- Extension CTA — sits at the top of the dashboard (all pages) until dismissed.
            Dismissal is remembered forever (localStorage), then a compact "Install
