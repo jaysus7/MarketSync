@@ -7,6 +7,9 @@ body:not(.ms-role-ready) [data-team-nav],
 body:not(.ms-role-ready) [data-admin-only],
 body:not(.ms-role-ready) [data-dealer-only] { display: none !important; }
 
+/* Department mode: legacy deep nav tree is hidden so flat department list (#dept-nav) shows exclusively. */
+#nav-desktop.dept-mode > *:not(#dept-nav):not(#ms-mode-switch):not(#ms-demo-reset):not(#setup-bar-host) { display: none !important; }
+
 /* Settings hub: each tab shows only its own section cards. */
 .stab-hide { display: none !important; }
 /* Settings cards flow into aligned 3-column grid on wide screens */
