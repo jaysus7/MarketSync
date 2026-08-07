@@ -1,0 +1,153 @@
+/* Role-gated UI (dealer/admin/team links) stays hidden until the signed-in
+   user's role is resolved, so a solo rep never sees dealer links flash on load.
+   dashboard.js adds `ms-role-ready` to <body> after it has hidden the
+   role-inappropriate items, revealing only what this role should see. */
+body:not(.ms-role-ready) [data-admin-nav],
+body:not(.ms-role-ready) [data-team-nav],
+body:not(.ms-role-ready) [data-admin-only],
+body:not(.ms-role-ready) [data-dealer-only] { display: none !important; }
+
+/* Settings hub: each tab shows only its own section cards. */
+.stab-hide { display: none !important; }
+/* Settings cards flow into aligned 3-column grid on wide screens */
+.settings-cols { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 1.25rem; width: 100%; align-items: start; }
+@media (min-width: 1024px) { .settings-cols.is-multi { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.settings-cols > .col-span-full,
+.settings-cols > .lg\:col-span-3,
+.settings-cols > [data-full-width="true"] { grid-column: 1 / -1; }
+
+/* Per-dealer feature toggle: hides a nav item independent of role gating. */
+.ff-off { display: none !important; }
+
+/* ── Facebook-only tier ────────────────────────────────────────────────── */
+html[data-dash-tier="fb"] #nav-desktop .nav-group,
+html[data-dash-tier="fb"] #nav-desktop > .nav-item:not(.fb-only-nav),
+html[data-dash-tier="fb"] #nav-commissions,
+html[data-dash-tier="fb"] #nav-affiliates,
+html[data-dash-tier="fb"] #nav-reports,
+html[data-dash-tier="fb"] #grp-accounting-wrap,
+html[data-dash-tier="fb"] #header-desk-btn,
+html[data-dash-tier="fb"] #header-appraise-btn,
+html[data-dash-tier="fb"] #idscan-btn,
+html[data-dash-tier="fb"] #dashboard-nav [data-page="crm"].md\:hidden,
+html[data-dash-tier="fb"] #nav-reports-m { display: none !important; }
+html[data-dash-tier="fb"] .fb-only-nav { display: flex !important; }
+html[data-dash-tier="fb"] [data-page-content="insights"] > *:not(#dash-leaderboard-slot) { display: none !important; }
+html[data-dash-tier="fb"] [data-lb-non-fb] { display: none !important; }
+
+html[data-dash-mode="marketsync"] #report-rail [data-report="lot"],
+html[data-dash-mode="marketsync"] #report-rail [data-report="scan"],
+html[data-dash-mode="marketsync"] #report-rail [data-report="snapshot"],
+html[data-dash-mode="marketsync"] #report-rail [data-report="weekly"],
+html[data-dash-mode="marketsync"] #report-rail [data-report="equity"],
+html[data-dash-mode="marketsync"] #report-rail [data-report="sales"],
+html[data-dash-mode="marketsync"] #report-rail [data-report="fni"],
+html[data-dash-mode="marketsync"] #report-rail [data-report="appraisals"],
+html[data-dash-mode="marketsync"] #report-rail [data-report="service"],
+html[data-dash-mode="marketsync"] #report-rail [data-report="esign"] { display: none !important; }
+html[data-dash-mode="marketsync"] #grp-crm { display: block !important; }
+html[data-dash-mode="marketsync"] #nav-leads-sales { display: flex !important; }
+html[data-dash-mode="marketsync"] #nav-affiliates { display: flex !important; }
+html[data-dash-mode="marketsync"] #settings-tabs [data-stab="sales"],
+html[data-dash-mode="marketsync"] #settings-tabs [data-stab="marketing"],
+html[data-dash-mode="marketsync"] #settings-tabs [data-stab="inventory"],
+html[data-dash-mode="marketsync"] #settings-tabs [data-stab="service"],
+html[data-dash-mode="marketsync"] #settings-tabs [data-stab="accounting"] { display: none !important; }
+
+html[data-dash-mode="marketsync"] .bg-indigo-600{background-color:#7c3aed!important}
+html[data-dash-mode="marketsync"] .bg-indigo-500{background-color:#8b5cf6!important}
+html[data-dash-mode="marketsync"] .bg-indigo-700{background-color:#6d28d9!important}
+html[data-dash-mode="marketsync"] .bg-indigo-50{background-color:#f5f3ff!important}
+html[data-dash-mode="marketsync"] .hover\:bg-indigo-500:hover{background-color:#8b5cf6!important}
+html[data-dash-mode="marketsync"] .hover\:bg-indigo-100:hover{background-color:#ede9fe!important}
+html[data-dash-mode="marketsync"] .text-indigo-600{color:#7c3aed!important}
+html[data-dash-mode="marketsync"] .text-indigo-700{color:#6d28d9!important}
+html[data-dash-mode="marketsync"] .text-indigo-400{color:#a78bfa!important}
+html[data-dash-mode="marketsync"] .text-indigo-300{color:#c4b5fd!important}
+html[data-dash-mode="marketsync"] .border-indigo-200{border-color:#ddd6fe!important}
+html[data-dash-mode="marketsync"] .border-indigo-600{border-color:#7c3aed!important}
+html[data-dash-mode="marketsync"] .border-indigo-800{border-color:#5b21b6!important}
+html[data-dash-mode="marketsync"] .accent-indigo-600{accent-color:#7c3aed!important}
+html[data-dash-mode="marketsync"] .ring-indigo-500{--tw-ring-color:#8b5cf6!important}
+html[data-dash-mode="marketsync"] .from-indigo-600{--tw-gradient-from:#7c3aed var(--tw-gradient-from-position)!important}
+html[data-dash-mode="marketsync"] .to-indigo-700{--tw-gradient-to:#6d28d9 var(--tw-gradient-to-position)!important}
+html[data-dash-mode="marketsync"] .dark\:bg-indigo-950\/40{background-color:rgba(46,16,101,.4)!important}
+html[data-dash-mode="marketsync"] .dark\:text-indigo-300{color:#c4b5fd!important}
+html[data-dash-mode="marketsync"] .dark\:text-indigo-400{color:#a78bfa!important}
+html[data-dash-mode="marketsync"] [aria-current="page"]{background-color:#ede9fe!important;color:#6d28d9!important}
+html[data-dash-mode="marketsync"].dark [aria-current="page"]{background-color:rgba(76,29,149,.4)!important;color:#c4b5fd!important}
+
+@media (prefers-color-scheme: light) {
+  html[data-dash-mode="marketsync"] body,
+  html[data-dash-mode="marketsync"] .bg-slate-50{background-color:#faf8ff!important}
+  html[data-dash-mode="marketsync"] .border-slate-200{border-color:#e7e0fb!important}
+  html[data-dash-mode="marketsync"] .bg-white{background-color:#fffdff!important}
+  html[data-dash-mode="marketsync"] .bg-slate-100{background-color:#f1ecfe!important}
+}
+@media (prefers-color-scheme: dark) {
+  html[data-dash-mode="marketsync"] body{background-color:#0f0a1e!important}
+  html[data-dash-mode="marketsync"] .dark\:bg-slate-950{background-color:#0f0a1e!important}
+  html[data-dash-mode="marketsync"] .dark\:bg-slate-900{background-color:#160f2b!important}
+  html[data-dash-mode="marketsync"] .dark\:bg-slate-800{background-color:#241a45!important}
+  html[data-dash-mode="marketsync"] .dark\:border-slate-800{border-color:#2e1065!important}
+}
+html[data-dash-mode="marketsync"] button.bg-indigo-600,
+html[data-dash-mode="marketsync"] a.bg-indigo-600{box-shadow:0 1px 2px rgba(124,58,237,.35),0 4px 12px -2px rgba(124,58,237,.35)!important}
+html[data-dash-mode="marketsync"] .text-slate-400{color:#8b7fb0!important}
+html[data-dash-mode="marketsync"] #ms-mode-switch{background:#ede9fe}
+html[data-dash-mode="marketsync"].dark #ms-mode-switch{background:#2e1065}
+
+#ms-insights{display:none}
+html[data-dash-mode="marketsync"] #ms-insights{display:block}
+html[data-dash-mode="marketsync"] [data-page-content="insights"] > *:not(#ms-insights){display:none!important}
+#nav-desktop.dept-mode > *:not(#dept-nav):not(#ms-mode-switch):not(#ms-demo-reset):not(#setup-bar-host){display:none!important}
+#nav-desktop.nav-init > *:not(#dept-nav):not(#ms-mode-switch):not(#ms-demo-reset):not(#setup-bar-host){display:none!important}
+#ms-mode-switch{align-items:center;gap:2px;background:#eef2f7;border-radius:99px;padding:3px;margin:0 0 8px}
+html.dark #ms-mode-switch{background:#1e293b}
+#ms-mode-switch button{flex:1;font-size:12px;font-weight:800;padding:6px 8px;border-radius:7px;border:0;cursor:pointer;color:#64748b;background:transparent}
+#ms-mode-switch button[data-on="1"]{background:#fff;color:#0f172a;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+html.dark #ms-mode-switch button[data-on="1"]{background:#0f172a;color:#fff}
+html[data-dash-mode="marketsync"] #ms-mode-switch button[data-mode="marketsync"][data-on="1"]{background:#7c3aed;color:#fff}
+#ms-demo-reset{display:none;width:100%;margin:0 0 8px;font-size:11px;font-weight:700;color:#94a3b8;background:none;border:0;cursor:pointer;text-align:center}
+#ms-demo-reset:hover{color:#64748b}
+html[data-dash-owner="1"][data-dash-mode="demo"] #ms-demo-reset{display:block}
+
+#report-rail:not(.rr-open) button[data-report] span,
+#report-rail:not(.rr-open) .rr-head-label { display: none; }
+#report-rail:not(.rr-open) button[data-report] { justify-content: center; }
+#report-rail.rr-open #rr-chevron { transform: rotate(180deg); }
+#reports-overview > div:empty { display: none; }
+
+#nav-desktop > .nav-group, #nav-desktop > .nav-item{ border-left:3px solid transparent; border-top-left-radius:.45rem; border-bottom-left-radius:.45rem; }
+#nav-desktop > [data-page="command"]   { order:10; border-left-color:#6366f1; }
+#nav-desktop > [data-page="insights"]  { order:11; }
+#nav-desktop > .nav-group[data-group="crm"]     { order:12; border-left-color:#10b981; }
+#nav-desktop > .nav-group[data-group="acquisition"] { order:13; border-left-color:#0ea5e9; }
+#nav-desktop > .nav-group[data-group="sales"]   { order:13; border-left-color:#f59e0b; }
+#nav-desktop > .nav-group[data-group="ii"]      { order:14; border-left-color:#06b6d4; }
+#nav-desktop > .nav-group[data-group="web"]     { order:15; border-left-color:#a855f7; }
+#nav-desktop > [data-page="delivery"]  { order:16; border-left-color:#65a30d; }
+#nav-desktop > .nav-group[data-group="service"] { order:17; border-left-color:#14b8a6; }
+#nav-desktop > .nav-group[data-group="parts"]   { order:18; border-left-color:#f97316; }
+#nav-desktop > #grp-accounting-wrap    { order:18; border-left-color:#3b82f6; }
+#nav-desktop > #nav-reports            { order:19; border-left-color:#ef4444; }
+#nav-desktop > [data-page="operations"]{ order:20; border-left-color:#f97316; }
+#nav-desktop > [data-page="taskboard"] { order:21; border-left-color:#f43f5e; }
+#nav-desktop > #nav-commissions        { order:22; border-left-color:#10b981; }
+#nav-desktop > .nav-group[data-group="auto"]    { order:23; border-left-color:#64748b; }
+#nav-desktop > #nav-affiliates         { order:24; border-left-color:#8b5cf6; }
+#nav-desktop > #nav-owner-users        { order:25; border-left-color:#d946ef; }
+#nav-desktop > #nav-config             { order:26; border-left-color:#64748b; }
+#nav-desktop > #nav-api                { order:27; border-left-color:#64748b; }
+
+.goog-te-banner-frame, .skiptranslate > iframe { display: none !important; }
+body { top: 0 !important; position: static !important; }
+#goog-gt-tt, .goog-tooltip, .goog-tooltip * { display: none !important; }
+.goog-te-gadget .goog-te-combo { font-size: 13px; padding: 5px 8px; border-radius: 8px; margin-top: 6px; background: #f8fafc; border: 1px solid #cbd5e1; color: #334155; }
+.dark .goog-te-gadget .goog-te-combo { background: #020617; border-color: #334155; color: #e2e8f0; }
+
+.ai-accordion-body { display: none; }
+.ai-accordion-open .ai-accordion-body { display: block; }
+.ai-accordion-open .ai-chevron { transform: rotate(180deg); }
+@keyframes setupFlash { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } 30% { box-shadow: 0 0 0 4px rgba(99,102,241,.45); } }
+.setup-flash { animation: setupFlash 1.3s ease-in-out 2; border-radius: 0.5rem; }
