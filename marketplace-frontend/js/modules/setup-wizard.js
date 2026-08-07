@@ -1,5 +1,5 @@
-// ── MarketSync Guided Setup Wizard & Progress Bar Submodule ────────────
-// Manages store onboarding progress bar, setup steps, and modal wizards.
+// ── MarketSync Guided Setup Wizard Helper Submodule ──────────────────────
+// Helper steps and utilities for product-specific onboarding flows.
 
 var __setupSnap = null;
 var MGR_SET = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ADMIN'];
@@ -85,59 +85,3 @@ function setupCloseAll() {
     if (el.dataset && el.dataset.setup) el.remove();
   });
 }
-
-async function renderSetupBar() {
-  const host = document.getElementById('setup-bar-host');
-  if (!host) return;
-
-  const role = (window.profileContext && window.profileContext.role) || 'DEALER_ADMIN';
-  const steps = setupStepsFor(role);
-  if (!steps.length) {
-    host.innerHTML = '';
-    return;
-  }
-
-  let snap = { feeds: [] };
-  try { snap = await fetchSetupSnap(); } catch (e) {}
-
-  const doneCount = steps.filter(s => {
-    try { return s.done(snap); } catch (e) { return false; }
-  }).length;
-
-  const pct = Math.round((doneCount / steps.length) * 100);
-
-  if (doneCount >= steps.length) {
-    host.innerHTML = '';
-    return;
-  }
-
-  host.innerHTML = `
-    <div class="mb-3 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800">
-      <div class="flex items-center justify-between gap-2 mb-1.5">
-        <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300">Guided Setup</span>
-        <span class="text-xs font-black text-indigo-600 dark:text-indigo-400">${doneCount}/${steps.length} (${pct}%)</span>
-      </div>
-      <div class="w-full h-1.5 bg-indigo-200 dark:bg-indigo-900 rounded-full overflow-hidden mb-2">
-        <div class="h-full bg-indigo-600 dark:bg-indigo-400 transition-all duration-500" style="width: ${pct}%"></div>
-      </div>
-      <div class="flex gap-2">
-        <button onclick="openSetupCenter()" class="w-full text-center text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 py-1.5 px-3 rounded-lg transition">
-          Continue Setup →
-        </button>
-      </div>
-    </div>
-  `;
-}
-window.renderSetupBar = renderSetupBar;
-
-function openSetupCenter() {
-  const role = (window.profileContext && window.profileContext.role) || 'DEALER_ADMIN';
-  const steps = setupStepsFor(role);
-  if (!steps.length) return;
-
-  const nextStep = steps[0];
-  if (nextStep && typeof nextStep.run === 'function') {
-    nextStep.run();
-  }
-}
-window.openSetupCenter = openSetupCenter;
