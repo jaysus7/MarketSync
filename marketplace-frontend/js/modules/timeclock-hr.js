@@ -1,5 +1,5 @@
 // ── MarketSync Frontend Module: Time Clock & HR Shift Tracker ──────────────────
-let __shiftTimerInterval = null;
+var __shiftTimerInterval = window.__shiftTimerInterval || null;
 
 function getTimeClockState() {
   let state = { status: 'out', startTime: null, breakTotalMs: 0, breakStartTime: null, time: null };

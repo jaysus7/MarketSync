@@ -1,5 +1,5 @@
 // ── MarketSync Frontend Module: DealerPilot Compliance & Training Academy ──────
-const DEALERSHIP_TRAINING_COURSES = [
+var DEALERSHIP_TRAINING_COURSES = window.DEALERSHIP_TRAINING_COURSES || [
   {
     id: 'ehs',
     category: 'Health & Safety',
