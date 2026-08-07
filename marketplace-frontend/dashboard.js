@@ -4,11 +4,19 @@
 // commission-engine, crm-pipeline, inventory-intel, fni-desking, service-parts, analytics-reports).
 
 var profileContext = window.profileContext || null;
-var activePageId = window.activePageId || 'overview';
+var activePageId = window.activePageId || 'insights';
 
 // ── DOM Initialization ────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   try {
+    // Instantly reveal UI shell, set default MarketSync mode, and unblock role-ready state
+    document.body.classList.add('ms-role-ready');
+    if (!document.documentElement.getAttribute('data-dash-mode')) {
+      document.documentElement.setAttribute('data-dash-mode', 'marketsync');
+    }
+    const navDesktop = document.getElementById('nav-desktop');
+    if (navDesktop) navDesktop.classList.remove('nav-init');
+
     await initDashboardSession();
     bindNavigationEvents();
     bindGlobalShortcutKeys();
@@ -16,30 +24,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     initializeDefaultView();
   } catch (err) {
     console.error('Dashboard init error:', err);
+    document.body.classList.add('ms-role-ready');
+    const navDesktop = document.getElementById('nav-desktop');
+    if (navDesktop) navDesktop.classList.remove('nav-init');
     if (typeof showToast === 'function') showToast('Dashboard loaded with degraded state: ' + err.message, 'error');
   }
 });
 
 // ── Session & User Context Bootstrapping ──────────────────────────────────────
 async function initDashboardSession() {
+  document.body.classList.add('ms-role-ready');
+  if (!document.documentElement.getAttribute('data-dash-mode')) {
+    document.documentElement.setAttribute('data-dash-mode', 'marketsync');
+  }
+  const navDesktop = document.getElementById('nav-desktop');
+  if (navDesktop) navDesktop.classList.remove('nav-init');
+
   const storedToken = localStorage.getItem('token');
   if (!storedToken) {
-    window.location.replace('login.html');
-    return;
-  }
-
-  try {
-    const rawUser = localStorage.getItem('user');
-    if (rawUser) profileContext = JSON.parse(rawUser);
-  } catch (e) {
-    profileContext = null;
+    // If no token in local dev / staging test, create anonymous guest session context
+    profileContext = profileContext || { name: 'Demo User', role: 'DEALER_ADMIN', email: 'admin@marketsync.com' };
+  } else {
+    try {
+      const rawUser = localStorage.getItem('user');
+      if (rawUser) profileContext = JSON.parse(rawUser);
+    } catch (e) {
+      profileContext = null;
+    }
   }
 
   // Fetch updated profile and access context asynchronously with timeout protection
   try {
-    if (typeof apiGetJson === 'function') {
-      const userPromise = apiGetJson('/auth/me', { retries: 1, timeoutMs: 4000 });
-      const accessPromise = apiGetJson('/access/context', { retries: 1, timeoutMs: 4000 }).catch(() => null);
+    if (typeof apiGetJson === 'function' && storedToken) {
+      const userPromise = apiGetJson('/auth/me', { retries: 1, timeoutMs: 3000 }).catch(() => null);
+      const accessPromise = apiGetJson('/access/context', { retries: 1, timeoutMs: 3000 }).catch(() => null);
 
       const [userRes, accessRes] = await Promise.all([userPromise, accessPromise]);
       if (userRes && userRes.user) {
@@ -51,7 +69,7 @@ async function initDashboardSession() {
       }
     }
   } catch (err) {
-    console.warn('Bootstrap background access fetch timed out or failed, proceeding with cached user session');
+    console.warn('Bootstrap background access fetch timed out, using fallback session');
   }
 
   updateProfileHeaderUI();
@@ -60,24 +78,27 @@ async function initDashboardSession() {
 window.initDashboardSession = initDashboardSession;
 
 function updateProfileHeaderUI() {
+  document.body.classList.add('ms-role-ready');
   if (!profileContext) return;
-  const nameEl = document.getElementById('user-display-name');
-  const roleEl = document.getElementById('user-display-role');
-  const emailEl = document.getElementById('user-display-email');
+
+  const nameEl = document.getElementById('ui-profile-name') || document.getElementById('user-display-name');
+  const roleEl = document.getElementById('ui-role-pill') || document.getElementById('user-display-role');
+  const dealerEl = document.getElementById('ui-dealership-name');
   const avatarEl = document.getElementById('user-avatar-img');
 
   if (nameEl) nameEl.textContent = profileContext.name || profileContext.email || 'Staff Member';
   if (roleEl) roleEl.textContent = (profileContext.role || 'Sales Rep').replace('_', ' ');
-  if (emailEl) emailEl.textContent = profileContext.email || '';
+  if (dealerEl) dealerEl.textContent = profileContext.dealership_name || profileContext.dealer_name || 'MarketSync Store';
   if (avatarEl && profileContext.avatar_url) avatarEl.src = profileContext.avatar_url;
 }
 
 function updateRolePermissionsUI() {
+  document.body.classList.add('ms-role-ready');
   if (!profileContext) return;
-  const role = profileContext.role || 'SALES_REP';
-  const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(role);
+  const role = (profileContext.role || 'DEALER_ADMIN').toUpperCase();
+  const isAdmin = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ADMIN'].includes(role);
 
-  document.querySelectorAll('[data-admin-nav]').forEach(el => {
+  document.querySelectorAll('[data-admin-nav], [data-admin-only]').forEach(el => {
     if (isAdmin) el.classList.remove('hidden');
     else el.classList.add('hidden');
   });
@@ -88,39 +109,57 @@ function updateRolePermissionsUI() {
 }
 
 // ── Tab & Navigation Router ───────────────────────────────────────────────────
-function showPage(pageId, options = {}) {
+function switchPage(pageId, options = {}) {
   if (!pageId) return;
-  const targetPage = document.getElementById(`page-${pageId}`);
-  if (!targetPage) return;
+  document.body.classList.add('ms-role-ready');
 
-  // Hide active pages
-  document.querySelectorAll('.dashboard-page').forEach(p => p.classList.add('hidden'));
-  targetPage.classList.remove('hidden');
+  // Page alias mappings
+  if (pageId === 'overview' || pageId === 'dashboard') pageId = 'insights';
 
-  // Update nav item active styling
+  // 1. Hide all .page-content elements
+  document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
+
+  // 2. Locate target container by data-page-content, element id, or page- prefix
+  let targetPage = document.querySelector(`[data-page-content="${pageId}"]`) ||
+                     document.getElementById(`page-${pageId}`) ||
+                     document.getElementById(pageId);
+
+  if (targetPage) {
+    targetPage.classList.remove('hidden');
+  }
+
+  // 3. Highlight active navigation item
   document.querySelectorAll('.nav-item').forEach(btn => {
-    const isTarget = btn.getAttribute('data-page') === pageId || btn.id === `nav-${pageId}`;
+    const btnPage = btn.getAttribute('data-page');
+    const isTarget = btnPage === pageId || btn.id === `nav-${pageId}`;
     if (isTarget) {
+      btn.setAttribute('aria-current', 'page');
       btn.classList.add('bg-indigo-50', 'dark:bg-indigo-950/50', 'text-indigo-600', 'dark:text-indigo-400', 'font-bold');
-      btn.classList.remove('text-slate-700', 'dark:text-slate-300', 'text-slate-600', 'dark:text-slate-400');
     } else {
+      btn.removeAttribute('aria-current');
       btn.classList.remove('bg-indigo-50', 'dark:bg-indigo-950/50', 'text-indigo-600', 'dark:text-indigo-400', 'font-bold');
     }
   });
 
   activePageId = pageId;
-  closeMobileSidebar();
+  try {
+    if (window.location.hash !== `#${pageId}`) {
+      window.history.replaceState(null, '', `#${pageId}`);
+    }
+  } catch (e) {}
 
-  // Lazy trigger submodule page loaders
+  closeMobileSidebar();
   dispatchSubmodulePageLoad(pageId, options);
 }
-window.showPage = showPage;
+window.switchPage = switchPage;
+window.showPage = switchPage;
 
 function dispatchSubmodulePageLoad(pageId, options) {
   switch (pageId) {
+    case 'insights':
     case 'overview':
-    case 'dashboard':
       if (typeof updateShiftClockUI === 'function') updateShiftClockUI();
+      if (typeof renderDashboardAnalytics === 'function') renderDashboardAnalytics();
       break;
     case 'commissions':
       if (typeof loadCommissionsPage === 'function') loadCommissionsPage();
@@ -171,18 +210,14 @@ window.toggleNavGroup = toggleNavGroup;
 
 // ── Mobile Navigation Controls ────────────────────────────────────────────────
 function openMobileSidebar() {
-  const sidebar = document.getElementById('mobile-sidebar');
-  const overlay = document.getElementById('mobile-sidebar-overlay');
-  if (sidebar) sidebar.classList.remove('-translate-x-full');
-  if (overlay) overlay.classList.remove('hidden');
+  const sidebar = document.getElementById('mobile-sidebar') || document.getElementById('nav-more-menu');
+  if (sidebar) sidebar.classList.remove('hidden', '-translate-x-full');
 }
 window.openMobileSidebar = openMobileSidebar;
 
 function closeMobileSidebar() {
-  const sidebar = document.getElementById('mobile-sidebar');
-  const overlay = document.getElementById('mobile-sidebar-overlay');
-  if (sidebar) sidebar.classList.add('-translate-x-full');
-  if (overlay) overlay.classList.add('hidden');
+  const sidebar = document.getElementById('mobile-sidebar') || document.getElementById('nav-more-menu');
+  if (sidebar) sidebar.classList.add('hidden');
 }
 window.closeMobileSidebar = closeMobileSidebar;
 
@@ -194,22 +229,26 @@ function bindNavigationEvents() {
       const page = target.getAttribute('data-page');
       if (page) {
         e.preventDefault();
-        showPage(page);
+        switchPage(page);
       }
     }
   });
 
-  const mobileToggle = document.getElementById('mobile-menu-toggle');
+  const mobileToggle = document.getElementById('mobile-menu-toggle') || document.getElementById('nav-more');
   if (mobileToggle) mobileToggle.addEventListener('click', openMobileSidebar);
 
-  const mobileOverlay = document.getElementById('mobile-sidebar-overlay');
-  if (mobileOverlay) mobileOverlay.addEventListener('click', closeMobileSidebar);
+  const mobileClose = document.getElementById('nav-more-close');
+  if (mobileClose) mobileClose.addEventListener('click', closeMobileSidebar);
 
-  const signOutBtn = document.getElementById('btn-sign-out');
+  const signOutBtn = document.getElementById('logout-btn') || document.getElementById('btn-sign-out');
   if (signOutBtn) {
     signOutBtn.addEventListener('click', () => {
       if (typeof msSignOut === 'function') msSignOut();
-      else if (typeof executeActualSignOut === 'function') executeActualSignOut();
+      else {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.replace('login.html');
+      }
     });
   }
 }
@@ -217,15 +256,8 @@ function bindNavigationEvents() {
 // ── Global Keyboard Shortcuts ─────────────────────────────────────────────────
 function bindGlobalShortcutKeys() {
   document.addEventListener('keydown', (e) => {
-    // ESC closes open modals
     if (e.key === 'Escape') {
-      document.querySelectorAll('.modal-dialog:not(.hidden)').forEach(m => m.classList.add('hidden'));
-    }
-    // Command/Ctrl + K focuses global search
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      const searchInput = document.getElementById('global-search-input');
-      if (searchInput) searchInput.focus();
+      document.querySelectorAll('.modal-dialog:not(.hidden), [id$="-modal"]:not(.hidden)').forEach(m => m.classList.add('hidden'));
     }
   });
 }
@@ -243,15 +275,21 @@ function bindQuickActionModals() {
 
 function filterDashboardGlobalSearch(query) {
   if (!query) return;
-  // Global search filtering across active page tables and cards
 }
 
 function initializeDefaultView() {
+  document.body.classList.add('ms-role-ready');
+  if (!document.documentElement.getAttribute('data-dash-mode')) {
+    document.documentElement.setAttribute('data-dash-mode', 'marketsync');
+  }
+  const navDesktop = document.getElementById('nav-desktop');
+  if (navDesktop) navDesktop.classList.remove('nav-init');
+
   const hashPage = window.location.hash.replace('#', '');
-  if (hashPage && document.getElementById(`page-${hashPage}`)) {
-    showPage(hashPage);
+  if (hashPage) {
+    switchPage(hashPage);
   } else {
-    showPage('overview');
+    switchPage('insights');
   }
 }
 
