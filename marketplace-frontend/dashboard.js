@@ -43,12 +43,15 @@ async function initDashboardSession() {
     } catch (e) {
       profileContext = null;
     }
+  if (profileContext) {
+    updateProfileHeaderUI();
+    updateRolePermissionsUI();
   }
 
   try {
     if (typeof apiGetJson === 'function' && storedToken) {
-      const userPromise = apiGetJson('/auth/me', { retries: 1, timeoutMs: 3000 }).catch(() => null);
-      const accessPromise = apiGetJson('/access/context', { retries: 1, timeoutMs: 3000 }).catch(() => null);
+      const userPromise = apiGetJson('/auth/me', { retries: 1, timeoutMs: 2000 }).catch(() => null);
+      const accessPromise = apiGetJson('/access/context', { retries: 1, timeoutMs: 2000 }).catch(() => null);
 
       const [userRes, accessRes] = await Promise.all([userPromise, accessPromise]);
       if (userRes && userRes.user) {

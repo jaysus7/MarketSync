@@ -3,19 +3,9 @@
   try {
     var host = document.getElementById('pages-container') || document.querySelector('main section:nth-child(2) > div');
     if (host) {
-      host.insertAdjacentHTML('beforeend', `<!-- SERVICE — Appointments -->
-
-<div data-page-content="service-appointments" class="page-content hidden space-y-6">
-        <div id="service-appointments-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading service appointments…</div></div>
-      </div>
-
-<!-- SERVICE — Settings -->
-
-<div data-page-content="service-settings" class="page-content hidden space-y-6">
+      host.insertAdjacentHTML('beforeend', `<div data-page-content="service-settings" class="page-content hidden hidden space-y-6">
         <div id="service-settings-root"><div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div></div>
       </div>
-
-<!-- CRM — Tasks -->
 
 <div data-page-content="tasks" class="page-content hidden space-y-6">
         <div>
@@ -25,7 +15,7 @@
         <div id="tasks-root"><div class="py-10 text-center text-sm text-slate-400 italic">Loading tasks…</div></div>
       </div>
 
-<div data-page-content="appraisal" class="page-content hidden space-y-6">
+<div data-page-content="appraisal" class="page-content hidden hidden space-y-6">
         <div class="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h2 class="text-xl font-bold text-slate-900 dark:text-white">Trade Appraisal</h2>
@@ -115,7 +105,124 @@
 
 <div id="appr-result"></div>
 
-<div data-page-content="vin-sticker" class="page-content hidden space-y-6">
+<!-- ── Deal Details: customer + disclosure + salesperson ─────────────── -->
+        <div class="space-y-6">
+          <div class="flex items-center gap-2 pt-2">
+            <span class="w-1.5 h-4 rounded-full bg-indigo-500 flex-shrink-0"></span>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Deal Details</h3>
+            <span class="text-xs text-slate-500 dark:text-slate-400">— fill in, save, and print a Customer Summary or Disclosure</span>
+          </div>
+
+<!-- Salesperson + Notify Appraiser + disposition -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Salesperson</label>
+                <input id="appr-salesperson-input" placeholder="Salesperson name" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                <p class="text-[11px] text-slate-400 mt-1">Prefilled from your login — edit if a different rep handled it.</p>
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Notify Appraiser <span class="normal-case font-normal text-slate-400">(managers alerted on save)</span></label>
+                <div id="appr-notify-list" class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-slate-700 dark:text-slate-200">
+                  <div class="text-xs text-slate-400 italic col-span-full">Loading managers…</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Disposition</label>
+              <div class="flex gap-2 max-w-md">
+                <label class="flex-1 flex items-center justify-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-950/40">
+                  <input type="radio" name="appr-disposition" value="retail" checked class="accent-indigo-600"> Retail
+                </label>
+                <label class="flex-1 flex items-center justify-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-950/40">
+                  <input type="radio" name="appr-disposition" value="wholesale" class="accent-indigo-600"> Wholesale
+                </label>
+              </div>
+            </div>
+          </div>
+
+<!-- Customer Information -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Customer Information</h4>
+              <span id="appr-cust-linked" class="hidden items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-full px-2 py-0.5">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                <span id="appr-cust-linked-name">Linked</span>
+                <button type="button" onclick="apprUnlinkCustomer()" class="ml-1 text-emerald-600/70 hover:text-emerald-600" title="Unlink">✕</button>
+              </span>
+            </div>
+            <!-- Search existing customer or start a new one -->
+            <div class="relative mb-3">
+              <div class="flex gap-2">
+                <input id="appr-cust-search" autocomplete="off" placeholder="Search customers by name, phone, or email…" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+                <button type="button" onclick="apprClearCustomer()" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 rounded-lg whitespace-nowrap">New customer</button>
+              </div>
+              <div id="appr-cust-results" class="hidden absolute z-20 mt-1 w-full max-h-64 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg"></div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">First name</label><input id="cust-first" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+              <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Last name</label><input id="cust-last" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+              <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Home phone</label><input id="cust-home-phone" inputmode="tel" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+              <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Mobile phone</label><input id="cust-mobile-phone" inputmode="tel" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+              <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Email</label><input id="cust-email" inputmode="email" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+              <div><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Postal / ZIP</label><input id="cust-postal" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+              <div class="sm:col-span-2"><label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Address</label><input id="cust-address" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+            </div>
+          </div>
+
+<!-- Disclosure (collapsible) -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden ai-accordion-open">
+            <button type="button" onclick="this.closest('.rounded-xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+              <h4 class="text-sm font-bold text-slate-900 dark:text-white">Trade-In Disclosure</h4>
+              <svg class="ai-chevron w-4 h-4 text-slate-400 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="ai-accordion-body p-5 space-y-5">
+              <!-- Features -->
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Equipment &amp; features</label>
+                <div id="appr-features" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2 text-sm text-slate-700 dark:text-slate-200"></div>
+              </div>
+
+<!-- History Q&A -->
+              <div class="space-y-3 border-t border-slate-100 dark:border-slate-800 pt-4" id="appr-disclosure-qa"></div>
+
+<div>
+                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Additional notes / disclosures</label>
+                <textarea id="disc-notes" rows="2" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></textarea>
+              </div>
+            </div>
+          </div>
+
+</div>
+          </div><!-- /left column -->
+
+<!-- ── Right sidebar: actions + Appraisals list (pinned on this page) ── -->
+          <aside class="space-y-3 lg:sticky lg:top-2 self-start">
+          <!-- Actions -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col gap-2">
+            <button id="appr-save-deal" class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition">Save appraisal</button>
+            <button id="appr-pdf-summary" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm font-bold px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 transition">Customer Summary PDF</button>
+            <button id="appr-pdf-disclosure" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm font-bold px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 transition">Disclosure PDF</button>
+            <div id="appr-deal-msg" class="hidden text-sm rounded-lg px-3 py-2"></div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-4 rounded-full bg-slate-400 flex-shrink-0"></span>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">Appraisals</h3>
+            <span id="appr-list-scope" class="hidden text-[11px] text-slate-400"></span>
+          </div>
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input id="appr-list-search" placeholder="Search customer, vehicle, VIN…" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <select id="appr-list-salesperson" class="hidden w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">All salespeople</option></select>
+              <select id="appr-list-disposition" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">All dispositions</option><option value="retail">Retail</option><option value="wholesale">Wholesale</option></select>
+            </div>
+            <div id="appr-list" class="divide-y divide-slate-100 dark:divide-slate-800 lg:max-h-[60vh] lg:overflow-y-auto"><div class="text-xs text-slate-400 italic py-4">Loading…</div></div>
+          </div>
+          </aside>
+        </div><!-- /appraisal grid -->
+      </div>
+
+<div data-page-content="vin-sticker" class="page-content hidden hidden space-y-6">
 
 <!-- Page header -->
         <div class="flex items-center justify-between gap-4 flex-wrap">
@@ -124,7 +231,66 @@
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Decode any VIN, generate branded window stickers and 2-page vehicle brochures — cached and shareable.</p>
           </div>
           <div id="vin-sticker-status-badge"></div>
-        </div>`);
+        </div>
+
+<!-- ── Upsell — non-subscribers ──────────────────────────────────── -->
+        <div id="vin-sticker-page-upsell" class="hidden">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800">
+              <h3 class="text-base font-bold text-slate-900 dark:text-white">The VIN decoder is part of Inventory Intelligence — $299/month</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Decode VINs, pull factory window stickers, and print branded stickers &amp; brochures (branded/AI versions need AI Boost).</p>
+            </div>
+            <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5">
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>VIN decode via NHTSA — year, make, model, trim, engine</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Open recall lookup — shown on every sticker and brochure</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Branded window sticker PDF — your logo, colours, VIN barcode</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>2-page vehicle brochure — hero photo, specs, features, pricing</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Shareable permanent link — text or email to any customer</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>Branding settings — logo, primary &amp; accent colours, tagline</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>PDFs cached until sold — auto-deleted on vehicle sale</div>
+              <div class="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>One-click apply decoded data back to inventory record</div>
+            </div>
+            <div class="px-6 py-5 border-t border-slate-200 dark:border-slate-800">
+              <button id="vin-sticker-page-upgrade-btn" class="bg-violet-600 hover:bg-violet-500 text-white font-bold px-6 py-3 rounded-lg transition text-sm">Get Inventory Intelligence →</button>
+              <span class="ml-4 text-xs text-slate-400">Included with Inventory Intelligence · $299/month</span>
+            </div>
+          </div>
+        </div>
+
+<!-- ── Active content ─────────────────────────────────────────────── -->
+        <div id="vin-sticker-active-content" class="space-y-5">
+
+<!-- Quick VIN decode tool -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-3">Quick VIN Decode</h3>
+            <div class="flex gap-2">
+              <input type="text" id="vin-page-input" maxlength="17" placeholder="Enter 17-character VIN…" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase">
+              <button id="vin-page-decode-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">Decode</button>
+            </div>
+            <div id="vin-page-loading" class="hidden mt-3 text-sm text-slate-400 italic">Decoding…</div>
+            <div id="vin-page-error" class="hidden mt-3 text-sm text-red-500"></div>
+            <div id="vin-page-results" class="hidden mt-4 space-y-3">
+              <div id="vin-page-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+              <div id="vin-page-recalls" class="hidden"></div>
+            </div>
+          </div>
+
+<!-- Inventory list with PDF actions -->
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Your Inventory</h3>
+              <span class="text-xs text-slate-400">Click Sticker or Brochure to generate a branded PDF</span>
+            </div>
+            <div class="max-h-[60vh] overflow-y-auto scrollbar-none">
+              <div id="vin-sticker-inventory-loading" class="py-10 text-center text-sm text-slate-400 italic">Loading inventory…</div>
+              <div id="vin-sticker-inventory-empty" class="hidden py-10 text-center text-sm text-slate-400">No vehicles found. Add inventory first.</div>
+              <ul id="vin-sticker-inventory-list" class="hidden divide-y divide-slate-100 dark:divide-slate-800"></ul>
+            </div>
+          </div>
+
+</div><!-- /vin-sticker-active-content -->
+
+</div>`);
       if (typeof window.switchPage === 'function' && window.activePageId) {
         try { window.switchPage(window.activePageId); } catch(e) {}
       }

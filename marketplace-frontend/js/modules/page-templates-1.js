@@ -121,23 +121,19 @@
         </div><!-- /#settings-panel-extra -->
       </div>
 
-<div data-page-content="commissions" class="page-content hidden space-y-6">
+<div data-page-content="commissions" class="page-content hidden hidden space-y-6">
         <div id="commissions-root"></div>
       </div>
 
-<!-- Task board — shared operational tasks (detail, fuel, plates, transport, deliver…). -->
-
-<div data-page-content="taskboard" class="page-content hidden space-y-6">
+<div data-page-content="taskboard" class="page-content hidden hidden space-y-6">
         <div id="taskboard-root"></div>
       </div>
-
-<!-- Operations — workflow exceptions dashboard + entity timeline lookup (managers). -->
 
 <div data-page-content="command" class="page-content hidden space-y-6">
         <div id="command-root"></div>
       </div>
 
-<div data-page-content="solo-home" class="page-content hidden space-y-6">
+<div data-page-content="solo-home" class="page-content hidden hidden space-y-6">
         <div id="solo-home-root"></div>
       </div>
 
@@ -145,7 +141,7 @@
         <div id="ai-home-root"></div>
       </div>
 
-<div data-page-content="operations" class="page-content hidden space-y-6">
+<div data-page-content="operations" class="page-content hidden hidden space-y-6">
         <div id="operations-root"></div>
       </div>
 
@@ -153,37 +149,96 @@
         <div id="delivery-root"></div>
       </div>
 
-<div data-page-content="service-ros" class="page-content hidden space-y-6">
+<div data-page-content="service-ros" class="page-content hidden hidden space-y-6">
         <div id="service-ros-root"></div>
       </div>
 
-<div data-page-content="service-parts" class="page-content hidden space-y-6">
+<div data-page-content="service-parts" class="page-content hidden hidden space-y-6">
         <div id="service-parts-root"></div>
       </div>
 
-<div data-page-content="saas-command" class="page-content hidden space-y-6">
+<div data-page-content="saas-command" class="page-content hidden hidden space-y-6">
         <div id="saas-command-root"></div>
       </div>
 
-<div data-page-content="saas-customers" class="page-content hidden space-y-6">
+<div data-page-content="saas-customers" class="page-content hidden hidden space-y-6">
         <div id="saas-customers-root"></div>
       </div>
 
-<div data-page-content="saas-followups" class="page-content hidden space-y-6">
+<div data-page-content="saas-followups" class="page-content hidden hidden space-y-6">
         <div id="saas-followups-root"></div>
       </div>
 
-<div data-page-content="saas-funnel" class="page-content hidden space-y-6">
+<div data-page-content="saas-funnel" class="page-content hidden hidden space-y-6">
         <div id="saas-funnel-root"></div>
       </div>
 
-<div data-page-content="saas-automation" class="page-content hidden space-y-6">
+<div data-page-content="saas-automation" class="page-content hidden hidden space-y-6">
         <div id="saas-automation-root"></div>
       </div>
 
-<div data-page-content="email-marketing" class="page-content hidden space-y-6">
+<div data-page-content="email-marketing" class="page-content hidden hidden space-y-6">
         <div id="dealer-email-root"></div>
-      </div>`);
+      </div>
+
+<div data-page-content="saas-employees" class="page-content hidden hidden space-y-6">
+        <div id="saas-employees-root"></div>
+      </div>
+
+<div data-page-content="saas-accounting" class="page-content hidden hidden space-y-6">
+        <div id="saas-accounting-root"></div>
+      </div>
+
+<div data-page-content="owner-users" class="page-content hidden hidden space-y-6">
+        <div id="owner-users-root"></div>
+      </div>
+
+<div data-page-content="people-compliance" class="page-content hidden hidden space-y-6">
+        <div id="people-compliance-root"></div>
+      </div>
+
+<div data-page-content="config" class="page-content hidden space-y-6">
+        <div id="config-root"></div>
+      </div>
+
+<div data-page-content="api-keys" class="page-content hidden space-y-6">
+        <div id="api-keys-root"></div>
+      </div>
+
+<div data-page-content="ai-inbox" class="page-content hidden space-y-6">
+        <div id="ai-inbox-root"></div>
+      </div>
+
+<div data-page-content="accounting" class="page-content hidden hidden space-y-6">
+        <div id="accounting-root"></div>
+      </div>
+
+<div data-page-content="affiliates-admin" class="page-content hidden hidden space-y-6">
+        <div id="affadmin-root"></div>
+      </div>
+
+<div data-page-content="reports" class="page-content hidden space-y-6">
+        <div>
+          <h1 class="text-2xl font-black text-slate-900 dark:text-white">Reports</h1>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Every number in the store — pick a report, or build your own.</p>
+        </div>
+
+<!-- Report category picker — rendered by renderReportTabs() -->
+        <div id="reports-tabs" class="flex flex-wrap gap-1.5"></div>
+
+<!-- Overview: the original always-on report sections -->
+        <div id="reports-overview" class="space-y-10">
+          <!-- Custom report builder — pick who/what with dropdowns -->
+          <div id="report-builder"></div>
+          <!-- Executive ROI dashboard (managers) — injected by loadExecutiveRoi() -->
+          <div id="exec-roi"></div>
+          <!-- Inventory mix & aging report (managers) — injected by loadInventoryMix() -->
+          <div id="inv-mix"></div>
+          <!-- Sales analysis report (managers) — injected by loadSalesAnalysis() -->
+          <div id="sales-analysis"></div>
+          <!-- Marketing ROI report (managers) — injected by loadMarketingRoi() -->
+          <div id="marketing-roi"></div>
+        </div>`);
       if (typeof window.switchPage === 'function' && window.activePageId) {
         try { window.switchPage(window.activePageId); } catch(e) {}
       }
