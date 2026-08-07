@@ -888,6 +888,15 @@
           .then(function (res) { return res.text(); })
           .then(function (html) { document.body.insertAdjacentHTML('beforeend', html); })
           .catch(function (err) { console.error('Failed to load dashboard-modals component:', err); });
+
+        fetch('components/report-rail.html?v=20260806_v5')
+          .then(function (res) { return res.text(); })
+          .then(function (html) { 
+            document.body.insertAdjacentHTML('beforeend', html);
+            var rr = document.getElementById('report-rail');
+            if (rr) rr.classList.remove('hidden');
+          })
+          .catch(function (err) { console.error('Failed to load report-rail component:', err); });
       </script>
 
   <!-- MarketSync Modular Sub-Files -->

@@ -98,6 +98,13 @@ function updateRolePermissionsUI() {
     renderDeptNav(role);
   }
 
+  const rr = document.getElementById('report-rail');
+  if (rr) rr.classList.remove('hidden');
+
+  if (typeof renderSetupBar === 'function') {
+    try { renderSetupBar(); } catch(e) {}
+  }
+
   if (typeof updateShiftClockUI === 'function') {
     updateShiftClockUI();
   }
