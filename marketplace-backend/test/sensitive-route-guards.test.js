@@ -1,13 +1,15 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { backendRouteSource } from './helpers/split-source.js'
 
+// routes/dashboard.js, routes/ai.js and routes/auth.js were split into
+// routes/submodules/<name>-*.js; read the whole unit so guard assertions see the
+// endpoints wherever they now live.
+const SPLIT = new Set(['routes/dashboard.js', 'routes/ai.js', 'routes/auth.js'])
 const source = (path) => {
-  let content = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
-  if (path === 'routes/ai.js') {
-    try { content += '\n' + readFileSync(new URL('../routes/submodules/ai-appraisal.js', import.meta.url), 'utf8') } catch (e) {}
-  }
-  return content
+  if (SPLIT.has(path)) return backendRouteSource(path.replace(/^routes\//, '').replace(/\.js$/, ''))
+  return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 }
 
 test('sensitive financial and customer-data routes require MFA plus a permission', () => {

@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { hasAal2 } from '../mfa-assurance.js'
+import { backendRouteSource } from './helpers/split-source.js'
 
 test('MFA assurance lookup forwards the caller JWT in server-side requests', async () => {
   let receivedToken = null
@@ -50,7 +51,7 @@ test('MFA assurance does not fail open when Supabase cannot verify the level', a
 })
 
 test('auth flow supports native phone enrollment and login challenges', async () => {
-  const authSource = await readFile(new URL('../routes/auth.js', import.meta.url), 'utf8')
+  const authSource = backendRouteSource('auth')
   for (const route of ['/auth/2fa/phone/enroll', '/auth/2fa/phone/verify-enroll', '/auth/2fa/send-code']) {
     assert.ok(authSource.includes(route), `missing ${route}`)
   }
