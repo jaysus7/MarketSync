@@ -1,321 +1,329 @@
-import { requireAuth } from '../middleware.js';
-import { supabaseAdmin } from '../shared.js';
+/**
+ * People / HR engine — real data, gated end to end.
+ *
+ * This module was previously a shell over non-existent `hr_*` tables that returned
+ * fabricated employees, leave and payroll (e.g. `sin_ssn_last4 || '1234'`, hard-coded
+ * $32,450 payroll batches). It now reads and writes the real `staff_*` schema and the
+ * `staff_payroll_*` tables introduced in 2026-08-07-people-engine.sql.
+ *
+ * Authorization is layered:
+ *   1. server.js mounts `app.use('/hr', requireAuth, requireFeature('os.people'))`, so
+ *      the whole surface is gated on the People/HR product feature (Growth+ plans).
+ *   2. Every route re-declares requireAuth and adds requirePermission (RBAC) — and
+ *      requireMfa for compensation and payroll (financial + PII).
+ *   3. All dealer-facing reads/writes go through `req.supabase` (the caller's JWT), so
+ *      RLS re-checks tenant + permission on every row. `.eq('dealership_id', …)` filters
+ *      are defence-in-depth, not the only guard.
+ */
+import { requireAuth, requireMfa } from '../middleware.js'
+import { requirePermission } from '../authorization.js'
+import { audit } from '../audit.js'
+import { toCsv } from '../payroll-export.js'
+
+// Resolve the caller's own staff_members row id (for self-service actions). Uses the
+// RLS-scoped client: `staff_members` SELECT is allowed for any dealership member, so a
+// caller can always find their own row, and never another tenant's.
+async function selfStaffMemberId(req) {
+  const { data } = await req.supabase
+    .from('staff_members')
+    .select('id')
+    .eq('dealership_id', req.dealershipId)
+    .eq('user_id', req.user.id)
+    .maybeSingle()
+  return data?.id || null
+}
 
 export function registerHR(app) {
-  // ── Employees Roster & Profile ──
-  app.get('/hr/employees', requireAuth, async (req, res) => {
+  // ── Employee directory ────────────────────────────────────────────────────
+  app.get('/hr/employees', requireAuth, requirePermission('staff.view'), async (req, res) => {
     try {
-      const dealershipId = req.user?.dealership_id;
-      if (!dealershipId) return res.status(400).json({ error: 'Dealership ID missing' });
-
-      const { data, error } = await supabaseAdmin
-        .from('hr_employees')
+      const { data, error } = await req.supabase
+        .from('staff_directory_v')
         .select('*')
-        .eq('dealership_id', dealershipId)
-        .order('full_name');
-
-      res.json({ employees: data && data.length ? data : getDemoHREmployees(dealershipId) });
+        .eq('dealership_id', req.dealershipId)
+        .order('name')
+      if (error) throw error
+      res.json({ employees: data || [] })
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: e.message })
     }
-  });
+  })
 
-  app.post('/hr/employees', requireAuth, async (req, res) => {
+  app.get('/hr/employees/:id', requireAuth, requirePermission('staff.view'), async (req, res) => {
     try {
-      const dealershipId = req.user?.dealership_id;
-      const { full_name, email, role, department, hourly_rate, salary, emergency_contact, sin_ssn_last4 } = req.body;
-      if (!full_name || !email) return res.status(400).json({ error: 'Name and email required' });
+      const { data, error } = await req.supabase
+        .from('staff_profile_overview_v')
+        .select('*')
+        .eq('dealership_id', req.dealershipId)
+        .eq('id', req.params.id)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return res.status(404).json({ error: 'Employee not found' })
+      res.json({ employee: data })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
 
+  // Compensation is sensitive PII — MFA + a dedicated permission on top of the feature gate.
+  app.get('/hr/employees/:id/employment', requireAuth, requireMfa, requirePermission('staff.compensation.view'), async (req, res) => {
+    try {
+      const { data, error } = await req.supabase
+        .from('staff_employment_details')
+        .select('*')
+        .eq('dealership_id', req.dealershipId)
+        .eq('staff_member_id', req.params.id)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return res.status(404).json({ error: 'Employment record not found' })
+      res.json({ employment: data })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
+
+  // ── Leave / time-off ──────────────────────────────────────────────────────
+  // Gate on staff.leave.self (granted to every non-platform role). RLS scopes the
+  // rows: employees see their own requests, managers (staff.manage) see the store's.
+  app.get('/hr/leave-requests', requireAuth, requirePermission('staff.leave.self'), async (req, res) => {
+    try {
+      const { data, error } = await req.supabase
+        .from('staff_leave_requests')
+        .select('*')
+        .eq('dealership_id', req.dealershipId)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      res.json({ requests: data || [] })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
+
+  app.post('/hr/leave-requests', requireAuth, requirePermission('staff.leave.self'), async (req, res) => {
+    try {
+      const staffMemberId = await selfStaffMemberId(req)
+      if (!staffMemberId) return res.status(400).json({ error: 'No staff profile linked to your account' })
+      const { leave_type, start_date, end_date, starts_on, ends_on, hours, requested_hours, notes, employee_note } = req.body || {}
       const payload = {
-        dealership_id: dealershipId,
-        full_name,
-        email,
-        role: role || 'salesperson',
-        department: department || 'Sales',
-        hourly_rate: hourly_rate || 22.50,
-        salary: salary || 0.00,
-        emergency_contact: emergency_contact || '',
-        sin_ssn_last4: sin_ssn_last4 || '1234',
-        status: 'active'
-      };
-
-      const { data, error } = await supabaseAdmin
-        .from('hr_employees')
-        .insert([payload])
-        .select()
-        .single();
-
-      res.json({ employee: data || { id: 'emp_' + Date.now(), ...payload } });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // ── Timeclock & Time Entries ──
-  app.get('/hr/timeclock', requireAuth, async (req, res) => {
-    try {
-      const dealershipId = req.user?.dealership_id;
-
-      const { data, error } = await supabaseAdmin
-        .from('hr_time_entries')
-        .select('*')
-        .eq('dealership_id', dealershipId)
-        .order('clock_in', { ascending: false })
-        .limit(50);
-
-      res.json({ time_entries: data || [] });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  app.post('/hr/timeclock/in', requireAuth, async (req, res) => {
-    try {
-      const dealershipId = req.user?.dealership_id;
-      const employeeId = req.body.employee_id || req.user?.id;
-      const payload = {
-        dealership_id: dealershipId,
-        employee_id: employeeId,
-        clock_in: new Date().toISOString(),
-        status: 'active',
-        notes: req.body.notes || 'Shift Started'
-      };
-
-      const { data, error } = await supabaseAdmin
-        .from('hr_time_entries')
-        .insert([payload])
-        .select()
-        .single();
-
-      res.json({ entry: data || { id: 'time_' + Date.now(), ...payload } });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  app.post('/hr/timeclock/out', requireAuth, async (req, res) => {
-    try {
-      const { entry_id, break_minutes, notes } = req.body;
-
-      const { data, error } = await supabaseAdmin
-        .from('hr_time_entries')
-        .update({
-          clock_out: new Date().toISOString(),
-          break_minutes: break_minutes || 30,
-          status: 'completed',
-          notes: notes || 'Shift Completed'
-        })
-        .eq('id', entry_id)
-        .select()
-        .single();
-
-      res.json({ entry: data || { id: entry_id, clock_out: new Date().toISOString(), status: 'completed' } });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // ── Training Completions & Certificates ──
-  app.get('/hr/training/completions', requireAuth, async (req, res) => {
-    try {
-      const dealershipId = req.user?.dealership_id;
-      const { data, error } = await supabaseAdmin
-        .from('hr_training_completions')
-        .select('*')
-        .eq('dealership_id', dealershipId)
-        .order('completed_at', { ascending: false });
-
-      res.json({ completions: data || [] });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  app.post('/hr/training/complete', requireAuth, async (req, res) => {
-    try {
-      const dealershipId = req.user?.dealership_id;
-      const { course_id, course_title, score, employee_id } = req.body;
-      const certId = 'CERT-' + (course_id || 'SAFE').toUpperCase().slice(0, 4) + '-' + Math.floor(100000 + Math.random() * 900000);
-
-      const completionPayload = {
-        dealership_id: dealershipId,
-        employee_id: employee_id || req.user?.id,
-        course_id: course_id || 'whmis_2015',
-        course_title: course_title || 'WHMIS 2015 Compliance',
-        score: score || 100,
-        completed_at: new Date().toISOString(),
-        certificate_id: certId
-      };
-
-      const certPayload = {
-        dealership_id: dealershipId,
-        employee_id: employee_id || req.user?.id,
-        certificate_id: certId,
-        course_id: course_id || 'whmis_2015',
-        course_title: course_title || 'WHMIS 2015 Compliance',
-        issued_at: new Date().toISOString(),
-        pdf_url: `/api/hr/certificates/${certId}/pdf`
-      };
-
-      await supabaseAdmin.from('hr_training_completions').insert([completionPayload]);
-      await supabaseAdmin.from('hr_certificates').insert([certPayload]);
-
-      res.json({ completion: completionPayload, certificate: certPayload });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // ── Policy Signatures (Bill 168 & Safety) ──
-  app.get('/hr/policies/signatures', requireAuth, async (req, res) => {
-    try {
-      const dealershipId = req.user?.dealership_id;
-      const { data, error } = await supabaseAdmin
-        .from('hr_policy_signatures')
-        .select('*')
-        .eq('dealership_id', dealershipId);
-
-      res.json({ signatures: data || [] });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  app.post('/hr/policies/sign', requireAuth, async (req, res) => {
-    try {
-      const dealershipId = req.user?.dealership_id;
-      const { policy_id, policy_title } = req.body;
-      const payload = {
-        dealership_id: dealershipId,
-        employee_id: req.user?.id,
-        policy_id: policy_id || 'bill_168',
-        policy_title: policy_title || 'Bill 168 Workplace Violence Policy',
-        signed_at: new Date().toISOString(),
-        ip_address: req.ip || '127.0.0.1',
-        document_hash: 'SHA256-' + Math.random().toString(36).substring(2, 12)
-      };
-
-      const { data } = await supabaseAdmin
-        .from('hr_policy_signatures')
-        .insert([payload])
-        .select()
-        .single();
-
-      res.json({ signature: data || payload });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // ── Leave & Vacation Requests ──
-  app.get('/hr/leave-requests', requireAuth, async (req, res) => {
-    try {
-      const dealershipId = req.user?.dealership_id;
-      const { data } = await supabaseAdmin
-        .from('hr_leave_requests')
-        .select('*')
-        .eq('dealership_id', dealershipId)
-        .order('created_at', { ascending: false });
-
-      res.json({ requests: data && data.length ? data : getDemoLeaveRequests(dealershipId) });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  app.post('/hr/leave-requests', requireAuth, async (req, res) => {
-    try {
-      const dealershipId = req.user?.dealership_id;
-      const { leave_type, start_date, end_date, hours, notes } = req.body;
-      const payload = {
-        dealership_id: dealershipId,
-        employee_id: req.user?.id,
+        dealership_id: req.dealershipId,
+        staff_member_id: staffMemberId,
         leave_type: leave_type || 'vacation',
-        start_date,
-        end_date,
-        hours: hours || 16.0,
+        starts_on: starts_on || start_date || null,
+        ends_on: ends_on || end_date || null,
+        requested_hours: requested_hours ?? hours ?? null,
+        employee_note: employee_note || notes || null,
         status: 'pending',
-        notes: notes || ''
-      };
-
-      const { data } = await supabaseAdmin
-        .from('hr_leave_requests')
+      }
+      if (!payload.starts_on || !payload.ends_on) return res.status(400).json({ error: 'starts_on and ends_on are required' })
+      const { data, error } = await req.supabase
+        .from('staff_leave_requests')
         .insert([payload])
         .select()
-        .single();
-
-      res.json({ request: data || { id: 'req_' + Date.now(), ...payload } });
+        .single()
+      if (error) throw error
+      res.json({ request: data })
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: e.message })
     }
-  });
+  })
 
-  // ── Real Accounting Payroll Batches & Ledger Integration ──
-  app.get('/hr/payroll/batches', requireAuth, async (req, res) => {
+  // Approving / denying is a manager action → MFA + staff.manage.
+  app.post('/hr/leave-requests/:id/decision', requireAuth, requireMfa, requirePermission('staff.manage'), async (req, res) => {
     try {
-      const dealershipId = req.user?.dealership_id;
-      const { data } = await supabaseAdmin
-        .from('hr_payroll_batches')
-        .select('*, items:hr_payroll_items(*)')
-        .eq('dealership_id', dealershipId)
-        .order('created_at', { ascending: false });
-
-      res.json({ batches: data && data.length ? data : getDemoPayrollBatches(dealershipId) });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  app.post('/hr/payroll/batches/generate', requireAuth, async (req, res) => {
-    try {
-      const dealershipId = req.user?.dealership_id;
-      const { period_start, period_end } = req.body;
-      const batchNum = 'PAY-' + new Date().toISOString().slice(0, 7) + '-' + Math.floor(100 + Math.random() * 900);
-
-      const batchPayload = {
-        dealership_id: dealershipId,
-        batch_number: batchNum,
-        period_start: period_start || new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10),
-        period_end: period_end || new Date().toISOString().slice(0, 10),
-        staff_count: 8,
-        gross_wages: 32450.00,
-        commissions: 14850.00,
-        tax_withheld: 9820.00,
-        net_payroll: 37480.00,
-        status: 'Paid & Disbursed'
-      };
-
-      const { data: batch } = await supabaseAdmin
-        .from('hr_payroll_batches')
-        .insert([batchPayload])
+      const { decision, review_note } = req.body || {}
+      if (!['approved', 'denied'].includes(decision)) return res.status(400).json({ error: "decision must be 'approved' or 'denied'" })
+      const { data, error } = await req.supabase
+        .from('staff_leave_requests')
+        .update({
+          status: decision,
+          review_note: review_note || null,
+          reviewed_by: await selfStaffMemberId(req),
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('dealership_id', req.dealershipId)
+        .eq('id', req.params.id)
         .select()
-        .single();
-
-      res.json({ batch: batch || { id: 'batch_' + Date.now(), ...batchPayload } });
+        .single()
+      if (error) throw error
+      if (!data) return res.status(404).json({ error: 'Leave request not found' })
+      await audit(req, 'staff.leave_request_reviewed', { leave_request_id: data.id, decision })
+      res.json({ request: data })
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: e.message })
     }
-  });
-}
+  })
 
-function getDemoHREmployees(dealershipId) {
-  return [
-    { id: 'emp-1', dealership_id: dealershipId, full_name: 'Jason Massie', role: 'General Sales Manager', department: 'Sales', hourly_rate: 45.00, salary: 95000, status: 'active' },
-    { id: 'emp-2', dealership_id: dealershipId, full_name: 'Sarah Connor', role: 'Senior Sales Consultant', department: 'Sales', hourly_rate: 28.50, salary: 0, status: 'active' },
-    { id: 'emp-3', dealership_id: dealershipId, full_name: 'Marcus Wright', role: 'F&I Business Manager', department: 'Finance', hourly_rate: 35.00, salary: 75000, status: 'active' },
-    { id: 'emp-4', dealership_id: dealershipId, full_name: 'Kyle Reese', role: 'Lead Technician', department: 'Service', hourly_rate: 42.00, salary: 0, status: 'active' }
-  ];
-}
+  // ── Training ──────────────────────────────────────────────────────────────
+  app.get('/hr/training/assignments', requireAuth, requirePermission('staff.training.view'), async (req, res) => {
+    try {
+      const { data, error } = await req.supabase
+        .from('staff_training_assignments')
+        .select('*, course:staff_training_courses(id, title, category, passing_score)')
+        .eq('dealership_id', req.dealershipId)
+        .order('due_at', { ascending: true })
+      if (error) throw error
+      res.json({ assignments: data || [] })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
 
-function getDemoLeaveRequests(dealershipId) {
-  return [
-    { id: 'req-1', dealership_id: dealershipId, employee_id: 'emp-2', leave_type: 'vacation', start_date: '2026-08-15', end_date: '2026-08-22', hours: 40, status: 'approved', approved_by: 'Jason Massie' }
-  ];
-}
+  // Employees complete their OWN assigned training (RLS enforces is_staff_self).
+  app.post('/hr/training/complete', requireAuth, requirePermission('staff.training.self'), async (req, res) => {
+    try {
+      const staffMemberId = await selfStaffMemberId(req)
+      if (!staffMemberId) return res.status(400).json({ error: 'No staff profile linked to your account' })
+      const { assignment_id, course_id, score } = req.body || {}
+      let query = req.supabase
+        .from('staff_training_assignments')
+        .update({
+          status: 'completed',
+          progress_percent: 100,
+          score: score ?? null,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('dealership_id', req.dealershipId)
+        .eq('staff_member_id', staffMemberId)
+      if (assignment_id) query = query.eq('id', assignment_id)
+      else if (course_id) query = query.eq('course_id', course_id)
+      else return res.status(400).json({ error: 'assignment_id or course_id is required' })
 
-function getDemoPayrollBatches(dealershipId) {
-  return [
-    { id: 'batch-2026-08-A', dealership_id: dealershipId, batch_number: 'PAY-2026-08-A', period_start: '2026-07-16', period_end: '2026-07-31', staff_count: 8, gross_wages: 34500, commissions: 16200, tax_withheld: 10400, net_payroll: 40300, status: 'Paid & Disbursed', created_at: new Date().toISOString() },
-    { id: 'batch-2026-07-B', dealership_id: dealershipId, batch_number: 'PAY-2026-07-B', period_start: '2026-07-01', period_end: '2026-07-15', staff_count: 8, gross_wages: 32800, commissions: 14900, tax_withheld: 9800, net_payroll: 37900, status: 'Paid & Disbursed', created_at: new Date(Date.now() - 15 * 86400000).toISOString() }
-  ];
+      const { data, error } = await query.select().maybeSingle()
+      if (error) throw error
+      if (!data) return res.status(404).json({ error: 'No matching training assignment for you' })
+      res.json({ assignment: data })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
+
+  // ── Compliance dashboard ──────────────────────────────────────────────────
+  app.get('/hr/compliance', requireAuth, requirePermission('staff.compliance.view'), async (req, res) => {
+    try {
+      const { data, error } = await req.supabase
+        .from('staff_compliance_dashboard_v')
+        .select('*')
+        .eq('dealership_id', req.dealershipId)
+        .order('name')
+      if (error) throw error
+      res.json({ rows: data || [] })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
+
+  // ── HR documents ──────────────────────────────────────────────────────────
+  // Gate on staff.documents.self; RLS returns the caller's own visible documents,
+  // or the whole store's to compliance/user managers.
+  app.get('/hr/documents', requireAuth, requirePermission('staff.documents.self'), async (req, res) => {
+    try {
+      const { data, error } = await req.supabase
+        .from('staff_documents')
+        .select('id, staff_member_id, document_type, title, status, expires_on, employee_visible, created_at')
+        .eq('dealership_id', req.dealershipId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      res.json({ documents: data || [] })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
+
+  // ── Payroll (financial + PII → MFA on every route) ────────────────────────
+  app.get('/hr/payroll/batches', requireAuth, requireMfa, requirePermission('staff.payroll.view'), async (req, res) => {
+    try {
+      const { data, error } = await req.supabase
+        .from('staff_payroll_batches')
+        .select('*, items:staff_payroll_items(gross_amount, deductions, net_amount, detail)')
+        .eq('dealership_id', req.dealershipId)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      // Aggregate real item totals up onto each batch (no fabricated figures).
+      const batches = (data || []).map(b => {
+        const items = b.items || []
+        const num = v => Number(v) || 0
+        const gross = items.reduce((s, i) => s + num(i.gross_amount), 0)
+        const deductions = items.reduce((s, i) => s + num(i.deductions), 0)
+        const net = items.reduce((s, i) => s + num(i.net_amount), 0)
+        const commissions = items.reduce((s, i) => s + num(i.detail?.commission), 0)
+        const { items: _drop, ...batch } = b
+        return {
+          ...batch,
+          batch_number: 'PAY-' + (b.period_start || b.id),
+          staff_count: items.length,
+          gross_wages: gross,
+          commissions,
+          tax_withheld: deductions,
+          net_payroll: net,
+        }
+      })
+      res.json({ batches })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
+
+  // Create a real draft batch for a pay period. No auto-computed money — items are
+  // added deliberately; totals are always derived from real items on read.
+  const createBatch = async (req, res) => {
+    try {
+      const { period_start, period_end, notes } = req.body || {}
+      if (!period_start || !period_end) return res.status(400).json({ error: 'period_start and period_end are required' })
+      const { data, error } = await req.supabase
+        .from('staff_payroll_batches')
+        .insert([{
+          dealership_id: req.dealershipId,
+          period_start,
+          period_end,
+          notes: notes || null,
+          status: 'draft',
+          created_by: req.user.id,
+          updated_by: req.user.id,
+        }])
+        .select()
+        .single()
+      if (error) throw error
+      await audit(req, 'staff.payroll_batch_created', { batch_id: data.id, period_start, period_end })
+      res.json({ batch: { ...data, batch_number: 'PAY-' + data.period_start, staff_count: 0, gross_wages: 0, commissions: 0, tax_withheld: 0, net_payroll: 0 } })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  }
+  app.post('/hr/payroll/batches', requireAuth, requireMfa, requirePermission('staff.payroll.manage'), createBatch)
+  // Frontend-compatible alias (was the fabricated "generate" endpoint).
+  app.post('/hr/payroll/batches/generate', requireAuth, requireMfa, requirePermission('staff.payroll.manage'), createBatch)
+
+  app.get('/hr/payroll/batches/:id/export', requireAuth, requireMfa, requirePermission('staff.payroll.export'), async (req, res) => {
+    try {
+      const { data, error } = await req.supabase
+        .from('staff_payroll_items')
+        .select('staff_member_id, gross_amount, deductions, net_amount, currency, staff:staff_members(name, employee_number)')
+        .eq('dealership_id', req.dealershipId)
+        .eq('batch_id', req.params.id)
+      if (error) throw error
+      const columns = [
+        { key: 'employee', header: 'Employee' },
+        { key: 'employee_number', header: 'Employee #' },
+        { key: 'gross_amount', header: 'Gross' },
+        { key: 'deductions', header: 'Deductions' },
+        { key: 'net_amount', header: 'Net' },
+        { key: 'currency', header: 'Currency' },
+      ]
+      const rows = (data || []).map(i => ({
+        employee: i.staff?.name || '',
+        employee_number: i.staff?.employee_number || '',
+        gross_amount: i.gross_amount,
+        deductions: i.deductions,
+        net_amount: i.net_amount,
+        currency: i.currency,
+      }))
+      await audit(req, 'staff.payroll_exported', { batch_id: req.params.id, rows: rows.length })
+      res.setHeader('Content-Type', 'text/csv')
+      res.setHeader('Content-Disposition', `attachment; filename="payroll-${req.params.id}.csv"`)
+      res.send(toCsv(columns, rows))
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
 }

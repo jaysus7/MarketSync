@@ -9,16 +9,15 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind = { config: { darkMode: 'media' } }</script>
+    <!-- Automatic OS dark/light before first paint (no flash) -->
+    <script>(function(){try{if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark');}catch(e){}})();</script>
+    <script src="/assets/auth.js" defer></script>
+    <script src="/assets/public-shell.js" defer></script>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 antialiased">
-  <nav class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-      <a href="index.html" class="font-black text-lg text-slate-900 dark:text-white">Market<span class="text-indigo-600">Sync</span></a>
-      <a href="affiliate.html" class="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Affiliate login →</a>
-    </div>
-  </nav>
+  <div id="ms-public-header"></div>
 
-  <header class="max-w-4xl mx-auto px-6 pt-16 pb-8 text-center">
+<header class="max-w-4xl mx-auto px-6 pt-16 pb-8 text-center">
     <div class="inline-block text-xs font-black uppercase tracking-widest text-indigo-500 mb-3">Affiliate Program</div>
     <h1 class="text-4xl md:text-5xl font-black text-slate-900 dark:text-white leading-tight">Refer dealerships. Earn recurring income.</h1>
     <p class="text-lg text-slate-600 dark:text-slate-400 mt-4 max-w-2xl mx-auto">Send dealers to MarketSync with your link and earn a share of every subscription they pay — month after month. No caps, real-time tracking, paid out on your schedule.</p>
@@ -78,9 +77,9 @@
     </div>
   </section>
 
-  <footer class="border-t border-slate-200 dark:border-slate-800 py-8 text-center text-xs text-slate-400">&copy; 2026 MarketSync</footer>
+  <div id="ms-public-footer"></div>
 
-  <script>
+<script>
     const API = 'https://vehicle-marketplace-s0e4.onrender.com';
     // Show the live commission structure.
     fetch(`${API}/affiliate/public-config`).then(r => r.json()).then(c => {

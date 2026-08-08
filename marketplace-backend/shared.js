@@ -75,11 +75,28 @@ if (!process.env.SUPABASE_URL) missingEnvVars.push('SUPABASE_URL');
 if (!process.env.SUPABASE_ANON_KEY) missingEnvVars.push('SUPABASE_ANON_KEY');
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missingEnvVars.push('SUPABASE_SERVICE_ROLE_KEY');
 
+// Under `NODE_ENV=test` the process must be IMPORTABLE without live credentials: the
+// test runner exercises pure helpers in modules that transitively import this file, and
+// CI has no Supabase project. We substitute inert placeholders so the Supabase/Stripe
+// clients construct (they never connect during unit tests). In every real environment a
+// missing key is still fatal exactly as before.
+const IS_TEST = process.env.NODE_ENV === 'test';
 if (missingEnvVars.length > 0) {
-  console.error('❌ CRITICAL CONFIGURATION ERROR: Missing Render Environment Keys:');
-  console.error(JSON.stringify(missingEnvVars, null, 2));
-  process.exit(1);
+  if (IS_TEST) {
+    console.warn('[shared] Missing Supabase env under NODE_ENV=test — using inert placeholders:', missingEnvVars.join(', '));
+  } else {
+    console.error('❌ CRITICAL CONFIGURATION ERROR: Missing Render Environment Keys:');
+    console.error(JSON.stringify(missingEnvVars, null, 2));
+    process.exit(1);
+  }
 }
+
+// Placeholders apply ONLY when the real value is absent (test/CI). Production always sets
+// these, so the `||` fallbacks never trigger there and behavior is byte-for-byte identical.
+const SB_URL = process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
+const SB_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'placeholder-anon-key';
+const SB_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role-key';
+const STRIPE_KEY = process.env.STRIPE_SECRET_KEY || (IS_TEST ? 'sk_test_placeholder' : process.env.STRIPE_SECRET_KEY);
 
 // Realistic browser headers. Many dealer sites (Performance Auto Group, etc.) sit
 // behind Cloudflare / WAF rules that 403 any request whose User-Agent isn't a real
@@ -117,10 +134,10 @@ export function browserFetch(url, init = {}) {
 }
 
 export const sleep = ms => new Promise(r => setTimeout(r, ms))
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+export const stripe = new Stripe(STRIPE_KEY)
 
-export const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, { realtime: { transport: ws } })
-export const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { realtime: { transport: ws } })
+export const supabase = createClient(SB_URL, SB_ANON_KEY, { realtime: { transport: ws } })
+export const supabaseAdmin = createClient(SB_URL, SB_SERVICE_KEY, { realtime: { transport: ws } })
 
 // ── MarketSync staff — the saas_admin / HQ workspace ──
 // HQ is MarketSync's own back office, NOT a dealership. Staff are identified by a

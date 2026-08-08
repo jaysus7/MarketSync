@@ -117,6 +117,7 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }))
 app.use('/accounting', requireAuth, requireFeature('os.accounting'))
 app.use('/service', requireAuth, requireFeature('os.service'))
 app.use('/service-engine', requireAuth, requireFeature('os.service'))
+app.use('/hr', requireAuth, requireFeature('os.people'))
 
 // Route modules
 registerAuth(app)

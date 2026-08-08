@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { FEATURES_BY_PRODUCT } from '../plan-catalog.js'
+import { frontendDashboardSource } from './helpers/split-source.js'
 
 const catalogUrls = [
   new URL('../../marketplace-frontend/training/catalog.json', import.meta.url),
@@ -58,10 +59,8 @@ test('every paid feature has at least one training lesson', () => {
 })
 
 test('academy renders an HTML/CSS visual walkthrough for every lesson', async () => {
-  const [html, js] = await Promise.all([
-    readFile(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'),
-    readFile(new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8'),
-  ])
+  const html = await readFile(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8')
+  const js = frontendDashboardSource() // dashboard.js was split into js/modules/dashboard-part*.js
   assert.ok(Object.keys(visuals).length > 0, 'visual catalog must not be empty')
   assert.ok(html.includes('people-compliance'), 'dashboard HTML must support training player')
   assert.ok(js.includes('DEALERSHIP_TRAINING_COURSES') || js.includes('openTrainingCourseModal'), 'dashboard JS must support training module')
