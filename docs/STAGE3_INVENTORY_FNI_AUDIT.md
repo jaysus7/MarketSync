@@ -1,0 +1,165 @@
+# Stage 3 audit — Inventory & F&I (before code)
+
+Audit of `staging` per the Stage 3 brief Step 1 and Doc 22 §3. Classification:
+**KEEP · MOVE · COMPOSE · GAP · HANDOFF GAPS**.
+
+> **Relationship to PR #69.** A partial Stage 3 is already implemented and green
+> (`js/modules/inventory-workspace.js`, `js/modules/fni-workspace.js`, 406/406). It
+> delivers the department skeletons — Today + Work tabs on the engine shell, basic
+> attention queues, and the appraisal/deal id continuity. It does **not** yet deliver
+> Acquisition, Merchandising, the Vehicle Record workspace, the lender abstraction or
+> the Funding queue. This audit covers the full brief; the delta is §5.
+
+---
+
+## 1. KEEP — substantial functionality that already exists
+
+### Inventory
+| Capability | API | UI |
+|---|---|---|
+| Vehicle catalog | `/inventory`, `/inventory/all`, `/inventory/:id` | `inventory` page (part4/5) |
+| Feeds / sync | `/inventory-feeds`, `/feeds/probe`, `/inventory/sync/progress` | feeds UI |
+| Appraisals | `/ai/appraisals`, `/ai/appraisals/:id` | `appraisal` (part16) |
+| Equity mining | `/equity/leases`, `/equity/radar`, `/equity/worksheet/:id` | `equity` |
+| Recon | `/recon` (`stage`, `inventory_id`, `deal_id`, `salesperson_id`, `checklist`) | `recon` (part15) |
+| Pricing intelligence | `/ai-pricing/*` | `inv-intel` |
+| Market data | `/ai/market` | `market` |
+| Listings / syndication | `/listings`, `/listings/fb-alerts`, `/listings/pending-fb-sync`, `/listings/:id/sold*`, `/syndication/config` | Facebook/marketplace UI |
+| Window stickers / brochures | `/vinsticker/*`; `window_sticker_url`, `brochure_url` on inventory | `vin-sticker` |
+| Vehicle history | `/inventory/:id/carfax`, `recalls`, `vin_data` | vehicle detail |
+
+### F&I
+| Capability | API | UI |
+|---|---|---|
+| Deal queue | `/fni/deals`, `/fni/deals/:id/approve`, `/fni/deals/:id/delivered` | `fni` (part15) |
+| Desking | `/reports/deal`, `openDeskForContact()` | `desk` (part17) |
+| **Credit applications** | `/credit/application` (GET/POST), `/submit`, `/export`, `/:id/reveal` | credit UI |
+| **Lenders** | `/fni/lenders` (GET/POST), `/fni/lenders/:id` (PUT) | lender config |
+| **F&I products** | `/fni/products` (GET/POST), `/:id` (PUT) | product catalogue |
+| Deposits | `/deposits/config`, `/deposits/checkout`, `/deposits/connect` | deposits |
+| **E-sign / documents** | `/esign`, `/esign/create`, `/esign/:token/sign`, `/:id/detail` | esign |
+| Delivery | `/delivery/queue`, `/delivery/:id/checklist`, `/delivery/:id/deliver` | `delivery` |
+| F&I reporting | `/fni/reports` | — |
+
+**Nothing in the brief's Inventory or F&I feature list needs to be built from scratch
+except Funding (§4).** This stage is overwhelmingly composition.
+
+## 2. MOVE — already completed in Phase 1 / PR #69
+
+Cleanup/Recon, Inventory Intelligence, Market, Appraisals and Equity Mining were moved
+out of Sales into Inventory in Phase 1. Delivery sits under F&I. **No further moves
+required**; the brief's "REMOVE/MOVE" list is satisfied.
+
+## 3. COMPOSE — existing pieces to bring together
+
+| Target | Composed from |
+|---|---|
+| Inventory → Acquisition | `/ai/appraisals` + `inventory.source_appraisal_id` + `awaiting_possession` |
+| Inventory → Merchandising | `image_urls` + `/listings` + `/listings/fb-alerts` + `window_sticker_url` + `brochure_url` + `/syndication/config` |
+| Inventory → Pricing | `/ai-pricing/*` + `/ai/market` + `price` + age |
+| Vehicle Record workspace | existing vehicle detail + recon + listings + carfax/recalls + deals |
+| F&I → Queue | `/fni/deals` (`deal_status`, `approved_at`, `credit_app_at`, `delivered_at`) |
+| F&I → Credit | `/credit/application` opened from the deal |
+| F&I → Menu | `/fni/products` + `deals.fni_products` |
+| F&I → Contracts | `/esign` document/signature state |
+
+## 4. GAP — genuinely missing
+
+1. **Funding has no state.** `deals` carries `approved_at`, `credit_app_at`,
+   `sold_at`, `delivered_at` — but **no funding field** and no funding endpoint. The
+   brief's Funding queue (submitted / conditions / received / aging / chargeback) has
+   nothing to read or write. See §6 — this needs a decision.
+2. **Lender decisions are not persisted per deal.** `/fni/lenders` configures lenders;
+   there is no record of *this deal was submitted to lender X, response Y, rate/term/
+   conditions*. The brief's multi-decision lender workflow has no backing store.
+3. Vehicle Record workspace does not exist as one surface (data all exists).
+4. Acquisition and Merchandising have no composed view.
+5. Inventory/F&I Insights, Automation and Settings tabs are thin or absent.
+
+## 5. Delta still to implement (beyond PR #69)
+
+Inventory: Acquisition view · Merchandising view · Vehicle Record workspace · richer
+Today exceptions (feed failure, PDI/safety, sold-not-ready) · Insights/Automation/
+Settings. F&I: rename Work views to Queue|Credit|Menu|Contracts|Funding · queue state
+mapping · lender panel · Funding queue · Insights/Automation/Settings. Plus mobile
+validation and the four E2E acceptance paths.
+
+## 6. ⚠️ HANDOFF GAPS — material findings
+
+### 6.1 Three accounting rules have a consumer but **no producer**
+
+`routes/accounting-engine.js` handles these events and posts real journals:
+
+| Event | Accounting handler | Producer |
+|---|---|---|
+| `deal.status_changed` → delivered | `postDealDelivered` | ✅ emitted (delivery.js / fni.js) |
+| `deposit.paid` | `deposit_received` | ✅ |
+| `commission.*` | commission journals | ✅ |
+| **`funding.received`** | `funding_received` (clears **Contracts in Transit**, acct 1150) | ❌ **nothing emits it** |
+| **`trade.received`** | `trade_received` | ❌ **nothing emits it** |
+| **`vehicle.acquired`** | `vehicle_acquired` | ❌ **nothing emits it** |
+
+Verified by search: those three names appear **only** in `accounting-engine.js`.
+
+Consequences today:
+- **Funding never posts.** A financed delivery debits Contracts in Transit and nothing
+  ever clears it — the balance grows indefinitely.
+- **Acquisitions and trades never post**, so vehicle cost does not reach the ledger
+  through this path.
+
+This is not a UI problem and Stage 3 cannot "compose" its way around it. The fix is
+small and architecturally correct — emit the existing canonical events from the
+existing state transitions — but it is a **backend change with financial effect**, so
+per AGENTS.md §A4/§A17 and Doc 22 §5 I am reporting it rather than folding it silently
+into UI work.
+
+### 6.2 Sales → Inventory (trade) — structurally sound
+`inventory.source_appraisal_id` links a stocked vehicle to the originating appraisal;
+one appraisal record, no duplicate. Verified in PR #69. Missing only the
+`vehicle.acquired` / `trade.received` emission above.
+
+### 6.3 Sales → F&I — structurally sound
+A deal carries `contact_id` + `inventory_id`; F&I opens the same customer via
+`crmOpenForm()` and the same desk via `openDeskForContact()`. No re-entry. Verified.
+
+### 6.4 F&I → Delivery — partially computable
+`/delivery/queue` derives readiness from `deal_status = 'sold'` + `delivery_checklist`.
+Blockers for *credit incomplete*, *contract unsigned* and *lender condition outstanding*
+are **not** currently computable — credit lives in `credit_applications`, signatures in
+`esign`, and there is no lender-decision record (§4.2).
+
+## 7. FILE PLAN (delta)
+
+| File | Change |
+|---|---|
+| `js/modules/inventory-workspace.js` | Acquisition + Merchandising views, richer Today, Insights/Automation/Settings |
+| `js/modules/vehicle-record.js` | **new** — Vehicle Record workspace |
+| `js/modules/fni-workspace.js` | Queue/Credit/Menu/Contracts/Funding, lender panel, Insights/Automation/Settings |
+| `dashboard.html` | vehicle-record container + script tags |
+| `test/stage3-departments.test.js` | extend |
+| `test/accounting-event-producers.test.js` | **new** — guard that every accounting rule has a producer |
+
+## 8. BACKEND IMPACT
+
+**UI work: zero.** Every Inventory/F&I view composes existing endpoints.
+
+**Two items require a decision before I touch them:**
+
+1. **Emit the three dangling events** (`funding.received`, `trade.received`,
+   `vehicle.acquired`) from their existing transitions. Small, no new table, no schema
+   change — but it starts posting journals that currently never post. Needs approval
+   because it changes financial behaviour.
+2. **Funding + lender decision state.** The Funding queue and lender workflow have no
+   backing store. Options:
+   - **(a)** Derive a minimal funding view from existing state (delivered + not yet
+     reconciled). No schema change; limited fidelity — no conditions, no aging by
+     submission, no chargebacks.
+   - **(b)** Add `funding_status` / `funded_at` columns to `deals` plus a
+     `deal_lender_decisions` table. This is genuinely new business state — a deal *can*
+     receive several lender decisions, which no existing record can represent — so it
+     passes the "why can the canonical record not represent this?" test. Still a schema
+     change requiring approval.
+
+I have not implemented either. Recommendation: **(b)** for lender decisions (the data
+genuinely does not exist anywhere), and emit the three events — but both on your
+explicit approval, applied to **staging Supabase only**.
