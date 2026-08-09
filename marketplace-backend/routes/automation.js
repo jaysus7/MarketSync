@@ -12,6 +12,7 @@
 //   • AI copy generation hook                            → /automation/ai-copy
 // ─────────────────────────────────────────────────────────────────────────────
 import Anthropic from '@anthropic-ai/sdk'
+import { emitTradeReceived } from './trade-receipt.js'
 import { timingSafeEqual } from 'crypto'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
@@ -233,11 +234,24 @@ async function releasePossessionForContact(dealershipId, contactId, when) {
   const invIds = [...new Set((aps || []).map(a => a.inventory_id).filter(Boolean))]
   if (!invIds.length) return
   const at = (when ? new Date(when) : new Date()).toISOString()
-  await supabaseAdmin.from('inventory')
+  // .select() back only the rows that ACTUALLY flipped — units already in our
+  // possession match nothing here, so a re-delivery or a retry emits no event.
+  const { data: flipped } = await supabaseAdmin.from('inventory')
     .update({ awaiting_possession: false, possession_at: at })
     .in('id', invIds).eq('dealership_id', dealershipId).eq('awaiting_possession', true)
+    .select('id, invoice_amount')
   await supabaseAdmin.from('trade_appraisals')
     .update({ acquired_at: at }).in('id', (aps || []).map(a => a.id))
+  // Same canonical transition as POST /ai/appraisals/:id/take-possession, reached
+  // automatically: the customer's deal delivered, so the trade they gave us is now
+  // ours. One event per vehicle that genuinely changed hands.
+  for (const v of flipped || []) {
+    const ap = (aps || []).find(a => a.inventory_id === v.id)
+    emitTradeReceived(dealershipId, {
+      inventoryId: v.id, appraisalId: ap?.id || null, contactId,
+      amount: Number(v.invoice_amount ?? 0),
+    })
+  }
 }
 
 // ── Drop-out: an inbound reply freezes every running sequence for the contact ──

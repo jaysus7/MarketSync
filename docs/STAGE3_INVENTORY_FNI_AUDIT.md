@@ -163,3 +163,65 @@ are **not** currently computable — credit lives in `credit_applications`, sign
 I have not implemented either. Recommendation: **(b)** for lender decisions (the data
 genuinely does not exist anywhere), and emit the three events — but both on your
 explicit approval, applied to **staging Supabase only**.
+
+
+---
+
+## 9. Canonical event semantics (Part A result)
+
+Documented here because Inventory, Accounting, Management and automation must all use
+the same semantics.
+
+### `trade.received` — IMPLEMENTED
+
+| | |
+|---|---|
+| **Emitter** | `routes/trade-receipt.js` → `emitTradeReceived()` (one shared producer) |
+| **Trigger 1 (manual)** | `POST /ai/appraisals/:id/take-possession` — `routes/submodules/ai-appraisal-management.js` |
+| **Trigger 2 (automatic)** | `releasePossessionForContact()` — `routes/automation.js`, fired when the customer's deal is delivered |
+| **Previous state** | `inventory.awaiting_possession = true`, `possession_at = null`, `trade_appraisals.acquired_at = null` |
+| **Resulting state** | `inventory.awaiting_possession = false`, `possession_at = now`, `trade_appraisals.acquired_at = now` |
+| **Real dealership event** | The dealership physically/legally takes possession of the customer's trade |
+| **Entity / dedupe ref** | the **vehicle** (`inventory.id`) — one receipt per vehicle, forever |
+
+**Why this transition is financially correct.** `POST /ai/appraisals/:id/acquire`
+deliberately creates the inventory row with `awaiting_possession: true` — the unit
+exists on paper but the dealership does not control it, and it is excluded from the
+website and syndication feeds (`site.js`, `syndication.js` both filter on
+`awaiting_possession`). Possession is the moment the asset genuinely belongs to the
+dealership, so it is the moment the trade should hit the books. The codebase already
+made this distinction; we only attached the event to it.
+
+**Why it is safe to emit.** Both triggers guard the UPDATE on
+`awaiting_possession = true` and `.select()` back the rows that actually flipped,
+emitting one event per genuinely changed vehicle. An already-possessed unit matches
+zero rows, so retries, re-saves and re-deliveries emit nothing. Accounting's
+`postJournal()` then dedupes on `(dealership_id, 'trade', inventory_id,
+'trade.received')`, so even a duplicate emit posts exactly one journal.
+
+**Explicitly does NOT emit from:** appraisal creation, valuation, appraisal approval,
+`/acquire`, attaching a trade to a deal, or any generic deal save — all pinned by test.
+
+### `vehicle.acquired` — ⚠️ DOMAIN GAP, not implemented
+
+**No canonical non-trade acquisition transition exists.** Evidence:
+
+- Every writer of `awaiting_possession` / `possession_at` is trade-specific — both go
+  through `trade_appraisals` (`ai-appraisal-management.js`, `automation.js`).
+- `inventory.source` values (`manual`, `import`, `website`, `ai_assistant`,
+  `appraisal`, `cached`, `fallback`) record **data provenance, not a business event**.
+- Nothing marks an auction, wholesale, dealer-trade or direct purchase as having
+  entered dealership ownership. An inventory row is simply created — which the brief
+  explicitly rules out as an acquisition signal.
+
+**Smallest domain-safe fix (proposed, not built).** Reuse the possession semantics that
+already exist generically on `inventory` rather than inventing an acquisition system:
+one endpoint `POST /inventory/:id/take-possession` that flips the same
+`awaiting_possession → false` + `possession_at` pair for a non-trade unit, records the
+acquisition cost in the existing `invoice_amount` column, and emits `vehicle.acquired`
+with the vehicle as the dedupe reference — mirroring the trade path exactly. It needs
+no new table and no new state model.
+
+This was **not** implemented because it creates a new business transition with
+financial effect, and the brief requires the transition to be proven rather than
+guessed. It is a small, well-understood next step.

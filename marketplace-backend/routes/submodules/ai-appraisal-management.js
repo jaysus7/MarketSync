@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { emitTradeReceived } from '../trade-receipt.js'
 import { supabaseAdmin } from '../../shared.js'
 import { requireAuth, requireMfa } from '../../middleware.js'
 import { hasPermission, requirePermission } from '../../authorization.js'
@@ -525,15 +526,29 @@ ACV / wholesale take-in (what the dealer buys it for): ${cur} $${suggestedOffer.
   app.post('/ai/appraisals/:id/take-possession', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data: ap } = await supabaseAdmin.from('trade_appraisals')
-      .select('id, inventory_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      .select('id, inventory_id, contact_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!ap?.inventory_id) return res.status(404).json({ error: 'No acquired unit for this appraisal' })
-    const { error } = await supabaseAdmin.from('inventory')
-      .update({ awaiting_possession: false, possession_at: new Date().toISOString() })
-      .eq('id', ap.inventory_id).eq('dealership_id', req.dealershipId)
+    const at = new Date().toISOString()
+    // Guard on `awaiting_possession = true` so only a REAL state change is written,
+    // and .select() back the rows that actually flipped. An already-possessed unit
+    // matches nothing, so re-posting this endpoint is a no-op and cannot re-emit.
+    const { data: flipped, error } = await supabaseAdmin.from('inventory')
+      .update({ awaiting_possession: false, possession_at: at })
+      .eq('id', ap.inventory_id).eq('dealership_id', req.dealershipId).eq('awaiting_possession', true)
+      .select('id, invoice_amount, price')
     if (error) return res.status(500).json({ error: error.message })
-    await supabaseAdmin.from('trade_appraisals').update({ acquired_at: new Date().toISOString() }).eq('id', ap.id)
+    await supabaseAdmin.from('trade_appraisals').update({ acquired_at: at }).eq('id', ap.id)
     audit(req, 'inventory.possession_taken', { appraisal_id: ap.id, inventory_id: ap.inventory_id })
-    res.json({ ok: true, inventory_id: ap.inventory_id, live: true })
+    // THE canonical trade-receipt transition: the dealership now controls the
+    // customer's trade. `/acquire` only creates the paper unit (awaiting_possession
+    // = true); THIS is the receipt. Accounting owns the journal — no ledger logic here.
+    if (flipped && flipped.length) {
+      emitTradeReceived(req.dealershipId, {
+        inventoryId: ap.inventory_id, appraisalId: ap.id, contactId: ap.contact_id || null,
+        amount: Number(flipped[0]?.invoice_amount ?? 0), actorId: req.user?.id || null,
+      })
+    }
+    res.json({ ok: true, inventory_id: ap.inventory_id, live: true, received: !!(flipped && flipped.length) })
   })
 
   // GET /ai/appraisers
