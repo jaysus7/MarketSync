@@ -59,3 +59,48 @@ test('an unapplied payment is what a deposit actually is', () => {
   assert.ok(!mig.includes('create table if not exists public.deposits'),
     'deposits must not become a second payment system')
 })
+
+// ── Accounting integration: payment clears AR, and never re-recognises revenue ──
+
+const payRule = readFileSync(new URL('../migrations/2026-08-09-core-payment-received-rule.sql', import.meta.url), 'utf8')
+const payments = readFileSync(new URL('../routes/payments.js', import.meta.url), 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+const acctEngine = readFileSync(new URL('../routes/accounting-engine.js', import.meta.url), 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+
+test('a payment clears AR and never recognises revenue or tax again', () => {
+  const rule = payRule.match(/'payment_received', '\[[\s\S]*?\]'::jsonb/)?.[0] || ''
+  assert.match(rule, /"account_key":"cash","side":"debit","source":"amount"/)
+  assert.match(rule, /"account_key":"accounts_receivable","side":"credit","source":"applied"/)
+  assert.match(rule, /"account_key":"customer_deposits","side":"credit","source":"unapplied"/)
+  // The whole point: the invoice recognised revenue and tax. Cash must not do it again.
+  for (const forbidden of ['service_revenue', 'parts_revenue', 'tax_collected']) {
+    assert.ok(!rule.includes(forbidden), `a payment must never post to ${forbidden}`)
+  }
+})
+
+test('unapplied money is a deposit liability, not a receivable', () => {
+  const fn = payments.match(/export async function publishPaymentReceived[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /const unapplied = round2\(n\(pay\.amount\) - applied\)/,
+    'the split must be derived from real allocations, not assumed')
+  assert.match(fn, /if \(!pay \|\| pay\.status !== 'received'\) return null/,
+    'only money that actually arrived may post')
+})
+
+test('one real payment produces one payment and one posting', () => {
+  const fn = payments.match(/export async function recordPayment[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.match(fn, /if \(existing\) return \{ payment: existing, created: false \}/,
+    'a retry must return the original payment')
+  assert.match(fn, /const raced = await findExistingPayment/, 'and must survive losing the unique-index race')
+  // The event is emitted only on genuine creation, so a webhook retry posts nothing.
+  assert.match(payments, /if \(created\) \{\s*\n\s*await publishPaymentReceived/,
+    'a retried payment must not emit a second financial event')
+  assert.match(acctEngine, /__reference: p\.ref \|\| e/, 'and the posting itself dedupes on the payment id')
+})
+
+test('payments are core — Service does not own them and writes no journal', () => {
+  assert.match(acctEngine, /case 'payment\.received':/, 'the canonical event must be routed')
+  assert.doesNotMatch(payments, /from\('journal_entries'\)|postByRule/,
+    'the payment module records money, Accounting posts it')
+  assert.doesNotMatch(payments, /repair_orders|service_/, 'the core payment module must not know about Service')
+})

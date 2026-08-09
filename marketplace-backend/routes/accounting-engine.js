@@ -232,6 +232,17 @@ async function routeFinancialEvent(event) {
       return { handler: 'trade_received', journalId: await postByRule(did, 'trade_received', { amount: n(p.amount), __source: 'trade', __reference: p.ref || e, __date: event.created_at, __refs: { ref_vehicle_id: p.inventory_id || null, ref_deal_id: p.deal_id || null } }) }
     case 'funding.received':
       return { handler: 'funding_received', journalId: await postByRule(did, 'funding_received', { amount: n(p.amount), __source: 'funding', __reference: p.ref || p.deal_id || e, __date: event.created_at, __refs: { ref_deal_id: p.deal_id || e } }) }
+    case 'payment.received': {
+      // Cash arriving CLEARS a receivable. It never recognises revenue or tax again —
+      // the invoice already did that at RO close. Unapplied money is a deposit, so it
+      // credits the liability rather than AR.
+      const amount = n(p.amount); if (amount <= 0) return null
+      return { handler: 'payment_received', journalId: await postByRule(did, 'payment_received', {
+        amount, applied: n(p.applied), unapplied: n(p.unapplied),
+        __source: 'payment', __reference: p.ref || e, __date: event.created_at,
+        __refs: { ref_contact_id: p.contact_id || null },
+      }) }
+    }
     case 'parts.received': {
       // Stage 4A finding F2: parts inventory was relieved on every RO close and
       // capitalized by nothing. A receipt now debits it, with AP as the credit side.

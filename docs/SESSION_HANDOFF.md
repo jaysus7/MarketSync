@@ -200,17 +200,31 @@ Proved live, 9/9: payment recorded · duplicate webhook refused · partial alloc
 unapplied remainder is the deposit · over-allocation refused · rewrite refused · delete
 refused · partial refund leaves the original intact · cross-dealership allocation refused.
 
-**Still to wire (next session):**
-1. `routes/deposits.js` becomes a **producer into** `payments` rather than the record
-   itself — keep the Stripe flow, persist the canonical Payment before anything
-   downstream depends on it.
-2. One idempotent `payment.received` event → Accounting posts DR cash/clearing,
-   CR accounts_receivable. **Check the existing `deposit_received` rule first and adapt
-   it deliberately** — revenue and tax are already recognized at RO close, so cash
-   arriving must not recognize revenue a second time.
-3. Service invoice read (total · deposits/prior payments · paid · balance · history),
-   then `delivered → closed` with a valid financial disposition — **not** necessarily a
+**Accounting integration DONE.** `routes/payments.js` is the core module;
+`payment.received` is the one canonical financial event for customer money, and the
+`payment_received` rule is:
+
+```
+DR cash                = amount      (all the money that arrived)
+CR accounts_receivable = applied     (the part that settles an invoice)
+CR customer_deposits   = unapplied   (the part still owed back to the customer)
+```
+
+**It provably touches no revenue and no tax** — the invoice already recognised those at
+RO close, and cash arriving must never do it again. Verified balanced against all four
+real shapes: paid in full · partial payment · pure deposit · deposit partly applied.
+A retried payment emits no second event, and the posting itself dedupes on the payment id.
+
+**Still to wire:**
+1. `routes/deposits.js` becomes a **producer into** `payments` — keep the Stripe flow,
+   persist the canonical Payment before anything downstream depends on it.
+2. Service invoice read (total · prior payments · paid · balance · history), then
+   `delivered → closed` with an explicit financial disposition — **not** necessarily a
    zero balance, since legitimate AR is allowed.
+
+⚠️ **Production only:** the legacy `deposit_received` rule exists there (Stage 3 A5
+migration, which never ran on staging). `deposit.paid` and `payment.received` must not
+both post for the same money — adapt deliberately before enabling this path there.
 
 ## ⚠️ PRODUCTION ACCOUNTING — needs a deliberate decision
 

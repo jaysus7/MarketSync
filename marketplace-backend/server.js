@@ -34,6 +34,7 @@ import { registerIntegrations } from './routes/integrations.js'
 import { registerCredit } from './routes/credit.js'
 import { registerHistory } from './routes/history.js'
 import { registerDeposits } from './routes/deposits.js'
+import { registerPayments } from './routes/payments.js'
 import { registerSyndication } from './routes/syndication.js'
 import { registerDemo } from './routes/demo.js'
 import { registerMarketing } from './routes/marketing.js'
@@ -148,6 +149,7 @@ registerIntegrations(app)
 registerCredit(app)
 registerHistory(app)
 registerDeposits(app)
+registerPayments(app)
 registerSyndication(app)
 registerDemo(app)
 registerMarketing(app)
