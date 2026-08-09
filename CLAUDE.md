@@ -7,7 +7,10 @@
 2. **[AGENTS.md](./AGENTS.md)** — **Part A** is the governing product/architecture
    law (canonical records, frozen kernel, audit-before-code, entitlements,
    security); **Part B** is the frontend guardrails. Both are binding.
-3. **[docs/KERNEL_CONTRACT.md](./docs/KERNEL_CONTRACT.md)** — frozen.
+3. **[docs/DEALER_OS_UX_ARCHITECTURE.md](./docs/DEALER_OS_UX_ARCHITECTURE.md)** — how the
+   Dealer OS UI actually works (engine registration, tabs, gating, department rules).
+   Read before building or changing a department.
+4. **[docs/KERNEL_CONTRACT.md](./docs/KERNEL_CONTRACT.md)** — frozen.
 
 MarketSync is a **dealer operating system**, not a set of features. Employees
 navigate their dealership, not our software architecture. Audit before coding;

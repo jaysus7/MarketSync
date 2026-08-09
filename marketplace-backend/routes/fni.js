@@ -284,6 +284,142 @@ export function registerFni(app) {
     res.json({ ok: true, approved_at: now, cleanup: !!invId })
   })
 
+  // ── Funding queue ──────────────────────────────────────────────────────────
+  // Real funding state on the canonical deal (funding_status / funding_submitted_at
+  // / funded_at) — not inferred from "delivered". One read for the whole queue,
+  // joined to the SELECTED lender decision so the UI needs no second round-trip.
+  app.get('/fni/funding', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    try {
+      const { data: deals, error } = await supabaseAdmin.from('deals')
+        .select('id, deal_number, contact_id, inventory_id, deal_status, selling_price, delivered_at, funding_status, funding_submitted_at, funded_at')
+        .eq('dealership_id', req.dealershipId)
+        .or('funding_status.not.is.null,deal_status.eq.delivered')
+        .order('delivered_at', { ascending: true, nullsFirst: false })
+      if (error) throw error
+      const ids = (deals || []).map(d => d.id)
+      const { data: decisions } = ids.length
+        ? await supabaseAdmin.from('deal_lender_decisions')
+            .select('deal_id, lender_id, decision, rate, term_months, approved_amount, conditions, approval_expires_on, submitted_at, selected')
+            .eq('dealership_id', req.dealershipId).in('deal_id', ids).eq('selected', true)
+        : { data: [] }
+      const byDeal = {}
+      for (const d of decisions || []) byDeal[d.deal_id] = d
+      const now = Date.now()
+      res.json({
+        deals: (deals || []).map(d => ({
+          ...d,
+          // Deals delivered before funding was tracked read as `pending`, not as a
+          // fabricated state — funding_status stays null in the database.
+          funding_state: d.funding_status || (d.deal_status === 'delivered' ? 'pending' : 'not_required'),
+          selected_decision: byDeal[d.id] || null,
+          days_in_funding: d.funding_submitted_at
+            ? Math.floor((now - new Date(d.funding_submitted_at).getTime()) / 864e5) : null,
+        })),
+      })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // Advance a deal's funding state. This is the ONLY producer of `funding.received`.
+  //
+  // Idempotency (brief §2/§5): the event fires only on the transition INTO `funded`
+  // from something else. Re-saving an already-funded deal is a no-op, and unrelated
+  // lender edits never touch this path. Defence in depth — the Accounting Engine's
+  // postJournal() also dedupes on (dealership_id, source, reference, event_name), so
+  // even a duplicate emit yields exactly one journal.
+  const FUNDING_STATES = ['not_required', 'pending', 'submitted', 'conditions', 'funded', 'exception']
+  app.put('/fni/deals/:id/funding', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const next = String(req.body?.funding_status || '').trim()
+    if (!FUNDING_STATES.includes(next)) return res.status(400).json({ error: `funding_status must be one of ${FUNDING_STATES.join(', ')}` })
+    try {
+      const { data: deal } = await supabaseAdmin.from('deals')
+        .select('id, funding_status, funded_at, funding_submitted_at, selling_price')
+        .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      if (!deal) return res.status(404).json({ error: 'Deal not found' })
+
+      const wasFunded = deal.funding_status === 'funded'
+      const now = new Date().toISOString()
+      const patch = { funding_status: next, updated_at: now }
+      if (next === 'submitted' && !deal.funding_submitted_at) patch.funding_submitted_at = now
+      if (next === 'funded' && !wasFunded) patch.funded_at = now
+
+      const { error } = await supabaseAdmin.from('deals').update(patch)
+        .eq('id', deal.id).eq('dealership_id', req.dealershipId)
+      if (error) throw error
+
+      // The transition — not the save — is the business event.
+      if (next === 'funded' && !wasFunded) {
+        const { data: sel } = await supabaseAdmin.from('deal_lender_decisions')
+          .select('approved_amount, lender_id').eq('deal_id', deal.id).eq('selected', true).maybeSingle()
+        const amount = Number(sel?.approved_amount ?? deal.selling_price ?? 0)
+        // Accounting owns the ledger: it clears Contracts in Transit from this event.
+        // No journal logic here (kernel contract §1/§4).
+        emitEvent({
+          dealershipId: req.dealershipId, eventName: 'funding.received', entityType: 'deal', entityId: deal.id,
+          summary: `Funding received on deal ${deal.id}`, department: 'fni',
+          payload: { deal_id: deal.id, amount, lender_id: sel?.lender_id || null, ref: deal.id },
+          createdBy: req.user?.id || null,
+        })
+        audit(req, 'fni.funding_received', { deal_id: deal.id, amount })
+      }
+      res.json({ ok: true, funding_status: next, funded_at: patch.funded_at || deal.funded_at || null })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // ── Lender decisions (one deal → many lender answers) ──────────────────────
+  app.get('/fni/deals/:id/lender-decisions', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    try {
+      const { data, error } = await supabaseAdmin.from('deal_lender_decisions')
+        .select('*').eq('dealership_id', req.dealershipId).eq('deal_id', req.params.id)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      res.json({ decisions: data || [] })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/fni/deals/:id/lender-decisions', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    const b = req.body || {}
+    try {
+      const { data: deal } = await supabaseAdmin.from('deals').select('id')
+        .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      if (!deal) return res.status(404).json({ error: 'Deal not found' })
+      // The decision references the deal and the lender only — customer, vehicle and
+      // deal figures are never copied here.
+      const { data, error } = await supabaseAdmin.from('deal_lender_decisions').insert([{
+        dealership_id: req.dealershipId, deal_id: deal.id, lender_id: b.lender_id || null,
+        submission_status: b.submission_status || 'draft', submitted_at: b.submitted_at || null,
+        responded_at: b.responded_at || null, decision: b.decision || null,
+        rate: b.rate ?? null, term_months: b.term_months ?? null, approved_amount: b.approved_amount ?? null,
+        conditions: b.conditions || null, approval_expires_on: b.approval_expires_on || null,
+        notes: b.notes || null, created_by: req.user?.id || null, updated_by: req.user?.id || null,
+      }]).select().single()
+      if (error) throw error
+      audit(req, 'fni.lender_decision_created', { deal_id: deal.id, decision_id: data.id, lender_id: data.lender_id })
+      res.json({ decision: data })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // Select the winning decision. Only one may be selected per deal — a partial unique
+  // index enforces that in the database, so a concurrent write cannot produce two.
+  app.put('/fni/deals/:dealId/lender-decisions/:id/select', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    try {
+      await supabaseAdmin.from('deal_lender_decisions').update({ selected: false, updated_by: req.user?.id || null })
+        .eq('dealership_id', req.dealershipId).eq('deal_id', req.params.dealId).eq('selected', true)
+      const { data, error } = await supabaseAdmin.from('deal_lender_decisions')
+        .update({ selected: true, updated_at: new Date().toISOString(), updated_by: req.user?.id || null })
+        .eq('dealership_id', req.dealershipId).eq('deal_id', req.params.dealId).eq('id', req.params.id)
+        .select().maybeSingle()
+      if (error) throw error
+      if (!data) return res.status(404).json({ error: 'Decision not found' })
+      audit(req, 'fni.lender_decision_selected', { deal_id: req.params.dealId, decision_id: data.id, lender_id: data.lender_id })
+      res.json({ decision: data })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
   // Delivered → deal delivered, vehicle sold, customer marked delivered; off the list.
   app.post('/fni/deals/:id/delivered', requireAuth, requireMfa, requirePermission('deal.finalize'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })

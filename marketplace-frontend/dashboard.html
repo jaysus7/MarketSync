@@ -1387,6 +1387,16 @@
       <!-- Operations — workflow exceptions dashboard + entity timeline lookup (managers). -->
       <!-- Sales workspace — DealerOS reference department (engine shell). See
            docs/SALES_PHASE2_AUDIT.md. Rendered by js/modules/sales-workspace.js. -->
+      <!-- Inventory & F&I workspaces (Stage 3) — same engine-shell pattern as Sales.
+           See docs/DEALER_OS_UX_ARCHITECTURE.md §11-12. -->
+      <div data-page-content="inventory-overview" class="page-content hidden space-y-6">
+        <div id="inventory-overview-root"></div>
+      </div>
+
+      <div data-page-content="fni-overview" class="page-content hidden space-y-6">
+        <div id="fni-overview-root"></div>
+      </div>
+
       <div data-page-content="sales" class="page-content hidden space-y-6">
         <div id="sales-root"></div>
       </div>
@@ -3644,6 +3654,8 @@
   <script src="js/modules/dashboard-part26.js?v=20260809_ws"></script>
   <!-- Sales workspace: registers ENGINES['sales']; must load after the parts. -->
   <script src="js/modules/sales-workspace.js?v=20260809_sales"></script>
+  <script src="js/modules/inventory-workspace.js?v=20260809_stage3"></script>
+  <script src="js/modules/fni-workspace.js?v=20260809_stage3"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

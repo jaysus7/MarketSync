@@ -86,6 +86,26 @@ function getTopLevelDeclarations(filePath, cleanRel) {
         })
       }
     }
+
+    // Column-0 fallback.
+    //
+    // The scanner above tracks brace depth to decide what is top level, but it
+    // cannot see through NESTED template literals — and this codebase is full of
+    // them (`...${rows.map(r => `<div>…</div>`).join('')}...`). The inner backtick
+    // reads as the outer string's terminator, after which brace depth is wrong for
+    // the rest of the file and real top-level declarations stop being recorded.
+    // That is not theoretical: it let a duplicate `let __fniData` ship, which threw
+    // a SyntaxError and silently disabled a whole dashboard module while this check
+    // still reported PASSED.
+    //
+    // Every top-level declaration in these files begins at column 0, so treat that
+    // as an independent signal and union the two. Worst case we also catch a
+    // declaration written at column 0 inside a template string — which would be a
+    // confusing thing to write anyway.
+    const col0 = rawLine.match(/^(const|let|var)\s+([a-zA-Z0-9_$]+)/)
+    if (col0 && !declarations.some(d => d.line === i + 1 && d.name === col0[2])) {
+      declarations.push({ script: cleanRel, line: i + 1, kind: col0[1], name: col0[2] })
+    }
   }
   return declarations
 }

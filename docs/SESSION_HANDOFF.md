@@ -12,18 +12,25 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 |---|---|
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
-| **Baseline on `staging`** | `62b4375` — 359/359 tests green |
-| **In flight** | PR **#67** — DealerOS UI Phase 1, 374/374 green, **draft** |
-| **Roadmap position** | Doc 22 **Phase 4** (Global UI Shell) — Phase 1 of the UI work landed |
+| **Baseline on `staging`** | `d7e8b8e` — 386/386 tests green |
+| **In flight** | Stage 3 — Inventory + F&I departments, 406/406 green |
+| **Roadmap position** | Phase 1 (nav) + Phase 2 (Sales) merged; **Stage 3 (Inventory + F&I) in flight** |
 
 ## Read before coding
 
 1. `AGENTS.md` — **Part A** is the governing product/architecture law, **Part B**
    the frontend guardrails. Both are binding.
 2. `docs/KERNEL_CONTRACT.md` — **frozen**.
-3. `docs/DEALEROS_UI_AUDIT.md` — every page → workspace/tab mapping, the four
+3. `docs/DEALER_OS_UX_ARCHITECTURE.md` — **the as-built UI architecture**: engine
+   registration, standard tabs, role/entitlement behaviour, department ownership,
+   handoffs, the shared helpers that really exist, and the rules a new department
+   must follow. Note the naming warning: DepartmentShell / AttentionQueue /
+   RecordWorkspace / QuickActions / DepartmentKPI / WorkflowBoard / "My Day" are
+   **conceptual names only** — no such runtime components exist.
+4. `docs/DEALEROS_UI_AUDIT.md` — every page → workspace/tab mapping, the four
    gating layers, and what is deliberately deferred.
-4. The project specification documents (21 Architecture, 22 Roadmap, 23 Credit,
+5. `docs/SALES_PHASE2_AUDIT.md` — the Sales reference department (see §0).
+6. The project specification documents (21 Architecture, 22 Roadmap, 23 Credit,
    plus the department docs) for product detail.
 
 ## Completed
@@ -46,15 +53,29 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
   nine workspaces; additive `#/w/<workspace>/<page>` routing; restored two
   unreachable pages (`commissions`, `ai-inbox`). Reorganization only — no page or
   backend rewritten.
+- **Sales reference department, Phase 2** (PR #68) — `js/modules/sales-workspace.js`
+  registers `ENGINES['sales']`: role-aware Today/Work/Insights/Automation/Settings,
+  an attention-first Today, and Work sub-views (Opportunities/Appointments/Customers/
+  Deals/Deliveries). Composition only — zero backend change, actions delegate to the
+  existing CRM/desking functions. **This is the pattern every other department
+  follows** — see `docs/DEALER_OS_UX_ARCHITECTURE.md` §11–12.
+- **Stage 3 — Inventory + F&I** — `js/modules/inventory-workspace.js` and
+  `js/modules/fni-workspace.js` register `ENGINES['inventory-overview']` /
+  `ENGINES['fni-overview']` on the same pattern. Handoffs verified as ONE record:
+  Sales customer → appraisal → Inventory vehicle → recon → F&I deal. Zero backend
+  change. Also hardened `check:frontend`, which could not see declarations after a
+  nested template literal and had let a duplicate `let` silently disable a module.
 
 ## Next recommended slice
 
-**Sales workspace** (Doc 22 P2) — highest-frequency user, and the only workspace
-where every tab already resolves to a working page, so it is the cheapest real
-workflow win. Then **F&I + Credit Application** (Doc 23), the largest
-cross-department handoff.
+**Stage 4 — the remaining departments** (Service, Parts, Accounting, Marketing,
+People) on the same engine-shell pattern; then a dealership-wide My Day that
+aggregates the department Today views once they all exist.
 
-Do **not** start department page rewrites without explicit approval.
+Standing decisions: do **not** add `Showed`/`Negotiating` to the CRM enum (UI may derive
+that context, never persist it); Phase 2 deferred items (opportunity-row appraisal
+shortcut, per-blocker delivery deep links, response/show/close metrics) do not block
+Stage 3 and should not reopen Phase 2.
 
 ## Known gaps / deferred (UI missing, backend often present)
 
@@ -71,7 +92,7 @@ and a two-dealer cross-tenant vector test.
 
 ```bash
 cd marketplace-backend
-npm test                       # full suite — must stay green (374 on PR #67)
+npm test                       # full suite — must stay green (406 on this branch)
 npm run check:syntax           # every backend source parses
 npm run check:imports          # ESM import resolution
 npm run check:exports          # named export bindings
