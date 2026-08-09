@@ -297,6 +297,11 @@ export async function transitionRepairOrder(dealershipId, roId, toStatus, { user
   const { data: ro } = await supabaseAdmin.from('repair_orders').select('status, ro_number, ready_at').eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
   if (!ro) throw new Error('repair order not found')
   if (ro.status === toStatus) return ro
+  // `estimate_sent` asserts the customer has been shown a priced estimate. Without a
+  // presented version that assertion is false, so the move is refused.
+  if (toStatus === 'estimate_sent' && !(await latestPresentedEstimate(dealershipId, roId))) {
+    throw new Error('Present an estimate to the customer before marking the estimate sent.')
+  }
   const now = new Date().toISOString()
   const patch = { status: toStatus, updated_at: now, state_changed_at: now, state_changed_by: userId, state_change_reason: reason }
   // Ready is operational completion, and NOT payment, pickup or close. Stamped once on
@@ -315,6 +320,68 @@ export async function transitionRepairOrder(dealershipId, roId, toStatus, { user
 // Historical name, kept so existing callers keep working. New code calls
 // transitionRepairOrder.
 export const setRoStatus = transitionRepairOrder
+
+// ── Estimates — versioned, and frozen once the customer has seen them ────────
+// The live RO keeps changing as work is discovered; that is normal and fine. What
+// must never change is what the customer was actually shown. Each estimate is a
+// snapshot of the priced lines at one moment, and once `presented_at` is set the
+// database refuses to alter or delete it. Revising work means a NEW version, never
+// an edit to the old one.
+export async function listEstimates(dealershipId, roId) {
+  const { data } = await supabaseAdmin.from('ro_estimates').select('*')
+    .eq('dealership_id', dealershipId).eq('ro_id', roId).order('version', { ascending: false })
+  return data || []
+}
+
+// The newest version the customer has actually been shown. Authorization coverage is
+// derived against this, never against the live RO total.
+export async function latestPresentedEstimate(dealershipId, roId) {
+  const { data } = await supabaseAdmin.from('ro_estimates').select('*')
+    .eq('dealership_id', dealershipId).eq('ro_id', roId).not('presented_at', 'is', null)
+    .order('version', { ascending: false }).limit(1).maybeSingle()
+  return data || null
+}
+
+export async function createEstimate(dealershipId, roId, { userId = null } = {}) {
+  const { data: ro } = await supabaseAdmin.from('repair_orders').select('id, discount, ro_number')
+    .eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
+  if (!ro) throw new Error('repair order not found')
+  const totals = await recomputeRoTotals(dealershipId, roId)
+  const { data: lines } = await supabaseAdmin.from('ro_lines').select('*')
+    .eq('ro_id', roId).eq('dealership_id', dealershipId).is('deleted_at', null).order('created_at')
+  const subtotal = round2(totals.labor_total + totals.parts_total + totals.sublet_total + totals.fee_total - n(ro.discount))
+  const { data, error } = await supabaseAdmin.from('ro_estimates').insert({
+    dealership_id: dealershipId, ro_id: roId,
+    version: 0,                       // replaced by the DB trigger — callers never choose
+    lines_snapshot: lines || [],
+    labor_total: totals.labor_total, parts_total: totals.parts_total,
+    sublet_total: totals.sublet_total, fee_total: totals.fee_total,
+    discount: n(ro.discount), subtotal, tax: totals.tax, total: totals.total,
+    created_by: userId,
+  }).select('*').single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+// Presenting is the act that makes an estimate evidence, and it moves the RO with it.
+export async function presentEstimate(dealershipId, estimateId, { userId = null } = {}) {
+  const { data: est } = await supabaseAdmin.from('ro_estimates').select('*')
+    .eq('id', estimateId).eq('dealership_id', dealershipId).maybeSingle()
+  if (!est) throw new Error('estimate not found')
+  if (est.presented_at) return est                     // idempotent — already shown
+  const now = new Date().toISOString()
+  const { data, error } = await supabaseAdmin.from('ro_estimates').update({ presented_at: now })
+    .eq('id', estimateId).eq('dealership_id', dealershipId).is('presented_at', null).select('*').maybeSingle()
+  if (error) throw new Error(error.message)
+  const presented = data || est
+  emitEvent({
+    dealershipId, eventName: 'service.estimate_presented', entityType: 'repair_order', entityId: est.ro_id,
+    summary: `Estimate v${presented.version} presented — $${n(presented.total).toFixed(2)}`,
+    department: 'Service', createdBy: userId,
+    payload: { estimate_id: presented.id, version: presented.version, total: n(presented.total) },
+  })
+  return presented
+}
 
 // ── Appointment → check-in → ONE repair order ────────────────────────────────
 // The canonical arrival transition. Idempotent by construction: the RO carries
@@ -657,6 +724,28 @@ export function registerServiceEngine(app) {
     const result = await allowedRoTransitions(req.dealershipId, req.params.id)
     if (!result) return res.status(404).json({ error: 'not found' })
     res.json(result)
+  })
+
+  // ── Estimates ──────────────────────────────────────────────────────────────
+  app.get('/service-engine/ros/:id/estimates', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ estimates: await listEstimates(req.dealershipId, req.params.id) })
+  })
+  app.post('/service-engine/ros/:id/estimates', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const estimate = await createEstimate(req.dealershipId, req.params.id, { userId: req.user?.id || null })
+      audit(req, 'service.estimate_created', { after_state: { id: estimate.id, version: estimate.version, total: estimate.total } })
+      res.json({ ok: true, estimate })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+  app.post('/service-engine/estimates/:id/present', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const estimate = await presentEstimate(req.dealershipId, req.params.id, { userId: req.user?.id || null })
+      audit(req, 'service.estimate_presented', { after_state: { id: estimate.id, version: estimate.version, total: estimate.total } })
+      res.json({ ok: true, estimate })
+    } catch (e) { res.status(400).json({ error: e.message }) }
   })
 
   // ── Controlled reopen ──────────────────────────────────────────────────────

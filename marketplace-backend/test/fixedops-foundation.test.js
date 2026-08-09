@@ -325,3 +325,49 @@ test('reserved quantity exists so availability can be derived, not guessed', () 
   // Availability is on_hand - reserved. It must never be a frontend calculation.
   assert.doesNotMatch(fe, /qty_on_hand\s*-\s*.*reserved/, 'availability must not be computed in the UI')
 })
+
+// ── 9. Versioned estimates (Batch 1, step 2) ─────────────────────────────────
+
+const estMig = read('migrations/2026-08-09-stage4b-ro-estimates.sql')
+
+test('a presented estimate is frozen by the database, not by convention', () => {
+  assert.match(estMig, /create trigger ro_estimates_freeze before update/,
+    'immutability must be a trigger, not an application habit')
+  assert.match(estMig, /if old\.presented_at is not null then/, 'freezing starts at presentation')
+  assert.match(estMig, /create trigger ro_estimates_nodelete before delete/,
+    'presented evidence must survive deletion attempts')
+  for (const col of ['lines_snapshot', 'total', 'tax', 'subtotal', 'discount']) {
+    assert.ok(estMig.includes(`new.${col} is distinct from old.${col}`), `${col} must be frozen`)
+  }
+})
+
+test('estimate versions are assigned by the database and are monotonic', () => {
+  assert.match(estMig, /create trigger ro_estimates_version before insert/)
+  assert.match(estMig, /select coalesce\(max\(version\), 0\) \+ 1 into new\.version/,
+    'the next version comes from the database, so concurrent writers cannot collide')
+  assert.match(estMig, /create unique index if not exists ro_estimates_ro_version_uk/)
+  assert.match(eng, /version: 0,\s*\/\/ replaced by the DB trigger/,
+    'callers must never choose a version number')
+})
+
+test('an estimate snapshots the live RO rather than pointing at it', () => {
+  const fn = eng.match(/export async function createEstimate[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /lines_snapshot: lines \|\| \[\]/, 'the lines as shown must be captured')
+  assert.match(fn, /subtotal, tax: totals\.tax, total: totals\.total/, 'the money as shown must be captured')
+  // recomputeRoTotals keeps updating the LIVE RO; it must never reach into a snapshot.
+  const rt = eng.match(/async function recomputeRoTotals[\s\S]*?\n\}/)?.[0] || ''
+  assert.doesNotMatch(rt, /ro_estimates/, 'live totals must never touch a historical estimate')
+})
+
+test('presenting is idempotent and moves the RO honestly', () => {
+  const fn = eng.match(/export async function presentEstimate[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /if \(est\.presented_at\) return est/, 're-presenting must be a no-op')
+  assert.match(fn, /\.is\('presented_at', null\)/, 'the update must only win once')
+  assert.match(fn, /eventName: 'service\.estimate_presented'/, 'presentation must reach the timeline')
+})
+
+test('estimate_sent cannot be claimed without a presented estimate', () => {
+  const fn = eng.match(/export async function transitionRepairOrder[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /toStatus === 'estimate_sent' && !\(await latestPresentedEstimate\(dealershipId, roId\)\)/,
+    'the state asserts the customer was shown something — refuse it when they were not')
+})
