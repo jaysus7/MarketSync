@@ -173,33 +173,44 @@ dealership workflows, not number of PRs.
 risk · an external dependency needing a human decision · insufficient context to safely
 finish the current atomic change.
 
-## ⚠️ THERE IS NO PAYMENT RECORD IN MARKETSYNC — decision needed before Batch 2 finishes
+## Core Payment + Allocation — BUILT (approved decision)
 
-The Phase 4 brief says to reuse "MarketSync's existing payment/deposit abstraction".
-Inspected it: **there isn't one.**
+MarketSync had **no payment record at all**: deposits existed only as a Stripe checkout
+flow, a `deposit.paid` event and a journal entry. Nothing you could query to answer
+"what has this customer paid?".
 
-- No `payments` table. No `deposits` table. The only match in the schema is
-  `saas_checkout_sessions`, which is MarketSync's own subscription billing — not
-  dealership customer money.
-- `routes/deposits.js` is a Stripe Connect **flow**: `/deposits/checkout` creates a
-  session, and the webhook emits `deposit.paid`, which Accounting turns into a journal.
-- So a customer deposit today exists as **an event and a journal entry, and nothing
-  else**. There is no record you can query to answer "what has this customer paid?",
-  no balance, no reversal, no idempotency key beyond the payment reference.
+`payments` + `payment_allocations` are now **DealerOS core primitives**, not Service
+tables — the wrong fix was `service_payments`, then `deal_payments`, then `fni_payments`,
+with Accounting reconciling three of them.
 
-Service cannot clear AR without one, and building `service_payments` would be exactly
-the second payment system the brief forbids.
+```
+CUSTOMER → PAYMENT ─┬→ ALLOCATIONS → Service RO / vehicle deal / other receivable
+                    └→ UNAPPLIED  (which is what a deposit actually is)
+```
 
-**Recommendation (needs your decision):** add `payments` as a **shared DealerOS core
-primitive**, not a Service table — `dealership_id`, polymorphic subject
-(`ro_id` / `deal_id` / `contact_id`), amount, method, status, processor + processor_ref,
-received_at, actor, idempotency_key, timestamps. Service, Sales and F&I all post against
-it; Accounting consumes one `payment.received` event to debit cash/clearing and credit
-AR. That keeps one canonical Payment, keeps departments independently purchasable, and
-gives the future Accounting engine a single source of payment truth.
+Deliberately **no `ro_id`/`deal_id` on the payment itself** — a payment can split across
+obligations, be partially applied, or move from deposit to invoice, so where it lands is
+a separate fact. Idempotency is enforced by two database unique indexes (provider
+reference and caller key), not application checks. A received payment is frozen: amount,
+currency and provider identity cannot be rewritten and the row cannot be deleted —
+refunds are **recorded** via `refunded_amount` + status, never simulated by mutation.
+Over-allocation is refused under the payment row lock.
 
-The alternative — Service-local payments — would need unpicking the first time Sales or
-F&I needs the same thing, which is why it is not recommended.
+Proved live, 9/9: payment recorded · duplicate webhook refused · partial allocation ·
+unapplied remainder is the deposit · over-allocation refused · rewrite refused · delete
+refused · partial refund leaves the original intact · cross-dealership allocation refused.
+
+**Still to wire (next session):**
+1. `routes/deposits.js` becomes a **producer into** `payments` rather than the record
+   itself — keep the Stripe flow, persist the canonical Payment before anything
+   downstream depends on it.
+2. One idempotent `payment.received` event → Accounting posts DR cash/clearing,
+   CR accounts_receivable. **Check the existing `deposit_received` rule first and adapt
+   it deliberately** — revenue and tax are already recognized at RO close, so cash
+   arriving must not recognize revenue a second time.
+3. Service invoice read (total · deposits/prior payments · paid · balance · history),
+   then `delivered → closed` with a valid financial disposition — **not** necessarily a
+   zero balance, since legitimate AR is allowed.
 
 ## ⚠️ PRODUCTION ACCOUNTING — needs a deliberate decision
 
