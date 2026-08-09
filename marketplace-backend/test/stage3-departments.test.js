@@ -43,11 +43,19 @@ for (const [name, src, id] of DEPTS) {
   })
 
   test(`${name} adds no new endpoints`, () => {
-    const KNOWN = ['/inventory', '/recon', '/ai/appraisals', '/fni/deals', '/fni/products', '/delivery/queue']
+    const KNOWN = ['/inventory', '/recon', '/ai/appraisals', '/fni/deals', '/fni/products', '/delivery/queue', '/fni/funding']
     for (const c of [...src.matchAll(/apiGetJson\('([^'?]+)/g)].map(m => m[1])) {
       assert.ok(KNOWN.includes(c), `${name} must not introduce a new endpoint: ${c}`)
     }
-    assert.doesNotMatch(src, /apiSendJson\(/, `${name} workspace must delegate writes to existing pages`)
+    // Stage 3B: the workspace now performs canonical transitions, so writes ARE
+    // allowed — but only through the Stage 3A endpoints, never by mutating local
+    // state. Every write target is checked against that closed list.
+    const WRITES = ['/inventory/${id}/take-possession', '/fni/deals/${dealId}/funding',
+                    '/fni/deals/${dealId}/lender-decisions/${decisionId}/select']
+    for (const w of [...src.matchAll(/apiSendJson\(`([^`]+)`/g)].map(m => m[1])) {
+      assert.ok(WRITES.some(k => w.replace(/\$\{[^}]+\}/g, '${id}') === k.replace(/\$\{[^}]+\}/g, '${id}')),
+        `${name} may only write through a canonical Stage 3A endpoint, got: ${w}`)
+    }
   })
 
   test(`${name} landing payload is one parallel round-trip`, () => {
@@ -75,7 +83,7 @@ test('Inventory Work exposes the vehicle lifecycle', () => {
 
 test('F&I Work exposes the deal lifecycle', () => {
   const views = fni.match(/const FNI_WORK_VIEWS = \[[\s\S]*?\n\];/)?.[0] || ''
-  for (const v of ['deals', 'credit', 'products', 'contracts', 'delivery']) {
+  for (const v of ['queue', 'credit', 'menu', 'contracts', 'funding']) {
     assert.ok(views.includes(`'${v}'`), `F&I Work must include ${v}`)
   }
 })
@@ -109,8 +117,15 @@ test('Sales → F&I handoff keeps one customer, one vehicle, one deal', () => {
 test('F&I does not reimplement delivery or accounting logic', () => {
   // It displays the blocker the delivery queue owns and deep-links to it.
   assert.match(fni, /blocker/, 'F&I must surface delivery blockers')
-  assert.match(fni, /switchPage\('delivery'\)/, 'and deep-link to the owning queue')
-  assert.doesNotMatch(fni, /journal|ledger|postToAccounting/i, 'F&I must not contain accounting logic')
+  // Funding state is canonical now, so the Funding view reads /fni/funding rather
+  // than inferring from the delivery queue — but F&I still must not own the ledger.
+  assert.match(fni, /apiGetJson\('\/fni\/funding'\)/, 'funding must read canonical state')
+  // Check CODE, not prose — these files legitimately *describe* the accounting boundary.
+  const fniCode = fni.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  assert.doesNotMatch(fniCode, /journal|postToAccounting|contracts_in_transit/i,
+    'F&I must not contain accounting logic')
+  assert.match(fni, /Contracts in Transit from that event/,
+    'the accounting boundary must be documented at the call site')
 })
 
 test('no invented CRM lifecycle stages anywhere in Stage 3', () => {
