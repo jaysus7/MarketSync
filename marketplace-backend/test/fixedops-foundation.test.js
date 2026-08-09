@@ -371,3 +371,62 @@ test('estimate_sent cannot be claimed without a presented estimate', () => {
   assert.match(fn, /toStatus === 'estimate_sent' && !\(await latestPresentedEstimate\(dealershipId, roId\)\)/,
     'the state asserts the customer was shown something — refuse it when they were not')
 })
+
+// ── 10. Authorization evidence + derived coverage (Batch 1, step 3) ──────────
+
+const authMig = read('migrations/2026-08-09-stage4b-ro-authorizations.sql')
+
+test('authorization is permanent evidence — never edited, never deleted', () => {
+  assert.match(authMig, /create trigger ro_auth_freeze before update or delete/,
+    'both edit and delete must be refused at the database')
+  assert.match(authMig, /immutable evidence/)
+  // The failure mode this prevents: "invalidating" v1 by rewriting or removing it.
+  assert.doesNotMatch(eng, /from\('ro_authorizations'\)\.(update|delete)/,
+    'nothing may update or delete an authorization, including superseding code')
+})
+
+test('coverage is derived from the latest presented estimate, not stored', () => {
+  const fn = eng.match(/export async function authorizationCoverage[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'coverage must be a derivation')
+  assert.match(fn, /const estimate = await latestPresentedEstimate\(dealershipId, roId\)/,
+    'coverage is answered against what the customer was actually shown')
+  assert.match(fn, /\.eq\('estimate_id', estimate\.id\)/,
+    'a decision only counts for the exact version it was made against')
+  assert.match(fn, /covered: auth\.decision === 'approved'/)
+  // Derivation must not write anything.
+  assert.doesNotMatch(fn, /\.insert\(|\.update\(|\.delete\(/, 'answering the question must not change it')
+  // And no stored flag may shadow it.
+  assert.doesNotMatch(authMig, /is_authorized|authorization_status|covered boolean/,
+    'coverage must never become a column someone can set by hand')
+})
+
+test('a newer estimate leaves the old approval as history that no longer covers', () => {
+  const fn = eng.match(/export async function transitionRepairOrder[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /toStatus === 'customer_approved' \|\| toStatus === 'customer_declined'/)
+  assert.match(fn, /if \(cover\.decision !== want\) throw new Error/,
+    'after v2 is presented, v1 approval must not let the RO claim customer_approved')
+})
+
+test('evidence is bound to the right estimate, RO and dealership', () => {
+  assert.match(authMig, /v_est\.ro_id is distinct from new\.ro_id or v_est\.dealership_id is distinct from new\.dealership_id/,
+    'cross-RO and cross-tenant evidence must be refused')
+  assert.match(authMig, /v_est\.presented_at is null/,
+    'you cannot authorize an estimate the customer was never shown')
+  assert.match(authMig, /decision = 'declined' and nullif\(btrim\(coalesce\(new\.decline_reason,''\)\),''\) is null/,
+    'a decline must record why')
+})
+
+test('a retried authorization submission records one decision', () => {
+  assert.match(authMig, /create unique index if not exists ro_auth_idempotency_uk/)
+  const fn = eng.match(/export async function recordAuthorization[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.match(fn, /if \(prior\) return prior/, 'a retry returns the original decision')
+})
+
+test('authorization reuses shared primitives rather than new infrastructure', () => {
+  // contacts for identity, esign_requests for signature, no second signing system.
+  assert.match(authMig, /contact_id uuid/)
+  assert.match(authMig, /esign_request_id uuid/)
+  for (const dup of ['service_signatures', 'service_consents', 'ro_customers']) {
+    assert.ok(!authMig.includes(dup), `must not create ${dup}`)
+  }
+})

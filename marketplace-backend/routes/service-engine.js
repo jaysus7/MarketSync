@@ -302,6 +302,14 @@ export async function transitionRepairOrder(dealershipId, roId, toStatus, { user
   if (toStatus === 'estimate_sent' && !(await latestPresentedEstimate(dealershipId, roId))) {
     throw new Error('Present an estimate to the customer before marking the estimate sent.')
   }
+  // customer_approved / customer_declined assert a decision on the CURRENT estimate.
+  // After additional work creates a new version, the old approval is still history —
+  // it just no longer covers what is now being proposed.
+  if (toStatus === 'customer_approved' || toStatus === 'customer_declined') {
+    const cover = await authorizationCoverage(dealershipId, roId)
+    const want = toStatus === 'customer_approved' ? 'approved' : 'declined'
+    if (cover.decision !== want) throw new Error(`${cover.reason} Record the customer's decision on the current estimate first.`)
+  }
   const now = new Date().toISOString()
   const patch = { status: toStatus, updated_at: now, state_changed_at: now, state_changed_by: userId, state_change_reason: reason }
   // Ready is operational completion, and NOT payment, pickup or close. Stamped once on
@@ -381,6 +389,82 @@ export async function presentEstimate(dealershipId, estimateId, { userId = null 
     payload: { estimate_id: presented.id, version: presented.version, total: n(presented.total) },
   })
   return presented
+}
+
+// ── Authorization — evidence, and coverage derived from it ───────────────────
+// Authorization is never edited or deleted, not even when newer work supersedes it.
+// A dealership must be able to prove, months later: the customer approved v1 at 10:42,
+// then additional work was found, v2 was issued, and a second approval was required.
+//
+// So "is this RO authorized?" is NOT a flag anyone writes. It is DERIVED: take the
+// newest estimate the customer was actually shown, and ask whether a decision exists
+// against that exact version. A newer version simply leaves the old approval as
+// history that no longer covers the current work.
+export async function recordAuthorization(dealershipId, roId, {
+  estimateId = null, decision, approvedAmount = null, authorizedPartyName = null,
+  contactId = null, method = 'in_person', declineReason = null, evidence = null,
+  esignRequestId = null, idempotencyKey = null, userId = null,
+} = {}) {
+  if (!['approved', 'declined', 'deferred'].includes(decision)) throw new Error('decision must be approved, declined or deferred')
+  // Default to the version the customer is actually looking at.
+  let est = null
+  if (estimateId) {
+    const { data } = await supabaseAdmin.from('ro_estimates').select('*').eq('id', estimateId).eq('dealership_id', dealershipId).maybeSingle()
+    est = data || null
+  } else {
+    est = await latestPresentedEstimate(dealershipId, roId)
+  }
+  if (!est) throw new Error('present an estimate to the customer before recording their decision')
+
+  if (idempotencyKey) {
+    const { data: prior } = await supabaseAdmin.from('ro_authorizations').select('*')
+      .eq('dealership_id', dealershipId).eq('idempotency_key', idempotencyKey).maybeSingle()
+    if (prior) return prior                    // a retried submission is the same decision
+  }
+
+  const { data, error } = await supabaseAdmin.from('ro_authorizations').insert({
+    dealership_id: dealershipId, ro_id: roId, estimate_id: est.id, decision,
+    approved_amount: decision === 'approved' ? (approvedAmount != null ? n(approvedAmount) : n(est.total)) : null,
+    authorized_party_name: authorizedPartyName, contact_id: contactId, method,
+    decline_reason: declineReason, evidence: evidence && typeof evidence === 'object' ? evidence : {},
+    esign_request_id: esignRequestId, idempotency_key: idempotencyKey, captured_by: userId,
+  }).select('*').single()
+  if (error) throw new Error(error.message)
+
+  emitEvent({
+    dealershipId, eventName: 'service.authorization_recorded', entityType: 'repair_order', entityId: roId,
+    summary: `Customer ${decision} estimate v${est.version}`,
+    department: 'Service', createdBy: userId,
+    payload: { authorization_id: data.id, estimate_id: est.id, version: est.version, decision, amount: data.approved_amount },
+  })
+  return data
+}
+
+export async function listAuthorizations(dealershipId, roId) {
+  const { data } = await supabaseAdmin.from('ro_authorizations').select('*')
+    .eq('dealership_id', dealershipId).eq('ro_id', roId).order('decided_at', { ascending: false })
+  return data || []
+}
+
+// The derivation. Nothing here writes; it only answers the question.
+export async function authorizationCoverage(dealershipId, roId) {
+  const estimate = await latestPresentedEstimate(dealershipId, roId)
+  if (!estimate) return { covered: false, decision: null, estimate: null, authorization: null, reason: 'No estimate has been presented to the customer.' }
+  const { data: auth } = await supabaseAdmin.from('ro_authorizations').select('*')
+    .eq('dealership_id', dealershipId).eq('estimate_id', estimate.id)
+    .order('decided_at', { ascending: false }).limit(1).maybeSingle()
+  if (!auth) {
+    return {
+      covered: false, decision: null, estimate, authorization: null,
+      reason: `Estimate v${estimate.version} ($${n(estimate.total).toFixed(2)}) has not been authorized by the customer.`,
+    }
+  }
+  return {
+    covered: auth.decision === 'approved', decision: auth.decision, estimate, authorization: auth,
+    reason: auth.decision === 'approved'
+      ? `Estimate v${estimate.version} approved ${new Date(auth.decided_at).toLocaleString()}.`
+      : `Estimate v${estimate.version} was ${auth.decision}.`,
+  }
 }
 
 // ── Appointment → check-in → ONE repair order ────────────────────────────────
@@ -745,6 +829,33 @@ export function registerServiceEngine(app) {
       const estimate = await presentEstimate(req.dealershipId, req.params.id, { userId: req.user?.id || null })
       audit(req, 'service.estimate_presented', { after_state: { id: estimate.id, version: estimate.version, total: estimate.total } })
       res.json({ ok: true, estimate })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  // ── Authorization ──────────────────────────────────────────────────────────
+  app.get('/service-engine/ros/:id/authorizations', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ authorizations: await listAuthorizations(req.dealershipId, req.params.id) })
+  })
+  // Is the work currently being proposed actually authorized? Derived, never stored.
+  app.get('/service-engine/ros/:id/authorization-coverage', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json(await authorizationCoverage(req.dealershipId, req.params.id))
+  })
+  app.post('/service-engine/ros/:id/authorizations', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const b = req.body || {}
+      const authorization = await recordAuthorization(req.dealershipId, req.params.id, {
+        estimateId: b.estimate_id || null, decision: String(b.decision || ''),
+        approvedAmount: b.approved_amount ?? null, authorizedPartyName: b.authorized_party_name || null,
+        contactId: b.contact_id || null, method: b.method || 'in_person',
+        declineReason: b.decline_reason || null, evidence: b.evidence || null,
+        esignRequestId: b.esign_request_id || null, idempotencyKey: b.idempotency_key || null,
+        userId: req.user?.id || null,
+      })
+      audit(req, 'service.authorization_recorded', { after_state: { id: authorization.id, estimate_id: authorization.estimate_id, decision: authorization.decision, amount: authorization.approved_amount } })
+      res.json({ ok: true, authorization })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })
 
