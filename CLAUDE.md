@@ -1,6 +1,18 @@
 # CLAUDE.md
 
-Follow **[AGENTS.md](./AGENTS.md)** — it contains the guardrails for this repo.
+**Start here, in this order:**
+
+1. **[docs/SESSION_HANDOFF.md](./docs/SESSION_HANDOFF.md)** — current state, what
+   landed, the next recommended slice, and the acceptance gates to run.
+2. **[AGENTS.md](./AGENTS.md)** — **Part A** is the governing product/architecture
+   law (canonical records, frozen kernel, audit-before-code, entitlements,
+   security); **Part B** is the frontend guardrails. Both are binding.
+3. **[docs/KERNEL_CONTRACT.md](./docs/KERNEL_CONTRACT.md)** — frozen.
+
+MarketSync is a **dealer operating system**, not a set of features. Employees
+navigate their dealership, not our software architecture. Audit before coding;
+prefer KEEP > FIX > MOVE > MERGE > BUILD > DELETE; never weaken a test or bypass
+RLS/RBAC/MFA/entitlements to make work pass.
 
 Highest-priority rules (see AGENTS.md for detail):
 
