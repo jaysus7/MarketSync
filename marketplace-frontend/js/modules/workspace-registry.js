@@ -36,14 +36,22 @@ const MS_WORKSPACES = {
   },
 
   // ── Sales — the highest-frequency workspace; visible to every rep ──────────
+  // Sales is the DealerOS REFERENCE department (Phase 2). The `sales` page is an
+  // engine-shell workspace (Today / Work / Insights / Automation / Settings) that
+  // composes the existing Sales pages rather than replacing them — see
+  // js/modules/sales-workspace.js and docs/SALES_PHASE2_AUDIT.md.
+  //
+  // The individual pages below stay in the tab-bar so every existing entry point,
+  // deep link and bookmark keeps working; `sales` simply leads.
   sales: {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
-      { page: 'insights', label: 'Overview' },
-      { page: 'leads', label: 'Pipeline', mgr: true },
+      { page: 'sales', label: 'Today' },
       { page: 'crm', label: 'Customers' },
       { page: 'appointments', label: 'Appointments' },
       { page: 'tasks', label: 'Tasks' },
+      { page: 'leads', label: 'Leads', mgr: true },
+      { page: 'insights', label: 'Insights', mgr: true },
       // "My commission" — a rep-facing page whose only access point lived in the
       // retired legacy tree, leaving it unreachable. Restored here (all roles);
       // managers also reach it via Accounting → Payroll.
@@ -146,14 +154,14 @@ const MS_SYSTEM_NAV = [
 // uses, then "More". Pages still pass every gate before rendering; an entry the
 // user cannot reach is dropped rather than shown dead.
 const MS_ROLE_MOBILE_NAV = {
-  SALES_REP:    ['insights', 'leads', 'crm', 'tasks'],
+  SALES_REP:    ['sales', 'crm', 'appointments', 'tasks'],
   FNI:          ['fni', 'crm', 'appointments', 'tasks'],
   SERVICE:      ['service-ros', 'service-appointments', 'crm', 'tasks'],
   CLEANUP:      ['recon', 'taskboard'],
   ACCOUNTING:   ['accounting', 'commissions', 'crm', 'tasks'],
-  MANAGER:      ['command', 'insights', 'inventory', 'tasks'],
-  OWNER:        ['command', 'insights', 'inventory', 'tasks'],
-  DEALER_ADMIN: ['command', 'insights', 'inventory', 'tasks'],
+  MANAGER:      ['command', 'sales', 'inventory', 'tasks'],
+  OWNER:        ['command', 'sales', 'inventory', 'tasks'],
+  DEALER_ADMIN: ['command', 'sales', 'inventory', 'tasks'],
 };
 const MS_MOBILE_NAV_DEFAULT = ['insights', 'crm', 'tasks'];
 
