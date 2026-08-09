@@ -12,6 +12,10 @@ const read = (rel) => readFileSync(new URL(rel, FE), 'utf8')
 
 const inv = read('js/modules/inventory-workspace.js')
 const fni = read('js/modules/fni-workspace.js')
+const vr = read('js/modules/vehicle-record.js')
+// These files legitimately *describe* boundaries they must not cross, so every
+// behavioural assertion runs against executable source, never the prose.
+const code = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 const html = read('dashboard.html')
 const registry = read('js/modules/workspace-registry.js')
 const part2 = read('js/modules/dashboard-part2.js')
@@ -76,9 +80,118 @@ for (const [name, src, id] of DEPTS) {
 
 test('Inventory Work exposes the vehicle lifecycle', () => {
   const views = inv.match(/const INV_WORK_VIEWS = \[[\s\S]*?\n\];/)?.[0] || ''
-  for (const v of ['vehicles', 'acquire', 'recon', 'pricing', 'syndication']) {
+  for (const v of ['vehicles', 'acquire', 'recon', 'merch', 'pricing', 'syndication']) {
     assert.ok(views.includes(`'${v}'`), `Inventory Work must include ${v}`)
   }
+})
+
+// ── Stage 3B.2 — Acquisition, Merchandising, Vehicle Record ──────────────────
+
+test('Acquisition groups the intake pipeline in the order a unit arrives', () => {
+  const src = code(inv)
+  assert.match(src, /function invRenderAcquisition/, 'Acquisition must be a composed view, not a flat list')
+  for (const step of ['1 · Appraised', '2 · Awaiting possession — purchased',
+                      '2 · Awaiting possession — customer trade', '3 · In your possession']) {
+    assert.ok(src.includes(step), `Acquisition must group by pipeline step: ${step}`)
+  }
+  // The split exists because the two halves have different canonical transitions.
+  // Each group may only offer the action that belongs to it.
+  assert.match(src, /nonTrade = awaiting\.filter\(invCanTakePossession\)/,
+    'the purchased group must be exactly the units eligible for POST /inventory/:id/take-possession')
+  assert.match(src, /tradeAwaiting = awaiting\.filter\(v => v\.source_appraisal_id\)/,
+    'the trade group must be exactly the units that came from a Sales appraisal')
+  assert.match(src, /label: 'Open Appraisal'[\s\S]{0,120}switchPage\('appraisal'\)/,
+    'a trade awaiting possession must be routed to its appraisal, never to the generic endpoint')
+})
+
+test('acquisition channel is derived, never stored a second time', () => {
+  const src = code(inv)
+  assert.match(src, /function invAcqChannel\(v\) \{ return v\.source_appraisal_id \? 'trade' : \(v\.source_url \? 'feed' : 'purchased'\); \}/,
+    'the channel must be derived from fields the vehicle already carries')
+  assert.doesNotMatch(src, /acquisition_channel|acq_channel/,
+    'Stage 3B.2 must not invent a persisted acquisition-channel field')
+})
+
+test('Merchandising is scored off the canonical vehicle record', () => {
+  const src = code(inv)
+  const block = src.match(/function invMerchChecks[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(block, 'Inventory must own one merchandising definition')
+  for (const key of ['photos', 'price', 'description', 'sticker', 'pitch']) {
+    assert.ok(block.includes(`key: '${key}'`), `merchandising must check ${key}`)
+  }
+  // Every check reads a field that already exists on the vehicle.
+  for (const field of ['image_urls', 'v.price', 'v.description', 'window_sticker_url', 'sales_pitch']) {
+    assert.ok(src.includes(field), `merchandising must read the canonical field ${field}`)
+  }
+  assert.match(src, /function invRenderMerch/, 'Merchandising must be its own Work view')
+  assert.match(src, /filter\(v => !v\.awaiting_possession\)/,
+    'a unit we do not physically have is an Acquisition problem, not a merchandising one')
+})
+
+test('the merchandising definition exists once and is reused', () => {
+  assert.match(code(vr), /invMerchChecks\(v\)/, 'the Vehicle Record must reuse Inventory’s checks')
+  assert.doesNotMatch(code(vr), /function invMerchChecks|function invMerchGaps/,
+    'the Vehicle Record must not redefine merchandising and drift from Inventory')
+})
+
+test('every vehicle row opens the Vehicle Record', () => {
+  assert.match(code(inv), /function invRow\(v, d, sub\)/, 'rows must accept the context that varies per view')
+  assert.match(code(inv), /onclick="vehicleOpen\('\$\{v\.id\}'\)"/, 'a vehicle row must open its record')
+})
+
+test('a sold unit still in recon is the top Inventory exception', () => {
+  const block = code(inv).match(/function invAttention[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(block, /if \(inRecon && recon\.deal_id\) \{ sev = 0/,
+    'a sold-but-unfinished unit risks a delivery and must outrank every other exception')
+})
+
+test('Vehicle Record is one surface over records that already exist', () => {
+  const src = code(vr)
+  assert.match(src, /window\.vehicleOpen = vehicleOpen/, 'the record must be openable from anywhere')
+  // Reads a closed list of existing endpoints, and writes nothing of its own.
+  const gets = [...src.matchAll(/apiGetJson\([`']([^`'?]+)/g)].map(m => m[1])
+  const KNOWN = ['/inventory/${id}', '/recon', '/fni/deals']
+  for (const g of gets) assert.ok(KNOWN.includes(g), `Vehicle Record must not introduce an endpoint: ${g}`)
+  assert.doesNotMatch(src, /apiSendJson/, 'the Vehicle Record must not write directly — it delegates')
+  assert.match(src, /await invTakePossession\(id\)/,
+    'possession must go through the ONE canonical producer path')
+  // Match construction CALLS, not prose — the copy on this surface legitimately
+  // talks about vehicles and deals.
+  assert.doesNotMatch(src, /\b(createVehicle|createDeal|createAppraisal)\s*\(|new\s+(Vehicle|Deal|Appraisal)\s*\(|vehicles\.push\s*\(/,
+    'the Vehicle Record must not create a second vehicle, appraisal or deal')
+  assert.doesNotMatch(src, /journal|postToAccounting/i, 'the Vehicle Record must not contain accounting logic')
+})
+
+test('Vehicle Record shows the whole lifecycle of one unit', () => {
+  for (const section of ['Acquisition', 'Recon', 'Merchandising', 'Pricing', 'Deal & delivery']) {
+    assert.ok(vr.includes(`vrSection('${section}'`), `the record must include the ${section} section`)
+  }
+  // It reuses the engines that own each step rather than reimplementing them.
+  assert.match(code(vr), /openVehicleForm\(v\)/, 'editing must reuse the existing vehicle form')
+  assert.match(code(vr), /openVehicleHistory\(/, 'history must reuse the existing report surface')
+  assert.match(code(vr), /openDeskForContact\('\$\{x\.contact_id\}'\)/, 'desking must reuse the existing implementation')
+  assert.doesNotMatch(code(vr), /function (loadReconPage|loadInventoryPage|renderEngine|engCard)\b/,
+    'the record must not redefine a shared primitive or another engine')
+})
+
+test('Vehicle Record degrades honestly when a section belongs to another department', () => {
+  const src = code(vr)
+  // A rep without F&I permission gets a 403 on /fni/deals. That section is then
+  // absent and SAID to be absent — never faked, never guessed from other fields.
+  assert.match(src, /apiGetJson\('\/fni\/deals'\)[\s\S]{0,80}catch\(\(\) => null\)/,
+    'optional context must fail soft')
+  assert.match(src, /dealsVisible/, 'the record must distinguish "no access" from "no deal"')
+  assert.ok(vr.includes("No open deal on this vehicle"), 'no deal must be stated plainly')
+  assert.ok(vr.includes("you don&#39;t have access to it") || vr.includes("you don't have access to it"),
+    'no access must be stated plainly rather than rendered as an empty section')
+})
+
+test('Vehicle Record is wired into the shell after the department that feeds it', () => {
+  const pos = (f) => html.indexOf(`<script src="js/modules/${f}`)
+  assert.ok(pos('vehicle-record.js') > pos('inventory-workspace.js'),
+    'vehicle-record.js must load after inventory-workspace.js')
+  assert.ok(pos('inventory-workspace.js') > pos('dashboard-part26.js'),
+    'the workspace modules must load after the dashboard parts')
 })
 
 test('F&I Work exposes the deal lifecycle', () => {

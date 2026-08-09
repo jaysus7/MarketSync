@@ -3656,6 +3656,9 @@
   <script src="js/modules/sales-workspace.js?v=20260809_sales"></script>
   <script src="js/modules/inventory-workspace.js?v=20260809_stage3"></script>
   <script src="js/modules/fni-workspace.js?v=20260809_stage3"></script>
+  <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
+       whose merchandising/acquisition definitions it renders. -->
+  <script src="js/modules/vehicle-record.js?v=20260809_stage3b2"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

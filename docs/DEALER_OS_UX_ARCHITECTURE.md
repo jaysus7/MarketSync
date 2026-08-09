@@ -214,6 +214,7 @@ record; they do not reimplement the other department's logic.
 | `engEmpty(msg)` | part10 | empty state |
 | `engBar(segments)` | part10 | segmented bar + legend |
 | `ENGINE_ACCENTS` | part10 | per-department accent classes |
+| `crmOverlay(inner, maxW)` | part4 | modal/overlay shell (backdrop, Escape, mobile scroll) |
 | `svgIcon(name, cls)`, `esc()` | core | icons, escaping |
 | `apiGetJson`, `apiSendJson` | core | HTTP with retry |
 | `switchPage(pageId)` | part2 | navigate |
@@ -285,3 +286,39 @@ Guarded by `marketplace-backend/test/sales-workspace.test.js`.
 - [ ] `MS_WORKSPACES.<id>` leads with the workspace page; existing pages stay reachable
 - [ ] `MS_ROLE_MOBILE_NAV` updated if the department changes a role's landing
 - [ ] tests green (`npm test`) + all `check:*` + headless dashboard load
+
+---
+
+## 13. Record workspaces (Stage 3B.2)
+
+A **department** answers *what needs me today*. A **record workspace** answers
+*everything about this one thing*. They are different surfaces and must not be
+merged: a department that tries to be a record browser stops being an attention
+queue.
+
+The first one is `js/modules/vehicle-record.js` — `vehicleOpen(id)`.
+
+**Shape.** A record workspace is an **overlay**, not an engine and not a page. It
+uses the existing `crmOverlay(inner, maxW)` so it inherits the app's modal
+behaviour (backdrop click, Escape, mobile `items-start` + `max-h-[92vh]` scroll)
+and needs no new chrome, no route and no registry entry.
+
+**Rules** (in addition to §12, which still applies to the department that opens it):
+
+1. **Refetch the record.** Open against `GET /<record>/:id`, never against the row
+   the user clicked — list payloads go stale the moment anything else writes.
+2. **Sections follow the lifecycle**, in the order it happens. For a vehicle:
+   Acquisition → Recon → Merchandising → Pricing → Deal & delivery.
+3. **Own nothing.** No writes of its own: every action delegates to the function or
+   endpoint that already owns that step (`invTakePossession`, `openVehicleForm`,
+   `openVehicleHistory`, `openDeskForContact`, `crmOpenForm`, `switchPage`).
+4. **Derived state is defined once, in the department.** The record renders
+   `invMerchChecks()`; it does not re-derive readiness, or the two would drift.
+5. **Optional context fails soft and says so.** Sections owned by another
+   department (`/fni/deals` needs `deal.approve` + MFA) are fetched with
+   `.catch(() => null)` and the surface distinguishes *no access* from *no record* —
+   it never guesses, and never renders an empty section as if it were empty data.
+6. **Leave before you navigate.** Any action that changes page closes the record
+   first (`vehicleGo`), so the user is never left under a dead overlay.
+7. **After a canonical transition, reopen — don't patch.** Possession succeeds →
+   the record re-reads the server rather than editing what is on screen.
