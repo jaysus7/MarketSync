@@ -24,9 +24,11 @@ const FNI_STAGE_LABEL = {
 const fniStage = (x) => FNI_STAGE_LABEL[x?.deal_status] || x?.deal_status || 'Working';
 
 let __fniWsData = null;
-let __fniWorkView = 'deals';
+let __fniWorkView = 'queue';
 let __fniDeliveries = null;   // lazy — not part of the landing payload
 let __fniProducts = null;     // lazy
+let __fniFunding = null;      // lazy — GET /fni/funding (canonical funding state)
+let __fniDecisions = {};      // dealId -> lender decisions (lazy, per deal)
 
 const fniCustomer = (x) => x.customer_name || x.contact_name || 'Customer';
 const fniVehicle = (x) => x.vehicle_label || [x.year, x.make, x.model].filter(Boolean).join(' ') || '';
@@ -81,9 +83,97 @@ function fniRow(x) {
   </div>`;
 }
 
+// ── Funding row + actions (canonical funding state, Stage 3A) ────────────────
+// Every mutation goes through PUT /fni/deals/:id/funding. The UI never writes
+// funding state locally and never touches the ledger: the backend emits
+// `funding.received` on the transition into `funded`, and Accounting clears
+// Contracts in Transit from that event.
+const FNI_FUNDING_NEXT = {
+  pending:    { label: 'Mark Submitted', to: 'submitted' },
+  submitted:  { label: 'Mark Funded',    to: 'funded' },
+  conditions: { label: 'Mark Funded',    to: 'funded' },
+  exception:  { label: 'Mark Funded',    to: 'funded' },
+};
+
+function fniFundingRow(r) {
+  const sel = r.selected_decision || null;
+  const next = FNI_FUNDING_NEXT[r.funding_state];
+  const aged = (r.days_in_funding ?? 0) >= 14;
+  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+    <button onclick="${r.contact_id ? `crmOpenForm('${r.contact_id}')` : ''}" class="min-w-0 flex-1 text-left">
+      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(r.customer_name || r.deal_number || 'Deal')}</div>
+      <div class="text-[12px] text-slate-400 truncate">
+        ${esc(salesLabel(r.funding_state))}${sel?.lender_id ? ' · lender selected' : ''}
+        ${r.funding_submitted_at ? ` · submitted ${esc(new Date(r.funding_submitted_at).toLocaleDateString())}` : ''}
+        ${r.days_in_funding != null ? ` · <span class="${aged ? 'text-rose-500 font-bold' : ''}">${r.days_in_funding}d outstanding</span>` : ''}
+        ${sel?.conditions ? ` · <span class="text-amber-600 dark:text-amber-400">${esc(sel.conditions)}</span>` : ''}
+        ${r.funded_at ? ` · funded ${esc(new Date(r.funded_at).toLocaleDateString())}` : ''}
+      </div>
+    </button>
+    <button onclick="fniOpenLenders('${r.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Lenders</button>
+    ${next ? `<button onclick="fniSetFunding('${r.id}','${next.to}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">${esc(next.label)}</button>` : ''}
+  </div>`;
+}
+
+// Advance funding through the canonical endpoint, then refetch server truth.
+async function fniSetFunding(dealId, to) {
+  try {
+    await apiSendJson(`/fni/deals/${dealId}/funding`, 'PUT', { funding_status: to });
+    showToast(to === 'funded' ? 'Funding recorded — Accounting notified' : `Funding marked ${to}`, 'success');
+  } catch (e) { showToast(e.message || 'Could not update funding', 'error'); return; }
+  __fniFunding = null;                       // never trust local state — refetch
+  ENGINE_DATA['fni-overview'] = undefined;
+  engineTab('fni-overview', 'work', true);
+}
+window.fniSetFunding = fniSetFunding;
+
+// ── Lender decision panel ────────────────────────────────────────────────────
+// Reads the canonical one-to-many model. Selection goes through the API; the
+// database enforces a single selected decision per deal (partial unique index).
+async function fniOpenLenders(dealId) {
+  const host = document.querySelector('[data-engine-body="fni-overview"]');
+  if (!host) return;
+  host.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading lender decisions…</div>`;
+  let decisions = [];
+  try { decisions = (await apiGetJson(`/fni/deals/${dealId}/lender-decisions`)).decisions || []; }
+  catch (e) { host.innerHTML = engEmpty(`Couldn't load lender decisions: ${esc(e.message)}`); return; }
+  const money = (v) => v == null ? '—' : '$' + Number(v).toLocaleString();
+  const rows = decisions.map(d => `
+    <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+      <div class="min-w-0 flex-1">
+        <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">
+          ${esc(d.lender_name || d.lender_id || 'Lender')}${d.selected ? ' <span class="text-emerald-600 dark:text-emerald-400">· selected</span>' : ''}
+        </div>
+        <div class="text-[12px] text-slate-400 truncate">
+          ${esc(d.decision || d.submission_status || 'draft')}
+          ${d.rate != null ? ` · ${d.rate}%` : ''}${d.term_months ? ` · ${d.term_months}mo` : ''}
+          ${d.approved_amount != null ? ` · ${money(d.approved_amount)}` : ''}
+          ${d.submitted_at ? ` · sent ${esc(new Date(d.submitted_at).toLocaleDateString())}` : ''}
+          ${d.responded_at ? ` · replied ${esc(new Date(d.responded_at).toLocaleDateString())}` : ''}
+          ${d.approval_expires_on ? ` · expires ${esc(d.approval_expires_on)}` : ''}
+          ${d.conditions ? ` · <span class="text-amber-600 dark:text-amber-400">${esc(d.conditions)}</span>` : ''}
+        </div>
+      </div>
+      ${d.selected ? '' : `<button onclick="fniSelectLender('${dealId}','${d.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Select</button>`}
+    </div>`).join('') || engEmpty('No lender decisions recorded for this deal.');
+  host.innerHTML = `<button onclick="engineTab('fni-overview','work')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400 mb-3">← Back to Funding</button>
+    ${engCard('Lender decisions', rows)}
+    <p class="text-[12px] text-slate-400 mt-3">One selected approval per deal — enforced by the database, not the interface.</p>`;
+}
+window.fniOpenLenders = fniOpenLenders;
+
+async function fniSelectLender(dealId, decisionId) {
+  try {
+    await apiSendJson(`/fni/deals/${dealId}/lender-decisions/${decisionId}/select`, 'PUT', {});
+    showToast('Lender approval selected', 'success');
+  } catch (e) { showToast(e.message || 'Could not select lender', 'error'); return; }
+  fniOpenLenders(dealId);   // refresh from the server, never toggle locally
+}
+window.fniSelectLender = fniSelectLender;
+
 const FNI_WORK_VIEWS = [
-  ['deals', 'Deals'], ['credit', 'Credit'], ['products', 'Products'],
-  ['contracts', 'Contracts'], ['delivery', 'Delivery'],
+  ['queue', 'Queue'], ['credit', 'Credit'], ['menu', 'Menu'],
+  ['contracts', 'Contracts'], ['funding', 'Funding'],
 ];
 function fniWorkView(v) { __fniWorkView = v; engineTab('fni-overview', 'work'); }
 window.fniWorkView = fniWorkView;
@@ -96,7 +186,7 @@ async function fniRenderWork(body, d) {
   const link = (page, label) => `<div class="mt-3"><button onclick="switchPage('${page}')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">${esc(label)} →</button></div>`;
   let inner = '';
 
-  if (__fniWorkView === 'deals') {
+  if (__fniWorkView === 'queue') {
     const order = ['pending', 'approved', 'fni', 'contracted', 'sold', 'working'];
     inner = order.map(st => {
       const rows = (d.deals || []).filter(x => x.deal_status === st);
@@ -111,7 +201,7 @@ async function fniRenderWork(body, d) {
     const need = (d.deals || []).filter(x => ['pending', 'approved', 'fni'].includes(x.deal_status));
     inner = engCard('Deals needing credit', need.slice(0, 15).map(fniRow).join('') || engEmpty('No deals awaiting credit.'))
       + `<p class="text-[12px] text-slate-400 mt-3">Credit applications open from the deal — one canonical application per deal, never a second record.</p>`;
-  } else if (__fniWorkView === 'products') {
+  } else if (__fniWorkView === 'menu') {
     if (!__fniProducts) {
       body.innerHTML = `<div class="flex gap-1.5 mb-3">${nav}</div><div class="text-sm text-slate-400 py-10 text-center">Loading products…</div>`;
       try { __fniProducts = await apiGetJson('/fni/products'); } catch { __fniProducts = { products: [] }; }
@@ -125,18 +215,21 @@ async function fniRenderWork(body, d) {
   } else if (__fniWorkView === 'contracts') {
     const rows = (d.deals || []).filter(x => ['contracted', 'sold'].includes(x.deal_status));
     inner = engCard('Contracted', rows.slice(0, 20).map(fniRow).join('') || engEmpty('Nothing contracted yet.')) + link('fni', 'Open F&I deals');
-  } else if (__fniWorkView === 'delivery') {
-    if (!__fniDeliveries) {
-      body.innerHTML = `<div class="flex gap-1.5 mb-3">${nav}</div><div class="text-sm text-slate-400 py-10 text-center">Loading deliveries…</div>`;
-      try { __fniDeliveries = await apiGetJson('/delivery/queue'); } catch { __fniDeliveries = { deals: [] }; }
+  } else if (__fniWorkView === 'funding') {
+    // Canonical funding state (Stage 3A) — NOT inferred from delivered/unreconciled.
+    // GET /fni/funding returns funding_state, funding_submitted_at, funded_at,
+    // days_in_funding and the SELECTED lender decision in one read.
+    if (!__fniFunding) {
+      body.innerHTML = `<div class="flex gap-1.5 mb-3">${nav}</div><div class="text-sm text-slate-400 py-10 text-center">Loading funding…</div>`;
+      try { __fniFunding = await apiGetJson('/fni/funding'); } catch (e) { __fniFunding = { deals: [], error: e.message }; }
     }
-    const rows = __fniDeliveries.deals || __fniDeliveries.queue || [];
-    inner = engCard('Delivery queue', rows.slice(0, 20).map(x => `
-      <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-        <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(fniCustomer(x))}</div>
-          <div class="text-[12px] text-slate-400 truncate">${esc(fniVehicle(x))}${x.blocker ? ` · <span class="text-rose-500">${esc(x.blocker)}</span>` : ''}</div></div>
-        <button onclick="switchPage('delivery')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Prepare Delivery</button>
-      </div>`).join('') || engEmpty('Nothing awaiting delivery.')) + link('delivery', 'Open delivery queue');
+    const rows = __fniFunding.deals || [];
+    const BUCKETS = [['pending', 'Pending'], ['submitted', 'Submitted'], ['conditions', 'Conditions'], ['exception', 'Exception'], ['funded', 'Funded']];
+    inner = BUCKETS.map(([state, label]) => {
+      const list = rows.filter(r => r.funding_state === state);
+      if (!list.length) return '';
+      return engCard(`${label} (${list.length})`, list.slice(0, 15).map(fniFundingRow).join(''));
+    }).join('') || engEmpty(__fniFunding.error ? `Couldn't load funding: ${esc(__fniFunding.error)}` : 'Nothing in funding.');
   }
   body.innerHTML = `<div class="flex gap-1.5 mb-3 overflow-x-auto">${nav}</div>${inner}`;
 }

@@ -79,6 +79,36 @@ function invRow(v, d) {
   </div>`;
 }
 
+// ── Non-trade Take Possession (canonical, Stage 3A) ──────────────────────────
+// Calls POST /inventory/:id/take-possession — the ONLY producer of
+// `vehicle.acquired`. The UI never marks a vehicle acquired locally: it posts the
+// transition and refetches server truth.
+//
+// Trade units are excluded server-side (they carry source_appraisal_id and belong to
+// `trade.received` via the appraisal path). We also hide the action for them so the
+// user is never offered a call that will 409 — but the server remains authoritative,
+// and a 409 TRADE_UNIT is surfaced honestly rather than worked around.
+function invCanTakePossession(v) { return !!v.awaiting_possession && !v.source_appraisal_id; }
+
+async function invTakePossession(id) {
+  try {
+    const r = await apiSendJson(`/inventory/${id}/take-possession`, 'POST', {});
+    showToast(r.acquired ? 'Possession recorded — Accounting notified' : 'Already in your possession', 'success');
+  } catch (e) {
+    // 409 TRADE_UNIT: the unit came from a trade appraisal and must go through that
+    // path so it records a trade receipt instead of a generic acquisition.
+    const msg = /TRADE_UNIT/.test(e.message || '')
+      ? 'This unit came from a trade appraisal — take possession from the appraisal.'
+      : (e.message || 'Could not record possession');
+    showToast(msg, 'error');
+    return;
+  }
+  __invAppraisals = null;
+  ENGINE_DATA['inventory-overview'] = undefined;
+  engineTab('inventory-overview', 'work', true);
+}
+window.invTakePossession = invTakePossession;
+
 const INV_WORK_VIEWS = [
   ['vehicles', 'Vehicles'], ['acquire', 'Acquire'], ['recon', 'Recon'],
   ['pricing', 'Pricing'], ['syndication', 'Syndication'],
@@ -104,7 +134,23 @@ async function invRenderWork(body, d) {
     const rows = __invAppraisals.appraisals || [];
     // Vehicles already acquired FROM an appraisal — proof the handoff kept one record.
     const fromSales = (d.vehicles || []).filter(v => v.source_appraisal_id);
-    inner = engCard('Appraisal queue', rows.slice(0, 15).map(a => `
+    // Awaiting possession, split by which canonical path applies. Non-trade units get
+    // the generic Take Possession action; trade units are routed to the appraisal.
+    const awaiting = (d.vehicles || []).filter(v => v.awaiting_possession);
+    const nonTrade = awaiting.filter(invCanTakePossession);
+    const tradeAwaiting = awaiting.filter(v => v.source_appraisal_id);
+    const possessed = (d.vehicles || []).filter(v => !v.awaiting_possession && v.source_appraisal_id);
+    const awaitingCard = (title, list, isTrade) => list.length ? engCard(`${title} (${list.length})`, list.slice(0, 12).map(v => `
+      <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+        <div class="min-w-0 flex-1">
+          <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(invName(v))}</div>
+          <div class="text-[12px] text-slate-400 truncate">${v.stocknumber ? `#${esc(v.stocknumber)} · ` : ''}${isTrade ? 'from Sales appraisal' : esc(v.source || 'purchased')}${v.invoice_amount ? ` · cost $${Number(v.invoice_amount).toLocaleString()}` : ''}</div>
+        </div>
+        <button onclick="${isTrade ? `switchPage('appraisal')` : `invTakePossession('${v.id}')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold ${isTrade ? 'border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800' : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90'} transition">${isTrade ? 'Open Appraisal' : 'Take Possession'}</button>
+      </div>`).join('')) : '';
+    inner = awaitingCard('Awaiting possession — purchased', nonTrade, false)
+      + awaitingCard('Awaiting possession — customer trade', tradeAwaiting, true)
+      + engCard('Appraisal queue', rows.slice(0, 15).map(a => `
         <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
           <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc([a.year, a.make, a.model].filter(Boolean).join(' ') || a.vin || 'Appraisal')}</div>
             <div class="text-[12px] text-slate-400 truncate">${esc(a.status || 'pending')}${a.customer_name ? ` · ${esc(a.customer_name)}` : ''}</div></div>
