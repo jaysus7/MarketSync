@@ -12,9 +12,9 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 |---|---|
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
-| **Baseline on `staging`** | `c226e62` — 431/431 tests green |
-| **In flight** | — (Stage 3A merged) |
-| **Roadmap position** | Phase 1 (nav), Phase 2 (Sales), **Stage 3A (Inventory/F&I domain + events) merged**. **Stage 3B UI composition NOT started.** |
+| **Baseline on `staging`** | `f4269e8` — 431/431 tests green |
+| **In flight** | **Stage 3B.2** on `claude/restore-shared-public-shell-8lftt0` — 441/441, all six `check:*` green |
+| **Roadmap position** | Phase 1 (nav), Phase 2 (Sales), Stage 3A (domain + events) and 3B.1 (financial UI wiring) merged. **Stage 3B.2 completes Stage 3** — merge it, then Stage 4. |
 
 ## Read before coding
 
@@ -65,29 +65,48 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
   Sales customer → appraisal → Inventory vehicle → recon → F&I deal. Zero backend
   change. Also hardened `check:frontend`, which could not see declarations after a
   nested template literal and had let a duplicate `let` silently disable a module.
+- **Stage 3A** (PR #69) — the domain and the three canonical accounting producers:
+  `funding_status`/`funded_at`/`funding_submitted_at`, `deal_lender_decisions` (one
+  selected per deal, enforced by a partial unique index), and the sole emitters of
+  `funding.received`, `trade.received` and `vehicle.acquired`. Idempotency proven
+  before the producers were enabled; **no historical replay or journal backfill**.
+- **Stage 3B.1** (PR #70) — made that backend reachable: the F&I Funding queue
+  (`GET /fni/funding`), the lender decision panel, and non-trade Take Possession.
+- **Stage 3B.2 — Acquisition, Merchandising, Vehicle Record** — Inventory Work now
+  follows the vehicle lifecycle end to end (Vehicles · Acquisition · Recon ·
+  Merchandising · Pricing · Syndication). Acquisition groups the intake pipeline by
+  step and splits *awaiting possession* into purchased vs customer trade, because
+  those two halves have **different canonical transitions** — the grouping is the
+  guard rail against calling the wrong one. Merchandising scores frontline readiness
+  off the canonical vehicle record (`invMerchChecks`: photos · price · description ·
+  window sticker · AI copy). `js/modules/vehicle-record.js` adds `vehicleOpen(id)`:
+  one vehicle, one surface, zero writes of its own — see
+  `docs/DEALER_OS_UX_ARCHITECTURE.md` §13. A sold unit still in recon is now the
+  highest-severity Inventory exception. Deliberate omissions (feed-failure and PDI
+  exceptions, Automation tabs) and why: `docs/STAGE3_INVENTORY_FNI_AUDIT.md` §5.1.
 
 ## Next recommended slice
 
-### ⚠️ Stage 3B is still outstanding
+### First: merge Stage 3B.2, which closes Stage 3
 
-Stage 3A (merged) delivered the Inventory/F&I **domain + event** core and skeleton
-Today/Work tabs. The Stage 3B **UI composition was never built**:
+**Verification for the next session (one command):** does `staging` contain
+`js/modules/vehicle-record.js` and `invRenderMerch`? If yes, Stage 3 is closed —
+**do not rediscover 3A, 3B.1 or 3B.2**. If no, the Stage 3B.2 branch is still
+unmerged; merge it per §A17 rather than rebuilding it.
 
-- Inventory → Acquisition, Merchandising, Vehicle Record workspace
-- F&I → Work restructured as Queue | Credit | Menu | Contracts | Funding
-- lender decision panel (model exists, no UI), funding queue UI (state exists, no UI)
-- E2E: stock acquisition, trade, F&I/funding, merchandising; mobile validation
+### Then: Stage 4 — Fixed Operations (Service + Parts)
 
-File plan: `docs/STAGE3_INVENTORY_FNI_AUDIT.md` §7. Event semantics (final, all three
-events): §9. Pattern + wiring checklist: `docs/DEALER_OS_UX_ARCHITECTURE.md` §11–12.
+⚠️ **The Stage 4 brief has not been received in full.** It arrived truncated
+mid-sentence ("Do not retype data MarketS"): Part D and the exit criteria are
+missing. **Ask for the complete brief before starting** — do not reconstruct it.
 
-Note: `POST /fni/funding`, `/fni/deals/:id/lender-decisions` and
-`POST /inventory/:id/take-possession` all exist and are tested, but **nothing in the
-UI calls them yet.**
+What the received portion did establish: domain audit first
+(`docs/STAGE4_SERVICE_PARTS_AUDIT.md`) with gaps classified G0–G6, then minimum
+domain completion, then UI, then E2E — the same order Stage 3 used.
 
-### Then: Stage 4 — the remaining departments (Service, Parts, Accounting, Marketing,
-People) on the same engine-shell pattern; then a dealership-wide My Day that
-aggregates the department Today views once they all exist.
+After Service and Parts: Accounting, Marketing and People on the same engine-shell
+pattern; then a dealership-wide My Day that aggregates the department Today views
+once they all exist.
 
 Standing decisions: do **not** add `Showed`/`Negotiating` to the CRM enum (UI may derive
 that context, never persist it); Phase 2 deferred items (opportunity-row appraisal
@@ -101,6 +120,14 @@ exist) · Service→Technicians/Customers · Parts→Orders/Receiving/Requests �
 Accounting→Transactions/AP/AR/Bank · Marketing→Advertising/Reputation/Attribution
 (`/adspend/*` partial) · People→Time/Payroll/Training (`/hr/*` exists).
 
+**Pre-existing, found during Stage 3B.2 mobile validation:** at 390px the dashboard
+document is 399px wide — a 9px horizontal overflow. It reproduces on a *bare*
+dashboard with no workspace rendered, traced to a legacy `<table class="w-full
+text-sm border-collapse">` on a hidden page, so it predates Stage 3 and is not
+caused by any workspace. Every Stage 3B.2 surface measured clean (zero overflowing
+elements). Fixing it means giving that legacy table an `overflow-x:auto` wrapper —
+worth doing in whichever department owns that page, not as drive-by scope here.
+
 Also open, outside code: branch protection required-check, MCP audit, Supabase
 leaked-password protection, Stripe matrix, E2E, backup/restore drill, monitoring,
 and a two-dealer cross-tenant vector test.
@@ -109,7 +136,7 @@ and a two-dealer cross-tenant vector test.
 
 ```bash
 cd marketplace-backend
-npm test                       # full suite — must stay green (406 on this branch)
+npm test                       # full suite — must stay green (441 on this branch)
 npm run check:syntax           # every backend source parses
 npm run check:imports          # ESM import resolution
 npm run check:exports          # named export bindings

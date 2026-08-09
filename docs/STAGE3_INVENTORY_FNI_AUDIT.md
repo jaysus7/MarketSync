@@ -84,6 +84,30 @@ Settings. F&I: rename Work views to Queue|Credit|Menu|Contracts|Funding · queue
 mapping · lender panel · Funding queue · Insights/Automation/Settings. Plus mobile
 validation and the four E2E acceptance paths.
 
+### 5.1 Status of that delta
+
+| Item | Landed in | Note |
+|---|---|---|
+| F&I Queue/Credit/Menu/Contracts/Funding, lender panel, Funding queue | 3B.1 (PR #70) | reads canonical `funding_status` + `deal_lender_decisions` |
+| Inventory Acquisition view | **3B.2** | grouped by pipeline step, trade vs purchased split by canonical transition |
+| Inventory Merchandising view | **3B.2** | `invMerchChecks()` — photos · price · description · window sticker · AI copy |
+| Vehicle Record workspace | **3B.2** | `js/modules/vehicle-record.js`, `vehicleOpen(id)`; pattern documented in `DEALER_OS_UX_ARCHITECTURE.md` §13 |
+| Today exception: sold-not-ready | **3B.2** | highest-severity Inventory exception — it risks a booked delivery |
+| Inventory/F&I Insights + Settings | 3B.1 / **3B.2** | Insights now shows frontline readiness and acquisition mix |
+| Mobile ~390px + E2E acceptance paths | **3B.2** | all five paths exercised headless; see the handoff doc |
+
+**Deliberately NOT built** (would need backend that does not exist, and the brief
+forbids inventing it):
+
+- *Feed-failure exceptions* — there is no per-dealership feed-health read. The only
+  feed signals are `/inventory/sync/progress` (in-flight only, in-memory) and
+  `last_synced_at`. A "feed failed" claim derived from a stale timestamp would be a
+  guess, so nothing is shown rather than something wrong.
+- *PDI / safety exceptions* — recon `stage` is dealer-configurable free text; there is
+  no canonical PDI or safety flag to read. Recon owns that state and surfaces it.
+- *Inventory/F&I Automation tabs* — no department-scoped automation read exists; the
+  automation engine is global. Left off the tab order rather than shown empty.
+
 ## 6. ⚠️ HANDOFF GAPS — material findings
 
 ### 6.1 Three accounting rules have a consumer but **no producer**
