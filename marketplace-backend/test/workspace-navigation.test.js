@@ -184,8 +184,11 @@ test('mobile navigation is role-aware and derives from the registry', () => {
       assert.ok(known.has(p), `${role} mobile nav references "${p}", which is not in the registry`)
     }
   }
-  // The documented role examples from the project instructions.
-  assert.deepEqual(msMobileNavForRole('SALES_REP'), ['insights', 'leads', 'crm', 'tasks'])
+  // The documented role examples from the project instructions. Phase 2 made the
+  // Sales workspace ("sales" — Today) the rep's landing destination instead of the
+  // `insights` analytics page: a salesperson should open actionable work, not a
+  // dashboard. Leads is manager-gated, so it is not on a rep's bar.
+  assert.deepEqual(msMobileNavForRole('SALES_REP'), ['sales', 'crm', 'appointments', 'tasks'])
   assert.deepEqual(msMobileNavForRole('SERVICE'), ['service-ros', 'service-appointments', 'crm', 'tasks'])
   // An unknown role still gets a usable default rather than an empty bar.
   assert.ok(msMobileNavForRole('SOMETHING_NEW').length > 0, 'unknown roles need a fallback row')
