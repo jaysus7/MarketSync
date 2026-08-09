@@ -13,7 +13,7 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
 | **Baseline on `staging`** | `8cc0489` — 465/465 tests green, all six `check:*` green |
-| **In flight** | **Batch 1 COMPLETE** (20/20 E2E). **Batch 2 started** — Service tax/AR and parts-receipt accounting corrected going forward (503/503, six checks). Remaining in Batch 2: invoice, payments/deposits, AR clearing, delivered→closed. Then Batch 3 (operating UI). |
+| **In flight** | **Batch 1 COMPLETE** (20/20 E2E). **Batch 2 started** — Service tax/AR and parts-receipt accounting corrected going forward (503/503, six checks). Remaining in Batch 2: invoice, payments/AR clearing (**blocked — no payment record exists anywhere in MarketSync; see the decision note below**), delivered→closed. Then Batch 3 (operating UI). |
 | **Roadmap position** | Phase 1–3 complete. Phase 4: #72/#73/#74 merged to `staging`; Batch 1 steps 1–5 built on the branch and green. **The database owns the RO state machine — read audit §32 before touching Service.** Remaining: Batch 1 integration proof → Batch 2 (financial close) → Batch 3 (Service/Parts operating UI + E2E). After Fixed Ops the handoff's stated order is Accounting → Marketing → People → dealership-wide My Day; **confirm against the canonical roadmap before assigning a phase number to it.** |
 
 ## Read before coding
@@ -172,6 +172,34 @@ dealership workflows, not number of PRs.
 **Stop early only for:** a genuine architectural contradiction · destructive migration
 risk · an external dependency needing a human decision · insufficient context to safely
 finish the current atomic change.
+
+## ⚠️ THERE IS NO PAYMENT RECORD IN MARKETSYNC — decision needed before Batch 2 finishes
+
+The Phase 4 brief says to reuse "MarketSync's existing payment/deposit abstraction".
+Inspected it: **there isn't one.**
+
+- No `payments` table. No `deposits` table. The only match in the schema is
+  `saas_checkout_sessions`, which is MarketSync's own subscription billing — not
+  dealership customer money.
+- `routes/deposits.js` is a Stripe Connect **flow**: `/deposits/checkout` creates a
+  session, and the webhook emits `deposit.paid`, which Accounting turns into a journal.
+- So a customer deposit today exists as **an event and a journal entry, and nothing
+  else**. There is no record you can query to answer "what has this customer paid?",
+  no balance, no reversal, no idempotency key beyond the payment reference.
+
+Service cannot clear AR without one, and building `service_payments` would be exactly
+the second payment system the brief forbids.
+
+**Recommendation (needs your decision):** add `payments` as a **shared DealerOS core
+primitive**, not a Service table — `dealership_id`, polymorphic subject
+(`ro_id` / `deal_id` / `contact_id`), amount, method, status, processor + processor_ref,
+received_at, actor, idempotency_key, timestamps. Service, Sales and F&I all post against
+it; Accounting consumes one `payment.received` event to debit cash/clearing and credit
+AR. That keeps one canonical Payment, keeps departments independently purchasable, and
+gives the future Accounting engine a single source of payment truth.
+
+The alternative — Service-local payments — would need unpicking the first time Sales or
+F&I needs the same thing, which is why it is not recommended.
 
 ## ⚠️ PRODUCTION ACCOUNTING — needs a deliberate decision
 
