@@ -5,6 +5,11 @@
 > **Do not redesign this.** It was reviewed and approved as-is. Read
 > `docs/SESSION_HANDOFF.md`, `docs/STAGE4_SERVICE_PARTS_AUDIT.md` §32 and merged PR #74
 > first, then implement exactly what is below.
+>
+> **This document is the implementation contract regardless of PR state.** It arrived on
+> PR #75 (docs only). Check whether that PR is already merged before touching it — do not
+> merge it blindly, and do not treat an unmerged PR as a reason to re-derive the design.
+> The contract is authoritative either way.
 
 **Goal.** Immutable estimates, provable customer authorization, and a real technician
 workflow — while preserving the **database-owned RO state machine** established in #74.
