@@ -456,7 +456,7 @@ export async function closeRepairOrder(dealershipId, roId, { userId = null, reas
   const { data: partLines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', roId).eq('line_type', 'part').is('deleted_at', null)
   for (const l of partLines || []) {
     if (!l.part_id) continue
-    await consumePart(dealershipId, l.part_id, n(l.qty), { roId, unitCost: n(l.unit_cost), userId })
+    await consumePart(dealershipId, l.part_id, n(l.qty), { roId, unitCost: n(l.unit_cost), userId, idempotencyKey: `ro-close:${roId}:${l.id}` })
   }
 
   const now = new Date().toISOString()
@@ -489,42 +489,53 @@ export async function upsertPart(dealershipId, { partNumber, description = null,
   return data
 }
 
-async function moveStock(dealershipId, partId, txnType, qty, { unitCost = null, roId = null, reference = null, note = null, userId = null } = {}) {
-  const part = await getPart(dealershipId, partId)
-  if (!part) throw new Error('part not found')
-  await supabaseAdmin.from('part_txns').insert({
-    dealership_id: dealershipId, part_id: partId, txn_type: txnType, qty: n(qty),
-    unit_cost: unitCost != null ? n(unitCost) : n(part.cost), ro_id: roId, reference, note, created_by: userId,
+// Stock moves atomically, inside the database. The old path read qty_on_hand into
+// Node, added to it and wrote the sum back — a textbook read-modify-write race that
+// lost updates whenever two people touched the same part at once, and could drive
+// stock negative. `service_move_stock` takes a row lock, validates the resulting
+// quantity under that lock, writes the ledger row and the balance together, and
+// dedupes on an idempotency key so a retried request moves nothing twice.
+async function moveStock(dealershipId, partId, txnType, qty, { unitCost = null, roId = null, reference = null, note = null, userId = null, idempotencyKey = null } = {}) {
+  const { data, error } = await supabaseAdmin.rpc('service_move_stock', {
+    p_dealership: dealershipId, p_part: partId, p_txn_type: txnType, p_qty: n(qty),
+    p_unit_cost: unitCost != null ? n(unitCost) : null, p_ro: roId,
+    p_reference: reference, p_note: note, p_user: userId, p_idempotency_key: idempotencyKey,
   })
-  const newQty = round2(n(part.qty_on_hand) + n(qty))
-  await supabaseAdmin.from('parts').update({ qty_on_hand: newQty, updated_at: new Date().toISOString() }).eq('id', partId).eq('dealership_id', dealershipId)
-  // Low-stock exception surfaces on the Operations board via the exception engine.
-  if (n(qty) < 0 && newQty <= n(part.reorder_point) && n(part.reorder_point) > 0) {
+  if (error) {
+    // The insufficient-stock guard fires inside the lock, so this is authoritative —
+    // not a hint the caller may retry against a stale read.
+    if (/Insufficient stock/i.test(error.message || '')) throw new Error(error.message)
+    if (/part not found/i.test(error.message || '')) throw new Error('part not found')
+    throw new Error(error.message || 'could not move stock')
+  }
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) throw new Error('could not move stock')
+  // Low stock surfaces on the Operations board through the existing exception engine.
+  if (!row.duplicate && n(qty) < 0 && n(row.on_hand) <= n(row.reorder_point) && n(row.reorder_point) > 0) {
     raiseException(dealershipId, {
       kind: 'low_stock', entityType: 'part', entityId: partId, department: 'Service', severity: 'medium',
-      description: `Part ${part.part_number} at/below reorder point (${newQty} ≤ ${part.reorder_point}).`,
+      description: `Part ${row.part_number} at/below reorder point (${row.on_hand} ≤ ${row.reorder_point}).`,
     }).catch(() => {})
   }
-  return newQty
+  return { onHand: n(row.on_hand), reserved: n(row.reserved), duplicate: !!row.duplicate, txnId: row.txn_id, partNumber: row.part_number }
 }
 
+// A retried call is a no-op that returns the original balance, so it must not emit a
+// second event either — an event is a claim that something happened.
 export async function receiveParts(dealershipId, partId, qty, opts = {}) {
-  const newQty = await moveStock(dealershipId, partId, 'receive', Math.abs(n(qty)), opts)
-  const part = await getPart(dealershipId, partId)
-  emitEvent({ dealershipId, eventName: 'parts.received', entityType: 'part', entityId: partId, summary: `Received ${Math.abs(n(qty))} × ${part?.part_number || ''}`, department: 'Service', createdBy: opts.userId || null, payload: { qty: Math.abs(n(qty)), on_hand: newQty } })
-  return newQty
+  const r = await moveStock(dealershipId, partId, 'receive', Math.abs(n(qty)), opts)
+  if (!r.duplicate) emitEvent({ dealershipId, eventName: 'parts.received', entityType: 'part', entityId: partId, summary: `Received ${Math.abs(n(qty))} × ${r.partNumber || ''}`, department: 'Service', createdBy: opts.userId || null, payload: { qty: Math.abs(n(qty)), on_hand: r.onHand, txn_id: r.txnId } })
+  return r.onHand
 }
 export async function adjustPart(dealershipId, partId, qty, opts = {}) {
-  const newQty = await moveStock(dealershipId, partId, 'adjust', n(qty), opts)
-  const part = await getPart(dealershipId, partId)
-  emitEvent({ dealershipId, eventName: 'parts.adjusted', entityType: 'part', entityId: partId, summary: `Adjusted ${part?.part_number || ''} by ${n(qty)} → ${newQty}`, department: 'Service', createdBy: opts.userId || null, payload: { qty: n(qty), on_hand: newQty } })
-  return newQty
+  const r = await moveStock(dealershipId, partId, 'adjust', n(qty), opts)
+  if (!r.duplicate) emitEvent({ dealershipId, eventName: 'parts.adjusted', entityType: 'part', entityId: partId, summary: `Adjusted ${r.partNumber || ''} by ${n(qty)} → ${r.onHand}`, department: 'Service', createdBy: opts.userId || null, payload: { qty: n(qty), on_hand: r.onHand, txn_id: r.txnId } })
+  return r.onHand
 }
 export async function consumePart(dealershipId, partId, qty, opts = {}) {
-  const newQty = await moveStock(dealershipId, partId, 'consume', -Math.abs(n(qty)), opts)
-  const part = await getPart(dealershipId, partId)
-  emitEvent({ dealershipId, eventName: 'parts.consumed', entityType: 'part', entityId: partId, summary: `Consumed ${Math.abs(n(qty))} × ${part?.part_number || ''}`, department: 'Service', createdBy: opts.userId || null, payload: { engine: true, qty: Math.abs(n(qty)), on_hand: newQty, ro_id: opts.roId || null } })
-  return newQty
+  const r = await moveStock(dealershipId, partId, 'consume', -Math.abs(n(qty)), opts)
+  if (!r.duplicate) emitEvent({ dealershipId, eventName: 'parts.consumed', entityType: 'part', entityId: partId, summary: `Consumed ${Math.abs(n(qty))} × ${r.partNumber || ''}`, department: 'Service', createdBy: opts.userId || null, payload: { engine: true, qty: Math.abs(n(qty)), on_hand: r.onHand, ro_id: opts.roId || null, txn_id: r.txnId } })
+  return r.onHand
 }
 
 // ── Agent tools (contract §5 — registered into the shared registry) ────────────
@@ -710,12 +721,12 @@ export function registerServiceEngine(app) {
   })
   app.post('/service-engine/parts/:id/receive', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
-    try { res.json({ ok: true, on_hand: await receiveParts(req.dealershipId, req.params.id, req.body?.qty, { unitCost: req.body?.unit_cost, reference: req.body?.reference, userId: req.user?.id || null }) }) }
+    try { res.json({ ok: true, on_hand: await receiveParts(req.dealershipId, req.params.id, req.body?.qty, { unitCost: req.body?.unit_cost, reference: req.body?.reference, userId: req.user?.id || null, idempotencyKey: req.body?.idempotency_key || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
   app.post('/service-engine/parts/:id/adjust', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
-    try { res.json({ ok: true, on_hand: await adjustPart(req.dealershipId, req.params.id, req.body?.qty, { note: req.body?.note, userId: req.user?.id || null }) }) }
+    try { res.json({ ok: true, on_hand: await adjustPart(req.dealershipId, req.params.id, req.body?.qty, { note: req.body?.note, userId: req.user?.id || null, idempotencyKey: req.body?.idempotency_key || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
 

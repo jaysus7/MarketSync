@@ -279,3 +279,49 @@ test('the Stage 0 state machine is marked superseded rather than left as truth',
   assert.match(stage0, /SUPERSEDED — this section was never true/)
   assert.match(stage0, /STAGE4_SERVICE_PARTS_AUDIT\.md` §32/)
 })
+
+// ── 8. Atomic stock (Batch 1, step 1) ────────────────────────────────────────
+
+const stockMig = read('migrations/2026-08-09-stage4b-atomic-stock.sql')
+
+test('stock moves atomically in the database, not read-modify-write in Node', () => {
+  const fn = eng.match(/async function moveStock[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'moveStock must still exist')
+  assert.match(fn, /supabaseAdmin\.rpc\('service_move_stock'/, 'the movement must happen in one database call')
+  // The exact race that was there before: read the balance, add in JS, write it back.
+  assert.doesNotMatch(fn, /qty_on_hand:\s*newQty|n\(part\.qty_on_hand\)\s*\+/,
+    'the balance must never be computed in Node and written back')
+  assert.match(stockMig, /for update/, 'the part row must be locked for the duration')
+  assert.match(stockMig, /if v_new < 0 then[\s\S]{0,200}?Insufficient stock/,
+    'the sufficiency check must happen inside the lock')
+})
+
+test('stock can never go negative, and a retry moves nothing twice', () => {
+  assert.match(stockMig, /check \(qty_on_hand >= 0 and qty_reserved >= 0\)/,
+    'negative stock must be impossible at the table level')
+  assert.match(stockMig, /create unique index if not exists part_txns_idempotency_uk/,
+    'the ledger must dedupe on an idempotency key')
+  assert.match(stockMig, /where idempotency_key is not null/,
+    'the key is optional — the index must be partial')
+  const fn = eng.match(/async function moveStock[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /p_idempotency_key: idempotencyKey/, 'callers must be able to supply a key')
+})
+
+test('a duplicate movement emits no second event', () => {
+  // An event is a claim that something happened. A no-op retry must not make one.
+  for (const f of ['receiveParts', 'adjustPart', 'consumePart']) {
+    const fn = eng.match(new RegExp(`export async function ${f}[\\s\\S]*?\\n\\}`))?.[0] || ''
+    assert.match(fn, /if \(!r\.duplicate\) emitEvent/, `${f} must not emit on a deduped retry`)
+  }
+})
+
+test('closing an RO cannot draw the same part twice', () => {
+  assert.match(eng, /idempotencyKey: `ro-close:\$\{roId\}:\$\{l\.id\}`/,
+    'each RO line consumes under a stable key, so a retried close is a no-op')
+})
+
+test('reserved quantity exists so availability can be derived, not guessed', () => {
+  assert.match(stockMig, /add column if not exists qty_reserved numeric not null default 0/)
+  // Availability is on_hand - reserved. It must never be a frontend calculation.
+  assert.doesNotMatch(fe, /qty_on_hand\s*-\s*.*reserved/, 'availability must not be computed in the UI')
+})

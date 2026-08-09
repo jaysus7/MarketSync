@@ -13,7 +13,7 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
 | **Baseline on `staging`** | `8cc0489` — 465/465 tests green, all six `check:*` green |
-| **In flight** | — (PR 4.2a merged). **Next: PR 4.2, spec approved in `docs/STAGE4_PR42_SPEC.md`.** |
+| **In flight** | **Batch 1 step 1 done** — atomic parts stock (470/470). Steps 2–5 (estimates → authorization → technician → parts flow) remain. |
 | **Roadmap position** | Phase 1–3 complete. Phase 4: audit (#72) and foundation (#73) merged. **The database owns the RO state machine — see audit §32 before touching Service.** PR 4.2 (authorization) → 4.3 (parts) → 4.4 (accounting) → 4.5 (UI) remain. |
 
 ## Read before coding
@@ -113,6 +113,16 @@ demand/reservation → work → additional work / re-authorization → completio
   recommended work, start/block/complete, actual time via `time_entries`, QC handoff.
 - **Parts workflow** — demand from RO lines, availability, reservation, concurrency,
   shortage/backorder, receiving, issue to RO, returns/reversals, cost onto the RO.
+
+**Step 1 is DONE and merged-ready.** `service_move_stock` (Postgres) now does one
+locked row + one ledger entry + one balance update, or nothing. `parts.qty_reserved`
+exists so availability is `on_hand - reserved` server-side; `qty_on_hand >= 0` is a
+table constraint; `part_txns` dedupes on `(dealership_id, idempotency_key)`; RO close
+consumes under `ro-close:<roId>:<lineId>` so a retried close draws nothing twice; a
+deduped retry emits no second event. Proved live: last unit issues once · second issue
+refused · retry with the same key moves nothing and leaves exactly one ledger row ·
+a different key moves again · a cross-dealership move is refused.
+**Steps 2–5 start from here — reservation and issue can now safely depend on stock.**
 
 Test the complete workflow plus the refusal and concurrency paths.
 
