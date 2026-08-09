@@ -12,9 +12,9 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 |---|---|
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
-| **Baseline on `staging`** | `c226e62` — 431/431 tests green |
-| **In flight** | — (Stage 3A merged) |
-| **Roadmap position** | Phase 1 (nav), Phase 2 (Sales), **Stage 3A (Inventory/F&I domain + events) merged**. **Stage 3B UI composition NOT started.** |
+| **Baseline on `staging`** | `f4269e8` — 431/431 tests green |
+| **In flight** | — (Stage 3A + 3B.1 merged) |
+| **Roadmap position** | Phase 1 (nav), Phase 2 (Sales), **Stage 3A (domain + events) and 3B.1 (financial UI wiring) merged**. **Stage 3B.2 outstanding.** |
 
 ## Read before coding
 
@@ -68,22 +68,26 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 
 ## Next recommended slice
 
-### ⚠️ Stage 3B is still outstanding
+### Stage 3B.2 — the only Stage 3 work remaining
 
-Stage 3A (merged) delivered the Inventory/F&I **domain + event** core and skeleton
-Today/Work tabs. The Stage 3B **UI composition was never built**:
+**First verification for the next session (should take one command):**
+does staging contain the #70 F&I Funding queue, lender decision panel and Take
+Possession wiring? It does as of `f4269e8` — confirmed by
+`apiGetJson('/fni/funding')`, `fniOpenLenders`, `invTakePossession`, and F&I Work
+reading `queue | credit | menu | contracts | funding`.
 
-- Inventory → Acquisition, Merchandising, Vehicle Record workspace
-- F&I → Work restructured as Queue | Credit | Menu | Contracts | Funding
-- lender decision panel (model exists, no UI), funding queue UI (state exists, no UI)
-- E2E: stock acquisition, trade, F&I/funding, merchandising; mobile validation
+If yes, **do not rediscover Stage 3A or 3B.1** — go straight to:
 
-File plan: `docs/STAGE3_INVENTORY_FNI_AUDIT.md` §7. Event semantics (final, all three
-events): §9. Pattern + wiring checklist: `docs/DEALER_OS_UX_ARCHITECTURE.md` §11–12.
+1. Inventory **Acquisition** groupings
+2. Inventory **Merchandising**
+3. **Vehicle Record** workspace
+4. E2E: non-trade acquisition · trade · F&I/lender/funding · merchandising continuity · vehicle workspace
+5. **Mobile** validation (~390px)
+6. Full regression → then Stage 3 is complete
 
-Note: `POST /fni/funding`, `/fni/deals/:id/lender-decisions` and
-`POST /inventory/:id/take-possession` all exist and are tested, but **nothing in the
-UI calls them yet.**
+File plan: `docs/STAGE3_INVENTORY_FNI_AUDIT.md` §7. Final event semantics for all
+three events: §9. Pattern + wiring checklist: `docs/DEALER_OS_UX_ARCHITECTURE.md`
+§11–12. **Do not start Stage 4** until Stage 3 is complete.
 
 ### Then: Stage 4 — the remaining departments (Service, Parts, Accounting, Marketing,
 People) on the same engine-shell pattern; then a dealership-wide My Day that

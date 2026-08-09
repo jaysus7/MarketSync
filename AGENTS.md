@@ -174,7 +174,27 @@ behavior, light/dark, accessibility, obvious primary actions. Restrained
 department differentiation. **No dashboards of decorative KPI cards — every
 metric must help someone decide or act.** Prefer progressive disclosure.
 
-## A17. Development process
+## A17. Stage merge policy (branch discipline)
+
+A completed stage must not sit as a draft while the next brief assumes it exists.
+That has repeatedly cost a whole session to rediscover.
+
+**Merge a stage/substage PR into `staging` at the end of that stage when ALL hold:**
+1. CI is green and the full suite passes,
+2. the change is scoped to that stage,
+3. you have reviewed it against the brief yourself,
+4. there is no unresolved blocker or open question for the user.
+
+**After every merge, in the same turn:** sync `staging`, record the new HEAD, and run
+the authoritative baseline (`npm test` + all six `check:*`). Report both.
+
+**Never auto-merge into `main`.** Production deploys from `main` (see `render.yaml`)
+and promotion stays a deliberate, separately-approved decision.
+
+If any of the four conditions fails, leave the PR open and say plainly what is
+blocking — do not merge to keep momentum, and do not leave it silent.
+
+## A18. Development process
 
 For every meaningful task: read the relevant spec → inspect the real code →
 identify the owning engine → classify KEEP/FIX/MOVE/MERGE/DELETE/BUILD → state
