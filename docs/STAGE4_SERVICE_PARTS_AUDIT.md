@@ -950,3 +950,68 @@ the timeline and low-stock exceptions, writing `tech_id`/`time_entries.ro_id`, s
 `ready_at` (G3-5), and `Inspections` has no domain at all (G3-8). Per the brief's own
 rule — *do not ship hollow tabs* — those five must be earned, merged, or deferred
 explicitly rather than rendered empty.
+
+---
+
+## 32. Addendum — the control layer the audit missed (found in PR 4.1)
+
+Stage 4A read columns, routes and events. It did **not** read check constraints or
+triggers, and that omission hid the single most important fact about `repair_orders`.
+
+**The database already contains the full canonical Fixed Ops state machine.**
+
+| Object | What it enforces |
+|---|---|
+| `repair_orders_status_valid` (check) | a 12-state vocabulary: `appointment · checked_in · inspection · estimate_sent · customer_approved · customer_declined · parts_ordered · in_progress · quality_check · ready · delivered · closed` |
+| `repair_orders_state_machine` (BEFORE UPDATE OF status) | `controls.enforce_state_transition('repair_order')` — every legal edge is a row in `controls.state_transitions`, each carrying a **required permission** and a **requires_reason** flag |
+| `repair_orders_business_invariants`, `repair_orders_terminal_guard`, `trg_repair_orders_bump_version`, `trg_repair_orders_soft_delete_metadata`, `trg_repair_orders_tenant_relationships`, `trg_repair_orders_prevent_hard_delete` | invariants, terminal protection, row versioning, mandatory soft-delete metadata, tenant-relationship enforcement, no hard deletes |
+| `repair_orders_lifecycle_event` (AFTER UPDATE OF status) | writes `lifecycle_transition_history` |
+
+The legal graph, read from `controls.state_transitions`:
+
+```
+appointment → checked_in → inspection → estimate_sent → customer_approved → in_progress
+                                                     ↘ customer_declined → closed
+                                        customer_approved → parts_ordered → in_progress
+in_progress → quality_check → ready → delivered → closed
+closed → in_progress          [requires service.reopen_repair_order AND a reason]
+```
+
+**The engine wrote a different vocabulary entirely** — `open`, `awaiting_parts`,
+`canceled` — which overlaps the constraint on only three values. `openRepairOrder`
+inserted `status: 'open'`, which the check constraint **rejects**. That is why staging
+holds zero repair orders: **it has never been possible to open one.**
+
+### What this changes
+
+1. **The database is authoritative and was already right.** The graph it enforces is
+   almost exactly the workflow the Phase 4 brief asks for — including the
+   estimate/authorization states (`estimate_sent`, `customer_approved`,
+   `customer_declined`) and `parts_ordered`. Those are the anchors PR 4.2 and PR 4.3
+   should build against, not new invention.
+2. **`Ready ≠ Closed` is already enforced.** `ready → delivered → closed`; there is no
+   edge from `ready` back to active work, and none from `ready` straight to `closed`.
+3. **Reopen is already permissioned at the database level** — `closed → in_progress`
+   requires `service.reopen_repair_order` *and* a reason.
+4. **The transition permission check only fires for `auth.uid()` writers.** Engine
+   writes go through the service role, where `auth.uid()` is null, so the *permission*
+   half is skipped while transition *legality* is still enforced. Route-level RBAC is
+   therefore load-bearing, which is what PR 4.1 fixed.
+
+### Verified directly against staging
+
+`open RO at checked_in` PASS · `second RO for same appointment` PASS (rejected) ·
+`legacy status 'open'` PASS (rejected) · `same VIN twice` PASS (rejected) ·
+`two VIN-less vehicles` PASS (allowed) · `walk checked_in → ready` PASS ·
+`ready → active work` PASS (no such edge) · `close via delivered` PASS ·
+`reopen with no reason` PASS (refused) · `controlled reopen with reason` PASS.
+
+### Still to reconcile (PR 4.2+)
+
+- `closeRepairOrder` sets `closed` from wherever it is called; the graph only allows it
+  from `customer_declined` or `delivered`. Close must first pass through `delivered`.
+- `dashboard-part12.js` filters and labels ROs by the old vocabulary and will show
+  nothing until it speaks the real states.
+- `awaiting_parts` does not exist; the real waiting state is `parts_ordered`.
+- The Stage 0 doc's `open → in_progress → awaiting_parts → ready → closed` is fiction
+  and should be corrected there too.
