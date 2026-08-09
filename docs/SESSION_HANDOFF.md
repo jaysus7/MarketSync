@@ -13,8 +13,8 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
 | **Baseline on `staging`** | `d7e8b8e` — 386/386 tests green |
-| **In flight** | — |
-| **Roadmap position** | Phase 1 (navigation) + Phase 2 (Sales reference dept) merged; **Stage 3 = Inventory + F&I** |
+| **In flight** | Stage 3 — Inventory + F&I departments, 406/406 green |
+| **Roadmap position** | Phase 1 (nav) + Phase 2 (Sales) merged; **Stage 3 (Inventory + F&I) in flight** |
 
 ## Read before coding
 
@@ -59,12 +59,18 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
   Deals/Deliveries). Composition only — zero backend change, actions delegate to the
   existing CRM/desking functions. **This is the pattern every other department
   follows** — see `docs/DEALER_OS_UX_ARCHITECTURE.md` §11–12.
+- **Stage 3 — Inventory + F&I** — `js/modules/inventory-workspace.js` and
+  `js/modules/fni-workspace.js` register `ENGINES['inventory-overview']` /
+  `ENGINES['fni-overview']` on the same pattern. Handoffs verified as ONE record:
+  Sales customer → appraisal → Inventory vehicle → recon → F&I deal. Zero backend
+  change. Also hardened `check:frontend`, which could not see declarations after a
+  nested template literal and had let a duplicate `let` silently disable a module.
 
 ## Next recommended slice
 
-**Stage 3 — Inventory and F&I** as coherent departments on the engine shell, following
-the Sales pattern exactly (audit → compose → register → preserve backend → validate
-handoffs), plus seamless Sales → Inventory → F&I handoffs.
+**Stage 4 — the remaining departments** (Service, Parts, Accounting, Marketing,
+People) on the same engine-shell pattern; then a dealership-wide My Day that
+aggregates the department Today views once they all exist.
 
 Standing decisions: do **not** add `Showed`/`Negotiating` to the CRM enum (UI may derive
 that context, never persist it); Phase 2 deferred items (opportunity-row appraisal
@@ -86,7 +92,7 @@ and a two-dealer cross-tenant vector test.
 
 ```bash
 cd marketplace-backend
-npm test                       # full suite — must stay green (386 on staging)
+npm test                       # full suite — must stay green (406 on this branch)
 npm run check:syntax           # every backend source parses
 npm run check:imports          # ESM import resolution
 npm run check:exports          # named export bindings
