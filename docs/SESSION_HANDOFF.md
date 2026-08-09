@@ -12,9 +12,9 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 |---|---|
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
-| **Baseline on `staging`** | `d7e8b8e` — 386/386 tests green |
-| **In flight** | Stage 3 — Inventory + F&I departments, 406/406 green |
-| **Roadmap position** | Phase 1 (nav) + Phase 2 (Sales) merged; **Stage 3 (Inventory + F&I) in flight** |
+| **Baseline on `staging`** | `c226e62` — 431/431 tests green |
+| **In flight** | — (Stage 3A merged) |
+| **Roadmap position** | Phase 1 (nav), Phase 2 (Sales), **Stage 3A (Inventory/F&I domain + events) merged**. **Stage 3B UI composition NOT started.** |
 
 ## Read before coding
 
@@ -68,7 +68,24 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 
 ## Next recommended slice
 
-**Stage 4 — the remaining departments** (Service, Parts, Accounting, Marketing,
+### ⚠️ Stage 3B is still outstanding
+
+Stage 3A (merged) delivered the Inventory/F&I **domain + event** core and skeleton
+Today/Work tabs. The Stage 3B **UI composition was never built**:
+
+- Inventory → Acquisition, Merchandising, Vehicle Record workspace
+- F&I → Work restructured as Queue | Credit | Menu | Contracts | Funding
+- lender decision panel (model exists, no UI), funding queue UI (state exists, no UI)
+- E2E: stock acquisition, trade, F&I/funding, merchandising; mobile validation
+
+File plan: `docs/STAGE3_INVENTORY_FNI_AUDIT.md` §7. Event semantics (final, all three
+events): §9. Pattern + wiring checklist: `docs/DEALER_OS_UX_ARCHITECTURE.md` §11–12.
+
+Note: `POST /fni/funding`, `/fni/deals/:id/lender-decisions` and
+`POST /inventory/:id/take-possession` all exist and are tested, but **nothing in the
+UI calls them yet.**
+
+### Then: Stage 4 — the remaining departments (Service, Parts, Accounting, Marketing,
 People) on the same engine-shell pattern; then a dealership-wide My Day that
 aggregates the department Today views once they all exist.
 
