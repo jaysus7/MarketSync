@@ -12,9 +12,9 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 |---|---|
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
-| **Baseline on `staging`** | `f4269e8` — 431/431 tests green |
-| **In flight** | **Stage 3B.2** on `claude/restore-shared-public-shell-8lftt0` — 441/441, all six `check:*` green |
-| **Roadmap position** | Phase 1 (nav), Phase 2 (Sales), Stage 3A (domain + events) and 3B.1 (financial UI wiring) merged. **Stage 3B.2 completes Stage 3** — merge it, then Stage 4. |
+| **Baseline on `staging`** | `6916db2` — 441/441 tests green, all six `check:*` green |
+| **In flight** | **Stage 4A** — the Fixed Ops domain audit (documentation only, no code) |
+| **Roadmap position** | Phase 1 (nav), Phase 2 (Sales), **Stage 3 complete** (3A + 3B.1 + 3B.2 all merged). Stage 4A audit delivered; **Stage 4B is blocked at the STOP GATE.** |
 
 ## Read before coding
 
@@ -30,7 +30,10 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 4. `docs/DEALEROS_UI_AUDIT.md` — every page → workspace/tab mapping, the four
    gating layers, and what is deliberately deferred.
 5. `docs/SALES_PHASE2_AUDIT.md` — the Sales reference department (see §0).
-6. The project specification documents (21 Architecture, 22 Roadmap, 23 Credit,
+6. `docs/STAGE4_SERVICE_PARTS_AUDIT.md` — **the Fixed Ops domain truth.** Start at §0
+   (executive summary) and §31 (stop gate). Schema- and code-level evidence for Service
+   and Parts; supersedes `docs/SERVICE_PARTS_ENGINE_STAGE0.md` wherever they disagree.
+7. The project specification documents (21 Architecture, 22 Roadmap, 23 Credit,
    plus the department docs) for product detail.
 
 ## Completed
@@ -87,26 +90,39 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 
 ## Next recommended slice
 
-### First: merge Stage 3B.2, which closes Stage 3
+### Stage 4B is at a STOP GATE — read the audit before writing any code
 
-**Verification for the next session (one command):** does `staging` contain
-`js/modules/vehicle-record.js` and `invRenderMerch`? If yes, Stage 3 is closed —
-**do not rediscover 3A, 3B.1 or 3B.2**. If no, the Stage 3B.2 branch is still
-unmerged; merge it per §A17 rather than rebuilding it.
+`docs/STAGE4_SERVICE_PARTS_AUDIT.md` §31. Stage 4A found **nine G3–G6 gaps** in the
+protected areas (authorization, parts quantity, reservation, receiving, accounting,
+payment, RO close, customer/vehicle identity). The brief's own rule stops dependent UI
+until they are decided. **Do not re-run the audit; do not guess the decisions.**
 
-### Then: Stage 4 — Fixed Operations (Service + Parts)
+The five that matter most, in one line each:
 
-⚠️ **The Stage 4 brief has not been received in full.** It arrived truncated
-mid-sentence ("Do not retype data MarketS"): Part D and the exit criteria are
-missing. **Ask for the complete brief before starting** — do not reconstruct it.
+1. Service revenue posts **pre-tax** to AR and **tax is never credited**.
+2. `parts_inventory` is **credited on every RO close and debited by nothing** —
+   receiving posts no journal at all.
+3. There is **no payment** — AR is never cleared.
+4. There is **no customer authorization** anywhere in the system.
+5. There is **no parts demand object** — stock moves only at RO close.
 
-What the received portion did establish: domain audit first
-(`docs/STAGE4_SERVICE_PARTS_AUDIT.md`) with gaps classified G0–G6, then minimum
-domain completion, then UI, then E2E — the same order Stage 3 used.
+Also found: Service has **no customer-owned vehicle model** (only dealer `inventory`),
+`GET /service/appointments` selects a column that does not exist so the list is always
+empty, and `service.view` / `service.reopen_repair_order` are granted to roles but used
+by zero code — so a GM cannot read an RO while a technician can close one.
 
-After Service and Parts: Accounting, Marketing and People on the same engine-shell
-pattern; then a dealership-wide My Day that aggregates the department Today views
-once they all exist.
+**Safe to start without any decision (G0–G2):** register Service and Parts as `ENGINES`
+workspaces on the Stage 3 pattern, the shop-status aggregate read, surfacing the
+existing timeline and low-stock exceptions, and the Tier 0 permission/bug fixes in §30.
+
+⚠️ **The Stage 4B brief is also incomplete** — it arrived truncated mid-sentence in the
+SERVICE → DRIVE section ("Do not retype data MarketS"). Repair Orders, Dispatch,
+Inspections, Ready, the Parts UI, the E2E paths and the exit criteria are all missing.
+Ask for the rest before building 4B.
+
+### After Fixed Ops
+Accounting, Marketing and People on the same engine-shell pattern; then a
+dealership-wide My Day that aggregates the department Today views once they all exist.
 
 Standing decisions: do **not** add `Showed`/`Negotiating` to the CRM enum (UI may derive
 that context, never persist it); Phase 2 deferred items (opportunity-row appraisal
