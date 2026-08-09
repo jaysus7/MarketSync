@@ -782,11 +782,18 @@ export async function closeRepairOrder(dealershipId, roId, { userId = null, reas
   // `cost` relieves PARTS INVENTORY only (the service_closed rule credits parts_inventory).
   // Labor cost is tech payroll, not inventory COGS, so it is not part of this token.
   const cost = round2(totals.parts_cost)
+  // The customer owes the tax-inclusive total; the dealership earned the pre-tax
+  // revenue and OWES the tax to the government. Publishing all three lets Accounting
+  // debit AR at `total`, credit revenue at `revenue`, and credit the tax liability
+  // separately — the correction to Stage 4A finding F1.
   emitEvent({
     dealershipId, eventName: 'service.closed', entityType: 'repair_order', entityId: roId,
-    summary: `RO ${ro.ro_number} closed — $${revenue.toFixed(2)}`, fromState: ro.status, toState: 'closed',
+    summary: `RO ${ro.ro_number} closed — $${n(totals.total).toFixed(2)}`, fromState: ro.status, toState: 'closed',
     department: 'Accounting', createdBy: userId,
-    payload: { ro_id: roId, revenue, cost, inventory_id: ro.inventory_id || null, contact_id: ro.contact_id || null },
+    payload: {
+      ro_id: roId, revenue, tax: round2(totals.tax), total: round2(totals.total), cost,
+      inventory_id: ro.inventory_id || null, contact_id: ro.contact_id || null,
+    },
   })
   return { ...ro, status: 'closed', closed_at: now, total: totals.total }
 }
@@ -837,7 +844,16 @@ async function moveStock(dealershipId, partId, txnType, qty, { unitCost = null, 
 // second event either — an event is a claim that something happened.
 export async function receiveParts(dealershipId, partId, qty, opts = {}) {
   const r = await moveStock(dealershipId, partId, 'receive', Math.abs(n(qty)), opts)
-  if (!r.duplicate) emitEvent({ dealershipId, eventName: 'parts.received', entityType: 'part', entityId: partId, summary: `Received ${Math.abs(n(qty))} × ${r.partNumber || ''}`, department: 'Service', createdBy: opts.userId || null, payload: { qty: Math.abs(n(qty)), on_hand: r.onHand, txn_id: r.txnId } })
+  if (!r.duplicate) {
+    // Value the receipt at cost so Accounting can debit Parts Inventory. `ref` is the
+    // ledger row, so a replayed event posts exactly one journal entry.
+    const unit = opts.unitCost != null ? n(opts.unitCost) : n((await getPart(dealershipId, partId))?.cost)
+    emitEvent({
+      dealershipId, eventName: 'parts.received', entityType: 'part', entityId: partId,
+      summary: `Received ${Math.abs(n(qty))} × ${r.partNumber || ''}`, department: 'Service', createdBy: opts.userId || null,
+      payload: { qty: Math.abs(n(qty)), on_hand: r.onHand, txn_id: r.txnId, amount: round2(Math.abs(n(qty)) * unit), ref: r.txnId },
+    })
+  }
   return r.onHand
 }
 export async function adjustPart(dealershipId, partId, qty, opts = {}) {

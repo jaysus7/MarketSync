@@ -13,7 +13,7 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
 | **Baseline on `staging`** | `8cc0489` — 465/465 tests green, all six `check:*` green |
-| **In flight** | **Batch 1 COMPLETE** — all five steps plus the end-to-end integration proof, 20/20 against the live database (498/498 tests, six checks). Next: Batch 2 (financial close), then Batch 3 (operating UI + E2E). |
+| **In flight** | **Batch 1 COMPLETE** (20/20 E2E). **Batch 2 started** — Service tax/AR and parts-receipt accounting corrected going forward (503/503, six checks). Remaining in Batch 2: invoice, payments/deposits, AR clearing, delivered→closed. Then Batch 3 (operating UI). |
 | **Roadmap position** | Phase 1–3 complete. Phase 4: #72/#73/#74 merged to `staging`; Batch 1 steps 1–5 built on the branch and green. **The database owns the RO state machine — read audit §32 before touching Service.** Remaining: Batch 1 integration proof → Batch 2 (financial close) → Batch 3 (Service/Parts operating UI + E2E). After Fixed Ops the handoff's stated order is Accounting → Marketing → People → dealership-wide My Day; **confirm against the canonical roadmap before assigning a phase number to it.** |
 
 ## Read before coding
@@ -172,6 +172,23 @@ dealership workflows, not number of PRs.
 **Stop early only for:** a genuine architectural contradiction · destructive migration
 risk · an external dependency needing a human decision · insufficient context to safely
 finish the current atomic change.
+
+## ⚠️ PRODUCTION ACCOUNTING — needs a deliberate decision
+
+Found while correcting Stage 4A findings F1/F2: **the `service_closed` posting rule does
+not exist on staging at all.** The Stage 3 migration that seeded the A5 rules
+(`2026-07-23-accounting-engine-a5-events.sql`) was applied to **production only**.
+
+So the corrected rule has been *inserted* on staging, while **production still carries
+the uncorrected one** — debiting AR with the pre-tax subtotal and leaving collected tax
+inside `service_revenue`. Every repair order closed in production understates AR by the
+tax and overstates revenue by the same amount.
+
+Correcting production is a separate, deliberate decision (owner call), and per the
+standing rule **no historical replay or journal backfill is proposed**. The reconciliation
+queries the brief asks for — closed ROs whose AR/tax journal is inconsistent, parts
+consumption with no receipt-side entry, Service AR with no payment — should be run
+against production before any remediation is chosen.
 
 ## Known gaps / deferred (UI missing, backend often present)
 

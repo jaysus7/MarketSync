@@ -232,8 +232,14 @@ async function routeFinancialEvent(event) {
       return { handler: 'trade_received', journalId: await postByRule(did, 'trade_received', { amount: n(p.amount), __source: 'trade', __reference: p.ref || e, __date: event.created_at, __refs: { ref_vehicle_id: p.inventory_id || null, ref_deal_id: p.deal_id || null } }) }
     case 'funding.received':
       return { handler: 'funding_received', journalId: await postByRule(did, 'funding_received', { amount: n(p.amount), __source: 'funding', __reference: p.ref || p.deal_id || e, __date: event.created_at, __refs: { ref_deal_id: p.deal_id || e } }) }
+    case 'parts.received': {
+      // Stage 4A finding F2: parts inventory was relieved on every RO close and
+      // capitalized by nothing. A receipt now debits it, with AP as the credit side.
+      const amount = n(p.amount); if (amount <= 0) return null
+      return { handler: 'parts_received', journalId: await postByRule(did, 'parts_received', { amount, __source: 'parts', __reference: p.ref || p.txn_id || e, __date: event.created_at }) }
+    }
     case 'service.closed':
-      return { handler: 'service_closed', journalId: await postByRule(did, 'service_closed', { revenue: n(p.revenue), cost: n(p.cost), __source: 'service', __reference: p.ro_id || e, __date: event.created_at, __refs: { ref_vehicle_id: p.inventory_id || null, ref_contact_id: p.contact_id || null } }) }
+      return { handler: 'service_closed', journalId: await postByRule(did, 'service_closed', { revenue: n(p.revenue), tax: n(p.tax), total: n(p.total) || round2(n(p.revenue) + n(p.tax)), cost: n(p.cost), __source: 'service', __reference: p.ro_id || e, __date: event.created_at, __refs: { ref_vehicle_id: p.inventory_id || null, ref_contact_id: p.contact_id || null } }) }
     default:
       return null
   }

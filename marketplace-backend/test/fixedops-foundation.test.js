@@ -311,7 +311,7 @@ test('a duplicate movement emits no second event', () => {
   // An event is a claim that something happened. A no-op retry must not make one.
   for (const f of ['receiveParts', 'adjustPart', 'consumePart']) {
     const fn = eng.match(new RegExp(`export async function ${f}[\\s\\S]*?\\n\\}`))?.[0] || ''
-    assert.match(fn, /if \(!r\.duplicate\) emitEvent/, `${f} must not emit on a deduped retry`)
+    assert.match(fn, /if \(!r\.duplicate\)\s*\{?\s*(emitEvent|\n)/, `${f} must not emit on a deduped retry`)
   }
 })
 
@@ -546,4 +546,52 @@ test('parts stays extractable — Service asks, it does not own the stock model'
   for (const dup of ['service_parts', 'service_inventory', 'ro_parts_stock']) {
     assert.ok(!partsMig.includes(dup), `must not create a second inventory model (${dup})`)
   }
+})
+
+// ── 13. Service accounting corrections (Batch 2) ─────────────────────────────
+
+const acctMig = read('migrations/2026-08-09-stage4b-service-tax-and-parts-receipt-accounting.sql')
+const acct = strip(read('routes/accounting-engine.js'))
+
+test('tax is a liability, and AR is billed at what the customer actually owes', () => {
+  const rule = acctMig.match(/'service_closed', '\[[\s\S]*?\]'::jsonb/)?.[0] || ''
+  assert.match(rule, /"account_key":"accounts_receivable","side":"debit","source":"total"/,
+    'AR must be debited with the tax-inclusive total, not the subtotal')
+  assert.match(rule, /"account_key":"service_revenue","side":"credit","source":"revenue"/,
+    'revenue stays pre-tax')
+  assert.match(rule, /"account_key":"tax_collected","side":"credit","source":"tax"/,
+    'collected tax must be credited to the liability, never left inside revenue')
+  // Balanced: debits total+cost, credits revenue+tax+cost, and total = revenue + tax.
+})
+
+test('closing an RO publishes the numbers that rule needs', () => {
+  const fn = eng.match(/export async function closeRepairOrder[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /tax: round2\(totals\.tax\), total: round2\(totals\.total\)/,
+    'the event must carry tax and the tax-inclusive total')
+  assert.match(acct, /tax: n\(p\.tax\), total: n\(p\.total\) \|\| round2\(n\(p\.revenue\) \+ n\(p\.tax\)\)/,
+    'and the consumer must read them, falling back to revenue+tax rather than dropping tax')
+})
+
+test('a parts receipt capitalizes inventory instead of leaving it negative', () => {
+  const rule = acctMig.match(/'parts_received', '\[[\s\S]*?\]'::jsonb/)?.[0] || ''
+  assert.match(rule, /"account_key":"parts_inventory","side":"debit","source":"amount"/)
+  assert.match(rule, /"account_key":"accounts_payable","side":"credit","source":"amount"/)
+  assert.match(acct, /case 'parts\.received':/, 'the event must actually be routed to the rule')
+  const fn = eng.match(/export async function receiveParts[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /amount: round2\(Math\.abs\(n\(qty\)\) \* unit\)/, 'a receipt must carry its value')
+})
+
+test('financial posting stays idempotent on replay', () => {
+  // postByRule dedupes on (dealership, source, reference, event); the reference must be
+  // the ledger row, so replaying an event posts one journal entry, not another one.
+  assert.match(eng, /ref: r\.txnId/, 'a receipt must reference its stock ledger row')
+  assert.match(acct, /__reference: p\.ref \|\| p\.txn_id \|\| e/)
+  const fn = eng.match(/export async function receiveParts[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /if \(!r\.duplicate\) \{/, 'a deduped receipt must not emit a second financial event')
+})
+
+test('Service produces financial events but owns no ledger', () => {
+  assert.doesNotMatch(eng, /from\('journal_entries'\)|from\('journal_lines'\)|from\('gl_accounts'\)/,
+    'Service must never write the ledger itself')
+  assert.doesNotMatch(eng, /postByRule|ACCOUNT_DEFS/, 'posting belongs to the accounting engine')
 })
