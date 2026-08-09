@@ -31,12 +31,20 @@ test('every dashboard page entitlement references a canonical feature', async ()
   }
 })
 
-test('DealerOS Administration uses dealership-scoped user management', async () => {
-  const source = await readDashboard()
-  const administration = source.match(/administration:\s*\{[\s\S]*?\n  \},\n\};/)?.[0] || ''
+// Phase 1 dissolved the "Administration" department into People / Executive /
+// Settings (employees do not navigate an "Administration" concept). The tenancy
+// rule it guarded is unchanged and asserted here against the workspace registry:
+// dealer user management uses the dealership-scoped `sales-team` page, never the
+// platform-wide `owner-users` console, which stays reserved for MarketSync HQ.
+test('DealerOS user management stays dealership-scoped, never platform-wide', async () => {
+  const registry = await readFile(new URL('../../marketplace-frontend/js/modules/workspace-registry.js', import.meta.url), 'utf8')
+  const people = registry.match(/people:\s*\{[\s\S]*?\n  \},/)?.[0] || ''
 
-  assert.ok(administration, 'could not locate the Administration department')
-  assert.match(administration, /page:\s*['"]sales-team['"]/)
-  assert.doesNotMatch(administration, /page:\s*['"]owner-users['"]/)
-  assert.match(source, /pageId === ['"]owner-users['"] && !marketsyncOwnerMode\(\)/)
+  assert.ok(people, 'could not locate the People workspace')
+  assert.match(people, /page:\s*['"]sales-team['"]/, 'People must manage users via the dealership-scoped page')
+  // Stronger than before: no dealer-facing workspace anywhere may expose owner-users.
+  assert.doesNotMatch(registry, /page:\s*['"]owner-users['"]/, 'owner-users must not appear in any DealerOS workspace')
+  // The switchPage redirect that sends a dealer admin from a stale owner-users
+  // bookmark to their own team page must remain.
+  assert.match(await readDashboard(), /pageId === ['"]owner-users['"] && !marketsyncOwnerMode\(\)/)
 })

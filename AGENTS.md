@@ -7,11 +7,25 @@ below unless a human explicitly asks for that specific change.
 
 ## 1. Dashboard navigation — data-driven, ONE source of truth
 
-- The live sidebar nav is the **department nav** (`#dept-nav`), built at runtime by
-  `renderDeptNav()` from the **`DEPARTMENTS`** (and `SAAS_DEPARTMENTS`) registry in
-  `marketplace-frontend/js/modules/dashboard-part2.js`.
-- **To add / rename / reorder / gate a nav item or department, edit `DEPARTMENTS`
-  there — nowhere else.**
+- The live sidebar nav is the **workspace nav** (`#dept-nav`), built at runtime by
+  `renderDeptNav()` from the **`MS_WORKSPACES`** registry in
+  **`marketplace-frontend/js/modules/workspace-registry.js`** (plus `SAAS_DEPARTMENTS`
+  in `dashboard-part2.js` for MarketSync HQ owner mode).
+- That one registry drives **all three** navigations — desktop sidebar, the local
+  workspace tab-bar, and the role-aware mobile bottom row. Never create a second
+  navigation registry; add to this one.
+- **To add / rename / reorder / gate a nav item or workspace, edit `MS_WORKSPACES`
+  there — nowhere else.** `DEPARTMENTS` in `dashboard-part2.js` is only an alias of it,
+  kept so the existing renderers work untouched.
+- The registry decides **grouping and labels only**. Gating stays where it is: role
+  (`mgr`/`roles`), plan entitlement (`PAGE_FEATURE` / `PAGE_PRODUCT`), dealer feature
+  flags (`PAGE_DEALER_FLAG`) and the product/staff tier short-circuits. Every `page`
+  value must be an existing `[data-page-content]` container.
+- Nine workspaces, per `docs/DEALEROS_UI_AUDIT.md`: Executive · Sales · Inventory ·
+  F&I · Service · Parts · Accounting · Marketing · People (+ Settings as a `system`
+  workspace). System engines — CRM/Customer, Automation, AI, Integrations, Analytics,
+  Communications, Configuration, Marketplace — are **not** primary departments; they
+  power the workspaces underneath.
 - The static `#nav-desktop` tree in `marketplace-frontend/dashboard.html` is
   **LEGACY and hidden at runtime** (`.nav-init` / `.dept-mode`). It is kept ONLY so
   existing role/tier feature-gating selectors keep resolving. **Do NOT add nav items

@@ -142,8 +142,12 @@ Four independent layers, all in `dashboard-part2.js` / `dashboard.js`:
 
 1. **Role** — `deptRoleOk()`: explicit `roles[]` wins, else `mgr` → `DEPT_MGR_ROLES`.
 2. **Entitlement** — `pageFeatureOk()` via `PAGE_FEATURE` (`os.*`) and `PAGE_PRODUCT`,
-   with `DEALER_OS_PLAN_FEATURES` cold-start fallback. **Fails open** when
-   `/access/context` is unavailable — deliberate, keeps legacy accounts working.
+   with the `DEALER_OS_PLAN_FEATURES` cold-start fallback keyed off the dealership's
+   plan name. Note: it **fails closed** — with no `window.__access` *and* no plan
+   fallback, only pages that declare no feature stay visible. (A nearby comment claims
+   `hasFeature` "fails OPEN"; that is true of `hasFeature`, not of `pageFeatureOk`.)
+   Practical effect: nav fills in once `/access/context` resolves, so anything reading
+   the nav before then sees a reduced set — expected, not a regression.
 3. **Dealer feature flags** — `PAGE_DEALER_FLAG` → `__featureFlags`.
 4. **Product / staff tiers** — `__productAllowedPages`, `__fbOnly`, `__staffAllowedPages`
    short-circuit before the department nav renders.
