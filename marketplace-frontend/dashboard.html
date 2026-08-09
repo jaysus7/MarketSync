@@ -3607,32 +3607,35 @@
 
   <!-- Bump this revision whenever dashboard.js changes so an already-open browser
        cannot reuse an older bundle from its cache after a staging deployment. -->
-  <script src="dashboard.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part3.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part4.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part5.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part6.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part7.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part8.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part9.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part10.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part11.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part12.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part13.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part14.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part15.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part16.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part17.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part18.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part19.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part20.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part21.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part22.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part23.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part24.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part25.js?v=20260807_split"></script>
-  <script src="js/modules/dashboard-part26.js?v=20260807_split"></script>
+  <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
+       mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
+  <script src="js/modules/workspace-registry.js?v=20260809_ws"></script>
+  <script src="dashboard.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part3.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part4.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part5.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part6.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part7.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part9.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part10.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part11.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part12.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part13.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part14.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part15.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part16.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part17.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part18.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part19.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part20.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part21.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part22.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part23.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part24.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part25.js?v=20260809_ws"></script>
+  <script src="js/modules/dashboard-part26.js?v=20260809_ws"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

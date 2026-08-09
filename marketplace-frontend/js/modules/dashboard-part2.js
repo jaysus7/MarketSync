@@ -599,93 +599,29 @@ window.openLeaderboardOnDash = openLeaderboardOnDash;
 // manager/analyst pages inside them hidden — and nothing else. Settings isn't a
 // department; the header gear owns it.
 //
-// ✅ SOURCE OF TRUTH for the dashboard sidebar navigation. renderDeptNav() builds
-//    the live nav (#dept-nav) from this registry. To add/rename/reorder/gate a
-//    nav item or department, edit HERE (and SAAS_DEPARTMENTS below for owner mode).
+// ✅ SOURCE OF TRUTH for the dashboard sidebar navigation now lives in
+//    js/modules/workspace-registry.js (MS_WORKSPACES) — it is the ONE registry the
+//    desktop sidebar, the workspace tab-bar and the mobile bottom row all derive
+//    from. To add/rename/reorder/gate a nav item or workspace, edit THERE
+//    (and SAAS_DEPARTMENTS below for MarketSync owner mode).
 //    The static #nav-desktop tree in dashboard.html is LEGACY and hidden — never
-//    edit nav there. See the "LEGACY HARDCODED SIDEBAR" banner in dashboard.html.
-const DEPARTMENTS = {
-  executive: {
-    label: 'Daily Briefing', icon: 'chart', accent: 'indigo', mgr: true,
-    pages: [{ page: 'command', label: 'Daily Briefing' }],
-  },
+//    edit nav there. See the "LEGACY HARDCODED SIDEBAR" banner in dashboard.html
+//    and docs/DEALEROS_UI_AUDIT.md for the full page → workspace mapping.
+//
+// DEPARTMENTS stays as the name every renderer below already uses, so the
+// registry swap needs no changes to renderDeptNav/renderDeptTabbar/deptOpen/
+// applyMobileQuickRow. The inline fallback keeps the dashboard navigable if the
+// registry file ever fails to load (nav is presentation; the API still enforces
+// permissions server-side).
+const DEPARTMENTS = (typeof MS_WORKSPACES !== 'undefined' && MS_WORKSPACES) || {
+  executive: { label: 'Executive', icon: 'chart', accent: 'indigo', mgr: true, pages: [{ page: 'command', label: 'Overview' }] },
   sales: {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
-      { page: 'insights', label: 'Dashboard' },
+      { page: 'insights', label: 'Overview' },
       { page: 'crm', label: 'Customers' },
       { page: 'appointments', label: 'Appointments' },
       { page: 'tasks', label: 'Tasks' },
-      { page: 'inventory', label: 'Inventory', invmode: 'manual' },
-      { page: 'appraisal', label: 'Appraisals' },
-      { page: 'equity', label: 'Equity Mining' },
-      // Manager/analyst-only slices — hidden from a sales rep.
-      { page: 'leads', label: 'Opportunities', mgr: true },
-      { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true },
-      { page: 'market', label: 'Market', mgr: true },
-      { page: 'delivery', label: 'Deliveries', mgr: true },
-      { page: 'reports', label: 'Reports', mgr: true },
-    ],
-  },
-  fni: {
-    // Desk-a-deal isn't a tab — it's launched per customer (header button, CRM card,
-    // and the Deals list), so F&I is a single Deals workspace.
-    label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
-    pages: [
-      { page: 'fni', label: 'Deals' },
-    ],
-  },
-  service: {
-    label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
-    // Service Settings lives under the header gear now, not as a department tab.
-    pages: [
-      { page: 'service-ros', label: 'Repair Orders' },
-      { page: 'service-appointments', label: 'Appointments' },
-    ],
-  },
-  parts: {
-    label: 'Parts', icon: 'gem', accent: 'amber', mgr: true,
-    pages: [{ page: 'service-parts', label: 'Parts Inventory' }],
-  },
-  cleanup: {
-    label: 'Detail / Cleanup', icon: 'droplet', accent: 'sky',
-    pages: [{ page: 'recon', label: 'Cleanup' }],
-  },
-  accounting: {
-    // The Accounting page already renders its own rich top menu (Financials,
-    // Insights, Reconciliation, Tax, …), so it's a single-page department — that
-    // native menu IS the "menus on top", no second tab row stacked over it.
-    label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
-    pages: [{ page: 'accounting', label: 'Accounting' }],
-  },
-  marketing: {
-    label: 'Marketing', icon: 'megaphone', accent: 'violet',
-    pages: [
-      // Reps only see Facebook Marketplace here — everything else is manager-only.
-      // Facebook Marketplace posts the SAME inventory as the website/manual list —
-      // one inventory pool, viewed in 'facebook' mode.
-      { page: 'inventory', label: 'Facebook Marketplace', invmode: 'facebook' },
-      { page: 'website', label: 'Website', mgr: true },
-      { page: 'ai-home', label: 'AI Chat', mgr: true },
-      // The builder holds the email/text templates (New Lead, Delivery, Holidays);
-      // the settings page (engine on/off, email setup) is reached from within it.
-      { page: 'automation-builder', label: 'Automation', mgr: true },
-      { page: 'email-marketing', label: 'Email Marketing', mgr: true },
-      { page: 'leaderboard', label: 'Leaderboard', mgr: true },
-    ],
-  },
-  administration: {
-    label: 'Administration', icon: 'shield', accent: 'indigo', mgr: true,
-    pages: [
-      // Dealer users are managed in the dealership-scoped team workspace. The
-      // owner-users page calls /owner/accounts and is reserved for MarketSync HQ.
-      // Keep Users first so Administration opens directly into user management.
-      { page: 'sales-team', label: 'Users' },
-      { page: 'people-compliance', label: 'HR & Compliance' },
-      { page: 'operations', label: 'Operations' },
-      { page: 'taskboard', label: 'Task Board' },
-      { page: 'config', label: 'Configuration' },
-      { page: 'api-keys', label: 'API Keys' },
     ],
   },
 };
@@ -718,7 +654,7 @@ const PAGE_FEATURE = {
   delivery: 'os.sales', fni: 'os.sales',
   reports: 'os.reports',
   'inv-intel': 'os.inventory', market: 'os.inventory',
-  'ai-home': 'os.marketing',
+  'ai-home': 'os.marketing', 'ai-inbox': 'os.marketing',
   'api-keys': 'os.integrations',
   'owner-users': 'os.team', 'sales-team': 'os.team', 'people-compliance': 'os.team', hr: 'os.team', people: 'os.team',
   config: 'os.settings',
@@ -908,14 +844,25 @@ function renderDeptNav(role) {
     if (anchor && anchor.parentElement === navRoot) navRoot.insertBefore(host, anchor.nextSibling);
     else navRoot.insertBefore(host, navRoot.firstChild);
   }
-  host.innerHTML = Object.entries(registry).filter(([, d]) => deptVisible(d)).map(([id, d]) => {
+  // Departments render in workflow order; `system: true` workspaces (Settings and
+  // anything else that is not a dealership department) drop to a separate rail at
+  // the bottom, under a divider — an employee scans DEPARTMENTS first.
+  const navBtn = ([id, d]) => {
     const A = ENGINE_ACCENTS[d.accent] || ENGINE_ACCENTS.indigo;
     return `<button type="button" data-dept="${id}" onclick="deptOpen('${id}')" title="${esc(d.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="${A.text} flex-shrink-0">${svgIcon(d.icon || 'dot', 'w-4 h-4')}</span><span>${esc(d.label)}</span></button>`;
-  }).join('');
+  };
+  const visible = Object.entries(registry).filter(([, d]) => deptVisible(d));
+  const departments = visible.filter(([, d]) => !d.system);
+  const system = visible.filter(([, d]) => d.system);
+  host.innerHTML = departments.map(navBtn).join('')
+    + (system.length ? `<div class="my-1.5 border-t border-slate-200 dark:border-slate-800"></div>${system.map(navBtn).join('')}` : '');
   navRoot.classList.add('dept-mode');
   __deptNavBuilt = true;
   if (__currentPage) highlightDeptNav(__currentPage);
   applyMobileQuickRow();   // bottom quick-row mirrors the DEPARTMENTS registry too
+  // Entitlements can land after the first paint; retry any pending deep link now
+  // that this rebuild reflects the newest access context.
+  if (typeof msBootRoute === 'function') msBootRoute();
 }
 window.renderDeptNav = renderDeptNav;
 function deptOpen(id) {
@@ -1090,6 +1037,86 @@ function switchPage(pageId) {
   checkDepartmentOpen(pageId);
   renderDeptTabbar(pageId);
   highlightDeptNav(pageId);
+  msSyncRoute(pageId);
+}
+
+// ── Workspace routing (additive) ─────────────────────────────────────────────
+// The dashboard is a single document that shows/hides [data-page-content] panels,
+// so before this there was no way to link to, refresh into, or press Back between
+// pages. A small hash route — #/w/<workspace>/<page> — fixes that WITHOUT changing
+// how pages render: it is a thin wrapper over switchPage().
+//
+// Deliberately hash-based (not pushState paths) so the static host needs no rewrite
+// rules and every existing query-param deep link (?calendar=, ?adspend=) and the
+// extension token bootstrap (#tk=, consumed and stripped before this ever runs) keep
+// working untouched. Gating is unchanged: a hash naming a page the user may not open
+// is bounced by switchPage()'s own guards exactly like any stale link.
+let __msRouting = false;   // suppress the popstate→switchPage→pushState loop
+
+function msHashFor(pageId) {
+  const ws = (typeof msWorkspaceOfPage === 'function' && msWorkspaceOfPage(pageId, __deptRegistry)) || null;
+  return ws ? `#/w/${ws}/${pageId}` : `#/p/${pageId}`;
+}
+
+function msSyncRoute(pageId) {
+  if (__msRouting || !pageId) return;
+  try {
+    const hash = msHashFor(pageId);
+    if (window.location.hash === hash) return;
+    history.pushState({ msPage: pageId }, '', hash);
+  } catch {}
+}
+
+// Parse #/w/<workspace>/<page> or #/p/<page> → page id (null when absent/foreign).
+function msRouteFromHash() {
+  const m = String(window.location.hash || '').match(/^#\/(?:w\/[^/]+\/|p\/)([\w-]+)$/);
+  return m ? m[1] : null;
+}
+
+function msApplyRoute() {
+  const pageId = msRouteFromHash();
+  if (!pageId || pageId === __currentPage) return;
+  __msRouting = true;
+  try { switchPage(pageId); } finally { __msRouting = false; }
+}
+window.addEventListener('popstate', msApplyRoute);
+
+// Restore the routed page on a hard refresh (bookmark / shared link / reload).
+//
+// This is called from every point where the nav is (re)built, because entitlements
+// arrive asynchronously: on the first pass `/access/context` may not have landed yet,
+// so switchPage() correctly bounces a gated page to a safe home. We therefore keep
+// the request pending and retry as the context settles, giving up after a few
+// attempts so a genuinely forbidden link stops redirecting the user. If the page is
+// never permitted, the user simply stays on their safe home page — the gate wins.
+let __msBootTarget = msRouteFromHash();
+let __msBootTries = 0;
+function msBootRoute() {
+  if (!__msBootTarget || __msBootTries > 6) return;
+  if (typeof switchPage !== 'function') return;
+  __msBootTries++;
+  __msRouting = true;
+  try { switchPage(__msBootTarget); } finally { __msRouting = false; }
+  // Landed where we asked → done. Otherwise a later attempt retries.
+  if (__currentPage === __msBootTarget) {
+    // Boot may have already navigated to a default landing page and pushed ITS hash
+    // before this restore ran. Route sync is suppressed while __msRouting is set, so
+    // re-assert the restored page's hash here — replaceState, not push, so the
+    // discarded landing page never becomes a Back-button stop.
+    try { history.replaceState({ msPage: __msBootTarget }, '', msHashFor(__msBootTarget)); } catch {}
+    __msBootTarget = null;
+  }
+}
+window.msBootRoute = msBootRoute;
+
+// Self-scheduled attempts, so restoring a deep link never depends on which nav mode
+// the account resolves to (full DealerOS, a restricted product tier, or a staff
+// role). renderDeptNav() also calls msBootRoute() as entitlements settle; whichever
+// fires first wins and the rest are cheap no-ops.
+if (__msBootTarget) {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(msBootRoute, 300));
+  setTimeout(msBootRoute, 1200);
+  setTimeout(msBootRoute, 2600);
 }
 
 // ── Trade Appraisal ──────────────────────────────────────────────────────────

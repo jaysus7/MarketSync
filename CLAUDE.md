@@ -1,11 +1,26 @@
 # CLAUDE.md
 
-Follow **[AGENTS.md](./AGENTS.md)** — it contains the guardrails for this repo.
+**Start here, in this order:**
+
+1. **[docs/SESSION_HANDOFF.md](./docs/SESSION_HANDOFF.md)** — current state, what
+   landed, the next recommended slice, and the acceptance gates to run.
+2. **[AGENTS.md](./AGENTS.md)** — **Part A** is the governing product/architecture
+   law (canonical records, frozen kernel, audit-before-code, entitlements,
+   security); **Part B** is the frontend guardrails. Both are binding.
+3. **[docs/KERNEL_CONTRACT.md](./docs/KERNEL_CONTRACT.md)** — frozen.
+
+MarketSync is a **dealer operating system**, not a set of features. Employees
+navigate their dealership, not our software architecture. Audit before coding;
+prefer KEEP > FIX > MOVE > MERGE > BUILD > DELETE; never weaken a test or bypass
+RLS/RBAC/MFA/entitlements to make work pass.
 
 Highest-priority rules (see AGENTS.md for detail):
 
-1. **Dashboard nav:** edit `DEPARTMENTS` in `marketplace-frontend/js/modules/dashboard-part2.js`.
-   The `#nav-desktop` tree in `dashboard.html` is LEGACY/hidden — never edit or surface it.
+1. **Dashboard nav:** edit `MS_WORKSPACES` in
+   `marketplace-frontend/js/modules/workspace-registry.js` — the ONE registry behind the
+   desktop sidebar, workspace tabs and mobile nav. (`DEPARTMENTS` in `dashboard-part2.js`
+   is now just an alias of it.) The `#nav-desktop` tree in `dashboard.html` is
+   LEGACY/hidden — never edit or surface it. See `docs/DEALEROS_UI_AUDIT.md`.
 2. **`dashboard.js` split** (`dashboard.js` + `js/modules/dashboard-part*.js`) is
    contiguous and load-order-critical. Don't reorder script tags; don't feature-split.
 3. **Public pages** use the shared shell (`#ms-public-header`/`#ms-public-footer` +
