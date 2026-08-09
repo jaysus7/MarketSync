@@ -1240,6 +1240,9 @@ async function loadAIBoostSection() {
     applyFeatureFlags();   // re-hide any feature the dealer switched off (e.g. Appraisals)
     applyProductNav(legacyProductsFromAccess(window.__access) || profileContext?.products);   // keep the product front door applied after config load
     renderDeptNav(profileContext?.role);   // rebuild the department nav once feature flags settle
+    // Role, product and entitlement context are settled here, so a #/w/... deep link
+    // (refresh / bookmark / shared link) can now be restored and correctly gated.
+    if (typeof msBootRoute === 'function') msBootRoute();
     renderUpgradeCta();
     applyExtensionVisibility();
     // Reveal the floating AI assistant dock for entitled dealers (owner exempt).
