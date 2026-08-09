@@ -13,7 +13,7 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
 | **Baseline on `staging`** | `8cc0489` — 465/465 tests green, all six `check:*` green |
-| **In flight** | **Batch 1 steps 1–5 done** — atomic stock, versioned estimates, authorization evidence, technician workflow, parts demand/reservation/issue (494/494). Batch 1 integration proof remains, then Batch 2 (financial close) and Batch 3 (operating UI). |
+| **In flight** | **Batch 1 COMPLETE** — all five steps plus the end-to-end integration proof, 20/20 against the live database (498/498 tests, six checks). Next: Batch 2 (financial close), then Batch 3 (operating UI + E2E). |
 | **Roadmap position** | Phase 1–3 complete. Phase 4: #72/#73/#74 merged to `staging`; Batch 1 steps 1–5 built on the branch and green. **The database owns the RO state machine — read audit §32 before touching Service.** Remaining: Batch 1 integration proof → Batch 2 (financial close) → Batch 3 (Service/Parts operating UI + E2E). After Fixed Ops the handoff's stated order is Accounting → Marketing → People → dealership-wide My Day; **confirm against the canonical roadmap before assigning a phase number to it.** |
 
 ## Read before coding
@@ -123,6 +123,22 @@ deduped retry emits no second event. Proved live: last unit issues once · secon
 refused · retry with the same key moves nothing and leaves exactly one ledger row ·
 a different key moves again · a cross-dealership move is refused.
 **Steps 2–5 start from here — reservation and issue can now safely depend on stock.**
+
+**BATCH 1 IS COMPLETE.** The end-to-end fixture ran green against staging on the first
+attempt — 20/20, including every refusal path:
+
+customer + customer vehicle · check-in at `checked_in` · inspection with a job line
+carrying the concern · estimate v1 $400 presented and approved · parts demand moves no
+stock · reserving touches `qty_reserved` not `qty_on_hand` · technician starts work ·
+additional work found · estimate v2 $1,900 presented · **v1 authorization preserved** ·
+**v1 does NOT cover v2** · v1 estimate still immutable · v2 reauthorized · issue draws
+stock exactly once · duplicate issue idempotent · reservation released after issue ·
+concern survives cause/correction · **completing work did not close the RO** · QC then
+ready via canonical transitions · ready→active refused · close-direct-from-ready refused ·
+cross-dealership reserve refused.
+
+Probe rows cleaned up. `test/fixedops-batch1-e2e.test.js` pins the seams so a later
+refactor cannot quietly break a link in that chain.
 
 Test the complete workflow plus the refusal and concurrency paths.
 
