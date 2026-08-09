@@ -32,7 +32,27 @@ Every money/stock mutation is idempotent on a natural key so a bus replay is saf
 
 ## 3. RO state machine
 
-`open → in_progress → awaiting_parts → ready → closed` (plus `canceled`).
+> ⚠️ **SUPERSEDED — this section was never true.** Phase 4.1 proved it against the live
+> database. The canonical state machine is enforced *in Postgres* by the
+> `repair_orders_status_valid` check constraint and the `repair_orders_state_machine`
+> trigger (`controls.enforce_state_transition`, driven by `controls.state_transitions`),
+> where every legal edge carries its own required permission and reason requirement.
+> The real graph is:
+>
+> ```
+> appointment → checked_in → inspection → estimate_sent → customer_approved → in_progress
+>                                                      ↘ customer_declined → closed
+>                                         customer_approved → parts_ordered → in_progress
+> in_progress → quality_check → ready → delivered → closed
+> closed → in_progress        [requires service.reopen_repair_order AND a reason]
+> ```
+>
+> The states below (`open`, `awaiting_parts`, `canceled`) do not exist and never did —
+> the check constraint rejects them, which is why no repair order could be opened at all
+> until Phase 4.1. See **`docs/STAGE4_SERVICE_PARTS_AUDIT.md` §32** for the evidence and
+> the reconciliation. Do not reintroduce these names.
+
+~~`open → in_progress → awaiting_parts → ready → closed` (plus `canceled`).~~
 `state_ownership` gives each state a department (Service) so ROs surface on the
 Operations Next-Action board and the exception scanner ages stale ones — for free, via
 the existing workflow/exception engines. No bespoke aging code.

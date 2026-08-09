@@ -87,10 +87,30 @@ Object.assign(window, { loadOperationsPage, opsResolveException, opsOpenEntity }
 let __svcRoFilter = '';
 let __svcParts = [];   // cached catalog for the add-line part picker
 const svcMoney = (v) => '$' + (Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const SVC_STATUSES = ['open', 'in_progress', 'awaiting_parts', 'ready', 'closed', 'canceled'];
-const svcStatusLabel = (s) => ({ open: 'Open', in_progress: 'In Progress', awaiting_parts: 'Awaiting Parts', ready: 'Ready', closed: 'Closed', canceled: 'Canceled' }[s] || s);
+// The repair-order state machine lives in the DATABASE (docs/STAGE4_SERVICE_PARTS_AUDIT.md
+// §32). These are the twelve states `repair_orders_status_valid` actually permits — the
+// old open / awaiting_parts / canceled were never real and no RO could ever hold them.
+// The label is dealership language; the value persisted is always the canonical state.
+const SVC_STATUSES = ['appointment', 'checked_in', 'inspection', 'estimate_sent', 'customer_approved',
+                      'customer_declined', 'parts_ordered', 'in_progress', 'quality_check', 'ready',
+                      'delivered', 'closed'];
+const SVC_STATUS_LABEL = {
+  appointment: 'Booked', checked_in: 'Checked In', inspection: 'Inspecting',
+  estimate_sent: 'Awaiting Approval', customer_approved: 'Approved', customer_declined: 'Declined',
+  parts_ordered: 'Waiting for Parts', in_progress: 'In Progress', quality_check: 'Quality Check',
+  ready: 'Ready', delivered: 'Delivered', closed: 'Closed',
+};
+const svcStatusLabel = (s) => SVC_STATUS_LABEL[s] || s;
+// What the advisor is DOING, phrased as the action rather than the resulting state.
+const SVC_ACTION_LABEL = {
+  checked_in: 'Check In', inspection: 'Start Inspection', estimate_sent: 'Send Estimate',
+  customer_approved: 'Record Approval', customer_declined: 'Record Decline',
+  parts_ordered: 'Mark Parts Ordered', in_progress: 'Start Work', quality_check: 'Send to QC',
+  ready: 'Mark Ready', delivered: 'Deliver to Customer', closed: 'Close RO → post to accounting',
+};
+let __svcTransitions = [];
 const svcStatusChip = (s) => {
-  const c = { open: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300', in_progress: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300', awaiting_parts: 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300', ready: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300', closed: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400', canceled: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' }[s] || 'bg-slate-100 text-slate-600';
+  const c = { appointment: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300', checked_in: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300', inspection: 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300', estimate_sent: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300', customer_approved: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300', customer_declined: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300', parts_ordered: 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300', in_progress: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300', quality_check: 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300', ready: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300', delivered: 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300', closed: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400' }[s] || 'bg-slate-100 text-slate-600';
   return `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full ${c}">${esc(svcStatusLabel(s))}</span>`;
 };
 
@@ -129,7 +149,7 @@ async function loadServiceRosPage() {
         </div>
 
         <div class="flex flex-wrap items-center gap-2 pt-1 pb-1">
-          ${tab('', 'All')}${['open', 'in_progress', 'awaiting_parts', 'ready', 'closed'].map(s => tab(s, svcStatusLabel(s))).join('')}
+          ${tab('', 'All')}${['checked_in', 'estimate_sent', 'parts_ordered', 'in_progress', 'ready', 'delivered', 'closed'].map(s => tab(s, svcStatusLabel(s))).join('')}
         </div>
 
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
@@ -209,10 +229,14 @@ async function svcOpenRo(id) {
   if (!root) return;
   root.innerHTML = '<div class="text-slate-400 text-sm p-6">Loading RO…</div>';
   try {
-    const [res] = await Promise.all([apiGetJson('/service-engine/ros/' + id)]);
+    const [res, tr] = await Promise.all([
+      apiGetJson('/service-engine/ros/' + id),
+      apiGetJson(`/service-engine/ros/${id}/transitions`).catch(() => ({ transitions: [] })),
+    ]);
+    __svcTransitions = tr.transitions || [];
     if (!__svcParts.length) { try { __svcParts = (await apiGetJson('/service-engine/parts')).parts || []; } catch {} }
     const ro = res.ro, cust = res.customer;
-    const closed = ro.status === 'closed' || ro.status === 'canceled';
+    const closed = ro.status === 'closed';
     const lineRows = (ro.lines || []).map(l => `
       <tr class="border-t border-slate-100 dark:border-slate-800">
         <td class="px-3 py-2"><span class="text-[11px] font-bold uppercase text-slate-400">${esc(l.line_type)}</span></td>
@@ -222,7 +246,11 @@ async function svcOpenRo(id) {
         <td class="px-3 py-2 text-right">${closed ? '' : `<button onclick="svcRemoveLine('${ro.id}','${l.id}')" class="text-rose-500 hover:text-rose-600 text-xs font-bold">Remove</button>`}</td>
       </tr>`).join('') || `<tr><td colspan="5" class="px-3 py-6 text-center text-slate-400 text-sm">No lines yet.</td></tr>`;
     const partOpts = __svcParts.map(p => `<option value="${p.id}" data-price="${p.price}">${esc(p.part_number)} — ${esc(p.description || '')} (${p.qty_on_hand} on hand)</option>`).join('');
-    const statusOpts = SVC_STATUSES.filter(s => s !== 'closed').map(s => `<option value="${s}" ${ro.status === s ? 'selected' : ''}>${esc(svcStatusLabel(s))}</option>`).join('');
+    // Business actions, not a free status dropdown. The legal moves come from the
+    // database's own transition table via /transitions — the frontend never carries a
+    // second copy of the graph, so it can never offer a move the shop cannot make.
+    const nextActions = (__svcTransitions || []).map(t => `<button onclick="svcTransition('${ro.id}','${t.to_state}',${t.requires_reason ? 'true' : 'false'})" class="px-3 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 text-sm font-bold transition">${esc(SVC_ACTION_LABEL[t.to_state] || svcStatusLabel(t.to_state))}</button>`).join('')
+      || '<span class="text-sm text-slate-400">No further action from this state.</span>';
     root.innerHTML = `
       <button onclick="loadServiceRosPage()" class="text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">← All ROs</button>
       <div class="flex flex-wrap items-center justify-between gap-3 mt-2">
@@ -254,9 +282,7 @@ async function svcOpenRo(id) {
         <button onclick="svcAddLine('${ro.id}')" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Add line</button>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <select id="svc-ro-status" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">${statusOpts}</select>
-        <button onclick="svcSetStatus('${ro.id}')" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold transition">Update status</button>
-        <button onclick="svcCloseRo('${ro.id}')" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition ml-auto">Close RO → post to accounting</button>
+        ${nextActions}
       </div>`}`;
     svcLineTypeChanged();
   } catch (e) { root.innerHTML = `<div class="text-rose-500 text-sm p-6">Couldn't load RO: ${esc(e.message)}</div>`; }
@@ -290,10 +316,21 @@ async function svcRemoveLine(roId, lineId) {
   try { await apiSendJson(`/service-engine/ros/${roId}/lines/${lineId}`, 'DELETE'); svcOpenRo(roId); }
   catch (e) { showToast(e.message, 'error'); }
 }
-async function svcSetStatus(roId) {
-  const status = document.getElementById('svc-ro-status').value;
-  try { await apiSendJson(`/service-engine/ros/${roId}/status`, 'POST', { status }); showToast('Status updated ✓', 'success'); svcOpenRo(roId); }
-  catch (e) { showToast(e.message, 'error'); }
+// One business action → one canonical transition. `closed` keeps its confirmation
+// because it is the financial act: parts are drawn and the sale is posted.
+async function svcTransition(roId, toState, needsReason) {
+  let reason = null;
+  if (needsReason) {
+    reason = prompt(`Why is this repair order moving to ${svcStatusLabel(toState)}?`);
+    if (!reason || !reason.trim()) return;
+  }
+  if (toState === 'closed' && !confirm('Close this RO? Parts will be drawn from stock and the sale posted to accounting.')) return;
+  try {
+    const path = toState === 'closed' ? `/service-engine/ros/${roId}/close` : `/service-engine/ros/${roId}/status`;
+    await apiSendJson(path, 'POST', toState === 'closed' ? { reason } : { status: toState, reason });
+    showToast(`${svcStatusLabel(toState)} ✓`, 'success');
+    svcOpenRo(roId);
+  } catch (e) { showToast(e.message, 'error'); }
 }
 async function svcCloseRo(roId) {
   if (!confirm('Close this RO? Parts will be drawn from stock and the sale posted to accounting.')) return;

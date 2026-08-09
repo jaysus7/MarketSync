@@ -12,9 +12,9 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 |---|---|
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
-| **Baseline on `staging`** | `6916db2` — 441/441 tests green, all six `check:*` green |
-| **In flight** | **Stage 4A** — the Fixed Ops domain audit (documentation only, no code) |
-| **Roadmap position** | Phase 1 (nav), Phase 2 (Sales), **Stage 3 complete** (3A + 3B.1 + 3B.2 all merged). Stage 4A audit delivered; **Stage 4B is blocked at the STOP GATE.** |
+| **Baseline on `staging`** | `c8dee2a` — 460/460 tests green, all six `check:*` green |
+| **In flight** | **Phase 4 PR 4.2a** — repair-order state reconciliation |
+| **Roadmap position** | Phase 1–3 complete. Phase 4: audit (#72) and foundation (#73) merged. **The database owns the RO state machine — see audit §32 before touching Service.** PR 4.2 (authorization) → 4.3 (parts) → 4.4 (accounting) → 4.5 (UI) remain. |
 
 ## Read before coding
 

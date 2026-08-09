@@ -264,9 +264,36 @@ const RO_STATUSES = [
   'delivered', 'closed',
 ]
 
-export async function setRoStatus(dealershipId, roId, toStatus, { userId = null, reason = null } = {}) {
+// What can this repair order legally do next? Read straight from the table the trigger
+// itself consults, so the answer can never drift from what the database will accept.
+// The UI asks this instead of carrying its own copy of the graph.
+export async function allowedRoTransitions(dealershipId, roId) {
+  const { data: ro } = await supabaseAdmin.from('repair_orders').select('id, status').eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
+  if (!ro) return null
+  const { data } = await supabaseAdmin.schema('controls').from('state_transitions')
+    .select('to_state, required_permission, requires_reason')
+    .eq('entity_type', 'repair_order').eq('from_state', ro.status)
+  return { status: ro.status, transitions: data || [] }
+}
+
+// The database refuses an illegal edge with 23514 and a message an advisor cannot use.
+function transitionError(error, from, to) {
+  const msg = String(error?.message || '')
+  if (/Illegal .* state transition/i.test(msg)) return `A repair order cannot go from ${from} to ${to}.`
+  if (/reason is required/i.test(msg)) return `Moving from ${from} to ${to} requires a reason.`
+  if (/Permission .* required/i.test(msg)) return `You do not have permission to move a repair order from ${from} to ${to}.`
+  return msg || `Could not move the repair order from ${from} to ${to}.`
+}
+
+// The ONE application entry point for moving a repair order. Everything -- routes,
+// tools, check-in, close, reopen -- goes through here rather than scattering
+// `update repair_orders set status` around the codebase. It is deliberately NOT a
+// second state machine: it does not decide which edges are legal. It scopes to the
+// dealership, carries the reason, lets the database trigger accept or refuse the edge,
+// and turns the raw 23514 into something a user can act on.
+export async function transitionRepairOrder(dealershipId, roId, toStatus, { userId = null, reason = null } = {}) {
   if (!RO_STATUSES.includes(toStatus)) throw new Error(`invalid repair order status: ${toStatus}`)
-  if (toStatus === 'closed') return closeRepairOrder(dealershipId, roId, { userId })
+  if (toStatus === 'closed') return closeRepairOrder(dealershipId, roId, { userId, reason })
   const { data: ro } = await supabaseAdmin.from('repair_orders').select('status, ro_number, ready_at').eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
   if (!ro) throw new Error('repair order not found')
   if (ro.status === toStatus) return ro
@@ -275,7 +302,8 @@ export async function setRoStatus(dealershipId, roId, toStatus, { userId = null,
   // Ready is operational completion, and NOT payment, pickup or close. Stamped once on
   // the genuine transition in — re-entering ready never rewrites the original time.
   if (toStatus === 'ready' && !ro.ready_at) patch.ready_at = now
-  await supabaseAdmin.from('repair_orders').update(patch).eq('id', roId).eq('dealership_id', dealershipId)
+  const { error } = await supabaseAdmin.from('repair_orders').update(patch).eq('id', roId).eq('dealership_id', dealershipId)
+  if (error) throw new Error(transitionError(error, ro.status, toStatus))
   emitEvent({
     dealershipId, eventName: 'service.ro_status_changed', entityType: 'repair_order', entityId: roId,
     summary: `RO ${ro.ro_number} → ${toStatus}`, fromState: ro.status, toState: toStatus, department: 'Service', createdBy: userId,
@@ -283,6 +311,10 @@ export async function setRoStatus(dealershipId, roId, toStatus, { userId = null,
   })
   return { ...ro, status: toStatus, ready_at: patch.ready_at ?? ro.ready_at ?? null }
 }
+
+// Historical name, kept so existing callers keep working. New code calls
+// transitionRepairOrder.
+export const setRoStatus = transitionRepairOrder
 
 // ── Appointment → check-in → ONE repair order ────────────────────────────────
 // The canonical arrival transition. Idempotent by construction: the RO carries
@@ -404,10 +436,20 @@ export async function listRoReopenRequests(dealershipId, { status = null, roId =
 
 // Close: idempotent. Recompute, draw part stock from inventory, emit service.closed
 // (Accounting posts the journal). Guard on already-closed so a bus replay is safe.
-export async function closeRepairOrder(dealershipId, roId, { userId = null } = {}) {
+// Close is the FINANCIAL transition, and it is not a shortcut. controls.state_transitions
+// allows `closed` from exactly two places: `delivered` (the customer took the car) and
+// `customer_declined` (they took it without the work). Closing from anywhere else used
+// to be attempted silently and would be refused by the database; it is now refused here,
+// with a message that says what has to happen first.
+const RO_CLOSABLE_FROM = ['delivered', 'customer_declined']
+
+export async function closeRepairOrder(dealershipId, roId, { userId = null, reason = null } = {}) {
   const { data: ro } = await supabaseAdmin.from('repair_orders').select('*').eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
   if (!ro) throw new Error('repair order not found')
   if (ro.status === 'closed') return ro   // already closed — no double stock draw / double journal
+  if (!RO_CLOSABLE_FROM.includes(ro.status)) {
+    throw new Error(`A repair order cannot be closed from ${ro.status}. Finish the work, mark it Ready, then Delivered — the customer takes the vehicle before the money is booked.`)
+  }
   const totals = await recomputeRoTotals(dealershipId, roId)
 
   // Consume parts from stock (immutable ledger + decrement on-hand), once.
@@ -418,7 +460,11 @@ export async function closeRepairOrder(dealershipId, roId, { userId = null } = {
   }
 
   const now = new Date().toISOString()
-  await supabaseAdmin.from('repair_orders').update({ status: 'closed', closed_at: now, updated_at: now }).eq('id', roId).eq('dealership_id', dealershipId)
+  const { error: closeErr } = await supabaseAdmin.from('repair_orders').update({
+    status: 'closed', closed_at: now, updated_at: now,
+    state_changed_at: now, state_changed_by: userId, state_change_reason: reason,
+  }).eq('id', roId).eq('dealership_id', dealershipId)
+  if (closeErr) throw new Error(transitionError(closeErr, ro.status, 'closed'))
   const revenue = round2(totals.labor_total + totals.parts_total + totals.sublet_total + totals.fee_total - n(ro.discount))
   // `cost` relieves PARTS INVENTORY only (the service_closed rule credits parts_inventory).
   // Labor cost is tech payroll, not inventory COGS, so it is not part of this token.
@@ -583,13 +629,23 @@ export function registerServiceEngine(app) {
   })
   app.post('/service-engine/ros/:id/status', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
-    try { res.json({ ok: true, ro: await setRoStatus(req.dealershipId, req.params.id, String(req.body?.status || ''), { userId: req.user?.id || null }) }) }
+    try { res.json({ ok: true, ro: await transitionRepairOrder(req.dealershipId, req.params.id, String(req.body?.status || ''), { userId: req.user?.id || null, reason: req.body?.reason || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
   app.post('/service-engine/ros/:id/close', requireAuth, canClose, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ ok: true, ro: await closeRepairOrder(req.dealershipId, req.params.id, { userId: req.user?.id || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  // What this RO can legally do next, straight from controls.state_transitions. The
+  // UI renders business actions from this rather than offering a free status dropdown
+  // that can propose moves the dealership workflow forbids.
+  app.get('/service-engine/ros/:id/transitions', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    const result = await allowedRoTransitions(req.dealershipId, req.params.id)
+    if (!result) return res.status(404).json({ error: 'not found' })
+    res.json(result)
   })
 
   // ── Controlled reopen ──────────────────────────────────────────────────────

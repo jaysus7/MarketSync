@@ -170,7 +170,7 @@ test('Service works without Sales — an RO needs no deal', () => {
 
 test('Ready is a real timestamped state and is not Close', () => {
   assert.match(migration, /alter table public\.repair_orders add column if not exists ready_at timestamptz/)
-  const fn = eng.match(/export async function setRoStatus[\s\S]*?\n\}/)?.[0] || ''
+  const fn = eng.match(/export async function transitionRepairOrder[\s\S]*?\n\}/)?.[0] || ''
   assert.match(fn, /if \(toStatus === 'ready' && !ro\.ready_at\) patch\.ready_at = now/,
     'ready is stamped once, on the genuine transition in')
   assert.match(fn, /if \(toStatus === 'closed'\) return closeRepairOrder/,
@@ -209,7 +209,7 @@ test('reopen follows the only edge the graph allows out of closed', () => {
 })
 
 test('every status change now says who moved it and why', () => {
-  const fn = eng.match(/export async function setRoStatus[\s\S]*?\n\}/)?.[0] || ''
+  const fn = eng.match(/export async function transitionRepairOrder[\s\S]*?\n\}/)?.[0] || ''
   assert.match(fn, /state_changed_at: now, state_changed_by: userId, state_change_reason: reason/,
     'the audit columns that existed but were never written must now be written')
 })
@@ -224,4 +224,58 @@ test('PR 4.1 adds no second canonical record', () => {
   // Accounting stays where it belongs: PR 4.1 changes no financial behaviour.
   assert.doesNotMatch(eng, /journal_entries|postByRule|accounts_receivable/,
     'PR 4.1 must not touch accounting — that is a later, separately approved change')
+})
+
+// ── 7. State reconciliation (PR 4.2a) ────────────────────────────────────────
+
+const fe = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part12.js', import.meta.url), 'utf8')
+const stage0 = readFileSync(new URL('../../docs/SERVICE_PARTS_ENGINE_STAGE0.md', import.meta.url), 'utf8')
+
+test('one central application entry point moves a repair order', () => {
+  assert.match(eng, /export async function transitionRepairOrder\(dealershipId, roId, toStatus/,
+    'transitions must go through one helper, not scattered status writes')
+  assert.match(eng, /export const setRoStatus = transitionRepairOrder/, 'the old name must keep working')
+  // It must NOT become a second state machine — the graph stays in the database.
+  const fn = eng.match(/export async function transitionRepairOrder[\s\S]*?\n\}/)?.[0] || ''
+  assert.doesNotMatch(fn, /LEGAL_TRANSITIONS|TRANSITION_MAP|from === '.*' && to === '/,
+    'the engine must not carry a JavaScript copy of the transition graph')
+  assert.match(fn, /if \(error\) throw new Error\(transitionError\(error, ro\.status, toStatus\)\)/,
+    'a refused edge must surface as a usable message, not a raw 23514')
+})
+
+test('legal next moves are read from the database, not hardcoded', () => {
+  assert.match(eng, /schema\('controls'\)\.from\('state_transitions'\)/,
+    'allowed transitions must come from the same table the trigger consults')
+  assert.match(eng, /app\.get\('\/service-engine\/ros\/:id\/transitions', requireAuth, canRead/)
+  assert.match(fe, /apiGetJson\(`\/service-engine\/ros\/\$\{id\}\/transitions`\)/,
+    'the UI must ask the backend which moves are legal')
+})
+
+test('close follows the canonical path and cannot be reached from anywhere', () => {
+  assert.match(eng, /const RO_CLOSABLE_FROM = \['delivered', 'customer_declined'\]/,
+    'closed is legal only from delivered or customer_declined')
+  const fn = eng.match(/export async function closeRepairOrder[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /if \(!RO_CLOSABLE_FROM\.includes\(ro\.status\)\)/,
+    'closing from an active state must be refused before any stock or journal work')
+  assert.match(fn, /if \(ro\.status === 'closed'\) return ro/, 'close must stay idempotent')
+})
+
+test('the frontend speaks canonical states and offers business actions', () => {
+  const list = fe.match(/const SVC_STATUSES = \[[\s\S]*?\];/)?.[0] || ''
+  for (const s of ['appointment', 'checked_in', 'estimate_sent', 'customer_approved', 'parts_ordered', 'quality_check', 'delivered']) {
+    assert.ok(list.includes(`'${s}'`), `the UI must know the canonical state ${s}`)
+  }
+  for (const gone of ["'open'", "'awaiting_parts'", "'canceled'"]) {
+    assert.ok(!list.includes(gone), `${gone} is not a repair-order state`)
+  }
+  // Friendly wording is fine; the persisted value must stay canonical.
+  assert.match(fe, /parts_ordered: 'Waiting for Parts'/, 'label may be friendly')
+  assert.match(fe, /SVC_ACTION_LABEL/, 'actions must be phrased as what the advisor is doing')
+  assert.doesNotMatch(fe, /id="svc-ro-status"/, 'the free status dropdown must be gone')
+  assert.doesNotMatch(fe, /function svcSetStatus/, 'arbitrary status assignment must be gone')
+})
+
+test('the Stage 0 state machine is marked superseded rather than left as truth', () => {
+  assert.match(stage0, /SUPERSEDED — this section was never true/)
+  assert.match(stage0, /STAGE4_SERVICE_PARTS_AUDIT\.md` §32/)
 })
