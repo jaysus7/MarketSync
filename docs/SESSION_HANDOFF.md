@@ -215,12 +215,21 @@ RO close, and cash arriving must never do it again. Verified balanced against al
 real shapes: paid in full · partial payment · pure deposit · deposit partly applied.
 A retried payment emits no second event, and the posting itself dedupes on the payment id.
 
-**Still to wire:**
-1. `routes/deposits.js` becomes a **producer into** `payments` — keep the Stripe flow,
-   persist the canonical Payment before anything downstream depends on it.
-2. Service invoice read (total · prior payments · paid · balance · history), then
-   `delivered → closed` with an explicit financial disposition — **not** necessarily a
-   zero balance, since legitimate AR is allowed.
+**Invoice read + close DONE.** `GET /service-engine/ros/:id/financials` answers
+"what is the customer charged, what have they paid, what remains?" in one response —
+totals from the RO (already canonical), money from the core Payment primitive, no second
+invoice truth, and estimates deliberately excluded because they are what was *proposed*.
+
+Closing now requires an explicit `financial_disposition` (`paid_in_full` · `partial_ar` ·
+`ar` · `warranty` · `internal` · `goodwill`) and records `closed_balance`. A zero balance
+is **not** required — carrying AR is a real decision — but an *implicit* balance is
+refused by a database constraint, and you cannot claim paid-in-full with money
+outstanding or carry AR that does not exist.
+
+**Still to wire — the last piece of Batch 2:**
+`routes/deposits.js` becomes a **producer into** `payments`. Keep the Stripe flow;
+persist the canonical Payment before anything downstream depends on it, and emit
+`payment.received` only on genuine creation.
 
 ⚠️ **Production only:** the legacy `deposit_received` rule exists there (Stage 3 A5
 migration, which never ran on staging). `deposit.paid` and `payment.received` must not

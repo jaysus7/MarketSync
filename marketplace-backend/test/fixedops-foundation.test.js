@@ -595,3 +595,39 @@ test('Service produces financial events but owns no ledger', () => {
     'Service must never write the ledger itself')
   assert.doesNotMatch(eng, /postByRule|ACCOUNT_DEFS/, 'posting belongs to the accounting engine')
 })
+
+// ── 14. Invoice read + explicit financial disposition (Batch 2) ──────────────
+
+const dispMig = read('migrations/2026-08-09-stage4b-ro-financial-disposition.sql')
+
+test('one read answers charged / paid / remaining', () => {
+  const fn = eng.match(/export async function roFinancials[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'the advisor needs a single financial read')
+  for (const field of ['subtotal', 'tax:', 'total', 'paid', 'balance', 'payments', 'allocations']) {
+    assert.ok(fn.includes(field), `the invoice read must expose ${field}`)
+  }
+  // Totals come from the RO, money from the core Payment primitive — no second truth.
+  assert.match(fn, /paymentsForSubject\(dealershipId, 'repair_order', roId\)/)
+  assert.doesNotMatch(fn, /from\('ro_estimates'\)/,
+    'estimates are what was PROPOSED — they must not be confused with what is owed')
+})
+
+test('closing states the money outcome instead of implying it', () => {
+  assert.match(dispMig, /check \(status <> 'closed' or financial_disposition is not null\)/,
+    'the database must refuse a close with an implicit balance')
+  assert.match(dispMig, /'paid_in_full','partial_ar','ar','warranty','internal','goodwill'/,
+    'warranty and internal work settle differently — they are real outcomes too')
+  const fn = eng.match(/export async function closeRepairOrder[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /const problem = dispositionError\(disposition, balance\)/)
+  assert.match(fn, /financial_disposition: disposition, closed_balance: balance/,
+    'what was owed at close must be recorded, not recomputed later')
+})
+
+test('a zero balance is not required to close, but honesty is', () => {
+  const fn = eng.match(/function dispositionError[\s\S]*?\n\}/)?.[0] || ''
+  // Carrying AR is legitimate; claiming paid-in-full with money outstanding is not.
+  assert.match(fn, /disposition === 'paid_in_full' && !paidInFull/,
+    'you cannot call it paid in full while a balance remains')
+  assert.match(fn, /disposition === 'ar' && balance <= 0/,
+    'and you cannot carry AR that does not exist')
+})

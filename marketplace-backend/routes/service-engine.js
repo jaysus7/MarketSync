@@ -19,6 +19,7 @@ import { getContact } from './crm.js'
 import { registerTool } from './tool-registry.js'
 import { raiseException } from './workflow.js'
 import { audit } from '../audit.js'
+import { paymentsForSubject } from './payments.js'
 
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
@@ -629,6 +630,45 @@ export async function partsAvailability(dealershipId, q = null) {
   return rows.map(p => ({ ...p, qty_available: round2(n(p.qty_on_hand) - n(p.qty_reserved)) }))
 }
 
+// ── The Service invoice — one read, one answer ───────────────────────────────
+// "What is the customer being charged, what have they already paid, and what remains?"
+// Totals come from the RO itself, which is already canonical; money comes from the core
+// Payment primitive. No second invoice truth is created, and estimates stay separate —
+// they are immutable snapshots of what was PROPOSED, not what is owed.
+export async function roFinancials(dealershipId, roId) {
+  const { data: ro } = await supabaseAdmin.from('repair_orders')
+    .select('id, ro_number, status, labor_total, parts_total, sublet_total, fee_total, discount, tax, total, financial_disposition, closed_balance, closed_at, contact_id')
+    .eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
+  if (!ro) return null
+  const money = await paymentsForSubject(dealershipId, 'repair_order', roId)
+  const total = round2(n(ro.total))
+  const paid = round2(n(money.paid))
+  const balance = round2(total - paid)
+  return {
+    ro_id: ro.id, ro_number: ro.ro_number, status: ro.status,
+    labor: n(ro.labor_total), parts: n(ro.parts_total), sublet: n(ro.sublet_total),
+    fees: n(ro.fee_total), discount: n(ro.discount),
+    subtotal: round2(n(ro.labor_total) + n(ro.parts_total) + n(ro.sublet_total) + n(ro.fee_total) - n(ro.discount)),
+    tax: n(ro.tax), total,
+    paid, balance,
+    payments: money.payments, allocations: money.allocations,
+    financial_disposition: ro.financial_disposition || null,
+    closed_balance: ro.closed_balance != null ? n(ro.closed_balance) : null,
+    closed_at: ro.closed_at || null,
+  }
+}
+
+// Which outcomes are honest for a given balance. A dealership may close with AR
+// outstanding — that is a real business decision — but it must SAY so.
+function dispositionError(disposition, balance) {
+  if (!disposition) return 'State how this repair order was settled before closing it (paid_in_full, partial_ar, ar, warranty, internal or goodwill).'
+  const paidInFull = Math.abs(balance) < 0.005
+  if (disposition === 'paid_in_full' && !paidInFull) return `This repair order still has a balance of $${balance.toFixed(2)}. Record a payment, or close it as AR.`
+  if (disposition === 'partial_ar' && balance <= 0) return 'There is no outstanding balance to carry as AR.'
+  if (disposition === 'ar' && balance <= 0) return 'There is no outstanding balance to carry as AR.'
+  return null
+}
+
 // ── Appointment → check-in → ONE repair order ────────────────────────────────
 // The canonical arrival transition. Idempotent by construction: the RO carries
 // `appointment_task_id` under a unique index, so a double-click, a retry, or two
@@ -756,7 +796,7 @@ export async function listRoReopenRequests(dealershipId, { status = null, roId =
 // with a message that says what has to happen first.
 const RO_CLOSABLE_FROM = ['delivered', 'customer_declined']
 
-export async function closeRepairOrder(dealershipId, roId, { userId = null, reason = null } = {}) {
+export async function closeRepairOrder(dealershipId, roId, { userId = null, reason = null, disposition = null } = {}) {
   const { data: ro } = await supabaseAdmin.from('repair_orders').select('*').eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
   if (!ro) throw new Error('repair order not found')
   if (ro.status === 'closed') return ro   // already closed — no double stock draw / double journal
@@ -764,6 +804,13 @@ export async function closeRepairOrder(dealershipId, roId, { userId = null, reas
     throw new Error(`A repair order cannot be closed from ${ro.status}. Finish the work, mark it Ready, then Delivered — the customer takes the vehicle before the money is booked.`)
   }
   const totals = await recomputeRoTotals(dealershipId, roId)
+
+  // The money outcome must be stated. A zero balance is NOT required — carrying AR is a
+  // real dealership decision — but an unknown or implicit balance is refused.
+  const fin = await roFinancials(dealershipId, roId)
+  const balance = round2(n(totals.total) - n(fin?.paid))
+  const problem = dispositionError(disposition, balance)
+  if (problem) throw new Error(problem)
 
   // Consume parts from stock (immutable ledger + decrement on-hand), once.
   const { data: partLines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', roId).eq('line_type', 'part').is('deleted_at', null)
@@ -775,6 +822,7 @@ export async function closeRepairOrder(dealershipId, roId, { userId = null, reas
   const now = new Date().toISOString()
   const { error: closeErr } = await supabaseAdmin.from('repair_orders').update({
     status: 'closed', closed_at: now, updated_at: now,
+    financial_disposition: disposition, closed_balance: balance,
     state_changed_at: now, state_changed_by: userId, state_change_reason: reason,
   }).eq('id', roId).eq('dealership_id', dealershipId)
   if (closeErr) throw new Error(transitionError(closeErr, ro.status, 'closed'))
@@ -975,7 +1023,7 @@ export function registerServiceEngine(app) {
   })
   app.post('/service-engine/ros/:id/close', requireAuth, canClose, async (req, res) => {
     if (!guard(req, res)) return
-    try { res.json({ ok: true, ro: await closeRepairOrder(req.dealershipId, req.params.id, { userId: req.user?.id || null }) }) }
+    try { res.json({ ok: true, ro: await closeRepairOrder(req.dealershipId, req.params.id, { userId: req.user?.id || null, reason: req.body?.reason || null, disposition: req.body?.disposition || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
 
@@ -987,6 +1035,14 @@ export function registerServiceEngine(app) {
     const result = await allowedRoTransitions(req.dealershipId, req.params.id)
     if (!result) return res.status(404).json({ error: 'not found' })
     res.json(result)
+  })
+
+  // The one financial read an advisor needs: charged, paid, remaining.
+  app.get('/service-engine/ros/:id/financials', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    const fin = await roFinancials(req.dealershipId, req.params.id)
+    if (!fin) return res.status(404).json({ error: 'not found' })
+    res.json(fin)
   })
 
   // ── Estimates ──────────────────────────────────────────────────────────────
