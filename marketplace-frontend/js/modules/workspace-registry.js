@@ -67,6 +67,7 @@ const MS_WORKSPACES = {
   inventory: {
     label: 'Inventory', icon: 'gem', accent: 'sky',
     pages: [
+      { page: 'inventory-overview', label: 'Today' },
       { page: 'inventory', label: 'Vehicles', invmode: 'manual' },
       { page: 'appraisal', label: 'Acquire' },
       { page: 'equity', label: 'Equity Mining' },
@@ -81,6 +82,7 @@ const MS_WORKSPACES = {
   fni: {
     label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
     pages: [
+      { page: 'fni-overview', label: 'Today' },
       { page: 'fni', label: 'Deals' },
       { page: 'delivery', label: 'Delivery', mgr: true },
     ],
@@ -155,13 +157,13 @@ const MS_SYSTEM_NAV = [
 // user cannot reach is dropped rather than shown dead.
 const MS_ROLE_MOBILE_NAV = {
   SALES_REP:    ['sales', 'crm', 'appointments', 'tasks'],
-  FNI:          ['fni', 'crm', 'appointments', 'tasks'],
+  FNI:          ['fni-overview', 'crm', 'appointments', 'tasks'],
   SERVICE:      ['service-ros', 'service-appointments', 'crm', 'tasks'],
   CLEANUP:      ['recon', 'taskboard'],
   ACCOUNTING:   ['accounting', 'commissions', 'crm', 'tasks'],
-  MANAGER:      ['command', 'sales', 'inventory', 'tasks'],
-  OWNER:        ['command', 'sales', 'inventory', 'tasks'],
-  DEALER_ADMIN: ['command', 'sales', 'inventory', 'tasks'],
+  MANAGER:      ['command', 'sales', 'inventory-overview', 'tasks'],
+  OWNER:        ['command', 'sales', 'inventory-overview', 'tasks'],
+  DEALER_ADMIN: ['command', 'sales', 'inventory-overview', 'tasks'],
 };
 const MS_MOBILE_NAV_DEFAULT = ['insights', 'crm', 'tasks'];
 
