@@ -88,35 +88,64 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
   highest-severity Inventory exception. Deliberate omissions (feed-failure and PDI
   exceptions, Automation tabs) and why: `docs/STAGE3_INVENTORY_FNI_AUDIT.md` §5.1.
 
-## Next recommended slice
+## Execution strategy — audit-first is OVER for this phase
 
-### PR 4.2 — estimates, authorization, technician workflow
+The architecture, invariants, canonical records and department boundaries are
+established. **Stop creating separate audit / spec / reconciliation PRs** unless
+implementation exposes a genuinely new architectural conflict. Read what is already
+frozen — `docs/STAGE4_SERVICE_PARTS_AUDIT.md` (esp. §32), `docs/STAGE4_PR42_SPEC.md`,
+merged PRs #73 and #74 — follow it, and build.
 
-**The spec is approved and written down: `docs/STAGE4_PR42_SPEC.md`. Implement it
-exactly. Do not redesign the Service architecture.**
+Work in **three large batches**, not a cycle of small PRs per primitive. The goal is no
+longer to prove Service can be built. **The goal is to finish Service.**
 
-Product frame, now explicit: MarketSync is one DealerOS core with **independently
-purchasable department engines**, and Service is the first proof a department can be
-bought and run alone. The Service engine owns its business workflow; the shared core
-owns reusable primitives (dealership, customer, vehicle, users/roles, tasks, timeline,
-documents, communications, events, automation, payments, financial posting). Departments
-talk through canonical records and events — never duplicated tables or logic.
+### Batch 1 — Complete Service Operations (PR 4.2 + 4.3 together)
 
-The one point most easily got wrong: **authorization is evidence and is never deleted or
-mutated.** A newer estimate version does not invalidate the old approval by rewriting it
-— coverage is *derived* by comparing the latest presented estimate against the latest
-authorization. The dealership must be able to prove months later that the customer
-approved v1 at 10:42, work was then found, v2 was issued, and a second approval was
-required.
+Build the whole connected workflow, not isolated primitives:
 
-Then: PR 4.3 (parts demand, reservation, concurrency, receiving, issue) → PR 4.4
-(tax/AR, parts receipt accounting, payment via the existing deposits/Stripe abstraction —
-**no MCP connector dependency**) → PR 4.5 (operating UI + E2E, built around
-jobs-to-be-done for advisor / technician / manager).
+`inspection → estimate → customer authorization → technician assignment → parts
+demand/reservation → work → additional work / re-authorization → completion → QC → ready`
 
-### After Fixed Ops
-Accounting, Marketing and People on the same engine-shell pattern; then a
-dealership-wide My Day that aggregates the department Today views once they all exist.
+- **Estimate & authorization** — immutable versions, presented estimates,
+  approve/decline/defer evidence, e-sign, coverage against the *latest* estimate,
+  revised estimates. Contract: `docs/STAGE4_PR42_SPEC.md`.
+- **Technician workflow** — assignment, concern/cause/correction, jobs on `ro_lines`,
+  recommended work, start/block/complete, actual time via `time_entries`, QC handoff.
+- **Parts workflow** — demand from RO lines, availability, reservation, concurrency,
+  shortage/backorder, receiving, issue to RO, returns/reversals, cost onto the RO.
+
+Test the complete workflow plus the refusal and concurrency paths.
+
+### Batch 2 — Complete Service Financial Close (4.4)
+
+`ready → delivered → invoice → tax → payment/deposit/AR → accounting events → closed`,
+covering labour, parts, sublet, fees, discounts, configured taxes, invoice, deposits,
+payments, balances, AR, parts-receipt accounting, reversals, idempotency, posting.
+**Reuse MarketSync's existing financial/payment infrastructure** (deposits/Stripe
+abstraction — no MCP connector dependency). Do not build a Service-specific accounting
+system.
+
+### Batch 3 — Service Operating Product (4.5)
+
+A complete department UI built around jobs-to-be-done, for **advisor**, **technician**
+and **manager**, finishing with full E2E of real dealership workflows.
+
+Then repeat the same shape for Parts, Accounting, F&I — complete department workflows in
+meaningful batches, not another audit→foundation→reconciliation→spec cycle per feature.
+
+### Rules that still hold
+
+DB-enforced invariants · dealership isolation · the canonical state machine (the database
+owns it; no JS copy) · permissions · idempotency · concurrency · **immutable evidence**
+(authorization is never deleted or mutated; coverage is derived) · shared DealerOS
+primitives over duplication · standalone Service capability.
+
+Run tests throughout; fix failures **inside the same batch**. Optimize for completed
+dealership workflows, not number of PRs.
+
+**Stop early only for:** a genuine architectural contradiction · destructive migration
+risk · an external dependency needing a human decision · insufficient context to safely
+finish the current atomic change.
 
 ## Known gaps / deferred (UI missing, backend often present)
 
