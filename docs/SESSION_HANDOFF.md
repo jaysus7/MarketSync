@@ -12,8 +12,8 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 |---|---|
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
-| **Baseline on `staging`** | `c8dee2a` — 460/460 tests green, all six `check:*` green |
-| **In flight** | **Phase 4 PR 4.2a** — repair-order state reconciliation |
+| **Baseline on `staging`** | `8cc0489` — 465/465 tests green, all six `check:*` green |
+| **In flight** | — (PR 4.2a merged). **Next: PR 4.2, spec approved in `docs/STAGE4_PR42_SPEC.md`.** |
 | **Roadmap position** | Phase 1–3 complete. Phase 4: audit (#72) and foundation (#73) merged. **The database owns the RO state machine — see audit §32 before touching Service.** PR 4.2 (authorization) → 4.3 (parts) → 4.4 (accounting) → 4.5 (UI) remain. |
 
 ## Read before coding
@@ -90,44 +90,33 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 
 ## Next recommended slice
 
-### Stage 4B is at a STOP GATE — read the audit before writing any code
+### PR 4.2 — estimates, authorization, technician workflow
 
-`docs/STAGE4_SERVICE_PARTS_AUDIT.md` §31. Stage 4A found **nine G3–G6 gaps** in the
-protected areas (authorization, parts quantity, reservation, receiving, accounting,
-payment, RO close, customer/vehicle identity). The brief's own rule stops dependent UI
-until they are decided. **Do not re-run the audit; do not guess the decisions.**
+**The spec is approved and written down: `docs/STAGE4_PR42_SPEC.md`. Implement it
+exactly. Do not redesign the Service architecture.**
 
-The five that matter most, in one line each:
+Product frame, now explicit: MarketSync is one DealerOS core with **independently
+purchasable department engines**, and Service is the first proof a department can be
+bought and run alone. The Service engine owns its business workflow; the shared core
+owns reusable primitives (dealership, customer, vehicle, users/roles, tasks, timeline,
+documents, communications, events, automation, payments, financial posting). Departments
+talk through canonical records and events — never duplicated tables or logic.
 
-1. Service revenue posts **pre-tax** to AR and **tax is never credited**.
-2. `parts_inventory` is **credited on every RO close and debited by nothing** —
-   receiving posts no journal at all.
-3. There is **no payment** — AR is never cleared.
-4. There is **no customer authorization** anywhere in the system.
-5. There is **no parts demand object** — stock moves only at RO close.
+The one point most easily got wrong: **authorization is evidence and is never deleted or
+mutated.** A newer estimate version does not invalidate the old approval by rewriting it
+— coverage is *derived* by comparing the latest presented estimate against the latest
+authorization. The dealership must be able to prove months later that the customer
+approved v1 at 10:42, work was then found, v2 was issued, and a second approval was
+required.
 
-Also found: Service has **no customer-owned vehicle model** (only dealer `inventory`),
-`GET /service/appointments` selects a column that does not exist so the list is always
-empty, and `service.view` / `service.reopen_repair_order` are granted to roles but used
-by zero code — so a GM cannot read an RO while a technician can close one.
-
-**Safe to start without any decision (G0–G2):** register Service and Parts as `ENGINES`
-workspaces on the Stage 3 pattern, the shop-status aggregate read, surfacing the
-existing timeline and low-stock exceptions, and the Tier 0 permission/bug fixes in §30.
-
-⚠️ **The Stage 4B brief is also incomplete** — it arrived truncated mid-sentence in the
-SERVICE → DRIVE section ("Do not retype data MarketS"). Repair Orders, Dispatch,
-Inspections, Ready, the Parts UI, the E2E paths and the exit criteria are all missing.
-Ask for the rest before building 4B.
+Then: PR 4.3 (parts demand, reservation, concurrency, receiving, issue) → PR 4.4
+(tax/AR, parts receipt accounting, payment via the existing deposits/Stripe abstraction —
+**no MCP connector dependency**) → PR 4.5 (operating UI + E2E, built around
+jobs-to-be-done for advisor / technician / manager).
 
 ### After Fixed Ops
 Accounting, Marketing and People on the same engine-shell pattern; then a
 dealership-wide My Day that aggregates the department Today views once they all exist.
-
-Standing decisions: do **not** add `Showed`/`Negotiating` to the CRM enum (UI may derive
-that context, never persist it); Phase 2 deferred items (opportunity-row appraisal
-shortcut, per-blocker delivery deep links, response/show/close metrics) do not block
-Stage 3 and should not reopen Phase 2.
 
 ## Known gaps / deferred (UI missing, backend often present)
 
