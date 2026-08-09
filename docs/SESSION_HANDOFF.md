@@ -13,7 +13,7 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
 | **Baseline on `staging`** | `8cc0489` — 465/465 tests green, all six `check:*` green |
-| **In flight** | **Batch 1 steps 1–4 done** — atomic stock, versioned estimates, authorization evidence, technician workflow (488/488). Step 5 (parts demand/reservation/receive/issue) + integration proof remain. |
+| **In flight** | **Batch 1 steps 1–5 done** — atomic stock, versioned estimates, authorization evidence, technician workflow, parts demand/reservation/issue (494/494). Batch 1 integration proof remains, then Batch 2 (financial close) and Batch 3 (operating UI). |
 | **Roadmap position** | Phase 1–3 complete. Phase 4: audit (#72) and foundation (#73) merged. **The database owns the RO state machine — see audit §32 before touching Service.** PR 4.2 (authorization) → 4.3 (parts) → 4.4 (accounting) → 4.5 (UI) remain. |
 
 ## Read before coding

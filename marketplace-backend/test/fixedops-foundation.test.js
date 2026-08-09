@@ -494,3 +494,56 @@ test('actual labour reuses the existing time clock', () => {
   assert.match(fn, /from\('time_entries'\)/, 'no second time system')
   assert.match(fn, /\.eq\('ro_id', roId\)/, 'the clock already carries ro_id — use it')
 })
+
+// ── 12. Parts demand, reservation and issue (Batch 1, step 5) ───────────────
+
+const partsMig = read('migrations/2026-08-09-stage4b-part-requests.sql')
+
+test('demand is its own record, separate from stock', () => {
+  assert.match(partsMig, /create table if not exists public\.part_requests/)
+  for (const col of ['ro_id', 'ro_line_id', 'part_id', 'qty_requested', 'qty_reserved', 'qty_issued', 'status']) {
+    assert.ok(partsMig.includes(col), `a request must carry ${col}`)
+  }
+  // A request is not a movement: creating one must never touch stock.
+  const fn = eng.match(/export async function requestPart[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.doesNotMatch(fn, /service_move_stock|moveStock|qty_on_hand/, 'requesting a part must not move stock')
+})
+
+test('reservation is atomic and cannot oversell the last unit', () => {
+  assert.match(partsMig, /v_avail := coalesce\(v_part\.qty_on_hand,0\) - coalesce\(v_part\.qty_reserved,0\)/,
+    'reserve against available, not on-hand')
+  assert.match(partsMig, /where id = v_req\.part_id and dealership_id = p_dealership[\s\S]{0,40}?for update/,
+    'the part row must be locked while availability is decided')
+  assert.match(partsMig, /greatest\(v_avail, 0\)/, 'you cannot reserve more than is available')
+  assert.match(partsMig, /constraint part_requests_not_over_reserved check \(qty_reserved <= qty_requested\)/)
+})
+
+test('a short reserve is backordered, not an error', () => {
+  assert.match(partsMig, /when v_req\.qty_reserved >= v_req\.qty_requested then 'reserved' else 'backordered'/,
+    'partial availability is a real business state')
+})
+
+test('issue goes THROUGH the hardened stock path, never around it', () => {
+  assert.match(partsMig, /select \* into v_mv from public\.service_move_stock\(/,
+    'issuing must reuse the step-1 movement, so the ledger and idempotency are the same')
+  // The failure this prevents: a second code path writing balances directly.
+  const issueFn = partsMig.match(/create or replace function public\.service_issue_part[\s\S]*?\n\$\$;/)?.[0] || ''
+  assert.doesNotMatch(issueFn, /set qty_on_hand\s*=/, 'issue must never write qty_on_hand itself')
+  assert.match(partsMig, /constraint part_requests_not_over_issued check \(qty_issued <= qty_requested\)/)
+})
+
+test('availability is server truth, derived from on-hand minus reserved', () => {
+  const fn = eng.match(/export async function partsAvailability[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /qty_available: round2\(n\(p\.qty_on_hand\) - n\(p\.qty_reserved\)\)/)
+  assert.doesNotMatch(fe, /qty_available\s*=/, 'the UI must not compute availability itself')
+})
+
+test('parts stays extractable — Service asks, it does not own the stock model', () => {
+  // Everything Service does to stock goes through the shared functions, so Parts can
+  // later own them without unpicking Service.
+  assert.match(eng, /supabaseAdmin\.rpc\('service_reserve_part'/)
+  assert.match(eng, /supabaseAdmin\.rpc\('service_issue_part'/)
+  for (const dup of ['service_parts', 'service_inventory', 'ro_parts_stock']) {
+    assert.ok(!partsMig.includes(dup), `must not create a second inventory model (${dup})`)
+  }
+})

@@ -546,6 +546,89 @@ export async function roActualHours(dealershipId, roId) {
   }, 0))
 }
 
+// ── Parts demand — Service asks, Parts answers ───────────────────────────────
+// A request is DEMAND: "RO 123 line 2 needs part X qty 2". It is not a stock movement,
+// an order or an issued part. Keeping demand separate from stock is what lets Parts
+// become its own department later without unpicking Service — every quantity still
+// moves through the hardened `service_move_stock` path, never around it.
+export async function listPartRequests(dealershipId, { roId = null, status = null } = {}) {
+  let q = supabaseAdmin.from('part_requests').select('*').eq('dealership_id', dealershipId).order('requested_at', { ascending: false }).limit(500)
+  if (roId) q = q.eq('ro_id', roId)
+  if (status) q = q.eq('status', status)
+  const { data } = await q
+  return data || []
+}
+
+export async function requestPart(dealershipId, roId, { partId, qty = 1, roLineId = null, note = null, idempotencyKey = null, userId = null } = {}) {
+  if (!partId) throw new Error('a part is required')
+  if (n(qty) <= 0) throw new Error('quantity must be greater than zero')
+  if (idempotencyKey) {
+    const { data: prior } = await supabaseAdmin.from('part_requests').select('*')
+      .eq('dealership_id', dealershipId).eq('idempotency_key', idempotencyKey).maybeSingle()
+    if (prior) return prior
+  }
+  const { data, error } = await supabaseAdmin.from('part_requests').insert({
+    dealership_id: dealershipId, ro_id: roId, ro_line_id: roLineId, part_id: partId,
+    qty_requested: n(qty), note, requested_by: userId, idempotency_key: idempotencyKey,
+  }).select('*').single()
+  if (error) throw new Error(error.message)
+  emitEvent({
+    dealershipId, eventName: 'service.part_requested', entityType: 'repair_order', entityId: roId,
+    summary: `Parts requested — ${n(qty)}`, department: 'Service', createdBy: userId,
+    payload: { request_id: data.id, part_id: partId, qty: n(qty), ro_line_id: roLineId },
+  })
+  return data
+}
+
+// Reserving short is a real answer, not a failure: it means backordered.
+export async function reservePart(dealershipId, requestId, qty = null) {
+  const { data, error } = await supabaseAdmin.rpc('service_reserve_part', {
+    p_dealership: dealershipId, p_request: requestId, p_qty: qty != null ? n(qty) : null,
+  })
+  if (error) throw new Error(error.message)
+  const row = Array.isArray(data) ? data[0] : data
+  return { reserved: n(row?.reserved), available: n(row?.available), backordered: n(row?.backordered) }
+}
+
+export async function issuePart(dealershipId, requestId, qty = null, { userId = null, idempotencyKey = null } = {}) {
+  const { data, error } = await supabaseAdmin.rpc('service_issue_part', {
+    p_dealership: dealershipId, p_request: requestId, p_qty: qty != null ? n(qty) : null,
+    p_user: userId, p_idempotency_key: idempotencyKey,
+  })
+  if (error) {
+    if (/Insufficient stock/i.test(error.message || '')) throw new Error(error.message)
+    throw new Error(error.message || 'could not issue the part')
+  }
+  const row = Array.isArray(data) ? data[0] : data
+  const issued = n(row?.issued)
+  if (issued > 0) {
+    const { data: req } = await supabaseAdmin.from('part_requests').select('ro_id, part_id').eq('id', requestId).maybeSingle()
+    emitEvent({
+      dealershipId, eventName: 'service.part_issued', entityType: 'repair_order', entityId: req?.ro_id || null,
+      summary: `Parts issued — ${issued}`, department: 'Service', createdBy: userId,
+      payload: { engine: true, request_id: requestId, part_id: req?.part_id || null, qty: issued, on_hand: n(row?.on_hand) },
+    })
+  }
+  return { issued, onHand: n(row?.on_hand), status: row?.request_status || null }
+}
+
+// A part that comes back off the job goes through the same ledger, as a return.
+export async function returnPart(dealershipId, partId, qty, { roId = null, userId = null, idempotencyKey = null, note = null } = {}) {
+  const r = await moveStock(dealershipId, partId, 'return', Math.abs(n(qty)), { roId, userId, idempotencyKey, note })
+  if (!r.duplicate) emitEvent({
+    dealershipId, eventName: 'parts.returned', entityType: 'part', entityId: partId,
+    summary: `Returned ${Math.abs(n(qty))} × ${r.partNumber || ''}`, department: 'Service', createdBy: userId,
+    payload: { qty: Math.abs(n(qty)), on_hand: r.onHand, ro_id: roId, txn_id: r.txnId },
+  })
+  return r.onHand
+}
+
+// Availability is server truth: what is physically here, minus what is already promised.
+export async function partsAvailability(dealershipId, q = null) {
+  const rows = await searchParts(dealershipId, q, 200)
+  return rows.map(p => ({ ...p, qty_available: round2(n(p.qty_on_hand) - n(p.qty_reserved)) }))
+}
+
 // ── Appointment → check-in → ONE repair order ────────────────────────────────
 // The canonical arrival transition. Idempotent by construction: the RO carries
 // `appointment_task_id` under a unique index, so a double-click, a retry, or two
@@ -909,6 +992,49 @@ export function registerServiceEngine(app) {
       const estimate = await presentEstimate(req.dealershipId, req.params.id, { userId: req.user?.id || null })
       audit(req, 'service.estimate_presented', { after_state: { id: estimate.id, version: estimate.version, total: estimate.total } })
       res.json({ ok: true, estimate })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  // ── Parts demand ───────────────────────────────────────────────────────────
+  app.get('/service-engine/part-requests', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ requests: await listPartRequests(req.dealershipId, { roId: req.query.ro_id || null, status: req.query.status || null }) })
+  })
+  app.get('/service-engine/parts-availability', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ parts: await partsAvailability(req.dealershipId, req.query.q || null) })
+  })
+  app.post('/service-engine/ros/:id/part-requests', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const b = req.body || {}
+      res.json({ ok: true, request: await requestPart(req.dealershipId, req.params.id, {
+        partId: b.part_id, qty: b.qty, roLineId: b.ro_line_id || null, note: b.note || null,
+        idempotencyKey: b.idempotency_key || null, userId: req.user?.id || null,
+      }) })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+  app.post('/service-engine/part-requests/:id/reserve', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try { res.json({ ok: true, ...(await reservePart(req.dealershipId, req.params.id, req.body?.qty ?? null)) }) }
+    catch (e) { res.status(400).json({ error: e.message }) }
+  })
+  app.post('/service-engine/part-requests/:id/issue', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const r = await issuePart(req.dealershipId, req.params.id, req.body?.qty ?? null,
+        { userId: req.user?.id || null, idempotencyKey: req.body?.idempotency_key || null })
+      audit(req, 'service.part_issued', { after_state: { request_id: req.params.id, issued: r.issued, on_hand: r.onHand } })
+      res.json({ ok: true, ...r })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+  app.post('/service-engine/parts/:id/return', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      res.json({ ok: true, on_hand: await returnPart(req.dealershipId, req.params.id, req.body?.qty, {
+        roId: req.body?.ro_id || null, note: req.body?.note || null,
+        idempotencyKey: req.body?.idempotency_key || null, userId: req.user?.id || null,
+      }) })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })
 
