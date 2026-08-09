@@ -1,4 +1,5 @@
 import { supabaseAdmin, browserFetch } from '../shared.js'
+import { emitEvent } from './events.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { createNotifications } from '../notifications.js'
 import { runInventorySync, syncProgress } from '../sync/engine.js'
@@ -417,6 +418,61 @@ export function registerRoutes(app) {
       } catch (e) { errors.push(`Row ${r + 1}: ${e.message}`) }
     }
     res.json({ ok: true, created, updated, skipped, errors: errors.slice(0, 20) })
+  })
+
+  // ── Canonical NON-TRADE acquisition receipt ────────────────────────────────
+  // The business moment a purchased vehicle (auction, wholesale, dealer purchase,
+  // dealer trade, manually entered purchase) becomes dealership-controlled. Mirrors
+  // the trade path exactly, using the SAME generic possession fields already on
+  // inventory — no new table, no second possession model, no lifecycle enum.
+  //
+  // TRADE EXCLUSION is enforced in the WHERE clause, not the UI: a unit created from
+  // a trade appraisal carries `source_appraisal_id`, and its canonical lifecycle is
+  // `trade.received` via POST /ai/appraisals/:id/take-possession. Filtering on
+  // `source_appraisal_id IS NULL` makes it impossible for one vehicle to emit both
+  // acquisition events, even if a client calls the wrong endpoint.
+  app.post('/inventory/:id/take-possession', requireAuth, requireMfa, requirePermission('inventory.edit'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
+    try {
+      const { data: veh } = await supabaseAdmin.from('inventory')
+        .select('id, awaiting_possession, possession_at, source_appraisal_id, invoice_amount')
+        .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      if (!veh) return res.status(404).json({ error: 'Vehicle not found' })
+      if (veh.source_appraisal_id) {
+        return res.status(409).json({
+          error: 'TRADE_UNIT',
+          message: 'This unit came from a trade appraisal — take possession through the appraisal so it records a trade receipt.',
+        })
+      }
+      // Already possessed → idempotent no-op. Ownership timestamps are not touched
+      // and no event is emitted.
+      if (veh.awaiting_possession === false) {
+        return res.json({ ok: true, inventory_id: veh.id, already: true, possession_at: veh.possession_at || null, acquired: false })
+      }
+      const at = new Date().toISOString()
+      // Guarded update + select-back: only rows that ACTUALLY flipped come back, so a
+      // concurrent double-call transitions once and emits once.
+      const { data: flipped, error } = await supabaseAdmin.from('inventory')
+        .update({ awaiting_possession: false, possession_at: at })
+        .eq('id', veh.id).eq('dealership_id', req.dealershipId).eq('awaiting_possession', true)
+        .is('source_appraisal_id', null)
+        .select('id, invoice_amount')
+      if (error) return res.status(500).json({ error: error.message })
+      if (!flipped || !flipped.length) {
+        return res.json({ ok: true, inventory_id: veh.id, already: true, acquired: false })
+      }
+      audit(req, 'inventory.possession_taken', { inventory_id: veh.id, non_trade: true })
+      // Accounting owns the journal, the GL account and the dedupe — this route only
+      // reports the business event. entityId is the vehicle, which IS the accounting
+      // reference for `vehicle.acquired` (source 'acquisition').
+      emitEvent({
+        dealershipId: req.dealershipId, eventName: 'vehicle.acquired', entityType: 'vehicle', entityId: veh.id,
+        summary: 'Vehicle acquired into inventory', department: 'inventory',
+        payload: { inventory_id: veh.id, amount: Number(flipped[0]?.invoice_amount ?? 0), ref: veh.id },
+        createdBy: req.user?.id || null,
+      })
+      res.json({ ok: true, inventory_id: veh.id, possession_at: at, acquired: true })
+    } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
   app.get('/inventory/:id', requireAuth, requirePermission('inventory.view'), async (req, res) => {

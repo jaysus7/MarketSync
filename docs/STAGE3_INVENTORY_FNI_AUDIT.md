@@ -202,7 +202,7 @@ zero rows, so retries, re-saves and re-deliveries emit nothing. Accounting's
 **Explicitly does NOT emit from:** appraisal creation, valuation, appraisal approval,
 `/acquire`, attaching a trade to a deal, or any generic deal save — all pinned by test.
 
-### `vehicle.acquired` — ⚠️ DOMAIN GAP, not implemented
+### `vehicle.acquired` — IMPLEMENTED (was a domain gap; approved and closed)
 
 **No canonical non-trade acquisition transition exists.** Evidence:
 
@@ -225,3 +225,39 @@ no new table and no new state model.
 This was **not** implemented because it creates a new business transition with
 financial effect, and the brief requires the transition to be proven rather than
 guessed. It is a small, well-understood next step.
+
+
+### `vehicle.acquired` — final semantics
+
+| | |
+|---|---|
+| **Endpoint** | `POST /inventory/:id/take-possession` |
+| **Source** | `routes/inventory.js` |
+| **Eligibility** | `source_appraisal_id IS NULL` (non-trade only) **and** `awaiting_possession = true` |
+| **Previous state** | `awaiting_possession = true`, `possession_at = null` |
+| **Resulting state** | `awaiting_possession = false`, `possession_at = now` |
+| **Payload / ref** | `entityType: 'vehicle'`, `entityId: inventory.id`, `amount` from `invoice_amount`, `ref: inventory.id` |
+| **Accounting dedupe** | `(dealership_id, 'acquisition', inventory_id, 'vehicle.acquired')` — the existing `postJournal()` convention; no second dedupe system |
+
+**Why this is the correct financial event.** It mirrors the trade path exactly: the
+vehicle becomes a dealership asset at *possession*, not when a row is created. Row
+creation, feed import, VIN decode, pricing and media/listing updates all leave
+`awaiting_possession` untouched and emit nothing — the event is emitted from exactly
+one place in the file (test-enforced).
+
+**How trade units are excluded — server-side, twice.** A unit created from a trade
+appraisal carries `source_appraisal_id`, and its canonical lifecycle is
+`trade.received`. This route (a) rejects such a unit with `409 TRADE_UNIT`, and (b)
+also filters `source_appraisal_id IS NULL` in the UPDATE itself, so even a race
+cannot let one vehicle emit both acquisition events. The trade path likewise never
+mentions `vehicle.acquired`. Both directions are pinned by test.
+
+**Idempotency — three layers.** (1) An already-possessed unit short-circuits *before*
+any write, so ownership timestamps are never rewritten and no event fires. (2) The
+UPDATE is guarded on `awaiting_possession = true` and `.select()`s back only rows that
+actually flipped, so a concurrent double-call transitions and emits once. (3)
+Accounting's `postJournal()` dedupes on the key above, so even a duplicate emit posts
+exactly one journal.
+
+**Part A is complete.** Both acquisition events now have proven canonical producers
+that cannot collide.
