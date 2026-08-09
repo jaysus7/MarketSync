@@ -263,11 +263,11 @@ export function registerAccountingEngine(app) {
 
   app.get('/accounting/journal', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    const { data: entries } = await supabaseAdmin.from('journal_entries').select('*')
+    const { data: entries } = await req.supabase.from('journal_entries').select('*')
       .eq('dealership_id', req.dealershipId).order('entry_date', { ascending: false }).order('created_at', { ascending: false }).limit(200)
     const ids = (entries || []).map(e => e.id)
     let lines = []
-    if (ids.length) { const { data } = await supabaseAdmin.from('journal_lines').select('*').in('journal_entry_id', ids); lines = data || [] }
+    if (ids.length) { const { data } = await req.supabase.from('journal_lines').select('*').in('journal_entry_id', ids); lines = data || [] }
     const byEntry = {}
     for (const l of lines) (byEntry[l.journal_entry_id] ||= []).push(l)
     res.json({ entries: (entries || []).map(e => ({ ...e, lines: byEntry[e.id] || [] })) })
@@ -276,7 +276,7 @@ export function registerAccountingEngine(app) {
   // Event → journal audit log (which event produced which journal; replay history).
   app.get('/accounting/event-log', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    const { data } = await supabaseAdmin.from('accounting_event_log').select('*')
+    const { data } = await req.supabase.from('accounting_event_log').select('*')
       .eq('dealership_id', req.dealershipId).order('processed_at', { ascending: false }).limit(200)
     res.json({ log: data || [] })
   })
@@ -285,11 +285,13 @@ export function registerAccountingEngine(app) {
   // per source+reference+event, so replaying returns the existing journal, not a dup).
   app.post('/accounting/replay/:eventId', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
+    // events read kept on supabaseAdmin: the activity spine isn't gated by accounting.*,
+    // so an accounting user's RLS client may not see it; scoped by id + dealership here.
     const { data: event } = await supabaseAdmin.from('events').select('*')
       .eq('id', req.params.eventId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!event) return res.status(404).json({ error: 'event not found' })
     const result = await routeFinancialEvent(event)
-    await supabaseAdmin.from('accounting_event_log').insert({
+    await req.supabase.from('accounting_event_log').insert({
       dealership_id: req.dealershipId, event_id: event.id, event_name: event.event_name,
       processed_by: (result?.handler || 'replay') + ' (replay)', journal_entry_id: result?.journalId || null,
       status: result?.journalId ? 'processed' : 'skipped',
@@ -301,7 +303,7 @@ export function registerAccountingEngine(app) {
   // Trial balance — computed purely from journal_lines (never edited balances).
   app.get('/accounting/trial-balance', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    const acc = await accountBalances(req.dealershipId, req.query)
+    const acc = await accountBalances(req.dealershipId, req.query, req.supabase)
     const rows = acc.filter(a => a.debit || a.credit)
     const totDr = round2(rows.reduce((s, r) => s + r.debit, 0))
     const totCr = round2(rows.reduce((s, r) => s + r.credit, 0))
@@ -313,7 +315,7 @@ export function registerAccountingEngine(app) {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const now = new Date()
     const from = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`
-    const [mtd, all] = await Promise.all([accountBalances(req.dealershipId, { from }), accountBalances(req.dealershipId, {})])
+    const [mtd, all] = await Promise.all([accountBalances(req.dealershipId, { from }, req.supabase), accountBalances(req.dealershipId, {}, req.supabase)])
     const catCr = (rows, cat) => round2(rows.filter(a => a.category === cat).reduce((s, a) => s + (a.credit - a.debit), 0))
     const catDr = (rows, cat) => round2(rows.filter(a => a.category === cat).reduce((s, a) => s + (a.debit - a.credit), 0))
     const keyDr = (rows, key) => { const a = rows.find(x => x.system_key === key); return a ? round2(a.debit - a.credit) : 0 }
@@ -331,7 +333,7 @@ export function registerAccountingEngine(app) {
   // Income statement — revenue − COGS − expense (from journals, optional date range).
   app.get('/accounting/income-statement', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    const acc = await accountBalances(req.dealershipId, req.query)
+    const acc = await accountBalances(req.dealershipId, req.query, req.supabase)
     const bucket = (cat) => acc.filter(a => a.category === cat)
     const creditBal = (rows) => round2(rows.reduce((s, a) => s + (a.credit - a.debit), 0))
     const debitBal = (rows) => round2(rows.reduce((s, a) => s + (a.debit - a.credit), 0))
@@ -351,7 +353,7 @@ export function registerAccountingEngine(app) {
   // Balance sheet — assets = liabilities + equity + net income (from journals).
   app.get('/accounting/balance-sheet', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    const acc = await accountBalances(req.dealershipId, {})   // balance sheet is cumulative
+    const acc = await accountBalances(req.dealershipId, {}, req.supabase)   // balance sheet is cumulative
     const bucket = (cat) => acc.filter(a => a.category === cat)
     const debitBal = (rows) => round2(rows.reduce((s, a) => s + (a.debit - a.credit), 0))
     const creditBal = (rows) => round2(rows.reduce((s, a) => s + (a.credit - a.debit), 0))
@@ -373,9 +375,12 @@ export function registerAccountingEngine(app) {
   app.get('/accounting/periods', requireAuth, requireMfa, requirePermission('accounting.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const now = new Date(); const cur = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
-    // Ensure the current month exists so there's always something to act on.
+    // Ensure the current month exists so there's always something to act on. Kept on
+    // supabaseAdmin: this is a view-gated route (accounting.view), but the upsert needs
+    // accounting.edit — like the carfax cache-write pattern, the ensure-exists side
+    // effect stays on the service role while the list read below is RLS-enforced.
     await supabaseAdmin.from('accounting_periods').upsert({ dealership_id: req.dealershipId, period: cur }, { onConflict: 'dealership_id,period', ignoreDuplicates: true })
-    const { data } = await supabaseAdmin.from('accounting_periods').select('*').eq('dealership_id', req.dealershipId).order('period', { ascending: false }).limit(36)
+    const { data } = await req.supabase.from('accounting_periods').select('*').eq('dealership_id', req.dealershipId).order('period', { ascending: false }).limit(36)
     res.json({ periods: data || [], flow: PERIOD_FLOW, current: cur })
   })
 
@@ -384,7 +389,7 @@ export function registerAccountingEngine(app) {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     const period = String(req.body?.period || '')
     if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ error: 'period must be YYYY-MM' })
-    const { data: row } = await supabaseAdmin.from('accounting_periods').select('*').eq('dealership_id', req.dealershipId).eq('period', period).maybeSingle()
+    const { data: row } = await req.supabase.from('accounting_periods').select('*').eq('dealership_id', req.dealershipId).eq('period', period).maybeSingle()
     const cur = row?.status || 'open'
     const idx = PERIOD_FLOW.indexOf(cur)
     if (idx < 0 || idx >= PERIOD_FLOW.length - 1) return res.status(400).json({ error: `Period is already ${cur}` })
@@ -392,7 +397,7 @@ export function registerAccountingEngine(app) {
     const approvals = { ...(row?.approvals || {}), [next]: { by: req.user?.id || null, at: new Date().toISOString() } }
     const patch = { dealership_id: req.dealershipId, period, status: next, approvals, updated_at: new Date().toISOString() }
     if (next === 'locked') { patch.locked_at = new Date().toISOString(); patch.locked_by = req.user?.id || null }
-    await supabaseAdmin.from('accounting_periods').upsert(patch, { onConflict: 'dealership_id,period' })
+    await req.supabase.from('accounting_periods').upsert(patch, { onConflict: 'dealership_id,period' })
     audit(req, 'accounting.period_advanced', { period, before_state: { status: cur }, after_state: { status: next } })
     res.json({ ok: true, status: next })
   })
@@ -403,11 +408,14 @@ export function registerAccountingEngine(app) {
     const did = req.dealershipId
     const now = new Date(); const from = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`
     // Posted MTD actuals from journals
-    const acc = await accountBalances(did, { from })
+    const acc = await accountBalances(did, { from }, req.supabase)
     const catCr = (cat) => round2(acc.filter(a => a.category === cat).reduce((s, a) => s + (a.credit - a.debit), 0))
     const catDr = (cat) => round2(acc.filter(a => a.category === cat).reduce((s, a) => s + (a.debit - a.credit), 0))
     const actualRevenue = catCr('income'), actualCogs = catDr('cogs'), actualExpense = catDr('expense')
     // Sold-but-not-delivered pipeline (expected to close this month)
+    // deals + deal_commissions pipeline reads kept on supabaseAdmin: the accounting
+    // role holds accounting.* but not deal.*/commission perms, so an RLS client would
+    // see none of these; dealership-scoped aggregate figures for the forecast only.
     const [{ data: soldDeals }, { data: pendingComm }, { data: openDeals }] = await Promise.all([
       supabaseAdmin.from('deals').select('selling_price, cost, fni_items').eq('dealership_id', did).eq('deal_status', 'sold').limit(2000),
       supabaseAdmin.from('deal_commissions').select('total, status').eq('dealership_id', did).in('status', ['pending', 'earned']).limit(5000),
@@ -436,19 +444,21 @@ export function registerAccountingEngine(app) {
 const PERIOD_FLOW = ['open', 'manager_approved', 'controller_approved', 'closed', 'locked']
 
 // Per-account debit/credit totals from journal_lines (optional ?from & ?to on entry_date).
-async function accountBalances(dealershipId, query = {}) {
-  const { data: accts } = await supabaseAdmin.from('gl_accounts').select('id, name, code, category, system_key').eq('dealership_id', dealershipId)
+// `db` defaults to supabaseAdmin for any no-request caller; report routes pass
+// req.supabase so the journal reads run under the caller's accounting.view RLS.
+async function accountBalances(dealershipId, query = {}, db = supabaseAdmin) {
+  const { data: accts } = await db.from('gl_accounts').select('id, name, code, category, system_key').eq('dealership_id', dealershipId)
   // Date filter joins through journal_entries.entry_date when a range is given.
   let entryIds = null
   if (query.from || query.to) {
-    let eq = supabaseAdmin.from('journal_entries').select('id').eq('dealership_id', dealershipId)
+    let eq = db.from('journal_entries').select('id').eq('dealership_id', dealershipId)
     if (query.from) eq = eq.gte('entry_date', String(query.from))
     if (query.to) eq = eq.lt('entry_date', String(query.to))
     const { data: entries } = await eq.limit(100000)
     entryIds = (entries || []).map(e => e.id)
     if (!entryIds.length) return (accts || []).map(a => ({ ...a, debit: 0, credit: 0 }))
   }
-  let lq = supabaseAdmin.from('journal_lines').select('account_id, debit, credit').eq('dealership_id', dealershipId)
+  let lq = db.from('journal_lines').select('account_id, debit, credit').eq('dealership_id', dealershipId)
   if (entryIds) lq = lq.in('journal_entry_id', entryIds)
   const { data: lines } = await lq.limit(100000)
   const acc = Object.fromEntries((accts || []).map(a => [a.id, { ...a, debit: 0, credit: 0 }]))
