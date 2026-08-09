@@ -430,3 +430,67 @@ test('authorization reuses shared primitives rather than new infrastructure', ()
     assert.ok(!authMig.includes(dup), `must not create ${dup}`)
   }
 })
+
+// ── 11. Technician workflow (Batch 1, step 4) ────────────────────────────────
+
+const techMig = read('migrations/2026-08-09-stage4b-technician-workflow.sql')
+
+test('the job is the RO line — no second job model', () => {
+  assert.doesNotMatch(techMig, /create table[\s\S]{0,60}ro_jobs/i, 'must not create a parallel job table')
+  for (const col of ['concern', 'cause', 'correction', 'op_code', 'pay_type', 'recommended',
+                     'line_status', 'started_at', 'completed_at', 'blocked_reason', 'hours_actual']) {
+    assert.ok(techMig.includes(`add column if not exists ${col}`), `ro_lines must carry ${col}`)
+  }
+})
+
+test('concern, cause and correction are separate fields, so diagnosis cannot erase the customer', () => {
+  const fn = eng.match(/export async function setLineProgress[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.match(fn, /if \(cause != null\) patch\.cause/)
+  assert.match(fn, /if \(correction != null\) patch\.correction/)
+  assert.doesNotMatch(fn, /patch\.concern/, 'the technician path must never write over the concern')
+})
+
+test('a blocked job must say what it is waiting for', () => {
+  assert.match(techMig, /check \(line_status <> 'blocked' or nullif\(btrim\(coalesce\(blocked_reason,''\)\),''\) is not null\)/,
+    'the database must refuse a blocker with no reason')
+  const fn = eng.match(/export async function setLineProgress[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.match(fn, /Say what the job is waiting for/)
+})
+
+test('advisor and technician actions are separated on the server', () => {
+  assert.match(techMig, /insert into public\.permissions[\s\S]{0,200}service\.manage_workflow/)
+  const grants = techMig.match(/insert into public\.role_permissions[\s\S]*?service\.manage_workflow[\s\S]*?;/)?.[0] || ''
+  assert.ok(!/technician/.test(grants), 'a technician must not hold desk permission')
+  // Desk work: estimates, authorization, assignment.
+  for (const route of ["app.post('/service-engine/ros/:id/estimates', requireAuth, canDesk",
+                       "app.post('/service-engine/estimates/:id/present', requireAuth, canDesk",
+                       "app.post('/service-engine/ros/:id/authorizations', requireAuth, canDesk",
+                       "app.post('/service-engine/lines/:id/assign', requireAuth, canDesk"]) {
+    assert.ok(eng.includes(route), `must be desk-gated: ${route}`)
+  }
+  // The shop-floor action is a single route whose verb is validated server-side.
+  assert.match(eng, /app\.post\('\/service-engine\/lines\/:id\/progress', requireAuth, canWork/)
+  assert.match(eng, /if \(!\['start', 'block', 'resume', 'complete', 'qc'\]\.includes\(action\)\)/)
+})
+
+test('a technician may only work the job assigned to them', () => {
+  const fn = eng.match(/async function assertLineActor[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /hasPermission\(req, 'service\.manage_workflow'\)/, 'desk staff may act on any job')
+  assert.match(fn, /if \(line\.tech_id && line\.tech_id === req\.user\?\.id\) return/,
+    'otherwise the job must actually be theirs')
+  assert.match(fn, /That job is not assigned to you/)
+  // And it is enforced where the action happens, not only in the UI.
+  assert.match(eng, /await assertLineActor\(req\.dealershipId, req\.params\.id, req\)/)
+})
+
+test('completing jobs never closes the repair order', () => {
+  const fn = eng.match(/export async function setLineProgress[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.doesNotMatch(fn, /closeRepairOrder|transitionRepairOrder|status: 'closed'/,
+    'finishing work is not the financial act of closing')
+})
+
+test('actual labour reuses the existing time clock', () => {
+  const fn = eng.match(/export async function roActualHours[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /from\('time_entries'\)/, 'no second time system')
+  assert.match(fn, /\.eq\('ro_id', roId\)/, 'the clock already carries ro_id — use it')
+})

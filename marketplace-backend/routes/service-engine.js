@@ -12,7 +12,7 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
-import { requirePermission } from '../authorization.js'
+import { requirePermission, hasPermission } from '../authorization.js'
 import { emitEvent } from './events.js'
 import { getConfig, setConfig } from './config-engine.js'
 import { getContact } from './crm.js'
@@ -467,6 +467,85 @@ export async function authorizationCoverage(dealershipId, roId) {
   }
 }
 
+// ── Technician workflow — the job is the RO line ─────────────────────────────
+// No ro_jobs table: `ro_lines` already IS the unit of work, and giving it a second
+// identity would split the same job across two records. A line carries the customer's
+// concern, the technician's cause, the correction performed, who is doing it and where
+// it has got to.
+const LINE_STATUSES = ['pending', 'assigned', 'in_progress', 'blocked', 'complete', 'qc', 'declined']
+
+// A technician may only touch work assigned to them. Anyone holding the advisor/desk
+// permission may act on any line. This is decided on the server; the UI only reflects it.
+async function assertLineActor(dealershipId, lineId, req) {
+  const { data: line } = await supabaseAdmin.from('ro_lines').select('*')
+    .eq('id', lineId).eq('dealership_id', dealershipId).is('deleted_at', null).maybeSingle()
+  if (!line) throw new Error('repair order line not found')
+  const isDesk = await hasPermission(req, 'service.manage_workflow').catch(() => false)
+  if (isDesk) return { line, isDesk }
+  if (line.tech_id && line.tech_id === req.user?.id) return { line, isDesk: false }
+  throw new Error('That job is not assigned to you.')
+}
+
+// Assignment is desk work — a technician cannot hand themselves the job.
+export async function assignLine(dealershipId, lineId, techId, { userId = null } = {}) {
+  const { data, error } = await supabaseAdmin.from('ro_lines').update({
+    tech_id: techId || null,
+    line_status: techId ? 'assigned' : 'pending',
+  }).eq('id', lineId).eq('dealership_id', dealershipId).is('deleted_at', null).select('*').maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) throw new Error('repair order line not found')
+  emitEvent({
+    dealershipId, eventName: 'service.job_assigned', entityType: 'repair_order', entityId: data.ro_id,
+    summary: `Job assigned`, department: 'Service', createdBy: userId,
+    payload: { line_id: lineId, tech_id: techId || null },
+  })
+  return data
+}
+
+// The technician's own transitions. `concern` is the customer's words and is never
+// overwritten here — cause and correction are separate fields for exactly that reason.
+export async function setLineProgress(dealershipId, lineId, action, {
+  reason = null, cause = null, correction = null, hoursActual = null, userId = null,
+} = {}) {
+  const now = new Date().toISOString()
+  const patch = {}
+  if (action === 'start') { patch.line_status = 'in_progress'; patch.started_at = now; patch.blocked_reason = null }
+  else if (action === 'block') {
+    if (!String(reason || '').trim()) throw new Error('Say what the job is waiting for.')
+    patch.line_status = 'blocked'; patch.blocked_reason = String(reason).slice(0, 500)
+  }
+  else if (action === 'resume') { patch.line_status = 'in_progress'; patch.blocked_reason = null }
+  else if (action === 'complete') { patch.line_status = 'complete'; patch.completed_at = now; patch.blocked_reason = null }
+  else if (action === 'qc') { patch.line_status = 'qc' }
+  else throw new Error('unknown job action')
+  if (cause != null) patch.cause = String(cause).slice(0, 4000)
+  if (correction != null) patch.correction = String(correction).slice(0, 4000)
+  if (hoursActual != null) patch.hours_actual = n(hoursActual)
+
+  const { data, error } = await supabaseAdmin.from('ro_lines').update(patch)
+    .eq('id', lineId).eq('dealership_id', dealershipId).is('deleted_at', null).select('*').maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) throw new Error('repair order line not found')
+  emitEvent({
+    dealershipId, eventName: 'service.job_' + action, entityType: 'repair_order', entityId: data.ro_id,
+    summary: `Job ${action}${reason ? ' — ' + reason : ''}`, department: 'Service', createdBy: userId,
+    payload: { line_id: lineId, line_status: data.line_status, tech_id: data.tech_id || null },
+  })
+  return data
+}
+
+// Actual labour comes from the existing payroll clock, which already carries ro_id.
+// Service does not get a second time system.
+export async function roActualHours(dealershipId, roId) {
+  const { data } = await supabaseAdmin.from('time_entries')
+    .select('clock_in, clock_out, break_minutes, employee_id')
+    .eq('dealership_id', dealershipId).eq('ro_id', roId).not('clock_out', 'is', null)
+  return round2((data || []).reduce((sum, t) => {
+    const ms = new Date(t.clock_out).getTime() - new Date(t.clock_in).getTime()
+    return sum + Math.max(0, ms / 3600000 - n(t.break_minutes) / 60)
+  }, 0))
+}
+
 // ── Appointment → check-in → ONE repair order ────────────────────────────────
 // The canonical arrival transition. Idempotent by construction: the RO carries
 // `appointment_task_id` under a unique index, so a double-click, a retry, or two
@@ -754,6 +833,7 @@ export function registerServiceEngine(app) {
   const canWork = requirePermission('service.write_repair_order')      // work the job
   const canClose = requirePermission('service.close_repair_order')     // FINANCIAL act
   const canReopen = requirePermission('service.reopen_repair_order')   // undo a financial record
+  const canDesk = requirePermission('service.manage_workflow')         // advisor/desk work
 
   app.get('/service-engine/ros', requireAuth, canRead, async (req, res) => {
     if (!guard(req, res)) return
@@ -815,7 +895,7 @@ export function registerServiceEngine(app) {
     if (!guard(req, res)) return
     res.json({ estimates: await listEstimates(req.dealershipId, req.params.id) })
   })
-  app.post('/service-engine/ros/:id/estimates', requireAuth, canWork, async (req, res) => {
+  app.post('/service-engine/ros/:id/estimates', requireAuth, canDesk, async (req, res) => {
     if (!guard(req, res)) return
     try {
       const estimate = await createEstimate(req.dealershipId, req.params.id, { userId: req.user?.id || null })
@@ -823,13 +903,39 @@ export function registerServiceEngine(app) {
       res.json({ ok: true, estimate })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })
-  app.post('/service-engine/estimates/:id/present', requireAuth, canWork, async (req, res) => {
+  app.post('/service-engine/estimates/:id/present', requireAuth, canDesk, async (req, res) => {
     if (!guard(req, res)) return
     try {
       const estimate = await presentEstimate(req.dealershipId, req.params.id, { userId: req.user?.id || null })
       audit(req, 'service.estimate_presented', { after_state: { id: estimate.id, version: estimate.version, total: estimate.total } })
       res.json({ ok: true, estimate })
     } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  // ── Technician workflow ────────────────────────────────────────────────────
+  app.post('/service-engine/lines/:id/assign', requireAuth, canDesk, async (req, res) => {
+    if (!guard(req, res)) return
+    try { res.json({ ok: true, line: await assignLine(req.dealershipId, req.params.id, req.body?.tech_id || null, { userId: req.user?.id || null }) }) }
+    catch (e) { res.status(400).json({ error: e.message }) }
+  })
+  // Technician actions: allowed on your own job, or on any job if you run the desk.
+  app.post('/service-engine/lines/:id/progress', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const action = String(req.body?.action || '')
+      if (!['start', 'block', 'resume', 'complete', 'qc'].includes(action)) return res.status(400).json({ error: 'unknown job action' })
+      await assertLineActor(req.dealershipId, req.params.id, req)
+      const line = await setLineProgress(req.dealershipId, req.params.id, action, {
+        reason: req.body?.reason || null, cause: req.body?.cause ?? null,
+        correction: req.body?.correction ?? null, hoursActual: req.body?.hours_actual ?? null,
+        userId: req.user?.id || null,
+      })
+      res.json({ ok: true, line })
+    } catch (e) { res.status(/not assigned to you/.test(e.message) ? 403 : 400).json({ error: e.message }) }
+  })
+  app.get('/service-engine/ros/:id/actual-hours', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ hours: await roActualHours(req.dealershipId, req.params.id) })
   })
 
   // ── Authorization ──────────────────────────────────────────────────────────
@@ -842,7 +948,7 @@ export function registerServiceEngine(app) {
     if (!guard(req, res)) return
     res.json(await authorizationCoverage(req.dealershipId, req.params.id))
   })
-  app.post('/service-engine/ros/:id/authorizations', requireAuth, canWork, async (req, res) => {
+  app.post('/service-engine/ros/:id/authorizations', requireAuth, canDesk, async (req, res) => {
     if (!guard(req, res)) return
     try {
       const b = req.body || {}
