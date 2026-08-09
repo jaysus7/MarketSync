@@ -11,7 +11,7 @@
  * the front door to an RO; opening an RO from one links appointment_task_id.
  */
 import { supabaseAdmin } from '../shared.js'
-import { requireAuth } from '../middleware.js'
+import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { emitEvent } from './events.js'
 import { getConfig, setConfig } from './config-engine.js'
@@ -59,12 +59,96 @@ export async function roSummary(dealershipId, { from = null, to = null } = {}) {
   if (to) q = q.lte('closed_at', to)
   const { data } = await q
   const rows = data || []
-  const open = rows.filter(r => r.status !== 'closed' && r.status !== 'canceled').length
+  const open = rows.filter(r => r.status !== 'closed').length
   const closed = rows.filter(r => r.status === 'closed')
   const revenue = round2(closed.reduce((s, r) => s + n(r.total), 0))
   const cost = round2(closed.reduce((s, r) => s + n(r.labor_cost) + n(r.parts_cost), 0))
   return { open_ros: open, closed_ros: closed.length, revenue, cost, gross: round2(revenue - cost) }
 }
+
+// ── Customer-owned vehicles (Phase 4) ─────────────────────────────────────────
+// `inventory` is DEALER-OWNED stock. A customer's car is not stock, and putting one
+// there would corrupt counts, merchandising, pricing, syndication and the Stage 3
+// acquisition model. `customer_vehicles` is the canonical customer-owned vehicle:
+// one row per VIN per dealership, reused on every future visit.
+export async function getCustomerVehicle(dealershipId, id) {
+  const { data } = await supabaseAdmin.from('customer_vehicles').select('*').eq('id', id).eq('dealership_id', dealershipId).maybeSingle()
+  return data || null
+}
+export async function listCustomerVehicles(dealershipId, { contactId = null, vin = null, limit = 100 } = {}) {
+  let q = supabaseAdmin.from('customer_vehicles').select('*').eq('dealership_id', dealershipId).order('updated_at', { ascending: false }).limit(limit)
+  if (contactId) q = q.eq('contact_id', contactId)
+  if (vin) q = q.ilike('vin', String(vin).trim())
+  const { data } = await q
+  return data || []
+}
+
+const cleanVin = (v) => String(v || '').trim().toUpperCase() || null
+
+// Resolve the ONE canonical vehicle for this visit. Never creates a second row for a
+// VIN we already know: the same car returning next year resolves to the same record,
+// which is what makes per-vehicle service history possible at all.
+//
+// Sold-vehicle continuity: if this VIN was once our stock, the link back to that
+// `inventory` row is kept. The inventory row is NOT altered — it still records that
+// the dealer sold the unit; it is never made to pretend the dealer still owns it.
+export async function findOrCreateCustomerVehicle(dealershipId, {
+  vin = null, contactId = null, year = null, make = null, model = null, trim = null,
+  plate = null, color = null, odometer = null, originInventoryId = null,
+} = {}) {
+  const VIN = cleanVin(vin)
+  const odo = odometer != null && Number.isFinite(Number(odometer)) ? Math.trunc(Number(odometer)) : null
+
+  const patchExisting = async (row) => {
+    const patch = {}
+    // Ownership can move; the vehicle record follows the current customer.
+    if (contactId && row.contact_id !== contactId) patch.contact_id = contactId
+    // Odometer only ever goes up — a lower reading is a typo, not a rollback.
+    if (odo != null && (row.current_odometer == null || odo > row.current_odometer)) patch.current_odometer = odo
+    for (const [k, v] of [['year', year], ['make', make], ['model', model], ['trim', trim], ['plate', plate], ['color', color]]) {
+      if (v != null && v !== '' && !row[k]) patch[k] = v      // fill blanks, never overwrite known truth
+    }
+    if (!Object.keys(patch).length) return row
+    patch.updated_at = new Date().toISOString()
+    const { data } = await supabaseAdmin.from('customer_vehicles').update(patch).eq('id', row.id).eq('dealership_id', dealershipId).select('*').maybeSingle()
+    return data || row
+  }
+
+  if (VIN) {
+    const { data: existing } = await supabaseAdmin.from('customer_vehicles').select('*')
+      .eq('dealership_id', dealershipId).ilike('vin', VIN).maybeSingle()
+    if (existing) return patchExisting(existing)
+  }
+
+  // First time we have seen this car. If it came off our own lot, keep the thread.
+  let origin = originInventoryId || null
+  if (!origin && VIN) {
+    const { data: stock } = await supabaseAdmin.from('inventory').select('id, year, make, model, trim')
+      .eq('dealership_id', dealershipId).ilike('vin', VIN).limit(1).maybeSingle()
+    if (stock) {
+      origin = stock.id
+      year = year ?? stock.year; make = make || stock.make; model = model || stock.model; trim = trim || stock.trim
+    }
+  }
+
+  const { data: created, error } = await supabaseAdmin.from('customer_vehicles').insert({
+    dealership_id: dealershipId, contact_id: contactId, vin: VIN, year, make, model, trim,
+    plate, color, current_odometer: odo, origin_inventory_id: origin,
+  }).select('*').single()
+  if (!error) return created
+
+  // Lost a race on the (dealership_id, upper(vin)) unique index — the other writer's
+  // row is the canonical one. Re-read it rather than retrying the insert.
+  if (VIN) {
+    const { data: raced } = await supabaseAdmin.from('customer_vehicles').select('*')
+      .eq('dealership_id', dealershipId).ilike('vin', VIN).maybeSingle()
+    if (raced) return patchExisting(raced)
+  }
+  throw new Error(error.message)
+}
+
+export const customerVehicleLabel = (v) =>
+  [v?.year, v?.make, v?.model, v?.trim].filter(Boolean).join(' ') || v?.plate || v?.vin || 'Vehicle'
 
 // ── RO totals ─────────────────────────────────────────────────────────────────
 async function recomputeRoTotals(dealershipId, roId) {
@@ -95,13 +179,19 @@ async function nextRoNumber(dealershipId, prefix) {
   return `${prefix}${String((count || 0) + 1).padStart(5, '0')}`
 }
 
-export async function openRepairOrder(dealershipId, { contactId = null, inventoryId = null, vehicleDesc = null, vin = null, odometer = null, advisorId = null, complaint = null, appointmentTaskId = null, createdBy = null } = {}) {
+// `status` starts at a state the database's vocabulary actually contains. The engine
+// used to insert 'open', which `repair_orders_status_valid` rejects — so opening a
+// repair order failed outright. A unit opened at the drive is `checked_in`; one staged
+// from a future booking is `appointment`.
+export async function openRepairOrder(dealershipId, { contactId = null, inventoryId = null, customerVehicleId = null, vehicleDesc = null, vin = null, odometer = null, advisorId = null, complaint = null, appointmentTaskId = null, createdBy = null, status = 'checked_in' } = {}) {
+  const openStatus = RO_STATUSES.includes(status) ? status : 'checked_in'
   const cfg = await svcConfig(dealershipId)
   const ro_number = await nextRoNumber(dealershipId, cfg.ro_prefix)
   const { data: ro, error } = await supabaseAdmin.from('repair_orders').insert({
     dealership_id: dealershipId, ro_number, contact_id: contactId, inventory_id: inventoryId,
+    customer_vehicle_id: customerVehicleId,
     vehicle_desc: vehicleDesc, vin, odometer: odometer != null ? Math.trunc(n(odometer)) : null,
-    advisor_id: advisorId, complaint, appointment_task_id: appointmentTaskId, status: 'open', created_by: createdBy,
+    advisor_id: advisorId, complaint, appointment_task_id: appointmentTaskId, status: openStatus, created_by: createdBy,
   }).select('*').single()
   if (error) throw new Error(error.message)
   emitEvent({
@@ -115,7 +205,7 @@ export async function openRepairOrder(dealershipId, { contactId = null, inventor
 export async function addRoLine(dealershipId, roId, line = {}) {
   const { data: ro } = await supabaseAdmin.from('repair_orders').select('id, status').eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
   if (!ro) throw new Error('repair order not found')
-  if (ro.status === 'closed' || ro.status === 'canceled') throw new Error('RO is ' + ro.status)
+  if (ro.status === 'closed') throw new Error('RO is closed — reopen it through the controlled reopen flow')
   const cfg = await svcConfig(dealershipId)
   const type = ['labor', 'part', 'sublet', 'fee'].includes(line.line_type) ? line.line_type : 'labor'
   let { part_id = null, description = null, qty = 1, hours = null, rate = null, unit_cost = 0, unit_price = 0 } = line
@@ -158,20 +248,158 @@ export async function removeRoLine(dealershipId, roId, lineId, { userId = null }
   return { before, archived: data }
 }
 
-export async function setRoStatus(dealershipId, roId, toStatus, { userId = null } = {}) {
-  const valid = ['open', 'in_progress', 'awaiting_parts', 'ready', 'closed', 'canceled']
-  if (!valid.includes(toStatus)) throw new Error('invalid status')
+// Statuses that mean "the shop is still working on it". Returning to one of these from
+// `ready` means the unit was NOT actually finished, so the ready clock is cleared —
+// the next genuine Ready stamps a new, honest time.
+// ── The repair-order state machine lives in the DATABASE ─────────────────────
+// `repair_orders_status_valid` fixes the vocabulary and the trigger
+// `repair_orders_state_machine` (controls.enforce_state_transition, driven by
+// `controls.state_transitions`) fixes the legal edges, the permission each edge needs
+// and whether it needs a reason. This list mirrors the constraint so the API rejects a
+// bad status with a clear message instead of a raw 23514 — it does NOT re-implement the
+// graph. The database stays authoritative; an illegal transition is refused there.
+const RO_STATUSES = [
+  'appointment', 'checked_in', 'inspection', 'estimate_sent', 'customer_approved',
+  'customer_declined', 'parts_ordered', 'in_progress', 'quality_check', 'ready',
+  'delivered', 'closed',
+]
+
+export async function setRoStatus(dealershipId, roId, toStatus, { userId = null, reason = null } = {}) {
+  if (!RO_STATUSES.includes(toStatus)) throw new Error(`invalid repair order status: ${toStatus}`)
   if (toStatus === 'closed') return closeRepairOrder(dealershipId, roId, { userId })
-  const { data: ro } = await supabaseAdmin.from('repair_orders').select('status, ro_number').eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
+  const { data: ro } = await supabaseAdmin.from('repair_orders').select('status, ro_number, ready_at').eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
   if (!ro) throw new Error('repair order not found')
   if (ro.status === toStatus) return ro
-  await supabaseAdmin.from('repair_orders').update({ status: toStatus, updated_at: new Date().toISOString() }).eq('id', roId).eq('dealership_id', dealershipId)
+  const now = new Date().toISOString()
+  const patch = { status: toStatus, updated_at: now, state_changed_at: now, state_changed_by: userId, state_change_reason: reason }
+  // Ready is operational completion, and NOT payment, pickup or close. Stamped once on
+  // the genuine transition in — re-entering ready never rewrites the original time.
+  if (toStatus === 'ready' && !ro.ready_at) patch.ready_at = now
+  await supabaseAdmin.from('repair_orders').update(patch).eq('id', roId).eq('dealership_id', dealershipId)
   emitEvent({
     dealershipId, eventName: 'service.ro_status_changed', entityType: 'repair_order', entityId: roId,
     summary: `RO ${ro.ro_number} → ${toStatus}`, fromState: ro.status, toState: toStatus, department: 'Service', createdBy: userId,
-    payload: { ro_number: ro.ro_number },
+    payload: { ro_number: ro.ro_number, ready_at: patch.ready_at ?? ro.ready_at ?? null },
   })
-  return { ...ro, status: toStatus }
+  return { ...ro, status: toStatus, ready_at: patch.ready_at ?? ro.ready_at ?? null }
+}
+
+// ── Appointment → check-in → ONE repair order ────────────────────────────────
+// The canonical arrival transition. Idempotent by construction: the RO carries
+// `appointment_task_id` under a unique index, so a double-click, a retry, or two
+// advisors checking the same customer in simultaneously all resolve to the SAME RO.
+// Nothing about this relies on the interface remembering anything.
+export async function checkInAppointment(dealershipId, taskId, {
+  vin = null, odometer = null, customerVehicleId = null, complaint = null,
+  year = null, make = null, model = null, trim = null, plate = null,
+  advisorId = null, userId = null,
+} = {}) {
+  const { data: task } = await supabaseAdmin.from('crm_tasks')
+    .select('id, contact_id, title, service_type, due_at, status, assigned_to')
+    .eq('id', taskId).eq('dealership_id', dealershipId).eq('category', 'service').maybeSingle()
+  if (!task) throw new Error('service appointment not found')
+
+  // Already checked in? Return that RO — never a second one.
+  const { data: existing } = await supabaseAdmin.from('repair_orders').select('*')
+    .eq('dealership_id', dealershipId).eq('appointment_task_id', taskId).maybeSingle()
+  if (existing) return { ro: existing, created: false }
+
+  // Resolve the canonical vehicle. An explicit id wins; otherwise the VIN resolves to
+  // the car we already know, or creates it once.
+  let vehicle = null
+  if (customerVehicleId) vehicle = await getCustomerVehicle(dealershipId, customerVehicleId)
+  if (!vehicle && (cleanVin(vin) || year || make || model)) {
+    vehicle = await findOrCreateCustomerVehicle(dealershipId, {
+      vin, contactId: task.contact_id, year, make, model, trim, plate, odometer,
+    })
+  }
+
+  // The customer's own words carry forward — the appointment reason is the concern.
+  const concern = String(complaint || task.service_type || task.title || '').slice(0, 2000) || null
+
+  let ro
+  try {
+    ro = await openRepairOrder(dealershipId, {
+      contactId: task.contact_id, customerVehicleId: vehicle?.id || null,
+      vehicleDesc: vehicle ? customerVehicleLabel(vehicle) : null,
+      vin: vehicle?.vin || cleanVin(vin), odometer,
+      advisorId: advisorId || task.assigned_to || userId || null,
+      complaint: concern, appointmentTaskId: taskId, createdBy: userId,
+    })
+  } catch (e) {
+    // Lost the race on repair_orders_appointment_uk — the other caller's RO is the one.
+    const { data: raced } = await supabaseAdmin.from('repair_orders').select('*')
+      .eq('dealership_id', dealershipId).eq('appointment_task_id', taskId).maybeSingle()
+    if (raced) return { ro: raced, created: false }
+    throw e
+  }
+
+  await supabaseAdmin.from('crm_tasks').update({
+    status: 'converted', arrived_at: new Date().toISOString(), done: true, done_at: new Date().toISOString(),
+  }).eq('id', taskId).eq('dealership_id', dealershipId)
+
+  emitEvent({
+    dealershipId, eventName: 'service.checked_in', entityType: 'repair_order', entityId: ro.id,
+    summary: `Checked in — RO ${ro.ro_number}`, toState: 'open', department: 'Service', createdBy: userId,
+    payload: { ro_number: ro.ro_number, appointment_task_id: taskId, contact_id: task.contact_id, customer_vehicle_id: vehicle?.id || null },
+  })
+  return { ro, created: true, vehicle }
+}
+
+// ── Controlled reopen ────────────────────────────────────────────────────────
+// A closed RO is a financial record. It is not casually editable (addRoLine refuses),
+// and until now there was no sanctioned way back either — the table and permission
+// existed with no code. Request and approval are separate acts, both audited.
+export async function requestRoReopen(dealershipId, roId, { reason, userId = null } = {}) {
+  if (!String(reason || '').trim()) throw new Error('a reason is required to reopen a closed repair order')
+  const { data: ro } = await supabaseAdmin.from('repair_orders').select('id, status, ro_number').eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
+  if (!ro) throw new Error('repair order not found')
+  if (ro.status !== 'closed') throw new Error('only a closed repair order needs reopening')
+  const { data, error } = await supabaseAdmin.from('repair_order_reopen_requests').insert({
+    dealership_id: dealershipId, repair_order_id: roId, reason: String(reason).slice(0, 1000),
+    status: 'requested', requested_by: userId,
+  }).select('*').single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function approveRoReopen(dealershipId, requestId, { userId = null } = {}) {
+  const { data: reqRow } = await supabaseAdmin.from('repair_order_reopen_requests').select('*')
+    .eq('id', requestId).eq('dealership_id', dealershipId).maybeSingle()
+  if (!reqRow) throw new Error('reopen request not found')
+  if (reqRow.status !== 'requested') return reqRow            // idempotent — already decided
+  const now = new Date().toISOString()
+  const { data: ro } = await supabaseAdmin.from('repair_orders').select('id, status, ro_number').eq('id', reqRow.repair_order_id).eq('dealership_id', dealershipId).maybeSingle()
+  if (!ro) throw new Error('repair order not found')
+  await supabaseAdmin.from('repair_orders').update({
+    status: 'in_progress', closed_at: null, updated_at: now,
+    state_changed_at: now, state_changed_by: userId, state_change_reason: `reopened: ${reqRow.reason}`,
+  }).eq('id', ro.id).eq('dealership_id', dealershipId)
+  const { data: updated } = await supabaseAdmin.from('repair_order_reopen_requests').update({
+    status: 'approved', reviewed_by: userId, reviewed_at: now, executed_at: now,
+  }).eq('id', requestId).eq('dealership_id', dealershipId).select('*').maybeSingle()
+  emitEvent({
+    dealershipId, eventName: 'service.ro_reopened', entityType: 'repair_order', entityId: ro.id,
+    summary: `RO ${ro.ro_number} reopened`, fromState: 'closed', toState: 'in_progress', department: 'Service', createdBy: userId,
+    payload: { ro_number: ro.ro_number, request_id: requestId, reason: reqRow.reason },
+  })
+  return updated || reqRow
+}
+
+export async function declineRoReopen(dealershipId, requestId, { userId = null } = {}) {
+  const now = new Date().toISOString()
+  const { data } = await supabaseAdmin.from('repair_order_reopen_requests').update({
+    status: 'declined', reviewed_by: userId, reviewed_at: now,
+  }).eq('id', requestId).eq('dealership_id', dealershipId).eq('status', 'requested').select('*').maybeSingle()
+  return data || null
+}
+
+export async function listRoReopenRequests(dealershipId, { status = null, roId = null } = {}) {
+  let q = supabaseAdmin.from('repair_order_reopen_requests').select('*').eq('dealership_id', dealershipId).order('requested_at', { ascending: false }).limit(200)
+  if (status) q = q.eq('status', status)
+  if (roId) q = q.eq('repair_order_id', roId)
+  const { data } = await q
+  return data || []
 }
 
 // Close: idempotent. Recompute, draw part stock from inventory, emit service.closed
@@ -309,12 +537,22 @@ export function registerServiceEngine(app) {
     return true
   }
 
-  app.get('/service-engine/ros', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  // ── Permission split (Phase 4) ─────────────────────────────────────────────
+  // Reading the shop, working the shop, and resolving the customer's money are three
+  // different acts. Before this, every route — reads included — demanded the write
+  // permission, so a general manager could not read an RO while a technician could
+  // close one and post its journal.
+  const canRead = requirePermission('service.view')                    // see the shop
+  const canWork = requirePermission('service.write_repair_order')      // work the job
+  const canClose = requirePermission('service.close_repair_order')     // FINANCIAL act
+  const canReopen = requirePermission('service.reopen_repair_order')   // undo a financial record
+
+  app.get('/service-engine/ros', requireAuth, canRead, async (req, res) => {
     if (!guard(req, res)) return
     const rows = await listRepairOrders(req.dealershipId, { status: req.query.status || null, contactId: req.query.contact_id || null })
     res.json({ ros: rows })
   })
-  app.get('/service-engine/ros/:id', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.get('/service-engine/ros/:id', requireAuth, canRead, async (req, res) => {
     if (!guard(req, res)) return
     const ro = await getRepairOrder(req.dealershipId, req.params.id)
     if (!ro) return res.status(404).json({ error: 'not found' })
@@ -322,7 +560,7 @@ export function registerServiceEngine(app) {
     if (ro.contact_id) { const c = await getContact(req.dealershipId, ro.contact_id).catch(() => null); customer = c ? { id: c.id, name: c.full_name, phone: c.phone || c.phone_mobile, email: c.email } : null }
     res.json({ ro, customer })
   })
-  app.post('/service-engine/ros', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/ros', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
     try {
       const b = req.body || {}
@@ -330,12 +568,12 @@ export function registerServiceEngine(app) {
       res.json({ ok: true, ro })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })
-  app.post('/service-engine/ros/:id/lines', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/ros/:id/lines', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ ok: true, line: await addRoLine(req.dealershipId, req.params.id, req.body || {}) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
-  app.delete('/service-engine/ros/:id/lines/:lineId', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.delete('/service-engine/ros/:id/lines/:lineId', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
     try {
       const result = await removeRoLine(req.dealershipId, req.params.id, req.params.lineId, { userId: req.user?.id || null })
@@ -343,49 +581,98 @@ export function registerServiceEngine(app) {
       res.json({ ok: true, archived: true })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })
-  app.post('/service-engine/ros/:id/status', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/ros/:id/status', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ ok: true, ro: await setRoStatus(req.dealershipId, req.params.id, String(req.body?.status || ''), { userId: req.user?.id || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
-  app.post('/service-engine/ros/:id/close', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/ros/:id/close', requireAuth, canClose, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ ok: true, ro: await closeRepairOrder(req.dealershipId, req.params.id, { userId: req.user?.id || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
 
-  app.get('/service-engine/parts', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  // ── Controlled reopen ──────────────────────────────────────────────────────
+  // Requesting and approving are separate acts: anyone who works the shop may ask,
+  // only a holder of service.reopen_repair_order may actually undo a financial record.
+  app.get('/service-engine/reopen-requests', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ requests: await listRoReopenRequests(req.dealershipId, { status: req.query.status || null, roId: req.query.ro_id || null }) })
+  })
+  app.post('/service-engine/ros/:id/reopen-request', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const request = await requestRoReopen(req.dealershipId, req.params.id, { reason: req.body?.reason, userId: req.user?.id || null })
+      audit(req, 'service.ro_reopen_requested', { after_state: request })
+      res.json({ ok: true, request })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+  app.post('/service-engine/reopen-requests/:id/approve', requireAuth, requireMfa, canReopen, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const request = await approveRoReopen(req.dealershipId, req.params.id, { userId: req.user?.id || null })
+      audit(req, 'service.ro_reopen_approved', { after_state: request })
+      res.json({ ok: true, request })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+  app.post('/service-engine/reopen-requests/:id/decline', requireAuth, canReopen, async (req, res) => {
+    if (!guard(req, res)) return
+    const request = await declineRoReopen(req.dealershipId, req.params.id, { userId: req.user?.id || null })
+    if (!request) return res.status(404).json({ error: 'no pending reopen request' })
+    audit(req, 'service.ro_reopen_declined', { after_state: request })
+    res.json({ ok: true, request })
+  })
+
+  // ── Customer-owned vehicles ────────────────────────────────────────────────
+  app.get('/service-engine/customer-vehicles', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ vehicles: await listCustomerVehicles(req.dealershipId, { contactId: req.query.contact_id || null, vin: req.query.vin || null }) })
+  })
+  app.post('/service-engine/customer-vehicles', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const b = req.body || {}
+      const vehicle = await findOrCreateCustomerVehicle(req.dealershipId, {
+        vin: b.vin, contactId: b.contact_id || null, year: b.year ?? null, make: b.make || null,
+        model: b.model || null, trim: b.trim || null, plate: b.plate || null, color: b.color || null,
+        odometer: b.odometer ?? null,
+      })
+      res.json({ ok: true, vehicle })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  app.get('/service-engine/parts', requireAuth, canRead, async (req, res) => {
     if (!guard(req, res)) return
     res.json({ parts: await searchParts(req.dealershipId, req.query.q || null, 200) })
   })
-  app.post('/service-engine/parts', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/parts', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
     try {
       const b = req.body || {}
       res.json({ ok: true, part: await upsertPart(req.dealershipId, { partNumber: b.part_number, description: b.description, bin: b.bin, cost: b.cost, price: b.price, reorderPoint: b.reorder_point }) })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })
-  app.post('/service-engine/parts/:id/receive', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/parts/:id/receive', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ ok: true, on_hand: await receiveParts(req.dealershipId, req.params.id, req.body?.qty, { unitCost: req.body?.unit_cost, reference: req.body?.reference, userId: req.user?.id || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
-  app.post('/service-engine/parts/:id/adjust', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.post('/service-engine/parts/:id/adjust', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
     try { res.json({ ok: true, on_hand: await adjustPart(req.dealershipId, req.params.id, req.body?.qty, { note: req.body?.note, userId: req.user?.id || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
 
-  app.get('/service-engine/summary', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.get('/service-engine/summary', requireAuth, canRead, async (req, res) => {
     if (!guard(req, res)) return
     res.json(await roSummary(req.dealershipId, { from: req.query.from || null, to: req.query.to || null }))
   })
 
-  app.get('/service-engine/config', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.get('/service-engine/config', requireAuth, canRead, async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
     res.json({ config: await svcConfig(req.dealershipId) })
   })
-  app.put('/service-engine/config', requireAuth, requirePermission('service.write_repair_order'), async (req, res) => {
+  app.put('/service-engine/config', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
     const b = req.body || {}
     const value = {
