@@ -1056,12 +1056,38 @@ function applyMobileQuickRow() {
     // Restricted tiers (Facebook / product): that tier's exact page set.
     pages = (restrictedNavPages() || []).filter(p => p.page !== 'profile').slice(0, 4);
   } else if (__deptNavBuilt && __deptRegistry) {
-    // Full DealerOS: the first few visible departments' home pages, straight from
-    // the DEPARTMENTS registry (per-role via deptVisible/deptPageAllowed).
-    pages = Object.values(__deptRegistry).filter(deptVisible).slice(0, 4).map(d => {
-      const home = d.pages.find(deptPageAllowed) || d.pages[0] || {};
-      return { page: home.page, label: d.label, icon: d.icon, invmode: home.invmode };
-    }).filter(p => p.page);
+    // Full DealerOS: ROLE-AWARE bottom row — a salesperson gets Pipeline/Customers/
+    // Tasks, a technician gets Repair Orders/Schedule, a manager gets the store view.
+    // This is not a shrunken sidebar: the destinations come from MS_ROLE_MOBILE_NAV,
+    // resolved against the SAME workspace registry the desktop nav uses, and each
+    // one still passes deptPageAllowed (role + entitlement + dealer flags) before it
+    // renders — an entry the user can't reach is dropped, never shown dead.
+    const wanted = typeof msMobileNavForRole === 'function'
+      ? msMobileNavForRole(profileContext?.role) : null;
+    if (wanted) {
+      // Resolve each page to its registry tab so label/icon stay in one place.
+      pages = wanted.map(pg => {
+        for (const d of Object.values(__deptRegistry)) {
+          const tab = (d.pages || []).find(p => p.page === pg);
+          if (tab && deptRoleOk(d) && deptPageAllowed(tab)) {
+            // A workspace's FIRST tab is its home, and those are all called
+            // "Overview" — useless on a 4-icon bar (Executive and Sales would both
+            // read "Overview"). Show the workspace name for a home tab, the tab name
+            // for a deeper one: Executive · Sales · Inventory · Tasks.
+            const isHome = d.pages[0] && d.pages[0].page === pg;
+            return { page: tab.page, label: isHome ? d.label : tab.label, icon: d.icon, invmode: tab.invmode };
+          }
+        }
+        return null;
+      }).filter(Boolean).slice(0, 4);
+    }
+    // No role mapping (or nothing survived gating) → first visible workspaces' homes.
+    if (!pages || !pages.length) {
+      pages = Object.values(__deptRegistry).filter(d => deptVisible(d) && !d.system).slice(0, 4).map(d => {
+        const home = d.pages.find(deptPageAllowed) || d.pages[0] || {};
+        return { page: home.page, label: d.label, icon: d.icon, invmode: home.invmode };
+      }).filter(p => p.page);
+    }
   }
   if (!pages || !pages.length) {
     // No registry yet (legacy/solo tree) — drop any generated row, keep the authored one.
