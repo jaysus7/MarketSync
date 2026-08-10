@@ -12,9 +12,9 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 |---|---|
 | **Last updated** | 2026-08-10 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
-| **Baseline on `staging`** | `8cc0489` — 465/465 tests green, all six `check:*` green |
-| **In flight** | **PHASE 4 COMPLETE on the branch — all three batches done.** Batch 1: full Service operations E2E-proved. Batch 2: Payment Core built, Service accounting corrected, invoice read + explicit financial disposition, deposits converted to a Payment producer. Batch 3: Service advisor workspace, Parts department workspace, technician **My Work** surface, mobile validated at 390px, Service-only E2E. **553/553 tests, all six `check:*` green.** Branch `claude/restore-shared-public-shell-8lftt0`, `e41d95e` → `c811053`. Not yet merged to `staging`. |
-| **Roadmap position** | Phase 1–3 complete. Phase 4 (Fixed Ops) complete on the branch; #72/#73/#74 already merged to `staging`, the rest awaiting merge. **The database owns the RO state machine — read audit §32 before touching Service.** Next: **read the canonical roadmap and determine the actual next numbered phase — do not guess.** The stated order after Fixed Ops is Accounting → Marketing → People → dealership-wide My Day; if the roadmap does not clearly define the next phase, **stop and report the exact ambiguity** rather than choosing one. |
+| **Baseline on `staging`** | `e191d09` — **570/570 tests green, all six `check:*` green** |
+| **In flight** | **Phase 4 COMPLETE and merged** (#75). **Phase 5 PR 5.1 — Ledger Integrity — COMPLETE and merged** (#76): the general ledger had never posted a single transaction on either environment, and now does. Atomic posting, database-enforced idempotency, typed failures raised as real accounting exceptions, strict account resolution, 11 converged rules, posted-only reads. Staging left at 0 journals — no backfill. Next: **PR 5.2 — the Accounting operating department** (Today / Deal Posting / AP / AR / Banking / Payroll & Commissions / Journal / Close, then Insights). |
+| **Roadmap position** | Phase 1–4 complete and merged. Phase 5 (Accounting) in progress: PR 5.1 done. **Two numbering schemes exist and conflict** — the sessions use Phase 1 UI / 2 Sales / 3 Inventory+F&I / 4 Fixed Ops / 5 Accounting, while `docs/DEALEROS_AND_AI_ENGINE.md` §5 uses a different 1–6 (Customer→AI→Widget→Integrations→DealerOS finishing→MCP). The owner resolved Phase 5 = **Accounting**. The authority named by AGENTS.md A1 is spec doc **"22 — Master Build Roadmap / Audit Method"**, which is NOT in the repo — confirm against it before assigning Phase 6. **Two database-owned control layers to respect: the RO state machine (audit §32) and now the journal posting triggers (`docs/PHASE5_ACCOUNTING.md`).** |
 
 ## Read before coding
 
@@ -38,6 +38,15 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 
 ## Completed
 
+- **Phase 5 PR 5.1 — Ledger Integrity** — the general ledger had never recorded a
+  transaction: `postJournal` left `posted` to a column default, so the database's balance
+  and line-count triggers (which fire only on the draft→posted transition) had never run.
+  Now: one atomic posting function that posts LAST, a unique index as the idempotency
+  guarantee, typed `PostingError`s raised as real accounting exceptions, strict account
+  resolution (an unknown key fails rather than minting an expense account), 11 converged
+  rules and posted-only balances. Guarded by `test/ledger-integrity.test.js`; live proof in
+  `scripts/phase5-ledger-proof.mjs`. **Production convergence is written but UNAPPLIED.**
+  See `docs/PHASE5_ACCOUNTING.md`.
 - **Phase 4 — Fixed Ops (Service + Parts)** — complete on the branch across three
   batches: Service operations (state machine respected, estimates, immutable
   authorization, technician workflow, parts demand), financial close (Payment +
