@@ -14,26 +14,27 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
 | **Baseline on `staging`** | `08b4500` — **613/613 tests green, all six `check:*` green** |
 | **In flight** | **PHASE 5 (Accounting) COMPLETE and merged.** 5.1 Ledger Integrity (#76) — the general ledger had never posted a transaction; atomic posting, DB-enforced idempotency, typed failures, strict account resolution, posted-only reads. 5.2 Deal Posting + AR + AP (#78) — the lender's share moved out of customer AR into Contracts in Transit so funding clears CIT to zero; AP reached the double-entry ledger for the first time. 5.3 Journal/Close/Banking/Payroll (#79) — close blockers derived from real state. Staging still holds **0 journal rows** — no backfill, going-forward correctness only. |
-| **Roadmap position** | Phases 1–5 complete and merged. **Next phase is UNDETERMINED and must not be guessed.** Two conflicting numberings exist: the sessions use 1 UI / 2 Sales / 3 Inventory+F&I / 4 Fixed Ops / 5 Accounting, while `docs/DEALEROS_AND_AI_ENGINE.md` §5 uses a different 1–6 (Customer→AI→Widget→Integrations→DealerOS finishing→MCP). The authority named by AGENTS.md A1 is spec doc **"22 — Master Build Roadmap / Audit Method"**, which is **not in the repository**. Read it before assigning Phase 6; the handoff's own prior guidance suggested Marketing → People → dealership-wide My Day. **Three database-owned control layers now exist: the RO state machine (audit §32), the journal posting triggers, and the accounting period lock.** |
+| **Roadmap position** | **`docs/DEALEROS_ROADMAP.md` is the phase authority** — read it, do not infer a sequence from any other document. Phases 0–5 complete (5 complete on staging; production convergence deliberately deferred to 9A). **Phase 6 — Dealer Marketing + Communications — is NEXT.** MarketSync's own internal workspaces, affiliate login/dashboard and any partner portal are **Phase 9B** and must not be built earlier. **Three database-owned control layers exist: the RO state machine (audit §32), the journal posting triggers, and the accounting period lock.** |
 
 ## Read before coding
 
-1. `AGENTS.md` — **Part A** is the governing product/architecture law, **Part B**
+1. `docs/DEALEROS_ROADMAP.md` — **the phase authority.** What is done, what is next.
+2. `AGENTS.md` — **Part A** is the governing product/architecture law, **Part B**
    the frontend guardrails. Both are binding.
-2. `docs/KERNEL_CONTRACT.md` — **frozen**.
-3. `docs/DEALER_OS_UX_ARCHITECTURE.md` — **the as-built UI architecture**: engine
+3. `docs/KERNEL_CONTRACT.md` — **frozen**.
+4. `docs/DEALER_OS_UX_ARCHITECTURE.md` — **the as-built UI architecture**: engine
    registration, standard tabs, role/entitlement behaviour, department ownership,
    handoffs, the shared helpers that really exist, and the rules a new department
    must follow. Note the naming warning: DepartmentShell / AttentionQueue /
    RecordWorkspace / QuickActions / DepartmentKPI / WorkflowBoard / "My Day" are
    **conceptual names only** — no such runtime components exist.
-4. `docs/DEALEROS_UI_AUDIT.md` — every page → workspace/tab mapping, the four
+5. `docs/DEALEROS_UI_AUDIT.md` — every page → workspace/tab mapping, the four
    gating layers, and what is deliberately deferred.
-5. `docs/SALES_PHASE2_AUDIT.md` — the Sales reference department (see §0).
-6. `docs/STAGE4_SERVICE_PARTS_AUDIT.md` — **the Fixed Ops domain truth.** Start at §0
+6. `docs/SALES_PHASE2_AUDIT.md` — the Sales reference department (see §0).
+7. `docs/STAGE4_SERVICE_PARTS_AUDIT.md` — **the Fixed Ops domain truth.** Start at §0
    (executive summary) and §31 (stop gate). Schema- and code-level evidence for Service
    and Parts; supersedes `docs/SERVICE_PARTS_ENGINE_STAGE0.md` wherever they disagree.
-7. The project specification documents (21 Architecture, 22 Roadmap, 23 Credit,
+8. The project specification documents (21 Architecture, 22 Roadmap, 23 Credit,
    plus the department docs) for product detail.
 
 ## Completed

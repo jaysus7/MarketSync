@@ -4,13 +4,15 @@
 
 1. **[docs/SESSION_HANDOFF.md](./docs/SESSION_HANDOFF.md)** — current state, what
    landed, the next recommended slice, and the acceptance gates to run.
-2. **[AGENTS.md](./AGENTS.md)** — **Part A** is the governing product/architecture
+2. **[docs/DEALEROS_ROADMAP.md](./docs/DEALEROS_ROADMAP.md)** — the ONE phase authority
+   (what is done, what is next). No other document's phase numbers override it.
+3. **[AGENTS.md](./AGENTS.md)** — **Part A** is the governing product/architecture
    law (canonical records, frozen kernel, audit-before-code, entitlements,
    security); **Part B** is the frontend guardrails. Both are binding.
-3. **[docs/DEALER_OS_UX_ARCHITECTURE.md](./docs/DEALER_OS_UX_ARCHITECTURE.md)** — how the
+4. **[docs/DEALER_OS_UX_ARCHITECTURE.md](./docs/DEALER_OS_UX_ARCHITECTURE.md)** — how the
    Dealer OS UI actually works (engine registration, tabs, gating, department rules).
    Read before building or changing a department.
-4. **[docs/KERNEL_CONTRACT.md](./docs/KERNEL_CONTRACT.md)** — frozen.
+5. **[docs/KERNEL_CONTRACT.md](./docs/KERNEL_CONTRACT.md)** — frozen.
 
 MarketSync is a **dealer operating system**, not a set of features. Employees
 navigate their dealership, not our software architecture. Audit before coding;
