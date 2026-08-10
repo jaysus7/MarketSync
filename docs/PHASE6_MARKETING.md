@@ -355,3 +355,37 @@ empty record reports `average: null` — an average of nothing is not zero stars
 **Deferred:** importing reviews from Google/Facebook (each is its own integration — the schema
 and the dedupe index are ready), the private-feedback landing page, and actually delivering the
 request message, which rides the existing sender rather than growing a second one.
+
+### PR 6.9 — The dealer website, wired to Phase 6 truth *(this PR)*
+
+The website already worked — settings, custom domain, blog, public site, lead forms, booking,
+chat, all rate-limited. What it did not do was **tell the rest of the system anything**.
+
+**The finding, in the same shape as the rest of this phase:** PR 6.1 gave `leads` and
+`contacts` a `campaign_id` and a `source_key`. PR 6.3 built a consent gate that can read
+express consent. The front door — where nearly every customer actually arrives — wrote **none
+of them**. So every website lead attributed as *inferred*, the campaign that paid for the click
+was dropped on arrival, and every customer who typed their number into a contact form resolved
+as `implied`, the weakest basis there is.
+
+**Attribution.** A visit links to a campaign by its **id** (`?c=<uuid>`), never by matching a
+`utm_campaign` string against campaign names — two campaigns called "Summer Sale" a year apart
+is precisely the defect 6.1 removed. A cross-tenant or deleted id is ignored rather than
+honoured, so a crafted link cannot attribute a lead to another dealership's campaign. No id
+means `campaign_id` stays null and the lead is honestly *inferred* from its source string:
+unknown beats a plausible guess. The attribution is carried onto the contact **only when
+blank** — a customer's first campaign is the one that earned them, and a later visit must not
+overwrite it.
+
+**Consent.** `mayContact` has been able to READ express consent since 6.3 and nothing had ever
+written it, so `recordConsent()` is the missing counterpart. A form submission records consent
+for the channels the customer actually volunteered — email if they gave an email, sms and phone
+if they gave a number — with real evidence: the form type, the IP, the user agent, the time. A
+malformed IP is dropped rather than allowed to fail the `inet` column and take the whole record
+with it, and an evidence write that fails is logged, never thrown: losing the dealership's lead
+over an audit row is the worse outcome by far.
+
+**Deferred:** surfacing campaign links in the Marketing workspace (a link builder that emits
+`?c=<id>` is a small UI, and the resolver it would feed is done), and first-touch vs last-touch
+attribution, which the timeline supports but which is a reporting decision rather than a
+capture one.

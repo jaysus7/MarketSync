@@ -60,6 +60,28 @@ export async function marketingSources(dealershipId) {
 // Map a legacy free-text source onto a taxonomy key. This is INFERENCE, and its result is
 // always labelled as such — it exists so historical rows stay readable, not so they can
 // masquerade as linked attribution.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Resolve the campaign a visitor arrived from, by ID.
+ *
+ * Deliberately ID-only. Matching a `utm_campaign` string against campaign NAMES would
+ * reintroduce exactly the defect PR 6.1 removed — two campaigns called "Summer Sale" a year
+ * apart, and an attribution that silently picks one. If the link does not carry a campaign
+ * id belonging to this dealership, the visit is attributed as INFERRED from its source
+ * string and `campaign_id` stays null. Unknown is a better answer than a plausible guess.
+ */
+export async function resolveCampaignForVisit(dealershipId, raw) {
+  const id = String(raw || '').trim()
+  if (!UUID_RE.test(id)) return null
+  const { data } = await supabaseAdmin.from('campaigns')
+    .select('id, dealership_id, deleted_at').eq('id', id).maybeSingle()
+  // Cross-tenant campaign ids are ignored rather than honoured: a link cannot attribute a
+  // lead to another dealership's campaign.
+  if (!data || data.dealership_id !== dealershipId || data.deleted_at) return null
+  return data.id
+}
+
 export function inferSourceKey(raw) {
   const s = String(raw || '').trim().toLowerCase()
   if (!s) return null
