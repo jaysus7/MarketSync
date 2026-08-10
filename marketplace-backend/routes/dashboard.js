@@ -68,9 +68,105 @@ import { registerDashboardReportsRoutes } from './submodules/dashboard-reports.j
 export async function getDeal(dealershipId, id) {
   if (!dealershipId || !id) return null
   const { data } = await supabaseAdmin.from('deals')
-    .select('id, deal_number, selling_price, cost, fni_items, tax_amount, deal_status, sold_at, delivered_at, funded_at, inventory_id, contact_id')
+    .select('id, deal_number, selling_price, cost, fni_items, tax_amount, deal_status, sold_at, delivered_at, funded_at, inventory_id, contact_id, ' +
+            'deal_type, amount_financed, down_payment, deposit_amount, trade_value, trade_payoff, finance_company, funding_status')
     .eq('id', id).eq('dealership_id', dealershipId).maybeSingle()
   return data || null
+}
+
+// ── Deal settlement — how a delivered deal is actually paid for ──────────────
+// The Deal Engine's published answer to: this customer owes X, and here is the
+// consideration that settles it. Accounting posts from this; F&I clears Contracts in
+// Transit from the same figure, so CIT cannot fail to zero out.
+//
+// This is NOT a second deal-calculation engine. Every number is read from the finalized
+// deal; the only arithmetic is apportioning what is already there.
+//
+// `settled` deliberately stays what the accounting engine has always recognised —
+// selling price + F&I gross + tax — so revenue treatment is unchanged. What this fixes
+// is the DEBIT side: the whole amount used to land in customer Accounts Receivable,
+// including the part a lender owes, which left AR overstated and Contracts in Transit
+// negative once funding credited it.
+const dsN = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
+const ds2 = (x) => Math.round((Number(x) || 0) * 100) / 100
+
+// The lender's commitment. The selected lender decision is authoritative — it is what
+// `funding.received` credits — with the deal's own amount_financed as the fallback for
+// deals that never went through lender selection.
+export async function dealLenderAmount(dealershipId, deal) {
+  if (!deal || deal.deal_type === 'cash') return 0
+  const { data: sel } = await supabaseAdmin.from('deal_lender_decisions')
+    .select('approved_amount').eq('deal_id', deal.id).eq('dealership_id', dealershipId)
+    .eq('selected', true).maybeSingle()
+  const approved = sel?.approved_amount
+  return ds2(approved != null ? dsN(approved) : dsN(deal.amount_financed))
+}
+
+// The apportionment itself, kept pure so it can be tested with real numbers rather than
+// only asserted about. Consideration already in hand comes off first, the lender's
+// promise next, and whatever is left is the only thing that is genuinely a customer
+// receivable.
+//
+// Capping each component at the remaining balance is what keeps the journal balanced when
+// a deal's own figures disagree with its total. The excess is REPORTED as `over_settled`
+// rather than quietly absorbed — inventing a liability out of bad data is worse than
+// saying the data is bad.
+export function apportionSettlement({ settled, deposit = 0, trade = 0, cash = 0, financed = 0 }) {
+  const total = ds2(settled)
+  const raw = { deposit: ds2(deposit), trade: ds2(trade), cash: ds2(cash), financed: ds2(financed) }
+  let remaining = total
+  const applied = {}
+  for (const key of ['deposit', 'trade', 'cash', 'financed']) {
+    const take = Math.max(0, Math.min(raw[key], remaining))
+    applied[key] = ds2(take)
+    remaining = ds2(remaining - take)
+  }
+  const offered = ds2(raw.deposit + raw.trade + raw.cash + raw.financed)
+  return {
+    ...applied,
+    customer_ar: remaining,
+    over_settled: ds2(Math.max(0, offered - total)),
+    // The invariant the whole correction rests on: the settlement equals what is settled.
+    balanced: ds2(applied.deposit + applied.trade + applied.cash + applied.financed + remaining) === total,
+  }
+}
+
+export async function dealSettlement(dealershipId, dealId) {
+  const deal = typeof dealId === 'object' ? dealId : await getDeal(dealershipId, dealId)
+  if (!deal) return null
+
+  const sellingPrice = ds2(deal.selling_price)
+  const fniGross = ds2((Array.isArray(deal.fni_items) ? deal.fni_items : []).reduce((s, x) => s + dsN(x?.price), 0))
+  const tax = ds2(deal.tax_amount)
+  const settled = ds2(sellingPrice + fniGross + tax)
+
+  const lenderAmount = await dealLenderAmount(dealershipId, deal)
+  const applied = apportionSettlement({
+    settled,
+    deposit: deal.deposit_amount,
+    // Equity only. Negative equity is rolled into the financed amount, not consideration.
+    trade: Math.max(0, dsN(deal.trade_value) - dsN(deal.trade_payoff)),
+    cash: deal.down_payment,
+    financed: lenderAmount,
+  })
+
+  return {
+    deal_id: deal.id, deal_number: deal.deal_number ?? null,
+    deal_type: deal.deal_type || null, finance_company: deal.finance_company || null,
+    is_financed: lenderAmount > 0,
+    settled, selling_price: sellingPrice, fni_gross: fniGross, tax,
+    cost: ds2(deal.cost),
+    // What each kind of consideration actually settles.
+    cit: applied.financed,              // lender receivable — NOT customer AR
+    cash_received: applied.cash,
+    deposit_applied: applied.deposit,
+    trade_applied: applied.trade,
+    customer_ar: applied.customer_ar,   // the genuine customer balance
+    // Reported, never silently absorbed.
+    over_settled: applied.over_settled,
+    lender_amount: lenderAmount,
+    balanced: applied.balanced,
+  }
 }
 
 export function registerRoutes(app) {

@@ -351,3 +351,111 @@ financed deal, CIT would go negative and the AR raised at delivery would never c
 intended model (delivery → CIT → funding clears CIT) needs a decision about deal posting
 semantics, which is producer coverage rather than ledger integrity, so the rules were
 converged as-approved and this is left for the next PR to resolve deliberately.
+
+---
+
+# PR 5.2 outcome — deal posting semantics, AR and AP
+
+## Financed deal posting correction
+
+`vehicle_delivered` debited the entire sale to Accounts Receivable while
+`funding_received` credited Contracts in Transit — an account nothing ever debited. Customer
+AR was overstated by the lender's share and CIT went negative on funding, so a funded
+financed deal could never clear.
+
+The debit side is now the deal's **settlement**. The credit side (revenue, F&I, tax,
+COGS/inventory) is untouched, so revenue treatment and the amount being settled are exactly
+what they were — only the meaning of the debit changed.
+
+## Settlement model
+
+`dealSettlement()` lives in the **Deal Engine**, not Accounting: every figure is read from
+the finalized deal and the only arithmetic is apportioning what is already there. Order:
+deposit → trade equity → down payment → lender, remainder is the genuine customer balance.
+
+| Debit | From |
+|---|---|
+| Contracts in Transit | selected lender decision's `approved_amount` (fallback `amount_financed`) |
+| Cash | `down_payment` |
+| Customer Deposits | `deposit_amount` — clears the liability `deposit_received` raised |
+| Trade Allowance | trade equity — clears the liability `trade_received` raised |
+| Accounts Receivable | **only** what the customer still owes |
+
+`apportionSettlement()` is pure, so tests exercise the real arithmetic. Over-settlement is
+reported as a `deal_over_settled` exception rather than absorbed into a fabricated liability;
+the journal still balances by construction.
+
+## CIT result
+
+Proved on staging: financed delivery → CIT 30,000.00 / customer AR 0.00; funding → **CIT
+0.00, never negative**. Cash deal → no CIT. F&I funding now clears CIT from the same
+derivation delivery used; it previously fell back to `selling_price`, which delivery never
+debited, and would have left a permanent unexplained residue.
+
+## AR result
+
+Derived from posted journal lines against Accounts Receivable, grouped by the canonical
+source, netted by `payment_allocations` — no second ledger, no status flag. Aging is derived
+on read from real dates, never persisted. Application refuses to over-apply. Contracts in
+Transit is reported **separately** as a lender receivable.
+
+Proved: Service RO closes at 452.00 AR, a 200.00 payment leaves **252.00**.
+
+## AP result
+
+**AP previously posted only to the legacy single-sided `gl_entries`** — it never touched the
+double-entry ledger, so no Accounts Payable liability existed in the trial balance at all,
+and editing an approved expense mutated the posted row in place.
+
+Approval and payment now emit canonical events: `expense.approved` posts
+DR <mapped account> / CR Accounts Payable, `expense.paid` posts DR AP / CR Cash. Every one of
+the 23 expense categories has a decided `account_key`; `Other` maps to nothing on purpose, so
+an unclassifiable bill fails with **AC001** rather than being booked to the wrong place. The
+debit is posted directly rather than through a shared rule, because one rule would force
+every category through a single account and destroy department reporting.
+
+Proved: bill approved → AP 1,200.00; paid → **AP 0.00**, cash −1,200.00.
+
+## Accounting Today
+
+An exception queue, not a KPI wall: posting failures first (money moved, books do not know),
+then negative CIT, aging funding, AR overpaid/overdue, AP awaiting approval/overdue, and
+ledger-vs-status disagreements. Each item carries source, amount, age, reason, owner and next
+action. It reuses the existing `exceptions` primitive — no second system.
+
+## Deal Posting + CIT queue
+
+Deal Posting answers "has this transaction reached the books", with posting state derived
+from the ledger and the event log rather than a second persisted flag, showing CIT and
+customer AR as **separate** figures. The CIT queue groups awaiting-funding / aging /
+exception / cleared, and surfaces negative CIT explicitly as the signature of the old defect.
+
+## Validation
+
+- **604/604 tests**, all six `check:*` green.
+- 34 new tests: `deal-settlement.test.js` (15, running the real apportionment),
+  `accounting-ar-ap.test.js` (19).
+- Mobile at **390px** across 8 surfaces (Service ×2, Parts, Accounting Today, Deal Posting,
+  CIT, AR, AP): no horizontal overflow, no clipped state signals, no collapsed tap targets.
+- Staging left at 0 journal rows. No backfill, no historical replay. Production untouched.
+
+## Deferred
+
+- **Parts receipt clearing → vendor bill matching — deferred depth.** `parts_received` debits
+  Parts Inventory and credits Accounts Payable directly; there is no GRNI/clearing account and
+  no PO, so no deterministic receipt↔bill relationship exists to connect. Nothing presents a
+  "fully reconciled" state, so nothing is misleading. Three-way matching would be new
+  procurement scope.
+- **Partial funding.** The canonical model has one `funded` transition, so CIT clears in full.
+  Partial funding was not invented for this PR.
+- **Unapplied payment** already exists in the payment primitive (`payment_received` credits
+  Customer Deposits for the unapplied portion); no cash-application UI was built beyond
+  applying to a named receivable.
+- Banking/reconciliation, period close and Payroll & Commissions workspaces remain for a later
+  PR — they are outside PR 5.2's merge gate.
+
+## Production convergence — still UNAPPLIED
+
+Adds to the PR 5.1 list: `2026-08-10-phase5-deal-settlement-rule.sql` (corrects
+`vehicle_delivered`) and `2026-08-10-phase5-ap-rules.sql` (adds `expense_paid`). Both are
+upserts. Production still holds 0 journal entries, so there is nothing to remediate.

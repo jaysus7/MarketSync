@@ -10,6 +10,7 @@ import { sendEmail } from '../securityAlerts.js'
 import { ensureGetReadyCard } from './recon.js'
 import { emitWebhook } from '../webhooks.js'
 import { emitEvent } from './events.js'
+import { dealSettlement } from './dashboard.js'
 
 const FNI_NOTIFICATION_ROLES = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI']
 const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -351,8 +352,13 @@ export function registerFni(app) {
       // The transition — not the save — is the business event.
       if (next === 'funded' && !wasFunded) {
         const { data: sel } = await supabaseAdmin.from('deal_lender_decisions')
-          .select('approved_amount, lender_id').eq('deal_id', deal.id).eq('selected', true).maybeSingle()
-        const amount = Number(sel?.approved_amount ?? deal.selling_price ?? 0)
+          .select('lender_id').eq('deal_id', deal.id).eq('selected', true).maybeSingle()
+        // The SAME figure delivery debited to Contracts in Transit, from the one Deal
+        // Engine derivation — so funding clears CIT to exactly zero. Falling back to
+        // selling_price here (as this once did) would leave a permanent CIT residue,
+        // because delivery never debited selling_price.
+        const settlement = await dealSettlement(req.dealershipId, deal.id)
+        const amount = Number(settlement?.cit ?? 0)
         // Accounting owns the ledger: it clears Contracts in Transit from this event.
         // No journal logic here (kernel contract §1/§4).
         emitEvent({

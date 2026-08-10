@@ -12,6 +12,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit, AuditAction, exportReason } from '../audit.js'
+import { emitEvent } from './events.js'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 const canApprove = (req) => ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(req.profile?.role)   // controller / GM level
@@ -22,6 +23,44 @@ const DEPARTMENTS = ['Sales', 'Service', 'Parts', 'Finance', 'Administration', '
 const CATEGORIES = ['Advertising', 'Reconditioning', 'Detail', 'Fuel', 'Office Supplies', 'Parts', 'Service', 'Travel', 'Meals', 'Training', 'Warranty', 'Floorplan Interest', 'Auction Fees', 'Dealer Trade', 'OMVIC Fees', 'Licensing', 'Safety Inspection', 'Internal Repair Order', 'Demo Vehicle', 'Salesperson Reimbursement', 'Utilities', 'Rent', 'Other']
 const PAYMENT_METHODS = ['credit_card', 'debit', 'cash', 'etransfer', 'cheque', 'account']
 const STATUSES = ['draft', 'submitted', 'approved', 'rejected', 'paid', 'voided']
+
+// ── Where a bill lands in the chart of accounts ──────────────────────────────
+// Every expense category maps to exactly one account_key. This is what makes an approved
+// bill postable to the double-entry ledger: the credit is always Accounts Payable, and
+// this decides the debit.
+//
+// Reconditioning and Parts capitalize onto the asset rather than hitting expense — recon
+// becomes part of a vehicle's cost, and parts become parts inventory — which is how they
+// are already treated by the recon_cost and parts_received rules.
+//
+// A category with no mapping deliberately has none: the posting then fails with AC001
+// (PR 5.1) instead of guessing an account. A bill nobody can classify must not be quietly
+// booked to the wrong place.
+export const EXPENSE_ACCOUNT_KEYS = {
+  'Advertising': 'advertising',
+  'Reconditioning': 'inventory',            // capitalized to the vehicle
+  'Detail': 'recon_cost',
+  'Fuel': 'utilities',
+  'Office Supplies': 'software',
+  'Parts': 'parts_inventory',               // capitalized to parts stock
+  'Service': 'warranty_cost',
+  'Travel': 'payroll_expense',
+  'Meals': 'payroll_expense',
+  'Training': 'payroll_expense',
+  'Warranty': 'warranty_cost',
+  'Floorplan Interest': 'interest',
+  'Auction Fees': 'inventory',              // an acquisition cost of the vehicle
+  'Dealer Trade': 'inventory',
+  'OMVIC Fees': 'software',
+  'Licensing': 'software',
+  'Safety Inspection': 'recon_cost',
+  'Internal Repair Order': 'recon_cost',
+  'Demo Vehicle': 'advertising',
+  'Salesperson Reimbursement': 'payroll_expense',
+  'Utilities': 'utilities',
+  'Rent': 'rent',
+  'Other': null,                            // must be classified before it can post
+}
 const RECURRENCES = ['weekly', 'monthly', 'quarterly', 'annual']
 
 const stamp = (actor, action, detail) => ({ at: new Date().toISOString(), actor: actor || null, action, detail: detail || null })
@@ -250,6 +289,47 @@ export function registerExpenses(app) {
     const { data, error } = await supabaseAdmin.from('expenses').update({ status: 'approved', approved_by: req.user?.id || null, approved_at: new Date().toISOString(), approver_note: String(req.body?.note || '').slice(0, 200) || null, posted: !!glId, gl_entry_id: glId, events, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single()
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'expense.approved', { before_state: cur, after_state: data })
+    // Approval is the business event that creates the payable. Accounting owns the
+    // treatment — no ledger logic here. The transition only fires once, because an
+    // already-approved expense re-approved is deduped downstream by source identity.
+    if (cur.status !== 'approved') {
+      emitEvent({
+        dealershipId: req.dealershipId, eventName: 'expense.approved', entityType: 'expense', entityId: data.id,
+        summary: `Expense approved${data.vendor ? ` — ${data.vendor}` : ''}`, department: 'Accounting',
+        createdBy: req.user?.id || null,
+        payload: {
+          amount: round2(data.amount), category: data.category || null, department: data.department || null,
+          account_key: EXPENSE_ACCOUNT_KEYS[data.category] || null,
+          vendor_id: data.vendor_id || null, date: data.expense_date, ref: data.id,
+        },
+      })
+    }
+    res.json({ ok: true, expense: data })
+  })
+
+  // ── AP payment — clears the payable, never a bare "paid = true" ────────────
+  app.post('/expenses/:id/pay', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {
+    if (!guard(req, res)) return
+    if (!canApprove(req)) return res.status(403).json({ error: 'Approver access required' })
+    const { data: cur } = await supabaseAdmin.from('expenses').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!cur) return res.status(404).json({ error: 'Not found' })
+    // Only an approved payable can be paid: paying an unapproved bill would clear a
+    // liability the ledger never recorded.
+    if (cur.status !== 'approved') return res.status(409).json({ error: 'Only an approved expense can be paid.' })
+    const events = (Array.isArray(cur.events) ? cur.events.slice(-49) : []); events.push(stamp(req.user?.id, 'paid', String(req.body?.note || '').slice(0, 200) || null))
+    const { data, error } = await supabaseAdmin.from('expenses')
+      .update({ status: 'paid', events, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).eq('status', 'approved')   // lost update guard
+      .select().maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!data) return res.status(409).json({ error: 'Expense is no longer approved.' })
+    audit(req, 'expense.paid', { before_state: cur, after_state: data })
+    emitEvent({
+      dealershipId: req.dealershipId, eventName: 'expense.paid', entityType: 'expense', entityId: data.id,
+      summary: `Expense paid${data.vendor ? ` — ${data.vendor}` : ''}`, department: 'Accounting',
+      createdBy: req.user?.id || null,
+      payload: { amount: round2(data.amount), vendor_id: data.vendor_id || null, date: today(), ref: data.id },
+    })
     res.json({ ok: true, expense: data })
   })
   app.post('/expenses/:id/reject', requireAuth, requireMfa, requirePermission('accounting.edit'), async (req, res) => {

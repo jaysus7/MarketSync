@@ -55,6 +55,7 @@ import { registerEvents, startEventDispatcher } from './routes/events.js'
 import { registerWorkflow } from './routes/workflow.js'
 import { registerActionExecutor } from './routes/action-executor.js'
 import { registerAccountingEngine } from './routes/accounting-engine.js'
+import { registerAccountingArAp } from './routes/accounting-ar-ap.js'
 import { registerConfigEngine } from './routes/config-engine.js'
 import { registerAiEngine } from './routes/ai-engine.js'
 import { registerAiRuntime } from './routes/ai-runtime.js'
@@ -169,6 +170,7 @@ registerEvents(app)
 registerWorkflow(app)
 registerActionExecutor(app)
 registerAccountingEngine(app)
+registerAccountingArAp(app)   // AR/AP/CIT read surface — derived from the posted ledger
 registerConfigEngine(app)
 registerAiEngine(app)
 registerAiRuntime(app)
