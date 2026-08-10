@@ -4,6 +4,8 @@ import { enqueueForTrigger } from '../automation.js'
 import { routeAndNotifyLead } from '../../lead-routing.js'
 import { createNotification } from '../../notifications.js'
 import { rateLimit } from '../../security.js'
+import { resolveCampaignForVisit, inferSourceKey } from '../campaigns.js'
+import { recordConsent } from '../consent.js'
 import { runAutoResponder } from '../../autoresponder.js'
 import { toolDefs, callTool } from '../tool-registry.js'
 import { startOrContinueConversation, saveMessage } from '../ai-engine.js'
@@ -230,14 +232,50 @@ export function registerSitePublicRoutes(app) {
       const { data: v } = await supabaseAdmin.from('inventory').select('id, dealership_id').eq('id', b.vehicle_id).maybeSingle()
       if (v && v.dealership_id === d.id) inventory_id = v.id
     }
+    // Attribution, at the front door. PR 6.1 gave leads a campaign_id and a source_key and
+    // nothing has ever written either from the website — so every website lead has attributed
+    // as INFERRED, and the campaign that paid for the click was dropped on arrival.
+    //
+    // A campaign is linked only by its own id (`?c=<uuid>`), never by matching a utm_campaign
+    // string against campaign names — that is the defect 6.1 removed.
+    const campaignId = await resolveCampaignForVisit(d.id, b.campaign_id || b.c)
+    const sourceKey = inferSourceKey(b.utm_source || b.referrer_source || source) || 'website'
+
     try {
       const { data: lead } = await supabaseAdmin.from('leads').insert({
         dealership_id: d.id, name: name || null, email: email || null, phone: phone || null,
         comments: comments || null, source, inventory_id,
+        campaign_id: campaignId, source_key: sourceKey,
       }).select('id').single()
       const contactId = await findOrCreateContact({ dealershipId: d.id, name, email, phone, source: 'Website' })
       if (contactId && lead?.id) await supabaseAdmin.from('leads').update({ contact_id: contactId }).eq('id', lead.id)
       if (contactId) {
+        // Carry the attribution onto the customer too, so a deal made a month later still
+        // knows which campaign brought them. Only ever fills a blank — a customer's FIRST
+        // campaign is the one that earned them, and a later visit must not overwrite it.
+        try {
+          const patch = {}
+          if (campaignId) patch.campaign_id = campaignId
+          if (sourceKey) patch.source_key = sourceKey
+          if (Object.keys(patch).length) {
+            await supabaseAdmin.from('contacts').update(patch)
+              .eq('id', contactId).eq('dealership_id', d.id).is('campaign_id', null)
+          }
+        } catch (e) { console.error('[site-lead] attribution not carried to contact:', e.message) }
+
+        // A customer who typed their phone number into a dealership's form and asked to be
+        // contacted has given more than implied consent. Until now nothing recorded that, so
+        // every one of them resolved as the weakest basis there is. Evidence is the point:
+        // what they submitted, from where, when.
+        const channels = [email ? 'email' : null, phone ? 'sms' : null, phone ? 'phone' : null].filter(Boolean)
+        if (channels.length) {
+          await recordConsent(d.id, contactId, channels, {
+            source: 'web_form',
+            ip: (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip,
+            userAgent: req.get('user-agent'),
+            evidence: { form_type: String(b.form_type || 'inquiry'), slug, submitted_at: new Date().toISOString() },
+          })
+        }
         const routed = await routeAndNotifyLead(d.id, { contactId, vehicleId: inventory_id || null, name, source: source })
         enqueueForTrigger(d.id, 'internet_lead', { contactId, vehicleId: inventory_id || null, repId: routed?.assignee || null })
         runAutoResponder(d.id, { contactId, name, email, phone, source, vehicleId: inventory_id || null, repId: routed?.assignee || null }).catch(() => {})

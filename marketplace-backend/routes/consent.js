@@ -121,6 +121,53 @@ export async function filterContactable(dealershipId, contactIds, channel, opts 
 }
 
 /**
+ * Record express consent a customer actually gave.
+ *
+ * `mayContact` has been able to READ express consent since PR 6.3, and nothing has ever
+ * written it — so every contactable customer has resolved as `implied`, the weakest basis
+ * there is. A customer who typed their phone number into a dealership's contact form and
+ * asked to be called has given more than that, and the difference is exactly what a
+ * compliance question turns on later.
+ *
+ * Evidence is the point. What they submitted, from what address, at what time, against which
+ * version of the notice — stored so the answer to "why did you text this person" is a record
+ * rather than a recollection.
+ */
+export async function recordConsent(dealershipId, contactId, channels, {
+  source = 'web_form', lawfulBasis = 'express', policyVersion = null,
+  ip = null, userAgent = null, evidence = null, capturedBy = null,
+} = {}) {
+  const list = (Array.isArray(channels) ? channels : [channels])
+    .map(c => String(c || '').toLowerCase())
+    .filter(c => CONTACT_CHANNELS.includes(c))
+  if (!list.length) return { ok: false, channels: [], reason: 'No contactable channel was given.' }
+
+  const recorded = []
+  for (const ch of list) {
+    try {
+      const { error } = await supabaseAdmin.from('customer_consents').insert({
+        dealership_id: dealershipId, contact_id: contactId, consent_type: ch,
+        status: 'granted', lawful_basis: lawfulBasis, source,
+        policy_version: policyVersion,
+        // An IP that is not one is worse than no IP: `inet` would reject the row and take
+        // the whole consent record with it.
+        ip: /^[0-9a-fA-F.:]+$/.test(String(ip || '')) ? ip : null,
+        user_agent: userAgent ? String(userAgent).slice(0, 300) : null,
+        captured_by: capturedBy, captured_at: new Date().toISOString(),
+        evidence: evidence || {},
+      })
+      if (error) console.error(`[consent] express consent not recorded for ${contactId}/${ch}: ${error.message}`)
+      else recorded.push(ch)
+    } catch (e) {
+      // Never fatal to the caller. Losing the lead because the evidence write failed would
+      // be a far worse outcome than a lead whose basis stays implied.
+      console.error(`[consent] express consent not recorded for ${contactId}/${ch}: ${e.message}`)
+    }
+  }
+  return { ok: true, channels: recorded }
+}
+
+/**
  * Record an opt-out from any channel, and propagate it.
  *
  * Opt-out must reach BOTH models or it half-works: the flags are what every sender reads,
