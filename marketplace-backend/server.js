@@ -64,6 +64,7 @@ import { registerConsent } from './routes/consent.js'
 import { registerConversations } from './routes/conversations.js'
 import { registerSalesVideo } from './routes/sales-video.js'
 import { registerReputation } from './routes/reputation.js'
+import { registerMyDay } from './routes/my-day.js'
 import { registerConfigEngine } from './routes/config-engine.js'
 import { registerAiEngine } from './routes/ai-engine.js'
 import { registerAiRuntime } from './routes/ai-runtime.js'
@@ -187,6 +188,7 @@ registerConsent(app)          // the ONE consent gate every sender calls
 registerConversations(app)    // one customer conversation across channels + human takeover
 registerSalesVideo(app)       // Sales-owned video messaging — a link fetch is not a view
 registerReputation(app)       // reviews asked for honestly — no review gating, by construction
+registerMyDay(app)            // one queue across departments, permission-gated per source
 registerConfigEngine(app)
 registerAiEngine(app)
 registerAiRuntime(app)

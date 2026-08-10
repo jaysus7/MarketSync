@@ -389,3 +389,45 @@ over an audit row is the worse outcome by far.
 `?c=<id>` is a small UI, and the resolver it would feed is done), and first-touch vs last-touch
 attribution, which the timeline supports but which is a reporting decision rather than a
 capture one.
+
+### PR 6.10 — Insights, cross-department My Day, and Marketing E2E *(this PR — Phase 6 closes)*
+
+**My Day is now one queue across departments**, composed from the six attention builders Phase 6
+produced — `campaignAttention`, `socialAttention`, `reputationAttention`,
+`conversationAttention`, `salesVideoAttention`, `accountingExceptions`. It derives nothing of
+its own; that was the design from 6.5 and it holds.
+
+Three decisions, each a direct application of the rules added to AGENTS.md this phase:
+
+**Permission is checked per SOURCE, not per endpoint.** My Day spans departments, so a single
+endpoint gate could only ever do one of two wrong things: leak accounting exceptions to a
+salesperson, or hide them from a controller. Each source names its own permission and is not
+even *loaded* when the caller lacks it — the loader never runs, rather than running and having
+its output filtered. A permission lookup that throws is treated as refusal; failing open is how
+data crosses departments.
+
+**A source that fails is reported as failed.** This is A20's "empty success is a failure mode"
+in its most literal form: a morning that looks calm because Accounting timed out is worse than
+one that says *"This day is incomplete — Accounting could not be loaded."* `complete: false`
+and the banner are part of the answer, not an error path. An all-quiet day and a broken day
+produce the same empty list and must never look the same.
+
+**Departments with no builder are named out loud.** `not_covered` lists Service, Parts,
+Inventory, F&I and People. Someone whose whole job is Service must not be told their day is
+clear by a queue that was never able to see Service.
+
+**Normalization, because one source predates the contract.** `accountingExceptions` carries no
+`subject`; composing it raw would have rendered blank rows. Every item is normalized —
+subject synthesised from what the source does carry, severity clamped rather than trusted, the
+**owner preserved** so a gross gap noticed by Marketing is still owned by Accounting.
+
+**The E2E** (`test/marketing-e2e.test.js`) walks all five Phase 6 chains and asserts the
+**joins**, which is where every defect this phase found was actually hiding: website form →
+contact → campaign id → consent → reachable · approve → due → claim → provider → published ·
+send → fetched → played → watched · visit → ask → both destinations → honest rating · six
+departments → one day. Where a link is a pure function it is executed; where it is a database
+contract it is asserted against the applied migration.
+
+**Deferred:** a dedicated cross-department home surface. The composed day is currently rendered
+in the Marketing workspace's My Day tab, which is the surface that exists; giving it its own
+top-level home is a navigation decision, not a data one, and the endpoint is ready for it.

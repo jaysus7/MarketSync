@@ -213,7 +213,7 @@ ENGINES['marketing-overview'] = {
 
   fetch: async () => {
     const [att, camps, accounts, posts, convos, roi, assets] = await Promise.all([
-      apiGetJson('/marketing/attention').catch(() => ({ needs_attention: [], opportunities: [] })),
+      apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ source: 'my-day', label: 'My Day', reason: 'could not be loaded' }], not_covered: [] })),
       apiGetJson('/campaigns').catch(() => ({ campaigns: [] })),
       apiGetJson('/social/accounts').catch(() => ({ accounts: [] })),
       apiGetJson('/social/posts').catch(() => ({ posts: [] })),
@@ -224,6 +224,10 @@ ENGINES['marketing-overview'] = {
     return {
       needsAttention: att.needs_attention || [],
       opportunities: att.opportunities || [],
+      // What the day could NOT see. Rendered, never swallowed — a calm morning caused by a
+      // failed department is worse than one that says so.
+      dayFailed: att.failed || [],
+      dayNotCovered: att.not_covered || [],
       campaigns: camps.campaigns || [],
       accounts: accounts.accounts || [],
       posts: posts.posts || [],
@@ -238,7 +242,15 @@ ENGINES['marketing-overview'] = {
       const att = d.needsAttention || [], opp = d.opportunities || [];
       const waiting = (d.conversations || []).filter(c => c.status === 'waiting_dealer').length;
       const live = (d.campaigns || []).filter(c => c.status === 'active').length;
+      const failed = d.dayFailed || [], notCovered = d.dayNotCovered || [];
+      const caveat = (failed.length || notCovered.length) ? `
+        <div class="mb-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-3">
+          ${failed.length ? `<div class="text-[13px] font-bold text-amber-800 dark:text-amber-300">This day is incomplete.</div>
+            <div class="text-[12px] text-amber-700 dark:text-amber-400">${failed.map(f => `${esc(f.label || f.source)} could not be loaded (${esc(f.reason || 'unknown')})`).join(' · ')}</div>` : ''}
+          ${notCovered.length ? `<div class="text-[12px] text-amber-700 dark:text-amber-400 ${failed.length ? 'mt-1' : ''}">Not covered here yet: ${esc(notCovered.join(', '))}.</div>` : ''}
+        </div>` : '';
       body.innerHTML = `
+        ${caveat}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('Opportunities', opp.length, opp.length ? 'text-emerald-600 dark:text-emerald-400' : '')}

@@ -104,7 +104,9 @@ test('the workspace computes no attention of its own', () => {
 })
 
 test('it composes existing endpoints and introduces none', () => {
-  const KNOWN = ['/marketing/attention', '/campaigns', '/social/accounts', '/social/posts',
+  // '/marketing/attention' became '/my-day' in 6.10 — the same composition, widened across
+  // departments and gated per source.
+  const KNOWN = ['/my-day', '/campaigns', '/social/accounts', '/social/posts',
                  '/conversations', '/marketing/roi', '/marketing/assets']
   for (const c of [...ws.matchAll(/apiGetJson\('([^'?]+)/g)].map(m => m[1])) {
     assert.ok(KNOWN.includes(c), `unexpected read endpoint: ${c}`)
