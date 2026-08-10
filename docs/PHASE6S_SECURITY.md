@@ -182,9 +182,21 @@ webhook verifies its signature before doing any work. Those were checked and nee
 
 ## What this slice did NOT do
 
-CodeQL could not be re-run from here — `workflow_dispatch` and the re-run API both return 403
-for this token, and default-setup CodeQL analyses only the PR diff. **The before/after counts
-by severity that the brief asked for cannot be produced from this session.** The honest
-statement is: 12 findings fixed, 24 classified as false positives with reasons, 32 accepted
-with reasons, and a re-run on the next PR against `staging` will show what the tool makes of
-it. Treating anything else as a verified "after" number would be inventing evidence.
+CodeQL could not be re-run from here, and **the before/after counts by severity that the brief
+asked for cannot be produced from this session.**
+
+- `workflow_dispatch` and the re-run API both return 403 for this token.
+- The code-scanning alerts API returns 403, so per-alert severities were never readable.
+- **CodeQL does not run on `staging` pull requests at all.** It ran once, on PR #84, only
+  because that PR was mistakenly opened against `main`. Every subsequent PR — #85 through #89,
+  including this one — ran `backend` and nothing else.
+
+That last point is the one worth acting on, and it is a **repository configuration issue, not
+a code one**: all development flows through `staging`, so CodeQL currently scans none of it.
+Findings would first appear at the `staging` → `main` promotion, which is the worst possible
+moment to discover them. Someone with repo admin should extend the CodeQL default setup to
+`staging` PRs. That is a deliberate hand-off, not something this slice changed.
+
+The honest statement is therefore: **12 findings fixed, 24 classified as false positives with
+reasons, 32 accepted with reasons — and no tool-verified "after" number.** Asserting one would
+be inventing evidence.
