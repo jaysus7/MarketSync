@@ -35,22 +35,35 @@ export function agingBucket(days) {
   return '90+'
 }
 
+// The ONE place journal_lines is read. Everything else goes through it, so the posted
+// filter can never be forgotten at a call site — callers pass ids they have already
+// restricted to posted entries.
+async function linesForEntries(entryIds, columns, accountId = null) {
+  if (!entryIds?.length) return []
+  let q = supabaseAdmin.from('journal_lines').select(columns).in('journal_entry_id', entryIds)
+  if (accountId) q = q.eq('account_id', accountId)
+  const { data } = await q.limit(50000)
+  return data || []
+}
+
 // Posted lines against one account, with their entry context. The `posted` filter is the
 // whole reason this helper exists rather than reading journal_lines directly.
 async function postedLinesFor(dealershipId, systemKey) {
   const { data: acct } = await supabaseAdmin.from('gl_accounts')
     .select('id').eq('dealership_id', dealershipId).eq('system_key', systemKey).maybeSingle()
   if (!acct?.id) return []
-  const { data: lines } = await supabaseAdmin.from('journal_lines')
-    .select('debit, credit, memo, ref_deal_id, ref_contact_id, ref_vendor_id, journal_entry_id')
-    .eq('dealership_id', dealershipId).eq('account_id', acct.id).limit(20000)
-  if (!lines?.length) return []
-  const ids = [...new Set(lines.map(l => l.journal_entry_id))]
+  // Posted entries FIRST, then their lines — so an unposted entry's lines can never be
+  // fetched at all, rather than being fetched and filtered out afterwards.
   const { data: entries } = await supabaseAdmin.from('journal_entries')
     .select('id, entry_date, source, event_name, reference, posted')
-    .eq('dealership_id', dealershipId).eq('posted', true).in('id', ids)
-  const byId = Object.fromEntries((entries || []).map(e => [e.id, e]))
-  return lines.filter(l => byId[l.journal_entry_id]).map(l => ({ ...l, entry: byId[l.journal_entry_id] }))
+    .eq('dealership_id', dealershipId).eq('posted', true).limit(20000)
+  if (!entries?.length) return []
+  const byId = Object.fromEntries(entries.map(e => [e.id, e]))
+  const lines = await linesForEntries(
+    entries.map(e => e.id),
+    'debit, credit, memo, ref_deal_id, ref_contact_id, ref_vendor_id, journal_entry_id',
+    acct.id)
+  return lines.map(l => ({ ...l, entry: byId[l.journal_entry_id] })).filter(l => l.entry)
 }
 
 // ── Accounts Receivable ─────────────────────────────────────────────────────
@@ -237,6 +250,71 @@ export async function accountingExceptions(dealershipId) {
   return items.sort((a, b) => (b.severity - a.severity) || ((b.age_days ?? 0) - (a.age_days ?? 0)))
 }
 
+// ── Period close ────────────────────────────────────────────────────────────
+// What actually prevents this period from closing. Every item below is DERIVED from
+// real accounting state — a checklist you can tick regardless of the books is theatre,
+// and the brief is explicit that manual attestation belongs only to genuinely manual
+// controls. Bank reconciliation is the one such item today, and it says so.
+export async function closeChecklist(dealershipId, period) {
+  const p = /^\d{4}-\d{2}$/.test(String(period || '')) ? period : new Date().toISOString().slice(0, 7)
+  const from = `${p}-01`
+  const [y, m] = p.split('-').map(Number)
+  const to = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, '0')}-01`
+
+  const [{ data: periodRow }, { data: failures }, exceptions, cit, ar, ap,
+         { data: commExc }, { data: entries }] = await Promise.all([
+    supabaseAdmin.from('accounting_periods').select('*').eq('dealership_id', dealershipId).eq('period', p).maybeSingle(),
+    supabaseAdmin.from('accounting_event_log').select('id').eq('dealership_id', dealershipId).eq('status', 'failed').limit(500),
+    supabaseAdmin.from('exceptions').select('id').eq('dealership_id', dealershipId).eq('department', 'Accounting').eq('status', 'open').limit(500),
+    contractsInTransit(dealershipId),
+    receivables(dealershipId),
+    payables(dealershipId),
+    supabaseAdmin.from('commission_exceptions').select('id').eq('dealership_id', dealershipId).eq('status', 'open').limit(500),
+    supabaseAdmin.from('journal_entries').select('id, posted').eq('dealership_id', dealershipId)
+      .gte('entry_date', from).lt('entry_date', to).limit(20000),
+  ])
+
+  const drafts = (entries || []).filter(e => !e.posted).length
+  const openExc = (exceptions?.data || exceptions || []).length ?? 0
+
+  // Trial balance for the period, posted only.
+  const postedIds = (entries || []).filter(e => e.posted).map(e => e.id)
+  let tbDr = 0, tbCr = 0
+  for (const l of await linesForEntries(postedIds, 'debit, credit')) { tbDr += n(l.debit); tbCr += n(l.credit) }
+
+  const item = (key, label, blocking, ok, detail) => ({ key, label, blocking, status: ok ? 'clear' : 'blocked', detail })
+  const items = [
+    item('events', 'All operational events reached the books', true,
+      !(failures || []).length, `${(failures || []).length} posting failure(s)`),
+    item('drafts', 'No unposted journals in the period', true,
+      drafts === 0, `${drafts} draft journal(s)`),
+    item('exceptions', 'Accounting exceptions resolved', true,
+      openExc === 0, `${openExc} open exception(s)`),
+    item('cit', 'Contracts in Transit reviewed', true,
+      !cit.some(c => c.balance < 0), `${cit.filter(c => c.balance < 0).length} negative, ${cit.filter(c => c.balance > 0).length} awaiting funding`),
+    item('ar', 'Receivables reviewed', false,
+      !ar.some(r => r.status === 'overpaid'), `${ar.filter(r => r.balance > 0).length} open, ${ar.filter(r => r.status === 'overpaid').length} overpaid`),
+    item('ap', 'Payables reviewed', false,
+      !ap.some(b => b.view === 'needs_review' || b.view === 'exception'),
+      `${ap.filter(b => b.view === 'needs_review').length} awaiting approval, ${ap.filter(b => b.view === 'exception').length} exception(s)`),
+    item('commissions', 'Commission exceptions resolved', false,
+      !(commExc || []).length, `${(commExc || []).length} open commission exception(s)`),
+    item('balanced', 'Trial balance balances', true,
+      round2(tbDr) === round2(tbCr), `debits ${round2(tbDr)} vs credits ${round2(tbCr)}`),
+    // The one genuinely manual control: there is no reconciliation model to derive from.
+    { key: 'bank', label: 'Bank reconciled', blocking: false, status: 'manual',
+      detail: 'No reconciliation model exists yet — this is an attestation, not a derived result.' },
+  ]
+
+  const blockers = items.filter(i => i.blocking && i.status === 'blocked')
+  return {
+    period: p, status: periodRow?.status || 'open',
+    locked: ['closed', 'locked'].includes(periodRow?.status),
+    items, blockers: blockers.length, can_close: blockers.length === 0,
+    trial_balance: { debit: round2(tbDr), credit: round2(tbCr), balanced: round2(tbDr) === round2(tbCr) },
+  }
+}
+
 export function registerAccountingArAp(app) {
   const canView = requirePermission('accounting.view')
   const canEdit = requirePermission('accounting.edit')
@@ -317,6 +395,12 @@ export function registerAccountingArAp(app) {
         }),
       })
     } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.get('/accounting/close-checklist', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    try { res.json(await closeChecklist(req.dealershipId, req.query?.period)) }
+    catch (e) { res.status(500).json({ error: e.message }) }
   })
 
   // Apply a payment to a receivable through the canonical primitive. This route does not
