@@ -32,6 +32,7 @@ import { accountingExceptions } from './accounting-ar-ap.js'
 import { peopleAttention } from './people-identity.js'
 import { academyAttention } from './academy.js'
 import { timeAttention } from './people-time.js'
+import { complianceAttention } from './people-compliance.js'
 
 /**
  * Every department that can answer for itself, and what a caller must hold to see it.
@@ -54,6 +55,7 @@ export const MY_DAY_SOURCES = [
   // Approving hours is what turns them into pay, so this rides `staff.time.approve` — the
   // permission that already means "this person decides what somebody gets paid".
   { key: 'time', label: 'Time', department: 'People', permission: 'staff.time.approve', load: timeAttention },
+  { key: 'compliance', label: 'Compliance', department: 'People', permission: 'staff.compliance.view', load: complianceAttention },
 ]
 
 /**

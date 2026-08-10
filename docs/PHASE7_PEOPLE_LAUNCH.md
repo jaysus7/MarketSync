@@ -453,3 +453,69 @@ It is named here rather than half-fixed: the honest repair is a policy authoring
 acknowledge chain plus an onboarding assignment producer, which is its own slice. Note that
 PR 7.1's `onboarding_not_started` attention item currently has **no remedy** — nothing can
 start onboarding — which is the same gap seen from the other side.
+
+---
+
+## PR 7.5 — Compliance: telling an absence of records from a clean bill of health
+
+This closes **G9**, opened in 7.4.
+
+**What was wrong.** `staff_compliance_dashboard_v` is well built and gated in the database. It
+counts overdue policy acknowledgements, overdue training, expired certifications, expired
+documents, overdue lifecycle tasks and open safety actions — and **every one of those counters
+read a table with no producer**. `staff_policies`, `staff_policy_versions` and
+`staff_policy_acknowledgements` had zero references anywhere in the codebase.
+`staff_lifecycle_assignments` had zero references despite 10 seeded templates and 90 template
+tasks. So a dealership that had published no policy and started no onboarding saw **all zeros,
+reading as "everybody is compliant"**. An absence of records is not evidence of compliance; on
+a compliance surface those two must never render the same way.
+
+**The honesty layer.** `coverage()` reports, per area, whether there are records behind the
+number at all, and `/hr/compliance` now ships it alongside the counts. A count that *fails*
+comes back `null`, never `0` — an unreadable table must not read as an empty one, which is the
+same defect one level up. The unmeasured state is itself a My Day item
+(`compliance_not_measured`), because otherwise a dealership measuring nothing has a permanently
+clear compliance queue.
+
+**The producers.** Policies can now be created, published, assigned and acknowledged, and
+onboarding can be started — the remedy PR 7.1's `onboarding_not_started` never had. Two rules
+carry A20:
+
+- **Only the person themselves can acknowledge.** `acknowledged_by_user_id` is the caller,
+  never a parameter. A manager may assign, waive with a recorded reason, or chase. A signature
+  somebody else supplied is not a signature.
+- **An acknowledgement records what was actually read.** The version's checksum is stored on
+  the acknowledgement, and the database refuses an acknowledgement without it. Otherwise a
+  dealership could rewrite a policy and still claim everybody had accepted it.
+
+**The templates had no producer either.** Five dealerships were seeded with the core checklists
+once; every dealership created since had none, so onboarding could never be started there.
+`lifecycle-templates.js` checks in the same 18 tasks (same `task_key`s, same content — this is
+not a rewrite) and `ensureLifecycleTemplates` seeds them on demand, keyed so re-running corrects
+wording rather than duplicating. Started checklists **copy** their tasks, so editing a template
+later cannot rewrite a checklist somebody is working through.
+
+### A weaker duplicate guard, caught before shipping — second time this phase
+
+This migration originally added a `reject_published_policy_edit` trigger. Probing staging
+revealed `protect_staff_policy_version()` **already exists and is stricter**: it makes published
+*and retired* versions fully immutable (allowing only the published → retired transition, and
+only when nothing else changed), and it **computes** `checksum_sha256` server-side on publish,
+overriding whatever a caller supplies. The duplicate was deleted and `publishPolicyVersion` no
+longer sends a checksum at all — it reads back the one the database computed. Sending a value
+that gets silently replaced is how two different checksums for one policy end up in circulation.
+A test pins the duplicate out. (The first instance was the SSRF guard in Phase 6S.)
+
+**Proved on staging** with ten probes inside a transaction that aborts, so nothing persisted:
+publishing computes the checksum; published text cannot be rewritten; a published version
+cannot return to draft; an acknowledgement with no record of what was read is refused; one with
+the checksum is accepted; a duplicate assignment is refused; one open onboarding per person per
+type; another dealership's employee cannot be onboarded here; a blocked task must say why;
+template task keys are unique.
+
+28 new tests; 974/974; six gates green. Migration applied to staging only.
+
+**Still deferred, named:** policy *content* (MarketSync ships no model policies — a dealership
+writes its own, and shipping template legal text would be advice this product is not qualified
+to give), and safety incidents / corrective actions, which have their own tables and are their
+own slice.

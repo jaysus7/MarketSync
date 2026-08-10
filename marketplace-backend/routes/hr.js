@@ -17,6 +17,7 @@
  */
 import { requireAuth, requireMfa } from '../middleware.js'
 import { ensureStaffMember, changeEmploymentStatus, teamDirectory, peopleAttention, EMPLOYMENT_STATES } from './people-identity.js'
+import { coverage } from './people-compliance.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { toCsv } from '../payroll-export.js'
@@ -227,7 +228,12 @@ export function registerHR(app) {
         .eq('dealership_id', req.dealershipId)
         .order('name')
       if (error) throw error
-      res.json({ rows: data || [] })
+      // Every counter in that view reads a table. Until Phase 7 PR 7.5 none of those tables
+      // had a producer, so a dealership that had published no policy and started no onboarding
+      // saw all zeros — which reads as "everybody is compliant". `coverage` says which areas
+      // have records behind them, so an absence of evidence can never render as evidence of
+      // compliance.
+      res.json({ rows: data || [], coverage: await coverage(req.dealershipId) })
     } catch (e) {
       res.status(500).json({ error: e.message })
     }

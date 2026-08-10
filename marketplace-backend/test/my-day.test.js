@@ -212,7 +212,7 @@ test('every registered source names a real permission and a loader', () => {
     assert.equal(typeof s.load, 'function', `${s.key} has no loader`)
     assert.ok(s.department && s.label, `${s.key} must carry a department and a label`)
   }
-  assert.equal(MY_DAY_SOURCES.length, 9)
+  assert.equal(MY_DAY_SOURCES.length, 10)
   assert.equal(new Set(MY_DAY_SOURCES.map(s => s.key)).size, MY_DAY_SOURCES.length,
     'a duplicate source key would silently drop a department from the day')
 })
@@ -220,7 +220,7 @@ test('every registered source names a real permission and a loader', () => {
 test('My Day composes the departments rather than deriving anything itself', () => {
   for (const builder of ['campaignAttention', 'socialAttention', 'conversationAttention',
                          'reputationAttention', 'salesVideoAttention', 'accountingExceptions',
-                         'peopleAttention', 'academyAttention', 'timeAttention']) {
+                         'peopleAttention', 'academyAttention', 'timeAttention', 'complianceAttention']) {
     assert.ok(myDay.includes(builder), `must compose ${builder}`)
   }
   // No local severity, no invented kinds.
