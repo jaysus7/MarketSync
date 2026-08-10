@@ -13,6 +13,8 @@
 const ACC_VIEWS = [
   ['deal-posting', 'Deal Posting'], ['cit', 'Contracts in Transit'],
   ['ar', 'Receivables'], ['ap', 'Payables'],
+  ['journal', 'Journal'], ['banking', 'Banking'],
+  ['payroll', 'Payroll & Commissions'], ['close', 'Close'],
 ];
 let __accView = 'deal-posting';
 function accView(v) { __accView = v; engineTab('accounting-overview', 'work'); }
@@ -70,6 +72,19 @@ function accAging(buckets) {
   </div>`;
 }
 
+// Advancing a period is a financial act: open → manager_approved → controller_approved
+// → closed → locked. The server owns the flow and the permission; this only asks.
+async function accAdvancePeriod(period, next) {
+  if (!confirm(`Advance ${period} to ${next.replace(/_/g, ' ')}? Closed and locked periods refuse new postings.`)) return;
+  try {
+    const r = await apiSendJson('/accounting/periods/advance', 'POST', { period });
+    showToast(`Period ${period} is now ${String(r.status || next).replace(/_/g, ' ')} ✓`, 'success');
+    ENGINE_DATA['accounting-overview'] = undefined;
+    engineTab('accounting-overview', ENGINE_STATE['accounting-overview'] || 'work', true);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.accAdvancePeriod = accAdvancePeriod;
+
 async function accApprove(id) {
   try {
     await apiSendJson(`/expenses/${id}/approve`, 'POST', {});
@@ -106,6 +121,8 @@ ENGINES['accounting-overview'] = {
     { label: 'Contracts in Transit', icon: 'chart', onclick: "accView('cit')" },
     { label: 'Receivables', icon: 'currency', onclick: "accView('ar')" },
     { label: 'Payables', icon: 'gem', onclick: "accView('ap')" },
+    { label: 'Journal', icon: 'clipboard', onclick: "accView('journal')" },
+    { label: 'Close', icon: 'check', onclick: "accView('close')" },
     { label: 'Full ledger', icon: 'chevronRight', onclick: "switchPage('accounting')" },
   ],
   nextActions: (d) => (d?.exceptions || []).slice(0, 5).map(x => ({
@@ -115,12 +132,20 @@ ENGINES['accounting-overview'] = {
   })),
 
   fetch: async () => {
-    const [exc, ar, ap, cit, deals] = await Promise.all([
+    // Each read degrades to empty on its own, so one unavailable feed never blanks the
+    // controller's whole day.
+    const [exc, ar, ap, cit, deals, journal, close, bank, periods, payPeriods, commExc] = await Promise.all([
       apiGetJson('/accounting/exceptions').catch(() => ({ exceptions: [] })),
       apiGetJson('/accounting/receivables').catch(() => ({ receivables: [], aging: {}, total: 0 })),
       apiGetJson('/accounting/payables').catch(() => ({ payables: [], aging: {}, total: 0 })),
       apiGetJson('/accounting/contracts-in-transit').catch(() => ({ contracts: [], total: 0 })),
       apiGetJson('/accounting/deal-posting').catch(() => ({ deals: [] })),
+      apiGetJson('/accounting/journal').catch(() => ({ entries: [] })),
+      apiGetJson('/accounting/close-checklist').catch(() => null),
+      apiGetJson('/plaid/transactions').catch(() => ({ transactions: [] })),
+      apiGetJson('/accounting/periods').catch(() => ({ periods: [], flow: [], current: 'open' })),
+      apiGetJson('/commissions/pay-periods').catch(() => ({ pay_periods: [] })),
+      apiGetJson('/commissions/exceptions').catch(() => ({ exceptions: [] })),
     ]);
     return {
       exceptions: exc.exceptions || [],
@@ -128,6 +153,12 @@ ENGINES['accounting-overview'] = {
       payables: ap.payables || [], apAging: ap.aging || {}, apTotal: ap.total || 0,
       contracts: cit.contracts || [], citTotal: cit.total || 0,
       dealPosting: deals.deals || [],
+      journal: journal.entries || [],
+      close,
+      bank: bank.transactions || [],
+      periods: periods.periods || [], periodFlow: periods.flow || [],
+      payPeriods: payPeriods.pay_periods || payPeriods.periods || [],
+      commissionExceptions: commExc.exceptions || [],
     };
   },
 
@@ -255,6 +286,145 @@ ENGINES['accounting-overview'] = {
           ${section('Exception', group('exception'), false, false)}
           ${section('Paid', group('paid').slice(0, 20), false, false)}
           ${rows.length ? '' : engEmpty('No vendor bills on file.')}`;
+      }
+
+      if (__accView === 'journal') {
+        const rows = d.journal || [];
+        const drafts = rows.filter(e => !e.posted);
+        // A journal's lines are shown as they were posted. Nothing here edits them — a
+        // posted entry is immutable, and a correction is a new reversing entry.
+        const entry = (e) => {
+          const dr = (e.lines || []).reduce((s, l) => s + (Number(l.debit) || 0), 0);
+          const cr = (e.lines || []).reduce((s, l) => s + (Number(l.credit) || 0), 0);
+          const balanced = Math.round(dr * 100) === Math.round(cr * 100);
+          return `<div class="py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+            <div class="flex items-center gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(e.event_name || e.source || 'Journal')}</div>
+                <div class="text-[12px] text-slate-400 truncate">${esc(e.entry_date || '')} · ${esc(e.source || '')}${e.reference ? ` · ${esc(String(e.reference).slice(0, 12))}` : ''}</div>
+                <div class="text-[12px] ${e.posted ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">${e.posted ? 'Posted' : 'Draft — not financial truth'}${balanced ? '' : ' · <span class="text-rose-500">unbalanced</span>'}</div>
+              </div>
+              <div class="shrink-0 text-right text-[13px] font-bold">${esc(accMoney(dr))}</div>
+            </div>
+            ${(e.lines || []).length ? `<div class="mt-1.5 space-y-0.5">${e.lines.map(l => `
+              <div class="flex items-center gap-2 text-[12px] text-slate-500 dark:text-slate-400">
+                <span class="min-w-0 flex-1 truncate">${esc(l.memo || l.account_id || '')}</span>
+                <span class="shrink-0 w-20 text-right">${Number(l.debit) ? esc(accMoney(l.debit)) : ''}</span>
+                <span class="shrink-0 w-20 text-right">${Number(l.credit) ? esc(accMoney(l.credit)) : ''}</span>
+              </div>`).join('')}
+              <div class="flex items-center gap-2 text-[12px] font-bold border-t border-slate-100 dark:border-slate-800/60 pt-1 mt-1">
+                <span class="min-w-0 flex-1">Debits = Credits</span>
+                <span class="shrink-0 w-20 text-right">${esc(accMoney(dr))}</span>
+                <span class="shrink-0 w-20 text-right">${esc(accMoney(cr))}</span>
+              </div></div>` : ''}
+          </div>`;
+        };
+        inner = `
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+            ${engKpi('Entries', rows.length)}
+            ${engKpi('Posted', rows.filter(e => e.posted).length, 'text-emerald-600 dark:text-emerald-400')}
+            ${engKpi('Drafts', drafts.length, drafts.length ? 'text-amber-600 dark:text-amber-400' : '')}
+          </div>
+          ${drafts.length ? engCard(`Drafts — excluded from every balance (${drafts.length})`, drafts.map(entry).join('')) : ''}
+          ${engCard('General journal', rows.length ? rows.slice(0, 60).map(entry).join('') : engEmpty('No journal entries yet.'))}`;
+      }
+
+      if (__accView === 'banking') {
+        const rows = d.bank || [];
+        // Honest scope: this is the bank FEED. There is no reconciliation model in the
+        // schema yet — no match state, no statement, no reconciliation record — so
+        // nothing here may claim a transaction is reconciled.
+        inner = `
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+            ${engKpi('Bank transactions', rows.length)}
+            ${engKpi('Money in', accMoney(rows.filter(t => (t.direction || '') === 'in').reduce((s, t) => s + (Number(t.amount) || 0), 0)))}
+            ${engKpi('Money out', accMoney(rows.filter(t => (t.direction || '') === 'out').reduce((s, t) => s + (Number(t.amount) || 0), 0)))}
+          </div>
+          ${engCard('Matching is not built yet', `<div class="text-[13px] text-slate-500 dark:text-slate-400">
+            This is the raw bank feed. MarketSync has no reconciliation model yet — no match
+            state, no statement, no reconciliation record — so nothing here is presented as
+            reconciled or matched. Building that is its own piece of work.</div>`)}
+          <div class="mt-4"></div>
+          ${engCard('Cash movement', rows.length ? rows.slice(0, 60).map(t => accRow({
+            title: t.name || t.merchant || 'Transaction',
+            sub: `${t.txn_date || ''}${t.category ? ` · ${t.category}` : ''}${t.pending ? ' · pending' : ''}`,
+            right: accMoney((t.direction === 'out' ? -1 : 1) * (Number(t.amount) || 0)),
+            tone: t.direction === 'out' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400',
+          })).join('') : engEmpty('No bank transactions. Connect a bank under Integrations.'))}`;
+      }
+
+      if (__accView === 'payroll') {
+        const periods = d.payPeriods || [];
+        const exc = d.commissionExceptions || [];
+        // Commission amounts are NOT recalculated here. The Commission Engine computes
+        // them deterministically; Accounting reviews, and sees what is exceptional.
+        inner = `
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+            ${engKpi('Pay periods', periods.length)}
+            ${engKpi('Open exceptions', exc.length, exc.length ? 'text-rose-600 dark:text-rose-400' : '')}
+            ${engKpi('Awaiting approval', periods.filter(p => !['paid', 'locked'].includes(p.status)).length)}
+          </div>
+          ${exc.length ? engCard(`Commission exceptions (${exc.length})`, exc.slice(0, 25).map(x => accRow({
+            title: x.type ? String(x.type).replace(/_/g, ' ') : 'Exception',
+            sub: x.detail || 'Needs a human before payroll runs',
+            right: x.severity || '', tone: 'text-rose-600 dark:text-rose-400',
+          })).join('')) : engCard('Commission exceptions', engEmpty('No commission exceptions.'))}
+          <div class="mt-4"></div>
+          ${engCard('Pay periods', periods.length ? periods.map(p => accRow({
+            title: p.name || `${p.start_date} → ${p.end_date}`,
+            sub: `${p.period_type || 'period'} · ${p.start_date || ''} → ${p.end_date || ''}`,
+            right: String(p.status || 'open').replace(/_/g, ' '),
+            tone: p.status === 'paid' ? 'text-emerald-600 dark:text-emerald-400'
+                : p.status === 'locked' ? 'text-slate-500' : 'text-amber-600 dark:text-amber-400',
+          })).join('') : engEmpty('No pay periods yet.'))}
+          ${engCard('Where commissions are calculated', `<div class="text-[13px] text-slate-500 dark:text-slate-400">
+            Amounts come from the Commission Engine and are not recomputed here — two
+            calculations would eventually disagree, and payroll is the wrong place to find out.</div>
+            <button onclick="switchPage('commissions')" class="mt-2 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Open Payroll</button>`)}`;
+      }
+
+      if (__accView === 'close') {
+        const c = d.close;
+        if (!c) {
+          inner = engCard('Close', engEmpty('The close checklist is unavailable right now.'));
+        } else {
+          const icon = (s) => s === 'clear' ? '<span class="text-emerald-600 dark:text-emerald-400">clear</span>'
+                            : s === 'manual' ? '<span class="text-slate-500">attestation</span>'
+                            : '<span class="text-rose-600 dark:text-rose-400">blocked</span>';
+          const flow = ['open', 'manager_approved', 'controller_approved', 'closed', 'locked'];
+          const next = flow[flow.indexOf(c.status) + 1] || null;
+          inner = `
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+              ${engKpi('Period', c.period)}
+              ${engKpi('Status', String(c.status || 'open').replace(/_/g, ' '))}
+              ${engKpi('Blockers', c.blockers, c.blockers ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}
+            </div>
+            ${engCard('What prevents this period from closing', (c.items || []).map(i => `
+              <div class="flex items-start gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+                <div class="min-w-0 flex-1">
+                  <div class="font-bold text-[13px] text-slate-900 dark:text-white">${esc(i.label)}</div>
+                  <div class="text-[12px] text-slate-400">${esc(i.detail || '')}</div>
+                </div>
+                <div class="shrink-0 text-[12px] font-bold">${icon(i.status)}</div>
+              </div>`).join(''))}
+            <div class="mt-4"></div>
+            ${engCard('Trial balance', `<div class="text-[13px] text-slate-600 dark:text-slate-300">
+              Debits ${esc(accMoney(c.trial_balance?.debit))} · Credits ${esc(accMoney(c.trial_balance?.credit))} —
+              <span class="${c.trial_balance?.balanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-bold">${c.trial_balance?.balanced ? 'balanced' : 'OUT OF BALANCE'}</span>
+            </div>`)}
+            <div class="mt-4"></div>
+            ${engCard('Advance the period', c.locked
+              ? `<div class="text-[13px] text-slate-500 dark:text-slate-400">This period is ${esc(c.status)}. Closed and locked periods refuse new postings; a correction is a reversing entry in an open period.</div>`
+              : next
+                ? `<div class="text-[13px] text-slate-500 dark:text-slate-400 mb-2">${c.can_close
+                    ? 'Nothing blocking. Advancing is a financial act and is recorded.'
+                    : `${c.blockers} blocking item(s) remain. Resolve them before closing.`}</div>
+                   <button onclick="accAdvancePeriod('${esc(c.period)}','${esc(next)}')" ${c.can_close ? '' : 'disabled'}
+                     class="px-3 py-1.5 rounded-lg text-[12px] font-bold transition ${c.can_close
+                       ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90'
+                       : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'}">Advance to ${esc(next.replace(/_/g, ' '))}</button>`
+                : `<div class="text-[13px] text-slate-500 dark:text-slate-400">This period is fully closed.</div>`)}`;
+        }
       }
 
       body.innerHTML = `<div class="flex gap-1.5 mb-3 overflow-x-auto">${nav}</div>${inner}`;

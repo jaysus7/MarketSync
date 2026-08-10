@@ -459,3 +459,58 @@ exception / cleared, and surfaces negative CIT explicitly as the signature of th
 Adds to the PR 5.1 list: `2026-08-10-phase5-deal-settlement-rule.sql` (corrects
 `vehicle_delivered`) and `2026-08-10-phase5-ap-rules.sql` (adds `expense_paid`). Both are
 upserts. Production still holds 0 journal entries, so there is nothing to remediate.
+
+---
+
+# PR 5.3 outcome — Journal, Close, Banking, Payroll & Commissions
+
+Completes the Accounting department's operating surface over infrastructure that already
+existed. No new financial primitives; nothing here posts a journal.
+
+## Journal
+
+The general journal with every line, showing **Debits = Credits** per entry. Drafts are
+labelled *"not financial truth"* and listed separately, because they pass no balance check and
+are excluded from every balance. Nothing in the view mutates a posting — a posted entry is
+immutable and a correction is a new reversing entry.
+
+## Close
+
+`closeChecklist()` derives every item from real accounting state — posting failures, unposted
+journals in the period, open accounting exceptions, negative CIT, AR/AP condition, commission
+exceptions, and a period trial balance computed from posted entries only. Advancing the period
+is **disabled while a blocking item stands**, and the server owns the flow
+(`open → manager_approved → controller_approved → closed → locked`) and its permission.
+
+Exactly **one** item is a manual attestation — bank reconciliation — and it says why it cannot
+be derived rather than looking like a real result.
+
+## Banking
+
+**Deliberately shallow, and says so.** `bank_transactions` is a raw Plaid feed with no match
+state, no statement and no reconciliation record; the schema has no reconciliation model at
+all. The view presents cash movement and states plainly that matching is not built, so nothing
+can read as reconciled. Building that model is its own piece of work.
+
+## Payroll & Commissions
+
+Composes the Commission Engine: pay periods, open commission exceptions, and their status.
+Commission amounts are **not recalculated** — two calculations would eventually disagree, and
+payroll is the wrong place to discover it. A test pins that no commission arithmetic exists in
+the surface.
+
+## Validation
+
+**613/613 tests**, six checks green. 9 new tests. Mobile validated at **390px across all
+twelve workspace surfaces**. Staging still holds 0 journal rows; no backfill.
+
+## What Accounting still does not have
+
+- **Bank reconciliation** — no data model. Matching, statements and reconciliation records
+  would all be new.
+- **Financial statements inside the workspace** — Insights points at the existing Accounting
+  page, which already computes P&L, balance sheet and trial balance from posted journals.
+  Department P&L, Budget vs Actual and Cash Flow remain as they were; Cash Flow in particular
+  should not ship until it can be produced correctly.
+- **Manual journal entry** — the ledger supports drafts and the posting function enforces
+  balance, but no UI creates one.
