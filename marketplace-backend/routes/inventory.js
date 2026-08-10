@@ -35,7 +35,7 @@ function parseCsv(text) {
 
 // Compress to WebP for the web — auto-orient from EXIF (phone photos), cap at
 // 1920px, quality 82 (visually lossless, ~70-80% smaller than the original JPG).
-async function toWebp(buffer, { max = 1920, quality = 82 } = {}) {
+export async function toWebp(buffer, { max = 1920, quality = 82 } = {}) {
   return sharp(buffer).rotate()
     .resize({ width: max, height: max, fit: 'inside', withoutEnlargement: true })
     .webp({ quality }).toBuffer()
