@@ -57,6 +57,7 @@ import { registerActionExecutor } from './routes/action-executor.js'
 import { registerAccountingEngine } from './routes/accounting-engine.js'
 import { registerAccountingArAp } from './routes/accounting-ar-ap.js'
 import { registerCampaigns } from './routes/campaigns.js'
+import { registerSocial } from './routes/social.js'
 import { registerConfigEngine } from './routes/config-engine.js'
 import { registerAiEngine } from './routes/ai-engine.js'
 import { registerAiRuntime } from './routes/ai-runtime.js'
@@ -173,6 +174,7 @@ registerActionExecutor(app)
 registerAccountingEngine(app)
 registerAccountingArAp(app)   // AR/AP/CIT read surface — derived from the posted ledger
 registerCampaigns(app)        // canonical Campaign + source taxonomy + attribution by ID
+registerSocial(app)           // social account identity + server-side publish authorization
 registerConfigEngine(app)
 registerAiEngine(app)
 registerAiRuntime(app)
