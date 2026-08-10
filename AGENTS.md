@@ -1,5 +1,10 @@
 # MarketSync — agent guardrails (READ BEFORE EDITING ANYTHING)
 
+**If you read only one thing first, read [A19 — Runtime proof](#a19-runtime-proof--the-dead-wiring-rule)
+and [A20 — External evidence](#a20-external-evidence-for-external-outcomes).** They were written
+after the same class of defect was found five times in this repo, and they are the rules most
+likely to stop you shipping something that looks finished and does nothing.
+
 **Part A** is the governing product/architecture law for the whole repo.
 **Part B** is the specific frontend guardrails that exist because well-meaning
 automated edits repeatedly broke the dashboard and the marketing site. **Keep
@@ -205,6 +210,102 @@ identify the owning engine → classify KEEP/FIX/MOVE/MERGE/DELETE/BUILD → sta
 the smallest plan → modify only necessary files → add/update targeted tests →
 run the regression gates → confirm existing behavior intact → report exactly what
 changed → **stop before unrelated work**. Small commits, one concern each.
+
+## A19. Runtime proof — the dead-wiring rule
+
+This repo has repeatedly contained complete-looking schemas, states, columns,
+triggers, routes and UI where **no executable runtime path** ever produced or
+consumed them. Found five times, in five unrelated engines:
+
+| What existed | What was missing |
+|---|---|
+| `journal_entries` + balance/line-count triggers | `postJournal` never set `posted`, so the triggers had never fired once — the general ledger had never recorded a transaction |
+| `social_posts.status` allowing `publishing`/`published`/`partially_published` | nothing ever published; a scheduled post sat at `scheduled` forever and nobody was told |
+| `leads.campaign_id` / `source_key` | the website — where most customers arrive — wrote neither, so all attribution was inferred |
+| `customer_consents` readable by `mayContact` | nothing ever wrote express consent, so every customer resolved as the weakest basis |
+| `vehicle-photos` / `vehicle-pdfs` buckets referenced everywhere | they did not exist on staging, and nothing creates buckets at runtime |
+
+Every one of these had green tests.
+
+> **The existence of schema, routes, states, columns, UI, tests or documentation
+> is NOT proof that a business capability works.**
+
+For every material feature, prove the chain end to end:
+
+```
+producer → canonical write/action → database state → consumer/read → user-visible outcome
+```
+
+- `vehicle_delivered` → accounting router → **posted** journal → ledger balances
+- post approved → due target → worker claim → provider adapter → **provider-created id** → published
+- website form → contact → canonical campaign/source ids → consent → CRM / My Day
+
+A feature is not complete because each piece exists independently.
+
+### Producer / consumer check
+
+For every new canonical field, state or event, answer all six explicitly:
+
+1. Who writes it? 2. When? 3. What prevents duplicate writes?
+4. Who reads it? 5. What user-visible behaviour depends on it?
+6. What happens if the producer fails?
+
+**If any answer is "nothing currently writes it" or "nothing consumes it", the
+feature is incomplete.** Say so rather than shipping it.
+
+### State vocabulary
+
+Do not create lifecycle states for future intent without the runtime transition
+path. For each material state name the producer, the legal transition, the
+consumer, the failure path — and test the transition. `publishing`, `published`,
+`failed`, `posted`, `verified`, `paid` must each correspond to real evidence.
+
+### Live behaviour proof
+
+For protected or materially important workflows, test against the **real staging
+database** where safe, using rollback probes or isolated fixtures. Inspect
+defaults, constraints, triggers, generated states, unique indexes, permission
+rows, and the actual producers and consumers.
+
+**Source-text assertions are not sufficient as primary proof of business
+behaviour.** They may supplement behavioural tests; they may not replace them
+for financial posting, workflow transitions, external publishing, customer
+identity, consent, permissions, attribution, payments, inventory or Parts
+movement, or communications. Critical E2E tests assert observable state, not
+implementation presence.
+
+## A20. External evidence for external outcomes
+
+> **Any state representing successful completion in an external system must
+> require authoritative evidence from that system.**
+
+Do not mark email sent, social published, payment captured, identity verified,
+webhook processed, or any similar irreversible or external outcome **from intent
+alone**. Persist success only when the authoritative provider returns evidence of
+completion:
+
+| State | Required evidence |
+|---|---|
+| social `published` | provider-created post id |
+| payment `captured` | provider confirmation / reference |
+| identity `verified` | verification provider result |
+| email/SMS `sent`/`delivered` | provider acknowledgement |
+| webhook `processed` | successful canonical action / idempotent result |
+
+**Never infer success from** request initiation, local intent, queued status,
+absence of an error, or elapsed time.
+
+Saying "published" without a provider id is lying to the dealer. An honest
+*"No Facebook integration is connected. Nothing was sent."* is worth more than a
+green state that never left MarketSync.
+
+### Empty success is a failure mode
+
+When a business action fails, do not convert the error into `[]`, `null`, an
+empty card, an indefinitely loading spinner, or an unchanged pending state.
+User-visible workflows must distinguish **empty / loading / success / failed /
+blocked / unsupported**. Silence is the bug — it is how a scheduled post sat
+unpublished forever with nobody told.
 
 ---
 

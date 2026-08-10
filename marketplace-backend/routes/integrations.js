@@ -4,6 +4,7 @@
  * client — the UI only learns whether a provider is configured/enabled and its status.
  */
 import { supabaseAdmin, FRONTEND_URL } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { encryptJson, decryptJson, piiConfigured, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
 import { emitWebhook, WEBHOOK_EVENTS } from '../webhooks.js'
@@ -317,7 +318,11 @@ export function registerIntegrations(app) {
     }
   })
 
-  app.post('/integrations/:provider/test', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+  // Both of these make outbound provider calls on the dealership's credentials. The caller is
+  // already permissioned, so this bounds cost and third-party rate-limit exposure rather than
+  // access. (Phase 6S)
+  app.post('/integrations/:provider/test', requireAuth, requireMfa, requirePermission('integrations.manage'),
+    rateLimit('integration-test', 30, 15 * 60 * 1000, { dealership: true }), async (req, res) => {
     const provider = String(req.params.provider || '')
     if (!OAUTH_PROVIDERS.includes(provider)) return res.status(404).json({ error: 'Unknown provider' })
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
@@ -436,7 +441,8 @@ Rules: 1 short paragraph, roughly 30–80 words, plain text only (no markdown, n
   // dealer's connected token; when Google hasn't approved the API for our project
   // yet it returns { staged:true } so the UI can fall back to assisted posting
   // (copy the text, open Google Business). No change needed here once approved.
-  app.post('/integrations/google_business/post', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
+  app.post('/integrations/google_business/post', requireAuth, requireMfa, requirePermission('integrations.manage'),
+    rateLimit('gbp-post', 30, 15 * 60 * 1000, { dealership: true }), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const text = String(req.body?.text || '').trim()
     if (!text) return res.status(400).json({ error: 'Write the post text first.' })

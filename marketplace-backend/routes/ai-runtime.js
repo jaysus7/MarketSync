@@ -24,7 +24,7 @@ import { getContact, findOrCreateContact } from './crm.js'
 import { routeAndNotifyLead } from '../lead-routing.js'
 import { createNotification } from '../notifications.js'
 import { assistantDailyAllowed, recordAssistantChat, aiAllowed, recordUsage } from '../usage.js'
-import { rateLimit } from '../security.js'
+import { rateLimit, randomToken } from '../security.js'
 import {
   startOrContinueConversation, saveMessage, getHistory, assembleContext, saveMemory,
 } from './ai-engine.js'
@@ -555,7 +555,10 @@ export function registerAiRuntime(app) {
     if (!d || !d.ai_chatbot_active) return res.status(403).json({ error: 'chatbot_not_enabled' })
     if (!(await verifyRecaptcha(req.body?.recaptcha_token))) return res.status(403).json({ error: 'recaptcha_failed' })
     if (!(await aiAllowed(d.id, false))) return res.status(429).json({ error: 'busy' })
-    const visitorToken = String(req.body?.visitor_token || '') || ('v_' + Math.random().toString(36).slice(2) + Date.now().toString(36))
+    // This token IS the credential: resolveConversation() looks a conversation up by it, so
+    // whoever holds it reads that visitor's transcript. Math.random() is predictable from a
+    // few observed outputs, which made other visitors' chats derivable. (Phase 6S)
+    const visitorToken = String(req.body?.visitor_token || '') || ('v_' + randomToken(18))
     const out = await publicChat({ dealershipId: d.id, conversationId: req.body?.conversation_id || null, visitorToken, message, website: req.body?.website || null })
     if (!out) return res.status(500).json({ error: 'chat failed' })
     res.json({ ...out, visitor_token: visitorToken })

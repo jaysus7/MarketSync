@@ -1,4 +1,5 @@
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL, EXTENSION_URL, BACKEND_URL } from '../shared.js'
+import { rateLimit } from '../security.js'
 import { runInventorySync, syncAllDealerships, sweepStaleExtensionFeeds } from '../sync/engine.js'
 import { runDripCampaign, verifyUnsubToken } from '../drip.js'
 import { scanExceptions } from './workflow-scan.js'
@@ -71,12 +72,18 @@ async function cleanupExpiredSoldListings() {
 }
 
 export function registerRoutes(app) {
-  app.get('/sync', async (req, res) => {
+  // Unauthenticated until the secret is checked, and a valid call starts a full inventory
+  // sync. Generous enough for any real scheduler, tight enough that guessing the secret is
+  // not something you can do quickly. (Phase 6S)
+  app.get('/sync', rateLimit('sync-manual', 60, 60 * 60 * 1000), async (req, res) => {
     if (!process.env.SYNC_SECRET) return res.status(503).json({ error: 'Sync endpoint not configured' })
     if (!syncSecretAuthorized(req)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
-    const targetDealershipId = req.query.dealership_id
+    // A repeated query param arrives as an array in Express, and everything downstream
+    // assumes a string. Coerce at the boundary. (Phase 6S)
+    const targetDealershipId = String(Array.isArray(req.query.dealership_id)
+      ? req.query.dealership_id[0] : (req.query.dealership_id || ''))
     if (!targetDealershipId) return res.status(400).json({ error: 'Missing target dealership parameter' })
 
     try {
@@ -88,14 +95,15 @@ export function registerRoutes(app) {
       // doesn't time out on large inventories or slow dealer sites.
       res.json({ success: true, message: 'Sync started' })
       runInventorySync(targetDealershipId).catch(e =>
-        console.error(`[sync] background sync failed for ${targetDealershipId}:`, e.message)
+        // Never put a user-controlled value in the format position. (Phase 6S)
+        console.error('[sync] background sync failed for %s: %s', targetDealershipId, e.message)
       )
     } catch (e) {
       res.status(500).json({ error: e.message })
     }
   })
 
-  app.post('/cron/sync-all', async (req, res) => {
+  app.post('/cron/sync-all', rateLimit('cron-sync-all', 60, 60 * 60 * 1000), async (req, res) => {
     if (!process.env.SYNC_SECRET) return res.status(503).json({ error: 'Cron endpoint not configured' })
     if (!syncSecretAuthorized(req)) return res.status(401).json({ error: 'Unauthorized' })
     res.json({ success: true, message: 'Full sync started' })
@@ -104,7 +112,7 @@ export function registerRoutes(app) {
       .catch(e => console.error('[sync] background sync-all failed:', e.message))
   })
 
-  app.post('/cron/drip', async (req, res) => {
+  app.post('/cron/drip', rateLimit('cron-drip', 60, 60 * 60 * 1000), async (req, res) => {
     if (!process.env.SYNC_SECRET) return res.status(503).json({ error: 'Cron endpoint not configured' })
     if (!syncSecretAuthorized(req)) return res.status(401).json({ error: 'Unauthorized' })
     const result = await runDrip('manual')

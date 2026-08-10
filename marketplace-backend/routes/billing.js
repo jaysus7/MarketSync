@@ -1,4 +1,5 @@
 import express from 'express'
+import { rateLimit } from '../security.js'
 import { stripe, supabaseAdmin, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
@@ -580,11 +581,15 @@ export function registerRoutes(app) {
     res.json({ currency, packages: rows })
   })
 
-  app.get('/billing/ai-boost-verify',    requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'ai_boost'))
-  app.get('/billing/ai-chatbot-verify',  requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'ai_chatbot'))
-  app.get('/billing/vin-sticker-verify', requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'vin_sticker'))
-  app.get('/billing/inv-intel-verify',   requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'inv_intel'))
-  app.get('/billing/ai-vision-verify',   requireAuth, requireMfa, requireBillingManage, (req, res) => verifyAddonSession(req, res, 'ai_vision'))
+  // Each verify hits Stripe. The caller is already authenticated, MFA'd and permissioned, so
+  // this is a cost guard rather than an access control — a stuck client retrying should not
+  // hammer a third party on our account. (Phase 6S)
+  const verifyLimit = rateLimit('billing-verify', 60, 15 * 60 * 1000, { dealership: true })
+  app.get('/billing/ai-boost-verify',    requireAuth, requireMfa, requireBillingManage, verifyLimit, (req, res) => verifyAddonSession(req, res, 'ai_boost'))
+  app.get('/billing/ai-chatbot-verify',  requireAuth, requireMfa, requireBillingManage, verifyLimit, (req, res) => verifyAddonSession(req, res, 'ai_chatbot'))
+  app.get('/billing/vin-sticker-verify', requireAuth, requireMfa, requireBillingManage, verifyLimit, (req, res) => verifyAddonSession(req, res, 'vin_sticker'))
+  app.get('/billing/inv-intel-verify',   requireAuth, requireMfa, requireBillingManage, verifyLimit, (req, res) => verifyAddonSession(req, res, 'inv_intel'))
+  app.get('/billing/ai-vision-verify',   requireAuth, requireMfa, requireBillingManage, verifyLimit, (req, res) => verifyAddonSession(req, res, 'ai_vision'))
 
   // ── Customer Portal ────────────────────────────────────────────────────────
   app.post('/billing/portal', requireAuth, requireMfa, requireBillingManage, async (req, res) => {
