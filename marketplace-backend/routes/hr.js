@@ -339,6 +339,17 @@ export function registerHR(app) {
         net_amount: i.net_amount,
         currency: i.currency,
       }))
+      // An empty payroll export is REFUSED (Phase 7 PR 7.4). Until that slice, nothing wrote
+      // `staff_payroll_items` at all, so this endpoint returned 200 and a CSV of headers with
+      // no rows — a successful export that reads as "nobody is owed anything". A payroll file
+      // that is silently empty is the worst possible version of "empty success is a failure
+      // mode", because the next thing that happens is that nobody gets paid.
+      if (!rows.length) {
+        return res.status(409).json({
+          error: 'This batch has no payroll lines, so there is nothing to export.',
+          hint: 'Calculate the batch first: POST /hr/payroll/batches/:id/calculate turns approved clock hours into lines and names anybody it could not compute.',
+        })
+      }
       await audit(req, 'staff.payroll_exported', { batch_id: req.params.id, rows: rows.length })
       res.setHeader('Content-Type', 'text/csv')
       res.setHeader('Content-Disposition', `attachment; filename="payroll-${req.params.id}.csv"`)

@@ -537,14 +537,30 @@ export async function setLineProgress(dealershipId, lineId, action, {
 
 // Actual labour comes from the existing payroll clock, which already carries ro_id.
 // Service does not get a second time system.
+//
+// It returns whether anything was RECORDED, not just a number. Until PR 7.4 built the clock,
+// this function had no producer at all and returned 0.0 for every repair order in existence —
+// which reads as "this job took no time", not as "nobody has clocked against it". A zero that
+// cannot be told apart from an absence is how a dealership loses hours it never billed.
 export async function roActualHours(dealershipId, roId) {
   const { data } = await supabaseAdmin.from('time_entries')
-    .select('clock_in, clock_out, break_minutes, employee_id')
-    .eq('dealership_id', dealershipId).eq('ro_id', roId).not('clock_out', 'is', null)
-  return round2((data || []).reduce((sum, t) => {
+    .select('clock_in, clock_out, break_minutes, employee_id, status')
+    .eq('dealership_id', dealershipId).eq('ro_id', roId)
+
+  const entries = data || []
+  const closed = entries.filter(t => t.clock_out)
+  const hours = round2(closed.reduce((sum, t) => {
     const ms = new Date(t.clock_out).getTime() - new Date(t.clock_in).getTime()
     return sum + Math.max(0, ms / 3600000 - n(t.break_minutes) / 60)
   }, 0))
+
+  return {
+    hours,
+    // An open shift is time being worked right now; the total is not final while one exists.
+    open_entries: entries.length - closed.length,
+    entries: closed.length,
+    recorded: entries.length > 0,
+  }
 }
 
 // ── Parts demand — Service asks, Parts answers ───────────────────────────────
@@ -1133,7 +1149,7 @@ export function registerServiceEngine(app) {
   })
   app.get('/service-engine/ros/:id/actual-hours', requireAuth, canRead, async (req, res) => {
     if (!guard(req, res)) return
-    res.json({ hours: await roActualHours(req.dealershipId, req.params.id) })
+    res.json(await roActualHours(req.dealershipId, req.params.id))
   })
 
   // ── Authorization ──────────────────────────────────────────────────────────

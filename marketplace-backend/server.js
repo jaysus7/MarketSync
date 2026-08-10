@@ -67,6 +67,7 @@ import { registerReputation } from './routes/reputation.js'
 import { registerMyDay } from './routes/my-day.js'
 import { registerPeopleOffboarding } from './routes/people-offboarding.js'
 import { registerAcademy } from './routes/academy.js'
+import { registerPeopleTime } from './routes/people-time.js'
 import { registerConfigEngine } from './routes/config-engine.js'
 import { registerAiEngine } from './routes/ai-engine.js'
 import { registerAiRuntime } from './routes/ai-runtime.js'
@@ -193,6 +194,7 @@ registerReputation(app)       // reviews asked for honestly — no review gating
 registerMyDay(app)            // one queue across departments, permission-gated per source
 registerPeopleOffboarding(app) // leaving properly — reassign owned work, revoke roles, then terminate
 registerAcademy(app)          // Your Path by role/department + credentials that required the work
+registerPeopleTime(app)       // the time clock — there was none — and payroll that names who it could not pay
 registerConfigEngine(app)
 registerAiEngine(app)
 registerAiRuntime(app)
