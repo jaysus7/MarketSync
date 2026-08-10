@@ -332,6 +332,89 @@ function clearLocalStorage() {
   Object.entries(saved).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch {} });
 }
 
+// ── Employee time clock (header button — every employee) ─────────────────────
+let __clockState = { clocked_in: false, since: null };
+let __clockTimer = null;
+function fmtHm(mins) { mins = Math.max(0, Math.round(mins)); const h = Math.floor(mins / 60), m = mins % 60; return h ? `${h}h ${m}m` : `${m}m`; }
+async function msTimeClockInit() {
+  const btn = document.getElementById('clock-btn'); if (!btn) return;
+  if (!localStorage.getItem('token')) return;
+  try {
+    const s = await apiGetJson('/time/status', { retries: 1, timeoutMs: 8000 });
+    __clockState.clocked_in = !!s.clocked_in;
+    __clockState.since = s.open_session?.clock_in || null;
+    btn.style.display = '';
+    renderClockBtn();
+    if (__clockTimer) clearInterval(__clockTimer);
+    if (__clockState.clocked_in) __clockTimer = setInterval(renderClockBtn, 60000);
+    // Managers get a Timesheets button too.
+    const ts = document.getElementById('timesheets-btn');
+    if (ts && typeof canDo === 'function' && canDo('users.manage')) ts.style.display = '';
+  } catch (e) { /* leave the button hidden if the endpoint isn't reachable */ }
+}
+function renderClockBtn() {
+  const btn = document.getElementById('clock-btn'), lab = document.getElementById('clock-btn-label'); if (!btn || !lab) return;
+  const emerald = ['bg-emerald-50', 'dark:bg-emerald-950/40', 'text-emerald-700', 'dark:text-emerald-300', 'border-emerald-300', 'dark:border-emerald-800'];
+  const rose = ['bg-rose-50', 'dark:bg-rose-950/40', 'text-rose-700', 'dark:text-rose-300', 'border-rose-300', 'dark:border-rose-800'];
+  if (__clockState.clocked_in) {
+    const since = __clockState.since ? Date.parse(__clockState.since) : null;
+    const running = since ? Math.round((Date.now() - since) / 60000) : 0;
+    lab.textContent = `Clock Out · ${fmtHm(running)}`;
+    emerald.forEach(c => btn.classList.remove(c)); rose.forEach(c => btn.classList.add(c));
+  } else {
+    lab.textContent = 'Clock In';
+    rose.forEach(c => btn.classList.remove(c)); emerald.forEach(c => btn.classList.add(c));
+  }
+}
+async function msToggleClock() {
+  const btn = document.getElementById('clock-btn'); if (btn) btn.disabled = true;
+  try {
+    if (__clockState.clocked_in) { const r = await apiSendJson('/time/clock-out', 'POST', {}); showToast(`Clocked out — ${fmtHm(r.minutes)} logged`, 'success'); }
+    else { await apiSendJson('/time/clock-in', 'POST', {}); showToast('Clocked in — have a great shift', 'success'); }
+    await msTimeClockInit();
+  } catch (e) { showToast(e.message || 'Time clock error', 'error'); }
+  finally { if (btn) btn.disabled = false; }
+}
+window.msToggleClock = msToggleClock; window.msTimeClockInit = msTimeClockInit;
+
+// Manager timesheets — a modal with a date range, per-employee hours, and CSV export.
+async function openTimesheets() {
+  let modal = document.getElementById('ts-modal');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'ts-modal'; document.body.appendChild(modal); }
+  modal.className = 'fixed inset-0 z-[100] bg-slate-950/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto';
+  const to = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - 13 * 86400000).toISOString().slice(0, 10);
+  modal.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl mt-10 p-5 shadow-2xl">
+    <div class="flex items-center justify-between mb-3"><h3 class="text-lg font-black text-slate-900 dark:text-white">Timesheets</h3>
+      <button onclick="document.getElementById('ts-modal').remove()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button></div>
+    <div class="flex flex-wrap items-end gap-2 mb-3">
+      <div><label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">From</label><input id="ts-from" type="date" value="${from}" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></div>
+      <div><label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">To</label><input id="ts-to" type="date" value="${to}" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></div>
+      <button onclick="tsLoad()" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-bold">Load</button>
+      <button onclick="tsExport()" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold">CSV</button>
+    </div>
+    <div id="ts-body" class="text-sm text-slate-400">Loading…</div></div>`;
+  tsLoad();
+}
+async function tsLoad() {
+  const body = document.getElementById('ts-body'); if (!body) return;
+  const from = document.getElementById('ts-from')?.value, to = document.getElementById('ts-to')?.value;
+  body.innerHTML = 'Loading…';
+  let d; try { d = await apiGetJson(`/time/timesheets?from=${from}&to=${to}`); } catch (e) { body.innerHTML = `<span class="text-rose-500">${esc(e.message)}</span>`; return; }
+  const rows = (d.employees || []).map(e => `<tr class="border-t border-slate-100 dark:border-slate-800"><td class="py-1.5">${esc(e.name)}</td><td class="py-1.5 text-right font-bold">${e.hours}h</td></tr>`).join('');
+  body.innerHTML = `<div class="text-xs text-slate-400 mb-1">${d.from} → ${d.to} · Total <b class="text-slate-700 dark:text-slate-200">${d.total_hours}h</b></div>
+    <table class="w-full"><thead><tr class="text-left text-slate-400 text-xs"><th class="pb-1">Employee</th><th class="pb-1 text-right">Hours</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="2" class="py-3 text-center text-slate-400">No hours in this range.</td></tr>'}</tbody></table>`;
+}
+function tsExport() {
+  const from = document.getElementById('ts-from')?.value, to = document.getElementById('ts-to')?.value;
+  commDownloadCsv(`/time/timesheets.csv?from=${from}&to=${to}`, `timesheet-${from}_to_${to}.csv`);
+}
+window.openTimesheets = openTimesheets; window.tsLoad = tsLoad; window.tsExport = tsExport;
+// Boot the clock once the dashboard shell is up.
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(msTimeClockInit, 800));
+else setTimeout(msTimeClockInit, 800);
+
 // Deliberate sign-out. Defined globally + wired via inline onclick on the Sign Out button
 // so it works even if a later listener in setupActionListeners fails to attach. Belt-and-
 // suspenders: explicitly drop the session keys, flag the extension bridge not to re-login,
