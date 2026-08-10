@@ -13,7 +13,7 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
 | **Baseline on `staging`** | `8cc0489` — 465/465 tests green, all six `check:*` green |
-| **In flight** | **Batches 1 and 2 COMPLETE** — full Service operations E2E-proved, Payment Core built, Service accounting corrected, invoice read + explicit financial disposition, deposits converted to a Payment producer (520/520, six checks). **Batch 3 started** — the Service advisor workspace is built and green (528/528). Remaining: Parts workspace, technician view, manager insights, mobile + final E2E. |
+| **In flight** | **Batches 1 and 2 COMPLETE** — full Service operations E2E-proved, Payment Core built, Service accounting corrected, invoice read + explicit financial disposition, deposits converted to a Payment producer (520/520, six checks). **Batch 3 in progress** — Service advisor workspace and Parts department workspace both built and green (536/536). Remaining: technician-scoped view, mobile ~390px validation, final Service-only E2E. |
 | **Roadmap position** | Phase 1–3 complete. Phase 4: #72/#73/#74 merged to `staging`; Batch 1 steps 1–5 built on the branch and green. **The database owns the RO state machine — read audit §32 before touching Service.** Remaining: Batch 1 integration proof → Batch 2 (financial close) → Batch 3 (Service/Parts operating UI + E2E). After Fixed Ops the handoff's stated order is Accounting → Marketing → People → dealership-wide My Day; **confirm against the canonical roadmap before assigning a phase number to it.** |
 
 ## Read before coding

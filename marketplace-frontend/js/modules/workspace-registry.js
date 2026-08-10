@@ -99,7 +99,10 @@ const MS_WORKSPACES = {
 
   parts: {
     label: 'Parts', icon: 'gem', accent: 'amber', mgr: true,
-    pages: [{ page: 'service-parts', label: 'Inventory' }],
+    pages: [
+      { page: 'parts-overview', label: 'Today' },
+      { page: 'service-parts', label: 'Catalogue' },
+    ],
   },
 
   // The Accounting page renders its own rich internal menu (Financials, Insights,
