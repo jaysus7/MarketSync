@@ -13,7 +13,7 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 | **Last updated** | 2026-08-09 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
 | **Baseline on `staging`** | `8cc0489` — 465/465 tests green, all six `check:*` green |
-| **In flight** | **Batch 1 COMPLETE** (20/20 E2E). **Batch 2 started** — Service tax/AR and parts-receipt accounting corrected going forward (503/503, six checks). Remaining in Batch 2: invoice, payments/AR clearing (**blocked — no payment record exists anywhere in MarketSync; see the decision note below**), delivered→closed. Then Batch 3 (operating UI). |
+| **In flight** | **Batches 1 and 2 COMPLETE** — full Service operations E2E-proved, Payment Core built, Service accounting corrected, invoice read + explicit financial disposition, deposits converted to a Payment producer (520/520, six checks). **Next: Batch 3 — the Service/Parts operating UI + final E2E.** |
 | **Roadmap position** | Phase 1–3 complete. Phase 4: #72/#73/#74 merged to `staging`; Batch 1 steps 1–5 built on the branch and green. **The database owns the RO state machine — read audit §32 before touching Service.** Remaining: Batch 1 integration proof → Batch 2 (financial close) → Batch 3 (Service/Parts operating UI + E2E). After Fixed Ops the handoff's stated order is Accounting → Marketing → People → dealership-wide My Day; **confirm against the canonical roadmap before assigning a phase number to it.** |
 
 ## Read before coding
@@ -226,10 +226,17 @@ is **not** required — carrying AR is a real decision — but an *implicit* bal
 refused by a database constraint, and you cannot claim paid-in-full with money
 outstanding or carry AR that does not exist.
 
-**Still to wire — the last piece of Batch 2:**
-`routes/deposits.js` becomes a **producer into** `payments`. Keep the Stripe flow;
-persist the canonical Payment before anything downstream depends on it, and emit
-`payment.received` only on genuine creation.
+**Deposits producer DONE — BATCH 2 IS COMPLETE.** `stampDepositPaid` now persists a
+canonical Payment *before* anything downstream relies on it, keyed on Stripe's
+`payment_intent`, so a webhook retry returns the existing Payment and emits nothing. No
+allocation is made: the unapplied balance **is** the deposit, which is why no deposits
+table exists. The Stripe Checkout experience is untouched.
+
+**Production double-post is guarded.** The `deposit.paid` event now carries
+`posted_via: 'payment'`, and the accounting engine's legacy `deposit.paid` case returns
+early when it sees it. The legacy `deposit_received` rule is **preserved, not deleted** —
+production has producers that predate the payment primitive — but it will not post money
+that already posted canonically. Exactly one accounting effect per real payment.
 
 ⚠️ **Production only:** the legacy `deposit_received` rule exists there (Stage 3 A5
 migration, which never ran on staging). `deposit.paid` and `payment.received` must not

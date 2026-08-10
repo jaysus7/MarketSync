@@ -221,6 +221,11 @@ async function routeFinancialEvent(event) {
     case 'commission.clawed_back':
       return { handler: 'commission_clawed_back', journalId: await postCommissionClawback(did, p.deal_id || e, event.created_at) }
     case 'deposit.paid': {
+      // Exactly ONE accounting effect per real payment. When the deposit was persisted
+      // through the canonical Payment primitive it has already posted via
+      // `payment.received`, so this legacy path must not post it again. The rule itself
+      // is preserved for producers that predate the payment primitive.
+      if (p.posted_via === 'payment') return null
       const cents = n(p.amount_cents); if (cents <= 0) return null
       return { handler: 'deposit_received', journalId: await postByRule(did, 'deposit_received', { deposit_amount: round2(cents / 100), __source: 'deposit', __reference: p.payment_ref || e, __date: event.created_at, __refs: { ref_contact_id: e } }) }
     }

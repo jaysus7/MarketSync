@@ -104,3 +104,45 @@ test('payments are core — Service does not own them and writes no journal', ()
     'the payment module records money, Accounting posts it')
   assert.doesNotMatch(payments, /repair_orders|service_/, 'the core payment module must not know about Service')
 })
+
+// ── Deposits are a Payment producer, not a second payment system ─────────────
+
+const deposits = readFileSync(new URL('../routes/deposits.js', import.meta.url), 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+
+test('a confirmed Stripe deposit persists as a canonical Payment first', () => {
+  assert.match(deposits, /import \{ recordPayment, publishPaymentReceived \} from '\.\/payments\.js'/,
+    'deposits must use the core primitive, not their own storage')
+  const fn = deposits.match(/export async function stampDepositPaid[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /await recordPayment\(dealershipId, \{/, 'the money must be persisted')
+  assert.match(fn, /processorReference: paymentRef \|\| null/,
+    "Stripe's payment_intent is the idempotency anchor")
+  assert.match(fn, /processor: \(provider \|\| 'stripe'\)\.toLowerCase\(\)/)
+  // The Stripe checkout experience itself is untouched.
+  assert.match(deposits, /stripe\.checkout\.sessions\.create/, 'the existing checkout flow must remain')
+})
+
+test('a deposit is an UNAPPLIED payment — no deposits table, no allocation', () => {
+  const fn = deposits.match(/export async function stampDepositPaid[\s\S]*?\n\}/)?.[0] || ''
+  assert.doesNotMatch(fn, /allocatePayment/,
+    'deposit money is not applied to an obligation yet — the unapplied balance IS the deposit')
+  assert.doesNotMatch(deposits, /from\('deposits'\)/, 'there must be no deposits table')
+})
+
+test('a webhook retry creates neither a second payment nor a second posting', () => {
+  const fn = deposits.match(/export async function stampDepositPaid[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /if \(createdPayment\) await publishPaymentReceived/,
+    'the financial event fires only on genuine creation')
+  // recordPayment itself returns the existing row on a repeat (proved in core tests).
+})
+
+test('exactly one accounting effect per real payment, including in production', () => {
+  const fn = deposits.match(/export async function stampDepositPaid[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /posted_via: payment \? 'payment' : null/,
+    'the deposit event must declare that the money already posted canonically')
+  assert.match(acctEngine, /if \(p\.posted_via === 'payment'\) return null/,
+    'the legacy deposit_received path must stand down when it did')
+  // The legacy rule is preserved, not deleted — production still has producers that
+  // predate the payment primitive.
+  assert.match(acctEngine, /case 'deposit\.paid': \{/, 'the legacy path must remain for older producers')
+})
