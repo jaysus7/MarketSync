@@ -71,7 +71,18 @@ export function registerEsign(app) {
     if (r.expires_at && new Date(r.expires_at) < new Date()) return res.status(410).json({ error: 'This signing link has expired.' })
     const { data: d } = await supabaseAdmin.from('dealerships').select('name, branding').eq('id', r.dealership_id).maybeSingle()
     if (r.status === 'sent') {
-      await supabaseAdmin.from('esign_requests').update({ status: 'viewed', audit: await appendAudit(r.id, { event: 'viewed', at: new Date().toISOString(), ip: getClientIp(req) }) }).eq('id', r.id).catch(() => {})
+      // Best effort: recording the view must never stop the signer seeing the document.
+      // This was `.eq(...).catch(() => {})`, and a supabase query builder is a thenable
+      // with NO .catch — so the first view of every document threw a TypeError and the
+      // signer got an error page instead of their contract.
+      try {
+        const { error } = await supabaseAdmin.from('esign_requests')
+          .update({ status: 'viewed', audit: await appendAudit(r.id, { event: 'viewed', at: new Date().toISOString(), ip: getClientIp(req) }) })
+          .eq('id', r.id)
+        if (error) console.error('[esign] could not record view:', error.message)
+      } catch (e) {
+        console.error('[esign] could not record view:', e.message)
+      }
     }
     res.json({
       ok: true, doc_title: r.doc_title, doc_type: r.doc_type, doc_html: r.doc_html,
