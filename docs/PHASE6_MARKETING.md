@@ -309,3 +309,49 @@ size and MIME limits.
 own piece of work), server-side transcoding and poster-frame extraction, and actually
 delivering the SMS/email — sending records the consent basis and marks the video sent, but the
 message itself rides the existing sender work rather than growing a second one here.
+
+### PR 6.8 — Reputation: asking for reviews, honestly *(this PR)*
+
+**Scope note:** the roadmap slice reads "Website / Reputation". The dealer website already
+exists and works (`routes/site.js`, `submodules/site-public.js`); **Reputation did not exist at
+all** — no reviews, no requests, no model. This PR does Reputation. Website remains open.
+
+**The decision: no review gating.** The standard dealer "reputation management" feature asks
+the customer how they feel first, then sends happy customers to Google and routes unhappy ones
+to a private form. The FTC has acted on it and it breaches Google's own policies — but the
+reason not to build it is simpler than either: it manufactures a rating that is not true, and
+every dealer who buys it is buying a liability nobody told them about.
+
+That decision is **structural, not a policy note somebody can ignore**:
+
+- A request is created from an **event** — a delivery, a closed repair order — and the route
+  refuses one that does not name the visit it follows. There is no `sentiment` field, no
+  `expected_rating`, and no pre-screen question, because there is no point in the flow where
+  sentiment *could* be consulted. The tests assert the **absence** of that path deliberately,
+  since a change adding it back would look like a helpful feature request.
+- Every request carries the public review link **and** the private-feedback route together.
+  The private option is an addition offered to everyone, never a diversion for the unhappy.
+- Suppression exists, because there are real reasons not to ask. Every one of them must be
+  written down: a database check refuses a suppression with no reason, and suppression only
+  applies to a request that has not gone out — it cannot retroactively hide an ask.
+- `askEligibility()` is where a gate would live if the product had one, so it is written to be
+  checkable: consent and timing only, and a test asserts no rating or score appears in it.
+
+**Not nagging is part of the same honesty.** A unique index enforces one ask per customer per
+event, and a 90-day cooldown covers the rest. Both proven on staging: a reasonless suppression
+was refused by check violation, and a second ask for the same event by unique violation.
+
+**A review is somebody else's statement.** The dealership owns its reply and nothing else —
+there is no route that edits a review, and a test asserts the reply path writes only
+`response_body` / `responded_at` / `responded_by`.
+
+**The average never hides what is behind it.** A 4.2 built from fifty 5s and twelve 1s is a
+different dealership from a 4.2 of steady 4s, and only one has a problem to fix, so
+`ratingSummary` reports the detractor count alongside the average and says so in words. An
+empty record reports `average: null` — an average of nothing is not zero stars.
+
+`reputationAttention` is composed into `/marketing/attention`, which now merges four sources.
+
+**Deferred:** importing reviews from Google/Facebook (each is its own integration — the schema
+and the dedupe index are ready), the private-feedback landing page, and actually delivering the
+request message, which rides the existing sender rather than growing a second one.
