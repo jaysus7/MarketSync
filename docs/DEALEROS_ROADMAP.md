@@ -23,8 +23,8 @@ and recorded here instead.
 | **5** | Accounting | **COMPLETE ON STAGING** |
 | **6** | Dealer Marketing + Communications | **COMPLETE ON STAGING** |
 | **6S** | Security stabilization (CodeQL triage) | **COMPLETE** |
-| **7** | Dealer People + Academy + Dealer Launch / Self-Onboarding | **NEXT** |
-| **8** | Dealer Management + unified My Day / UX simplification | Planned |
+| **7** | Dealer People + Academy + Dealer Launch / Self-Onboarding | **COMPLETE ON STAGING** |
+| **8** | Dealer Management + unified My Day / UX simplification | **NEXT** |
 | **9A** | Full Dealer OS E2E + Security + Production Hardening | Planned |
 | **9B** | MarketSync Internal OS + Affiliate Login / Dashboard | Planned |
 | **9C** | Controlled Pilot + Production Launch | Planned |
@@ -66,6 +66,8 @@ session must not walk back into, live in:
 - `docs/STAGE4_SERVICE_PARTS_AUDIT.md` — Phase 4 domain truth
 - `docs/PHASE5_ACCOUNTING.md` — Phase 5 ledger, AR/AP and close
 - `docs/PHASE6_MARKETING.md` — Phase 6 marketing and communications
+- `docs/PHASE6S_SECURITY.md` — the 68-finding CodeQL triage and its dispositions
+- `docs/PHASE7_PEOPLE_LAUNCH.md` — Phase 7 people, academy, time, compliance and launch
 
 Older documents keep their original names and internal numbering. They are historical
 records and are **not** renumbered to match this table; read them for domain truth, and read
