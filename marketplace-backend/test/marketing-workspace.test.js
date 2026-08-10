@@ -26,7 +26,7 @@ const html = read(FE, 'dashboard.html')
 test('My Day composes the departments rather than re-deriving them', () => {
   const route = camp.match(/app\.get\('\/marketing\/attention'[\s\S]*?\n  \}\)/)?.[0] || ''
   assert.ok(route, 'the composed attention route must exist')
-  for (const builder of ['campaignAttention', 'socialAttention', 'conversationAttention']) {
+  for (const builder of ['campaignAttention', 'socialAttention', 'conversationAttention', 'reputationAttention']) {
     assert.ok(route.includes(builder), `My Day must compose ${builder}`)
   }
   // Each source is exported as a builder so composing is possible at all.
@@ -38,7 +38,7 @@ test('My Day composes the departments rather than re-deriving them', () => {
 test('one failing department does not blank the whole day', () => {
   const route = camp.match(/app\.get\('\/marketing\/attention'[\s\S]*?\n  \}\)/)?.[0] || ''
   const guarded = [...route.matchAll(/Attention\(req\.dealershipId\)\.catch\(\(\) => \[\]\)/g)].length
-  assert.equal(guarded, 3, 'each source must degrade to empty on its own')
+  assert.equal(guarded, 4, 'each source must degrade to empty on its own')
 })
 
 test('opportunities are separated from problems, not ranked against them', () => {

@@ -20,6 +20,7 @@ import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { socialAttention } from './social.js'
 import { conversationAttention } from './conversations.js'
+import { reputationAttention } from './reputation.js'
 
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
@@ -240,12 +241,13 @@ export function registerCampaigns(app) {
   app.get('/marketing/attention', requireAuth, requireMfa, canView, async (req, res) => {
     if (!guard(req, res)) return
     try {
-      const [campaign, social, conversation] = await Promise.all([
+      const [campaign, social, conversation, reputation] = await Promise.all([
         campaignAttention(req.dealershipId).catch(() => []),
         socialAttention(req.dealershipId).catch(() => []),
         conversationAttention(req.dealershipId).catch(() => []),
+        reputationAttention(req.dealershipId).catch(() => []),
       ])
-      const items = [...campaign, ...social, ...conversation]
+      const items = [...campaign, ...social, ...conversation, ...reputation]
       // Opportunities read differently from problems, so they are separated rather than
       // ranked against each other — "this is working, do more" is not a smaller version of
       // "this is broken".
