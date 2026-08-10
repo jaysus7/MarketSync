@@ -287,3 +287,80 @@ the existing Team UI actually uses. It is a deliberate behaviour change: removin
 still owns live work now returns 409 with the list instead of quietly succeeding.
 
 15 new tests; 848/848; six gates green. No migration.
+
+---
+
+## PR 7.3 — Academy
+
+**What was there.** Five hard-coded courses in `dashboard-part24.js`, a "Complete Course &
+Issue Diploma" button, and a printable certificate with a hard-coded name, a hard-coded date
+and an invented certificate number (`MS-CERT-2026-98421`). Nothing was assigned, nothing was
+tracked, nobody could see who had done what, and the diploma was issued because somebody
+clicked it. That is worse than having no diploma: the dealership was publishing a claim about
+a person that nobody had checked. The Academy page also had no container of its own and no
+entry in the workspace registry — it rendered into the generic `#page-content` and was
+reachable only by luck.
+
+**What it is now.** 32 courses MarketSync will actually require of somebody, across the eight
+departments plus two universal ones, and nine certification families. Deliberately not padded
+to match the 189-entry reference library: a Your Path with 189 entries is the problem this
+slice exists to fix, and filler would recreate it. The library stays, searchable, fetched only
+when asked for, and never the default view.
+
+**Your Learning** is Required → Department Foundations → Advanced, derived from role +
+employment department. `reference` is excluded by construction. Overdue is computed from the
+due date, never from a status somebody set, and a person whose path fails to load sees that
+rather than an empty one — the same "empty success is a failure mode" rule as My Day.
+
+**A credential requires the work.** `issueCertification` reads completion from
+`staff_training_assignments` and refuses unless every required course is complete, naming what
+is outstanding. The screen shows the same outstanding count the server would refuse on, so the
+button and the refusal cannot disagree. Issuing is behind `staff.training.manage` + MFA.
+
+**The public credential** (`GET /verify/:credentialId`, and `verify.html` on the shared shell)
+carries name, holder, issuer, dates and validity — no dealership, no employment record, no
+internal ids. The credential ID is generated with `randomToken`, because possession of it is
+the entire authorisation for that page. `verify.html` is `noindex`: indexing shared credentials
+would turn them into a browsable directory of who works where.
+
+### The defect this slice nearly shipped
+
+`staff_training_assignments` carried a composite foreign key
+`(course_id, dealership_id) → staff_training_courses(id, dealership_id)`. That is how the
+schema kept one dealership from assigning another's private course. A global course has
+`dealership_id = null`, so the pair never matches and **every assignment of a MarketSync course
+fails**. The curriculum would have been readable, searchable, certifiable on paper — and
+permanently unassignable. Schema, routes, courses, UI and 37 green tests, capability dead.
+AGENTS.md A19, sixth instance.
+
+No test could have caught it: CI has no database. It was found by inserting a real assignment
+against staging. The tenant guarantee was not given up — it is restated as a trigger: a course
+must be global, or belong to the assigning dealership. A second trigger freezes course
+ownership, so a course cannot change owner and retroactively invalidate assignments that
+already passed the check.
+
+**Proved on staging** with nine probes inside a transaction that deliberately aborts, so
+nothing persisted: global courses assign (3 for a Sales rep: two universal + lead workflow),
+duplicate assignments refuse, another dealership's private course still refuses, course
+ownership is frozen, a second live credential refuses, credential ids are globally unique, and
+invented sources and levels refuse. Catalog verified live: 32 global courses, 9 certifications,
+38 requirements, 0 requirements naming a course that does not exist.
+
+**At 390px**, the credential row rendered `Credential MS-SALES-8fJq2…` — a truncated ID that
+reads as a whole one. The ID was removed from the row entirely (it lives in the credential
+modal, where it wraps) and the row now shows the expiry. Same lesson as the Parts availability
+row: what a line is FOR must survive the cut, and an identifier cannot survive a cut at all.
+
+**Reachability was its own work.** Academy is a `system: true` workspace, not a tenth
+department — the nine are product law — and not a page under People, which is manager-only
+while everybody has required training. It carries no `PAGE_FEATURE` entitlement (required
+compliance training is not a plan upsell) and is in every specialized role's page allow-list,
+including F&I and Service, the roles with the most required training. A test walks that whole
+chain, because this screen has already been lost at three of those links.
+
+29 frontend + 37 backend tests; 914/914; six gates green. Migration applied to staging only.
+
+**Deferred, and named rather than implied:** course content itself (each course is a record
+with a title, a description and a duration — the lesson body is Phase 8 content work), quiz
+and passing-score enforcement (the columns exist and are unused), and a QR image on the
+credential (the verification URL is there; rendering it as a QR needs a library decision).

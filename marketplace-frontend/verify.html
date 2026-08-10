@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366F1">
+  <title>Verify a Credential | MarketSync</title>
+  <meta name="description" content="Confirm a MarketSync Academy credential. Enter a credential ID to see what it certifies, who holds it, when it was issued, and whether it is still valid.">
+  <!-- A credential page is for the person holding the link, not for search engines: indexing
+       it would turn shared credentials into a browsable directory of who works where. -->
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="canonical" href="https://marketsync.link/verify.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MarketSync">
+  <meta property="og:title" content="MarketSync — Credential Verification">
+  <meta property="og:description" content="Confirm a MarketSync Academy credential.">
+  <meta property="og:url" content="https://marketsync.link/verify.html">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <link rel="stylesheet" href="/site-marketing.css">
+  <style>
+    .cred{max-width:560px;margin:0 auto;border:1px solid rgba(148,163,184,.35);border-radius:20px;padding:32px;text-align:center;}
+    .cred .eyebrow{letter-spacing:.14em;}
+    .cred h2{font-size:26px;font-weight:800;margin:10px 0 4px;}
+    .cred .holder{font-size:18px;font-weight:700;}
+    .cred .meta{opacity:.75;font-size:14px;margin-top:6px;}
+    .cred .state{margin-top:14px;font-weight:800;}
+    .cred .ok{color:#059669;} .cred .bad{color:#e11d48;}
+    .cred .cid{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;opacity:.7;margin-top:16px;word-break:break-all;}
+    .vform{max-width:560px;margin:0 auto 28px;display:flex;gap:8px;flex-wrap:wrap;}
+    .vform input{flex:1;min-width:220px;padding:12px 14px;border-radius:12px;border:1px solid rgba(148,163,184,.4);background:transparent;color:inherit;font-size:15px;}
+    .vform button{padding:12px 20px;border-radius:12px;border:0;background:var(--ac,#6366F1);color:#fff;font-weight:800;cursor:pointer;font-size:15px;}
+  </style>
+  <!-- Automatic OS dark/light before first paint (no flash) -->
+  <script>(function(){try{if(window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");}catch(e){}})();</script>
+</head>
+<body>
+  <div id="ms-public-header"></div>
+
+  <section class="hero" style="padding-bottom:24px;">
+    <div class="wrap">
+      <div class="eyebrow ms-reveal">Credential verification</div>
+      <h1 class="h1 ms-reveal" data-ms-delay="60" style="margin-top:14px;font-size:clamp(32px,5vw,52px);">Is this credential real?</h1>
+      <p class="lead ms-reveal" data-ms-delay="120">Enter a MarketSync credential ID and we will tell you what it certifies, who holds it, and whether it is still valid.</p>
+    </div>
+  </section>
+
+  <section class="narrow" style="padding-bottom:80px;">
+    <form class="vform" id="verify-form">
+      <input id="verify-id" name="credential" placeholder="MS-SALES-XXXXXXXXXXXX" autocomplete="off" spellcheck="false" aria-label="Credential ID">
+      <button type="submit">Verify</button>
+    </form>
+    <div id="verify-result"></div>
+  </section>
+
+  <div id="ms-public-footer"></div>
+
+  <script>
+  (function(){
+    var API = (location.hostname.includes('staging')
+      ? 'https://marketsync-staging-backend.onrender.com'
+      : 'https://vehicle-marketplace-s0e4.onrender.com');
+
+    var out = document.getElementById('verify-result');
+    var input = document.getElementById('verify-id');
+
+    // Text from the API is escaped before it reaches the DOM. This page renders a string a
+    // stranger chose, so it is the one place on the public site where that matters most.
+    function esc(s){
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+      });
+    }
+    function note(msg){ out.innerHTML = '<div class="cred"><p class="meta">' + esc(msg) + '</p></div>'; }
+
+    function render(c){
+      var valid = !!c.valid;
+      out.innerHTML =
+        '<div class="cred">' +
+          '<div class="eyebrow">MarketSync credential</div>' +
+          '<h2>' + esc(c.name) + '</h2>' +
+          (c.holder ? '<div class="holder">' + esc(c.holder) + '</div>' : '') +
+          '<div class="meta">Issued by ' + esc(c.issuer || 'MarketSync') +
+            (c.issued_on ? ' on ' + esc(c.issued_on) : '') +
+            (c.expires_on ? ' · Expires ' + esc(c.expires_on) : ' · Does not expire') + '</div>' +
+          '<div class="state ' + (valid ? 'ok' : 'bad') + '">' +
+            (valid ? '✓ Valid' : '✕ Not valid — ' + esc(c.status || 'unknown')) + '</div>' +
+          '<div class="cid">' + esc(c.credential_id) + '</div>' +
+        '</div>';
+    }
+
+    async function verify(id){
+      if(!id){ note('Enter a credential ID to check it.'); return; }
+      note('Checking…');
+      try{
+        var r = await fetch(API + '/verify/' + encodeURIComponent(id));
+        if(r.status === 404){
+          note('No credential with that ID. Check it for typos — credential IDs are case sensitive.');
+          return;
+        }
+        if(!r.ok) throw new Error('That check could not be completed. Please try again.');
+        render(await r.json());
+      }catch(e){
+        note(e.message || 'That check could not be completed. Please try again.');
+      }
+    }
+
+    document.getElementById('verify-form').addEventListener('submit', function(e){
+      e.preventDefault();
+      var id = input.value.trim();
+      // Keep the link shareable: a verified ID stays in the URL.
+      try{ history.replaceState(null, '', id ? '?id=' + encodeURIComponent(id) : location.pathname); }catch(_){}
+      verify(id);
+    });
+
+    var fromUrl = new URLSearchParams(location.search).get('id');
+    if(fromUrl){ input.value = fromUrl; verify(fromUrl); }
+  })();
+  </script>
+
+<script src="/assets/auth.js" defer></script>
+  <script src="/assets/public-shell.js" defer></script>
+</body>
+</html>

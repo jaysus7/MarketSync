@@ -143,7 +143,9 @@ test('entitlement gating still covers every registry page', () => {
   assert.ok(featureBlock, 'PAGE_FEATURE must still exist in dashboard-part2.js')
   // `commissions` intentionally carries no plan gate (it is a rep's own commission,
   // ungated before Phase 1 — adding one would remove access, not preserve it).
-  const EXEMPT = new Set(['commissions'])
+  // `academy` is exempt for the same reason: required compliance training is not a plan
+  // upsell, and gating it would hide the courses a Starter dealership is required to complete.
+  const EXEMPT = new Set(['commissions', 'academy'])
   const gates = featureBlock + productBlock   // a page may be gated by plan OR product
   for (const page of msAllWorkspacePages(MS_WORKSPACES)) {
     if (EXEMPT.has(page)) continue

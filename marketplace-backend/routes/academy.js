@@ -313,12 +313,57 @@ export function registerAcademy(app) {
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
+  /**
+   * Every certification, WITH the courses it requires.
+   *
+   * The requirements ship with the certification deliberately: a screen that shows what you
+   * could earn without showing what it costs would read as "Ready" for everything, and then
+   * issuing would refuse. The screen and the refusal have to be reasoning from the same fact.
+   */
   app.get('/academy/certifications', requireAuth, canViewSelf, async (req, res) => {
     try {
       const { data } = await supabaseAdmin.from('academy_certifications')
         .select('id, certification_key, name, department, description, version_number, validity_months')
         .eq('active', true).order('name')
-      res.json({ certifications: data || [] })
+      const certs = data || []
+      const { data: reqs } = certs.length
+        ? await supabaseAdmin.from('academy_certification_requirements')
+            .select('certification_id, course_key, required, sort')
+            .in('certification_id', certs.map(c => c.id)).order('sort')
+        : { data: [] }
+
+      const byCert = new Map()
+      for (const r of reqs || []) {
+        if (!r.required) continue
+        if (!byCert.has(r.certification_id)) byCert.set(r.certification_id, [])
+        byCert.get(r.certification_id).push(r.course_key)
+      }
+      res.json({ certifications: certs.map(c => ({ ...c, courses: byCert.get(c.id) || [] })) })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  /**
+   * The credentials this person holds. Their own record only — a team view is `/academy/team`,
+   * which is gated separately.
+   */
+  app.get('/academy/my-credentials', requireAuth, canViewSelf, async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    try {
+      const { data: staff } = await supabaseAdmin.from('staff_members')
+        .select('id').eq('dealership_id', req.dealershipId).eq('user_id', req.user.id).maybeSingle()
+      if (!staff) return res.json({ certifications: [] })
+
+      const { data } = await supabaseAdmin.from('staff_certifications')
+        .select('certification_key, certification_name, certification_version, credential_id, issued_on, expires_on, status')
+        .eq('dealership_id', req.dealershipId).eq('staff_member_id', staff.id)
+        .eq('source', 'marketsync').not('credential_id', 'is', null)
+      // `valid` is computed, never stored: "active" in the database is not "valid today".
+      const now = new Date()
+      res.json({
+        certifications: (data || []).map(c => ({
+          ...c, valid: c.status === 'active' && !(c.expires_on && new Date(c.expires_on) < now),
+        })),
+      })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 

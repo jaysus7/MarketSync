@@ -137,6 +137,21 @@ const MS_WORKSPACES = {
     ],
   },
 
+  // ── Academy — system rail, NOT a tenth department and NOT inside People ────
+  // The nine departments are how a dealership is organised; learning is not one of them, so
+  // Academy carries `system: true` and renders below the divider next to Settings.
+  //
+  // It is deliberately not a page under People either: People is manager-only, and everybody
+  // has required training. A salesperson who cannot reach the courses they are required to
+  // complete is the same defect as having no courses at all. The manager view is the Team tab
+  // inside the workspace, which gates itself on `staff.training.view`.
+  academy: {
+    label: 'Academy', icon: 'sparkles', accent: 'violet', system: true,
+    pages: [
+      { page: 'academy', label: 'Your Learning' },
+    ],
+  },
+
   // ── System — rendered in the bottom/system section, not as a department ────
   // Automation deliberately lives HERE, not in a department: contextual automation
   // belongs inside workspaces, global advanced automation belongs in Settings.
