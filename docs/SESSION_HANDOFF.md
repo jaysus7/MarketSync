@@ -12,10 +12,10 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 |---|---|
 | **Last updated** | 2026-08-10 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
-| **Baseline on `staging`** | `5dfddff` — **774/774 tests green, all six `check:*` green** (branch now at 789/789 with Phase 6S) |
+| **Baseline on `staging`** | `58808e9` — **789/789 tests green, all six `check:*` green** (branch now at 815/815 with PR 6.10) |
 | **Security** | **Phase 6S complete.** CodeQL's 68 pre-existing findings triaged: 12 fixed, 24 false positives with reasons, 32 accepted with reasons. See `docs/PHASE6S_SECURITY.md`. Worst was the anonymous visitor token generated with `Math.random()` — it is a bearer credential, so other visitors' chat transcripts were derivable. **Two hand-offs, both infrastructure not code: (1) CodeQL does not run on `staging` PRs at all — it fired once on #84 only because that PR was mis-based against `main`, so the entire development flow is unscanned; (2) DNS-rebinding SSRF needs egress controls.** |
-| **In flight** | **PHASE 6 (Marketing + Communications) — nine of ten slices.** 6.1 campaign identity, source taxonomy, budget-vs-actual spend and posted gross (#81). 6.2 social account ownership + server-side publishing authorization (#82). 6.3 the single consent gate. 6.4 conversation continuity + human takeover (#83). 6.5 the Marketing operating workspace (#84) — My Day composed from `campaignAttention` + `socialAttention` + `conversationAttention`. 6.6 Studio + social publishing — **nothing had ever published**; a scheduled post sat at `scheduled` forever and nobody was told. 6.7 Sales video messaging (Sales-owned) — **a link fetch is not a view**. 6.8 Reputation — **no review gating, by construction**. 6.9 the dealer website wired to Phase 6 truth — website leads had **never** carried a campaign id or a consent record. **Next: Phase 6.10 — Insights + cross-department My Day + Marketing E2E, the last Phase 6 slice.** |
-| **Roadmap position** | **`docs/DEALEROS_ROADMAP.md` is the phase authority** — read it, do not infer a sequence from any other document. Phases 0–5 complete (5 complete on staging; production convergence deliberately deferred to 9A). **Phase 6 is IN PROGRESS.** MarketSync's own internal workspaces, affiliate login/dashboard and any partner portal are **Phase 9B** and must not be built earlier. **Four database-owned control layers exist: the RO state machine (audit §32), the journal posting triggers, the accounting period lock, and the social publish claim (`social_claim_due_targets`, `for update skip locked`).** |
+| **In flight** | **PHASE 6 (Marketing + Communications) — COMPLETE.** 6.1 campaign identity, source taxonomy, budget-vs-actual spend and posted gross (#81). 6.2 social account ownership + server-side publishing authorization (#82). 6.3 the single consent gate. 6.4 conversation continuity + human takeover (#83). 6.5 the Marketing operating workspace (#84) — My Day composed from `campaignAttention` + `socialAttention` + `conversationAttention`. 6.6 Studio + social publishing — **nothing had ever published**; a scheduled post sat at `scheduled` forever and nobody was told. 6.7 Sales video messaging (Sales-owned) — **a link fetch is not a view**. 6.8 Reputation — **no review gating, by construction**. 6.9 the dealer website wired to Phase 6 truth — website leads had **never** carried a campaign id or a consent record. 6.10 Insights + cross-department My Day + Marketing E2E. **PHASE 6 IS COMPLETE. Next: Phase 7 — see `docs/DEALEROS_ROADMAP.md`.** |
+| **Roadmap position** | **`docs/DEALEROS_ROADMAP.md` is the phase authority** — read it, do not infer a sequence from any other document. **Phases 0–6 complete** on staging (Accounting production convergence deliberately deferred to 9A). **Phase 7 is next.** MarketSync's own internal workspaces, affiliate login/dashboard and any partner portal are **Phase 9B** and must not be built earlier. **Four database-owned control layers exist: the RO state machine (audit §32), the journal posting triggers, the accounting period lock, and the social publish claim (`social_claim_due_targets`, `for update skip locked`).** |
 | **Staging storage buckets** | Staging had only `staff-documents`. `vehicle-photos` / `vehicle-pdfs` are referenced throughout the code but did not exist there and nothing creates buckets at runtime, so **every vehicle-photo upload was failing on staging**. All three plus `sales-videos` created 2026-08-10. |
 | **PR base branch** | **`staging`, not `main`.** `main` shares no merge base with the working branch — a PR opened against it shows ~4,700 files and drags whole-repo CodeQL findings onto the diff. PR #84 was opened against `main` by mistake and retargeted. |
 
@@ -42,7 +42,7 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 
 ## Completed
 
-- **Phase 6 — Marketing + Communications (IN PROGRESS, 9 of 10 slices)** — attribution now
+- **Phase 6 — Marketing + Communications (COMPLETE)** — attribution now
   follows a **campaign id**, not a display name; budget and actual spend are separate columns;
   gross is read from **posted** journals, so a campaign whose deliveries never reached the
   books reports its units with the gross marked incomplete rather than an assumed average.
@@ -58,7 +58,7 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
   yet; each network is its own integration.** Guarded by `test/social-authorization.test.js`,
   `test/consent-gate.test.js`, `test/conversation-continuity.test.js`,
   `test/marketing-workspace.test.js`, `test/social-publishing.test.js`.
-  See `docs/PHASE6_MARKETING.md`. **Next: Insights / My Day / E2E.**
+  See `docs/PHASE6_MARKETING.md`.
 - **Phase 5 — Accounting (COMPLETE)** — 5.1 ledger integrity, 5.2 deal settlement + AR/AP,
   5.3 Journal/Close/Banking/Payroll. Financed deals now debit Contracts in Transit for the
   lender's share instead of dumping the whole sale into customer AR, so funding clears CIT to
