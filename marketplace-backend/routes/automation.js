@@ -23,6 +23,7 @@ import { aiAllowed, recordUsage } from '../usage.js'
 import { SYSTEM_ROLES, hasSystemRole, requirePermission } from '../authorization.js'
 import { masterCreds } from '../providers/twilio-provision.js'
 import { audit } from '../audit.js'
+import { mayContact, recordOptOut } from './consent.js'
 
 import {
   dealerSettings, buildDigest, digestEmailHtml, runMorningDigest,
@@ -315,18 +316,21 @@ async function resolveSender(campaign, contact, dealer, s) {
 // Returns { action: 'send' | 'cancel' | 'pause', reason }.
 async function verify(msg, campaign) {
   const { data: contact } = await supabaseAdmin.from('contacts')
-    .select('id, status, dnc, opt_out, consent_sms, consent_email, delivery_issue, automation_paused, assigned_rep, interest_inventory_id')
+    .select('id, dealership_id, status, dnc, opt_out, consent_sms, consent_email, delivery_issue, automation_paused, assigned_rep, interest_inventory_id')
     .eq('id', msg.contact_id).maybeSingle()
   if (!contact) return { action: 'cancel', reason: 'contact_missing' }
 
-  // Hard stops
-  if (contact.opt_out || contact.dnc) return { action: 'cancel', reason: 'opted_out' }
-  if (msg.channel === 'sms' && contact.consent_sms === false) return { action: 'cancel', reason: 'no_sms_consent' }
-  if (msg.channel === 'email' && contact.consent_email === false) return { action: 'cancel', reason: 'no_email_consent' }
-
-  // Drop-out freeze (a reply set automation_paused). Retention/calendar halt; a
-  // fresh pipeline touch is also suppressed so we never talk over a live human.
-  if (contact.automation_paused) return { action: 'cancel', reason: 'customer_replied' }
+  // Hard stops, decided by the ONE consent gate (routes/consent.js) rather than here.
+  // This rule used to be written out in three places in this file; three copies is three
+  // chances for one to drift as Phase 6 adds more senders.
+  const consent = await mayContact(contact.dealership_id, contact.id, msg.channel)
+  if (!consent.allowed) {
+    const reason = /opted out/i.test(consent.reason || '') ? 'opted_out'
+                 : /do-not-contact/i.test(consent.reason || '') ? 'opted_out'
+                 : /replied/i.test(consent.reason || '') ? 'customer_replied'
+                 : msg.channel === 'sms' ? 'no_sms_consent' : 'no_email_consent'
+    return { action: 'cancel', reason }
+  }
 
   const cat = campaign?.category
   const retentionish = ['retention', 'reviews', 'referrals'].includes(cat)
@@ -614,7 +618,7 @@ async function runDaily() {
     const { data: contacts } = await supabaseAdmin.from('contacts')
       .select('id, birthday, assigned_rep, consent_sms, dnc, opt_out').eq('dealership_id', d.id).not('birthday', 'is', null)
     for (const c of (contacts || [])) {
-      if (c.dnc || c.opt_out || c.consent_sms === false) continue
+      if (!(await mayContact(d.id, c.id, 'sms')).allowed) continue
       const b = String(c.birthday).slice(5, 10) // MM-DD from YYYY-MM-DD
       if (b === mmdd) { await enqueueForTrigger(d.id, 'birthday', { contactId: c.id, repId: c.assigned_rep }); birthdays++ }
     }
@@ -632,7 +636,7 @@ async function runDaily() {
         const context = { vars: { 'holiday.name': h.name || 'the holidays' }, body_override: h.message || null, subject_override: h.subject || null }
         const markerOverride = year * 10000 + mmddInt   // one per holiday-date per year
         for (const c of (emailable || [])) {
-          if (c.dnc || c.opt_out || c.consent_email === false) continue
+          if (!(await mayContact(d.id, c.id, 'email')).allowed) continue
           if (only && contactCountry(c, dealerFallback) !== only) continue   // geo-gate country-specific greetings
           await enqueueForTrigger(d.id, 'holiday', { contactId: c.id, repId: c.assigned_rep, context, markerOverride }); holidays++
         }
@@ -728,7 +732,7 @@ export function registerAutomation(app) {
       const { data: contact } = await q.limit(1).maybeSingle()
       if (!contact) return res.json({ ok: true, matched: false })
       if (/^\s*(stop|unsubscribe|quit|cancel|end)\b/i.test(text)) {
-        await supabaseAdmin.from('contacts').update({ opt_out: true, consent_sms: false, automation_paused: true }).eq('id', contact.id)
+        await recordOptOut(contact.dealership_id, contact.id, { channel: 'all', source: 'inbound_webhook' })
         await freezeSequences(contact.id, 'opted_out')
         audit(req, 'customer.sms_opted_out', { contact_id: contact.id, source: 'inbound_webhook' })
         return res.json({ ok: true, opted_out: true })
@@ -760,7 +764,7 @@ export function registerAutomation(app) {
         .select('id').eq('dealership_id', dealershipId).eq('phone', fromNum).limit(1).maybeSingle()
       if (!contact) return twiml()
       if (/^\s*(stop|unsubscribe|quit|cancel|end)\b/i.test(text)) {
-        await supabaseAdmin.from('contacts').update({ opt_out: true, consent_sms: false, automation_paused: true }).eq('id', contact.id)
+        await recordOptOut(contact.dealership_id, contact.id, { channel: 'all', source: 'inbound_webhook' })
         await freezeSequences(contact.id, 'opted_out')
       } else {
         await freezeSequences(contact.id, 'customer_replied')
