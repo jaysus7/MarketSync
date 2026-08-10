@@ -150,7 +150,9 @@ export function registerSalesVideo(app) {
     }
 
     const ext = (req.file.mimetype.split('/')[1] || 'mp4').replace(/[^a-z0-9]/gi, '')
-    const path = `${req.dealershipId}/${req.user?.id || 'unknown'}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`
+    // The bucket is public; this path is what keeps a customer's walkaround private until the
+    // share link is sent. Not Math.random(). (Phase 6S)
+    const path = `${req.dealershipId}/${req.user?.id || 'unknown'}/${Date.now()}-${crypto.randomBytes(9).toString('base64url')}.${ext}`
     const { error: upErr } = await supabaseAdmin.storage.from('sales-videos')
       .upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: false })
     if (upErr) return res.status(500).json({ error: 'Upload failed: ' + upErr.message })

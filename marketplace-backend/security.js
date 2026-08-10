@@ -123,6 +123,24 @@ export async function validatePassword(password, opts = {}) {
 // We store SHA-256 hashes (the codes themselves are 10-char base32 — high entropy)
 // so even a DB leak doesn't expose them.
 
+/**
+ * The ONE way to make an unguessable identifier (Phase 6S).
+ *
+ * `Math.random()` is not random enough to protect anything. V8 implements it as xorshift128+,
+ * whose internal state is recoverable from a handful of observed outputs — so an attacker who
+ * can see a few generated values can predict every later one. That is fine for a DOM id and
+ * fatal for anything that grants access.
+ *
+ * Use this whenever the value is the thing standing between a stranger and someone's data:
+ * session/visitor tokens, share links, meeting room names, invitation codes.
+ *
+ * 18 bytes → 24 base64url chars, ~144 bits. Short enough to survive an SMS, long enough that
+ * guessing is not a strategy.
+ */
+export function randomToken(bytes = 18) {
+  return randomBytes(bytes).toString('base64url')
+}
+
 // Generate 10 random codes in the format "XXXX-XXXX" (8 base32 chars with a dash)
 export function generateRecoveryCodes(count = 10) {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'  // unambiguous: no 0/O, 1/I

@@ -224,6 +224,12 @@ export function registerRoutes(app) {
 
     const { feed_url: rawUrl, feed_type: requestedType } = req.body || {}
     if (!rawUrl) return res.status(400).json({ error: 'feed_url is required' })
+    // /feeds/probe checked this and /feeds/add never did — yet this is the one that PERSISTS a
+    // URL the server fetches on a schedule forever after. Same guard, same reason: a feed URL
+    // pointing at 169.254.169.254 turns our own fetcher into a credential thief. (Phase 6S)
+    if (!(await isSafeFeedProbeUrl(rawUrl))) {
+      return res.status(400).json({ error: 'That address is on a private or internal network, so it cannot be used as a feed.' })
+    }
 
     const typeHint = normalizeFeedUrl(rawUrl)
     if (!typeHint) return res.status(400).json({ error: 'Invalid URL' })

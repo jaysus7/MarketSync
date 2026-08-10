@@ -3,7 +3,7 @@ import { findOrCreateContact } from '../crm.js'
 import { enqueueForTrigger } from '../automation.js'
 import { routeAndNotifyLead } from '../../lead-routing.js'
 import { createNotification } from '../../notifications.js'
-import { rateLimit } from '../../security.js'
+import { rateLimit, randomToken } from '../../security.js'
 import { resolveCampaignForVisit, inferSourceKey } from '../campaigns.js'
 import { recordConsent } from '../consent.js'
 import { runAutoResponder } from '../../autoresponder.js'
@@ -352,7 +352,8 @@ export function registerSitePublicRoutes(app) {
     }
     const endAt = new Date(when.getTime() + durationMin * 60000)
     const whenLabel = (() => { try { return new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short', timeZone: b.tz || 'America/Toronto' }).format(when) } catch { return when.toISOString() } })()
-    const rand = Math.random().toString(36).slice(2, 8)
+    // The room URL is the ONLY thing keeping a stranger out of a customer's appointment.
+    const rand = randomToken(12)
     const meetUrl = `https://meet.jit.si/${(d.name || 'dealer').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'dealer'}-${rand}`
 
     try {

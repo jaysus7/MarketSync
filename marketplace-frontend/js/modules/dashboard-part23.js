@@ -624,7 +624,11 @@ async function apprSaveDeal() {
 
 // Shared print-to-PDF window (mirrors generateAppraisalPdf's approach).
 function apprPrintWindow(title, inner) {
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>
+  // `inner` is HTML by contract (its builders escape every value through fld()/apprDiscAns()).
+  // `title` is plain text and was interpolated raw — and it carries the vehicle's
+  // make/model/trim, which arrives from dealer-supplied external feeds. A feed with markup
+  // in a trim name would have executed in the dealer's browser on print. (Phase 6S)
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
     @media print { .no-print{display:none!important} @page{margin:0.55in} }
     *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#0f172a;background:#fff;margin:0 auto;padding:24px;max-width:780px;font-size:13px;line-height:1.45}
     h1{font-size:21px;margin:0} h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin:22px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}

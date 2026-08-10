@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin, resend, EMAIL_FROM, FRONTEND_URL } from '../shared.js'
 import { requireAuth } from '../middleware.js'
-import { rateLimit, consumeQuota } from '../security.js'
+import { rateLimit, consumeQuota, randomToken } from '../security.js'
 import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '../chatGuard.js'
 import { SYSTEM_ROLES, hasSystemRole } from '../authorization.js'
 
@@ -191,7 +191,8 @@ export function registerMarketsync(app) {
     if (!dealershipId) { console.warn('[marketsync] booking received but JMS not seeded:', email); return res.json({ ok: true, saved: false }) }
 
     // No-account video room — instant, native, no Calendly/Google dependency.
-    const rand = Math.random().toString(36).slice(2, 8)
+    // The room URL is the only access control on this meeting. (Phase 6S)
+    const rand = randomToken(12)
     const roomSlug = (company || name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'demo'
     const meetUrl = `https://meet.jit.si/MarketSync-${roomSlug}-${rand}`
     const endAt = new Date(when.getTime() + durationMin * 60000)
@@ -320,7 +321,7 @@ export function registerMarketsync(app) {
           // Next weekday at ~10am ET (15:00 UTC).
           const w = new Date(); w.setUTCDate(w.getUTCDate() + 1); w.setUTCHours(15, 0, 0, 0)
           if (w.getUTCDay() === 6) w.setUTCDate(w.getUTCDate() + 2); else if (w.getUTCDay() === 0) w.setUTCDate(w.getUTCDate() + 1)
-          const meetUrl = `https://meet.jit.si/MarketSync-agostino-${Math.random().toString(36).slice(2, 8)}`
+          const meetUrl = `https://meet.jit.si/MarketSync-agostino-${randomToken(12)}`
           await supabaseAdmin.from('crm_tasks').insert({
             dealership_id: dealershipId, contact_id: sean.id, assigned_to: sean.assigned_rep || ownerId, created_by: ownerId,
             title: `Demo — Sean Agostino (Sean's Autocare)`, type: 'appointment', due_at: w.toISOString(),

@@ -1,4 +1,5 @@
 import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
+import { randomToken } from '../security.js'
 import { requireAuth } from '../middleware.js'
 import { enqueueForTrigger, markDelivered, freezeSequences } from './automation.js'
 import { emitWebhook } from '../webhooks.js'
@@ -305,7 +306,10 @@ export function registerCrm(app) {
     const saved = []
     for (const f of files) {
       const safe = (f.originalname || 'file').replace(/[^\w.\-]+/g, '_').slice(-80)
-      const path = `${req.dealershipId}/${contact.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`
+      // `crm-attachments` is a PUBLIC bucket and this path is the only thing protecting a
+      // customer's documents — licences, paperwork, photos. Math.random() is predictable, so
+      // the unguessable part must come from the CSPRNG. (Phase 6S)
+      const path = `${req.dealershipId}/${contact.id}/${Date.now()}-${randomToken(12)}-${safe}`
       const { error: upErr } = await supabaseAdmin.storage.from('crm-attachments')
         .upload(path, f.buffer, { contentType: f.mimetype || 'application/octet-stream', upsert: false })
       if (upErr) { console.warn('[crm-attach] upload failed:', upErr.message); continue }

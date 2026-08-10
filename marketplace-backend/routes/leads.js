@@ -319,6 +319,11 @@ export function registerLeads(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const csv = String(req.body?.csv || '')
     if (!csv.trim()) return res.status(400).json({ error: 'Empty file' })
+    // The parser walks every character, so an unbounded body is CPU an authenticated user
+    // should not be able to spend. 8MB is far more lead CSV than any dealership has. (Phase 6S)
+    if (csv.length > 8 * 1024 * 1024) {
+      return res.status(413).json({ error: 'That file is too large. Split it into smaller batches.' })
+    }
     const rows = parseCsv(csv)
     if (rows.length < 2) return res.status(400).json({ error: 'No data rows found' })
     const header = rows[0].map(h => String(h).trim().toLowerCase().replace(/\s+/g, '_'))

@@ -10,6 +10,7 @@
  *   POST /square/webhook             -> Square payment.updated -> stamp "deposit paid"
  */
 import express from 'express'
+import { rateLimit } from '../security.js'
 import { supabaseAdmin, BACKEND_URL, FRONTEND_URL } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
@@ -59,7 +60,9 @@ export function registerSquare(app) {
   })
 
   // Inbound Square webhook (payment.updated). Raw body needed for signature verification.
-  app.post('/square/webhook', express.raw({ type: '*/*' }), async (req, res) => {
+  // Signature-verified, but reachable by anyone and each call costs an HMAC. Square's own
+  // bursts stay well under this. (Phase 6S)
+  app.post('/square/webhook', rateLimit('square-webhook', 300, 5 * 60 * 1000), express.raw({ type: '*/*' }), async (req, res) => {
     const raw = req.body instanceof Buffer ? req.body.toString('utf8') : String(req.body || '')
     const notificationUrl = `${BACKEND_URL}/square/webhook`
     if (!verifySquareWebhook(raw, req.get('x-square-hmacsha256-signature'), notificationUrl)) {
