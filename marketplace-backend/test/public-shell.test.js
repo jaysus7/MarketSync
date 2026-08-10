@@ -23,7 +23,7 @@ const PUBLIC_PAGES = [
 // Application / specialized / auth pages that MUST NOT get the marketing shell.
 const EXCLUDED_PAGES = [
   'dashboard.html', 'chat-widget.html', 'site.html', 'post.html', 'esign.html', 'group.html',
-  'training.html', 'affiliate.html', 'marketsync-guide.html', 'upgrade.html',
+  'training.html', 'affiliate.html', 'marketsync-guide.html', 'upgrade.html', 'watch.html',
   'login.html', 'register.html', 'forgot-password.html', 'reset-password.html',
 ]
 

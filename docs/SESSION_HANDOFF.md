@@ -12,9 +12,10 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 |---|---|
 | **Last updated** | 2026-08-10 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
-| **Baseline on `staging`** | `1c17973` — **697/697 tests green, all six `check:*` green** (branch now at 729/729 with PR 6.6) |
-| **In flight** | **PHASE 6 (Marketing + Communications) — six of nine slices.** 6.1 campaign identity, source taxonomy, budget-vs-actual spend and posted gross (#81). 6.2 social account ownership + server-side publishing authorization (#82). 6.3 the single consent gate. 6.4 conversation continuity + human takeover (#83). 6.5 the Marketing operating workspace (#84) — My Day composed from `campaignAttention` + `socialAttention` + `conversationAttention`. 6.6 Studio + social publishing — **nothing had ever published**; a scheduled post sat at `scheduled` forever and nobody was told. **Next: Sales Video → Website / Reputation → Insights / My Day / E2E.** |
+| **Baseline on `staging`** | `7ca677f` — **729/729 tests green, all six `check:*` green** (branch now at 748/748 with PR 6.7) |
+| **In flight** | **PHASE 6 (Marketing + Communications) — seven of nine slices.** 6.1 campaign identity, source taxonomy, budget-vs-actual spend and posted gross (#81). 6.2 social account ownership + server-side publishing authorization (#82). 6.3 the single consent gate. 6.4 conversation continuity + human takeover (#83). 6.5 the Marketing operating workspace (#84) — My Day composed from `campaignAttention` + `socialAttention` + `conversationAttention`. 6.6 Studio + social publishing — **nothing had ever published**; a scheduled post sat at `scheduled` forever and nobody was told. 6.7 Sales video messaging (Sales-owned) — **a link fetch is not a view**. **Next: Website / Reputation → Insights / My Day / E2E.** |
 | **Roadmap position** | **`docs/DEALEROS_ROADMAP.md` is the phase authority** — read it, do not infer a sequence from any other document. Phases 0–5 complete (5 complete on staging; production convergence deliberately deferred to 9A). **Phase 6 is IN PROGRESS.** MarketSync's own internal workspaces, affiliate login/dashboard and any partner portal are **Phase 9B** and must not be built earlier. **Four database-owned control layers exist: the RO state machine (audit §32), the journal posting triggers, the accounting period lock, and the social publish claim (`social_claim_due_targets`, `for update skip locked`).** |
+| **Staging storage buckets** | Staging had only `staff-documents`. `vehicle-photos` / `vehicle-pdfs` are referenced throughout the code but did not exist there and nothing creates buckets at runtime, so **every vehicle-photo upload was failing on staging**. All three plus `sales-videos` created 2026-08-10. |
 | **PR base branch** | **`staging`, not `main`.** `main` shares no merge base with the working branch — a PR opened against it shows ~4,700 files and drags whole-repo CodeQL findings onto the diff. PR #84 was opened against `main` by mistake and retargeted. |
 
 ## Read before coding
@@ -40,7 +41,7 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 
 ## Completed
 
-- **Phase 6 — Marketing + Communications (IN PROGRESS, 6 of 9 slices)** — attribution now
+- **Phase 6 — Marketing + Communications (IN PROGRESS, 7 of 9 slices)** — attribution now
   follows a **campaign id**, not a display name; budget and actual spend are separate columns;
   gross is read from **posted** journals, so a campaign whose deliveries never reached the
   books reports its units with the gross marked incomplete rather than an assumed average.
@@ -56,7 +57,7 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
   yet; each network is its own integration.** Guarded by `test/social-authorization.test.js`,
   `test/consent-gate.test.js`, `test/conversation-continuity.test.js`,
   `test/marketing-workspace.test.js`, `test/social-publishing.test.js`.
-  See `docs/PHASE6_MARKETING.md`. **Next: Sales Video.**
+  See `docs/PHASE6_MARKETING.md`. **Next: Website / Reputation.**
 - **Phase 5 — Accounting (COMPLETE)** — 5.1 ledger integrity, 5.2 deal settlement + AR/AP,
   5.3 Journal/Close/Banking/Payroll. Financed deals now debit Contracts in Transit for the
   lender's share instead of dumping the whole sale into customer AR, so funding clears CIT to
