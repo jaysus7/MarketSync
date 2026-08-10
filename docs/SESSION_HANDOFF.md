@@ -12,9 +12,9 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 |---|---|
 | **Last updated** | 2026-08-10 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
-| **Baseline on `staging`** | `e191d09` — **570/570 tests green, all six `check:*` green** |
-| **In flight** | **Phase 4 COMPLETE and merged** (#75). **Phase 5 PR 5.1 — Ledger Integrity — COMPLETE and merged** (#76): the general ledger had never posted a single transaction on either environment, and now does. Atomic posting, database-enforced idempotency, typed failures raised as real accounting exceptions, strict account resolution, 11 converged rules, posted-only reads. Staging left at 0 journals — no backfill. Next: **PR 5.2 — the Accounting operating department** (Today / Deal Posting / AP / AR / Banking / Payroll & Commissions / Journal / Close, then Insights). |
-| **Roadmap position** | Phase 1–4 complete and merged. Phase 5 (Accounting) in progress: PR 5.1 done. **Two numbering schemes exist and conflict** — the sessions use Phase 1 UI / 2 Sales / 3 Inventory+F&I / 4 Fixed Ops / 5 Accounting, while `docs/DEALEROS_AND_AI_ENGINE.md` §5 uses a different 1–6 (Customer→AI→Widget→Integrations→DealerOS finishing→MCP). The owner resolved Phase 5 = **Accounting**. The authority named by AGENTS.md A1 is spec doc **"22 — Master Build Roadmap / Audit Method"**, which is NOT in the repo — confirm against it before assigning Phase 6. **Two database-owned control layers to respect: the RO state machine (audit §32) and now the journal posting triggers (`docs/PHASE5_ACCOUNTING.md`).** |
+| **Baseline on `staging`** | `08b4500` — **613/613 tests green, all six `check:*` green** |
+| **In flight** | **PHASE 5 (Accounting) COMPLETE and merged.** 5.1 Ledger Integrity (#76) — the general ledger had never posted a transaction; atomic posting, DB-enforced idempotency, typed failures, strict account resolution, posted-only reads. 5.2 Deal Posting + AR + AP (#78) — the lender's share moved out of customer AR into Contracts in Transit so funding clears CIT to zero; AP reached the double-entry ledger for the first time. 5.3 Journal/Close/Banking/Payroll (#79) — close blockers derived from real state. Staging still holds **0 journal rows** — no backfill, going-forward correctness only. |
+| **Roadmap position** | Phases 1–5 complete and merged. **Next phase is UNDETERMINED and must not be guessed.** Two conflicting numberings exist: the sessions use 1 UI / 2 Sales / 3 Inventory+F&I / 4 Fixed Ops / 5 Accounting, while `docs/DEALEROS_AND_AI_ENGINE.md` §5 uses a different 1–6 (Customer→AI→Widget→Integrations→DealerOS finishing→MCP). The authority named by AGENTS.md A1 is spec doc **"22 — Master Build Roadmap / Audit Method"**, which is **not in the repository**. Read it before assigning Phase 6; the handoff's own prior guidance suggested Marketing → People → dealership-wide My Day. **Three database-owned control layers now exist: the RO state machine (audit §32), the journal posting triggers, and the accounting period lock.** |
 
 ## Read before coding
 
@@ -38,15 +38,19 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 
 ## Completed
 
-- **Phase 5 PR 5.1 — Ledger Integrity** — the general ledger had never recorded a
-  transaction: `postJournal` left `posted` to a column default, so the database's balance
-  and line-count triggers (which fire only on the draft→posted transition) had never run.
-  Now: one atomic posting function that posts LAST, a unique index as the idempotency
-  guarantee, typed `PostingError`s raised as real accounting exceptions, strict account
-  resolution (an unknown key fails rather than minting an expense account), 11 converged
-  rules and posted-only balances. Guarded by `test/ledger-integrity.test.js`; live proof in
-  `scripts/phase5-ledger-proof.mjs`. **Production convergence is written but UNAPPLIED.**
+- **Phase 5 — Accounting (COMPLETE)** — 5.1 ledger integrity, 5.2 deal settlement + AR/AP,
+  5.3 Journal/Close/Banking/Payroll. Financed deals now debit Contracts in Transit for the
+  lender's share instead of dumping the whole sale into customer AR, so funding clears CIT to
+  zero; AP reaches the double-entry ledger; AR/AP/CIT are derived from posted truth only.
+  Guarded by `test/ledger-integrity.test.js`, `test/deal-settlement.test.js`,
+  `test/accounting-ar-ap.test.js`. **Still deferred: bank reconciliation (no data model
+  exists), Cash Flow, manual journal entry UI, Parts receipt→bill matching.**
+  **Production convergence for all five accounting migrations remains UNAPPLIED.**
   See `docs/PHASE5_ACCOUNTING.md`.
+  The one finding worth carrying: **`postJournal` had left `posted` to a column default**,
+  so the database's balance and line-count triggers — which fire only on the draft→posted
+  transition — had never run once. Posting now flips `posted` LAST, deliberately, so the
+  database control is what decides. Live proof in `scripts/phase5-ledger-proof.mjs`.
 - **Phase 4 — Fixed Ops (Service + Parts)** — complete on the branch across three
   batches: Service operations (state machine respected, estimates, immutable
   authorization, technician workflow, parts demand), financial close (Payment +
