@@ -119,6 +119,7 @@ const MS_WORKSPACES = {
   marketing: {
     label: 'Marketing', icon: 'megaphone', accent: 'violet', mgr: true,
     pages: [
+      { page: 'marketing-overview', label: 'My Day' },
       { page: 'email-marketing', label: 'Campaigns' },
       { page: 'website', label: 'Website' },
       { page: 'ai-home', label: 'AI Chat' },

@@ -158,8 +158,10 @@ test('the meaningful moments emit events, and the noisy ones do not', () => {
 })
 
 test('waiting conversations surface as attention with a real next action', () => {
-  const route = conv.match(/app\.get\('\/conversations\/attention'[\s\S]*?\n  \}\)/)?.[0] || ''
-  assert.ok(route, 'the attention route must exist')
+  // The builder, not the route: Marketing's My Day composes these directly.
+  const route = conv.match(/export async function conversationAttention[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.ok(route, 'the attention builder must exist')
+  assert.match(conv, /app\.get\('\/conversations\/attention'/, 'and still be reachable over HTTP')
   assert.match(route, /conversation_waiting_dealer/)
   assert.match(route, /conversation_human_takeover/)
   assert.match(route, /Reply to the customer/)

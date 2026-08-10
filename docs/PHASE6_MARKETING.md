@@ -163,3 +163,63 @@ To be written alongside, not after:
 - Every sender path calls the consent gate; an opted-out customer is refused on that channel.
 - A conversation that moves web → SMS keeps one `conversation_id` and one customer.
 - Cross-dealership reads and publishes are refused.
+
+---
+
+## OUTCOMES
+
+### PR 6.1 — Campaign identity, source taxonomy, spend and gross *(merged, #81)*
+
+Closed G1–G5. A canonical `campaigns` record with an id that leads and deals carry;
+`marketing_sources` as the taxonomy; budget and actual spend separated into distinct columns;
+gross read from **posted** journal lines. A campaign whose deliveries have not reached the
+books reports its units with `gross_unknown` counted — never a per-unit average standing in
+for a number nobody posted. Legacy free-text sources map through `inferSourceKey()` and stay
+labelled *inferred*; linked and inferred figures are never summed.
+
+### PR 6.2 — Social identity and server-side publishing authorization *(merged, #82)*
+
+Closed G6, the most dangerous gap. `canActOnAccount()` decides every publish server-side:
+dealership-owned pages need a grant **or** `marketing.publish`; user-owned accounts need
+ownership or an explicit grant. The user branch resolves first, so `marketing.publish` can
+never reach a salesperson's personal account. A cross-tenant account is refused identically
+to one that does not exist — the refusal reveals nothing. Credentials never leave the server:
+reads go through a `SAFE_COLUMNS` allowlist that omits `credentials_enc`.
+
+### PR 6.3 — One consent gate *(merged)*
+
+Closed G7. `mayContact()` is the single gate every sender calls, and it answers with a
+*basis* — `express`, `implied`, `internal` or `blocked` — rather than a bare boolean, so a
+refusal can be explained to the person who hit it. Hard stops (opt-out, DNC) precede channel
+flags, which precede automation pause, which precedes reachability. `recordOptOut()` writes
+both the flag and the evidence record, because a preference with no provenance is not consent.
+
+### PR 6.4 — Conversation continuity and human takeover *(merged, #83)*
+
+The customer is the identity; the channel is not. `identifyConversation()` **merges** into an
+existing open thread rather than opening a second one, and a database partial unique index
+makes one-open-conversation-per-contact real rather than aspirational. Merged threads keep
+their transcript and point at the winner — the record of what was said is evidence, not
+scratch. `takeOver()` cannot be silently undone by the AI runtime, and `handoffBrief()` hands
+a person the transcript, the reachable channels and the next action instead of a raw log.
+
+### PR 6.5 — The Marketing operating workspace *(this PR)*
+
+My Day is **composed**, not re-derived. `/marketing/attention` merges `campaignAttention`,
+`socialAttention` and `conversationAttention`; the workspace renders what the server decided
+and computes no severity of its own. A second opinion about "what needs attention" would drift
+from the department that owns the fact, and then two screens would disagree about the same
+dealership. Each source degrades to empty independently, so one failing department cannot
+blank the day. Problems and opportunities are separated rather than ranked against each other
+— "this is working, do more" is not a smaller version of "this is broken".
+
+Items hand off to whoever can actually fix them: a gross gap is owned by **Accounting** and
+routes there, a waiting customer is owned by **Sales**. Three honesty rules are carried into
+the pixels: linked and inferred attribution sit in separate cards with the reason stated;
+an incomplete gross is said out loud wherever the number appears; and publishing rights are
+reported by the server (`can_publish` plus `why`), never re-decided in the browser.
+
+Validated at 390px across all six surfaces — no horizontal overflow, no clipped state signals,
+no collapsed tap targets. That pass caught two real defects: the manager-only tab rendered as
+the raw key `insights`, and a post whose targets partly failed was labelled **published**. It
+now reads *Partly published* and names how many failed.

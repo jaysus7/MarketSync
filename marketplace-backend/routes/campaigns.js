@@ -18,6 +18,8 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
+import { socialAttention } from './social.js'
+import { conversationAttention } from './conversations.js'
 
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
@@ -165,10 +167,93 @@ export async function campaignSpend(dealershipId, campaignIds) {
   return out
 }
 
+// ── Attention and opportunity ───────────────────────────────────────────────
+// What a marketing manager should look at, derived from real spend and real attribution.
+// Every claim here is checkable: money went out and nothing came back, or a campaign is
+// genuinely paying and deserves more.
+export async function campaignAttention(dealershipId) {
+  const { data: rows } = await supabaseAdmin.from('campaigns')
+    .select('id, name, status, starts_at, ends_at, budget')
+    .eq('dealership_id', dealershipId).is('deleted_at', null)
+    .in('status', ['draft', 'needs_approval', 'approved', 'active', 'paused', 'exception']).limit(300)
+  if (!rows?.length) return []
+
+  const ids = rows.map(c => c.id)
+  const [perf, spend] = await Promise.all([campaignPerformance(dealershipId, ids), campaignSpend(dealershipId, ids)])
+  const items = []
+
+  for (const c of rows) {
+    const p = perf[c.id], s = spend[c.id]
+
+    if (c.status === 'needs_approval') {
+      items.push({ kind: 'campaign_needs_approval', severity: 2, subject: c.name,
+        reason: 'Waiting for approval before it can run', owner: 'Marketing',
+        action: 'Review Campaign', ref: c.id })
+    }
+
+    // Money out, nothing back. The most expensive thing marketing can do unnoticed.
+    if (s.actual > 0 && p.leads === 0 && c.status === 'active') {
+      items.push({ kind: 'campaign_spending_no_leads', severity: 3, subject: c.name,
+        reason: `${s.actual.toFixed(2)} spent and no leads attributed yet`, owner: 'Marketing',
+        action: 'Review Campaign', ref: c.id, amount: s.actual })
+    }
+
+    // Spending past the plan is a decision someone should make on purpose.
+    if (s.budget > 0 && s.actual > s.budget) {
+      items.push({ kind: 'campaign_over_budget', severity: 2, subject: c.name,
+        reason: `Spent ${s.actual.toFixed(2)} against a ${s.budget.toFixed(2)} budget`,
+        owner: 'Marketing', action: 'Review Campaign', ref: c.id, amount: round2(s.actual - s.budget) })
+    }
+
+    // An OPPORTUNITY, not a problem: it is working, and it is nearly over.
+    if (s.actual > 0 && p.gross_known > 0 && p.gross > s.actual * 2 && c.status === 'active') {
+      items.push({ kind: 'campaign_performing_well', severity: 1, subject: c.name,
+        reason: `${p.delivered} delivered and ${p.gross.toFixed(2)} gross on ${s.actual.toFixed(2)} spent`,
+        owner: 'Marketing', action: 'Review Campaign', ref: c.id, amount: p.gross })
+    }
+
+    // Ended but never closed off — its numbers keep looking live.
+    if (c.status === 'active' && c.ends_at && new Date(c.ends_at) < new Date()) {
+      items.push({ kind: 'campaign_ended_still_active', severity: 2, subject: c.name,
+        reason: `Ended ${c.ends_at} and is still marked active`, owner: 'Marketing',
+        action: 'Review Campaign', ref: c.id })
+    }
+
+    // The honest caveat, surfaced rather than buried in a tooltip.
+    if (p.gross_unknown > 0) {
+      items.push({ kind: 'campaign_gross_incomplete', severity: 1, subject: c.name,
+        reason: `${p.gross_unknown} delivered unit(s) have no posted journal, so their gross is missing`,
+        owner: 'Accounting', action: 'Review Deal', ref: c.id })
+    }
+  }
+  return items.sort((a, b) => b.severity - a.severity)
+}
+
 export function registerCampaigns(app) {
   const canView = requirePermission('marketing.view')
   const canEdit = requirePermission('marketing.edit')
   const guard = (req, res) => { if (!req.dealershipId) { res.status(403).json({ error: 'no dealership' }); return false } return true }
+
+  // Marketing's My Day, COMPOSED from what each slice already produces rather than
+  // re-derived here. Composing is the point: a second derivation of "what needs attention"
+  // would drift from the department that owns the fact.
+  app.get('/marketing/attention', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const [campaign, social, conversation] = await Promise.all([
+        campaignAttention(req.dealershipId).catch(() => []),
+        socialAttention(req.dealershipId).catch(() => []),
+        conversationAttention(req.dealershipId).catch(() => []),
+      ])
+      const items = [...campaign, ...social, ...conversation]
+      // Opportunities read differently from problems, so they are separated rather than
+      // ranked against each other — "this is working, do more" is not a smaller version of
+      // "this is broken".
+      const needsAttention = items.filter(i => i.severity >= 2).sort((a, b) => b.severity - a.severity)
+      const opportunities = items.filter(i => i.severity < 2)
+      res.json({ needs_attention: needsAttention, opportunities, total: items.length })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
 
   app.get('/marketing/sources', requireAuth, requireMfa, canView, async (req, res) => {
     if (!guard(req, res)) return
