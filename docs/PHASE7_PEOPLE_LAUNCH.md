@@ -581,8 +581,28 @@ location timezone is refused; retiring a primary frees the slot.
 
 27 new tests; 1001/1001; six gates green. Migration applied to staging only.
 
-**Not yet built, and this is the honest remaining gap:** the Launch Hub has **no UI**. The
-engine, the routes and the canonical configuration are real and tested, but a dealership cannot
-reach any of it from the dashboard yet. Shipping it this way is exactly the dead-wiring shape
-this phase keeps finding, so it is recorded as the open item rather than described as done —
-the next slice is the hub screen plus the contextual setup prompts inside each department.
+### The UI, built rather than deferred
+
+The backend was briefly written up as done with the hub unreachable — which is precisely the
+dead-wiring shape this phase keeps finding, so it was closed in the same slice rather than
+recorded as an open item.
+
+`launch-workspace.js` is the one hub: what is left (grouped by area, required first),
+Dealership (the canonical configuration, entered once), and Locations. It shows **two answers,
+never one progress bar** — a single number conflates a store that cannot legally operate with
+one that has not picked a logo. A requirement whose check failed renders as "could not check",
+and the page says out loud that it is therefore not a complete answer. A requirement somebody
+else has to satisfy says who. `launchFeatureNotice()` is the contextual half: a department
+renders its own missing setup in place, and returns nothing at all when there is nothing to
+say, so a configured dealership sees no setup furniture anywhere.
+
+It is in the **system rail** beside Settings and Academy, not a tenth department, and it is
+**not entitlement-gated** — gating setup behind an entitlement would stop a dealership
+configuring the product it just bought. Tests pin the whole reachability chain (container,
+router, script tag, registry, entitlement exemption) and pin the hub as incapable of blocking:
+no redirect, no disabled navigation, no 403, and no import of it from `middleware.js`,
+`access.js` or `authorization.js`.
+
+Rendered at 390px against the real module: no overflow, nothing clipped.
+
+35 launch tests; 1009/1009; six gates green.

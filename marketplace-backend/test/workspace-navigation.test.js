@@ -145,7 +145,9 @@ test('entitlement gating still covers every registry page', () => {
   // ungated before Phase 1 — adding one would remove access, not preserve it).
   // `academy` is exempt for the same reason: required compliance training is not a plan
   // upsell, and gating it would hide the courses a Starter dealership is required to complete.
-  const EXEMPT = new Set(['commissions', 'academy'])
+  // `launch` likewise: gating SETUP behind an entitlement would stop a dealership configuring
+  // the product it just bought.
+  const EXEMPT = new Set(['commissions', 'academy', 'launch'])
   const gates = featureBlock + productBlock   // a page may be gated by plan OR product
   for (const page of msAllWorkspacePages(MS_WORKSPACES)) {
     if (EXEMPT.has(page)) continue

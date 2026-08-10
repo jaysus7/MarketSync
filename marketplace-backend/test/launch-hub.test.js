@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import vm from 'node:vm'
 
 // Phase 7 PR 7.6 — the Dealer Launch Hub.
 //
@@ -282,4 +283,71 @@ test('setup reaches My Day only when something is actually not working', async (
 test('the hub is registered on the server', () => {
   assert.match(server, /import \{ registerLaunchHub \} from '\.\/routes\/launch-hub\.js'/)
   assert.match(server, /^registerLaunchHub\(app\)/m)
+})
+
+// ── The hub is reachable ────────────────────────────────────────────────────
+//
+// The backend was nearly shipped without any of this. A setup engine a dealership cannot open
+// is the exact dead-wiring shape Phase 7 keeps finding, so the whole chain is pinned.
+
+const FE = new URL('../../marketplace-frontend/', import.meta.url)
+const readFE = (rel) => readFileSync(new URL(rel, FE), 'utf8')
+const html = readFE('dashboard.html')
+// Stripped, like every other source scan in this file: a comment explaining that the hub
+// deliberately has no disabled navigation must not read as disabled navigation.
+const workspaceRaw = readFE('js/modules/launch-workspace.js')
+const workspace = strip(workspaceRaw)
+const part2 = readFE('js/modules/dashboard-part2.js')
+
+test('the Launch Hub has a page container, a router entry and a script tag', () => {
+  assert.match(html, /data-page-content="launch"/)
+  assert.match(html, /id="launch-root"/)
+  assert.match(part2, /pageId === 'launch'\) loadLaunchHub\(\)/)
+  assert.match(html, /<script src="js\/modules\/launch-workspace\.js\?v=[^"]+"><\/script>/)
+  assert.match(workspace, /rootId: 'launch-root'/)
+})
+
+test('the Launch Hub is in the workspace registry, in the system rail', () => {
+  const ctx = { window: {} }
+  vm.createContext(ctx)
+  vm.runInContext(readFE('js/modules/workspace-registry.js'), ctx)
+  const reg = ctx.window.MS_WORKSPACES
+  assert.ok(reg.launch, 'the hub is not reachable from the nav')
+  assert.equal(reg.launch.system, true, 'setup is not a tenth department')
+  assert.ok(reg.launch.pages.some(p => p.page === 'launch'))
+})
+
+test('setup is not entitlement-gated — a dealership can configure what it just bought', () => {
+  const map = part2.match(/const PAGE_FEATURE = \{[\s\S]*?\n\};/)?.[0] || ''
+  assert.ok(map, 'PAGE_FEATURE not found')
+  assert.ok(!/^\s*launch:/m.test(map))
+})
+
+test('the screen shows two answers, never one progress number', () => {
+  assert.match(workspace, /Can you operate/)
+  assert.match(workspace, /Fully configured/)
+  assert.ok(!/progress|percent|%\s*complete/i.test(workspace),
+    'one bar would conflate "cannot operate" with "has not picked a logo"')
+})
+
+test('the screen blocks nothing', () => {
+  assert.match(workspaceRaw, /Nothing here blocks you/)
+  assert.ok(!/disabled|location\.href|window\.location =/.test(workspace),
+    'the hub must never redirect or disable anything')
+})
+
+test('a check that failed renders as "could not check", not as done or outstanding', () => {
+  assert.match(workspace, /Could not check/)
+  assert.match(workspace, /Could not be checked/)
+})
+
+test('a department can show its own setup prompt without a wall', () => {
+  // The other half of "not a wall": the department tells you what it needs, in place.
+  assert.match(workspace, /function launchFeatureNotice/)
+  assert.match(workspace, /if \(!missing \|\| !missing\.length\) return ''/,
+    'a configured dealership must see no setup furniture at all')
+})
+
+test('a requirement somebody else has to satisfy says so', () => {
+  assert.match(workspace, /Somebody with \$\{esc\(i\.permission\)\} has to do this/)
 })
