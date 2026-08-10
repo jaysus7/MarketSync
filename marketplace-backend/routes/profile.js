@@ -1,5 +1,6 @@
 import { supabaseAdmin, sendEmail, FRONTEND_URL } from '../shared.js'
 import { ensureStaffMember } from './people-identity.js'
+import { ownedWork, offboardEmployee } from './people-offboarding.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { validatePassword, rateLimit, getClientIp } from '../security.js'
 import { audit, AuditAction, exportReason } from '../audit.js'
@@ -592,9 +593,29 @@ export function registerRoutes(app) {
       return res.status(403).json({ error: 'Cannot remove an admin/owner from the dashboard' })
     }
 
-    const { error } = await supabaseAdmin.from('profiles').update({ active: false }).eq('id', req.params.id)
-    if (error) return res.status(500).json({ error: error.message })
-    audit(req, AuditAction.TEAM_MEMBER_REMOVED, { removed_user_id: req.params.id, deactivated: true })
-    res.json({ success: true, deactivated: true })
+    // Removing a team member used to be `active: false` and nothing else. That does lock them
+    // out — requireAuth re-reads the profile every request — but it left their roles intact and
+    // their customer book, open tasks and open repair orders still assigned to someone who no
+    // longer works here. Nobody follows up, and nothing says so. (Phase 7 PR 7.2)
+    //
+    // So this now runs the real offboarding, and REFUSES while live work would be orphaned.
+    // `reassign_to` names the successor.
+    const { data: staff } = await supabaseAdmin.from('staff_members')
+      .select('id').eq('dealership_id', req.dealershipId).eq('user_id', req.params.id).maybeSingle()
+
+    const result = await offboardEmployee(req.dealershipId, {
+      staffMemberId: staff?.id || null,
+      userId: req.params.id,
+      reason: req.body?.reason || 'Removed from the dashboard',
+      reassignToUserId: req.body?.reassign_to || null,
+      actorId: req.user.id,
+    })
+    if (!result.ok) return res.status(result.needs_reassignment ? 409 : 400).json(result)
+
+    audit(req, AuditAction.TEAM_MEMBER_REMOVED, {
+      removed_user_id: req.params.id, deactivated: true,
+      roles_revoked: result.roles_revoked, reassigned: result.reassigned,
+    })
+    res.json({ success: true, deactivated: true, ...result })
   })
 }

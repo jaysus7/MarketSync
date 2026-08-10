@@ -65,6 +65,7 @@ import { registerConversations } from './routes/conversations.js'
 import { registerSalesVideo } from './routes/sales-video.js'
 import { registerReputation } from './routes/reputation.js'
 import { registerMyDay } from './routes/my-day.js'
+import { registerPeopleOffboarding } from './routes/people-offboarding.js'
 import { registerConfigEngine } from './routes/config-engine.js'
 import { registerAiEngine } from './routes/ai-engine.js'
 import { registerAiRuntime } from './routes/ai-runtime.js'
@@ -189,6 +190,7 @@ registerConversations(app)    // one customer conversation across channels + hum
 registerSalesVideo(app)       // Sales-owned video messaging — a link fetch is not a view
 registerReputation(app)       // reviews asked for honestly — no review gating, by construction
 registerMyDay(app)            // one queue across departments, permission-gated per source
+registerPeopleOffboarding(app) // leaving properly — reassign owned work, revoke roles, then terminate
 registerConfigEngine(app)
 registerAiEngine(app)
 registerAiRuntime(app)
