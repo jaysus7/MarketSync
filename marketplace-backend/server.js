@@ -66,6 +66,7 @@ import { registerSalesVideo } from './routes/sales-video.js'
 import { registerReputation } from './routes/reputation.js'
 import { registerMyDay } from './routes/my-day.js'
 import { registerPeopleOffboarding } from './routes/people-offboarding.js'
+import { registerAcademy } from './routes/academy.js'
 import { registerConfigEngine } from './routes/config-engine.js'
 import { registerAiEngine } from './routes/ai-engine.js'
 import { registerAiRuntime } from './routes/ai-runtime.js'
@@ -191,6 +192,7 @@ registerSalesVideo(app)       // Sales-owned video messaging — a link fetch is
 registerReputation(app)       // reviews asked for honestly — no review gating, by construction
 registerMyDay(app)            // one queue across departments, permission-gated per source
 registerPeopleOffboarding(app) // leaving properly — reassign owned work, revoke roles, then terminate
+registerAcademy(app)          // Your Path by role/department + credentials that required the work
 registerConfigEngine(app)
 registerAiEngine(app)
 registerAiRuntime(app)

@@ -30,6 +30,7 @@ import { reputationAttention } from './reputation.js'
 import { salesVideoAttention } from './sales-video.js'
 import { accountingExceptions } from './accounting-ar-ap.js'
 import { peopleAttention } from './people-identity.js'
+import { academyAttention } from './academy.js'
 
 /**
  * Every department that can answer for itself, and what a caller must hold to see it.
@@ -46,6 +47,9 @@ export const MY_DAY_SOURCES = [
   { key: 'sales_video', label: 'Sales video', department: 'Sales', permission: 'customer.view', load: salesVideoAttention },
   { key: 'accounting', label: 'Accounting', department: 'Accounting', permission: 'accounting.view', load: accountingExceptions },
   { key: 'people', label: 'People', department: 'People', permission: 'staff.view', load: peopleAttention },
+  // Training is gated on `staff.training.view` rather than `staff.view`: seeing that somebody
+  // is behind on compliance training is a narrower thing than seeing the team list.
+  { key: 'academy', label: 'Academy', department: 'People', permission: 'staff.training.view', load: academyAttention },
 ]
 
 /**
