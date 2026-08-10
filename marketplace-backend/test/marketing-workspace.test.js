@@ -151,6 +151,10 @@ test('Studio is a library, and says so when it is empty', () => {
   assert.match(view, /loading="lazy"/, 'a media grid must not block first paint')
 })
 
+test('Studio is directly discoverable from Marketing', () => {
+  assert.match(ws, /\{ label: 'Studio', icon: 'image', onclick: "mktView\('studio'\)" \}/)
+})
+
 test('linked and inferred attribution are never added together', () => {
   const view = ws.match(/if \(__mktView === 'attribution'\)[\s\S]*?\n      \}/)?.[0] || ''
   assert.ok(view, 'the attribution view must exist')

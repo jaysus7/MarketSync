@@ -729,6 +729,11 @@ function renderDeptTabbar(pageId) {
   if (__productAllowedPages) { __activeDept = null; return hide(); }   // restricted product tiers use their flat nav, no dept tab-bar
   // MarketSync owner mode uses the SaaS departments, not the dealership ones.
   if (document.documentElement.getAttribute('data-dash-mode') === 'marketsync') { __activeDept = null; return hide(); }
+  // A registered engine already owns the department title and primary tabs. Rendering the
+  // registry's legacy page tabs above it creates two competing headers (and, once Work opens,
+  // a third row of subviews). Settings likewise owns one structured landing page; Automation
+  // and API remain contextual destinations inside it rather than a second primary tab bar.
+  if ((typeof ENGINES !== 'undefined' && ENGINES[pageId]) || pageId === 'config') return hide();
   // Sticky: keep the current department if it owns this page, else find the owner.
   let deptId = (__activeDept && DEPARTMENTS[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
              : Object.keys(DEPARTMENTS).find(d => DEPARTMENTS[d].pages.some(p => p.page === pageId));

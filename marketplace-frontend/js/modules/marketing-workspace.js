@@ -201,6 +201,7 @@ ENGINES['marketing-overview'] = {
   },
 
   quickActions: [
+    { label: 'Studio', icon: 'image', onclick: "mktView('studio')" },
     { label: 'Campaigns', icon: 'megaphone', onclick: "mktView('campaigns')" },
     { label: 'Social', icon: 'chart', onclick: "mktView('social')" },
     { label: 'Conversations', icon: 'chat', onclick: "mktView('conversations')" },

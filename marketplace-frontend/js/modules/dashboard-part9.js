@@ -829,7 +829,68 @@ const CONFIG_META = {
 };
 const cfgLabel = (k) => CONFIG_META[k]?.label || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-async function loadConfigHub() {
+function settingsGo(page, engineId, tab) {
+  switchPage(page)
+  if (engineId && tab) setTimeout(() => engineTab(engineId, tab), 0)
+}
+window.settingsGo = settingsGo
+
+function loadConfigHub() {
+  const root = document.getElementById('config-root')
+  if (!root) return
+  const section = (title, description, actions) => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+    <h2 class="text-[15px] font-black text-slate-900 dark:text-white">${esc(title)}</h2>
+    <p class="text-[12px] text-slate-500 dark:text-slate-400 mt-1 mb-3">${esc(description)}</p>
+    <div class="flex flex-wrap gap-2">${actions.map(a => `<button onclick="${a.go}" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-[12px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">${esc(a.label)}</button>`).join('')}</div>
+  </div>`
+  root.innerHTML = `<div class="space-y-5">
+    <div>
+      <h1 class="text-xl font-black text-slate-900 dark:text-white">Settings</h1>
+      <p class="text-[13px] text-slate-500 dark:text-slate-400">Configure each operating domain where its canonical rules and records live.</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      ${section('General', 'Dealership identity, locations, branding and timezone.', [
+        { label: 'Dealership & locations', go: "settingsGo('launch','launch','work')" },
+        { label: 'Setup status', go: "settingsGo('launch','launch','overview')" },
+      ])}
+      ${section('Team & Access', 'Users, employees, roles, permissions and security.', [
+        { label: 'Users & access', go: "switchPage('owner-users')" },
+        { label: 'Employees', go: "switchPage('sales-team')" },
+        { label: 'Security profile', go: "switchPage('profile')" },
+      ])}
+      ${section('Sales, Inventory & F&I', 'Lead routing, inventory operations and finance workflows.', [
+        { label: 'Sales settings', go: "settingsGo('sales','sales','settings')" },
+        { label: 'Inventory settings', go: "settingsGo('inventory-overview','inventory-overview','settings')" },
+        { label: 'F&I settings', go: "settingsGo('fni-overview','fni-overview','settings')" },
+      ])}
+      ${section('Service & Parts', 'Operating hours, repair-order rules and parts configuration.', [
+        { label: 'Service settings', go: "settingsGo('service-overview','service-overview','settings')" },
+        { label: 'Parts settings', go: "settingsGo('parts-overview','parts-overview','settings')" },
+      ])}
+      ${section('Accounting', 'Chart of accounts, tax, posting rules, periods and approvals.', [
+        { label: 'Accounting workspace', go: "settingsGo('accounting-overview','accounting-overview','work')" },
+        { label: 'Close', go: "settingsGo('accounting-overview','accounting-overview','work');setTimeout(()=>accView('close'),0)" },
+      ])}
+      ${section('Marketing & Communications', 'Brand, campaigns, social, website, email and AI.', [
+        { label: 'Marketing workspace', go: "switchPage('marketing-overview')" },
+        { label: 'Website', go: "switchPage('website')" },
+        { label: 'Studio', go: "settingsGo('marketing-overview','marketing-overview','work');setTimeout(()=>mktView('studio'),0)" },
+      ])}
+      ${section('People & Academy', 'Employment policy, training, schedules and compliance.', [
+        { label: 'People', go: "switchPage('people-overview')" },
+        { label: 'Academy', go: "switchPage('academy')" },
+      ])}
+      ${section('Automation, Integrations & API', 'One workflow engine, connected providers, and restricted developer access.', [
+        { label: 'Automation', go: "switchPage('automation-builder')" },
+        { label: 'API & webhooks', go: "switchPage('api-keys')" },
+      ])}
+    </div>
+  </div>`
+}
+
+// Retained only for genuine key/value configuration callers while structured Settings is the
+// runtime landing. It is deliberately not called by navigation.
+async function loadLegacyConfigHub() {
   const root = document.getElementById('config-root');
   if (!root) return;
   root.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading configuration…</div>`;

@@ -161,6 +161,11 @@ test('DEPARTMENTS is an alias of the registry, not a second copy', () => {
     'dashboard-part2.js must consume MS_WORKSPACES rather than redefining the nav')
 })
 
+test('engine workspaces and Settings render one primary header', () => {
+  assert.match(part2, /ENGINES\[pageId\]\) \|\| pageId === 'config'\) return hide\(\)/,
+    'the registry tab bar must yield to the canonical engine or Settings header')
+})
+
 test('registry loads before dashboard.js', () => {
   const reg = html.indexOf('workspace-registry.js')
   const dash = html.indexOf('src="dashboard.js')
