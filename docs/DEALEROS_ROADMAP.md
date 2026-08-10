@@ -21,8 +21,9 @@ and recorded here instead.
 | **3** | Inventory + F&I | **COMPLETE** |
 | **4** | Service + Parts | **COMPLETE** |
 | **5** | Accounting | **COMPLETE ON STAGING** |
-| **6** | Dealer Marketing + Communications | **NEXT** |
-| **7** | Dealer People + Academy + Dealer Launch / Self-Onboarding | Planned |
+| **6** | Dealer Marketing + Communications | **COMPLETE ON STAGING** |
+| **6S** | Security stabilization (CodeQL triage) | **COMPLETE** |
+| **7** | Dealer People + Academy + Dealer Launch / Self-Onboarding | **NEXT** |
 | **8** | Dealer Management + unified My Day / UX simplification | Planned |
 | **9A** | Full Dealer OS E2E + Security + Production Hardening | Planned |
 | **9B** | MarketSync Internal OS + Affiliate Login / Dashboard | Planned |
