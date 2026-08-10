@@ -10,11 +10,11 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 
 | | |
 |---|---|
-| **Last updated** | 2026-08-09 |
+| **Last updated** | 2026-08-10 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
 | **Baseline on `staging`** | `8cc0489` — 465/465 tests green, all six `check:*` green |
-| **In flight** | **Batches 1 and 2 COMPLETE** — full Service operations E2E-proved, Payment Core built, Service accounting corrected, invoice read + explicit financial disposition, deposits converted to a Payment producer (520/520, six checks). **Batch 3 in progress** — Service advisor workspace and Parts department workspace both built and green (536/536). Remaining: technician-scoped view, mobile ~390px validation, final Service-only E2E. |
-| **Roadmap position** | Phase 1–3 complete. Phase 4: #72/#73/#74 merged to `staging`; Batch 1 steps 1–5 built on the branch and green. **The database owns the RO state machine — read audit §32 before touching Service.** Remaining: Batch 1 integration proof → Batch 2 (financial close) → Batch 3 (Service/Parts operating UI + E2E). After Fixed Ops the handoff's stated order is Accounting → Marketing → People → dealership-wide My Day; **confirm against the canonical roadmap before assigning a phase number to it.** |
+| **In flight** | **PHASE 4 COMPLETE on the branch — all three batches done.** Batch 1: full Service operations E2E-proved. Batch 2: Payment Core built, Service accounting corrected, invoice read + explicit financial disposition, deposits converted to a Payment producer. Batch 3: Service advisor workspace, Parts department workspace, technician **My Work** surface, mobile validated at 390px, Service-only E2E. **553/553 tests, all six `check:*` green.** Branch `claude/restore-shared-public-shell-8lftt0`, `e41d95e` → `c811053`. Not yet merged to `staging`. |
+| **Roadmap position** | Phase 1–3 complete. Phase 4 (Fixed Ops) complete on the branch; #72/#73/#74 already merged to `staging`, the rest awaiting merge. **The database owns the RO state machine — read audit §32 before touching Service.** Next: **read the canonical roadmap and determine the actual next numbered phase — do not guess.** The stated order after Fixed Ops is Accounting → Marketing → People → dealership-wide My Day; if the roadmap does not clearly define the next phase, **stop and report the exact ambiguity** rather than choosing one. |
 
 ## Read before coding
 
@@ -38,6 +38,15 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 
 ## Completed
 
+- **Phase 4 — Fixed Ops (Service + Parts)** — complete on the branch across three
+  batches: Service operations (state machine respected, estimates, immutable
+  authorization, technician workflow, parts demand), financial close (Payment +
+  Allocation core primitive, corrected `service_closed` posting, explicit disposition),
+  and the operating product (advisor workspace, Parts department, technician `My Work`,
+  390px mobile, Service-only E2E). Guarded by `test/fixedops-foundation.test.js`,
+  `test/fixedops-batch1-e2e.test.js`, `test/core-payments.test.js`,
+  `test/service-workspace.test.js`, `test/parts-workspace.test.js`,
+  `test/service-standalone-e2e.test.js`.
 - **Public marketing shell** — shared header/footer/theme/auth across 33 public
   pages (`assets/public-shell.js`). Guarded by `test/public-shell.test.js`.
 - **`dashboard.js` split** — contiguous, load-order-critical split into
@@ -151,10 +160,35 @@ payments, balances, AR, parts-receipt accounting, reversals, idempotency, postin
 abstraction — no MCP connector dependency). Do not build a Service-specific accounting
 system.
 
-### Batch 3 — Service Operating Product (4.5)
+### Batch 3 — Service Operating Product (4.5) — **COMPLETE**
 
 A complete department UI built around jobs-to-be-done, for **advisor**, **technician**
 and **manager**, finishing with full E2E of real dealership workflows.
+
+**What landed, and the three findings worth carrying forward:**
+
+1. **The technician surface is keyed off a permission, not a role.** There is no
+   `TECHNICIAN` role — the assignable vocabulary is
+   `MANAGER/SALES_REP/FNI/SERVICE/ACCOUNTING/CLEANUP`, and a single `SERVICE` role
+   covers advisor and technician alike. `My Work` therefore keys off the server's own
+   dividing line in `assertLineActor()`: holding `service.manage_workflow` is the desk.
+   `window.canDo` fails OPEN, so a missing access context lands on the advisor surface —
+   the safe direction. **Do not "fix" this by inventing a technician role.**
+
+2. **Mobile at 390px found a real defect, not a cosmetic one.** A coloured state signal
+   appended to a `truncate` line is ellipsed out of existence on a phone. Three rows had
+   it: an advisor could not see "waiting for parts", a parts clerk could not see
+   "0 available". Status and flags now lead their own line. Regression tests pin the
+   invariant as **order** (signal leads, detail gets cut), not "never truncate".
+   Validation was a real headless render at 390px, not class-name grepping.
+
+3. **Parts is bundled with Service today.** There is no `os.parts` entitlement anywhere
+   in the codebase; `parts-overview` is gated on `os.service`. That is coherent for a
+   shop but is **not** the same as Parts being separately purchasable, which the stated
+   product direction calls for. `test/service-standalone-e2e.test.js` pins this
+   deliberately so it stays visible. Parts is nonetheless built as its own engine over
+   Service's one stock ledger, so splitting it later is an entitlement change rather
+   than a rewrite. **This is an owner decision, not a bug to quietly fix.**
 
 Then repeat the same shape for Parts, Accounting, F&I — complete department workflows in
 meaningful batches, not another audit→foundation→reconciliation→spec cycle per feature.
