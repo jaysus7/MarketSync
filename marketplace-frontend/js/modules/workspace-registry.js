@@ -27,7 +27,7 @@ const MS_WORKSPACES = {
   executive: {
     label: 'Executive', icon: 'chart', accent: 'indigo', mgr: true,
     pages: [
-      { page: 'command', label: 'Overview' },
+      { page: 'command', label: 'My Day' },
       { page: 'leaderboard', label: 'Performance' },
       { page: 'operations', label: 'Operations' },
       { page: 'taskboard', label: 'Task Board' },
@@ -46,7 +46,7 @@ const MS_WORKSPACES = {
   sales: {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
-      { page: 'sales', label: 'Today' },
+      { page: 'sales', label: 'My Day' },
       { page: 'crm', label: 'Customers' },
       { page: 'appointments', label: 'Appointments' },
       { page: 'tasks', label: 'Tasks' },
@@ -67,7 +67,7 @@ const MS_WORKSPACES = {
   inventory: {
     label: 'Inventory', icon: 'gem', accent: 'sky',
     pages: [
-      { page: 'inventory-overview', label: 'Today' },
+      { page: 'inventory-overview', label: 'My Day' },
       { page: 'inventory', label: 'Vehicles', invmode: 'manual' },
       { page: 'appraisal', label: 'Acquire' },
       { page: 'equity', label: 'Equity Mining' },
@@ -82,7 +82,7 @@ const MS_WORKSPACES = {
   fni: {
     label: 'F&I', icon: 'shield', accent: 'indigo', roles: ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI'],
     pages: [
-      { page: 'fni-overview', label: 'Today' },
+      { page: 'fni-overview', label: 'My Day' },
       { page: 'fni', label: 'Deals' },
       { page: 'delivery', label: 'Delivery', mgr: true },
     ],
@@ -91,7 +91,7 @@ const MS_WORKSPACES = {
   service: {
     label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
     pages: [
-      { page: 'service-overview', label: 'Today' },
+      { page: 'service-overview', label: 'My Day' },
       { page: 'service-appointments', label: 'Schedule' },
       { page: 'service-ros', label: 'Repair Orders' },
     ],
@@ -100,7 +100,7 @@ const MS_WORKSPACES = {
   parts: {
     label: 'Parts', icon: 'gem', accent: 'amber', mgr: true,
     pages: [
-      { page: 'parts-overview', label: 'Today' },
+      { page: 'parts-overview', label: 'My Day' },
       { page: 'service-parts', label: 'Catalogue' },
     ],
   },
@@ -110,7 +110,7 @@ const MS_WORKSPACES = {
   accounting: {
     label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
     pages: [
-      { page: 'accounting-overview', label: 'Today' },
+      { page: 'accounting-overview', label: 'My Day' },
       { page: 'accounting', label: 'Overview' },
       { page: 'commissions', label: 'Payroll' },
     ],

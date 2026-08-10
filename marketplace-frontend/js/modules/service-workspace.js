@@ -322,7 +322,7 @@ function svcRenderWork(body, d) {
 ENGINES['service-overview'] = {
   rootId: 'service-overview-root', title: 'Service', subtitle: 'One repair order — check in, estimate, authorize, repair, deliver',
   icon: 'wrench', accent: 'sky',
-  get tabLabels() { return svcIsTechnician() ? { overview: 'My Work' } : { overview: 'Today', work: 'Work' }; },
+  get tabLabels() { return svcIsTechnician() ? { overview: 'My Day' } : { overview: 'My Day', work: 'Work' }; },
   get tabOrder() {
     if (svcIsTechnician()) return ['overview'];          // My Work is the whole job
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);

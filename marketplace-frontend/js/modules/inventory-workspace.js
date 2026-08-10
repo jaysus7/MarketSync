@@ -322,7 +322,7 @@ async function invRenderWork(body, d) {
 ENGINES['inventory-overview'] = {
   rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'One vehicle lifecycle — acquire, recon, price, publish',
   icon: 'gem', accent: 'sky',
-  tabLabels: { overview: 'Today', work: 'Work' },
+  tabLabels: { overview: 'My Day', work: 'Work' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     return mgr ? ['overview', 'work', 'insights', 'settings'] : ['overview', 'work'];

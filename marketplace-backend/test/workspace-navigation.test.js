@@ -63,6 +63,13 @@ test('registry exposes the nine DealerOS workspaces in workflow order', () => {
     'departments must be exactly the nine target workspaces, in order')
 })
 
+test('every dealer department leads with one role-aware My Day', () => {
+  const { MS_WORKSPACES, msDepartmentIds } = loadRegistry()
+  for (const id of msDepartmentIds(MS_WORKSPACES)) {
+    assert.equal(MS_WORKSPACES[id].pages[0]?.label, 'My Day', `${id} must lead with My Day`)
+  }
+})
+
 test('system engines are NOT primary departments', () => {
   const { msDepartmentIds, MS_WORKSPACES } = loadRegistry()
   // CRM, Automation, AI, Integrations, Analytics, Marketplace power the workspaces

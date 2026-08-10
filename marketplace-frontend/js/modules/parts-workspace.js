@@ -204,7 +204,7 @@ function pwRenderWork(body, d) {
 ENGINES['parts-overview'] = {
   rootId: 'parts-overview-root', title: 'Parts', subtitle: 'Demand, availability, receiving and issue — one stock ledger',
   icon: 'gem', accent: 'amber',
-  tabLabels: { overview: 'Today', work: 'Work' },
+  tabLabels: { overview: 'My Day', work: 'Work' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     return mgr ? ['overview', 'work', 'insights', 'settings'] : ['overview', 'work'];

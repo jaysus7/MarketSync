@@ -33,14 +33,14 @@ for (const [name, src, id] of DEPTS) {
       `${name} must not redefine a shared primitive`)
   })
 
-  test(`${name} tabs are role-aware and Today-first`, () => {
+  test(`${name} tabs are role-aware and My Day-first`, () => {
     const block = src.match(/get tabOrder\(\)\s*\{[\s\S]*?\n  \},/)?.[0] || ''
     assert.ok(block, `${name} tabOrder must be role-aware`)
     assert.match(block, /\['overview', 'work'\]/, `${name}: a non-manager sees Today | Work`)
-    assert.match(src, /tabLabels:\s*\{\s*overview:\s*'Today'/, `${name} overview tab must read "Today"`)
+    assert.match(src, /tabLabels:\s*\{\s*overview:\s*'My Day'/, `${name} overview tab must read "My Day"`)
   })
 
-  test(`${name} Today is attention-first`, () => {
+  test(`${name} My Day is attention-first`, () => {
     assert.match(src, /Needs attention/, `${name} must lead with a needs-attention queue`)
     assert.match(src, /function (inv|fni)Attention/, `${name} must derive its attention queue`)
     assert.match(src, /salesAttentionRow/, `${name} should reuse the Sales attention row renderer`)
@@ -251,8 +251,8 @@ test('no invented CRM lifecycle stages anywhere in Stage 3', () => {
 test('Stage 3 leaves the departments’ navigation coherent', () => {
   const block = (w) => registry.match(new RegExp(`\\n  ${w}: \\{[\\s\\S]*?\\n  \\},`))?.[0] || ''
   const invBlock = block('inventory'), fniBlock = block('fni')
-  assert.match(invBlock, /\{ page: 'inventory-overview', label: 'Today' \}/, 'Inventory must lead with Today')
-  assert.match(fniBlock, /\{ page: 'fni-overview', label: 'Today' \}/, 'F&I must lead with Today')
+  assert.match(invBlock, /\{ page: 'inventory-overview', label: 'My Day' \}/, 'Inventory must lead with My Day')
+  assert.match(fniBlock, /\{ page: 'fni-overview', label: 'My Day' \}/, 'F&I must lead with My Day')
   // Existing pages stay reachable — Stage 3 deletes nothing.
   for (const p of ['inventory', 'appraisal', 'equity', 'recon', 'inv-intel', 'market']) {
     assert.ok(invBlock.includes(`page: '${p}'`), `Inventory page "${p}" must stay reachable`)

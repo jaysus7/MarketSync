@@ -1039,8 +1039,8 @@ window.renderDailyBriefingWorkstation = renderDailyBriefingWorkstation;
 
 // Executive department — the whole business at a glance; uses every engine.
 ENGINES['command'] = {
-  rootId: 'command-root', title: 'Daily Briefing', subtitle: "Today's operations across every department — problems first",
-  icon: 'chart', accent: 'indigo', tabLabels: { work: 'Needs Attention' },
+  rootId: 'command-root', title: 'My Day', subtitle: 'Management attention across every department — priorities first',
+  icon: 'chart', accent: 'indigo', tabLabels: { overview: 'My Day', work: 'Exceptions' },
   tabOrder: ['overview', 'work'],   // Insights/Automation/Settings removed per audit
 
   fetch: async () => {

@@ -110,7 +110,7 @@ ENGINES['accounting-overview'] = {
   rootId: 'accounting-overview-root', title: 'Accounting',
   subtitle: 'Financial control — what reached the books, what has not, and what is owed',
   icon: 'currency', accent: 'emerald',
-  tabLabels: { overview: 'Today', work: 'Work' },
+  tabLabels: { overview: 'My Day', work: 'Work' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(profileContext?.role);
     return mgr ? ['overview', 'work', 'insights'] : ['overview', 'work'];
