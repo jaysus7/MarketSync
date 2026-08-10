@@ -643,7 +643,7 @@ let __currentPage = null;
 // every DealerOS account as Pro.
 const PAGE_FEATURE = {
   command: 'os.dashboard', insights: 'os.dashboard', sales: 'os.crm',
-  'inventory-overview': 'os.inventory', 'fni-overview': 'os.sales', 'service-overview': 'os.service', 'parts-overview': 'os.service', 'accounting-overview': 'os.accounting',
+  'inventory-overview': 'os.inventory', 'fni-overview': 'os.sales', 'service-overview': 'os.service', 'parts-overview': 'os.service', 'accounting-overview': 'os.accounting', 'marketing-overview': 'os.marketing',
   crm: 'os.crm', leads: 'os.crm', appointments: 'os.crm', tasks: 'os.crm',
   appraisal: 'os.crm', equity: 'os.crm',
   inventory: 'os.inventory', recon: 'os.inventory',
@@ -1020,6 +1020,7 @@ function switchPage(pageId) {
   if (pageId === 'service-overview') loadServiceWorkspace();
   if (pageId === 'parts-overview') loadPartsWorkspace();
   if (pageId === 'accounting-overview') loadAccountingWorkspace();
+  if (pageId === 'marketing-overview') loadMarketingWorkspace();
   if (pageId === 'saas-command') loadSaasCommand();
   if (pageId === 'saas-customers') loadSaasCustomers();
   if (pageId === 'saas-followups') loadSaasFollowups();

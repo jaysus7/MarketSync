@@ -162,8 +162,11 @@ test('tokens are encrypted with the existing helper and never returned', () => {
 // ── Attention state, for My Day to compose later ────────────────────────────
 
 test('this slice emits real attention items', () => {
-  const route = social.match(/app\.get\('\/social\/attention'[\s\S]*?\n  \}\)/)?.[0] || ''
-  assert.ok(route, 'the attention route must exist')
+  // The builder, not the route: Marketing's My Day composes these directly, so the
+  // guarantee lives in the exported function rather than in one HTTP handler.
+  const route = social.match(/export async function socialAttention[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.ok(route, 'the attention builder must exist')
+  assert.match(social, /app\.get\('\/social\/attention'/, 'and still be reachable over HTTP')
   for (const kind of ['social_account_disconnected', 'social_post_needs_approval', 'social_publish_failed']) {
     assert.ok(route.includes(kind), `missing attention kind: ${kind}`)
   }

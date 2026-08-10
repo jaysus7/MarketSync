@@ -106,6 +106,34 @@ export async function publishableAccounts(req, action = 'publish') {
   return out
 }
 
+// ── Attention this department can honestly produce ──────────────────────────
+// Exported as a builder, not just a route, so Marketing's My Day COMPOSES these rather
+// than re-deriving them from the same tables and drifting.
+export async function socialAttention(dealershipId) {
+  const [{ data: accounts }, { data: posts }, { data: failed }] = await Promise.all([
+    supabaseAdmin.from('social_accounts').select('id, display_name, status, token_expires_at, last_error')
+      .eq('dealership_id', dealershipId).neq('status', 'connected'),
+    supabaseAdmin.from('social_posts').select('id, body, status, scheduled_for')
+      .eq('dealership_id', dealershipId).eq('status', 'needs_approval').is('deleted_at', null).limit(100),
+    supabaseAdmin.from('social_post_targets').select('id, post_id, social_account_id, error, updated_at')
+      .eq('dealership_id', dealershipId).eq('status', 'failed').limit(100),
+  ])
+  const items = []
+  for (const a of accounts || []) {
+    items.push({ kind: 'social_account_disconnected', severity: 3, subject: a.display_name,
+      reason: a.last_error || `Account is ${a.status}`, owner: 'Marketing', action: 'Reconnect Account', ref: a.id })
+  }
+  for (const p of posts || []) {
+    items.push({ kind: 'social_post_needs_approval', severity: 2, subject: (p.body || 'Post').slice(0, 60),
+      reason: 'Scheduled content is waiting for approval', owner: 'Marketing', action: 'Review Post', ref: p.id })
+  }
+  for (const f of failed || []) {
+    items.push({ kind: 'social_publish_failed', severity: 3, subject: 'Publication failed',
+      reason: f.error || 'The provider refused the post', owner: 'Marketing', action: 'Review Post', ref: f.post_id })
+  }
+  return items.sort((a, b) => b.severity - a.severity)
+}
+
 export function registerSocial(app) {
   const canView = requirePermission('marketing.view')
   const canEdit = requirePermission('marketing.edit')
@@ -325,29 +353,7 @@ export function registerSocial(app) {
   // Marketing attention items this slice can honestly produce, for My Day to compose later.
   app.get('/social/attention', requireAuth, requireMfa, canView, async (req, res) => {
     if (!guard(req, res)) return
-    try {
-      const [{ data: accounts }, { data: posts }, { data: failed }] = await Promise.all([
-        supabaseAdmin.from('social_accounts').select('id, display_name, status, token_expires_at, last_error')
-          .eq('dealership_id', req.dealershipId).neq('status', 'connected'),
-        supabaseAdmin.from('social_posts').select('id, body, status, scheduled_for')
-          .eq('dealership_id', req.dealershipId).eq('status', 'needs_approval').is('deleted_at', null).limit(100),
-        supabaseAdmin.from('social_post_targets').select('id, post_id, social_account_id, error, updated_at')
-          .eq('dealership_id', req.dealershipId).eq('status', 'failed').limit(100),
-      ])
-      const items = []
-      for (const a of accounts || []) {
-        items.push({ kind: 'social_account_disconnected', severity: 3, subject: a.display_name,
-          reason: a.last_error || `Account is ${a.status}`, owner: 'Marketing', action: 'Reconnect Account', ref: a.id })
-      }
-      for (const p of posts || []) {
-        items.push({ kind: 'social_post_needs_approval', severity: 2, subject: (p.body || 'Post').slice(0, 60),
-          reason: 'Scheduled content is waiting for approval', owner: 'Marketing', action: 'Review Post', ref: p.id })
-      }
-      for (const f of failed || []) {
-        items.push({ kind: 'social_publish_failed', severity: 3, subject: 'Publication failed',
-          reason: f.error || 'The provider refused the post', owner: 'Marketing', action: 'Review Post', ref: f.post_id })
-      }
-      res.json({ items: items.sort((a, b) => b.severity - a.severity) })
-    } catch (e) { res.status(500).json({ error: e.message }) }
+    try { res.json({ items: await socialAttention(req.dealershipId) }) }
+    catch (e) { res.status(500).json({ error: e.message }) }
   })
 }

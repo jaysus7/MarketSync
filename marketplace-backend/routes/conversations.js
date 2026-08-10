@@ -242,6 +242,33 @@ export async function handoffBrief(dealershipId, conversationId) {
   }
 }
 
+/**
+ * Attention this department can honestly produce.
+ *
+ * Exported as a builder, not just a route, so Marketing's My Day COMPOSES these rather than
+ * re-deriving them from the same tables and drifting.
+ */
+export async function conversationAttention(dealershipId) {
+  const { data } = await supabaseAdmin.from('ai_conversations')
+    .select('id, contact_id, status, channel, lead_type, lead_score, last_customer_at, last_message_at, takeover_by')
+    .eq('dealership_id', dealershipId).in('status', ['waiting_dealer', 'handoff']).limit(200)
+  const now = Date.now()
+  return (data || []).map(c => {
+    const waited = c.last_customer_at ? Math.floor((now - new Date(c.last_customer_at).getTime()) / 60000) : null
+    return {
+      kind: c.status === 'handoff' ? 'conversation_human_takeover' : 'conversation_waiting_dealer',
+      // A customer who has waited an hour outranks one who just wrote.
+      severity: (waited ?? 0) > 60 ? 3 : 2,
+      subject: c.lead_type ? `${c.lead_type} conversation` : 'Customer conversation',
+      reason: waited == null ? 'Waiting on the dealership'
+            : waited < 60 ? `Customer has been waiting ${waited} min`
+            : `Customer has been waiting ${Math.floor(waited / 60)}h`,
+      owner: c.takeover_by ? 'Assigned' : 'Sales',
+      action: 'Reply to the customer', ref: c.id, channel: c.channel,
+    }
+  }).sort((a, b) => b.severity - a.severity)
+}
+
 export function registerConversations(app) {
   const canView = requirePermission('customer.view')
   const canEdit = requirePermission('customer.edit')
@@ -307,25 +334,7 @@ export function registerConversations(app) {
   // Attention items this slice produces, for My Day to compose from later.
   app.get('/conversations/attention', requireAuth, requireMfa, canView, async (req, res) => {
     if (!guard(req, res)) return
-    try {
-      const { data } = await supabaseAdmin.from('ai_conversations')
-        .select('id, contact_id, status, channel, lead_type, lead_score, last_customer_at, last_message_at, takeover_by')
-        .eq('dealership_id', req.dealershipId).in('status', ['waiting_dealer', 'handoff']).limit(200)
-      const now = Date.now()
-      const items = (data || []).map(c => {
-        const waited = c.last_customer_at ? Math.floor((now - new Date(c.last_customer_at).getTime()) / 60000) : null
-        return {
-          kind: c.status === 'handoff' ? 'conversation_human_takeover' : 'conversation_waiting_dealer',
-          severity: (waited ?? 0) > 60 ? 3 : 2,
-          subject: c.lead_type ? `${c.lead_type} conversation` : 'Customer conversation',
-          reason: waited == null ? 'Waiting on the dealership'
-                : waited < 60 ? `Customer has been waiting ${waited} min`
-                : `Customer has been waiting ${Math.floor(waited / 60)}h`,
-          owner: c.takeover_by ? 'Assigned' : 'Sales',
-          action: 'Reply to the customer', ref: c.id, channel: c.channel,
-        }
-      })
-      res.json({ items: items.sort((a, b) => b.severity - a.severity) })
-    } catch (e) { res.status(500).json({ error: e.message }) }
+    try { res.json({ items: await conversationAttention(req.dealershipId) }) }
+    catch (e) { res.status(500).json({ error: e.message }) }
   })
 }
