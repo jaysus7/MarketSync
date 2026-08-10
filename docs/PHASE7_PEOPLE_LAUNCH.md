@@ -519,3 +519,90 @@ template task keys are unique.
 writes its own, and shipping template legal text would be advice this product is not qualified
 to give), and safety incidents / corrective actions, which have their own tables and are their
 own slice.
+
+---
+
+## PR 7.6 — The Dealer Launch Hub *(backend)*
+
+**A correction to G7, made after reading the schema rather than assuming.** The truth check said
+"no canonical location or dealership operating configuration". That was too broad. `dealerships`
+already carries `legal_name`, `street_address`, `city`, `province`, `country`, `postal_code`,
+`phone`, `hst_number` and `omvic_reg`, and those columns are real and correctly placed.
+
+What is actually missing is narrower and worse:
+
+- **Timezone** — absent entirely. Every date this product computes (a training due date, an
+  accounting period, a promised time, whether a shift ran overnight) is evaluated in UTC. A
+  dealership in Vancouver closes its month at 5pm on the 31st and nothing knows it.
+- **Operating hours** — absent. Nothing can say whether the store is open, which is what turns
+  "no response in 20 minutes" into either a problem or a Sunday.
+- **Locations** — absent. `group_id` covers dealer groups; one dealership with two rooftops has
+  nowhere to put the second.
+
+**And the columns that do exist are empty: 0 of 7 dealerships have an address or a legal name.**
+The configuration surface was never the gap. Nothing ever asked anybody to fill it in — which
+is precisely what the Launch Hub is for.
+
+### The four rules, each from the brief
+
+1. **Derived, never stored.** There is no `setup_completed` column, no `onboarding_step`, no
+   checklist table. Every requirement re-reads real configuration on every call, so "done"
+   cannot drift from done. A test pins those column names out of both the engine and the
+   migration.
+2. **Setup is not a lock.** The hub exports readiness and nothing else: no middleware, no 403,
+   and a test asserts that `middleware.js`, `access.js` and `authorization.js` do not import it.
+   The way to keep "no blanket application lock" true is for this module to be incapable of
+   imposing one.
+3. **Entitlement decides which requirements EXIST; role decides who may SATISFY them.** A
+   dealership without Service is not incomplete for having no service hours — that requirement
+   is not theirs. A requirement the caller cannot satisfy is marked `actionable_by_you: false`
+   and still listed, because hiding it leaves an invisible blocker and nagging is noise.
+4. **"Operational" and "fully configured" are separate answers.** A dealership can sell a car
+   before it has picked a logo.
+
+**A failed check is `unknown`, never `false`** — and a hub with any unknown refuses to declare
+readiness. Reporting "not done" because a query failed would send somebody to re-enter what
+they had already entered.
+
+**Contextual, not a wall.** `GET /launch/feature/:name` lets a department ask about itself and
+get back only what it is missing, so setup reaches somebody at the moment it matters.
+
+**Enter once** is enforced rather than intended: the first location is seeded from the
+dealership's own address and becomes primary, and one primary per dealership is a partial
+unique index. Timezones are validated against `pg_timezone_names` by trigger (a check
+constraint may not contain a subquery, and a hard-coded list goes stale) — with **no default**,
+because a guessed timezone is worse than a missing one: it produces dates wrong by hours and
+nobody looks at a field that already has a value.
+
+**Proved on staging** with eight probes inside a transaction that aborts: a real timezone is
+accepted; `America/Torotno` is refused; a primary location is created; a second primary is
+refused; a secondary is allowed; a duplicate name is refused case-insensitively; an invalid
+location timezone is refused; retiring a primary frees the slot.
+
+27 new tests; 1001/1001; six gates green. Migration applied to staging only.
+
+### The UI, built rather than deferred
+
+The backend was briefly written up as done with the hub unreachable — which is precisely the
+dead-wiring shape this phase keeps finding, so it was closed in the same slice rather than
+recorded as an open item.
+
+`launch-workspace.js` is the one hub: what is left (grouped by area, required first),
+Dealership (the canonical configuration, entered once), and Locations. It shows **two answers,
+never one progress bar** — a single number conflates a store that cannot legally operate with
+one that has not picked a logo. A requirement whose check failed renders as "could not check",
+and the page says out loud that it is therefore not a complete answer. A requirement somebody
+else has to satisfy says who. `launchFeatureNotice()` is the contextual half: a department
+renders its own missing setup in place, and returns nothing at all when there is nothing to
+say, so a configured dealership sees no setup furniture anywhere.
+
+It is in the **system rail** beside Settings and Academy, not a tenth department, and it is
+**not entitlement-gated** — gating setup behind an entitlement would stop a dealership
+configuring the product it just bought. Tests pin the whole reachability chain (container,
+router, script tag, registry, entitlement exemption) and pin the hub as incapable of blocking:
+no redirect, no disabled navigation, no 403, and no import of it from `middleware.js`,
+`access.js` or `authorization.js`.
+
+Rendered at 390px against the real module: no overflow, nothing clipped.
+
+35 launch tests; 1009/1009; six gates green.

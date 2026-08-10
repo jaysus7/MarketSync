@@ -152,6 +152,16 @@ const MS_WORKSPACES = {
     ],
   },
 
+  // ── Setup — the ONE Launch Hub, in the system rail beside Settings ────────
+  // Manager-only because satisfying a requirement needs settings.manage; the hub itself gates
+  // nothing and blocks nobody. See js/modules/launch-workspace.js.
+  launch: {
+    label: 'Set up', icon: 'shield', accent: 'indigo', system: true, mgr: true,
+    pages: [
+      { page: 'launch', label: 'Set up your dealership' },
+    ],
+  },
+
   // ── System — rendered in the bottom/system section, not as a department ────
   // Automation deliberately lives HERE, not in a department: contextual automation
   // belongs inside workspaces, global advanced automation belongs in Settings.
