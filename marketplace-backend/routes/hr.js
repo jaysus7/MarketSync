@@ -16,6 +16,7 @@
  *      are defence-in-depth, not the only guard.
  */
 import { requireAuth, requireMfa } from '../middleware.js'
+import { ensureStaffMember, changeEmploymentStatus, teamDirectory, peopleAttention, EMPLOYMENT_STATES } from './people-identity.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { toCsv } from '../payroll-export.js'
@@ -23,6 +24,17 @@ import { toCsv } from '../payroll-export.js'
 // Resolve the caller's own staff_members row id (for self-service actions). Uses the
 // RLS-scoped client: `staff_members` SELECT is allowed for any dealership member, so a
 // caller can always find their own row, and never another tenant's.
+/**
+ * This user's employment record, creating it if they predate the Phase 7 producer.
+ *
+ * Every login that existed before PR 7.1 has no `staff_members` row, and every People feature
+ * refused them with "No staff profile linked to your account". Backfilling lazily on first
+ * read is what makes the People engine reachable for people who were already working here —
+ * an existing employee should not have to be re-hired to appear in their own team list.
+ *
+ * They come back as 'active', not 'invited': someone who has been signing in for months is
+ * not waiting on an invitation.
+ */
 async function selfStaffMemberId(req) {
   const { data } = await req.supabase
     .from('staff_members')
@@ -30,7 +42,16 @@ async function selfStaffMemberId(req) {
     .eq('dealership_id', req.dealershipId)
     .eq('user_id', req.user.id)
     .maybeSingle()
-  return data?.id || null
+  if (data?.id) return data.id
+
+  const { staff } = await ensureStaffMember(req.dealershipId, req.user.id, {
+    name: req.profile?.full_name || null,
+    email: req.profile?.email || req.user?.email || null,
+    role: req.profile?.role || null,
+    createdBy: req.user.id,
+    status: 'active',
+  })
+  return staff?.id || null
 }
 
 export function registerHR(app) {
@@ -325,5 +346,77 @@ export function registerHR(app) {
     } catch (e) {
       res.status(500).json({ error: e.message })
     }
+  })
+
+  // ── Employee identity (Phase 7 PR 7.1) ────────────────────────────────────
+
+  /**
+   * The team, one identity at a time. Logins with no employment record are INCLUDED and
+   * flagged `linked: false` rather than hidden — a person who can sign in and does not appear
+   * in their own team list is how a dealership loses track of who works there.
+   */
+  app.get('/hr/team', requireAuth, requirePermission('staff.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    try { res.json({ team: await teamDirectory(req.dealershipId) }) }
+    catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.get('/hr/attention', requireAuth, requirePermission('staff.view'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    try { res.json({ items: await peopleAttention(req.dealershipId) }) }
+    catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  /**
+   * Give an existing login its employment record. This is the repair for anyone who predates
+   * the producer; new users get theirs at invitation.
+   */
+  app.post('/hr/employees', requireAuth, requireMfa, requirePermission('staff.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const userId = req.body?.user_id
+    if (!userId) return res.status(400).json({ error: 'A user is required — an employment record belongs to a person who can sign in.' })
+    try {
+      // Cross-tenant refused: the login must belong to THIS dealership.
+      // req.supabase, not supabaseAdmin: this module reads through RLS on purpose (see the
+      // header) so tenancy is re-checked by the database on every row, not just by the filter.
+      const { data: person } = await req.supabase.from('profiles')
+        .select('id, dealership_id, full_name, role').eq('id', userId).maybeSingle()
+      if (!person || person.dealership_id !== req.dealershipId) {
+        return res.status(404).json({ error: 'That user was not found.' })
+      }
+      const { staff, created, error } = await ensureStaffMember(req.dealershipId, userId, {
+        name: req.body?.name || person.full_name,
+        email: req.body?.email || null,
+        role: person.role,
+        department: req.body?.department || null,
+        jobTitle: req.body?.job_title || null,
+        createdBy: req.user.id,
+        status: req.body?.status === 'active' ? 'active' : 'invited',
+      })
+      if (error) return res.status(500).json({ error })
+      if (created) audit(req, 'people.employee_created', { after_state: { id: staff.id, user_id: userId } })
+      res.json({ ok: true, employee: staff, created })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  /**
+   * Move an employee through the lifecycle. Every transition is checked against the legal
+   * moves and written to `staff_status_history` — which, like the employment record itself,
+   * had never held a row.
+   */
+  app.patch('/hr/employees/:id/status', requireAuth, requireMfa, requirePermission('staff.lifecycle.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const to = String(req.body?.status || '')
+    if (!EMPLOYMENT_STATES.includes(to)) {
+      return res.status(400).json({ error: `Status must be one of ${EMPLOYMENT_STATES.join(', ')}.` })
+    }
+    try {
+      const r = await changeEmploymentStatus(req.dealershipId, req.params.id, to, {
+        actorId: req.user.id, reason: req.body?.reason || null,
+      })
+      if (!r.ok) return res.status(409).json({ error: r.error })
+      audit(req, 'people.employment_status_changed', { after_state: { id: r.staff.id, status: to } })
+      res.json({ ok: true, employee: r.staff })
+    } catch (e) { res.status(500).json({ error: e.message }) }
   })
 }

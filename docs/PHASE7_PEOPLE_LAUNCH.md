@@ -203,3 +203,45 @@ To be written alongside, not after:
 - Launch readiness derives from real configuration; a missing `REQUIRED_FOR_FEATURE` item
   blocks its feature and nothing else.
 - Shared dealership configuration is requested once and referenced thereafter.
+
+
+---
+
+## PR 7.1 — Employee identity and its producer *(merged)*
+
+**No migration was needed.** The schema was already right and had been all along:
+`staff_members_dealership_user_uidx` is unique on `(dealership_id, user_id)`, the
+`employment_status` check already enforced exactly `invited | active | on_leave | suspended |
+terminated`, and `staff_status_history` existed with a matching constraint. Nothing had ever
+used any of it. This slice is pure code — KEEP over BUILD.
+
+**The producer.** `ensureStaffMember()` is now called when a user is invited, so a login and an
+employment record are created together and cannot drift. Logins that predate it are backfilled
+lazily on their first People read, as `active` rather than `invited` — someone who has been
+signing in for months is not waiting on an invitation. Duplicates are prevented by the database
+rather than by a read-then-write, and losing that race re-reads instead of failing, because the
+caller wanted an employee to exist and one does.
+
+**The model, stated once.** `profiles` is the person — their login, and via `user_roles` their
+permissions, which stays frozen kernel and is untouched here. `staff_members` is their
+employment. A test asserts `people-identity.js` never reads `user_roles` or `role_permissions`,
+so employment can never quietly become a second permission source.
+
+**Termination refuses, deliberately.** `changeEmploymentStatus` will not terminate until the
+offboarding workflow exists. Marking someone terminated while they keep their roles, their
+session and their owned work is worse than not offering the button — that is the 7.2 stop-gate
+item, and a status flag that revokes nothing would read as if it had.
+
+**The directory shows logins with no employment record** rather than hiding them, flagged
+`linked: false`, and `peopleAttention` raises `employee_record_missing` for each. A person who
+can sign in and does not appear in their own team list is how a dealership loses track of who
+works there. People is now a My Day source and has been removed from `not_covered`.
+
+Proven on staging with three rollback probes: a second employment record for one login was
+refused by unique violation, an invented status was refused by check violation, and history
+wrote against the same lifecycle. 18 new tests; 833/833; six gates green.
+
+**A bug caught on the way:** the first draft of `POST /hr/employees` used `supabaseAdmin`,
+which is not imported in `hr.js` — a ReferenceError no gate can see, because none of them
+execute route bodies. It also would have bypassed the RLS posture that module documents in its
+own header. It now uses `req.supabase`, and a test pins `supabaseAdmin` out of the file.

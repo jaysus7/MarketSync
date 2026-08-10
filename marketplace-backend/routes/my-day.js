@@ -29,6 +29,7 @@ import { conversationAttention } from './conversations.js'
 import { reputationAttention } from './reputation.js'
 import { salesVideoAttention } from './sales-video.js'
 import { accountingExceptions } from './accounting-ar-ap.js'
+import { peopleAttention } from './people-identity.js'
 
 /**
  * Every department that can answer for itself, and what a caller must hold to see it.
@@ -44,6 +45,7 @@ export const MY_DAY_SOURCES = [
   { key: 'conversations', label: 'Conversations', department: 'Sales', permission: 'customer.view', load: conversationAttention },
   { key: 'sales_video', label: 'Sales video', department: 'Sales', permission: 'customer.view', load: salesVideoAttention },
   { key: 'accounting', label: 'Accounting', department: 'Accounting', permission: 'accounting.view', load: accountingExceptions },
+  { key: 'people', label: 'People', department: 'People', permission: 'staff.view', load: peopleAttention },
 ]
 
 /**
@@ -51,7 +53,7 @@ export const MY_DAY_SOURCES = [
  * whose whole job is Service should not be told their day is clear by a queue that was never
  * able to see Service in the first place.
  */
-export const MY_DAY_GAPS = ['Service', 'Parts', 'Inventory', 'F&I', 'People']
+export const MY_DAY_GAPS = ['Service', 'Parts', 'Inventory', 'F&I']
 
 const SEVERITY_MIN = 1
 const SEVERITY_MAX = 3
