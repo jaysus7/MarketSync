@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs'
 // the difference between proving a capability works and proving code was written.
 
 import { buildMyDay, normalizeItem, MY_DAY_SOURCES, MY_DAY_GAPS } from '../routes/my-day.js'
+import { isKnownPermission } from '../permissions-catalog.js'
 
 const BE = new URL('../', import.meta.url)
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
@@ -204,19 +205,22 @@ test('the endpoint itself is not gated on one department permission', () => {
 // ── The registry ────────────────────────────────────────────────────────────
 
 test('every registered source names a real permission and a loader', () => {
-  const known = new Set(['marketing.view', 'customer.view', 'accounting.view', 'staff.view'])
+  // Pinned against the real catalog rather than a hand-kept list here: a permission that only
+  // exists in this test is a gate that fails closed for everyone, forever, and nothing says so.
   for (const s of MY_DAY_SOURCES) {
-    assert.ok(known.has(s.permission), `${s.key} names an unknown permission: ${s.permission}`)
+    assert.ok(isKnownPermission(s.permission), `${s.key} names an unknown permission: ${s.permission}`)
     assert.equal(typeof s.load, 'function', `${s.key} has no loader`)
     assert.ok(s.department && s.label, `${s.key} must carry a department and a label`)
   }
-  assert.equal(MY_DAY_SOURCES.length, 7)
+  assert.equal(MY_DAY_SOURCES.length, 8)
+  assert.equal(new Set(MY_DAY_SOURCES.map(s => s.key)).size, MY_DAY_SOURCES.length,
+    'a duplicate source key would silently drop a department from the day')
 })
 
 test('My Day composes the departments rather than deriving anything itself', () => {
   for (const builder of ['campaignAttention', 'socialAttention', 'conversationAttention',
                          'reputationAttention', 'salesVideoAttention', 'accountingExceptions',
-                         'peopleAttention']) {
+                         'peopleAttention', 'academyAttention']) {
     assert.ok(myDay.includes(builder), `must compose ${builder}`)
   }
   // No local severity, no invented kinds.

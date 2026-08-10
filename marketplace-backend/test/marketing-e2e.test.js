@@ -124,7 +124,7 @@ test('E2E — visit → ask → both destinations → rating that hides nothing'
 // ── Chain 5: every department's answer reaches one queue ──
 
 test('E2E — every department with a builder → one day, normalized and permission-gated', () => {
-  assert.equal(MY_DAY_SOURCES.length, 7)
+  assert.equal(MY_DAY_SOURCES.length, 8)
   for (const s of MY_DAY_SOURCES) {
     assert.equal(typeof s.load, 'function', `${s.key} must have a live loader, not a name`)
     assert.ok(s.permission, `${s.key} must be permission-gated`)
