@@ -62,6 +62,7 @@ import { registerSocialPublish } from './routes/social-publish.js'
 import { registerMarketingStudio } from './routes/marketing-studio.js'
 import { registerConsent } from './routes/consent.js'
 import { registerConversations } from './routes/conversations.js'
+import { registerSalesVideo } from './routes/sales-video.js'
 import { registerConfigEngine } from './routes/config-engine.js'
 import { registerAiEngine } from './routes/ai-engine.js'
 import { registerAiRuntime } from './routes/ai-runtime.js'
@@ -183,6 +184,7 @@ registerSocialPublish(app)    // the dispatcher: posts actually leave the buildi
 registerMarketingStudio(app)  // Studio — the dealership's own marketing media library
 registerConsent(app)          // the ONE consent gate every sender calls
 registerConversations(app)    // one customer conversation across channels + human takeover
+registerSalesVideo(app)       // Sales-owned video messaging — a link fetch is not a view
 registerConfigEngine(app)
 registerAiEngine(app)
 registerAiRuntime(app)

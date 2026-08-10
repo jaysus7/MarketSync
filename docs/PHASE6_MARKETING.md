@@ -272,3 +272,40 @@ broke, the permission changed, and the queue should say which.
 **Deferred, honestly:** the provider adapters themselves (Meta, Instagram, TikTok, LinkedIn),
 video assets beyond the `kind` column, and per-network content validation (aspect ratios,
 length caps) — the composer records dimensions so that check has something to run on later.
+
+### PR 6.7 — Sales video messaging *(this PR)*
+
+**Owned by Sales, not Marketing.** A rep recording a walkaround for one customer about one
+vehicle is a sales conversation. It is gated on `customer.view` / `customer.edit`, and it
+reuses the Phase 6 consent gate rather than becoming a campaign.
+
+**The rule: fetching a link is not watching a video.** Outlook Safe Links, Gmail's proxy, SMS
+previewers and security scanners fetch a URL the moment it is delivered. Counting those as
+views would tell a rep *"your customer watched it twice"* about someone who never opened it —
+and reps act on that, calling people who did nothing. It would be a lie the product told every
+single day. So a page load records `link_opened` and nothing more; only `play_started`, which
+requires JavaScript and a real playback event, begins a watch. The rep-facing summary for a
+merely-fetched link says so in words: *"often an email scanner, not the customer."*
+
+Proven on staging: three `link_opened` events left the video at `sent`, `play_count` 0,
+`watched_seconds` 0. A real play that scrubbed back to 10s after reaching 30s recorded
+`watched` at 30s / 50% — the furthest point reached, not the sum of pings, so rewatching does
+not inflate the number. The summary is recomputed **by a database trigger** on every event, so
+what a rep sees and the evidence behind it cannot drift apart; a UI keeping its own counters
+would drift, and drift always favours looking busy.
+
+**The share link** is an unguessable token, never the row id, so a leaked link cannot be walked
+to another customer's video. It expires (60 days, enforced on read rather than by a sweeper).
+The public payload carries the rep's **first name** and the vehicle — never the customer's own
+record, because a leaked link must not become a way to read someone's CRM entry.
+
+**A finding along the way:** staging had only one storage bucket (`staff-documents`).
+`vehicle-photos` and `vehicle-pdfs` — referenced throughout the codebase since long before
+Phase 6 — did not exist there, and nothing creates buckets at runtime, so **every vehicle-photo
+upload has been failing on staging**. Created all three (plus `sales-videos`) with explicit
+size and MIME limits.
+
+**Deferred:** in-browser recording (the uploader accepts a file; `getUserMedia` capture is its
+own piece of work), server-side transcoding and poster-frame extraction, and actually
+delivering the SMS/email — sending records the consent basis and marks the video sent, but the
+message itself rides the existing sender work rather than growing a second one here.
