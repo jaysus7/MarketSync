@@ -33,6 +33,7 @@ import { peopleAttention } from './people-identity.js'
 import { academyAttention } from './academy.js'
 import { timeAttention } from './people-time.js'
 import { complianceAttention } from './people-compliance.js'
+import { launchAttention } from './launch-hub.js'
 
 /**
  * Every department that can answer for itself, and what a caller must hold to see it.
@@ -56,6 +57,8 @@ export const MY_DAY_SOURCES = [
   // permission that already means "this person decides what somebody gets paid".
   { key: 'time', label: 'Time', department: 'People', permission: 'staff.time.approve', load: timeAttention },
   { key: 'compliance', label: 'Compliance', department: 'People', permission: 'staff.compliance.view', load: complianceAttention },
+  // Setup reaches the day only when something is actually not working — never for a logo.
+  { key: 'setup', label: 'Setup', department: 'Dealership', permission: 'settings.manage', load: launchAttention },
 ]
 
 /**

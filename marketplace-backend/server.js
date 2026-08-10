@@ -69,6 +69,7 @@ import { registerPeopleOffboarding } from './routes/people-offboarding.js'
 import { registerAcademy } from './routes/academy.js'
 import { registerPeopleTime } from './routes/people-time.js'
 import { registerPeopleCompliance } from './routes/people-compliance.js'
+import { registerLaunchHub } from './routes/launch-hub.js'
 import { registerConfigEngine } from './routes/config-engine.js'
 import { registerAiEngine } from './routes/ai-engine.js'
 import { registerAiRuntime } from './routes/ai-runtime.js'
@@ -197,6 +198,7 @@ registerPeopleOffboarding(app) // leaving properly — reassign owned work, revo
 registerAcademy(app)          // Your Path by role/department + credentials that required the work
 registerPeopleTime(app)       // the time clock — there was none — and payroll that names who it could not pay
 registerPeopleCompliance(app) // policies, onboarding, and telling an absence of records from compliance
+registerLaunchHub(app)        // ONE setup hub — derived readiness, never a stored checklist, never a lock
 registerConfigEngine(app)
 registerAiEngine(app)
 registerAiRuntime(app)

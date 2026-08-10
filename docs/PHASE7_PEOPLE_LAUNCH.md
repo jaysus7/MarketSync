@@ -519,3 +519,70 @@ template task keys are unique.
 writes its own, and shipping template legal text would be advice this product is not qualified
 to give), and safety incidents / corrective actions, which have their own tables and are their
 own slice.
+
+---
+
+## PR 7.6 — The Dealer Launch Hub *(backend)*
+
+**A correction to G7, made after reading the schema rather than assuming.** The truth check said
+"no canonical location or dealership operating configuration". That was too broad. `dealerships`
+already carries `legal_name`, `street_address`, `city`, `province`, `country`, `postal_code`,
+`phone`, `hst_number` and `omvic_reg`, and those columns are real and correctly placed.
+
+What is actually missing is narrower and worse:
+
+- **Timezone** — absent entirely. Every date this product computes (a training due date, an
+  accounting period, a promised time, whether a shift ran overnight) is evaluated in UTC. A
+  dealership in Vancouver closes its month at 5pm on the 31st and nothing knows it.
+- **Operating hours** — absent. Nothing can say whether the store is open, which is what turns
+  "no response in 20 minutes" into either a problem or a Sunday.
+- **Locations** — absent. `group_id` covers dealer groups; one dealership with two rooftops has
+  nowhere to put the second.
+
+**And the columns that do exist are empty: 0 of 7 dealerships have an address or a legal name.**
+The configuration surface was never the gap. Nothing ever asked anybody to fill it in — which
+is precisely what the Launch Hub is for.
+
+### The four rules, each from the brief
+
+1. **Derived, never stored.** There is no `setup_completed` column, no `onboarding_step`, no
+   checklist table. Every requirement re-reads real configuration on every call, so "done"
+   cannot drift from done. A test pins those column names out of both the engine and the
+   migration.
+2. **Setup is not a lock.** The hub exports readiness and nothing else: no middleware, no 403,
+   and a test asserts that `middleware.js`, `access.js` and `authorization.js` do not import it.
+   The way to keep "no blanket application lock" true is for this module to be incapable of
+   imposing one.
+3. **Entitlement decides which requirements EXIST; role decides who may SATISFY them.** A
+   dealership without Service is not incomplete for having no service hours — that requirement
+   is not theirs. A requirement the caller cannot satisfy is marked `actionable_by_you: false`
+   and still listed, because hiding it leaves an invisible blocker and nagging is noise.
+4. **"Operational" and "fully configured" are separate answers.** A dealership can sell a car
+   before it has picked a logo.
+
+**A failed check is `unknown`, never `false`** — and a hub with any unknown refuses to declare
+readiness. Reporting "not done" because a query failed would send somebody to re-enter what
+they had already entered.
+
+**Contextual, not a wall.** `GET /launch/feature/:name` lets a department ask about itself and
+get back only what it is missing, so setup reaches somebody at the moment it matters.
+
+**Enter once** is enforced rather than intended: the first location is seeded from the
+dealership's own address and becomes primary, and one primary per dealership is a partial
+unique index. Timezones are validated against `pg_timezone_names` by trigger (a check
+constraint may not contain a subquery, and a hard-coded list goes stale) — with **no default**,
+because a guessed timezone is worse than a missing one: it produces dates wrong by hours and
+nobody looks at a field that already has a value.
+
+**Proved on staging** with eight probes inside a transaction that aborts: a real timezone is
+accepted; `America/Torotno` is refused; a primary location is created; a second primary is
+refused; a secondary is allowed; a duplicate name is refused case-insensitively; an invalid
+location timezone is refused; retiring a primary frees the slot.
+
+27 new tests; 1001/1001; six gates green. Migration applied to staging only.
+
+**Not yet built, and this is the honest remaining gap:** the Launch Hub has **no UI**. The
+engine, the routes and the canonical configuration are real and tested, but a dealership cannot
+reach any of it from the dashboard yet. Shipping it this way is exactly the dead-wiring shape
+this phase keeps finding, so it is recorded as the open item rather than described as done —
+the next slice is the hub screen plus the contextual setup prompts inside each department.
