@@ -21,6 +21,7 @@ import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { onEvent } from './events.js'
+import { raiseException } from './workflow.js'
 import { getCommissionResult } from './commissions.js'
 import { getDeal } from './dashboard.js'
 import { getConfig } from './config-engine.js'
@@ -42,9 +43,15 @@ async function getAccountingSettings(dealershipId) {
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
 
-// Full automotive chart of accounts. account_key → account spec, created on first
-// use when a posting rule references it (so a dealer only grows the accounts they
-// actually post to). Categories: asset|liability|equity|income|cogs|expense.
+// Full automotive chart of accounts. account_key → account spec.
+//
+// These are SEEDED per dealership by migrations/2026-08-10-phase5-chart-of-accounts.sql,
+// not created on demand. Posting no longer invents an account for an unrecognised key —
+// a mistyped rule used to silently mint a new expense account and quietly corrupt the
+// chart. Adding an account is now a deliberate, authorized act.
+//
+// test/ledger-integrity.test.js pins this table against that migration so the two
+// cannot drift. Categories: asset|liability|equity|income|cogs|expense.
 const ACCOUNT_DEFS = {
   // Assets
   cash:                { code: '1000', name: 'Cash / Bank',            category: 'asset' },
@@ -87,50 +94,80 @@ const ACCOUNT_DEFS = {
   utilities:           { code: '6500', name: 'Utilities',           category: 'expense' },
   interest:            { code: '6600', name: 'Floorplan Interest',   category: 'expense' },
 }
-async function resolveAccount(dealershipId, key) {
-  const { data } = await supabaseAdmin.from('gl_accounts').select('id').eq('dealership_id', dealershipId).eq('system_key', key).maybeSingle()
-  if (data?.id) return data.id
-  const def = ACCOUNT_DEFS[key] || { code: null, name: key, category: 'expense' }
-  const { data: created } = await supabaseAdmin.from('gl_accounts').insert({ dealership_id: dealershipId, system_key: key, ...def }).select('id').single()
-  return created?.id || null
+// A posting failure carries enough to answer "what failed, for whom, and why" without
+// leaking database internals to an ordinary user. `code` is the SQLSTATE the posting
+// function raised (AC001 unknown account, AC002 period locked, AC003 no lines,
+// AC004 no dealership), or 'AC000' for anything unexpected.
+export class PostingError extends Error {
+  constructor(message, { code = 'AC000', dealershipId = null, source = null, eventName = null, reference = null } = {}) {
+    super(message)
+    this.name = 'PostingError'
+    Object.assign(this, { code, dealershipId, source, eventName, reference })
+  }
+  // What Accounting may see. Deliberately not the raw driver error.
+  get userMessage() {
+    switch (this.code) {
+      case 'AC001': return 'A posting rule names an account that is not in the chart of accounts.'
+      case 'AC002': return 'The accounting period for this transaction is closed or locked.'
+      case 'AC003': return 'The posting produced no usable journal lines.'
+      case 'AC004': return 'The transaction is not attached to a dealership.'
+      default:      return 'This transaction failed to post to the ledger.'
+    }
+  }
 }
 
-async function periodLocked(dealershipId, dateStr) {
-  const period = String(dateStr).slice(0, 7)
-  const { data } = await supabaseAdmin.from('accounting_periods').select('status').eq('dealership_id', dealershipId).eq('period', period).maybeSingle()
-  return data?.status === 'locked'
+// Map a postgres error onto a PostingError. Custom SQLSTATEs come through as `code`;
+// the trigger's balance and line-count refusals arrive as P0001 with a known message.
+function postingErrorFrom(err, ctx) {
+  const code = ['AC001', 'AC002', 'AC003', 'AC004'].includes(err?.code) ? err.code : 'AC000'
+  return new PostingError(err?.message || 'posting failed', { ...ctx, code })
 }
 
 // ── Journal Engine — the ONLY writer of financial postings ───────────────────
-export async function postJournal(dealershipId, { source, eventName, reference, entryDate, workflowInstanceId = null, memo = null, refs = {}, lines }) {
-  if (!dealershipId || !Array.isArray(lines) || !lines.length) return null
-  const date = (entryDate || new Date().toISOString()).slice(0, 10)
-  const totDr = round2(lines.reduce((s, l) => s + n(l.debit), 0))
-  const totCr = round2(lines.reduce((s, l) => s + n(l.credit), 0))
-  if (totDr !== totCr) { console.error(`[accounting-engine] REFUSED unbalanced ${eventName}: DR ${totDr} != CR ${totCr}`); return null }
-  if (totDr === 0) return null
-  if (await periodLocked(dealershipId, date)) { console.warn(`[accounting-engine] period locked — skip ${eventName} ${reference}`); return null }
-  // Idempotent: one entry per (source, reference, event).
-  if (reference) {
-    const { data: dup } = await supabaseAdmin.from('journal_entries').select('id')
-      .eq('dealership_id', dealershipId).eq('source', source).eq('reference', String(reference)).eq('event_name', eventName).limit(1)
-    if (dup && dup.length) return dup[0].id
-  }
-  const { data: entry, error } = await supabaseAdmin.from('journal_entries').insert({
-    dealership_id: dealershipId, entry_date: date, reference: reference ? String(reference) : null,
-    source, event_name: eventName, workflow_instance_id: workflowInstanceId, memo,
-  }).select('id').single()
-  if (error) { console.error('[accounting-engine] entry insert failed:', error.message); return null }
-  const lineRows = []
-  for (const l of lines) {
-    if (!n(l.debit) && !n(l.credit)) continue
-    const acct = await resolveAccount(dealershipId, l.account_key)
-    if (!acct) continue
-    lineRows.push({ journal_entry_id: entry.id, dealership_id: dealershipId, account_id: acct, debit: round2(l.debit), credit: round2(l.credit), department: l.department || null, memo: l.desc || null, ...refs })
-  }
-  if (lineRows.length) await supabaseAdmin.from('journal_lines').insert(lineRows)
-  return entry.id
+// One database transaction does everything: idempotency, draft header, all lines, then
+// the flip to posted LAST so the database's balance and line-count triggers are what
+// decide. Any failure leaves nothing behind — no orphan header, no half journal.
+//
+// Three outcomes, never a pretend success:
+//   • posted        → { id, created: true }
+//   • already there → { id, created: false, duplicate: true }
+//   • refused       → throws PostingError
+//
+// Account resolution happens inside that transaction and is strict: a rule naming an
+// account outside the dealership's chart fails the posting. It never invents an account.
+export async function postJournal(dealershipId, { source, eventName, reference, entryDate, workflowInstanceId = null, memo = null, refs = {}, lines, createdBy = null }) {
+  const ctx = { dealershipId, source, eventName, reference: reference == null ? null : String(reference) }
+  if (!dealershipId) throw new PostingError('dealership is required to post a journal', { ...ctx, code: 'AC004' })
+  if (!Array.isArray(lines) || !lines.length) throw new PostingError('a journal needs lines', { ...ctx, code: 'AC003' })
+
+  const payload = lines
+    .filter(l => n(l.debit) || n(l.credit))
+    .map(l => ({
+      account_key: l.account_key,
+      debit: round2(l.debit), credit: round2(l.credit),
+      department: l.department || null, desc: l.desc || null,
+    }))
+  if (!payload.length) throw new PostingError('a journal needs lines', { ...ctx, code: 'AC003' })
+
+  const { data, error } = await supabaseAdmin.rpc('accounting_post_journal', {
+    p_dealership_id: dealershipId,
+    p_source: source,
+    p_event_name: eventName || null,
+    p_reference: reference == null ? null : String(reference),
+    p_entry_date: (entryDate || new Date().toISOString()).slice(0, 10),
+    p_lines: payload,
+    p_memo: memo,
+    p_workflow_instance_id: workflowInstanceId,
+    p_refs: refs || {},
+    p_created_by: createdBy,
+  })
+  if (error) throw postingErrorFrom(error, ctx)
+  if (!data?.journal_entry_id) throw new PostingError('posting returned no journal', ctx)
+  return { id: data.journal_entry_id, created: !!data.created, duplicate: !!data.duplicate }
 }
+
+// Most callers only want the id. Kept separate so the richer result stays available.
+const journalId = (r) => (r ? r.id : null)
 
 // ── Rule Engine — post an event by the dealership's (or default) posting rule ─
 export async function postByRule(dealershipId, eventName, ctx = {}) {
@@ -145,10 +182,10 @@ export async function postByRule(dealershipId, eventName, ctx = {}) {
     debit: l.side === 'debit' ? amt(l.source) : 0, credit: l.side === 'credit' ? amt(l.source) : 0,
   })).filter(l => n(l.debit) || n(l.credit))
   if (!lines.length) return null
-  return postJournal(dealershipId, {
+  return journalId(await postJournal(dealershipId, {
     source: ctx.__source || eventName, eventName, reference: ctx.__reference, entryDate: ctx.__date,
     workflowInstanceId: ctx.__wf || null, refs: ctx.__refs || {}, lines,
-  })
+  }))
 }
 
 // ── Context builders (compute amount tokens from real records) ───────────────
@@ -188,12 +225,13 @@ async function postCommissionCalculated(dealershipId, dealId) {
 async function postCommissionClawback(dealershipId, dealId, date) {
   const { data: orig } = await supabaseAdmin.from('journal_entries')
     .select('id').eq('dealership_id', dealershipId).eq('source', 'commission')
-    .eq('reference', String(dealId)).eq('event_name', 'commission_calculated').maybeSingle()
+    .eq('reference', String(dealId)).eq('event_name', 'commission_calculated')
+    .eq('posted', true).maybeSingle()
   if (!orig) return null   // nothing accrued → nothing to reverse
   const { data: lines } = await supabaseAdmin.from('journal_lines').select('debit').eq('journal_entry_id', orig.id)
   const amount = round2((lines || []).reduce((s, l) => s + n(l.debit), 0))   // balanced entry ⇒ Σdebit = total
   if (amount <= 0) return null
-  return postJournal(dealershipId, {
+  return journalId(await postJournal(dealershipId, {
     source: 'commission', eventName: 'commission_clawed_back', reference: String(dealId),
     entryDate: (date || new Date().toISOString()).slice(0, 10), memo: 'Commission clawback reversal',
     refs: { ref_deal_id: dealId },
@@ -201,8 +239,11 @@ async function postCommissionClawback(dealershipId, dealId, date) {
       { account_key: 'commission_payable', debit: amount, credit: 0, desc: 'Reverse commission accrual' },
       { account_key: 'commission_expense', debit: 0, credit: amount, desc: 'Reverse commission accrual' },
     ],
-  })
+  }))
 }
+
+// The clawback reverses the ORIGINAL accrual, so it must read the posted entry only —
+// a draft accrual is not a thing that needs reversing.
 
 // Map one bus event to its posting handler → returns { handler, journalId } or null
 // when the event isn't a financial one. Amounts for A5 events come from the payload.
@@ -262,20 +303,53 @@ async function routeFinancialEvent(event) {
 }
 
 // ── Event Listener — subscribes to the bus; routes + logs for replay ─────────
+// A business event that should have produced a journal and did not is an accounting
+// exception, not a log line. The three outcomes are kept distinct in the event log:
+//
+//   processed → a journal exists for this event
+//   skipped   → the rule deliberately produced nothing (no rule, zero amount, a
+//               deposit already posted through the payment primitive)
+//   failed    → the posting was REFUSED. Money moved in the business and did not
+//               reach the books. Someone has to look at this.
+//
+// The old code conflated the last two and only warned to the console, so a refused
+// posting was indistinguishable from "not a financial event".
 async function onFinancialEvent(event) {
   if (!event?.dealership_id || event.payload?.engine) return
+  const base = { dealership_id: event.dealership_id, event_id: event.id || null, event_name: event.event_name }
   try {
     const result = await routeFinancialEvent(event)
     if (!result) return   // not a financial event
-    // Record the event→journal mapping so a bug can be fixed and the event replayed.
     await supabaseAdmin.from('accounting_event_log').insert({
-      dealership_id: event.dealership_id, event_id: event.id || null, event_name: event.event_name,
-      processed_by: result.handler, journal_entry_id: result.journalId || null,
+      ...base, processed_by: result.handler, journal_entry_id: result.journalId || null,
       status: result.journalId ? 'processed' : 'skipped',
     })
   } catch (e) {
-    console.warn('[accounting-engine] listener failed:', e.message)
-    try { await supabaseAdmin.from('accounting_event_log').insert({ dealership_id: event.dealership_id, event_id: event.id || null, event_name: event.event_name, status: 'error', error: String(e.message).slice(0, 500) }) } catch {}
+    const posting = e instanceof PostingError ? e : null
+    const code = posting?.code || 'AC000'
+    console.error(`[accounting-engine] POSTING FAILED ${event.event_name} (${code}): ${e.message}`)
+    // The record Accounting will work from. Retains dealership, event, source id, rule
+    // and reason; the raw driver text stays in `error` for an engineer, while the
+    // exception carries the sentence a controller should read.
+    try {
+      await supabaseAdmin.from('accounting_event_log').insert({
+        ...base, processed_by: posting?.eventName || null, status: 'failed',
+        error: `${code}: ${String(e.message).slice(0, 480)}`,
+      })
+    } catch (logErr) {
+      console.error('[accounting-engine] could not record posting failure:', logErr.message)
+    }
+    // Surface it through the existing DealerOS exception primitive — no second system.
+    try {
+      await raiseException(event.dealership_id, {
+        kind: 'accounting_posting_failed',
+        entityType: posting?.source || 'event',
+        entityId: event.id || event.entity_id,
+        department: 'Accounting',
+        severity: 'high',
+        description: `${posting ? posting.userMessage : 'This transaction failed to post to the ledger.'} (${event.event_name}${posting?.reference ? ` · ${posting.reference}` : ''})`,
+      })
+    } catch { /* raiseException already swallows its own dedupe conflicts */ }
   }
 }
 
@@ -458,20 +532,25 @@ export function registerAccountingEngine(app) {
 const PERIOD_FLOW = ['open', 'manager_approved', 'controller_approved', 'closed', 'locked']
 
 // Per-account debit/credit totals from journal_lines (optional ?from & ?to on entry_date).
+//
+// POSTED ONLY. A draft journal is not financial truth: it has not passed the balance or
+// line-count checks, and its lines are still mutable. Letting drafts into balances is how
+// a half-written entry silently becomes a number on a balance sheet. The entry filter is
+// applied on the SERVER — never left to the caller to remember.
 async function accountBalances(dealershipId, query = {}) {
   const { data: accts } = await supabaseAdmin.from('gl_accounts').select('id, name, code, category, system_key').eq('dealership_id', dealershipId)
-  // Date filter joins through journal_entries.entry_date when a range is given.
-  let entryIds = null
-  if (query.from || query.to) {
-    let eq = supabaseAdmin.from('journal_entries').select('id').eq('dealership_id', dealershipId)
-    if (query.from) eq = eq.gte('entry_date', String(query.from))
-    if (query.to) eq = eq.lt('entry_date', String(query.to))
-    const { data: entries } = await eq.limit(100000)
-    entryIds = (entries || []).map(e => e.id)
-    if (!entryIds.length) return (accts || []).map(a => ({ ...a, debit: 0, credit: 0 }))
-  }
-  let lq = supabaseAdmin.from('journal_lines').select('account_id, debit, credit').eq('dealership_id', dealershipId)
-  if (entryIds) lq = lq.in('journal_entry_id', entryIds)
+  // Always resolve through journal_entries so `posted` is enforced; the date range
+  // narrows the same query when given.
+  let eq = supabaseAdmin.from('journal_entries').select('id')
+    .eq('dealership_id', dealershipId).eq('posted', true)
+  if (query.from) eq = eq.gte('entry_date', String(query.from))
+  if (query.to) eq = eq.lt('entry_date', String(query.to))
+  const { data: entries } = await eq.limit(100000)
+  const entryIds = (entries || []).map(e => e.id)
+  if (!entryIds.length) return (accts || []).map(a => ({ ...a, debit: 0, credit: 0 }))
+
+  const lq = supabaseAdmin.from('journal_lines').select('account_id, debit, credit')
+    .eq('dealership_id', dealershipId).in('journal_entry_id', entryIds)
   const { data: lines } = await lq.limit(100000)
   const acc = Object.fromEntries((accts || []).map(a => [a.id, { ...a, debit: 0, credit: 0 }]))
   for (const l of lines || []) { const a = acc[l.account_id]; if (!a) continue; a.debit += n(l.debit); a.credit += n(l.credit) }
