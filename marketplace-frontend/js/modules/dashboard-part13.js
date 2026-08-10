@@ -75,7 +75,7 @@ async function svcAdjust(id, num) {
 }
 Object.assign(window, {
   loadServiceRosPage, svcRoFilter, svcNewRoForm, svcCustSearch, svcPickCust, svcCreateRo, svcOpenRo,
-  svcLineTypeChanged, svcLinePartChanged, svcAddLine, svcRemoveLine, svcSetStatus, svcCloseRo,
+  svcLineTypeChanged, svcLinePartChanged, svcAddLine, svcRemoveLine, svcCloseRo,
   loadServicePartsPage, svcAddPartForm, svcAddPart, svcReceive, svcAdjust,
 });
 

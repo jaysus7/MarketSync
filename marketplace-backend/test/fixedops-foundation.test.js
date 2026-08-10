@@ -272,7 +272,7 @@ test('the frontend speaks canonical states and offers business actions', () => {
   assert.match(fe, /parts_ordered: 'Waiting for Parts'/, 'label may be friendly')
   assert.match(fe, /SVC_ACTION_LABEL/, 'actions must be phrased as what the advisor is doing')
   assert.doesNotMatch(fe, /id="svc-ro-status"/, 'the free status dropdown must be gone')
-  assert.doesNotMatch(fe, /function svcSetStatus/, 'arbitrary status assignment must be gone')
+  assert.doesNotMatch(fe, /\bsvcSetStatus\b/, 'the removed status mutator must have no caller or export left behind')
 })
 
 test('the Stage 0 state machine is marked superseded rather than left as truth', () => {
