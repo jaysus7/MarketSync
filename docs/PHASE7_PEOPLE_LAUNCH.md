@@ -245,3 +245,45 @@ wrote against the same lifecycle. 18 new tests; 833/833; six gates green.
 which is not imported in `hr.js` — a ReferenceError no gate can see, because none of them
 execute route bodies. It also would have bypassed the RLS posture that module documents in its
 own header. It now uses `req.supabase`, and a test pins `supabaseAdmin` out of the file.
+
+---
+
+## PR 7.2 — Offboarding *(merged)*
+
+**A correction to G4, made after reading the middleware rather than assuming.** The truth check
+listed "a terminated employee retains access" as a stop-gate item. That is **not** the case.
+`requireAuth` re-reads the profile on every request and refuses `active === false` with
+`ACCOUNT_DEACTIVATED`, so the existing one-line removal genuinely did lock people out, live
+token or not. Access revocation was never the hole. Recording that plainly matters more than
+having been dramatic about it.
+
+**What was actually wrong** was everything around it, and it was quiet:
+
+- **Roles survived the departure.** `user_roles` was never touched, so reopening the account —
+  to check something, to rehire — silently restored every permission, and nobody chose that.
+- **Owned work was orphaned.** A salesperson left and their entire customer book, open tasks
+  and open repair orders stayed assigned to them. Nobody follows up on an orphaned book, and
+  nothing said it had happened. This is the real damage, and it was invisible *because* the
+  account looked handled.
+- Employment was untouched — `staff_members` never learned the person left.
+- No reason, no date, no record that offboarding occurred.
+
+**Offboarding is now an ordered workflow that refuses to leave the dealership worse off.** It
+counts live ownership first and stops — 409, with the counts — while work would be orphaned and
+no successor is named. A count that *failed* is reported as unknown rather than treated as
+zero, because "nothing to reassign" from a broken query is how a book gets lost silently.
+
+Order matters and is tested: reassign → revoke roles → deactivate → **mark terminated last**, so
+a failure partway never marks someone terminated while they still hold access.
+
+**`created_by` is never reassigned.** Who did a thing is history, and history does not change
+because someone resigned. Only live ownership moves — `contacts.assigned_rep`,
+`crm_tasks.assigned_to` (open only), `repair_orders.advisor_id`/`technician_id` (open only),
+`campaigns.owner_id`. Closed repair orders and finished tasks stay where they are; reassigning
+them would rewrite who handled work that is already done.
+
+**The legacy `DELETE /admin/users/:id` now runs the real offboarding**, because that is the path
+the existing Team UI actually uses. It is a deliberate behaviour change: removing someone who
+still owns live work now returns 409 with the list instead of quietly succeeding.
+
+15 new tests; 848/848; six gates green. No migration.
