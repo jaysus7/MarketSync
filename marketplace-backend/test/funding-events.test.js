@@ -20,10 +20,17 @@ const migration = read('migrations/2026-08-09-funding-and-lender-decisions.sql')
 test('accounting posting is idempotent on (dealership, source, reference, event)', () => {
   // This is the safety net that makes a duplicate emit harmless. If this dedupe is
   // ever removed, every producer below becomes unsafe.
-  assert.match(acct, /Idempotent: one entry per \(source, reference, event\)/)
-  assert.match(acct, /from\('journal_entries'\)\.select\('id'\)/)
-  assert.match(acct, /\.eq\('source', source\)\.eq\('reference', String\(reference\)\)\.eq\('event_name', eventName\)/)
-  assert.match(acct, /if \(dup && dup\.length\) return dup\[0\]\.id/, 'a duplicate must return the existing entry, never insert')
+  //
+  // Phase 5 PR 5.1 moved the guarantee from application code into the database: the old
+  // select-then-insert let two concurrent deliveries of the same event both pass the
+  // check. The unique index is now what a race actually hits, so that is what this pins.
+  const ledger = read('migrations/2026-08-10-phase5-ledger-integrity.sql')
+  assert.match(ledger, /create unique index if not exists journal_entries_source_identity_uk[\s\S]*?\(dealership_id, source, reference, event_name\)/,
+    'the source identity must be unique in the database')
+  assert.match(ledger, /exception when unique_violation then/,
+    'losing the race must return the existing entry, never insert a second')
+  assert.match(acct, /rpc\('accounting_post_journal'/,
+    'postJournal must go through the atomic posting function that owns the dedupe')
 })
 
 test('funding.received fires only on the transition into funded', () => {

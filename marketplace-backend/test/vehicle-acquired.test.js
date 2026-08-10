@@ -59,8 +59,11 @@ test('accounting dedupe covers this event on (dealership, acquisition, vehicle, 
   assert.match(route, /ref: veh\.id/)
   assert.match(acct, /case 'vehicle\.acquired':/)
   assert.match(acct, /__source: 'acquisition', __reference: e/)
-  // The existing postJournal dedupe is authoritative — no second system.
-  assert.match(acct, /Idempotent: one entry per \(source, reference, event\)/)
+  // The existing postJournal dedupe is authoritative — no second system. Since Phase 5
+  // PR 5.1 that dedupe is a database unique index rather than a select-then-insert.
+  const ledger = read('migrations/2026-08-10-phase5-ledger-integrity.sql')
+  assert.match(ledger, /create unique index if not exists journal_entries_source_identity_uk/)
+  assert.match(acct, /rpc\('accounting_post_journal'/)
 })
 
 test('no ledger logic in the inventory route', () => {

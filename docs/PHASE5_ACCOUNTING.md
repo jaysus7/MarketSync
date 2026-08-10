@@ -1,9 +1,15 @@
 # Phase 5 — Accounting: critical financial truth check
 
-**Status: STOP GATE reached before UI work.** The truth check found material issues in
-the first two areas (journal integrity, producer coverage) that make the remaining six
-unanswerable as posed: you cannot build an AR queue, a close checklist or a P&L on a
-ledger that has never recorded a transaction.
+> **Update — PR 5.1 (Ledger Integrity) is complete.** Every gap below is corrected on
+> staging and proved against the live database; see
+> [PR 5.1 outcome](#pr-51-outcome--ledger-integrity) at the foot of this document.
+> The remaining truth areas (AR, AP, banking, close, commissions, statements) are now
+> answerable and belong to the next PR.
+
+**Status when written: STOP GATE reached before UI work.** The truth check found material
+issues in the first two areas (journal integrity, producer coverage) that make the
+remaining six unanswerable as posed: you cannot build an AR queue, a close checklist or a
+P&L on a ledger that has never recorded a transaction.
 
 Baseline: `staging` @ `fe61f77`, 553/553 tests, six `check:*` green.
 Evidence gathered by querying both Supabase projects read-only, plus one probe on
@@ -198,3 +204,150 @@ To be written alongside the correction, not after:
   balance by construction.
 - `accountBalances()` excludes unposted entries.
 - Trial balance balances **on non-empty data**.
+
+---
+
+# PR 5.1 outcome — Ledger Integrity
+
+The general ledger is now real. Every gap G1–G7 is corrected on **staging**; production is
+untouched and its convergence is listed at the end.
+
+## Schema changes (staging)
+
+| Change | Why |
+|---|---|
+| `journal_entries.posted` default → `false` | Financial semantics must not come from a column default. Production defaulted `true`, staging `false`, so identical code meant two different things. |
+| `journal_entries_source_identity_uk` unique on `(dealership_id, source, reference, event_name) where reference is not null` | Idempotency becomes a database guarantee. Unreferenced manual/adjusting entries are deliberately excluded — they carry no source identity. |
+| `gl_accounts_system_key_uk` unique on `(dealership_id, system_key)` | The chart had no uniqueness at all, so account resolution could pick arbitrarily between duplicates. |
+| Three integrity triggers restated idempotently | They existed on staging and were **absent on production**. Shipping them in the migration is what lets production converge. |
+| `accounting_post_journal(...)` | The one atomic posting path. |
+| `accounting_seed_chart(...)` + full chart seed | Strict account resolution is only safe if the accounts a rule may name already exist. |
+
+## Atomic posting
+
+One database function, one transaction: idempotency check → **draft** header → all lines →
+`posted = true` **last**. Posting last is the entire point — the balance and line-count
+triggers only fire on the draft→posted transition, which under the old code never happened,
+so they had never run once.
+
+`postJournal()` now returns `{ id, created, duplicate }` or **throws**. There is no longer
+an outcome where nothing posted and the caller believes it succeeded.
+
+## Idempotency
+
+Application pre-check for the common case; the **unique index** is the guarantee. The
+function catches `unique_violation` and returns the winner's journal, so a lost race is a
+duplicate result rather than an error.
+
+## Failure handling
+
+`PostingError` carries dealership, source, event, reference and a SQLSTATE
+(`AC001` unknown account · `AC002` period locked · `AC003` no lines · `AC004` no dealership),
+plus a `userMessage` written for a controller rather than the raw driver text.
+
+`accounting_event_log` now distinguishes `processed` / `skipped` / **`failed`** — previously
+a refused posting was indistinguishable from "not a financial event". Every failure also
+raises an `accounting_posting_failed` exception through the existing DealerOS exception
+primitive (department Accounting, severity high). No second system was built.
+
+A locked period is now a refusal (`AC002`), not a silent discard.
+
+## Account resolution
+
+`resolveAccount()` is gone. Resolution happens inside the posting transaction against the
+dealership's chart; an unknown key **fails the posting**. It can no longer mint an expense
+account from a mistyped rule key. `ACCOUNT_DEFS` is pinned to the chart migration by test.
+
+## Final staging rule inventory — 11 active, one per canonical event
+
+`vehicle_delivered` (6 lines) · `funding_received` · `deposit_received` ·
+`vehicle_acquired` · `trade_received` · `recon_cost` · `commission_calculated` ·
+`commission_paid` · `service_closed` (5 lines, **corrected**) · `parts_received` ·
+`payment_received` (3 lines)
+
+`commission_clawed_back` deliberately has **no rule** — it posts the exact inverse of the
+original accrual, so a rule could only drift from it.
+
+The corrected `service_closed` debits AR by the **tax-inclusive total** and credits
+`tax_collected`. Production's version debits AR by pre-tax `revenue` and never credits tax
+at all, so tax charged to customers was billed to nobody and recorded as no liability.
+
+## Posted-only reads
+
+`accountBalances()` resolves through `journal_entries` with `.eq('posted', true)`
+**unconditionally** — previously the entry join happened only when a date range was given.
+Trial balance, P&L, balance sheet, dashboard cards and forecast all share that one function,
+so posted-only is decided in one place. The journal listing still shows drafts, carrying
+their `posted` flag, which is what makes them visibly non-authoritative.
+
+## Integrity proofs (live staging, every probe rolled back)
+
+| Proof | Result |
+|---|---|
+| Valid two-sided journal | posted, 2 lines, DR 100.00 = CR 100.00 |
+| Unbalanced 100 vs 90 | refused by trigger · **residue 0** |
+| Single-line journal | refused (minimum two lines) · **residue 0** |
+| Same source identity twice | **1 journal**, second returns `duplicate: true` |
+| Concurrent duplicate (index-level, bypassing the app check) | second insert **rejected by unique index**, rows = 1 |
+| Unreferenced manual entries | correctly **not** deduped (2 allowed) |
+| Mutate a posted line | blocked — "Lines belonging to a posted journal entry are immutable" |
+| Unknown account key | refused `AC001` · accounts 34 → 34 · **residue 0** |
+| Draft journal | posted balances unchanged (0 → 0); trial balance ignores it; lines editable |
+| Draft edited unbalanced, then posted | **refused at posting** (8888 vs 9999) |
+| Draft edited balanced, then posted | ledger moves by exactly 7500.00 |
+
+## Business-event smoke tests (through the real seeded rules)
+
+Every department's canonical event resolved its rule, balanced, and landed posted:
+
+`vehicle_delivered` (Sales, 6 lines) · `funding_received` · `deposit_received` (F&I) ·
+`vehicle_acquired` · `trade_received` · `recon_cost` (Inventory) · `service_closed`
+(Service, 5 lines) · `parts_received` (Parts) · `payment_received` (Payments) ·
+`commission_calculated` · `commission_paid` (Payroll)
+
+Replay of a business event produced **exactly one** journal.
+**Trial balance on non-empty data: DR 104,964.00 = CR 104,964.00.**
+
+Staging afterwards: 0 entries, 0 lines, 0 phantom accounts, 11 rules, 247 accounts. No
+backfill, no historical replay, no residue.
+
+## Tests
+
+`test/ledger-integrity.test.js` — 17 tests covering atomic ordering, trigger installation,
+idempotency, strict account resolution, chart↔`ACCOUNT_DEFS` agreement, typed failures,
+skipped-vs-failed, posted-only reads, rule coverage and one-rule-per-event.
+
+`scripts/phase5-ledger-proof.mjs` — the live proof as a runnable script for any environment
+holding staging credentials (it refuses to run against anything but staging). CI has no
+Supabase credentials, so it is not part of `npm test`, matching the repo's convention.
+
+Two pre-existing tests (`funding-events`, `vehicle-acquired`) asserted on a **comment**
+describing the old dedupe. They now assert the unique index and the RPC — the actual, and
+stronger, guarantee.
+
+**570/570 tests · all six `check:*` green.**
+
+## Production convergence — WRITTEN BUT UNAPPLIED
+
+Production remained read-only throughout. Applying these three migrations there, unchanged
+and in order, would:
+
+1. `2026-08-10-phase5-ledger-integrity.sql` — flip `posted` default `true` → `false`,
+   add both unique indexes, and **install the three integrity triggers production currently
+   lacks entirely**, plus the posting function.
+2. `2026-08-10-phase5-chart-of-accounts.sql` — seed the 34-account chart per dealership
+   (additive; existing accounts keep their id, code and name).
+3. `2026-08-10-phase5-accounting-rules.sql` — add the two missing Phase 4 rules and
+   **repair the defective `service_closed`** via its upsert.
+
+All three are idempotent. Production holds 0 journal entries, so there is nothing to
+remediate and no backfill is implied. **This remains an explicit owner decision.**
+
+## Carried forward to PR 5.2 — not a ledger-integrity issue
+
+`vehicle_delivered` debits **Accounts Receivable** for the whole sale, while
+`funding_received` credits **Contracts in Transit** — an account nothing ever debits. For a
+financed deal, CIT would go negative and the AR raised at delivery would never clear. The
+intended model (delivery → CIT → funding clears CIT) needs a decision about deal posting
+semantics, which is producer coverage rather than ledger integrity, so the rules were
+converged as-approved and this is left for the next PR to resolve deliberately.
