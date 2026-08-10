@@ -102,6 +102,7 @@ test('the departments with no builder are named, not implied', async () => {
   assert.deepEqual(day.not_covered, MY_DAY_GAPS)
   assert.ok(MY_DAY_GAPS.includes('Service'))
   assert.ok(MY_DAY_GAPS.includes('Parts'))
+  assert.ok(!MY_DAY_GAPS.includes('People'), 'People emits attention as of 7.1')
 })
 
 // ── Normalization ───────────────────────────────────────────────────────────
@@ -203,18 +204,19 @@ test('the endpoint itself is not gated on one department permission', () => {
 // ── The registry ────────────────────────────────────────────────────────────
 
 test('every registered source names a real permission and a loader', () => {
-  const known = new Set(['marketing.view', 'customer.view', 'accounting.view'])
+  const known = new Set(['marketing.view', 'customer.view', 'accounting.view', 'staff.view'])
   for (const s of MY_DAY_SOURCES) {
     assert.ok(known.has(s.permission), `${s.key} names an unknown permission: ${s.permission}`)
     assert.equal(typeof s.load, 'function', `${s.key} has no loader`)
     assert.ok(s.department && s.label, `${s.key} must carry a department and a label`)
   }
-  assert.equal(MY_DAY_SOURCES.length, 6)
+  assert.equal(MY_DAY_SOURCES.length, 7)
 })
 
 test('My Day composes the departments rather than deriving anything itself', () => {
   for (const builder of ['campaignAttention', 'socialAttention', 'conversationAttention',
-                         'reputationAttention', 'salesVideoAttention', 'accountingExceptions']) {
+                         'reputationAttention', 'salesVideoAttention', 'accountingExceptions',
+                         'peopleAttention']) {
     assert.ok(myDay.includes(builder), `must compose ${builder}`)
   }
   // No local severity, no invented kinds.

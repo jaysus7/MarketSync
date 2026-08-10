@@ -1,4 +1,5 @@
 import { supabaseAdmin, sendEmail, FRONTEND_URL } from '../shared.js'
+import { ensureStaffMember } from './people-identity.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { validatePassword, rateLimit, getClientIp } from '../security.js'
 import { audit, AuditAction, exportReason } from '../audit.js'
@@ -302,6 +303,17 @@ export function registerRoutes(app) {
     }
     try { await syncDealerRole(newUser.user.id, req.dealershipId, newRole, req.user.id) }
     catch (e) { await supabaseAdmin.from('profiles').delete().eq('id', newUser.user.id); await supabaseAdmin.auth.admin.deleteUser(newUser.user.id); return res.status(500).json({ error: e.message }) }
+
+    // An invited person is an EMPLOYEE, not just a login. Until Phase 7 nothing created the
+    // employment record, so `staff_members` sat empty against every real user and every People
+    // feature answered "No staff profile linked to your account". This is that producer.
+    //
+    // Not best-effort: a login with no employment record is precisely the broken state this
+    // slice exists to end, so a failure here is reported rather than swallowed.
+    const { error: staffError } = await ensureStaffMember(req.dealershipId, newUser.user.id, {
+      name: full_name, email, role: newRole, createdBy: req.user.id, status: 'invited',
+    })
+    if (staffError) console.error('[invite] employment record not created:', staffError)
 
     // Optionally confine this member to a single product (e.g. a rep hired for Facebook
     // only) and apply per-member permission overrides. Both are additive to the RBAC role.
