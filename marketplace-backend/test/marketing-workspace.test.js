@@ -105,14 +105,48 @@ test('the workspace computes no attention of its own', () => {
 
 test('it composes existing endpoints and introduces none', () => {
   const KNOWN = ['/marketing/attention', '/campaigns', '/social/accounts', '/social/posts',
-                 '/conversations', '/marketing/roi']
+                 '/conversations', '/marketing/roi', '/marketing/assets']
   for (const c of [...ws.matchAll(/apiGetJson\('([^'?]+)/g)].map(m => m[1])) {
     assert.ok(KNOWN.includes(c), `unexpected read endpoint: ${c}`)
   }
-  const WRITES = ['/campaigns/${id}/status', '/conversations/${conversationId}/takeover']
+  const WRITES = ['/campaigns/${id}/status', '/conversations/${conversationId}/takeover',
+                  '/social/posts', '/social/posts/${postId}/publish']
   for (const w of [...ws.matchAll(/apiSendJson\([`']([^`']+)[`']/g)].map(m => m[1])) {
     assert.ok(WRITES.includes(w), `unexpected write target: ${w}`)
   }
+})
+
+test('the composer offers only accounts the server said this user may publish to', () => {
+  const fn = ws.match(/function mktCompose\(\)[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'the composer must exist')
+  assert.match(fn, /accounts\.filter\(a => a\.can_publish\)/)
+  // An account it refused is shown WITH the refusal rather than vanishing.
+  assert.match(fn, /accounts\.filter\(a => !a\.can_publish\)/)
+  assert.match(fn, /a\.why/)
+  assert.doesNotMatch(fn, /profileContext\?\.role/, 'the browser does not re-decide publishing rights')
+})
+
+test('publish-now reports what actually happened per account', () => {
+  const fn = ws.match(/async function mktPublishNow[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /x\.status === 'published'/)
+  assert.match(fn, /x\.status === 'failed' \|\| x\.status === 'skipped'/)
+  // A partial result is never rounded up into a success message.
+  assert.match(fn, /could not publish to/)
+})
+
+test('a failed post shows the provider reason, not just the word failed', () => {
+  const view = ws.match(/if \(__mktView === 'social'\)[\s\S]*?\n      \}/)?.[0] || ''
+  assert.match(view, /failed\[0\]\?\.error/,
+    '"Failed" alone tells nobody whether to reconnect, wait, or give up')
+  assert.match(view, /actionLabel: failed\.length \? 'Retry' : 'Publish'/)
+})
+
+test('Studio is a library, and says so when it is empty', () => {
+  const view = ws.match(/if \(__mktView === 'studio'\)[\s\S]*?\n      \}/)?.[0] || ''
+  assert.ok(view, 'the Studio view must exist')
+  assert.match(view, /mktUploadAsset/)
+  assert.match(view, /engEmpty\('Nothing in Studio yet/)
+  assert.match(view, /loading="lazy"/, 'a media grid must not block first paint')
 })
 
 test('linked and inferred attribution are never added together', () => {
@@ -143,10 +177,10 @@ test('publishing rights are reported by the server, not decided here', () => {
 
 test('a post that partly failed is not reported as published', () => {
   const view = ws.match(/if \(__mktView === 'social'\)[\s\S]*?\n      \}/)?.[0] || ''
-  assert.match(view, /const partial = failed > 0 && failed < targets\.length/)
-  assert.match(view, /partial \? 'Partly published' : failed \? 'Failed'/)
+  assert.match(view, /const partial = failed\.length > 0 && failed\.length < targets\.length/)
+  assert.match(view, /partial \? 'Partly published' : failed\.length \? 'Failed'/)
   // The count is named, not just coloured — "a publication failed" hides how many.
-  assert.match(view, /\$\{failed\} failed to publish/)
+  assert.match(view, /\$\{failed\.length\} failed to publish/)
 })
 
 test('an item belonging to another department hands off to it', () => {

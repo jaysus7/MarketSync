@@ -110,13 +110,19 @@ export async function publishableAccounts(req, action = 'publish') {
 // Exported as a builder, not just a route, so Marketing's My Day COMPOSES these rather
 // than re-deriving them from the same tables and drifting.
 export async function socialAttention(dealershipId) {
-  const [{ data: accounts }, { data: posts }, { data: failed }] = await Promise.all([
+  // Anything scheduled more than fifteen minutes ago that has not moved. The grace period is
+  // there so a post is not called stuck while the dispatcher is mid-run.
+  const stuckBefore = new Date(Date.now() - 15 * 60 * 1000).toISOString()
+  const [{ data: accounts }, { data: posts }, { data: failed }, { data: stuck }] = await Promise.all([
     supabaseAdmin.from('social_accounts').select('id, display_name, status, token_expires_at, last_error')
       .eq('dealership_id', dealershipId).neq('status', 'connected'),
     supabaseAdmin.from('social_posts').select('id, body, status, scheduled_for')
       .eq('dealership_id', dealershipId).eq('status', 'needs_approval').is('deleted_at', null).limit(100),
     supabaseAdmin.from('social_post_targets').select('id, post_id, social_account_id, error, updated_at')
       .eq('dealership_id', dealershipId).eq('status', 'failed').limit(100),
+    supabaseAdmin.from('social_posts').select('id, body, status, scheduled_for')
+      .eq('dealership_id', dealershipId).eq('status', 'scheduled').is('deleted_at', null)
+      .lt('scheduled_for', stuckBefore).limit(100),
   ])
   const items = []
   for (const a of accounts || []) {
@@ -130,6 +136,14 @@ export async function socialAttention(dealershipId) {
   for (const f of failed || []) {
     items.push({ kind: 'social_publish_failed', severity: 3, subject: 'Publication failed',
       reason: f.error || 'The provider refused the post', owner: 'Marketing', action: 'Review Post', ref: f.post_id })
+  }
+  // A post whose time came and went without publishing. Until PR 6.6 this was the silent
+  // failure the whole department could not see: 'scheduled' forever, nobody told, and the
+  // vehicle it was advertising still sitting on the lot.
+  for (const s of stuck || []) {
+    items.push({ kind: 'social_post_stuck', severity: 3, subject: (s.body || 'Post').slice(0, 60),
+      reason: `Scheduled for ${String(s.scheduled_for).slice(0, 16).replace('T', ' ')} and still not published`,
+      owner: 'Marketing', action: 'Publish or Cancel', ref: s.id })
   }
   return items.sort((a, b) => b.severity - a.severity)
 }

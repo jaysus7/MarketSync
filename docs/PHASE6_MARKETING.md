@@ -223,3 +223,52 @@ Validated at 390px across all six surfaces — no horizontal overflow, no clippe
 no collapsed tap targets. That pass caught two real defects: the manager-only tab rendered as
 the raw key `insights`, and a post whose targets partly failed was labelled **published**. It
 now reads *Partly published* and names how many failed.
+
+### PR 6.6 — Studio and social publishing *(this PR)*
+
+**The finding:** nothing had ever published. There is no provider API call for social anywhere
+in the codebase — the only Meta calls are ad-*spend* reads. A dealership could compose a post,
+schedule it, watch it sit at `scheduled`, and never be told. Not failed, because nothing marked
+it failed. Not published, because nothing published it. The vehicle it advertised stayed on the
+lot. **Silence was the bug**, and it is the same shape as the Phase 5 finding that the general
+ledger had never posted a transaction: a state machine with no engine behind it.
+
+PR 6.2 had already written the vocabulary — `social_posts.status` has allowed `publishing`,
+`published`, `partially_published` and `failed` since then, and `social_post_targets` has
+carried an `attempts` counter. Nothing had ever written any of them.
+
+**The claim is the database's job.** `social_claim_due_targets` uses `for update skip locked`,
+so two workers take disjoint work. Read-then-write in application code has a window in the
+middle, and that window is where a customer sees the same post twice. Proven on staging with
+six rollback probes: only the due post is claimed (a future-scheduled one is not); a post
+awaiting approval is never claimed; a held lease returns nothing to a second worker; an expired
+lease is reclaimed with `attempts` incremented; a target with an `external_post_id` is never
+re-claimed; and a duplicate provider id is refused by a unique index rather than by hope. This
+is the **fourth database-owned control layer**, alongside the RO state machine, the journal
+posting triggers and the accounting period lock.
+
+**`published` requires evidence.** A target is published only when a provider returned an id
+for something it created. No adapter, no credentials, a throw, or a success with no id are all
+failures carrying a reason written for a person. `applyTargetOutcome` refuses to write
+`published` even when handed `{ ok: true }` with no id — because "published" is a claim to the
+dealership that their inventory is in front of customers, and making that claim falsely is
+worse than admitting we could not send it.
+
+**No provider adapter ships in this slice, deliberately.** Each network is its own OAuth app,
+review process and publishing semantics. What ships is the boundary plus the honest failure: a
+dealership on staging today gets *"MarketSync cannot publish to facebook yet — no integration
+is connected. Nothing was sent."* — visible, in the queue, with a reason, instead of a post
+that quietly never happens. `social_post_stuck` surfaces the old silent case directly.
+
+**Studio** is a library, not an editor: `marketing_assets` reusing the existing
+`vehicle-photos` bucket and WebP encode rather than growing a second image pipeline. Deletes
+are soft, because a post that already went out still shows the image it was published with.
+
+Authorization is re-checked **at publish time**, not trusted from compose time — a grant can be
+withdrawn between scheduling a post and it reaching customers, and that later moment is the one
+that matters. A target the user may no longer publish to is `skipped`, not `failed`: nothing
+broke, the permission changed, and the queue should say which.
+
+**Deferred, honestly:** the provider adapters themselves (Meta, Instagram, TikTok, LinkedIn),
+video assets beyond the `kind` column, and per-network content validation (aspect ratios,
+length caps) — the composer records dimensions so that check has something to run on later.

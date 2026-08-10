@@ -58,6 +58,8 @@ import { registerAccountingEngine } from './routes/accounting-engine.js'
 import { registerAccountingArAp } from './routes/accounting-ar-ap.js'
 import { registerCampaigns } from './routes/campaigns.js'
 import { registerSocial } from './routes/social.js'
+import { registerSocialPublish } from './routes/social-publish.js'
+import { registerMarketingStudio } from './routes/marketing-studio.js'
 import { registerConsent } from './routes/consent.js'
 import { registerConversations } from './routes/conversations.js'
 import { registerConfigEngine } from './routes/config-engine.js'
@@ -177,6 +179,8 @@ registerAccountingEngine(app)
 registerAccountingArAp(app)   // AR/AP/CIT read surface — derived from the posted ledger
 registerCampaigns(app)        // canonical Campaign + source taxonomy + attribution by ID
 registerSocial(app)           // social account identity + server-side publish authorization
+registerSocialPublish(app)    // the dispatcher: posts actually leave the building, or say why not
+registerMarketingStudio(app)  // Studio — the dealership's own marketing media library
 registerConsent(app)          // the ONE consent gate every sender calls
 registerConversations(app)    // one customer conversation across channels + human takeover
 registerConfigEngine(app)

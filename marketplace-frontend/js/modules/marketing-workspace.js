@@ -14,7 +14,7 @@
  */
 
 const MKT_VIEWS = [
-  ['campaigns', 'Campaigns'], ['social', 'Social'],
+  ['campaigns', 'Campaigns'], ['studio', 'Studio'], ['social', 'Social'],
   ['conversations', 'Conversations'], ['attribution', 'Attribution'],
 ];
 let __mktView = 'campaigns';
@@ -53,7 +53,7 @@ function mktAttentionRow(x) {
   </div>`;
 }
 
-function mktRow({ title, sub, right, tone, note, onclick }) {
+function mktRow({ title, sub, right, tone, note, onclick, actionLabel = 'Open' }) {
   return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
     <div class="min-w-0 flex-1">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(title)}</div>
@@ -61,7 +61,7 @@ function mktRow({ title, sub, right, tone, note, onclick }) {
       ${note ? `<div class="text-[12px] ${tone || 'text-slate-400'}">${esc(note)}</div>` : ''}
     </div>
     <div class="shrink-0 text-right text-[13px] font-bold ${tone || ''}">${esc(right || '')}</div>
-    ${onclick ? `<button onclick="${onclick}" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open</button>` : ''}
+    ${onclick ? `<button onclick="${onclick}" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${esc(actionLabel)}</button>` : ''}
   </div>`;
 }
 
@@ -81,6 +81,104 @@ async function mktCampaignStatus(id, status) {
   } catch (e) { showToast(e.message, 'error'); }
 }
 window.mktCampaignStatus = mktCampaignStatus;
+
+const mktReload = () => {
+  ENGINE_DATA['marketing-overview'] = undefined;
+  engineTab('marketing-overview', ENGINE_STATE['marketing-overview'] || 'work', true);
+};
+
+/**
+ * Compose a post. Only accounts the SERVER said this user may publish to are offered — the
+ * list is filtered on `can_publish`, and an account it refused is shown with the refusal
+ * rather than hidden, so nobody wonders where their page went.
+ */
+function mktCompose() {
+  const d = ENGINE_DATA['marketing-overview'] || {};
+  const accounts = d.accounts || [], assets = d.assets || [];
+  const usable = accounts.filter(a => a.can_publish);
+  const refused = accounts.filter(a => !a.can_publish);
+
+  crmOverlay(`
+    <div class="p-5">
+      <h2 class="text-lg font-black text-slate-900 dark:text-white mb-1">New post</h2>
+      <p class="text-[13px] text-slate-500 mb-4">Nothing is sent until a network confirms it. You will see exactly which accounts it reached.</p>
+      <textarea id="mkt-body" rows="4" placeholder="What do you want to say?"
+        class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-[14px] mb-3"></textarea>
+      <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">Publish to</div>
+      ${usable.length ? usable.map(a => `<label class="flex items-center gap-2 py-1.5">
+        <input type="checkbox" class="mkt-target" value="${esc(a.id)}">
+        <span class="text-[13px] text-slate-900 dark:text-white">${esc(a.display_name)}</span>
+        <span class="text-[12px] text-slate-400">${esc(a.provider)}</span>
+      </label>`).join('') : `<div class="text-[13px] text-rose-600 dark:text-rose-400">You cannot publish to any connected account yet.</div>`}
+      ${refused.length ? `<div class="mt-2 text-[12px] text-slate-400">${refused.map(a =>
+        `${esc(a.display_name)} — ${esc(a.why || 'not available to you')}`).join('<br>')}</div>` : ''}
+      ${assets.length ? `<div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mt-4 mb-1">Attach from Studio</div>
+        <div class="flex gap-2 overflow-x-auto pb-1">${assets.slice(0, 20).map(a => `
+          <label class="shrink-0 cursor-pointer">
+            <input type="checkbox" class="mkt-media" value="${esc(a.public_url)}">
+            <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" class="w-16 h-16 object-cover rounded-lg border border-slate-200 dark:border-slate-700">
+          </label>`).join('')}</div>` : ''}
+      <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mt-4 mb-1">When</div>
+      <input id="mkt-when" type="datetime-local" class="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]">
+      <div class="text-[12px] text-slate-400 mt-1">Leave empty to save as a draft you can publish by hand.</div>
+      <div class="flex gap-2 mt-5">
+        <button onclick="mktSavePost(this)" class="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[13px] font-bold">Save post</button>
+        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[13px] font-bold">Cancel</button>
+      </div>
+    </div>`, 'max-w-lg');
+}
+window.mktCompose = mktCompose;
+
+async function mktSavePost(btn) {
+  const root = btn.closest('.fixed');
+  const targets = [...root.querySelectorAll('.mkt-target:checked')].map(i => ({ social_account_id: i.value }));
+  if (!targets.length) return showToast('Choose at least one account to publish to.', 'error');
+  const when = root.querySelector('#mkt-when').value;
+  try {
+    await apiSendJson('/social/posts', 'POST', {
+      body: root.querySelector('#mkt-body').value,
+      media: [...root.querySelectorAll('.mkt-media:checked')].map(i => i.value),
+      scheduled_for: when ? new Date(when).toISOString() : null,
+      targets,
+    });
+    root.remove();
+    showToast(when ? 'Post scheduled ✓' : 'Draft saved ✓', 'success');
+    mktReload();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.mktSavePost = mktSavePost;
+
+/**
+ * Publish now. The response says what actually happened per account, so a partial result is
+ * reported as one — never rounded up to "published".
+ */
+async function mktPublishNow(postId) {
+  try {
+    const r = await apiSendJson(`/social/posts/${postId}/publish`, 'POST', {});
+    const ok = (r.results || []).filter(x => x.status === 'published').length;
+    const bad = (r.results || []).filter(x => x.status === 'failed' || x.status === 'skipped');
+    showToast(bad.length
+      ? `Published to ${ok}, could not publish to ${bad.length}: ${bad[0].error || 'see the post'}`
+      : `Published to ${ok} account(s) ✓`, bad.length ? 'error' : 'success');
+    mktReload();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.mktPublishNow = mktPublishNow;
+
+async function mktUploadAsset(input) {
+  const file = input.files?.[0]; if (!file) return;
+  showToast('Uploading…', 'info');
+  try {
+    const fd = new FormData(); fd.append('file', file);
+    const r = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Upload failed');
+    showToast('Added to Studio ✓', 'success');
+    mktReload();
+  } catch (e) { showToast(e.message, 'error'); }
+  input.value = '';
+}
+window.mktUploadAsset = mktUploadAsset;
 
 async function mktTakeover(conversationId) {
   try {
@@ -114,13 +212,14 @@ ENGINES['marketing-overview'] = {
   })),
 
   fetch: async () => {
-    const [att, camps, accounts, posts, convos, roi] = await Promise.all([
+    const [att, camps, accounts, posts, convos, roi, assets] = await Promise.all([
       apiGetJson('/marketing/attention').catch(() => ({ needs_attention: [], opportunities: [] })),
       apiGetJson('/campaigns').catch(() => ({ campaigns: [] })),
       apiGetJson('/social/accounts').catch(() => ({ accounts: [] })),
       apiGetJson('/social/posts').catch(() => ({ posts: [] })),
       apiGetJson('/conversations').catch(() => ({ conversations: [] })),
       apiGetJson('/marketing/roi').catch(() => null),
+      apiGetJson('/marketing/assets').catch(() => ({ assets: [] })),
     ]);
     return {
       needsAttention: att.needs_attention || [],
@@ -129,6 +228,7 @@ ENGINES['marketing-overview'] = {
       accounts: accounts.accounts || [],
       posts: posts.posts || [],
       conversations: convos.conversations || [],
+      assets: assets.assets || [],
       roi,
     };
   },
@@ -189,14 +289,41 @@ ENGINES['marketing-overview'] = {
           }).join('') : engEmpty('No campaigns yet.'))}`;
       }
 
+      if (__mktView === 'studio') {
+        const assets = d.assets || [];
+        inner = `
+          <div class="flex items-center justify-between gap-3 mb-3">
+            <div class="text-[13px] text-slate-500">The dealership's own images, reusable across posts and campaigns.</div>
+            <label class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[12px] font-bold cursor-pointer">
+              Upload<input type="file" accept="image/*" class="hidden" onchange="mktUploadAsset(this)">
+            </label>
+          </div>
+          ${engCard(`Media library (${assets.length})`, assets.length ? `
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              ${assets.map(a => `<div class="min-w-0">
+                <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" loading="lazy"
+                     class="w-full aspect-square object-cover rounded-lg border border-slate-200 dark:border-slate-700">
+                <div class="text-[11px] text-slate-400 truncate mt-1">${esc(a.title || `${a.width || '?'}×${a.height || '?'}`)}</div>
+              </div>`).join('')}
+            </div>` : engEmpty('Nothing in Studio yet. Upload a photo to reuse it across posts.'))}`;
+      }
+
       if (__mktView === 'social') {
         const accounts = d.accounts || [], posts = d.posts || [];
         const broken = accounts.filter(a => a.status !== 'connected');
+        // Nothing publishes until a network integration is connected. Saying so here is the
+        // difference between a queue that looks healthy and one a person can act on.
+        const unsent = posts.filter(p => ['scheduled', 'failed', 'partially_published'].includes(p.status)
+          || (p.targets || []).some(t => t.status === 'failed'));
         inner = `
+          <div class="flex items-center justify-between gap-3 mb-3">
+            <div class="text-[13px] text-slate-500">Composed here, published by the dealership's connected accounts.</div>
+            <button onclick="mktCompose()" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[12px] font-bold">New post</button>
+          </div>
           <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
             ${engKpi('Accounts', accounts.length)}
             ${engKpi('Disconnected', broken.length, broken.length ? 'text-rose-600 dark:text-rose-400' : '')}
-            ${engKpi('Awaiting approval', posts.filter(p => p.status === 'needs_approval').length)}
+            ${engKpi('Not delivered', unsent.length, unsent.length ? 'text-amber-600 dark:text-amber-400' : '')}
           </div>
           ${engCard('Connected accounts', accounts.length ? accounts.map(a => mktRow({
             title: a.display_name,
@@ -212,17 +339,23 @@ ENGINES['marketing-overview'] = {
             // A post whose targets partly failed is NOT "published". Saying so would hide
             // the one account the dealership meant to reach and never did.
             const targets = p.targets || [];
-            const failed = targets.filter(t => t.status === 'failed').length;
-            const partial = failed > 0 && failed < targets.length;
+            const failed = targets.filter(t => t.status === 'failed');
+            const partial = failed.length > 0 && failed.length < targets.length;
+            // The provider's own words. "Failed" alone tells nobody whether to reconnect an
+            // account, wait, or stop expecting this post to go out at all.
+            const why = failed[0]?.error || null;
             return mktRow({
               title: (p.body || 'Post').slice(0, 70),
               sub: `${mktLabel(p.status)}${p.scheduled_for ? ` · ${String(p.scheduled_for).slice(0, 16).replace('T', ' ')}` : ''}`,
               note: targets.length
-                ? `${targets.length} account(s)${failed ? ` · ${failed} failed to publish` : ''}`
+                ? `${targets.length} account(s)${failed.length ? ` · ${failed.length} failed to publish` : ''}${why ? ` · ${why}` : ''}`
                 : 'no accounts',
-              right: partial ? 'Partly published' : failed ? 'Failed' : mktLabel(p.status),
-              tone: failed || p.status === 'failed' ? 'text-rose-600 dark:text-rose-400'
+              right: partial ? 'Partly published' : failed.length ? 'Failed' : mktLabel(p.status),
+              tone: failed.length || p.status === 'failed' ? 'text-rose-600 dark:text-rose-400'
                   : p.status === 'published' ? 'text-emerald-600 dark:text-emerald-400' : '',
+              onclick: p.status !== 'published' && p.status !== 'needs_approval'
+                ? `mktPublishNow('${p.id}')` : null,
+              actionLabel: failed.length ? 'Retry' : 'Publish',
             });
           }).join('') : engEmpty('Nothing scheduled.'))}`;
       }
