@@ -20,6 +20,7 @@ import { createNotification } from '../notifications.js'
 import { findOrCreateContact } from './crm.js'
 import { squareStatus, squareCreateDepositLink } from '../providers/square.js'
 import { emitEvent } from './events.js'
+import { recordPayment, publishPaymentReceived } from './payments.js'
 import { rateLimit } from '../security.js'
 import { depositReturnUrl, safePublicReturnBase } from '../public-return-url.js'
 
@@ -101,14 +102,49 @@ export async function stampDepositPaid({ dealershipId, contactId, leadId, amount
     body: `${amountStr} paid to reserve ${vehicle}. Confirm the hold and follow up.`,
     linkPage: 'crm', targetUserId: repId || null,
   })
-  // Emit to the unified activity spine. The accounting engine's listener posts the
-  // deposit journal (DR Cash / CR Customer Deposits) from this event — journals are
-  // now the single posting path (no direct ledger write here anymore).
+  // ── Canonical money first ───────────────────────────────────────────────────
+  // A deposit is not its own kind of thing: it is a PAYMENT that happens to be
+  // unapplied. Persist it through the core primitive BEFORE anything downstream
+  // relies on it, so the money is durable and queryable rather than existing only as
+  // an event and a journal line.
+  //
+  // Idempotency comes from the processor reference (Stripe's payment_intent), which is
+  // unique per dealership in the database — so a webhook retry returns the existing
+  // Payment and emits nothing.
+  let payment = null, createdPayment = false
+  if (amountCents != null && Number(amountCents) > 0) {
+    try {
+      const res = await recordPayment(dealershipId, {
+        amount: Number(amountCents) / 100,
+        method: 'card',
+        contactId: contactId || null,
+        processor: (provider || 'stripe').toLowerCase(),
+        processorReference: paymentRef || null,
+        status: 'received',
+        metadata: { kind: 'deposit', vehicle, currency, lead_id: leadId || null },
+        userId: repId || null,
+      })
+      payment = res.payment; createdPayment = res.created
+      // No allocation: the money is not applied to an obligation yet. That unapplied
+      // balance IS the deposit, and Accounting credits customer_deposits for it.
+      if (createdPayment) await publishPaymentReceived(dealershipId, payment.id, { userId: repId || null })
+    } catch (e) { console.warn('[deposits] canonical payment failed:', e.message) }
+  }
+
+  // The activity-spine event stays for its NON-financial side effects (timeline, CRM).
+  // `posted_via` tells the accounting engine this money already posted through the
+  // canonical payment path, so the legacy deposit_received rule does not post it a
+  // second time. Production still carries that rule; staging does not.
   if (contactId) {
     emitEvent({
       dealershipId, eventName: 'deposit.paid', entityType: 'customer', entityId: contactId,
       summary: `Deposit paid — ${amountStr}`, department: 'Accounting', createdBy: repId || null,
-      payload: { amount_cents: amountCents, currency, vehicle, provider: provider || 'stripe', payment_ref: paymentRef || null, lead_id: leadId || null },
+      payload: {
+        amount_cents: amountCents, currency, vehicle, provider: provider || 'stripe',
+        payment_ref: paymentRef || null, lead_id: leadId || null,
+        payment_id: payment?.id || null,
+        posted_via: payment ? 'payment' : null,
+      },
     })
   }
 }

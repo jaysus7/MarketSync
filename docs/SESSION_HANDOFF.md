@@ -10,11 +10,11 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 
 | | |
 |---|---|
-| **Last updated** | 2026-08-09 |
+| **Last updated** | 2026-08-10 |
 | **Target branch** | `staging` (production deploys from `main` — see `render.yaml`) |
-| **Baseline on `staging`** | `c8dee2a` — 460/460 tests green, all six `check:*` green |
-| **In flight** | **Phase 4 PR 4.2a** — repair-order state reconciliation |
-| **Roadmap position** | Phase 1–3 complete. Phase 4: audit (#72) and foundation (#73) merged. **The database owns the RO state machine — see audit §32 before touching Service.** PR 4.2 (authorization) → 4.3 (parts) → 4.4 (accounting) → 4.5 (UI) remain. |
+| **Baseline on `staging`** | `8cc0489` — 465/465 tests green, all six `check:*` green |
+| **In flight** | **PHASE 4 COMPLETE on the branch — all three batches done.** Batch 1: full Service operations E2E-proved. Batch 2: Payment Core built, Service accounting corrected, invoice read + explicit financial disposition, deposits converted to a Payment producer. Batch 3: Service advisor workspace, Parts department workspace, technician **My Work** surface, mobile validated at 390px, Service-only E2E. **553/553 tests, all six `check:*` green.** Branch `claude/restore-shared-public-shell-8lftt0`, `e41d95e` → `c811053`. Not yet merged to `staging`. |
+| **Roadmap position** | Phase 1–3 complete. Phase 4 (Fixed Ops) complete on the branch; #72/#73/#74 already merged to `staging`, the rest awaiting merge. **The database owns the RO state machine — read audit §32 before touching Service.** Next: **read the canonical roadmap and determine the actual next numbered phase — do not guess.** The stated order after Fixed Ops is Accounting → Marketing → People → dealership-wide My Day; if the roadmap does not clearly define the next phase, **stop and report the exact ambiguity** rather than choosing one. |
 
 ## Read before coding
 
@@ -38,6 +38,15 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 
 ## Completed
 
+- **Phase 4 — Fixed Ops (Service + Parts)** — complete on the branch across three
+  batches: Service operations (state machine respected, estimates, immutable
+  authorization, technician workflow, parts demand), financial close (Payment +
+  Allocation core primitive, corrected `service_closed` posting, explicit disposition),
+  and the operating product (advisor workspace, Parts department, technician `My Work`,
+  390px mobile, Service-only E2E). Guarded by `test/fixedops-foundation.test.js`,
+  `test/fixedops-batch1-e2e.test.js`, `test/core-payments.test.js`,
+  `test/service-workspace.test.js`, `test/parts-workspace.test.js`,
+  `test/service-standalone-e2e.test.js`.
 - **Public marketing shell** — shared header/footer/theme/auth across 33 public
   pages (`assets/public-shell.js`). Guarded by `test/public-shell.test.js`.
 - **`dashboard.js` split** — contiguous, load-order-critical split into
@@ -88,46 +97,201 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
   highest-severity Inventory exception. Deliberate omissions (feed-failure and PDI
   exceptions, Automation tabs) and why: `docs/STAGE3_INVENTORY_FNI_AUDIT.md` §5.1.
 
-## Next recommended slice
+## Execution strategy — audit-first is OVER for this phase
 
-### Stage 4B is at a STOP GATE — read the audit before writing any code
+The architecture, invariants, canonical records and department boundaries are
+established. **Stop creating separate audit / spec / reconciliation PRs** unless
+implementation exposes a genuinely new architectural conflict. Read what is already
+frozen — `docs/STAGE4_SERVICE_PARTS_AUDIT.md` (esp. §32), `docs/STAGE4_PR42_SPEC.md`,
+merged PRs #73 and #74 — follow it, and build.
 
-`docs/STAGE4_SERVICE_PARTS_AUDIT.md` §31. Stage 4A found **nine G3–G6 gaps** in the
-protected areas (authorization, parts quantity, reservation, receiving, accounting,
-payment, RO close, customer/vehicle identity). The brief's own rule stops dependent UI
-until they are decided. **Do not re-run the audit; do not guess the decisions.**
+Work in **three large batches**, not a cycle of small PRs per primitive. The goal is no
+longer to prove Service can be built. **The goal is to finish Service.**
 
-The five that matter most, in one line each:
+### Batch 1 — Complete Service Operations (PR 4.2 + 4.3 together)
 
-1. Service revenue posts **pre-tax** to AR and **tax is never credited**.
-2. `parts_inventory` is **credited on every RO close and debited by nothing** —
-   receiving posts no journal at all.
-3. There is **no payment** — AR is never cleared.
-4. There is **no customer authorization** anywhere in the system.
-5. There is **no parts demand object** — stock moves only at RO close.
+Build the whole connected workflow, not isolated primitives:
 
-Also found: Service has **no customer-owned vehicle model** (only dealer `inventory`),
-`GET /service/appointments` selects a column that does not exist so the list is always
-empty, and `service.view` / `service.reopen_repair_order` are granted to roles but used
-by zero code — so a GM cannot read an RO while a technician can close one.
+`inspection → estimate → customer authorization → technician assignment → parts
+demand/reservation → work → additional work / re-authorization → completion → QC → ready`
 
-**Safe to start without any decision (G0–G2):** register Service and Parts as `ENGINES`
-workspaces on the Stage 3 pattern, the shop-status aggregate read, surfacing the
-existing timeline and low-stock exceptions, and the Tier 0 permission/bug fixes in §30.
+- **Estimate & authorization** — immutable versions, presented estimates,
+  approve/decline/defer evidence, e-sign, coverage against the *latest* estimate,
+  revised estimates. Contract: `docs/STAGE4_PR42_SPEC.md`.
+- **Technician workflow** — assignment, concern/cause/correction, jobs on `ro_lines`,
+  recommended work, start/block/complete, actual time via `time_entries`, QC handoff.
+- **Parts workflow** — demand from RO lines, availability, reservation, concurrency,
+  shortage/backorder, receiving, issue to RO, returns/reversals, cost onto the RO.
 
-⚠️ **The Stage 4B brief is also incomplete** — it arrived truncated mid-sentence in the
-SERVICE → DRIVE section ("Do not retype data MarketS"). Repair Orders, Dispatch,
-Inspections, Ready, the Parts UI, the E2E paths and the exit criteria are all missing.
-Ask for the rest before building 4B.
+**Step 1 is DONE and merged-ready.** `service_move_stock` (Postgres) now does one
+locked row + one ledger entry + one balance update, or nothing. `parts.qty_reserved`
+exists so availability is `on_hand - reserved` server-side; `qty_on_hand >= 0` is a
+table constraint; `part_txns` dedupes on `(dealership_id, idempotency_key)`; RO close
+consumes under `ro-close:<roId>:<lineId>` so a retried close draws nothing twice; a
+deduped retry emits no second event. Proved live: last unit issues once · second issue
+refused · retry with the same key moves nothing and leaves exactly one ledger row ·
+a different key moves again · a cross-dealership move is refused.
+**Steps 2–5 start from here — reservation and issue can now safely depend on stock.**
 
-### After Fixed Ops
-Accounting, Marketing and People on the same engine-shell pattern; then a
-dealership-wide My Day that aggregates the department Today views once they all exist.
+**BATCH 1 IS COMPLETE.** The end-to-end fixture ran green against staging on the first
+attempt — 20/20, including every refusal path:
 
-Standing decisions: do **not** add `Showed`/`Negotiating` to the CRM enum (UI may derive
-that context, never persist it); Phase 2 deferred items (opportunity-row appraisal
-shortcut, per-blocker delivery deep links, response/show/close metrics) do not block
-Stage 3 and should not reopen Phase 2.
+customer + customer vehicle · check-in at `checked_in` · inspection with a job line
+carrying the concern · estimate v1 $400 presented and approved · parts demand moves no
+stock · reserving touches `qty_reserved` not `qty_on_hand` · technician starts work ·
+additional work found · estimate v2 $1,900 presented · **v1 authorization preserved** ·
+**v1 does NOT cover v2** · v1 estimate still immutable · v2 reauthorized · issue draws
+stock exactly once · duplicate issue idempotent · reservation released after issue ·
+concern survives cause/correction · **completing work did not close the RO** · QC then
+ready via canonical transitions · ready→active refused · close-direct-from-ready refused ·
+cross-dealership reserve refused.
+
+Probe rows cleaned up. `test/fixedops-batch1-e2e.test.js` pins the seams so a later
+refactor cannot quietly break a link in that chain.
+
+Test the complete workflow plus the refusal and concurrency paths.
+
+### Batch 2 — Complete Service Financial Close (4.4)
+
+`ready → delivered → invoice → tax → payment/deposit/AR → accounting events → closed`,
+covering labour, parts, sublet, fees, discounts, configured taxes, invoice, deposits,
+payments, balances, AR, parts-receipt accounting, reversals, idempotency, posting.
+**Reuse MarketSync's existing financial/payment infrastructure** (deposits/Stripe
+abstraction — no MCP connector dependency). Do not build a Service-specific accounting
+system.
+
+### Batch 3 — Service Operating Product (4.5) — **COMPLETE**
+
+A complete department UI built around jobs-to-be-done, for **advisor**, **technician**
+and **manager**, finishing with full E2E of real dealership workflows.
+
+**What landed, and the three findings worth carrying forward:**
+
+1. **The technician surface is keyed off a permission, not a role.** There is no
+   `TECHNICIAN` role — the assignable vocabulary is
+   `MANAGER/SALES_REP/FNI/SERVICE/ACCOUNTING/CLEANUP`, and a single `SERVICE` role
+   covers advisor and technician alike. `My Work` therefore keys off the server's own
+   dividing line in `assertLineActor()`: holding `service.manage_workflow` is the desk.
+   `window.canDo` fails OPEN, so a missing access context lands on the advisor surface —
+   the safe direction. **Do not "fix" this by inventing a technician role.**
+
+2. **Mobile at 390px found a real defect, not a cosmetic one.** A coloured state signal
+   appended to a `truncate` line is ellipsed out of existence on a phone. Three rows had
+   it: an advisor could not see "waiting for parts", a parts clerk could not see
+   "0 available". Status and flags now lead their own line. Regression tests pin the
+   invariant as **order** (signal leads, detail gets cut), not "never truncate".
+   Validation was a real headless render at 390px, not class-name grepping.
+
+3. **Parts is bundled with Service today.** There is no `os.parts` entitlement anywhere
+   in the codebase; `parts-overview` is gated on `os.service`. That is coherent for a
+   shop but is **not** the same as Parts being separately purchasable, which the stated
+   product direction calls for. `test/service-standalone-e2e.test.js` pins this
+   deliberately so it stays visible. Parts is nonetheless built as its own engine over
+   Service's one stock ledger, so splitting it later is an entitlement change rather
+   than a rewrite. **This is an owner decision, not a bug to quietly fix.**
+
+Then repeat the same shape for Parts, Accounting, F&I — complete department workflows in
+meaningful batches, not another audit→foundation→reconciliation→spec cycle per feature.
+
+### Rules that still hold
+
+DB-enforced invariants · dealership isolation · the canonical state machine (the database
+owns it; no JS copy) · permissions · idempotency · concurrency · **immutable evidence**
+(authorization is never deleted or mutated; coverage is derived) · shared DealerOS
+primitives over duplication · standalone Service capability.
+
+Run tests throughout; fix failures **inside the same batch**. Optimize for completed
+dealership workflows, not number of PRs.
+
+**Stop early only for:** a genuine architectural contradiction · destructive migration
+risk · an external dependency needing a human decision · insufficient context to safely
+finish the current atomic change.
+
+## Core Payment + Allocation — BUILT (approved decision)
+
+MarketSync had **no payment record at all**: deposits existed only as a Stripe checkout
+flow, a `deposit.paid` event and a journal entry. Nothing you could query to answer
+"what has this customer paid?".
+
+`payments` + `payment_allocations` are now **DealerOS core primitives**, not Service
+tables — the wrong fix was `service_payments`, then `deal_payments`, then `fni_payments`,
+with Accounting reconciling three of them.
+
+```
+CUSTOMER → PAYMENT ─┬→ ALLOCATIONS → Service RO / vehicle deal / other receivable
+                    └→ UNAPPLIED  (which is what a deposit actually is)
+```
+
+Deliberately **no `ro_id`/`deal_id` on the payment itself** — a payment can split across
+obligations, be partially applied, or move from deposit to invoice, so where it lands is
+a separate fact. Idempotency is enforced by two database unique indexes (provider
+reference and caller key), not application checks. A received payment is frozen: amount,
+currency and provider identity cannot be rewritten and the row cannot be deleted —
+refunds are **recorded** via `refunded_amount` + status, never simulated by mutation.
+Over-allocation is refused under the payment row lock.
+
+Proved live, 9/9: payment recorded · duplicate webhook refused · partial allocation ·
+unapplied remainder is the deposit · over-allocation refused · rewrite refused · delete
+refused · partial refund leaves the original intact · cross-dealership allocation refused.
+
+**Accounting integration DONE.** `routes/payments.js` is the core module;
+`payment.received` is the one canonical financial event for customer money, and the
+`payment_received` rule is:
+
+```
+DR cash                = amount      (all the money that arrived)
+CR accounts_receivable = applied     (the part that settles an invoice)
+CR customer_deposits   = unapplied   (the part still owed back to the customer)
+```
+
+**It provably touches no revenue and no tax** — the invoice already recognised those at
+RO close, and cash arriving must never do it again. Verified balanced against all four
+real shapes: paid in full · partial payment · pure deposit · deposit partly applied.
+A retried payment emits no second event, and the posting itself dedupes on the payment id.
+
+**Invoice read + close DONE.** `GET /service-engine/ros/:id/financials` answers
+"what is the customer charged, what have they paid, what remains?" in one response —
+totals from the RO (already canonical), money from the core Payment primitive, no second
+invoice truth, and estimates deliberately excluded because they are what was *proposed*.
+
+Closing now requires an explicit `financial_disposition` (`paid_in_full` · `partial_ar` ·
+`ar` · `warranty` · `internal` · `goodwill`) and records `closed_balance`. A zero balance
+is **not** required — carrying AR is a real decision — but an *implicit* balance is
+refused by a database constraint, and you cannot claim paid-in-full with money
+outstanding or carry AR that does not exist.
+
+**Deposits producer DONE — BATCH 2 IS COMPLETE.** `stampDepositPaid` now persists a
+canonical Payment *before* anything downstream relies on it, keyed on Stripe's
+`payment_intent`, so a webhook retry returns the existing Payment and emits nothing. No
+allocation is made: the unapplied balance **is** the deposit, which is why no deposits
+table exists. The Stripe Checkout experience is untouched.
+
+**Production double-post is guarded.** The `deposit.paid` event now carries
+`posted_via: 'payment'`, and the accounting engine's legacy `deposit.paid` case returns
+early when it sees it. The legacy `deposit_received` rule is **preserved, not deleted** —
+production has producers that predate the payment primitive — but it will not post money
+that already posted canonically. Exactly one accounting effect per real payment.
+
+⚠️ **Production only:** the legacy `deposit_received` rule exists there (Stage 3 A5
+migration, which never ran on staging). `deposit.paid` and `payment.received` must not
+both post for the same money — adapt deliberately before enabling this path there.
+
+## ⚠️ PRODUCTION ACCOUNTING — needs a deliberate decision
+
+Found while correcting Stage 4A findings F1/F2: **the `service_closed` posting rule does
+not exist on staging at all.** The Stage 3 migration that seeded the A5 rules
+(`2026-07-23-accounting-engine-a5-events.sql`) was applied to **production only**.
+
+So the corrected rule has been *inserted* on staging, while **production still carries
+the uncorrected one** — debiting AR with the pre-tax subtotal and leaving collected tax
+inside `service_revenue`. Every repair order closed in production understates AR by the
+tax and overstates revenue by the same amount.
+
+Correcting production is a separate, deliberate decision (owner call), and per the
+standing rule **no historical replay or journal backfill is proposed**. The reconciliation
+queries the brief asks for — closed ROs whose AR/tax journal is inconsistent, parts
+consumption with no receipt-side entry, Service AR with no payment — should be run
+against production before any remediation is chosen.
 
 ## Known gaps / deferred (UI missing, backend often present)
 

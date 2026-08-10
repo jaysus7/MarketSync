@@ -279,3 +279,355 @@ test('the Stage 0 state machine is marked superseded rather than left as truth',
   assert.match(stage0, /SUPERSEDED — this section was never true/)
   assert.match(stage0, /STAGE4_SERVICE_PARTS_AUDIT\.md` §32/)
 })
+
+// ── 8. Atomic stock (Batch 1, step 1) ────────────────────────────────────────
+
+const stockMig = read('migrations/2026-08-09-stage4b-atomic-stock.sql')
+
+test('stock moves atomically in the database, not read-modify-write in Node', () => {
+  const fn = eng.match(/async function moveStock[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'moveStock must still exist')
+  assert.match(fn, /supabaseAdmin\.rpc\('service_move_stock'/, 'the movement must happen in one database call')
+  // The exact race that was there before: read the balance, add in JS, write it back.
+  assert.doesNotMatch(fn, /qty_on_hand:\s*newQty|n\(part\.qty_on_hand\)\s*\+/,
+    'the balance must never be computed in Node and written back')
+  assert.match(stockMig, /for update/, 'the part row must be locked for the duration')
+  assert.match(stockMig, /if v_new < 0 then[\s\S]{0,200}?Insufficient stock/,
+    'the sufficiency check must happen inside the lock')
+})
+
+test('stock can never go negative, and a retry moves nothing twice', () => {
+  assert.match(stockMig, /check \(qty_on_hand >= 0 and qty_reserved >= 0\)/,
+    'negative stock must be impossible at the table level')
+  assert.match(stockMig, /create unique index if not exists part_txns_idempotency_uk/,
+    'the ledger must dedupe on an idempotency key')
+  assert.match(stockMig, /where idempotency_key is not null/,
+    'the key is optional — the index must be partial')
+  const fn = eng.match(/async function moveStock[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /p_idempotency_key: idempotencyKey/, 'callers must be able to supply a key')
+})
+
+test('a duplicate movement emits no second event', () => {
+  // An event is a claim that something happened. A no-op retry must not make one.
+  for (const f of ['receiveParts', 'adjustPart', 'consumePart']) {
+    const fn = eng.match(new RegExp(`export async function ${f}[\\s\\S]*?\\n\\}`))?.[0] || ''
+    assert.match(fn, /if \(!r\.duplicate\)\s*\{?\s*(emitEvent|\n)/, `${f} must not emit on a deduped retry`)
+  }
+})
+
+test('closing an RO cannot draw the same part twice', () => {
+  assert.match(eng, /idempotencyKey: `ro-close:\$\{roId\}:\$\{l\.id\}`/,
+    'each RO line consumes under a stable key, so a retried close is a no-op')
+})
+
+test('reserved quantity exists so availability can be derived, not guessed', () => {
+  assert.match(stockMig, /add column if not exists qty_reserved numeric not null default 0/)
+  // Availability is on_hand - reserved. It must never be a frontend calculation.
+  assert.doesNotMatch(fe, /qty_on_hand\s*-\s*.*reserved/, 'availability must not be computed in the UI')
+})
+
+// ── 9. Versioned estimates (Batch 1, step 2) ─────────────────────────────────
+
+const estMig = read('migrations/2026-08-09-stage4b-ro-estimates.sql')
+
+test('a presented estimate is frozen by the database, not by convention', () => {
+  assert.match(estMig, /create trigger ro_estimates_freeze before update/,
+    'immutability must be a trigger, not an application habit')
+  assert.match(estMig, /if old\.presented_at is not null then/, 'freezing starts at presentation')
+  assert.match(estMig, /create trigger ro_estimates_nodelete before delete/,
+    'presented evidence must survive deletion attempts')
+  for (const col of ['lines_snapshot', 'total', 'tax', 'subtotal', 'discount']) {
+    assert.ok(estMig.includes(`new.${col} is distinct from old.${col}`), `${col} must be frozen`)
+  }
+})
+
+test('estimate versions are assigned by the database and are monotonic', () => {
+  assert.match(estMig, /create trigger ro_estimates_version before insert/)
+  assert.match(estMig, /select coalesce\(max\(version\), 0\) \+ 1 into new\.version/,
+    'the next version comes from the database, so concurrent writers cannot collide')
+  assert.match(estMig, /create unique index if not exists ro_estimates_ro_version_uk/)
+  assert.match(eng, /version: 0,\s*\/\/ replaced by the DB trigger/,
+    'callers must never choose a version number')
+})
+
+test('an estimate snapshots the live RO rather than pointing at it', () => {
+  const fn = eng.match(/export async function createEstimate[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /lines_snapshot: lines \|\| \[\]/, 'the lines as shown must be captured')
+  assert.match(fn, /subtotal, tax: totals\.tax, total: totals\.total/, 'the money as shown must be captured')
+  // recomputeRoTotals keeps updating the LIVE RO; it must never reach into a snapshot.
+  const rt = eng.match(/async function recomputeRoTotals[\s\S]*?\n\}/)?.[0] || ''
+  assert.doesNotMatch(rt, /ro_estimates/, 'live totals must never touch a historical estimate')
+})
+
+test('presenting is idempotent and moves the RO honestly', () => {
+  const fn = eng.match(/export async function presentEstimate[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /if \(est\.presented_at\) return est/, 're-presenting must be a no-op')
+  assert.match(fn, /\.is\('presented_at', null\)/, 'the update must only win once')
+  assert.match(fn, /eventName: 'service\.estimate_presented'/, 'presentation must reach the timeline')
+})
+
+test('estimate_sent cannot be claimed without a presented estimate', () => {
+  const fn = eng.match(/export async function transitionRepairOrder[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /toStatus === 'estimate_sent' && !\(await latestPresentedEstimate\(dealershipId, roId\)\)/,
+    'the state asserts the customer was shown something — refuse it when they were not')
+})
+
+// ── 10. Authorization evidence + derived coverage (Batch 1, step 3) ──────────
+
+const authMig = read('migrations/2026-08-09-stage4b-ro-authorizations.sql')
+
+test('authorization is permanent evidence — never edited, never deleted', () => {
+  assert.match(authMig, /create trigger ro_auth_freeze before update or delete/,
+    'both edit and delete must be refused at the database')
+  assert.match(authMig, /immutable evidence/)
+  // The failure mode this prevents: "invalidating" v1 by rewriting or removing it.
+  assert.doesNotMatch(eng, /from\('ro_authorizations'\)\.(update|delete)/,
+    'nothing may update or delete an authorization, including superseding code')
+})
+
+test('coverage is derived from the latest presented estimate, not stored', () => {
+  const fn = eng.match(/export async function authorizationCoverage[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'coverage must be a derivation')
+  assert.match(fn, /const estimate = await latestPresentedEstimate\(dealershipId, roId\)/,
+    'coverage is answered against what the customer was actually shown')
+  assert.match(fn, /\.eq\('estimate_id', estimate\.id\)/,
+    'a decision only counts for the exact version it was made against')
+  assert.match(fn, /covered: auth\.decision === 'approved'/)
+  // Derivation must not write anything.
+  assert.doesNotMatch(fn, /\.insert\(|\.update\(|\.delete\(/, 'answering the question must not change it')
+  // And no stored flag may shadow it.
+  assert.doesNotMatch(authMig, /is_authorized|authorization_status|covered boolean/,
+    'coverage must never become a column someone can set by hand')
+})
+
+test('a newer estimate leaves the old approval as history that no longer covers', () => {
+  const fn = eng.match(/export async function transitionRepairOrder[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /toStatus === 'customer_approved' \|\| toStatus === 'customer_declined'/)
+  assert.match(fn, /if \(cover\.decision !== want\) throw new Error/,
+    'after v2 is presented, v1 approval must not let the RO claim customer_approved')
+})
+
+test('evidence is bound to the right estimate, RO and dealership', () => {
+  assert.match(authMig, /v_est\.ro_id is distinct from new\.ro_id or v_est\.dealership_id is distinct from new\.dealership_id/,
+    'cross-RO and cross-tenant evidence must be refused')
+  assert.match(authMig, /v_est\.presented_at is null/,
+    'you cannot authorize an estimate the customer was never shown')
+  assert.match(authMig, /decision = 'declined' and nullif\(btrim\(coalesce\(new\.decline_reason,''\)\),''\) is null/,
+    'a decline must record why')
+})
+
+test('a retried authorization submission records one decision', () => {
+  assert.match(authMig, /create unique index if not exists ro_auth_idempotency_uk/)
+  const fn = eng.match(/export async function recordAuthorization[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.match(fn, /if \(prior\) return prior/, 'a retry returns the original decision')
+})
+
+test('authorization reuses shared primitives rather than new infrastructure', () => {
+  // contacts for identity, esign_requests for signature, no second signing system.
+  assert.match(authMig, /contact_id uuid/)
+  assert.match(authMig, /esign_request_id uuid/)
+  for (const dup of ['service_signatures', 'service_consents', 'ro_customers']) {
+    assert.ok(!authMig.includes(dup), `must not create ${dup}`)
+  }
+})
+
+// ── 11. Technician workflow (Batch 1, step 4) ────────────────────────────────
+
+const techMig = read('migrations/2026-08-09-stage4b-technician-workflow.sql')
+
+test('the job is the RO line — no second job model', () => {
+  assert.doesNotMatch(techMig, /create table[\s\S]{0,60}ro_jobs/i, 'must not create a parallel job table')
+  for (const col of ['concern', 'cause', 'correction', 'op_code', 'pay_type', 'recommended',
+                     'line_status', 'started_at', 'completed_at', 'blocked_reason', 'hours_actual']) {
+    assert.ok(techMig.includes(`add column if not exists ${col}`), `ro_lines must carry ${col}`)
+  }
+})
+
+test('concern, cause and correction are separate fields, so diagnosis cannot erase the customer', () => {
+  const fn = eng.match(/export async function setLineProgress[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.match(fn, /if \(cause != null\) patch\.cause/)
+  assert.match(fn, /if \(correction != null\) patch\.correction/)
+  assert.doesNotMatch(fn, /patch\.concern/, 'the technician path must never write over the concern')
+})
+
+test('a blocked job must say what it is waiting for', () => {
+  assert.match(techMig, /check \(line_status <> 'blocked' or nullif\(btrim\(coalesce\(blocked_reason,''\)\),''\) is not null\)/,
+    'the database must refuse a blocker with no reason')
+  const fn = eng.match(/export async function setLineProgress[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.match(fn, /Say what the job is waiting for/)
+})
+
+test('advisor and technician actions are separated on the server', () => {
+  assert.match(techMig, /insert into public\.permissions[\s\S]{0,200}service\.manage_workflow/)
+  const grants = techMig.match(/insert into public\.role_permissions[\s\S]*?service\.manage_workflow[\s\S]*?;/)?.[0] || ''
+  assert.ok(!/technician/.test(grants), 'a technician must not hold desk permission')
+  // Desk work: estimates, authorization, assignment.
+  for (const route of ["app.post('/service-engine/ros/:id/estimates', requireAuth, canDesk",
+                       "app.post('/service-engine/estimates/:id/present', requireAuth, canDesk",
+                       "app.post('/service-engine/ros/:id/authorizations', requireAuth, canDesk",
+                       "app.post('/service-engine/lines/:id/assign', requireAuth, canDesk"]) {
+    assert.ok(eng.includes(route), `must be desk-gated: ${route}`)
+  }
+  // The shop-floor action is a single route whose verb is validated server-side.
+  assert.match(eng, /app\.post\('\/service-engine\/lines\/:id\/progress', requireAuth, canWork/)
+  assert.match(eng, /if \(!\['start', 'block', 'resume', 'complete', 'qc'\]\.includes\(action\)\)/)
+})
+
+test('a technician may only work the job assigned to them', () => {
+  const fn = eng.match(/async function assertLineActor[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /hasPermission\(req, 'service\.manage_workflow'\)/, 'desk staff may act on any job')
+  assert.match(fn, /if \(line\.tech_id && line\.tech_id === req\.user\?\.id\) return/,
+    'otherwise the job must actually be theirs')
+  assert.match(fn, /That job is not assigned to you/)
+  // And it is enforced where the action happens, not only in the UI.
+  assert.match(eng, /await assertLineActor\(req\.dealershipId, req\.params\.id, req\)/)
+})
+
+test('completing jobs never closes the repair order', () => {
+  const fn = eng.match(/export async function setLineProgress[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.doesNotMatch(fn, /closeRepairOrder|transitionRepairOrder|status: 'closed'/,
+    'finishing work is not the financial act of closing')
+})
+
+test('actual labour reuses the existing time clock', () => {
+  const fn = eng.match(/export async function roActualHours[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /from\('time_entries'\)/, 'no second time system')
+  assert.match(fn, /\.eq\('ro_id', roId\)/, 'the clock already carries ro_id — use it')
+})
+
+// ── 12. Parts demand, reservation and issue (Batch 1, step 5) ───────────────
+
+const partsMig = read('migrations/2026-08-09-stage4b-part-requests.sql')
+
+test('demand is its own record, separate from stock', () => {
+  assert.match(partsMig, /create table if not exists public\.part_requests/)
+  for (const col of ['ro_id', 'ro_line_id', 'part_id', 'qty_requested', 'qty_reserved', 'qty_issued', 'status']) {
+    assert.ok(partsMig.includes(col), `a request must carry ${col}`)
+  }
+  // A request is not a movement: creating one must never touch stock.
+  const fn = eng.match(/export async function requestPart[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.doesNotMatch(fn, /service_move_stock|moveStock|qty_on_hand/, 'requesting a part must not move stock')
+})
+
+test('reservation is atomic and cannot oversell the last unit', () => {
+  assert.match(partsMig, /v_avail := coalesce\(v_part\.qty_on_hand,0\) - coalesce\(v_part\.qty_reserved,0\)/,
+    'reserve against available, not on-hand')
+  assert.match(partsMig, /where id = v_req\.part_id and dealership_id = p_dealership[\s\S]{0,40}?for update/,
+    'the part row must be locked while availability is decided')
+  assert.match(partsMig, /greatest\(v_avail, 0\)/, 'you cannot reserve more than is available')
+  assert.match(partsMig, /constraint part_requests_not_over_reserved check \(qty_reserved <= qty_requested\)/)
+})
+
+test('a short reserve is backordered, not an error', () => {
+  assert.match(partsMig, /when v_req\.qty_reserved >= v_req\.qty_requested then 'reserved' else 'backordered'/,
+    'partial availability is a real business state')
+})
+
+test('issue goes THROUGH the hardened stock path, never around it', () => {
+  assert.match(partsMig, /select \* into v_mv from public\.service_move_stock\(/,
+    'issuing must reuse the step-1 movement, so the ledger and idempotency are the same')
+  // The failure this prevents: a second code path writing balances directly.
+  const issueFn = partsMig.match(/create or replace function public\.service_issue_part[\s\S]*?\n\$\$;/)?.[0] || ''
+  assert.doesNotMatch(issueFn, /set qty_on_hand\s*=/, 'issue must never write qty_on_hand itself')
+  assert.match(partsMig, /constraint part_requests_not_over_issued check \(qty_issued <= qty_requested\)/)
+})
+
+test('availability is server truth, derived from on-hand minus reserved', () => {
+  const fn = eng.match(/export async function partsAvailability[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /qty_available: round2\(n\(p\.qty_on_hand\) - n\(p\.qty_reserved\)\)/)
+  assert.doesNotMatch(fe, /qty_available\s*=/, 'the UI must not compute availability itself')
+})
+
+test('parts stays extractable — Service asks, it does not own the stock model', () => {
+  // Everything Service does to stock goes through the shared functions, so Parts can
+  // later own them without unpicking Service.
+  assert.match(eng, /supabaseAdmin\.rpc\('service_reserve_part'/)
+  assert.match(eng, /supabaseAdmin\.rpc\('service_issue_part'/)
+  for (const dup of ['service_parts', 'service_inventory', 'ro_parts_stock']) {
+    assert.ok(!partsMig.includes(dup), `must not create a second inventory model (${dup})`)
+  }
+})
+
+// ── 13. Service accounting corrections (Batch 2) ─────────────────────────────
+
+const acctMig = read('migrations/2026-08-09-stage4b-service-tax-and-parts-receipt-accounting.sql')
+const acct = strip(read('routes/accounting-engine.js'))
+
+test('tax is a liability, and AR is billed at what the customer actually owes', () => {
+  const rule = acctMig.match(/'service_closed', '\[[\s\S]*?\]'::jsonb/)?.[0] || ''
+  assert.match(rule, /"account_key":"accounts_receivable","side":"debit","source":"total"/,
+    'AR must be debited with the tax-inclusive total, not the subtotal')
+  assert.match(rule, /"account_key":"service_revenue","side":"credit","source":"revenue"/,
+    'revenue stays pre-tax')
+  assert.match(rule, /"account_key":"tax_collected","side":"credit","source":"tax"/,
+    'collected tax must be credited to the liability, never left inside revenue')
+  // Balanced: debits total+cost, credits revenue+tax+cost, and total = revenue + tax.
+})
+
+test('closing an RO publishes the numbers that rule needs', () => {
+  const fn = eng.match(/export async function closeRepairOrder[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /tax: round2\(totals\.tax\), total: round2\(totals\.total\)/,
+    'the event must carry tax and the tax-inclusive total')
+  assert.match(acct, /tax: n\(p\.tax\), total: n\(p\.total\) \|\| round2\(n\(p\.revenue\) \+ n\(p\.tax\)\)/,
+    'and the consumer must read them, falling back to revenue+tax rather than dropping tax')
+})
+
+test('a parts receipt capitalizes inventory instead of leaving it negative', () => {
+  const rule = acctMig.match(/'parts_received', '\[[\s\S]*?\]'::jsonb/)?.[0] || ''
+  assert.match(rule, /"account_key":"parts_inventory","side":"debit","source":"amount"/)
+  assert.match(rule, /"account_key":"accounts_payable","side":"credit","source":"amount"/)
+  assert.match(acct, /case 'parts\.received':/, 'the event must actually be routed to the rule')
+  const fn = eng.match(/export async function receiveParts[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /amount: round2\(Math\.abs\(n\(qty\)\) \* unit\)/, 'a receipt must carry its value')
+})
+
+test('financial posting stays idempotent on replay', () => {
+  // postByRule dedupes on (dealership, source, reference, event); the reference must be
+  // the ledger row, so replaying an event posts one journal entry, not another one.
+  assert.match(eng, /ref: r\.txnId/, 'a receipt must reference its stock ledger row')
+  assert.match(acct, /__reference: p\.ref \|\| p\.txn_id \|\| e/)
+  const fn = eng.match(/export async function receiveParts[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /if \(!r\.duplicate\) \{/, 'a deduped receipt must not emit a second financial event')
+})
+
+test('Service produces financial events but owns no ledger', () => {
+  assert.doesNotMatch(eng, /from\('journal_entries'\)|from\('journal_lines'\)|from\('gl_accounts'\)/,
+    'Service must never write the ledger itself')
+  assert.doesNotMatch(eng, /postByRule|ACCOUNT_DEFS/, 'posting belongs to the accounting engine')
+})
+
+// ── 14. Invoice read + explicit financial disposition (Batch 2) ──────────────
+
+const dispMig = read('migrations/2026-08-09-stage4b-ro-financial-disposition.sql')
+
+test('one read answers charged / paid / remaining', () => {
+  const fn = eng.match(/export async function roFinancials[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'the advisor needs a single financial read')
+  for (const field of ['subtotal', 'tax:', 'total', 'paid', 'balance', 'payments', 'allocations']) {
+    assert.ok(fn.includes(field), `the invoice read must expose ${field}`)
+  }
+  // Totals come from the RO, money from the core Payment primitive — no second truth.
+  assert.match(fn, /paymentsForSubject\(dealershipId, 'repair_order', roId\)/)
+  assert.doesNotMatch(fn, /from\('ro_estimates'\)/,
+    'estimates are what was PROPOSED — they must not be confused with what is owed')
+})
+
+test('closing states the money outcome instead of implying it', () => {
+  assert.match(dispMig, /check \(status <> 'closed' or financial_disposition is not null\)/,
+    'the database must refuse a close with an implicit balance')
+  assert.match(dispMig, /'paid_in_full','partial_ar','ar','warranty','internal','goodwill'/,
+    'warranty and internal work settle differently — they are real outcomes too')
+  const fn = eng.match(/export async function closeRepairOrder[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(fn, /const problem = dispositionError\(disposition, balance\)/)
+  assert.match(fn, /financial_disposition: disposition, closed_balance: balance/,
+    'what was owed at close must be recorded, not recomputed later')
+})
+
+test('a zero balance is not required to close, but honesty is', () => {
+  const fn = eng.match(/function dispositionError[\s\S]*?\n\}/)?.[0] || ''
+  // Carrying AR is legitimate; claiming paid-in-full with money outstanding is not.
+  assert.match(fn, /disposition === 'paid_in_full' && !paidInFull/,
+    'you cannot call it paid in full while a balance remains')
+  assert.match(fn, /disposition === 'ar' && balance <= 0/,
+    'and you cannot carry AR that does not exist')
+})

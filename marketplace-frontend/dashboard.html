@@ -1397,6 +1397,17 @@
         <div id="fni-overview-root"></div>
       </div>
 
+      <!-- Service department. Rendered by js/modules/service-workspace.js; the backend
+           owns the repair-order state machine, so this surface asks it what is legal. -->
+      <div data-page-content="service-overview" class="page-content hidden space-y-6">
+        <div id="service-overview-root"></div>
+      </div>
+
+      <!-- Parts as its own department, on the same canonical stock records as Service. -->
+      <div data-page-content="parts-overview" class="page-content hidden space-y-6">
+        <div id="parts-overview-root"></div>
+      </div>
+
       <div data-page-content="sales" class="page-content hidden space-y-6">
         <div id="sales-root"></div>
       </div>
@@ -3659,6 +3670,8 @@
   <!-- Vehicle Record: one unit, one surface. Loads after inventory-workspace.js,
        whose merchandising/acquisition definitions it renders. -->
   <script src="js/modules/vehicle-record.js?v=20260809_stage3b2"></script>
+  <script src="js/modules/service-workspace.js?v=20260809_batch3"></script>
+  <script src="js/modules/parts-workspace.js?v=20260809_batch3"></script>
   <!-- Google Translate widget (per-rep dashboard translation) -->
   <script>
     window.googleTranslateElementInit = function () {

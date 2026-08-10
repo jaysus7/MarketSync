@@ -12,13 +12,14 @@
  */
 import { supabaseAdmin } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
-import { requirePermission } from '../authorization.js'
+import { requirePermission, hasPermission } from '../authorization.js'
 import { emitEvent } from './events.js'
 import { getConfig, setConfig } from './config-engine.js'
 import { getContact } from './crm.js'
 import { registerTool } from './tool-registry.js'
 import { raiseException } from './workflow.js'
 import { audit } from '../audit.js'
+import { paymentsForSubject } from './payments.js'
 
 const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100
@@ -297,6 +298,19 @@ export async function transitionRepairOrder(dealershipId, roId, toStatus, { user
   const { data: ro } = await supabaseAdmin.from('repair_orders').select('status, ro_number, ready_at').eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
   if (!ro) throw new Error('repair order not found')
   if (ro.status === toStatus) return ro
+  // `estimate_sent` asserts the customer has been shown a priced estimate. Without a
+  // presented version that assertion is false, so the move is refused.
+  if (toStatus === 'estimate_sent' && !(await latestPresentedEstimate(dealershipId, roId))) {
+    throw new Error('Present an estimate to the customer before marking the estimate sent.')
+  }
+  // customer_approved / customer_declined assert a decision on the CURRENT estimate.
+  // After additional work creates a new version, the old approval is still history —
+  // it just no longer covers what is now being proposed.
+  if (toStatus === 'customer_approved' || toStatus === 'customer_declined') {
+    const cover = await authorizationCoverage(dealershipId, roId)
+    const want = toStatus === 'customer_approved' ? 'approved' : 'declined'
+    if (cover.decision !== want) throw new Error(`${cover.reason} Record the customer's decision on the current estimate first.`)
+  }
   const now = new Date().toISOString()
   const patch = { status: toStatus, updated_at: now, state_changed_at: now, state_changed_by: userId, state_change_reason: reason }
   // Ready is operational completion, and NOT payment, pickup or close. Stamped once on
@@ -315,6 +329,345 @@ export async function transitionRepairOrder(dealershipId, roId, toStatus, { user
 // Historical name, kept so existing callers keep working. New code calls
 // transitionRepairOrder.
 export const setRoStatus = transitionRepairOrder
+
+// ── Estimates — versioned, and frozen once the customer has seen them ────────
+// The live RO keeps changing as work is discovered; that is normal and fine. What
+// must never change is what the customer was actually shown. Each estimate is a
+// snapshot of the priced lines at one moment, and once `presented_at` is set the
+// database refuses to alter or delete it. Revising work means a NEW version, never
+// an edit to the old one.
+export async function listEstimates(dealershipId, roId) {
+  const { data } = await supabaseAdmin.from('ro_estimates').select('*')
+    .eq('dealership_id', dealershipId).eq('ro_id', roId).order('version', { ascending: false })
+  return data || []
+}
+
+// The newest version the customer has actually been shown. Authorization coverage is
+// derived against this, never against the live RO total.
+export async function latestPresentedEstimate(dealershipId, roId) {
+  const { data } = await supabaseAdmin.from('ro_estimates').select('*')
+    .eq('dealership_id', dealershipId).eq('ro_id', roId).not('presented_at', 'is', null)
+    .order('version', { ascending: false }).limit(1).maybeSingle()
+  return data || null
+}
+
+export async function createEstimate(dealershipId, roId, { userId = null } = {}) {
+  const { data: ro } = await supabaseAdmin.from('repair_orders').select('id, discount, ro_number')
+    .eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
+  if (!ro) throw new Error('repair order not found')
+  const totals = await recomputeRoTotals(dealershipId, roId)
+  const { data: lines } = await supabaseAdmin.from('ro_lines').select('*')
+    .eq('ro_id', roId).eq('dealership_id', dealershipId).is('deleted_at', null).order('created_at')
+  const subtotal = round2(totals.labor_total + totals.parts_total + totals.sublet_total + totals.fee_total - n(ro.discount))
+  const { data, error } = await supabaseAdmin.from('ro_estimates').insert({
+    dealership_id: dealershipId, ro_id: roId,
+    version: 0,                       // replaced by the DB trigger — callers never choose
+    lines_snapshot: lines || [],
+    labor_total: totals.labor_total, parts_total: totals.parts_total,
+    sublet_total: totals.sublet_total, fee_total: totals.fee_total,
+    discount: n(ro.discount), subtotal, tax: totals.tax, total: totals.total,
+    created_by: userId,
+  }).select('*').single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+// Presenting is the act that makes an estimate evidence, and it moves the RO with it.
+export async function presentEstimate(dealershipId, estimateId, { userId = null } = {}) {
+  const { data: est } = await supabaseAdmin.from('ro_estimates').select('*')
+    .eq('id', estimateId).eq('dealership_id', dealershipId).maybeSingle()
+  if (!est) throw new Error('estimate not found')
+  if (est.presented_at) return est                     // idempotent — already shown
+  const now = new Date().toISOString()
+  const { data, error } = await supabaseAdmin.from('ro_estimates').update({ presented_at: now })
+    .eq('id', estimateId).eq('dealership_id', dealershipId).is('presented_at', null).select('*').maybeSingle()
+  if (error) throw new Error(error.message)
+  const presented = data || est
+  emitEvent({
+    dealershipId, eventName: 'service.estimate_presented', entityType: 'repair_order', entityId: est.ro_id,
+    summary: `Estimate v${presented.version} presented — $${n(presented.total).toFixed(2)}`,
+    department: 'Service', createdBy: userId,
+    payload: { estimate_id: presented.id, version: presented.version, total: n(presented.total) },
+  })
+  return presented
+}
+
+// ── Authorization — evidence, and coverage derived from it ───────────────────
+// Authorization is never edited or deleted, not even when newer work supersedes it.
+// A dealership must be able to prove, months later: the customer approved v1 at 10:42,
+// then additional work was found, v2 was issued, and a second approval was required.
+//
+// So "is this RO authorized?" is NOT a flag anyone writes. It is DERIVED: take the
+// newest estimate the customer was actually shown, and ask whether a decision exists
+// against that exact version. A newer version simply leaves the old approval as
+// history that no longer covers the current work.
+export async function recordAuthorization(dealershipId, roId, {
+  estimateId = null, decision, approvedAmount = null, authorizedPartyName = null,
+  contactId = null, method = 'in_person', declineReason = null, evidence = null,
+  esignRequestId = null, idempotencyKey = null, userId = null,
+} = {}) {
+  if (!['approved', 'declined', 'deferred'].includes(decision)) throw new Error('decision must be approved, declined or deferred')
+  // Default to the version the customer is actually looking at.
+  let est = null
+  if (estimateId) {
+    const { data } = await supabaseAdmin.from('ro_estimates').select('*').eq('id', estimateId).eq('dealership_id', dealershipId).maybeSingle()
+    est = data || null
+  } else {
+    est = await latestPresentedEstimate(dealershipId, roId)
+  }
+  if (!est) throw new Error('present an estimate to the customer before recording their decision')
+
+  if (idempotencyKey) {
+    const { data: prior } = await supabaseAdmin.from('ro_authorizations').select('*')
+      .eq('dealership_id', dealershipId).eq('idempotency_key', idempotencyKey).maybeSingle()
+    if (prior) return prior                    // a retried submission is the same decision
+  }
+
+  const { data, error } = await supabaseAdmin.from('ro_authorizations').insert({
+    dealership_id: dealershipId, ro_id: roId, estimate_id: est.id, decision,
+    approved_amount: decision === 'approved' ? (approvedAmount != null ? n(approvedAmount) : n(est.total)) : null,
+    authorized_party_name: authorizedPartyName, contact_id: contactId, method,
+    decline_reason: declineReason, evidence: evidence && typeof evidence === 'object' ? evidence : {},
+    esign_request_id: esignRequestId, idempotency_key: idempotencyKey, captured_by: userId,
+  }).select('*').single()
+  if (error) throw new Error(error.message)
+
+  emitEvent({
+    dealershipId, eventName: 'service.authorization_recorded', entityType: 'repair_order', entityId: roId,
+    summary: `Customer ${decision} estimate v${est.version}`,
+    department: 'Service', createdBy: userId,
+    payload: { authorization_id: data.id, estimate_id: est.id, version: est.version, decision, amount: data.approved_amount },
+  })
+  return data
+}
+
+export async function listAuthorizations(dealershipId, roId) {
+  const { data } = await supabaseAdmin.from('ro_authorizations').select('*')
+    .eq('dealership_id', dealershipId).eq('ro_id', roId).order('decided_at', { ascending: false })
+  return data || []
+}
+
+// The derivation. Nothing here writes; it only answers the question.
+export async function authorizationCoverage(dealershipId, roId) {
+  const estimate = await latestPresentedEstimate(dealershipId, roId)
+  if (!estimate) return { covered: false, decision: null, estimate: null, authorization: null, reason: 'No estimate has been presented to the customer.' }
+  const { data: auth } = await supabaseAdmin.from('ro_authorizations').select('*')
+    .eq('dealership_id', dealershipId).eq('estimate_id', estimate.id)
+    .order('decided_at', { ascending: false }).limit(1).maybeSingle()
+  if (!auth) {
+    return {
+      covered: false, decision: null, estimate, authorization: null,
+      reason: `Estimate v${estimate.version} ($${n(estimate.total).toFixed(2)}) has not been authorized by the customer.`,
+    }
+  }
+  return {
+    covered: auth.decision === 'approved', decision: auth.decision, estimate, authorization: auth,
+    reason: auth.decision === 'approved'
+      ? `Estimate v${estimate.version} approved ${new Date(auth.decided_at).toLocaleString()}.`
+      : `Estimate v${estimate.version} was ${auth.decision}.`,
+  }
+}
+
+// ── Technician workflow — the job is the RO line ─────────────────────────────
+// No ro_jobs table: `ro_lines` already IS the unit of work, and giving it a second
+// identity would split the same job across two records. A line carries the customer's
+// concern, the technician's cause, the correction performed, who is doing it and where
+// it has got to.
+const LINE_STATUSES = ['pending', 'assigned', 'in_progress', 'blocked', 'complete', 'qc', 'declined']
+
+// A technician may only touch work assigned to them. Anyone holding the advisor/desk
+// permission may act on any line. This is decided on the server; the UI only reflects it.
+async function assertLineActor(dealershipId, lineId, req) {
+  const { data: line } = await supabaseAdmin.from('ro_lines').select('*')
+    .eq('id', lineId).eq('dealership_id', dealershipId).is('deleted_at', null).maybeSingle()
+  if (!line) throw new Error('repair order line not found')
+  const isDesk = await hasPermission(req, 'service.manage_workflow').catch(() => false)
+  if (isDesk) return { line, isDesk }
+  if (line.tech_id && line.tech_id === req.user?.id) return { line, isDesk: false }
+  throw new Error('That job is not assigned to you.')
+}
+
+// Assignment is desk work — a technician cannot hand themselves the job.
+export async function assignLine(dealershipId, lineId, techId, { userId = null } = {}) {
+  const { data, error } = await supabaseAdmin.from('ro_lines').update({
+    tech_id: techId || null,
+    line_status: techId ? 'assigned' : 'pending',
+  }).eq('id', lineId).eq('dealership_id', dealershipId).is('deleted_at', null).select('*').maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) throw new Error('repair order line not found')
+  emitEvent({
+    dealershipId, eventName: 'service.job_assigned', entityType: 'repair_order', entityId: data.ro_id,
+    summary: `Job assigned`, department: 'Service', createdBy: userId,
+    payload: { line_id: lineId, tech_id: techId || null },
+  })
+  return data
+}
+
+// The technician's own transitions. `concern` is the customer's words and is never
+// overwritten here — cause and correction are separate fields for exactly that reason.
+export async function setLineProgress(dealershipId, lineId, action, {
+  reason = null, cause = null, correction = null, hoursActual = null, userId = null,
+} = {}) {
+  const now = new Date().toISOString()
+  const patch = {}
+  if (action === 'start') { patch.line_status = 'in_progress'; patch.started_at = now; patch.blocked_reason = null }
+  else if (action === 'block') {
+    if (!String(reason || '').trim()) throw new Error('Say what the job is waiting for.')
+    patch.line_status = 'blocked'; patch.blocked_reason = String(reason).slice(0, 500)
+  }
+  else if (action === 'resume') { patch.line_status = 'in_progress'; patch.blocked_reason = null }
+  else if (action === 'complete') { patch.line_status = 'complete'; patch.completed_at = now; patch.blocked_reason = null }
+  else if (action === 'qc') { patch.line_status = 'qc' }
+  else throw new Error('unknown job action')
+  if (cause != null) patch.cause = String(cause).slice(0, 4000)
+  if (correction != null) patch.correction = String(correction).slice(0, 4000)
+  if (hoursActual != null) patch.hours_actual = n(hoursActual)
+
+  const { data, error } = await supabaseAdmin.from('ro_lines').update(patch)
+    .eq('id', lineId).eq('dealership_id', dealershipId).is('deleted_at', null).select('*').maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) throw new Error('repair order line not found')
+  emitEvent({
+    dealershipId, eventName: 'service.job_' + action, entityType: 'repair_order', entityId: data.ro_id,
+    summary: `Job ${action}${reason ? ' — ' + reason : ''}`, department: 'Service', createdBy: userId,
+    payload: { line_id: lineId, line_status: data.line_status, tech_id: data.tech_id || null },
+  })
+  return data
+}
+
+// Actual labour comes from the existing payroll clock, which already carries ro_id.
+// Service does not get a second time system.
+export async function roActualHours(dealershipId, roId) {
+  const { data } = await supabaseAdmin.from('time_entries')
+    .select('clock_in, clock_out, break_minutes, employee_id')
+    .eq('dealership_id', dealershipId).eq('ro_id', roId).not('clock_out', 'is', null)
+  return round2((data || []).reduce((sum, t) => {
+    const ms = new Date(t.clock_out).getTime() - new Date(t.clock_in).getTime()
+    return sum + Math.max(0, ms / 3600000 - n(t.break_minutes) / 60)
+  }, 0))
+}
+
+// ── Parts demand — Service asks, Parts answers ───────────────────────────────
+// A request is DEMAND: "RO 123 line 2 needs part X qty 2". It is not a stock movement,
+// an order or an issued part. Keeping demand separate from stock is what lets Parts
+// become its own department later without unpicking Service — every quantity still
+// moves through the hardened `service_move_stock` path, never around it.
+export async function listPartRequests(dealershipId, { roId = null, status = null } = {}) {
+  let q = supabaseAdmin.from('part_requests').select('*').eq('dealership_id', dealershipId).order('requested_at', { ascending: false }).limit(500)
+  if (roId) q = q.eq('ro_id', roId)
+  if (status) q = q.eq('status', status)
+  const { data } = await q
+  return data || []
+}
+
+export async function requestPart(dealershipId, roId, { partId, qty = 1, roLineId = null, note = null, idempotencyKey = null, userId = null } = {}) {
+  if (!partId) throw new Error('a part is required')
+  if (n(qty) <= 0) throw new Error('quantity must be greater than zero')
+  if (idempotencyKey) {
+    const { data: prior } = await supabaseAdmin.from('part_requests').select('*')
+      .eq('dealership_id', dealershipId).eq('idempotency_key', idempotencyKey).maybeSingle()
+    if (prior) return prior
+  }
+  const { data, error } = await supabaseAdmin.from('part_requests').insert({
+    dealership_id: dealershipId, ro_id: roId, ro_line_id: roLineId, part_id: partId,
+    qty_requested: n(qty), note, requested_by: userId, idempotency_key: idempotencyKey,
+  }).select('*').single()
+  if (error) throw new Error(error.message)
+  emitEvent({
+    dealershipId, eventName: 'service.part_requested', entityType: 'repair_order', entityId: roId,
+    summary: `Parts requested — ${n(qty)}`, department: 'Service', createdBy: userId,
+    payload: { request_id: data.id, part_id: partId, qty: n(qty), ro_line_id: roLineId },
+  })
+  return data
+}
+
+// Reserving short is a real answer, not a failure: it means backordered.
+export async function reservePart(dealershipId, requestId, qty = null) {
+  const { data, error } = await supabaseAdmin.rpc('service_reserve_part', {
+    p_dealership: dealershipId, p_request: requestId, p_qty: qty != null ? n(qty) : null,
+  })
+  if (error) throw new Error(error.message)
+  const row = Array.isArray(data) ? data[0] : data
+  return { reserved: n(row?.reserved), available: n(row?.available), backordered: n(row?.backordered) }
+}
+
+export async function issuePart(dealershipId, requestId, qty = null, { userId = null, idempotencyKey = null } = {}) {
+  const { data, error } = await supabaseAdmin.rpc('service_issue_part', {
+    p_dealership: dealershipId, p_request: requestId, p_qty: qty != null ? n(qty) : null,
+    p_user: userId, p_idempotency_key: idempotencyKey,
+  })
+  if (error) {
+    if (/Insufficient stock/i.test(error.message || '')) throw new Error(error.message)
+    throw new Error(error.message || 'could not issue the part')
+  }
+  const row = Array.isArray(data) ? data[0] : data
+  const issued = n(row?.issued)
+  if (issued > 0) {
+    const { data: req } = await supabaseAdmin.from('part_requests').select('ro_id, part_id').eq('id', requestId).maybeSingle()
+    emitEvent({
+      dealershipId, eventName: 'service.part_issued', entityType: 'repair_order', entityId: req?.ro_id || null,
+      summary: `Parts issued — ${issued}`, department: 'Service', createdBy: userId,
+      payload: { engine: true, request_id: requestId, part_id: req?.part_id || null, qty: issued, on_hand: n(row?.on_hand) },
+    })
+  }
+  return { issued, onHand: n(row?.on_hand), status: row?.request_status || null }
+}
+
+// A part that comes back off the job goes through the same ledger, as a return.
+export async function returnPart(dealershipId, partId, qty, { roId = null, userId = null, idempotencyKey = null, note = null } = {}) {
+  const r = await moveStock(dealershipId, partId, 'return', Math.abs(n(qty)), { roId, userId, idempotencyKey, note })
+  if (!r.duplicate) emitEvent({
+    dealershipId, eventName: 'parts.returned', entityType: 'part', entityId: partId,
+    summary: `Returned ${Math.abs(n(qty))} × ${r.partNumber || ''}`, department: 'Service', createdBy: userId,
+    payload: { qty: Math.abs(n(qty)), on_hand: r.onHand, ro_id: roId, txn_id: r.txnId },
+  })
+  return r.onHand
+}
+
+// Availability is server truth: what is physically here, minus what is already promised.
+export async function partsAvailability(dealershipId, q = null) {
+  const rows = await searchParts(dealershipId, q, 200)
+  return rows.map(p => ({ ...p, qty_available: round2(n(p.qty_on_hand) - n(p.qty_reserved)) }))
+}
+
+// ── The Service invoice — one read, one answer ───────────────────────────────
+// "What is the customer being charged, what have they already paid, and what remains?"
+// Totals come from the RO itself, which is already canonical; money comes from the core
+// Payment primitive. No second invoice truth is created, and estimates stay separate —
+// they are immutable snapshots of what was PROPOSED, not what is owed.
+export async function roFinancials(dealershipId, roId) {
+  const { data: ro } = await supabaseAdmin.from('repair_orders')
+    .select('id, ro_number, status, labor_total, parts_total, sublet_total, fee_total, discount, tax, total, financial_disposition, closed_balance, closed_at, contact_id')
+    .eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
+  if (!ro) return null
+  const money = await paymentsForSubject(dealershipId, 'repair_order', roId)
+  const total = round2(n(ro.total))
+  const paid = round2(n(money.paid))
+  const balance = round2(total - paid)
+  return {
+    ro_id: ro.id, ro_number: ro.ro_number, status: ro.status,
+    labor: n(ro.labor_total), parts: n(ro.parts_total), sublet: n(ro.sublet_total),
+    fees: n(ro.fee_total), discount: n(ro.discount),
+    subtotal: round2(n(ro.labor_total) + n(ro.parts_total) + n(ro.sublet_total) + n(ro.fee_total) - n(ro.discount)),
+    tax: n(ro.tax), total,
+    paid, balance,
+    payments: money.payments, allocations: money.allocations,
+    financial_disposition: ro.financial_disposition || null,
+    closed_balance: ro.closed_balance != null ? n(ro.closed_balance) : null,
+    closed_at: ro.closed_at || null,
+  }
+}
+
+// Which outcomes are honest for a given balance. A dealership may close with AR
+// outstanding — that is a real business decision — but it must SAY so.
+function dispositionError(disposition, balance) {
+  if (!disposition) return 'State how this repair order was settled before closing it (paid_in_full, partial_ar, ar, warranty, internal or goodwill).'
+  const paidInFull = Math.abs(balance) < 0.005
+  if (disposition === 'paid_in_full' && !paidInFull) return `This repair order still has a balance of $${balance.toFixed(2)}. Record a payment, or close it as AR.`
+  if (disposition === 'partial_ar' && balance <= 0) return 'There is no outstanding balance to carry as AR.'
+  if (disposition === 'ar' && balance <= 0) return 'There is no outstanding balance to carry as AR.'
+  return null
+}
 
 // ── Appointment → check-in → ONE repair order ────────────────────────────────
 // The canonical arrival transition. Idempotent by construction: the RO carries
@@ -443,7 +796,7 @@ export async function listRoReopenRequests(dealershipId, { status = null, roId =
 // with a message that says what has to happen first.
 const RO_CLOSABLE_FROM = ['delivered', 'customer_declined']
 
-export async function closeRepairOrder(dealershipId, roId, { userId = null, reason = null } = {}) {
+export async function closeRepairOrder(dealershipId, roId, { userId = null, reason = null, disposition = null } = {}) {
   const { data: ro } = await supabaseAdmin.from('repair_orders').select('*').eq('id', roId).eq('dealership_id', dealershipId).maybeSingle()
   if (!ro) throw new Error('repair order not found')
   if (ro.status === 'closed') return ro   // already closed — no double stock draw / double journal
@@ -452,16 +805,24 @@ export async function closeRepairOrder(dealershipId, roId, { userId = null, reas
   }
   const totals = await recomputeRoTotals(dealershipId, roId)
 
+  // The money outcome must be stated. A zero balance is NOT required — carrying AR is a
+  // real dealership decision — but an unknown or implicit balance is refused.
+  const fin = await roFinancials(dealershipId, roId)
+  const balance = round2(n(totals.total) - n(fin?.paid))
+  const problem = dispositionError(disposition, balance)
+  if (problem) throw new Error(problem)
+
   // Consume parts from stock (immutable ledger + decrement on-hand), once.
   const { data: partLines } = await supabaseAdmin.from('ro_lines').select('*').eq('ro_id', roId).eq('line_type', 'part').is('deleted_at', null)
   for (const l of partLines || []) {
     if (!l.part_id) continue
-    await consumePart(dealershipId, l.part_id, n(l.qty), { roId, unitCost: n(l.unit_cost), userId })
+    await consumePart(dealershipId, l.part_id, n(l.qty), { roId, unitCost: n(l.unit_cost), userId, idempotencyKey: `ro-close:${roId}:${l.id}` })
   }
 
   const now = new Date().toISOString()
   const { error: closeErr } = await supabaseAdmin.from('repair_orders').update({
     status: 'closed', closed_at: now, updated_at: now,
+    financial_disposition: disposition, closed_balance: balance,
     state_changed_at: now, state_changed_by: userId, state_change_reason: reason,
   }).eq('id', roId).eq('dealership_id', dealershipId)
   if (closeErr) throw new Error(transitionError(closeErr, ro.status, 'closed'))
@@ -469,11 +830,18 @@ export async function closeRepairOrder(dealershipId, roId, { userId = null, reas
   // `cost` relieves PARTS INVENTORY only (the service_closed rule credits parts_inventory).
   // Labor cost is tech payroll, not inventory COGS, so it is not part of this token.
   const cost = round2(totals.parts_cost)
+  // The customer owes the tax-inclusive total; the dealership earned the pre-tax
+  // revenue and OWES the tax to the government. Publishing all three lets Accounting
+  // debit AR at `total`, credit revenue at `revenue`, and credit the tax liability
+  // separately — the correction to Stage 4A finding F1.
   emitEvent({
     dealershipId, eventName: 'service.closed', entityType: 'repair_order', entityId: roId,
-    summary: `RO ${ro.ro_number} closed — $${revenue.toFixed(2)}`, fromState: ro.status, toState: 'closed',
+    summary: `RO ${ro.ro_number} closed — $${n(totals.total).toFixed(2)}`, fromState: ro.status, toState: 'closed',
     department: 'Accounting', createdBy: userId,
-    payload: { ro_id: roId, revenue, cost, inventory_id: ro.inventory_id || null, contact_id: ro.contact_id || null },
+    payload: {
+      ro_id: roId, revenue, tax: round2(totals.tax), total: round2(totals.total), cost,
+      inventory_id: ro.inventory_id || null, contact_id: ro.contact_id || null,
+    },
   })
   return { ...ro, status: 'closed', closed_at: now, total: totals.total }
 }
@@ -489,42 +857,62 @@ export async function upsertPart(dealershipId, { partNumber, description = null,
   return data
 }
 
-async function moveStock(dealershipId, partId, txnType, qty, { unitCost = null, roId = null, reference = null, note = null, userId = null } = {}) {
-  const part = await getPart(dealershipId, partId)
-  if (!part) throw new Error('part not found')
-  await supabaseAdmin.from('part_txns').insert({
-    dealership_id: dealershipId, part_id: partId, txn_type: txnType, qty: n(qty),
-    unit_cost: unitCost != null ? n(unitCost) : n(part.cost), ro_id: roId, reference, note, created_by: userId,
+// Stock moves atomically, inside the database. The old path read qty_on_hand into
+// Node, added to it and wrote the sum back — a textbook read-modify-write race that
+// lost updates whenever two people touched the same part at once, and could drive
+// stock negative. `service_move_stock` takes a row lock, validates the resulting
+// quantity under that lock, writes the ledger row and the balance together, and
+// dedupes on an idempotency key so a retried request moves nothing twice.
+async function moveStock(dealershipId, partId, txnType, qty, { unitCost = null, roId = null, reference = null, note = null, userId = null, idempotencyKey = null } = {}) {
+  const { data, error } = await supabaseAdmin.rpc('service_move_stock', {
+    p_dealership: dealershipId, p_part: partId, p_txn_type: txnType, p_qty: n(qty),
+    p_unit_cost: unitCost != null ? n(unitCost) : null, p_ro: roId,
+    p_reference: reference, p_note: note, p_user: userId, p_idempotency_key: idempotencyKey,
   })
-  const newQty = round2(n(part.qty_on_hand) + n(qty))
-  await supabaseAdmin.from('parts').update({ qty_on_hand: newQty, updated_at: new Date().toISOString() }).eq('id', partId).eq('dealership_id', dealershipId)
-  // Low-stock exception surfaces on the Operations board via the exception engine.
-  if (n(qty) < 0 && newQty <= n(part.reorder_point) && n(part.reorder_point) > 0) {
+  if (error) {
+    // The insufficient-stock guard fires inside the lock, so this is authoritative —
+    // not a hint the caller may retry against a stale read.
+    if (/Insufficient stock/i.test(error.message || '')) throw new Error(error.message)
+    if (/part not found/i.test(error.message || '')) throw new Error('part not found')
+    throw new Error(error.message || 'could not move stock')
+  }
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) throw new Error('could not move stock')
+  // Low stock surfaces on the Operations board through the existing exception engine.
+  if (!row.duplicate && n(qty) < 0 && n(row.on_hand) <= n(row.reorder_point) && n(row.reorder_point) > 0) {
     raiseException(dealershipId, {
       kind: 'low_stock', entityType: 'part', entityId: partId, department: 'Service', severity: 'medium',
-      description: `Part ${part.part_number} at/below reorder point (${newQty} ≤ ${part.reorder_point}).`,
+      description: `Part ${row.part_number} at/below reorder point (${row.on_hand} ≤ ${row.reorder_point}).`,
     }).catch(() => {})
   }
-  return newQty
+  return { onHand: n(row.on_hand), reserved: n(row.reserved), duplicate: !!row.duplicate, txnId: row.txn_id, partNumber: row.part_number }
 }
 
+// A retried call is a no-op that returns the original balance, so it must not emit a
+// second event either — an event is a claim that something happened.
 export async function receiveParts(dealershipId, partId, qty, opts = {}) {
-  const newQty = await moveStock(dealershipId, partId, 'receive', Math.abs(n(qty)), opts)
-  const part = await getPart(dealershipId, partId)
-  emitEvent({ dealershipId, eventName: 'parts.received', entityType: 'part', entityId: partId, summary: `Received ${Math.abs(n(qty))} × ${part?.part_number || ''}`, department: 'Service', createdBy: opts.userId || null, payload: { qty: Math.abs(n(qty)), on_hand: newQty } })
-  return newQty
+  const r = await moveStock(dealershipId, partId, 'receive', Math.abs(n(qty)), opts)
+  if (!r.duplicate) {
+    // Value the receipt at cost so Accounting can debit Parts Inventory. `ref` is the
+    // ledger row, so a replayed event posts exactly one journal entry.
+    const unit = opts.unitCost != null ? n(opts.unitCost) : n((await getPart(dealershipId, partId))?.cost)
+    emitEvent({
+      dealershipId, eventName: 'parts.received', entityType: 'part', entityId: partId,
+      summary: `Received ${Math.abs(n(qty))} × ${r.partNumber || ''}`, department: 'Service', createdBy: opts.userId || null,
+      payload: { qty: Math.abs(n(qty)), on_hand: r.onHand, txn_id: r.txnId, amount: round2(Math.abs(n(qty)) * unit), ref: r.txnId },
+    })
+  }
+  return r.onHand
 }
 export async function adjustPart(dealershipId, partId, qty, opts = {}) {
-  const newQty = await moveStock(dealershipId, partId, 'adjust', n(qty), opts)
-  const part = await getPart(dealershipId, partId)
-  emitEvent({ dealershipId, eventName: 'parts.adjusted', entityType: 'part', entityId: partId, summary: `Adjusted ${part?.part_number || ''} by ${n(qty)} → ${newQty}`, department: 'Service', createdBy: opts.userId || null, payload: { qty: n(qty), on_hand: newQty } })
-  return newQty
+  const r = await moveStock(dealershipId, partId, 'adjust', n(qty), opts)
+  if (!r.duplicate) emitEvent({ dealershipId, eventName: 'parts.adjusted', entityType: 'part', entityId: partId, summary: `Adjusted ${r.partNumber || ''} by ${n(qty)} → ${r.onHand}`, department: 'Service', createdBy: opts.userId || null, payload: { qty: n(qty), on_hand: r.onHand, txn_id: r.txnId } })
+  return r.onHand
 }
 export async function consumePart(dealershipId, partId, qty, opts = {}) {
-  const newQty = await moveStock(dealershipId, partId, 'consume', -Math.abs(n(qty)), opts)
-  const part = await getPart(dealershipId, partId)
-  emitEvent({ dealershipId, eventName: 'parts.consumed', entityType: 'part', entityId: partId, summary: `Consumed ${Math.abs(n(qty))} × ${part?.part_number || ''}`, department: 'Service', createdBy: opts.userId || null, payload: { engine: true, qty: Math.abs(n(qty)), on_hand: newQty, ro_id: opts.roId || null } })
-  return newQty
+  const r = await moveStock(dealershipId, partId, 'consume', -Math.abs(n(qty)), opts)
+  if (!r.duplicate) emitEvent({ dealershipId, eventName: 'parts.consumed', entityType: 'part', entityId: partId, summary: `Consumed ${Math.abs(n(qty))} × ${r.partNumber || ''}`, department: 'Service', createdBy: opts.userId || null, payload: { engine: true, qty: Math.abs(n(qty)), on_hand: r.onHand, ro_id: opts.roId || null, txn_id: r.txnId } })
+  return r.onHand
 }
 
 // ── Agent tools (contract §5 — registered into the shared registry) ────────────
@@ -592,6 +980,7 @@ export function registerServiceEngine(app) {
   const canWork = requirePermission('service.write_repair_order')      // work the job
   const canClose = requirePermission('service.close_repair_order')     // FINANCIAL act
   const canReopen = requirePermission('service.reopen_repair_order')   // undo a financial record
+  const canDesk = requirePermission('service.manage_workflow')         // advisor/desk work
 
   app.get('/service-engine/ros', requireAuth, canRead, async (req, res) => {
     if (!guard(req, res)) return
@@ -634,7 +1023,7 @@ export function registerServiceEngine(app) {
   })
   app.post('/service-engine/ros/:id/close', requireAuth, canClose, async (req, res) => {
     if (!guard(req, res)) return
-    try { res.json({ ok: true, ro: await closeRepairOrder(req.dealershipId, req.params.id, { userId: req.user?.id || null }) }) }
+    try { res.json({ ok: true, ro: await closeRepairOrder(req.dealershipId, req.params.id, { userId: req.user?.id || null, reason: req.body?.reason || null, disposition: req.body?.disposition || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
 
@@ -646,6 +1035,132 @@ export function registerServiceEngine(app) {
     const result = await allowedRoTransitions(req.dealershipId, req.params.id)
     if (!result) return res.status(404).json({ error: 'not found' })
     res.json(result)
+  })
+
+  // The one financial read an advisor needs: charged, paid, remaining.
+  app.get('/service-engine/ros/:id/financials', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    const fin = await roFinancials(req.dealershipId, req.params.id)
+    if (!fin) return res.status(404).json({ error: 'not found' })
+    res.json(fin)
+  })
+
+  // ── Estimates ──────────────────────────────────────────────────────────────
+  app.get('/service-engine/ros/:id/estimates', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ estimates: await listEstimates(req.dealershipId, req.params.id) })
+  })
+  app.post('/service-engine/ros/:id/estimates', requireAuth, canDesk, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const estimate = await createEstimate(req.dealershipId, req.params.id, { userId: req.user?.id || null })
+      audit(req, 'service.estimate_created', { after_state: { id: estimate.id, version: estimate.version, total: estimate.total } })
+      res.json({ ok: true, estimate })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+  app.post('/service-engine/estimates/:id/present', requireAuth, canDesk, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const estimate = await presentEstimate(req.dealershipId, req.params.id, { userId: req.user?.id || null })
+      audit(req, 'service.estimate_presented', { after_state: { id: estimate.id, version: estimate.version, total: estimate.total } })
+      res.json({ ok: true, estimate })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  // ── Parts demand ───────────────────────────────────────────────────────────
+  app.get('/service-engine/part-requests', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ requests: await listPartRequests(req.dealershipId, { roId: req.query.ro_id || null, status: req.query.status || null }) })
+  })
+  app.get('/service-engine/parts-availability', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ parts: await partsAvailability(req.dealershipId, req.query.q || null) })
+  })
+  app.post('/service-engine/ros/:id/part-requests', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const b = req.body || {}
+      res.json({ ok: true, request: await requestPart(req.dealershipId, req.params.id, {
+        partId: b.part_id, qty: b.qty, roLineId: b.ro_line_id || null, note: b.note || null,
+        idempotencyKey: b.idempotency_key || null, userId: req.user?.id || null,
+      }) })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+  app.post('/service-engine/part-requests/:id/reserve', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try { res.json({ ok: true, ...(await reservePart(req.dealershipId, req.params.id, req.body?.qty ?? null)) }) }
+    catch (e) { res.status(400).json({ error: e.message }) }
+  })
+  app.post('/service-engine/part-requests/:id/issue', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const r = await issuePart(req.dealershipId, req.params.id, req.body?.qty ?? null,
+        { userId: req.user?.id || null, idempotencyKey: req.body?.idempotency_key || null })
+      audit(req, 'service.part_issued', { after_state: { request_id: req.params.id, issued: r.issued, on_hand: r.onHand } })
+      res.json({ ok: true, ...r })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+  app.post('/service-engine/parts/:id/return', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      res.json({ ok: true, on_hand: await returnPart(req.dealershipId, req.params.id, req.body?.qty, {
+        roId: req.body?.ro_id || null, note: req.body?.note || null,
+        idempotencyKey: req.body?.idempotency_key || null, userId: req.user?.id || null,
+      }) })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  // ── Technician workflow ────────────────────────────────────────────────────
+  app.post('/service-engine/lines/:id/assign', requireAuth, canDesk, async (req, res) => {
+    if (!guard(req, res)) return
+    try { res.json({ ok: true, line: await assignLine(req.dealershipId, req.params.id, req.body?.tech_id || null, { userId: req.user?.id || null }) }) }
+    catch (e) { res.status(400).json({ error: e.message }) }
+  })
+  // Technician actions: allowed on your own job, or on any job if you run the desk.
+  app.post('/service-engine/lines/:id/progress', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const action = String(req.body?.action || '')
+      if (!['start', 'block', 'resume', 'complete', 'qc'].includes(action)) return res.status(400).json({ error: 'unknown job action' })
+      await assertLineActor(req.dealershipId, req.params.id, req)
+      const line = await setLineProgress(req.dealershipId, req.params.id, action, {
+        reason: req.body?.reason || null, cause: req.body?.cause ?? null,
+        correction: req.body?.correction ?? null, hoursActual: req.body?.hours_actual ?? null,
+        userId: req.user?.id || null,
+      })
+      res.json({ ok: true, line })
+    } catch (e) { res.status(/not assigned to you/.test(e.message) ? 403 : 400).json({ error: e.message }) }
+  })
+  app.get('/service-engine/ros/:id/actual-hours', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ hours: await roActualHours(req.dealershipId, req.params.id) })
+  })
+
+  // ── Authorization ──────────────────────────────────────────────────────────
+  app.get('/service-engine/ros/:id/authorizations', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json({ authorizations: await listAuthorizations(req.dealershipId, req.params.id) })
+  })
+  // Is the work currently being proposed actually authorized? Derived, never stored.
+  app.get('/service-engine/ros/:id/authorization-coverage', requireAuth, canRead, async (req, res) => {
+    if (!guard(req, res)) return
+    res.json(await authorizationCoverage(req.dealershipId, req.params.id))
+  })
+  app.post('/service-engine/ros/:id/authorizations', requireAuth, canDesk, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const b = req.body || {}
+      const authorization = await recordAuthorization(req.dealershipId, req.params.id, {
+        estimateId: b.estimate_id || null, decision: String(b.decision || ''),
+        approvedAmount: b.approved_amount ?? null, authorizedPartyName: b.authorized_party_name || null,
+        contactId: b.contact_id || null, method: b.method || 'in_person',
+        declineReason: b.decline_reason || null, evidence: b.evidence || null,
+        esignRequestId: b.esign_request_id || null, idempotencyKey: b.idempotency_key || null,
+        userId: req.user?.id || null,
+      })
+      audit(req, 'service.authorization_recorded', { after_state: { id: authorization.id, estimate_id: authorization.estimate_id, decision: authorization.decision, amount: authorization.approved_amount } })
+      res.json({ ok: true, authorization })
+    } catch (e) { res.status(400).json({ error: e.message }) }
   })
 
   // ── Controlled reopen ──────────────────────────────────────────────────────
@@ -710,12 +1225,12 @@ export function registerServiceEngine(app) {
   })
   app.post('/service-engine/parts/:id/receive', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
-    try { res.json({ ok: true, on_hand: await receiveParts(req.dealershipId, req.params.id, req.body?.qty, { unitCost: req.body?.unit_cost, reference: req.body?.reference, userId: req.user?.id || null }) }) }
+    try { res.json({ ok: true, on_hand: await receiveParts(req.dealershipId, req.params.id, req.body?.qty, { unitCost: req.body?.unit_cost, reference: req.body?.reference, userId: req.user?.id || null, idempotencyKey: req.body?.idempotency_key || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
   app.post('/service-engine/parts/:id/adjust', requireAuth, canWork, async (req, res) => {
     if (!guard(req, res)) return
-    try { res.json({ ok: true, on_hand: await adjustPart(req.dealershipId, req.params.id, req.body?.qty, { note: req.body?.note, userId: req.user?.id || null }) }) }
+    try { res.json({ ok: true, on_hand: await adjustPart(req.dealershipId, req.params.id, req.body?.qty, { note: req.body?.note, userId: req.user?.id || null, idempotencyKey: req.body?.idempotency_key || null }) }) }
     catch (e) { res.status(400).json({ error: e.message }) }
   })
 
