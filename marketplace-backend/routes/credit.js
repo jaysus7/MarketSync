@@ -34,7 +34,7 @@ function publicShape(row) {
 
 export function registerCredit(app) {
   // ── Read the application for a deal (or contact). Masked; never returns PII. ──
-  app.get('/credit/application', requireAuth, requireMfa, requirePermission('credit_application.view'), async (req, res) => {
+  app.get('/credit/application', requireAuth, requireMfa, requirePermission('fni.credit_application.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const dealId = str(req.query.deal_id), contactId = str(req.query.contact_id)
     if (!dealId && !contactId) return res.status(400).json({ error: 'deal_id or contact_id required' })
@@ -45,7 +45,7 @@ export function registerCredit(app) {
   })
 
   // ── Create / update (draft or ready). Encrypts SIN/DOB, captures consent. ──
-  app.post('/credit/application', requireAuth, requireMfa, requirePermission('credit_application.manage'), async (req, res) => {
+  app.post('/credit/application', requireAuth, requireMfa, requirePermission('fni.credit_application.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const b = req.body || {}
     const dealId = str(b.deal_id), contactId = str(b.contact_id)
@@ -124,7 +124,7 @@ export function registerCredit(app) {
   })
 
   // ── Reveal decrypted SIN/DOB (audited) — for the F&I manager on-screen. ──
-  app.get('/credit/application/:id/reveal', requireAuth, requireMfa, requirePermission('credit_application.manage'), async (req, res) => {
+  app.get('/credit/application/:id/reveal', requireAuth, requireMfa, requirePermission('fni.credit_application.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: row } = await supabaseAdmin.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!row) return res.status(404).json({ error: 'Not found' })
@@ -139,7 +139,7 @@ export function registerCredit(app) {
   })
 
   // ── Export the STAR-style credit-application XML (audited). ──
-  app.post('/credit/application/:id/export', requireAuth, requireMfa, requirePermission('credit_application.manage'), async (req, res) => {
+  app.post('/credit/application/:id/export', requireAuth, requireMfa, requirePermission('fni.credit_application.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data: row } = await supabaseAdmin.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!row) return res.status(404).json({ error: 'Not found' })
@@ -155,7 +155,7 @@ export function registerCredit(app) {
   })
 
   // ── Submit to the lender rail (manual export today; live when DSP-certified). ──
-  app.post('/credit/application/:id/submit', requireAuth, requireMfa, requirePermission('credit_application.manage'), async (req, res) => {
+  app.post('/credit/application/:id/submit', requireAuth, requireMfa, requirePermission('fni.credit_application.edit'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const providerName = str(req.body?.provider) || 'routeone'
     const { data: row } = await supabaseAdmin.from('credit_applications').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()

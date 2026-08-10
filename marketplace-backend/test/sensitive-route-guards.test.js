@@ -14,7 +14,11 @@ const source = (path) => {
 
 test('sensitive financial and customer-data routes require MFA plus a permission', () => {
   const checks = [
-    ['routes/credit.js', "requireAuth, requireMfa, requirePermission('credit_application.manage')"],
+    // NOTE the prefix. This asserted `credit_application.manage` for a long time, and no
+    // such permission exists — the vocabulary is `fni.credit_application.*`. The guard was
+    // therefore pinning a gate that denied EVERY user, including F&I managers. See
+    // test/runtime-safety.test.js, which now catches an invented permission directly.
+    ['routes/credit.js', "requireAuth, requireMfa, requirePermission('fni.credit_application.edit')"],
     ['routes/commissions.js', "requireAuth, requireMfa, requirePermission('accounting.edit')"],
     ['routes/expenses.js', "requireAuth, requireMfa, requirePermission('accounting.edit')"],
     ['routes/reports.js', "requireAuth, requireMfa, requirePermission('accounting.view')"],

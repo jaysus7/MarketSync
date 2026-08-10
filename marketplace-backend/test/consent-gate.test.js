@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { CHANNELS } from '../routes/consent.js'
+import { CHANNELS, CONTACT_CHANNELS } from '../routes/consent.js'
 
 // Phase 6 PR 6.3 — the consent gate.
 //
@@ -21,7 +21,7 @@ const consent = strip(read('routes/consent.js'))
 const auto = strip(read('routes/automation.js'))
 
 test('the gate covers the real contact channels', () => {
-  assert.deepEqual(CHANNELS, ['email', 'sms', 'phone', 'mail'])
+  assert.deepEqual(CONTACT_CHANNELS, ['email', 'sms', 'phone'])
 })
 
 // ── The decision is unchanged ───────────────────────────────────────────────
@@ -139,4 +139,44 @@ test('the consent routes are gated on the canonical customer permissions', () =>
     assert.match(r[0], /req\.dealershipId/, `${r[2]} must scope to the dealership`)
     assert.match(r[0], /can(View|Edit)/, `${r[2]} must be permission-gated`)
   }
+})
+
+// ── Regressions found by checking the code against the real database ────────
+
+test('a task-channel message is not treated as customer contact', () => {
+  // The regression this caught: automated_campaigns.channel allows sms | email | TASK.
+  // A task is a to-do for a rep — nobody is messaged. Routing it through a gate that only
+  // knew email/sms/phone made it an "unknown channel" and cancelled every task automation.
+  assert.ok(CHANNELS.includes('task'), 'task must be a channel the gate understands')
+  assert.ok(!CONTACT_CHANNELS.includes('task'), 'but it is not something to ask consent for')
+  const fn = consent.match(/export async function mayContact[\s\S]*?\n\}\n/)?.[0] || ''
+  // Hard stops still apply — there is no point queuing work on a customer who opted out —
+  // but reachability and consent evidence must not.
+  const internalReturn = fn.indexOf("if (internal) return")
+  const hardStops = fn.indexOf('c.opt_out')
+  const addressCheck = fn.indexOf("!c.email")
+  assert.ok(hardStops > 0 && hardStops < internalReturn,
+    'the hard stops must apply to internal work too')
+  assert.ok(internalReturn > 0 && internalReturn < addressCheck,
+    'internal work must return before the reachability checks')
+})
+
+test('the gate offers only channels the database can record consent for', () => {
+  // customer_consents.consent_type is a CHECK list: email | sms | phone | marketing |
+  // privacy | credit | data_processing | recording. There is no 'mail', so offering it
+  // meant consent for it could never be found or written.
+  for (const ch of CONTACT_CHANNELS) {
+    assert.ok(['email', 'sms', 'phone'].includes(ch), `${ch} has no consent_type in the database`)
+  }
+  assert.ok(!CHANNELS.includes('mail'))
+})
+
+test('supabase query builders are never treated as full promises', () => {
+  // A PostgrestBuilder is a THENABLE — it has .then but NOT .catch. `await q.catch(...)`
+  // throws "catch is not a function" at runtime, and it did, in the inbound STOP path.
+  // Nothing in the consent module may do that again.
+  assert.doesNotMatch(consent, /\.(maybeSingle|single|select|insert|update|upsert|delete)\([^)]*\)\s*\.catch\(/,
+    'a query builder has no .catch — use try/catch or check the returned error')
+  assert.match(consent, /try \{[\s\S]*?from\('customer_consents'\)\.insert/,
+    'the best-effort evidence write must be a real try/catch')
 })

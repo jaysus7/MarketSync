@@ -23,7 +23,19 @@ import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 
-export const CHANNELS = ['email', 'sms', 'phone', 'mail']
+// Outbound channels that actually reach a customer. Consent and reachability both apply.
+//
+// This list matches the database's own `customer_consents.consent_type` vocabulary — there
+// is deliberately no 'mail', because consent for it can never be recorded or found, and a
+// channel the system cannot reason about is worse than one it does not offer.
+export const CONTACT_CHANNELS = ['email', 'sms', 'phone']
+
+// Internal work, not customer contact. A task is a to-do for a rep; nobody is messaged, so
+// channel consent and having an email address are irrelevant. The hard stops still apply —
+// there is no point queuing follow-up work on a customer who has opted out.
+export const INTERNAL_CHANNELS = ['task']
+
+export const CHANNELS = [...CONTACT_CHANNELS, ...INTERNAL_CHANNELS]
 
 // The columns the decision needs. Named explicitly so a schema change that removes one
 // fails loudly here rather than silently making the gate more permissive.
@@ -44,6 +56,7 @@ export async function mayContact(dealershipId, contactId, channel, { ignorePause
   if (!CHANNELS.includes(ch)) {
     return { allowed: false, basis: 'blocked', reason: `${channel} is not a contact channel.` }
   }
+  const internal = INTERNAL_CHANNELS.includes(ch)
   const { data: c } = await supabaseAdmin.from('contacts').select(CONTACT_COLUMNS).eq('id', contactId).maybeSingle()
   if (!c || c.dealership_id !== dealershipId) {
     return { allowed: false, basis: 'blocked', reason: 'That customer was not found.' }
@@ -60,6 +73,11 @@ export async function mayContact(dealershipId, contactId, channel, { ignorePause
   if (c.automation_paused && !ignorePause) {
     return { allowed: false, basis: 'blocked', reason: 'This customer replied — automated follow-up is paused so nobody talks over the conversation.' }
   }
+
+  // Internal work stops here: the hard stops above are the whole question for a task.
+  // Demanding an email address or a consent record for a rep's to-do would cancel work
+  // that never touches the customer.
+  if (internal) return { allowed: true, basis: 'internal', reason: null }
 
   // You cannot email someone with no email address, however consenting they are.
   if (ch === 'email' && !c.email) return { allowed: false, basis: 'blocked', reason: 'No email address on file.' }
@@ -117,13 +135,22 @@ export async function recordOptOut(dealershipId, contactId, { channel = null, so
 
   await supabaseAdmin.from('contacts').update(patch).eq('id', contactId).eq('dealership_id', dealershipId)
 
+  // Evidence is best-effort relative to the flags: the flags are what every sender reads,
+  // so a failure to write the record must never leave a customer still contactable. A
+  // supabase query builder is a thenable, NOT a Promise — it has no .catch — so this is a
+  // real try/catch.
   for (const ch of (!channel || channel === 'all') ? ['email', 'sms'] : [channel]) {
-    await supabaseAdmin.from('customer_consents').insert({
-      dealership_id: dealershipId, contact_id: contactId, consent_type: ch,
-      status: 'withdrawn', lawful_basis: 'withdrawn', source,
-      captured_by: actorId, captured_at: new Date().toISOString(),
-      evidence: evidence || null,
-    }).select('id').maybeSingle().catch(() => null)
+    try {
+      const { error } = await supabaseAdmin.from('customer_consents').insert({
+        dealership_id: dealershipId, contact_id: contactId, consent_type: ch,
+        status: 'withdrawn', lawful_basis: 'withdrawn', source,
+        captured_by: actorId, captured_at: new Date().toISOString(),
+        evidence: evidence || null,
+      })
+      if (error) console.error(`[consent] opt-out evidence not recorded for ${contactId}/${ch}: ${error.message}`)
+    } catch (e) {
+      console.error(`[consent] opt-out evidence not recorded for ${contactId}/${ch}: ${e.message}`)
+    }
   }
   return { ok: true, channels: (!channel || channel === 'all') ? ['email', 'sms'] : [channel] }
 }
@@ -140,8 +167,10 @@ export function registerConsent(app) {
   app.get('/consent/:contactId', requireAuth, requireMfa, canView, async (req, res) => {
     if (!guard(req, res)) return
     try {
+      // Only the channels that actually reach a customer — a task is internal work and
+      // is not something to report consent about.
       const out = {}
-      for (const ch of CHANNELS) out[ch] = await mayContact(req.dealershipId, req.params.contactId, ch)
+      for (const ch of CONTACT_CHANNELS) out[ch] = await mayContact(req.dealershipId, req.params.contactId, ch)
       res.json({ contact_id: req.params.contactId, channels: out })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
@@ -151,7 +180,7 @@ export function registerConsent(app) {
     if (!guard(req, res)) return
     const ids = Array.isArray(req.body?.contact_ids) ? req.body.contact_ids.slice(0, 5000) : []
     const channel = String(req.body?.channel || '')
-    if (!CHANNELS.includes(channel)) return res.status(400).json({ error: `channel must be one of ${CHANNELS.join(', ')}` })
+    if (!CONTACT_CHANNELS.includes(channel)) return res.status(400).json({ error: `channel must be one of ${CONTACT_CHANNELS.join(', ')}` })
     try { res.json(await filterContactable(req.dealershipId, ids, channel)) }
     catch (e) { res.status(500).json({ error: e.message }) }
   })
