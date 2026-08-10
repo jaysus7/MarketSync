@@ -69,11 +69,15 @@ export function registerMarketing(app) {
     if (!channel) return res.status(400).json({ error: 'Pick a channel.' })
     if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ error: 'Period must be YYYY-MM.' })
     if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'Enter a valid amount.' })
+    // Phase 6 split budget from actual, so the conflict target now includes `kind` and the
+    // campaign. This legacy channel-level route records what a dealer actually spent, with
+    // no campaign — which is exactly the identity the new unique index describes.
     const { error } = await supabaseAdmin.from('marketing_spend').upsert({
       dealership_id: req.dealershipId, channel, period, amount,
+      kind: 'actual', origin: 'manual', campaign_id: null,
       notes: (req.body?.notes || '').toString().slice(0, 300) || null,
       created_by: req.user?.id || null, updated_at: new Date().toISOString(), deleted_at: null, deleted_by: null,
-    }, { onConflict: 'dealership_id,channel,period' })
+    }, { onConflict: 'dealership_id,channel,period,kind,campaign_id' })
     if (error) { console.error('[marketing] spend save failed:', error.message); return res.status(500).json({ error: 'Save failed' }) }
     audit(req, 'marketing.spend_saved', { after_state: { channel, period, amount } })
     res.json({ ok: true })
@@ -120,7 +124,7 @@ export async function buildMarketingRoi(did, { days = 90, avgGross = DEFAULT_AVG
   const [{ data: leadRows }, { data: contactRows }, { data: spendRows }] = await Promise.all([
     supabaseAdmin.from('leads').select('source, created_at, contact_id').eq('dealership_id', did).gte('created_at', startIso).limit(50000),
     supabaseAdmin.from('contacts').select('id, status, source, sold_source, sold_at').eq('dealership_id', did).limit(50000),
-    supabaseAdmin.from('marketing_spend').select('channel, period, amount').eq('dealership_id', did).is('deleted_at', null),
+    supabaseAdmin.from('marketing_spend').select('channel, period, amount, kind').eq('dealership_id', did).is('deleted_at', null),
   ])
 
   // Revenue: sold/delivered deals inside the window, mapped to the contact's source.
@@ -149,15 +153,21 @@ export async function buildMarketingRoi(did, { days = 90, avgGross = DEFAULT_AVG
     const name = channelOf(c?.sold_source || c?.source)
     bump(name).revenue += Number(d.selling_price) || 0
   }
-  // Spend for periods inside the window.
+  // Spend for periods inside the window. ACTUAL only — budget rows exist in the same table
+  // since Phase 6 and must never be reported as money spent.
   let totalSpend = 0
   for (const s of (spendRows || [])) {
     if (!months.has(s.period)) continue
+    if (s.kind === 'budget') continue
     bump(s.channel).spend += Number(s.amount) || 0
     totalSpend += Number(s.amount) || 0
   }
 
   const rows = Object.values(ch).map(r => {
+    // `est_gross` is an ASSUMPTION — units × a per-unit average — and is labelled as one.
+    // Campaign-level reporting (routes/campaigns.js) uses posted gross from the ledger
+    // instead; this channel view keeps the estimate for legacy free-text attribution,
+    // where there is no campaign to join a journal to.
     const estGross = r.sales * avgGross
     return {
       ...r,
@@ -165,7 +175,7 @@ export async function buildMarketingRoi(did, { days = 90, avgGross = DEFAULT_AVG
       cost_per_lead: r.leads && r.spend ? Math.round((r.spend / r.leads) * 100) / 100 : null,
       cost_per_sale: r.sales && r.spend ? Math.round((r.spend / r.sales) * 100) / 100 : null,
       est_gross: estGross,
-      roi_pct: r.spend > 0 ? Math.round(((estGross - r.spend) / r.spend) * 100) : null,
+      est_roi_pct: r.spend > 0 ? Math.round(((estGross - r.spend) / r.spend) * 100) : null,
     }
   }).sort((a, b) => (b.sales - a.sales) || (b.leads - a.leads))
 
@@ -173,9 +183,16 @@ export async function buildMarketingRoi(did, { days = 90, avgGross = DEFAULT_AVG
     t.leads += r.leads; t.sales += r.sales; t.revenue += r.revenue; t.spend += r.spend; t.est_gross += r.est_gross
     return t
   }, { leads: 0, sales: 0, revenue: 0, spend: 0, est_gross: 0 })
-  totals.roi_pct = totals.spend > 0 ? Math.round(((totals.est_gross - totals.spend) / totals.spend) * 100) : null
+  totals.est_roi_pct = totals.spend > 0 ? Math.round(((totals.est_gross - totals.spend) / totals.spend) * 100) : null
   totals.cost_per_lead = totals.leads && totals.spend ? Math.round((totals.spend / totals.leads) * 100) / 100 : null
   totals.cost_per_sale = totals.sales && totals.spend ? Math.round((totals.spend / totals.sales) * 100) / 100 : null
 
-  return { range_days: days, avg_gross: avgGross, has_spend: totalSpend > 0, rows, totals }
+  // `basis` is the honest label: this view attributes by the free-text source string, and
+  // its gross is an assumption. Campaign reporting attributes by ID and uses posted gross.
+  return {
+    range_days: days, avg_gross: avgGross, has_spend: totalSpend > 0, rows, totals,
+    basis: 'inferred',
+    gross_basis: 'assumed_average',
+    note: 'Channel attribution is inferred from free-text lead sources and gross is an assumed per-unit average. Campaign reporting attributes by ID and uses posted gross from the ledger.',
+  }
 }

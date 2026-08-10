@@ -18,10 +18,14 @@ product detail; this is the standing summary.)*
 ## A1. Sources of truth
 
 - **The repository** is the source of truth for **what currently exists**.
+- **`docs/DEALEROS_ROADMAP.md` is the single authority on PHASE NUMBERING.** Where any
+  other document, comment or commit implies a different sequence, the roadmap wins.
 - **The project specification documents** are the source of truth for **what
   MarketSync should become**. Governing docs: **21 — Master Dealer OS
   Architecture**, **22 — Master Build Roadmap / Audit Method**, **23 — Credit
-  Application & Finance Intake**. Department docs cover their own areas.
+  Application & Finance Intake**. Department docs cover their own areas. Note that
+  doc 22 is **not in the repository**; its phase sequence was ratified by the owner and
+  recorded in `docs/DEALEROS_ROADMAP.md`, which supersedes it for numbering.
 - In-repo companions: `docs/KERNEL_CONTRACT.md` (frozen), `docs/*_STAGE0.md`,
   `docs/DEALEROS_UI_AUDIT.md`, `docs/SESSION_HANDOFF.md`.
 - **Do not assume a feature is missing because it is hard to find in the UI.
