@@ -21,7 +21,7 @@ test('Service registers on the shared engine shell', () => {
   for (const prim of ['engKpi', 'engCard', 'engEmpty']) assert.ok(ws.includes(prim), `must reuse ${prim}`)
   assert.doesNotMatch(ws, /function (engKpi|engCard|engEmpty|renderEngine|engineTab)\b/,
     'must not redefine a shared primitive')
-  assert.match(ws, /tabLabels: \{ overview: 'Today'/)
+  assert.match(ws, /overview: 'Today'/)
 })
 
 test('the frontend asks the backend which moves are legal', () => {
@@ -40,7 +40,8 @@ test('it composes existing endpoints and introduces none', () => {
   }
   // Writes go only through the canonical transition and check-in routes.
   const WRITES = ['/service-engine/ros/${roId}/close', '/service-engine/ros/${roId}/status',
-                  '/service/appointments/${appointmentId}/check-in']
+                  '/service/appointments/${appointmentId}/check-in',
+                  '/service-engine/lines/${lineId}/progress']
   for (const w of [...ws.matchAll(/apiSendJson\(`([^`]+)`/g)].map(m => m[1])) {
     assert.ok(WRITES.includes(w), `unexpected write target: ${w}`)
   }
@@ -88,4 +89,90 @@ test('no second label vocabulary — it reuses the converted one', () => {
   assert.doesNotMatch(ws, /const SVC_ACTION_LABEL|const SVC_STATE_LABEL/,
     'dashboard-part12.js already owns the canonical wording; a second copy would drift')
   assert.match(ws, /svcStatusLabel\(/)
+})
+
+// ── Batch 3 — the technician surface (My Work) ───────────────────────────────
+// A technician and a service advisor can hold the same SERVICE role, so the view
+// cannot be chosen by role string. The server's own dividing line is the desk
+// permission, and that is what the surface has to follow.
+
+test('the technician surface is keyed off the desk permission, not a role string', () => {
+  assert.match(ws, /const svcIsTechnician = \(\) =>[\s\S]*?canDo\('service\.manage_workflow'\)/)
+  // The failure this prevents: inventing a TECHNICIAN role that does not exist.
+  // The assignable vocabulary is MANAGER/SALES_REP/FNI/SERVICE/ACCOUNTING/CLEANUP.
+  assert.doesNotMatch(ws, /'TECHNICIAN'|'SERVICE_TECH'|SVC_TECH_ROLES/,
+    'there is no technician role to key off — SERVICE covers advisor and tech alike')
+})
+
+test('an unavailable access context lands on the advisor surface, not the tech one', () => {
+  // window.canDo fails OPEN (returns true) when /access/context is unavailable, so
+  // negating it must yield false — i.e. NOT a technician. Guarding on typeof keeps
+  // a missing helper from reading as "technician" too.
+  assert.match(ws, /typeof window\.canDo === 'function' && !window\.canDo\(/)
+})
+
+test('a technician gets one tab and none of the desk tabs', () => {
+  assert.match(ws, /if \(svcIsTechnician\(\)\) return \['overview'\]/)
+  const labels = ws.match(/get tabLabels\(\)[\s\S]*?\n  \},/)?.[0] || ''
+  assert.match(labels, /svcIsTechnician\(\) \? \{ overview: 'My Work' \}/)
+  // work/insights/settings are desk surfaces — they must stay behind the desk branch.
+  const order = ws.match(/get tabOrder\(\)[\s\S]*?\n  \},/)?.[0] || ''
+  assert.ok(order.indexOf("return ['overview']") < order.indexOf("'insights'"),
+    'the technician branch must return before the manager tabs are considered')
+})
+
+test('the rail follows the same split as the tabs', () => {
+  // The desk shortcuts call svcWorkView(), which forces a tab a technician does not
+  // have. Handing those to a technician would strand them on an empty surface.
+  const qa = ws.match(/get quickActions\(\)[\s\S]*?\n  \},/)?.[0] || ''
+  assert.match(qa, /if \(svcIsTechnician\(\)\) return \[/)
+  assert.doesNotMatch(qa.match(/if \(svcIsTechnician\(\)\) return \[[^\]]*\]/)?.[0] || '', /svcWorkView/,
+    'a technician must not be given a shortcut into the Work tab')
+  assert.match(ws, /nextActions: \(d\) => \{[\s\S]*?svcIsTechnician\(\)/,
+    'next actions must be the tech\'s own bench, not the shop triage queue')
+})
+
+test('My Work shows only the jobs assigned to this technician', () => {
+  const fn = ws.match(/function svcMyJobs\(d\)[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.ok(fn, 'svcMyJobs must exist')
+  assert.match(fn, /l\.tech_id !== me/, 'a job is mine only when the line carries my id')
+  assert.match(fn, /profileContext\?\.id \|\| user\?\.id/,
+    'must use the same identity CRM already uses for "mine"')
+  assert.match(fn, /if \(l\.deleted_at\) continue/, 'soft-deleted lines are not work')
+  assert.match(fn, /blocked: 0, in_progress: 1/, 'blocked work sorts to the top — it needs a human')
+})
+
+test('the technician acts through the line progress endpoint only', () => {
+  const fn = ws.match(/async function svcJob\(lineId, action\)[\s\S]*?\n\}\n/)?.[0] || ''
+  assert.match(fn, /apiSendJson\(`\/service-engine\/lines\/\$\{lineId\}\/progress`, 'POST'/)
+  // Blocking without saying why is how a job silently stalls.
+  assert.match(fn, /if \(action === 'block'\)[\s\S]*?if \(!reason \|\| !reason\.trim\(\)\) return/)
+  // Cause and correction are the technician's evidence and are asked for at completion.
+  assert.match(fn, /if \(action === 'complete'\)[\s\S]*?body\.cause[\s\S]*?body\.correction/)
+  assert.match(fn, /ENGINE_DATA\['service-overview'\] = undefined/, 'must refetch, not patch local state')
+})
+
+test('the technician surface carries no money and no close', () => {
+  const view = ws.match(/if \(svcIsTechnician\(\)\) \{[\s\S]*?\n        return;\n      \}/)?.[0] || ''
+  assert.ok(view, 'the My Work render must exist')
+  for (const desk of ['svcClose', 'svcEstimate', 'svcAuthoriz', 'balance', 'Total']) {
+    assert.ok(!view.includes(desk), `My Work must not surface desk concern: ${desk}`)
+  }
+  assert.match(view, /My work/)
+})
+
+test('state signals are not buried in a truncating line (390px)', () => {
+  // Found by rendering at 390px: a coloured state signal appended to a `truncate`
+  // line is ellipsed out of existence on a phone, so the advisor never sees that an
+  // RO is waiting for parts. Status and flags belong on their own line.
+  for (const row of ['svcRoRow', 'svcJobRow']) {
+    const fn = wsRaw.match(new RegExp(`function ${row}[\\s\\S]*?\\n\\}\\n`))?.[0] || ''
+    assert.ok(fn, `${row} must exist`)
+    for (const line of fn.split('\n')) {
+      if (!line.includes('truncate')) continue
+      assert.ok(!/text-orange-500|waiting for parts/.test(line),
+        `${row}: the parts-blocked signal must not sit inside a truncating line`)
+    }
+    assert.match(fn, /waiting for parts/, `${row} must still surface the parts blocker`)
+  }
 })

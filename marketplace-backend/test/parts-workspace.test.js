@@ -82,3 +82,21 @@ test('Parts is wired into the shell', () => {
   const pos = (f) => html.indexOf(`<script src="js/modules/${f}`)
   assert.ok(pos('parts-workspace.js') > pos('dashboard-part26.js'), 'must load after the dashboard parts')
 })
+
+test('availability survives truncation at 390px', () => {
+  // Found by rendering at 390px: "N available" is the whole point of the row, and when
+  // it trailed a truncating line it was ellipsed out of existence on a phone — exactly
+  // when it read zero. Truncation is still wanted (a long vendor name must not wrap to
+  // three lines), so the invariant is ORDER: the signal leads, the detail gets cut.
+  const raw = read('js/modules/parts-workspace.js')
+  let checked = 0
+  for (const line of raw.split('\n')) {
+    if (!line.includes('truncate') || !/available<\/span>/.test(line)) continue
+    checked++
+    const div = line.slice(line.indexOf('truncate'))
+    const before = div.slice(div.indexOf('>') + 1, div.indexOf('<span'))
+    assert.equal(before.trim(), '',
+      `availability must lead its truncating line, but "${before.trim()}" precedes it`)
+  }
+  assert.ok(checked >= 2, `both the request row and the stock row must be covered (saw ${checked})`)
+})

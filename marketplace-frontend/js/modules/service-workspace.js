@@ -80,12 +80,8 @@ function svcRoRow(r, d) {
   return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
     <button onclick="svcOpenRecord('${r.id}')" class="min-w-0 flex-1 text-left">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(svcCustomer(r))}</div>
-      <div class="text-[12px] text-slate-400 truncate">
-        <span class="font-semibold text-slate-500 dark:text-slate-300">${esc(svcStatusLabel(r.status))}</span>
-        ${svcVehicle(r) ? ` · ${esc(svcVehicle(r))}` : ''}${r.ro_number ? ` · ${esc(r.ro_number)}` : ''}
-        ${blocked ? ' · <span class="text-orange-500">waiting for parts</span>' : ''}
-        ${Number(r.total) ? ` · $${Number(r.total).toLocaleString()}` : ''}
-      </div>
+      <div class="text-[12px] text-slate-400 truncate">${svcVehicle(r) ? esc(svcVehicle(r)) : ''}${r.ro_number ? `${svcVehicle(r) ? ' · ' : ''}${esc(r.ro_number)}` : ''}</div>
+      <div class="text-[12px] text-slate-400"><span class="font-semibold text-slate-500 dark:text-slate-300">${esc(svcStatusLabel(r.status))}</span>${blocked ? ' · <span class="text-orange-500">waiting for parts</span>' : ''}${Number(r.total) ? ` · $${Number(r.total).toLocaleString()}` : ''}</div>
     </button>
     <button onclick="svcOpenRecord('${r.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open RO</button>
   </div>`;
@@ -191,6 +187,83 @@ async function svcCheckIn(appointmentId) {
 }
 window.svcCheckIn = svcCheckIn;
 
+// ── Technician view: My Work ─────────────────────────────────────────────────
+// The same repair orders, filtered to the jobs assigned to this technician and stripped
+// of desk concerns — no money, no customer negotiation, no close. This shapes the
+// SURFACE only: the server decides what a technician may actually do.
+//
+// There is no TECHNICIAN role to key off — the assignable vocabulary is
+// MANAGER/SALES_REP/FNI/SERVICE/ACCOUNTING/CLEANUP, and a single SERVICE role covers
+// the advisor and the technician alike. So we use the distinction the server itself
+// makes in assertLineActor(): holding service.manage_workflow is the desk, and not
+// holding it means you may only touch lines assigned to you. window.canDo fails OPEN
+// when the access context is unavailable, which lands on the advisor surface — the
+// safe direction, since every action is re-checked server-side either way.
+const svcIsTechnician = () =>
+  typeof window.canDo === 'function' && !window.canDo('service.manage_workflow');
+
+// A job is mine if the line carries my id. Lines come back with the RO.
+function svcMyJobs(d) {
+  const me = profileContext?.id || user?.id || null;   // same identity CRM uses for "mine"
+  const out = [];
+  for (const r of d.ros || []) {
+    for (const l of r.lines || []) {
+      if (!me || l.tech_id !== me) continue;
+      if (l.deleted_at) continue;
+      out.push({ ro: r, line: l });
+    }
+  }
+  const rank = { blocked: 0, in_progress: 1, assigned: 2, pending: 3, qc: 4, complete: 5 };
+  out.sort((a, b) => (rank[a.line.line_status] ?? 9) - (rank[b.line.line_status] ?? 9));
+  return out;
+}
+
+function svcJobRow(j, d) {
+  const l = j.line, r = j.ro;
+  const blocked = (d.partRequests || []).some(q => q.ro_line_id === l.id && ['requested', 'backordered'].includes(q.status));
+  const next = l.line_status === 'blocked' ? ['resume', 'Resume']
+    : l.line_status === 'complete' || l.line_status === 'qc' ? null
+    : l.line_status === 'in_progress' ? ['complete', 'Complete']
+    : ['start', 'Start'];
+  return `<div class="py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+    <div class="flex items-center gap-3">
+      <button onclick="svcOpenRecord('${r.id}')" class="min-w-0 flex-1 text-left">
+        <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(l.description || 'Job')}</div>
+        <div class="text-[12px] text-slate-400 truncate">${esc(svcVehicle(r) || svcCustomer(r))}${r.ro_number ? ` · ${esc(r.ro_number)}` : ''}</div>
+        <div class="text-[12px] text-slate-400">${esc(l.line_status || 'pending')}${blocked ? ' · <span class="text-orange-500">waiting for parts</span>' : ''}</div>
+      </button>
+      ${next ? `<button onclick="svcJob('${l.id}','${next[0]}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">${next[1]}</button>` : ''}
+      ${l.line_status === 'complete' ? `<button onclick="svcJob('${l.id}','qc')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Send to QC</button>` : ''}
+      ${l.line_status !== 'blocked' && l.line_status !== 'complete' ? `<button onclick="svcJob('${l.id}','block')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Block</button>` : ''}
+    </div>
+    ${l.concern ? `<div class="text-[12px] text-slate-500 mt-1"><span class="font-semibold">Concern:</span> ${esc(l.concern)}</div>` : ''}
+    ${l.blocked_reason ? `<div class="text-[12px] text-orange-500 mt-0.5">Blocked: ${esc(l.blocked_reason)}</div>` : ''}
+  </div>`;
+}
+
+// One shop-floor action. Cause and correction are asked for at the point they are known.
+async function svcJob(lineId, action) {
+  const body = { action };
+  if (action === 'block') {
+    const reason = prompt('What is this job waiting for?');
+    if (!reason || !reason.trim()) return;
+    body.reason = reason.trim();
+  }
+  if (action === 'complete') {
+    const cause = prompt('What did you find? (cause)');
+    if (cause) body.cause = cause;
+    const correction = prompt('What did you do? (correction)');
+    if (correction) body.correction = correction;
+  }
+  try {
+    await apiSendJson(`/service-engine/lines/${lineId}/progress`, 'POST', body);
+    showToast('Job updated ✓', 'success');
+    ENGINE_DATA['service-overview'] = undefined;
+    engineTab('service-overview', ENGINE_STATE['service-overview'] || 'overview', true);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.svcJob = svcJob;
+
 const SVC_WORK_VIEWS = [
   ['appointments', 'Appointments'], ['repair-orders', 'Repair Orders'],
   ['dispatch', 'Dispatch'], ['ready', 'Ready'],
@@ -249,8 +322,9 @@ function svcRenderWork(body, d) {
 ENGINES['service-overview'] = {
   rootId: 'service-overview-root', title: 'Service', subtitle: 'One repair order — check in, estimate, authorize, repair, deliver',
   icon: 'wrench', accent: 'sky',
-  tabLabels: { overview: 'Today', work: 'Work' },
+  get tabLabels() { return svcIsTechnician() ? { overview: 'My Work' } : { overview: 'Today', work: 'Work' }; },
   get tabOrder() {
+    if (svcIsTechnician()) return ['overview'];          // My Work is the whole job
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
     return mgr ? ['overview', 'work', 'insights', 'settings'] : ['overview', 'work'];
   },
@@ -270,19 +344,50 @@ ENGINES['service-overview'] = {
     return d;
   },
 
-  quickActions: [
-    { label: 'Appointments', icon: 'calendar', onclick: "svcWorkView('appointments')" },
-    { label: 'Repair Orders', icon: 'clipboard', onclick: "svcWorkView('repair-orders')" },
-    { label: 'Ready', icon: 'check', onclick: "svcWorkView('ready')" },
-    { label: 'Parts', icon: 'gem', onclick: "switchPage('service-parts')" },
-  ],
-  nextActions: (d) => svcAttention(d || {}).slice(0, 5).map(it => ({
-    label: `${it.who} — ${it.action?.label || 'Open'}`, icon: 'flame',
-    tone: SALES_TONE[it.action?.tone] || SALES_TONE.slate, onclick: it.action?.onclick || '',
-  })),
+  // The desk shortcuts all jump to the Work tab, which a technician does not have —
+  // so the rail follows the same split as the tabs.
+  get quickActions() {
+    if (svcIsTechnician()) return [{ label: 'Parts', icon: 'gem', onclick: "switchPage('service-parts')" }];
+    return [
+      { label: 'Appointments', icon: 'calendar', onclick: "svcWorkView('appointments')" },
+      { label: 'Repair Orders', icon: 'clipboard', onclick: "svcWorkView('repair-orders')" },
+      { label: 'Ready', icon: 'check', onclick: "svcWorkView('ready')" },
+      { label: 'Parts', icon: 'gem', onclick: "switchPage('service-parts')" },
+    ];
+  },
+  // A technician's "what needs me" is their own bench, not the shop's triage queue.
+  nextActions: (d) => {
+    if (svcIsTechnician()) {
+      return svcMyJobs(d || {})
+        .filter(j => ['blocked', 'in_progress', 'assigned'].includes(j.line.line_status))
+        .slice(0, 5).map(j => ({
+          label: `${j.line.description || 'Job'} — ${j.line.line_status === 'blocked' ? 'blocked' : 'open'}`,
+          icon: 'flame',
+          tone: j.line.line_status === 'blocked' ? SALES_TONE.amber : SALES_TONE.slate,
+          onclick: `svcOpenRecord('${j.ro.id}')`,
+        }));
+    }
+    return svcAttention(d || {}).slice(0, 5).map(it => ({
+      label: `${it.who} — ${it.action?.label || 'Open'}`, icon: 'flame',
+      tone: SALES_TONE[it.action?.tone] || SALES_TONE.slate, onclick: it.action?.onclick || '',
+    }));
+  },
 
   tabs: {
     overview(body, d) {
+      if (svcIsTechnician()) {
+        const jobs = svcMyJobs(d);
+        const blocked = jobs.filter(j => j.line.line_status === 'blocked').length;
+        const active = jobs.filter(j => j.line.line_status === 'in_progress').length;
+        body.innerHTML = `
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+            ${engKpi('My jobs', jobs.length)}
+            ${engKpi('In progress', active, active ? 'text-amber-600 dark:text-amber-400' : '')}
+            ${engKpi('Blocked', blocked, blocked ? 'text-orange-600 dark:text-orange-400' : '')}
+          </div>
+          ${engCard('My work', jobs.length ? jobs.map(j => svcJobRow(j, d)).join('') : engEmpty('Nothing assigned to you right now.'))}`;
+        return;
+      }
       const att = svcAttention(d);
       const ros = d.ros || [];
       const waiting = ros.filter(r => r.status === 'estimate_sent').length;

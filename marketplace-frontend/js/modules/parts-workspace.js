@@ -70,10 +70,8 @@ function pwRequestRow(q, d) {
   return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
     <div class="min-w-0 flex-1">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(part.part_number || 'Part')}</div>
-      <div class="text-[12px] text-slate-400 truncate">
-        ${esc(pwReqShort(q))} · <span class="${avail > 0 ? '' : 'text-rose-500'}">${avail} available</span>
-        ${q.eta ? ` · ETA ${esc(q.eta)}` : ''}${q.vendor ? ` · ${esc(q.vendor)}` : ''}
-      </div>
+      <div class="text-[12px] text-slate-400 truncate">${esc(pwReqShort(q))}</div>
+      <div class="text-[12px] text-slate-400 truncate"><span class="${avail > 0 ? '' : 'text-rose-500'}">${avail} available</span>${q.eta ? ` · ETA ${esc(q.eta)}` : ''}${q.vendor ? ` · ${esc(q.vendor)}` : ''}</div>
     </div>
     ${na.onclick ? `<button onclick="${na.onclick}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">${esc(na.label)}</button>` : ''}
   </div>`;
@@ -193,11 +191,8 @@ function pwRenderWork(body, d) {
       <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
         <div class="min-w-0 flex-1">
           <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(pwPartLabel(p))}</div>
-          <div class="text-[12px] text-slate-400 truncate">
-            ${p.qty_on_hand} on hand · ${p.qty_reserved || 0} reserved ·
-            <span class="${Number(p.qty_available) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}">${p.qty_available} available</span>
-            ${p.bin ? ` · bin ${esc(p.bin)}` : ''}${Number(p.price) ? ` · $${Number(p.price).toLocaleString()}` : ''}
-          </div>
+          <div class="text-[12px] text-slate-400 truncate">${p.qty_on_hand} on hand · ${p.qty_reserved || 0} reserved</div>
+          <div class="text-[12px] text-slate-400 truncate"><span class="${Number(p.qty_available) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}">${p.qty_available} available</span>${p.bin ? ` · bin ${esc(p.bin)}` : ''}${Number(p.price) ? ` · $${Number(p.price).toLocaleString()}` : ''}</div>
         </div>
         <button onclick="pwReceive('${p.id}')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Receive</button>
         <button onclick="pwReturnPart('${p.id}')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Return</button>
