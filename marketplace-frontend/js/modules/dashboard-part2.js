@@ -658,6 +658,7 @@ const PAGE_FEATURE = {
   'ai-home': 'os.marketing', 'ai-inbox': 'os.marketing',
   'api-keys': 'os.integrations',
   'owner-users': 'os.team', 'sales-team': 'os.team', 'people-compliance': 'os.team', hr: 'os.team', people: 'os.team',
+  'people-overview': 'os.team',
   // `academy` and `launch` are deliberately ABSENT: an unmapped page is always allowed.
   // Required compliance training is not a plan upsell, and gating SETUP behind an entitlement
   // would stop a dealership configuring the product it just bought.
@@ -1013,6 +1014,7 @@ function switchPage(pageId) {
   if (pageId === 'email-marketing' || pageId === 'email-campaigns') loadDealerEmail();
   if (pageId === 'academy') loadAcademyWorkspace();
   if (pageId === 'launch') loadLaunchHub();
+  if (pageId === 'people-overview') loadPeopleWorkspace();
   if (pageId === 'fni') loadFniPage();
   if (pageId === 'equity') loadEquityPage();
   if (pageId === 'appraisal') { initAppraisal(); loadApprList(); apprEnsureBranding(); }

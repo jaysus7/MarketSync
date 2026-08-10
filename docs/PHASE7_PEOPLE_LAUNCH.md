@@ -606,3 +606,60 @@ no redirect, no disabled navigation, no 403, and no import of it from `middlewar
 Rendered at 390px against the real module: no overflow, nothing clipped.
 
 35 launch tests; 1009/1009; six gates green.
+
+---
+
+## PR 7.7 — People My Day, the twelve chains, and Phase 7 complete
+
+**People was the last department with real capabilities and no workspace.** The team directory,
+the time clock, compliance coverage and the employee lifecycle all worked, and none of them had
+a screen that led with what needs attention today. `people-workspace.js` composes — My Day
+filtered to People's own sources, the team (with unlinked logins shown and flagged, never
+hidden), and compliance reporting **coverage** rather than bare counts. It derives nothing: a
+second opinion about whether somebody is behind on training would drift from the department
+that owns the fact. A source that failed is rendered, never swallowed. Rendered at 390px: no
+overflow, nothing clipped.
+
+**`test/people-e2e.test.js` walks all twelve chains** from §TESTS above, executing the pure
+links and asserting database contracts against the applied migrations. It also pins the seven
+dead-wiring defects so none can return: each producer this phase built is asserted to still
+exist, and the silent zeros (`roActualHours`, the payroll export, compliance coverage) are
+pinned as named rather than empty.
+
+1042/1042; six gates green.
+
+---
+
+## PHASE 7 — COMPLETE
+
+**Seven dead-wiring defects, all found by checking behaviour against the live database rather
+than trusting a green suite.** Every one had complete schema, routes, states and passing tests:
+
+| | What was dead | How it presented |
+|---|---|---|
+| 1 | The employee record had no producer | 24 tables, 14 routes, 17 permissions, **0 employees ever** |
+| 2 | Offboarding | Roles survived departure; owned work was orphaned silently |
+| 3 | The Academy curriculum | 189 courses in a frontend array; nothing assignable |
+| 4 | Global course assignment | A composite FK made MarketSync courses **permanently unassignable** |
+| 5 | The time clock | One `.select()`, zero writers — **there was no clock** |
+| 6 | Payroll lines | Written nowhere; the CSV export returned **200 with no rows** |
+| 7 | Compliance producers | Every dashboard counter read a table with no producer → "everybody compliant" |
+
+**Two weaker duplicate guards caught before shipping** (the policy-immutability trigger here,
+the SSRF guard in 6S) — both because the existing one was found by looking rather than assumed
+absent.
+
+**Three corrections to my own earlier findings**, each made after reading the code instead of
+inferring: a terminated employee never did retain access (`requireAuth` enforces
+`profiles.active` per request); G7 was too broad (the config columns existed — timezone, hours
+and locations were what was missing); and the Launch Hub was briefly written up as done while
+unreachable, which was fixed in the same slice rather than deferred.
+
+**Deferred, named, not silently dropped:** performance reviews and goals (no tables exist at
+all, and opaque employee scoring is forbidden by the brief); policy *content* (a dealership
+writes its own); safety incidents and corrective actions; course lesson bodies; quiz and
+passing-score enforcement; a QR image on credentials.
+
+**Standing constraints honoured throughout:** production Supabase untouched, every Phase 7
+migration staging-only pending 9A convergence, no historical replay or backfill, and no
+Internal / Affiliate / Partner work begun.

@@ -132,6 +132,7 @@ const MS_WORKSPACES = {
   people: {
     label: 'People', icon: 'user', accent: 'emerald', mgr: true,
     pages: [
+      { page: 'people-overview', label: 'My Day' },
       { page: 'sales-team', label: 'Employees' },
       { page: 'people-compliance', label: 'Compliance' },
     ],
