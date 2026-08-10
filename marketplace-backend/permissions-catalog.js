@@ -70,6 +70,7 @@ export const PERMISSIONS = [
   'staff.policy.manage',
   'staff.policy.view',
   'staff.time.approve',
+  'staff.time.self',
   'staff.training.manage',
   'staff.training.self',
   'staff.training.view',

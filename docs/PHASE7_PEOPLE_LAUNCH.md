@@ -364,3 +364,92 @@ chain, because this screen has already been lost at three of those links.
 with a title, a description and a duration — the lesson body is Phase 8 content work), quiz
 and passing-score enforcement (the columns exist and are unused), and a QR image on the
 credential (the verification URL is there; rendering it as a QR needs a library decision).
+
+---
+
+## PR 7.4 — The time clock, and payroll that names who it could not pay
+
+**Scope note first.** The plan said "schedule/time, compliance and performance, only to the
+depth the existing tables honestly support". Having read the schema against the live database:
+**performance is out**, and this is the reason rather than an omission — there are no review,
+goal or rating tables at all. Building them here would be inventing a model inside a slice
+whose whole instruction was to be honest about depth, and the brief separately forbids opaque
+employee scoring. Compliance is partly out for a related reason, recorded under G9 below.
+
+### What was found
+
+**F1 — There is no clock.** `time_entries` had exactly ONE reference in the entire backend —
+a `.select()` in `roActualHours` — and zero rows. Nothing clocked anybody in, on any surface,
+in any role, and no frontend mentioned it. AGENTS.md A19, eighth instance.
+
+**F2 — So `roActualHours` returned 0.0 for every repair order that has ever existed.** The
+comment above it reads "Actual labour comes from the existing payroll clock"; there was no
+payroll clock. Service's actual hours — the number behind effective labour rate and job
+costing — was structurally zero and rendered as "this job took no time" rather than "nobody
+has clocked against it". It now returns `{ hours, entries, open_entries, recorded }`, so the
+two can be told apart.
+
+**F3 — `time_entries.employee_id` had no foreign key at all.** Not to `profiles`, not to
+`staff_members`, not even a dealership-scoped one. Any uuid was accepted, including another
+dealership's employee, on the record that decides what somebody gets paid. It now points at
+`staff_members(id, dealership_id)` — time is a fact about *employment*, so it survives the
+login being deactivated, and it cannot cross tenants.
+
+**F4 — `staff_payroll_items` was read twice and written nowhere.** Every payroll batch was
+empty, and `GET /hr/payroll/batches/:id/export` returned **200 with a CSV of headers and no
+rows**. A controller exporting payroll got a successful, empty file that reads as "nobody is
+owed anything". That export now refuses with 409 and says how to fix it.
+
+**F5 — A superseded `hr_*` schema exists as an unapplied migration**
+(`2026-08-06-hr-foundation.sql`: `hr_employees`, `hr_time_entries`, `hr_certificates`,
+`hr_policy_signatures`, `hr_payroll_*`). No code reads or writes any of it and none of it
+exists on staging. It is left in place per A6 (KEEP over DELETE) but recorded here: **applying
+it would create a third employee identity and a second time system.** Do not apply it.
+
+### What was built
+
+The clock (`routes/people-time.js`), and four rules that each sit somewhere money can go wrong:
+
+- **The clock records what happened.** Hours are derived from the two timestamps on every
+  read; no total is stored, because a stored total can disagree with the times behind it. An
+  open shift reports `hours: null`, never `0`.
+- **Only approved time is paid**, approval names who did it, and the database refuses an
+  approval missing either the clock-out or the approver.
+- **Every mutation writes `time_entry_change_history`**, which was itself dead (zero
+  references) and is now append-only by trigger. An edit that cannot be traced is not applied.
+- **Payroll names who it could not compute.** No employment details, no hourly rate, salaried,
+  or hours recorded but unapproved — each comes back in `unpayable` with a reason and the
+  hours involved. A payroll run that quietly omits somebody looks like a completed run.
+  Deductions are explicitly `deductions_calculated: false` rather than a zero that looks
+  calculated, and commission is not guessed from the clock — the commission engine owns that
+  money, and a second number for it is how two screens start disagreeing.
+
+`staff.time.self` is a new permission, deliberately separate from `staff.time.approve`:
+everybody who works here clocks their own time, and that must never imply seeing anybody
+else's hours. Time is now a My Day source gated on `staff.time.approve`.
+
+**Proved on staging** with nine probes inside a transaction that aborts, so nothing persisted:
+a shift opens; a second open shift for the same person is refused; another dealership's
+employee cannot be clocked; an open shift cannot be approved; an approval with no approver is
+refused; a break longer than the shift is refused; a new shift opens once the last one closed
+(the index is partial, as intended); history cannot be rewritten; history cannot point at
+another dealership's entry.
+
+32 new tests; 946/946; six gates green. Migration applied to staging only.
+
+### G9 — Compliance reports "compliant" from absence *(found, not yet fixed)*
+
+`staff_compliance_dashboard_v` is well built and permission-gated in the database. It counts
+overdue policy acknowledgements, overdue training, expired certifications, expired documents,
+overdue lifecycle tasks and open safety actions. **Every one of those counters reads a table
+with no producer**: `staff_policies`, `staff_policy_versions` and
+`staff_policy_acknowledgements` have zero references anywhere in the codebase, and
+`staff_lifecycle_assignments` has zero references despite 10 seeded templates and 90 template
+tasks. So a dealership that has published no policy and started no onboarding sees **all
+zeros, reading as "everybody compliant"** — an absence of records rendering as evidence of
+compliance. This is the compliance-evidence stop-gate category.
+
+It is named here rather than half-fixed: the honest repair is a policy authoring + publish +
+acknowledge chain plus an onboarding assignment producer, which is its own slice. Note that
+PR 7.1's `onboarding_not_started` attention item currently has **no remedy** — nothing can
+start onboarding — which is the same gap seen from the other side.
