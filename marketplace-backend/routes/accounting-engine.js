@@ -317,6 +317,34 @@ async function routeFinancialEvent(event) {
       const amount = n(p.amount); if (amount <= 0) return null
       return { handler: 'parts_received', journalId: await postByRule(did, 'parts_received', { amount, __source: 'parts', __reference: p.ref || p.txn_id || e, __date: event.created_at }) }
     }
+    case 'expense.approved': {
+      // The bill's debit account varies per expense, so this posts directly rather than
+      // through a shared rule — one rule would force every category through one account
+      // and destroy department reporting. The credit is always the payable.
+      const amount = n(p.amount); if (amount <= 0) return null
+      if (!p.account_key) {
+        // An unclassifiable bill must not be guessed at. Fail loudly; the listener turns
+        // this into an accounting exception.
+        throw new PostingError(`expense category "${p.category || 'unset'}" has no chart account`, {
+          code: 'AC001', dealershipId: did, source: 'expense', eventName: 'expense_approved', reference: p.ref || e,
+        })
+      }
+      return { handler: 'expense_approved', journalId: journalId(await postJournal(did, {
+        source: 'expense', eventName: 'expense_approved', reference: p.ref || e, entryDate: p.date,
+        memo: p.category || null, refs: { ref_vendor_id: p.vendor_id || null },
+        lines: [
+          { account_key: p.account_key, debit: amount, credit: 0, department: p.department || null, desc: p.category || 'Expense' },
+          { account_key: 'accounts_payable', debit: 0, credit: amount, desc: 'Owed to vendor' },
+        ],
+      })) }
+    }
+    case 'expense.paid': {
+      const amount = n(p.amount); if (amount <= 0) return null
+      return { handler: 'expense_paid', journalId: await postByRule(did, 'expense_paid', {
+        amount, __source: 'expense_pay', __reference: p.ref || e, __date: p.date || event.created_at,
+        __refs: { ref_vendor_id: p.vendor_id || null },
+      }) }
+    }
     case 'service.closed':
       return { handler: 'service_closed', journalId: await postByRule(did, 'service_closed', { revenue: n(p.revenue), tax: n(p.tax), total: n(p.total) || round2(n(p.revenue) + n(p.tax)), cost: n(p.cost), __source: 'service', __reference: p.ro_id || e, __date: event.created_at, __refs: { ref_vehicle_id: p.inventory_id || null, ref_contact_id: p.contact_id || null } }) }
     default:

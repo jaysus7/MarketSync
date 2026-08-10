@@ -21,7 +21,13 @@ const engRaw = read('routes/accounting-engine.js')
 const eng = strip(engRaw)
 const ledger = read('migrations/2026-08-10-phase5-ledger-integrity.sql')
 const chart = read('migrations/2026-08-10-phase5-chart-of-accounts.sql')
-const rules = read('migrations/2026-08-10-phase5-accounting-rules.sql')
+// Every migration that seeds posting rules. Later PRs add rules in their own files, and
+// the guard below is about the rule SET being complete, not about which file holds it.
+const rules = [
+  'migrations/2026-08-10-phase5-accounting-rules.sql',
+  'migrations/2026-08-10-phase5-deal-settlement-rule.sql',
+  'migrations/2026-08-10-phase5-ap-rules.sql',
+].map(read).join('\n')
 
 // ── Atomic posting ───────────────────────────────────────────────────────────
 
@@ -201,11 +207,15 @@ test('every routed financial event has exactly one canonical rule', () => {
     const decl = new RegExp(`\\(null, '${evt}', true, '\\[`)
     assert.match(rules, decl, `no canonical rule seeded for routed event "${evt}"`)
   }
-  // One row per event — a second would make which rule applies ambiguous.
-  for (const evt of unique) {
-    const count = (rules.match(new RegExp(`\\(null, '${evt}', true,`, 'g')) || []).length
-    assert.equal(count, 1, `"${evt}" must be declared exactly once, saw ${count}`)
-  }
+  // The live rule set holds exactly one row per event — the unique index on
+  // (dealership_id, event_name) guarantees that. A later migration may legitimately
+  // RE-declare an event to correct it (vehicle_delivered was corrected in PR 5.2), so
+  // what matters in the files is that every declaration is an upsert: re-applying them
+  // converges on the latest definition instead of failing or duplicating.
+  const upserts = (rules.match(/do update set lines = excluded\.lines/g) || []).length
+  const inserts = (rules.match(/insert into public\.accounting_rules/g) || []).length
+  assert.equal(upserts, inserts,
+    `every rule migration must upsert (${inserts} inserts, ${upserts} upserts) so re-application converges`)
 })
 
 test('the seeded rules balance by construction', () => {

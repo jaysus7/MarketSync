@@ -110,6 +110,7 @@ const MS_WORKSPACES = {
   accounting: {
     label: 'Accounting', icon: 'currency', accent: 'emerald', probe: '#grp-accounting-wrap', mgr: true,
     pages: [
+      { page: 'accounting-overview', label: 'Today' },
       { page: 'accounting', label: 'Overview' },
       { page: 'commissions', label: 'Payroll' },
     ],
