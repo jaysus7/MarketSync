@@ -23,7 +23,7 @@ import { audit } from '../audit.js'
 import { onEvent } from './events.js'
 import { raiseException } from './workflow.js'
 import { getCommissionResult } from './commissions.js'
-import { getDeal } from './dashboard.js'
+import { getDeal, dealSettlement } from './dashboard.js'
 import { getConfig } from './config-engine.js'
 
 // Dealer accounting settings, read through the Configuration Engine (contract §6:
@@ -189,19 +189,41 @@ export async function postByRule(dealershipId, eventName, ctx = {}) {
 }
 
 // ── Context builders (compute amount tokens from real records) ───────────────
+// A delivered deal's debits are its SETTLEMENT, not one lump of receivable.
+//
+// The defect this replaces: the whole sale was debited to Accounts Receivable, while
+// `funding_received` credited Contracts in Transit — an account nothing ever debited. On
+// a financed deal that left customer AR overstated by the lender's share and drove CIT
+// negative on funding. The credit side (revenue, F&I, tax, COGS/inventory) is unchanged.
 async function postDealDelivered(dealershipId, dealId) {
   const deal = await getDeal(dealershipId, dealId)   // Deal Engine read API, not a raw table read
   if (!deal) return
   const settings = await getAccountingSettings(dealershipId)   // Config Engine, not a raw dealerships read
   if (!settings.autoPost) return
-  const price = n(deal.selling_price)
-  const fniGross = (Array.isArray(deal.fni_items) ? deal.fni_items : []).reduce((s, x) => s + n(x?.price), 0)
-  const tax = n(deal.tax_amount)
+
+  // The Deal Engine owns this arithmetic; Accounting decides only the treatment.
+  const s = await dealSettlement(dealershipId, deal)
+  if (!s) return
   const cost = (settings.costTracking && deal.cost != null) ? n(deal.cost) : 0
-  const arTotal = round2(price + fniGross + tax)
   const refs = { ref_deal_id: deal.id, ref_vehicle_id: deal.inventory_id || null, ref_contact_id: deal.contact_id || null }
+
+  // A deal whose consideration exceeds its total is a data problem, not a liability to
+  // invent. Post the balanced settlement and say so.
+  if (s.over_settled > 0) {
+    await raiseException(dealershipId, {
+      kind: 'deal_over_settled', entityType: 'deal', entityId: deal.id, department: 'Accounting',
+      severity: 'high',
+      description: `Deal ${deal.deal_number ?? deal.id} is settled by ${s.over_settled.toFixed(2)} more than its total — lender, deposit, trade and down payment together exceed the amount owed.`,
+    }).catch(() => {})
+  }
+
   return postByRule(dealershipId, 'vehicle_delivered', {
-    ar_total: arTotal, selling_price: price, fni_gross: fniGross, tax, cost,
+    // Settlement (debits) — these sum to the amount being settled.
+    cit_amount: s.cit, cash_received: s.cash_received,
+    deposit_applied: s.deposit_applied, trade_applied: s.trade_applied,
+    customer_ar: s.customer_ar,
+    // Sale (credits) — unchanged.
+    selling_price: s.selling_price, fni_gross: s.fni_gross, tax: s.tax, cost,
     __source: 'deal', __reference: deal.id, __date: (deal.delivered_at || new Date().toISOString()).slice(0, 10), __refs: refs,
   })
 }

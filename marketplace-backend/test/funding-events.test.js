@@ -45,7 +45,12 @@ test('funding.received fires only on the transition into funded', () => {
 })
 
 test('the funding route contains no ledger logic', () => {
-  const route = fni.match(/app\.put\('\/fni\/deals\/:id\/funding'[\s\S]*?\n  \}\)/)?.[0] || ''
+  // Comment-stripped: this is a claim about CODE. The route legitimately explains in
+  // prose why it reads the deal settlement (so funding clears exactly what delivery
+  // debited), and prose is neither proof nor violation.
+  const stripped = fni.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  const route = stripped.match(/app\.put\('\/fni\/deals\/:id\/funding'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.ok(route, 'the funding route must exist')
   for (const forbidden of ['journal_entries', 'postJournal', 'postByRule', 'contracts_in_transit', 'debit', 'credit_account']) {
     assert.ok(!route.includes(forbidden), `funding route must not touch the ledger (${forbidden})`)
   }
