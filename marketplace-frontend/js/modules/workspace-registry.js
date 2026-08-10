@@ -91,6 +91,7 @@ const MS_WORKSPACES = {
   service: {
     label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
     pages: [
+      { page: 'service-overview', label: 'Today' },
       { page: 'service-appointments', label: 'Schedule' },
       { page: 'service-ros', label: 'Repair Orders' },
     ],
