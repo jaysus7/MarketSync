@@ -1045,19 +1045,21 @@ ENGINES['command'] = {
   tabOrder: ['overview', 'pulse', 'exceptions', 'approvals', 'forecast', 'financials'],
 
   fetch: async () => {
-    const [cc, ev] = await Promise.all([
+    const [cc, ev, day] = await Promise.all([
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
+      apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'My Day', reason: 'Could not be loaded' }], complete: false })),
     ]);
     const badge = document.getElementById('command-badge');
-    if (badge) { const n = cc.exception_count || 0; if (n) { badge.textContent = n; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
-    return { cc, events: ev.events || [] };
+    const attentionCount = (day.needs_attention || []).length;
+    if (badge) { if (attentionCount) { badge.textContent = attentionCount; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
+    return { cc, events: ev.events || [], day };
   },
   quickActions: [{ label: 'Open source operations', icon: 'bolt', onclick: "switchPage('operations')" }],
-  nextActions: (d) => (d.cc.exceptions || []).slice(0, 4).map(x => ({
-    label: `${OPS_KIND_LABEL[x.kind] || x.kind}${x.department ? ' · ' + x.department : ''}`,
+  nextActions: (d) => (d.day.needs_attention || []).slice(0, 4).map(x => ({
+    label: `${x.next_action || 'Review'} · ${x.department || x.source_label}`,
     icon: 'shield', tone: (OPS_SEV[x.severity] || {}).text || 'text-amber-500',
-    onclick: `opsOpenEntity('${x.entity_type}','${x.entity_id}')`,
+    onclick: `cmdOpenAttention(decodeURIComponent('${encodeURIComponent(x.deep_link || '')}'))`,
   })),
   tabs: {
     overview(body, d) {
@@ -1070,8 +1072,13 @@ ENGINES['command'] = {
       };
       const hour = new Date().getHours();
       const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+      const attention = d.day.needs_attention || [];
+      const incomplete = d.day.complete === false
+        ? `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200"><b>This day is incomplete.</b> ${(d.day.failed || []).map(x => esc(x.label)).join(', ') || 'One or more sources'} could not be loaded.</div>` : '';
       body.innerHTML = `
         <div class="text-lg font-black text-slate-900 dark:text-white mb-2">${greet}</div>
+        ${incomplete}
+        ${engCard('Management next actions', attention.length ? `<div class="space-y-2">${attention.slice(0, 12).map(cmdAttentionCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-4 text-center">Nothing requires management action.</div>`)}
         <div>
           <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's operations</div>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -1082,7 +1089,7 @@ ENGINES['command'] = {
             ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-ros', true)}
           </div>
         </div>
-        ${engCard('Next actions', `<div class="text-[13px] text-slate-600 dark:text-slate-300">${(d.cc.exceptions || []).length ? `<b class="text-slate-900 dark:text-white">${(d.cc.exceptions || []).length}</b> management item${(d.cc.exceptions || []).length === 1 ? '' : 's'} need a next action.` : 'Nothing requires management action.'}</div>`)}`;
+        `;
     },
     pulse(body, d) {
       const t = d.cc.tiles || {};
@@ -1096,8 +1103,8 @@ ENGINES['command'] = {
       body.innerHTML = engCard('Store pulse', `<div class="divide-y divide-slate-100 dark:divide-slate-800">${rows.map(([department, label, value, page]) => `<button onclick="switchPage('${page}')" class="w-full flex items-center justify-between gap-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span><span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400">${esc(department)}</span><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">${esc(label)}</span></span><span class="text-xl font-black text-slate-900 dark:text-white">${value}</span></button>`).join('')}</div>`);
     },
     exceptions(body, d) {
-      const ex = d.cc.exceptions || [];
-      const exCards = ex.length ? ex.slice(0, 20).map(execExceptionCard).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center gap-2">${svgIcon('check', 'w-6 h-6 text-emerald-400')}Nothing needs attention. Every workflow is on track.</div>`;
+      const ex = d.day.needs_attention || [];
+      const exCards = ex.length ? ex.slice(0, 20).map(cmdAttentionCard).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center gap-2">${svgIcon('check', 'w-6 h-6 text-emerald-400')}Nothing needs attention. Every workflow is on track.</div>`;
       const feed = (d.events || []).length ? d.events.map(e => `
         <button onclick="opsOpenEntity('${e.entity_type}','${e.entity_id}')" class="w-full text-left flex items-start gap-2.5 px-1 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition">
           <span class="mt-0.5 text-slate-400">${svgIcon(ENTITY_ICON[e.entity_type] || 'dot', 'w-4 h-4')}</span>
@@ -1109,8 +1116,8 @@ ENGINES['command'] = {
       </div>`;
     },
     approvals(body, d) {
-      const approvals = (d.cc.exceptions || []).filter(x => /approv|review/i.test(`${x.kind || ''} ${x.description || ''}`));
-      body.innerHTML = engCard('Approvals', approvals.length ? `<div class="space-y-2.5">${approvals.map(execExceptionCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-6 text-center">No approvals need management action.</div>`);
+      const approvals = (d.day.needs_attention || []).filter(x => /approv|review/i.test(`${x.kind || ''} ${x.reason || ''} ${x.next_action || ''}`));
+      body.innerHTML = engCard('Approvals', approvals.length ? `<div class="space-y-2.5">${approvals.map(cmdAttentionCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-6 text-center">No approvals need management action.</div>`);
     },
     forecast(body) {
       body.innerHTML = engCard('Forecast', `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Forecasts use the existing sales pipeline and Accounting forecast. Unknown values remain unknown.</p><div class="flex flex-wrap gap-2"><button onclick="switchPage('crm')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">Sales pipeline</button><button onclick="switchPage('accounting')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">Accounting forecast</button></div>`);
@@ -1120,12 +1127,19 @@ ENGINES['command'] = {
     },
   },
 };
+function cmdOpenAttention(link) {
+  if (typeof link === 'string' && /^#\/w\/[a-z0-9-]+\/[a-z0-9-]+$/i.test(link)) location.hash = link;
+}
+function cmdAttentionCard(item) {
+  const link = encodeURIComponent(item.deep_link || '');
+  return `<button onclick="cmdOpenAttention(decodeURIComponent('${link}'))" class="w-full text-left rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 hover:border-indigo-300 dark:hover:border-indigo-700 transition"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="text-[11px] font-bold uppercase tracking-wide text-slate-400">${esc(item.department || item.source_label || 'Management')}</div><div class="text-sm font-bold text-slate-900 dark:text-white">${esc(item.title || item.subject || item.reason)}</div><div class="text-[12px] text-slate-500 dark:text-slate-400 mt-1">${esc(item.reason || '')}</div></div><span class="text-[11px] font-black text-indigo-600 dark:text-indigo-400 whitespace-nowrap">${esc(item.next_action || item.action || 'Review')}</span></div></button>`;
+}
 function loadCommandCenter() { renderEngine('command'); }
 async function cmdResolveException(id) {
   try { await apiSendJson(`/exceptions/${id}/resolve`, 'POST'); showToast('Resolved ✓', 'success'); renderEngine('command'); }
   catch (e) { showToast(e.message, 'error'); }
 }
-Object.assign(window, { loadCommandCenter, cmdResolveException });
+Object.assign(window, { loadCommandCenter, cmdResolveException, cmdOpenAttention });
 
 async function loadOperationsPage() {
   const root = document.getElementById('operations-root');

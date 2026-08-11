@@ -187,6 +187,12 @@ test('Management exposes one canonical six-tab command header', () => {
   for (const label of ['My Day', 'Pulse', 'Exceptions', 'Approvals', 'Forecast', 'Financials']) {
     assert.match(part11, new RegExp(`['"]${label}['"]`), `Management must expose ${label}`)
   }
+  assert.match(part11, /apiGetJson\('\/my-day'\)/,
+    'Management My Day must consume the shared role-aware attention aggregation')
+  assert.match(part11, /d\.day\.needs_attention/,
+    'Management must render canonical attention rather than a second task queue')
+  assert.match(part11, /This day is incomplete/,
+    'a failed attention source must stay visible instead of looking like a quiet day')
   assert.doesNotMatch(part11.match(/ENGINES\['command'\][\s\S]*?function loadCommandCenter/)?.[0] || '', /☀️|🎓/,
     'active Management output must use product icons, not emoji decoration')
 })
