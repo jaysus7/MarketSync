@@ -83,6 +83,12 @@ test('manual review queue is tenant-scoped and permission-gated', () => {
   assert.match(route, /from\('identity_verifications'\)[\s\S]*?\.eq\('dealership_id', req\.dealershipId\)\.eq\('decision', 'manual_review'\)/)
 })
 
+test('customer embeds name the intended foreign key when two relationships exist', () => {
+  const embeds = [...route.matchAll(/contacts!identity_verifications_contact_id_fkey\(full_name\)/g)]
+  assert.equal(embeds.length, 2, 'attention and review queue must both avoid an ambiguous PostgREST embed')
+  assert.doesNotMatch(route, /contacts\(full_name\)/)
+})
+
 test('Management approvals renders canonical identity evidence and acts on the review route', () => {
   const ui = read(' ../marketplace-frontend/js/modules/dashboard-part11.js'.trim())
   assert.match(ui, /apiGetJson\('\/identity\/reviews'\)/)
