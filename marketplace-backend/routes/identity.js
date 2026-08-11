@@ -137,6 +137,10 @@ const publicVerification = (v) => ({
   legal_name: v.legal_name, dob: v.date_of_birth, document_type: v.document_type,
   verified_address: v.verified_address, masked_document_number: v.masked_document_number,
   document_expiry: v.document_expiry, issuing_jurisdiction: v.issuing_jurisdiction,
+  machine_decision: v.machine_decision, provider_version: v.provider_version,
+  model_version: v.model_version, evidence_reference: v.evidence_reference,
+  reviewed_at: v.reviewed_at, review_reason: v.review_reason,
+  customer_name: v.contacts?.full_name || null,
   last_error: v.last_error, verified_at: v.decision === 'verified' ? v.completed_at : null,
 })
 
@@ -266,7 +270,7 @@ export function registerIdentity(app) {
   })
 
   app.get('/identity/reviews', requireAuth, requireMfa, requirePermission('identity.review'), async (req, res) => {
-    const { data, error } = await supabaseAdmin.from('identity_verifications').select('*')
+    const { data, error } = await supabaseAdmin.from('identity_verifications').select('*, contacts(full_name)')
       .eq('dealership_id', req.dealershipId).eq('decision', 'manual_review')
       .order('requested_at', { ascending: true }).limit(100)
     if (error) return res.status(500).json({ error: error.message })
@@ -281,12 +285,43 @@ export function registerIdentity(app) {
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!current) return res.status(404).json({ error: 'Verification not found' })
     if (current.decision !== 'manual_review') return res.status(409).json({ error: 'Only a Manual Review verification can be reviewed.' })
+    if (decision === 'verified' && (current.document_result === 'unknown' || current.liveness_result === 'unknown' || !current.evidence_reference)) {
+      return res.status(409).json({ error: 'Provider-backed document and liveness evidence is required before this can be verified. Use an authorized override only when policy permits.' })
+    }
     const { data: saved, error } = await supabaseAdmin.from('identity_verifications').update({
       decision, reviewed_by: req.user?.id || null, reviewed_at: new Date().toISOString(),
       review_reason: reason, completed_at: current.completed_at || new Date().toISOString(),
     }).eq('id', current.id).eq('dealership_id', req.dealershipId).eq('decision', 'manual_review').select('*').single()
     if (error) return res.status(409).json({ error: error.message })
     audit(req, 'customer.identity_verification_reviewed', { contact_id: current.contact_id, verification_id: current.id, before_state: { decision: current.decision }, after_state: { decision, reason } })
+    res.json({ ok: true, verification: publicVerification(saved) })
+  })
+
+  // Override is deliberately separate from ordinary review. It never rewrites the provider's
+  // machine result and is available only to the small identity.override permission set.
+  app.post('/identity/:id/override', requireAuth, requireMfa, requirePermission('identity.override'), async (req, res) => {
+    const decision = String(req.body?.decision || '')
+    const reason = String(req.body?.reason || '').trim()
+    if (!['verified', 'failed'].includes(decision) || reason.length < 10) {
+      return res.status(400).json({ error: 'Override decision and a meaningful reason are required.' })
+    }
+    const { data: current } = await supabaseAdmin.from('identity_verifications').select('*')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!current) return res.status(404).json({ error: 'Verification not found' })
+    if (!['manual_review', 'verified', 'failed'].includes(current.decision)) {
+      return res.status(409).json({ error: 'A pending verification cannot be overridden.' })
+    }
+    const { data: saved, error } = await supabaseAdmin.from('identity_verifications').update({
+      decision, reviewed_by: req.user?.id || null, reviewed_at: new Date().toISOString(),
+      override_reason: reason, completed_at: current.completed_at || new Date().toISOString(),
+    }).eq('id', current.id).eq('dealership_id', req.dealershipId).eq('updated_at', current.updated_at).select('*').maybeSingle()
+    if (error) return res.status(409).json({ error: error.message })
+    if (!saved) return res.status(409).json({ error: 'The verification changed while you were reviewing it.' })
+    audit(req, 'customer.identity_verification_overridden', {
+      contact_id: current.contact_id, verification_id: current.id,
+      before_state: { decision: current.decision, machine_decision: current.machine_decision },
+      after_state: { decision, override_reason: reason },
+    })
     res.json({ ok: true, verification: publicVerification(saved) })
   })
 }

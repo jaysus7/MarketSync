@@ -45,6 +45,18 @@ test('manual review preserves the machine decision and requires actor, reason an
   assert.match(route, /review_reason: reason/)
   assert.match(route, /before_state: \{ decision: current\.decision \}/)
   assert.match(route, /after_state: \{ decision, reason \}/)
+  assert.match(route, /decision === 'verified'.*document_result === 'unknown'.*liveness_result === 'unknown'/s,
+    'unknown provider evidence must never be promoted through ordinary review')
+})
+
+test('override is separately permissioned, preserves machine truth and requires a reason', () => {
+  const block = route.match(/app\.post\('\/identity\/:id\/override'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.match(block, /requirePermission\('identity\.override'\)/)
+  assert.match(block, /reason\.length < 10/)
+  const update = block.match(/\.update\(\{[\s\S]*?\}\)\.eq/)?.[0] || ''
+  assert.doesNotMatch(update, /machine_decision\s*:/)
+  assert.match(block, /override_reason: reason/)
+  assert.match(block, /customer\.identity_verification_overridden/)
 })
 
 test('MarketSync Native is explicit about being unavailable', () => {
@@ -69,4 +81,13 @@ test('identity attention is a reference to the canonical verification, not a cop
 test('manual review queue is tenant-scoped and permission-gated', () => {
   assert.match(route, /app\.get\('\/identity\/reviews', requireAuth, requireMfa, requirePermission\('identity\.review'\)/)
   assert.match(route, /from\('identity_verifications'\)[\s\S]*?\.eq\('dealership_id', req\.dealershipId\)\.eq\('decision', 'manual_review'\)/)
+})
+
+test('Management approvals renders canonical identity evidence and acts on the review route', () => {
+  const ui = read(' ../marketplace-frontend/js/modules/dashboard-part11.js'.trim())
+  assert.match(ui, /apiGetJson\('\/identity\/reviews'\)/)
+  assert.match(ui, /cmdIdentityReviewCard/)
+  assert.match(ui, /apiSendJson\(`\/identity\/\$\{id\}\/review`/)
+  assert.match(ui, /machine_decision/)
+  assert.match(ui, /evidence_reference/)
 })

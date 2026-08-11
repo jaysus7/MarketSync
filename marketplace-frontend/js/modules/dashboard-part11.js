@@ -1004,7 +1004,7 @@ function renderDailyBriefingWorkstation() {
       <div class="flex items-center justify-between">
         <div>
           <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <span>☀️ My Employee Workstation &amp; Safety Station</span>
+            <span class="inline-flex items-center gap-2">${svgIcon('shield','w-4 h-4 text-indigo-500')}My Employee Workstation &amp; Safety Station</span>
             <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 px-2 py-0.5 rounded-full">All Staff Access</span>
           </h3>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Clock in/out for your shift, complete safety training courses, and view certificates of completion.</p>
@@ -1021,7 +1021,7 @@ function renderDailyBriefingWorkstation() {
         <div class="lg:col-span-2 space-y-3">
           <div class="flex items-center justify-between">
             <div class="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-              <span>🎓 Mandatory Safety &amp; Compliance Video Courses</span>
+              <span class="inline-flex items-center gap-2">${svgIcon('academy','w-4 h-4 text-indigo-500')}Mandatory Safety &amp; Compliance Video Courses</span>
               <span class="text-[10px] font-bold text-emerald-600">6 Modules</span>
             </div>
             <button onclick="switchPage('people-compliance')" class="text-[11px] font-bold text-indigo-600 hover:underline">HR Admin Hub &rarr;</button>
@@ -1045,15 +1045,16 @@ ENGINES['command'] = {
   tabOrder: ['overview', 'pulse', 'exceptions', 'approvals', 'forecast', 'financials'],
 
   fetch: async () => {
-    const [cc, ev, day] = await Promise.all([
+    const [cc, ev, day, identityReviews] = await Promise.all([
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'My Day', reason: 'Could not be loaded' }], complete: false })),
+      apiGetJson('/identity/reviews').catch(() => ({ reviews: [] })),
     ]);
     const badge = document.getElementById('command-badge');
     const attentionCount = (day.needs_attention || []).length;
     if (badge) { if (attentionCount) { badge.textContent = attentionCount; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
-    return { cc, events: ev.events || [], day };
+    return { cc, events: ev.events || [], day, identityReviews: identityReviews.reviews || [] };
   },
   quickActions: [{ label: 'Open source operations', icon: 'bolt', onclick: "switchPage('operations')" }],
   nextActions: (d) => (d.day.needs_attention || []).slice(0, 4).map(x => ({
@@ -1117,7 +1118,9 @@ ENGINES['command'] = {
     },
     approvals(body, d) {
       const approvals = (d.day.needs_attention || []).filter(x => /approv|review/i.test(`${x.kind || ''} ${x.reason || ''} ${x.next_action || ''}`));
-      body.innerHTML = engCard('Approvals', approvals.length ? `<div class="space-y-2.5">${approvals.map(cmdAttentionCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-6 text-center">No approvals need management action.</div>`);
+      const reviews = d.identityReviews || [], ids = new Set(reviews.map(x => x.id));
+      const other = approvals.filter(x => !ids.has(x.source_id));
+      body.innerHTML = `${engCard(`Identity reviews (${reviews.length})`, reviews.length ? `<div class="space-y-2.5">${reviews.map(cmdIdentityReviewCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-5 text-center">No identity evidence needs review.</div>`)}<div class="mt-4"></div>${engCard('Other approvals', other.length ? `<div class="space-y-2.5">${other.map(cmdAttentionCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-5 text-center">No other approvals need management action.</div>`)}`;
     },
     forecast(body) {
       body.innerHTML = engCard('Forecast', `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Forecasts use the existing sales pipeline and Accounting forecast. Unknown values remain unknown.</p><div class="flex flex-wrap gap-2"><button onclick="switchPage('crm')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">Sales pipeline</button><button onclick="switchPage('accounting')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">Accounting forecast</button></div>`);
@@ -1134,12 +1137,21 @@ function cmdAttentionCard(item) {
   const link = encodeURIComponent(item.deep_link || '');
   return `<button onclick="cmdOpenAttention(decodeURIComponent('${link}'))" class="w-full text-left rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 hover:border-indigo-300 dark:hover:border-indigo-700 transition"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="text-[11px] font-bold uppercase tracking-wide text-slate-400">${esc(item.department || item.source_label || 'Management')}</div><div class="text-sm font-bold text-slate-900 dark:text-white">${esc(item.title || item.subject || item.reason)}</div><div class="text-[12px] text-slate-500 dark:text-slate-400 mt-1">${esc(item.reason || '')}</div></div><span class="text-[11px] font-black text-indigo-600 dark:text-indigo-400 whitespace-nowrap">${esc(item.next_action || item.action || 'Review')}</span></div></button>`;
 }
+function cmdIdentityReviewCard(v) {
+  const evidence = [v.provider, v.purpose?.replace(/_/g,' '), `document ${v.document_result || 'unknown'}`, `liveness ${v.liveness_result || 'unknown'}`, v.face_match_score == null ? 'match score unavailable' : `match ${Number(v.face_match_score).toFixed(0)}/100`].filter(Boolean).join(' · ');
+  return `<div class="rounded-xl border border-amber-200 dark:border-amber-900 bg-white dark:bg-slate-900 px-4 py-3"><div class="flex flex-wrap items-start justify-between gap-3"><div class="min-w-0"><div class="text-[11px] font-bold uppercase tracking-wide text-amber-600">Identity manual review</div><div class="text-sm font-bold text-slate-900 dark:text-white">${esc(v.customer_name || 'Customer')}</div><div class="text-[12px] text-slate-500 mt-1">${esc(evidence)}</div><div class="text-[11px] text-slate-400 mt-1">Machine result: ${esc(v.machine_decision || 'unknown')} · Evidence: ${esc(v.evidence_reference || 'not supplied')}</div></div><div class="flex gap-2"><button onclick="cmdReviewIdentity('${v.id}','verified')" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold">Verify</button><button onclick="cmdReviewIdentity('${v.id}','failed')" class="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold">Fail</button></div></div></div>`;
+}
+async function cmdReviewIdentity(id, decision) {
+  const reason = prompt(`${decision === 'verified' ? 'Verification' : 'Failure'} reason (required)`); if (!reason?.trim()) return;
+  try { await apiSendJson(`/identity/${id}/review`, 'POST', { decision, reason: reason.trim() }); showToast('Identity review recorded', 'success'); ENGINE_DATA.command = undefined; engineTab('command','approvals',true); }
+  catch (e) { showToast(e.message || 'Could not save identity review', 'error'); }
+}
 function loadCommandCenter() { renderEngine('command'); }
 async function cmdResolveException(id) {
   try { await apiSendJson(`/exceptions/${id}/resolve`, 'POST'); showToast('Resolved ✓', 'success'); renderEngine('command'); }
   catch (e) { showToast(e.message, 'error'); }
 }
-Object.assign(window, { loadCommandCenter, cmdResolveException, cmdOpenAttention });
+Object.assign(window, { loadCommandCenter, cmdResolveException, cmdOpenAttention, cmdReviewIdentity });
 
 async function loadOperationsPage() {
   const root = document.getElementById('operations-root');
