@@ -2,7 +2,8 @@
 
 Read before writing any Studio code. Audit only; no code changed.
 
-Baseline: `62bf253` on `staging`, 1042/1042, six gates green.
+Baseline when audited: `62bf253`. **Re-verified against `78cca4c`** — see the addendum at the
+end, which materially changes sections 1–4 and the phasing.
 
 ---
 
@@ -320,3 +321,79 @@ Phases A and B are the ones worth doing carefully; the rest follow the model lai
 5. **Sequencing vs Phase 8** — Codex is on Phase 8 (OS coherence). Studio touches
    `marketing-workspace.js` and the workspace registry, both of which 8.0 is also changing.
    Recommend Studio starts after 8.0 merges, or explicitly agrees a file boundary.
+
+
+---
+
+# ADDENDUM — re-verified at `78cca4c`
+
+Between writing this audit and starting Phase A, `staging` advanced 20 commits. Two of them
+change the audit's premise, so the sections above are corrected here rather than silently left
+stale.
+
+## A Studio editor now exists
+
+`fb255c4 feat: add dealer marketing studio editor` shipped while this audit was being written.
+What it is, precisely:
+
+- **Backend** `POST /marketing/studio/render` (`routes/marketing-studio.js`, now 186 lines).
+  Takes a flat spec — `format`, `headline`, `subheadline`, `cta`, `accent_color`, `text_color`,
+  optional background `asset_id` — composites an SVG overlay onto the background with `sharp`,
+  and stores the flattened WebP as a `marketing_assets` row.
+- **Frontend** `mktStudioOpen` / `mktStudioPreview` / `mktStudioRender` — a modal in
+  `marketing-workspace.js` with a live CSS preview and four format presets.
+
+**It is well built for what it is.** `studioDesignSpec` clamps format, colours and overlay;
+`studioOverlaySvg` escapes dealer-authored text (there is a test asserting `<script>` becomes
+`&lt;script&gt;`); the background must be a tenant-scoped `marketing_assets` row rather than an
+arbitrary fetched URL. That is the right security posture and it should be preserved.
+
+## What it does not do, measured against this brief
+
+| Brief requirement | Status |
+|---|---|
+| §5 "Do NOT store designs as flattened images" | **Inverted** — a flattened image is the only artefact |
+| §10 "Preserve the editable design so users can return later" | **Not possible** — nothing persists the headline, colours or format |
+| §2 canvas: select/drag/resize/rotate/multi-select/layers | absent |
+| §3 contextual inspector | absent (fixed form) |
+| §4 layers panel | absent |
+| §6 dynamic MarketSync bindings | absent |
+| §7 brand kit | absent |
+| §9 template system | absent (no template or design table) |
+| §1 inventory panel / vehicle drag-in | absent |
+
+There is still **no `studio_designs` and no `studio_templates` table**, so §7 of this audit
+(the scene model) stands unchanged and is the largest remaining gap.
+
+## Corrected assessment
+
+The editor is best understood as **a single hard-coded template with a server-side renderer** —
+roughly "Phase 0.5" against the A–J plan. It is genuinely useful today and it is *not* wasted
+work: under a scene model it becomes one template rendered through the general renderer, and its
+`sharp` + escaped-SVG pipeline is the render path §5 of this audit recommended.
+
+The one thing to avoid is letting the flat spec harden into the persistence model. Today a design
+cannot be reopened; if posts start referencing rendered assets in volume before designs are
+persisted, every one of them becomes un-editable history.
+
+## Ownership call
+
+Two agents were briefed on Studio simultaneously and both started. That is the duplicate-engine
+outcome the brief warns about, so this audit stops at the boundary rather than building a second
+editor.
+
+**Recommended split, with reasons:**
+
+- **Codex keeps `marketing-studio.js` and the marketing-workspace surface.** It is mid-flight
+  there and has the most recent context.
+- **The scene model + persistence is the next slice and is collision-free**: new
+  `studio_designs` / `studio_templates` tables, a pure `scene-model.js`, and the
+  `renderTemplate`/`buildVars` extraction from `automation.js` — a file Codex has *not* touched
+  in these 20 commits.
+- **Sequencing that avoids throwaway work**: persist designs *before* the flat renderer is
+  widely used, then teach the existing renderer to render a scene. That keeps Codex's security
+  posture and makes today's designs re-openable rather than stranded.
+
+Whoever picks it up, the two decisions from the original open-questions list are now settled by
+inspection: **no build step** (so inline SVG, no Fabric/Konva), and **`{{ns.field|fallback}}`**
+for bindings, reusing `renderTemplate`.
