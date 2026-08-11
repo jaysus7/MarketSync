@@ -8,7 +8,7 @@ test('Academy demo manifest covers every course in catalog', async () => {
   const lessons = await loadAcademyDemoLessons()
   assert.ok(lessons.length >= 250, 'must load complete training catalog')
   assert.equal(new Set(lessons.map(lesson => lesson.id)).size, lessons.length)
-  assert.equal(ACADEMY_DEMO_VERSION, '2026.08.10-canonical-team-v2')
+  assert.equal(ACADEMY_DEMO_VERSION, '2026.08.11-department-workflows-v1')
 })
 
 test('Academy scenario entity IDs are stable unique UUIDs', async () => {

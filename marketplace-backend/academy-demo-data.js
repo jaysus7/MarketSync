@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
-export const ACADEMY_DEMO_VERSION = '2026.08.10-canonical-team-v2'
+export const ACADEMY_DEMO_VERSION = '2026.08.11-department-workflows-v1'
 
 const catalogUrls = [
   new URL('../marketplace-frontend/training/catalog.json', import.meta.url),
@@ -143,7 +143,7 @@ async function seedServiceAndParts(db, dealershipId, ownerId, inventory, contact
   if (!ro) ro = await must('seed demo RO', db.from('repair_orders').insert({
     dealership_id: dealershipId, ro_number: 'DEMO-RO-2084', contact_id: contacts[0]?.id || null,
     inventory_id: inventory[0]?.id || null, vehicle_desc: inventory[0] ? `${inventory[0].year} ${inventory[0].make} ${inventory[0].model}` : '2022 Toyota RAV4',
-    vin: inventory[0]?.vin || null, odometer: 41250, status: 'awaiting_parts', complaint: 'Brake noise and scheduled maintenance',
+    vin: inventory[0]?.vin || null, odometer: 41250, status: 'parts_ordered', complaint: 'Brake noise and scheduled maintenance',
     labor_total: 298, parts_total: 336.8, fee_total: 25, tax: 85.77, total: 745.57, labor_cost: 110, parts_cost: 168.4,
     promised_at: new Date(Date.now() + 86400000).toISOString(), created_by: ownerId,
   }).select('id').single())
@@ -182,6 +182,136 @@ async function seedAi(db, dealershipId, ownerId, contacts) {
   return definitions.length
 }
 
+async function seedDepartmentWorkflows(db, dealershipId, ownerId, inventory, contacts, deals, features) {
+  const now = Date.now()
+  const summary = { appointments: 0, recon: 0, credit_applications: 0, repair_order_steps: 0, accounting_periods: 0, social_posts: 0 }
+
+  if (features.has('os.sales')) {
+    const appointmentRows = [
+      { title: 'Academy Demo · Confirm RAV4 test drive', contact_id: contacts[0]?.id, due_at: new Date(now + 2 * 3600000).toISOString(), type: 'appointment' },
+      { title: 'Academy Demo · Civic showroom appointment', contact_id: contacts[2]?.id, due_at: new Date(now + 86400000).toISOString(), type: 'appointment' },
+      { title: 'Academy Demo · Follow up after Sierra delivery', contact_id: contacts[5]?.id, due_at: new Date(now + 3 * 86400000).toISOString(), type: 'followup' },
+    ].filter(row => row.contact_id)
+    for (const row of appointmentRows) {
+      const found = await must('find demo CRM task', db.from('crm_tasks').select('id').eq('dealership_id', dealershipId).eq('title', row.title).maybeSingle())
+      if (!found) {
+        await must('seed demo CRM task', db.from('crm_tasks').insert({ dealership_id: dealershipId, assigned_to: ownerId, created_by: ownerId, done: false, ...row }))
+        summary.appointments++
+      }
+    }
+  }
+
+  if (features.has('os.inventory')) {
+    const stages = ['arrived', 'mechanical', 'parts', 'detail', 'photos', 'frontline']
+    for (let i = 0; i < Math.min(stages.length, inventory.length); i++) {
+      const vehicle = inventory[i]
+      const stage = stages[i]
+      const existing = await must('find demo recon row', db.from('recon').select('id').eq('dealership_id', dealershipId).eq('inventory_id', vehicle.id).maybeSingle())
+      if (existing) continue
+      await must('seed demo recon row', db.from('recon').insert({
+        dealership_id: dealershipId, inventory_id: vehicle.id, assigned_to: ownerId, stage,
+        notes: `Academy Demo · ${stage} stage`, started_at: new Date(now - (i + 2) * 86400000).toISOString(),
+        stage_since: new Date(now - i * 21600000).toISOString(),
+        done_at: stage === 'frontline' ? new Date(now - 3600000).toISOString() : null,
+        checklist: stage === 'frontline' ? [{ label: 'Frontline quality check', done: true }] : [],
+      }))
+      summary.recon++
+    }
+  }
+
+  if (features.has('os.fni') || features.has('os.sales')) {
+    const creditStates = ['draft', 'ready', 'submitted', 'conditioned', 'approved']
+    for (let i = 0; i < Math.min(creditStates.length, deals.length); i++) {
+      const deal = deals[i]
+      if (!deal?.id || !deal.contact_id) continue
+      const existing = await must('find demo credit application', db.from('credit_applications').select('id').eq('dealership_id', dealershipId).eq('deal_id', deal.id).maybeSingle())
+      if (existing) continue
+      const status = creditStates[i]
+      await must('seed demo credit application', db.from('credit_applications').insert({
+        dealership_id: dealershipId, deal_id: deal.id, contact_id: deal.contact_id, created_by: ownerId, status,
+        applicant: { employment_status: 'employed', monthly_income: 7200, housing_payment: 1850 },
+        financing: { down_payment: 3500, term: 72, desired_payment: 650 },
+        vehicle: { inventory_id: deal.inventory_id }, consent: status !== 'draft',
+        consent_at: status !== 'draft' ? new Date(now - i * 3600000).toISOString() : null,
+        consent_method: status !== 'draft' ? 'paper' : null, provider: status === 'submitted' || status === 'conditioned' || status === 'approved' ? 'manual' : null,
+        provider_ref: status === 'submitted' || status === 'conditioned' || status === 'approved' ? `ACADEMY-DEMO-CREDIT-${i + 1}` : null,
+        decision: status === 'conditioned' ? { status, stipulations: ['Proof of income', 'Void cheque'] }
+          : status === 'approved' ? { status, rate: 7.49, term: 72, amount: deal.total_price } : null,
+        submitted_at: ['submitted', 'conditioned', 'approved'].includes(status) ? new Date(now - i * 3600000).toISOString() : null,
+      }))
+      summary.credit_applications++
+    }
+  }
+
+  if (features.has('os.service')) {
+    const roStates = ['appointment', 'checked_in', 'inspection', 'estimate_sent', 'customer_approved', 'customer_declined', 'parts_ordered', 'in_progress', 'quality_check', 'ready', 'delivered', 'closed']
+    for (let i = 0; i < roStates.length; i++) {
+      const status = roStates[i]
+      const roNumber = `DEMO-STEP-${String(i + 1).padStart(2, '0')}`
+      const existing = await must('find demo workflow RO', db.from('repair_orders').select('id').eq('dealership_id', dealershipId).eq('ro_number', roNumber).maybeSingle())
+      if (existing) continue
+      const vehicle = inventory[i % Math.max(1, inventory.length)]
+      const customer = contacts[i % Math.max(1, contacts.length)]
+      await must('seed demo workflow RO', db.from('repair_orders').insert({
+        dealership_id: dealershipId, ro_number: roNumber, contact_id: customer?.id || null,
+        inventory_id: vehicle?.id || null, vehicle_desc: vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'Academy Demo Vehicle',
+        vin: vehicle?.vin || null, odometer: 30000 + i * 1250, status,
+        complaint: `Academy Demo · ${status.replace(/_/g, ' ')} workflow step`, labor_total: 149, parts_total: 65,
+        tax: 27.82, total: 241.82, labor_cost: 55, parts_cost: 30, created_by: ownerId,
+        ready_at: ['ready', 'delivered', 'closed'].includes(status) ? new Date(now - 2 * 3600000).toISOString() : null,
+        closed_at: status === 'closed' ? new Date(now - 3600000).toISOString() : null,
+      }))
+      summary.repair_order_steps++
+    }
+  }
+
+  if (features.has('os.accounting')) {
+    const periodStates = ['open', 'manager_approved', 'controller_approved', 'closed', 'locked']
+    for (let i = 0; i < periodStates.length; i++) {
+      const d = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - i, 1))
+      const period = d.toISOString().slice(0, 7)
+      const status = periodStates[i]
+      await must('seed demo accounting period', db.from('accounting_periods').upsert({
+        dealership_id: dealershipId, period, status,
+        approvals: status === 'open' ? {} : { manager: { by: ownerId, at: new Date(now - i * 86400000).toISOString() } },
+        locked_at: status === 'locked' ? new Date(now - i * 86400000).toISOString() : null,
+        locked_by: status === 'locked' ? ownerId : null,
+      }, { onConflict: 'dealership_id,period' }))
+      summary.accounting_periods++
+    }
+  }
+
+  if (features.has('os.marketing')) {
+    let account = await must('find demo social account', db.from('social_accounts').select('id').eq('dealership_id', dealershipId).eq('provider', 'demo').eq('external_account_id', 'academy-demo-dealer-page').maybeSingle())
+    if (!account) account = await must('seed demo social account', db.from('social_accounts').insert({
+      dealership_id: dealershipId, provider: 'demo', external_account_id: 'academy-demo-dealer-page', display_name: 'Academy Demo Dealership',
+      handle: '@academy-demo', ownership: 'dealership', status: 'connected', capabilities: { direct_publish: true, demo_only: true }, connected_by: ownerId,
+    }).select('id').single())
+    await must('seed demo social grant', db.from('social_account_grants').upsert({ dealership_id: dealershipId, social_account_id: account.id, user_id: ownerId, can_publish: true, can_schedule: true, can_approve: true, granted_by: ownerId }, { onConflict: 'social_account_id,user_id' }))
+    const definitions = [
+      ['Academy Demo · Draft inventory spotlight', 'draft', null, false],
+      ['Academy Demo · Weekend offer awaiting approval', 'needs_approval', new Date(now + 86400000).toISOString(), true],
+      ['Academy Demo · Scheduled service reminder', 'scheduled', new Date(now + 2 * 86400000).toISOString(), false],
+      ['Academy Demo · Published community event', 'published', new Date(now - 86400000).toISOString(), false],
+      ['Academy Demo · Failed inventory post', 'failed', new Date(now - 3600000).toISOString(), false],
+    ]
+    for (let i = 0; i < definitions.length; i++) {
+      const [body, status, scheduledFor, approval] = definitions[i]
+      let post = await must('find demo social post', db.from('social_posts').select('id').eq('dealership_id', dealershipId).eq('body', body).maybeSingle())
+      if (!post) post = await must('seed demo social post', db.from('social_posts').insert({ dealership_id: dealershipId, inventory_id: inventory[i]?.id || null, body, status, scheduled_for: scheduledFor, requires_approval: approval, created_by: ownerId }).select('id').single())
+      const targetStatus = status === 'published' ? 'published' : status === 'failed' ? 'failed' : 'pending'
+      await must('seed demo social target', db.from('social_post_targets').upsert({
+        dealership_id: dealershipId, post_id: post.id, social_account_id: account.id, status: targetStatus,
+        external_post_id: status === 'published' ? `ACADEMY-DEMO-POST-${i + 1}` : null,
+        published_at: status === 'published' ? scheduledFor : null, error: status === 'failed' ? 'Demo provider connection expired — reconnect before retrying.' : null,
+        attempts: status === 'published' || status === 'failed' ? 1 : 0,
+      }, { onConflict: 'post_id,social_account_id' }))
+      summary.social_posts++
+    }
+  }
+  return summary
+}
+
 async function seedMarketingAndAccounting(db, dealershipId, ownerId, dealerName) {
   const vendorName = 'Academy Demo · Niagara Vehicle Transport'
   let vendor = await must('find demo vendor', db.from('vendors').select('id').eq('dealership_id', dealershipId).eq('name', vendorName).maybeSingle())
@@ -206,18 +336,20 @@ async function seedMarketingAndAccounting(db, dealershipId, ownerId, dealerName)
 export async function seedAcademyDemoData({ db, dealershipId, ownerId, dealerName, products: productList = [], features: featureList = [], planIds = [] }) {
   const products = new Set(productList)
   const features = new Set(featureList)
-  const [inventory, contacts] = await Promise.all([
+  const [inventory, contacts, deals] = await Promise.all([
     must('load demo inventory', db.from('inventory').select('id,stocknumber,vin,year,make,model,price').eq('dealership_id', dealershipId).order('stocknumber')),
     must('load demo contacts', db.from('contacts').select('id,full_name,email').eq('dealership_id', dealershipId).order('customer_number')),
+    must('load demo deals', db.from('deals').select('id,contact_id,inventory_id,total_price,deal_status').eq('dealership_id', dealershipId).order('deal_number')),
   ])
   await seedConfiguration(db, dealershipId, ownerId, { dealerName, products, features, planIds })
   if (products.has('dealer_os')) await seedOperations(db, dealershipId, ownerId, inventory || [], contacts || [], features)
-  const [lessonScenarios, facebookListings, service, ai, business] = await Promise.all([
+  const [lessonScenarios, facebookListings, service, ai, business, workflows] = await Promise.all([
     seedLessonScenarios(db, dealershipId, ownerId, products, features),
     products.has('facebook') ? seedFacebook(db, dealershipId, ownerId, inventory || []) : 0,
     features.has('os.service') ? seedServiceAndParts(db, dealershipId, ownerId, inventory || [], contacts || []) : {},
     products.has('ai_dealer') ? seedAi(db, dealershipId, ownerId, contacts || []) : 0,
     (features.has('os.accounting') || features.has('os.marketing')) ? seedMarketingAndAccounting(db, dealershipId, ownerId, dealerName) : {},
+    products.has('dealer_os') ? seedDepartmentWorkflows(db, dealershipId, ownerId, inventory || [], contacts || [], deals || [], features) : {},
   ])
   return {
     version: ACADEMY_DEMO_VERSION,
@@ -230,10 +362,14 @@ export async function seedAcademyDemoData({ db, dealershipId, ownerId, dealerNam
     ...service,
     ai_conversations: ai,
     ...business,
+    ...workflows,
   }
 }
 
 export const ACADEMY_DEMO_WIPE_TABLES = [
+  'social_post_attempts', 'social_post_targets', 'social_posts', 'social_account_grants', 'social_accounts',
+  'credit_applications',
+  'accounting_periods',
   'ai_messages', 'ai_memory', 'ai_conversations',
   'ro_lines', 'part_txns', 'repair_orders', 'parts',
   'workflow_instances', 'exceptions', 'dealer_tasks', 'workflow_templates',
