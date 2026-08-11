@@ -1038,23 +1038,64 @@ function renderDailyBriefingWorkstation() {
 window.renderDailyBriefingWorkstation = renderDailyBriefingWorkstation;
 
 // Executive department — the whole business at a glance; uses every engine.
+// ── Management: shared value rendering ───────────────────────────────────────
+// A management screen is only useful if its numbers are true. `cmdVal` is how that stays true:
+// a source that failed renders as "unknown", never as 0. Unknown is better than fabricated.
+const cmdUnavailable = (x) => !x || x.__unavailable;
+const cmdMoney = (v) => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+};
+function cmdStat(label, value, opts = {}) {
+  const known = value !== null && value !== undefined;
+  return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3">
+    <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
+    <div class="text-2xl font-black ${known ? (opts.tone || 'text-slate-900 dark:text-white') : 'text-slate-400'}">${esc(known ? value : 'Unknown')}</div>
+    ${opts.note ? `<div class="text-[11px] text-slate-400 mt-0.5">${esc(opts.note)}</div>` : ''}
+  </div>`;
+}
+// What a tab could not read, said out loud rather than left as a gap in a grid.
+function cmdUnavailableNote(sources) {
+  const missing = sources.filter(cmdUnavailable);
+  if (!missing.length) return '';
+  return `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200 mb-3">
+    <b>This view is incomplete.</b> ${missing.map(x => esc(x?.__unavailable || 'A source')).join(', ')} could not be loaded, so the numbers below are partial.</div>`;
+}
+
 ENGINES['command'] = {
   rootId: 'command-root', title: 'Management', subtitle: 'Management attention across every department — priorities first',
   icon: 'chart', accent: 'indigo',
-  tabLabels: { overview: 'My Day', pulse: 'Pulse', exceptions: 'Exceptions', approvals: 'Approvals', forecast: 'Forecast', financials: 'Financials' },
-  tabOrder: ['overview', 'pulse', 'exceptions', 'approvals', 'forecast', 'financials'],
+  // Four tabs, not six. Exceptions was the same needs-attention list Pulse already implies, and
+  // Approvals was a subset of it — two tabs for one queue. Both now live under Pulse, which is
+  // where somebody looks when they ask "what is happening in my store right now".
+  tabLabels: { overview: 'My Day', pulse: 'Pulse', forecast: 'Forecast', financials: 'Financials' },
+  tabOrder: ['overview', 'pulse', 'forecast', 'financials'],
 
   fetch: async () => {
-    const [cc, ev, day, identityReviews] = await Promise.all([
+    // Every read fails on its own and reports itself. A number that could not be loaded is
+    // rendered as "unknown", never as zero — a management screen that quietly shows $0 cash is
+    // worse than one that says it could not read the ledger.
+    const miss = (label) => (e) => ({ __unavailable: label, __reason: e?.message || 'could not be loaded' });
+    const [cc, ev, day, identityReviews, pipeline, acct, ar, ap, cit, close, campaigns, autoQueue] = await Promise.all([
       apiGetJson('/command-center').catch(() => ({ tiles: {}, exceptions: [], exception_count: 0 })),
       apiGetJson('/events?limit=40').catch(() => ({ events: [] })),
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ label: 'My Day', reason: 'Could not be loaded' }], complete: false })),
       apiGetJson('/identity/reviews').catch(() => ({ reviews: [] })),
+      apiGetJson('/pipeline').catch(miss('Sales pipeline')),
+      apiGetJson('/accounting/summary').catch(miss('Accounting summary')),
+      apiGetJson('/accounting/receivables').catch(miss('Receivables')),
+      apiGetJson('/accounting/payables').catch(miss('Payables')),
+      apiGetJson('/accounting/contracts-in-transit').catch(miss('Contracts in transit')),
+      apiGetJson('/accounting/close-checklist').catch(miss('Close')),
+      apiGetJson('/campaigns').catch(miss('Campaigns')),
+      apiGetJson('/automation/queue').catch(miss('Automation')),
     ]);
     const badge = document.getElementById('command-badge');
     const attentionCount = (day.needs_attention || []).length;
     if (badge) { if (attentionCount) { badge.textContent = attentionCount; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
-    return { cc, events: ev.events || [], day, identityReviews: identityReviews.reviews || [] };
+    return { cc, events: ev.events || [], day, identityReviews: identityReviews.reviews || [],
+      pipeline, acct, ar, ap, cit, close, campaigns, autoQueue };
   },
   quickActions: [{ label: 'Open source operations', icon: 'bolt', onclick: "switchPage('operations')" }],
   nextActions: (d) => (d.day.needs_attention || []).slice(0, 4).map(x => ({
@@ -1076,10 +1117,43 @@ ENGINES['command'] = {
       const attention = d.day.needs_attention || [];
       const incomplete = d.day.complete === false
         ? `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200"><b>This day is incomplete.</b> ${(d.day.failed || []).map(x => esc(x.label)).join(', ') || 'One or more sources'} could not be loaded.</div>` : '';
+
+      // Every department's day, grouped — not one flat list. A GM scanning the morning wants to
+      // see that Service has three problems and Marketing none, which a single ranked column
+      // hides. The server has already gated each source on the signed-in role's permission, so
+      // whatever is absent here is absent because this person may not see it.
+      const departments = [...new Set(attention.map(x => x.department || x.owner || x.source_label || 'Other'))];
+      const byDept = departments.length ? departments.map(dep => {
+        const items = attention.filter(x => (x.department || x.owner || x.source_label || 'Other') === dep);
+        return engCard(`${dep} (${items.length})`, `<div class="space-y-2">${items.map(cmdAttentionCard).join('')}</div>`);
+      }).join('<div class="mt-3"></div>') : engCard('Needs attention', engEmpty('Nothing requires management action today.'));
+
+      // What RAN, as opposed to what is wrong. An automation that fired and a campaign that is
+      // live are part of the day even when nothing about them needs fixing.
+      const campaignList = cmdUnavailable(d.campaigns) ? null : (d.campaigns.campaigns || []);
+      const liveCampaigns = campaignList ? campaignList.filter(c => c.status === 'active') : null;
+      const queue = cmdUnavailable(d.autoQueue) ? null : (d.autoQueue.queue || d.autoQueue.messages || []);
+      const sentToday = queue ? queue.filter(m => m.status === 'sent' && String(m.sent_at || '').slice(0, 10) === new Date().toISOString().slice(0, 10)).length : null;
+
+      const ranToday = engCard('Running today', `
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          ${cmdStat('Campaigns live', liveCampaigns === null ? null : liveCampaigns.length)}
+          ${cmdStat('Automations sent today', sentToday)}
+          ${cmdStat('Queued to send', queue === null ? null : queue.filter(m => m.status === 'pending' || m.status === 'scheduled').length)}
+        </div>
+        ${liveCampaigns && liveCampaigns.length ? `<div class="divide-y divide-slate-100 dark:divide-slate-800 mt-2">${liveCampaigns.slice(0, 6).map(c => `<button onclick="switchPage('marketing-overview')" class="w-full flex items-center justify-between py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 truncate">${esc(c.name)}</span><span class="text-[12px] text-slate-400">${esc(c.source_key || 'campaign')}</span></button>`).join('')}</div>` : ''}
+      `);
+
+      // Departments the day still cannot see at all. Saying so is what stops a quiet morning
+      // reading as a calm one.
+      const gaps = d.day.not_covered || [];
+      const notCovered = gaps.length
+        ? `<p class="text-[12px] text-slate-500 px-1">Not yet covered by this queue: ${gaps.map(esc).join(', ')}. Those departments are not reporting attention, so a clear day here does not speak for them.</p>`
+        : '';
       body.innerHTML = `
         <div class="text-lg font-black text-slate-900 dark:text-white mb-2">${greet}</div>
         ${incomplete}
-        ${engCard('Management next actions', attention.length ? `<div class="space-y-2">${attention.slice(0, 12).map(cmdAttentionCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-4 text-center">Nothing requires management action.</div>`)}
+        ${byDept}
         <div>
           <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Today's operations</div>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -1090,10 +1164,25 @@ ENGINES['command'] = {
             ${tile('Service bottlenecks', t.service_bottlenecks ?? 0, 'service-ros', true)}
           </div>
         </div>
+        ${ranToday}
+        ${notCovered}
         `;
     },
+    // ── Pulse — what is happening right now, and what is waiting on somebody ────
+    // Absorbs the former Exceptions and Approvals tabs. They were the same needs-attention
+    // queue split three ways, which meant three places to check and no single answer to
+    // "what is waiting on me".
     pulse(body, d) {
       const t = d.cc.tiles || {};
+      const attention = d.day.needs_attention || [];
+      const reviews = d.identityReviews || [];
+
+      // Approvals are the subset that is waiting on a decision — identity, deals, trades.
+      const isApproval = (x) => /approv|review|authoriz|sign.?off/i.test(`${x.kind || ''} ${x.reason || ''} ${x.next_action || ''}`);
+      const reviewIds = new Set(reviews.map(x => x.id));
+      const approvals = attention.filter(x => isApproval(x) && !reviewIds.has(x.source_id));
+      const exceptions = attention.filter(x => !isApproval(x));
+
       const rows = [
         ['Sales', 'Leads waiting', t.leads_waiting ?? 0, 'leads'],
         ['Sales & F&I', 'Deals in progress', t.deals_in_progress ?? 0, 'desk'],
@@ -1101,32 +1190,91 @@ ENGINES['command'] = {
         ['Inventory', 'Recon delays', t.recon_delays ?? 0, 'recon'],
         ['Fixed Ops', 'Service bottlenecks', t.service_bottlenecks ?? 0, 'service-overview'],
       ];
-      body.innerHTML = engCard('Store pulse', `<div class="divide-y divide-slate-100 dark:divide-slate-800">${rows.map(([department, label, value, page]) => `<button onclick="switchPage('${page}')" class="w-full flex items-center justify-between gap-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span><span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400">${esc(department)}</span><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">${esc(label)}</span></span><span class="text-xl font-black text-slate-900 dark:text-white">${value}</span></button>`).join('')}</div>`);
+      const pulseRows = `<div class="divide-y divide-slate-100 dark:divide-slate-800">${rows.map(([department, label, value, page]) => `<button onclick="switchPage('${page}')" class="w-full flex items-center justify-between gap-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span><span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400">${esc(department)}</span><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">${esc(label)}</span></span><span class="text-xl font-black text-slate-900 dark:text-white">${value}</span></button>`).join('')}</div>`;
+
+      const waiting = reviews.length + approvals.length;
+      body.innerHTML = `
+        ${engCard('Store pulse', pulseRows)}
+        <div class="mt-4"></div>
+        ${engCard(`Waiting on a decision (${waiting})`, waiting ? `
+          ${reviews.length ? `<div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1.5">Identity</div><div class="space-y-2.5 mb-3">${reviews.map(cmdIdentityReviewCard).join('')}</div>` : ''}
+          ${approvals.length ? `<div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-1.5">Deals, trades and other approvals</div><div class="space-y-2.5">${approvals.map(cmdAttentionCard).join('')}</div>` : ''}
+        ` : engEmpty('Nothing is waiting on a decision.'))}
+        <div class="mt-4"></div>
+        ${engCard(`Exceptions (${exceptions.length})`, exceptions.length
+          ? `<div class="space-y-2.5">${exceptions.slice(0, 20).map(cmdAttentionCard).join('')}</div>`
+          : engEmpty('Nothing needs attention. Every workflow is on track.'))}
+      `;
     },
-    exceptions(body, d) {
-      const ex = d.day.needs_attention || [];
-      const exCards = ex.length ? ex.slice(0, 20).map(cmdAttentionCard).join('') : `<div class="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center gap-2">${svgIcon('check', 'w-6 h-6 text-emerald-400')}Nothing needs attention. Every workflow is on track.</div>`;
-      const feed = (d.events || []).length ? d.events.map(e => `
-        <button onclick="opsOpenEntity('${e.entity_type}','${e.entity_id}')" class="w-full text-left flex items-start gap-2.5 px-1 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition">
-          <span class="mt-0.5 text-slate-400">${svgIcon(ENTITY_ICON[e.entity_type] || 'dot', 'w-4 h-4')}</span>
-          <div class="min-w-0 flex-1"><div class="text-[13px] text-slate-700 dark:text-slate-200 truncate">${esc(e.summary || e.event_name)}</div><div class="text-[11px] text-slate-400">${esc(e.event_name)} · ${opsRelTime(e.created_at)}</div></div>
-        </button>`).join('') : `<div class="text-sm text-slate-400 py-6 text-center">No recent activity.</div>`;
-      body.innerHTML = `<div class="grid lg:grid-cols-2 gap-6">
-        <div class="space-y-2.5"><div class="flex items-center gap-2 text-sm font-black text-slate-800 dark:text-slate-200">${svgIcon('shield', 'w-4 h-4 text-amber-500')}Needs attention <span class="text-xs font-bold text-slate-400">${ex.length}</span></div>${exCards}</div>
-        <div class="space-y-1"><div class="flex items-center gap-2 text-sm font-black text-slate-800 dark:text-slate-200 mb-1.5">${svgIcon('bolt', 'w-4 h-4 text-indigo-500')}Live activity</div><div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 max-h-[70vh] overflow-y-auto">${feed}</div></div>
-      </div>`;
+
+    // ── Forecast — the numbers, not a signpost to them ──────────────────────────
+    // This tab used to render two buttons pointing at other pages. A tab whose only content is
+    // "go somewhere else" is a tab that should not exist, so it now composes the pipeline it
+    // was pointing at.
+    forecast(body, d) {
+      const p = d.pipeline;
+      if (cmdUnavailable(p)) {
+        body.innerHTML = cmdUnavailableNote([p]) + engCard('Forecast', engEmpty('The sales pipeline could not be read, so no forecast can be shown.'));
+        return;
+      }
+      const deals = p.deals || p.pipeline || p.rows || [];
+      const stage = (name) => deals.filter(x => String(x.status || x.stage || '').toLowerCase() === name).length;
+      const openDeals = deals.filter(x => !/sold|lost|delivered/i.test(String(x.status || x.stage || '')));
+      const gross = openDeals.reduce((a, x) => a + (Number(x.expected_gross ?? x.gross ?? 0) || 0), 0);
+      const weighted = gross ? cmdMoney(gross) : null;
+
+      body.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          ${cmdStat('Open deals', openDeals.length)}
+          ${cmdStat('Appointments', stage('appointment'))}
+          ${cmdStat('In F&I', stage('fni'))}
+          ${cmdStat('Open gross', weighted, { note: weighted ? 'From deals that carry an expected gross' : 'No deal carries an expected gross yet' })}
+        </div>
+        ${engCard('Pipeline by stage', deals.length
+          ? `<div class="divide-y divide-slate-100 dark:divide-slate-800">${
+              [...new Set(deals.map(x => String(x.status || x.stage || 'unknown')))].map(st => {
+                const n = deals.filter(x => String(x.status || x.stage || 'unknown') === st).length;
+                const label = st.replace(/_/g, ' ');
+                return `<button onclick="switchPage('crm')" class="w-full flex items-center justify-between py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"><span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 capitalize">${esc(label)}</span><span class="text-lg font-black text-slate-900 dark:text-white">${n}</span></button>`;
+              }).join('')}</div>`
+          : engEmpty('No deals in the pipeline yet.'))}
+        <p class="text-[12px] text-slate-500 px-1 mt-2">Composed from the sales pipeline. A deal with no expected gross is counted but contributes nothing to the gross figure, rather than being given an assumed average.</p>
+      `;
     },
-    approvals(body, d) {
-      const approvals = (d.day.needs_attention || []).filter(x => /approv|review/i.test(`${x.kind || ''} ${x.reason || ''} ${x.next_action || ''}`));
-      const reviews = d.identityReviews || [], ids = new Set(reviews.map(x => x.id));
-      const other = approvals.filter(x => !ids.has(x.source_id));
-      body.innerHTML = `${engCard(`Identity reviews (${reviews.length})`, reviews.length ? `<div class="space-y-2.5">${reviews.map(cmdIdentityReviewCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-5 text-center">No identity evidence needs review.</div>`)}<div class="mt-4"></div>${engCard('Other approvals', other.length ? `<div class="space-y-2.5">${other.map(cmdAttentionCard).join('')}</div>` : `<div class="text-sm text-slate-400 py-5 text-center">No other approvals need management action.</div>`)}`;
-    },
-    forecast(body) {
-      body.innerHTML = engCard('Forecast', `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Forecasts use the existing sales pipeline and Accounting forecast. Unknown values remain unknown.</p><div class="flex flex-wrap gap-2"><button onclick="switchPage('crm')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">Sales pipeline</button><button onclick="switchPage('accounting')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">Accounting forecast</button></div>`);
-    },
-    financials(body) {
-      body.innerHTML = engCard('Financials', `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Financial truth is read from the canonical Accounting ledger and close state.</p><button onclick="switchPage('accounting')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">Open Accounting financials</button>`);
+
+    // ── Financials — read from the ledger, not a link to it ─────────────────────
+    financials(body, d) {
+      const sources = [d.acct, d.ar, d.ap, d.cit, d.close];
+      const num = (src, ...keys) => {
+        if (cmdUnavailable(src)) return null;
+        for (const k of keys) {
+          const v = k.split('.').reduce((o, kk) => (o == null ? o : o[kk]), src);
+          if (v != null && Number.isFinite(Number(v))) return Number(v);
+        }
+        return null;
+      };
+      const cash = num(d.acct, 'cash', 'cash_balance', 'totals.cash');
+      const arTotal = num(d.ar, 'total', 'total_outstanding', 'balance');
+      const apTotal = num(d.ap, 'total', 'total_outstanding', 'balance');
+      const citTotal = num(d.cit, 'total', 'total_outstanding', 'balance');
+      const closeOpen = cmdUnavailable(d.close) ? null : (d.close.items || d.close.checklist || []).filter(x => x.status !== 'complete' && x.status !== 'done').length;
+
+      body.innerHTML = `
+        ${cmdUnavailableNote(sources)}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          ${cmdStat('Cash', cash === null ? null : cmdMoney(cash))}
+          ${cmdStat('Receivables', arTotal === null ? null : cmdMoney(arTotal))}
+          ${cmdStat('Payables', apTotal === null ? null : cmdMoney(apTotal), { tone: 'text-amber-600 dark:text-amber-400' })}
+          ${cmdStat('Contracts in transit', citTotal === null ? null : cmdMoney(citTotal))}
+        </div>
+        <div class="mt-3"></div>
+        ${engCard('Month end', closeOpen === null
+          ? engEmpty('The close checklist could not be read.')
+          : closeOpen === 0
+            ? '<div class="py-2 text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">Nothing is blocking the close.</div>'
+            : `<button onclick="switchPage('accounting')" class="w-full text-left py-2"><span class="text-[13px] font-semibold text-amber-600 dark:text-amber-400">${closeOpen} item${closeOpen === 1 ? '' : 's'} still open on the close checklist</span></button>`)}
+        <p class="text-[12px] text-slate-500 px-1 mt-2">Read from the canonical Accounting ledger and close state. A figure that could not be read shows as Unknown rather than zero.</p>
+      `;
     },
   },
 };
