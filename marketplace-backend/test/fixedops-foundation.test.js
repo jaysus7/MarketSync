@@ -498,6 +498,12 @@ test('actual labour reuses the existing time clock', () => {
 // ── 12. Parts demand, reservation and issue (Batch 1, step 5) ───────────────
 
 const partsMig = read('migrations/2026-08-09-stage4b-part-requests.sql')
+const partsGrant = read('migrations/2026-08-11-part-requests-service-role-grant.sql')
+
+test('backend attention can read canonical part requests through the Data API', () => {
+  assert.match(partsGrant, /grant select, insert, update, delete on table public\.part_requests to service_role/)
+  assert.doesNotMatch(partsGrant, /disable row level security|security definer/i)
+})
 
 test('demand is its own record, separate from stock', () => {
   assert.match(partsMig, /create table if not exists public\.part_requests/)

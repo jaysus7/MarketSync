@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs'
 // for something it created.
 
 import {
-  applyTargetOutcome, rollUpPostStatus, nextBackoffSeconds, MAX_PUBLISH_ATTEMPTS,
+  applyTargetOutcome, rollUpPostStatus, nextBackoffSeconds, MAX_PUBLISH_ATTEMPTS, vehiclePromotionAllowed,
 } from '../routes/social-publish.js'
 import {
   publishToProvider, registerSocialProvider, __resetSocialProviders,
@@ -268,6 +268,27 @@ test('dealer-facing scheduler exposes calendar, queue, drafts, approvals, publis
   assert.match(ws, /mktCancelPost/)
 })
 
+test('published and failed views receive and display canonical provider evidence', () => {
+  const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
+  assert.match(social, /external_post_id, published_at, error, attempts, last_attempt_at, next_attempt_at/)
+  assert.match(ws, /Provider ID \$\{esc\(t\.external_post_id\)\}/,
+    'published provider evidence must be visible to the dealer')
+  assert.match(ws, /Number\(t\.attempts\)/)
+  assert.match(ws, /last attempt \$\{esc\(attempted\)\}/)
+  assert.match(ws, /t\.account\?\.display_name/)
+})
+
+test('scheduler filters canonical posts by network, account, campaign, status and owner', () => {
+  const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
+  for (const key of ['__socialNetworkFilter', '__socialAccountFilter', '__socialCampaignFilter', '__socialStatusFilter', '__socialOwnerFilter']) assert.match(ws, new RegExp(key))
+  assert.match(ws, /t\.social_account_id === __socialAccountFilter/)
+  assert.match(ws, /p\.campaign_id === __socialCampaignFilter/)
+  assert.match(ws, /p\.status === __socialStatusFilter/)
+  assert.match(ws, /p\.created_by === __socialOwnerFilter/)
+  assert.match(social, /creator: creatorById\[p\.created_by\]/,
+    'owner labels come from tenant-scoped canonical profiles, not browser guesses')
+})
+
 test('calendar modes render distinct calendar structures and reschedule through the server', () => {
   const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
   assert.match(ws, /__socialCalendarMode === 'month'/)
@@ -278,4 +299,21 @@ test('calendar modes render distinct calendar structures and reschedule through 
   assert.match(ws, /apiSendJson\(`\/social\/posts\/\$\{postId\}`, 'PUT', \{ scheduled_local:/)
   assert.match(ws, /Intl\.DateTimeFormat\('en-CA', \{ timeZone: tz/,
     'calendar grouping must use the canonical dealership timezone')
+})
+
+test('a scheduled vehicle post can publish only while that canonical unit is available', () => {
+  assert.equal(vehiclePromotionAllowed({ id: 'v1', status: 'available' }), true)
+  for (const status of ['sold', 'archived', 'pending', null]) assert.equal(vehiclePromotionAllowed({ id: 'v1', status }), false)
+  assert.equal(vehiclePromotionAllowed(null), false)
+  assert.match(dispatcher, /Nothing was published/)
+  assert.match(social, /social_scheduled_vehicle_unavailable/)
+  assert.match(social, /eq\('dealership_id', dealershipId\)/, 'campaign, inventory and attention reads remain tenant scoped')
+})
+
+test('dealer composer writes per-account caption variants into canonical targets', () => {
+  const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
+  assert.match(ws, /class="mkt-variant/)
+  assert.match(ws, /body_override: bodyOverride \|\| null/)
+  assert.match(social, /body_override: t\.body_override \|\| null/)
+  assert.match(dispatcher, /target\.body_override \|\| post\?\.body/)
 })

@@ -114,7 +114,7 @@ export async function socialAttention(dealershipId) {
   // Anything scheduled more than fifteen minutes ago that has not moved. The grace period is
   // there so a post is not called stuck while the dispatcher is mid-run.
   const stuckBefore = new Date(Date.now() - 15 * 60 * 1000).toISOString()
-  const [{ data: accounts }, { data: posts }, { data: failed }, { data: stuck }] = await Promise.all([
+  const [{ data: accounts }, { data: posts }, { data: failed }, { data: stuck }, { data: vehiclePosts }] = await Promise.all([
     supabaseAdmin.from('social_accounts').select('id, display_name, status, token_expires_at, last_error')
       .eq('dealership_id', dealershipId).neq('status', 'connected'),
     supabaseAdmin.from('social_posts').select('id, body, status, scheduled_for')
@@ -124,6 +124,8 @@ export async function socialAttention(dealershipId) {
     supabaseAdmin.from('social_posts').select('id, body, status, scheduled_for')
       .eq('dealership_id', dealershipId).eq('status', 'scheduled').is('deleted_at', null)
       .lt('scheduled_for', stuckBefore).limit(100),
+    supabaseAdmin.from('social_posts').select('id, body, inventory_id').eq('dealership_id', dealershipId)
+      .in('status', ['needs_approval', 'scheduled']).not('inventory_id', 'is', null).is('deleted_at', null).limit(100),
   ])
   const items = []
   for (const a of accounts || []) {
@@ -146,6 +148,14 @@ export async function socialAttention(dealershipId) {
       reason: `Scheduled for ${String(s.scheduled_for).slice(0, 16).replace('T', ' ')} and still not published`,
       owner: 'Marketing', action: 'Publish or Cancel', ref: s.id })
   }
+  const vehicleIds = [...new Set((vehiclePosts || []).map(p => p.inventory_id).filter(Boolean))]
+  const { data: availableVehicles } = vehicleIds.length ? await supabaseAdmin.from('inventory').select('id')
+    .eq('dealership_id', dealershipId).in('id', vehicleIds).eq('status', 'available') : { data: [] }
+  const availableIds = new Set((availableVehicles || []).map(v => v.id))
+  for (const p of vehiclePosts || []) if (!availableIds.has(p.inventory_id)) {
+    items.push({ kind: 'social_scheduled_vehicle_unavailable', severity: 3, subject: (p.body || 'Vehicle post').slice(0, 60),
+      reason: 'The linked vehicle is sold or unavailable; publishing will be stopped', owner: 'Marketing', action: 'Review Scheduled Post', ref: p.id })
+  }
   return items.sort((a, b) => b.severity - a.severity)
 }
 
@@ -153,6 +163,16 @@ export function registerSocial(app) {
   const canView = requirePermission('marketing.view')
   const canEdit = requirePermission('marketing.edit')
   const guard = (req, res) => { if (!req.dealershipId) { res.status(403).json({ error: 'no dealership' }); return false } return true }
+  const validateLinks = async (dealershipId, body) => {
+    if (body?.campaign_id) {
+      const { data } = await supabaseAdmin.from('campaigns').select('id').eq('id', body.campaign_id).eq('dealership_id', dealershipId).maybeSingle()
+      if (!data) throw new Error('Campaign is not available to this dealership.')
+    }
+    if (body?.inventory_id) {
+      const { data } = await supabaseAdmin.from('inventory').select('id, status').eq('id', body.inventory_id).eq('dealership_id', dealershipId).maybeSingle()
+      if (!data || data.status !== 'available') throw new Error('Vehicle is no longer available for promotion.')
+    }
+  }
   const canonicalSchedule = async (req, body) => {
     if (!body?.scheduled_local) return { scheduledFor: body?.scheduled_for || null, ambiguous: false }
     const { data: dealer } = await supabaseAdmin.from('dealerships').select('timezone').eq('id', req.dealershipId).maybeSingle()
@@ -286,6 +306,7 @@ export function registerSocial(app) {
     const b = req.body || {}
     const targets = Array.isArray(b.targets) ? b.targets : []
     if (!targets.length) return res.status(400).json({ error: 'A post needs at least one account to publish to.' })
+    try { await validateLinks(req.dealershipId, b) } catch (e) { return res.status(400).json({ error: e.message }) }
 
     let schedule
     try { schedule = await canonicalSchedule(req, b) } catch (e) { return res.status(400).json({ error: e.message }) }
@@ -335,9 +356,10 @@ export function registerSocial(app) {
       const ids = (posts || []).map(p => p.id)
       let targets = []
       if (ids.length) {
-        const { data } = await supabaseAdmin.from('social_post_targets')
-          .select('id, post_id, social_account_id, status, external_post_id, published_at, error')
+        const { data, error } = await supabaseAdmin.from('social_post_targets')
+          .select('id, post_id, social_account_id, status, external_post_id, published_at, error, attempts, last_attempt_at, next_attempt_at')
           .in('post_id', ids)
+        if (error) return res.status(500).json({ error: error.message })
         targets = data || []
       }
       const byPost = {}
@@ -346,8 +368,13 @@ export function registerSocial(app) {
       const { data: accounts } = accountIds.length ? await supabaseAdmin.from('social_accounts')
         .select('id, provider, display_name, ownership').in('id', accountIds).eq('dealership_id', req.dealershipId) : { data: [] }
       const accountById = Object.fromEntries((accounts || []).map(a => [a.id, a]))
+      const creatorIds = [...new Set((posts || []).map(p => p.created_by).filter(Boolean))]
+      const { data: creators, error: creatorError } = creatorIds.length ? await supabaseAdmin.from('profiles')
+        .select('id, full_name').in('id', creatorIds).eq('dealership_id', req.dealershipId) : { data: [], error: null }
+      if (creatorError) return res.status(500).json({ error: creatorError.message })
+      const creatorById = Object.fromEntries((creators || []).map(p => [p.id, p]))
       const { data: dealer } = await supabaseAdmin.from('dealerships').select('timezone').eq('id', req.dealershipId).maybeSingle()
-      res.json({ timezone: dealer?.timezone || 'UTC', posts: (posts || []).map(p => ({ ...p, targets: (byPost[p.id] || []).map(t => ({ ...t, account: accountById[t.social_account_id] || null })) })) })
+      res.json({ timezone: dealer?.timezone || 'UTC', posts: (posts || []).map(p => ({ ...p, creator: creatorById[p.created_by] || null, targets: (byPost[p.id] || []).map(t => ({ ...t, account: accountById[t.social_account_id] || null })) })) })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
@@ -367,9 +394,11 @@ export function registerSocial(app) {
     const { data: active } = await supabaseAdmin.from('social_post_targets').select('id').eq('post_id', post.id).in('status', ['publishing', 'published']).limit(1)
     if (active?.length) return res.status(409).json({ error: 'Publishing has started; claimed targets cannot be changed.' })
     const patch = { updated_at: new Date().toISOString() }
+    try { await validateLinks(req.dealershipId, req.body || {}) } catch (e) { return res.status(400).json({ error: e.message }) }
     if (req.body?.body !== undefined) patch.body = req.body.body || null
     if (req.body?.media !== undefined) patch.media = Array.isArray(req.body.media) ? req.body.media : []
     if (req.body?.campaign_id !== undefined) patch.campaign_id = req.body.campaign_id || null
+    if (req.body?.inventory_id !== undefined) patch.inventory_id = req.body.inventory_id || null
     if (req.body?.scheduled_for !== undefined) {
       patch.scheduled_for = req.body.scheduled_for || null
       patch.status = post.requires_approval && !post.approved_at ? 'needs_approval' : (patch.scheduled_for ? 'scheduled' : 'draft')

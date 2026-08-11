@@ -22,11 +22,22 @@ let __socialView = 'calendar';
 let __socialCalendarMode = 'month';
 let __socialCalendarAnchor = '';
 let __socialNetworkFilter = 'all';
+let __socialAccountFilter = 'all';
+let __socialCampaignFilter = 'all';
+let __socialStatusFilter = 'all';
+let __socialOwnerFilter = 'all';
 function mktView(v) { __mktView = v; engineTab('marketing-overview', 'work'); }
 window.mktView = mktView;
 function mktSocialView(v) { __socialView = v; mktView('social'); }
 function mktSocialCalendarMode(v) { __socialCalendarMode = v; mktView('social'); }
 function mktSocialNetworkFilter(v) { __socialNetworkFilter = v; mktView('social'); }
+function mktSocialFilter(kind, v) {
+  if (kind === 'account') __socialAccountFilter = v;
+  if (kind === 'campaign') __socialCampaignFilter = v;
+  if (kind === 'status') __socialStatusFilter = v;
+  if (kind === 'owner') __socialOwnerFilter = v;
+  mktView('social');
+}
 function mktCalendarMove(months) {
   const base = __socialCalendarAnchor ? new Date(`${__socialCalendarAnchor}T12:00:00Z`) : new Date();
   if (__socialCalendarMode === 'week') base.setUTCDate(base.getUTCDate() + (Number(months || 0) * 7));
@@ -34,7 +45,7 @@ function mktCalendarMove(months) {
   __socialCalendarAnchor = base.toISOString().slice(0, 10);
   mktView('social');
 }
-Object.assign(window, { mktSocialView, mktSocialCalendarMode, mktSocialNetworkFilter, mktCalendarMove });
+Object.assign(window, { mktSocialView, mktSocialCalendarMode, mktSocialNetworkFilter, mktSocialFilter, mktCalendarMove });
 
 const mktMoney = (v) => {
   const x = Number(v) || 0;
@@ -109,7 +120,7 @@ const mktReload = () => {
  */
 function mktCompose(prefill = {}) {
   const d = ENGINE_DATA['marketing-overview'] || {};
-  const accounts = d.accounts || [], assets = d.assets || [];
+  const accounts = d.accounts || [], assets = d.assets || [], campaigns = d.campaigns || [], inventory = d.inventory || [];
   const usable = accounts.filter(a => a.can_publish);
   const refused = accounts.filter(a => !a.can_publish);
 
@@ -120,11 +131,14 @@ function mktCompose(prefill = {}) {
       <textarea id="mkt-body" rows="4" placeholder="What do you want to say?"
         class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-[14px] mb-3">${esc(prefill.body || '')}</textarea>
       <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">Publish to</div>
-      ${usable.length ? usable.map(a => `<label class="flex items-center gap-2 py-1.5">
-        <input type="checkbox" class="mkt-target" value="${esc(a.id)}">
-        <span class="text-[13px] text-slate-900 dark:text-white">${esc(a.display_name)}</span>
-        <span class="text-[12px] text-slate-400">${esc(a.provider)}</span>
-      </label>`).join('') : `<div class="text-[13px] text-rose-600 dark:text-rose-400">You cannot publish to any connected account yet.</div>`}
+      ${usable.length ? usable.map(a => `<div class="py-1.5">
+        <label class="flex items-center gap-2"><input type="checkbox" class="mkt-target" value="${esc(a.id)}" onchange="mktToggleVariant(this)">
+          <span class="text-[13px] text-slate-900 dark:text-white">${esc(a.display_name)}</span><span class="text-[12px] text-slate-400">${esc(a.provider)}</span>
+        </label>
+        <label class="mkt-variant-wrap hidden ml-6 mt-1 text-[11px] font-bold text-slate-500">Caption for ${esc(a.provider)}
+          <textarea rows="2" class="mkt-variant mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[12px] font-normal" data-account-id="${esc(a.id)}" placeholder="Optional — leave blank to use the shared caption"></textarea>
+        </label>
+      </div>`).join('') : `<div class="text-[13px] text-rose-600 dark:text-rose-400">You cannot publish to any connected account yet.</div>`}
       ${refused.length ? `<div class="mt-2 text-[12px] text-slate-400">${refused.map(a =>
         `${esc(a.display_name)} — ${esc(a.why || 'not available to you')}`).join('<br>')}</div>` : ''}
       ${assets.length ? `<div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mt-4 mb-1">Attach from Studio</div>
@@ -133,6 +147,10 @@ function mktCompose(prefill = {}) {
             <input type="checkbox" class="mkt-media" value="${esc(a.public_url)}" ${prefill.assetUrl === a.public_url ? 'checked' : ''}>
             <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" class="w-16 h-16 object-cover rounded-lg border border-slate-200 dark:border-slate-700">
           </label>`).join('')}</div>` : ''}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+        <label class="text-[12px] font-bold text-slate-700 dark:text-slate-200">Campaign<select id="mkt-campaign" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]"><option value="">No campaign</option>${campaigns.map(c=>`<option value="${esc(c.id)}" ${prefill.campaignId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
+        <label class="text-[12px] font-bold text-slate-700 dark:text-slate-200">Vehicle<select id="mkt-vehicle" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]"><option value="">No vehicle</option>${inventory.map(v=>`<option value="${esc(v.id)}">${esc(`${v.year||''} ${v.make||''} ${v.model||''} · ${v.stocknumber||'no stock #'}`.trim())}</option>`).join('')}</select></label>
+      </div>
       <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mt-4 mb-1">When</div>
       <input id="mkt-when" type="datetime-local" class="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]">
       <div class="text-[12px] text-slate-400 mt-1">Leave empty to save as a draft you can publish by hand.</div>
@@ -144,15 +162,25 @@ function mktCompose(prefill = {}) {
 }
 window.mktCompose = mktCompose;
 
+function mktToggleVariant(input) {
+  input.closest('div')?.querySelector('.mkt-variant-wrap')?.classList.toggle('hidden', !input.checked);
+}
+window.mktToggleVariant = mktToggleVariant;
+
 async function mktSavePost(btn) {
   const root = btn.closest('.fixed');
-  const targets = [...root.querySelectorAll('.mkt-target:checked')].map(i => ({ social_account_id: i.value }));
+  const targets = [...root.querySelectorAll('.mkt-target:checked')].map(i => {
+    const bodyOverride = [...root.querySelectorAll('.mkt-variant')].find(v => v.dataset.accountId === i.value)?.value.trim();
+    return { social_account_id: i.value, body_override: bodyOverride || null };
+  });
   if (!targets.length) return showToast('Choose at least one account to publish to.', 'error');
   const when = root.querySelector('#mkt-when').value;
   try {
     await apiSendJson('/social/posts', 'POST', {
       body: root.querySelector('#mkt-body').value,
       media: [...root.querySelectorAll('.mkt-media:checked')].map(i => i.value),
+      campaign_id: root.querySelector('#mkt-campaign')?.value || null,
+      inventory_id: root.querySelector('#mkt-vehicle')?.value || null,
       scheduled_local: when || null,
       targets,
     });
@@ -297,7 +325,7 @@ ENGINES['marketing-overview'] = {
   })),
 
   fetch: async () => {
-    const [att, camps, accounts, posts, convos, roi, assets] = await Promise.all([
+    const [att, camps, accounts, posts, convos, roi, assets, inventory] = await Promise.all([
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ source: 'my-day', label: 'My Day', reason: 'could not be loaded' }], not_covered: [] })),
       apiGetJson('/campaigns').catch(() => ({ campaigns: [] })),
       apiGetJson('/social/accounts').catch(() => ({ accounts: [] })),
@@ -305,6 +333,7 @@ ENGINES['marketing-overview'] = {
       apiGetJson('/conversations').catch(() => ({ conversations: [] })),
       apiGetJson('/marketing/roi').catch(() => null),
       apiGetJson('/marketing/assets').catch(() => ({ assets: [] })),
+      apiGetJson('/inventory').catch(() => []),
     ]);
     return {
       needsAttention: att.needs_attention || [],
@@ -319,6 +348,7 @@ ENGINES['marketing-overview'] = {
       socialTimezone: posts.timezone || 'UTC',
       conversations: convos.conversations || [],
       assets: assets.assets || [],
+      inventory: Array.isArray(inventory) ? inventory : [],
       roi,
     };
   },
@@ -424,8 +454,15 @@ ENGINES['marketing-overview'] = {
           : __socialView === 'queue' ? ['scheduled','publishing','needs_approval'].includes(p.status)
           : !!p.scheduled_for);
         const networks = [...new Set(posts.flatMap(p => (p.targets || []).map(t => t.account?.provider).filter(Boolean)))].sort();
-        const selected = viewPosts.filter(p => __socialNetworkFilter === 'all'
-          || (p.targets || []).some(t => t.account?.provider === __socialNetworkFilter));
+        const selected = viewPosts.filter(p => (__socialNetworkFilter === 'all'
+          || (p.targets || []).some(t => t.account?.provider === __socialNetworkFilter))
+          && (__socialAccountFilter === 'all' || (p.targets || []).some(t => t.social_account_id === __socialAccountFilter))
+          && (__socialCampaignFilter === 'all' || p.campaign_id === __socialCampaignFilter)
+          && (__socialStatusFilter === 'all' || p.status === __socialStatusFilter)
+          && (__socialOwnerFilter === 'all' || p.created_by === __socialOwnerFilter));
+        const campaignOptions = (d.campaigns || []).filter(c => posts.some(p => p.campaign_id === c.id));
+        const ownerOptions = [...new Map(posts.filter(p => p.created_by).map(p => [p.created_by, p.creator?.full_name || 'Unknown user'])).entries()];
+        const statusOptions = [...new Set(posts.map(p => p.status).filter(Boolean))].sort();
         const fmt = (iso) => { if (!iso) return 'Unscheduled'; try { return new Intl.DateTimeFormat(undefined,{timeZone:tz,month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(iso)); } catch { return new Date(iso).toLocaleString(); } };
         const localParts = (iso) => {
           try {
@@ -443,7 +480,15 @@ ENGINES['marketing-overview'] = {
           const movable = ['draft','scheduled','needs_approval','failed'].includes(p.status) && p.scheduled_for;
           const drag = movable ? `draggable="true" ondragstart="mktCalendarDrag(event,'${p.id}','${localParts(p.scheduled_for).time}')" title="Drag to another day to reschedule"` : '';
           if (compact) return `<div ${drag} class="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 cursor-${movable?'move':'default'}"><div class="text-[10px] font-bold text-violet-600">${esc(localParts(p.scheduled_for).time)} · ${esc(targetNetworks)}</div><div class="text-[11px] font-semibold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,55))}</div><div class="text-[10px] text-slate-400">${esc(mktLabel(p.status))}</div></div>`;
-          return `<div ${drag} class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex gap-3"><div class="w-16 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${p.media?.[0]?`style="background-image:url('${esc(p.media[0])}')"`:''}></div><div class="min-w-0 flex-1"><div class="text-[11px] font-bold text-slate-400">${esc(fmt(p.scheduled_for))} · ${esc(tz)}</div><div class="text-[13px] font-bold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,90))}</div><div class="text-[11px] text-slate-500">${esc(targetNetworks)} · ${esc(partial ? 'Partly published' : failed.length ? 'Failed' : mktLabel(p.status))}${failed.length?` · ${failed.length} failed to publish`:''}${why?` · ${esc(why)}`:''}</div></div><div class="flex flex-col gap-1 text-right">${action}${['draft','scheduled','needs_approval','failed'].includes(p.status)?`<button onclick="mktCancelPost('${p.id}')" class="text-[11px] font-bold text-rose-600">Cancel</button>`:''}${failed.length?`<button onclick="mktPublishNow('${p.id}')" class="text-[11px] font-bold text-rose-600">Retry</button>`:''}</div></div>`;
+          const targetEvidence = targets.filter(t => ['published','failed'].includes(t.status)).map(t => {
+            const account = t.account?.display_name || 'Unknown account';
+            const provider = mktLabel(t.account?.provider || 'provider');
+            if (t.status === 'published') return `<div class="text-[10px] text-emerald-700 dark:text-emerald-400"><b>${esc(provider)} · ${esc(account)}</b> — Published ${esc(fmt(t.published_at))}${t.external_post_id ? ` · Provider ID ${esc(t.external_post_id)}` : ''}</div>`;
+            const attempted = t.last_attempt_at ? fmt(t.last_attempt_at) : 'Not recorded';
+            const retry = t.next_attempt_at ? ` · next retry ${esc(fmt(t.next_attempt_at))}` : '';
+            return `<div class="text-[10px] text-rose-700 dark:text-rose-400"><b>${esc(provider)} · ${esc(account)}</b> — ${esc(t.error || 'Publication failed')} · ${Number(t.attempts) || 0} attempt${Number(t.attempts) === 1 ? '' : 's'} · last attempt ${esc(attempted)}${retry}</div>`;
+          }).join('');
+          return `<div ${drag} class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex gap-3"><div class="w-16 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${p.media?.[0]?`style="background-image:url('${esc(p.media[0])}')"`:''}></div><div class="min-w-0 flex-1"><div class="text-[11px] font-bold text-slate-400">${esc(fmt(p.scheduled_for))} · ${esc(tz)}</div><div class="text-[13px] font-bold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,90))}</div><div class="text-[11px] text-slate-500">${esc(targetNetworks)} · ${esc(partial ? 'Partly published' : failed.length ? 'Failed' : mktLabel(p.status))}${failed.length?` · ${failed.length} failed to publish`:''}${why?` · ${esc(why)}`:''}</div>${targetEvidence ? `<div class="mt-1.5 space-y-1">${targetEvidence}</div>` : ''}</div><div class="flex flex-col gap-1 text-right">${action}${['draft','scheduled','needs_approval','failed'].includes(p.status)?`<button onclick="mktCancelPost('${p.id}')" class="text-[11px] font-bold text-rose-600">Cancel</button>`:''}${failed.length?`<button onclick="mktPublishNow('${p.id}')" class="text-[11px] font-bold text-rose-600">Retry</button>`:''}</div></div>`;
         };
         const postRows = selected.length ? selected.slice(0, 100).map(p => postCard(p)).join('') : engEmpty(`No ${__socialView} posts.`);
         const anchorParts = localParts(__socialCalendarAnchor ? `${__socialCalendarAnchor}T12:00:00Z` : new Date().toISOString());
@@ -469,7 +514,11 @@ ENGINES['marketing-overview'] = {
           <div class="flex gap-2 overflow-x-auto pb-2 mb-3">${socialTabs}</div>
           <div class="flex flex-wrap items-center gap-2 mb-3">
             ${__socialView==='calendar'?`${['month','week','agenda'].map(v=>`<button onclick="mktSocialCalendarMode('${v}')" class="text-[11px] font-bold px-2 py-1 rounded ${__socialCalendarMode===v?'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'border border-slate-200 dark:border-slate-700'}">${mktLabel(v)}</button>`).join('')}<span class="h-5 border-l border-slate-200 dark:border-slate-700"></span><button onclick="mktCalendarMove(-1)" class="text-[11px] font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Previous</button><button onclick="mktCalendarMove(1)" class="text-[11px] font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Next</button>`:''}
-            <label class="ml-auto text-[11px] font-bold text-slate-500">Network <select onchange="mktSocialNetworkFilter(this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${networks.map(n=>`<option value="${esc(n)}" ${__socialNetworkFilter===n?'selected':''}>${esc(mktLabel(n))}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Network <select onchange="mktSocialNetworkFilter(this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${networks.map(n=>`<option value="${esc(n)}" ${__socialNetworkFilter===n?'selected':''}>${esc(mktLabel(n))}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Account <select onchange="mktSocialFilter('account',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${accounts.map(a=>`<option value="${esc(a.id)}" ${__socialAccountFilter===a.id?'selected':''}>${esc(a.display_name)}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Campaign <select onchange="mktSocialFilter('campaign',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${campaignOptions.map(c=>`<option value="${esc(c.id)}" ${__socialCampaignFilter===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Status <select onchange="mktSocialFilter('status',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${statusOptions.map(s=>`<option value="${esc(s)}" ${__socialStatusFilter===s?'selected':''}>${esc(mktLabel(s))}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Owner <select onchange="mktSocialFilter('owner',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${ownerOptions.map(([id,name])=>`<option value="${esc(id)}" ${__socialOwnerFilter===id?'selected':''}>${esc(name)}</option>`).join('')}</select></label>
           </div>
           <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
             ${engKpi('Accounts', accounts.length)}

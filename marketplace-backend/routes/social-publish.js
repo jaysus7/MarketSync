@@ -35,6 +35,7 @@ import { publishToProvider, PROVIDER_NOT_CONFIGURED } from '../providers/social-
 // After this many tries a retryable failure stops being retried and starts being a message.
 // A queue that retries forever is a queue nobody reads.
 export const MAX_PUBLISH_ATTEMPTS = 5
+export function vehiclePromotionAllowed(vehicle) { return !!vehicle && vehicle.status === 'available' }
 
 // Escalating, capped. The point is to survive a provider's bad ten minutes without hammering
 // it, not to implement a general-purpose scheduler.
@@ -141,12 +142,18 @@ export async function publishClaimedTarget(target) {
     result = { ok: false, retryable: false, error: 'The account this post was aimed at no longer exists.' }
   } else {
     const { data: post } = await supabaseAdmin.from('social_posts')
-      .select('id, body, media').eq('id', target.post_id).maybeSingle()
-    result = await publishToProvider({
+      .select('id, body, media, inventory_id').eq('id', target.post_id).eq('dealership_id', target.dealership_id).maybeSingle()
+    let vehicleAvailable = true
+    if (post?.inventory_id) {
+      const { data: vehicle } = await supabaseAdmin.from('inventory').select('id, status')
+        .eq('id', post.inventory_id).eq('dealership_id', target.dealership_id).maybeSingle()
+      vehicleAvailable = vehiclePromotionAllowed(vehicle)
+    }
+    result = vehicleAvailable ? await publishToProvider({
       account,
       body: target.body_override || post?.body || '',
       media: Array.isArray(post?.media) ? post.media : [],
-    })
+    }) : { ok: false, retryable: false, code: 'vehicle_unavailable', error: 'The linked vehicle is no longer available. Nothing was published.' }
   }
 
   const patch = applyTargetOutcome(target, result)
