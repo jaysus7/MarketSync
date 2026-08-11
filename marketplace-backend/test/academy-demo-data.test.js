@@ -60,6 +60,12 @@ test('server refreshes versioned dedicated demo data after startup', async () =>
   assert.match(server, /status:\s*skipped\.length \? 'partial' : 'complete'/)
 })
 
+test('demo inventory enters the canonical vehicle lifecycle', async () => {
+  const source = await readFile(new URL('../routes/demo.js', import.meta.url), 'utf8')
+  assert.match(source, /source: 'manual', status: 'published'/)
+  assert.doesNotMatch(source, /source: 'manual', status: 'available'/)
+})
+
 test('lesson scenarios are limited to shared and purchased products', async () => {
   const lessons = await loadAcademyDemoLessons()
   const forPlan = planId => demoLessonsForAccess(lessons, { products: productsForPlan(planId), features: featuresForPlan(planId) })

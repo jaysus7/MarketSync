@@ -113,7 +113,7 @@ async function seedBase({ dealershipId, ownerId, products }) {
     // a stable fictional VIN so two demo accounts can never claim the same row.
     const vin = `MSDEM${createHash('sha256').update(`${dealershipId}:${vehicle.stock}`).digest('hex').slice(0, 12).toUpperCase()}`
     const { data, error } = await supabaseAdmin.from('inventory').insert({
-      dealership_id: dealershipId, source: 'manual', status: 'available',
+      dealership_id: dealershipId, source: 'manual', status: 'published',
       year: vehicle.year, make: vehicle.make, model: vehicle.model, trim: vehicle.trim,
       price: vehicle.price, mileage: vehicle.mileage, condition: 'used', stocknumber: vehicle.stock,
       exterior_color: vehicle.color, fuel_type: vehicle.fuel, drivetrain: vehicle.drive,
