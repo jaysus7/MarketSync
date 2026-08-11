@@ -46,6 +46,23 @@ test('My Day merges every department it is allowed to see', async () => {
   assert.equal(day.complete, true)
 })
 
+test('every item carries the Phase 8 reference-only attention contract', () => {
+  const item = normalizeItem({
+    kind: 'follow_up', severity: 2, subject: 'Call Alex', reason: 'Appointment tomorrow',
+    owner: 'rep-1', action: 'Confirm appointment', ref: 'contact-1',
+    due_at: '2026-08-11T14:00:00Z', deep_link: '#/w/sales/crm',
+  }, src('crm', [], { department: 'Sales' }))
+  assert.deepEqual({
+    source_type: item.source_type, source_id: item.source_id, department: item.department,
+    title: item.title, priority: item.priority, owner: item.owner, due_at: item.due_at,
+    next_action: item.next_action, deep_link: item.deep_link, attention_type: item.attention_type,
+  }, {
+    source_type: 'crm', source_id: 'contact-1', department: 'Sales', title: 'Call Alex',
+    priority: 'high', owner: 'rep-1', due_at: '2026-08-11T14:00:00Z',
+    next_action: 'Confirm appointment', deep_link: '#/w/sales/crm', attention_type: 'exception',
+  })
+})
+
 test('opportunities are separated from problems, not ranked against them', async () => {
   const day = await buildMyDay(REQ, { can: allowing(),
     sources: [src('a', [
