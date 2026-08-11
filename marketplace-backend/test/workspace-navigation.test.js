@@ -127,11 +127,12 @@ test('Inventory Intelligence remains visibly discoverable inside Inventory', () 
   assert.match(inv, /label: 'Market & Competitors'.*switchPage\('market'\)/s)
 })
 
-test('one inventory pool — Vehicles and Syndication are two views of one page', () => {
+test('one inventory pool — the manual and Facebook views are the same page', () => {
+  // Still one pool and one page; the Facebook view simply moved to Marketing, where publishing
+  // to a channel belongs. What must never happen is a second vehicle model.
   const { MS_WORKSPACES } = loadRegistry()
-  const modes = MS_WORKSPACES.inventory.pages.filter(p => p.page === 'inventory')
-  assert.deepEqual(modes.map(p => p.invmode).sort(), ['facebook', 'manual'],
-    'inventory must appear once per view mode, never as a duplicate vehicle model')
+  assert.deepEqual(MS_WORKSPACES.inventory.pages.filter(p => p.page === 'inventory').map(p => p.invmode), ['manual'])
+  assert.deepEqual(MS_WORKSPACES.marketing.pages.filter(p => p.page === 'inventory').map(p => p.invmode), ['facebook'])
 })
 
 test('role gating is preserved on regrouped workspaces', () => {

@@ -164,7 +164,6 @@ const INV_WORK_VIEWS = [
   // named for what it does rather than removed.
   ['vehicles', 'Vehicles'], ['acquire', 'Acquisition'], ['recon', 'Cleanup'],
   ['merch', 'Merchandising'], ['pricing', 'Inventory Intelligence'], ['market', 'Market & Competitors'],
-  ['syndication', 'Publish to Facebook'],
 ];
 function invWorkView(v) { __invWorkView = v; engineTab('inventory-overview', 'work'); }
 window.invWorkView = invWorkView;
@@ -361,7 +360,6 @@ ENGINES['inventory-overview'] = {
     { label: 'Cleanup board', icon: 'wrench', onclick: "switchPage('recon')" },
     { label: 'Inventory Intelligence', icon: 'chart', onclick: "switchPage('inv-intel')" },
     { label: 'Market & Competitors', icon: 'eye', onclick: "switchPage('market')" },
-    { label: 'Publish to Facebook', icon: 'megaphone', onclick: "deptGo('inventory','facebook')" },
   ],
   nextActions: (d) => invAttention(d || {}).slice(0, 5).map(it => ({
     label: `${it.who} — ${it.action?.label || 'Open'}`, icon: 'flame',
