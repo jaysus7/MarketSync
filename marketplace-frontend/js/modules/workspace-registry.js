@@ -171,9 +171,9 @@ const MS_WORKSPACES = {
   settings: {
     label: 'Settings', icon: 'shield', accent: 'indigo', system: true, mgr: true,
     pages: [
-      { page: 'config', label: 'Configuration' },
-      { page: 'automation-builder', label: 'Automation' },
-      { page: 'api-keys', label: 'API Keys' },
+      { page: 'config', label: 'Settings' },
+      { page: 'automation-builder', label: 'Automation', legacy: true },
+      { page: 'api-keys', label: 'API Keys', legacy: true },
     ],
   },
 };

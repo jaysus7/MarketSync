@@ -169,8 +169,12 @@ test('DEPARTMENTS is an alias of the registry, not a second copy', () => {
 })
 
 test('engine workspaces and Settings render one primary header', () => {
-  assert.match(part2, /ENGINES\[pageId\]\) \|\| pageId === 'config'\) return hide\(\)/,
+  assert.match(part2, /ENGINES\[pageId\]\) \|\| \['config', 'automation-builder', 'api-keys'\]\.includes\(pageId\)\) return hide\(\)/,
     'the registry tab bar must yield to the canonical engine or Settings header')
+  const { MS_WORKSPACES } = loadRegistry()
+  assert.equal(MS_WORKSPACES.settings.pages[0].label, 'Settings')
+  assert.ok(MS_WORKSPACES.settings.pages.slice(1).every(page => page.legacy === true),
+    'Automation and API remain deep links inside Settings, not competing primary tabs')
 })
 
 test('the global header is identity, notifications and one menu instead of a CTA stack', () => {

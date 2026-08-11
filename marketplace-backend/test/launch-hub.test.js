@@ -352,6 +352,13 @@ test('a requirement somebody else has to satisfy says so', () => {
   assert.match(workspace, /Somebody with \$\{esc\(i\.permission\)\} has to do this/)
 })
 
+test('every launch requirement has a working contextual action', () => {
+  for (const requirement of REQUIREMENTS) {
+    assert.match(workspaceRaw, new RegExp(`\\b${requirement.key}: \\[`), `${requirement.key} has no UI action`)
+  }
+  assert.match(workspace, /i\.actionable_by_you !== false && action/)
+})
+
 test('incomplete setup is visible at the top and refreshes from canonical launch state', () => {
   assert.match(html, /id="setup-status-banner"/)
   assert.match(html, /Open Setup/)
