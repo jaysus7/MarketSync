@@ -118,6 +118,7 @@ export function registerRoutes(app) {
       contentType: req.file.mimetype, upsert: true
     })
     if (error) return res.status(500).json({ error: error.message })
+
     const { data: { publicUrl } } = supabaseAdmin.storage.from('avatars').getPublicUrl(path)
     await supabaseAdmin.from('profiles').update({ avatar_url: publicUrl }).eq('id', req.user.id)
     audit(req, AuditAction.AVATAR_UPLOADED)
@@ -211,6 +212,13 @@ export function registerRoutes(app) {
       .order('created_at', { ascending: true })
     if (error) return res.status(500).json({ error: error.message })
 
+    const { data: employments, error: employmentError } = await supabaseAdmin
+      .from('staff_members')
+      .select('id,user_id,name,department,job_title,employment_status')
+      .eq('dealership_id', req.dealershipId)
+    if (employmentError) return res.status(500).json({ error: employmentError.message })
+    const employmentByUser = new Map((employments || []).filter(row => row.user_id).map(row => [row.user_id, row]))
+
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
     const enriched = await Promise.all(members.map(async (m) => {
       const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(m.id).catch(() => ({ data: null }))
@@ -226,6 +234,7 @@ export function registerRoutes(app) {
       const { count: loginsCount } = await supabaseAdmin
         .from('logins').select('id', { count: 'exact', head: true })
         .eq('user_id', m.id).gte('created_at', thirtyDaysAgo)
+      const employment = employmentByUser.get(m.id) || null
       return {
         id: m.id,
         full_name: m.full_name,
@@ -238,7 +247,9 @@ export function registerRoutes(app) {
         sales_team: m.sales_team || null,
         mgr_role: m.mgr_role || null,
         active: m.active !== false,
+        account_status: m.active === false ? 'Paused' : 'Active',
         email: authUser?.user?.email || null,
+        linked_employee: employment,
         listings_posted: listingsCount || 0,
         listings_sold: soldCount || 0,
         conversion_rate: (totalCount || 0) > 0

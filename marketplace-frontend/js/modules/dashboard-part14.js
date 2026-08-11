@@ -425,24 +425,6 @@ async function loadDealerManagementMatrix() {
     }
   } catch (e) {}
 
-  // Merge HR Roster with team so onboarding and Users & Team are 100% unified
-  const hrEmployees = typeof getPeopleComplianceData === 'function' ? getPeopleComplianceData() : [];
-  hrEmployees.forEach(emp => {
-    const exists = team.some(t => t.id === emp.id || (t.email && emp.email && t.email.toLowerCase() === emp.email.toLowerCase()));
-    if (!exists) {
-      team.push({
-        id: emp.id,
-        full_name: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'Team Member',
-        email: emp.email || '—',
-        role: emp.role || emp.department || 'STAFF',
-        listings_posted: 0,
-        listings_sold: 0,
-        conversion_rate: 0,
-        logins_30d: 12
-      });
-    }
-  });
-
   if (!team.length) {
     tableBody.innerHTML = `<tr><td colspan="8" class="p-4 text-slate-500 italic">No team members yet. Click "+ Invite User" to onboard a new member.</td></tr>`;
     return;
@@ -464,9 +446,9 @@ async function loadDealerManagementMatrix() {
         <td class="py-3 px-3">${nameCell}</td>
         <td class="py-3 px-3 text-slate-600 dark:text-slate-300 max-w-[160px] truncate">${esc(m.email || '—')}</td>
         <td class="py-3 px-3">${roleBadge}</td>
-        <td class="py-3 px-3 text-right text-indigo-600 dark:text-indigo-400 font-mono">${m.listings_posted || 0}</td>
-        <td class="py-3 px-3 text-right text-emerald-600 dark:text-emerald-400 font-mono">${m.listings_sold ?? 0}</td>
-        <td class="py-3 px-3 text-right text-amber-600 dark:text-amber-400 font-mono">${m.conversion_rate ?? 0}%</td>
+        <td class="py-3 px-3 font-semibold ${m.active === false ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}">${esc(m.account_status || (m.active === false ? 'Paused' : 'Active'))}</td>
+        <td class="py-3 px-3 text-slate-600 dark:text-slate-300">${m.linked_employee ? `<button onclick="switchPage('people-overview'); setTimeout(() => engineTab('people-overview','work'), 0)" class="text-left font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">${esc(m.linked_employee.name || 'Employee card')}</button>` : '<span class="text-amber-600 dark:text-amber-400">Employment missing</span>'}</td>
+        <td class="py-3 px-3 text-slate-500">${esc(m.linked_employee?.department || 'Not assigned')}</td>
         <td class="py-3 px-3 text-right text-slate-600 dark:text-slate-300 font-mono">${m.logins_30d ?? 0}</td>
         <td class="py-3 px-3 text-right">${action}</td>
       </tr>

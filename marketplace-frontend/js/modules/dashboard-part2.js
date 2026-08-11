@@ -799,7 +799,7 @@ function deptNavEligible(role) {
     && __productAllowedPages == null;
 }
 // A page the current user may actually open: role-allowed AND not entitlement/flag hidden.
-function deptPageAllowed(p) { return deptRoleOk(p) && deptPageVisible(p.page, p.invmode); }
+function deptPageAllowed(p) { return !p.legacy && deptRoleOk(p) && deptPageVisible(p.page, p.invmode); }
 function deptHomePage(dept) { return dept.pages.find(deptPageAllowed) || dept.pages.find(deptRoleOk) || dept.pages[0]; }
 // A department is present when it has one page the user's role and plan both permit.
 // Do not inspect the old nested sidebar here: it is merely a legacy presentation tree

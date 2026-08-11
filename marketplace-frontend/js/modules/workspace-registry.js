@@ -133,8 +133,10 @@ const MS_WORKSPACES = {
     label: 'People', icon: 'user', accent: 'emerald', mgr: true,
     pages: [
       { page: 'people-overview', label: 'My Day' },
-      { page: 'sales-team', label: 'Employees' },
-      { page: 'people-compliance', label: 'Compliance' },
+      // Retained as redirect/deep-link identities only. The People engine owns Team and
+      // Compliance, so these must never render a second department tab row.
+      { page: 'sales-team', label: 'Employees', legacy: true },
+      { page: 'people-compliance', label: 'Compliance', legacy: true },
     ],
   },
 

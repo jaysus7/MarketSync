@@ -16,10 +16,10 @@ import { createHash } from 'node:crypto'
 import { ensureStaffMember } from './people-identity.js'
 
 const DEMO_EMPLOYEES = [
-  { name: 'Marcus Vance', email: 'marcus.vance@dealership.example', department: 'Sales', team: 'Sales', job_title: 'General Sales Manager', location_name: 'Main Showroom' },
-  { name: 'Sarah Jenkins', email: 'sarah.jenkins@dealership.example', department: 'Sales', team: 'Sales', job_title: 'Senior Sales Representative', location_name: 'Main Showroom' },
-  { name: 'David Miller', email: 'david.miller@dealership.example', department: 'F&I', team: 'F&I', job_title: 'Finance Manager', location_name: 'Finance Office' },
-  { name: 'Elena Rostova', email: 'elena.rostova@dealership.example', department: 'Service', team: 'Service', job_title: 'Service Manager', location_name: 'Service Bay' },
+  { name: 'Marcus Vance', email: 'marcus.vance@dealership.example', department: 'Sales', team: 'Sales', job_title: 'General Sales Manager', location_name: 'Main Showroom', start_date: '2021-03-15' },
+  { name: 'Sarah Jenkins', email: 'sarah.jenkins@dealership.example', department: 'Sales', team: 'Sales', job_title: 'Senior Sales Representative', location_name: 'Main Showroom', start_date: '2022-06-01' },
+  { name: 'David Miller', email: 'david.miller@dealership.example', department: 'F&I', team: 'F&I', job_title: 'Finance Manager', location_name: 'Finance Office', start_date: '2020-01-10' },
+  { name: 'Elena Rostova', email: 'elena.rostova@dealership.example', department: 'Service', team: 'Service', job_title: 'Service Manager', location_name: 'Service Bay', start_date: '2019-08-20' },
 ]
 
 const isPlatformOwner = req => hasSystemRole(req, SYSTEM_ROLES.PLATFORM_OWNER)

@@ -37,14 +37,22 @@ function pplAttentionRow(x) {
 }
 
 function pplPersonRow(p) {
-  const unlinked = p.linked === false
-  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+  const missingEmployment = p.has_employment === false
+  const account = p.account_status || (p.has_account ? (p.can_sign_in ? 'Active' : 'Paused') : 'Not invited')
+  const training = p.training_status
+  const trainingLabel = !training ? 'Unavailable'
+    : training.overdue ? `${training.overdue} overdue`
+      : training.total ? `${training.completed}/${training.total} complete` : 'Not assigned'
+  return `<div class="grid grid-cols-1 md:grid-cols-[minmax(12rem,2fr)_repeat(4,minmax(7rem,1fr))] gap-2 md:gap-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
     <div class="min-w-0 flex-1">
       <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(p.name || p.email || 'Unnamed')}</div>
-      <div class="text-[12px] text-slate-400 truncate">${esc([p.department, p.job_title, p.email].filter(Boolean).join(' · '))}</div>
-      ${unlinked ? '<div class="text-[12px] text-amber-600 dark:text-amber-400">Can sign in, but has no employment record</div>' : ''}
+      <div class="text-[12px] text-slate-400 truncate">${esc([p.job_title || p.login_role, p.department, p.location_name].filter(Boolean).join(' · '))}</div>
+      ${missingEmployment ? '<div class="text-[12px] text-amber-600 dark:text-amber-400">Can sign in, but has no employment record</div>' : ''}
     </div>
-    <div class="shrink-0 text-[12px] font-bold ${unlinked ? 'text-amber-600 dark:text-amber-400' : p.employment_status === 'active' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}">${esc(unlinked ? 'Not linked' : pplStatus(p.employment_status))}</div>
+    <div><div class="text-[10px] uppercase tracking-wide text-slate-400">Employment</div><div class="text-[12px] font-bold ${missingEmployment ? 'text-amber-600 dark:text-amber-400' : p.employment_status === 'active' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}">${esc(missingEmployment ? 'Missing' : pplStatus(p.employment_status))}</div></div>
+    <div><div class="text-[10px] uppercase tracking-wide text-slate-400">Account</div><div class="text-[12px] font-bold ${account === 'Active' ? 'text-emerald-600 dark:text-emerald-400' : account === 'Not invited' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">${esc(account)}</div></div>
+    <div><div class="text-[10px] uppercase tracking-wide text-slate-400">Training</div><div class="text-[12px] font-semibold ${training?.overdue ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">${esc(trainingLabel)}</div></div>
+    <div><div class="text-[10px] uppercase tracking-wide text-slate-400">Manager / start</div><div class="text-[12px] text-slate-600 dark:text-slate-300">${esc(p.manager_name || 'Not assigned')}</div><div class="text-[11px] text-slate-400">${esc(p.start_date ? `Started ${p.start_date}` : 'Start date not recorded')}</div></div>
   </div>`
 }
 
@@ -87,7 +95,7 @@ ENGINES['people-overview'] = {
   tabs: {
     overview(body, d) {
       const team = d.team || []
-      const unlinked = team.filter(p => p.linked === false).length
+      const unlinked = team.filter(p => p.has_employment === false).length
       const items = d.needsAttention || []
 
       body.innerHTML = `
@@ -107,8 +115,8 @@ ENGINES['people-overview'] = {
 
     work(body, d) {
       const team = d.team || []
-      const unlinked = team.filter(p => p.linked === false)
-      const rest = team.filter(p => p.linked !== false)
+      const unlinked = team.filter(p => p.has_employment === false)
+      const rest = team.filter(p => p.has_employment !== false)
       body.innerHTML = `
         ${unlinked.length ? engCard('Can sign in, but not on the team', `
           <p class="text-[12px] text-slate-500 mb-1">These logins have no employment record. Until they do, nothing can be assigned to them and they appear in no report.</p>

@@ -369,7 +369,8 @@ export function registerRoutes(app) {
       // not a lazy repair: People, Academy and My Day must agree on the first login immediately.
       if (isDealership) {
         const employment = await ensureStaffMember(createdDealershipId, createdUserId, {
-          name: fullName, email, role: 'DEALER_ADMIN', createdBy: createdUserId, status: 'active',
+          name: fullName, email, role: 'DEALER_ADMIN', startDate: new Date().toISOString().slice(0, 10),
+          createdBy: createdUserId, status: 'active',
         })
         if (employment.error) throw new Error(`Could not create the owner employment record: ${employment.error}`)
       }
