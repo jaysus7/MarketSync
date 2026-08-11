@@ -126,8 +126,10 @@ test('Inventory Intelligence remains visibly discoverable inside Inventory', () 
   // Pricing and age section plus the two rail shortcuts. Both still have to be there —
   // an Inventory Intelligence nobody can find is an Inventory Intelligence nobody uses.
   assert.match(inv, /engSection\('Pricing and age'/)
-  assert.match(inv, /label: 'Inventory Intelligence'.*switchPage\('inv-intel'\)/s)
-  assert.match(inv, /label: 'Market & Competitors'.*switchPage\('market'\)/s)
+  assert.match(inv, /label: 'Inventory Intelligence'.*engineTab\('inventory-overview','overview'\)/s)
+  assert.match(inv, /label: 'Market & Competitors'.*engineTab\('inventory-overview','overview'\)/s)
+  assert.match(inv, /engMountPage\(body, 'inv-intel'/)
+  assert.match(inv, /engMountPage\(body, 'market'/)
   const reg = readFileSync(new URL('../../marketplace-frontend/js/modules/workspace-registry.js', import.meta.url), 'utf8')
   for (const p of ['inv-intel', 'market']) {
     assert.ok(reg.includes(`page: '${p}'`), `${p} must stay reachable from the registry`)
@@ -287,8 +289,19 @@ test('mobile navigation is role-aware and derives from the registry', () => {
   // dashboard. Leads is manager-gated, so it is not on a rep's bar.
   assert.deepEqual(msMobileNavForRole('SALES_REP'), ['sales', 'crm', 'appointments', 'tasks'])
   assert.deepEqual(msMobileNavForRole('SERVICE'), ['service-ros', 'service-appointments', 'crm', 'tasks'])
+  for (const role of ['MANAGER', 'OWNER', 'DEALER_ADMIN']) {
+    assert.ok(!msMobileNavForRole(role).includes('tasks'), `${role} Executive My Day must not duplicate Tasks in mobile nav`)
+  }
   // An unknown role still gets a usable default rather than an empty bar.
   assert.ok(msMobileNavForRole('SOMETHING_NEW').length > 0, 'unknown roles need a fallback row')
+})
+
+test('Inventory opens as a list and keeps intelligence in My Day with Cleanup in its header', () => {
+  const inv = read('js/modules/inventory-workspace.js')
+  assert.match(inv, /return mgr \? \['work', 'overview', 'appraisals', 'cleanup', 'settings'\]/)
+  assert.match(inv, /tabLabels:\s*\{ overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup'/)
+  assert.match(inv, /cleanup\(body\)[\s\S]*engMountPage\(body, 'recon'/)
+  assert.doesNotMatch(inv.match(/settings\(body\)[\s\S]*?\n\s*},\n\s*},/s)?.[0] || '', /engMountPage\(body, 'recon'/)
 })
 
 test('mobile row still renders through the shared gating helpers', () => {

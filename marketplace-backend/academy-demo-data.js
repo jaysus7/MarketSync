@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
-export const ACADEMY_DEMO_VERSION = '2026.08.11-department-workflows-v1'
+export const ACADEMY_DEMO_VERSION = '2026.08.11-department-workflows-v2'
 
 const catalogUrls = [
   new URL('../marketplace-frontend/training/catalog.json', import.meta.url),
@@ -184,7 +184,7 @@ async function seedAi(db, dealershipId, ownerId, contacts) {
 
 async function seedDepartmentWorkflows(db, dealershipId, ownerId, inventory, contacts, deals, features) {
   const now = Date.now()
-  const summary = { appointments: 0, recon: 0, credit_applications: 0, repair_order_steps: 0, accounting_periods: 0, social_posts: 0 }
+  const summary = { appointments: 0, equity_opportunities: 0, recon: 0, credit_applications: 0, repair_order_steps: 0, accounting_periods: 0, social_posts: 0 }
 
   if (features.has('os.sales')) {
     const appointmentRows = [
@@ -216,6 +216,28 @@ async function seedDepartmentWorkflows(db, dealershipId, ownerId, inventory, con
         checklist: stage === 'frontline' ? [{ label: 'Frontline quality check', done: true }] : [],
       }))
       summary.recon++
+    }
+  }
+
+  if (features.has('os.sales')) {
+    const ownershipRows = [
+      { contact: contacts[5], vehicle: inventory[5], deal_type: 'finance', purchase_price: 38700, loan_amount: 33000, loan_apr: 5.9, payoff_amount: 14500, lease_term_months: 72 },
+      { contact: contacts[4], vehicle: inventory[4], deal_type: 'cash', purchase_price: 29995, payoff_amount: 0, lease_term_months: null },
+    ].filter(row => row.contact?.id && row.vehicle?.id)
+    for (let i = 0; i < ownershipRows.length; i++) {
+      const row = ownershipRows[i]
+      const existing = await must('find demo ownership', db.from('customer_ownership_tracking').select('id')
+        .eq('dealership_id', dealershipId).eq('customer_id', row.contact.id).eq('vehicle_id', row.vehicle.id).maybeSingle())
+      if (existing) continue
+      const { contact, vehicle, ...finance } = row
+      await must('seed demo equity opportunity', db.from('customer_ownership_tracking').insert({
+        dealership_id: dealershipId, customer_id: contact.id, vehicle_id: vehicle.id,
+        owns_vehicle: true, vehicle_status: 'delivered', delivery_date: new Date(now - (26 + i * 8) * 30.44 * 86400000).toISOString(),
+        delivery_mileage: 18000 + i * 9000, annual_km_allowance: 20000,
+        monthly_payment: finance.deal_type === 'finance' ? 615 : null,
+        residual_value: null, estimated_value: finance.purchase_price * 0.72, ...finance,
+      }))
+      summary.equity_opportunities++
     }
   }
 
@@ -374,7 +396,7 @@ export const ACADEMY_DEMO_WIPE_TABLES = [
   'ro_lines', 'part_txns', 'repair_orders', 'parts',
   'workflow_instances', 'exceptions', 'dealer_tasks', 'workflow_templates',
   'dealer_campaigns', 'dealer_email_templates', 'commission_statement_acks', 'commission_exceptions', 'commission_adjustments', 'deal_commissions', 'commission_pay_periods', 'commission_plans',
-  'events', 'crm_tasks', 'communications', 'recon', 'deals', 'listings', 'contacts', 'inventory', 'vendors',
+  'events', 'crm_tasks', 'communications', 'recon', 'customer_ownership_tracking', 'deals', 'listings', 'contacts', 'inventory', 'vendors',
 ]
 
 export async function wipeAcademyDemoData(db, dealershipId) {

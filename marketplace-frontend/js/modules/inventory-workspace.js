@@ -307,10 +307,10 @@ ENGINES['inventory-overview'] = {
   // Insights and Inventory Intelligence both folded into My Day — the numbers belong where the
   // day is read, not behind a tab. Work is named for what it holds. Appraisals takes the slot
   // Insights had, and is the appraisal page itself rather than a summary of it.
-  tabLabels: { overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', settings: 'Settings' },
+  tabLabels: { overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', cleanup: 'Cleanup', settings: 'Settings' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'work', 'appraisals', 'settings'] : ['overview', 'work', 'appraisals'];
+    return mgr ? ['work', 'overview', 'appraisals', 'cleanup', 'settings'] : ['work', 'overview', 'appraisals', 'cleanup'];
   },
 
   fetch: async () => {
@@ -332,8 +332,8 @@ ENGINES['inventory-overview'] = {
     // Add inventory lands on the Inventory tab, which now holds the real page.
     { label: '+ Add inventory', icon: 'gem', onclick: "engineTab('inventory-overview','work')" },
     { label: 'Appraise Trade', icon: 'camera', onclick: "engineTab('inventory-overview','appraisals')" },
-    { label: 'Inventory Intelligence', icon: 'chart', onclick: "switchPage('inv-intel')" },
-    { label: 'Market & Competitors', icon: 'eye', onclick: "switchPage('market')" },
+    { label: 'Inventory Intelligence', icon: 'chart', onclick: "engineTab('inventory-overview','overview')" },
+    { label: 'Market & Competitors', icon: 'eye', onclick: "engineTab('inventory-overview','overview')" },
   ],
   nextActions: (d) => invAttention(d || {}).slice(0, 5).map(it => ({
     label: `${it.who} — ${it.action?.label || 'Open'}`, icon: 'flame',
@@ -371,6 +371,10 @@ ENGINES['inventory-overview'] = {
       strip.className = 'mt-4';
       ENGINES['inventory-overview'].tabs.__insightsStrip(strip, d);
       body.appendChild(strip);
+      body.insertAdjacentHTML('beforeend', engSection('Inventory Intelligence', '', 'Pricing, aging and market comparison use the same canonical inventory shown above'));
+      engMountPage(body, 'inv-intel', () => loadInvIntelPage());
+      body.insertAdjacentHTML('beforeend', engSection('Market & Competitors', '', 'Live comparison and provider status'));
+      engMountPage(body, 'market', () => loadMarketPage());
     },
     work: invRenderWork,
 
@@ -409,14 +413,14 @@ ENGINES['inventory-overview'] = {
           return src.length ? engBar(src.map(([l, n]) => ({ pct: Math.round((n / total) * 100), cls: CLS[l], label: `${l} (${n})` }))) : engEmpty('No vehicles in stock.');
         })(), 'mt-3')}`;
     },
-    settings(body) {
-      // The cleanup board is where recon stages actually live, so it is here rather
-      // than named in a sentence with a button beside it.
+    cleanup(body) {
       body.innerHTML = engSection('Cleanup stages', '', 'Where a vehicle is in reconditioning, and what is holding it up');
       engMountPage(body, 'recon', () => loadReconPage());
-      body.insertAdjacentHTML('beforeend', engSection('Everything else',
+    },
+    settings(body) {
+      body.innerHTML = engSection('Inventory settings',
         engCard('', `<div class="text-[13px] text-slate-600 dark:text-slate-300 mb-2">Syndication destinations and pricing rules live in dealership configuration.</div>
-         <button onclick="switchPage('config')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Dealership configuration</button>`)));
+         <button onclick="switchPage('config')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Dealership configuration</button>`));
     },
   },
 };

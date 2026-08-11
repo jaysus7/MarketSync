@@ -8,7 +8,7 @@ test('Academy demo manifest covers every course in catalog', async () => {
   const lessons = await loadAcademyDemoLessons()
   assert.ok(lessons.length >= 250, 'must load complete training catalog')
   assert.equal(new Set(lessons.map(lesson => lesson.id)).size, lessons.length)
-  assert.equal(ACADEMY_DEMO_VERSION, '2026.08.11-department-workflows-v1')
+  assert.equal(ACADEMY_DEMO_VERSION, '2026.08.11-department-workflows-v2')
 })
 
 test('Academy scenario entity IDs are stable unique UUIDs', async () => {
@@ -22,7 +22,7 @@ test('Academy scenario entity IDs are stable unique UUIDs', async () => {
 test('demo reset clears seeded business data but preserves identity and subscription boundaries', () => {
   const protectedTables = ['dealerships', 'profiles', 'subscriptions', 'organization_memberships', 'user_roles', 'security_events']
   for (const table of protectedTables) assert.ok(!ACADEMY_DEMO_WIPE_TABLES.includes(table), `${table} must never be reset`)
-  for (const table of ['contacts', 'inventory', 'listings', 'deals', 'events', 'repair_orders', 'parts', 'ai_conversations', 'commission_plans']) {
+  for (const table of ['contacts', 'inventory', 'listings', 'deals', 'events', 'repair_orders', 'parts', 'ai_conversations', 'commission_plans', 'customer_ownership_tracking']) {
     assert.ok(ACADEMY_DEMO_WIPE_TABLES.includes(table), `${table} demo data should reset`)
   }
 })
@@ -56,6 +56,8 @@ test('server refreshes versioned dedicated demo data after startup', async () =>
   const server = await readFile(new URL('../server.js', import.meta.url), 'utf8')
   assert.match(server, /refreshDedicatedDemoAccounts\(\)/)
   assert.match(server, /startup refresh failed/)
+  assert.match(server, /demo_refresh:\s*startupDemoRefresh/)
+  assert.match(server, /status:\s*skipped\.length \? 'partial' : 'complete'/)
 })
 
 test('lesson scenarios are limited to shared and purchased products', async () => {
@@ -75,4 +77,5 @@ test('lesson scenarios are limited to shared and purchased products', async () =
   assert.match(source, /products\.has\('facebook'\) \? seedFacebook/)
   assert.match(source, /features\.has\('os\.service'\) \? seedServiceAndParts/)
   assert.match(source, /products\.has\('ai_dealer'\) \? seedAi/)
+  assert.match(source, /seed demo equity opportunity/)
 })
