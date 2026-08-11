@@ -267,3 +267,15 @@ test('dealer-facing scheduler exposes calendar, queue, drafts, approvals, publis
   assert.match(ws, /mktApprovePost/)
   assert.match(ws, /mktCancelPost/)
 })
+
+test('calendar modes render distinct calendar structures and reschedule through the server', () => {
+  const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
+  assert.match(ws, /__socialCalendarMode === 'month'/)
+  assert.match(ws, /__socialCalendarMode === 'week'/)
+  assert.match(ws, /__socialCalendarMode === 'agenda'/)
+  assert.match(ws, /dayCount = __socialCalendarMode === 'month' \? 42 : 7/)
+  assert.match(ws, /ondrop="mktCalendarDrop/)
+  assert.match(ws, /apiSendJson\(`\/social\/posts\/\$\{postId\}`, 'PUT', \{ scheduled_local:/)
+  assert.match(ws, /Intl\.DateTimeFormat\('en-CA', \{ timeZone: tz/,
+    'calendar grouping must use the canonical dealership timezone')
+})

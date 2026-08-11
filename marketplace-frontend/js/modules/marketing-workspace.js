@@ -20,11 +20,21 @@ const MKT_VIEWS = [
 let __mktView = 'campaigns';
 let __socialView = 'calendar';
 let __socialCalendarMode = 'month';
+let __socialCalendarAnchor = '';
+let __socialNetworkFilter = 'all';
 function mktView(v) { __mktView = v; engineTab('marketing-overview', 'work'); }
 window.mktView = mktView;
 function mktSocialView(v) { __socialView = v; mktView('social'); }
 function mktSocialCalendarMode(v) { __socialCalendarMode = v; mktView('social'); }
-Object.assign(window, { mktSocialView, mktSocialCalendarMode });
+function mktSocialNetworkFilter(v) { __socialNetworkFilter = v; mktView('social'); }
+function mktCalendarMove(months) {
+  const base = __socialCalendarAnchor ? new Date(`${__socialCalendarAnchor}T12:00:00Z`) : new Date();
+  if (__socialCalendarMode === 'week') base.setUTCDate(base.getUTCDate() + (Number(months || 0) * 7));
+  else base.setUTCMonth(base.getUTCMonth() + Number(months || 0));
+  __socialCalendarAnchor = base.toISOString().slice(0, 10);
+  mktView('social');
+}
+Object.assign(window, { mktSocialView, mktSocialCalendarMode, mktSocialNetworkFilter, mktCalendarMove });
 
 const mktMoney = (v) => {
   const x = Number(v) || 0;
@@ -175,6 +185,19 @@ async function mktReschedule(postId, current) {
   try { await apiSendJson(`/social/posts/${postId}`, 'PUT', { scheduled_local: next }); showToast('Post rescheduled', 'success'); mktReload(); }
   catch (e) { showToast(e.message, 'error'); }
 }
+function mktCalendarDrag(ev, postId, localTime) { ev.dataTransfer.setData('text/plain', JSON.stringify({ postId, localTime })); ev.dataTransfer.effectAllowed = 'move'; }
+async function mktCalendarDrop(ev, date, localTime) {
+  ev.preventDefault();
+  let postId;
+  try { ({ postId, localTime } = JSON.parse(ev.dataTransfer.getData('text/plain'))); }
+  catch { postId = ev.dataTransfer.getData('text/plain'); }
+  if (!postId || !date) return;
+  try {
+    await apiSendJson(`/social/posts/${postId}`, 'PUT', { scheduled_local: `${date}T${localTime || '09:00'}` });
+    showToast('Post rescheduled', 'success');
+    mktReload();
+  } catch (e) { showToast(e.message, 'error'); }
+}
 async function mktApprovePost(postId) {
   try { await apiSendJson(`/social/posts/${postId}/approve`, 'POST', {}); showToast('Post approved', 'success'); mktReload(); }
   catch (e) { showToast(e.message, 'error'); }
@@ -184,7 +207,7 @@ async function mktCancelPost(postId) {
   try { await apiSendJson(`/social/posts/${postId}/cancel`, 'POST', {}); showToast('Post cancelled', 'success'); mktReload(); }
   catch (e) { showToast(e.message, 'error'); }
 }
-Object.assign(window, { mktReschedule, mktApprovePost, mktCancelPost });
+Object.assign(window, { mktReschedule, mktApprovePost, mktCancelPost, mktCalendarDrag, mktCalendarDrop });
 
 async function mktUploadAsset(input) {
   const file = input.files?.[0]; if (!file) return;
@@ -394,29 +417,60 @@ ENGINES['marketing-overview'] = {
           || (p.targets || []).some(t => t.status === 'failed'));
         const socialTabs = [['calendar','Calendar'],['queue','Queue'],['drafts','Drafts'],['approvals','Approvals'],['published','Published'],['failed','Failed']]
           .map(([v,l]) => `<button onclick="mktSocialView('${v}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold ${__socialView===v?'bg-violet-600 text-white':'border border-slate-200 dark:border-slate-700'}">${l}</button>`).join('');
-        const selected = posts.filter(p => __socialView === 'drafts' ? p.status === 'draft'
+        const viewPosts = posts.filter(p => __socialView === 'drafts' ? p.status === 'draft'
           : __socialView === 'approvals' ? p.status === 'needs_approval'
           : __socialView === 'published' ? p.status === 'published'
           : __socialView === 'failed' ? (p.status === 'failed' || p.status === 'partially_published' || (p.targets||[]).some(t=>t.status==='failed'))
           : __socialView === 'queue' ? ['scheduled','publishing','needs_approval'].includes(p.status)
           : !!p.scheduled_for);
+        const networks = [...new Set(posts.flatMap(p => (p.targets || []).map(t => t.account?.provider).filter(Boolean)))].sort();
+        const selected = viewPosts.filter(p => __socialNetworkFilter === 'all'
+          || (p.targets || []).some(t => t.account?.provider === __socialNetworkFilter));
         const fmt = (iso) => { if (!iso) return 'Unscheduled'; try { return new Intl.DateTimeFormat(undefined,{timeZone:tz,month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(iso)); } catch { return new Date(iso).toLocaleString(); } };
-        const postRows = selected.length ? selected.slice(0, 100).map(p => {
+        const localParts = (iso) => {
+          try {
+            const values = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).formatToParts(new Date(iso)).map(x => [x.type, x.value]));
+            return { date: `${values.year}-${values.month}-${values.day}`, time: `${values.hour}:${values.minute}` };
+          } catch { return { date: String(iso || '').slice(0, 10), time: String(iso || '').slice(11, 16) || '09:00' }; }
+        };
+        const postCard = (p, compact = false) => {
           const targets = p.targets || [], failed = targets.filter(t=>t.status==='failed');
           const why = failed[0]?.error || null;
           const partial = failed.length > 0 && failed.length < targets.length;
-          const networks = [...new Set(targets.map(t=>t.account?.provider).filter(Boolean))].join(', ') || 'No network';
+          const targetNetworks = [...new Set(targets.map(t=>t.account?.provider).filter(Boolean))].join(', ') || 'No network';
           const action = p.status === 'needs_approval' ? `<button onclick="mktApprovePost('${p.id}')" class="text-[11px] font-bold text-violet-600">Approve</button>`
             : ['draft','scheduled','failed'].includes(p.status) ? `<button onclick="mktReschedule('${p.id}','${p.scheduled_for || ''}')" class="text-[11px] font-bold text-violet-600">${p.scheduled_for?'Reschedule':'Schedule'}</button>` : '';
-          return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex gap-3"><div class="w-16 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${p.media?.[0]?`style="background-image:url('${esc(p.media[0])}')"`:''}></div><div class="min-w-0 flex-1"><div class="text-[11px] font-bold text-slate-400">${esc(fmt(p.scheduled_for))} · ${esc(tz)}</div><div class="text-[13px] font-bold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,90))}</div><div class="text-[11px] text-slate-500">${esc(networks)} · ${esc(partial ? 'Partly published' : failed.length ? 'Failed' : mktLabel(p.status))}${failed.length?` · ${failed.length} failed to publish`:''}${why?` · ${esc(why)}`:''}</div></div><div class="flex flex-col gap-1 text-right">${action}${['draft','scheduled','needs_approval','failed'].includes(p.status)?`<button onclick="mktCancelPost('${p.id}')" class="text-[11px] font-bold text-rose-600">Cancel</button>`:''}${failed.length?`<button onclick="mktPublishNow('${p.id}')" class="text-[11px] font-bold text-rose-600">Retry</button>`:''}</div></div>`;
-        }).join('') : engEmpty(`No ${__socialView} posts.`);
+          const movable = ['draft','scheduled','needs_approval','failed'].includes(p.status) && p.scheduled_for;
+          const drag = movable ? `draggable="true" ondragstart="mktCalendarDrag(event,'${p.id}','${localParts(p.scheduled_for).time}')" title="Drag to another day to reschedule"` : '';
+          if (compact) return `<div ${drag} class="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 cursor-${movable?'move':'default'}"><div class="text-[10px] font-bold text-violet-600">${esc(localParts(p.scheduled_for).time)} · ${esc(targetNetworks)}</div><div class="text-[11px] font-semibold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,55))}</div><div class="text-[10px] text-slate-400">${esc(mktLabel(p.status))}</div></div>`;
+          return `<div ${drag} class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex gap-3"><div class="w-16 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${p.media?.[0]?`style="background-image:url('${esc(p.media[0])}')"`:''}></div><div class="min-w-0 flex-1"><div class="text-[11px] font-bold text-slate-400">${esc(fmt(p.scheduled_for))} · ${esc(tz)}</div><div class="text-[13px] font-bold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,90))}</div><div class="text-[11px] text-slate-500">${esc(targetNetworks)} · ${esc(partial ? 'Partly published' : failed.length ? 'Failed' : mktLabel(p.status))}${failed.length?` · ${failed.length} failed to publish`:''}${why?` · ${esc(why)}`:''}</div></div><div class="flex flex-col gap-1 text-right">${action}${['draft','scheduled','needs_approval','failed'].includes(p.status)?`<button onclick="mktCancelPost('${p.id}')" class="text-[11px] font-bold text-rose-600">Cancel</button>`:''}${failed.length?`<button onclick="mktPublishNow('${p.id}')" class="text-[11px] font-bold text-rose-600">Retry</button>`:''}</div></div>`;
+        };
+        const postRows = selected.length ? selected.slice(0, 100).map(p => postCard(p)).join('') : engEmpty(`No ${__socialView} posts.`);
+        const anchorParts = localParts(__socialCalendarAnchor ? `${__socialCalendarAnchor}T12:00:00Z` : new Date().toISOString());
+        if (!__socialCalendarAnchor) __socialCalendarAnchor = anchorParts.date;
+        const logical = new Date(`${__socialCalendarAnchor}T12:00:00Z`);
+        const start = new Date(logical);
+        if (__socialCalendarMode === 'month') { start.setUTCDate(1); start.setUTCDate(start.getUTCDate() - start.getUTCDay()); }
+        else { start.setUTCDate(start.getUTCDate() - start.getUTCDay()); }
+        const dayCount = __socialCalendarMode === 'month' ? 42 : 7;
+        const calendarDays = Array.from({ length: dayCount }, (_, i) => { const x = new Date(start); x.setUTCDate(x.getUTCDate() + i); return x; });
+        const calendarGrid = `<div class="grid grid-cols-7 text-[10px] font-bold text-slate-400 mb-1">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>`<div class="px-1">${x}</div>`).join('')}</div><div class="grid grid-cols-7 border-l border-t border-slate-200 dark:border-slate-700">${calendarDays.map(day => {
+          const date = day.toISOString().slice(0,10), inMonth = day.getUTCMonth() === logical.getUTCMonth();
+          const items = selected.filter(p => localParts(p.scheduled_for).date === date);
+          const defaultTime = items[0] ? localParts(items[0].scheduled_for).time : '09:00';
+          return `<div ondragover="event.preventDefault()" ondrop="mktCalendarDrop(event,'${date}','${defaultTime}')" class="min-h-[92px] md:min-h-[130px] border-r border-b border-slate-200 dark:border-slate-700 p-1 ${inMonth || __socialCalendarMode==='week'?'':'bg-slate-50 dark:bg-slate-950/40 text-slate-400'}"><div class="text-[10px] font-bold mb-1">${day.getUTCDate()}</div><div class="space-y-1">${items.slice(0,4).map(p=>postCard(p,true)).join('')}${items.length>4?`<div class="text-[10px] text-slate-400">${items.length-4} more</div>`:''}</div></div>`;
+        }).join('')}</div>`;
+        const calendarBody = __socialCalendarMode === 'agenda' ? `<div class="space-y-2">${postRows}</div>` : calendarGrid;
         inner = `
           <div class="flex items-center justify-between gap-3 mb-3">
             <div class="text-[13px] text-slate-500">Dealer timezone: <b>${esc(tz)}</b></div>
             <button onclick="mktCompose()" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[12px] font-bold">New post</button>
           </div>
           <div class="flex gap-2 overflow-x-auto pb-2 mb-3">${socialTabs}</div>
-          ${__socialView==='calendar'?`<div class="flex gap-2 mb-3">${['month','week','agenda'].map(v=>`<button onclick="mktSocialCalendarMode('${v}')" class="text-[11px] font-bold px-2 py-1 rounded ${__socialCalendarMode===v?'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'border border-slate-200 dark:border-slate-700'}">${mktLabel(v)}</button>`).join('')}</div>`:''}
+          <div class="flex flex-wrap items-center gap-2 mb-3">
+            ${__socialView==='calendar'?`${['month','week','agenda'].map(v=>`<button onclick="mktSocialCalendarMode('${v}')" class="text-[11px] font-bold px-2 py-1 rounded ${__socialCalendarMode===v?'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'border border-slate-200 dark:border-slate-700'}">${mktLabel(v)}</button>`).join('')}<span class="h-5 border-l border-slate-200 dark:border-slate-700"></span><button onclick="mktCalendarMove(-1)" class="text-[11px] font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Previous</button><button onclick="mktCalendarMove(1)" class="text-[11px] font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Next</button>`:''}
+            <label class="ml-auto text-[11px] font-bold text-slate-500">Network <select onchange="mktSocialNetworkFilter(this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${networks.map(n=>`<option value="${esc(n)}" ${__socialNetworkFilter===n?'selected':''}>${esc(mktLabel(n))}</option>`).join('')}</select></label>
+          </div>
           <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
             ${engKpi('Accounts', accounts.length)}
             ${engKpi('Disconnected', broken.length, broken.length ? 'text-rose-600 dark:text-rose-400' : '')}
@@ -431,7 +485,7 @@ ENGINES['marketing-overview'] = {
             tone: a.status !== 'connected' ? 'text-rose-600 dark:text-rose-400'
                 : a.can_publish ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500',
           })).join('') : engEmpty('No social accounts connected.'))}
-          <div class="mt-4"></div>${engCard(`${mktLabel(__socialView)} (${selected.length})`, `<div class="space-y-2">${postRows}</div>`)}`;
+          <div class="mt-4"></div>${engCard(`${mktLabel(__socialView)} (${selected.length})`, __socialView === 'calendar' ? calendarBody : `<div class="space-y-2">${postRows}</div>`)}`;
       }
 
       if (__mktView === 'conversations') {
