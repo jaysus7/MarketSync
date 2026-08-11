@@ -13,9 +13,11 @@
  *     journal shows its units with the gross marked incomplete, never an assumed average.
  */
 
-// Campaigns, Studio, Social, Conversations and Attribution were a second row of tabs
-// inside "Work". They are sections of the six real tabs now — Campaigns under Emails,
-// Social under Studio, Conversations under AI ChatBot, Attribution in My Day.
+const MKT_VIEWS = [
+  ['campaigns', 'Campaigns'], ['studio', 'Studio'], ['social', 'Social'],
+  ['conversations', 'Conversations'], ['attribution', 'Attribution'],
+];
+let __mktView = 'campaigns';
 let __socialView = 'calendar';
 let __socialCalendarMode = 'month';
 let __socialCalendarAnchor = '';
@@ -24,24 +26,24 @@ let __socialAccountFilter = 'all';
 let __socialCampaignFilter = 'all';
 let __socialStatusFilter = 'all';
 let __socialOwnerFilter = 'all';
-// Social lives in the Studio tab, so every social filter re-renders that tab.
-const mktStudio = () => engineTab('marketing-overview', 'studio');
-function mktSocialView(v) { __socialView = v; mktStudio(); }
-function mktSocialCalendarMode(v) { __socialCalendarMode = v; mktStudio(); }
-function mktSocialNetworkFilter(v) { __socialNetworkFilter = v; mktStudio(); }
+function mktView(v) { __mktView = v; engineTab('marketing-overview', 'work'); }
+window.mktView = mktView;
+function mktSocialView(v) { __socialView = v; mktView('social'); }
+function mktSocialCalendarMode(v) { __socialCalendarMode = v; mktView('social'); }
+function mktSocialNetworkFilter(v) { __socialNetworkFilter = v; mktView('social'); }
 function mktSocialFilter(kind, v) {
   if (kind === 'account') __socialAccountFilter = v;
   if (kind === 'campaign') __socialCampaignFilter = v;
   if (kind === 'status') __socialStatusFilter = v;
   if (kind === 'owner') __socialOwnerFilter = v;
-  mktStudio();
+  mktView('social');
 }
 function mktCalendarMove(months) {
   const base = __socialCalendarAnchor ? new Date(`${__socialCalendarAnchor}T12:00:00Z`) : new Date();
   if (__socialCalendarMode === 'week') base.setUTCDate(base.getUTCDate() + (Number(months || 0) * 7));
   else base.setUTCMonth(base.getUTCMonth() + Number(months || 0));
   __socialCalendarAnchor = base.toISOString().slice(0, 10);
-  mktStudio();
+  mktView('social');
 }
 Object.assign(window, { mktSocialView, mktSocialCalendarMode, mktSocialNetworkFilter, mktSocialFilter, mktCalendarMove });
 
@@ -56,10 +58,10 @@ const mktLabel = (s) => { const t = String(s || '').replace(/_/g, ' '); return t
 // Where an item sends you. Marketing's items stay here; a conversation belongs to Sales and
 // a gross gap belongs to Accounting, so those hand off rather than pretending to be ours.
 function mktGo(kind) {
-  if (kind.startsWith('conversation_')) return "engineTab('marketing-overview','chatbot')";
-  if (kind.startsWith('social_')) return "engineTab('marketing-overview','studio')";
+  if (kind.startsWith('conversation_')) return "mktView('conversations')";
+  if (kind.startsWith('social_')) return "mktView('social')";
   if (kind === 'campaign_gross_incomplete') return "switchPage('accounting-overview')";
-  return "engineTab('marketing-overview','emails')";
+  return "mktView('campaigns')";
 }
 
 function mktAttentionRow(x) {
@@ -101,14 +103,14 @@ async function mktCampaignStatus(id, status) {
     await apiSendJson(`/campaigns/${id}/status`, 'POST', { status });
     showToast(`Campaign ${status.replace(/_/g, ' ')} `, 'success');
     ENGINE_DATA['marketing-overview'] = undefined;
-    engineTab('marketing-overview', ENGINE_STATE['marketing-overview'] || 'overview', true);
+    engineTab('marketing-overview', ENGINE_STATE['marketing-overview'] || 'work', true);
   } catch (e) { showToast(e.message, 'error'); }
 }
 window.mktCampaignStatus = mktCampaignStatus;
 
 const mktReload = () => {
   ENGINE_DATA['marketing-overview'] = undefined;
-  engineTab('marketing-overview', ENGINE_STATE['marketing-overview'] || 'overview', true);
+  engineTab('marketing-overview', ENGINE_STATE['marketing-overview'] || 'work', true);
 };
 
 /**
@@ -118,23 +120,31 @@ const mktReload = () => {
  */
 function mktCompose(prefill = {}) {
   const d = ENGINE_DATA['marketing-overview'] || {};
+  const post = prefill.post || null;
   const accounts = d.accounts || [], assets = d.assets || [], campaigns = d.campaigns || [], inventory = d.inventory || [];
-  const usable = accounts.filter(a => a.can_publish);
-  const refused = accounts.filter(a => !a.can_publish);
+  const publishable = accounts.filter(a => a.can_publish);
+  const schedulable = accounts.filter(a => a.can_schedule);
+  const usable = post?.scheduled_for ? schedulable : publishable;
+  const refusedPublishing = accounts.filter(a => !a.can_publish);
+  const refusedScheduling = accounts.filter(a => !a.can_schedule);
+  const refused = post?.scheduled_for ? refusedScheduling : refusedPublishing;
+  const selectedTargets = new Map((post?.targets || []).map(t => [t.social_account_id, t]));
+  const selectedMedia = new Set(post?.media || (prefill.assetUrl ? [prefill.assetUrl] : []));
+  const localWhen = post?.scheduled_for ? mktLocalDateTime(post.scheduled_for, d.socialTimezone || 'UTC') : '';
 
   crmOverlay(`
     <div class="p-5">
-      <h2 class="text-lg font-black text-slate-900 dark:text-white mb-1">New post</h2>
+      <h2 class="text-lg font-black text-slate-900 dark:text-white mb-1">${post ? 'Edit post' : 'New post'}</h2>
       <p class="text-[13px] text-slate-500 mb-4">Nothing is sent until a network confirms it. You will see exactly which accounts it reached.</p>
       <textarea id="mkt-body" rows="4" placeholder="What do you want to say?"
-        class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-[14px] mb-3">${esc(prefill.body || '')}</textarea>
+        class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-[14px] mb-3">${esc(post?.body || prefill.body || '')}</textarea>
       <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">Publish to</div>
       ${usable.length ? usable.map(a => `<div class="py-1.5">
-        <label class="flex items-center gap-2"><input type="checkbox" class="mkt-target" value="${esc(a.id)}" onchange="mktToggleVariant(this)">
+        <label class="flex items-center gap-2"><input type="checkbox" class="mkt-target" value="${esc(a.id)}" onchange="mktToggleVariant(this)" ${selectedTargets.has(a.id) ? 'checked' : ''}>
           <span class="text-[13px] text-slate-900 dark:text-white">${esc(a.display_name)}</span><span class="text-[12px] text-slate-400">${esc(a.provider)}</span>
         </label>
-        <label class="mkt-variant-wrap hidden ml-6 mt-1 text-[11px] font-bold text-slate-500">Caption for ${esc(a.provider)}
-          <textarea rows="2" class="mkt-variant mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[12px] font-normal" data-account-id="${esc(a.id)}" placeholder="Optional — leave blank to use the shared caption"></textarea>
+        <label class="mkt-variant-wrap ${selectedTargets.has(a.id) ? '' : 'hidden'} ml-6 mt-1 text-[11px] font-bold text-slate-500">Caption for ${esc(a.provider)}
+          <textarea rows="2" class="mkt-variant mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[12px] font-normal" data-account-id="${esc(a.id)}" placeholder="Optional — leave blank to use the shared caption">${esc(selectedTargets.get(a.id)?.body_override || '')}</textarea>
         </label>
       </div>`).join('') : `<div class="text-[13px] text-rose-600 dark:text-rose-400">You cannot publish to any connected account yet.</div>`}
       ${refused.length ? `<div class="mt-2 text-[12px] text-slate-400">${refused.map(a =>
@@ -142,23 +152,37 @@ function mktCompose(prefill = {}) {
       ${assets.length ? `<div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mt-4 mb-1">Attach from Studio</div>
         <div class="flex gap-2 overflow-x-auto pb-1">${assets.slice(0, 20).map(a => `
           <label class="shrink-0 cursor-pointer">
-            <input type="checkbox" class="mkt-media" value="${esc(a.public_url)}" ${prefill.assetUrl === a.public_url ? 'checked' : ''}>
+            <input type="checkbox" class="mkt-media" value="${esc(a.public_url)}" ${selectedMedia.has(a.public_url) ? 'checked' : ''}>
             <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" class="w-16 h-16 object-cover rounded-lg border border-slate-200 dark:border-slate-700">
           </label>`).join('')}</div>` : ''}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-        <label class="text-[12px] font-bold text-slate-700 dark:text-slate-200">Campaign<select id="mkt-campaign" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]"><option value="">No campaign</option>${campaigns.map(c=>`<option value="${esc(c.id)}" ${prefill.campaignId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
-        <label class="text-[12px] font-bold text-slate-700 dark:text-slate-200">Vehicle<select id="mkt-vehicle" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]"><option value="">No vehicle</option>${inventory.map(v=>`<option value="${esc(v.id)}">${esc(`${v.year||''} ${v.make||''} ${v.model||''} · ${v.stocknumber||'no stock #'}`.trim())}</option>`).join('')}</select></label>
+        <label class="text-[12px] font-bold text-slate-700 dark:text-slate-200">Campaign<select id="mkt-campaign" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]"><option value="">No campaign</option>${campaigns.map(c=>`<option value="${esc(c.id)}" ${(post?.campaign_id || prefill.campaignId)===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
+        <label class="text-[12px] font-bold text-slate-700 dark:text-slate-200">Vehicle<select id="mkt-vehicle" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]"><option value="">No vehicle</option>${inventory.map(v=>`<option value="${esc(v.id)}" ${post?.inventory_id===v.id?'selected':''}>${esc(`${v.year||''} ${v.make||''} ${v.model||''} · ${v.stocknumber||'no stock #'}`.trim())}</option>`).join('')}</select></label>
       </div>
       <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mt-4 mb-1">When</div>
-      <input id="mkt-when" type="datetime-local" class="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]">
+      <input id="mkt-when" type="datetime-local" value="${esc(localWhen)}" class="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]">
       <div class="text-[12px] text-slate-400 mt-1">Leave empty to save as a draft you can publish by hand.</div>
       <div class="flex gap-2 mt-5">
-        <button onclick="mktSavePost(this)" class="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[13px] font-bold">Save post</button>
+        <button data-post-id="${esc(post?.id || '')}" onclick="mktSavePost(this)" class="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[13px] font-bold">${post ? 'Save changes' : 'Save post'}</button>
         <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[13px] font-bold">Cancel</button>
       </div>
     </div>`, 'max-w-lg');
 }
 window.mktCompose = mktCompose;
+
+function mktLocalDateTime(iso, timezone) {
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).formatToParts(new Date(iso)).map(x => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  } catch { return String(iso || '').slice(0, 16); }
+}
+
+function mktEditPost(postId) {
+  const post = (ENGINE_DATA['marketing-overview']?.posts || []).find(p => p.id === postId);
+  if (!post) return showToast('Post could not be loaded.', 'error');
+  mktCompose({ post });
+}
+window.mktEditPost = mktEditPost;
 
 function mktToggleVariant(input) {
   input.closest('div')?.querySelector('.mkt-variant-wrap')?.classList.toggle('hidden', !input.checked);
@@ -167,6 +191,7 @@ window.mktToggleVariant = mktToggleVariant;
 
 async function mktSavePost(btn) {
   const root = btn.closest('.fixed');
+  const postId = btn.dataset.postId || '';
   const targets = [...root.querySelectorAll('.mkt-target:checked')].map(i => {
     const bodyOverride = [...root.querySelectorAll('.mkt-variant')].find(v => v.dataset.accountId === i.value)?.value.trim();
     return { social_account_id: i.value, body_override: bodyOverride || null };
@@ -174,7 +199,7 @@ async function mktSavePost(btn) {
   if (!targets.length) return showToast('Choose at least one account to publish to.', 'error');
   const when = root.querySelector('#mkt-when').value;
   try {
-    await apiSendJson('/social/posts', 'POST', {
+    await apiSendJson(postId ? `/social/posts/${postId}` : '/social/posts', postId ? 'PUT' : 'POST', {
       body: root.querySelector('#mkt-body').value,
       media: [...root.querySelectorAll('.mkt-media:checked')].map(i => i.value),
       campaign_id: root.querySelector('#mkt-campaign')?.value || null,
@@ -183,7 +208,7 @@ async function mktSavePost(btn) {
       targets,
     });
     root.remove();
-    showToast(when ? 'Post scheduled ' : 'Draft saved ', 'success');
+    showToast(postId ? 'Post updated' : (when ? 'Post scheduled' : 'Draft saved'), 'success');
     mktReload();
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -295,7 +320,7 @@ async function mktTakeover(conversationId) {
     await apiSendJson(`/conversations/${conversationId}/takeover`, 'POST', {});
     showToast('You are handling this conversation ', 'success');
     ENGINE_DATA['marketing-overview'] = undefined;
-    engineTab('marketing-overview', ENGINE_STATE['marketing-overview'] || 'overview', true);
+    engineTab('marketing-overview', ENGINE_STATE['marketing-overview'] || 'work', true);
   } catch (e) { showToast(e.message, 'error'); }
 }
 window.mktTakeover = mktTakeover;
@@ -304,20 +329,18 @@ ENGINES['marketing-overview'] = {
   rootId: 'marketing-overview-root', title: 'Marketing',
   subtitle: 'Campaigns, social, conversations — and what they actually produced',
   icon: 'megaphone', accent: 'violet',
-  // Marketing is the widest department, so it carries six. Each is a place a marketer
-  // goes to do one job, and none of them opens onto another row of tabs.
-  tabLabels: { overview: 'My Day', chatbot: 'AI ChatBot', emails: 'Emails', studio: 'Studio', website: 'Website', settings: 'Settings' },
+  tabLabels: { overview: 'My Day', work: 'Work', insights: 'Insights' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'chatbot', 'emails', 'studio', 'website', 'settings']
-               : ['overview', 'chatbot', 'emails', 'studio'];
+    return mgr ? ['overview', 'work', 'insights'] : ['overview', 'work'];
   },
 
   quickActions: [
-    { label: 'AI ChatBot', icon: 'chat', onclick: "engineTab('marketing-overview','chatbot')" },
-    { label: 'Emails', icon: 'megaphone', onclick: "engineTab('marketing-overview','emails')" },
-    { label: 'Studio', icon: 'image', onclick: "engineTab('marketing-overview','studio')" },
-    { label: 'Website', icon: 'chart', onclick: "engineTab('marketing-overview','website')" },
+    { label: 'Studio', icon: 'image', onclick: "mktView('studio')" },
+    { label: 'Campaigns', icon: 'megaphone', onclick: "mktView('campaigns')" },
+    { label: 'Social', icon: 'chart', onclick: "mktView('social')" },
+    { label: 'Conversations', icon: 'chat', onclick: "mktView('conversations')" },
+    { label: 'Attribution', icon: 'currency', onclick: "mktView('attribution')" },
   ],
   nextActions: (d) => (d?.needsAttention || []).slice(0, 5).map(x => ({
     label: `${x.subject} — ${x.action}`, icon: 'flame',
@@ -379,324 +402,245 @@ ENGINES['marketing-overview'] = {
         <div class="mt-4"></div>
         ${engCard(`Opportunities (${opp.length})`,
           opp.length ? opp.slice(0, 15).map(mktAttentionRow).join('')
-                     : engEmpty('No standout opportunities yet.'))}
-        ${mktReturnStrip(d)}`;
+                     : engEmpty('No standout opportunities yet.'))}`;
     },
 
-    // ── AI ChatBot ───────────────────────────────────────────────────────────
-    // Was "Work", which opened onto five more tabs. The chatbot and the inbox it fills
-    // are one job, so they are one page you scroll.
-    chatbot(body, d) {
-      body.innerHTML = engSection('Conversations', mktConversationsView(d), 'Who is talking to the bot, and who is waiting on a human');
-      body.insertAdjacentHTML('beforeend', engSection('The assistant', '', 'How it answers, and what it knows about your store'));
-      engMountPage(body, 'ai-home', () => loadAiHome());
+    work(body, d) {
+      const nav = MKT_VIEWS.map(([v, label]) => `<button onclick="mktView('${v}')"
+        class="px-3 py-1.5 rounded-lg text-[12px] font-bold whitespace-nowrap transition ${__mktView === v
+          ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+          : 'border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}">${esc(label)}</button>`).join('');
+      let inner = '';
+
+      if (__mktView === 'campaigns') {
+        const rows = d.campaigns || [];
+        const spent = rows.reduce((s, c) => s + (c.spend?.actual || 0), 0);
+        inner = `
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            ${engKpi('Campaigns', rows.length)}
+            ${engKpi('Active', rows.filter(c => c.status === 'active').length)}
+            ${engKpi('Spent', mktMoney(spent))}
+            ${engKpi('Awaiting approval', rows.filter(c => c.status === 'needs_approval').length,
+              rows.some(c => c.status === 'needs_approval') ? 'text-amber-600 dark:text-amber-400' : '')}
+          </div>
+          ${engCard('Campaigns', rows.length ? rows.map(c => {
+            const p = c.performance || {}, s = c.spend || {};
+            // ROI is only shown when it is real: actual spend AND posted gross. An
+            // incomplete gross is said out loud rather than quietly averaged away.
+            const roi = c.roi == null ? '—' : `${c.roi > 0 ? '+' : ''}${c.roi}%`;
+            return mktRow({
+              title: c.name,
+              sub: `${(c.channels || []).join(', ') || 'no channel'} · ${mktLabel(c.status)}`,
+              note: `${p.leads || 0} leads · ${p.delivered || 0} delivered · spent ${mktMoney(s.actual || 0)} of ${mktMoney(s.budget || 0)} budget`
+                    + (c.gross_complete === false ? ' · gross incomplete' : ''),
+              right: roi,
+              tone: c.gross_complete === false ? 'text-amber-600 dark:text-amber-400' : (MKT_STATUS_TONE[c.status] || ''),
+              onclick: c.status === 'needs_approval' ? `mktCampaignStatus('${c.id}','approved')` : null,
+            });
+          }).join('') : engEmpty('No campaigns yet.'))}`;
+      }
+
+      if (__mktView === 'studio') {
+        const assets = d.assets || [];
+        inner = `
+          <div class="flex items-center justify-between gap-3 mb-3">
+            <div class="text-[13px] text-slate-500">The dealership's own images, reusable across posts and campaigns.</div>
+            <div class="flex gap-2"><button onclick="mktStudioOpen()" class="shrink-0 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[12px] font-bold">Create design</button><label class="shrink-0 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[12px] font-bold cursor-pointer">
+              Upload<input type="file" accept="image/*" class="hidden" onchange="mktUploadAsset(this)">
+            </label></div>
+          </div>
+          ${engCard(`Media library (${assets.length})`, assets.length ? `
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              ${assets.map(a => `<div class="min-w-0">
+                <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" loading="lazy"
+                     class="w-full aspect-square object-cover rounded-lg border border-slate-200 dark:border-slate-700">
+                <div class="text-[11px] text-slate-400 truncate mt-1">${esc(a.title || `${a.width || '?'}×${a.height || '?'}`)}</div>
+                <div class="flex gap-2 mt-1"><button onclick="mktStudioOpen('${esc(a.id)}','${esc(a.public_url)}')" class="text-[11px] font-bold text-violet-600">Use as background</button><button onclick="mktCompose({assetUrl:'${esc(a.public_url)}'})" class="text-[11px] font-bold text-slate-600 dark:text-slate-300">Schedule</button></div>
+              </div>`).join('')}
+            </div>` : engEmpty('Nothing in Studio yet. Create a design or upload a photo.'))}`;
+      }
+
+      if (__mktView === 'social') {
+        const accounts = d.accounts || [], posts = d.posts || [];
+        const tz = d.socialTimezone || 'UTC';
+        const broken = accounts.filter(a => a.status !== 'connected');
+        // Nothing publishes until a network integration is connected. Saying so here is the
+        // difference between a queue that looks healthy and one a person can act on.
+        const unsent = posts.filter(p => ['scheduled', 'failed', 'partially_published'].includes(p.status)
+          || (p.targets || []).some(t => t.status === 'failed'));
+        const socialTabs = [['calendar','Calendar'],['queue','Queue'],['drafts','Drafts'],['approvals','Approvals'],['published','Published'],['failed','Failed']]
+          .map(([v,l]) => `<button onclick="mktSocialView('${v}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold ${__socialView===v?'bg-violet-600 text-white':'border border-slate-200 dark:border-slate-700'}">${l}</button>`).join('');
+        const viewPosts = posts.filter(p => __socialView === 'drafts' ? p.status === 'draft'
+          : __socialView === 'approvals' ? p.status === 'needs_approval'
+          : __socialView === 'published' ? p.status === 'published'
+          : __socialView === 'failed' ? (p.status === 'failed' || p.status === 'partially_published' || (p.targets||[]).some(t=>t.status==='failed'))
+          : __socialView === 'queue' ? ['scheduled','publishing','needs_approval'].includes(p.status)
+          : !!p.scheduled_for);
+        const networks = [...new Set(posts.flatMap(p => (p.targets || []).map(t => t.account?.provider).filter(Boolean)))].sort();
+        const selected = viewPosts.filter(p => (__socialNetworkFilter === 'all'
+          || (p.targets || []).some(t => t.account?.provider === __socialNetworkFilter))
+          && (__socialAccountFilter === 'all' || (p.targets || []).some(t => t.social_account_id === __socialAccountFilter))
+          && (__socialCampaignFilter === 'all' || p.campaign_id === __socialCampaignFilter)
+          && (__socialStatusFilter === 'all' || p.status === __socialStatusFilter)
+          && (__socialOwnerFilter === 'all' || p.created_by === __socialOwnerFilter));
+        const campaignOptions = (d.campaigns || []).filter(c => posts.some(p => p.campaign_id === c.id));
+        const ownerOptions = [...new Map(posts.filter(p => p.created_by).map(p => [p.created_by, p.creator?.full_name || 'Unknown user'])).entries()];
+        const statusOptions = [...new Set(posts.map(p => p.status).filter(Boolean))].sort();
+        const fmt = (iso) => { if (!iso) return 'Unscheduled'; try { return new Intl.DateTimeFormat(undefined,{timeZone:tz,month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(iso)); } catch { return new Date(iso).toLocaleString(); } };
+        const localParts = (iso) => {
+          try {
+            const values = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).formatToParts(new Date(iso)).map(x => [x.type, x.value]));
+            return { date: `${values.year}-${values.month}-${values.day}`, time: `${values.hour}:${values.minute}` };
+          } catch { return { date: String(iso || '').slice(0, 10), time: String(iso || '').slice(11, 16) || '09:00' }; }
+        };
+        const postCard = (p, compact = false) => {
+          const targets = p.targets || [], failed = targets.filter(t=>t.status==='failed');
+          const why = failed[0]?.error || null;
+          const partial = failed.length > 0 && failed.length < targets.length;
+          const targetNetworks = [...new Set(targets.map(t=>t.account?.provider).filter(Boolean))].join(', ') || 'No network';
+          const action = p.status === 'needs_approval' ? `<button onclick="mktApprovePost('${p.id}')" class="text-[11px] font-bold text-violet-600">Approve</button><button onclick="mktEditPost('${p.id}')" class="text-[11px] font-bold text-slate-600 dark:text-slate-300">Edit</button>`
+            : ['draft','scheduled','failed'].includes(p.status) ? `<button onclick="mktEditPost('${p.id}')" class="text-[11px] font-bold text-violet-600">Edit</button>` : '';
+          const movable = ['draft','scheduled','needs_approval','failed'].includes(p.status) && p.scheduled_for;
+          const drag = movable ? `draggable="true" ondragstart="mktCalendarDrag(event,'${p.id}','${localParts(p.scheduled_for).time}')" title="Drag to another day to reschedule"` : '';
+          if (compact) return `<div ${drag} class="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 cursor-${movable?'move':'default'}"><div class="text-[10px] font-bold text-violet-600">${esc(localParts(p.scheduled_for).time)} · ${esc(targetNetworks)}</div><div class="text-[11px] font-semibold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,55))}</div><div class="text-[10px] text-slate-400">${esc(mktLabel(p.status))}</div></div>`;
+          const targetEvidence = targets.filter(t => ['published','failed'].includes(t.status)).map(t => {
+            const account = t.account?.display_name || 'Unknown account';
+            const provider = mktLabel(t.account?.provider || 'provider');
+            if (t.status === 'published') return `<div class="text-[10px] text-emerald-700 dark:text-emerald-400"><b>${esc(provider)} · ${esc(account)}</b> — Published ${esc(fmt(t.published_at))}${t.external_post_id ? ` · Provider ID ${esc(t.external_post_id)}` : ''}</div>`;
+            const attempted = t.last_attempt_at ? fmt(t.last_attempt_at) : 'Not recorded';
+            const retry = t.next_attempt_at ? ` · next retry ${esc(fmt(t.next_attempt_at))}` : '';
+            return `<div class="text-[10px] text-rose-700 dark:text-rose-400"><b>${esc(provider)} · ${esc(account)}</b> — ${esc(t.error || 'Publication failed')} · ${Number(t.attempts) || 0} attempt${Number(t.attempts) === 1 ? '' : 's'} · last attempt ${esc(attempted)}${retry}</div>`;
+          }).join('');
+          return `<div ${drag} class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex gap-3"><div class="w-16 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${p.media?.[0]?`style="background-image:url('${esc(p.media[0])}')"`:''}></div><div class="min-w-0 flex-1"><div class="text-[11px] font-bold text-slate-400">${esc(fmt(p.scheduled_for))} · ${esc(tz)}</div><div class="text-[13px] font-bold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,90))}</div><div class="text-[11px] text-slate-500">${esc(targetNetworks)} · ${esc(partial ? 'Partly published' : failed.length ? 'Failed' : mktLabel(p.status))}${failed.length?` · ${failed.length} failed to publish`:''}${why?` · ${esc(why)}`:''}</div>${targetEvidence ? `<div class="mt-1.5 space-y-1">${targetEvidence}</div>` : ''}</div><div class="flex flex-col gap-1 text-right">${action}${['draft','scheduled','needs_approval','failed'].includes(p.status)?`<button onclick="mktCancelPost('${p.id}')" class="text-[11px] font-bold text-rose-600">Cancel</button>`:''}${failed.length?`<button onclick="mktPublishNow('${p.id}')" class="text-[11px] font-bold text-rose-600">Retry</button>`:''}</div></div>`;
+        };
+        const postRows = selected.length ? selected.slice(0, 100).map(p => postCard(p)).join('') : engEmpty(`No ${__socialView} posts.`);
+        const anchorParts = localParts(__socialCalendarAnchor ? `${__socialCalendarAnchor}T12:00:00Z` : new Date().toISOString());
+        if (!__socialCalendarAnchor) __socialCalendarAnchor = anchorParts.date;
+        const logical = new Date(`${__socialCalendarAnchor}T12:00:00Z`);
+        const start = new Date(logical);
+        if (__socialCalendarMode === 'month') { start.setUTCDate(1); start.setUTCDate(start.getUTCDate() - start.getUTCDay()); }
+        else { start.setUTCDate(start.getUTCDate() - start.getUTCDay()); }
+        const dayCount = __socialCalendarMode === 'month' ? 42 : 7;
+        const calendarDays = Array.from({ length: dayCount }, (_, i) => { const x = new Date(start); x.setUTCDate(x.getUTCDate() + i); return x; });
+        const calendarGrid = `<div class="grid grid-cols-7 text-[10px] font-bold text-slate-400 mb-1">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>`<div class="px-1">${x}</div>`).join('')}</div><div class="grid grid-cols-7 border-l border-t border-slate-200 dark:border-slate-700">${calendarDays.map(day => {
+          const date = day.toISOString().slice(0,10), inMonth = day.getUTCMonth() === logical.getUTCMonth();
+          const items = selected.filter(p => localParts(p.scheduled_for).date === date);
+          const defaultTime = items[0] ? localParts(items[0].scheduled_for).time : '09:00';
+          return `<div ondragover="event.preventDefault()" ondrop="mktCalendarDrop(event,'${date}','${defaultTime}')" class="min-h-[92px] md:min-h-[130px] border-r border-b border-slate-200 dark:border-slate-700 p-1 ${inMonth || __socialCalendarMode==='week'?'':'bg-slate-50 dark:bg-slate-950/40 text-slate-400'}"><div class="text-[10px] font-bold mb-1">${day.getUTCDate()}</div><div class="space-y-1">${items.slice(0,4).map(p=>postCard(p,true)).join('')}${items.length>4?`<div class="text-[10px] text-slate-400">${items.length-4} more</div>`:''}</div></div>`;
+        }).join('')}</div>`;
+        const calendarBody = __socialCalendarMode === 'agenda' ? `<div class="space-y-2">${postRows}</div>` : calendarGrid;
+        inner = `
+          <div class="flex items-center justify-between gap-3 mb-3">
+            <div class="text-[13px] text-slate-500">Dealer timezone: <b>${esc(tz)}</b></div>
+            <button onclick="mktCompose()" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[12px] font-bold">New post</button>
+          </div>
+          <div class="flex gap-2 overflow-x-auto pb-2 mb-3">${socialTabs}</div>
+          <div class="flex flex-wrap items-center gap-2 mb-3">
+            ${__socialView==='calendar'?`${['month','week','agenda'].map(v=>`<button onclick="mktSocialCalendarMode('${v}')" class="text-[11px] font-bold px-2 py-1 rounded ${__socialCalendarMode===v?'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'border border-slate-200 dark:border-slate-700'}">${mktLabel(v)}</button>`).join('')}<span class="h-5 border-l border-slate-200 dark:border-slate-700"></span><button onclick="mktCalendarMove(-1)" class="text-[11px] font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Previous</button><button onclick="mktCalendarMove(1)" class="text-[11px] font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Next</button>`:''}
+            <label class="text-[11px] font-bold text-slate-500">Network <select onchange="mktSocialNetworkFilter(this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${networks.map(n=>`<option value="${esc(n)}" ${__socialNetworkFilter===n?'selected':''}>${esc(mktLabel(n))}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Account <select onchange="mktSocialFilter('account',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${accounts.map(a=>`<option value="${esc(a.id)}" ${__socialAccountFilter===a.id?'selected':''}>${esc(a.display_name)}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Campaign <select onchange="mktSocialFilter('campaign',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${campaignOptions.map(c=>`<option value="${esc(c.id)}" ${__socialCampaignFilter===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Status <select onchange="mktSocialFilter('status',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${statusOptions.map(s=>`<option value="${esc(s)}" ${__socialStatusFilter===s?'selected':''}>${esc(mktLabel(s))}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Owner <select onchange="mktSocialFilter('owner',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${ownerOptions.map(([id,name])=>`<option value="${esc(id)}" ${__socialOwnerFilter===id?'selected':''}>${esc(name)}</option>`).join('')}</select></label>
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+            ${engKpi('Accounts', accounts.length)}
+            ${engKpi('Disconnected', broken.length, broken.length ? 'text-rose-600 dark:text-rose-400' : '')}
+            ${engKpi('Not delivered', unsent.length, unsent.length ? 'text-amber-600 dark:text-amber-400' : '')}
+          </div>
+          ${engCard('Connected accounts', accounts.length ? accounts.map(a => mktRow({
+            title: a.display_name,
+            sub: `${a.provider} · ${a.ownership === 'user' ? 'personal account' : 'dealership page'}`,
+            // What THIS user may do, decided by the server — the UI only reports it.
+            note: a.can_publish ? 'You can publish' : (a.why || 'You cannot publish to this account'),
+            right: mktLabel(a.status),
+            tone: a.status !== 'connected' ? 'text-rose-600 dark:text-rose-400'
+                : a.can_publish ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500',
+          })).join('') : engEmpty('No social accounts connected.'))}
+          <div class="mt-4"></div>${engCard(`${mktLabel(__socialView)} (${selected.length})`, __socialView === 'calendar' ? calendarBody : `<div class="space-y-2">${postRows}</div>`)}`;
+      }
+
+      if (__mktView === 'conversations') {
+        const rows = d.conversations || [];
+        const waiting = rows.filter(c => c.status === 'waiting_dealer');
+        inner = `
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+            ${engKpi('Open', rows.filter(c => c.status !== 'closed').length)}
+            ${engKpi('Waiting on us', waiting.length, waiting.length ? 'text-amber-600 dark:text-amber-400' : '')}
+            ${engKpi('With a person', rows.filter(c => c.status === 'handoff').length)}
+          </div>
+          ${engCard('Customer conversations', rows.length ? rows.slice(0, 50).map(c => mktRow({
+            title: `${c.lead_type ? c.lead_type : 'Conversation'}${c.channel ? ` · ${c.channel}` : ''}`,
+            sub: `${mktLabel(c.status)}${c.last_message_at ? ` · ${String(c.last_message_at).slice(0, 16).replace('T', ' ')}` : ''}`,
+            note: c.lead_score != null ? `lead score ${c.lead_score}` : null,
+            right: c.status === 'waiting_dealer' ? 'Reply' : mktLabel(c.status),
+            tone: c.status === 'waiting_dealer' ? 'text-amber-600 dark:text-amber-400'
+                : c.status === 'handoff' ? 'text-sky-600 dark:text-sky-400' : '',
+            onclick: c.status !== 'handoff' && c.status !== 'closed' ? `mktTakeover('${c.id}')` : null,
+          })).join('') : engEmpty('No conversations yet.'))}`;
+      }
+
+      if (__mktView === 'attribution') {
+        const rows = d.campaigns || [];
+        const linked = rows.filter(c => (c.performance?.leads || 0) + (c.performance?.customers || 0) > 0);
+        const roi = d.roi;
+        inner = `
+          ${engCard('Two kinds of number, kept apart', `<div class="text-[13px] text-slate-500 dark:text-slate-400">
+            <span class="font-bold text-slate-700 dark:text-slate-200">Linked</span> attribution follows a
+            campaign id from lead to delivered deal, and its gross comes from the posted ledger.
+            <span class="font-bold text-slate-700 dark:text-slate-200">Inferred</span> attribution reads a
+            free-text lead source and estimates gross from a per-unit average. They are never added together.
+          </div>`)}
+          <div class="mt-4"></div>
+          ${engCard(`Linked to a campaign (${linked.length})`, linked.length ? linked.map(c => {
+            const p = c.performance || {}, s = c.spend || {};
+            return mktRow({
+              title: c.name,
+              sub: `${p.leads || 0} leads · ${p.customers || 0} customers · ${p.delivered || 0} delivered`,
+              note: c.gross_complete === false
+                ? `gross ${mktMoney(p.gross || 0)} — incomplete, some deliveries have no posted journal`
+                : `gross ${mktMoney(p.gross || 0)} on ${mktMoney(s.actual || 0)} spent`,
+              right: c.roi == null ? '—' : `${c.roi > 0 ? '+' : ''}${c.roi}%`,
+              tone: c.gross_complete === false ? 'text-amber-600 dark:text-amber-400' : '',
+            });
+          }).join('') : engEmpty('No campaign-linked attribution yet.'))}
+          <div class="mt-4"></div>
+          ${roi && (roi.rows || []).length ? engCard('Inferred from lead sources — estimated', `
+            <div class="text-[12px] text-slate-400 mb-1">${esc(roi.note || '')}</div>
+            ${roi.rows.slice(0, 15).map(r => mktRow({
+              title: r.channel,
+              sub: `${r.leads || 0} leads · ${r.sales || 0} sales`,
+              note: `estimated gross ${mktMoney(r.est_gross || 0)} on ${mktMoney(r.spend || 0)} spent`,
+              right: r.est_roi_pct == null ? '—' : `~${r.est_roi_pct}%`,
+              tone: 'text-slate-500',
+            })).join('')}`) : ''}`;
+      }
+
+      body.innerHTML = `<div class="flex gap-1.5 mb-3 overflow-x-auto">${nav}</div>${inner}`;
     },
 
-    // ── Emails ───────────────────────────────────────────────────────────────
-    // Campaigns live under Emails, because a campaign IS the email you send.
-    emails(body, d) {
-      body.innerHTML = engSection('Campaigns', mktCampaignsView(d), 'What is running, what it cost, and what it produced');
-      body.insertAdjacentHTML('beforeend', engSection('Email', '', 'Templates, sends and the list they go to'));
-      engMountPage(body, 'email-marketing', () => loadDealerEmail());
-    },
-
-    // ── Studio ───────────────────────────────────────────────────────────────
-    // Took the Insights slot. Creative and the places it gets published.
-    studio(body, d) {
-      body.innerHTML = engSection('Creative', mktStudioView(d), 'The assets you have made, and the vehicles they are for')
-        + engSection('Social', mktSocialSection(d), 'Scheduled, published and failed — across every connected account');
-    },
-
-    // ── Website ──────────────────────────────────────────────────────────────
-    website(body) {
-      body.innerHTML = engSection('Your website', '', 'Pages, the blog and what shoppers see');
-      engMountPage(body, 'website', () => loadWebsitePage());
-    },
-
-    // ── Settings ─────────────────────────────────────────────────────────────
-    // Automations are marketing settings: they are the rules that send without you.
-    settings(body) {
-      body.innerHTML = engSection('Automations', '', 'The rules that follow up, remind and re-engage without you');
-      engMountPage(body, 'automation-builder', () => loadAutoBuilderPage());
+    insights(body, d) {
+      const rows = d.campaigns || [];
+      const spent = rows.reduce((s, c) => s + (c.spend?.actual || 0), 0);
+      const budget = rows.reduce((s, c) => s + (c.spend?.budget || 0), 0);
+      const gross = rows.reduce((s, c) => s + (c.performance?.gross || 0), 0);
+      const delivered = rows.reduce((s, c) => s + (c.performance?.delivered || 0), 0);
+      const incomplete = rows.filter(c => c.gross_complete === false).length;
+      body.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          ${engKpi('Actual spend', mktMoney(spent))}
+          ${engKpi('Budgeted', mktMoney(budget))}
+          ${engKpi('Attributed gross', mktMoney(gross))}
+          ${engKpi('Delivered', delivered)}
+        </div>
+        ${engCard('What these numbers are', `<div class="text-[13px] text-slate-500 dark:text-slate-400">
+          Spend is <span class="font-bold">actual</span>, never budget. Gross is read from posted
+          journals, so a campaign whose deliveries have not reached the books contributes its
+          units but not its gross.${incomplete ? ` <span class="text-amber-600 dark:text-amber-400 font-bold">${incomplete} campaign(s) have an incomplete gross.</span>` : ''}
+        </div>`)}`;
     },
   },
 };
-
-
-// ── The sections ─────────────────────────────────────────────────────────────
-// Each was a view behind the old "Work" sub-nav. Unchanged in substance — they now
-// return their HTML so a tab can stack them under headings instead of hiding four.
-
-function mktCampaignsView(d) {
-  let inner = '';
-      const rows = d.campaigns || [];
-      const spent = rows.reduce((s, c) => s + (c.spend?.actual || 0), 0);
-      inner = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('Campaigns', rows.length)}
-          ${engKpi('Active', rows.filter(c => c.status === 'active').length)}
-          ${engKpi('Spent', mktMoney(spent))}
-          ${engKpi('Awaiting approval', rows.filter(c => c.status === 'needs_approval').length,
-            rows.some(c => c.status === 'needs_approval') ? 'text-amber-600 dark:text-amber-400' : '')}
-        </div>
-        ${engCard('Campaigns', rows.length ? rows.map(c => {
-          const p = c.performance || {}, s = c.spend || {};
-          // ROI is only shown when it is real: actual spend AND posted gross. An
-          // incomplete gross is said out loud rather than quietly averaged away.
-          const roi = c.roi == null ? '—' : `${c.roi > 0 ? '+' : ''}${c.roi}%`;
-          return mktRow({
-            title: c.name,
-            sub: `${(c.channels || []).join(', ') || 'no channel'} · ${mktLabel(c.status)}`,
-            note: `${p.leads || 0} leads · ${p.delivered || 0} delivered · spent ${mktMoney(s.actual || 0)} of ${mktMoney(s.budget || 0)} budget`
-                  + (c.gross_complete === false ? ' · gross incomplete' : ''),
-            right: roi,
-            tone: c.gross_complete === false ? 'text-amber-600 dark:text-amber-400' : (MKT_STATUS_TONE[c.status] || ''),
-            onclick: c.status === 'needs_approval' ? `mktCampaignStatus('${c.id}','approved')` : null,
-          });
-        }).join('') : engEmpty('No campaigns yet.'))}`;
-  return inner;
-}
-
-function mktStudioView(d) {
-  let inner = '';
-      const assets = d.assets || [];
-      inner = `
-        <div class="flex items-center justify-between gap-3 mb-3">
-          <div class="text-[13px] text-slate-500">The dealership's own images, reusable across posts and campaigns.</div>
-          <div class="flex gap-2"><button onclick="mktStudioOpen()" class="shrink-0 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[12px] font-bold">Create design</button><label class="shrink-0 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[12px] font-bold cursor-pointer">
-            Upload<input type="file" accept="image/*" class="hidden" onchange="mktUploadAsset(this)">
-          </label></div>
-        </div>
-        ${engCard(`Media library (${assets.length})`, assets.length ? `
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            ${assets.map(a => `<div class="min-w-0">
-              <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" loading="lazy"
-                   class="w-full aspect-square object-cover rounded-lg border border-slate-200 dark:border-slate-700">
-              <div class="text-[11px] text-slate-400 truncate mt-1">${esc(a.title || `${a.width || '?'}×${a.height || '?'}`)}</div>
-              <div class="flex gap-2 mt-1"><button onclick="mktStudioOpen('${esc(a.id)}','${esc(a.public_url)}')" class="text-[11px] font-bold text-violet-600">Use as background</button><button onclick="mktCompose({assetUrl:'${esc(a.public_url)}'})" class="text-[11px] font-bold text-slate-600 dark:text-slate-300">Schedule</button></div>
-            </div>`).join('')}
-          </div>` : engEmpty('Nothing in Studio yet. Create a design or upload a photo.'))}`;
-  return inner;
-}
-
-function mktSocialSection(d) {
-  let inner = '';
-      const accounts = d.accounts || [], posts = d.posts || [];
-      const tz = d.socialTimezone || 'UTC';
-      const broken = accounts.filter(a => a.status !== 'connected');
-      // Nothing publishes until a network integration is connected. Saying so here is the
-      // difference between a queue that looks healthy and one a person can act on.
-      const unsent = posts.filter(p => ['scheduled', 'failed', 'partially_published'].includes(p.status)
-        || (p.targets || []).some(t => t.status === 'failed'));
-      const socialTabs = [['calendar','Calendar'],['queue','Queue'],['drafts','Drafts'],['approvals','Approvals'],['published','Published'],['failed','Failed']]
-        .map(([v,l]) => `<button onclick="mktSocialView('${v}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold ${__socialView===v?'bg-violet-600 text-white':'border border-slate-200 dark:border-slate-700'}">${l}</button>`).join('');
-      const viewPosts = posts.filter(p => __socialView === 'drafts' ? p.status === 'draft'
-        : __socialView === 'approvals' ? p.status === 'needs_approval'
-        : __socialView === 'published' ? p.status === 'published'
-        : __socialView === 'failed' ? (p.status === 'failed' || p.status === 'partially_published' || (p.targets||[]).some(t=>t.status==='failed'))
-        : __socialView === 'queue' ? ['scheduled','publishing','needs_approval'].includes(p.status)
-        : !!p.scheduled_for);
-      const networks = [...new Set(posts.flatMap(p => (p.targets || []).map(t => t.account?.provider).filter(Boolean)))].sort();
-      const selected = viewPosts.filter(p => (__socialNetworkFilter === 'all'
-        || (p.targets || []).some(t => t.account?.provider === __socialNetworkFilter))
-        && (__socialAccountFilter === 'all' || (p.targets || []).some(t => t.social_account_id === __socialAccountFilter))
-        && (__socialCampaignFilter === 'all' || p.campaign_id === __socialCampaignFilter)
-        && (__socialStatusFilter === 'all' || p.status === __socialStatusFilter)
-        && (__socialOwnerFilter === 'all' || p.created_by === __socialOwnerFilter));
-      const campaignOptions = (d.campaigns || []).filter(c => posts.some(p => p.campaign_id === c.id));
-      const ownerOptions = [...new Map(posts.filter(p => p.created_by).map(p => [p.created_by, p.creator?.full_name || 'Unknown user'])).entries()];
-      const statusOptions = [...new Set(posts.map(p => p.status).filter(Boolean))].sort();
-      const fmt = (iso) => { if (!iso) return 'Unscheduled'; try { return new Intl.DateTimeFormat(undefined,{timeZone:tz,month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(iso)); } catch { return new Date(iso).toLocaleString(); } };
-      const localParts = (iso) => {
-        try {
-          const values = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).formatToParts(new Date(iso)).map(x => [x.type, x.value]));
-          return { date: `${values.year}-${values.month}-${values.day}`, time: `${values.hour}:${values.minute}` };
-        } catch { return { date: String(iso || '').slice(0, 10), time: String(iso || '').slice(11, 16) || '09:00' }; }
-      };
-      const postCard = (p, compact = false) => {
-        const targets = p.targets || [], failed = targets.filter(t=>t.status==='failed');
-        const why = failed[0]?.error || null;
-        const partial = failed.length > 0 && failed.length < targets.length;
-        const targetNetworks = [...new Set(targets.map(t=>t.account?.provider).filter(Boolean))].join(', ') || 'No network';
-        const action = p.status === 'needs_approval' ? `<button onclick="mktApprovePost('${p.id}')" class="text-[11px] font-bold text-violet-600">Approve</button>`
-          : ['draft','scheduled','failed'].includes(p.status) ? `<button onclick="mktReschedule('${p.id}','${p.scheduled_for || ''}')" class="text-[11px] font-bold text-violet-600">${p.scheduled_for?'Reschedule':'Schedule'}</button>` : '';
-        const movable = ['draft','scheduled','needs_approval','failed'].includes(p.status) && p.scheduled_for;
-        const drag = movable ? `draggable="true" ondragstart="mktCalendarDrag(event,'${p.id}','${localParts(p.scheduled_for).time}')" title="Drag to another day to reschedule"` : '';
-        if (compact) return `<div ${drag} class="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 cursor-${movable?'move':'default'}"><div class="text-[10px] font-bold text-violet-600">${esc(localParts(p.scheduled_for).time)} · ${esc(targetNetworks)}</div><div class="text-[11px] font-semibold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,55))}</div><div class="text-[10px] text-slate-400">${esc(mktLabel(p.status))}</div></div>`;
-        const targetEvidence = targets.filter(t => ['published','failed'].includes(t.status)).map(t => {
-          const account = t.account?.display_name || 'Unknown account';
-          const provider = mktLabel(t.account?.provider || 'provider');
-          if (t.status === 'published') return `<div class="text-[10px] text-emerald-700 dark:text-emerald-400"><b>${esc(provider)} · ${esc(account)}</b> — Published ${esc(fmt(t.published_at))}${t.external_post_id ? ` · Provider ID ${esc(t.external_post_id)}` : ''}</div>`;
-          const attempted = t.last_attempt_at ? fmt(t.last_attempt_at) : 'Not recorded';
-          const retry = t.next_attempt_at ? ` · next retry ${esc(fmt(t.next_attempt_at))}` : '';
-          return `<div class="text-[10px] text-rose-700 dark:text-rose-400"><b>${esc(provider)} · ${esc(account)}</b> — ${esc(t.error || 'Publication failed')} · ${Number(t.attempts) || 0} attempt${Number(t.attempts) === 1 ? '' : 's'} · last attempt ${esc(attempted)}${retry}</div>`;
-        }).join('');
-        return `<div ${drag} class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex gap-3"><div class="w-16 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${p.media?.[0]?`style="background-image:url('${esc(p.media[0])}')"`:''}></div><div class="min-w-0 flex-1"><div class="text-[11px] font-bold text-slate-400">${esc(fmt(p.scheduled_for))} · ${esc(tz)}</div><div class="text-[13px] font-bold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,90))}</div><div class="text-[11px] text-slate-500">${esc(targetNetworks)} · ${esc(partial ? 'Partly published' : failed.length ? 'Failed' : mktLabel(p.status))}${failed.length?` · ${failed.length} failed to publish`:''}${why?` · ${esc(why)}`:''}</div>${targetEvidence ? `<div class="mt-1.5 space-y-1">${targetEvidence}</div>` : ''}</div><div class="flex flex-col gap-1 text-right">${action}${['draft','scheduled','needs_approval','failed'].includes(p.status)?`<button onclick="mktCancelPost('${p.id}')" class="text-[11px] font-bold text-rose-600">Cancel</button>`:''}${failed.length?`<button onclick="mktPublishNow('${p.id}')" class="text-[11px] font-bold text-rose-600">Retry</button>`:''}</div></div>`;
-      };
-      const postRows = selected.length ? selected.slice(0, 100).map(p => postCard(p)).join('') : engEmpty(`No ${__socialView} posts.`);
-      const anchorParts = localParts(__socialCalendarAnchor ? `${__socialCalendarAnchor}T12:00:00Z` : new Date().toISOString());
-      if (!__socialCalendarAnchor) __socialCalendarAnchor = anchorParts.date;
-      const logical = new Date(`${__socialCalendarAnchor}T12:00:00Z`);
-      const start = new Date(logical);
-      if (__socialCalendarMode === 'month') { start.setUTCDate(1); start.setUTCDate(start.getUTCDate() - start.getUTCDay()); }
-      else { start.setUTCDate(start.getUTCDate() - start.getUTCDay()); }
-      const dayCount = __socialCalendarMode === 'month' ? 42 : 7;
-      const calendarDays = Array.from({ length: dayCount }, (_, i) => { const x = new Date(start); x.setUTCDate(x.getUTCDate() + i); return x; });
-      const calendarGrid = `<div class="grid grid-cols-7 text-[10px] font-bold text-slate-400 mb-1">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>`<div class="px-1">${x}</div>`).join('')}</div><div class="grid grid-cols-7 border-l border-t border-slate-200 dark:border-slate-700">${calendarDays.map(day => {
-        const date = day.toISOString().slice(0,10), inMonth = day.getUTCMonth() === logical.getUTCMonth();
-        const items = selected.filter(p => localParts(p.scheduled_for).date === date);
-        const defaultTime = items[0] ? localParts(items[0].scheduled_for).time : '09:00';
-        return `<div ondragover="event.preventDefault()" ondrop="mktCalendarDrop(event,'${date}','${defaultTime}')" class="min-h-[92px] md:min-h-[130px] border-r border-b border-slate-200 dark:border-slate-700 p-1 ${inMonth || __socialCalendarMode==='week'?'':'bg-slate-50 dark:bg-slate-950/40 text-slate-400'}"><div class="text-[10px] font-bold mb-1">${day.getUTCDate()}</div><div class="space-y-1">${items.slice(0,4).map(p=>postCard(p,true)).join('')}${items.length>4?`<div class="text-[10px] text-slate-400">${items.length-4} more</div>`:''}</div></div>`;
-      }).join('')}</div>`;
-      const calendarBody = __socialCalendarMode === 'agenda' ? `<div class="space-y-2">${postRows}</div>` : calendarGrid;
-      inner = `
-        <div class="flex items-center justify-between gap-3 mb-3">
-          <div class="text-[13px] text-slate-500">Dealer timezone: <b>${esc(tz)}</b></div>
-          <button onclick="mktCompose()" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[12px] font-bold">New post</button>
-        </div>
-        <div class="flex gap-2 overflow-x-auto pb-2 mb-3">${socialTabs}</div>
-        <div class="flex flex-wrap items-center gap-2 mb-3">
-          ${__socialView==='calendar'?`${['month','week','agenda'].map(v=>`<button onclick="mktSocialCalendarMode('${v}')" class="text-[11px] font-bold px-2 py-1 rounded ${__socialCalendarMode===v?'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'border border-slate-200 dark:border-slate-700'}">${mktLabel(v)}</button>`).join('')}<span class="h-5 border-l border-slate-200 dark:border-slate-700"></span><button onclick="mktCalendarMove(-1)" class="text-[11px] font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Previous</button><button onclick="mktCalendarMove(1)" class="text-[11px] font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Next</button>`:''}
-          <label class="text-[11px] font-bold text-slate-500">Network <select onchange="mktSocialNetworkFilter(this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${networks.map(n=>`<option value="${esc(n)}" ${__socialNetworkFilter===n?'selected':''}>${esc(mktLabel(n))}</option>`).join('')}</select></label>
-          <label class="text-[11px] font-bold text-slate-500">Account <select onchange="mktSocialFilter('account',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${accounts.map(a=>`<option value="${esc(a.id)}" ${__socialAccountFilter===a.id?'selected':''}>${esc(a.display_name)}</option>`).join('')}</select></label>
-          <label class="text-[11px] font-bold text-slate-500">Campaign <select onchange="mktSocialFilter('campaign',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${campaignOptions.map(c=>`<option value="${esc(c.id)}" ${__socialCampaignFilter===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
-          <label class="text-[11px] font-bold text-slate-500">Status <select onchange="mktSocialFilter('status',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${statusOptions.map(s=>`<option value="${esc(s)}" ${__socialStatusFilter===s?'selected':''}>${esc(mktLabel(s))}</option>`).join('')}</select></label>
-          <label class="text-[11px] font-bold text-slate-500">Owner <select onchange="mktSocialFilter('owner',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${ownerOptions.map(([id,name])=>`<option value="${esc(id)}" ${__socialOwnerFilter===id?'selected':''}>${esc(name)}</option>`).join('')}</select></label>
-        </div>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-          ${engKpi('Accounts', accounts.length)}
-          ${engKpi('Disconnected', broken.length, broken.length ? 'text-rose-600 dark:text-rose-400' : '')}
-          ${engKpi('Not delivered', unsent.length, unsent.length ? 'text-amber-600 dark:text-amber-400' : '')}
-        </div>
-        ${engCard('Connected accounts', accounts.length ? accounts.map(a => mktRow({
-          title: a.display_name,
-          sub: `${a.provider} · ${a.ownership === 'user' ? 'personal account' : 'dealership page'}`,
-          // What THIS user may do, decided by the server — the UI only reports it.
-          note: a.can_publish ? 'You can publish' : (a.why || 'You cannot publish to this account'),
-          right: mktLabel(a.status),
-          tone: a.status !== 'connected' ? 'text-rose-600 dark:text-rose-400'
-              : a.can_publish ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500',
-        })).join('') : engEmpty('No social accounts connected.'))}
-        <div class="mt-4"></div>${engCard(`${mktLabel(__socialView)} (${selected.length})`, __socialView === 'calendar' ? calendarBody : `<div class="space-y-2">${postRows}</div>`)}`;
-  return inner;
-}
-
-function mktConversationsView(d) {
-  let inner = '';
-      const rows = d.conversations || [];
-      const waiting = rows.filter(c => c.status === 'waiting_dealer');
-      inner = `
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-          ${engKpi('Open', rows.filter(c => c.status !== 'closed').length)}
-          ${engKpi('Waiting on us', waiting.length, waiting.length ? 'text-amber-600 dark:text-amber-400' : '')}
-          ${engKpi('With a person', rows.filter(c => c.status === 'handoff').length)}
-        </div>
-        ${engCard('Customer conversations', rows.length ? rows.slice(0, 50).map(c => mktRow({
-          title: `${c.lead_type ? c.lead_type : 'Conversation'}${c.channel ? ` · ${c.channel}` : ''}`,
-          sub: `${mktLabel(c.status)}${c.last_message_at ? ` · ${String(c.last_message_at).slice(0, 16).replace('T', ' ')}` : ''}`,
-          note: c.lead_score != null ? `lead score ${c.lead_score}` : null,
-          right: c.status === 'waiting_dealer' ? 'Reply' : mktLabel(c.status),
-          tone: c.status === 'waiting_dealer' ? 'text-amber-600 dark:text-amber-400'
-              : c.status === 'handoff' ? 'text-sky-600 dark:text-sky-400' : '',
-          onclick: c.status !== 'handoff' && c.status !== 'closed' ? `mktTakeover('${c.id}')` : null,
-        })).join('') : engEmpty('No conversations yet.'))}`;
-  return inner;
-}
-
-function mktAttributionView(d) {
-  let inner = '';
-      const rows = d.campaigns || [];
-      const linked = rows.filter(c => (c.performance?.leads || 0) + (c.performance?.customers || 0) > 0);
-      const roi = d.roi;
-      inner = `
-        ${engCard('Two kinds of number, kept apart', `<div class="text-[13px] text-slate-500 dark:text-slate-400">
-          <span class="font-bold text-slate-700 dark:text-slate-200">Linked</span> attribution follows a
-          campaign id from lead to delivered deal, and its gross comes from the posted ledger.
-          <span class="font-bold text-slate-700 dark:text-slate-200">Inferred</span> attribution reads a
-          free-text lead source and estimates gross from a per-unit average. They are never added together.
-        </div>`)}
-        <div class="mt-4"></div>
-        ${engCard(`Linked to a campaign (${linked.length})`, linked.length ? linked.map(c => {
-          const p = c.performance || {}, s = c.spend || {};
-          return mktRow({
-            title: c.name,
-            sub: `${p.leads || 0} leads · ${p.customers || 0} customers · ${p.delivered || 0} delivered`,
-            note: c.gross_complete === false
-              ? `gross ${mktMoney(p.gross || 0)} — incomplete, some deliveries have no posted journal`
-              : `gross ${mktMoney(p.gross || 0)} on ${mktMoney(s.actual || 0)} spent`,
-            right: c.roi == null ? '—' : `${c.roi > 0 ? '+' : ''}${c.roi}%`,
-            tone: c.gross_complete === false ? 'text-amber-600 dark:text-amber-400' : '',
-          });
-        }).join('') : engEmpty('No campaign-linked attribution yet.'))}
-        <div class="mt-4"></div>
-        ${roi && (roi.rows || []).length ? engCard('Inferred from lead sources — estimated', `
-          <div class="text-[12px] text-slate-400 mb-1">${esc(roi.note || '')}</div>
-          ${roi.rows.slice(0, 15).map(r => mktRow({
-            title: r.channel,
-            sub: `${r.leads || 0} leads · ${r.sales || 0} sales`,
-            note: `estimated gross ${mktMoney(r.est_gross || 0)} on ${mktMoney(r.spend || 0)} spent`,
-            right: r.est_roi_pct == null ? '—' : `~${r.est_roi_pct}%`,
-            tone: 'text-slate-500',
-          })).join('')}`) : ''}`;
-  return inner;
-}
-
-
-// ── What the spend came back as ──────────────────────────────────────────────
-// The old Insights tab, now in the day — plus the ad ROI for anything integrated.
-// The two honesty rules from the backend carry straight through: spend is ACTUAL, never
-// budget, and gross is read from posted journals, so a campaign whose deliveries have
-// not reached the books contributes its units and not its gross. An assumed average
-// here would read as a return this dealership has not actually made.
-function mktReturnStrip(d) {
-  const rows = d.campaigns || [];
-  const spent = rows.reduce((s, c) => s + (c.spend?.actual || 0), 0);
-  const budget = rows.reduce((s, c) => s + (c.spend?.budget || 0), 0);
-  const gross = rows.reduce((s, c) => s + (c.performance?.gross || 0), 0);
-  const delivered = rows.reduce((s, c) => s + (c.performance?.delivered || 0), 0);
-  const incomplete = rows.filter(c => c.gross_complete === false).length;
-  // Return on ad spend is only honest when both halves are known and complete.
-  const roas = (spent > 0 && !incomplete) ? (gross / spent) : null;
-
-  return engSection('What the spend came back as', `
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
-      ${engKpi('Actual spend', mktMoney(spent))}
-      ${engKpi('Budgeted', mktMoney(budget))}
-      ${engKpi('Attributed gross', mktMoney(gross))}
-      ${engKpi('Delivered', delivered)}
-      ${engKpi('Return on spend', roas == null ? '—' : roas.toFixed(2) + 'x',
-        roas == null ? '' : roas >= 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}
-    </div>
-    ${mktAdRoi(d)}
-    ${engCard('What these numbers are', `<div class="text-[13px] text-slate-500 dark:text-slate-400">
-      Spend is <span class="font-bold">actual</span>, never budget. Gross is read from posted
-      journals, so a campaign whose deliveries have not reached the books contributes its
-      units but not its gross.${incomplete ? ` <span class="text-amber-600 dark:text-amber-400 font-bold">${incomplete} campaign(s) have an incomplete gross, so return on spend is not shown.</span>` : ''}
-    </div>`)}`, 'Every campaign and every integrated ad channel');
-}
-
-// Ad channels that are actually integrated. /marketing/roi is the server's own
-// attribution roll-up; when it is unavailable this says so rather than showing zero
-// spend, which would read as advertising that cost nothing.
-function mktAdRoi(d) {
-  if (d.roi == null) return engCard('Ad channels', engEmpty('Ad performance could not be loaded, so it is not shown.'));
-  const channels = d.roi.channels || d.roi.sources || [];
-  if (!channels.length) return engCard('Ad channels', engEmpty('No ad channel is integrated yet. Connect one and its spend and return appear here.'));
-  return engCard('Ad channels', channels.map(c => {
-    const cSpend = Number(c.spend) || 0, cGross = Number(c.gross) || 0;
-    const cRoas = cSpend > 0 && c.gross != null ? (cGross / cSpend) : null;
-    return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-      <div class="min-w-0 flex-1">
-        <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(c.name || c.channel || c.source || 'Channel')}</div>
-        <div class="text-[12px] text-slate-400 truncate">${esc(mktMoney(cSpend))} spent${c.leads != null ? ` · ${c.leads} lead(s)` : ''}${c.delivered != null ? ` · ${c.delivered} delivered` : ''}</div>
-      </div>
-      <div class="shrink-0 text-right">
-        <div class="text-[13px] font-bold">${c.gross == null ? '—' : esc(mktMoney(cGross))}</div>
-        <div class="text-[11px] ${cRoas == null ? 'text-slate-400' : cRoas >= 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">${cRoas == null ? 'return unknown' : cRoas.toFixed(2) + 'x'}</div>
-      </div>
-    </div>`;
-  }).join(''));
-}
 
 function loadMarketingWorkspace() { renderEngine('marketing-overview'); }
 window.loadMarketingWorkspace = loadMarketingWorkspace;

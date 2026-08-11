@@ -124,12 +124,14 @@ async function loadAiHome(tab) {
       <div><h1 class="text-2xl font-black text-slate-900 dark:text-white">${standalone ? 'AI Chatbot Dashboard' : 'Your AI Employee'}</h1>
         <p class="text-sm text-slate-500 dark:text-slate-400">${standalone ? 'Everything your website chatbot is doing — conversations, leads, knowledge and setup.' : 'Your website chatbot — capturing and qualifying leads around the clock.'}</p></div>
     </div>
-    <div class="flex flex-wrap gap-2">${tabBtn('overview', 'Overview')}${tabBtn('conversations', 'AI Leads & Chats')}${tabBtn('knowledge', 'Knowledge Base')}${tabBtn('settings', 'Chatbot Settings')}</div>
+    <div class="flex flex-wrap gap-2">${tabBtn('overview', 'Recent Conversations')}${tabBtn('settings', 'Settings')}</div>
     <div id="ai-home-body"><div class="text-sm text-slate-400 py-10 text-center">Loading…</div></div>`;
   const body = document.getElementById('ai-home-body');
   try {
-    if (t === 'knowledge') return aiHomeKnowledge(body);
-    if (t === 'settings') return aiHomeSettings(body);
+    if (t === 'settings') {
+      body.innerHTML = `<div class="flex flex-wrap gap-2 mb-4"><button onclick="aiHomeSettings(document.getElementById('ai-home-settings-body'))" class="px-3 py-1.5 rounded-lg text-[13px] font-bold bg-emerald-600 text-white">Chatbot</button><button onclick="aiHomeKnowledge(document.getElementById('ai-home-settings-body'))" class="px-3 py-1.5 rounded-lg text-[13px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">Knowledge</button></div><div id="ai-home-settings-body"></div>`;
+      return aiHomeSettings(document.getElementById('ai-home-settings-body'));
+    }
     return aiHomeOverview(body, t);   // overview + conversations share the data fetch
   } catch (e) { body.innerHTML = `<div class="text-rose-500 text-sm p-6">${esc(e.message)}</div>`; }
 }
@@ -484,75 +486,6 @@ function engCard(title, inner, extra) {
     ${title ? `<div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">${esc(title)}</div>` : ''}${inner}</div>`;
 }
 function engEmpty(msg) { return `<div class="text-sm text-slate-400 py-8 text-center">${esc(msg)}</div>`; }
-
-// ── Sections you scroll to, instead of a second row of tabs ──────────────────
-// A workspace tab used to open onto ANOTHER tab bar (Inventory: My Day | Inventory |
-// Appraisals | Settings, and directly beneath it Vehicles | Acquisition | Cleanup |
-// Merchandising | …). Two stacked navigations for one screen is not organisation, and
-// the lower row hid whole surfaces behind a click that looked like a filter.
-//
-// The department header is the ONLY navigation. Everything a tab contains is stacked
-// in it under a heading and reached by scrolling. Use engSection for those headings;
-// engCard is still the right thing for a single panel inside one.
-function engSection(title, inner, sub) {
-  return `<section class="mt-7 first:mt-0">
-    <h3 class="text-[15px] font-black text-slate-900 dark:text-white">${esc(title)}</h3>
-    ${sub ? `<p class="text-[12px] text-slate-400 mt-0.5 mb-2">${esc(sub)}</p>` : '<div class="mb-2"></div>'}
-    ${inner}
-  </section>`;
-}
-
-// ── Show the page, don't link to it ──────────────────────────────────────────
-// Tabs used to end in "Open the full appraisal →" / "Open F&I deals →" — a tab whose
-// entire content was a link to the page you actually wanted. engMountPage MOVES the
-// real [data-page-content] panel into the tab, so the appraisal form (or the deals
-// list, or the appointment book) is simply there. One click, and no second copy of a
-// page to keep in sync — it is the same DOM the standalone page uses.
-//
-// Moving a live panel has one hazard: engineTab() and renderEngine() both blow away
-// their container with innerHTML, which would delete the borrowed page from the
-// document for good. So every wipe restores first — see the calls below and in
-// ensurePanelsInOriginalLocations(), which switchPage() already runs on every
-// navigation.
-const __engMountedPages = new Map();     // pageId -> { home, before }
-
-function engMountPage(body, pageId, load) {
-  const panel = document.querySelector(`[data-page-content="${pageId}"]`);
-  if (!panel) {
-    body.insertAdjacentHTML('beforeend', engCard('', engEmpty('That page is not part of this workspace on your plan.')));
-    return false;
-  }
-  // Remember where it lives so it can always go home.
-  if (!__engMountedPages.has(pageId)) {
-    __engMountedPages.set(pageId, { home: panel.parentElement, before: panel.nextElementSibling });
-  }
-  const host = document.createElement('div');
-  host.dataset.engineMount = pageId;
-  body.appendChild(host);
-  host.appendChild(panel);
-  panel.classList.remove('hidden');
-  // The page's own loader is what fills it. Failing to load must not take the tab
-  // down with it — the panel is still there, just empty.
-  if (typeof load === 'function') { try { load(); } catch (e) { console.error(`[engMountPage] ${pageId} loader failed`, e); } }
-  return true;
-}
-
-// Put every borrowed panel back where it was authored, hidden as switchPage expects.
-function engRestoreMountedPages() {
-  for (const [pageId, home] of __engMountedPages) {
-    const panel = document.querySelector(`[data-page-content="${pageId}"]`);
-    if (!panel || !home.home) continue;
-    if (panel.parentElement === home.home) continue;         // already home
-    panel.classList.add('hidden');
-    if (home.before && home.before.parentElement === home.home) home.home.insertBefore(panel, home.before);
-    else home.home.appendChild(panel);
-  }
-  document.querySelectorAll('[data-engine-mount]').forEach(n => n.remove());
-}
-if (typeof window !== 'undefined') {
-  window.engMountPage = engMountPage;
-  window.engRestoreMountedPages = engRestoreMountedPages;
-}
 function engBar(segments) {   // segments: [{pct,cls,label}]
   const bar = segments.filter(s => s.pct > 0).map(s => `<div class="${s.cls}" style="width:${s.pct}%" title="${esc(s.label || '')}"></div>`).join('');
   const legend = segments.map(s => `<span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400"><span class="w-2 h-2 rounded-full ${s.cls}"></span>${esc(s.label)}</span>`).join('');
@@ -582,9 +515,6 @@ async function engineTab(engineId, tab, force) {
   });
   const body = document.querySelector(`[data-engine-body="${engineId}"]`);
   if (!body) return;
-  // A borrowed page panel may be sitting in here; hand it back before the wipe or
-  // innerHTML deletes the real page out of the document.
-  engRestoreMountedPages();
   body.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading…</div>`;
   try {
     const d = await engineData(engineId, force);
@@ -623,7 +553,6 @@ function engineRail(eng, d) {
 function renderEngine(engineId) {
   const eng = ENGINES[engineId]; if (!eng) return;
   const root = document.getElementById(eng.rootId); if (!root) return;
-  engRestoreMountedPages();          // see engMountPage — root.innerHTML below is a wipe
   const order = eng.tabOrder || ENGINE_TAB_ORDER;   // engines may show a subset of the 5 tabs
   let tab = ENGINE_STATE[engineId] || order[0];
   if (!order.includes(tab)) tab = order[0];          // stored tab may have been removed

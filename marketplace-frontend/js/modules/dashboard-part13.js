@@ -850,7 +850,8 @@ function loadCommissionsPage() {
 }
 function commSetTab(t) { __commState.tab = t; loadCommissionsPage(); }
 function commSetMonth(m) { __commState.month = m; loadCommissionsPage(); }
-window.loadCommissionsPage = loadCommissionsPage; window.commSetTab = commSetTab; window.commSetMonth = commSetMonth;
+function openMyPay(tab) { __commState.tab = tab === 'statements' ? 'statements' : 'mine'; switchPage('commissions'); }
+window.loadCommissionsPage = loadCommissionsPage; window.commSetTab = commSetTab; window.commSetMonth = commSetMonth; window.openMyPay = openMyPay;
 
 // ── Group 7: Pay periods · Statements · Exceptions ───────────────────────────
 const commMoney2 = (v) => '$' + (Number(v) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

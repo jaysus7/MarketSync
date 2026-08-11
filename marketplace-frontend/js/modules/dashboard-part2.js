@@ -27,12 +27,6 @@ function dealerRoleLanding(role) {
 }
 window.dealerRoleLanding = dealerRoleLanding;
 
-// ── Setup, in one line at the foot of the shell ──────────────────────────────
-// It shows a count, it opens a modal, and it removes itself the moment the dealership
-// is fully configured. It does not appear inside a department, it does not block
-// anything, and it never navigates you away from what you were doing.
-let __msLaunch = null;      // the last /launch answer, so the modal need not refetch
-
 async function refreshSetupIndicator(role) {
   const banner = document.getElementById('setup-status-banner');
   role = role || window.__setupIndicatorRole;
@@ -42,138 +36,21 @@ async function refreshSetupIndicator(role) {
     const response = await fetch(`${API}/launch`, { headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok) return;
     const launch = await response.json();
-    __msLaunch = launch;
-    // Done means gone. Nothing left over, no "0 remaining" line to dismiss.
-    if (launch.fully_configured) { banner.classList.add('hidden'); banner.classList.remove('flex'); return; }
+    if (launch.fully_configured) { banner.classList.add('hidden'); return; }
     const items = launch.items || [];
-    const done = items.filter(i => i.status === 'done').length;
     const required = items.filter(i => i.status === 'outstanding' && i.type === 'REQUIRED_TO_LAUNCH').length;
-    document.getElementById('setup-status-title').textContent = `Setting up your dealership — ${done} of ${items.length}`;
+    const remaining = items.filter(i => i.status !== 'done').length;
+    document.getElementById('setup-status-title').textContent = required
+      ? `Finish setup — ${required} required item${required === 1 ? '' : 's'}`
+      : `Setup ${items.length - remaining}/${items.length} complete`;
     document.getElementById('setup-status-detail').textContent = required
-      ? `${required} still required before you can operate`
-      : 'the rest is recommended or optional';
+      ? `${remaining} total item${remaining === 1 ? '' : 's'} remain`
+      : `${remaining} recommended or optional item${remaining === 1 ? '' : 's'} remain`;
     banner.classList.remove('hidden');
     banner.classList.add('flex');
   } catch { /* Setup status is useful context, never a reason to block the shell. */ }
 }
 window.refreshSetupIndicator = refreshSetupIndicator;
-
-// ── The setup modal ──────────────────────────────────────────────────────────
-// Everything still missing, in one place, with the fields you can actually type into
-// right here. The dealership-configuration items ARE a form, so they are a form; the
-// rest are jobs somewhere else, and those carry the button that takes you there and
-// closes the modal behind you.
-const MS_SETUP_FIELDS = [
-  ['legal_name', 'Registered legal name', 'text'],
-  ['street_address', 'Street address', 'text'],
-  ['city', 'City', 'text'],
-  ['province', 'Province / state', 'text'],
-  ['postal_code', 'Postal / ZIP code', 'text'],
-  ['country', 'Country', 'text'],
-  ['phone', 'Main phone', 'tel'],
-  ['timezone', 'Timezone', 'text'],
-  ['hst_number', 'Tax registration number', 'text'],
-  ['omvic_reg', 'Dealer registration number', 'text'],
-];
-// Which requirements this form actually satisfies — the rest are done elsewhere.
-const MS_SETUP_FORM_KEYS = new Set(['legal_identity', 'timezone', 'tax_registration']);
-
-async function msSetupModal() {
-  const el = crmOverlay(`<div class="p-6"><div class="text-sm text-slate-400 py-10 text-center">Loading setup…</div></div>`, 'max-w-3xl');
-  const panel = el.firstElementChild;
-  let launch = __msLaunch;
-  try {
-    const r = await fetch(`${API}/launch`, { headers: { Authorization: `Bearer ${token}` } });
-    if (r.ok) { launch = await r.json(); __msLaunch = launch; }
-  } catch { /* fall back to the last answer rather than an empty modal */ }
-  if (!launch) {
-    panel.innerHTML = `<div class="p-6">${engEmpty('Setup could not be loaded, so nothing is shown. Nothing has been changed.')}</div>`;
-    return;
-  }
-
-  const items = launch.items || [];
-  const outstanding = items.filter(i => i.status !== 'done');
-  const cfg = launch.dealership || {};
-  const needsForm = outstanding.some(i => MS_SETUP_FORM_KEYS.has(i.key));
-
-  const fields = MS_SETUP_FIELDS.map(([k, label, type]) => `
-    <label class="block">
-      <span class="block text-[12px] font-bold text-slate-600 dark:text-slate-300">${esc(label)}</span>
-      <input data-field="${k}" type="${type}" value="${esc(String(cfg[k] ?? ''))}"
-        class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-    </label>`).join('');
-
-  const elsewhere = outstanding.filter(i => !MS_SETUP_FORM_KEYS.has(i.key));
-
-  panel.innerHTML = `
-    <div class="flex items-start gap-3 p-5 pb-0">
-      <div class="min-w-0 flex-1">
-        <div class="text-lg font-black text-slate-900 dark:text-white">Set up your dealership</div>
-        <div class="text-[12px] text-slate-400">${items.length - outstanding.length} of ${items.length} done${launch.operational ? ' · you can already operate' : ' · some required items remain'}</div>
-      </div>
-      <button onclick="this.closest('.fixed').remove()" class="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Close">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-    </div>
-    <div class="p-5 max-h-[70vh] overflow-y-auto">
-      ${needsForm ? `<div data-launch-form>
-        <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Your dealership</div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${fields}</div>
-        <div class="flex flex-wrap items-center gap-2 mt-3">
-          <button onclick="msSetupSave(this)" class="px-3 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition">Save</button>
-          <span class="text-[12px] text-slate-400">A blank field is left as it was — saving never clears something you already entered.</span>
-        </div>
-      </div>` : ''}
-
-      ${elsewhere.length ? `<div class="${needsForm ? 'mt-6' : ''}">
-        <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">Done elsewhere</div>
-        ${elsewhere.map(i => {
-          const action = LAUNCH_ACTIONS[i.key];
-          return `<div class="flex items-start gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-            <div class="min-w-0 flex-1">
-              <div class="font-bold text-[13px] text-slate-900 dark:text-white">${esc(i.label)}</div>
-              <div class="text-[12px] text-slate-500 dark:text-slate-400">${esc(i.why || '')}</div>
-              ${i.actionable_by_you === false ? `<div class="text-[12px] text-slate-400 mt-0.5">Somebody with ${esc(i.permission || 'the right permission')} has to do this</div>` : ''}
-            </div>
-            ${i.actionable_by_you !== false && action
-              ? `<button onclick="msSetupGo(${JSON.stringify(action[0]).replace(/"/g, '&quot;')})" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">${esc(action[1])}</button>`
-              : ''}
-            <div class="shrink-0 text-[12px] font-bold ${i.status === 'unknown' ? 'text-slate-400' : 'text-amber-600 dark:text-amber-400'}">${i.status === 'unknown' ? 'Could not check' : 'Outstanding'}</div>
-          </div>`;
-        }).join('')}
-      </div>` : ''}
-
-      ${!outstanding.length ? engEmpty('Everything is set up. This will not appear again.') : ''}
-    </div>`;
-}
-window.msSetupModal = msSetupModal;
-
-// Run the item's own action, then get out of the way.
-function msSetupGo(code) {
-  document.querySelectorAll('.fixed.inset-0.z-\\[9998\\]').forEach(n => n.remove());
-  try { (new Function(code))(); } catch (e) { showToast(e.message, 'error'); }
-}
-window.msSetupGo = msSetupGo;
-
-async function msSetupSave(btn) {
-  const form = btn.closest('[data-launch-form]');
-  if (!form) return;
-  const body = {};
-  for (const el of form.querySelectorAll('[data-field]')) {
-    const v = el.value.trim();
-    if (v) body[el.dataset.field] = v;      // blank leaves the stored value alone
-  }
-  if (!Object.keys(body).length) { showToast('Nothing to save', 'error'); return; }
-  try {
-    await apiSendJson('/launch/dealership', 'PATCH', body);
-    showToast('Saved', 'success');
-    await refreshSetupIndicator();
-    // Reopen against fresh state so a satisfied requirement visibly leaves the list.
-    document.querySelectorAll('.fixed.inset-0.z-\\[9998\\]').forEach(n => n.remove());
-    if (!__msLaunch?.fully_configured) msSetupModal();
-  } catch (e) { showToast(e.message, 'error'); }
-}
-window.msSetupSave = msSetupSave;
 
 // AI Boost — hot/cold segment cache (populated by renderIntel, read by renderCatalog)
 let __hotMakeModels = new Set();
@@ -514,18 +391,10 @@ async function initializeDashboardEcosystem() {
     // Overdue-task badge on the Task Board nav item.
     try { if (typeof taskUpdateBadge === 'function') taskUpdateBadge(); } catch (e) {}
 
-    // Guided setup: show the sidebar progress bar, and on the very first login for
-    // this dealership walk them straight into the Setup Center if anything's unset.
+    // Setup is user-initiated from the canonical Launch Hub. Never interrupt login
+    // or page navigation with a setup modal.
     try {
       renderSetupBar();
-      const introKey = `ms_setup_intro_${profileContext?.dealership?.id || 'x'}`;
-      if (!localStorage.getItem(introKey)) {
-        setTimeout(async () => {
-          const steps = setupStepsFor(role); if (!steps.length) return;
-          let snap; try { snap = await loadSetupSnapshot(); } catch { return; }
-          if (steps.some(s => !setupStepDone(s, snap))) { localStorage.setItem(introKey, '1'); openSetupCenter(); }
-        }, 900);
-      }
     } catch (e) {}
 
     // Daily Punch Clock Prompt (once per day on login)
@@ -703,9 +572,6 @@ function toggleNavGroup(id) {
   if (!body) return;
   const collapsed = body.classList.toggle('hidden');
   chev?.classList.toggle('-rotate-90', collapsed);
-  if (!collapsed) {
-    checkDepartmentOpen(id);
-  }
 }
 window.toggleNavGroup = toggleNavGroup;
 
@@ -1224,7 +1090,6 @@ function switchPage(pageId) {
   if (pageId === 'people-compliance' || pageId === 'hr' || pageId === 'people') loadPeopleCompliance();
 
   __currentPage = pageId;
-  checkDepartmentOpen(pageId);
   renderDeptTabbar(pageId);
   highlightDeptNav(pageId);
   msSyncRoute(pageId);

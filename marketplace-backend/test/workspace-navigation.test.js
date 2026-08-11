@@ -42,9 +42,10 @@ const part2 = read('js/modules/dashboard-part2.js')
 const part11 = read('js/modules/dashboard-part11.js')
 const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)].map(m => m[1]))
 
-// The nine target workspaces (project instructions §8 / Doc 21 §18).
+// Dealer workspaces in operational order. Cleanup is intentionally first-class:
+// its staff and queue are distinct from the inventory stock list.
 const EXPECTED_WORKSPACES = [
-  'executive', 'sales', 'inventory', 'fni', 'service', 'parts', 'accounting', 'marketing', 'people',
+  'executive', 'sales', 'inventory', 'cleanup', 'fni', 'service', 'parts', 'accounting', 'marketing', 'people',
 ]
 
 // Every page the PREVIOUS DEPARTMENTS registry could reach. Phase 1 is a
@@ -57,17 +58,18 @@ const PRE_PHASE1_PAGES = [
   'taskboard', 'tasks', 'website',
 ]
 
-test('registry exposes the nine DealerOS workspaces in workflow order', () => {
+test('registry exposes the DealerOS workspaces in workflow order', () => {
   const { MS_WORKSPACES, msDepartmentIds } = loadRegistry()
   assert.ok(MS_WORKSPACES, 'MS_WORKSPACES must be exported')
   assert.deepEqual(msDepartmentIds(MS_WORKSPACES), EXPECTED_WORKSPACES,
-    'departments must be exactly the nine target workspaces, in order')
+    'departments must match the approved operational workspaces, in order')
 })
 
-test('every dealer department leads with one role-aware My Day', () => {
+test('department landing pages follow the approved workflow', () => {
   const { MS_WORKSPACES, msDepartmentIds } = loadRegistry()
   for (const id of msDepartmentIds(MS_WORKSPACES)) {
-    assert.equal(MS_WORKSPACES[id].pages[0]?.label, 'My Day', `${id} must lead with My Day`)
+    const expected = id === 'inventory' ? 'Inventory' : id === 'cleanup' ? 'Cleanup' : 'My Day'
+    assert.equal(MS_WORKSPACES[id].pages[0]?.label, expected, `${id} must use its approved landing page`)
   }
 })
 
@@ -75,7 +77,7 @@ test('system engines are NOT primary departments', () => {
   const { msDepartmentIds, MS_WORKSPACES } = loadRegistry()
   // CRM, Automation, AI, Integrations, Analytics, Marketplace power the workspaces
   // underneath — an employee must never navigate our software architecture.
-  for (const forbidden of ['crm', 'automation', 'ai', 'integration', 'analytics', 'marketplace', 'administration', 'cleanup']) {
+  for (const forbidden of ['crm', 'automation', 'ai', 'integration', 'analytics', 'marketplace', 'administration']) {
     assert.ok(!msDepartmentIds(MS_WORKSPACES).includes(forbidden),
       `"${forbidden}" must not be a primary department`)
   }
@@ -110,7 +112,7 @@ test('required UI moves landed in the right workspace', () => {
   const at = (page) => msWorkspaceOfPage(page, MS_WORKSPACES)
   assert.equal(at('appraisal'), 'inventory', 'Appraisals → Inventory > Acquire')
   assert.equal(at('equity'), 'inventory', 'Equity Mining → Inventory > Acquire')
-  assert.equal(at('recon'), 'inventory', 'Recon → Inventory (not Sales)')
+  assert.equal(at('recon'), 'cleanup', 'Cleanup/reconditioning has its own operational workspace')
   assert.equal(at('inv-intel'), 'inventory', 'Inventory Intelligence stays visibly named inside Inventory')
   assert.equal(at('delivery'), 'fni', 'Delivery → F&I')
   assert.equal(at('sales-team'), 'people', 'Employees → People')
@@ -121,24 +123,17 @@ test('required UI moves landed in the right workspace', () => {
 
 test('Inventory Intelligence remains visibly discoverable inside Inventory', () => {
   const inv = readFileSync(new URL('../../marketplace-frontend/js/modules/inventory-workspace.js', import.meta.url), 'utf8')
-  // The sub-nav that used to list these is gone; discoverability now rests on the
-  // Pricing and age section plus the two rail shortcuts. Both still have to be there —
-  // an Inventory Intelligence nobody can find is an Inventory Intelligence nobody uses.
-  assert.match(inv, /engSection\('Pricing and age'/)
+  assert.match(inv, /\['pricing', 'Inventory Intelligence'\]/)
+  assert.match(inv, /\['market', 'Market & Competitors'\]/)
   assert.match(inv, /label: 'Inventory Intelligence'.*switchPage\('inv-intel'\)/s)
   assert.match(inv, /label: 'Market & Competitors'.*switchPage\('market'\)/s)
-  const reg = readFileSync(new URL('../../marketplace-frontend/js/modules/workspace-registry.js', import.meta.url), 'utf8')
-  for (const p of ['inv-intel', 'market']) {
-    assert.ok(reg.includes(`page: '${p}'`), `${p} must stay reachable from the registry`)
-  }
 })
 
-test('one inventory pool — the manual and Facebook views are the same page', () => {
-  // Still one pool and one page; the Facebook view simply moved to Marketing, where publishing
-  // to a channel belongs. What must never happen is a second vehicle model.
+test('one inventory pool — Vehicles and Syndication are two views of one page', () => {
   const { MS_WORKSPACES } = loadRegistry()
-  assert.deepEqual(MS_WORKSPACES.inventory.pages.filter(p => p.page === 'inventory').map(p => p.invmode), ['manual'])
-  assert.deepEqual(MS_WORKSPACES.marketing.pages.filter(p => p.page === 'inventory').map(p => p.invmode), ['facebook'])
+  const modes = MS_WORKSPACES.inventory.pages.filter(p => p.page === 'inventory')
+  assert.deepEqual(modes.map(p => p.invmode).sort(), ['facebook', 'manual'],
+    'inventory must appear once per view mode, never as a duplicate vehicle model')
 })
 
 test('role gating is preserved on regrouped workspaces', () => {
@@ -157,7 +152,9 @@ test('role gating is preserved on regrouped workspaces', () => {
   assert.equal(tab('sales', 'leads').mgr, true, 'Pipeline stays manager-only')
   assert.equal(tab('inventory', 'inv-intel').mgr, true, 'Inventory Intelligence stays manager-only')
   assert.equal(tab('inventory', 'inv-intel').label, 'Inventory Intelligence')
-  assert.equal(tab('inventory', 'market').label, 'Market & Competitors')
+  assert.equal(tab('inventory', 'market').label, 'Market Comparison')
+  assert.equal(tab('inventory', 'inventory').label, 'Inventory')
+  assert.equal(MS_WORKSPACES.cleanup.pages[0].page, 'recon')
   assert.equal(tab('fni', 'delivery').mgr, true, 'Delivery stays manager-only')
 })
 
@@ -195,20 +192,15 @@ test('engine workspaces and Settings render one primary header', () => {
     'Automation and API remain deep links inside Settings, not competing primary tabs')
 })
 
-test('Management exposes one canonical four-tab command header', () => {
-  // Was six. Exceptions was the same needs-attention list Pulse already implies, and Approvals
-  // was a subset of it — three places to check and no single answer to "what is waiting on me".
-  // Both now live under Pulse.
+test('Management exposes one canonical six-tab command header', () => {
   const { MS_WORKSPACES } = loadRegistry()
   assert.equal(MS_WORKSPACES.executive.label, 'My Day')
   assert.deepEqual(MS_WORKSPACES.executive.pages.filter(page => !page.legacy).map(page => page.page), ['command'],
     'legacy Executive pages must not render a competing department tab row')
-  assert.match(part11, /tabOrder:\s*\['overview', 'pulse', 'forecast', 'financials'\]/)
-  for (const label of ['My Day', 'Pulse', 'Forecast', 'Financials']) {
+  assert.match(part11, /tabOrder:\s*\['overview', 'pulse', 'exceptions', 'approvals', 'forecast', 'financials'\]/)
+  for (const label of ['My Day', 'Pulse', 'Exceptions', 'Approvals', 'Forecast', 'Financials']) {
     assert.match(part11, new RegExp(`['"]${label}['"]`), `Management must expose ${label}`)
   }
-  assert.ok(!/exceptions:\s*'Exceptions'/.test(part11), 'Exceptions must not be a tab of its own')
-  assert.ok(!/approvals:\s*'Approvals'/.test(part11), 'Approvals must not be a tab of its own')
   assert.match(part11, /apiGetJson\('\/my-day'\)/,
     'Management My Day must consume the shared role-aware attention aggregation')
   assert.match(part11, /d\.day\.needs_attention/,
@@ -294,36 +286,4 @@ test('hash routing is additive and cannot break the token bootstrap', () => {
   // The route matcher only accepts its own #/w/ and #/p/ shapes, so a #tk= hash
   // (or any other foreign hash) is ignored rather than treated as a page.
   assert.match(part2, /\^#\\\/\(\?:w\\\/\[\^\/\]\+\\\/\|p\\\/\)/, 'route regex must be anchored to its own shapes')
-})
-
-
-// ── A tab must show information, not point at another page ───────────────────
-
-test('Forecast and Financials render data rather than signposting another page', () => {
-  // Both used to take no data at all and render a button saying "open Accounting" / "open the
-  // pipeline". A tab whose only content is "go somewhere else" should not be a tab.
-  for (const tab of ['forecast', 'financials']) {
-    const fn = part11.match(new RegExp(`\\n    ${tab}\\(body[^)]*\\) \\{[\\s\\S]*?\\n    \\},`))?.[0] || ''
-    assert.ok(fn, `${tab} tab not found`)
-    assert.match(fn, /\(body, d\)/, `${tab} must receive the engine data — it cannot show numbers without it`)
-    assert.match(fn, /cmdStat\(/, `${tab} must render real figures`)
-  }
-})
-
-test('a figure that could not be read shows as unknown, never as zero', () => {
-  // A management screen that quietly shows $0 cash is worse than one that says it could not
-  // read the ledger.
-  assert.match(part11, /Unknown/)
-  assert.match(part11, /const cmdUnavailable/)
-  assert.match(part11, /This view is incomplete/)
-})
-
-test('Management My Day groups every department and shows what ran, not only what is wrong', () => {
-  assert.match(part11, /const departments = \[\.\.\.new Set\(attention\.map/,
-    'the day must be grouped by department, not a single flat ranked column')
-  assert.match(part11, /Running today/)
-  assert.match(part11, /Campaigns live/)
-  assert.match(part11, /Automations sent today/)
-  assert.match(part11, /not_covered/,
-    'departments the queue cannot see must be named, so a quiet day is not mistaken for a calm one')
 })

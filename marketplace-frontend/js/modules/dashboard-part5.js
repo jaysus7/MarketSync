@@ -500,8 +500,8 @@ async function loadPipelinePage() {
 let __apptData = [];            // all appointments from the API
 let __apptCanManageAll = false;
 let __apptMonth = new Date();   // the month currently displayed (day ignored)
-let __apptView = 'calendar';    // 'calendar' | 'list'
-function renderAppts() { if (__apptView === 'list') renderApptListView(); else renderApptCalendar(); }
+let __apptView = 'calendar';    // retained for older deep links; the page is calendar-only
+function renderAppts() { __apptView = 'calendar'; renderApptCalendar(); }
 function apptSetView(v) { __apptView = v; renderAppts(); }
 window.apptSetView = apptSetView;
 // A Calendar / List segmented toggle shared by the appointment views.
@@ -610,7 +610,6 @@ function renderApptCalendar() {
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">${__apptCanManageAll ? 'Every appointment your reps have booked' : 'Your booked appointments'} — tap one for details.</p>
       </div>
       <div class="flex items-center gap-1.5 flex-wrap">
-        ${apptViewToggle()}
         <button id="appt-prev" class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Previous month"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg></button>
         <div class="text-sm font-bold text-slate-800 dark:text-slate-200 min-w-[140px] text-center">${monthName}</div>
         <button id="appt-next" class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Next month"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
@@ -859,11 +858,6 @@ window.apptRescheduleForm = apptRescheduleForm; window.apptReschedule = apptResc
 // in their own page wrappers. (Older code mirrored them into Insights as an overview,
 // which made the admin dashboard look cluttered. We now rely on sidebar nav instead.)
 function ensurePanelsInOriginalLocations() {
-  // Workspace tabs borrow real page panels (engMountPage). switchPage() calls this on
-  // every navigation, so this is where a borrowed page goes home — otherwise opening
-  // that page directly would find it parked inside a hidden workspace and show blank.
-  if (typeof engRestoreMountedPages === 'function') engRestoreMountedPages();
-
   const lb = document.getElementById('leaderboard-panel');
   const ti = document.getElementById('team-insights-panel');
   const st = document.getElementById('dealer-view-panel');
