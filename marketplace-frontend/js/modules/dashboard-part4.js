@@ -1050,7 +1050,7 @@ async function crmOpenForm(id) {
     <div class="flex gap-2 justify-end pt-1"><button onclick="this.closest('.fixed').remove()" class="text-sm font-bold text-slate-500 px-4 py-2">Cancel</button>
       <button onclick="crmSaveContact(this, ${id ? `'${id}'` : 'null'})" class="text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">${id ? 'Save' : 'Create'}</button></div>
   </div>`, 'max-w-2xl');
-  if (id) idvFillProvider();
+  if (id) { idvFillProvider(); idvRefresh(id); }
 }
 function crmToggleCompany(isCo) { const r = document.getElementById('crm-company-row'); if (r) r.classList.toggle('hidden', !isCo); }
 
@@ -1107,6 +1107,9 @@ function idvBadge(status, verifiedAt) {
     processing: ['bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300', 'Checking…'],
     pending: ['bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300', 'Awaiting customer'],
     requires_input: ['bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300', 'Needs another attempt'],
+    manual_review: ['bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300', 'Manual review'],
+    failed: ['bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300', 'Failed'],
+    expired: ['bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300', 'Expired'],
     canceled: ['bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300', 'Canceled'],
   };
   const [cls, label] = map[status] || ['bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300', 'Not verified'];
@@ -1115,18 +1118,20 @@ function idvBadge(status, verifiedAt) {
 }
 function idvBlock(c) {
   const cid = c.id;
-  const status = c.id_verification_status || 'unstarted';
-  const rep = c.id_verification_report || {};
-  const summary = status === 'verified' && (rep.name || rep.dob)
-    ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Matched: ${esc(rep.name || '')}${rep.dob ? ` · DOB ${esc(rep.dob)}` : ''}${rep.selfie_matched ? ' · selfie matched' : ''}</div>` : '';
-  const lastErr = status === 'requires_input' && rep.last_error
-    ? `<div class="text-[11px] text-rose-500 mt-1">${esc(rep.last_error)}</div>` : '';
+  // Contact-level verification columns are legacy mirrors and can be stale. The canonical,
+  // purpose-scoped record is loaded immediately from /identity/status below.
+  const status = 'unstarted';
+  const summary = '';
+  const lastErr = '';
   return `<div class="text-[11px] font-black uppercase tracking-wider text-indigo-500 pt-1">Identity verification</div>
     <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3">
       <div class="flex items-center justify-between gap-2">
         <div>
           <div class="flex items-center gap-2"><span class="text-sm font-bold text-slate-800 dark:text-slate-100">Government ID + selfie</span> <span id="idv-badge">${idvBadge(status, c.id_verified_at)}</span></div>
           <div class="text-[11px] text-slate-500 dark:text-slate-400">The customer photographs their ID and takes a selfie; images stay with the verification provider.</div>
+          <label class="mt-2 flex items-center gap-2 text-[11px] font-semibold text-slate-500">Purpose
+            <select id="idv-purpose" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200"><option value="test_drive">Test drive</option><option value="credit_application">Credit application</option><option value="remote_purchase">Remote purchase</option><option value="esign">E-sign</option><option value="payment">Payment</option><option value="delivery">Delivery</option></select>
+          </label>
           <div id="idv-provider-slot" class="mt-1"></div>
           <div id="idv-summary">${summary}${lastErr}</div>
         </div>
@@ -1142,7 +1147,8 @@ async function idvStart(contactId) {
   const link = document.getElementById('idv-link');
   if (link) { link.classList.remove('hidden'); link.innerHTML = '<div class="text-xs text-slate-500">Creating a secure verification link…</div>'; }
   try {
-    const r = await apiSendJson('/identity/start', 'POST', { contact_id: contactId }, { timeoutMs: 30000 });
+    const purpose = document.getElementById('idv-purpose')?.value || 'test_drive';
+    const r = await apiSendJson('/identity/start', 'POST', { contact_id: contactId, purpose }, { timeoutMs: 30000 });
     if (!r.url) throw new Error('No verification link returned.');
     const badge = document.getElementById('idv-badge'); if (badge) badge.innerHTML = idvBadge('pending');
     if (link) link.innerHTML = `
@@ -1165,9 +1171,10 @@ async function idvRefresh(contactId) {
     if (badge) badge.innerHTML = idvBadge(r.status, r.verified_at);
     const sum = document.getElementById('idv-summary');
     if (sum) {
-      const rep = r.report || {};
-      if (r.status === 'verified' && (rep.name || rep.dob)) sum.innerHTML = `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Matched: ${esc(rep.name || '')}${rep.dob ? ` · DOB ${esc(rep.dob)}` : ''}${rep.selfie_matched ? ' · selfie matched' : ''}</div>`;
-      else if (r.status === 'requires_input' && rep.last_error) sum.innerHTML = `<div class="text-[11px] text-rose-500 mt-1">${esc(rep.last_error)}</div>`;
+      const rep = r.verification || r;
+      if (r.status === 'verified') sum.innerHTML = `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">${esc(rep.legal_name || '')}${rep.dob ? ` · DOB ${esc(rep.dob)}` : ''} · document ${esc(rep.document_result || 'unknown')} · liveness ${esc(rep.liveness_result || 'unknown')}${rep.face_match_score != null ? ` · match ${Number(rep.face_match_score).toFixed(0)}/100` : ' · match score unavailable'}</div>`;
+      else if (r.status === 'manual_review') sum.innerHTML = `<div class="text-[11px] text-amber-600 dark:text-amber-400 mt-1">Provider result needs evidence review. It is not verified yet.</div>`;
+      else if ((r.status === 'failed' || r.status === 'expired') && rep.last_error) sum.innerHTML = `<div class="text-[11px] text-rose-500 mt-1">${esc(rep.last_error)}</div>`;
     }
     if (r.status === 'verified') { showToast('Identity verified', 'success'); const l = document.getElementById('idv-link'); if (l) l.classList.add('hidden'); }
   } catch (e) { if (badge) badge.innerHTML = idvBadge('requires_input'); showToast(e.message || 'Could not check status', 'error'); }

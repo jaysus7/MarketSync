@@ -82,22 +82,63 @@ async function personaStart(contactId, returnUrl) {
   if (!url) url = `https://withpersona.com/verify?inquiry-id=${encodeURIComponent(id)}`
   return { id, url }
 }
-// Map a Persona inquiry to our status vocabulary + a non-sensitive summary.
-async function personaStatus(inquiryId) {
-  const j = await personaFetch(`/inquiries/${inquiryId}`)
+// A generic Persona inquiry status does NOT prove which template checks ran. Until report-level
+// evidence is retrieved, an approval is a manual-review result — never a fabricated selfie pass.
+export function normalizePersonaInquiry(j) {
   const a = j.data?.attributes || {}
   const raw = String(a.status || '').toLowerCase()
-  let status = 'pending'
-  if (raw === 'approved' || raw === 'completed') status = 'verified'
-  else if (raw === 'declined' || raw === 'failed' || raw === 'expired') status = 'requires_input'
-  else if (raw === 'pending') status = 'processing'
-  const name = [a['name-first'], a['name-last']].filter(Boolean).join(' ') || null
-  const dob = a.birthdate || null
-  const report = status === 'verified'
-    ? { name, dob, document_type: 'document', selfie_matched: true, provider: 'persona' }
-    : (status === 'requires_input' ? { last_error: `Verification ${raw}. Ask the customer to try again.`, provider: 'persona' } : null)
-  return { status, report }
+  const terminalFailure = ['declined', 'failed', 'expired'].includes(raw)
+  const approvedWithoutEvidence = ['approved', 'completed'].includes(raw)
+  return {
+    decision: terminalFailure ? (raw === 'expired' ? 'expired' : 'failed') : approvedWithoutEvidence ? 'manual_review' : raw === 'pending' ? 'processing' : 'pending',
+    machine_decision: terminalFailure ? 'failed' : approvedWithoutEvidence ? 'manual_review' : 'processing',
+    legal_name: [a['name-first'], a['name-last']].filter(Boolean).join(' ') || null,
+    date_of_birth: a.birthdate || null,
+    document_type: null,
+    document_result: 'unknown', live_face_result: 'unknown', liveness_result: 'unknown', face_match_score: null,
+    evidence_reference: j.data?.id || null,
+    last_error: terminalFailure ? `Verification ${raw}.` : approvedWithoutEvidence ? 'Provider approval received; report-level face and liveness evidence requires review.' : null,
+  }
 }
+async function personaStatus(inquiryId) {
+  return normalizePersonaInquiry(await personaFetch(`/inquiries/${inquiryId}`))
+}
+
+export function normalizeStripeSession(vs) {
+  const status = String(vs?.status || 'pending')
+  const decision = status === 'verified' ? 'verified'
+    : status === 'requires_input' ? 'failed'
+      : status === 'canceled' ? 'cancelled'
+        : status === 'processing' ? 'processing' : 'pending'
+  const vo = vs?.verified_outputs || {}
+  return {
+    decision, machine_decision: decision,
+    legal_name: [vo.first_name, vo.last_name].filter(Boolean).join(' ') || null,
+    date_of_birth: vo.dob ? `${vo.dob.year}-${String(vo.dob.month).padStart(2, '0')}-${String(vo.dob.day).padStart(2, '0')}` : null,
+    document_type: vo.id_number_type || null,
+    // Stripe's verified decision is evidence for the checks explicitly requested at session
+    // creation. It does not expose a portable 0–100 score, so that remains unknown.
+    document_result: decision === 'verified' ? 'passed' : decision === 'failed' ? 'failed' : 'unknown',
+    live_face_result: decision === 'verified' ? 'passed' : decision === 'failed' ? 'failed' : 'unknown',
+    liveness_result: decision === 'verified' ? 'passed' : decision === 'failed' ? 'failed' : 'unknown',
+    face_match_score: null,
+    evidence_reference: vs?.id || null,
+    last_error: vs?.last_error?.reason || null,
+  }
+}
+
+const PURPOSES = new Set(['test_drive', 'credit_application', 'remote_purchase', 'esign', 'payment', 'delivery'])
+const publicVerification = (v) => ({
+  id: v.id, contact_id: v.contact_id, provider: v.provider, purpose: v.purpose,
+  status: v.decision, decision: v.decision, requested_at: v.requested_at,
+  completed_at: v.completed_at, expires_at: v.expires_at,
+  document_result: v.document_result, live_face_result: v.live_face_result,
+  liveness_result: v.liveness_result, face_match_score: v.face_match_score,
+  legal_name: v.legal_name, dob: v.date_of_birth, document_type: v.document_type,
+  verified_address: v.verified_address, masked_document_number: v.masked_document_number,
+  document_expiry: v.document_expiry, issuing_jurisdiction: v.issuing_jurisdiction,
+  last_error: v.last_error, verified_at: v.decision === 'verified' ? v.completed_at : null,
+})
 
 export function registerIdentity(app) {
   app.get('/identity/config', requireAuth, requireMfa, requirePermission('integrations.manage'), async (req, res) => {
@@ -106,7 +147,7 @@ export function registerIdentity(app) {
     res.json({
       ok: true, configured: configured(), available,
       providers: available.map(p => ({ value: p, label: PROVIDER_LABELS[p] || p })),
-      selected,
+      selected, native: { available: false, reason: 'No vetted native liveness and face-match stack is configured.' },
     })
   })
 
@@ -124,11 +165,13 @@ export function registerIdentity(app) {
     res.json({ ok: true, selected: provider })
   })
 
-  app.post('/identity/start', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
+  app.post('/identity/start', requireAuth, requireMfa, requirePermission('identity.request'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!configured()) return res.status(501).json({ error: 'Identity verification isn’t configured on this server yet.' })
     const contactId = String(req.body?.contact_id || '')
+    const purpose = String(req.body?.purpose || 'test_drive')
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
+    if (!PURPOSES.has(purpose)) return res.status(400).json({ error: 'A valid verification purpose is required.' })
     const { data: contact } = await supabaseAdmin.from('contacts')
       .select('id, full_name, email').eq('id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!contact) return res.status(404).json({ error: 'Customer not found' })
@@ -148,12 +191,14 @@ export function registerIdentity(app) {
         })
         sessionId = vs.id; url = vs.url
       }
-      await supabaseAdmin.from('contacts').update({
-        id_verification_session: sessionId, id_verification_status: 'pending', id_verified_at: null,
-        id_verification_report: { provider },
-      }).eq('id', contactId)
-      audit(req, AuditAction.CONFIG_UPDATED, { id_verification_started: contactId, provider })
-      res.json({ ok: true, url, status: 'pending' })
+      const { data: verification, error: writeError } = await supabaseAdmin.from('identity_verifications').insert({
+        dealership_id: req.dealershipId, contact_id: contactId, provider,
+        provider_reference: sessionId, purpose, decision: 'pending', machine_decision: 'pending',
+        requested_by: req.user?.id || null, evidence_reference: sessionId,
+      }).select('*').single()
+      if (writeError) throw writeError
+      audit(req, 'customer.identity_verification_started', { contact_id: contactId, verification_id: verification.id, provider, purpose })
+      res.json({ ok: true, url, status: 'pending', verification_id: verification.id, purpose })
     } catch (e) {
       const msg = provider === 'stripe' && /not.*enabled|activate|identity/i.test(e.message || '')
         ? 'Turn on Stripe Identity in your Stripe dashboard (Settings → Identity) to use verification.'
@@ -162,47 +207,60 @@ export function registerIdentity(app) {
     }
   })
 
-  app.get('/identity/status', requireAuth, requireMfa, requirePermission('deal.approve'), async (req, res) => {
+  app.get('/identity/status', requireAuth, requireMfa, requirePermission('identity.view'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const contactId = String(req.query.contact_id || '')
     if (!contactId) return res.status(400).json({ error: 'contact_id required' })
     const { data: contact } = await supabaseAdmin.from('contacts')
-      .select('id, id_verification_status, id_verification_session, id_verified_at, id_verification_report')
+      .select('id')
       .eq('id', contactId).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!contact) return res.status(404).json({ error: 'Customer not found' })
-    // No session yet, or Stripe not configured — just return what we have.
-    if (!contact.id_verification_session || !configured()) {
-      return res.json({ ok: true, status: contact.id_verification_status || 'unstarted', verified_at: contact.id_verified_at, report: contact.id_verification_report })
+    let query = supabaseAdmin.from('identity_verifications').select('*')
+      .eq('dealership_id', req.dealershipId).eq('contact_id', contactId)
+    if (req.query.purpose) query = query.eq('purpose', String(req.query.purpose))
+    const { data: verification, error: readError } = await query.order('requested_at', { ascending: false }).limit(1).maybeSingle()
+    if (readError) return res.status(500).json({ error: readError.message })
+    if (!verification) return res.json({ ok: true, status: 'unstarted', verification: null })
+    if (!verification.provider_reference || !configured() || !['pending', 'processing'].includes(verification.decision)) {
+      const result = publicVerification(verification)
+      return res.json({ ok: true, ...result, verification: result })
     }
-    const provider = contact.id_verification_report?.provider || await resolveProvider(req.dealershipId)
+    const provider = verification.provider
     try {
-      let status, report = contact.id_verification_report
-      const patch = {}
+      let normalized
       if (provider === 'persona') {
-        const r = await personaStatus(contact.id_verification_session)
-        status = r.status
-        if (r.report) report = { ...(report || {}), ...r.report }
+        normalized = await personaStatus(verification.provider_reference)
       } else {
-        const vs = await stripe.identity.verificationSessions.retrieve(contact.id_verification_session)
-        status = vs.status  // requires_input | processing | verified | canceled
-        if (status === 'verified') {
-          try {
-            const full = await stripe.identity.verificationSessions.retrieve(contact.id_verification_session, { expand: ['verified_outputs'] })
-            const vo = full.verified_outputs || {}
-            report = { name: [vo.first_name, vo.last_name].filter(Boolean).join(' ') || null, dob: vo.dob ? `${vo.dob.year}-${String(vo.dob.month).padStart(2, '0')}-${String(vo.dob.day).padStart(2, '0')}` : null, document_type: vo.id_number_type || 'document', selfie_matched: true, provider: 'stripe' }
-          } catch {}
-        } else if (status === 'requires_input' && vs.last_error) {
-          report = { ...(report || {}), last_error: vs.last_error.reason || 'Verification needs another attempt.' }
-        }
+        normalized = normalizeStripeSession(await stripe.identity.verificationSessions.retrieve(verification.provider_reference, { expand: ['verified_outputs'] }))
       }
-      patch.id_verification_status = status
-      patch.id_verification_report = report
-      if (status === 'verified') patch.id_verified_at = contact.id_verified_at || new Date().toISOString()
-      await supabaseAdmin.from('contacts').update(patch).eq('id', contactId)
-      audit(req, 'customer.identity_verification_status_checked', { contact_id: contactId, after_state: { status, provider } })
-      res.json({ ok: true, status, verified_at: patch.id_verified_at || contact.id_verified_at, report })
+      const terminal = ['verified', 'manual_review', 'failed', 'expired', 'cancelled'].includes(normalized.decision)
+      const patch = { ...normalized, completed_at: terminal ? (verification.completed_at || new Date().toISOString()) : null }
+      const { data: saved, error: saveError } = await supabaseAdmin.from('identity_verifications').update(patch)
+        .eq('id', verification.id).eq('dealership_id', req.dealershipId).select('*').single()
+      if (saveError) throw saveError
+      audit(req, 'customer.identity_verification_status_checked', { contact_id: contactId, verification_id: saved.id, after_state: { decision: saved.decision, provider } })
+      const result = publicVerification(saved)
+      res.json({ ok: true, ...result, verification: result })
     } catch (e) {
-      res.json({ ok: true, status: contact.id_verification_status || 'unstarted', verified_at: contact.id_verified_at, report: contact.id_verification_report, error: e.message })
+      const result = publicVerification(verification)
+      res.json({ ok: true, ...result, verification: result, error: e.message })
     }
+  })
+
+  app.post('/identity/:id/review', requireAuth, requireMfa, requirePermission('identity.review'), async (req, res) => {
+    const decision = String(req.body?.decision || '')
+    const reason = String(req.body?.reason || '').trim()
+    if (!['verified', 'failed'].includes(decision) || !reason) return res.status(400).json({ error: 'Decision and review reason are required.' })
+    const { data: current } = await supabaseAdmin.from('identity_verifications').select('*')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!current) return res.status(404).json({ error: 'Verification not found' })
+    if (current.decision !== 'manual_review') return res.status(409).json({ error: 'Only a Manual Review verification can be reviewed.' })
+    const { data: saved, error } = await supabaseAdmin.from('identity_verifications').update({
+      decision, reviewed_by: req.user?.id || null, reviewed_at: new Date().toISOString(),
+      review_reason: reason, completed_at: current.completed_at || new Date().toISOString(),
+    }).eq('id', current.id).eq('dealership_id', req.dealershipId).eq('decision', 'manual_review').select('*').single()
+    if (error) return res.status(409).json({ error: error.message })
+    audit(req, 'customer.identity_verification_reviewed', { contact_id: current.contact_id, verification_id: current.id, before_state: { decision: current.decision }, after_state: { decision, reason } })
+    res.json({ ok: true, verification: publicVerification(saved) })
   })
 }
