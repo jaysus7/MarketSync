@@ -41,3 +41,14 @@ test('Customer Card consumes the canonical fit endpoint and renders real invento
   assert.match(ui, /v\.stock_number/)
   assert.match(ui, /v\.fit_score/)
 })
+
+test('vehicle-fit next actions reuse canonical CRM and deal workflows', () => {
+  const ui = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part4.js', import.meta.url), 'utf8')
+  assert.match(ui, /crmFitSendOptions/)
+  assert.match(ui, /crmEmailForm\(contactId\)/)
+  assert.match(ui, /crmFitBookAppointment/)
+  assert.match(ui, /crmApptForm\(contactId\)/)
+  assert.match(ui, /crmFitDeskDeal/)
+  assert.match(ui, /openDeskForContact\(contactId\)/)
+  assert.doesNotMatch(ui, /apiSendJson\([^\n]*vehicle-fit-action/)
+})
