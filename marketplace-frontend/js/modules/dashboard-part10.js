@@ -484,6 +484,23 @@ function engCard(title, inner, extra) {
     ${title ? `<div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mb-2">${esc(title)}</div>` : ''}${inner}</div>`;
 }
 function engEmpty(msg) { return `<div class="text-sm text-slate-400 py-8 text-center">${esc(msg)}</div>`; }
+
+// ── Sections you scroll to, instead of a second row of tabs ──────────────────
+// A workspace tab used to open onto ANOTHER tab bar (Inventory: My Day | Inventory |
+// Appraisals | Settings, and directly beneath it Vehicles | Acquisition | Cleanup |
+// Merchandising | …). Two stacked navigations for one screen is not organisation, and
+// the lower row hid whole surfaces behind a click that looked like a filter.
+//
+// The department header is the ONLY navigation. Everything a tab contains is stacked
+// in it under a heading and reached by scrolling. Use engSection for those headings;
+// engCard is still the right thing for a single panel inside one.
+function engSection(title, inner, sub) {
+  return `<section class="mt-7 first:mt-0">
+    <h3 class="text-[15px] font-black text-slate-900 dark:text-white">${esc(title)}</h3>
+    ${sub ? `<p class="text-[12px] text-slate-400 mt-0.5 mb-2">${esc(sub)}</p>` : '<div class="mb-2"></div>'}
+    ${inner}
+  </section>`;
+}
 function engBar(segments) {   // segments: [{pct,cls,label}]
   const bar = segments.filter(s => s.pct > 0).map(s => `<div class="${s.cls}" style="width:${s.pct}%" title="${esc(s.label || '')}"></div>`).join('');
   const legend = segments.map(s => `<span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400"><span class="w-2 h-2 rounded-full ${s.cls}"></span>${esc(s.label)}</span>`).join('');

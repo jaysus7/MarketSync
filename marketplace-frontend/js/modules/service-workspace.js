@@ -21,7 +21,6 @@
 // `SVC_ACTION_LABEL` for what the advisor is DOING.
 
 let __svcData = null;
-let __svcWorkView = 'repair-orders';
 
 const svcCustomer = (r) => r.customer_name || r.customer || 'Customer';
 const svcVehicle = (r) => r.vehicle_desc || [r.year, r.make, r.model].filter(Boolean).join(' ') || '';
@@ -166,8 +165,16 @@ async function svcMove(roId, toState, needsReason) {
   }
   try {
     const path = toState === 'closed' ? `/service-engine/ros/${roId}/close` : `/service-engine/ros/${roId}/status`;
-    await apiSendJson(path, 'POST', toState === 'closed' ? { reason, disposition: disposition.trim() } : { status: toState, reason });
-    showToast(`${svcStatusLabel(toState)} `, 'success');
+    const res = await apiSendJson(path, 'POST', toState === 'closed' ? { reason, disposition: disposition.trim() } : { status: toState, reason });
+    // Closing schedules the customer call-back. Say so — and say it plainly when the
+    // server could not schedule one, rather than letting the advisor assume it exists.
+    if (toState === 'closed') {
+      const f = res?.ro?.follow_up;
+      if (f?.created) showToast('Closed — follow-up call scheduled for the customer', 'success');
+      else if (f?.reason === 'already_scheduled') showToast('Closed — a follow-up call was already outstanding', 'success');
+      else if (f?.reason === 'no_customer_on_this_ro') showToast('Closed. No customer on this repair order, so no follow-up call was scheduled.', 'success');
+      else showToast(`Closed, but the follow-up call was NOT scheduled${f?.reason ? `: ${f.reason}` : ''}. Call the customer yourself.`, 'error');
+    } else showToast(`${svcStatusLabel(toState)} `, 'success');
     document.querySelectorAll('.fixed.inset-0.z-\\[9998\\]').forEach(n => n.remove());
     ENGINE_DATA['service-overview'] = undefined;
     engineTab('service-overview', ENGINE_STATE['service-overview'] || 'overview', true);
@@ -264,94 +271,172 @@ async function svcJob(lineId, action) {
 }
 window.svcJob = svcJob;
 
-const SVC_WORK_VIEWS = [
-  ['appointments', 'Appointments'], ['repair-orders', 'Repair Orders'],
-  ['dispatch', 'Dispatch'], ['ready', 'Ready'],
-];
-function svcWorkView(v) { __svcWorkView = v; engineTab('service-overview', 'work'); }
-window.svcWorkView = svcWorkView;
-
-function svcRenderWork(body, d) {
-  const nav = SVC_WORK_VIEWS.map(([id, label]) => {
-    const on = __svcWorkView === id;
-    return `<button onclick="svcWorkView('${id}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${on ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}">${esc(label)}</button>`;
+// ── Appointments — the book, and nothing else ────────────────────────────────
+// This was the "Work" tab with four sub-views stacked inside it (Appointments, Repair
+// Orders, Dispatch, Ready). Repair Orders is now a tab of its own, Ready is a group
+// within it, and Dispatch is gone: it was a filtered copy of the same repair orders
+// with a note underneath explaining that you had to open one to do anything.
+function svcRenderAppointments(body, d) {
+  const groups = [
+    ['Arrived — not checked in', (a) => a.status === 'arrived' && !a.repair_order_id],
+    ['Today', (a) => !a.repair_order_id && a.when && new Date(a.when).toDateString() === new Date().toDateString() && a.status !== 'arrived'],
+    ['Upcoming', (a) => !a.repair_order_id && a.when && new Date(a.when) > new Date() && new Date(a.when).toDateString() !== new Date().toDateString()],
+    ['No show', (a) => a.status === 'no_show'],
+    ['Converted', (a) => !!a.repair_order_id],
+  ];
+  const cards = groups.map(([title, filter]) => {
+    const rows = (d.appointments || []).filter(filter);
+    if (!rows.length) return '';
+    return engCard(`${title} (${rows.length})`, rows.slice(0, 15).map(svcApptRow).join(''));
   }).join('');
-  let inner = '';
-
-  if (__svcWorkView === 'appointments') {
-    const groups = [
-      ['Arrived — not checked in', (a) => a.status === 'arrived' && !a.repair_order_id],
-      ['Today', (a) => !a.repair_order_id && a.when && new Date(a.when).toDateString() === new Date().toDateString() && a.status !== 'arrived'],
-      ['Upcoming', (a) => !a.repair_order_id && a.when && new Date(a.when) > new Date() && new Date(a.when).toDateString() !== new Date().toDateString()],
-      ['No show', (a) => a.status === 'no_show'],
-      ['Converted', (a) => !!a.repair_order_id],
-    ];
-    inner = `<div class="space-y-3">${groups.map(([title, filter]) => {
-      const rows = (d.appointments || []).filter(filter);
-      if (!rows.length) return '';
-      return engCard(`${title} (${rows.length})`, rows.slice(0, 15).map(a => `
-        <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-          <div class="min-w-0 flex-1">
-            <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(a.customer || 'Customer')}</div>
-            <div class="text-[12px] text-slate-400 truncate">${a.when ? esc(new Date(a.when).toLocaleString()) : ''}${a.service_type ? ` · ${esc(a.service_type)}` : ''}</div>
-          </div>
-          <button onclick="${a.repair_order_id ? `svcOpenRecord('${a.repair_order_id}')` : `svcCheckIn('${a.id}')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold ${a.repair_order_id ? 'border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800' : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90'} transition">${a.repair_order_id ? 'Open RO' : 'Check In'}</button>
-        </div>`).join(''));
-    }).join('') || engEmpty('Nothing booked.')}</div>`;
-  } else if (__svcWorkView === 'repair-orders') {
-    const order = ['checked_in', 'inspection', 'estimate_sent', 'customer_approved', 'parts_ordered', 'in_progress', 'quality_check', 'ready', 'delivered'];
-    inner = `<div class="space-y-3">${order.map(st => {
-      const rows = (d.ros || []).filter(r => r.status === st);
-      return rows.length ? engCard(`${svcStatusLabel(st)} (${rows.length})`, rows.slice(0, 12).map(r => svcRoRow(r, d)).join('')) : '';
-    }).join('') || engEmpty('No repair orders open.')}</div>`;
-  } else if (__svcWorkView === 'dispatch') {
-    const active = (d.ros || []).filter(r => ['customer_approved', 'parts_ordered', 'in_progress'].includes(r.status));
-    inner = engCard(`On the floor (${active.length})`, active.map(r => svcRoRow(r, d)).join('') || engEmpty('Nothing on the floor.'))
-      + `<p class="text-[12px] text-slate-400 mt-3">Assignment and job progress happen on the repair order — open one to assign a technician.</p>`;
-  } else if (__svcWorkView === 'ready') {
-    const ready = (d.ros || []).filter(r => r.status === 'ready');
-    const delivered = (d.ros || []).filter(r => r.status === 'delivered');
-    inner = `<div class="space-y-3">
-      ${engCard(`Ready for the customer (${ready.length})`, ready.map(r => svcRoRow(r, d)).join('') || engEmpty('Nothing waiting for collection.'))}
-      ${delivered.length ? engCard(`Delivered — needs closing (${delivered.length})`, delivered.map(r => svcRoRow(r, d)).join('')) : ''}
+  body.innerHTML = `${svcUnavailableNote(d)}<div class="space-y-3">${cards || engEmpty('Nothing booked.')}</div>
+    <div class="mt-3 flex flex-wrap gap-2">
+      <button onclick="switchPage('service-appointments')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Open the appointment book</button>
     </div>`;
+}
+
+function svcApptRow(a) {
+  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+    <div class="min-w-0 flex-1">
+      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(a.customer || 'Customer')}</div>
+      <div class="text-[12px] text-slate-400 truncate">${a.when ? esc(new Date(a.when).toLocaleString()) : ''}${a.service_type ? ` · ${esc(a.service_type)}` : ''}</div>
+    </div>
+    <button onclick="${a.repair_order_id ? `svcOpenRecord('${a.repair_order_id}')` : `svcCheckIn('${a.id}')`}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold ${a.repair_order_id ? 'border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800' : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90'} transition">${a.repair_order_id ? 'Open RO' : 'Check In'}</button>
+  </div>`;
+}
+
+// ── Repair Orders — upcoming, open, closed ───────────────────────────────────
+// `appointment` is the canonical state of an RO that has been raised but not yet
+// checked in, so "upcoming" is a real state and not a date guess. Everything between
+// check-in and delivery is open work. Closed is closed.
+const SVC_OPEN_ORDER = ['checked_in', 'inspection', 'estimate_sent', 'customer_approved',
+                        'customer_declined', 'parts_ordered', 'in_progress', 'quality_check',
+                        'ready', 'delivered'];
+
+// The follow-up call that closing an RO produced. `null` for the whole list means the
+// call list could not be read — which must not render as "nobody needs calling".
+function svcCallFor(d, roId) {
+  if (d.followUps == null) return undefined;
+  return (d.followUps || []).find(c => c.repair_order_id === roId) || null;
+}
+
+function svcClosedRow(r, d) {
+  const call = svcCallFor(d, r.id);
+  let followUp;
+  if (call === undefined) followUp = `<span class="text-slate-400">Follow-up call unknown — the call list could not be loaded</span>`;
+  else if (call === null) followUp = `<span class="text-slate-400">No follow-up call on file for this repair order</span>`;
+  else if (call.done) followUp = `<span class="text-emerald-600 dark:text-emerald-400 font-semibold">Called${call.done_at ? ` ${esc(new Date(call.done_at).toLocaleDateString())}` : ''}</span>`;
+  else followUp = `<span class="text-amber-600 dark:text-amber-400 font-semibold">Call the customer${call.due_at ? ` · due ${esc(new Date(call.due_at).toLocaleDateString())}` : ''}</span>`;
+  const phone = call && call.phone ? call.phone : null;
+  return `<div class="py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+    <div class="flex items-center gap-3">
+      <button onclick="svcOpenRecord('${r.id}')" class="min-w-0 flex-1 text-left">
+        <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(svcCustomer(r))}</div>
+        <div class="text-[12px] text-slate-400 truncate">${svcVehicle(r) ? esc(svcVehicle(r)) : ''}${r.ro_number ? `${svcVehicle(r) ? ' · ' : ''}${esc(r.ro_number)}` : ''}</div>
+        <div class="text-[12px] text-slate-400">${r.closed_at ? `Closed ${esc(new Date(r.closed_at).toLocaleDateString())}` : 'Closed'}${r.financial_disposition ? ` · ${esc(r.financial_disposition)}` : ''}${Number(r.total) ? ` · $${Number(r.total).toLocaleString()}` : ''}</div>
+      </button>
+      ${phone ? `<a href="tel:${esc(phone)}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Call ${esc(phone)}</a>` : ''}
+      ${call && !call.done ? `<button onclick="svcCallDone('${call.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Mark called</button>` : ''}
+    </div>
+    <div class="text-[12px] mt-0.5">${followUp}</div>
+  </div>`;
+}
+
+// The follow-up is a crm_task and is equally completable from Tasks — but a Service-only
+// dealership has not bought the CRM department, so this surface completes it through
+// Service's own route rather than reaching into /crm/*.
+async function svcCallDone(taskId) {
+  try {
+    await apiSendJson(`/service-engine/follow-up-calls/${taskId}/complete`, 'POST', {});
+    showToast('Follow-up call marked done', 'success');
+    ENGINE_DATA['service-overview'] = undefined;
+    engineTab('service-overview', ENGINE_STATE['service-overview'] || 'ros', true);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.svcCallDone = svcCallDone;
+
+// Upcoming, open and closed are SECTIONS of one page, not three tabs behind a second
+// nav row. Scrolling shows the whole shop; a filter row hid two thirds of it.
+function svcRenderRos(body, d) {
+  const upcoming = (d.ros || []).filter(r => r.status === 'appointment');
+  const open = `<div class="space-y-3">${SVC_OPEN_ORDER.map(st => {
+    const rows = (d.ros || []).filter(r => r.status === st);
+    return rows.length ? engCard(`${svcStatusLabel(st)} (${rows.length})`, rows.slice(0, 12).map(r => svcRoRow(r, d)).join('')) : '';
+  }).join('') || engCard('', engEmpty('No repair orders open.'))}</div>`;
+
+  let closed;
+  if (d.closedRos == null) {
+    closed = engCard('', engEmpty('Closed repair orders could not be loaded, so this section is not the whole story.'));
+  } else {
+    const owed = d.closedRos.filter(r => { const c = svcCallFor(d, r.id); return c && !c.done; }).length;
+    closed = `${owed ? `<div class="mb-3 rounded-xl border border-amber-300/70 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-2.5 text-[13px] font-bold text-amber-900 dark:text-amber-200">${owed} customer${owed === 1 ? '' : 's'} still to call back.</div>` : ''}
+      ${engCard('', d.closedRos.map(r => svcClosedRow(r, d)).join('') || engEmpty('Nothing closed yet.'))}
+      ${d.closedRos.length >= 200 ? '<p class="text-[12px] text-slate-400 mt-2">Showing the 200 most recent closed repair orders.</p>' : ''}`;
   }
-  body.innerHTML = `<div class="flex gap-1.5 mb-3 overflow-x-auto">${nav}</div>${inner}`;
+
+  body.innerHTML = `${svcUnavailableNote(d)}
+    ${engSection(`Upcoming (${upcoming.length})`, engCard('', upcoming.map(r => svcRoRow(r, d)).join('') || engEmpty('No repair orders waiting to start.')), 'Booked, not yet checked in')}
+    ${engSection(`Open (${(d.ros || []).filter(r => SVC_OPEN_ORDER.includes(r.status)).length})`, open, 'On the floor, from check-in to delivery')}
+    ${engSection(`Closed (${d.closedRos == null ? '—' : d.closedRos.length})`, closed, 'Settled and posted — the customer gets a call')}`;
+}
+
+// Names what could not be read, so an empty list is never mistaken for a quiet shop.
+function svcUnavailableNote(d) {
+  const miss = d?.unavailable || [];
+  if (!miss.length) return '';
+  return `<div class="mb-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 px-4 py-2.5 text-[12px] text-slate-500 dark:text-slate-400">
+    Could not load ${esc(miss.join(', '))}. What is shown below is incomplete.</div>`;
 }
 
 ENGINES['service-overview'] = {
   rootId: 'service-overview-root', title: 'Service', subtitle: 'One repair order — check in, estimate, authorize, repair, deliver',
   icon: 'wrench', accent: 'sky',
-  get tabLabels() { return svcIsTechnician() ? { overview: 'My Day' } : { overview: 'My Day', work: 'Work' }; },
+  get tabLabels() {
+    return svcIsTechnician() ? { overview: 'My Day' }
+      : { overview: 'My Day', appointments: 'Appointments', ros: 'Repair Orders', settings: 'Settings' };
+  },
   get tabOrder() {
     if (svcIsTechnician()) return ['overview'];          // My Work is the whole job
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'work', 'insights', 'settings'] : ['overview', 'work'];
+    // Settings writes the labour rate and tax that price every RO, so it stays with
+    // the desk. An advisor still gets the book and the whole repair-order list.
+    return mgr ? ['overview', 'appointments', 'ros', 'settings'] : ['overview', 'appointments', 'ros'];
   },
 
   fetch: async () => {
-    const [ros, appts, reqs] = await Promise.all([
-      apiGetJson('/service-engine/ros').catch(() => ({ ros: [] })),
-      apiGetJson('/service/appointments').catch(() => ({ appointments: [] })),
-      apiGetJson('/service-engine/part-requests').catch(() => ({ requests: [] })),
+    // Every read is named. A failed fetch used to fall back to an empty array, so a
+    // dead endpoint and a quiet shop looked identical on screen.
+    const miss = [];
+    const grab = (label, p) => p.catch(() => { miss.push(label); return null; });
+    const [ros, appts, reqs, closed, calls, cfg] = await Promise.all([
+      grab('repair orders', apiGetJson('/service-engine/ros')),
+      grab('the appointment book', apiGetJson('/service/appointments')),
+      grab('parts demand', apiGetJson('/service-engine/part-requests')),
+      grab('closed repair orders', apiGetJson('/service-engine/ros?status=closed')),
+      grab('follow-up calls', apiGetJson('/service-engine/follow-up-calls')),
+      grab('service settings', apiGetJson('/service-engine/config')),
     ]);
     const d = {
-      ros: (ros.ros || []).filter(r => r.status !== 'closed'),
-      appointments: appts.appointments || [],
-      partRequests: reqs.requests || [],
+      ros: (ros?.ros || []).filter(r => r.status !== 'closed'),
+      appointments: appts?.appointments || [],
+      partRequests: reqs?.requests || [],
+      // null, not [] — "could not read" and "none" are different answers.
+      closedRos: closed ? (closed.ros || []) : null,
+      followUps: calls ? (calls.calls || []) : null,
+      config: cfg ? (cfg.config || null) : null,
+      unavailable: miss,
     };
     __svcData = d;
     return d;
   },
 
-  // The desk shortcuts all jump to the Work tab, which a technician does not have —
-  // so the rail follows the same split as the tabs.
+  // The desk shortcuts jump to tabs a technician does not have — so the rail follows
+  // the same split as the tabs.
   get quickActions() {
     if (svcIsTechnician()) return [{ label: 'Parts', icon: 'gem', onclick: "switchPage('service-parts')" }];
     return [
-      { label: 'Appointments', icon: 'calendar', onclick: "svcWorkView('appointments')" },
-      { label: 'Repair Orders', icon: 'clipboard', onclick: "svcWorkView('repair-orders')" },
-      { label: 'Ready', icon: 'check', onclick: "svcWorkView('ready')" },
+      { label: 'Appointments', icon: 'calendar', onclick: "engineTab('service-overview','appointments')" },
+      { label: 'Repair Orders', icon: 'clipboard', onclick: "engineTab('service-overview','ros')" },
       { label: 'Parts', icon: 'gem', onclick: "switchPage('service-parts')" },
     ];
   },
@@ -393,7 +478,13 @@ ENGINES['service-overview'] = {
       const waiting = ros.filter(r => r.status === 'estimate_sent').length;
       const blocked = new Set((d.partRequests || []).filter(q => ['requested', 'backordered'].includes(q.status)).map(q => q.ro_id)).size;
       const ready = ros.filter(r => r.status === 'ready').length;
+      const today = new Date().toDateString();
+      const todaysAppts = (d.appointments || []).filter(a =>
+        a.when && new Date(a.when).toDateString() === today && !['no_show', 'canceled'].includes(a.status));
+      // Customers owed a call back after a closed RO — the day's work, not a report.
+      const callbacks = d.followUps == null ? null : (d.followUps || []).filter(c => !c.done);
       body.innerHTML = `
+        ${svcUnavailableNote(d)}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           ${engKpi('Needs attention', att.length, att.length ? 'text-rose-600 dark:text-rose-400' : '')}
           ${engKpi('Open ROs', ros.length)}
@@ -402,40 +493,122 @@ ENGINES['service-overview'] = {
         </div>
         ${engCard('Needs attention', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Nothing is blocking the shop.'))}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+          ${engCard(`Booked today (${todaysAppts.length})`, todaysAppts.length ? todaysAppts.slice(0, 8).map(svcApptRow).join('') : engEmpty('Nothing booked for today.'))}
+          ${engCard(
+            callbacks == null ? 'Customers to call back' : `Customers to call back (${callbacks.length})`,
+            callbacks == null
+              ? engEmpty('The follow-up call list could not be loaded.')
+              : (callbacks.length ? callbacks.slice(0, 8).map(svcCallbackRow).join('') : engEmpty('Every closed repair order has been called back.')))}
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
           ${engCard(`Ready for the customer (${ready})`, ready ? ros.filter(r => r.status === 'ready').slice(0, 6).map(r => svcRoRow(r, d)).join('') : engEmpty('Nothing waiting for collection.'))}
           ${engCard('On the floor', ros.filter(r => ['in_progress', 'quality_check'].includes(r.status)).slice(0, 6).map(r => svcRoRow(r, d)).join('') || engEmpty('Nothing in progress.'))}
-        </div>`;
-    },
-    work: svcRenderWork,
-    insights(body, d) {
-      const ros = d.ros || [];
-      const counts = Object.keys(SVC_STATE_LABEL).map(k => [svcStatusLabel(k), ros.filter(r => r.status === k).length]).filter(r => r[1] > 0);
-      const mx = Math.max(1, ...counts.map(r => r[1]));
-      const open = ros.length;
-      const authorized = ros.filter(r => ['customer_approved', 'parts_ordered', 'in_progress', 'quality_check', 'ready', 'delivered'].includes(r.status)).length;
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('Open ROs', open)}
-          ${engKpi('Authorized', authorized)}
-          ${engKpi('Awaiting approval', ros.filter(r => r.status === 'estimate_sent').length)}
-          ${engKpi('Declined', ros.filter(r => r.status === 'customer_declined').length)}
         </div>
-        ${engCard('Where the work is', counts.length ? counts.map(([l, n]) => `<div class="flex items-center gap-2 text-sm py-0.5">
-          <div class="w-36 shrink-0 text-slate-600 dark:text-slate-300">${esc(l)}</div>
-          <div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden"><div class="h-full bg-sky-500 rounded-full" style="width:${Math.round((n / mx) * 100)}%"></div></div>
-          <div class="w-8 text-right font-bold tabular-nums">${n}</div></div>`).join('') : engEmpty('No open work.'))}
-        <p class="text-[12px] text-slate-400 mt-3">Cycle time and technician productivity need actual labour time on every job before they can be shown honestly — see the handoff.</p>`;
+        ${svcInsightsStrip(d)}`;
     },
-    settings(body) {
-      body.innerHTML = engCard('Service settings',
-        `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Labour rate, tax, shop supplies and the appointment book.</p>
-         <div class="flex flex-wrap gap-2">
-           <button onclick="switchPage('service-appointments')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Appointment book</button>
-           <button onclick="switchPage('config')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Dealership configuration</button>
-         </div>`);
-    },
+    appointments: svcRenderAppointments,
+    ros: svcRenderRos,
+    settings: svcRenderSettings,
   },
 };
+
+// ── Insights, folded into My Day ─────────────────────────────────────────────
+// This was its own tab. It is a picture of today's shop, so it belongs in today's
+// screen. SVC_STATUS_LABEL is the vocabulary dashboard-part12.js already owns — the
+// old code read SVC_STATE_LABEL, which has never existed, so opening the tab threw
+// "SVC_STATE_LABEL is not defined" and rendered nothing at all.
+function svcInsightsStrip(d) {
+  const ros = d.ros || [];
+  const counts = Object.keys(SVC_STATUS_LABEL)
+    .map(k => [svcStatusLabel(k), ros.filter(r => r.status === k).length])
+    .filter(r => r[1] > 0);
+  const mx = Math.max(1, ...counts.map(r => r[1]));
+  const authorized = ros.filter(r => ['customer_approved', 'parts_ordered', 'in_progress', 'quality_check', 'ready', 'delivered'].includes(r.status)).length;
+  return `<div class="mt-3">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+      ${engKpi('Authorized', authorized)}
+      ${engKpi('Declined', ros.filter(r => r.status === 'customer_declined').length)}
+      ${engKpi('Closed', d.closedRos == null ? '—' : d.closedRos.length)}
+    </div>
+    ${engCard('Where the work is', counts.length ? counts.map(([l, n]) => `<div class="flex items-center gap-2 text-sm py-0.5">
+      <div class="w-36 shrink-0 text-slate-600 dark:text-slate-300">${esc(l)}</div>
+      <div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden"><div class="h-full bg-sky-500 rounded-full" style="width:${Math.round((n / mx) * 100)}%"></div></div>
+      <div class="w-8 text-right font-bold tabular-nums">${n}</div></div>`).join('') : engEmpty('No open work.'))}
+    <p class="text-[12px] text-slate-400 mt-3">Cycle time and technician productivity need actual labour time on every job before they can be shown honestly — see the handoff.</p>
+  </div>`;
+}
+
+function svcCallbackRow(c) {
+  const overdue = c.due_at && new Date(c.due_at) < new Date();
+  return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+    <button onclick="svcOpenRecord('${c.repair_order_id}')" class="min-w-0 flex-1 text-left">
+      <div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(c.customer || 'Customer')}</div>
+      <div class="text-[12px] text-slate-400 truncate">${esc(c.title || 'Follow-up call')}</div>
+      <div class="text-[12px] ${overdue ? 'text-rose-500 font-semibold' : 'text-slate-400'}">${c.due_at ? `${overdue ? 'Overdue since' : 'Due'} ${esc(new Date(c.due_at).toLocaleDateString())}` : 'No due date'}</div>
+    </button>
+    ${c.phone ? `<a href="tel:${esc(c.phone)}" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Call</a>` : ''}
+    <button onclick="svcCallDone('${c.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Done</button>
+  </div>`;
+}
+
+// ── Settings — the settings, not a signpost to them ──────────────────────────
+// These five values are what /service-engine/config already stores and what every RO
+// is priced from. The old tab was two buttons that sent you somewhere else to find
+// them.
+const SVC_SETTING_FIELDS = [
+  ['labor_rate', 'Labour rate', '$ per hour', 'number', '0.01'],
+  ['tax_rate', 'Tax rate', '% applied to the repair order', 'number', '0.01'],
+  ['shop_supplies_pct', 'Shop supplies', '% of labour', 'number', '0.01'],
+  ['part_markup_pct', 'Parts markup', '% over cost when a part has no price', 'number', '0.01'],
+  ['ro_prefix', 'RO number prefix', 'e.g. RO-', 'text', null],
+];
+
+function svcRenderSettings(body, d) {
+  if (!d.config) {
+    body.innerHTML = svcUnavailableNote(d) + engCard('Service settings',
+      engEmpty('Service settings could not be loaded, so they are not shown. Nothing here has been changed.'));
+    return;
+  }
+  const c = d.config;
+  const fields = SVC_SETTING_FIELDS.map(([key, label, hint, type, step]) => `
+    <label class="block">
+      <span class="block text-[12px] font-bold text-slate-600 dark:text-slate-300">${esc(label)}</span>
+      <input id="svc-cfg-${key}" type="${type}"${step ? ` step="${step}"` : ''} value="${esc(String(c[key] ?? ''))}"
+        class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+      <span class="block text-[11px] text-slate-400 mt-0.5">${esc(hint)}</span>
+    </label>`).join('');
+  body.innerHTML = `${svcUnavailableNote(d)}
+    ${engCard('Service settings', `
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${fields}</div>
+      <div class="flex flex-wrap items-center gap-2 mt-4">
+        <button onclick="svcSaveSettings()" class="px-3 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold hover:opacity-90 transition">Save settings</button>
+        <span class="text-[12px] text-slate-400">Applies to repair orders priced from now on. Existing repair orders keep the numbers they were written with.</span>
+      </div>`)}
+    <div class="mt-3">${engCard('Elsewhere', `
+      <div class="flex flex-wrap gap-2">
+        <button onclick="switchPage('service-appointments')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Appointment book</button>
+        <button onclick="switchPage('config')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Dealership configuration</button>
+      </div>`)}</div>`;
+}
+
+async function svcSaveSettings() {
+  const num = (id) => { const el = document.getElementById(id); const v = Number(el?.value); return Number.isFinite(v) ? v : 0; };
+  const prefix = String(document.getElementById('svc-cfg-ro_prefix')?.value || '').trim();
+  if (!prefix) { showToast('Give the RO number a prefix — it is what every repair order is numbered with.', 'error'); return; }
+  try {
+    const r = await apiSendJson('/service-engine/config', 'PUT', {
+      labor_rate: num('svc-cfg-labor_rate'), tax_rate: num('svc-cfg-tax_rate'),
+      shop_supplies_pct: num('svc-cfg-shop_supplies_pct'), part_markup_pct: num('svc-cfg-part_markup_pct'),
+      ro_prefix: prefix,
+    });
+    // The server echoes what it stored; re-read rather than trusting the form.
+    showToast('Service settings saved', 'success');
+    if (__svcData) __svcData.config = r.config || __svcData.config;
+    ENGINE_DATA['service-overview'] = undefined;
+    engineTab('service-overview', 'settings', true);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.svcSaveSettings = svcSaveSettings;
 
 function loadServiceWorkspace() { renderEngine('service-overview'); }
 window.loadServiceWorkspace = loadServiceWorkspace;

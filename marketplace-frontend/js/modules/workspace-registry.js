@@ -89,12 +89,19 @@ const MS_WORKSPACES = {
     ],
   },
 
+  // ── Service — the Service engine owns its own header ──────────────────────
+  // My Day | Appointments | Repair Orders | Settings are tabs INSIDE the workspace
+  // (js/modules/service-workspace.js). Listing the same destinations here as well
+  // would draw a second department tab row above the engine's own — the duplicate-
+  // header problem. `legacy` keeps both pages reachable by deep link and bookmark
+  // (the engine links to the full appointment book from its Appointments tab) while
+  // Service, like Management, presents one nav system.
   service: {
     label: 'Service', icon: 'wrench', accent: 'sky', mgr: true,
     pages: [
       { page: 'service-overview', label: 'My Day' },
-      { page: 'service-appointments', label: 'Schedule' },
-      { page: 'service-ros', label: 'Repair Orders' },
+      { page: 'service-appointments', label: 'Schedule', legacy: true },
+      { page: 'service-ros', label: 'Repair Orders', legacy: true },
     ],
   },
 

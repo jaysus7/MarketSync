@@ -34,17 +34,38 @@ test('the frontend asks the backend which moves are legal', () => {
 })
 
 test('it composes existing endpoints and introduces none', () => {
-  const KNOWN = ['/service-engine/ros', '/service/appointments', '/service-engine/part-requests']
+  const KNOWN = ['/service-engine/ros', '/service/appointments', '/service-engine/part-requests',
+                 '/service-engine/follow-up-calls', '/service-engine/config']
   for (const c of [...ws.matchAll(/apiGetJson\('([^'?]+)/g)].map(m => m[1])) {
     assert.ok(KNOWN.includes(c), `must not introduce a new endpoint: ${c}`)
   }
-  // Writes go only through the canonical transition and check-in routes.
+  // Writes go only through the canonical transition, check-in, follow-up and config routes.
   const WRITES = ['/service-engine/ros/${roId}/close', '/service-engine/ros/${roId}/status',
                   '/service/appointments/${appointmentId}/check-in',
-                  '/service-engine/lines/${lineId}/progress']
+                  '/service-engine/lines/${lineId}/progress',
+                  '/service-engine/follow-up-calls/${taskId}/complete']
   for (const w of [...ws.matchAll(/apiSendJson\(`([^`]+)`/g)].map(m => m[1])) {
     assert.ok(WRITES.includes(w), `unexpected write target: ${w}`)
   }
+  for (const w of [...ws.matchAll(/apiSendJson\('([^']+)'/g)].map(m => m[1])) {
+    assert.equal(w, '/service-engine/config', `unexpected write target: ${w}`)
+  }
+})
+
+// The defect this pins: `insights` read SVC_STATE_LABEL, a name nothing has ever
+// declared, so the tab threw "SVC_STATE_LABEL is not defined" and drew nothing. A
+// green suite said the workspace was fine because no test ever executed that line.
+// Every SVC_* map this file reads must be one dashboard-part12.js actually declares.
+test('every shared service vocabulary it reads actually exists', () => {
+  const part12 = read('js/modules/dashboard-part12.js')
+  const declared = new Set([...part12.matchAll(/const (SVC_[A-Z_]+)\s*=/g)].map(m => m[1]))
+  const used = new Set([...ws.matchAll(/\b(SVC_[A-Z_]+)\b/g)].map(m => m[1]))
+  const own = new Set([...ws.matchAll(/const (SVC_[A-Z_]+)\s*=/g)].map(m => m[1]))
+  for (const name of used) {
+    if (own.has(name)) continue                 // declared right here — fine
+    assert.ok(declared.has(name), `${name} is referenced but declared nowhere — this throws at runtime`)
+  }
+  assert.ok(used.has('SVC_STATUS_LABEL'), 'the state breakdown must key off the canonical label map')
 })
 
 test('My Day is attention-first and every category is real', () => {
@@ -115,21 +136,90 @@ test('a technician gets one tab and none of the desk tabs', () => {
   assert.match(ws, /if \(svcIsTechnician\(\)\) return \['overview'\]/)
   const labels = ws.match(/get tabLabels\(\)[\s\S]*?\n  \},/)?.[0] || ''
   assert.match(labels, /svcIsTechnician\(\) \? \{ overview: 'My Day' \}/)
-  // work/insights/settings are desk surfaces — they must stay behind the desk branch.
+  // appointments/ros/settings are desk surfaces — they stay behind the desk branch.
   const order = ws.match(/get tabOrder\(\)[\s\S]*?\n  \},/)?.[0] || ''
-  assert.ok(order.indexOf("return ['overview']") < order.indexOf("'insights'"),
+  assert.ok(order.indexOf("return ['overview']") < order.indexOf("'settings'"),
     'the technician branch must return before the manager tabs are considered')
 })
 
 test('the rail follows the same split as the tabs', () => {
-  // The desk shortcuts call svcWorkView(), which forces a tab a technician does not
-  // have. Handing those to a technician would strand them on an empty surface.
+  // The desk shortcuts force a tab a technician does not have. Handing those to a
+  // technician would strand them on an empty surface.
   const qa = ws.match(/get quickActions\(\)[\s\S]*?\n  \},/)?.[0] || ''
   assert.match(qa, /if \(svcIsTechnician\(\)\) return \[/)
-  assert.doesNotMatch(qa.match(/if \(svcIsTechnician\(\)\) return \[[^\]]*\]/)?.[0] || '', /svcWorkView/,
-    'a technician must not be given a shortcut into the Work tab')
+  const techRail = qa.match(/if \(svcIsTechnician\(\)\) return \[[^\]]*\]/)?.[0] || ''
+  for (const deskOnly of ["engineTab('service-overview','ros')", "engineTab('service-overview','appointments')"]) {
+    assert.ok(!techRail.includes(deskOnly), `a technician must not be given a shortcut into ${deskOnly}`)
+  }
   assert.match(ws, /nextActions: \(d\) => \{[\s\S]*?svcIsTechnician\(\)/,
     'next actions must be the tech\'s own bench, not the shop triage queue')
+})
+
+// ── The header the owner asked for: My Day | Appointments | Repair Orders | Settings
+test('Service leads with My Day and carries no Work or Insights tab', () => {
+  const labels = ws.match(/get tabLabels\(\)[\s\S]*?\n  \},/)?.[0] || ''
+  for (const [key, label] of [['overview', 'My Day'], ['appointments', 'Appointments'],
+                              ['ros', 'Repair Orders'], ['settings', 'Settings']]) {
+    assert.ok(labels.includes(`${key}: '${label}'`), `the header must carry ${label}`)
+  }
+  assert.doesNotMatch(labels, /work: '|insights: '/, 'Work and Insights were folded away, not renamed around')
+  const order = ws.match(/get tabOrder\(\)[\s\S]*?\n  \},/)?.[0] || ''
+  assert.match(order, /\['overview', 'appointments', 'ros', 'settings'\]/)
+  // Dispatch was a filtered copy of the repair-order list with a note telling you to
+  // go somewhere else to act on it.
+  assert.doesNotMatch(ws, /'dispatch'|Dispatch/, 'Dispatch is gone')
+})
+
+test('insights moved into My Day rather than disappearing', () => {
+  const overview = ws.match(/overview\(body, d\)[\s\S]*?\n    \},/)?.[0] || ''
+  assert.match(overview, /svcInsightsStrip\(d\)/, 'My Day must render the insights strip')
+  assert.match(ws, /function svcInsightsStrip/)
+  assert.match(ws, /Where the work is/)
+  // Today's appointments belong in the day too.
+  assert.match(overview, /Booked today/)
+})
+
+test('Repair Orders separates upcoming, open and closed', () => {
+  const fn = ws.slice(ws.indexOf('function svcRenderRos'))
+  for (const heading of ['Upcoming (', 'Open (', 'Closed (']) {
+    assert.ok(fn.includes(heading), `Repair Orders must carry a ${heading.trim()} section`)
+  }
+  // "Upcoming" is the canonical `appointment` state, not a guess from a date field.
+  assert.match(fn, /r\.status === 'appointment'/)
+  assert.match(ws, /apiGetJson\('\/service-engine\/ros\?status=closed'\)/,
+    'closed ROs must be fetched — the working list deliberately excludes them')
+})
+
+// ── One navigation per screen ───────────────────────────────────────
+// The owner's rule, from the Inventory screenshot: a tab must not open onto another
+// row of tabs. Sections stack under headings and you scroll to them.
+test('no Service tab opens onto a second row of tabs', () => {
+  assert.match(ws, /engSection\(/, 'sections, not a sub-nav')
+  // The shape a sub-nav takes in this codebase: a *_VIEWS / *_FILTERS list rendered as
+  // buttons that set a module-level view variable.
+  assert.doesNotMatch(ws, /SVC_WORK_VIEWS|SVC_RO_FILTERS/, 'no sub-tab list may come back')
+  assert.doesNotMatch(ws, /let __svc(WorkView|RoTab|RoFilter)\b/, 'no sub-tab state may come back')
+})
+
+test('a failed read is named, never rendered as an empty shop', () => {
+  const fetchFn = ws.match(/fetch: async \(\) => \{[\s\S]*?\n  \},/)?.[0] || ''
+  assert.match(fetchFn, /miss\.push\(label\)/, 'each failed read must record what it was')
+  // The distinction that matters: could-not-read is null, none is an empty array.
+  assert.match(fetchFn, /closedRos: closed \? \(closed\.ros \|\| \[\]\) : null/)
+  assert.match(fetchFn, /followUps: calls \? \(calls\.calls \|\| \[\]\) : null/)
+  assert.match(ws, /function svcUnavailableNote/)
+  assert.match(ws, /Could not load \$\{esc\(miss\.join\(', '\)\)\}/)
+})
+
+test('Settings holds the settings instead of pointing at them', () => {
+  assert.match(ws, /function svcRenderSettings/)
+  for (const f of ['labor_rate', 'tax_rate', 'shop_supplies_pct', 'part_markup_pct', 'ro_prefix']) {
+    assert.ok(ws.includes(`'${f}'`), `Settings must edit ${f}`)
+  }
+  assert.match(ws, /apiSendJson\('\/service-engine\/config', 'PUT'/, 'Save must write the config')
+  // A config that could not be read must not render as a form full of blanks that
+  // silently overwrites the real values on save.
+  assert.match(ws, /if \(!d\.config\)[\s\S]*?could not be loaded/)
 })
 
 test('My Work shows only the jobs assigned to this technician', () => {
