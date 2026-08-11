@@ -23,7 +23,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'command',
     title: 'Command Center & Executive Briefing',
     badgeTitle: 'Executive Commander',
-    badgeIcon: '📊',
+    badgeIcon: '',
     badgeDesc: 'You have configured the Command Center & Executive Overview department!',
     stages: [
       { num: '1', title: 'Executive Overview', desc: 'Monitor revenue, lead velocity, and store performance.' },
@@ -40,7 +40,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'crm',
     title: 'CRM & Customer Management',
     badgeTitle: 'CRM Commander',
-    badgeIcon: '🛡️',
+    badgeIcon: '',
     badgeDesc: 'You have configured the CRM & Customer Management department!',
     stages: [
       { num: '1', title: 'Lead Ingestion', desc: 'Capture leads automatically from Facebook, Web Chat, and SMS.' },
@@ -57,7 +57,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'inventory',
     title: 'Inventory & Stock Management',
     badgeTitle: 'Inventory Director',
-    badgeIcon: '🚘',
+    badgeIcon: '',
     badgeDesc: 'You have configured the Inventory Management department!',
     stages: [
       { num: '1', title: 'Stock Ingestion', desc: 'Sync website feed or CSV file to auto-populate inventory.' },
@@ -74,7 +74,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'inv-intel',
     title: 'Inventory Intelligence & Pricing Watchdog',
     badgeTitle: 'Pricing Strategist',
-    badgeIcon: '📈',
+    badgeIcon: '',
     badgeDesc: 'You have configured Inventory Intelligence & Market Watchdog!',
     stages: [
       { num: '1', title: 'Market Watchdog', desc: 'Auto-flag stale or overpriced units against live comps.' },
@@ -92,7 +92,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'market',
     title: 'Market & Competitor Intelligence',
     badgeTitle: 'Market Analyst',
-    badgeIcon: '🔍',
+    badgeIcon: '',
     badgeDesc: 'You have configured Market & Competitor Lot Monitoring!',
     stages: [
       { num: '1', title: 'Competitor Tracking', desc: 'Monitor nearby dealership lots and price adjustments.' },
@@ -109,7 +109,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'sales',
     title: 'Sales & Desking Department',
     badgeTitle: 'Desking Specialist',
-    badgeIcon: '📑',
+    badgeIcon: '',
     badgeDesc: 'You have configured the Sales & Deal Desking department!',
     stages: [
       { num: '1', title: 'Deal Input', desc: 'Select stock vehicle, trade-in, and customer profile.' },
@@ -126,7 +126,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'appraisal',
     title: 'Vehicle Appraisals & Acquisition',
     badgeTitle: 'Appraisal Master',
-    badgeIcon: '🏷️',
+    badgeIcon: '',
     badgeDesc: 'You have configured the Vehicle Appraisal & Trade-In department!',
     stages: [
       { num: '1', title: 'VIN & Specs', desc: 'Decode VIN, pull specs, options, and recall status.' },
@@ -144,7 +144,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'equity',
     title: 'Equity Mining & Trade-Up Scanner',
     badgeTitle: 'Equity Specialist',
-    badgeIcon: '💎',
+    badgeIcon: '',
     badgeDesc: 'You have configured Equity Mining & Trade-Up Acquisitions!',
     stages: [
       { num: '1', title: 'Database Scanning', desc: 'Scan CRM and Service database for positive equity units.' },
@@ -161,7 +161,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'delivery',
     title: 'Vehicle Delivery Queue',
     badgeTitle: 'Delivery Specialist',
-    badgeIcon: '🚚',
+    badgeIcon: '',
     badgeDesc: 'You have configured the Vehicle Delivery department!',
     stages: [
       { num: '1', title: 'Sold Queue', desc: 'Track pending deliveries and sold vehicle holds.' },
@@ -178,7 +178,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'fni-worklist',
     title: 'F&I Deals & Lender Routing',
     badgeTitle: 'F&I Manager',
-    badgeIcon: '💳',
+    badgeIcon: '',
     badgeDesc: 'You have configured F&I Deals & Lender Routing!',
     stages: [
       { num: '1', title: 'Credit Application', desc: 'Gather applicant income, housing, and credit details.' },
@@ -195,7 +195,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'fni-esignatures',
     title: 'eSignatures & Digital Contracts',
     badgeTitle: 'Digital Signing Officer',
-    badgeIcon: '✍️',
+    badgeIcon: '',
     badgeDesc: 'You have configured Digital eSignatures & Contracts!',
     stages: [
       { num: '1', title: 'Document Prep', desc: 'Generate Buyers Order, Bill of Sale, and disclosure forms.' },
@@ -212,7 +212,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'service',
     title: 'Service & Fixed Ops Department',
     badgeTitle: 'Service Director',
-    badgeIcon: '🧰',
+    badgeIcon: '',
     badgeDesc: 'You have configured the Service & Parts department!',
     stages: [
       { num: '1', title: 'Service Intake', desc: 'Schedule appointments and create repair orders.' },
@@ -229,7 +229,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'service-parts',
     title: 'Parts Inventory & Reordering',
     badgeTitle: 'Parts Manager',
-    badgeIcon: '⚙️',
+    badgeIcon: '',
     badgeDesc: 'You have configured Parts Inventory & Vendor Reordering!',
     stages: [
       { num: '1', title: 'Parts Catalog', desc: 'Track OEM and aftermarket parts numbers and quantities.' },
@@ -246,7 +246,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'recon',
     title: 'Cleanup & Detail Reconditioning',
     badgeTitle: 'Recon Supervisor',
-    badgeIcon: '🧼',
+    badgeIcon: '',
     badgeDesc: 'You have configured Cleanup & Detail Reconditioning!',
     stages: [
       { num: '1', title: 'Intake Queue', desc: 'Log acquired trade-ins into detail and wash queue.' },
@@ -263,7 +263,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'accounting',
     title: 'Accounting & Dealership Books',
     badgeTitle: 'Controller',
-    badgeIcon: '💼',
+    badgeIcon: '',
     badgeDesc: 'You have configured Accounting & Dealership Books!',
     stages: [
       { num: '1', title: 'Ledger Ingestion', desc: 'Delivered deals automatically post to general ledger.' },
@@ -280,7 +280,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'acct-tax',
     title: 'Tax Rates & Accountant Setup',
     badgeTitle: 'Tax Administrator',
-    badgeIcon: '🏛️',
+    badgeIcon: '',
     badgeDesc: 'You have configured Tax Rates & Corporate Accountant Settings!',
     stages: [
       { num: '1', title: 'Tax Jurisdiction', desc: 'Set regional sales tax rates (HST/PST/GST/State Tax).' },
@@ -298,7 +298,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'acct-recon',
     title: 'Daily Bank Reconciliation',
     badgeTitle: 'Reconciliation Manager',
-    badgeIcon: '🏦',
+    badgeIcon: '',
     badgeDesc: 'You have configured Daily Bank Reconciliation!',
     stages: [
       { num: '1', title: 'Bank Feeds', desc: 'Sync daily bank transaction statement feeds.' },
@@ -315,7 +315,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'web',
     title: 'Website & Digital Showroom',
     badgeTitle: 'Digital Webmaster',
-    badgeIcon: '🌐',
+    badgeIcon: '',
     badgeDesc: 'You have configured the Website department!',
     stages: [
       { num: '1', title: 'Structure & Theme', desc: 'Choose theme colors, logo, and homepage hero.' },
@@ -332,7 +332,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'auto',
     title: 'Automations & Follow-Up Drips',
     badgeTitle: 'Automation Master',
-    badgeIcon: '⚡',
+    badgeIcon: '',
     badgeDesc: 'You have configured the Automation department!',
     stages: [
       { num: '1', title: 'Triggers', desc: 'Select automated triggers for new leads & aged units.' },
@@ -349,7 +349,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'email-campaigns',
     title: 'Email Campaigns & Broadcasts',
     badgeTitle: 'Email Campaign Specialist',
-    badgeIcon: '📧',
+    badgeIcon: '',
     badgeDesc: 'You have configured Email Broadcasts & Newsletters!',
     stages: [
       { num: '1', title: 'Audience Targeting', desc: 'Filter customer segments: Active Shoppers, Past Buyers, Aged Leads.' },
@@ -366,7 +366,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'owner-users',
     title: 'User Administration & Staff Roles',
     badgeTitle: 'User Administrator',
-    badgeIcon: '👥',
+    badgeIcon: '',
     badgeDesc: 'You have configured User Administration & Permissions!',
     stages: [
       { num: '1', title: 'User Roster', desc: 'Add sales reps, F&I managers, service advisors, and accounting staff.' },
@@ -383,7 +383,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'operations',
     title: 'Store Operations & Compliance',
     badgeTitle: 'Operations Director',
-    badgeIcon: '🏢',
+    badgeIcon: '',
     badgeDesc: 'You have configured Store Operations & Compliance!',
     stages: [
       { num: '1', title: 'Store Schedule', desc: 'Set operating hours for sales, service, and parts.' },
@@ -400,7 +400,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'config',
     title: 'System Configuration Engine',
     badgeTitle: 'System Architect',
-    badgeIcon: '⚙️',
+    badgeIcon: '',
     badgeDesc: 'You have configured the System Configuration Engine!',
     stages: [
       { num: '1', title: 'Engine Overview', desc: 'Control platform feature flags, timeouts, and system defaults.' },
@@ -417,7 +417,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'api-keys',
     title: 'API & MCP Keys',
     badgeTitle: 'API Developer',
-    badgeIcon: '🔑',
+    badgeIcon: '',
     badgeDesc: 'You have configured Developer API & MCP Keys!',
     stages: [
       { num: '1', title: 'API Tokens', desc: 'Generate REST API keys for custom inventory & CRM integrations.' },
@@ -431,7 +431,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'crm-appointments': {
-    id: 'crm-appointments', title: 'Sales & CRM Appointments', badgeTitle: 'Appointment Coordinator', badgeIcon: '📅',
+    id: 'crm-appointments', title: 'Sales & CRM Appointments', badgeTitle: 'Appointment Coordinator', badgeIcon: '',
     badgeDesc: 'You have configured Sales & CRM Appointments!',
     stages: [
       { num: '1', title: 'Calendar Sync', desc: 'Sync sales rep Google/Outlook calendars.' },
@@ -445,7 +445,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'crm-tasks': {
-    id: 'crm-tasks', title: 'Sales Tasks & Follow-Up Reminders', badgeTitle: 'Task Manager', badgeIcon: '✅',
+    id: 'crm-tasks', title: 'Sales Tasks & Follow-Up Reminders', badgeTitle: 'Task Manager', badgeIcon: '',
     badgeDesc: 'You have configured Sales Tasks & Follow-Up Reminders!',
     stages: [
       { num: '1', title: 'Auto-Task Assignment', desc: 'Create tasks on new lead intake.' },
@@ -459,7 +459,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'crm-opps': {
-    id: 'crm-opps', title: 'Opportunities Pipeline & Deal Stages', badgeTitle: 'Pipeline Strategist', badgeIcon: '🎯',
+    id: 'crm-opps', title: 'Opportunities Pipeline & Deal Stages', badgeTitle: 'Pipeline Strategist', badgeIcon: '',
     badgeDesc: 'You have configured Opportunities Pipeline & Deal Stages!',
     stages: [
       { num: '1', title: 'Stage Probability', desc: 'Set win probabilities for Uncontacted, Appointment, and Desking.' },
@@ -473,7 +473,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'sales-reports': {
-    id: 'sales-reports', title: 'Sales Reports & Rep Benchmarks', badgeTitle: 'Sales Analyst', badgeIcon: '📊',
+    id: 'sales-reports', title: 'Sales Reports & Rep Benchmarks', badgeTitle: 'Sales Analyst', badgeIcon: '',
     badgeDesc: 'You have configured Sales Reports & Benchmarks!',
     stages: [
       { num: '1', title: 'Metric Selection', desc: 'Choose gross profit, conversion rate, and lead response metrics.' },
@@ -487,7 +487,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'fni-reports': {
-    id: 'fni-reports', title: 'F&I Reports & PVR Benchmarks', badgeTitle: 'F&I Analyst', badgeIcon: '📈',
+    id: 'fni-reports', title: 'F&I Reports & PVR Benchmarks', badgeTitle: 'F&I Analyst', badgeIcon: '',
     badgeDesc: 'You have configured F&I Reports & PVR Benchmarks!',
     stages: [
       { num: '1', title: 'PVR Tracking', desc: 'Track Per Vehicle Retail (PVR) back-end income.' },
@@ -501,7 +501,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'service-appointments': {
-    id: 'service-appointments', title: 'Service Appointments & Capacity', badgeTitle: 'Service Coordinator', badgeIcon: '📅',
+    id: 'service-appointments', title: 'Service Appointments & Capacity', badgeTitle: 'Service Coordinator', badgeIcon: '',
     badgeDesc: 'You have configured Service Appointments & Capacity!',
     stages: [
       { num: '1', title: 'Advisor Intake', desc: 'Schedule appointments per service advisor.' },
@@ -515,7 +515,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'acct-insights': {
-    id: 'acct-insights', title: 'Financial Insights & Profitability', badgeTitle: 'Financial Analyst', badgeIcon: '💡',
+    id: 'acct-insights', title: 'Financial Insights & Profitability', badgeTitle: 'Financial Analyst', badgeIcon: '',
     badgeDesc: 'You have configured Financial Insights & Profitability!',
     stages: [
       { num: '1', title: 'P&L Benchmarks', desc: 'Set target net margin and overhead cost caps.' },
@@ -529,7 +529,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'acct-bank': {
-    id: 'acct-bank', title: 'Bank Accounts & Operating Accounts', badgeTitle: 'Treasury Officer', badgeIcon: '🏦',
+    id: 'acct-bank', title: 'Bank Accounts & Operating Accounts', badgeTitle: 'Treasury Officer', badgeIcon: '',
     badgeDesc: 'You have configured Bank Accounts & Operating Accounts!',
     stages: [
       { num: '1', title: 'Account Registration', desc: 'Register operating, payroll, and floorplan bank accounts.' },
@@ -543,7 +543,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'acct-expenses': {
-    id: 'acct-expenses', title: 'Expense Tracking & Approval Limits', badgeTitle: 'Expense Controller', badgeIcon: '💸',
+    id: 'acct-expenses', title: 'Expense Tracking & Approval Limits', badgeTitle: 'Expense Controller', badgeIcon: '',
     badgeDesc: 'You have configured Expense Tracking & Approval Limits!',
     stages: [
       { num: '1', title: 'Expense Categories', desc: 'Configure vendor, floorplan interest, pack, and advertising categories.' },
@@ -557,7 +557,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'acct-budget': {
-    id: 'acct-budget', title: 'Monthly Budgeting & Variance', badgeTitle: 'Budget Director', badgeIcon: '📊',
+    id: 'acct-budget', title: 'Monthly Budgeting & Variance', badgeTitle: 'Budget Director', badgeIcon: '',
     badgeDesc: 'You have configured Monthly Budgeting & Variance!',
     stages: [
       { num: '1', title: 'Budget Allocation', desc: 'Allocate monthly budgets for Marketing, Personnel, and Facilities.' },
@@ -571,7 +571,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'acct-reports': {
-    id: 'acct-reports', title: 'Financial Reports & CPA Export', badgeTitle: 'Reporting Officer', badgeIcon: '📑',
+    id: 'acct-reports', title: 'Financial Reports & CPA Export', badgeTitle: 'Reporting Officer', badgeIcon: '',
     badgeDesc: 'You have configured Financial Reports & CPA Export!',
     stages: [
       { num: '1', title: 'Fiscal Year Setup', desc: 'Set store fiscal year start month.' },
@@ -585,7 +585,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'facebook-autoposter': {
-    id: 'facebook-autoposter', title: 'Facebook Marketplace Autoposter', badgeTitle: 'Marketplace Automation Specialist', badgeIcon: '📱',
+    id: 'facebook-autoposter', title: 'Facebook Marketplace Autoposter', badgeTitle: 'Marketplace Automation Specialist', badgeIcon: '',
     badgeDesc: 'You have configured Facebook Marketplace Autoposter!',
     stages: [
       { num: '1', title: 'Extension Sync', desc: 'Connect MarketSync Chrome Extension.' },
@@ -599,7 +599,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'ai-chatbot': {
-    id: 'ai-chatbot', title: 'AI Assistant ChatBot Widget', badgeTitle: 'AI Operations Specialist', badgeIcon: '🤖',
+    id: 'ai-chatbot', title: 'AI Assistant ChatBot Widget', badgeTitle: 'AI Operations Specialist', badgeIcon: '',
     badgeDesc: 'You have configured AI Assistant ChatBot Widget!',
     stages: [
       { num: '1', title: 'Widget Embedding', desc: 'Embed 24/7 AI chat widget on your dealership website.' },
@@ -613,7 +613,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   leaderboard: {
-    id: 'leaderboard', title: 'Sales Leaderboard & Ranking Overview', badgeTitle: 'Leaderboard Champion', badgeIcon: '🏆',
+    id: 'leaderboard', title: 'Sales Leaderboard & Ranking Overview', badgeTitle: 'Leaderboard Champion', badgeIcon: '',
     badgeDesc: 'You have completed the Leaderboard Overview!',
     stages: [
       { num: '1', title: 'Dealership Store View', desc: 'View top performing sales reps within your local dealership in real-time.' },
@@ -628,7 +628,7 @@ const DEPARTMENTS_CONFIG = {
     fields: []
   },
   taskboard: {
-    id: 'taskboard', title: 'Operations Taskboard & Kanban', badgeTitle: 'Kanban Master', badgeIcon: '📋',
+    id: 'taskboard', title: 'Operations Taskboard & Kanban', badgeTitle: 'Kanban Master', badgeIcon: '',
     badgeDesc: 'You have configured Operations Taskboard & Kanban!',
     stages: [
       { num: '1', title: 'Column Layout', desc: 'Configure columns: To Do, In Progress, Review, Completed.' },
@@ -642,7 +642,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   academy: {
-    id: 'academy', title: 'MarketSync Training Academy', badgeTitle: 'Certified Master', badgeIcon: '🎓',
+    id: 'academy', title: 'MarketSync Training Academy', badgeTitle: 'Certified Master', badgeIcon: '',
     badgeDesc: 'You have configured MarketSync Training Academy!',
     stages: [
       { num: '1', title: '200 Masterclass Lessons', desc: 'Complete lessons across Sales, CRM, Inventory, and F&I.' },
@@ -659,7 +659,7 @@ const DEPARTMENTS_CONFIG = {
     id: 'marketing',
     title: 'Marketing & Growth Suite',
     badgeTitle: 'Marketing Director',
-    badgeIcon: '🚀',
+    badgeIcon: '',
     badgeDesc: 'You have configured the Marketing & Growth Suite!',
     stages: [
       { num: '1', title: 'Multi-Channel Setup', desc: 'Configure Facebook Autoposter, Dealership Website, and 24/7 AI ChatBot.' },
@@ -673,7 +673,7 @@ const DEPARTMENTS_CONFIG = {
     ]
   },
   'ai-inbox': {
-    id: 'ai-inbox', title: 'AI Chat & Multi-Channel Inbox', badgeTitle: 'AI Communications Director', badgeIcon: '💬',
+    id: 'ai-inbox', title: 'AI Chat & Multi-Channel Inbox', badgeTitle: 'AI Communications Director', badgeIcon: '',
     badgeDesc: 'You have configured AI Chat & Multi-Channel Inbox!',
     stages: [
       { num: '1', title: 'Inbox Consolidation', desc: 'Consolidate messages from Facebook Messenger, Web Chat, and SMS.' },
@@ -737,7 +737,7 @@ function showThingsToKnowModal(deptId) {
   const titleEl = document.getElementById('ttk-dept-title');
   if (titleEl) titleEl.textContent = `Opening ${config.title}`;
   const iconEl = document.getElementById('ttk-dept-badge-icon');
-  if (iconEl) iconEl.textContent = config.badgeIcon || '🛡️';
+  if (iconEl) iconEl.textContent = config.badgeIcon || '';
 
   const stagesContainer = document.getElementById('ttk-workflow-stages');
   if (stagesContainer) {
@@ -812,7 +812,7 @@ function openDepartmentSetupWizard(deptId) {
     } else {
       fieldsContainer.innerHTML = `
         <div class="p-4 rounded-xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 text-center space-y-2">
-          <div class="text-3xl">🏆</div>
+          <div class="text-3xl"></div>
           <div class="font-black text-sm text-violet-900 dark:text-violet-200">No Configuration Inputs Required</div>
           <div class="text-xs text-slate-600 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
             Use the top tabs on the Leaderboard page to switch between <b>Dealership Store View</b> (internal team rankings) and <b>Global Network View</b> (store vs store nationwide). Click <b>Done</b> below to complete overview.
@@ -875,7 +875,7 @@ function awardDealerBadge(deptId) {
   } catch {}
 
   const iconEl = document.getElementById('dbr-badge-icon');
-  if (iconEl) iconEl.textContent = config.badgeIcon || '🛡️';
+  if (iconEl) iconEl.textContent = config.badgeIcon || '';
   const titleEl = document.getElementById('dbr-badge-title');
   if (titleEl) titleEl.textContent = config.badgeTitle || 'Department Specialist';
   const descEl = document.getElementById('dbr-badge-desc');
@@ -907,13 +907,13 @@ function renderSettingsHrCard() {
     <div class="space-y-4">
       <div class="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg">👥</div>
+          <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg"></div>
           <div>
             <h2 class="text-lg font-bold text-slate-900 dark:text-white">People &amp; Compliance (HR Engine)</h2>
             <p class="text-xs text-slate-500 dark:text-slate-400">Employee profiles, driver licence tracking, safety policy e-signatures &amp; automated HR workflows.</p>
           </div>
         </div>
-        <button onclick="switchPage('people-compliance')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition">Open Full HR Workspace 👥</button>
+        <button onclick="switchPage('people-compliance')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition">Open Full HR Workspace </button>
       </div>
 
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -937,7 +937,7 @@ function renderSettingsHrCard() {
 
       <div class="p-3.5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800 rounded-xl text-xs space-y-2">
         <div class="font-bold text-indigo-900 dark:text-indigo-200 flex items-center justify-between">
-          <span>⚡ HR &amp; Security Automation Triggers</span>
+          <span> HR &amp; Security Automation Triggers</span>
           <span class="text-[10px] text-emerald-600 font-bold uppercase">Active</span>
         </div>
         <div class="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
@@ -984,7 +984,7 @@ function renderPeopleCompliance() {
       <!-- Header Bar -->
       <div class="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm">
         <div class="flex items-center gap-3.5">
-          <div class="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xl shadow-inner">👥</div>
+          <div class="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xl shadow-inner"></div>
           <div>
             <div class="flex items-center gap-2">
               <h1 class="text-2xl font-black text-slate-900 dark:text-white leading-tight">People &amp; Compliance Engine</h1>
@@ -996,17 +996,17 @@ function renderPeopleCompliance() {
 
         <div class="flex items-center gap-2">
           <button onclick="openAddEmployeeModal()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5">＋ Onboard Employee</button>
-          <button onclick="openLogIncidentModal()" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-md shadow-rose-500/20 transition flex items-center gap-1.5">📋 Log Safety Incident</button>
+          <button onclick="openLogIncidentModal()" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-md shadow-rose-500/20 transition flex items-center gap-1.5"> Log Safety Incident</button>
         </div>
       </div>
 
       <!-- 5 Standard Engine Navigation Tabs -->
       <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-slate-200 dark:border-slate-800">
-        ${tabPill('overview', 'Overview', '📊')}
-        ${tabPill('people', 'People & Profiles', '👥')}
-        ${tabPill('compliance', 'Compliance & Training', '🛡️')}
-        ${tabPill('automation', 'HR Workflows', '⚡')}
-        ${tabPill('settings', 'Engine Settings', '⚙️')}
+        ${tabPill('overview', 'Overview', '')}
+        ${tabPill('people', 'People & Profiles', '')}
+        ${tabPill('compliance', 'Compliance & Training', '')}
+        ${tabPill('automation', 'HR Workflows', '')}
+        ${tabPill('settings', 'Engine Settings', '')}
       </div>
 
       <div id="people-compliance-body"></div>

@@ -152,14 +152,14 @@ function renderVinPageResults({ decoded, recalls }) {
 
   const recallEl = document.getElementById('vin-page-recalls');
   if (recalls?.length) {
-    recallEl.innerHTML = `<div class="text-sm font-bold text-red-600 dark:text-red-400 mb-2">⚠ ${recalls.length} Open Recall${recalls.length > 1 ? 's' : ''}</div>` +
+    recallEl.innerHTML = `<div class="text-sm font-bold text-red-600 dark:text-red-400 mb-2"> ${recalls.length} Open Recall${recalls.length > 1 ? 's' : ''}</div>` +
       recalls.map(r => `<div class="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 text-xs mb-2">
         <div class="font-bold text-red-700 dark:text-red-400">${r.Component || ''}</div>
         <div class="text-slate-600 dark:text-slate-400 mt-1">${r.Summary || ''}</div>
       </div>`).join('');
     recallEl.classList.remove('hidden');
   } else {
-    recallEl.innerHTML = `<div class="text-sm font-medium text-emerald-600 dark:text-emerald-400">✓ No open recalls found</div>`;
+    recallEl.innerHTML = `<div class="text-sm font-medium text-emerald-600 dark:text-emerald-400"> No open recalls found</div>`;
     recallEl.classList.remove('hidden');
   }
   document.getElementById('vin-page-results').classList.remove('hidden');
@@ -207,11 +207,11 @@ async function startVinStickerTrial() {
       const tk = localStorage.getItem('token');
       if (status === 'return' && tk) {
         fetch(`${API}/deposits/refresh`, { method: 'POST', headers: { 'Authorization': `Bearer ${tk}` } })
-          .then(r => r.json()).then(d => showToast(d.charges_enabled ? 'Stripe connected — deposits are ready ✓' : 'Stripe onboarding saved — finish any remaining steps to go live.', d.charges_enabled ? 'success' : 'info')).catch(() => {});
+          .then(r => r.json()).then(d => showToast(d.charges_enabled ? 'Stripe connected — deposits are ready ' : 'Stripe onboarding saved — finish any remaining steps to go live.', d.charges_enabled ? 'success' : 'info')).catch(() => {});
       } else if (status === 'refresh') { showToast('Stripe onboarding was interrupted — click Connect to resume.', 'info'); }
       openHub(); return;
     }
-    if (status === 'connected') showToast(`${label} connected ✓`, 'success');
+    if (status === 'connected') showToast(`${label} connected `, 'success');
     else showToast(msg || `${label} connection failed`, 'error');
     openHub();
   };
@@ -578,7 +578,7 @@ async function loadCompetitors() {
               <input type="url" placeholder="AutoTrader, CarGurus, or dealer URL…" class="flex-1 text-xs border border-slate-300 dark:border-slate-600 rounded px-2 py-1 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200" id="url-input-${c.id}" value="${c.autotrader_url || ''}">
               <button class="competitor-url-save-btn text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded font-semibold" data-id="${c.id}">Save</button>
             </div>`
-          : `<div class="text-xs text-amber-500 mt-1 leading-snug">⚠ ${sr.error}</div>`
+          : `<div class="text-xs text-amber-500 mt-1 leading-snug"> ${sr.error}</div>`
         : '';
       return `<div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5" data-competitor-id="${c.id}">
         <div class="flex items-start justify-between gap-3">
@@ -727,10 +727,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const s = r.result;
           const avgDiff = pct(s.avg_price, ourAvg);
           const flags = [];
-          if (avgDiff != null && avgDiff < -5) flags.push(`<span class="text-amber-500 font-semibold">⚠ Avg price ${Math.abs(avgDiff)}% below yours</span>`);
-          if (avgDiff != null && avgDiff > 10) flags.push(`<span class="text-emerald-500 font-semibold">✓ You're priced ${avgDiff}% cheaper on avg</span>`);
-          if (s.listing_count != null && ourCount > 0 && s.listing_count > ourCount * 1.5) flags.push(`<span class="text-amber-500 font-semibold">⚠ They have ${s.listing_count - ourCount} more units</span>`);
-          if (s.min_price != null && ourMin != null && s.min_price < ourMin * 0.9) flags.push(`<span class="text-amber-500 font-semibold">⚠ Their lowest price is ${fmt(s.min_price)} vs your ${fmt(ourMin)}</span>`);
+          if (avgDiff != null && avgDiff < -5) flags.push(`<span class="text-amber-500 font-semibold"> Avg price ${Math.abs(avgDiff)}% below yours</span>`);
+          if (avgDiff != null && avgDiff > 10) flags.push(`<span class="text-emerald-500 font-semibold"> You're priced ${avgDiff}% cheaper on avg</span>`);
+          if (s.listing_count != null && ourCount > 0 && s.listing_count > ourCount * 1.5) flags.push(`<span class="text-amber-500 font-semibold"> They have ${s.listing_count - ourCount} more units</span>`);
+          if (s.min_price != null && ourMin != null && s.min_price < ourMin * 0.9) flags.push(`<span class="text-amber-500 font-semibold"> Their lowest price is ${fmt(s.min_price)} vs your ${fmt(ourMin)}</span>`);
 
           return `
             <div class="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
@@ -791,8 +791,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .flags{padding:10px 14px;border-top:1px solid #e2e8f0;font-size:12px}
 </style></head><body>
 <div class="no-print">
-  <button onclick="window.close()" style="background:#f1f5f9;color:#334155">✕ Close</button>
-  <button onclick="window.print()" style="background:#1a2e4a;color:#fff">🖨 Print / Save as PDF</button>
+  <button onclick="window.close()" style="background:#f1f5f9;color:#334155"> Close</button>
+  <button onclick="window.print()" style="background:#1a2e4a;color:#fff"> Print / Save as PDF</button>
 </div>
 <h1>Competitor Lot Comparison</h1>
 <div class="sub">Generated ${new Date().toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
@@ -1230,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const scoreColor = v.score >= 80 ? '#10b981' : v.score >= 60 ? '#f59e0b' : '#ef4444'
       const issueList = v.issues.length
         ? v.issues.map(i => `<span class="inline-flex text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">${i}</span>`).join(' ')
-        : '<span class="text-emerald-500 text-xs font-semibold">✓ Good</span>'
+        : '<span class="text-emerald-500 text-xs font-semibold"> Good</span>'
       const stockNum = v.stock || v.id?.slice(0, 8) || '—'
       const vehicleLine = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ')
 
@@ -1297,10 +1297,10 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
               <div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-1.5 rounded-full ${barColor}" style="width:${ps}%"></div></div>
               <div class="text-[10px] text-slate-400 mt-1">AI-rated photo quality (lighting, framing, clarity) — aim for 80%+. Click “Score photos” to (re)run it.</div>
-              ${flags.length ? `<div class="flex flex-wrap gap-1 mt-1.5">${flags.map(f => `<span class="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">${esc(f)}</span>`).join('')}</div>` : '<div class="text-[10px] text-emerald-500 font-semibold mt-1.5">✓ Photos look good</div>'}
+              ${flags.length ? `<div class="flex flex-wrap gap-1 mt-1.5">${flags.map(f => `<span class="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">${esc(f)}</span>`).join('')}</div>` : '<div class="text-[10px] text-emerald-500 font-semibold mt-1.5"> Photos look good</div>'}
             </div>`;
           })()}
-          ${v.issues.length ? `<div class="flex flex-wrap gap-1">${issueList}</div>` : '<div class="text-emerald-500 text-xs font-semibold">✓ No issues</div>'}
+          ${v.issues.length ? `<div class="flex flex-wrap gap-1">${issueList}</div>` : '<div class="text-emerald-500 text-xs font-semibold"> No issues</div>'}
           <div class="mt-3 flex justify-end">
             <button onclick="event.stopPropagation(); editVehicle('${v.id}')" class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Open stock card to fix →

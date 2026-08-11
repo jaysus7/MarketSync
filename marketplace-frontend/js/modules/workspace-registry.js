@@ -1,5 +1,5 @@
 // ── DealerOS Workspace Registry ──────────────────────────────────────────────
-// ✅ SINGLE SOURCE OF TRUTH for dashboard navigation.
+//  SINGLE SOURCE OF TRUTH for dashboard navigation.
 //
 // Desktop sidebar, the local workspace tab-bar and the mobile bottom row all derive
 // from THIS file. To add / rename / reorder / gate a navigation entry, edit here —

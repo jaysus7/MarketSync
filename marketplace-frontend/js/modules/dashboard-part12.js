@@ -1,7 +1,7 @@
 /* dashboard.js split part 12/26 — contiguous, load-order-critical. Do not reorder the <script> tags in dashboard.html. */
 
 async function opsResolveException(id) {
-  try { await apiSendJson(`/exceptions/${id}/resolve`, 'POST'); showToast('Resolved ✓', 'success'); loadOperationsPage(); }
+  try { await apiSendJson(`/exceptions/${id}/resolve`, 'POST'); showToast('Resolved ', 'success'); loadOperationsPage(); }
   catch (e) { showToast(e.message || 'Failed', 'error'); }
 }
 
@@ -210,7 +210,7 @@ function svcCustSearch(q) {
 function svcPickCust(id, name) {
   document.getElementById('svc-ro-cust-id').value = id;
   document.getElementById('svc-ro-cust').value = name;
-  document.getElementById('svc-ro-cust-results').innerHTML = `<div class="text-[12px] text-teal-600 font-bold">✓ ${esc(name)}</div>`;
+  document.getElementById('svc-ro-cust-results').innerHTML = `<div class="text-[12px] text-teal-600 font-bold"> ${esc(name)}</div>`;
 }
 async function svcCreateRo() {
   const body = {
@@ -220,7 +220,7 @@ async function svcCreateRo() {
     odometer: document.getElementById('svc-ro-odo').value ? Number(document.getElementById('svc-ro-odo').value) : null,
     complaint: document.getElementById('svc-ro-complaint').value.trim() || null,
   };
-  try { const r = await apiSendJson('/service-engine/ros', 'POST', body); showToast('RO ' + (r.ro?.ro_number || '') + ' opened ✓', 'success'); svcOpenRo(r.ro.id); }
+  try { const r = await apiSendJson('/service-engine/ros', 'POST', body); showToast('RO ' + (r.ro?.ro_number || '') + ' opened ', 'success'); svcOpenRo(r.ro.id); }
   catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -328,12 +328,12 @@ async function svcTransition(roId, toState, needsReason) {
   try {
     const path = toState === 'closed' ? `/service-engine/ros/${roId}/close` : `/service-engine/ros/${roId}/status`;
     await apiSendJson(path, 'POST', toState === 'closed' ? { reason } : { status: toState, reason });
-    showToast(`${svcStatusLabel(toState)} ✓`, 'success');
+    showToast(`${svcStatusLabel(toState)} `, 'success');
     svcOpenRo(roId);
   } catch (e) { showToast(e.message, 'error'); }
 }
 async function svcCloseRo(roId) {
   if (!confirm('Close this RO? Parts will be drawn from stock and the sale posted to accounting.')) return;
-  try { await apiSendJson(`/service-engine/ros/${roId}/close`, 'POST'); showToast('RO closed & posted ✓', 'success'); svcOpenRo(roId); }
+  try { await apiSendJson(`/service-engine/ros/${roId}/close`, 'POST'); showToast('RO closed & posted ', 'success'); svcOpenRo(roId); }
   catch (e) { showToast(e.message, 'error'); }
 }

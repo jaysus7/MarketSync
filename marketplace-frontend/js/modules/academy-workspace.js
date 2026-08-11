@@ -160,7 +160,7 @@ async function acadOpenCredential(credentialId) {
 window.acadOpenCredential = acadOpenCredential;
 
 function acadCopy(text) {
-  try { navigator.clipboard.writeText(text); showToast('Link copied ✓', 'success') }
+  try { navigator.clipboard.writeText(text); showToast('Link copied ', 'success') }
   catch { showToast('Copy is not available in this browser', 'error') }
 }
 window.acadCopy = acadCopy;

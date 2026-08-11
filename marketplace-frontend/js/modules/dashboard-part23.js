@@ -113,7 +113,7 @@ function renderAiDockMessages() {
       ? ['What should I focus on today?', 'Are we up or down vs last month?', "Who's my top salesperson?", 'Why did leads change this month?', 'Which cars should I discount or wholesale?']
       : ['What should I focus on today?', 'Which units are aging 60+ days?', 'How many leads need follow-up?', 'Anything priced off market?'];
     intro.innerHTML =
-      `<div class="mb-3 leading-relaxed">Hi 👋 I'm ${esc(__aiAssistantName)} — I can see your whole store live: inventory, leads, sales, F&amp;I, commissions, reconditioning and today's tasks. Ask me anything.</div>` +
+      `<div class="mb-3 leading-relaxed">Hi  I'm ${esc(__aiAssistantName)} — I can see your whole store live: inventory, leads, sales, F&amp;I, commissions, reconditioning and today's tasks. Ask me anything.</div>` +
       '<div class="flex flex-wrap gap-1.5">' +
       suggestions
         .map(s => `<button type="button" data-ai-suggest="${s}" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">${s}</button>`)
@@ -139,10 +139,10 @@ function renderAiDockMessages() {
     if (m.role === 'assistant' && m.action && !m.action_done) {
       const a = m.action;
       let label = 'Confirm';
-      if (a.action === 'create_task') label = `✓ Create task: "${a.title}"${a.due_hours ? ` (due in ${a.due_hours}h)` : ''}`;
-      else if (a.action === 'bulk_outreach') label = `✉️ Set up: "${a.instruction}"`;
-      else if (a.action === 'book_appointment') { let w = a.when_iso; try { w = new Date(a.when_iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch {} label = `📅 Book appointment — ${a.customer} (${w})`; }
-      else if (a.action === 'reassign_lead') label = `🔄 Reassign ${a.customer} → ${a.to_rep}`;
+      if (a.action === 'create_task') label = ` Create task: "${a.title}"${a.due_hours ? ` (due in ${a.due_hours}h)` : ''}`;
+      else if (a.action === 'bulk_outreach') label = ` Set up: "${a.instruction}"`;
+      else if (a.action === 'book_appointment') { let w = a.when_iso; try { w = new Date(a.when_iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch {} label = ` Book appointment — ${a.customer} (${w})`; }
+      else if (a.action === 'reassign_lead') label = ` Reassign ${a.customer} → ${a.to_rep}`;
       else if (a.action === 'review_commission_plans') label = 'Review commission-plan drafts';
       const wrap = document.createElement('div');
       wrap.className = 'mt-1.5 flex items-center gap-2';
@@ -151,7 +151,7 @@ function renderAiDockMessages() {
     } else if (m.role === 'assistant' && m.action_done) {
       const done = document.createElement('div');
       done.className = 'mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400';
-      done.textContent = m.action_done === 'handoff' ? '✓ Opened for review' : '✓ Done';
+      done.textContent = m.action_done === 'handoff' ? ' Opened for review' : ' Done';
       row.appendChild(done);
     }
     box.appendChild(row);
@@ -293,7 +293,7 @@ async function aiDockRunAction(idx) {
       const due_at = a.due_hours ? new Date(Date.now() + a.due_hours * 3600000).toISOString() : null;
       await apiSendJson('/crm/tasks', 'POST', { title: a.title, type: 'followup', due_at });
       m.action_done = 'done';
-      showToast('Task created ✓', 'success');
+      showToast('Task created ', 'success');
     } else if (a.action === 'bulk_outreach') {
       // Hand off to the safe bulk-outreach flow (its own preview + confirm before send).
       m.action_done = 'handoff';
@@ -303,8 +303,8 @@ async function aiDockRunAction(idx) {
       // Server executes these with strict matching; show its message back in the thread.
       const r = await apiSendJson('/ai/assistant/action', 'POST', a);
       m.action_done = 'done';
-      aiDockMessages.push({ role: 'assistant', content: r.message || 'Done ✓' });
-      showToast(r.message || 'Done ✓', 'success');
+      aiDockMessages.push({ role: 'assistant', content: r.message || 'Done ' });
+      showToast(r.message || 'Done ', 'success');
     } else if (a.action === 'review_commission_plans') {
       m.action_done = 'handoff';
       closeAiDock();
@@ -805,7 +805,7 @@ function apprDisclosurePdf() {
     <h2>Customer</h2>
     <div class="grid2"><table class="kv">${kv('Name', custName)}${kv('Home phone', cust.home_phone)}${kv('Mobile', cust.mobile_phone)}</table>
       <table class="kv">${kv('Email', cust.email)}${kv('Address', cust.address)}${kv('Postal / ZIP', cust.postal_code)}</table></div>
-    ${feats.length ? `<h2>Equipment &amp; features</h2><div class="feat">${feats.map(f => `<div>✓ ${esc(f)}</div>`).join('')}</div>` : ''}
+    ${feats.length ? `<h2>Equipment &amp; features</h2><div class="feat">${feats.map(f => `<div> ${esc(f)}</div>`).join('')}</div>` : ''}
     ${sections}
     ${deal.disclosure.notes ? `<h2>Additional notes</h2><div>${esc(deal.disclosure.notes)}</div>` : ''}
     <div class="muted" style="margin-top:16px">The customer certifies the above is true and complete to the best of their knowledge.</div>

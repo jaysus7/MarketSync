@@ -105,12 +105,12 @@ function customDomainCard(cfg) {
   const verified = !!cfg.custom_domain_verified;
   const status = !dom ? ''
     : verified
-      ? `<span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">✓ Connected — live at <a href="https://${esc(dom)}" target="_blank" class="underline">${esc(dom)}</a></span>`
+      ? `<span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400"> Connected — live at <a href="https://${esc(dom)}" target="_blank" class="underline">${esc(dom)}</a></span>`
       : `<span class="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">⏳ Waiting for DNS — add the record below, then Check.</span>`;
   const rec = (host, val) => `<div class="flex items-center gap-2 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1"><span class="text-slate-400">${host}</span><span class="flex-1 truncate">${esc(val)}</span><button type="button" onclick="navigator.clipboard?.writeText('${esc(val)}');showToast('Copied','success')" class="text-indigo-600 dark:text-indigo-400 font-bold">Copy</button></div>`;
   return `<div class="border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-2">
     <div class="flex items-center justify-between gap-2 flex-wrap">
-      <div class="text-sm font-black text-slate-900 dark:text-white">🌐 Your own domain</div>
+      <div class="text-sm font-black text-slate-900 dark:text-white"> Your own domain</div>
       ${status}
     </div>
     <p class="text-[11px] text-slate-400">Use your own web address (like <b>www.yourdealership.com</b>) instead of the MarketSync link. Enter it, add one DNS record at your domain provider, and hit Check.</p>
@@ -171,7 +171,7 @@ function siteSettingsFields(cfg) {
     ${sec('Business details', 'Name, contact info and hours shown across your site.', `
       <div class="grid grid-cols-1 gap-2">
         <div>${lbl('Headline / tagline')}${inp('site-tagline', c.tagline, 'Your trusted local dealership', 'w-full')}</div>
-        <div><div class="flex items-center justify-between"><div>${lbl('About')}</div><button type="button" onclick="aiAboutMenu(event)" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 mb-1">✨ AI</button></div>${ta('site-about', c.about, 'A sentence or two about your store', 2)}</div>
+        <div><div class="flex items-center justify-between"><div>${lbl('About')}</div><button type="button" onclick="aiAboutMenu(event)" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 mb-1"> AI</button></div>${ta('site-about', c.about, 'A sentence or two about your store', 2)}</div>
         <div class="grid grid-cols-2 gap-2">
           <div>${lbl('Phone')}${inp('site-phone', c.phone, '905-555-1234', 'w-full')}</div>
           <div>${lbl('Email')}${inp('site-email', c.email, 'sales@…', 'w-full')}</div>
@@ -197,7 +197,7 @@ function siteSettingsFields(cfg) {
       <h2 class="text-lg font-bold text-slate-900 dark:text-white">SEO</h2>
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">How your site shows in Google and when shared. Leave blank to auto-generate from your name, city and About.</p>
       <div class="space-y-2">
-        <div class="flex justify-end -mb-1"><button type="button" onclick="aiSiteMeta(this)" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500">✨ AI write title + meta</button></div>
+        <div class="flex justify-end -mb-1"><button type="button" onclick="aiSiteMeta(this)" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500"> AI write title + meta</button></div>
         <div>${lbl('Page title (Google tab, ~60 chars)')}${inp('seo-title', c.seo_title, 'Your Dealership | New & Used Cars, Trucks & SUVs', 'w-full')}</div>
         <div>${lbl('Meta description (~155 chars)')}${ta('seo-desc', c.seo_description, 'Shop new and used vehicles at your dealership. Build & price, get financing, and value your trade — all online.', 2)}</div>
         <div>${lbl('Keywords (comma separated, optional)')}${inp('seo-keywords', c.seo_keywords, 'used cars near me, trucks for sale, car dealership', 'w-full')}</div>
@@ -405,8 +405,8 @@ function menuRow(it, i, n) {
       ${handle}${MENU_SWITCH('pg-nav', p.nav !== false)}
       <input class="pg-title flex-1 min-w-[110px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-semibold" placeholder="Page title" value="${esc(p.title || '')}">${badge}
       <input class="pg-menu ${grp}" list="menu-grp-opts" value="${esc(p.menu || '')}" placeholder="Submenu" onchange="collectMenu();renderMenuList()">
-      <button type="button" onclick="wsCustomizeById('${p.id}')" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap shrink-0">✎ Customize${(p.sections && p.sections.length) ? ' (' + p.sections.length + ')' : ''}</button>
-      <button type="button" onclick="removeSitePageById('${p.id}')" class="text-rose-500 text-xs font-bold shrink-0">✕</button>
+      <button type="button" onclick="wsCustomizeById('${p.id}')" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap shrink-0"> Customize${(p.sections && p.sections.length) ? ' (' + p.sections.length + ')' : ''}</button>
+      <button type="button" onclick="removeSitePageById('${p.id}')" class="text-rose-500 text-xs font-bold shrink-0"></button>
     </div>
     ${showBody ? `<textarea class="pg-body w-full text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1" rows="2" placeholder="${p.kind === 'model' ? 'Intro blurb — inventory lists automatically below it.' : 'Page content — plain text or basic HTML'}">${esc(p.body_html || '')}</textarea>` : ''}
   </div>`;
@@ -611,7 +611,7 @@ function renderSiteWidgets() {
       <select class="wg-slot bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs">${SITE_SLOTS.map(s => `<option value="${s[0]}" ${w.slot === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}</select>
       <input class="wg-title flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" placeholder="Title (optional)" value="${esc(w.title || '')}">
       <input class="wg-height bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" type="number" value="${w.height || 400}" style="width:64px" title="Height (px)">
-      <button type="button" onclick="removeSiteWidget(${i})" class="text-rose-500 text-xs font-bold">✕</button>
+      <button type="button" onclick="removeSiteWidget(${i})" class="text-rose-500 text-xs font-bold"></button>
     </div>
     <textarea class="wg-html w-full font-mono text-[11px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1" rows="2" placeholder="&lt;iframe …&gt; or embed code">${esc(w.html || '')}</textarea>
   </div>`).join('');
@@ -740,7 +740,7 @@ function renderWebsitePage() {
         <!-- Editor mode toggle: Classic section-cards vs Live drag-and-drop preview. -->
         <div class="inline-flex rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden text-xs font-bold" title="Switch between the classic section editor and the live drag-and-drop builder">
           <button onclick="setBuilderMode('classic')" class="px-3 py-2 transition ${__builderMode !== 'live' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Classic</button>
-          <button onclick="setBuilderMode('live')" class="px-3 py-2 transition ${__builderMode === 'live' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Live ✨</button>
+          <button onclick="setBuilderMode('live')" class="px-3 py-2 transition ${__builderMode === 'live' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">Live </button>
         </div>
         ${url ? `<a href="${url}" target="_blank" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg">View site ↗</a>` : ''}
         <label class="flex items-center gap-1.5 text-sm font-bold"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Published</label>
@@ -837,37 +837,37 @@ let __wsPaletteCat = 'all';
 let __wsPaletteSearch = '';
 
 const WIDGET_CATEGORIES = [
-  ['all', '⚡ All'],
-  ['banners', '🖼️ Banners'],
-  ['inventory', '🚘 Inventory'],
-  ['content', '📝 Content'],
+  ['all', ' All'],
+  ['banners', ' Banners'],
+  ['inventory', ' Inventory'],
+  ['content', ' Content'],
   ['trust', '⭐ Trust'],
-  ['contact', '📍 Contact']
+  ['contact', ' Contact']
 ];
 
 const WIDGET_META_EXT = {
-  hero: { icon: '🖼️', category: 'banners', name: 'Hero Showcase', desc: 'Full-width top header banner with background style & call to action.' },
-  feature_cards: { icon: '✨', category: 'inventory', name: 'Feature Cards', desc: 'Quick links to Inventory, Financing, and Service departments.' },
-  featured_inventory: { icon: '🚘', category: 'inventory', name: 'Featured Inventory', desc: 'Highlight top new & pre-owned vehicles on your lot.' },
-  inventory_grid: { icon: '📊', category: 'inventory', name: 'Inventory Grid', desc: 'Complete searchable vehicle grid with filtering.' },
-  text_image: { icon: '📝', category: 'content', name: 'Text + Image Split', desc: 'Side-by-side content block for dealership stories or announcements.' },
-  two_col: { icon: '🍱', category: 'content', name: 'Two Columns', desc: '2-column responsive layout for custom features and text.' },
-  cards: { icon: '🎴', category: 'content', name: 'Card Grid', desc: 'Grid of feature cards with custom titles & descriptions.' },
-  body_style: { icon: '🏎️', category: 'inventory', name: 'Body Styles', desc: 'Browse vehicles by Sedan, SUV, Truck, Coupe.' },
-  payment_calc: { icon: '🧮', category: 'inventory', name: 'Payment Calculator', desc: 'Interactive monthly payment estimator for buyers.' },
-  ad_banner: { icon: '🏷️', category: 'banners', name: 'Specials Banner', desc: 'Promotional ad banner for sales events & discount offers.' },
-  trade_cta: { icon: '🔄', category: 'banners', name: 'Trade-In Banner', desc: 'Instant trade valuation banner for lead generation.' },
-  finance_cta: { icon: '💳', category: 'banners', name: 'Finance Banner', desc: 'Credit pre-approval CTA banner.' },
-  service_cta: { icon: '🔧', category: 'banners', name: 'Service Banner', desc: 'Service appointment scheduling CTA banner.' },
-  cta_banner: { icon: '📢', category: 'banners', name: 'CTA Banner', desc: 'Bold full-width call to action banner.' },
-  staff: { icon: '👥', category: 'trust', name: 'Meet The Team', desc: 'Showcase sales reps, managers, and staff photos.' },
+  hero: { icon: '', category: 'banners', name: 'Hero Showcase', desc: 'Full-width top header banner with background style & call to action.' },
+  feature_cards: { icon: '', category: 'inventory', name: 'Feature Cards', desc: 'Quick links to Inventory, Financing, and Service departments.' },
+  featured_inventory: { icon: '', category: 'inventory', name: 'Featured Inventory', desc: 'Highlight top new & pre-owned vehicles on your lot.' },
+  inventory_grid: { icon: '', category: 'inventory', name: 'Inventory Grid', desc: 'Complete searchable vehicle grid with filtering.' },
+  text_image: { icon: '', category: 'content', name: 'Text + Image Split', desc: 'Side-by-side content block for dealership stories or announcements.' },
+  two_col: { icon: '', category: 'content', name: 'Two Columns', desc: '2-column responsive layout for custom features and text.' },
+  cards: { icon: '', category: 'content', name: 'Card Grid', desc: 'Grid of feature cards with custom titles & descriptions.' },
+  body_style: { icon: '', category: 'inventory', name: 'Body Styles', desc: 'Browse vehicles by Sedan, SUV, Truck, Coupe.' },
+  payment_calc: { icon: '', category: 'inventory', name: 'Payment Calculator', desc: 'Interactive monthly payment estimator for buyers.' },
+  ad_banner: { icon: '', category: 'banners', name: 'Specials Banner', desc: 'Promotional ad banner for sales events & discount offers.' },
+  trade_cta: { icon: '', category: 'banners', name: 'Trade-In Banner', desc: 'Instant trade valuation banner for lead generation.' },
+  finance_cta: { icon: '', category: 'banners', name: 'Finance Banner', desc: 'Credit pre-approval CTA banner.' },
+  service_cta: { icon: '', category: 'banners', name: 'Service Banner', desc: 'Service appointment scheduling CTA banner.' },
+  cta_banner: { icon: '', category: 'banners', name: 'CTA Banner', desc: 'Bold full-width call to action banner.' },
+  staff: { icon: '', category: 'trust', name: 'Meet The Team', desc: 'Showcase sales reps, managers, and staff photos.' },
   reviews: { icon: '⭐', category: 'trust', name: 'Customer Reviews', desc: 'Google reviews carousel & rating badge.' },
-  faq: { icon: '❓', category: 'trust', name: 'FAQ Accordion', desc: 'Frequently asked questions dropdown accordion.' },
-  blog: { icon: '📰', category: 'content', name: 'Latest Articles', desc: 'Recent blog posts and news updates.' },
-  gallery: { icon: '📸', category: 'content', name: 'Photo Gallery', desc: 'Showroom & vehicle photo grid gallery.' },
-  map: { icon: '🗺️', category: 'contact', name: 'Location Map', desc: 'Interactive map & dealership address.' },
-  contact: { icon: '📞', category: 'contact', name: 'Contact Form', desc: 'Lead inquiry form with instant CRM notification.' },
-  html: { icon: '💻', category: 'content', name: 'Custom HTML', desc: 'Embed custom HTML code or external widgets.' },
+  faq: { icon: '', category: 'trust', name: 'FAQ Accordion', desc: 'Frequently asked questions dropdown accordion.' },
+  blog: { icon: '', category: 'content', name: 'Latest Articles', desc: 'Recent blog posts and news updates.' },
+  gallery: { icon: '', category: 'content', name: 'Photo Gallery', desc: 'Showroom & vehicle photo grid gallery.' },
+  map: { icon: '', category: 'contact', name: 'Location Map', desc: 'Interactive map & dealership address.' },
+  contact: { icon: '', category: 'contact', name: 'Contact Form', desc: 'Lead inquiry form with instant CRM notification.' },
+  html: { icon: '', category: 'content', name: 'Custom HTML', desc: 'Embed custom HTML code or external widgets.' },
 };
 
 function setWsPaletteCat(cat) {
@@ -887,18 +887,18 @@ window.setWsPaletteSearch = setWsPaletteSearch;
 async function aiBuildPageLayout() {
   if (__siteSections.length > 0 && !confirm('Replace current sections with an AI-generated high-converting layout?')) return;
   const bBrand = typeof getDealerBranding === 'function' ? getDealerBranding() : { name: 'MarketSync Motors' };
-  if (typeof showToast === 'function') showToast('✨ AI Copilot generating custom dealership layout…', 'info');
+  if (typeof showToast === 'function') showToast(' AI Copilot generating custom dealership layout…', 'info');
   
   __siteSections = [
     { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'hero', settings: { herobg: 'g1', headline: `Welcome to ${bBrand.name}`, subheadline: 'Explore our premium selection of new & certified pre-owned vehicles.', button_label: 'View Inventory →', button_target: 'inventory' } },
-    { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'featured_inventory', settings: { title: '🔥 Featured Vehicles This Week', count: 6 } },
+    { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'featured_inventory', settings: { title: ' Featured Vehicles This Week', count: 6 } },
     { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'trade_cta', settings: { title: 'What Is Your Trade Worth?', subtitle: 'Get an instant market-backed valuation in under 2 minutes.', button_label: 'Value My Trade →' } },
     { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'reviews', settings: { title: 'Why Drivers Choose Us', google_rating: '4.9' } },
     { id: 'sec_' + Math.random().toString(36).slice(2,8), type: 'contact', settings: { title: 'Visit Our Showroom & Schedule a Test Drive' } }
   ];
   
   renderWsSections();
-  if (typeof showToast === 'function') showToast('✨ AI Layout Generated! Click Save to publish.', 'success');
+  if (typeof showToast === 'function') showToast(' AI Layout Generated! Click Save to publish.', 'success');
 }
 window.aiBuildPageLayout = aiBuildPageLayout;
 
@@ -917,7 +917,7 @@ function renderElementorPalette() {
   });
 
   const cardsHtml = filteredSecs.map(t => {
-    const ext = WIDGET_META_EXT[t] || { icon: '🧩', category: 'content', name: SEC_META[t]?.label || t, desc: 'Add element section' };
+    const ext = WIDGET_META_EXT[t] || { icon: '', category: 'content', name: SEC_META[t]?.label || t, desc: 'Add element section' };
     return `
       <button onclick="addSection('${t}')" class="group p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md rounded-xl text-left transition flex flex-col justify-between">
         <div>
@@ -938,13 +938,13 @@ function renderElementorPalette() {
     <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
       <div class="flex items-center justify-between">
         <div class="text-xs font-black uppercase tracking-wider text-slate-400">Elementor Widget Panel</div>
-        <button onclick="aiBuildPageLayout()" class="text-[11px] font-extrabold text-violet-600 dark:text-violet-400 hover:text-violet-500 flex items-center gap-1">✨ AI Build Layout</button>
+        <button onclick="aiBuildPageLayout()" class="text-[11px] font-extrabold text-violet-600 dark:text-violet-400 hover:text-violet-500 flex items-center gap-1"> AI Build Layout</button>
       </div>
 
       <!-- Search Bar -->
       <div class="relative">
         <input type="text" value="${esc(__wsPaletteSearch)}" oninput="setWsPaletteSearch(this.value)" placeholder="Search widgets (e.g. hero, inventory, reviews)..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200">
-        <span class="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
+        <span class="absolute left-2.5 top-2 text-slate-400 text-xs"></span>
       </div>
 
       <!-- Category Filter Pills -->
@@ -972,8 +972,8 @@ function renderLiveBuilder(body) {
     body.innerHTML = `<div class="mt-6 text-sm text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center">Name your site address first (Settings → site address) to use the live preview.<br>You can keep building now in <button onclick="setBuilderMode('classic')" class="text-indigo-600 font-bold">Classic mode ↩</button>.</div>`;
     return;
   }
-  const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>📄 ${esc(p.title || 'Untitled page')}</option>`).join('');
-  const builtinOpts = BUILTIN_META.filter(([k]) => (__siteBuiltins[k]?.enabled !== false)).map(([k, label]) => `<option value="b:${k}" ${__wsTarget === 'b:' + k ? 'selected' : ''}>🧩 ${esc((__siteBuiltins[k] && __siteBuiltins[k].label) || label)} — top section</option>`).join('');
+  const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}> ${esc(p.title || 'Untitled page')}</option>`).join('');
+  const builtinOpts = BUILTIN_META.filter(([k]) => (__siteBuiltins[k]?.enabled !== false)).map(([k, label]) => `<option value="b:${k}" ${__wsTarget === 'b:' + k ? 'selected' : ''}> ${esc((__siteBuiltins[k] && __siteBuiltins[k].label) || label)} — top section</option>`).join('');
   body.innerHTML = `
     <div class="flex items-center gap-2 mt-4 mb-2 flex-wrap">
       <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Editing:</span>
@@ -1005,8 +1005,8 @@ function renderWsBody() {
   if (__wsTab === 'settings') { body.innerHTML = wsSettings(); __siteWidgets = Array.isArray(__siteCfg?.content?.widgets) ? __siteCfg.content.widgets.slice() : []; renderSiteWidgets(); return; }
   if (__wsTab === 'builder' && __builderMode === 'live') { renderLiveBuilder(body); return; }
   // Builder Classic
-  const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>📄 ${esc(p.title || 'Untitled page')}</option>`).join('');
-  const builtinOpts = BUILTIN_META.filter(([k]) => (__siteBuiltins[k]?.enabled !== false)).map(([k, label]) => `<option value="b:${k}" ${__wsTarget === 'b:' + k ? 'selected' : ''}>🧩 ${esc((__siteBuiltins[k] && __siteBuiltins[k].label) || label)} — top section</option>`).join('');
+  const pageOpts = (__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}> ${esc(p.title || 'Untitled page')}</option>`).join('');
+  const builtinOpts = BUILTIN_META.filter(([k]) => (__siteBuiltins[k]?.enabled !== false)).map(([k, label]) => `<option value="b:${k}" ${__wsTarget === 'b:' + k ? 'selected' : ''}> ${esc((__siteBuiltins[k] && __siteBuiltins[k].label) || label)} — top section</option>`).join('');
   body.innerHTML = `
     <div class="flex items-center gap-2 mt-4 mb-2 flex-wrap">
       <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Editing:</span>
@@ -1024,13 +1024,13 @@ function renderWsBody() {
         <input type="color" value="${cp.accent || '#4f46e5'}" oninput="setPageStyle('accent',this.value)" class="w-8 h-7 rounded border border-slate-200 dark:border-slate-700 bg-transparent cursor-pointer"></label>
       ${cp.accent ? `<button onclick="setPageStyle('accent','',true)" class="text-slate-400 hover:text-rose-500 font-bold" title="Use site default">reset</button>` : '<span class="text-slate-400">(site default)</span>'}
       <label class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 ml-2">Nav icon
-        <input value="${esc(cp.icon || '')}" maxlength="4" placeholder="🚗" oninput="setPageStyle('icon',this.value)" class="w-16 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1 py-1"></label>
+        <input value="${esc(cp.icon || '')}" maxlength="4" placeholder="" oninput="setPageStyle('icon',this.value)" class="w-16 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1 py-1"></label>
       <span class="text-slate-400 flex-1">Shows in the site nav and tints this page's buttons/links.</span>
     </div>
     <div class="mb-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 space-y-1.5">
       <div class="flex items-center justify-between gap-2">
         <span class="text-xs font-bold text-slate-500 dark:text-slate-400">This page's SEO <span class="font-normal text-slate-400">— a unique title & meta for Google (blank auto-fills from this page)</span></span>
-        <button type="button" onclick="aiPageMeta(this)" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 whitespace-nowrap">✨ AI write meta</button>
+        <button type="button" onclick="aiPageMeta(this)" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500 whitespace-nowrap"> AI write meta</button>
       </div>
       <input id="pg-seo-title" value="${esc(cp.seo_title || '')}" oninput="setPageStyle('seo_title',this.value)" placeholder="SEO title (~60 chars, click-worthy hook)" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5">
       <textarea id="pg-seo-desc" rows="2" oninput="setPageStyle('seo_description',this.value)" placeholder="Meta description (~155 chars, include your focus keyword)" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5">${esc(cp.seo_description || '')}</textarea>
@@ -1081,7 +1081,7 @@ function secDrop(e, i) {
   renderWsSections();
 }
 window.secDragStart = secDragStart; window.secDragEnd = secDragEnd; window.secDragOver = secDragOver; window.secDragLeave = secDragLeave; window.secDrop = secDrop;
-// Which section fields get the ✨ AI writer, and what "kind" it writes as. Titles →
+// Which section fields get the  AI writer, and what "kind" it writes as. Titles →
 // title/hook + rewrites; body/paragraph/subtitle → rewrites + link insertion. Every
 // copy field a dealer can type into should map here so nothing is left un-AI'd.
 const WS_AI_KIND = {
@@ -1093,7 +1093,7 @@ const WS_AI_KIND = {
 function wsField(i, sec, [key, label, type]) {
   const v = sec.settings?.[key];
   const aiKind = WS_AI_KIND[key];
-  const lbl = `<div class="flex items-center justify-between mb-1"><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">${label}</label>${aiKind ? `<button type="button" onclick="aiMenu(event,${i},'${key}','${aiKind}')" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500">✨ AI</button>` : ''}</div>`;
+  const lbl = `<div class="flex items-center justify-between mb-1"><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">${label}</label>${aiKind ? `<button type="button" onclick="aiMenu(event,${i},'${key}','${aiKind}')" class="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-500"> AI</button>` : ''}</div>`;
   const cls = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm';
   const wide = ['textarea', 'faq', 'reviews', 'images', 'image', 'html'].includes(type) ? 'sm:col-span-2' : '';
   let input;
@@ -1180,7 +1180,7 @@ function wsDesign() {
     <div>
       <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Design theme <span class="font-normal text-slate-400 text-[11px]">— one click restyles the whole site</span></div>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">${themes.map(([id, nm, desc]) => `<button type="button" onclick="wsSetTheme('${id}')" class="text-left rounded-xl border-2 p-3 transition ${curTheme === id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'}">
-        <div class="text-[13px] font-black text-slate-900 dark:text-white flex items-center gap-1">${nm}${curTheme === id ? ' <span class="text-indigo-500">✓</span>' : ''}</div>
+        <div class="text-[13px] font-black text-slate-900 dark:text-white flex items-center gap-1">${nm}${curTheme === id ? ' <span class="text-indigo-500"></span>' : ''}</div>
         <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">${desc}</div></button>`).join('')}</div>
       <p class="text-[11px] text-slate-400 mt-1.5">Themes set spacing, corners, shadows and heading style. Save, then “View site” to see it live.</p>
     </div>
@@ -1218,7 +1218,7 @@ function wsPages() {
         <p class="text-[11px] text-slate-400">Drag the ⠿ handle (or use ▲▼) to reorder. Toggle a page on/off, rename its nav label, and type a <b>Submenu</b> name to group items into a dropdown. Built-ins + your own pages all live here.</p>
       </div>
       <div class="flex items-center gap-2 shrink-0 flex-wrap">
-        <button type="button" onclick="autoBuildPages(this)" class="text-xs font-bold text-violet-600 dark:text-violet-400">✨ Auto-build model &amp; offer pages</button>
+        <button type="button" onclick="autoBuildPages(this)" class="text-xs font-bold text-violet-600 dark:text-violet-400"> Auto-build model &amp; offer pages</button>
         <select onchange="addSitePagePreset(this.value);this.value=''" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5">${wsAddPageOptions()}</select>
       </div>
     </div>
@@ -1260,7 +1260,7 @@ function renderSiteStaff() {
       ${m.photo ? `<img src="${esc(m.photo)}" class="w-9 h-9 rounded-full object-cover shrink-0">` : `<div class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold shrink-0">${esc((m.name || '?')[0] || '?')}</div>`}
       <input class="st-name flex-1 ${ic}" placeholder="Full name" value="${esc(m.name || '')}">
       <select class="st-dept ${ic}">${STAFF_DEPTS.map(d => `<option ${m.department === d ? 'selected' : ''}>${d}</option>`).join('')}</select>
-      <button type="button" onclick="removeSiteStaff(${i})" class="text-rose-500 text-xs font-bold shrink-0">✕</button>
+      <button type="button" onclick="removeSiteStaff(${i})" class="text-rose-500 text-xs font-bold shrink-0"></button>
     </div>
     <div class="grid grid-cols-2 gap-1">
       <input class="st-title ${ic}" placeholder="Title (e.g. Sales Manager)" value="${esc(m.title || '')}">
@@ -1305,7 +1305,7 @@ async function saveWebsite(btn) {
   try { await apiSendJson('/dealership/site', 'PUT', body); showToast('Website saved', 'success'); btn.disabled = false; btn.textContent = orig; }
   catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
 }
-// ✨ AI-per-section: Boost / Fresh / Short / Long / SEO on any copy field, plus a
+//  AI-per-section: Boost / Fresh / Short / Long / SEO on any copy field, plus a
 // SEO title-with-hook option on titles and link-insertion on description copy.
 const AI_RICH_KINDS = ['about', 'body', 'text', 'description', 'paragraph', 'intro'];
 const AI_TITLE_KINDS = ['headline', 'title', 'cta', 'subheadline'];
@@ -1315,7 +1315,7 @@ function aiMenu(ev, i, key, kind) {
   let acts;
   if (kind === 'faq') acts = [['faq', 'Generate FAQ']];
   else {
-    acts = [['boost', '✨ Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite']];
+    acts = [['boost', ' Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite']];
     if (AI_TITLE_KINDS.includes(kind)) acts.push(['title', 'SEO title + hook']);
     if (AI_RICH_KINDS.includes(kind)) acts.push(['links', 'Add links']);
   }
@@ -1348,11 +1348,11 @@ function siteInternalLinks() {
   for (const p of (__sitePages || [])) { if ((p.title || '').trim() && p.slug) out.push({ label: p.title, href: '#/' + p.slug }); }
   return out.slice(0, 12);
 }
-// ✨ AI menu for the site-level About field (boost / fresh / short / long / SEO / links).
+//  AI menu for the site-level About field (boost / fresh / short / long / SEO / links).
 function aiAboutMenu(ev) {
   ev.stopPropagation();
   document.querySelectorAll('.ai-menu').forEach(m => m.remove());
-  const acts = [['boost', '✨ Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite'], ['links', 'Add links']];
+  const acts = [['boost', ' Boost what\'s here'], ['fresh', 'Rewrite fresh'], ['short', 'Shorter version'], ['long', 'Longer version'], ['seo', 'SEO rewrite'], ['links', 'Add links']];
   const m = document.createElement('div');
   m.className = 'ai-menu fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[170px]';
   const r = ev.currentTarget.getBoundingClientRect();
@@ -1364,18 +1364,18 @@ function aiAboutMenu(ev) {
 async function aiAboutRun(task) {
   const el = document.getElementById('site-about'); if (!el) return;
   const withLinks = task === 'links';
-  showToast('✨ Writing…', 'info');
+  showToast(' Writing…', 'info');
   try {
     const d = await apiSendJson('/ai/site-copy', 'POST', { task, kind: 'about', current: el.value, hint: 'about the dealership', keyword: sitePrimaryKeyword(), with_links: withLinks, links: withLinks ? siteInternalLinks() : [] });
-    el.value = d.text; showToast(d.html ? '✨ Links added — review & Save' : '✨ Done — review & Save', 'success');
+    el.value = d.text; showToast(d.html ? ' Links added — review & Save' : ' Done — review & Save', 'success');
   } catch (e) { showToast(e.message === 'AI Boost not active' ? 'AI editing needs AI Boost (or your free trial).' : e.message, 'error'); }
 }
-// ✨ Write the site-wide (home) SEO title + meta description from name/city/About.
+//  Write the site-wide (home) SEO title + meta description from name/city/About.
 async function aiSiteMeta(btn) {
   const kw = sitePrimaryKeyword();
   const about = (document.getElementById('site-about')?.value || __siteCfg?.content?.about || '').trim();
   const name = (__siteCfg?.content?.name || '').trim();
-  const orig = btn.textContent; btn.disabled = true; btn.textContent = '✨ Writing…';
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = ' Writing…';
   try {
     const [ttl, dsc] = await Promise.all([
       apiSendJson('/ai/site-copy', 'POST', { task: 'title', kind: 'title', hint: 'homepage', keyword: kw, current: name }),
@@ -1383,7 +1383,7 @@ async function aiSiteMeta(btn) {
     ]);
     const tEl = document.getElementById('seo-title'); if (tEl && ttl.text) tEl.value = ttl.text;
     const dEl = document.getElementById('seo-desc'); if (dEl && dsc.text) dEl.value = dsc.text;
-    showToast('✨ Title + meta written — review & Save', 'success');
+    showToast(' Title + meta written — review & Save', 'success');
   } catch (e) { showToast(e.message === 'AI Boost not active' ? 'AI meta needs AI Boost (or your free trial).' : e.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = orig; }
 }
@@ -1394,13 +1394,13 @@ function pageContentText(p) {
   for (const s of (p.sections || [])) for (const v of Object.values(s.settings || {})) if (typeof v === 'string') parts.push(v);
   return parts.join(' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1200);
 }
-// ✨ Write this page's meta description (and a title if it has none) from its content.
+//  Write this page's meta description (and a title if it has none) from its content.
 async function aiPageMeta(btn) {
   const p = (typeof __wsTarget === 'number') ? __sitePages[__wsTarget] : null;
   if (!p) { showToast('Pick a page to edit first', 'info'); return; }
   const kw = (p.seo_keyword || sitePrimaryKeyword() || '').trim();
   const pageText = pageContentText(p);
-  const orig = btn.textContent; btn.disabled = true; btn.textContent = '✨ Writing…';
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = ' Writing…';
   try {
     const dsc = await apiSendJson('/ai/site-copy', 'POST', { task: 'meta', kind: 'meta', hint: p.title, keyword: kw, current: pageText });
     p.seo_description = dsc.text;
@@ -1412,7 +1412,7 @@ async function aiPageMeta(btn) {
         const tEl = document.getElementById('pg-seo-title'); if (tEl) tEl.value = ttl.text;
       } catch {}
     }
-    showToast('✨ Meta written — review & Save', 'success');
+    showToast(' Meta written — review & Save', 'success');
   } catch (e) { showToast(e.message === 'AI Boost not active' ? 'AI meta needs AI Boost (or your free trial).' : e.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = orig; }
 }
@@ -1424,13 +1424,13 @@ async function aiRun(i, key, kind, task) {
   const histKey = `${__siteSections[i]?.id || i}:${key}`;
   const avoid = (__aiHistory[histKey] || []).slice(-5);
   const withLinks = task === 'links';
-  showToast('✨ Writing…', 'info');
+  showToast(' Writing…', 'info');
   try {
     const d = await apiSendJson('/ai/site-copy', 'POST', { task, kind, current, hint: secLabel, avoid, keyword: sitePrimaryKeyword(), with_links: withLinks, links: withLinks ? siteInternalLinks() : [] });
     if (kind === 'faq' || key === 'items') setSecFaq(i, key, d.text); else setSec(i, key, d.text);
     (__aiHistory[histKey] = __aiHistory[histKey] || []).push(d.text);
     renderWsSections();
-    showToast(d.html ? '✨ Links added — review & Save' : '✨ Done — review & Save', 'success');
+    showToast(d.html ? ' Links added — review & Save' : ' Done — review & Save', 'success');
   } catch (e) { showToast(e.message === 'AI Boost not active' ? 'AI editing needs AI Boost (or your free trial).' : e.message, 'error'); }
 }
 // ── Templates: distinct layouts + copy pre-filled from the dealer's own details ──
@@ -1713,7 +1713,7 @@ const AI_QUICK = [
 function aiQuickChips(runner) {
   return `<div class="flex flex-wrap gap-1 w-full">${AI_QUICK.map(([label, instr]) => {
     const call = runner.replace('%I', `'${esc(instr).replace(/'/g, "\\'")}'`);
-    return `<button type="button" onclick="${call}" class="text-[11px] font-semibold bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 border border-violet-200 dark:border-violet-900/50 rounded-full px-2.5 py-1 transition">✨ ${esc(label)}</button>`;
+    return `<button type="button" onclick="${call}" class="text-[11px] font-semibold bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 border border-violet-200 dark:border-violet-900/50 rounded-full px-2.5 py-1 transition"> ${esc(label)}</button>`;
   }).join('')}</div>`;
 }
 function autoDelayLabel(c) {
@@ -1747,7 +1747,7 @@ const HOLIDAY_PRESETS_ALL = [
   { name: 'Truth & Reconciliation Day', date: '09-30', country: 'CA', message: "Today we reflect and honor on the National Day for Truth and Reconciliation. — {{dealership.name}}" },
   { name: 'Columbus Day', rule: 'nth:1:2:10', country: 'US', message: "Wishing you a great Columbus Day from {{dealership.name}}! Please note our holiday hours." },
   { name: 'Thanksgiving (Canada)', rule: 'nth:1:2:10', country: 'CA', message: "Happy Thanksgiving from all of us at {{dealership.name}}! We're grateful for customers like you." },
-  { name: 'Halloween', date: '10-31', country: 'BOTH', message: "Happy Halloween from {{dealership.name}} — stay safe out there tonight! 🎃" },
+  { name: 'Halloween', date: '10-31', country: 'BOTH', message: "Happy Halloween from {{dealership.name}} — stay safe out there tonight! " },
   { name: 'Remembrance Day', date: '11-11', country: 'CA', message: "Today we remember and honour those who served. — {{dealership.name}}" },
   { name: 'Veterans Day', date: '11-11', country: 'US', message: "Today we honor all who served. Thank you. — {{dealership.name}}" },
   { name: 'Thanksgiving (US)', rule: 'nth:4:4:11', country: 'US', message: "Happy Thanksgiving from all of us at {{dealership.name}}! We're grateful for customers like you." },
@@ -1791,7 +1791,7 @@ function resolveHolMMDD(h, year) {
 }
 const HOL_MONTHS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function holDateLabel(h) { const mmdd = resolveHolMMDD(h, new Date().getFullYear()); const [m, d] = mmdd.split('-').map(Number); return (HOL_MONTHS[m] || mmdd) + (d ? ' ' + d : ''); }
-const HOL_COUNTRY_BADGE = { CA: '🇨🇦 Canada', US: '🇺🇸 U.S.', BOTH: '🌐 Everyone' };
+const HOL_COUNTRY_BADGE = { CA: ' Canada', US: ' U.S.', BOTH: ' Everyone' };
 // Which sub-page a campaign belongs to. New-lead journey vs post-delivery; the
 // rest (equity, birthdays, custom) live on the Settings page.
 const AUTO_LEAD_CATS = ['pipeline', 'tasks'];

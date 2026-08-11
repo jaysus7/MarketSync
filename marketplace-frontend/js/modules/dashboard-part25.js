@@ -45,12 +45,12 @@ function updateShiftClockUI() {
       if (clockState.status === 'in') {
         const elapsedMs = Math.max(0, now - startTime - breakTotalMs);
         clockChip.className = 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20';
-        timerDisplay.innerHTML = `🟢 SHIFT: <span class="font-mono font-bold">${formatDurationHMS(elapsedMs)}</span>`;
+        timerDisplay.innerHTML = ` SHIFT: <span class="font-mono font-bold">${formatDurationHMS(elapsedMs)}</span>`;
       } else if (clockState.status === 'break') {
         const currentBreakMs = clockState.breakStartTime ? (now - clockState.breakStartTime) : 0;
         const elapsedMs = Math.max(0, (clockState.breakStartTime || now) - startTime - breakTotalMs);
         clockChip.className = 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20';
-        timerDisplay.innerHTML = `☕ BREAK (${formatDurationHMS(currentBreakMs)}): <span class="font-mono font-bold">${formatDurationHMS(elapsedMs)}</span>`;
+        timerDisplay.innerHTML = ` BREAK (${formatDurationHMS(currentBreakMs)}): <span class="font-mono font-bold">${formatDurationHMS(elapsedMs)}</span>`;
       }
     } else {
       clockChip.classList.add('hidden');
@@ -115,7 +115,7 @@ function checkLoginPunchClockPrompt() {
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div class="flex items-center gap-3">
                 <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-2xl font-black shadow-lg shadow-indigo-500/30">
-                  ⏱️
+                  ⏱
                 </div>
                 <div>
                   <h3 class="text-lg font-black text-slate-900 dark:text-white">Good Morning, ${esc(userName)}!</h3>
@@ -127,7 +127,7 @@ function checkLoginPunchClockPrompt() {
 
             <div class="bg-gradient-to-br from-indigo-50 to-slate-50 dark:from-indigo-950/40 dark:to-slate-900 border border-indigo-100 dark:border-indigo-900/40 p-4 rounded-2xl text-xs space-y-2">
               <div class="font-black text-indigo-950 dark:text-indigo-200 text-sm flex items-center gap-1.5">
-                <span>📋</span><span>Daily Shift Punch Clock</span>
+                <span></span><span>Daily Shift Punch Clock</span>
               </div>
               <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
                 Welcome to MarketSync! Please record your shift start time for HR attendance and automated payroll logs.
@@ -136,11 +136,11 @@ function checkLoginPunchClockPrompt() {
 
             <div class="space-y-2 pt-1">
               <button onclick="handleTimeClockAction('in'); document.querySelector('#automation-modal [data-close]')?.click();" class="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm shadow-md shadow-emerald-600/30 transition flex items-center justify-center gap-2">
-                <span>🟢</span><span>Clock In Now (${esc(timeNow)})</span>
+                <span></span><span>Clock In Now (${esc(timeNow)})</span>
               </button>
               <div class="grid grid-cols-2 gap-2">
                 <button onclick="handleTimeClockAction('break'); document.querySelector('#automation-modal [data-close]')?.click();" class="py-2.5 px-3 rounded-xl bg-amber-500/10 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 font-bold text-xs border border-amber-200 dark:border-amber-800 transition">
-                  ☕ Start on Break
+                   Start on Break
                 </button>
                 <button onclick="document.querySelector('#automation-modal [data-close]')?.click();" class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 font-bold text-xs transition">
                   Remind Me Later
@@ -168,7 +168,7 @@ function openSignOutClockModal() {
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center text-xl font-black">
-            ⏱️
+            ⏱
           </div>
           <div>
             <h3 class="text-base font-black text-slate-900 dark:text-white">Clock Out & Sign Out</h3>
@@ -180,7 +180,7 @@ function openSignOutClockModal() {
 
       <div class="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 p-4 rounded-2xl text-xs space-y-2">
         <div class="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
-          <span>⚠️</span><span>You are currently clocked in!</span>
+          <span></span><span>You are currently clocked in!</span>
         </div>
         <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
           Your shift is active (clocked in at <strong>${esc(clockState.time || 'Today')}</strong>). Would you like to clock out of your shift before signing out?
@@ -189,7 +189,7 @@ function openSignOutClockModal() {
 
       <div class="space-y-2 pt-1">
         <button onclick="handleTimeClockAction('out'); executeActualSignOut();" class="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-md shadow-rose-600/30 transition flex items-center justify-center gap-2">
-          <span>🔴</span><span>Clock Out & Sign Out</span>
+          <span></span><span>Clock Out & Sign Out</span>
         </button>
         <button onclick="executeActualSignOut();" class="w-full py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition">
           Sign Out Only (Stay Clocked In)
@@ -219,25 +219,25 @@ function handleTimeClockAction(action) {
       time: timeNow
     };
     try { apiSendJson('/hr/timeclock/in', 'POST', { notes: 'Shift Started' }).catch(() => {}); } catch(e) {}
-    toast(`🟢 Clocked in for shift at ${timeNow}! Live clock active in top header.`);
+    toast(` Clocked in for shift at ${timeNow}! Live clock active in top header.`);
   } else if (action === 'break') {
     if (state.status === 'break') {
       const currentBreakMs = state.breakStartTime ? (now - state.breakStartTime) : 0;
       state.breakTotalMs = (state.breakTotalMs || 0) + currentBreakMs;
       state.breakStartTime = null;
       state.status = 'in';
-      toast(`🟢 Resumed shift from break at ${timeNow}`);
+      toast(` Resumed shift from break at ${timeNow}`);
     } else {
       state.status = 'break';
       state.breakStartTime = now;
-      toast(`☕ Started lunch break at ${timeNow}`);
+      toast(` Started lunch break at ${timeNow}`);
     }
   } else if (action === 'out') {
     const elapsedMs = state.startTime ? Math.max(0, now - state.startTime - (state.breakTotalMs || 0)) : 0;
     const finalDurationStr = formatDurationHMS(elapsedMs);
     state = { status: 'out', startTime: null, breakTotalMs: 0, breakStartTime: null, time: timeNow };
     try { apiSendJson('/hr/timeclock/out', 'POST', { notes: 'Shift Completed' }).catch(() => {}); } catch(e) {}
-    toast(`🔴 Clocked out from shift at ${timeNow}. Total shift duration: ${finalDurationStr}. Have a great day!`);
+    toast(` Clocked out from shift at ${timeNow}. Total shift duration: ${finalDurationStr}. Have a great day!`);
   }
 
   try { localStorage.setItem('ms_timeclock_state', JSON.stringify(state)); } catch {}
@@ -269,13 +269,13 @@ function renderTimeClockWidget() {
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl ${isClockedIn ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : isOnBreak ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'} flex items-center justify-center font-black text-lg">
-            ⏱️
+            ⏱
           </div>
           <div>
             <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Employee Time Clock &amp; Live Shift Tracker</div>
             <div class="text-sm font-black flex items-center gap-2">
               <span>Status:</span>
-              <span class="${isClockedIn ? 'text-emerald-400' : isOnBreak ? 'text-amber-400' : 'text-slate-400'}">${isClockedIn ? `🟢 Clocked In (${clockState.time || 'Today'})` : isOnBreak ? `☕ On Lunch / Break` : `🔴 Clocked Out`}</span>
+              <span class="${isClockedIn ? 'text-emerald-400' : isOnBreak ? 'text-amber-400' : 'text-slate-400'}">${isClockedIn ? ` Clocked In (${clockState.time || 'Today'})` : isOnBreak ? ` On Lunch / Break` : ` Clocked Out`}</span>
             </div>
           </div>
         </div>
@@ -288,13 +288,13 @@ function renderTimeClockWidget() {
 
       <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800">
         <button onclick="handleTimeClockAction('in')" class="flex-1 min-w-[120px] py-2.5 rounded-xl font-black text-xs transition ${isClockedIn ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30'}">
-          🟢 Clock In Shift
+           Clock In Shift
         </button>
         <button onclick="handleTimeClockAction('break')" class="flex-1 min-w-[120px] py-2.5 rounded-xl font-black text-xs transition ${isOnBreak ? 'bg-amber-600 text-white shadow-md' : 'bg-slate-800 hover:bg-slate-700 text-amber-300'}">
-          ☕ ${isOnBreak ? 'End Break' : 'Start Break'}
+           ${isOnBreak ? 'End Break' : 'Start Break'}
         </button>
         <button onclick="handleTimeClockAction('out')" class="flex-1 min-w-[120px] py-2.5 rounded-xl font-black text-xs transition ${isClockedOut ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/30'}">
-          🔴 Clock Out Shift
+           Clock Out Shift
         </button>
       </div>
     </div>
@@ -314,31 +314,31 @@ function renderPeopleOverview(body, employees) {
       <!-- Top Metrics -->
       <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">👥 Active Staff</div>
+          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1"> Active Staff</div>
           <div class="text-2xl font-black text-slate-900 dark:text-white">${activeCount} <span class="text-xs font-semibold text-slate-400">/ 48 total</span></div>
           <div class="text-[11px] text-emerald-500 font-bold mt-1">100% Onboarded</div>
         </div>
 
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">📑 Expiring Licences</div>
+          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1"> Expiring Licences</div>
           <div class="text-2xl font-black text-amber-500">${expiringLicences}</div>
           <div class="text-[11px] text-slate-400 mt-1">Due within 30 days</div>
         </div>
 
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">🎓 Training Deadlines</div>
+          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1"> Training Deadlines</div>
           <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400">4</div>
           <div class="text-[11px] text-slate-400 mt-1">WHMIS &amp; Safety Certs</div>
         </div>
 
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">⚠️ Safety Hazards</div>
+          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1"> Safety Hazards</div>
           <div class="text-2xl font-black text-rose-500">1</div>
           <div class="text-[11px] text-slate-400 mt-1">Open shop log</div>
         </div>
 
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">🛡️ Compliance Score</div>
+          <div class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1"> Compliance Score</div>
           <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400">96.4%</div>
           <div class="text-[11px] text-slate-400 mt-1">Audit status optimal</div>
         </div>
@@ -347,7 +347,7 @@ function renderPeopleOverview(body, employees) {
       <!-- Department Staffing & Readiness -->
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
         <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center justify-between">
-          <span>🏢 Department Staffing &amp; Operational Readiness</span>
+          <span> Department Staffing &amp; Operational Readiness</span>
           <span class="text-xs font-bold text-slate-400">Store Rooftop #1</span>
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -385,7 +385,7 @@ function renderPeopleOverview(body, employees) {
 
       <!-- Live Activity Log -->
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
-        <h3 class="text-base font-black text-slate-900 dark:text-white">📜 Recent HR &amp; Compliance Activity Log</h3>
+        <h3 class="text-base font-black text-slate-900 dark:text-white"> Recent HR &amp; Compliance Activity Log</h3>
         <div class="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
           <div class="py-2.5 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -436,16 +436,16 @@ function renderPeopleDirectory(body, employees) {
         </div>
 
         <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
-          <div class="flex items-center justify-between"><span>📍 Location:</span><span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[160px]">${esc(e.location)}</span></div>
-          <div class="flex items-center justify-between"><span>💼 Comp Plan:</span><span class="font-bold text-indigo-600 dark:text-indigo-400 truncate max-w-[160px]">${esc(e.comp_plan)}</span></div>
-          <div class="flex items-center justify-between"><span>📊 MTD Performance:</span><span class="font-black text-emerald-600">${e.perf.units_mtd ? `${e.perf.units_mtd} units` : (e.perf.efficiency_pct ? `${e.perf.efficiency_pct}% eff` : `$${e.perf.PVR_mtd} PVR`)}</span></div>
+          <div class="flex items-center justify-between"><span> Location:</span><span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[160px]">${esc(e.location)}</span></div>
+          <div class="flex items-center justify-between"><span> Comp Plan:</span><span class="font-bold text-indigo-600 dark:text-indigo-400 truncate max-w-[160px]">${esc(e.comp_plan)}</span></div>
+          <div class="flex items-center justify-between"><span> MTD Performance:</span><span class="font-black text-emerald-600">${e.perf.units_mtd ? `${e.perf.units_mtd} units` : (e.perf.efficiency_pct ? `${e.perf.efficiency_pct}% eff` : `$${e.perf.PVR_mtd} PVR`)}</span></div>
         </div>
       </div>
 
       <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
-        <button onclick="openEmployeeProfileModal('${e.id}')" class="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition flex items-center justify-center gap-1">👤 Profile</button>
-        <button onclick="openEditEmployeeModal('${e.id}')" class="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition">✏️ Edit</button>
-        <button onclick="openEmployeeCertificateModal('${esc(e.first_name)} ${esc(e.last_name)}', 'WHMIS 2015 &amp; Chemical Safety', '${e.start_date}', 'CERT-ON-9402')" class="py-2 px-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold text-xs border border-amber-200/60 transition">🎓 Certs</button>
+        <button onclick="openEmployeeProfileModal('${e.id}')" class="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition flex items-center justify-center gap-1"> Profile</button>
+        <button onclick="openEditEmployeeModal('${e.id}')" class="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition"> Edit</button>
+        <button onclick="openEmployeeCertificateModal('${esc(e.first_name)} ${esc(e.last_name)}', 'WHMIS 2015 &amp; Chemical Safety', '${e.start_date}', 'CERT-ON-9402')" class="py-2 px-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold text-xs border border-amber-200/60 transition"> Certs</button>
       </div>
     </div>
   `).join('');

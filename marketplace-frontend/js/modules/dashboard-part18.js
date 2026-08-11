@@ -35,7 +35,7 @@ function renderAutoBucket(rootId, bucket, title, desc) {
       <div><h2 class="text-xl font-bold text-slate-900 dark:text-white">${title}</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">${desc}</p></div>
       <div class="flex-shrink-0 flex items-center gap-2">
-        <button onclick="autoAddCustom('${bucket}')" class="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-sm font-bold px-3 py-2 rounded-lg transition">✎ Custom</button>
+        <button onclick="autoAddCustom('${bucket}')" class="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-sm font-bold px-3 py-2 rounded-lg transition"> Custom</button>
         <button onclick="autoOpenTemplates('${bucket}')" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>Add more</button>
       </div>
     </div>
@@ -110,7 +110,7 @@ async function autoAddTemplate(bucket, i, btn) {
       delay_minutes: t.delay_minutes || 0, send_at_hour: t.send_at_hour ?? null, sender_identity: 'house', is_active: true,
     });
     if (d.campaign) { __autoCfg.campaigns = [...(__autoCfg.campaigns || []), d.campaign]; }
-    btn.textContent = 'Added ✓';
+    btn.textContent = 'Added ';
     showToast('Automation added', 'success');
     autoRerenderCurrent();   // reflect it on the page behind the modal
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
@@ -169,7 +169,7 @@ function openBulkOutreach(prefill) {
   __bulkPlan = null;
   const inp = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
   crmOverlay(`<div class="p-5">
-    <div class="flex items-center justify-between mb-1"><div class="text-lg font-black text-slate-900 dark:text-white">⚡ Bulk message</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="flex items-center justify-between mb-1"><div class="text-lg font-black text-slate-900 dark:text-white"> Bulk message</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">Describe who to reach and what to say — in plain English. Nothing sends until you review and confirm.</p>
     <textarea id="bulk-instruction" rows="2" placeholder="e.g. Text everyone we haven't contacted in 3 days about our weekend sale event" class="${inp}">${prefill ? esc(prefill) : ''}</textarea>
     <div class="flex flex-wrap gap-1.5 mt-2">
@@ -193,7 +193,7 @@ async function bulkPlan(btn) {
     box.innerHTML = `
       <div class="rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-3 space-y-2">
         <div class="flex items-center justify-between gap-2">
-          <span class="text-xs font-bold uppercase tracking-wide text-violet-600 dark:text-violet-400">${d.channel === 'sms' ? '💬 Text message' : '✉️ Email'}</span>
+          <span class="text-xs font-bold uppercase tracking-wide text-violet-600 dark:text-violet-400">${d.channel === 'sms' ? ' Text message' : ' Email'}</span>
           <span class="text-xs font-black ${d.audience_count ? 'text-slate-700 dark:text-slate-200' : 'text-rose-500'}">${d.audience_count} recipient${d.audience_count === 1 ? '' : 's'}${d.audience_count > d.capped ? ` (first ${d.capped} will send)` : ''}</span>
         </div>
         <p class="text-[11px] text-slate-500 dark:text-slate-400">${esc(d.summary)}</p>
@@ -215,7 +215,7 @@ async function bulkSend(btn) {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Sending…';
   try {
     const d = await apiSendJson('/ai/bulk/execute', 'POST', { channel: __bulkPlan.channel, filter: __bulkPlan.filter, message, subject });
-    showToast(`Sent ${d.sent}${d.failed ? `, ${d.failed} failed` : ''} ✓`, d.failed ? 'info' : 'success');
+    showToast(`Sent ${d.sent}${d.failed ? `, ${d.failed} failed` : ''} `, d.failed ? 'info' : 'success');
     btn.closest('.fixed')?.remove();
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Send failed', 'error'); }
 }
@@ -258,7 +258,7 @@ async function saveServiceSettings(btn) {
     service_types: v('svc-types').split('\n').map(x => x.trim()).filter(Boolean),
   };
   const msg = document.getElementById('svc-msg'); const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
-  try { const d = await apiSendJson('/service/config', 'PUT', body); __serviceCfg = d.settings; if (msg) { msg.textContent = '✓ Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); } }
+  try { const d = await apiSendJson('/service/config', 'PUT', body); __serviceCfg = d.settings; if (msg) { msg.textContent = ' Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); } }
   catch (e) { if (msg) { msg.textContent = e.message; msg.className = 'text-xs ml-2 text-rose-500'; msg.classList.remove('hidden'); } }
   finally { btn.disabled = false; btn.textContent = 'Save service settings'; }
 }
@@ -303,7 +303,7 @@ function renderSvcApptList() {
         <div class="text-xs text-slate-500 dark:text-slate-400">${fmt(a.when)}${a.rep ? ' · ' + esc(a.rep) : ''}</div>
       </div>
       ${a.contact_id ? `<button onclick="switchPage('crm'); openCrmContact('${a.contact_id}')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0">View</button>` : ''}
-      ${!a.done ? `<button onclick="serviceApptDone('${a.id}', this)" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg shrink-0">Done</button>` : '<span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold shrink-0">✓ Done</span>'}
+      ${!a.done ? `<button onclick="serviceApptDone('${a.id}', this)" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg shrink-0">Done</button>` : '<span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold shrink-0"> Done</span>'}
     </div>`;
   root.innerHTML = svcApptHeader() + `
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
@@ -401,7 +401,7 @@ async function submitServiceBooking(btn) {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Booking…';
   try {
     await apiSendJson('/service/appointments', 'POST', { contact_id: __svcBookContactId || undefined, name, email: g('svcb-email'), phone: g('svcb-phone'), service_type: g('svcb-type'), when: new Date(when).toISOString(), notes: g('svcb-notes') });
-    showToast('Service appointment booked ✓', 'success');
+    showToast('Service appointment booked ', 'success');
     btn.closest('.fixed')?.remove();
     loadServiceAppointments();
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not book', 'error'); }
@@ -423,7 +423,7 @@ function autoAddHolidayModal() {
       <div>${lbl('Name')}<input id="ahm-name" placeholder="e.g. Customer Appreciation Day" class="${inp}"></div>
       <div class="grid grid-cols-2 gap-2">
         <div>${lbl('Date (MM-DD)')}<input id="ahm-date" placeholder="10-13" maxlength="5" class="${inp}"></div>
-        <div>${lbl('Who gets it')}<select id="ahm-country" class="${inp}"><option value="BOTH">🌐 Everyone</option><option value="CA">🇨🇦 Canadian customers only</option><option value="US">🇺🇸 U.S. customers only</option></select></div>
+        <div>${lbl('Who gets it')}<select id="ahm-country" class="${inp}"><option value="BOTH"> Everyone</option><option value="CA"> Canadian customers only</option><option value="US"> U.S. customers only</option></select></div>
       </div>
       <div>${lbl('Message')}<textarea id="ahm-msg" rows="3" placeholder="Happy … from {{dealership.name}}!" class="${inp}"></textarea></div>
     </div>
@@ -508,7 +508,7 @@ async function loadAutoBuilderPage() {
   if (!tabsEl) return;
   const tab = (id, label) => `<button onclick="autoTab('${id}')" class="px-4 py-2 text-sm font-bold border-b-2 transition ${__autoTab === id ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">${label}</button>`;
   tabsEl.innerHTML = tab('leads', 'New Lead Follow-ups') + tab('delivery', 'Delivery Follow-ups') + tab('holidays', 'Holidays')
-    + `<button onclick="switchPage('automation')" class="ml-auto px-3 py-2 text-sm font-bold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap">⚙ Settings</button>`;
+    + `<button onclick="switchPage('automation')" class="ml-auto px-3 py-2 text-sm font-bold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap"> Settings</button>`;
   const roots = { leads: 'auto-leads-root', delivery: 'auto-delivery-root', holidays: 'auto-holidays-root' };
   Object.entries(roots).forEach(([k, id]) => document.getElementById(id)?.classList.toggle('hidden', k !== __autoTab));
   if (__autoTab === 'delivery') await loadAutoDelivery();
@@ -557,7 +557,7 @@ async function autoSaveEmail(btn) {
   try {
     const d = await apiSendJson('/automation/settings', 'PUT', { email });
     __autoCfg.settings = d.settings;
-    if (msg) { msg.textContent = '✓ Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); }
+    if (msg) { msg.textContent = ' Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); }
   } catch (e) { showToast(e.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = orig; }
 }
@@ -575,11 +575,11 @@ function autoGlobalsHtml(s) {
       <div class="grid grid-cols-3 gap-2"><div>${lbl('Open (hr)')}${inp('ag-bstart', s.business_start ?? 8, '8', 'number')}</div><div>${lbl('Close (hr)')}${inp('ag-bend', s.business_end ?? 19, '19', 'number')}</div><div>${lbl('TZ')}${inp('ag-tz', s.timezone || 'America/Toronto', 'America/Toronto')}</div></div>
     </div>
     <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-      <div class="flex items-center gap-2 mb-1"><span class="text-sm font-black text-slate-900 dark:text-white">☀️ Morning briefing</span></div>
+      <div class="flex items-center gap-2 mb-1"><span class="text-sm font-black text-slate-900 dark:text-white"> Morning briefing</span></div>
       <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-2">MarketSync pushes a "what needs attention today" summary to your managers each morning — uncontacted leads, overdue tasks, aging units to move, appointments and a sales pulse. No need to ask.</p>
       <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1.5"><input type="checkbox" id="ag-digest" ${s.digest_enabled !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Send the daily briefing to managers (in-app)</label>
       <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200"><input type="checkbox" id="ag-digest-email" ${s.digest_email ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Also email it to each manager</label>
-      <button onclick="autoDigestPreview(this)" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">✉️ Email me a preview now</button>
+      <button onclick="autoDigestPreview(this)" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"> Email me a preview now</button>
     </div>
     <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
       <div class="flex items-center gap-2 mb-1"><span class="inline-flex items-center gap-1.5 text-sm font-black text-slate-900 dark:text-white">${svgIcon("chart","w-4 h-4")}Weekly briefing</span></div>
@@ -590,7 +590,7 @@ function autoGlobalsHtml(s) {
         <div>${lbl('Send on')}<select id="ag-weekly-day" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${[['1','Monday'],['2','Tuesday'],['3','Wednesday'],['4','Thursday'],['5','Friday'],['6','Saturday'],['0','Sunday']].map(([v,l]) => `<option value="${v}" ${String(s.weekly_day ?? 1) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
       </div>
       <div>${lbl('Focus (optional) — tell the AI what to emphasize')}<textarea id="ag-weekly-focus" rows="2" placeholder="e.g. Push used-truck gross and lease pull-aheads; call out any rep falling behind." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">${esc(s.weekly_focus || '')}</textarea></div>
-      <button onclick="autoWeeklyPreview(this)" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">✉️ Email me a preview now</button>
+      <button onclick="autoWeeklyPreview(this)" class="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"> Email me a preview now</button>
     </div>
     <button onclick="autoSaveGlobals(this)" class="mt-3 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save settings</button>
     <span id="ag-msg" class="hidden text-xs ml-2"></span>
@@ -642,8 +642,8 @@ function autoCardHtml(c) {
     ${isTask ? `<div class="text-[11px] text-slate-400 mt-1">Creates a follow-up task for the lead's assigned salesperson ${esc(autoDelayLabel(c)).toLowerCase()} after the lead comes in.</div>` : autoVarChips(c.id)}
     ${isTask ? '' : `<div class="mt-2">${aiQuickChips(`autoAiCard('${c.id}',this,%I)`)}</div>`}
     <div class="flex flex-wrap items-center gap-2 mt-2">
-      ${isTask ? '' : `<input id="am-ai-${c.id}" placeholder="✨ …or tell AI how to rewrite (e.g. mention the $250 bonus)" class="flex-1 min-w-[200px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs">
-      <button onclick="autoAiCard('${c.id}',this)" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg">✨ Rewrite</button>`}
+      ${isTask ? '' : `<input id="am-ai-${c.id}" placeholder=" …or tell AI how to rewrite (e.g. mention the $250 bonus)" class="flex-1 min-w-[200px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs">
+      <button onclick="autoAiCard('${c.id}',this)" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg"> Rewrite</button>`}
       <button onclick="autoSaveCard('${c.id}',this)" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Save</button>
     </div>
   </div>`;
@@ -681,10 +681,10 @@ async function autoAiCard(cid, btn, presetInstr) {
   const c = __autoCfg.campaigns.find(x => x.id === cid); if (!c) return;
   const instr = presetInstr || document.getElementById(`am-ai-${cid}`)?.value.trim();
   if (!instr) { showToast('Tell the AI what you want first', 'info'); return; }
-  const orig = btn.textContent; btn.disabled = true; btn.textContent = '✨ Writing…';
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = ' Writing…';
   try {
     const d = await apiSendJson('/automation/ai-copy', 'POST', { instruction: instr, context: { campaign_type: c.category, channel: c.channel, sender_identity: c.sender_identity, interval_marker: c.interval_months?.length ? 'per-touch' : null, strict_guardrails: true } });
-    const el = document.getElementById(`am-body-${cid}`); if (el) el.value = d.text; showToast('✨ Rewritten — review & Save', 'success');
+    const el = document.getElementById(`am-body-${cid}`); if (el) el.value = d.text; showToast(' Rewritten — review & Save', 'success');
   } catch (e) { showToast(e.message === 'AI Boost not active' ? 'AI copy needs AI Boost (or your free trial).' : e.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = orig; }
 }
@@ -717,11 +717,11 @@ function autoHolidaysHtml() {
     ${autoHolVarChips(i)}
     <div class="mt-2">${aiQuickChips(`autoHolAi(${i},this,%I)`)}</div>
     <div class="flex flex-wrap items-center gap-2 mt-2">
-      <input id="am-hol-ai-${i}" placeholder="✨ …or tell AI how to rewrite (e.g. mention our holiday hours)" class="flex-1 min-w-[200px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs">
-      <button onclick="autoHolAi(${i},this)" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg">✨ Rewrite</button>
+      <input id="am-hol-ai-${i}" placeholder=" …or tell AI how to rewrite (e.g. mention our holiday hours)" class="flex-1 min-w-[200px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs">
+      <button onclick="autoHolAi(${i},this)" class="text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg"> Rewrite</button>
     </div>
   </div>`).join('');
-  return `<div><div class="flex items-center justify-between mt-4 mb-2"><div class="text-xs font-black uppercase tracking-wider text-slate-400">Holidays <span class="normal-case font-normal text-slate-400">· 🇨🇦/🇺🇸 greetings only reach customers in that country — 🌐 reach everyone. Flip on the ones you want.</span></div><button onclick="autoAddCustom('holidays')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">+ Add holiday</button></div>
+  return `<div><div class="flex items-center justify-between mt-4 mb-2"><div class="text-xs font-black uppercase tracking-wider text-slate-400">Holidays <span class="normal-case font-normal text-slate-400">· / greetings only reach customers in that country —  reach everyone. Flip on the ones you want.</span></div><button onclick="autoAddCustom('holidays')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">+ Add holiday</button></div>
     <div class="space-y-2">${rows || '<div class="text-xs text-slate-400 italic">No holidays.</div>'}</div>
     <button onclick="autoSaveHolidays(this)" class="mt-3 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg">Save holidays</button>
     <span id="am-hol-msg" class="hidden text-xs ml-2"></span></div>`;
@@ -736,10 +736,10 @@ async function autoHolAi(i, btn, presetInstr) {
   const h = __autoHol[i]; if (!h) return;
   const instr = presetInstr || document.getElementById(`am-hol-ai-${i}`)?.value.trim();
   const base = instr ? `${instr}\n\nHere is the current message:\n${h.message || ''}` : `Write a short, warm holiday greeting email for ${h.name}.`;
-  const orig = btn.textContent; btn.disabled = true; btn.textContent = '✨…';
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
   try {
     const d = await apiSendJson('/automation/ai-copy', 'POST', { instruction: base, context: { campaign_type: 'calendar', channel: 'email', sender_identity: 'house', strict_guardrails: true } });
-    h.message = d.text; const el = document.getElementById(`am-hol-${i}`); if (el) el.value = d.text; showToast('✨ Rewritten — review & Save', 'success');
+    h.message = d.text; const el = document.getElementById(`am-hol-${i}`); if (el) el.value = d.text; showToast(' Rewritten — review & Save', 'success');
   } catch (e) { showToast(e.message === 'AI Boost not active' ? 'AI copy needs AI Boost (or your free trial).' : e.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = orig; }
 }
@@ -753,7 +753,7 @@ async function autoSaveHolidays(btn) {
   __autoHol.forEach((h, i) => { const el = document.getElementById(`am-hol-${i}`); if (el) h.message = el.value; });
   const holidays = __autoHol.map(h => ({ name: h.name, date: h.date, rule: h.rule || null, country: h.country || 'BOTH', enabled: h.enabled, message: h.message, subject: h.subject }));
   const msg = document.getElementById('am-hol-msg'); const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
-  try { const d = await apiSendJson('/automation/settings', 'PUT', { holidays }); __autoCfg.settings = d.settings; if (msg) { msg.textContent = '✓ Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); } }
+  try { const d = await apiSendJson('/automation/settings', 'PUT', { holidays }); __autoCfg.settings = d.settings; if (msg) { msg.textContent = ' Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); } }
   catch (e) { if (msg) { msg.textContent = e.message; msg.className = 'text-xs ml-2 text-red-500'; msg.classList.remove('hidden'); } }
   finally { btn.disabled = false; btn.textContent = orig; }
 }
@@ -762,7 +762,7 @@ async function autoSaveGlobals(btn) {
   const val = (i) => (document.getElementById(i)?.value || '').trim();
   const body = { review_url: val('ag-review'), referral_bonus: val('ag-bonus'), service_url: val('ag-service'), house_sms: val('ag-sms'), house_email: val('ag-email'), timezone: val('ag-tz'), business_start: +val('ag-bstart') || 0, business_end: +val('ag-bend') || 19, digest_enabled: !!document.getElementById('ag-digest')?.checked, digest_email: !!document.getElementById('ag-digest-email')?.checked, weekly_enabled: !!document.getElementById('ag-weekly')?.checked, weekly_email: !!document.getElementById('ag-weekly-email')?.checked, weekly_day: parseInt(val('ag-weekly-day')), weekly_focus: val('ag-weekly-focus') };
   const msg = document.getElementById('ag-msg'); const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
-  try { const d = await apiSendJson('/automation/settings', 'PUT', body); __autoCfg.settings = d.settings; if (msg) { msg.textContent = '✓ Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); } }
+  try { const d = await apiSendJson('/automation/settings', 'PUT', body); __autoCfg.settings = d.settings; if (msg) { msg.textContent = ' Saved'; msg.className = 'text-xs ml-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); } }
   catch (e) { if (msg) { msg.textContent = e.message; msg.className = 'text-xs ml-2 text-red-500'; msg.classList.remove('hidden'); } }
   finally { btn.disabled = false; btn.textContent = orig; }
 }
@@ -1003,7 +1003,7 @@ async function eqSaveSettings(btn) {
 async function eqPullAhead(id, btn) {
   if (!confirm('Start a pull-ahead? This texts the customer an equity offer (through the compliance checks) and creates a high-priority task for the rep.')) return;
   const orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
-  try { await apiSendJson(`/equity/pull-ahead/${id}`, 'POST', {}); showToast('Pull-ahead started — message queued + task created', 'success'); btn.textContent = '✓ Started'; }
+  try { await apiSendJson(`/equity/pull-ahead/${id}`, 'POST', {}); showToast('Pull-ahead started — message queued + task created', 'success'); btn.textContent = ' Started'; }
   catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
 }
 Object.assign(window, { loadEquityPage, eqTab, eqSaveLease, eqSaveSettings, eqPullAhead, eqWorksheet, eqDealTypeToggle });

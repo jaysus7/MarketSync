@@ -9,10 +9,10 @@ function openEditEmployeeModal(empId) {
     <div class="space-y-4 max-h-[80vh] overflow-y-auto p-1">
       <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
         <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-          <span>✏️ Edit Employee Profile:</span>
+          <span> Edit Employee Profile:</span>
           <span class="text-indigo-600">${esc(e.first_name)} ${esc(e.last_name)}</span>
         </h3>
-        <button data-close class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        <button data-close class="text-slate-400 hover:text-slate-600 font-bold"></button>
       </div>
 
       <div class="grid grid-cols-2 gap-3 text-xs">
@@ -65,7 +65,7 @@ function openEditEmployeeModal(empId) {
       </div>
 
       <div class="pt-2">
-        <button onclick="saveEmployeeEdit('${e.id}')" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-xs shadow-md transition">💾 Save Profile Changes</button>
+        <button onclick="saveEmployeeEdit('${e.id}')" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-xs shadow-md transition"> Save Profile Changes</button>
       </div>
     </div>
   `;
@@ -116,8 +116,8 @@ function openEmployeeProfileModal(empId) {
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <button onclick="openEditEmployeeModal('${e.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm">✏️ Edit Profile</button>
-          <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2">✕</button>
+          <button onclick="openEditEmployeeModal('${e.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm"> Edit Profile</button>
+          <button data-close class="text-slate-400 hover:text-slate-600 text-2xl font-bold px-2"></button>
         </div>
       </div>
 
@@ -141,7 +141,7 @@ function openEmployeeProfileModal(empId) {
               <div class="font-bold text-slate-800 dark:text-slate-200">Account Access: Active</div>
               <div class="text-[11px] text-slate-500">Connected to MarketSync CRM, Desk &amp; Inventory</div>
             </div>
-            <button onclick="executeOffboardingKillSwitch('${e.id}')" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-sm">🚫 Offboard &amp; Revoke Access</button>
+            <button onclick="executeOffboardingKillSwitch('${e.id}')" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-sm"> Offboard &amp; Revoke Access</button>
           </div>
         </div>
 
@@ -159,8 +159,8 @@ function openEmployeeProfileModal(empId) {
           <div class="space-y-1.5">
             ${e.compliance_docs.map(d => `
               <div class="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300">
-                <span class="flex items-center gap-1.5"><span>📜</span><span class="font-semibold">${esc(d.name)}</span></span>
-                <span class="text-emerald-600 font-bold">✓ Signed (${d.date})</span>
+                <span class="flex items-center gap-1.5"><span></span><span class="font-semibold">${esc(d.name)}</span></span>
+                <span class="text-emerald-600 font-bold"> Signed (${d.date})</span>
               </div>
             `).join('')}
         <!-- MarketSync Advantage: Real-Time Sales & Operations Integration -->
@@ -203,7 +203,7 @@ const DEALERSHIP_TRAINING_COURSES = [
     title: 'WHMIS 2015 & Chemical Safety',
     duration: '10 In-Depth Modules · 25-Question Test',
     role: 'All Dealership Staff',
-    icon: '🧪',
+    icon: '',
     desc: 'Canadian GHS hazard classification, 16-section SDS sheets, GHS pictograms, and shop spill containment.',
     slides: [
       {
@@ -361,7 +361,7 @@ const DEALERSHIP_TRAINING_COURSES = [
     title: 'Workplace Violence & Harassment (Bill 168 / OHSA)',
     duration: '10 In-Depth Modules · 25-Question Test',
     role: 'All Dealership Staff',
-    icon: '🛡️',
+    icon: '',
     desc: 'Ontario OHSA Bill 168 legal standards, harassment prevention, risk assessment, and zero-reprisal reporting.',
     slides: [
       {
@@ -518,7 +518,7 @@ const DEALERSHIP_TRAINING_COURSES = [
     title: 'Automotive Lift & Hoist Safety Inspection',
     duration: '10 In-Depth Modules · 25-Question Test',
     role: 'Service & Detail Staff',
-    icon: '🔧',
+    icon: '',
     desc: 'ALI Certified hoist standards, pre-operational lock checks, 6-inch nudge stability test, and LOTO procedures.',
     slides: [
       {
@@ -675,7 +675,7 @@ const DEALERSHIP_TRAINING_COURSES = [
     title: 'Dealer Demo Vehicle & Customer Test Drive Safety',
     duration: '10 In-Depth Modules · 25-Question Test',
     role: 'Sales & Managers',
-    icon: '🚘',
+    icon: '',
     desc: 'Driver licence verification, trade plate Highway Traffic Act compliance, test drive routes & insurance rules.',
     slides: [
       {
@@ -832,7 +832,7 @@ const DEALERSHIP_TRAINING_COURSES = [
     title: 'EV & Hybrid High-Voltage Battery Rescue Safety',
     duration: '10 In-Depth Modules · 25-Question Test',
     role: 'Service, Parts & Recon',
-    icon: '⚡',
+    icon: '',
     desc: 'High-voltage 400V-800V DC safety, Manual Service Disconnect (MSD), thermal runaway emergency, and 50-ft lot quarantine.',
     slides: [
       {
@@ -989,7 +989,7 @@ const DEALERSHIP_TRAINING_COURSES = [
     title: 'PIPEDA & Customer Financial Privacy Protection',
     duration: '10 In-Depth Modules · 25-Question Test',
     role: 'F&I, Sales & Desk',
-    icon: '🔒',
+    icon: '',
     desc: 'PIPEDA 10 fair privacy principles, SIN masking rules, showroom clean desk guidelines, and security shredding.',
     slides: [
       {
@@ -1200,7 +1200,7 @@ function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
               </div>
             </div>
           </div>
-          <button onclick="stopSpeech(); closeAutomationModal();" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">✕</button>
+          <button onclick="stopSpeech(); closeAutomationModal();" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1"></button>
         </div>
 
         <!-- Slide Progress Bar -->
@@ -1217,7 +1217,7 @@ function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
         <!-- Text-to-Speech Control Bar -->
         <div class="bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/80 rounded-xl p-3 flex items-center justify-between gap-3">
           <div class="flex items-center gap-2">
-            <span class="text-lg">🔊</span>
+            <span class="text-lg"></span>
             <div>
               <div class="text-xs font-black text-slate-900 dark:text-white">Full Slide Audio Narration</div>
               <div class="text-[10px] text-slate-500 dark:text-slate-400">Listens to 100% of title, subtitle, bullet points, and guidelines out loud</div>
@@ -1225,10 +1225,10 @@ function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
           </div>
           <div class="flex items-center gap-2">
             <button onclick="speakText(decodeURIComponent('${encodeURIComponent(fullSlideAudioText)}'))" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm transition flex items-center gap-1">
-              <span>▶️</span><span>Read 100% Out Loud</span>
+              <span>▶</span><span>Read 100% Out Loud</span>
             </button>
             <button onclick="stopSpeech()" class="px-2.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300 font-bold text-xs transition">
-              ⏸️ Stop
+              ⏸ Stop
             </button>
           </div>
         </div>
@@ -1240,7 +1240,7 @@ function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
             <div class="w-full h-48 md:h-56 rounded-xl overflow-hidden shadow-inner border border-slate-200 dark:border-slate-800 relative bg-slate-950">
               <img src="${esc(s.image)}" alt="${esc(s.title)}" class="w-full h-full object-cover">
               <div class="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur text-[10px] font-bold text-white flex items-center gap-1 border border-white/20">
-                <span>📷 ${esc(s.subtitle)}</span>
+                <span> ${esc(s.subtitle)}</span>
               </div>
             </div>
           ` : ''}
@@ -1253,7 +1253,7 @@ function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
           <div class="space-y-2.5">
             ${s.points.map(pt => `
               <div class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80">
-                <span class="text-emerald-500 font-black flex-shrink-0 mt-0.5">✓</span>
+                <span class="text-emerald-500 font-black flex-shrink-0 mt-0.5"></span>
                 <span class="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed">${esc(pt)}</span>
               </div>
             `).join('')}
@@ -1262,7 +1262,7 @@ function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
           <!-- Official Guideline Box -->
           <div class="p-3.5 bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/80 rounded-xl space-y-1 text-xs">
             <div class="font-black text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-              <span>💡 Official Compliance &amp; Policy Guideline</span>
+              <span> Official Compliance &amp; Policy Guideline</span>
             </div>
             <p class="text-amber-900/80 dark:text-amber-200/80 leading-relaxed text-[11px]">${esc(s.speakerText)}</p>
           </div>
@@ -1280,7 +1280,7 @@ function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
             </button>
           ` : `
             <button onclick="stopSpeech(); openTrainingCourseModal('${c.id}', 0, 'quiz')" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5">
-              <span>📝 Begin 25-Question Test</span><span>→</span>
+              <span> Begin 25-Question Test</span><span>→</span>
             </button>
           `}
         </div>
@@ -1315,17 +1315,17 @@ function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
       <div class="space-y-4 max-h-[85vh] overflow-y-auto p-1">
         <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
           <div class="flex items-center gap-2.5">
-            <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-xl">📝</div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-xl"></div>
             <div>
               <h3 class="text-base font-black text-slate-900 dark:text-white leading-tight">${esc(c.title)}</h3>
               <p class="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">Official 25-Question Health &amp; Safety Compliance Examination</p>
             </div>
           </div>
-          <button onclick="closeAutomationModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">✕</button>
+          <button onclick="closeAutomationModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1"></button>
         </div>
 
         <div class="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl text-xs text-amber-800 dark:text-amber-300 font-semibold flex items-center gap-2">
-          <span class="text-lg">⚠️</span>
+          <span class="text-lg"></span>
           <span>100% Passing Score (${totalQuestions}/${totalQuestions} Correct) is required to earn your official Canadian Dealership Health &amp; Safety Diploma. Answer all 25 questions below.</span>
         </div>
 
@@ -1338,7 +1338,7 @@ function openTrainingCourseModal(courseId, slideIndex = 0, mode = 'slides') {
             ← Back to Slides
           </button>
           <button onclick="submitTrainingCourseQuiz('${c.id}')" class="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-600/30 transition flex items-center gap-2">
-            <span>Submit 25-Question Test &amp; Grade</span><span>✓</span>
+            <span>Submit 25-Question Test &amp; Grade</span><span></span>
           </button>
         </div>
       </div>
@@ -1379,7 +1379,7 @@ function submitTrainingCourseQuiz(courseId) {
       }).catch(() => {});
     } catch {}
 
-    if (typeof showToast === 'function') showToast(`🎉 Congratulations! Perfect 100% Score (${total}/${total}) on ${c.title}`, 'success');
+    if (typeof showToast === 'function') showToast(` Congratulations! Perfect 100% Score (${total}/${total}) on ${c.title}`, 'success');
 
     openEmployeeCertificateModal('Active Employee', c.title, new Date().toISOString().split('T')[0], `CERT-${c.id.toUpperCase()}-2026`);
 
@@ -1392,14 +1392,14 @@ function submitTrainingCourseQuiz(courseId) {
     const modalHtml = `
       <div class="space-y-4 p-1">
         <div class="text-center space-y-2 p-5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl">
-          <div class="text-4xl">❌</div>
+          <div class="text-4xl"></div>
           <div class="text-xl font-black text-rose-900 dark:text-rose-200">Test Score: ${pct}% (${correctCount} / ${total} Correct)</div>
           <p class="text-xs text-rose-700 dark:text-rose-300 font-semibold leading-relaxed">A perfect 100% score (25 out of 25) is required for Canadian Dealership Health &amp; Safety Certification. You got ${correctCount} correct out of ${total}. Please review the course slides and retake the test.</p>
         </div>
 
         <div class="pt-2 flex justify-center gap-3">
           <button onclick="openTrainingCourseModal('${c.id}', 0, 'slides')" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition">
-            🔄 Review Course Slides &amp; Retake Test
+             Review Course Slides &amp; Retake Test
           </button>
         </div>
       </div>
@@ -1413,7 +1413,7 @@ function openEmployeeCertificateModal(empName, certTitle, dateStr, certId) {
   const modalHtml = `
     <div class="p-6 bg-amber-50/40 dark:bg-slate-950 border-4 border-double border-amber-500/60 rounded-3xl text-center space-y-4 relative overflow-hidden">
       <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-900 font-black text-2xl flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20">
-        🏆
+
       </div>
 
       <div class="text-xs font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Official Certificate of Completion</div>
@@ -1429,7 +1429,7 @@ function openEmployeeCertificateModal(empName, certTitle, dateStr, certId) {
       </div>
 
       <div class="pt-2 flex justify-center gap-3">
-        <button onclick="window.print()" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-slate-900 font-black rounded-xl text-xs shadow-md">🖨️ Print Diploma</button>
+        <button onclick="window.print()" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-slate-900 font-black rounded-xl text-xs shadow-md"> Print Diploma</button>
         <button data-close class="px-4 py-2 bg-slate-800 text-white font-bold rounded-xl text-xs">Close</button>
       </div>
     </div>
@@ -1449,7 +1449,7 @@ function renderPeopleComplianceTab(body, employees) {
         <div>
           <div class="flex items-center justify-between mb-2">
             <span class="text-2xl">${c.icon}</span>
-            <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${isDone ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 border border-indigo-200/60'}">${isDone ? '✓ Passed (100%)' : c.duration}</span>
+            <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${isDone ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 border border-indigo-200/60'}">${isDone ? ' Passed (100%)' : c.duration}</span>
           </div>
           <h4 class="text-sm font-black text-slate-900 dark:text-white leading-tight">${esc(c.title)}</h4>
           <p class="text-xs text-slate-500 mt-1 line-clamp-2">${esc(c.desc)}</p>
@@ -1457,10 +1457,10 @@ function renderPeopleComplianceTab(body, employees) {
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1">
           <button onclick="openTrainingCourseModal('${c.id}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow transition flex items-center gap-1">
-            <span>📖</span><span>${isDone ? 'Review Slides' : 'Start Course'}</span>
+            <span></span><span>${isDone ? 'Review Slides' : 'Start Course'}</span>
           </button>
           <button onclick="openEmployeeCertificateModal('Active Employee', '${esc(c.title)}', '${new Date().toISOString().split('T')[0]}', 'CERT-${c.id.toUpperCase()}-2026')" class="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-xs transition">
-            🏆 Certificate
+             Certificate
           </button>
         </div>
       </div>
@@ -1474,7 +1474,7 @@ function renderPeopleComplianceTab(body, employees) {
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <span>🎓 Dealership Compliance Interactive Slideshows &amp; Audio Courses</span>
+              <span> Dealership Compliance Interactive Slideshows &amp; Audio Courses</span>
               <span class="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 px-2 py-0.5 rounded-full">All Staff Access</span>
             </h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Read through interactive slides, listen to audio readout, and complete the end-of-course test for official certification.</p>
@@ -1489,7 +1489,7 @@ function renderPeopleComplianceTab(body, employees) {
       <!-- Policy E-Signatures -->
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
         <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center justify-between">
-          <span>📋 Dealership Onboarding &amp; Policy E-Signatures</span>
+          <span> Dealership Onboarding &amp; Policy E-Signatures</span>
           <span class="text-xs font-bold text-indigo-600">CAN Legal Standard</span>
         </h3>
         <div class="space-y-3 text-xs">
@@ -1513,7 +1513,7 @@ function renderPeopleComplianceTab(body, employees) {
 
       <!-- Workplace Inspection & JHSC Records -->
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-        <h3 class="text-base font-black text-slate-900 dark:text-white">🥽 Joint Health &amp; Safety Committee (JHSC) Inspection Form</h3>
+        <h3 class="text-base font-black text-slate-900 dark:text-white"> Joint Health &amp; Safety Committee (JHSC) Inspection Form</h3>
         <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3 text-xs">
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-bold">
             <label class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-600 w-4 h-4"> Service Bay Eye Wash Stations</label>
@@ -1521,7 +1521,7 @@ function renderPeopleComplianceTab(body, employees) {
             <label class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-600 w-4 h-4"> Hoist Safety Disconnects</label>
             <label class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-600 w-4 h-4"> WHMIS SDS Sheet Binder</label>
           </div>
-          <button onclick="toast('Workplace safety inspection logged successfully!')" class="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-xs shadow-md">✓ Submit Monthly Inspection</button>
+          <button onclick="toast('Workplace safety inspection logged successfully!')" class="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-xs shadow-md"> Submit Monthly Inspection</button>
         </div>
       </div>
     </div>
@@ -1533,7 +1533,7 @@ function renderPeopleAutomation(body, employees) {
   body.innerHTML = `
     <div class="space-y-6">
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-        <h3 class="text-base font-black text-slate-900 dark:text-white">⚡ Pre-Configured Dealership HR Triggers</h3>
+        <h3 class="text-base font-black text-slate-900 dark:text-white"> Pre-Configured Dealership HR Triggers</h3>
         <div class="space-y-3">
           <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1.5 text-xs">
             <div class="flex items-center justify-between font-black text-slate-900 dark:text-white">
@@ -1545,7 +1545,7 @@ function renderPeopleAutomation(body, employees) {
 
           <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1.5 text-xs">
             <div class="flex items-center justify-between font-black text-slate-900 dark:text-white">
-              <span>🔄 Sales Rep Store Transfer</span>
+              <span> Sales Rep Store Transfer</span>
               <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">Active Trigger</span>
             </div>
             <p class="text-slate-500">Update rooftop location, reassign open CRM leads, migrate inventory access &amp; switch commission tier.</p>
@@ -1553,7 +1553,7 @@ function renderPeopleAutomation(body, employees) {
 
           <div class="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1.5 text-xs">
             <div class="flex items-center justify-between font-black text-slate-900 dark:text-white">
-              <span>🚫 Employee Termination Security Kill-Switch</span>
+              <span> Employee Termination Security Kill-Switch</span>
               <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">Active Trigger</span>
             </div>
             <p class="text-slate-500">Instantly revoke system login, reassign active leads &amp; pending deals, unlink demo VIN &amp; preserve audit records for compliance retention.</p>
@@ -1638,7 +1638,7 @@ async function acctLoadPayroll(el) {
     <div class="space-y-6">
       <div class="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm">
         <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-xl shadow-inner">💰</div>
+          <div class="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-xl shadow-inner"></div>
           <div>
             <h2 class="text-xl font-black text-slate-900 dark:text-white leading-tight">Internal Accounting Payroll Ledger</h2>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Automated payroll posting from People &amp; Compliance HR engine. Double-entry ledger integration.</p>
@@ -1647,7 +1647,7 @@ async function acctLoadPayroll(el) {
 
         <div class="flex items-center gap-2">
           <button onclick="syncHRPayrollToAccounting()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md transition flex items-center gap-1.5">
-            <span>⚡ Sync HR Payroll Now</span>
+            <span> Sync HR Payroll Now</span>
           </button>
         </div>
       </div>
@@ -1666,12 +1666,12 @@ async function acctLoadPayroll(el) {
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
           <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Disbursed Net Pay</div>
           <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">$${totalNet.toLocaleString()}</div>
-          <div class="text-[11px] text-emerald-500 font-bold mt-1">✓ Ledger Balanced</div>
+          <div class="text-[11px] text-emerald-500 font-bold mt-1"> Ledger Balanced</div>
         </div>
       </div>
 
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-        <h3 class="text-base font-black text-slate-900 dark:text-white">📜 Posted Payroll Batches &amp; Journal Disbursals</h3>
+        <h3 class="text-base font-black text-slate-900 dark:text-white"> Posted Payroll Batches &amp; Journal Disbursals</h3>
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <thead>
@@ -1704,7 +1704,7 @@ async function syncHRPayrollToAccounting() {
       period_start: new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10),
       period_end: new Date().toISOString().slice(0, 10)
     });
-    if (typeof showToast === 'function') showToast(`✅ Posted $${(res.batch?.net_payroll || 37480).toLocaleString()} HR Payroll Batch to Accounting!`, 'success');
+    if (typeof showToast === 'function') showToast(` Posted $${(res.batch?.net_payroll || 37480).toLocaleString()} HR Payroll Batch to Accounting!`, 'success');
   } catch (e) {
     if (typeof showToast === 'function') showToast(`Posted Payroll Batch to Internal Accounting!`, 'success');
   }
@@ -1719,7 +1719,7 @@ function renderPeopleSettings(body, employees) {
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <span>⚙️ Internal Accounting &amp; Payroll Posting</span>
+              <span> Internal Accounting &amp; Payroll Posting</span>
               <span class="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 px-2 py-0.5 rounded-full">Auto-Synced</span>
             </h3>
             <p class="text-xs text-slate-500 mt-0.5">Post staff shift hours, MTD sales commissions, and deductions directly to MarketSync Internal Accounting Ledger.</p>
@@ -1728,10 +1728,10 @@ function renderPeopleSettings(body, employees) {
 
         <div class="flex flex-wrap items-center gap-3">
           <button onclick="syncHRPayrollToAccounting()" class="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-600/30 transition flex items-center gap-2">
-            <span>⚡ 1-Click Post Payroll to Internal Accounting</span>
+            <span> 1-Click Post Payroll to Internal Accounting</span>
           </button>
           <button onclick="acctGo('payroll')" class="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow transition">
-            📊 View Accounting Payroll Ledger &rarr;
+             View Accounting Payroll Ledger &rarr;
           </button>
         </div>
       </div>
@@ -1801,7 +1801,7 @@ window.saveNewEmployee = saveNewEmployee;
 function openLogIncidentModal() {
   const modalHtml = `
     <div class="space-y-4">
-      <h3 class="text-base font-black text-slate-900 dark:text-white">📋 Log Workplace Safety Incident / Hazard</h3>
+      <h3 class="text-base font-black text-slate-900 dark:text-white"> Log Workplace Safety Incident / Hazard</h3>
       <div class="space-y-2 text-xs">
         <input type="text" placeholder="Location (e.g. Service Bay #3)" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         <textarea placeholder="Describe hazard or incident..." class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 h-24"></textarea>

@@ -310,7 +310,7 @@ function rbRenderTable() {
     cols.map(c => `<th class="py-2 px-3 whitespace-nowrap ${c.blank ? 'text-slate-400' : ''}">${esc(c.label)}</th>`).join('');
   const body = rows.map((r, i) => `<tr class="border-b border-slate-100 dark:border-slate-800/60">
       <td class="py-2 px-3 text-right tabular-nums text-slate-400 sticky left-0 bg-white dark:bg-slate-900">${i + 1}</td>
-      ${dealCol ? `<td class="py-2 px-3"><button onclick="rbOpenDeal('${r.contact_id}')" title="${r.has_deal ? 'Edit deal desk fields' : 'Add deal desk fields'}" class="text-xs font-bold ${r.has_deal ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'} hover:underline whitespace-nowrap">${r.has_deal ? '✎ Deal' : '+ Deal'}</button></td>` : ''}
+      ${dealCol ? `<td class="py-2 px-3"><button onclick="rbOpenDeal('${r.contact_id}')" title="${r.has_deal ? 'Edit deal desk fields' : 'Add deal desk fields'}" class="text-xs font-bold ${r.has_deal ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'} hover:underline whitespace-nowrap">${r.has_deal ? ' Deal' : '+ Deal'}</button></td>` : ''}
       ${cols.map(c => `<td class="py-2 px-3 whitespace-nowrap ${c.blank ? 'text-slate-300 dark:text-slate-600' : 'text-slate-700 dark:text-slate-200'}">${esc(rbFmt(r[c.key], c.type))}</td>`).join('')}
     </tr>`).join('');
   rr.innerHTML = `
@@ -858,7 +858,7 @@ function deskRenderLines() {
       <input value="${esc(r.name || '')}" oninput="deskLineEdit('${kind}',${i},'name',this.value)" placeholder="Description" ${ro} class="${iCls} ${roCls} flex-1">
       <input value="${r[amtKey] == null ? '' : msFmtMoney(r[amtKey])}" oninput="deskLineEdit('${kind}',${i},'${amtKey}',this.value)" type="text" inputmode="decimal" data-money placeholder="0.00" ${ro} class="${iCls} ${roCls} w-28 text-right">
       ${kind === 'fee' ? `<label class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 whitespace-nowrap ${roCls}"><input type="checkbox" ${r.taxable !== false ? 'checked' : ''} ${locked ? 'disabled' : ''} onchange="deskLineEdit('fee',${i},'taxable',this.checked)" class="rounded"> tax</label>` : ''}
-      ${locked ? '<span class="text-slate-400 px-1" title="Locked by management — edit in Settings › Dealer Management">🔒</span>' : `<button type="button" onclick="deskDelLine('${kind}',${i})" class="text-rose-500 hover:text-rose-600 px-1" title="Remove">✕</button>`}
+      ${locked ? '<span class="text-slate-400 px-1" title="Locked by management — edit in Settings › Dealer Management"></span>' : `<button type="button" onclick="deskDelLine('${kind}',${i})" class="text-rose-500 hover:text-rose-600 px-1" title="Remove"></button>`}
     </div>`;
   };
   const a = document.getElementById('desk-addons'); if (a) a.innerHTML = __deskAddons.map((r, i) => rowHtml('addon', r, i, 'price')).join('') || '<div class="text-xs text-slate-400 italic">None.</div>';
@@ -1058,9 +1058,9 @@ function deskUpdateLinkBadge() {
   const el = document.getElementById('desk-veh-link'); if (!el) return;
   const stock = (document.getElementById('dk-veh-stock')?.value || '').trim();
   if (__deskDeal.inventory_id) {
-    el.innerHTML = `<span class="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">✓ Linked to inventory${stock ? ' · stock #' + esc(stock) : ''} <button type="button" onclick="deskUnlinkVehicle()" class="text-slate-400 hover:text-rose-500 underline font-normal">unlink</button></span><span class="block text-[11px] text-slate-400">Cleanup / F&amp;I get-ready is enabled for this deal.</span>`;
+    el.innerHTML = `<span class="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold"> Linked to inventory${stock ? ' · stock #' + esc(stock) : ''} <button type="button" onclick="deskUnlinkVehicle()" class="text-slate-400 hover:text-rose-500 underline font-normal">unlink</button></span><span class="block text-[11px] text-slate-400">Cleanup / F&amp;I get-ready is enabled for this deal.</span>`;
   } else {
-    el.innerHTML = `<span class="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold">⚠ Not linked to a stocked vehicle</span><span class="block text-[11px] text-slate-400">Pick the unit from the search above (or enter a matching VIN/stock #) so F&amp;I get-ready can send it to Cleanup.</span>`;
+    el.innerHTML = `<span class="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold"> Not linked to a stocked vehicle</span><span class="block text-[11px] text-slate-400">Pick the unit from the search above (or enter a matching VIN/stock #) so F&amp;I get-ready can send it to Cleanup.</span>`;
   }
 }
 function deskUnlinkVehicle() { __deskDeal.inventory_id = null; deskUpdateLinkBadge(); }

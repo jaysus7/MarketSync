@@ -80,7 +80,7 @@ const MKT_STATUS_TONE = {
 async function mktCampaignStatus(id, status) {
   try {
     await apiSendJson(`/campaigns/${id}/status`, 'POST', { status });
-    showToast(`Campaign ${status.replace(/_/g, ' ')} ✓`, 'success');
+    showToast(`Campaign ${status.replace(/_/g, ' ')} `, 'success');
     ENGINE_DATA['marketing-overview'] = undefined;
     engineTab('marketing-overview', ENGINE_STATE['marketing-overview'] || 'work', true);
   } catch (e) { showToast(e.message, 'error'); }
@@ -147,7 +147,7 @@ async function mktSavePost(btn) {
       targets,
     });
     root.remove();
-    showToast(when ? 'Post scheduled ✓' : 'Draft saved ✓', 'success');
+    showToast(when ? 'Post scheduled ' : 'Draft saved ', 'success');
     mktReload();
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -164,7 +164,7 @@ async function mktPublishNow(postId) {
     const bad = (r.results || []).filter(x => x.status === 'failed' || x.status === 'skipped');
     showToast(bad.length
       ? `Published to ${ok}, could not publish to ${bad.length}: ${bad[0].error || 'see the post'}`
-      : `Published to ${ok} account(s) ✓`, bad.length ? 'error' : 'success');
+      : `Published to ${ok} account(s) `, bad.length ? 'error' : 'success');
     mktReload();
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -194,7 +194,7 @@ async function mktUploadAsset(input) {
     const r = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'Upload failed');
-    showToast('Added to Studio ✓', 'success');
+    showToast('Added to Studio ', 'success');
     mktReload();
   } catch (e) { showToast(e.message, 'error'); }
   input.value = '';
@@ -244,7 +244,7 @@ Object.assign(window, { mktStudioOpen, mktStudioPreview, mktStudioRender });
 async function mktTakeover(conversationId) {
   try {
     await apiSendJson(`/conversations/${conversationId}/takeover`, 'POST', {});
-    showToast('You are handling this conversation ✓', 'success');
+    showToast('You are handling this conversation ', 'success');
     ENGINE_DATA['marketing-overview'] = undefined;
     engineTab('marketing-overview', ENGINE_STATE['marketing-overview'] || 'work', true);
   } catch (e) { showToast(e.message, 'error'); }

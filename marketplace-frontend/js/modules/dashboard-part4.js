@@ -899,7 +899,7 @@ async function saveCrmAdfEmail(btn) {
   try {
     const r = await fetch(`${API}/leads/crm-email`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ crm_adf_email: (inp?.value || '').trim() }) });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Failed');
-    if (msg) { msg.textContent = '✓ Saved — leads now deliver to your CRM.'; msg.className = 'text-xs mt-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); }
+    if (msg) { msg.textContent = ' Saved — leads now deliver to your CRM.'; msg.className = 'text-xs mt-2 text-emerald-600 dark:text-emerald-400'; msg.classList.remove('hidden'); }
   } catch (e) { if (msg) { msg.textContent = e.message; msg.className = 'text-xs mt-2 text-red-500'; msg.classList.remove('hidden'); } }
   finally { btn.disabled = false; btn.textContent = orig; }
 }
@@ -1354,7 +1354,7 @@ async function loadLeadsPage() {
     if (l.responded_at) {
       const sec = Math.max(0, Math.round((new Date(l.responded_at) - new Date(l.created_at)) / 1000));
       // Colour the answered time by the response goal — fast = green, slow = red.
-      return `<span class="text-xs font-bold ${leadTimeClasses(sec).join(' ')}" title="Answered${l.responded_by_name ? ' by ' + esc(l.responded_by_name) : ''} in ${fmtLeadDuration(sec)}">✓ ${fmtLeadDuration(sec)}</span>`;
+      return `<span class="text-xs font-bold ${leadTimeClasses(sec).join(' ')}" title="Answered${l.responded_by_name ? ' by ' + esc(l.responded_by_name) : ''} in ${fmtLeadDuration(sec)}"> ${fmtLeadDuration(sec)}</span>`;
     }
     return `<span class="lead-timer text-xs font-black tabular-nums" data-created="${l.created_at}" title="Live — time this lead has gone unanswered">${fmtLeadDuration(Math.max(0, Math.round((Date.now() - new Date(l.created_at)) / 1000)))}</span>`;
   };
@@ -1367,10 +1367,10 @@ async function loadLeadsPage() {
     }
     return `<div class="text-[11px] font-semibold mt-0.5 inline-flex items-center gap-1 ${l.rep ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>${l.rep ? esc(l.rep) : 'Unassigned'}</div>`;
   };
-  // Hot-lead score badge (🔥 hot / warm / cold) — hover for the biggest driver.
+  // Hot-lead score badge ( hot / warm / cold) — hover for the biggest driver.
   const scoreBadge = (l) => {
     if (l.score == null) return '';
-    const m = { hot: ['🔥', 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'], warm: ['🌤️', 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'], cold: ['❄️', 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'] };
+    const m = { hot: ['', 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'], warm: ['', 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'], cold: ['', 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'] };
     const [ic, cls] = m[l.score_tier] || m.cold;
     return `<span class="text-[10px] font-black uppercase px-1.5 py-0.5 rounded ${cls}" title="Lead score ${l.score}/100${l.score_reason ? ' · ' + esc(l.score_reason) : ''}">${ic} ${l.score}</span>`;
   };
@@ -1384,8 +1384,8 @@ async function loadLeadsPage() {
       <td class="py-3 px-3 whitespace-nowrap">${sittingBadge(l)}</td>
       <td class="py-3 px-3">${statusPill(l)}</td>
       <td class="py-3 px-3 text-right whitespace-nowrap">
-        ${!l.responded_at ? `<button class="lead-answered text-emerald-600 hover:text-emerald-500 text-xs font-bold" data-id="${l.id}" data-contact="${l.contact_id || ''}" title="Log a call/text/email with a note — stops the clock">✓ Log &amp; complete</button>` : ''}
-        <button class="lead-ai-reply text-violet-600 hover:text-violet-500 text-xs font-bold ml-3" data-id="${l.id}">✦ Draft reply</button>
+        ${!l.responded_at ? `<button class="lead-answered text-emerald-600 hover:text-emerald-500 text-xs font-bold" data-id="${l.id}" data-contact="${l.contact_id || ''}" title="Log a call/text/email with a note — stops the clock"> Log &amp; complete</button>` : ''}
+        <button class="lead-ai-reply text-violet-600 hover:text-violet-500 text-xs font-bold ml-3" data-id="${l.id}"> Draft reply</button>
         ${!l.adf_sent_at && crmSet ? `<button class="lead-resend text-indigo-500 hover:text-indigo-400 text-xs font-bold ml-3" data-id="${l.id}">Send to CRM</button>` : ''}
       </td>
     </tr>`).join('') || '<tr><td colspan="6" class="py-8 text-center text-sm text-slate-400 italic">No leads yet.</td></tr>';

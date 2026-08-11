@@ -97,7 +97,7 @@ async function launchSaveConfig(form) {
   if (!Object.keys(body).length) { showToast('Nothing to save', 'error'); return }
   try {
     await apiSendJson('/launch/dealership', 'PATCH', body)
-    showToast('Saved ✓', 'success')
+    showToast('Saved ', 'success')
     refreshSetupIndicator();
     ENGINE_DATA['launch'] = undefined
     engineTab('launch', ENGINE_STATE['launch'] || 'overview', true)
@@ -239,7 +239,7 @@ async function launchAddLocation() {
   if (!name) return
   try {
     await apiSendJson('/launch/locations', 'POST', { name })
-    showToast('Location added ✓', 'success')
+    showToast('Location added ', 'success')
     refreshSetupIndicator();
     ENGINE_DATA['launch'] = undefined
     engineTab('launch', 'insights', true)

@@ -21,7 +21,7 @@
   const STEPS = [
     {
       target: null,
-      title: '👋 Welcome — the full tour',
+      title: ' Welcome — the full tour',
       body: `A quick guided walk through everything MarketSync does — from posting cars to closing deals, service, automation and your books. It'll move you between pages as it goes. Skip anytime, and replay it later from the <b>Tour</b> button.`
     },
     {
@@ -50,7 +50,7 @@
     {
       target: null,
       title: 'AI does the busywork',
-      body: `<b>AI Boost</b> writes your listings, scores your photos (0–100) and picks the best cover, drafts replies to shopper leads, and can chat with customers on your website all night — every ✨ button across the app. You set its name and tone in Settings.`
+      body: `<b>AI Boost</b> writes your listings, scores your photos (0–100) and picks the best cover, drafts replies to shopper leads, and can chat with customers on your website all night — every  button across the app. You set its name and tone in Settings.`
     },
     {
       target: '#dashboard-nav [data-page="crm"]',
@@ -110,7 +110,7 @@
     },
     {
       target: null,
-      title: "🎉 That's the whole platform",
+      title: " That's the whole platform",
       body: `Replay this tour anytime from the <b>Tour</b> button, and open the <a href="/guide.html" target="_blank" rel="noopener">full step-by-step guide</a> for screen-by-screen detail on any feature. Happy selling!`
     }
   ];

@@ -383,7 +383,7 @@ function creditAppPrintDoc(d) {
     .printbar button { background: #1e3a8a; color: #fff; border: 0; padding: 8px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; }
     @media print { .printbar { display: none; } body { padding: 0; } }
   </style></head><body>
-    <div class="printbar"><button onclick="window.print()">🖨 Print / Save as PDF</button></div>
+    <div class="printbar"><button onclick="window.print()"> Print / Save as PDF</button></div>
     <div class="head">
       <div><h1>${dealer}</h1><div class="sub">Credit Application</div></div>
       <div class="meta">Date: ${today}</div>
@@ -697,7 +697,7 @@ async function deskSave(contactId) {
     const body = await deskPersist(contactId);
     showToast(`Deal saved · Deal #${body.deal?.deal_number || '—'}${body.vehicle_pending ? ' · vehicle marked pending' : ''}`, 'success');
     deskRenderForm(contactId);   // re-render so the new Customer #/Deal # show
-    if (btn) { btn.disabled = false; btn.textContent = 'Saved ✓'; setTimeout(() => { if (btn) btn.textContent = 'Save deal'; }, 1500); }
+    if (btn) { btn.disabled = false; btn.textContent = 'Saved '; setTimeout(() => { if (btn) btn.textContent = 'Save deal'; }, 1500); }
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Save deal'; }
     showToast(e.message || 'Could not save the deal', 'error');
@@ -728,7 +728,7 @@ function deskStatusBar(contactId) {
   } else if (st === 'sold') {
     actions = `<div>${btn('delivered', 'Mark delivered', 'w-full bg-emerald-600 hover:bg-emerald-500 text-white')}</div>`;
   } else if (st === 'delivered') {
-    actions = `<div class="text-center text-sm font-bold text-emerald-600 dark:text-emerald-400 py-1">Delivered ✓</div>`;
+    actions = `<div class="text-center text-sm font-bold text-emerald-600 dark:text-emerald-400 py-1">Delivered </div>`;
   }
   return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
       <div class="flex items-center justify-between mb-2">
@@ -758,7 +758,7 @@ async function deskSetStatus(action, contactId) {
       await apiSendJson(`/crm/contacts/${contactId}`, 'PUT', body);
     }
     __deskDeal.deal_status = r.deal_status || __deskDeal.deal_status;
-    showToast(DONE[action] + ' ✓', 'success');
+    showToast(DONE[action] + ' ', 'success');
     deskRenderForm(contactId);
   } catch (e) {
     if (bar) bar.style.opacity = '1';
@@ -784,7 +784,7 @@ async function deskSaveDealer(btn) {
     } else {
       showToast('Saved. Add the HST #, OMVIC # and street address to finish setup.', 'success');
     }
-    if (btn) { btn.disabled = false; btn.textContent = 'Saved ✓'; setTimeout(() => { if (btn) btn.textContent = 'Save dealer details'; }, 1500); }
+    if (btn) { btn.disabled = false; btn.textContent = 'Saved '; setTimeout(() => { if (btn) btn.textContent = 'Save dealer details'; }, 1500); }
   } catch (e) { if (btn) { btn.disabled = false; btn.textContent = 'Save dealer details'; } showToast(e.message || 'Could not save', 'error'); }
 }
 
@@ -926,7 +926,7 @@ function deskPrint(kind, opts = {}) {
     </div>`;
 
   // Standard Ontario disclosure checklist (unchecked boxes for manual completion).
-  const box = '<span class="ck">☐</span>';
+  const box = '<span class="ck"></span>';
   const disclosure = (heading) => `
     <div class="sech">${heading}</div>
     <p class="dis"><b>1. Odometer.</b> The vehicle is used and has been driven approximately ______ km. ${box} We cannot determine the total distance driven prior to a date. ${box} We do not know the total distance driven. ${box} The odometer is broken/faulty. ${box} The odometer has been replaced. ${box} The odometer has been rolled back. ${box} The odometer accurately records the true distance travelled.</p>
@@ -961,10 +961,10 @@ function deskPrint(kind, opts = {}) {
   const page3 = `<div class="page">
     <div class="ptop">DISCLOSURES OF NEW MOTOR VEHICLE PURCHASE <span class="ptop-r">VIN: ${esc(veh.vin || '')}</span></div>
     <p class="tc">The dealer declares the following statements are true to the best of their knowledge and belief.</p>
-    <p class="tc">☐&nbsp; The Vehicle is new, and the maximum distance that will be shown on the Vehicle’s odometer when it is delivered is __________________</p>
-    <p class="tc">☐&nbsp; The Vehicle is new, and the contract does not specify the maximum distance that will be shown on the Vehicle’s odometer when it is delivered.</p>
-    <p class="tc">☐&nbsp; The Vehicle’s odometer in __________________</p>
-    <p class="tc">☐&nbsp; The odometer of the Motor Vehicle accurately records the true distance traveled.</p>
+    <p class="tc">&nbsp; The Vehicle is new, and the maximum distance that will be shown on the Vehicle’s odometer when it is delivered is __________________</p>
+    <p class="tc">&nbsp; The Vehicle is new, and the contract does not specify the maximum distance that will be shown on the Vehicle’s odometer when it is delivered.</p>
+    <p class="tc">&nbsp; The Vehicle’s odometer in __________________</p>
+    <p class="tc">&nbsp; The odometer of the Motor Vehicle accurately records the true distance traveled.</p>
     <div class="sig" style="grid-template-columns:1fr;max-width:280px;margin-top:34px"><div>Signature</div></div>
     ${foot(3)}
   </div>`;
@@ -1118,7 +1118,7 @@ function esignShowLink(url, emailed) {
   const wrap = document.createElement('div');
   wrap.className = 'fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4';
   wrap.innerHTML = `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl">
-    <div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 text-xl">✍️</div>
+    <div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 text-xl"></div>
       <div><div class="font-bold text-slate-900 dark:text-white">Signing link ready</div><div class="text-xs text-slate-500 dark:text-slate-400">${emailed ? 'Emailed to the customer. You can also copy it below.' : 'Copy the link and text/email it to the customer.'}</div></div></div>
     <input id="esign-link-in" readonly value="${esc(url)}" class="w-full text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200">
     <div class="flex gap-2 mt-4">

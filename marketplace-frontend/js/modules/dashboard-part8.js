@@ -161,7 +161,7 @@ function renderTexting() {
   }
   if (s.platform_managed && s.number) {
     const a2p = s.a2p_status || 'not_started';
-    const badge = ({ not_started: ['Not registered', 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'], submitted: ['Registration submitted', 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'], approved: ['Registered ✓', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'] })[a2p] || ['—', 'bg-slate-100 text-slate-500'];
+    const badge = ({ not_started: ['Not registered', 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'], submitted: ['Registration submitted', 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'], approved: ['Registered ', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'] })[a2p] || ['—', 'bg-slate-100 text-slate-500'];
     root.innerHTML = `
       <div class="flex items-center gap-3 mb-2 flex-wrap">
         <div class="text-xl font-black text-slate-900 dark:text-white">${esc(s.number)}</div>
@@ -298,19 +298,19 @@ async function loadIntegrations() {
 }
 // A coloured badge + glyph per provider (CSP-safe emoji — no external logos).
 const INTEGRATION_ICONS = {
-  webhook:         { emoji: '🔗', bg: 'bg-violet-100 dark:bg-violet-950/40' },
-  twilio:          { emoji: '💬', bg: 'bg-rose-100 dark:bg-rose-950/40' },
-  quickbooks:      { emoji: '📗', bg: 'bg-emerald-100 dark:bg-emerald-950/40' },
-  xero:            { emoji: '🔷', bg: 'bg-sky-100 dark:bg-sky-950/40' },
+  webhook:         { emoji: '', bg: 'bg-violet-100 dark:bg-violet-950/40' },
+  twilio:          { emoji: '', bg: 'bg-rose-100 dark:bg-rose-950/40' },
+  quickbooks:      { emoji: '', bg: 'bg-emerald-100 dark:bg-emerald-950/40' },
+  xero:            { emoji: '', bg: 'bg-sky-100 dark:bg-sky-950/40' },
   google_business: { emoji: '⭐', bg: 'bg-amber-100 dark:bg-amber-950/40' },
-  carfax:          { emoji: '🚗', bg: 'bg-indigo-100 dark:bg-indigo-950/40' },
-  routeone:        { emoji: '🏦', bg: 'bg-slate-100 dark:bg-slate-800' },
-  dealertrack:     { emoji: '🏦', bg: 'bg-slate-100 dark:bg-slate-800' },
-  stripe_deposits: { emoji: '💳', bg: 'bg-indigo-100 dark:bg-indigo-950/40' },
-  square_deposits: { emoji: '◼️', bg: 'bg-slate-100 dark:bg-slate-800' },
+  carfax:          { emoji: '', bg: 'bg-indigo-100 dark:bg-indigo-950/40' },
+  routeone:        { emoji: '', bg: 'bg-slate-100 dark:bg-slate-800' },
+  dealertrack:     { emoji: '', bg: 'bg-slate-100 dark:bg-slate-800' },
+  stripe_deposits: { emoji: '', bg: 'bg-indigo-100 dark:bg-indigo-950/40' },
+  square_deposits: { emoji: '◼', bg: 'bg-slate-100 dark:bg-slate-800' },
 };
 function integrationIcon(provider) {
-  const i = INTEGRATION_ICONS[provider] || { emoji: '🔌', bg: 'bg-slate-100 dark:bg-slate-800' };
+  const i = INTEGRATION_ICONS[provider] || { emoji: '', bg: 'bg-slate-100 dark:bg-slate-800' };
   return `<div class="w-10 h-10 rounded-lg ${i.bg} flex items-center justify-center text-xl flex-shrink-0" aria-hidden="true">${i.emoji}</div>`;
 }
 // Short human blurb per category so the section reads as a map, not a dump.
@@ -407,7 +407,7 @@ async function loadSyndicationCard() {
     </div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4">
       <div class="flex items-start gap-3 mb-3">
-        <div class="w-10 h-10 rounded-lg bg-teal-100 dark:bg-teal-950/40 flex items-center justify-center text-xl shrink-0" aria-hidden="true">📡</div>
+        <div class="w-10 h-10 rounded-lg bg-teal-100 dark:bg-teal-950/40 flex items-center justify-center text-xl shrink-0" aria-hidden="true"></div>
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm text-slate-900 dark:text-white">Inventory feed</span>${cfg.ready ? '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Live</span>' : '<span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">Set up website</span>'}</div>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">AutoTrader · Trader.ca · Kijiji Autos · Google vehicle listings</p>
@@ -417,7 +417,7 @@ async function loadSyndicationCard() {
     </div>`;
 }
 async function copySyndUrl(btn, url) {
-  try { await navigator.clipboard.writeText(url); const t = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = t, 1400); }
+  try { await navigator.clipboard.writeText(url); const t = btn.textContent; btn.textContent = 'Copied '; setTimeout(() => btn.textContent = t, 1400); }
   catch { showToast('Copy failed — select the text and copy manually', 'error'); }
 }
 window.copySyndUrl = copySyndUrl;
@@ -426,7 +426,7 @@ window.copySyndUrl = copySyndUrl;
 // dealer's feed URLs to hand that platform; `link` opens the platform's portal.
 const SYND_GUIDES = {
   autotrader: {
-    name: 'AutoTrader', emoji: '🚗', feed: 'xml', link: 'https://www.autotrader.ca/dealers/',
+    name: 'AutoTrader', emoji: '', feed: 'xml', link: 'https://www.autotrader.ca/dealers/',
     intro: 'AutoTrader / Trader.ca pulls your inventory from a feed URL managed by your account rep.',
     steps: [
       'Copy your <b>XML feed URL</b> below.',
@@ -438,7 +438,7 @@ const SYND_GUIDES = {
     note: 'No feed option in your portal? Email the URL to your AutoTrader rep — they can onboard it for you.',
   },
   cargurus: {
-    name: 'CarGurus', emoji: '📈', feed: 'csv', link: 'https://www.cargurus.com/Cars/dealers/',
+    name: 'CarGurus', emoji: '', feed: 'csv', link: 'https://www.cargurus.com/Cars/dealers/',
     intro: 'CarGurus ingests inventory from a daily feed — add it in the Dealer Dashboard or send it to onboarding.',
     steps: [
       'Copy your <b>CSV feed URL</b> below.',
@@ -450,7 +450,7 @@ const SYND_GUIDES = {
     note: 'CarGurus validates the first feed manually; it can take a business day to appear.',
   },
   kijiji: {
-    name: 'Kijiji Autos', emoji: '🇨🇦', feed: 'xml', link: 'https://www.kijijiautos.ca/',
+    name: 'Kijiji Autos', emoji: '', feed: 'xml', link: 'https://www.kijijiautos.ca/',
     intro: 'Kijiji Autos onboards dealer inventory through a feed via your Kijiji account manager.',
     steps: [
       'Copy your <b>XML feed URL</b> below.',
@@ -461,7 +461,7 @@ const SYND_GUIDES = {
     note: 'Kijiji Autos feeds are set up by their team; there isn’t a self-serve feed box today.',
   },
   google: {
-    name: 'Google Vehicle Listings', emoji: '🔎', feed: 'google', link: 'https://merchants.google.com/',
+    name: 'Google Vehicle Listings', emoji: '', feed: 'google', link: 'https://merchants.google.com/',
     intro: 'Google Merchant Center / Vehicle ads pull a scheduled feed you add yourself.',
     steps: [
       'Copy your <b>Google feed URL</b> below.',
@@ -473,7 +473,7 @@ const SYND_GUIDES = {
     note: 'Vehicle ads may require enabling the vehicle-listings program in Merchant Center for your region.',
   },
   facebook: {
-    name: 'Facebook Marketplace', emoji: '📘', feed: null, link: 'https://marketsync.link/facebook-marketplace-poster.html',
+    name: 'Facebook Marketplace', emoji: '', feed: null, link: 'https://marketsync.link/facebook-marketplace-poster.html',
     intro: 'Facebook Marketplace works through the MarketSync Chrome extension — no feed needed.',
     steps: [
       'Install the <b>MarketSync Chrome extension</b> (top-right “Install extension”).',
@@ -500,7 +500,7 @@ function syndicationGuide(key) {
       <button onclick="copySyndUrl(this,'${esc(feedUrl)}')" class="shrink-0 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Copy feed URL</button>
     </div>` : ''}
     <ol class="space-y-2.5">${steps}</ol>
-    ${g.note ? `<p class="text-[11px] text-slate-400 dark:text-slate-500 mt-4 border-t border-slate-100 dark:border-slate-800 pt-3">💡 ${esc(g.note)}</p>` : ''}
+    ${g.note ? `<p class="text-[11px] text-slate-400 dark:text-slate-500 mt-4 border-t border-slate-100 dark:border-slate-800 pt-3"> ${esc(g.note)}</p>` : ''}
     <div class="mt-4"><a href="${esc(g.link)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-sm font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg">Open ${esc(g.name)} →</a></div>
   </div>`, 'max-w-lg');
 }
@@ -514,8 +514,8 @@ async function loadCalendarSyncCard() {
   catch { host.remove(); return; }
 
   const providerIcons = {
-    google: { emoji: '📅', bg: 'bg-rose-100 dark:bg-rose-950/40 text-rose-600' },
-    microsoft: { emoji: '📆', bg: 'bg-sky-100 dark:bg-sky-950/40 text-sky-600' }
+    google: { emoji: '', bg: 'bg-rose-100 dark:bg-rose-950/40 text-rose-600' },
+    microsoft: { emoji: '', bg: 'bg-sky-100 dark:bg-sky-950/40 text-sky-600' }
   };
 
   const cards = (data.providers || []).map(p => {
@@ -532,7 +532,7 @@ async function loadCalendarSyncCard() {
       ? `Connected${p.account ? ' · ' + esc(p.account) : ''}${p.last_synced_at ? ' · synced ' + new Date(p.last_synced_at).toLocaleDateString('en-US') : ''}`
       : p.configured ? 'Two-way sync for your appointments' : 'Built and ready — switches on once server keys are set.';
 
-    const ic = providerIcons[p.provider] || { emoji: '📅', bg: 'bg-blue-100 dark:bg-blue-950/40 text-blue-600' };
+    const ic = providerIcons[p.provider] || { emoji: '', bg: 'bg-blue-100 dark:bg-blue-950/40 text-blue-600' };
 
     return `
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col justify-between h-full shadow-sm hover:border-indigo-500 transition">
@@ -565,7 +565,7 @@ async function loadCalendarSyncCard() {
       </div>
       ${anyConnected ? `
         <button onclick="calSyncNow(this)" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg transition shadow-sm">
-          🔄 Sync Now
+           Sync Now
         </button>
       ` : ''}
     </div>
@@ -683,7 +683,7 @@ async function saveFniCreds(provider, btn) {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
   try {
     await apiSendJson(`/integrations/${provider}`, 'PUT', payload);
-    btn.textContent = 'Saved ✓'; showToast('Credentials saved', 'success');
+    btn.textContent = 'Saved '; showToast('Credentials saved', 'success');
     setTimeout(() => loadIntegrations(), 700);
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
 }
@@ -744,7 +744,7 @@ async function saveWebhook(btn) {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
   try {
     await apiSendJson('/integrations/webhook', 'PUT', payload);
-    btn.textContent = 'Saved ✓'; showToast('Webhook saved', 'success');
+    btn.textContent = 'Saved '; showToast('Webhook saved', 'success');
     setTimeout(() => loadIntegrations(), 700);
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
 }
@@ -752,7 +752,7 @@ async function testWebhook(btn) {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Sending…';
   try {
     await apiSendJson('/integrations/webhook/test', 'POST', {});
-    btn.textContent = 'Sent ✓'; showToast('Test event sent to your endpoint', 'success');
+    btn.textContent = 'Sent '; showToast('Test event sent to your endpoint', 'success');
   } catch (e) { showToast(e.message || 'Could not send test — save & enable a URL first', 'error'); }
   setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
 }
@@ -814,7 +814,7 @@ async function saveTwilio(btn) {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
   try {
     await apiSendJson('/integrations/twilio', 'PUT', payload);
-    btn.textContent = 'Saved ✓'; showToast('Twilio settings saved', 'success');
+    btn.textContent = 'Saved '; showToast('Twilio settings saved', 'success');
     setTimeout(() => loadIntegrations(), 700);
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
 }
@@ -824,7 +824,7 @@ async function testTwilio(btn) {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Sending…';
   try {
     await apiSendJson('/integrations/twilio/test', 'POST', { to: to.trim() });
-    btn.textContent = 'Sent ✓'; showToast('Test text sent', 'success');
+    btn.textContent = 'Sent '; showToast('Test text sent', 'success');
   } catch (e) { showToast(e.message || 'Could not send — save & enable first', 'error'); }
   setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
 }
@@ -875,7 +875,7 @@ function googleBusinessCard(p) {
         ${connected && cfg.connected_at ? `<p class="text-[11px] text-slate-400 mt-1">Connected ${new Date(cfg.connected_at).toLocaleDateString()}.</p>` : ''}
         ${connectRow}
         <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-          <button onclick="openGbpComposer()" class="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold px-4 py-2 rounded-lg transition">✍️ Compose a post</button>
+          <button onclick="openGbpComposer()" class="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold px-4 py-2 rounded-lg transition"> Compose a post</button>
           <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Let AI write a Google Business post for a new arrival, a special, or a general update.</p>
         </div>
       </div>
@@ -894,7 +894,7 @@ async function openGbpComposer() {
     .map(v => `<option value="${v.id}">${esc([v.year, v.make, v.model, v.trim].filter(Boolean).join(' '))}${v.price ? ' — $' + Number(v.price).toLocaleString() : ''}</option>`).join('');
   const inp = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
   crmOverlay(`<div class="p-5">
-    <div class="flex items-center justify-between mb-1"><div class="text-lg font-black text-slate-900 dark:text-white">✍️ Compose a Google Business post</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="flex items-center justify-between mb-1"><div class="text-lg font-black text-slate-900 dark:text-white"> Compose a Google Business post</div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">Let AI draft a post for your Google Business Profile, then publish or copy it over.</p>
     <div class="space-y-4">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -902,7 +902,7 @@ async function openGbpComposer() {
           <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Post type</label>
           <select id="gbp-kind" class="${inp}">
             <option value="new_arrival">New arrival</option>
-            <option value="special">🏷️ Special offer</option>
+            <option value="special"> Special offer</option>
             <option value="update" selected>General update</option>
           </select>
         </div>
@@ -916,7 +916,7 @@ async function openGbpComposer() {
       <div>
         <div class="flex items-center justify-between mb-1">
           <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400">Post text</label>
-          <button onclick="gbpWrite(this)" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">✨ Write with AI</button>
+          <button onclick="gbpWrite(this)" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"> Write with AI</button>
         </div>
         <textarea id="gbp-text" rows="6" placeholder="Write your post, or hit “Write with AI” to draft one." class="${inp}"></textarea>
       </div>
@@ -944,7 +944,7 @@ async function gbpWrite(btn) {
 async function gbpCopy(btn) {
   const t = document.getElementById('gbp-text')?.value.trim();
   if (!t) { showToast('Write the post first', 'error'); return; }
-  try { await navigator.clipboard.writeText(t); const o = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = o, 1400); }
+  try { await navigator.clipboard.writeText(t); const o = btn.textContent; btn.textContent = 'Copied '; setTimeout(() => btn.textContent = o, 1400); }
   catch { showToast('Could not copy — select the text manually', 'error'); }
 }
 async function gbpPublish(btn) {
@@ -953,7 +953,7 @@ async function gbpPublish(btn) {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Publishing…';
   try {
     const d = await apiSendJson('/integrations/google_business/post', 'POST', { text: t });
-    if (d.ok) { showToast('Posted to Google Business ✓', 'success'); btn.closest('.fixed')?.remove(); }
+    if (d.ok) { showToast('Posted to Google Business ', 'success'); btn.closest('.fixed')?.remove(); }
     else {
       // Staged fallback: copy the text and open Google Business for a manual paste.
       try { await navigator.clipboard.writeText(t); } catch {}
@@ -1005,7 +1005,7 @@ async function testOAuth(provider, btn) {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Checking…';
   try {
     const d = await apiSendJson(`/integrations/${provider}/test`, 'POST', {});
-    btn.textContent = 'Connected ✓'; showToast(d.company || 'Connection is healthy', 'success');
+    btn.textContent = 'Connected '; showToast(d.company || 'Connection is healthy', 'success');
   } catch (e) { showToast(e.message || 'Connection check failed', 'error'); }
   setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
 }
@@ -1141,7 +1141,7 @@ async function refreshDeposits(btn) {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Checking…';
   try {
     const d = await apiSendJson('/deposits/refresh', 'POST', {});
-    showToast(d.charges_enabled ? 'Connected — deposits are ready ✓' : 'Still finishing on Stripe — try again shortly.', d.charges_enabled ? 'success' : 'info');
+    showToast(d.charges_enabled ? 'Connected — deposits are ready ' : 'Still finishing on Stripe — try again shortly.', d.charges_enabled ? 'success' : 'info');
     loadIntegrations();
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not check status', 'error'); }
 }
@@ -1152,7 +1152,7 @@ async function saveDeposits(btn) {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
   try {
     await apiSendJson('/deposits/config', 'PUT', { deposit_amount: amount, enabled, accept_bank });
-    btn.textContent = 'Saved ✓'; showToast(enabled ? 'Deposits are live on your site' : 'Deposit settings saved', 'success');
+    btn.textContent = 'Saved '; showToast(enabled ? 'Deposits are live on your site' : 'Deposit settings saved', 'success');
     setTimeout(() => loadIntegrations(), 700);
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
 }
@@ -1186,7 +1186,7 @@ async function saveDealerDocs(btn) {
     await apiSendJson('/ai/config', 'PUT', payload);
     // Keep the desk's cached copy in sync so it reflects the edit immediately.
     if (__deskDealer) __deskDealer = { ...__deskDealer, name: payload.legal_name || __deskDealer.name, street: payload.street_address || null, phone: payload.phone || null, fax: payload.fax || null, hst: payload.hst_number || null, omvic: payload.omvic_reg || null };
-    btn.textContent = 'Saved ✓'; setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
+    btn.textContent = 'Saved '; setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
     showToast('Dealer details saved', 'success');
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
 }
@@ -1201,7 +1201,7 @@ async function saveEmailSettings(btn) {
   try {
     await apiSendJson('/profile/update', 'PUT', { emailSignature: sig, emailReplyTo: replyTo });
     if (profileContext) { profileContext.email_signature = sig || null; profileContext.email_reply_to = replyTo || null; }
-    btn.textContent = 'Saved ✓'; setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
+    btn.textContent = 'Saved '; setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
     showToast('Email settings saved', 'success');
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
 }
@@ -1234,8 +1234,8 @@ function renderDeskFeeSettings() {
       <input value="${esc(f.name || '')}" oninput="deskFeeEdit(${i},'name',this.value)" placeholder="Fee name" class="${iCls} flex-1 min-w-[160px]">
       <input value="${f.amount == null || f.amount === '' ? '' : msFmtMoney(f.amount)}" oninput="deskFeeEdit(${i},'amount',this.value)" type="text" inputmode="decimal" data-money placeholder="0.00" class="${iCls} w-28 text-right">
       <label class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 whitespace-nowrap"><input type="checkbox" ${f.taxable !== false ? 'checked' : ''} onchange="deskFeeEdit(${i},'taxable',this.checked)" class="rounded"> Taxable</label>
-      <label class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 whitespace-nowrap" title="Locked fees can't be changed on the desk"><input type="checkbox" ${f.locked ? 'checked' : ''} onchange="deskFeeEdit(${i},'locked',this.checked)" class="rounded"> 🔒 Lock</label>
-      <button type="button" onclick="deskFeeDelRow(${i})" class="text-rose-500 hover:text-rose-600 px-1" title="Remove">✕</button>
+      <label class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 whitespace-nowrap" title="Locked fees can't be changed on the desk"><input type="checkbox" ${f.locked ? 'checked' : ''} onchange="deskFeeEdit(${i},'locked',this.checked)" class="rounded">  Lock</label>
+      <button type="button" onclick="deskFeeDelRow(${i})" class="text-rose-500 hover:text-rose-600 px-1" title="Remove"></button>
     </div>`).join('') : '<div class="text-sm text-slate-400 italic py-1">No fees yet — add the ones your store charges on every deal.</div>';
 }
 function deskFeeEdit(i, field, val) { const r = __deskFeeConfig[i]; if (!r) return; r[field] = (field === 'amount') ? (val === '' ? '' : msNum(val)) : val; }
@@ -1248,7 +1248,7 @@ async function saveDeskFees(btn) {
     await apiSendJson('/ai/config', 'PUT', { desk_fees: clean });
     __deskFeeConfig = clean.length ? clean : [];
     __deskDealerFees = clean;   // refresh the desk's cache so new deals prefill the new schedule
-    btn.textContent = 'Saved ✓'; setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
+    btn.textContent = 'Saved '; setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1400);
     showToast('Deal-desk fees saved', 'success');
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save fees', 'error'); }
 }

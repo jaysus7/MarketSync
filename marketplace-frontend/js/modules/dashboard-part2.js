@@ -647,7 +647,7 @@ window.openLeaderboardOnDash = openLeaderboardOnDash;
 // manager/analyst pages inside them hidden — and nothing else. Settings isn't a
 // department; the header gear owns it.
 //
-// ✅ SOURCE OF TRUTH for the dashboard sidebar navigation now lives in
+//  SOURCE OF TRUTH for the dashboard sidebar navigation now lives in
 //    js/modules/workspace-registry.js (MS_WORKSPACES) — it is the ONE registry the
 //    desktop sidebar, the workspace tab-bar and the mobile bottom row all derive
 //    from. To add/rename/reorder/gate a nav item or workspace, edit THERE

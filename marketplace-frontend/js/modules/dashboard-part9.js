@@ -48,7 +48,7 @@ async function acctFinTrial(el) {
     <table class="w-full text-sm"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">
       <th class="px-3 py-2">Account</th><th class="px-3 py-2 text-right">Debit</th><th class="px-3 py-2 text-right">Credit</th></tr></thead>
     <tbody>${rows.map(r => `<tr class="border-b border-slate-100 dark:border-slate-800/60"><td class="px-3 py-2">${esc(r.code || '')} ${esc(r.name)}</td><td class="px-3 py-2 text-right tabular-nums">${r.debit ? finMoney(r.debit) : '—'}</td><td class="px-3 py-2 text-right tabular-nums">${r.credit ? finMoney(r.credit) : '—'}</td></tr>`).join('') || '<tr><td colspan="3" class="px-3 py-8 text-center text-slate-400">No postings yet.</td></tr>'}</tbody>
-    <tfoot><tr class="border-t-2 border-slate-300 dark:border-slate-700 font-black"><td class="px-3 py-2">Total ${d.balanced ? '<span class="text-emerald-500 text-[11px] font-bold ml-1">✓ balanced</span>' : '<span class="text-rose-500 text-[11px] font-bold ml-1">✕ off</span>'}</td><td class="px-3 py-2 text-right tabular-nums">${finMoney(d.total_debit)}</td><td class="px-3 py-2 text-right tabular-nums">${finMoney(d.total_credit)}</td></tr></tfoot>
+    <tfoot><tr class="border-t-2 border-slate-300 dark:border-slate-700 font-black"><td class="px-3 py-2">Total ${d.balanced ? '<span class="text-emerald-500 text-[11px] font-bold ml-1"> balanced</span>' : '<span class="text-rose-500 text-[11px] font-bold ml-1"> off</span>'}</td><td class="px-3 py-2 text-right tabular-nums">${finMoney(d.total_debit)}</td><td class="px-3 py-2 text-right tabular-nums">${finMoney(d.total_credit)}</td></tr></tfoot>
     </table></div>`;
 }
 
@@ -79,7 +79,7 @@ async function acctFinBalance(el) {
     ${section('Equity', d.equity_lines, d.equity - d.net_income)}
     <div class="flex items-center justify-between text-[13px] py-0.5"><span class="text-slate-600 dark:text-slate-300">Net income (current)</span><span class="tabular-nums">${finMoney(d.net_income)}</span></div>
     <div class="flex items-center justify-between font-black border-t-2 border-slate-300 dark:border-slate-700 mt-2 pt-2">Liabilities + Equity<span class="tabular-nums">${finMoney(d.liabilities + d.equity)}</span></div>
-    <div class="text-[11px] mt-2 ${d.balanced ? 'text-emerald-500' : 'text-rose-500'} font-bold">${d.balanced ? '✓ Balance sheet balances' : '✕ Out of balance — check journals'}</div>
+    <div class="text-[11px] mt-2 ${d.balanced ? 'text-emerald-500' : 'text-rose-500'} font-bold">${d.balanced ? ' Balance sheet balances' : ' Out of balance — check journals'}</div>
   </div>`;
 }
 async function acctFinForecast(el) {
@@ -185,7 +185,7 @@ async function acctLoadToday() {
     const off = r.status === 'off';
     const banner = `<div class="rounded-xl p-4 ${off ? 'bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800' : 'bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800'}">
       <div class="flex items-center justify-between gap-3 flex-wrap">
-        <div><div class="font-black ${off ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}">${off ? '⚠ Books don’t reconcile' : '✓ Day balances'}</div>
+        <div><div class="font-black ${off ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}">${off ? ' Books don’t reconcile' : ' Day balances'}</div>
           <div class="text-[12px] text-slate-600 dark:text-slate-400 mt-0.5">${esc(r.detail?.note || '')}</div></div>
         <button onclick="acctLoadToday()" class="text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg">Re-run</button>
       </div>
@@ -447,7 +447,7 @@ async function expSave(id, btn) {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
   try {
     if (id) await apiSendJson(`/expenses/${id}`, 'PUT', body); else await apiSendJson('/expenses', 'POST', body);
-    showToast('Saved ✓', 'success'); btn.closest('.fixed')?.remove(); acctLoadExpenses();
+    showToast('Saved ', 'success'); btn.closest('.fixed')?.remove(); acctLoadExpenses();
   } catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
 }
 // Receipt in the modal: an image is OCR-scanned to prefill; a PDF just attaches. Both upload for the record.
@@ -473,10 +473,10 @@ async function expReceiptPick(file) {
     if (!r.ok) throw new Error(d.error || 'Upload failed');
     document.getElementById('exp-receipt-url').value = d.url; document.getElementById('exp-receipt-type').value = d.type || '';
     const note = document.getElementById('exp-receipt-note'); if (note) { note.classList.remove('hidden'); note.innerHTML = `<a href="${esc(d.url)}" target="_blank" class="text-indigo-500 font-bold">${svgIcon("paperclip","w-3.5 h-3.5 inline-block align-text-bottom")} Receipt attached — view</a>`; }
-    showToast('Receipt attached ✓', 'success');
+    showToast('Receipt attached ', 'success');
   } catch (e) { showToast(e.message || 'Could not attach receipt', 'error'); }
 }
-async function expApprove(id) { try { await apiSendJson(`/expenses/${id}/approve`, 'POST', {}); showToast('Approved ✓', 'success'); acctLoadExpenses(); } catch (e) { showToast(e.message, 'error'); } }
+async function expApprove(id) { try { await apiSendJson(`/expenses/${id}/approve`, 'POST', {}); showToast('Approved ', 'success'); acctLoadExpenses(); } catch (e) { showToast(e.message, 'error'); } }
 async function expReject(id) { const note = prompt('Reason for rejecting (optional):') ?? ''; try { await apiSendJson(`/expenses/${id}/reject`, 'POST', { note }); showToast('Rejected', 'success'); acctLoadExpenses(); } catch (e) { showToast(e.message, 'error'); } }
 async function expMarkReimb(id) { try { await apiSendJson(`/expenses/${id}/mark-reimbursed`, 'POST', {}); showToast('Marked reimbursed', 'success'); document.querySelector('.fixed[data-exp]')?.closest('.fixed')?.remove(); acctLoadExpenses(); } catch (e) { showToast(e.message, 'error'); } }
 async function expDelete(id) { if (!confirm('Delete this expense? This also removes its ledger entry.')) return; try { await apiSendJson(`/expenses/${id}`, 'DELETE'); showToast('Deleted', 'success'); document.querySelector('[data-exp]')?.closest('.fixed')?.remove(); acctLoadExpenses(); } catch (e) { showToast(e.message, 'error'); } }
@@ -511,7 +511,7 @@ async function expRunReport(type, btn) {
   try {
     if (type === 'close') {
       const c = await apiGetJson(`/expenses/checks?month=${m}`);
-      const item = (ok, label, detail) => `<div class="flex items-center gap-2 py-1.5 border-b border-slate-100 dark:border-slate-800/60"><span class="w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 ${ok ? 'bg-emerald-500 text-white' : 'bg-amber-400 text-white'}">${ok ? '✓' : '!'}</span><span class="text-sm flex-1">${label}</span><span class="text-xs font-bold text-slate-500">${detail}</span></div>`;
+      const item = (ok, label, detail) => `<div class="flex items-center gap-2 py-1.5 border-b border-slate-100 dark:border-slate-800/60"><span class="w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 ${ok ? 'bg-emerald-500 text-white' : 'bg-amber-400 text-white'}">${ok ? '' : '!'}</span><span class="text-sm flex-1">${label}</span><span class="text-xs font-bold text-slate-500">${detail}</span></div>`;
       out.innerHTML = `<div class="space-y-0.5">
         ${item(c.pending_count === 0, 'Expenses approved', c.pending_count ? `${c.pending_count} pending (${commMoney(c.pending_total)})` : 'all done')}
         ${item(c.missing_receipts.length === 0, 'Receipts attached', c.missing_receipts.length ? `${c.missing_receipts.length} missing` : 'all attached')}
@@ -664,7 +664,7 @@ async function taskPhotoPick(file) {
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Upload failed');
     const inp = document.getElementById('task-photos-json'); const arr = JSON.parse(inp.value || '[]'); arr.push(d.url); inp.value = JSON.stringify(arr);
     const wrap = document.getElementById('task-photos'); wrap.insertAdjacentHTML('beforeend', `<a href="${esc(d.url)}" target="_blank"><img src="${esc(d.url)}" class="w-14 h-14 object-cover rounded-lg border border-slate-200 dark:border-slate-700"></a>`);
-    showToast('Photo added ✓', 'success');
+    showToast('Photo added ', 'success');
   } catch (e) { showToast(e.message || 'Could not upload', 'error'); }
 }
 function tVal(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
@@ -684,7 +684,7 @@ async function taskSave(id, btn) {
     notes: tVal('task-notes') || null, photos: JSON.parse(document.getElementById('task-photos-json')?.value || '[]'),
   };
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
-  try { if (id) await apiSendJson(`/dealer-tasks/${id}`, 'PUT', body); else await apiSendJson('/dealer-tasks', 'POST', body); showToast('Saved ✓', 'success'); btn.closest('.fixed')?.remove(); loadTaskBoard(); }
+  try { if (id) await apiSendJson(`/dealer-tasks/${id}`, 'PUT', body); else await apiSendJson('/dealer-tasks', 'POST', body); showToast('Saved ', 'success'); btn.closest('.fixed')?.remove(); loadTaskBoard(); }
   catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message || 'Could not save', 'error'); }
 }
 async function taskSetStatus(id, status) { try { await apiSendJson(`/dealer-tasks/${id}`, 'PUT', { status }); loadTaskBoard(); } catch (e) { showToast(e.message, 'error'); } }
@@ -813,19 +813,19 @@ async function deliveryToggle(id, key, done) {
 }
 async function deliveryComplete(id) {
   if (!confirm('Mark this vehicle delivered? This posts the sale to accounting and pays commission.')) return;
-  try { await apiSendJson(`/delivery/${id}/deliver`, 'POST'); showToast('Delivered ✓', 'success'); loadDeliveryQueue(); }
+  try { await apiSendJson(`/delivery/${id}/deliver`, 'POST'); showToast('Delivered ', 'success'); loadDeliveryQueue(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 Object.assign(window, { loadDeliveryQueue, deliveryToggle, deliveryComplete });
 
 const CONFIG_META = {
-  crm_integration:   { label: 'CRM Integration', category: 'crm', icon: '🔄', desc: 'How captured leads sync out to your CRM (method, lead email, webhook, ADF/XML).' },
-  accounting:        { label: 'Accounting & General Ledger', category: 'finance', icon: '💼', desc: 'Auto-post delivered deals to the ledger, chart of accounts mapping + cost tracking.' },
-  service:           { label: 'Service & Parts Parameters', category: 'service', icon: '🔧', desc: 'Labor rate ($/hr), sales tax %, shop supplies %, parts markup, and repair order prefix.' },
-  hr_compliance:     { label: 'People & Compliance (HR)', category: 'hr', icon: '👥', desc: 'Provincial rules (Ontario OHSA/ESA), licence check intervals, mandatory policy documents & safety rules.' },
-  ai_knowledge:      { label: 'AI Knowledge Base', category: 'ai', icon: '🧠', desc: 'Facts the chatbot answers from (hours, financing options, inventory specials, trade-in policy).' },
-  ai_personality:    { label: 'AI Personality & Greeting', category: 'ai', icon: '🤖', desc: 'Chatbot greeting message, conversation tone, and off-hours auto-reply policies.' },
-  notification_rules:{ label: 'Notification & Alert Rules', category: 'crm', icon: '🔔', desc: 'Real-time alert thresholds (hot-lead score cutoffs, SMS numbers, daily digest).' },
+  crm_integration:   { label: 'CRM Integration', category: 'crm', icon: '', desc: 'How captured leads sync out to your CRM (method, lead email, webhook, ADF/XML).' },
+  accounting:        { label: 'Accounting & General Ledger', category: 'finance', icon: '', desc: 'Auto-post delivered deals to the ledger, chart of accounts mapping + cost tracking.' },
+  service:           { label: 'Service & Parts Parameters', category: 'service', icon: '', desc: 'Labor rate ($/hr), sales tax %, shop supplies %, parts markup, and repair order prefix.' },
+  hr_compliance:     { label: 'People & Compliance (HR)', category: 'hr', icon: '', desc: 'Provincial rules (Ontario OHSA/ESA), licence check intervals, mandatory policy documents & safety rules.' },
+  ai_knowledge:      { label: 'AI Knowledge Base', category: 'ai', icon: '', desc: 'Facts the chatbot answers from (hours, financing options, inventory specials, trade-in policy).' },
+  ai_personality:    { label: 'AI Personality & Greeting', category: 'ai', icon: '', desc: 'Chatbot greeting message, conversation tone, and off-hours auto-reply policies.' },
+  notification_rules:{ label: 'Notification & Alert Rules', category: 'crm', icon: '', desc: 'Real-time alert thresholds (hot-lead score cutoffs, SMS numbers, daily digest).' },
 };
 const cfgLabel = (k) => CONFIG_META[k]?.label || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
@@ -904,7 +904,7 @@ async function loadLegacyConfigHub() {
     const meta = CONFIG_META[k.key] || {
       label: cfgLabel(k.key),
       category: 'general',
-      icon: '⚙️',
+      icon: '',
       desc: 'System configuration parameter for your dealership.'
     };
     const valObj = (k.value && typeof k.value === 'object' && !Array.isArray(k.value)) ? k.value : null;
@@ -953,7 +953,7 @@ async function loadLegacyConfigHub() {
         <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800/80">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-10 h-10 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xl shrink-0 font-bold">
-              ${meta.icon || '⚙️'}
+              ${meta.icon || ''}
             </div>
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
@@ -969,8 +969,8 @@ async function loadLegacyConfigHub() {
 
           <!-- Action Controls Right -->
           <div class="flex items-center gap-2 shrink-0">
-            ${valObj ? `<button onclick="cfgToggleView('${esc(k.key)}')" id="btn-toggle-${esc(k.key)}" class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-300 hover:bg-slate-100 text-xs font-bold transition flex items-center gap-1">💻 Code View</button>` : ''}
-            <button onclick="${valObj ? `cfgSaveForm('${esc(k.key)}')` : `cfgSave('${esc(k.key)}')`}" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-sm transition flex items-center gap-1">💾 Save Changes</button>
+            ${valObj ? `<button onclick="cfgToggleView('${esc(k.key)}')" id="btn-toggle-${esc(k.key)}" class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-300 hover:bg-slate-100 text-xs font-bold transition flex items-center gap-1"> Code View</button>` : ''}
+            <button onclick="${valObj ? `cfgSaveForm('${esc(k.key)}')` : `cfgSave('${esc(k.key)}')`}" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-sm transition flex items-center gap-1"> Save Changes</button>
             ${isCustom ? `<button onclick="cfgReset('${esc(k.key)}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-slate-600 hover:text-rose-600 dark:text-slate-300 text-xs font-bold transition">↺ Reset</button>` : ''}
           </div>
         </div>
@@ -994,7 +994,7 @@ async function loadLegacyConfigHub() {
   const structRows = structured.map(s => `
     <div class="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-indigo-300 dark:hover:border-indigo-700 transition">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm">📋</div>
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm"></div>
         <div>
           <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200">${esc(s.label)}</h4>
           <span class="text-[10px] text-slate-400 font-mono">Editor: ${esc(s.editor)}</span>
@@ -1007,28 +1007,28 @@ async function loadLegacyConfigHub() {
   const hrFeaturedCard = `
     <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 border border-indigo-700/60 rounded-2xl p-5 text-white flex flex-wrap items-center justify-between gap-4 shadow-md">
       <div class="flex items-center gap-3.5">
-        <div class="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow">👥</div>
+        <div class="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow"></div>
         <div>
           <h3 class="font-black text-base text-white leading-tight">People &amp; Compliance (HR Engine)</h3>
           <p class="text-xs text-indigo-200 mt-0.5">Unified employee CRM profiles, driver licence tracking, safety policies, and automated HR workflows.</p>
         </div>
       </div>
-      <button onclick="switchPage('people-compliance')" class="px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-black text-xs shadow-md transition flex items-center gap-1.5">Open HR Engine 👥</button>
+      <button onclick="switchPage('people-compliance')" class="px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-black text-xs shadow-md transition flex items-center gap-1.5">Open HR Engine </button>
     </div>
   `;
 
   const categoryTabs = `
     <div class="flex items-center justify-between flex-wrap gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
       <div class="flex flex-wrap items-center gap-2">
-        <button onclick="cfgFilterCategory('all')" id="cfg-cat-all" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-black bg-indigo-600 text-white shadow-sm transition">⚡ All Settings (${keys.length})</button>
-        <button onclick="cfgFilterCategory('crm')" id="cfg-cat-crm" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">🔄 CRM &amp; Alerts</button>
-        <button onclick="cfgFilterCategory('ai')" id="cfg-cat-ai" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">🤖 AI &amp; Personality</button>
-        <button onclick="cfgFilterCategory('hr')" id="cfg-cat-hr" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">👥 People &amp; Compliance</button>
-        <button onclick="cfgFilterCategory('service')" id="cfg-cat-service" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">🔧 Service &amp; Parts</button>
-        <button onclick="cfgFilterCategory('finance')" id="cfg-cat-finance" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">💼 Accounting &amp; Ledger</button>
+        <button onclick="cfgFilterCategory('all')" id="cfg-cat-all" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-black bg-indigo-600 text-white shadow-sm transition"> All Settings (${keys.length})</button>
+        <button onclick="cfgFilterCategory('crm')" id="cfg-cat-crm" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"> CRM &amp; Alerts</button>
+        <button onclick="cfgFilterCategory('ai')" id="cfg-cat-ai" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"> AI &amp; Personality</button>
+        <button onclick="cfgFilterCategory('hr')" id="cfg-cat-hr" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"> People &amp; Compliance</button>
+        <button onclick="cfgFilterCategory('service')" id="cfg-cat-service" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"> Service &amp; Parts</button>
+        <button onclick="cfgFilterCategory('finance')" id="cfg-cat-finance" class="cfg-cat-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"> Accounting &amp; Ledger</button>
       </div>
       <div class="relative w-full sm:w-64">
-        <input type="text" id="cfg-search-input" onkeyup="cfgSearchFilter()" placeholder="🔍 Filter settings..." class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+        <input type="text" id="cfg-search-input" onkeyup="cfgSearchFilter()" placeholder=" Filter settings..." class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
       </div>
     </div>
   `;
@@ -1055,7 +1055,7 @@ async function loadLegacyConfigHub() {
         <div class="space-y-3">
           <div class="flex items-center justify-between pt-2">
             <div class="flex items-center gap-2">
-              <div class="w-6 h-6 rounded-md bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xs">📋</div>
+              <div class="w-6 h-6 rounded-md bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xs"></div>
               <h2 class="text-xs font-black uppercase tracking-wider text-slate-400">Structured System Domains</h2>
             </div>
             <span class="text-[11px] font-bold text-slate-400">${structured.length} Domains</span>
@@ -1068,7 +1068,7 @@ async function loadLegacyConfigHub() {
       <div class="space-y-3">
         <div class="flex items-center justify-between pt-2">
           <div class="flex items-center gap-2">
-            <div class="w-6 h-6 rounded-md bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold text-xs">⚙️</div>
+            <div class="w-6 h-6 rounded-md bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold text-xs"></div>
             <h2 class="text-xs font-black uppercase tracking-wider text-slate-400">Core Configuration Parameters</h2>
           </div>
           <span class="text-[11px] font-bold text-slate-400">Full-Width Row View</span>
@@ -1089,11 +1089,11 @@ function cfgToggleView(key) {
   if (formMode.classList.contains('hidden')) {
     formMode.classList.remove('hidden');
     codeMode.classList.add('hidden');
-    if (btn) btn.innerHTML = '💻 Code View';
+    if (btn) btn.innerHTML = ' Code View';
   } else {
     formMode.classList.add('hidden');
     codeMode.classList.remove('hidden');
-    if (btn) btn.innerHTML = '📋 Form View';
+    if (btn) btn.innerHTML = ' Form View';
   }
 }
 
@@ -1114,7 +1114,7 @@ async function cfgSaveForm(key) {
   });
   try {
     await apiSendJson('/config/' + encodeURIComponent(key), 'PUT', { value: obj });
-    showToast(`Saved ${key} ✓`, 'success');
+    showToast(`Saved ${key} `, 'success');
     loadConfigHub();
   } catch (e) {
     showToast(e.message, 'error');
