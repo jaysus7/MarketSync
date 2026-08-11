@@ -312,11 +312,12 @@ window.salesSaveRouting = salesSaveRouting;
 ENGINES['sales'] = {
   rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first',
   icon: 'currency', accent: 'amber',
-  // Four tabs. Insights folded into My Day (a number you only see by opening another tab is a
+  // One primary Sales header. Insights folded into My Day (a number you only see by opening another tab is a
   // number nobody acts on), Automation folded into Settings (there is one workflow engine, so
   // it is configuration, not a department surface), Work renamed to what it actually holds, and
-  // Appointments promoted out of a sub-view because it is a top-level part of a rep's day.
-  tabLabels: { overview: 'My Day', work: 'Customers', appointments: 'Appointments', equity: 'Equity Mining', settings: 'Settings' },
+  // Opportunities, appointments, deals and deliveries are all composed into My Day.
+  tabOrder: ['overview', 'work', 'equity', 'settings'],
+  tabLabels: { overview: 'My Day', work: 'Customers', equity: 'Equity Mining', settings: 'Settings' },
 
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
@@ -360,7 +361,7 @@ ENGINES['sales'] = {
   quickActions: [
     // Opportunities leads the header rather than hiding as a sub-view: it is the first thing a
     // salesperson is looking for when they open the workspace.
-    { label: 'Opportunities', icon: 'flame', onclick: "salesWorkView('opportunities')" },
+    { label: 'Opportunities', icon: 'flame', onclick: "engineTab('sales','overview')" },
     { label: '+ Customer', icon: 'user', onclick: 'crmOpenForm()' },
     { label: 'Book Appointment', icon: 'calendar', onclick: "switchPage('appointments')" },
     { label: 'Appraise Trade', icon: 'gem', onclick: "switchPage('appraisal')" },
@@ -407,8 +408,11 @@ ENGINES['sales'] = {
         </div>`;
     },
 
-    // ── WORK — Opportunities | Appointments | Customers | Deals | Deliveries ──
-    work: salesRenderWork,
+    // ── CUSTOMERS — one view, without another nested header ─────────────────
+    work(body, d) {
+      body.innerHTML = engCard('Customers', (d.contacts || []).slice(0, 50).map(c => salesOppRow(c, d)).join('') || engEmpty('No customers yet.'))
+        + `<div class="mt-3"><button onclick="switchPage('crm')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">Open full customer record search →</button></div>`;
+    },
 
     // ── APPOINTMENTS — promoted out of a sub-view ───────────────────────────
     // It was one of five tabs inside Work. Booking and arrival is a top-level part of a

@@ -59,15 +59,15 @@ const MS_WORKSPACES = {
     label: 'Sales', icon: 'currency', accent: 'amber',
     pages: [
       { page: 'sales', label: 'My Day' },
-      { page: 'crm', label: 'Customers' },
-      { page: 'appointments', label: 'Appointments' },
-      { page: 'tasks', label: 'Tasks' },
-      { page: 'leads', label: 'Leads', mgr: true },
-      { page: 'insights', label: 'Insights', mgr: true },
+      { page: 'crm', label: 'Customers', legacy: true },
+      { page: 'appointments', label: 'Appointments', legacy: true },
+      { page: 'tasks', label: 'Tasks', legacy: true },
+      { page: 'leads', label: 'Leads', mgr: true, legacy: true },
+      { page: 'insights', label: 'Insights', mgr: true, legacy: true },
       // "My commission" — a rep-facing page whose only access point lived in the
       // retired legacy tree, leaving it unreachable. Restored here (all roles);
       // managers also reach it via Accounting → Payroll.
-      { page: 'commissions', label: 'My Commission' },
+      { page: 'commissions', label: 'My Commission', legacy: true },
     ],
   },
 

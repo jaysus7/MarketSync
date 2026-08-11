@@ -296,40 +296,18 @@
       <button id="logout-btn" onclick="msSignOut()" title="Sign out" aria-label="Sign out" class="inline-flex items-center justify-center p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9"/></svg>
       </button>
-      <div class="relative">
-        <button id="shell-menu-btn" onclick="msToggleShellMenu()" aria-expanded="false" aria-controls="shell-menu" class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Menu">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
-        </button>
-        <!-- Everything the header no longer shows. Each entry kept its id so the code
-             that fills, gates or hides it keeps working untouched. -->
-        <div id="shell-menu" class="hidden absolute right-0 mt-2 w-64 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5 z-50 text-sm">
-          <div class="px-3 py-2.5 border-b border-slate-200 dark:border-slate-700 mb-1.5">
-            <div class="text-sm font-bold text-slate-900 dark:text-white truncate" id="ui-profile-name">---</div>
-            <div class="text-xs text-slate-500 dark:text-slate-400 truncate" id="ui-dealership-name">---</div>
-            <!-- Live Running Shift Time Clock Badge -->
-            <button id="header-shift-clock-chip" onclick="switchPage('people-compliance')" title="Shift Time Clock — Click to view Workstation" class="hidden mt-2 items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-sm cursor-pointer whitespace-nowrap bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20">
-              <span class="relative flex h-2 w-2">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span class="font-mono text-xs font-bold" id="header-shift-timer-display"> SHIFT: 00:00:00</span>
-            </button>
-            <!-- Rank/tier chip — opens the leaderboard -->
-            <button id="ui-tier-chip" onclick="openLeaderboardOnDash()" title="Your rank & badges — open the leaderboard" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition hover:brightness-110 whitespace-nowrap"></button>
-          </div>
-          <button id="idscan-btn" onclick="identityScan()" title="Add a customer — scan their driver's licence to fill in all the details" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Add customer</button>
-          <button id="fb-post-btn" onclick="postToFacebook()" title="Post inventory to Facebook Marketplace" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Post to Facebook</button>
-          <button id="open-upgrades" onclick="openUpgradesHub()" title="Upgrades & add-ons" class="relative w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Upgrades &amp; add-ons<span id="upg-days-badge" class="hidden absolute top-1.5 right-2 min-w-[18px] h-4 bg-violet-600 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span></button>
-          <a id="training-btn" href="/training.html" title="Training Academy — step-by-step help" class="block px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Training</a>
-          <button onclick="msShellGo('academy')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Academy</button>
-          <button onclick="msShellGo('profile');settingsTab('account')" class="md:hidden w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">My profile</button>
-          <button onclick="msShellGo('profile');settingsTab('admin')" class="md:hidden w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Settings</button>
-          <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="hidden px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Install extension</a>
-          <button onclick="msSignOut()" class="md:hidden w-full text-left px-3 py-2 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">Sign out</button>
-        </div>
-      </div>
     </div>
   </header>
+
+  <!-- Runtime compatibility targets for entitlement/profile code. These are not a
+       second menu and never render; their functions remain reachable in canonical
+       workspaces after the retired hamburger was removed. -->
+  <div class="hidden" aria-hidden="true">
+    <span id="ui-profile-name">---</span><span id="ui-dealership-name">---</span>
+    <button id="header-shift-clock-chip"><span id="header-shift-timer-display"></span></button>
+    <button id="ui-tier-chip"></button><button id="idscan-btn"></button><button id="fb-post-btn"></button>
+    <button id="open-upgrades"><span id="upg-days-badge"></span></button><a id="training-btn"></a><a id="ext-header-btn"></a>
+  </div>
 
 
   <!-- Notification slideout panel -->
@@ -3700,7 +3678,6 @@
     };
   </script>
   <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
-  <script src="tour.js?v=20260805_hr30d_v3_noemoji"></script>
   <script src="table-sort.js?v=20260706a_noemoji"></script>
 </body>
 </html>

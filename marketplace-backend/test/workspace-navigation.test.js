@@ -39,6 +39,7 @@ function loadRegistry() {
 
 const html = read('dashboard.html')
 const part2 = read('js/modules/dashboard-part2.js')
+const salesWorkspace = read('js/modules/sales-workspace.js')
 const part11 = read('js/modules/dashboard-part11.js')
 const pageContainers = new Set([...html.matchAll(/data-page-content="([^"]+)"/g)].map(m => m[1]))
 
@@ -219,12 +220,9 @@ test('Management exposes one canonical four-tab command header', () => {
     'active Management output must use product icons, not emoji decoration')
 })
 
-test('the desktop global header keeps approved sales and account controls', () => {
-  assert.match(html, /id="shell-menu-btn"/)
-  assert.match(html, /id="shell-menu"/)
-  for (const id of ['fb-post-btn', 'idscan-btn', 'training-btn']) {
-    assert.match(html, new RegExp(`#${id}[^}]*display:\\s*none\\s*!important`), `${id} must leave the global toolbar`)
-  }
+test('the global header keeps approved sales and account controls without a hamburger or tour', () => {
+  assert.doesNotMatch(html, /id="shell-menu-btn"|id="shell-menu"/)
+  assert.doesNotMatch(html, /src="tour\.js/)
   for (const id of ['header-desk-btn', 'header-appraise-btn', 'header-profile-btn', 'header-settings', 'logout-btn']) {
     assert.match(html, new RegExp(`id="${id}"`), `${id} must remain directly accessible on desktop`)
   }
@@ -236,6 +234,15 @@ test('the desktop global header keeps approved sales and account controls', () =
     'sign out must remain directly reachable in the phone header')
   assert.doesNotMatch(html, /@media \(max-width: 767px\)[\s\S]*#header-desk-btn/,
     'approved quick actions must not disappear on phones')
+})
+
+test('Sales uses one header and composes operational work into My Day', () => {
+  assert.match(salesWorkspace, /tabOrder:\s*\['overview', 'work', 'equity', 'settings'\]/)
+  assert.doesNotMatch(salesWorkspace, /tabLabels:\s*\{[^}]*appointments:/)
+  assert.match(salesWorkspace, /salesDealsAndDeliveries\(d\)/)
+  assert.match(salesWorkspace, /Today's appointments/)
+  assert.match(salesWorkspace, /Active opportunities/)
+  assert.match(salesWorkspace, /work\(body, d\)[\s\S]*engCard\('Customers'/)
 })
 
 test('dealer login lands on the My Day owned by the caller role', () => {
