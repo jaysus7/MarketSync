@@ -120,6 +120,46 @@ async function sendVerificationEmail({ email, actionLink, name }) {
 
 import { registerAuthMfaPasskeyRoutes } from './submodules/auth-mfa-passkeys.js'
 
+
+// ── Issuing a password reset ─────────────────────────────────────────────────
+// Extracted so HR's admin-triggered reset (routes/people-dossier.js) uses the SAME
+// one-shot hashed-token flow rather than a second reset path. A duplicate would be a
+// second place to get token expiry, hashing or single-use wrong.
+//
+// Returns { sent, reason } — never throws, and never sets a password. The raw token is
+// emailed and only its SHA-256 hash is stored, so a full database dump cannot be used
+// to reset anybody.
+export async function issuePasswordReset({ userId, email, req }) {
+  if (!userId || !email) return { sent: false, reason: 'no login on file' }
+  if (!resend) return { sent: false, reason: 'email is not configured on this deployment' }
+  const normEmail = String(email).toLowerCase().trim()
+  try {
+    const rawToken = randomBytes(32).toString('hex')
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex')
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+    const ip = req ? getClientIp(req) : null
+
+    const { error: insErr } = await supabaseAdmin.from('password_reset_tokens').insert({
+      user_id: userId, email: normEmail, token_hash: tokenHash, expires_at: expiresAt, requested_ip: ip,
+    })
+    if (insErr) return { sent: false, reason: 'the reset token could not be stored' }
+
+    const resetUrl = `${FRONTEND_URL}/reset-password.html?token=${rawToken}`
+    const { error: sendErr } = await resend.emails.send({
+      from: EMAIL_FROM, to: normEmail, subject: 'Reset your MarketSync password',
+      html: buildResetEmailHtml({ resetUrl, ip }), text: buildResetEmailText({ resetUrl, ip }),
+      headers: {
+        'List-Unsubscribe': `<mailto:unsubscribe@marketsync.link?subject=unsub-${userId}>`,
+        'X-Entity-Ref-ID': tokenHash.slice(0, 16),
+      },
+    })
+    if (sendErr) return { sent: false, reason: sendErr.message || 'the email provider refused it' }
+    return { sent: true }
+  } catch (e) {
+    return { sent: false, reason: e?.message || 'unknown failure' }
+  }
+}
+
 export function registerRoutes(app) {
   registerAuthMfaPasskeyRoutes(app)
 

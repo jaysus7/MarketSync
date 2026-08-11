@@ -139,12 +139,16 @@ const MS_WORKSPACES = {
     ],
   },
 
-  // ── People — the employee lifecycle (was "Administration") ────────────────
+  // ── HR — the employee lifecycle (was "People", and "Administration" before that) ──
+  // The workspace id stays `people` and the page stays `people-overview`: every deep
+  // link, entitlement key (os.team), permission string (staff.*) and mobile nav entry
+  // is keyed to those. Renaming the LABEL is what the dealership sees; renaming the
+  // identifiers would break all of it for no gain.
   people: {
-    label: 'People', icon: 'user', accent: 'emerald', mgr: true,
+    label: 'HR', icon: 'user', accent: 'emerald', mgr: true,
     pages: [
       { page: 'people-overview', label: 'My Day' },
-      // Retained as redirect/deep-link identities only. The People engine owns Team and
+      // Retained as redirect/deep-link identities only. The HR engine owns Staff and
       // Compliance, so these must never render a second department tab row.
       { page: 'sales-team', label: 'Employees', legacy: true },
       { page: 'people-compliance', label: 'Compliance', legacy: true },
