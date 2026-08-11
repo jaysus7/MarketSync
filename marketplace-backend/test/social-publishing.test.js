@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs'
 // for something it created.
 
 import {
-  applyTargetOutcome, rollUpPostStatus, nextBackoffSeconds, MAX_PUBLISH_ATTEMPTS,
+  applyTargetOutcome, rollUpPostStatus, nextBackoffSeconds, MAX_PUBLISH_ATTEMPTS, vehiclePromotionAllowed,
 } from '../routes/social-publish.js'
 import {
   publishToProvider, registerSocialProvider, __resetSocialProviders,
@@ -278,4 +278,13 @@ test('calendar modes render distinct calendar structures and reschedule through 
   assert.match(ws, /apiSendJson\(`\/social\/posts\/\$\{postId\}`, 'PUT', \{ scheduled_local:/)
   assert.match(ws, /Intl\.DateTimeFormat\('en-CA', \{ timeZone: tz/,
     'calendar grouping must use the canonical dealership timezone')
+})
+
+test('a scheduled vehicle post can publish only while that canonical unit is available', () => {
+  assert.equal(vehiclePromotionAllowed({ id: 'v1', status: 'available' }), true)
+  for (const status of ['sold', 'archived', 'pending', null]) assert.equal(vehiclePromotionAllowed({ id: 'v1', status }), false)
+  assert.equal(vehiclePromotionAllowed(null), false)
+  assert.match(dispatcher, /Nothing was published/)
+  assert.match(social, /social_scheduled_vehicle_unavailable/)
+  assert.match(social, /eq\('dealership_id', dealershipId\)/, 'campaign, inventory and attention reads remain tenant scoped')
 })

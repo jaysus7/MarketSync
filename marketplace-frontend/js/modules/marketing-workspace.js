@@ -109,7 +109,7 @@ const mktReload = () => {
  */
 function mktCompose(prefill = {}) {
   const d = ENGINE_DATA['marketing-overview'] || {};
-  const accounts = d.accounts || [], assets = d.assets || [];
+  const accounts = d.accounts || [], assets = d.assets || [], campaigns = d.campaigns || [], inventory = d.inventory || [];
   const usable = accounts.filter(a => a.can_publish);
   const refused = accounts.filter(a => !a.can_publish);
 
@@ -133,6 +133,10 @@ function mktCompose(prefill = {}) {
             <input type="checkbox" class="mkt-media" value="${esc(a.public_url)}" ${prefill.assetUrl === a.public_url ? 'checked' : ''}>
             <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" class="w-16 h-16 object-cover rounded-lg border border-slate-200 dark:border-slate-700">
           </label>`).join('')}</div>` : ''}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+        <label class="text-[12px] font-bold text-slate-700 dark:text-slate-200">Campaign<select id="mkt-campaign" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]"><option value="">No campaign</option>${campaigns.map(c=>`<option value="${esc(c.id)}" ${prefill.campaignId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
+        <label class="text-[12px] font-bold text-slate-700 dark:text-slate-200">Vehicle<select id="mkt-vehicle" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]"><option value="">No vehicle</option>${inventory.map(v=>`<option value="${esc(v.id)}">${esc(`${v.year||''} ${v.make||''} ${v.model||''} · ${v.stocknumber||'no stock #'}`.trim())}</option>`).join('')}</select></label>
+      </div>
       <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mt-4 mb-1">When</div>
       <input id="mkt-when" type="datetime-local" class="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]">
       <div class="text-[12px] text-slate-400 mt-1">Leave empty to save as a draft you can publish by hand.</div>
@@ -153,6 +157,8 @@ async function mktSavePost(btn) {
     await apiSendJson('/social/posts', 'POST', {
       body: root.querySelector('#mkt-body').value,
       media: [...root.querySelectorAll('.mkt-media:checked')].map(i => i.value),
+      campaign_id: root.querySelector('#mkt-campaign')?.value || null,
+      inventory_id: root.querySelector('#mkt-vehicle')?.value || null,
       scheduled_local: when || null,
       targets,
     });
@@ -297,7 +303,7 @@ ENGINES['marketing-overview'] = {
   })),
 
   fetch: async () => {
-    const [att, camps, accounts, posts, convos, roi, assets] = await Promise.all([
+    const [att, camps, accounts, posts, convos, roi, assets, inventory] = await Promise.all([
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ source: 'my-day', label: 'My Day', reason: 'could not be loaded' }], not_covered: [] })),
       apiGetJson('/campaigns').catch(() => ({ campaigns: [] })),
       apiGetJson('/social/accounts').catch(() => ({ accounts: [] })),
@@ -305,6 +311,7 @@ ENGINES['marketing-overview'] = {
       apiGetJson('/conversations').catch(() => ({ conversations: [] })),
       apiGetJson('/marketing/roi').catch(() => null),
       apiGetJson('/marketing/assets').catch(() => ({ assets: [] })),
+      apiGetJson('/inventory').catch(() => []),
     ]);
     return {
       needsAttention: att.needs_attention || [],
@@ -319,6 +326,7 @@ ENGINES['marketing-overview'] = {
       socialTimezone: posts.timezone || 'UTC',
       conversations: convos.conversations || [],
       assets: assets.assets || [],
+      inventory: Array.isArray(inventory) ? inventory : [],
       roi,
     };
   },
