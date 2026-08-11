@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
-export const ACADEMY_DEMO_VERSION = '2026.08.11-department-workflows-v3'
+export const ACADEMY_DEMO_VERSION = '2026.08.11-department-workflows-v4'
 
 const catalogUrls = [
   new URL('../marketplace-frontend/training/catalog.json', import.meta.url),
@@ -41,7 +41,6 @@ async function must(label, query) {
 
 async function seedLessonScenarios(db, dealershipId, ownerId, products, features) {
   const lessons = demoLessonsForAccess(await loadAcademyDemoLessons(), { products, features })
-  await must('clear Academy scenario events', db.from('events').delete().eq('dealership_id', dealershipId).eq('event_name', 'training.scenario.ready'))
   const now = Date.now()
   const rows = lessons.map((lesson, index) => ({
     dealership_id: dealershipId,
@@ -63,7 +62,11 @@ async function seedLessonScenarios(db, dealershipId, ownerId, products, features
     created_by: ownerId,
     created_at: new Date(now - index * 60000).toISOString(),
   }))
-  for (let i = 0; i < rows.length; i += 100) await must('seed Academy scenario events', db.from('events').insert(rows.slice(i, i + 100)))
+  const existing = await must('find Academy scenario events', db.from('events').select('entity_id')
+    .eq('dealership_id', dealershipId).eq('event_name', 'training.scenario.ready'))
+  const existingIds = new Set((existing || []).map(row => row.entity_id))
+  const missing = rows.filter(row => !existingIds.has(row.entity_id))
+  for (let i = 0; i < missing.length; i += 100) await must('seed Academy scenario events', db.from('events').insert(missing.slice(i, i + 100)))
   return lessons.length
 }
 
