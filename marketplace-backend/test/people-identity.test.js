@@ -165,6 +165,7 @@ test('the role→department map joins two existing vocabularies, it does not add
   assert.equal(departmentForRole('SALES_REP'), 'Sales')
   assert.equal(departmentForRole('ACCOUNTING'), 'Accounting')
   assert.equal(departmentForRole('FNI'), 'F&I')
+  assert.equal(departmentForRole('DEALER_ADMIN'), 'Management')
   assert.equal(departmentForRole('sales_rep'), 'Sales', 'case is not a different role')
   assert.equal(departmentForRole('NOPE'), null, 'an unknown role gets no department, not a guess')
   assert.equal(departmentForRole(null), null)

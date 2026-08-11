@@ -60,7 +60,7 @@ export function transitionError(from, to) {
 // The legacy role label a login carries → the department an employee works in. Two vocabularies
 // that already exist; this is the join, not a third one.
 const ROLE_DEPARTMENT = {
-  MANAGER: 'Management', SALES_REP: 'Sales', FNI: 'F&I',
+  OWNER: 'Management', DEALER_ADMIN: 'Management', MANAGER: 'Management', SALES_REP: 'Sales', FNI: 'F&I',
   SERVICE: 'Service', ACCOUNTING: 'Accounting', CLEANUP: 'Recon',
 }
 export const departmentForRole = (role) => ROLE_DEPARTMENT[String(role || '').toUpperCase()] || null
