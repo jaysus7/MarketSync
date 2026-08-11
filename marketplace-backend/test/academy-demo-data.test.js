@@ -89,6 +89,11 @@ test('demo deals cover legal canonical workflow states', async () => {
   assert.doesNotMatch(source, /deal_status: '(?:working|sold)'/)
 })
 
+test('the backend can reach canonical commission periods', async () => {
+  const migration = await readFile(new URL('../migrations/2026-08-11-commission-pay-periods-service-role.sql', import.meta.url), 'utf8')
+  assert.match(migration, /GRANT SELECT, INSERT, UPDATE, DELETE[\s\S]*commission_pay_periods[\s\S]*service_role/)
+})
+
 test('lesson scenarios are limited to shared and purchased products', async () => {
   const lessons = await loadAcademyDemoLessons()
   const forPlan = planId => demoLessonsForAccess(lessons, { products: productsForPlan(planId), features: featuresForPlan(planId) })
