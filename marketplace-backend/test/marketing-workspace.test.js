@@ -112,7 +112,8 @@ test('it composes existing endpoints and introduces none', () => {
     assert.ok(KNOWN.includes(c), `unexpected read endpoint: ${c}`)
   }
   const WRITES = ['/campaigns/${id}/status', '/conversations/${conversationId}/takeover',
-                  '/social/posts', '/social/posts/${postId}/publish']
+                  '/social/posts', '/social/posts/${postId}/publish', '/social/posts/${postId}',
+                  '/social/posts/${postId}/approve', '/social/posts/${postId}/cancel']
   for (const w of [...ws.matchAll(/apiSendJson\([`']([^`']+)[`']/g)].map(m => m[1])) {
     assert.ok(WRITES.includes(w), `unexpected write target: ${w}`)
   }
@@ -140,7 +141,7 @@ test('a failed post shows the provider reason, not just the word failed', () => 
   const view = ws.match(/if \(__mktView === 'social'\)[\s\S]*?\n      \}/)?.[0] || ''
   assert.match(view, /failed\[0\]\?\.error/,
     '"Failed" alone tells nobody whether to reconnect, wait, or give up')
-  assert.match(view, /actionLabel: failed\.length \? 'Retry' : 'Publish'/)
+  assert.match(view, />Retry<\/button>/)
 })
 
 test('Studio is a library, and says so when it is empty', () => {

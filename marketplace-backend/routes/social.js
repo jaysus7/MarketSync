@@ -332,8 +332,61 @@ export function registerSocial(app) {
       }
       const byPost = {}
       for (const t of targets) (byPost[t.post_id] ||= []).push(t)
-      res.json({ posts: (posts || []).map(p => ({ ...p, targets: byPost[p.id] || [] })) })
+      const accountIds = [...new Set(targets.map(t => t.social_account_id).filter(Boolean))]
+      const { data: accounts } = accountIds.length ? await supabaseAdmin.from('social_accounts')
+        .select('id, provider, display_name, ownership').in('id', accountIds).eq('dealership_id', req.dealershipId) : { data: [] }
+      const accountById = Object.fromEntries((accounts || []).map(a => [a.id, a]))
+      const { data: dealer } = await supabaseAdmin.from('dealerships').select('timezone').eq('id', req.dealershipId).maybeSingle()
+      res.json({ timezone: dealer?.timezone || 'UTC', posts: (posts || []).map(p => ({ ...p, targets: (byPost[p.id] || []).map(t => ({ ...t, account: accountById[t.social_account_id] || null })) })) })
     } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // Scheduled content may change only before a worker claims any target. This updates the
+  // canonical timestamp; calendar drag/drop and the editor both call this same route.
+  app.put('/social/posts/:id', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: post } = await supabaseAdmin.from('social_posts').select('*')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
+    if (!post) return res.status(404).json({ error: 'Post not found' })
+    if (!['draft', 'needs_approval', 'scheduled', 'failed'].includes(post.status)) return res.status(409).json({ error: 'Publishing has started; this post can no longer be edited.' })
+    const { data: ownedTargets } = await supabaseAdmin.from('social_post_targets').select('social_account_id').eq('post_id', post.id)
+    for (const target of ownedTargets || []) {
+      const allowed = await canActOnAccount(req, target.social_account_id, 'schedule')
+      if (!allowed.allowed) return res.status(403).json({ error: allowed.reason })
+    }
+    const { data: active } = await supabaseAdmin.from('social_post_targets').select('id').eq('post_id', post.id).in('status', ['publishing', 'published']).limit(1)
+    if (active?.length) return res.status(409).json({ error: 'Publishing has started; claimed targets cannot be changed.' })
+    const patch = { updated_at: new Date().toISOString() }
+    if (req.body?.body !== undefined) patch.body = req.body.body || null
+    if (req.body?.media !== undefined) patch.media = Array.isArray(req.body.media) ? req.body.media : []
+    if (req.body?.campaign_id !== undefined) patch.campaign_id = req.body.campaign_id || null
+    if (req.body?.scheduled_for !== undefined) {
+      patch.scheduled_for = req.body.scheduled_for || null
+      patch.status = post.requires_approval && !post.approved_at ? 'needs_approval' : (patch.scheduled_for ? 'scheduled' : 'draft')
+    }
+    const { data, error } = await supabaseAdmin.from('social_posts').update(patch)
+      .eq('id', post.id).eq('dealership_id', req.dealershipId).select('*').single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'social.post_rescheduled', { before_state: { scheduled_for: post.scheduled_for, status: post.status }, after_state: { scheduled_for: data.scheduled_for, status: data.status } })
+    res.json({ ok: true, post: data })
+  })
+
+  app.post('/social/posts/:id/cancel', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: post } = await supabaseAdmin.from('social_posts').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!post) return res.status(404).json({ error: 'Post not found' })
+    const { data: ownedTargets } = await supabaseAdmin.from('social_post_targets').select('social_account_id').eq('post_id', post.id)
+    for (const target of ownedTargets || []) {
+      const allowed = await canActOnAccount(req, target.social_account_id, 'schedule')
+      if (!allowed.allowed) return res.status(403).json({ error: allowed.reason })
+    }
+    const { data: active } = await supabaseAdmin.from('social_post_targets').select('id').eq('post_id', post.id).in('status', ['publishing', 'published']).limit(1)
+    if (active?.length) return res.status(409).json({ error: 'Publishing has started; this post cannot be cancelled.' })
+    const { data, error } = await supabaseAdmin.from('social_posts').update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', post.id).eq('dealership_id', req.dealershipId).select('*').single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'social.post_cancelled', { before_state: { status: post.status }, after_state: { status: data.status } })
+    res.json({ ok: true, post: data })
   })
 
   // Approval is per post, and the approver must be able to approve for every account it

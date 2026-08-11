@@ -18,8 +18,13 @@ const MKT_VIEWS = [
   ['conversations', 'Conversations'], ['attribution', 'Attribution'],
 ];
 let __mktView = 'campaigns';
+let __socialView = 'calendar';
+let __socialCalendarMode = 'month';
 function mktView(v) { __mktView = v; engineTab('marketing-overview', 'work'); }
 window.mktView = mktView;
+function mktSocialView(v) { __socialView = v; mktView('social'); }
+function mktSocialCalendarMode(v) { __socialCalendarMode = v; mktView('social'); }
+Object.assign(window, { mktSocialView, mktSocialCalendarMode });
 
 const mktMoney = (v) => {
   const x = Number(v) || 0;
@@ -165,6 +170,22 @@ async function mktPublishNow(postId) {
 }
 window.mktPublishNow = mktPublishNow;
 
+async function mktReschedule(postId, current) {
+  const next = prompt('Schedule date/time (local)', current ? String(current).slice(0, 16) : ''); if (!next) return;
+  try { await apiSendJson(`/social/posts/${postId}`, 'PUT', { scheduled_for: new Date(next).toISOString() }); showToast('Post rescheduled', 'success'); mktReload(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function mktApprovePost(postId) {
+  try { await apiSendJson(`/social/posts/${postId}/approve`, 'POST', {}); showToast('Post approved', 'success'); mktReload(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+async function mktCancelPost(postId) {
+  if (!confirm('Cancel this post?')) return;
+  try { await apiSendJson(`/social/posts/${postId}/cancel`, 'POST', {}); showToast('Post cancelled', 'success'); mktReload(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+Object.assign(window, { mktReschedule, mktApprovePost, mktCancelPost });
+
 async function mktUploadAsset(input) {
   const file = input.files?.[0]; if (!file) return;
   showToast('Uploading…', 'info');
@@ -217,7 +238,7 @@ ENGINES['marketing-overview'] = {
       apiGetJson('/my-day').catch(() => ({ needs_attention: [], opportunities: [], failed: [{ source: 'my-day', label: 'My Day', reason: 'could not be loaded' }], not_covered: [] })),
       apiGetJson('/campaigns').catch(() => ({ campaigns: [] })),
       apiGetJson('/social/accounts').catch(() => ({ accounts: [] })),
-      apiGetJson('/social/posts').catch(() => ({ posts: [] })),
+      apiGetJson('/social/posts').catch(() => ({ posts: [], timezone: 'UTC' })),
       apiGetJson('/conversations').catch(() => ({ conversations: [] })),
       apiGetJson('/marketing/roi').catch(() => null),
       apiGetJson('/marketing/assets').catch(() => ({ assets: [] })),
@@ -232,6 +253,7 @@ ENGINES['marketing-overview'] = {
       campaigns: camps.campaigns || [],
       accounts: accounts.accounts || [],
       posts: posts.posts || [],
+      socialTimezone: posts.timezone || 'UTC',
       conversations: convos.conversations || [],
       assets: assets.assets || [],
       roi,
@@ -323,16 +345,37 @@ ENGINES['marketing-overview'] = {
 
       if (__mktView === 'social') {
         const accounts = d.accounts || [], posts = d.posts || [];
+        const tz = d.socialTimezone || 'UTC';
         const broken = accounts.filter(a => a.status !== 'connected');
         // Nothing publishes until a network integration is connected. Saying so here is the
         // difference between a queue that looks healthy and one a person can act on.
         const unsent = posts.filter(p => ['scheduled', 'failed', 'partially_published'].includes(p.status)
           || (p.targets || []).some(t => t.status === 'failed'));
+        const socialTabs = [['calendar','Calendar'],['queue','Queue'],['drafts','Drafts'],['approvals','Approvals'],['published','Published'],['failed','Failed']]
+          .map(([v,l]) => `<button onclick="mktSocialView('${v}')" class="px-3 py-1.5 rounded-lg text-[12px] font-bold ${__socialView===v?'bg-violet-600 text-white':'border border-slate-200 dark:border-slate-700'}">${l}</button>`).join('');
+        const selected = posts.filter(p => __socialView === 'drafts' ? p.status === 'draft'
+          : __socialView === 'approvals' ? p.status === 'needs_approval'
+          : __socialView === 'published' ? p.status === 'published'
+          : __socialView === 'failed' ? (p.status === 'failed' || p.status === 'partially_published' || (p.targets||[]).some(t=>t.status==='failed'))
+          : __socialView === 'queue' ? ['scheduled','publishing','needs_approval'].includes(p.status)
+          : !!p.scheduled_for);
+        const fmt = (iso) => { if (!iso) return 'Unscheduled'; try { return new Intl.DateTimeFormat(undefined,{timeZone:tz,month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(iso)); } catch { return new Date(iso).toLocaleString(); } };
+        const postRows = selected.length ? selected.slice(0, 100).map(p => {
+          const targets = p.targets || [], failed = targets.filter(t=>t.status==='failed');
+          const why = failed[0]?.error || null;
+          const partial = failed.length > 0 && failed.length < targets.length;
+          const networks = [...new Set(targets.map(t=>t.account?.provider).filter(Boolean))].join(', ') || 'No network';
+          const action = p.status === 'needs_approval' ? `<button onclick="mktApprovePost('${p.id}')" class="text-[11px] font-bold text-violet-600">Approve</button>`
+            : ['draft','scheduled','failed'].includes(p.status) ? `<button onclick="mktReschedule('${p.id}','${p.scheduled_for || ''}')" class="text-[11px] font-bold text-violet-600">${p.scheduled_for?'Reschedule':'Schedule'}</button>` : '';
+          return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex gap-3"><div class="w-16 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${p.media?.[0]?`style="background-image:url('${esc(p.media[0])}')"`:''}></div><div class="min-w-0 flex-1"><div class="text-[11px] font-bold text-slate-400">${esc(fmt(p.scheduled_for))} · ${esc(tz)}</div><div class="text-[13px] font-bold text-slate-900 dark:text-white truncate">${esc((p.body||'Untitled post').slice(0,90))}</div><div class="text-[11px] text-slate-500">${esc(networks)} · ${esc(partial ? 'Partly published' : failed.length ? 'Failed' : mktLabel(p.status))}${failed.length?` · ${failed.length} failed to publish`:''}${why?` · ${esc(why)}`:''}</div></div><div class="flex flex-col gap-1 text-right">${action}${['draft','scheduled','needs_approval','failed'].includes(p.status)?`<button onclick="mktCancelPost('${p.id}')" class="text-[11px] font-bold text-rose-600">Cancel</button>`:''}${failed.length?`<button onclick="mktPublishNow('${p.id}')" class="text-[11px] font-bold text-rose-600">Retry</button>`:''}</div></div>`;
+        }).join('') : engEmpty(`No ${__socialView} posts.`);
         inner = `
           <div class="flex items-center justify-between gap-3 mb-3">
-            <div class="text-[13px] text-slate-500">Composed here, published by the dealership's connected accounts.</div>
+            <div class="text-[13px] text-slate-500">Dealer timezone: <b>${esc(tz)}</b></div>
             <button onclick="mktCompose()" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[12px] font-bold">New post</button>
           </div>
+          <div class="flex gap-2 overflow-x-auto pb-2 mb-3">${socialTabs}</div>
+          ${__socialView==='calendar'?`<div class="flex gap-2 mb-3">${['month','week','agenda'].map(v=>`<button onclick="mktSocialCalendarMode('${v}')" class="text-[11px] font-bold px-2 py-1 rounded ${__socialCalendarMode===v?'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'border border-slate-200 dark:border-slate-700'}">${mktLabel(v)}</button>`).join('')}</div>`:''}
           <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
             ${engKpi('Accounts', accounts.length)}
             ${engKpi('Disconnected', broken.length, broken.length ? 'text-rose-600 dark:text-rose-400' : '')}
@@ -347,30 +390,7 @@ ENGINES['marketing-overview'] = {
             tone: a.status !== 'connected' ? 'text-rose-600 dark:text-rose-400'
                 : a.can_publish ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500',
           })).join('') : engEmpty('No social accounts connected.'))}
-          <div class="mt-4"></div>
-          ${engCard('Scheduled and recent posts', posts.length ? posts.slice(0, 40).map(p => {
-            // A post whose targets partly failed is NOT "published". Saying so would hide
-            // the one account the dealership meant to reach and never did.
-            const targets = p.targets || [];
-            const failed = targets.filter(t => t.status === 'failed');
-            const partial = failed.length > 0 && failed.length < targets.length;
-            // The provider's own words. "Failed" alone tells nobody whether to reconnect an
-            // account, wait, or stop expecting this post to go out at all.
-            const why = failed[0]?.error || null;
-            return mktRow({
-              title: (p.body || 'Post').slice(0, 70),
-              sub: `${mktLabel(p.status)}${p.scheduled_for ? ` · ${String(p.scheduled_for).slice(0, 16).replace('T', ' ')}` : ''}`,
-              note: targets.length
-                ? `${targets.length} account(s)${failed.length ? ` · ${failed.length} failed to publish` : ''}${why ? ` · ${why}` : ''}`
-                : 'no accounts',
-              right: partial ? 'Partly published' : failed.length ? 'Failed' : mktLabel(p.status),
-              tone: failed.length || p.status === 'failed' ? 'text-rose-600 dark:text-rose-400'
-                  : p.status === 'published' ? 'text-emerald-600 dark:text-emerald-400' : '',
-              onclick: p.status !== 'published' && p.status !== 'needs_approval'
-                ? `mktPublishNow('${p.id}')` : null,
-              actionLabel: failed.length ? 'Retry' : 'Publish',
-            });
-          }).join('') : engEmpty('Nothing scheduled.'))}`;
+          <div class="mt-4"></div>${engCard(`${mktLabel(__socialView)} (${selected.length})`, `<div class="space-y-2">${postRows}</div>`)}`;
       }
 
       if (__mktView === 'conversations') {
