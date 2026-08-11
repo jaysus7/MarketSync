@@ -113,14 +113,10 @@ test('an all-quiet day is distinguishable from a broken one', async () => {
   assert.equal(broken.complete, false, 'same empty list, completely different meaning')
 })
 
-test('the departments with no builder are named, not implied', async () => {
+test('not-covered stays explicit and is empty only after every named gap has a builder', async () => {
   const day = await buildMyDay(REQ, { can: allowing(), sources: [src('a', [])] })
-  // Somebody whose whole job is Service must not be told their day is clear by a queue that
-  // was never able to see Service.
   assert.deepEqual(day.not_covered, MY_DAY_GAPS)
-  assert.ok(MY_DAY_GAPS.includes('Service'))
-  assert.ok(MY_DAY_GAPS.includes('Parts'))
-  assert.ok(!MY_DAY_GAPS.includes('People'), 'People emits attention as of 7.1')
+  assert.deepEqual(MY_DAY_GAPS, [])
 })
 
 // ── Normalization ───────────────────────────────────────────────────────────
@@ -229,7 +225,7 @@ test('every registered source names a real permission and a loader', () => {
     assert.equal(typeof s.load, 'function', `${s.key} has no loader`)
     assert.ok(s.department && s.label, `${s.key} must carry a department and a label`)
   }
-  assert.equal(MY_DAY_SOURCES.length, 11)
+  assert.equal(MY_DAY_SOURCES.length, 15)
   assert.equal(new Set(MY_DAY_SOURCES.map(s => s.key)).size, MY_DAY_SOURCES.length,
     'a duplicate source key would silently drop a department from the day')
 })

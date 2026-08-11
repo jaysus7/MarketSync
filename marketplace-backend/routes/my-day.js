@@ -34,6 +34,7 @@ import { academyAttention } from './academy.js'
 import { timeAttention } from './people-time.js'
 import { complianceAttention } from './people-compliance.js'
 import { launchAttention } from './launch-hub.js'
+import { serviceAttention, partsAttention, inventoryAttention, fniAttention } from './operational-attention.js'
 
 /**
  * Every department that can answer for itself, and what a caller must hold to see it.
@@ -59,6 +60,10 @@ export const MY_DAY_SOURCES = [
   { key: 'compliance', label: 'Compliance', department: 'People', permission: 'staff.compliance.view', deepLink: '#/w/people/people-overview', load: complianceAttention },
   // Setup reaches the day only when something is actually not working — never for a logo.
   { key: 'setup', label: 'Setup', department: 'Dealership', permission: 'settings.manage', deepLink: '#/w/launch/launch', load: launchAttention },
+  { key: 'service', label: 'Service', department: 'Service', permission: 'service.view', deepLink: '#/w/service/service-overview', load: serviceAttention },
+  { key: 'parts', label: 'Parts', department: 'Parts', permission: 'service.view', deepLink: '#/w/parts/parts-overview', load: partsAttention },
+  { key: 'inventory', label: 'Inventory', department: 'Inventory', permission: 'inventory.view', deepLink: '#/w/inventory/inventory-overview', load: inventoryAttention },
+  { key: 'fni', label: 'F&I', department: 'F&I', permission: 'fni.credit_application.view', deepLink: '#/w/fni/fni-overview', load: fniAttention },
 ]
 
 /**
@@ -66,7 +71,7 @@ export const MY_DAY_SOURCES = [
  * whose whole job is Service should not be told their day is clear by a queue that was never
  * able to see Service in the first place.
  */
-export const MY_DAY_GAPS = ['Service', 'Parts', 'Inventory', 'F&I']
+export const MY_DAY_GAPS = []
 
 const SEVERITY_MIN = 1
 const SEVERITY_MAX = 3
