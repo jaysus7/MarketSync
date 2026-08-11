@@ -159,10 +159,14 @@ async function seedServiceAndParts(db, dealershipId, ownerId, inventory, contact
   const existingLines = await must('find demo RO lines', db.from('ro_lines').select('id').eq('dealership_id', dealershipId).eq('ro_id', ro.id).limit(1))
   if (!existingLines?.length) {
     const pads = parts.find(p => p.part_number === 'DEMO-BRK-221')
-    await must('seed demo RO lines', db.from('ro_lines').insert([
-      { dealership_id: dealershipId, ro_id: ro.id, line_type: 'labor', description: 'Inspect and replace front brakes', qty: 1, hours: 2, rate: 149, unit_price: 298, total: 298, tech_id: ownerId },
-      { dealership_id: dealershipId, ro_id: ro.id, line_type: 'part', part_id: pads?.id || null, description: 'Front brake pad kit', qty: 2, unit_cost: 84.2, unit_price: 168.4, total: 336.8 },
-    ]))
+    await must('seed demo labor RO line', db.from('ro_lines').insert({
+      dealership_id: dealershipId, ro_id: ro.id, line_type: 'labor', description: 'Inspect and replace front brakes',
+      qty: 1, hours: 2, rate: 149, unit_price: 298, total: 298, tech_id: ownerId,
+    }))
+    await must('seed demo part RO line', db.from('ro_lines').insert({
+      dealership_id: dealershipId, ro_id: ro.id, line_type: 'part', part_id: pads?.id || null,
+      description: 'Front brake pad kit', qty: 2, unit_cost: 84.2, unit_price: 168.4, total: 336.8,
+    }))
   }
   for (const part of parts) {
     const reference = `ACADEMY-DEMO-${part.part_number}`
@@ -251,7 +255,7 @@ async function seedDepartmentWorkflows(db, dealershipId, ownerId, inventory, con
   }
 
   if (features.has('os.fni') || features.has('os.sales')) {
-    const creditStates = ['draft', 'ready', 'submitted', 'conditioned', 'approved']
+    const creditStates = ['draft', 'consent_received', 'submitted', 'lender_review', 'approved']
     for (let i = 0; i < Math.min(creditStates.length, deals.length); i++) {
       const deal = deals[i]
       if (!deal?.id || !deal.contact_id) continue
@@ -264,11 +268,11 @@ async function seedDepartmentWorkflows(db, dealershipId, ownerId, inventory, con
         financing: { down_payment: 3500, term: 72, desired_payment: 650 },
         vehicle: { inventory_id: deal.inventory_id }, consent: status !== 'draft',
         consent_at: status !== 'draft' ? new Date(now - i * 3600000).toISOString() : null,
-        consent_method: status !== 'draft' ? 'paper' : null, provider: status === 'submitted' || status === 'conditioned' || status === 'approved' ? 'manual' : null,
-        provider_ref: status === 'submitted' || status === 'conditioned' || status === 'approved' ? `ACADEMY-DEMO-CREDIT-${i + 1}` : null,
-        decision: status === 'conditioned' ? { status, stipulations: ['Proof of income', 'Void cheque'] }
+        consent_method: status !== 'draft' ? 'paper' : null, provider: ['submitted', 'lender_review', 'approved'].includes(status) ? 'manual' : null,
+        provider_ref: ['submitted', 'lender_review', 'approved'].includes(status) ? `ACADEMY-DEMO-CREDIT-${i + 1}` : null,
+        decision: status === 'lender_review' ? { status, stipulations: ['Proof of income', 'Void cheque'] }
           : status === 'approved' ? { status, rate: 7.49, term: 72, amount: deal.total_price } : null,
-        submitted_at: ['submitted', 'conditioned', 'approved'].includes(status) ? new Date(now - i * 3600000).toISOString() : null,
+        submitted_at: ['submitted', 'lender_review', 'approved'].includes(status) ? new Date(now - i * 3600000).toISOString() : null,
       }))
       summary.credit_applications++
     }

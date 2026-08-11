@@ -89,6 +89,14 @@ test('demo deals cover legal canonical workflow states', async () => {
   assert.doesNotMatch(source, /deal_status: '(?:working|sold)'/)
 })
 
+test('demo credit and RO lines use canonical write contracts', async () => {
+  const source = await readFile(new URL('../academy-demo-data.js', import.meta.url), 'utf8')
+  assert.match(source, /\['draft', 'consent_received', 'submitted', 'lender_review', 'approved'\]/)
+  assert.doesNotMatch(source, /\['draft', 'ready', 'submitted', 'conditioned'/)
+  assert.match(source, /seed demo labor RO line/)
+  assert.match(source, /seed demo part RO line/)
+})
+
 test('the backend can reach canonical commission periods', async () => {
   const migration = await readFile(new URL('../migrations/2026-08-11-commission-pay-periods-service-role.sql', import.meta.url), 'utf8')
   assert.match(migration, /GRANT SELECT, INSERT, UPDATE, DELETE[\s\S]*commission_pay_periods[\s\S]*service_role/)
