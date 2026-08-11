@@ -113,14 +113,14 @@ test('it composes existing endpoints and introduces none', () => {
   }
   const WRITES = ['/campaigns/${id}/status', '/conversations/${conversationId}/takeover',
                   '/social/posts', '/social/posts/${postId}/publish', '/social/posts/${postId}',
-                  '/social/posts/${postId}/approve', '/social/posts/${postId}/cancel']
+                  '/social/posts/${postId}/approve', '/social/posts/${postId}/cancel', '/marketing/studio/render']
   for (const w of [...ws.matchAll(/apiSendJson\([`']([^`']+)[`']/g)].map(m => m[1])) {
     assert.ok(WRITES.includes(w), `unexpected write target: ${w}`)
   }
 })
 
 test('the composer offers only accounts the server said this user may publish to', () => {
-  const fn = ws.match(/function mktCompose\(\)[\s\S]*?\n\}/)?.[0] || ''
+  const fn = ws.match(/function mktCompose\([^)]*\)[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'the composer must exist')
   assert.match(fn, /accounts\.filter\(a => a\.can_publish\)/)
   // An account it refused is shown WITH the refusal rather than vanishing.
@@ -144,12 +144,16 @@ test('a failed post shows the provider reason, not just the word failed', () => 
   assert.match(view, />Retry<\/button>/)
 })
 
-test('Studio is a library, and says so when it is empty', () => {
+test('Studio creates canonical assets and schedules through the shared composer', () => {
   const view = ws.match(/if \(__mktView === 'studio'\)[\s\S]*?\n      \}/)?.[0] || ''
   assert.ok(view, 'the Studio view must exist')
   assert.match(view, /mktUploadAsset/)
   assert.match(view, /engEmpty\('Nothing in Studio yet/)
   assert.match(view, /loading="lazy"/, 'a media grid must not block first paint')
+  assert.match(view, /mktStudioOpen/)
+  assert.match(ws, /apiSendJson\('\/marketing\/studio\/render'/)
+  assert.match(ws, /mktCompose\(\{ assetUrl: result\.asset\.public_url/,
+    'Studio must hand the rendered canonical asset to the shared Social composer')
 })
 
 test('Studio is directly discoverable from Marketing', () => {

@@ -190,7 +190,7 @@ registerAccountingArAp(app)   // AR/AP/CIT read surface — derived from the pos
 registerCampaigns(app)        // canonical Campaign + source taxonomy + attribution by ID
 registerSocial(app)           // social account identity + server-side publish authorization
 registerSocialPublish(app)    // the dispatcher: posts actually leave the building, or say why not
-registerMarketingStudio(app)  // Studio — the dealership's own marketing media library
+registerMarketingStudio(app)  // Studio — canonical creative editor and media library
 registerConsent(app)          // the ONE consent gate every sender calls
 registerConversations(app)    // one customer conversation across channels + human takeover
 registerSalesVideo(app)       // Sales-owned video messaging — a link fetch is not a view

@@ -260,9 +260,11 @@ dealership on staging today gets *"MarketSync cannot publish to facebook yet —
 is connected. Nothing was sent."* — visible, in the queue, with a reason, instead of a post
 that quietly never happens. `social_post_stuck` surfaces the old silent case directly.
 
-**Studio** is a library, not an editor: `marketing_assets` reusing the existing
-`vehicle-photos` bucket and WebP encode rather than growing a second image pipeline. Deletes
-are soft, because a post that already went out still shows the image it was published with.
+**Studio** now builds on the canonical library: a dealer can choose a social aspect format,
+use a tenant-owned asset as the background, edit headline/supporting copy/CTA and brand
+colors, render a reusable WebP asset on the server, then hand that exact asset to the shared
+Social composer. It reuses the `vehicle-photos` bucket and never creates a Studio-only
+publisher. Deletes remain soft because a post that already went out still shows its image.
 
 Authorization is re-checked **at publish time**, not trusted from compose time — a grant can be
 withdrawn between scheduling a post and it reaching customers, and that later moment is the one

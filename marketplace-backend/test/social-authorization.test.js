@@ -110,7 +110,7 @@ test('every target of a post is authorized individually', () => {
 
 test('scheduling is authorized as scheduling, not as publishing', () => {
   const route = social.match(/app\.post\('\/social\/posts'[\s\S]*?\n  \}\)/)?.[0] || ''
-  assert.match(route, /b\.scheduled_for \? 'schedule' : 'publish'/)
+  assert.match(route, /schedule\.scheduledFor \? 'schedule' : 'publish'/)
 })
 
 test('a post cannot be queued twice to the same account', () => {

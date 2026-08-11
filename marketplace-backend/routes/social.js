@@ -23,6 +23,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission, hasPermission } from '../authorization.js'
 import { audit } from '../audit.js'
+import { dealerLocalToUtc } from '../utils/dealerTime.js'
 import { encryptJson, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
 
 const PROVIDERS = ['facebook', 'instagram', 'tiktok', 'youtube', 'linkedin']
@@ -152,6 +153,13 @@ export function registerSocial(app) {
   const canView = requirePermission('marketing.view')
   const canEdit = requirePermission('marketing.edit')
   const guard = (req, res) => { if (!req.dealershipId) { res.status(403).json({ error: 'no dealership' }); return false } return true }
+  const canonicalSchedule = async (req, body) => {
+    if (!body?.scheduled_local) return { scheduledFor: body?.scheduled_for || null, ambiguous: false }
+    const { data: dealer } = await supabaseAdmin.from('dealerships').select('timezone').eq('id', req.dealershipId).maybeSingle()
+    const timezone = dealer?.timezone || 'UTC'
+    const converted = dealerLocalToUtc(body.scheduled_local, timezone)
+    return { scheduledFor: converted.utc, timezone, ambiguous: converted.ambiguous }
+  }
 
   app.get('/social/accounts', requireAuth, requireMfa, canView, async (req, res) => {
     if (!guard(req, res)) return
@@ -279,9 +287,11 @@ export function registerSocial(app) {
     const targets = Array.isArray(b.targets) ? b.targets : []
     if (!targets.length) return res.status(400).json({ error: 'A post needs at least one account to publish to.' })
 
+    let schedule
+    try { schedule = await canonicalSchedule(req, b) } catch (e) { return res.status(400).json({ error: e.message }) }
     const refusals = []
     for (const t of targets) {
-      const v = await canActOnAccount(req, t.social_account_id, b.scheduled_for ? 'schedule' : 'publish')
+      const v = await canActOnAccount(req, t.social_account_id, schedule.scheduledFor ? 'schedule' : 'publish')
       if (!v.allowed) refusals.push({ social_account_id: t.social_account_id, reason: v.reason })
     }
     if (refusals.length) return res.status(403).json({ error: 'Some accounts refused.', refusals })
@@ -292,9 +302,9 @@ export function registerSocial(app) {
         dealership_id: req.dealershipId, campaign_id: b.campaign_id || null,
         inventory_id: b.inventory_id || null, body: b.body || null,
         media: Array.isArray(b.media) ? b.media : [],
-        scheduled_for: b.scheduled_for || null,
+        scheduled_for: schedule.scheduledFor,
         requires_approval: requiresApproval,
-        status: requiresApproval ? 'needs_approval' : (b.scheduled_for ? 'scheduled' : 'draft'),
+        status: requiresApproval ? 'needs_approval' : (schedule.scheduledFor ? 'scheduled' : 'draft'),
         created_by: req.user?.id || null,
       }).select('*').single()
       if (error) return res.status(500).json({ error: error.message })
@@ -311,7 +321,7 @@ export function registerSocial(app) {
         return res.status(500).json({ error: tErr.message })
       }
       audit(req, 'social.post_created', { after_state: { id: post.id, targets: rows.length, status: post.status } })
-      res.json({ ok: true, post, targets: rows.length })
+      res.json({ ok: true, post, targets: rows.length, timezone: schedule.timezone || null, ambiguous_local_time: schedule.ambiguous })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
@@ -363,6 +373,13 @@ export function registerSocial(app) {
     if (req.body?.scheduled_for !== undefined) {
       patch.scheduled_for = req.body.scheduled_for || null
       patch.status = post.requires_approval && !post.approved_at ? 'needs_approval' : (patch.scheduled_for ? 'scheduled' : 'draft')
+    }
+    if (req.body?.scheduled_local !== undefined) {
+      try {
+        const schedule = await canonicalSchedule(req, req.body)
+        patch.scheduled_for = schedule.scheduledFor
+        patch.status = post.requires_approval && !post.approved_at ? 'needs_approval' : (patch.scheduled_for ? 'scheduled' : 'draft')
+      } catch (e) { return res.status(400).json({ error: e.message }) }
     }
     const { data, error } = await supabaseAdmin.from('social_posts').update(patch)
       .eq('id', post.id).eq('dealership_id', req.dealershipId).select('*').single()

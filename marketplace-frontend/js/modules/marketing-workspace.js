@@ -97,7 +97,7 @@ const mktReload = () => {
  * list is filtered on `can_publish`, and an account it refused is shown with the refusal
  * rather than hidden, so nobody wonders where their page went.
  */
-function mktCompose() {
+function mktCompose(prefill = {}) {
   const d = ENGINE_DATA['marketing-overview'] || {};
   const accounts = d.accounts || [], assets = d.assets || [];
   const usable = accounts.filter(a => a.can_publish);
@@ -108,7 +108,7 @@ function mktCompose() {
       <h2 class="text-lg font-black text-slate-900 dark:text-white mb-1">New post</h2>
       <p class="text-[13px] text-slate-500 mb-4">Nothing is sent until a network confirms it. You will see exactly which accounts it reached.</p>
       <textarea id="mkt-body" rows="4" placeholder="What do you want to say?"
-        class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-[14px] mb-3"></textarea>
+        class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-[14px] mb-3">${esc(prefill.body || '')}</textarea>
       <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">Publish to</div>
       ${usable.length ? usable.map(a => `<label class="flex items-center gap-2 py-1.5">
         <input type="checkbox" class="mkt-target" value="${esc(a.id)}">
@@ -120,7 +120,7 @@ function mktCompose() {
       ${assets.length ? `<div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mt-4 mb-1">Attach from Studio</div>
         <div class="flex gap-2 overflow-x-auto pb-1">${assets.slice(0, 20).map(a => `
           <label class="shrink-0 cursor-pointer">
-            <input type="checkbox" class="mkt-media" value="${esc(a.public_url)}">
+            <input type="checkbox" class="mkt-media" value="${esc(a.public_url)}" ${prefill.assetUrl === a.public_url ? 'checked' : ''}>
             <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" class="w-16 h-16 object-cover rounded-lg border border-slate-200 dark:border-slate-700">
           </label>`).join('')}</div>` : ''}
       <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mt-4 mb-1">When</div>
@@ -143,7 +143,7 @@ async function mktSavePost(btn) {
     await apiSendJson('/social/posts', 'POST', {
       body: root.querySelector('#mkt-body').value,
       media: [...root.querySelectorAll('.mkt-media:checked')].map(i => i.value),
-      scheduled_for: when ? new Date(when).toISOString() : null,
+      scheduled_local: when || null,
       targets,
     });
     root.remove();
@@ -171,8 +171,8 @@ async function mktPublishNow(postId) {
 window.mktPublishNow = mktPublishNow;
 
 async function mktReschedule(postId, current) {
-  const next = prompt('Schedule date/time (local)', current ? String(current).slice(0, 16) : ''); if (!next) return;
-  try { await apiSendJson(`/social/posts/${postId}`, 'PUT', { scheduled_for: new Date(next).toISOString() }); showToast('Post rescheduled', 'success'); mktReload(); }
+  const next = prompt('Schedule date/time in the dealership timezone', ''); if (!next) return;
+  try { await apiSendJson(`/social/posts/${postId}`, 'PUT', { scheduled_local: next }); showToast('Post rescheduled', 'success'); mktReload(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 async function mktApprovePost(postId) {
@@ -200,6 +200,46 @@ async function mktUploadAsset(input) {
   input.value = '';
 }
 window.mktUploadAsset = mktUploadAsset;
+
+function mktStudioOpen(assetId = '', assetUrl = '') {
+  crmOverlay(`<div class="p-5">
+    <div class="flex items-start justify-between gap-3 mb-4"><div><h2 class="text-lg font-black text-slate-900 dark:text-white">Create in Studio</h2><p class="text-[12px] text-slate-500">Build a reusable social creative, then schedule it through the same Social composer.</p></div></div>
+    <div class="grid md:grid-cols-[1fr_260px] gap-4">
+      <div id="mkt-design-preview" class="relative overflow-hidden rounded-xl bg-violet-700 aspect-square bg-cover bg-center" style="${assetUrl ? `background-image:url('${esc(assetUrl)}')` : ''}">
+        <div data-shade class="absolute inset-0 bg-black/50"></div><div data-copy class="absolute inset-0 p-[7%] flex flex-col justify-end text-white"><div data-head class="text-2xl md:text-3xl font-black leading-tight">Your headline</div><div data-sub class="text-sm mt-2">Supporting details</div><div data-cta class="self-start mt-4 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold">Learn more</div></div>
+      </div>
+      <div class="space-y-2">
+        <label class="block text-[11px] font-bold text-slate-500">Format<select id="mkt-design-format" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]" onchange="mktStudioPreview()"><option value="square">Square post</option><option value="portrait">Portrait post</option><option value="story">Story</option><option value="landscape">Landscape</option></select></label>
+        <label class="block text-[11px] font-bold text-slate-500">Headline<input id="mkt-design-head" maxlength="140" value="Your headline" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]" oninput="mktStudioPreview()"></label>
+        <label class="block text-[11px] font-bold text-slate-500">Supporting text<textarea id="mkt-design-sub" maxlength="220" rows="2" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]" oninput="mktStudioPreview()">Supporting details</textarea></label>
+        <label class="block text-[11px] font-bold text-slate-500">Button text<input id="mkt-design-cta" maxlength="60" value="Learn more" class="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[13px]" oninput="mktStudioPreview()"></label>
+        <div class="grid grid-cols-2 gap-2"><label class="text-[11px] font-bold text-slate-500">Accent<input id="mkt-design-accent" type="color" value="#6d28d9" class="mt-1 block w-full h-9" oninput="mktStudioPreview()"></label><label class="text-[11px] font-bold text-slate-500">Text<input id="mkt-design-text" type="color" value="#ffffff" class="mt-1 block w-full h-9" oninput="mktStudioPreview()"></label></div>
+        <input id="mkt-design-asset" type="hidden" value="${esc(assetId)}">
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2 mt-5"><button onclick="mktStudioRender(this, false)" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[13px] font-bold">Save to library</button><button onclick="mktStudioRender(this, true)" class="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[13px] font-bold">Save & schedule</button><button onclick="this.closest('.fixed').remove()" class="px-4 py-2 text-[13px] font-bold text-slate-500">Cancel</button></div>
+  </div>`, 'max-w-3xl');
+}
+function mktStudioPreview() {
+  const root = document.querySelector('#mkt-design-preview')?.closest('.fixed'); if (!root) return;
+  const preview = root.querySelector('#mkt-design-preview'), format = root.querySelector('#mkt-design-format').value;
+  preview.className = `relative overflow-hidden rounded-xl bg-violet-700 bg-cover bg-center ${format === 'story' ? 'aspect-[9/16] max-h-[58vh]' : format === 'portrait' ? 'aspect-[4/5]' : format === 'landscape' ? 'aspect-[1.91/1]' : 'aspect-square'}`;
+  preview.querySelector('[data-head]').textContent = root.querySelector('#mkt-design-head').value || 'Headline';
+  preview.querySelector('[data-sub]').textContent = root.querySelector('#mkt-design-sub').value;
+  const cta = preview.querySelector('[data-cta]'); cta.textContent = root.querySelector('#mkt-design-cta').value; cta.style.backgroundColor = root.querySelector('#mkt-design-accent').value;
+  preview.querySelector('[data-copy]').style.color = root.querySelector('#mkt-design-text').value;
+}
+async function mktStudioRender(btn, schedule) {
+  const root = btn.closest('.fixed'); btn.disabled = true;
+  try {
+    const body = { asset_id: root.querySelector('#mkt-design-asset').value || null, format: root.querySelector('#mkt-design-format').value, headline: root.querySelector('#mkt-design-head').value, subheadline: root.querySelector('#mkt-design-sub').value, cta: root.querySelector('#mkt-design-cta').value, accent_color: root.querySelector('#mkt-design-accent').value, text_color: root.querySelector('#mkt-design-text').value };
+    const result = await apiSendJson('/marketing/studio/render', 'POST', body);
+    root.remove(); ENGINE_DATA['marketing-overview'] = undefined;
+    if (schedule) { await ENGINES['marketing-overview'].fetch().then(d => { ENGINE_DATA['marketing-overview'] = d; mktCompose({ assetUrl: result.asset.public_url, body: body.headline }); }); }
+    else { showToast('Design saved to Studio', 'success'); mktReload(); }
+  } catch (e) { btn.disabled = false; showToast(e.message, 'error'); }
+}
+Object.assign(window, { mktStudioOpen, mktStudioPreview, mktStudioRender });
 
 async function mktTakeover(conversationId) {
   try {
@@ -329,9 +369,9 @@ ENGINES['marketing-overview'] = {
         inner = `
           <div class="flex items-center justify-between gap-3 mb-3">
             <div class="text-[13px] text-slate-500">The dealership's own images, reusable across posts and campaigns.</div>
-            <label class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[12px] font-bold cursor-pointer">
+            <div class="flex gap-2"><button onclick="mktStudioOpen()" class="shrink-0 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[12px] font-bold">Create design</button><label class="shrink-0 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[12px] font-bold cursor-pointer">
               Upload<input type="file" accept="image/*" class="hidden" onchange="mktUploadAsset(this)">
-            </label>
+            </label></div>
           </div>
           ${engCard(`Media library (${assets.length})`, assets.length ? `
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -339,8 +379,9 @@ ENGINES['marketing-overview'] = {
                 <img src="${esc(a.public_url)}" alt="${esc(a.alt_text || '')}" loading="lazy"
                      class="w-full aspect-square object-cover rounded-lg border border-slate-200 dark:border-slate-700">
                 <div class="text-[11px] text-slate-400 truncate mt-1">${esc(a.title || `${a.width || '?'}×${a.height || '?'}`)}</div>
+                <div class="flex gap-2 mt-1"><button onclick="mktStudioOpen('${esc(a.id)}','${esc(a.public_url)}')" class="text-[11px] font-bold text-violet-600">Use as background</button><button onclick="mktCompose({assetUrl:'${esc(a.public_url)}'})" class="text-[11px] font-bold text-slate-600 dark:text-slate-300">Schedule</button></div>
               </div>`).join('')}
-            </div>` : engEmpty('Nothing in Studio yet. Upload a photo to reuse it across posts.'))}`;
+            </div>` : engEmpty('Nothing in Studio yet. Create a design or upload a photo.'))}`;
       }
 
       if (__mktView === 'social') {

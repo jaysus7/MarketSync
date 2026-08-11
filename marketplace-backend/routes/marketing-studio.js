@@ -5,9 +5,8 @@
  * and wrong for a product: nobody can find last month's photo again, nothing ties an image to
  * the vehicle it shows, and a post can point at a URL that stops resolving next week.
  *
- * This is deliberately a library, not an editor. Creative tooling — templates, overlays, the
- * background swap that already exists for vehicle photos — can be built on top of a place
- * where assets live. It cannot be built on a text box full of links.
+ * Studio designs render back into this same canonical asset library. Social and Campaigns
+ * consume the resulting asset row; Studio does not own a second publishing pipeline.
  *
  * Storage and encoding reuse the vehicle-photo path exactly: same bucket, same WebP encode,
  * same size caps. A second image pipeline would be a second set of bugs.
@@ -22,6 +21,44 @@ import multer from 'multer'
 const assetUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024, files: 10 } })
 
 const ASSET_COLUMNS = 'id, dealership_id, kind, storage_path, public_url, width, height, bytes, title, alt_text, inventory_id, campaign_id, created_by, created_at'
+const FORMATS = { square: [1080, 1080], portrait: [1080, 1350], story: [1080, 1920], landscape: [1200, 628] }
+const HEX = /^#[0-9a-f]{6}$/i
+const xml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]))
+const lines = (s, max = 34) => {
+  const words = String(s || '').trim().split(/\s+/).filter(Boolean), out = []
+  for (const word of words) {
+    if (!out.length || `${out.at(-1)} ${word}`.length > max) out.push(word)
+    else out[out.length - 1] += ` ${word}`
+  }
+  return out.slice(0, 4)
+}
+
+export function studioDesignSpec(input = {}) {
+  const format = FORMATS[input.format] ? input.format : 'square'
+  const [width, height] = FORMATS[format]
+  return {
+    format, width, height,
+    headline: String(input.headline || '').trim().slice(0, 140),
+    subheadline: String(input.subheadline || '').trim().slice(0, 220),
+    cta: String(input.cta || '').trim().slice(0, 60),
+    textColor: HEX.test(input.text_color) ? input.text_color : '#ffffff',
+    accentColor: HEX.test(input.accent_color) ? input.accent_color : '#6d28d9',
+    overlay: Math.max(0, Math.min(85, Number(input.overlay ?? 48))),
+  }
+}
+
+export function studioOverlaySvg(spec) {
+  const headline = lines(spec.headline, spec.format === 'story' ? 25 : 32)
+  const sub = lines(spec.subheadline, spec.format === 'story' ? 34 : 48)
+  const baseY = Math.round(spec.height * .57), headlineSize = Math.round(spec.width * .064)
+  return `<svg width="${spec.width}" height="${spec.height}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100%" height="100%" fill="rgba(0,0,0,${spec.overlay / 100})"/>
+    <rect x="${Math.round(spec.width*.07)}" y="${Math.round(spec.height*.08)}" width="${Math.round(spec.width*.16)}" height="${Math.max(8,Math.round(spec.height*.009))}" rx="4" fill="${spec.accentColor}"/>
+    ${headline.map((l,i)=>`<text x="${Math.round(spec.width*.07)}" y="${baseY+i*headlineSize*1.08}" font-family="Arial,Helvetica,sans-serif" font-size="${headlineSize}" font-weight="700" fill="${spec.textColor}">${xml(l)}</text>`).join('')}
+    ${sub.map((l,i)=>`<text x="${Math.round(spec.width*.07)}" y="${baseY+headline.length*headlineSize*1.08+Math.round(spec.height*.045)+i*headlineSize*.58}" font-family="Arial,Helvetica,sans-serif" font-size="${Math.round(headlineSize*.42)}" fill="${spec.textColor}">${xml(l)}</text>`).join('')}
+    ${spec.cta ? `<rect x="${Math.round(spec.width*.07)}" y="${Math.round(spec.height*.86)}" width="${Math.min(Math.round(spec.width*.6), Math.max(Math.round(spec.width*.22), spec.cta.length*headlineSize*.28))}" height="${Math.round(spec.height*.065)}" rx="${Math.round(spec.height*.015)}" fill="${spec.accentColor}"/><text x="${Math.round(spec.width*.095)}" y="${Math.round(spec.height*.902)}" font-family="Arial,Helvetica,sans-serif" font-size="${Math.round(headlineSize*.36)}" font-weight="700" fill="#ffffff">${xml(spec.cta)}</text>` : ''}
+  </svg>`
+}
 
 /**
  * The library, newest first. Filterable by the vehicle or campaign an asset belongs to,
@@ -94,6 +131,41 @@ export function registerMarketingStudio(app) {
     }
     audit(req, 'marketing.asset_uploaded', { after_state: { id: data.id, bytes: data.bytes } })
     res.json({ ok: true, asset: data })
+  })
+
+  app.post('/marketing/studio/render', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const spec = studioDesignSpec(req.body || {})
+    if (!spec.headline) return res.status(400).json({ error: 'A headline is required.' })
+    let background = null
+    if (req.body?.asset_id) {
+      const { data: source } = await supabaseAdmin.from('marketing_assets').select('id, storage_path')
+        .eq('id', req.body.asset_id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
+      if (!source) return res.status(404).json({ error: 'Background asset not found.' })
+      const { data, error } = await supabaseAdmin.storage.from('vehicle-photos').download(source.storage_path)
+      if (error || !data) return res.status(400).json({ error: 'The background image could not be loaded.' })
+      background = Buffer.from(await data.arrayBuffer())
+    }
+    try {
+      const sharp = (await import('sharp')).default
+      let canvas = background
+        ? sharp(background, { failOn: 'none' }).rotate().resize(spec.width, spec.height, { fit: 'cover' })
+        : sharp({ create: { width: spec.width, height: spec.height, channels: 4, background: spec.accentColor } })
+      const webp = await canvas.composite([{ input: Buffer.from(studioOverlaySvg(spec)), top: 0, left: 0 }]).webp({ quality: 90 }).toBuffer()
+      const path = `${req.dealershipId}/_marketing/design-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.webp`
+      const { error: upErr } = await supabaseAdmin.storage.from('vehicle-photos').upload(path, webp, { contentType: 'image/webp', upsert: false })
+      if (upErr) return res.status(500).json({ error: 'Render upload failed: ' + upErr.message })
+      const { data: pub } = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(path)
+      const { data, error } = await supabaseAdmin.from('marketing_assets').insert({
+        dealership_id: req.dealershipId, kind: 'image', storage_path: path, public_url: pub?.publicUrl || '',
+        width: spec.width, height: spec.height, bytes: webp.length, title: req.body?.title || spec.headline,
+        alt_text: req.body?.alt_text || spec.headline, campaign_id: req.body?.campaign_id || null,
+        inventory_id: req.body?.inventory_id || null, created_by: req.user?.id || null,
+      }).select(ASSET_COLUMNS).single()
+      if (error) { await supabaseAdmin.storage.from('vehicle-photos').remove([path]); return res.status(500).json({ error: error.message }) }
+      audit(req, 'marketing.design_rendered', { after_state: { id: data.id, format: spec.format, source_asset_id: req.body?.asset_id || null } })
+      res.json({ ok: true, asset: data, design: spec })
+    } catch (e) { res.status(400).json({ error: 'The design could not be rendered: ' + e.message }) }
   })
 
   // Soft delete. A post that already went out still references the image it was published
