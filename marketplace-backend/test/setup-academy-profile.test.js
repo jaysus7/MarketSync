@@ -41,12 +41,9 @@ test('setup appears once, at the bottom, and never inside a department', () => {
     'it must not sit between the header and the page')
 })
 
-test('the bar opens a modal instead of navigating away', () => {
-  assert.match(html, /onclick="msSetupModal\(\)"/)
-  assert.match(part2, /async function msSetupModal/)
-  // Leaving the page you were on to go and fill in a form is the behaviour being replaced.
-  assert.doesNotMatch(html.slice(html.indexOf('id="setup-status-banner"'), html.indexOf('id="setup-status-banner"') + 400),
-    /switchPage\('launch'\)/)
+test('the bar routes to the one canonical Setup section', () => {
+  assert.match(html, /id="setup-status-banner" onclick="switchPage\('launch'\)"/)
+  assert.ok(!/checkDepartmentOpen\(pageId\)/.test(part2))
 })
 
 test('the modal can actually take the missing information', () => {

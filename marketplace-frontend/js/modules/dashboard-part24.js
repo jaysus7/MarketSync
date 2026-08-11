@@ -690,33 +690,9 @@ const DEPARTMENTS_CONFIG = {
 };
 
 function checkDepartmentOpen(pageId) {
-  if (!pageId) return;
-  let deptId = pageId;
-
-  // Exact page to department schema mapping
-  if (pageId === 'inv-intel' || pageId === 'market') deptId = pageId;
-  if (pageId === 'fni' || pageId === 'desk' || pageId === 'recon') deptId = pageId === 'fni' ? 'fni-worklist' : (pageId === 'recon' ? 'recon' : 'sales');
-  if (pageId === 'appraisal' || pageId === 'equity' || pageId === 'delivery') deptId = pageId;
-  if (pageId === 'service-ros' || pageId === 'service-appointments' || pageId === 'service-parts') deptId = pageId === 'service-parts' ? 'service-parts' : 'service';
-  if (typeof pageId === 'string' && pageId.startsWith('acct-')) deptId = pageId;
-  if (pageId === 'website' || pageId === 'website-settings') deptId = 'web';
-  if (pageId === 'marketing') deptId = 'marketing';
-  if (pageId === 'autoposter') deptId = 'facebook-autoposter';
-  if (pageId === 'ai-chatbot') deptId = 'ai-chatbot';
-  if (pageId === 'automation' || pageId === 'automation-builder' || pageId === 'email-campaigns' || pageId === 'email-marketing') deptId = (pageId === 'email-campaigns' || pageId === 'email-marketing') ? 'email-campaigns' : 'auto';
-  if (pageId === 'leaderboard') deptId = 'leaderboard';
-  if (pageId === 'academy') deptId = 'academy';
-  if (pageId === 'ai-inbox' || pageId === 'ai-home' || pageId === 'ai-vision' || pageId === 'ai-chat') deptId = 'ai-inbox';
-
-  const deptConfig = DEPARTMENTS_CONFIG[deptId] || DEPARTMENTS_CONFIG[pageId];
-  if (!deptConfig) return;
-
-  const key = `ms_dept_opened_${deptId}`;
-  try {
-    if (!localStorage.getItem(key)) {
-      openDepartmentSetupWizard(deptId);
-    }
-  } catch {}
+  // Compatibility hook only. Department navigation must never launch setup UI;
+  // configuration lives in the canonical Launch Hub.
+  return pageId;
 }
 window.checkDepartmentOpen = checkDepartmentOpen;
 

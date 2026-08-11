@@ -514,18 +514,10 @@ async function initializeDashboardEcosystem() {
     // Overdue-task badge on the Task Board nav item.
     try { if (typeof taskUpdateBadge === 'function') taskUpdateBadge(); } catch (e) {}
 
-    // Guided setup: show the sidebar progress bar, and on the very first login for
-    // this dealership walk them straight into the Setup Center if anything's unset.
+    // Setup is user-initiated from the canonical Launch Hub. Never interrupt login
+    // or page navigation with a setup modal.
     try {
       renderSetupBar();
-      const introKey = `ms_setup_intro_${profileContext?.dealership?.id || 'x'}`;
-      if (!localStorage.getItem(introKey)) {
-        setTimeout(async () => {
-          const steps = setupStepsFor(role); if (!steps.length) return;
-          let snap; try { snap = await loadSetupSnapshot(); } catch { return; }
-          if (steps.some(s => !setupStepDone(s, snap))) { localStorage.setItem(introKey, '1'); openSetupCenter(); }
-        }, 900);
-      }
     } catch (e) {}
 
     // Daily Punch Clock Prompt (once per day on login)
@@ -703,9 +695,6 @@ function toggleNavGroup(id) {
   if (!body) return;
   const collapsed = body.classList.toggle('hidden');
   chev?.classList.toggle('-rotate-90', collapsed);
-  if (!collapsed) {
-    checkDepartmentOpen(id);
-  }
 }
 window.toggleNavGroup = toggleNavGroup;
 
@@ -1224,7 +1213,6 @@ function switchPage(pageId) {
   if (pageId === 'people-compliance' || pageId === 'hr' || pageId === 'people') loadPeopleCompliance();
 
   __currentPage = pageId;
-  checkDepartmentOpen(pageId);
   renderDeptTabbar(pageId);
   highlightDeptNav(pageId);
   msSyncRoute(pageId);

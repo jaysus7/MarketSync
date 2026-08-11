@@ -298,6 +298,8 @@ const html = readFE('dashboard.html')
 const workspaceRaw = readFE('js/modules/launch-workspace.js')
 const workspace = strip(workspaceRaw)
 const part2 = readFE('js/modules/dashboard-part2.js')
+const dashboard = readFE('dashboard.js')
+const part24 = readFE('js/modules/dashboard-part24.js')
 
 test('the Launch Hub has a page container, a router entry and a script tag', () => {
   assert.match(html, /data-page-content="launch"/)
@@ -365,9 +367,8 @@ test('every launch requirement has a working contextual action', () => {
 
 test('incomplete setup shows once, at the bottom, from canonical launch state', () => {
   assert.match(html, /id="setup-status-banner"/)
-  // It opens a modal rather than navigating away from whatever you were doing.
-  assert.match(html, /onclick="msSetupModal\(\)"/)
-  assert.match(part2, /async function msSetupModal/)
+  // Setup work belongs to one page; the global indicator only routes there.
+  assert.match(html, /id="setup-status-banner" onclick="switchPage\('launch'\)"/)
   assert.match(part2, /fetch\(`\$\{API\}\/launch`/)
   assert.match(part2, /launch\.fully_configured/)
   assert.match(part2, /i\.type === 'REQUIRED_TO_LAUNCH'/)
@@ -377,4 +378,13 @@ test('incomplete setup shows once, at the bottom, from canonical launch state', 
   // And it must sit AFTER the page content, not between the header and every department.
   assert.ok(html.indexOf('id="setup-status-banner"') > html.indexOf('</main>'),
     'the setup bar must be at the foot of the shell, not above every page')
+})
+
+test('page navigation never opens a legacy setup wizard', () => {
+  assert.ok(!/checkDepartmentOpen\(pageId\)/.test(part2))
+  assert.ok(!/checkDepartmentOpen\(id\)/.test(part2))
+  assert.ok(!/ms_setup_intro_/.test(part2), 'login must not auto-open setup')
+  assert.match(part24, /function checkDepartmentOpen\(pageId\)[\s\S]*?return pageId;/)
+  assert.match(dashboard, /function openSetupCenter\(\)\s*\{\s*switchPage\('launch'\)/)
+  assert.match(dashboard, /onclick="switchPage\('launch'\)" title="Open Setup"/)
 })
