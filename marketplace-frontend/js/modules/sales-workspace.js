@@ -316,13 +316,16 @@ ENGINES['sales'] = {
   // number nobody acts on), Automation folded into Settings (there is one workflow engine, so
   // it is configuration, not a department surface), Work renamed to what it actually holds, and
   // Appointments promoted out of a sub-view because it is a top-level part of a rep's day.
-  tabLabels: { overview: 'My Day', work: 'Customers', appointments: 'Appointments', settings: 'Settings' },
+  tabLabels: { overview: 'My Day', work: 'Customers', appointments: 'Appointments', equity: 'Equity Mining', settings: 'Settings' },
 
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    // A rep gets the three they work in; Settings stays management-only, and the server
+    // A rep gets the four they work in; Settings stays management-only, and the server
     // remains authoritative either way — this only decides what is worth showing.
-    return mgr ? ['overview', 'work', 'appointments', 'settings'] : ['overview', 'work', 'appointments'];
+    // Equity Mining is a rep's job, not a manager report: the customers already in the
+    // book who could trade today are the easiest next sale.
+    return mgr ? ['overview', 'work', 'appointments', 'equity', 'settings']
+               : ['overview', 'work', 'appointments', 'equity'];
   },
 
   // ONE parallel round-trip for the landing view — no waterfall, and deliveries /
@@ -443,6 +446,12 @@ ENGINES['sales'] = {
     // ── SETTINGS — the settings themselves, not links to them ───────────────
     // Also absorbs the former Automation tab: there is ONE workflow engine, so which Sales
     // workflows run is configuration, not a department surface of its own.
+    // Equity Mining is the equity page itself, moved in.
+    equity(body) {
+      body.innerHTML = '';
+      engMountPage(body, 'equity', () => loadEquityPage());
+    },
+
     settings(body, d) {
       const routing = d.insights?.lead_routing || window.__salesRouting || null;
       const current = routing?.mode || null;

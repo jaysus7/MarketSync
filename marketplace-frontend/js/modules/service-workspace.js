@@ -289,10 +289,11 @@ function svcRenderAppointments(body, d) {
     if (!rows.length) return '';
     return engCard(`${title} (${rows.length})`, rows.slice(0, 15).map(svcApptRow).join(''));
   }).join('');
-  body.innerHTML = `${svcUnavailableNote(d)}<div class="space-y-3">${cards || engEmpty('Nothing booked.')}</div>
-    <div class="mt-3 flex flex-wrap gap-2">
-      <button onclick="switchPage('service-appointments')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Open the appointment book</button>
-    </div>`;
+  body.innerHTML = `${svcUnavailableNote(d)}
+    ${engSection('Today and ahead', `<div class="space-y-3">${cards || engEmpty('Nothing booked.')}</div>`, 'Who is coming in, and who has arrived')}
+    ${engSection('The appointment book', '', 'Book, move and cancel — the calendar itself')}`;
+  // The book itself, rather than a button that goes and finds it.
+  engMountPage(body, 'service-appointments', () => loadServiceAppointments());
 }
 
 function svcApptRow(a) {

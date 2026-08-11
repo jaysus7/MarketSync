@@ -576,23 +576,35 @@ export async function listPartRequests(dealershipId, { roId = null, status = nul
   return data || []
 }
 
-export async function requestPart(dealershipId, roId, { partId, qty = 1, roLineId = null, note = null, idempotencyKey = null, userId = null } = {}) {
+// Who the part is for. Parts serves the whole store, not only the shop: a counter
+// customer, a salesperson prepping a delivery, an internal job. `service` is the only
+// one that requires a repair order, and the database enforces that
+// (part_requests_service_needs_ro).
+export const PART_REQUEST_DEPARTMENTS = ['service', 'sales', 'customer', 'internal']
+
+export async function requestPart(dealershipId, roId, { partId, qty = 1, roLineId = null, note = null, idempotencyKey = null, userId = null, requestedFor = 'service' } = {}) {
   if (!partId) throw new Error('a part is required')
   if (n(qty) <= 0) throw new Error('quantity must be greater than zero')
+  const dept = PART_REQUEST_DEPARTMENTS.includes(requestedFor) ? requestedFor : 'service'
+  // Say which of the two is wrong rather than letting the check constraint surface as
+  // a raw Postgres error.
+  if (dept === 'service' && !roId) throw new Error('A Service request has to be against a repair order. Pick the department it is really for, or open the RO first.')
   if (idempotencyKey) {
     const { data: prior } = await supabaseAdmin.from('part_requests').select('*')
       .eq('dealership_id', dealershipId).eq('idempotency_key', idempotencyKey).maybeSingle()
     if (prior) return prior
   }
   const { data, error } = await supabaseAdmin.from('part_requests').insert({
-    dealership_id: dealershipId, ro_id: roId, ro_line_id: roLineId, part_id: partId,
+    dealership_id: dealershipId, ro_id: roId || null, ro_line_id: roLineId, part_id: partId,
     qty_requested: n(qty), note, requested_by: userId, idempotency_key: idempotencyKey,
+    requested_for: dept,
   }).select('*').single()
   if (error) throw new Error(error.message)
   emitEvent({
-    dealershipId, eventName: 'service.part_requested', entityType: 'repair_order', entityId: roId,
-    summary: `Parts requested — ${n(qty)}`, department: 'Service', createdBy: userId,
-    payload: { request_id: data.id, part_id: partId, qty: n(qty), ro_line_id: roLineId },
+    dealershipId, eventName: 'service.part_requested',
+    entityType: roId ? 'repair_order' : 'part_request', entityId: roId || data.id,
+    summary: `Parts requested — ${n(qty)} (${dept})`, department: 'Service', createdBy: userId,
+    payload: { request_id: data.id, part_id: partId, qty: n(qty), ro_line_id: roLineId, requested_for: dept },
   })
   return data
 }
@@ -1196,6 +1208,25 @@ export function registerServiceEngine(app) {
       res.json({ ok: true, request: await requestPart(req.dealershipId, req.params.id, {
         partId: b.part_id, qty: b.qty, roLineId: b.ro_line_id || null, note: b.note || null,
         idempotencyKey: b.idempotency_key || null, userId: req.user?.id || null,
+        requestedFor: b.requested_for || 'service',
+      }) })
+    } catch (e) { res.status(400).json({ error: e.message }) }
+  })
+
+  // A request that is NOT for a repair order — the counter customer, the salesperson
+  // prepping a delivery, an internal job. Same record, same fulfilment path; the
+  // department is stated rather than assumed.
+  app.post('/service-engine/part-requests', requireAuth, canWork, async (req, res) => {
+    if (!guard(req, res)) return
+    const b = req.body || {}
+    if (b.requested_for === 'service') {
+      return res.status(400).json({ error: 'A Service request belongs to a repair order — raise it on the RO.' })
+    }
+    try {
+      res.json({ ok: true, request: await requestPart(req.dealershipId, b.ro_id || null, {
+        partId: b.part_id, qty: b.qty, note: b.note || null,
+        idempotencyKey: b.idempotency_key || null, userId: req.user?.id || null,
+        requestedFor: b.requested_for,
       }) })
     } catch (e) { res.status(400).json({ error: e.message }) }
   })

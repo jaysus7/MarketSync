@@ -138,14 +138,14 @@ test('publish-now reports what actually happened per account', () => {
 })
 
 test('a failed post shows the provider reason, not just the word failed', () => {
-  const view = ws.match(/if \(__mktView === 'social'\)[\s\S]*?\n      \}/)?.[0] || ''
+  const view = ws.slice(ws.indexOf('function mktSocialSection'), ws.indexOf('function mktConversationsView'))
   assert.match(view, /failed\[0\]\?\.error/,
     '"Failed" alone tells nobody whether to reconnect, wait, or give up')
   assert.match(view, />Retry<\/button>/)
 })
 
 test('Studio creates canonical assets and schedules through the shared composer', () => {
-  const view = ws.match(/if \(__mktView === 'studio'\)[\s\S]*?\n      \}/)?.[0] || ''
+  const view = ws.slice(ws.indexOf('function mktStudioView'), ws.indexOf('function mktSocialSection'))
   assert.ok(view, 'the Studio view must exist')
   assert.match(view, /mktUploadAsset/)
   assert.match(view, /engEmpty\('Nothing in Studio yet/)
@@ -157,11 +157,13 @@ test('Studio creates canonical assets and schedules through the shared composer'
 })
 
 test('Studio is directly discoverable from Marketing', () => {
-  assert.match(ws, /\{ label: 'Studio', icon: 'image', onclick: "mktView\('studio'\)" \}/)
+  // It is a department tab of its own now, not a shortcut into a sub-nav.
+  assert.match(ws, /studio: 'Studio'/, 'Studio must be a tab in the Marketing header')
+  assert.match(ws, /\{ label: 'Studio', icon: 'image', onclick: "engineTab\('marketing-overview','studio'\)" \}/)
 })
 
 test('linked and inferred attribution are never added together', () => {
-  const view = ws.match(/if \(__mktView === 'attribution'\)[\s\S]*?\n      \}/)?.[0] || ''
+  const view = ws.slice(ws.indexOf('function mktAttributionView'))
   assert.ok(view, 'the attribution view must exist')
   assert.match(view, /Linked/)
   assert.match(view, /Inferred/)
@@ -179,7 +181,7 @@ test('an incomplete gross is said out loud wherever it is shown', () => {
 })
 
 test('publishing rights are reported by the server, not decided here', () => {
-  const view = ws.match(/if \(__mktView === 'social'\)[\s\S]*?\n      \}/)?.[0] || ''
+  const view = ws.slice(ws.indexOf('function mktSocialSection'), ws.indexOf('function mktConversationsView'))
   assert.match(view, /a\.can_publish/, 'the server says what this user may do')
   assert.match(view, /a\.why/, 'and why, when it refuses')
   assert.doesNotMatch(view, /ownership === 'dealership' \? .*permission|profileContext\?\.role/,
@@ -187,7 +189,7 @@ test('publishing rights are reported by the server, not decided here', () => {
 })
 
 test('a post that partly failed is not reported as published', () => {
-  const view = ws.match(/if \(__mktView === 'social'\)[\s\S]*?\n      \}/)?.[0] || ''
+  const view = ws.slice(ws.indexOf('function mktSocialSection'), ws.indexOf('function mktConversationsView'))
   assert.match(view, /const partial = failed\.length > 0 && failed\.length < targets\.length/)
   assert.match(view, /partial \? 'Partly published' : failed\.length \? 'Failed'/)
   // The count is named, not just coloured — "a publication failed" hides how many.

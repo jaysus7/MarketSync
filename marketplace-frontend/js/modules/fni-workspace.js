@@ -24,10 +24,8 @@ const FNI_STAGE_LABEL = {
 const fniStage = (x) => FNI_STAGE_LABEL[x?.deal_status] || x?.deal_status || 'Working';
 
 let __fniWsData = null;
-let __fniWorkView = 'queue';
 let __fniDeliveries = null;   // lazy — not part of the landing payload
 let __fniProducts = null;     // lazy
-let __fniFunding = null;      // lazy — GET /fni/funding (canonical funding state)
 let __fniDecisions = {};      // dealId -> lender decisions (lazy, per deal)
 
 const fniCustomer = (x) => x.customer_name || x.contact_name || 'Customer';
@@ -121,7 +119,6 @@ async function fniSetFunding(dealId, to) {
     await apiSendJson(`/fni/deals/${dealId}/funding`, 'PUT', { funding_status: to });
     showToast(to === 'funded' ? 'Funding recorded — Accounting notified' : `Funding marked ${to}`, 'success');
   } catch (e) { showToast(e.message || 'Could not update funding', 'error'); return; }
-  __fniFunding = null;                       // never trust local state — refetch
   ENGINE_DATA['fni-overview'] = undefined;
   engineTab('fni-overview', 'work', true);
 }
@@ -184,84 +181,53 @@ window.fniSelectLender = fniSelectLender;
 function fniContractsAndFunding(d) {
   const deals = d.deals || [];
   const awaitingContract = deals.filter(x => /sold|delivered/i.test(x.deal_status || '') && !x.contract_signed_at);
-  const awaitingFunding = deals.filter(x => x.contract_signed_at && !x.funded_at);
   const row = (x, note) => `<div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
     <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(fniCustomer(x))}</div>
     <div class="text-[12px] text-slate-400 truncate">${esc(note)}</div></div>
     <button onclick="switchPage('fni')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700">Open deal</button></div>`;
+
+  // Funding is CANONICAL state (Stage 3A) — funding_state, funding_submitted_at,
+  // funded_at, days_in_funding and the selected lender decision, all from /fni/funding.
+  // Deriving it from "contract signed but not funded" on the deal row would be a second
+  // opinion about the same fact, and the two would eventually disagree.
+  let funding;
+  if (d.funding == null) {
+    funding = engCard('Awaiting funding', engEmpty('Funding state could not be loaded, so it is not shown.'));
+  } else {
+    const open = d.funding.filter(r => r.funding_state !== 'funded');
+    const BUCKETS = [['exception', 'Exception'], ['conditions', 'Conditions'], ['submitted', 'Submitted'], ['pending', 'Pending']];
+    const inner = BUCKETS.map(([state, label]) => {
+      const list = open.filter(r => r.funding_state === state);
+      return list.length ? `<div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold mt-2 first:mt-0">${label} (${list.length})</div>${list.slice(0, 6).map(fniFundingRow).join('')}` : '';
+    }).join('');
+    funding = engCard(`Awaiting funding (${open.length})`, inner || engEmpty('Nothing is waiting to be funded.'));
+  }
+
   return `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
     ${engCard(`Contracts outstanding (${awaitingContract.length})`, awaitingContract.length
       ? awaitingContract.slice(0, 8).map(x => row(x, 'Sold, contract not signed')).join('')
       : engEmpty('Every sold deal has a signed contract.'))}
-    ${engCard(`Awaiting funding (${awaitingFunding.length})`, awaitingFunding.length
-      ? awaitingFunding.slice(0, 8).map(x => row(x, 'Contract signed, not funded')).join('')
-      : engEmpty('Nothing is waiting to be funded.'))}
+    ${funding}
   </div>`;
 }
 
-const FNI_WORK_VIEWS = [
-  ['queue', 'All deals'],
-];
-function fniWorkView(v) { __fniWorkView = v; engineTab('fni-overview', 'work'); }
-window.fniWorkView = fniWorkView;
-
+// ── Deals — the department's whole book, then the real F&I page ──────────────
+// This was a sub-nav of five (queue, credit, menu, contracts, funding). Credit and the
+// menu belong on the deal you are desking, not beside it; contracts and funding moved
+// into My Day. What is left is one list — and beneath it, the F&I deals page itself,
+// because a tab that ends in "Open F&I deals →" is a tab that did not open them.
 async function fniRenderWork(body, d) {
-  // One view left, so the sub-nav row is suppressed rather than rendering a single lonely pill.
-  const nav = FNI_WORK_VIEWS.length > 1 ? FNI_WORK_VIEWS.map(([id, label]) => {
-    const on = __fniWorkView === id;
-    return `<button onclick="fniWorkView('${id}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${on ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}">${esc(label)}</button>`;
-  }).join('') : '';
-  const link = (page, label) => `<div class="mt-3"><button onclick="switchPage('${page}')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">${esc(label)} →</button></div>`;
-  let inner = '';
+  // Everything F&I still owns: sold and funding. A delivered deal has left the
+  // department, so it drops off this list rather than accumulating forever.
+  const order = ['pending', 'approved', 'fni', 'contracted', 'sold', 'working'];
+  const inner = order.map(st => {
+    const rows = (d.deals || []).filter(x => x.deal_status === st && !/delivered/i.test(x.deal_status || '') && !x.delivered_at);
+    return rows.length ? engCard(`${FNI_STAGE_LABEL[st] || st} (${rows.length})`, rows.slice(0, 12).map(fniRow).join('')) : '';
+  }).join('') || engCard('', engEmpty('No deals in progress.'));
 
-  if (__fniWorkView === 'queue') {
-    // Everything F&I still owns: sold and funding. A delivered deal has left the department,
-    // so it drops off this list rather than accumulating forever.
-    const order = ['pending', 'approved', 'fni', 'contracted', 'sold', 'working'];
-    inner = order.map(st => {
-      const rows = (d.deals || []).filter(x => x.deal_status === st && !/delivered/i.test(x.deal_status || '') && !x.delivered_at);
-      return rows.length ? engCard(`${FNI_STAGE_LABEL[st] || st} (${rows.length})`, rows.slice(0, 12).map(fniRow).join('')) : '';
-    }).join('') || engEmpty('No deals in progress.');
-    inner += link('fni', 'Open F&I deals');
-  } else if (__fniWorkView === 'credit') {
-    // There is no list endpoint for credit applications — /credit/application is
-    // per-deal/per-contact. Rather than invent one, surface the deals whose credit
-    // step is next and open the application from the deal (F&I owns the sensitive
-    // workflow; Sales can initiate but does not see these fields).
-    const need = (d.deals || []).filter(x => ['pending', 'approved', 'fni'].includes(x.deal_status));
-    inner = engCard('Deals needing credit', need.slice(0, 15).map(fniRow).join('') || engEmpty('No deals awaiting credit.'))
-      + `<p class="text-[12px] text-slate-400 mt-3">Credit applications open from the deal — one canonical application per deal, never a second record.</p>`;
-  } else if (__fniWorkView === 'menu') {
-    if (!__fniProducts) {
-      body.innerHTML = `<div class="flex gap-1.5 mb-3">${nav}</div><div class="text-sm text-slate-400 py-10 text-center">Loading products…</div>`;
-      try { __fniProducts = await apiGetJson('/fni/products'); } catch { __fniProducts = { products: [] }; }
-    }
-    const rows = __fniProducts.products || [];
-    inner = engCard('F&I product catalogue', rows.slice(0, 20).map(p => `
-      <div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
-        <div class="min-w-0 flex-1 font-semibold text-[13px] text-slate-800 dark:text-slate-100 truncate">${esc(p.name || p.title || 'Product')}</div>
-        <div class="text-[12px] text-slate-400">${p.price ? '$' + Number(p.price).toLocaleString() : ''}</div>
-      </div>`).join('') || engEmpty('No products configured.'));
-  } else if (__fniWorkView === 'contracts') {
-    const rows = (d.deals || []).filter(x => ['contracted', 'sold'].includes(x.deal_status));
-    inner = engCard('Contracted', rows.slice(0, 20).map(fniRow).join('') || engEmpty('Nothing contracted yet.')) + link('fni', 'Open F&I deals');
-  } else if (__fniWorkView === 'funding') {
-    // Canonical funding state (Stage 3A) — NOT inferred from delivered/unreconciled.
-    // GET /fni/funding returns funding_state, funding_submitted_at, funded_at,
-    // days_in_funding and the SELECTED lender decision in one read.
-    if (!__fniFunding) {
-      body.innerHTML = `<div class="flex gap-1.5 mb-3">${nav}</div><div class="text-sm text-slate-400 py-10 text-center">Loading funding…</div>`;
-      try { __fniFunding = await apiGetJson('/fni/funding'); } catch (e) { __fniFunding = { deals: [], error: e.message }; }
-    }
-    const rows = __fniFunding.deals || [];
-    const BUCKETS = [['pending', 'Pending'], ['submitted', 'Submitted'], ['conditions', 'Conditions'], ['exception', 'Exception'], ['funded', 'Funded']];
-    inner = BUCKETS.map(([state, label]) => {
-      const list = rows.filter(r => r.funding_state === state);
-      if (!list.length) return '';
-      return engCard(`${label} (${list.length})`, list.slice(0, 15).map(fniFundingRow).join(''));
-    }).join('') || engEmpty(__fniFunding.error ? `Couldn't load funding: ${esc(__fniFunding.error)}` : 'Nothing in funding.');
-  }
-  body.innerHTML = `<div class="flex gap-1.5 mb-3 overflow-x-auto">${nav}</div>${inner}`;
+  body.innerHTML = engSection('In progress', inner, 'Sold and in funding — a deal leaves here when it is delivered');
+  body.insertAdjacentHTML('beforeend', engSection('All F&I deals', '', 'The full deal list, with everything you can do to one'));
+  engMountPage(body, 'fni', () => loadFniPage());
 }
 
 ENGINES['fni-overview'] = {
@@ -278,24 +244,27 @@ ENGINES['fni-overview'] = {
     // Deals are the landing payload. The delivery queue is fetched here too because
     // blockers are the department's headline attention item, but products and the
     // full delivery view stay lazy.
-    const [deals, del, products, lenders] = await Promise.all([
+    const [deals, del, products, lenders, funding] = await Promise.all([
       apiGetJson('/fni/deals').catch(() => ({ deals: [] })),
       apiGetJson('/delivery/queue').catch(() => ({ deals: [] })),
       apiGetJson('/fni/products').catch(() => null),
       apiGetJson('/fni/lenders').catch(() => null),
+      // Canonical funding state, so My Day reads the fact rather than inferring it.
+      apiGetJson('/fni/funding').catch(() => null),
     ]);
     const queue = del.deals || del.queue || [];
     const d = { deals: deals.deals || deals.items || [], blocked: queue.filter(x => x.blocker),
       // null means "could not read", which the Settings tab renders differently from "none".
       products: products ? (products.products || products.items || []) : null,
-      lenders: lenders ? (lenders.lenders || lenders.items || []) : null };
+      lenders: lenders ? (lenders.lenders || lenders.items || []) : null,
+      funding: funding ? (funding.deals || []) : null };
     __fniWsData = d;
     return d;
   },
 
   quickActions: [
     { label: 'Desk Deal', icon: 'currency', onclick: "switchPage('desk')" },
-    { label: 'F&I deals', icon: 'shield', onclick: "switchPage('fni')" },
+    { label: 'Deals', icon: 'shield', onclick: "engineTab('fni-overview','work')" },
     { label: 'Delivery queue', icon: 'bolt', onclick: "switchPage('delivery')" },
   ],
   nextActions: (d) => fniAttention(d || {}).slice(0, 5).map(it => ({

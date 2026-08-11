@@ -868,13 +868,14 @@ function loadConfigHub() {
         { label: 'Parts settings', go: "settingsGo('parts-overview','parts-overview','settings')" },
       ])}
       ${section('Accounting', 'Chart of accounts, tax, posting rules, periods and approvals.', [
-        { label: 'Accounting workspace', go: "settingsGo('accounting-overview','accounting-overview','work')" },
-        { label: 'Close', go: "settingsGo('accounting-overview','accounting-overview','work');setTimeout(()=>accView('close'),0)" },
+        { label: 'Accounting settings', go: "settingsGo('accounting-overview','accounting-overview','settings')" },
+        { label: 'Journal & close', go: "settingsGo('accounting-overview','accounting-overview','journal')" },
+        { label: 'Budget & bank', go: "settingsGo('accounting-overview','accounting-overview','budget')" },
       ])}
       ${section('Marketing & Communications', 'Brand, campaigns, social, website, email and AI.', [
-        { label: 'Marketing workspace', go: "switchPage('marketing-overview')" },
-        { label: 'Website', go: "switchPage('website')" },
-        { label: 'Studio', go: "settingsGo('marketing-overview','marketing-overview','work');setTimeout(()=>mktView('studio'),0)" },
+        { label: 'Marketing settings', go: "settingsGo('marketing-overview','marketing-overview','settings')" },
+        { label: 'Website', go: "settingsGo('marketing-overview','marketing-overview','website')" },
+        { label: 'Studio', go: "settingsGo('marketing-overview','marketing-overview','studio')" },
       ])}
       ${section('People & Academy', 'Employment policy, training, schedules and compliance.', [
         { label: 'People', go: "switchPage('people-overview')" },
