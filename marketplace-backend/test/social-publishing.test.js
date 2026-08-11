@@ -288,3 +288,11 @@ test('a scheduled vehicle post can publish only while that canonical unit is ava
   assert.match(social, /social_scheduled_vehicle_unavailable/)
   assert.match(social, /eq\('dealership_id', dealershipId\)/, 'campaign, inventory and attention reads remain tenant scoped')
 })
+
+test('dealer composer writes per-account caption variants into canonical targets', () => {
+  const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
+  assert.match(ws, /class="mkt-variant/)
+  assert.match(ws, /body_override: bodyOverride \|\| null/)
+  assert.match(social, /body_override: t\.body_override \|\| null/)
+  assert.match(dispatcher, /target\.body_override \|\| post\?\.body/)
+})

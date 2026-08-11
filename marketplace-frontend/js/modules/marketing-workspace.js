@@ -120,11 +120,14 @@ function mktCompose(prefill = {}) {
       <textarea id="mkt-body" rows="4" placeholder="What do you want to say?"
         class="w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-[14px] mb-3">${esc(prefill.body || '')}</textarea>
       <div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mb-1">Publish to</div>
-      ${usable.length ? usable.map(a => `<label class="flex items-center gap-2 py-1.5">
-        <input type="checkbox" class="mkt-target" value="${esc(a.id)}">
-        <span class="text-[13px] text-slate-900 dark:text-white">${esc(a.display_name)}</span>
-        <span class="text-[12px] text-slate-400">${esc(a.provider)}</span>
-      </label>`).join('') : `<div class="text-[13px] text-rose-600 dark:text-rose-400">You cannot publish to any connected account yet.</div>`}
+      ${usable.length ? usable.map(a => `<div class="py-1.5">
+        <label class="flex items-center gap-2"><input type="checkbox" class="mkt-target" value="${esc(a.id)}" onchange="mktToggleVariant(this)">
+          <span class="text-[13px] text-slate-900 dark:text-white">${esc(a.display_name)}</span><span class="text-[12px] text-slate-400">${esc(a.provider)}</span>
+        </label>
+        <label class="mkt-variant-wrap hidden ml-6 mt-1 text-[11px] font-bold text-slate-500">Caption for ${esc(a.provider)}
+          <textarea rows="2" class="mkt-variant mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-2 text-[12px] font-normal" data-account-id="${esc(a.id)}" placeholder="Optional — leave blank to use the shared caption"></textarea>
+        </label>
+      </div>`).join('') : `<div class="text-[13px] text-rose-600 dark:text-rose-400">You cannot publish to any connected account yet.</div>`}
       ${refused.length ? `<div class="mt-2 text-[12px] text-slate-400">${refused.map(a =>
         `${esc(a.display_name)} — ${esc(a.why || 'not available to you')}`).join('<br>')}</div>` : ''}
       ${assets.length ? `<div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 mt-4 mb-1">Attach from Studio</div>
@@ -148,9 +151,17 @@ function mktCompose(prefill = {}) {
 }
 window.mktCompose = mktCompose;
 
+function mktToggleVariant(input) {
+  input.closest('div')?.querySelector('.mkt-variant-wrap')?.classList.toggle('hidden', !input.checked);
+}
+window.mktToggleVariant = mktToggleVariant;
+
 async function mktSavePost(btn) {
   const root = btn.closest('.fixed');
-  const targets = [...root.querySelectorAll('.mkt-target:checked')].map(i => ({ social_account_id: i.value }));
+  const targets = [...root.querySelectorAll('.mkt-target:checked')].map(i => {
+    const bodyOverride = [...root.querySelectorAll('.mkt-variant')].find(v => v.dataset.accountId === i.value)?.value.trim();
+    return { social_account_id: i.value, body_override: bodyOverride || null };
+  });
   if (!targets.length) return showToast('Choose at least one account to publish to.', 'error');
   const when = root.querySelector('#mkt-when').value;
   try {
