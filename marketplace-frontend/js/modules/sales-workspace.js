@@ -248,33 +248,104 @@ async function salesRenderWork(body, d) {
   body.innerHTML = `<div class="flex gap-1.5 mb-3 overflow-x-auto">${nav}</div>${inner}`;
 }
 
+
+// ── My Day: the numbers that used to live behind an Insights tab ─────────────
+// A metric you only see by opening another tab is a metric nobody acts on. These are the same
+// /crm/insights figures, shown where the day is read. An unavailable read says so rather than
+// rendering a zero that looks like a bad month.
+function salesPerformanceStrip(d) {
+  const i = d.insights;
+  if (!i) return engCard('Last 30 days', engEmpty('Performance could not be loaded, so this day is not showing your numbers.'));
+  const f = i.funnel || {};
+  const stat = (label, v) => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5">
+    <div class="text-[11px] uppercase tracking-wide text-slate-400 font-bold">${esc(label)}</div>
+    <div class="text-xl font-black ${v == null ? 'text-slate-400' : 'text-slate-900 dark:text-white'}">${esc(v == null ? 'Unknown' : v)}</div></div>`;
+  return engCard('Last 30 days', `<div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+    ${stat('Leads', f.leads ?? i.leads?.total ?? null)}
+    ${stat('Appointments', f.appointments ?? null)}
+    ${stat('Sold', f.sold ?? null)}
+    ${stat('Close rate', f.leads && f.sold != null ? Math.round((f.sold / f.leads) * 100) + '%' : null)}
+  </div>`);
+}
+
+// Deals and deliveries appear in BOTH My Day and Appointments — they are the same work seen
+// from two angles (what is live today, and what is booked), so neither view is complete
+// without them.
+function salesDealsAndDeliveries(d) {
+  const dealRow = (x) => `<div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+    <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(x.customer_name || x.contact_name || 'Deal')}</div>
+    <div class="text-[12px] text-slate-400 truncate">${esc([x.vehicle_label || x.vehicle, x.status].filter(Boolean).join(' · '))}</div></div>
+    <button onclick="switchPage('desk')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700">Open</button></div>`;
+  const delRow = (x) => `<div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+    <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(x.customer_name || 'Delivery')}</div>
+    <div class="text-[12px] text-slate-400 truncate">${esc([x.vehicle_label || x.vehicle, x.scheduled_for || x.status].filter(Boolean).join(' · '))}</div></div>
+    <button onclick="switchPage('delivery')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700">Open</button></div>`;
+  return `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+    ${engCard('Deals in progress', d.deals === null
+      ? engEmpty('You do not have permission to see deals, or they could not be loaded.')
+      : d.deals.length ? d.deals.slice(0, 8).map(dealRow).join('') : engEmpty('No deals in progress.'))}
+    ${engCard('Deliveries', d.deliveries === null
+      ? engEmpty('You do not have permission to see deliveries, or they could not be loaded.')
+      : d.deliveries.length ? d.deliveries.slice(0, 8).map(delRow).join('') : engEmpty('Nothing is waiting to be delivered.'))}
+  </div>`;
+}
+
+// ── Sales settings — real values, edited here ────────────────────────────────
+// This tab used to be a paragraph and two buttons pointing elsewhere. Lead routing is the one
+// setting Sales actually owns, so it is read and written here rather than signposted.
+const SALES_ROUTING_MODES = [
+  ['round_robin', 'Round robin', 'Each new lead goes to the next rep in turn.'],
+  ['first_come', 'First to claim', 'Every rep sees a new lead; the first to claim it owns it.'],
+  ['manager', 'Manager assigns', 'New leads wait in one queue until a manager assigns them.'],
+];
+async function salesSaveRouting(mode) {
+  try {
+    await apiSendJson('/launch/dealership', 'PATCH', { lead_routing: { mode } });
+    showToast('Lead routing saved', 'success');
+    ENGINE_DATA['sales'] = undefined;
+    engineTab('sales', 'settings', true);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.salesSaveRouting = salesSaveRouting;
+
 // ── Engine registration ──────────────────────────────────────────────────────
 ENGINES['sales'] = {
   rootId: 'sales-root', title: 'Sales', subtitle: 'Your customers, appointments and deals — what needs you first',
   icon: 'currency', accent: 'amber',
-  tabLabels: { overview: 'My Day', work: 'Work' },
+  // Four tabs. Insights folded into My Day (a number you only see by opening another tab is a
+  // number nobody acts on), Automation folded into Settings (there is one workflow engine, so
+  // it is configuration, not a department surface), Work renamed to what it actually holds, and
+  // Appointments promoted out of a sub-view because it is a top-level part of a rep's day.
+  tabLabels: { overview: 'My Day', work: 'Customers', appointments: 'Appointments', settings: 'Settings' },
 
-  // Role-aware tabs. A salesperson gets Today | Work; a manager also gets Insights;
-  // Automation/Settings are management-only. Server authorization stays
-  // authoritative — this only decides what is worth showing.
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'work', 'insights', 'automation', 'settings'] : ['overview', 'work'];
+    // A rep gets the three they work in; Settings stays management-only, and the server
+    // remains authoritative either way — this only decides what is worth showing.
+    return mgr ? ['overview', 'work', 'appointments', 'settings'] : ['overview', 'work', 'appointments'];
   },
 
   // ONE parallel round-trip for the landing view — no waterfall, and deliveries /
   // insights are deliberately excluded (they load inside their own tab).
   fetch: async () => {
-    const [contacts, tasks, appts] = await Promise.all([
+    // Deals, deliveries and insights are now part of the landing view, so they load with it.
+    // Each fails on its own: a rep without deal.approve still gets their day.
+    const [contacts, tasks, appts, deals, deliveries, insights] = await Promise.all([
       apiGetJson('/crm/contacts?limit=200').catch(() => ({ contacts: [] })),
       apiGetJson('/crm/tasks?scope=open').catch(() => ({ tasks: [] })),
       apiGetJson('/appointments').catch(() => ({ appointments: [] })),
+      apiGetJson('/fni/deals').catch(() => null),
+      apiGetJson('/delivery/queue').catch(() => null),
+      apiGetJson('/crm/insights?range=30').catch(() => null),
     ]);
     const d = {
       contacts: contacts.contacts || [],
       tasks: tasks.tasks || [],
       appointments: appts.appointments || [],
       isManager: typeof appts.can_manage_all === 'boolean' ? appts.can_manage_all : undefined,
+      deals: deals?.deals || null,
+      deliveries: deliveries?.queue || deliveries?.deliveries || null,
+      insights,
     };
     d.tasksByContact = {}; d.apptByContact = {};
     for (const t of d.tasks) if (t.contact_id && !d.tasksByContact[t.contact_id]) d.tasksByContact[t.contact_id] = t;
@@ -284,9 +355,15 @@ ENGINES['sales'] = {
   },
 
   quickActions: [
+    // Opportunities leads the header rather than hiding as a sub-view: it is the first thing a
+    // salesperson is looking for when they open the workspace.
+    { label: 'Opportunities', icon: 'flame', onclick: "salesWorkView('opportunities')" },
     { label: '+ Customer', icon: 'user', onclick: 'crmOpenForm()' },
     { label: 'Book Appointment', icon: 'calendar', onclick: "switchPage('appointments')" },
     { label: 'Appraise Trade', icon: 'gem', onclick: "switchPage('appraisal')" },
+    // Customers already in the book who are in a position to trade — a Sales job, so it belongs
+    // in the Sales header rather than only inside Inventory.
+    { label: 'Equity Mining', icon: 'gem', onclick: "switchPage('equity')" },
     { label: 'Desk Deal', icon: 'currency', onclick: "switchPage('desk')" },
   ],
 
@@ -313,6 +390,8 @@ ENGINES['sales'] = {
           ${engKpi('Overdue tasks', overdue.length, overdue.length ? 'text-rose-600 dark:text-rose-400' : '')}
         </div>
         ${engCard('Needs attention', att.length ? att.map(salesAttentionRow).join('') : engEmpty('Nothing needs you right now.'))}
+        ${salesPerformanceStrip(d)}
+        ${salesDealsAndDeliveries(d)}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
           ${engCard("Today's appointments", todays.length ? todays.map(a => `
             <div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
@@ -328,54 +407,70 @@ ENGINES['sales'] = {
     // ── WORK — Opportunities | Appointments | Customers | Deals | Deliveries ──
     work: salesRenderWork,
 
-    // ── INSIGHTS — manager-focused, reuses the existing insights payload ─────
-    async insights(body) {
-      body.innerHTML = `<div class="text-sm text-slate-400 py-10 text-center">Loading insights…</div>`;
-      let d;
-      try { d = await apiGetJson('/crm/insights?range=30'); }
-      catch (e) { body.innerHTML = engEmpty(`Couldn't load insights: ${esc(e.message)}`); return; }
-      if (d.empty) { body.innerHTML = engEmpty('No data yet.'); return; }
-      const bar = (items, labelFn) => {
-        const mx = Math.max(1, ...items.map(i => i.count));
-        return items.slice(0, 8).map(i => `<div class="flex items-center gap-2 text-sm py-0.5">
-          <div class="w-28 shrink-0 truncate text-slate-600 dark:text-slate-300">${esc(labelFn(i))}</div>
-          <div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden"><div class="h-full bg-amber-500 rounded-full" style="width:${Math.round((i.count / mx) * 100)}%"></div></div>
-          <div class="w-8 text-right font-bold tabular-nums">${i.count}</div></div>`).join('') || engEmpty('No data in range.');
-      };
-      body.innerHTML = `
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          ${engKpi('New leads', d.leads.total)}
-          ${engKpi('Pipeline', d.pipeline.total_contacts, '')}
-          ${engKpi('Conversion', d.pipeline.conversion_pct + '%')}
-          ${engKpi('Overdue tasks', d.tasks.overdue, d.tasks.overdue ? 'text-rose-600 dark:text-rose-400' : '')}
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          ${engCard('Lead sources', bar(d.leads.by_source, i => i.key))}
-          ${engCard('Pipeline funnel', bar(d.pipeline.funnel.map(f => ({ key: salesLabel(f.status), count: f.count })), i => i.key))}
-          ${d.is_manager ? engCard('Leads by rep', bar(d.leads.per_rep, i => i.name), 'lg:col-span-2') : ''}
+    // ── APPOINTMENTS — promoted out of a sub-view ───────────────────────────
+    // It was one of five tabs inside Work. Booking and arrival is a top-level part of a
+    // salesperson's day, not something to find two clicks in.
+    appointments(body, d) {
+      const now = Date.now(), day = 864e5;
+      const appts = [...(d.appointments || [])].sort((a, b) => new Date(a.appointment_at) - new Date(b.appointment_at));
+      const upcoming = appts.filter(a => new Date(a.appointment_at) >= now - day / 2);
+      const past = appts.filter(a => new Date(a.appointment_at) < now - day / 2);
+
+      const row = (a) => {
+        const when = new Date(a.appointment_at);
+        const today = Math.abs(when - now) < day / 2;
+        return `<div class="flex items-center gap-3 py-2.5 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+          <div class="shrink-0 text-[12px] font-bold tabular-nums ${today ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">${esc(when.toLocaleDateString([], { month: 'short', day: 'numeric' }))} ${esc(when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}</div>
+          <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(a.customer_name || '—')}</div>
+          <div class="text-[12px] text-slate-400 truncate">${esc([a.appointment_type, a.status].filter(Boolean).join(' · '))}</div></div>
+          <button onclick="switchPage('appointments')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700">Open</button>
         </div>`;
+      };
+
+      body.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          ${engKpi('Upcoming', upcoming.length)}
+          ${engKpi('Today', appts.filter(a => Math.abs(new Date(a.appointment_at) - now) < day / 2).length)}
+          ${engKpi('Deals in progress', d.deals === null ? '—' : d.deals.length)}
+          ${engKpi('Deliveries', d.deliveries === null ? '—' : d.deliveries.length)}
+        </div>
+        ${engCard('Upcoming appointments', upcoming.length ? upcoming.slice(0, 20).map(row).join('') : engEmpty('Nothing booked.'))}
+        ${salesDealsAndDeliveries(d)}
+        ${past.length ? `<div class="mt-3">${engCard('Recent', past.slice(-8).reverse().map(row).join(''))}</div>` : ''}
+      `;
     },
 
-    // ── AUTOMATION — Sales-relevant workflows only; the engine stays global ──
-    automation(body) {
-      const items = ['New lead response', 'Lead assignment', 'No-response follow-up', 'Appointment confirmation',
-                     'Appointment reminder', 'No-show follow-up', 'Sold follow-up', 'Delivery follow-up',
-                     'Review request', 'Referral request', 'Equity / ownership follow-up'];
-      body.innerHTML = engCard('Sales workflows',
-        `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">These run on the shared Automation Engine — Sales does not own a separate one. Edit templates and rules in the builder.</p>
-         <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-3">${items.map(i => `<div class="text-[13px] text-slate-700 dark:text-slate-200 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>${esc(i)}</div>`).join('')}</div>
-         <button onclick="switchPage('automation-builder')" class="px-3 py-2 rounded-lg bg-amber-600 text-white text-sm font-bold">Open Automation Builder</button>`);
-    },
+    // ── SETTINGS — the settings themselves, not links to them ───────────────
+    // Also absorbs the former Automation tab: there is ONE workflow engine, so which Sales
+    // workflows run is configuration, not a department surface of its own.
+    settings(body, d) {
+      const routing = d.insights?.lead_routing || window.__salesRouting || null;
+      const current = routing?.mode || null;
 
-    // ── SETTINGS — Sales-specific only. Global config lives in Settings/People ──
-    settings(body) {
-      body.innerHTML = engCard('Sales settings',
-        `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Lead assignment and routing rules, pipeline defaults and Sales notification behavior.</p>
-         <div class="flex flex-wrap gap-2">
-           <button onclick="switchPage('leads')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Lead routing</button>
-           <button onclick="switchPage('config')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Dealership configuration</button>
-         </div>
-         <p class="text-[12px] text-slate-400 mt-3">API keys, billing, integrations, security and employee administration live in global Settings and People — not here.</p>`);
+      const modeRow = ([mode, label, why]) => `<button onclick="salesSaveRouting('${mode}')"
+        class="w-full text-left flex items-start gap-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+        <span class="mt-0.5 w-4 h-4 shrink-0 rounded-full border-2 ${current === mode ? 'border-amber-500 bg-amber-500' : 'border-slate-300 dark:border-slate-600'}"></span>
+        <span class="min-w-0 flex-1"><span class="block font-bold text-[13px] text-slate-900 dark:text-white">${esc(label)}</span>
+        <span class="block text-[12px] text-slate-500 dark:text-slate-400">${esc(why)}</span></span>
+      </button>`;
+
+      const workflows = ['New lead response', 'Lead assignment', 'No-response follow-up', 'Appointment confirmation',
+        'Appointment reminder', 'No-show follow-up', 'Sold follow-up', 'Delivery follow-up',
+        'Review request', 'Referral request', 'Equity / ownership follow-up'];
+
+      body.innerHTML = `
+        ${engCard('Lead routing', `
+          <p class="text-[12px] text-slate-500 mb-1">Who a new lead goes to. ${current ? '' : '<b>Not set</b> — new leads currently land in one shared queue.'}</p>
+          ${SALES_ROUTING_MODES.map(modeRow).join('')}
+        `)}
+        <div class="mt-3"></div>
+        ${engCard('Sales workflows', `
+          <p class="text-[12px] text-slate-500 mb-2">These run on the shared Automation Engine. Sales does not own a separate one — editing a template here edits it everywhere.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-3">${workflows.map(i => `<div class="text-[13px] text-slate-700 dark:text-slate-200 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>${esc(i)}</div>`).join('')}</div>
+          <button onclick="switchPage('automation-builder')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-[13px] font-bold">Edit workflow templates</button>
+        `)}
+        <p class="text-[12px] text-slate-400 px-1 mt-3">API keys, billing, integrations, security and employee administration live in global Settings and People — not here.</p>
+      `;
     },
   },
 };

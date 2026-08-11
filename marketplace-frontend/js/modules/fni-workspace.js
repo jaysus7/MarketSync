@@ -171,25 +171,55 @@ async function fniSelectLender(dealId, decisionId) {
 }
 window.fniSelectLender = fniSelectLender;
 
+// Credit and Menu are gone as views. Both are things you do ON a deal — the credit
+// application opens from the deal, and the menu is part of desking one — so a department-level
+// list of them was a second way in to work that already has a home.
+// Contracts and Funding move up into My Day: they are what is outstanding today, not a place
+// to browse.
+
+// ── Contracts and Funding — outstanding today, in My Day ─────────────────────
+// They were two browse views inside Work. What matters about a contract is that it is not back
+// yet, and what matters about funding is that the money has not arrived — both are "today"
+// facts, so they belong in the day rather than in a list somebody opens on purpose.
+function fniContractsAndFunding(d) {
+  const deals = d.deals || [];
+  const awaitingContract = deals.filter(x => /sold|delivered/i.test(x.deal_status || '') && !x.contract_signed_at);
+  const awaitingFunding = deals.filter(x => x.contract_signed_at && !x.funded_at);
+  const row = (x, note) => `<div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+    <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(fniCustomer(x))}</div>
+    <div class="text-[12px] text-slate-400 truncate">${esc(note)}</div></div>
+    <button onclick="switchPage('fni')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700">Open deal</button></div>`;
+  return `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+    ${engCard(`Contracts outstanding (${awaitingContract.length})`, awaitingContract.length
+      ? awaitingContract.slice(0, 8).map(x => row(x, 'Sold, contract not signed')).join('')
+      : engEmpty('Every sold deal has a signed contract.'))}
+    ${engCard(`Awaiting funding (${awaitingFunding.length})`, awaitingFunding.length
+      ? awaitingFunding.slice(0, 8).map(x => row(x, 'Contract signed, not funded')).join('')
+      : engEmpty('Nothing is waiting to be funded.'))}
+  </div>`;
+}
+
 const FNI_WORK_VIEWS = [
-  ['queue', 'Queue'], ['credit', 'Credit'], ['menu', 'Menu'],
-  ['contracts', 'Contracts'], ['funding', 'Funding'],
+  ['queue', 'All deals'],
 ];
 function fniWorkView(v) { __fniWorkView = v; engineTab('fni-overview', 'work'); }
 window.fniWorkView = fniWorkView;
 
 async function fniRenderWork(body, d) {
-  const nav = FNI_WORK_VIEWS.map(([id, label]) => {
+  // One view left, so the sub-nav row is suppressed rather than rendering a single lonely pill.
+  const nav = FNI_WORK_VIEWS.length > 1 ? FNI_WORK_VIEWS.map(([id, label]) => {
     const on = __fniWorkView === id;
     return `<button onclick="fniWorkView('${id}')" class="px-3 py-1.5 rounded-lg text-[13px] font-bold transition ${on ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}">${esc(label)}</button>`;
-  }).join('');
+  }).join('') : '';
   const link = (page, label) => `<div class="mt-3"><button onclick="switchPage('${page}')" class="text-[13px] font-bold text-indigo-500 hover:text-indigo-400">${esc(label)} →</button></div>`;
   let inner = '';
 
   if (__fniWorkView === 'queue') {
+    // Everything F&I still owns: sold and funding. A delivered deal has left the department,
+    // so it drops off this list rather than accumulating forever.
     const order = ['pending', 'approved', 'fni', 'contracted', 'sold', 'working'];
     inner = order.map(st => {
-      const rows = (d.deals || []).filter(x => x.deal_status === st);
+      const rows = (d.deals || []).filter(x => x.deal_status === st && !/delivered/i.test(x.deal_status || '') && !x.delivered_at);
       return rows.length ? engCard(`${FNI_STAGE_LABEL[st] || st} (${rows.length})`, rows.slice(0, 12).map(fniRow).join('')) : '';
     }).join('') || engEmpty('No deals in progress.');
     inner += link('fni', 'Open F&I deals');
@@ -237,22 +267,28 @@ async function fniRenderWork(body, d) {
 ENGINES['fni-overview'] = {
   rootId: 'fni-overview-root', title: 'F&I', subtitle: 'Approvals, credit, products, contracts and delivery readiness',
   icon: 'shield', accent: 'indigo',
-  tabLabels: { overview: 'My Day', work: 'Work' },
+  // Insights folded into My Day. Work renamed to Deals, which is what F&I actually works.
+  tabLabels: { overview: 'My Day', work: 'Deals', settings: 'Settings' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'work', 'insights', 'settings'] : ['overview', 'work'];
+    return mgr ? ['overview', 'work', 'settings'] : ['overview', 'work'];
   },
 
   fetch: async () => {
     // Deals are the landing payload. The delivery queue is fetched here too because
     // blockers are the department's headline attention item, but products and the
     // full delivery view stay lazy.
-    const [deals, del] = await Promise.all([
+    const [deals, del, products, lenders] = await Promise.all([
       apiGetJson('/fni/deals').catch(() => ({ deals: [] })),
       apiGetJson('/delivery/queue').catch(() => ({ deals: [] })),
+      apiGetJson('/fni/products').catch(() => null),
+      apiGetJson('/fni/lenders').catch(() => null),
     ]);
     const queue = del.deals || del.queue || [];
-    const d = { deals: deals.deals || deals.items || [], blocked: queue.filter(x => x.blocker) };
+    const d = { deals: deals.deals || deals.items || [], blocked: queue.filter(x => x.blocker),
+      // null means "could not read", which the Settings tab renders differently from "none".
+      products: products ? (products.products || products.items || []) : null,
+      lenders: lenders ? (lenders.lenders || lenders.items || []) : null };
     __fniWsData = d;
     return d;
   },
@@ -290,7 +326,8 @@ ENGINES['fni-overview'] = {
                 <div class="text-[12px] text-rose-500 truncate">${esc(x.blocker || '')}</div></div>
               <button onclick="switchPage('delivery')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Prepare Delivery</button>
             </div>`).join('') : engEmpty('No delivery blockers.'))}
-        </div>`;
+        </div>
+        ${fniContractsAndFunding(d)}`;
     },
     work: fniRenderWork,
     insights(body, d) {
@@ -310,13 +347,37 @@ ENGINES['fni-overview'] = {
           <div class="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden"><div class="h-full bg-indigo-500 rounded-full" style="width:${Math.round((n / mx) * 100)}%"></div></div>
           <div class="w-8 text-right font-bold tabular-nums">${n}</div></div>`).join('') : engEmpty('No deals yet.'))}`;
     },
-    settings(body) {
-      body.innerHTML = engCard('F&I settings',
-        `<p class="text-[13px] text-slate-600 dark:text-slate-300 mb-3">Lenders, F&amp;I product catalogue and approval behaviour.</p>
-         <div class="flex flex-wrap gap-2">
-           <button onclick="switchPage('fni')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Lenders &amp; products</button>
-           <button onclick="switchPage('config')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold">Dealership configuration</button>
-         </div>`);
+    // ── SETTINGS — the settings themselves ──────────────────────────────────
+    // Was a paragraph and two buttons pointing elsewhere. Most F&I work runs through third
+    // parties, so what this department actually configures is WHO those parties are and what
+    // is on the menu — so those are listed here, with their real state.
+    settings(body, d) {
+      const products = d.products || null;
+      const lenders = d.lenders || null;
+
+      const list = (rows, empty, render) => rows === null
+        ? engEmpty('This could not be loaded, so it is not shown as empty.')
+        : rows.length ? rows.map(render).join('') : engEmpty(empty);
+
+      body.innerHTML = `
+        ${engCard(`F&I products (${products === null ? 'unknown' : products.length})`, list(products,
+          'No products are set up yet, so nothing can be presented on a menu.',
+          (p) => `<div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+            <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(p.name || p.product_name || 'Product')}</div>
+            <div class="text-[12px] text-slate-400 truncate">${esc([p.provider, p.category].filter(Boolean).join(' · ') || 'No provider recorded')}</div></div>
+            <div class="shrink-0 text-[12px] font-bold ${p.active === false ? 'text-slate-400' : 'text-emerald-600 dark:text-emerald-400'}">${p.active === false ? 'Inactive' : 'Active'}</div>
+          </div>`))}
+        <div class="mt-3"></div>
+        ${engCard(`Lenders (${lenders === null ? 'unknown' : lenders.length})`, list(lenders,
+          'No lenders are set up. Funding cannot be tracked against a lender until one exists.',
+          (l) => `<div class="flex items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
+            <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(l.name || 'Lender')}</div>
+            <div class="text-[12px] text-slate-400 truncate">${esc(l.notes || l.tier || '')}</div></div>
+          </div>`))}
+        <div class="mt-3"></div>
+        ${engCard('Where the rest lives', `<p class="text-[12px] text-slate-500">Most F&amp;I work runs through third parties — lenders, credit bureaux and contract providers — and those connections are configured under Settings &rsaquo; Integrations, not here. Dealership legal name, tax registration and disclosures live in Setup.</p>
+          <button onclick="switchPage('config')" class="mt-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-[13px] font-bold">Open integrations</button>`)}
+      `;
     },
   },
 };

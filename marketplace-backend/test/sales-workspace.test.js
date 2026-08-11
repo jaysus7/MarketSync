@@ -27,12 +27,19 @@ test('Sales uses the shared engine shell, not a bespoke one', () => {
     'Sales must not redefine a shared primitive')
 })
 
-test('tabs are role-aware: rep gets My Day|Work, manager also gets Insights', () => {
+test('four tabs, role-aware: a rep works in three, a manager also gets Settings', () => {
+  // Was five (My Day | Work | Insights | Automation | Settings). Insights folded into My Day —
+  // a number you only see by opening another tab is a number nobody acts on. Automation folded
+  // into Settings — there is one workflow engine, so it is configuration. Work renamed to what
+  // it holds. Appointments promoted out of a sub-view.
   const block = sales.match(/get tabOrder\(\)\s*\{[\s\S]*?\n  \},/)?.[0] || ''
   assert.ok(block, 'tabOrder must be role-aware')
-  assert.match(block, /\['overview', 'work'\]/, 'a salesperson sees Today | Work only')
-  assert.match(block, /'insights'/, 'a manager additionally sees Insights')
+  assert.match(block, /\['overview', 'work', 'appointments'\]/, 'a salesperson sees the three they work in')
+  assert.match(block, /'settings'/, 'a manager additionally sees Settings')
+  assert.ok(!/'insights'/.test(block) && !/'automation'/.test(block),
+    'Insights and Automation must not be tabs of their own')
   assert.match(sales, /tabLabels:\s*\{\s*overview:\s*'My Day'/, 'the attention landing must read "My Day"')
+  assert.match(sales, /work:\s*'Customers'/, 'Work must be named for what it holds')
 })
 
 test('My Day is attention-first, not another analytics dashboard', () => {
@@ -66,14 +73,18 @@ test('canonical stage model is reused — no invented backend state', () => {
 })
 
 test('no new endpoints — Sales only reads APIs that already exist', () => {
-  const KNOWN = ['/crm/contacts', '/crm/tasks', '/appointments', '/crm/insights', '/delivery/queue']
+  const KNOWN = ['/crm/contacts', '/crm/tasks', '/appointments', '/crm/insights', '/delivery/queue', '/fni/deals', '/launch/dealership']
   const calls = [...sales.matchAll(/apiGetJson\('([^'?]+)/g)].map(m => m[1])
   assert.ok(calls.length, 'Sales should read some data')
   for (const c of calls) {
     assert.ok(KNOWN.includes(c), `Sales must not introduce a new endpoint: ${c}`)
   }
-  // Read-only composition: the workspace itself must not write.
-  assert.doesNotMatch(sales, /apiSendJson\(/, 'Sales workspace must delegate writes to existing pages')
+  // Sales writes exactly ONE thing: its own lead-routing setting, through the existing
+  // /launch/dealership PATCH. The Settings tab used to be a paragraph and two buttons pointing
+  // elsewhere; a settings screen that cannot change a setting is a signpost, not a setting.
+  const writes = [...sales.matchAll(/apiSendJson\('([^']+)'/g)].map(m => m[1])
+  assert.deepEqual([...new Set(writes)], ['/launch/dealership'],
+    'Sales may only write its own routing setting; every other write belongs to its own page')
 })
 
 test('actions delegate to the existing Sales implementation', () => {
@@ -90,17 +101,27 @@ test('next action is derived, not a second workflow engine', () => {
   assert.doesNotMatch(sales, /workflow_instances|createWorkflow|new Workflow/i, 'must not create a workflow engine')
 })
 
-test('landing payload is one parallel round-trip; heavy views load lazily', () => {
+test('landing payload stays ONE parallel round-trip even though it now shows more', () => {
+  // Insights, deals and deliveries are part of My Day now, so they load with it. The original
+  // concern this test encoded — do not make the landing slow — is preserved by them being in
+  // the SAME Promise.all rather than a waterfall, and by each failing independently.
   const fetchBlock = sales.match(/fetch: async \(\) => \{[\s\S]*?\n  \},/)?.[0] || ''
   assert.match(fetchBlock, /Promise\.all/, 'landing data must load in parallel, not a waterfall')
-  assert.doesNotMatch(fetchBlock, /delivery\/queue/, 'deliveries must not load on the landing page')
-  assert.doesNotMatch(fetchBlock, /crm\/insights/, 'insights must not load on the landing page')
-  assert.match(sales, /__salesDeliveries/, 'deliveries must be lazily fetched inside their view')
+  assert.equal((fetchBlock.match(/Promise\.all/g) || []).length, 1, 'exactly one round-trip')
+  assert.equal((fetchBlock.match(/await /g) || []).length, 1, 'no sequential awaits — that would be a waterfall')
+  for (const src of ['/crm/insights', '/fni/deals', '/delivery/queue']) {
+    assert.ok(fetchBlock.includes(src), `${src} must load with the day, not behind another tab`)
+    // Allow a query string between the path and the closing quote.
+    assert.match(fetchBlock, new RegExp(`${src.replace(/\//g, '\\/')}[^']*'\\)\\.catch`), `${src} must fail on its own`)
+  }
 })
 
 test('Sales settings stay Sales-specific', () => {
-  const block = sales.match(/settings\(body\) \{[\s\S]*?\n    \},/)?.[0] || ''
+  const block = sales.match(/settings\(body, d\) \{[\s\S]*?\n    \},/)?.[0] || ''
   assert.ok(block, 'settings tab must exist')
+  // And it must show the setting, not a button to go and find it.
+  assert.match(block, /salesSaveRouting/, 'lead routing must be editable here')
+  assert.match(block, /SALES_ROUTING_MODES\.map/, 'the actual options must render')
   for (const forbidden of ['api-keys', 'billing', 'sales-team', 'security']) {
     assert.ok(!block.includes(`switchPage('${forbidden}')`), `${forbidden} belongs in global Settings/People, not Sales`)
   }

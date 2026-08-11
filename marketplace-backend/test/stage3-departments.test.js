@@ -36,7 +36,10 @@ for (const [name, src, id] of DEPTS) {
   test(`${name} tabs are role-aware and My Day-first`, () => {
     const block = src.match(/get tabOrder\(\)\s*\{[\s\S]*?\n  \},/)?.[0] || ''
     assert.ok(block, `${name} tabOrder must be role-aware`)
-    assert.match(block, /\['overview', 'work'\]/, `${name}: a non-manager sees Today | Work`)
+    // A non-manager's tabs must LEAD with the day and their work. Departments may add more
+    // beyond that (Inventory gives everyone Appraisals), so this pins the lead rather than the
+    // exact array — the property that matters is that nobody lands on analytics.
+    assert.match(block, /\['overview', 'work'/, `${name}: a non-manager leads with Today | Work`)
     assert.match(src, /tabLabels:\s*\{\s*overview:\s*'My Day'/, `${name} overview tab must read "My Day"`)
   })
 
@@ -47,7 +50,7 @@ for (const [name, src, id] of DEPTS) {
   })
 
   test(`${name} adds no new endpoints`, () => {
-    const KNOWN = ['/inventory', '/recon', '/ai/appraisals', '/fni/deals', '/fni/products', '/delivery/queue', '/fni/funding']
+    const KNOWN = ['/inventory', '/recon', '/ai/appraisals', '/fni/deals', '/fni/products', '/delivery/queue', '/fni/funding', '/fni/lenders']
     for (const c of [...src.matchAll(/apiGetJson\('([^'?]+)/g)].map(m => m[1])) {
       assert.ok(KNOWN.includes(c), `${name} must not introduce a new endpoint: ${c}`)
     }
@@ -80,9 +83,14 @@ for (const [name, src, id] of DEPTS) {
 
 test('Inventory Work exposes the vehicle lifecycle', () => {
   const views = inv.match(/const INV_WORK_VIEWS = \[[\s\S]*?\n\];/)?.[0] || ''
-  for (const v of ['vehicles', 'acquire', 'recon', 'merch', 'pricing', 'syndication']) {
+  for (const v of ['vehicles', 'acquire', 'recon', 'merch', 'pricing']) {
     assert.ok(views.includes(`'${v}'`), `Inventory Work must include ${v}`)
   }
+  // Facebook publishing is a marketing channel and now lives under Marketing. It must not be
+  // stranded — the registry keeps it reachable — but it is no longer an Inventory view.
+  assert.ok(!views.includes("'syndication'"), 'Facebook publishing belongs to Marketing')
+  const reg = read('js/modules/workspace-registry.js')
+  assert.match(reg, /marketing:[\s\S]*?invmode: 'facebook'/, 'and it must still be reachable from Marketing')
 })
 
 // ── Stage 3B.2 — Acquisition, Merchandising, Vehicle Record ──────────────────
@@ -194,11 +202,22 @@ test('Vehicle Record is wired into the shell after the department that feeds it'
     'the workspace modules must load after the dashboard parts')
 })
 
-test('F&I Work exposes the deal lifecycle', () => {
+test('F&I Deals is the deals it still owns; the rest moved to where the work happens', () => {
   const views = fni.match(/const FNI_WORK_VIEWS = \[[\s\S]*?\n\];/)?.[0] || ''
-  for (const v of ['queue', 'credit', 'menu', 'contracts', 'funding']) {
-    assert.ok(views.includes(`'${v}'`), `F&I Work must include ${v}`)
+  assert.ok(views.includes("'queue'"), 'the deals list must remain')
+  // Credit and Menu are things you do ON a deal — the credit application opens from the deal
+  // and the menu is part of desking one — so a department-level browse list of each was a
+  // second way in to work that already has a home.
+  for (const gone of ['credit', 'menu']) {
+    assert.ok(!views.includes(`'${gone}'`), `${gone} belongs on the deal, not as a department view`)
   }
+  // Contracts and Funding moved UP into My Day: both are "what is outstanding today".
+  for (const gone of ['contracts', 'funding']) {
+    assert.ok(!views.includes(`'${gone}'`), `${gone} belongs in My Day`)
+  }
+  assert.match(fni, /function fniContractsAndFunding/, 'and they must actually render there')
+  assert.match(fni, /Contracts outstanding/)
+  assert.match(fni, /Awaiting funding/)
 })
 
 // ── Handoffs: the same record continues, nothing is copied ───────────────────

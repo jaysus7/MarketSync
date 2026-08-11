@@ -159,8 +159,11 @@ window.invTakePossession = invTakePossession;
 // Work follows the vehicle lifecycle in order: what we have → what's coming in →
 // what's being fixed → what's ready to sell → what it's worth → where it's listed.
 const INV_WORK_VIEWS = [
-  ['vehicles', 'Vehicles'], ['acquire', 'Acquisition'], ['recon', 'Recon'],
-  ['merch', 'Merchandising'], ['pricing', 'Inventory Intelligence'], ['market', 'Market & Competitors'], ['syndication', 'Syndication'],
+  // "Cleanup" is what a dealership calls it. "Syndication" was jargon for one specific thing:
+  // pushing vehicles out to Facebook Marketplace, which is the AutoPoster product — so it is
+  // named for what it does rather than removed.
+  ['vehicles', 'Vehicles'], ['acquire', 'Acquisition'], ['recon', 'Cleanup'],
+  ['merch', 'Merchandising'], ['pricing', 'Inventory Intelligence'], ['market', 'Market & Competitors'],
 ];
 function invWorkView(v) { __invWorkView = v; engineTab('inventory-overview', 'work'); }
 window.invWorkView = invWorkView;
@@ -324,10 +327,13 @@ async function invRenderWork(body, d) {
 ENGINES['inventory-overview'] = {
   rootId: 'inventory-overview-root', title: 'Inventory', subtitle: 'One vehicle lifecycle — acquire, recon, price, publish',
   icon: 'gem', accent: 'sky',
-  tabLabels: { overview: 'My Day', work: 'Work' },
+  // Insights and Inventory Intelligence both folded into My Day — the numbers belong where the
+  // day is read, not behind a tab. Work is named for what it holds. Appraisals takes the slot
+  // Insights had, and is the appraisal page itself rather than a summary of it.
+  tabLabels: { overview: 'My Day', work: 'Inventory', appraisals: 'Appraisals', settings: 'Settings' },
   get tabOrder() {
     const mgr = ['DEALER_ADMIN', 'OWNER', 'MANAGER'].includes(profileContext?.role);
-    return mgr ? ['overview', 'work', 'insights', 'settings'] : ['overview', 'work'];
+    return mgr ? ['overview', 'work', 'appraisals', 'settings'] : ['overview', 'work', 'appraisals'];
   },
 
   fetch: async () => {
@@ -346,13 +352,14 @@ ENGINES['inventory-overview'] = {
   },
 
   quickActions: [
+    // The old Inventory page led with this and the workspace lost it.
+    { label: '+ Add inventory', icon: 'gem', onclick: "switchPage('inventory')" },
     { label: 'Appraise Trade', icon: 'gem', onclick: "switchPage('appraisal')" },
     { label: 'Acquisition', icon: 'truck', onclick: "invWorkView('acquire')" },
     { label: 'Merchandising', icon: 'camera', onclick: "invWorkView('merch')" },
-    { label: 'Recon board', icon: 'wrench', onclick: "switchPage('recon')" },
+    { label: 'Cleanup board', icon: 'wrench', onclick: "switchPage('recon')" },
     { label: 'Inventory Intelligence', icon: 'chart', onclick: "switchPage('inv-intel')" },
     { label: 'Market & Competitors', icon: 'eye', onclick: "switchPage('market')" },
-    { label: 'Publish to Facebook', icon: 'megaphone', onclick: "deptGo('inventory','facebook')" },
   ],
   nextActions: (d) => invAttention(d || {}).slice(0, 5).map(it => ({
     label: `${it.who} — ${it.action?.label || 'Open'}`, icon: 'flame',
@@ -382,11 +389,34 @@ ENGINES['inventory-overview'] = {
               <div class="min-w-0 flex-1"><div class="font-bold text-[13px] text-slate-900 dark:text-white truncate">${esc(invName(v))}</div>
                 <div class="text-[12px] text-slate-400 truncate">${esc(r.stage || 'in progress')}</div></div>
               <button onclick="switchPage('recon')" class="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Open Recon</button>
-            </div>`; }).join('') : engEmpty('Nothing in recon.'))}
+            </div>`; }).join('') : engEmpty('Nothing in cleanup.'))}
         </div>`;
+      // Insights and Inventory Intelligence live here now: aging, how units were acquired and
+      // the frontline picture belong in the day, not behind a tab somebody has to remember.
+      const strip = document.createElement('div');
+      strip.className = 'mt-4';
+      ENGINES['inventory-overview'].tabs.__insightsStrip(strip, d);
+      body.appendChild(strip);
     },
     work: invRenderWork,
-    insights(body, d) {
+
+    // ── APPRAISALS — the appraisal page itself, not a summary of it ─────────
+    // "Appraise a car" is a job somebody does, so this tab is that page rather than a card
+    // that sends them to it.
+    appraisals(body) {
+      body.innerHTML = `
+        ${engCard('Appraise a vehicle', `
+          <p class="text-[12px] text-slate-500 mb-2">Take an appraisal, work the numbers, and hand it to Inventory as a unit.</p>
+          <button onclick="switchPage('appraisal')" class="px-4 py-2 rounded-xl bg-sky-600 text-white text-[13px] font-bold">Open the appraisal tool</button>
+        `)}
+        ${engCard('Equity mining', `
+          <p class="text-[12px] text-slate-500 mb-2">Customers already in your book who are in a position to trade.</p>
+          <button onclick="switchPage('equity')" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[13px] font-bold">Open equity mining</button>
+        `)}
+      `;
+    },
+    // The old Insights tab, now rendered INSIDE My Day. See overview().
+    __insightsStrip(body, d) {
       const veh = d.vehicles || [];
       const held = veh.filter(v => !v.awaiting_possession);
       const bucket = (lo, hi) => veh.filter(v => { const a = invDays(v.created_at); return a != null && a >= lo && (hi == null || a < hi); }).length;

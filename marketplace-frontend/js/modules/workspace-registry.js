@@ -73,10 +73,9 @@ const MS_WORKSPACES = {
       { page: 'inventory', label: 'Vehicles', invmode: 'manual' },
       { page: 'appraisal', label: 'Acquire' },
       { page: 'equity', label: 'Equity Mining' },
-      { page: 'recon', label: 'Recon' },
+      { page: 'recon', label: 'Cleanup' },
       { page: 'inv-intel', label: 'Inventory Intelligence', mgr: true },
       { page: 'market', label: 'Market & Competitors', mgr: true },
-      { page: 'inventory', label: 'Syndication', invmode: 'facebook' },
     ],
   },
 
@@ -127,6 +126,9 @@ const MS_WORKSPACES = {
       { page: 'ai-home', label: 'AI Chat' },
       // Same story as `commissions`: a working page whose access point was lost.
       { page: 'ai-inbox', label: 'AI Inbox' },
+      // Facebook Marketplace publishing is a marketing channel, so it lives here rather than
+      // in Inventory. It is the same inventory pool viewed in facebook mode.
+      { page: 'inventory', label: 'Publish to Facebook', invmode: 'facebook' },
     ],
   },
 

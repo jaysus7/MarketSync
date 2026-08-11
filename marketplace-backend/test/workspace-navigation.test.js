@@ -127,11 +127,12 @@ test('Inventory Intelligence remains visibly discoverable inside Inventory', () 
   assert.match(inv, /label: 'Market & Competitors'.*switchPage\('market'\)/s)
 })
 
-test('one inventory pool — Vehicles and Syndication are two views of one page', () => {
+test('one inventory pool — the manual and Facebook views are the same page', () => {
+  // Still one pool and one page; the Facebook view simply moved to Marketing, where publishing
+  // to a channel belongs. What must never happen is a second vehicle model.
   const { MS_WORKSPACES } = loadRegistry()
-  const modes = MS_WORKSPACES.inventory.pages.filter(p => p.page === 'inventory')
-  assert.deepEqual(modes.map(p => p.invmode).sort(), ['facebook', 'manual'],
-    'inventory must appear once per view mode, never as a duplicate vehicle model')
+  assert.deepEqual(MS_WORKSPACES.inventory.pages.filter(p => p.page === 'inventory').map(p => p.invmode), ['manual'])
+  assert.deepEqual(MS_WORKSPACES.marketing.pages.filter(p => p.page === 'inventory').map(p => p.invmode), ['facebook'])
 })
 
 test('role gating is preserved on regrouped workspaces', () => {
@@ -188,15 +189,20 @@ test('engine workspaces and Settings render one primary header', () => {
     'Automation and API remain deep links inside Settings, not competing primary tabs')
 })
 
-test('Management exposes one canonical six-tab command header', () => {
+test('Management exposes one canonical four-tab command header', () => {
+  // Was six. Exceptions was the same needs-attention list Pulse already implies, and Approvals
+  // was a subset of it — three places to check and no single answer to "what is waiting on me".
+  // Both now live under Pulse.
   const { MS_WORKSPACES } = loadRegistry()
   assert.equal(MS_WORKSPACES.executive.label, 'My Day')
   assert.deepEqual(MS_WORKSPACES.executive.pages.filter(page => !page.legacy).map(page => page.page), ['command'],
     'legacy Executive pages must not render a competing department tab row')
-  assert.match(part11, /tabOrder:\s*\['overview', 'pulse', 'exceptions', 'approvals', 'forecast', 'financials'\]/)
-  for (const label of ['My Day', 'Pulse', 'Exceptions', 'Approvals', 'Forecast', 'Financials']) {
+  assert.match(part11, /tabOrder:\s*\['overview', 'pulse', 'forecast', 'financials'\]/)
+  for (const label of ['My Day', 'Pulse', 'Forecast', 'Financials']) {
     assert.match(part11, new RegExp(`['"]${label}['"]`), `Management must expose ${label}`)
   }
+  assert.ok(!/exceptions:\s*'Exceptions'/.test(part11), 'Exceptions must not be a tab of its own')
+  assert.ok(!/approvals:\s*'Approvals'/.test(part11), 'Approvals must not be a tab of its own')
   assert.match(part11, /apiGetJson\('\/my-day'\)/,
     'Management My Day must consume the shared role-aware attention aggregation')
   assert.match(part11, /d\.day\.needs_attention/,
@@ -282,4 +288,36 @@ test('hash routing is additive and cannot break the token bootstrap', () => {
   // The route matcher only accepts its own #/w/ and #/p/ shapes, so a #tk= hash
   // (or any other foreign hash) is ignored rather than treated as a page.
   assert.match(part2, /\^#\\\/\(\?:w\\\/\[\^\/\]\+\\\/\|p\\\/\)/, 'route regex must be anchored to its own shapes')
+})
+
+
+// ── A tab must show information, not point at another page ───────────────────
+
+test('Forecast and Financials render data rather than signposting another page', () => {
+  // Both used to take no data at all and render a button saying "open Accounting" / "open the
+  // pipeline". A tab whose only content is "go somewhere else" should not be a tab.
+  for (const tab of ['forecast', 'financials']) {
+    const fn = part11.match(new RegExp(`\\n    ${tab}\\(body[^)]*\\) \\{[\\s\\S]*?\\n    \\},`))?.[0] || ''
+    assert.ok(fn, `${tab} tab not found`)
+    assert.match(fn, /\(body, d\)/, `${tab} must receive the engine data — it cannot show numbers without it`)
+    assert.match(fn, /cmdStat\(/, `${tab} must render real figures`)
+  }
+})
+
+test('a figure that could not be read shows as unknown, never as zero', () => {
+  // A management screen that quietly shows $0 cash is worse than one that says it could not
+  // read the ledger.
+  assert.match(part11, /Unknown/)
+  assert.match(part11, /const cmdUnavailable/)
+  assert.match(part11, /This view is incomplete/)
+})
+
+test('Management My Day groups every department and shows what ran, not only what is wrong', () => {
+  assert.match(part11, /const departments = \[\.\.\.new Set\(attention\.map/,
+    'the day must be grouped by department, not a single flat ranked column')
+  assert.match(part11, /Running today/)
+  assert.match(part11, /Campaigns live/)
+  assert.match(part11, /Automations sent today/)
+  assert.match(part11, /not_covered/,
+    'departments the queue cannot see must be named, so a quiet day is not mistaken for a calm one')
 })
