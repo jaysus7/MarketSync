@@ -294,7 +294,7 @@ async function seedDepartmentWorkflows(db, dealershipId, ownerId, inventory, con
         complaint: `Academy Demo · ${status.replace(/_/g, ' ')} workflow step`, labor_total: 149, parts_total: 65,
         tax: 27.82, total: 241.82, labor_cost: 55, parts_cost: 30, created_by: ownerId,
         ready_at: ['ready', 'delivered', 'closed'].includes(status) ? new Date(now - 2 * 3600000).toISOString() : null,
-        closed_at: status === 'closed' ? new Date(now - 3600000).toISOString() : null,
+        closed_at: status === 'closed' ? new Date(now).toISOString() : null,
         financial_disposition: status === 'closed' ? 'paid_in_full' : null,
       }))
       summary.repair_order_steps++
@@ -307,12 +307,15 @@ async function seedDepartmentWorkflows(db, dealershipId, ownerId, inventory, con
       const d = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - i, 1))
       const period = d.toISOString().slice(0, 7)
       const status = periodStates[i]
-      await must('seed demo accounting period', db.from('accounting_periods').upsert({
+      const existing = await must('find demo accounting period', db.from('accounting_periods').select('id')
+        .eq('dealership_id', dealershipId).eq('period', period).maybeSingle())
+      if (existing) { summary.accounting_periods++; continue }
+      await must('seed demo accounting period', db.from('accounting_periods').insert({
         dealership_id: dealershipId, period, status,
         approvals: status === 'open' ? {} : { manager: { by: ownerId, at: new Date(now - i * 86400000).toISOString() } },
         locked_at: status === 'locked' ? new Date(now - i * 86400000).toISOString() : null,
         locked_by: status === 'locked' ? ownerId : null,
-      }, { onConflict: 'dealership_id,period' }))
+      }))
       summary.accounting_periods++
     }
   }
