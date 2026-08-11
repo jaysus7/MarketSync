@@ -45,6 +45,7 @@ import { registerEsign } from './routes/esign.js'
 import { registerCalendar } from './routes/calendar.js'
 import { registerAdSpend } from './routes/adspend.js'
 import { registerIdentity } from './routes/identity.js'
+import { registerVehicleFit } from './routes/vehicle-fit.js'
 import { registerSquare } from './routes/square.js'
 import { registerCommissions } from './routes/commissions.js'
 import { registerFniCatalog } from './routes/fni-catalog.js'
@@ -175,6 +176,7 @@ registerEsign(app)
 registerCalendar(app)
 registerAdSpend(app)
 registerIdentity(app)
+registerVehicleFit(app)
 registerCommissions(app)
 registerFniCatalog(app)
 registerAccounting(app)

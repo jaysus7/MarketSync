@@ -1012,6 +1012,7 @@ async function crmOpenForm(id) {
       <div>${lbl('DL expiry')}<input id="crm-f-dlexp" type="date" value="${esc(c.dl_expiry || '')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
     </div>
     ${id ? idvBlock(c) : ''}
+    ${id ? vehicleFitBlock(c) : ''}
     ${sect('Source & assignment')}
     <div class="grid grid-cols-3 gap-2">
       <div>${lbl('Source')}${(() => {
@@ -1208,6 +1209,28 @@ async function identityScan() {
   setTimeout(() => { try { crmScanLicense(); } catch (e) {} }, 200);
 }
 window.identityScan = identityScan;
+
+function vehicleFitBlock(c) {
+  return `<div class="text-[11px] font-black uppercase tracking-wider text-indigo-500 pt-1">Affordability &amp; vehicle fit</div>
+    <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3 space-y-2">
+      <div class="grid grid-cols-2 gap-2"><label class="text-[11px] font-semibold text-slate-500">Desired monthly payment<input id="fit-payment" type="number" min="0" step="25" class="mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm"></label><label class="text-[11px] font-semibold text-slate-500">Body style<input id="fit-body" placeholder="SUV, truck, sedan" class="mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm"></label></div>
+      <button type="button" onclick="crmVehicleFit('${c.id}')" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">Find available vehicles</button>
+      <div id="fit-results" class="space-y-2"></div>
+    </div>`;
+}
+async function crmVehicleFit(contactId) {
+  const host = document.getElementById('fit-results'); if (!host) return;
+  host.innerHTML = '<div class="text-xs text-slate-400">Checking current inventory…</div>';
+  try {
+    const desired = Number(document.getElementById('fit-payment')?.value || 0) || null;
+    const body = (document.getElementById('fit-body')?.value || '').trim() || null;
+    const r = await apiSendJson(`/customers/${encodeURIComponent(contactId)}/vehicle-fit`, 'POST', { desired_payment: desired, body_style: body });
+    const a = r.affordability || {}, rows = r.matches || [];
+    const paymentContext = a.assumptions_complete ? `${a.apr}% · ${a.term_months} months` : 'Payment estimate unavailable until rate and term are known';
+    host.innerHTML = `<div class="text-[11px] text-slate-500">${esc(paymentContext)} · Next action: <b>${esc(r.next_action || 'Review')}</b></div>${rows.length ? rows.slice(0, 6).map(v => `<button type="button" onclick="openVehicleRecord('${v.inventory_id}')" class="w-full text-left flex gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2"><div class="w-16 h-12 rounded bg-slate-100 dark:bg-slate-800 bg-cover bg-center shrink-0" ${v.photo ? `style="background-image:url('${esc(v.photo)}')"` : ''}></div><div class="min-w-0 flex-1"><div class="text-xs font-bold text-slate-900 dark:text-white">${esc([v.year,v.make,v.model,v.trim].filter(Boolean).join(' '))}</div><div class="text-[11px] text-slate-500">Stock ${esc(v.stock_number || '—')} · ${money(v.price)}${v.estimated_payment != null ? ` · est. ${money(v.estimated_payment)}/mo` : ''}</div><div class="text-[11px] font-bold text-indigo-600">Fit ${v.fit_score}/100 · ${esc((v.reasons || []).join(' · '))}</div></div></button>`).join('') : '<div class="text-xs text-amber-600">No currently available inventory fits the supported budget.</div>'}`;
+  } catch (e) { host.innerHTML = `<div class="text-xs text-rose-500">${esc(e.message || 'Could not calculate vehicle fit.')}</div>`; }
+}
+window.crmVehicleFit = crmVehicleFit;
 async function crmDecodeTrade() {
   const vin = (document.getElementById('crm-f-tradevin')?.value || '').trim().toUpperCase();
   if (vin.length !== 17) { showToast('Enter a 17-character VIN', 'error'); return; }
