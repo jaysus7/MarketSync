@@ -228,8 +228,14 @@ test('the desktop global header keeps approved sales and account controls', () =
   for (const id of ['header-desk-btn', 'header-appraise-btn', 'header-profile-btn', 'header-settings', 'logout-btn']) {
     assert.match(html, new RegExp(`id="${id}"`), `${id} must remain directly accessible on desktop`)
   }
-  assert.match(html, /@media \(max-width: 767px\)[\s\S]*#header-desk-btn[\s\S]*display:\s*none\s*!important/,
-    'desktop actions must collapse into the compact menu on mobile')
+  assert.match(html, /id="header-profile-btn"[\s\S]*class="inline-flex/,
+    'profile must remain directly reachable in the phone header')
+  assert.match(html, /id="header-settings"[\s\S]*class="inline-flex/,
+    'settings must remain directly reachable in the phone header')
+  assert.match(html, /id="logout-btn"[\s\S]*class="inline-flex/,
+    'sign out must remain directly reachable in the phone header')
+  assert.doesNotMatch(html, /@media \(max-width: 767px\)[\s\S]*#header-desk-btn/,
+    'approved quick actions must not disappear on phones')
 })
 
 test('dealer login lands on the My Day owned by the caller role', () => {
