@@ -219,12 +219,17 @@ test('Management exposes one canonical four-tab command header', () => {
     'active Management output must use product icons, not emoji decoration')
 })
 
-test('the global header is identity, notifications and one menu instead of a CTA stack', () => {
+test('the desktop global header keeps approved sales and account controls', () => {
   assert.match(html, /id="shell-menu-btn"/)
   assert.match(html, /id="shell-menu"/)
-  for (const id of ['header-desk-btn', 'header-appraise-btn', 'fb-post-btn', 'idscan-btn', 'training-btn', 'header-settings', 'logout-btn']) {
+  for (const id of ['fb-post-btn', 'idscan-btn', 'training-btn']) {
     assert.match(html, new RegExp(`#${id}[^}]*display:\\s*none\\s*!important`), `${id} must leave the global toolbar`)
   }
+  for (const id of ['header-desk-btn', 'header-appraise-btn', 'header-profile-btn', 'header-settings', 'logout-btn']) {
+    assert.match(html, new RegExp(`id="${id}"`), `${id} must remain directly accessible on desktop`)
+  }
+  assert.match(html, /@media \(max-width: 767px\)[\s\S]*#header-desk-btn[\s\S]*display:\s*none\s*!important/,
+    'desktop actions must collapse into the compact menu on mobile')
 })
 
 test('dealer login lands on the My Day owned by the caller role', () => {

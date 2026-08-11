@@ -247,9 +247,12 @@
     /* Guided setup: pulse the integration card we sent the user to finish. */
     @keyframes setupFlash { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } 30% { box-shadow: 0 0 0 4px rgba(99,102,241,.45); } }
     .setup-flash { animation: setupFlash 1.3s ease-in-out 2; border-radius: 0.5rem; }
-    #header-desk-btn, #header-appraise-btn, #fb-post-btn, #idscan-btn, #ext-header-btn,
-    #training-btn, #open-upgrades, #header-settings, #logout-btn, #ui-tier-chip,
+    #fb-post-btn, #idscan-btn, #ext-header-btn,
+    #training-btn, #open-upgrades, #ui-tier-chip,
     #header-shift-clock-chip { display: none !important; }
+    @media (max-width: 767px) {
+      #header-desk-btn, #header-appraise-btn, #header-profile-btn, #header-settings, #logout-btn { display: none !important; }
+    }
   </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
@@ -276,16 +279,25 @@
     <div class="flex items-center justify-end gap-2 sm:gap-3 min-w-0">
       <button id="header-appraise-btn" onclick="switchPage('appraisal')" title="Appraise a vehicle" class="hidden items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm shadow-indigo-500/40 transition whitespace-nowrap">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        <span class="hidden sm:inline">Appraise a vehicle</span>
+        <span class="hidden lg:inline">Appraise a car</span>
       </button>
       <button id="header-desk-btn" onclick="switchPage('desk')" title="Desk a deal" class="hidden items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm shadow-purple-500/40 transition whitespace-nowrap">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m3 6V7m3 10v-4M4 4h16v16H4z"/></svg>
-        <span class="hidden sm:inline">Desk a deal</span>
+        <span class="hidden lg:inline">Desk a deal</span>
+      </button>
+      <button id="header-profile-btn" onclick="switchPage('profile');settingsTab('account')" title="My profile" aria-label="My profile" class="hidden md:inline-flex items-center justify-center p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.12a7.5 7.5 0 0115 0A17.93 17.93 0 0112 21.75a17.93 17.93 0 01-7.5-1.63z"/></svg>
+      </button>
+      <button id="header-settings" onclick="switchPage('profile');settingsTab('admin')" title="Settings" aria-label="Settings" class="hidden md:inline-flex items-center justify-center p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.59 4.24A1.98 1.98 0 0111.5 2.75h1a1.98 1.98 0 011.91 1.49l.2.77a2 2 0 002.73 1.25l.72-.3a1.98 1.98 0 012.4.84l.5.87a1.98 1.98 0 01-.49 2.5l-.61.48a2 2 0 000 3.14l.61.48a1.98 1.98 0 01.49 2.5l-.5.87a1.98 1.98 0 01-2.4.84l-.72-.3a2 2 0 00-2.73 1.25l-.2.77a1.98 1.98 0 01-1.91 1.49h-1a1.98 1.98 0 01-1.91-1.49l-.2-.77a2 2 0 00-2.73-1.25l-.72.3a1.98 1.98 0 01-2.4-.84l-.5-.87a1.98 1.98 0 01.49-2.5l.61-.48a2 2 0 000-3.14l-.61-.48a1.98 1.98 0 01-.49-2.5l.5-.87a1.98 1.98 0 012.4-.84l.72.3a2 2 0 002.73-1.25l.2-.77z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       </button>
       <!-- Notification bell -->
       <button id="notif-bell" aria-label="Notifications" class="relative p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
         <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span>
+      </button>
+      <button id="logout-btn" onclick="msSignOut()" title="Sign out" aria-label="Sign out" class="hidden md:inline-flex items-center justify-center p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9"/></svg>
       </button>
       <div class="relative">
         <button id="shell-menu-btn" onclick="msToggleShellMenu()" aria-expanded="false" aria-controls="shell-menu" class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Menu">
@@ -313,9 +325,10 @@
           <button id="open-upgrades" onclick="openUpgradesHub()" title="Upgrades & add-ons" class="relative w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Upgrades &amp; add-ons<span id="upg-days-badge" class="hidden absolute top-1.5 right-2 min-w-[18px] h-4 bg-violet-600 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none"></span></button>
           <a id="training-btn" href="/training.html" title="Training Academy — step-by-step help" class="block px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Training</a>
           <button onclick="msShellGo('academy')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Academy</button>
-          <button id="header-settings" onclick="switchPage('profile')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Profile &amp; settings</button>
+          <button onclick="msShellGo('profile');settingsTab('account')" class="md:hidden w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">My profile</button>
+          <button onclick="msShellGo('profile');settingsTab('admin')" class="md:hidden w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Settings</button>
           <a id="ext-header-btn" href="https://chromewebstore.google.com/detail/marketsync/mfoaodaoipaalloccolophjhblgikada" target="_blank" rel="noopener" class="hidden px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Install extension</a>
-          <button id="logout-btn" onclick="msSignOut()" class="w-full text-left px-3 py-2 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">Sign out</button>
+          <button onclick="msSignOut()" class="md:hidden w-full text-left px-3 py-2 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">Sign out</button>
         </div>
       </div>
     </div>
