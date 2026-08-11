@@ -28,11 +28,11 @@ const isDedicatedDemoName = name => /(?:^|\b)demo(?:\b|$)/i.test(String(name || 
 const RETIRED_HQ_SANDBOXES = new Set(['MarketSync Demo', 'MarketSync Automotive'])
 
 const CUSTOMERS = [
-  { first: 'Ava', last: 'Thompson', email: 'ava.thompson@example.com', phone: '(416) 555-2201', status: 'uncontacted', source: 'Website', stock: 'DEMO-01', price: 32480, deal_status: 'working', num: 2001, note: 'Enquired on the RAV4 overnight — needs a first call.' },
-  { first: 'Liam', last: 'Rodriguez', email: 'liam.rodriguez@example.com', phone: '(647) 555-2202', status: 'contacted', source: 'Facebook Marketplace', stock: 'DEMO-02', price: 41900, deal_status: 'working', num: 2002, note: 'Called back — wants payment options on the F-150.' },
-  { first: 'Sophia', last: 'Nguyen', email: 'sophia.nguyen@example.com', phone: '(905) 555-2203', status: 'appointment', source: 'Website', stock: 'DEMO-03', price: 27650, deal_status: 'working', num: 2003, note: 'Booked a test drive Saturday on the Civic.' },
-  { first: 'Noah', last: 'Patel', email: 'noah.patel@example.com', phone: '(519) 555-2204', status: 'sold', source: 'Referral', stock: 'DEMO-04', price: 33200, deal_status: 'sold', num: 2004, note: 'Bought the Model 3 — in F&I.' },
-  { first: 'Emma', last: 'Wilson', email: 'emma.wilson@example.com', phone: '(613) 555-2205', status: 'fni', source: 'Walk-in', stock: 'DEMO-05', price: 29995, deal_status: 'sold', num: 2005, note: 'Signing warranty + protection on the CX-5.' },
+  { first: 'Ava', last: 'Thompson', email: 'ava.thompson@example.com', phone: '(416) 555-2201', status: 'uncontacted', source: 'Website', stock: 'DEMO-01', price: 32480, deal_status: 'draft', num: 2001, note: 'Enquired on the RAV4 overnight — needs a first call.' },
+  { first: 'Liam', last: 'Rodriguez', email: 'liam.rodriguez@example.com', phone: '(647) 555-2202', status: 'contacted', source: 'Facebook Marketplace', stock: 'DEMO-02', price: 41900, deal_status: 'quoted', num: 2002, note: 'Called back — wants payment options on the F-150.' },
+  { first: 'Sophia', last: 'Nguyen', email: 'sophia.nguyen@example.com', phone: '(905) 555-2203', status: 'appointment', source: 'Website', stock: 'DEMO-03', price: 27650, deal_status: 'deposit_received', num: 2003, note: 'Booked a test drive Saturday on the Civic.' },
+  { first: 'Noah', last: 'Patel', email: 'noah.patel@example.com', phone: '(519) 555-2204', status: 'sold', source: 'Referral', stock: 'DEMO-04', price: 33200, deal_status: 'credit_approved', num: 2004, note: 'Bought the Model 3 — in F&I.' },
+  { first: 'Emma', last: 'Wilson', email: 'emma.wilson@example.com', phone: '(613) 555-2205', status: 'fni', source: 'Walk-in', stock: 'DEMO-05', price: 29995, deal_status: 'contract_signed', num: 2005, note: 'Signing warranty + protection on the CX-5.' },
   { first: 'Oliver', last: 'Brooks', email: 'oliver.brooks@example.com', phone: '(250) 555-2206', status: 'delivered', source: 'Website', stock: 'DEMO-06', price: 38700, deal_status: 'delivered', num: 2006, note: 'Delivered the Sierra — schedule a 30-day check-in.' },
 ]
 

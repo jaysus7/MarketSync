@@ -66,6 +66,14 @@ test('demo inventory enters the canonical vehicle lifecycle', async () => {
   assert.doesNotMatch(source, /source: 'manual', status: 'available'/)
 })
 
+test('demo deals cover legal canonical workflow states', async () => {
+  const source = await readFile(new URL('../routes/demo.js', import.meta.url), 'utf8')
+  for (const state of ['draft', 'quoted', 'deposit_received', 'credit_approved', 'contract_signed', 'delivered']) {
+    assert.match(source, new RegExp(`deal_status: '${state}'`))
+  }
+  assert.doesNotMatch(source, /deal_status: '(?:working|sold)'/)
+})
+
 test('lesson scenarios are limited to shared and purchased products', async () => {
   const lessons = await loadAcademyDemoLessons()
   const forPlan = planId => demoLessonsForAccess(lessons, { products: productsForPlan(planId), features: featuresForPlan(planId) })
