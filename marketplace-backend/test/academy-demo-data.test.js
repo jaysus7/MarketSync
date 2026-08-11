@@ -8,7 +8,7 @@ test('Academy demo manifest covers every course in catalog', async () => {
   const lessons = await loadAcademyDemoLessons()
   assert.ok(lessons.length >= 250, 'must load complete training catalog')
   assert.equal(new Set(lessons.map(lesson => lesson.id)).size, lessons.length)
-  assert.equal(ACADEMY_DEMO_VERSION, '2026.08.11-department-workflows-v2')
+  assert.equal(ACADEMY_DEMO_VERSION, '2026.08.11-department-workflows-v3')
 })
 
 test('Academy scenario entity IDs are stable unique UUIDs', async () => {
@@ -58,6 +58,14 @@ test('server refreshes versioned dedicated demo data after startup', async () =>
   assert.match(server, /startup refresh failed/)
   assert.match(server, /demo_refresh:\s*startupDemoRefresh/)
   assert.match(server, /status:\s*skipped\.length \? 'partial' : 'complete'/)
+  assert.match(server, /failures:\s*skipped\.map/)
+})
+
+test('demo completion is marked only after every producer succeeds', async () => {
+  const source = await readFile(new URL('../academy-demo-data.js', import.meta.url), 'utf8')
+  const producer = source.indexOf('const [lessonScenarios, facebookListings, service, ai, business, workflows] = await Promise.all')
+  const marker = source.indexOf('await markDemoComplete', producer)
+  assert.ok(producer >= 0 && marker > producer)
 })
 
 test('demo inventory enters the canonical vehicle lifecycle', async () => {

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
-export const ACADEMY_DEMO_VERSION = '2026.08.11-department-workflows-v2'
+export const ACADEMY_DEMO_VERSION = '2026.08.11-department-workflows-v3'
 
 const catalogUrls = [
   new URL('../marketplace-frontend/training/catalog.json', import.meta.url),
@@ -68,12 +68,18 @@ async function seedLessonScenarios(db, dealershipId, ownerId, products, features
 }
 
 async function seedConfiguration(db, dealershipId, ownerId, { dealerName, products, features, planIds }) {
-  const rows = [
-    { dealership_id: dealershipId, key: 'demo_showcase', value: { version: ACADEMY_DEMO_VERSION, fictional_data: true, dedicated_account: true, products: [...products], plans: planIds }, updated_by: ownerId },
-  ]
+  const rows = []
   if (features.has('os.service')) rows.push({ dealership_id: dealershipId, key: 'service', value: { labor_rate: 149, tax_rate: 0.13, shop_supplies_pct: 0.04, part_markup_pct: 40, ro_prefix: 'DEMO-RO-' }, updated_by: ownerId })
   if (products.has('ai_dealer')) rows.push({ dealership_id: dealershipId, key: 'ai_personality', value: { name: 'Avery', tone: 'helpful, concise and professional', greeting: `Welcome to ${dealerName}. How can I help?`, handoff: 'I will connect you with our team.' }, updated_by: ownerId })
-  await must('seed dealer configuration', db.from('dealer_config').upsert(rows, { onConflict: 'dealership_id,key' }))
+  if (rows.length) await must('seed dealer configuration', db.from('dealer_config').upsert(rows, { onConflict: 'dealership_id,key' }))
+}
+
+async function markDemoComplete(db, dealershipId, ownerId, products, planIds) {
+  await must('mark demo seed complete', db.from('dealer_config').upsert({
+    dealership_id: dealershipId, key: 'demo_showcase',
+    value: { version: ACADEMY_DEMO_VERSION, fictional_data: true, dedicated_account: true, products: [...products], plans: planIds },
+    updated_by: ownerId,
+  }, { onConflict: 'dealership_id,key' }))
 }
 
 async function seedFacebook(db, dealershipId, ownerId, inventory) {
@@ -373,6 +379,9 @@ export async function seedAcademyDemoData({ db, dealershipId, ownerId, dealerNam
     (features.has('os.accounting') || features.has('os.marketing')) ? seedMarketingAndAccounting(db, dealershipId, ownerId, dealerName) : {},
     products.has('dealer_os') ? seedDepartmentWorkflows(db, dealershipId, ownerId, inventory || [], contacts || [], deals || [], features) : {},
   ])
+  // Completion is evidence that every required producer above succeeded. Never write this
+  // marker before the work, or a partial seed becomes permanently indistinguishable from green.
+  await markDemoComplete(db, dealershipId, ownerId, products, planIds)
   return {
     version: ACADEMY_DEMO_VERSION,
     plans: planIds,

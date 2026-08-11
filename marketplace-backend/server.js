@@ -249,7 +249,11 @@ app.listen(PORT, '0.0.0.0', () => {
     .then(results => {
       const seeded = results.filter(row => row.status === 'seeded')
       const skipped = results.filter(row => row.status === 'skipped')
-      startupDemoRefresh = { status: skipped.length ? 'partial' : 'complete', seeded: seeded.length, current: results.filter(row => row.status === 'current').length, skipped: skipped.length }
+      startupDemoRefresh = {
+        status: skipped.length ? 'partial' : 'complete', seeded: seeded.length,
+        current: results.filter(row => row.status === 'current').length, skipped: skipped.length,
+        failures: skipped.map(row => ({ name: row.name, step: String(row.reason || 'unknown').split(':')[0].slice(0, 80) })),
+      }
       if (seeded.length) console.log(`[demo] refreshed ${seeded.length} dedicated demo account(s)`)
       for (const row of skipped) console.error(`[demo] skipped ${row.name}: ${row.reason}`)
     })
