@@ -295,6 +295,7 @@ async function seedDepartmentWorkflows(db, dealershipId, ownerId, inventory, con
         tax: 27.82, total: 241.82, labor_cost: 55, parts_cost: 30, created_by: ownerId,
         ready_at: ['ready', 'delivered', 'closed'].includes(status) ? new Date(now - 2 * 3600000).toISOString() : null,
         closed_at: status === 'closed' ? new Date(now - 3600000).toISOString() : null,
+        financial_disposition: status === 'closed' ? 'paid_in_full' : null,
       }))
       summary.repair_order_steps++
     }

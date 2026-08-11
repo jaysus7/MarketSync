@@ -95,11 +95,20 @@ test('demo credit and RO lines use canonical write contracts', async () => {
   assert.doesNotMatch(source, /\['draft', 'ready', 'submitted', 'conditioned'/)
   assert.match(source, /seed demo labor RO line/)
   assert.match(source, /seed demo part RO line/)
+  assert.match(source, /financial_disposition: status === 'closed' \? 'paid_in_full' : null/)
 })
 
 test('the backend can reach canonical commission periods', async () => {
   const migration = await readFile(new URL('../migrations/2026-08-11-commission-pay-periods-service-role.sql', import.meta.url), 'utf8')
   assert.match(migration, /GRANT SELECT, INSERT, UPDATE, DELETE[\s\S]*commission_pay_periods[\s\S]*service_role/)
+})
+
+test('the backend and publisher can reach the canonical Social engine', async () => {
+  const migration = await readFile(new URL('../migrations/2026-08-11-social-service-role-grants.sql', import.meta.url), 'utf8')
+  for (const table of ['social_accounts', 'social_account_grants', 'social_posts', 'social_post_targets']) {
+    assert.match(migration, new RegExp(table))
+  }
+  assert.match(migration, /TO service_role/)
 })
 
 test('lesson scenarios are limited to shared and purchased products', async () => {
