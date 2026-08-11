@@ -97,6 +97,7 @@ test('demo credit and RO lines use canonical write contracts', async () => {
   assert.match(source, /seed demo part RO line/)
   assert.match(source, /financial_disposition: status === 'closed' \? 'paid_in_full' : null/)
   assert.match(source, /closed_at: status === 'closed' \? new Date\(now\)/)
+  assert.match(source, /opened_at: new Date\(now - \(i \+ 1\) \* 3600000\)/)
   assert.match(source, /find demo accounting period/)
 })
 

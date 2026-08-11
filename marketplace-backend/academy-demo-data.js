@@ -293,6 +293,7 @@ async function seedDepartmentWorkflows(db, dealershipId, ownerId, inventory, con
         vin: vehicle?.vin || null, odometer: 30000 + i * 1250, status,
         complaint: `Academy Demo · ${status.replace(/_/g, ' ')} workflow step`, labor_total: 149, parts_total: 65,
         tax: 27.82, total: 241.82, labor_cost: 55, parts_cost: 30, created_by: ownerId,
+        opened_at: new Date(now - (i + 1) * 3600000).toISOString(),
         ready_at: ['ready', 'delivered', 'closed'].includes(status) ? new Date(now - 2 * 3600000).toISOString() : null,
         closed_at: status === 'closed' ? new Date(now).toISOString() : null,
         financial_disposition: status === 'closed' ? 'paid_in_full' : null,
