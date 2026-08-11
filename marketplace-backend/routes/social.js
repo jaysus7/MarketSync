@@ -368,8 +368,13 @@ export function registerSocial(app) {
       const { data: accounts } = accountIds.length ? await supabaseAdmin.from('social_accounts')
         .select('id, provider, display_name, ownership').in('id', accountIds).eq('dealership_id', req.dealershipId) : { data: [] }
       const accountById = Object.fromEntries((accounts || []).map(a => [a.id, a]))
+      const creatorIds = [...new Set((posts || []).map(p => p.created_by).filter(Boolean))]
+      const { data: creators, error: creatorError } = creatorIds.length ? await supabaseAdmin.from('profiles')
+        .select('id, full_name').in('id', creatorIds).eq('dealership_id', req.dealershipId) : { data: [], error: null }
+      if (creatorError) return res.status(500).json({ error: creatorError.message })
+      const creatorById = Object.fromEntries((creators || []).map(p => [p.id, p]))
       const { data: dealer } = await supabaseAdmin.from('dealerships').select('timezone').eq('id', req.dealershipId).maybeSingle()
-      res.json({ timezone: dealer?.timezone || 'UTC', posts: (posts || []).map(p => ({ ...p, targets: (byPost[p.id] || []).map(t => ({ ...t, account: accountById[t.social_account_id] || null })) })) })
+      res.json({ timezone: dealer?.timezone || 'UTC', posts: (posts || []).map(p => ({ ...p, creator: creatorById[p.created_by] || null, targets: (byPost[p.id] || []).map(t => ({ ...t, account: accountById[t.social_account_id] || null })) })) })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 

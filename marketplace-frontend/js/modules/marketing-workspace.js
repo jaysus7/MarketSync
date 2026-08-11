@@ -22,11 +22,22 @@ let __socialView = 'calendar';
 let __socialCalendarMode = 'month';
 let __socialCalendarAnchor = '';
 let __socialNetworkFilter = 'all';
+let __socialAccountFilter = 'all';
+let __socialCampaignFilter = 'all';
+let __socialStatusFilter = 'all';
+let __socialOwnerFilter = 'all';
 function mktView(v) { __mktView = v; engineTab('marketing-overview', 'work'); }
 window.mktView = mktView;
 function mktSocialView(v) { __socialView = v; mktView('social'); }
 function mktSocialCalendarMode(v) { __socialCalendarMode = v; mktView('social'); }
 function mktSocialNetworkFilter(v) { __socialNetworkFilter = v; mktView('social'); }
+function mktSocialFilter(kind, v) {
+  if (kind === 'account') __socialAccountFilter = v;
+  if (kind === 'campaign') __socialCampaignFilter = v;
+  if (kind === 'status') __socialStatusFilter = v;
+  if (kind === 'owner') __socialOwnerFilter = v;
+  mktView('social');
+}
 function mktCalendarMove(months) {
   const base = __socialCalendarAnchor ? new Date(`${__socialCalendarAnchor}T12:00:00Z`) : new Date();
   if (__socialCalendarMode === 'week') base.setUTCDate(base.getUTCDate() + (Number(months || 0) * 7));
@@ -34,7 +45,7 @@ function mktCalendarMove(months) {
   __socialCalendarAnchor = base.toISOString().slice(0, 10);
   mktView('social');
 }
-Object.assign(window, { mktSocialView, mktSocialCalendarMode, mktSocialNetworkFilter, mktCalendarMove });
+Object.assign(window, { mktSocialView, mktSocialCalendarMode, mktSocialNetworkFilter, mktSocialFilter, mktCalendarMove });
 
 const mktMoney = (v) => {
   const x = Number(v) || 0;
@@ -443,8 +454,15 @@ ENGINES['marketing-overview'] = {
           : __socialView === 'queue' ? ['scheduled','publishing','needs_approval'].includes(p.status)
           : !!p.scheduled_for);
         const networks = [...new Set(posts.flatMap(p => (p.targets || []).map(t => t.account?.provider).filter(Boolean)))].sort();
-        const selected = viewPosts.filter(p => __socialNetworkFilter === 'all'
-          || (p.targets || []).some(t => t.account?.provider === __socialNetworkFilter));
+        const selected = viewPosts.filter(p => (__socialNetworkFilter === 'all'
+          || (p.targets || []).some(t => t.account?.provider === __socialNetworkFilter))
+          && (__socialAccountFilter === 'all' || (p.targets || []).some(t => t.social_account_id === __socialAccountFilter))
+          && (__socialCampaignFilter === 'all' || p.campaign_id === __socialCampaignFilter)
+          && (__socialStatusFilter === 'all' || p.status === __socialStatusFilter)
+          && (__socialOwnerFilter === 'all' || p.created_by === __socialOwnerFilter));
+        const campaignOptions = (d.campaigns || []).filter(c => posts.some(p => p.campaign_id === c.id));
+        const ownerOptions = [...new Map(posts.filter(p => p.created_by).map(p => [p.created_by, p.creator?.full_name || 'Unknown user'])).entries()];
+        const statusOptions = [...new Set(posts.map(p => p.status).filter(Boolean))].sort();
         const fmt = (iso) => { if (!iso) return 'Unscheduled'; try { return new Intl.DateTimeFormat(undefined,{timeZone:tz,month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(iso)); } catch { return new Date(iso).toLocaleString(); } };
         const localParts = (iso) => {
           try {
@@ -496,7 +514,11 @@ ENGINES['marketing-overview'] = {
           <div class="flex gap-2 overflow-x-auto pb-2 mb-3">${socialTabs}</div>
           <div class="flex flex-wrap items-center gap-2 mb-3">
             ${__socialView==='calendar'?`${['month','week','agenda'].map(v=>`<button onclick="mktSocialCalendarMode('${v}')" class="text-[11px] font-bold px-2 py-1 rounded ${__socialCalendarMode===v?'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'border border-slate-200 dark:border-slate-700'}">${mktLabel(v)}</button>`).join('')}<span class="h-5 border-l border-slate-200 dark:border-slate-700"></span><button onclick="mktCalendarMove(-1)" class="text-[11px] font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Previous</button><button onclick="mktCalendarMove(1)" class="text-[11px] font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Next</button>`:''}
-            <label class="ml-auto text-[11px] font-bold text-slate-500">Network <select onchange="mktSocialNetworkFilter(this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${networks.map(n=>`<option value="${esc(n)}" ${__socialNetworkFilter===n?'selected':''}>${esc(mktLabel(n))}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Network <select onchange="mktSocialNetworkFilter(this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${networks.map(n=>`<option value="${esc(n)}" ${__socialNetworkFilter===n?'selected':''}>${esc(mktLabel(n))}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Account <select onchange="mktSocialFilter('account',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${accounts.map(a=>`<option value="${esc(a.id)}" ${__socialAccountFilter===a.id?'selected':''}>${esc(a.display_name)}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Campaign <select onchange="mktSocialFilter('campaign',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${campaignOptions.map(c=>`<option value="${esc(c.id)}" ${__socialCampaignFilter===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Status <select onchange="mktSocialFilter('status',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${statusOptions.map(s=>`<option value="${esc(s)}" ${__socialStatusFilter===s?'selected':''}>${esc(mktLabel(s))}</option>`).join('')}</select></label>
+            <label class="text-[11px] font-bold text-slate-500">Owner <select onchange="mktSocialFilter('owner',this.value)" class="ml-1 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-2 py-1"><option value="all">All</option>${ownerOptions.map(([id,name])=>`<option value="${esc(id)}" ${__socialOwnerFilter===id?'selected':''}>${esc(name)}</option>`).join('')}</select></label>
           </div>
           <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
             ${engKpi('Accounts', accounts.length)}

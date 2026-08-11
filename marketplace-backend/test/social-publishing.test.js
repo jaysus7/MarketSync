@@ -278,6 +278,17 @@ test('published and failed views receive and display canonical provider evidence
   assert.match(ws, /t\.account\?\.display_name/)
 })
 
+test('scheduler filters canonical posts by network, account, campaign, status and owner', () => {
+  const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
+  for (const key of ['__socialNetworkFilter', '__socialAccountFilter', '__socialCampaignFilter', '__socialStatusFilter', '__socialOwnerFilter']) assert.match(ws, new RegExp(key))
+  assert.match(ws, /t\.social_account_id === __socialAccountFilter/)
+  assert.match(ws, /p\.campaign_id === __socialCampaignFilter/)
+  assert.match(ws, /p\.status === __socialStatusFilter/)
+  assert.match(ws, /p\.created_by === __socialOwnerFilter/)
+  assert.match(social, /creator: creatorById\[p\.created_by\]/,
+    'owner labels come from tenant-scoped canonical profiles, not browser guesses')
+})
+
 test('calendar modes render distinct calendar structures and reschedule through the server', () => {
   const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
   assert.match(ws, /__socialCalendarMode === 'month'/)
